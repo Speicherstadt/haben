@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 import { buildNachrichtXml } from "./nachricht.ts";
 import { buildPostfachAnfrageXml, buildPostfachBestaetigungXml } from "./postfach.ts";
-import { EricProcessClient } from "./process-client.ts";
+import { EricProcessClient, workerEnvironment } from "./process-client.ts";
 import { buildUstvaXml, TEST_HERSTELLER_ID } from "./xml.ts";
 
 const fixtures = fileURLToPath(new URL("../test-fixtures/", import.meta.url));
@@ -25,6 +25,42 @@ const xml = (test = true) =>
   });
 
 const ericTempDirs = () => readdirSync(tmpdir()).filter((name) => name.startsWith("haben-eric-"));
+
+describe("workerEnvironment", () => {
+  it("entfernt Schlüssel, Zugangsdaten und die Datenbankadresse, lässt den Rest unverändert", () => {
+    const env = workerEnvironment({
+      PATH: "/usr/bin",
+      LANG: "de_DE.UTF-8",
+      ERIC_HOME: "/opt/eric",
+      ERIC_WORKER_COMMAND: "qemu-x86_64",
+      DATABASE_URL: "postgres://haben:geheim@db/haben",
+      BETTER_AUTH_SECRET: "a",
+      HABEN_ENCRYPTION_KEY: "b",
+      HABEN_SETUP_CODE: "c",
+      ANTHROPIC_API_KEY: "d",
+      EXTRACTION_API_KEY: "e",
+      OIDC_CLIENT_SECRET: "f",
+      ENABLE_BANKING_KEY: "g",
+      ENABLE_BANKING_KEY_FILE: "/run/secrets/enablebanking.pem",
+      RESTIC_PASSWORD: "h",
+    });
+    expect(env).toEqual({ PATH: "/usr/bin", LANG: "de_DE.UTF-8", ERIC_HOME: "/opt/eric", ERIC_WORKER_COMMAND: "qemu-x86_64" });
+  });
+
+  it("der gestartete Worker erbt die Schlüssel der App nicht", async () => {
+    process.env.HABEN_ENCRYPTION_KEY = "nicht-an-den-worker";
+    process.env.DATABASE_URL = "postgres://haben:geheim@db/haben";
+    try {
+      const { envNames } = JSON.parse((await stub("answer").validate(xml())).responseXml) as { envNames: string[] };
+      expect(envNames).toContain("PATH");
+      expect(envNames).not.toContain("HABEN_ENCRYPTION_KEY");
+      expect(envNames).not.toContain("DATABASE_URL");
+    } finally {
+      delete process.env.HABEN_ENCRYPTION_KEY;
+      delete process.env.DATABASE_URL;
+    }
+  });
+});
 
 describe("EricProcessClient mit Stub-Worker", () => {
   it("reicht die Antwort des Workers durch", async () => {

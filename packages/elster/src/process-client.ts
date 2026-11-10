@@ -34,7 +34,21 @@ function spawnWorker(workerPath: string, command: readonly string[] = [process.e
   return spawn("/bin/sh", ["-c", 'ulimit -c 0 && exec "$@"', "sh", ...command, workerPath], {
     stdio: ["ignore", "ignore", "pipe", "ipc"],
     serialization: "json",
+    env: workerEnvironment(),
   });
+}
+
+/** Variablen der App, die der Worker nicht braucht, weil er seine Konfiguration über den IPC-Kanal bekommt. */
+const WORKER_BLOCKED_ENV = new Set(["DATABASE_URL", "HABEN_SETUP_CODE", "ENABLE_BANKING_KEY", "ENABLE_BANKING_KEY_FILE"]);
+const WORKER_BLOCKED_ENV_PATTERN = /SECRET|PASSWORD|PASSWD|TOKEN|API_KEY|ENCRYPTION_KEY|PRIVATE_KEY/i;
+
+/**
+ * Die Umgebung des Workers: die der App ohne Schlüssel, Zugangsdaten und Datenbankadresse. ERiC ist Software eines
+ * Dritten; ein Fehler darin soll nicht an `BETTER_AUTH_SECRET`, `HABEN_ENCRYPTION_KEY` oder `DATABASE_URL` kommen.
+ * Alles andere (PATH, Sprache, ERIC_*, Variablen eines Worker-Befehls wie QEMU) bleibt unverändert.
+ */
+export function workerEnvironment(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(env).filter(([name]) => !WORKER_BLOCKED_ENV.has(name) && !WORKER_BLOCKED_ENV_PATTERN.test(name)));
 }
 
 /** Führt jeden ERiC-Aufruf in einem eigenen, kurzlebigen Kindprozess aus. */
