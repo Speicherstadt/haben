@@ -75,10 +75,13 @@ function unzip(bytes: Uint8Array, partName: string, limit = maxUnpackedBytes(byt
   let tooLarge = false;
   try {
     // fflate legt den Speicher je Eintrag nach der Größe im ZIP-Verzeichnis an und schneidet Überlanges ab. Die
-    // Summe dieser Angaben zu prüfen, bevor entpackt wird, begrenzt deshalb den Speicherbedarf.
+    // Summe dieser Angaben zu prüfen, bevor entpackt wird, begrenzt deshalb den Speicherbedarf. Gezählt wird das
+    // Größere aus entpackter und gepackter Größe: Ein gespeicherter Eintrag (ohne Kompression) liest fflate mit der
+    // gepackten Größe, und mehrere Einträge dürfen auf denselben Datenblock zeigen; eine falsche „0“ als entpackte
+    // Größe darf die Grenze nicht umgehen.
     return unzipSync(bytes, {
       filter: (file) => {
-        total += file.originalSize;
+        total += Math.max(file.size, file.originalSize);
         if (total > limit) {
           tooLarge = true;
           throw new Error("zu groß");

@@ -348,6 +348,30 @@ describe("Sicherung lesen", () => {
     expect(read(many)).toThrow(/entpackt viel größer/);
   });
 
+  it("lässt sich nicht mit gespeicherten Einträgen umgehen, die denselben Datenblock teilen und „0“ als Größe angeben", () => {
+    // Ein gespeicherter Block von 1 MB, auf den 200 Verzeichniseinträge mit entpackter Größe 0 zeigen
+    const base = zipSync({ a000: [new Uint8Array(1024 * 1024), { level: 0 }] });
+    const view = new DataView(base.buffer, base.byteOffset, base.byteLength);
+    const eocdAt = base.length - 22;
+    const cdSize = view.getUint32(eocdAt + 12, true);
+    const cdOffset = view.getUint32(eocdAt + 16, true);
+    const entries = 200;
+    const cd = new Uint8Array(cdSize * entries);
+    for (let i = 0; i < entries; i++) {
+      const entry = cd.subarray(i * cdSize, (i + 1) * cdSize);
+      entry.set(base.subarray(cdOffset, cdOffset + cdSize));
+      new DataView(entry.buffer, entry.byteOffset).setUint32(24, 0, true);
+      entry.set(new TextEncoder().encode(`a${String(i).padStart(3, "0")}`), 46);
+    }
+    const eocd = base.slice(eocdAt);
+    const eocdView = new DataView(eocd.buffer);
+    eocdView.setUint16(8, entries, true);
+    eocdView.setUint16(10, entries, true);
+    eocdView.setUint32(12, cd.length, true);
+    const bomb = new Uint8Array([...base.subarray(0, cdOffset), ...cd, ...eocd]);
+    expect(() => readWebExport([{ name: "x.zip", bytes: bomb }])).toThrow(/entpackt viel größer als die ZIP-Datei/);
+  });
+
   it("liest eine Sicherung mit großen, aber gewöhnlichen Dateien weiter", () => {
     const bytes = zipSync({ "manifest.json": encode("{}"), "dateien/gross.bin": new Uint8Array(10 * 1024 * 1024) });
     // Die Größe stört nicht: erst der Inhalt (hier ein leeres Manifest) wird bemängelt
