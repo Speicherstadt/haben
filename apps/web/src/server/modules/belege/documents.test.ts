@@ -52,6 +52,40 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
     await sql`insert into company (id, name, kontenrahmen) values (1, 'Testfirma', 'SKR03')`;
   });
 
+  it("liest höchstens vier Belege gleichzeitig aus, lässt wartende auf „läuft“ und liest alle aus", async () => {
+    const extraction = await import("./extraction.ts");
+    const standard = vi.mocked(extraction.extractDocument).getMockImplementation()!;
+    let running = 0;
+    let peak = 0;
+    const slow: typeof standard = async (...args) => {
+      running += 1;
+      peak = Math.max(peak, running);
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        return await standard(...args);
+      } finally {
+        running -= 1;
+      }
+    };
+    const total = 10;
+    for (let i = 0; i < total; i++) vi.mocked(extraction.extractDocument).mockImplementationOnce(slow);
+    const works: Promise<void>[] = [];
+    const ids: string[] = [];
+    for (let i = 0; i < total; i++) {
+      const { id } = await documents.uploadDocument(
+        actor,
+        { bytes: new Uint8Array([...JPEG, 200 + i]), filename: `stapel-${i}.jpg` },
+        { background: (work) => void works.push(work) },
+      );
+      ids.push(id);
+    }
+    // Der letzte wartet noch: Er gilt weiter als „läuft“ und wird nicht als unterbrochen freigegeben
+    expect((await documents.getDocument(ids[total - 1]!))!.document.extractionStatus).toBe("laeuft");
+    await Promise.all(works);
+    expect(peak).toBe(4);
+    for (const id of ids) expect((await documents.getDocument(id))!.document.extractionStatus).toBe("fertig");
+  });
+
   it("merkt sich den aus den Kontakten gewählten Lieferanten; ein unbekannter Kontakt wird abgelehnt", async () => {
     const stammdaten = await import("../stammdaten/index.ts");
     const hetzner = await stammdaten.createContact(actor, {
