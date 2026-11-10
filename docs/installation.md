@@ -402,6 +402,24 @@ backend haben-app
     server app haben-app:3000 resolvers docker init-addr none
 ```
 
+## Öffentlich betreiben
+
+Läuft Haben auf einem Server im Internet, liegen Rechnungen, Belege und Bankdaten hinter einer einzigen Anmeldung. Diese Schritte gehören dazu, sie ändern nichts an Haben selbst:
+
+- **Einrichtung sofort abschließen.** Bis das erste Konto angelegt ist, steht `/setup` jedem offen, der den Einrichtungscode kennt, und der steht im Log. Beschränke den Zugriff auf Port 443 bis dahin auf deine Adresse (Firewall des Anbieters, etwa die Cloud Firewall bei Hetzner, oder eine Regel im Reverse Proxy), und öffne ihn erst danach für alle.
+- **Nur 80 und 443 freigeben.** Datenbank und App veröffentlichen keine Ports; das sollte so bleiben. SSH nur mit Schlüssel, Anmeldung per Passwort abschalten, Sicherheitsupdates des Betriebssystems automatisch einspielen.
+- **Ein langes, nur hier verwendetes Passwort und Passkeys.** Die Anmeldung mit Passwort bleibt neben Passkeys immer möglich; ihre Güte entscheidet. Fehlversuche begrenzt Haben je IP-Adresse. Für den Dauerbetrieb im Internet lohnt zusätzlich ein Werkzeug wie fail2ban oder CrowdSec, das wiederholte Fehlschläge auf `/api/auth/sign-in/` am Proxy sperrt.
+- **Speicher begrenzen**, damit eine Überlast nur die App trifft und nicht die Datenbank auf demselben Rechner. Mit Compose etwa in einer `compose.override.yml` neben der `compose.yml`:
+
+  ```yaml
+  services:
+    app:
+      mem_limit: 2g
+  ```
+
+- **Backup auf ein zweites System** (`RESTIC_REPOSITORY`, siehe [Repository auf einem zweiten System](#repository-auf-einem-zweiten-system)), nicht nur in das Volume auf demselben Server. `ENCRYPTION_KEY` und `RESTIC_PASSWORD` zusätzlich im Passwortmanager ablegen.
+- **Updates bewusst einspielen.** Ein `pull` holt mit `latest` jede neue Version; mach vorher ein Backup, siehe [Updates](#updates).
+
 ## Mehrere Instanzen
 
 Haben führt genau eine Buchhaltung: ein Unternehmen, im Standardmodus ein Inhaber (im [SSO-Modus](installation-sso.md) auch mehrere), auf Wunsch mit einem [Zugang für die Steuerberatung](steuerberatung.md), der nur lesen kann. Für ein zweites Gewerbe, für Partner oder Familie betreibst du je eine eigene Instanz. Jede hat ihre eigene Datenbank, eigene Belege, eigene Schlüssel und ein eigenes ELSTER-Zertifikat; sichern, umziehen und löschen lässt sich jede für sich. Am einfachsten geht das mit Compose, je Instanz ein Verzeichnis, alle hinter einem gemeinsamen Reverse Proxy. In welcher Instanz du gerade bist, zeigt die Navigation mit dem Namen aus den [Firmendaten](einrichtung.md#firmendaten).
