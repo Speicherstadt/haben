@@ -57,11 +57,16 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
     const standard = vi.mocked(extraction.extractDocument).getMockImplementation()!;
     let running = 0;
     let peak = 0;
+    // Jede Auslesung wartet auf dieses Signal: So hängt das Ergebnis nicht vom Tempo der Uploads ab
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     const slow: typeof standard = async (...args) => {
       running += 1;
       peak = Math.max(peak, running);
       try {
-        await new Promise((resolve) => setTimeout(resolve, 40));
+        await gate;
         return await standard(...args);
       } finally {
         running -= 1;
@@ -81,6 +86,10 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
     }
     // Der letzte wartet noch: Er gilt weiter als „läuft“ und wird nicht als unterbrochen freigegeben
     expect((await documents.getDocument(ids[total - 1]!))!.document.extractionStatus).toBe("laeuft");
+    // Vier laufen, die übrigen warten; erst jetzt dürfen die Auslesungen fertig werden
+    await vi.waitFor(() => expect(running).toBe(4));
+    expect(peak).toBe(4);
+    release();
     await Promise.all(works);
     expect(peak).toBe(4);
     for (const id of ids) expect((await documents.getDocument(id))!.document.extractionStatus).toBe("fertig");
