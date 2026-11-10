@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { mapContact, mapPayments, mapSalesDocument, mapVoucher } from "../map.ts";
 import { itemTax, webBookkeepingVoucher, webContact, webPayments, webSalesDocument, webStatus } from "./convert.ts";
 import { webEntrySchema, type WebEntry } from "./schema.ts";
-import { LexwareWebExportError, readWebExport, webExportSource } from "./source.ts";
+import { LexwareWebExportError, maxUnpackedBytes, readWebExport, webExportSource } from "./source.ts";
 
 const raw = (name: string): unknown => JSON.parse(readFileSync(new URL(`../../../test-fixtures/lexoffice-web/${name}`, import.meta.url), "utf8"));
 const entry = (name: string): WebEntry => webEntrySchema.parse({ files: [], ...(raw(name) as object) });
@@ -335,5 +335,29 @@ describe("Sicherung lesen", () => {
     expect(read(zipSync({ "a.txt": encode("x") }))).toThrow(/manifest.json fehlt/);
     expect(read(part({ manifest: { format: "etwas-anderes" } }))).toThrow(/keine Sicherung aus dem Skript/);
     expect(read(part({ manifest: { version: 3 } }))).toThrow(/Version 3; diese Version von Haben liest bis Version 2/);
+  });
+
+  it("lehnt eine ZIP-Datei ab, die entpackt weit größer wird (Zip-Bombe), ohne sie zu entpacken", () => {
+    const read = (bytes: Uint8Array) => () => readWebExport([{ name: "x.zip", bytes }]);
+    // 100 MB Nullen sind gepackt nur wenige KB groß
+    const bomb = zipSync({ "dateien/gross.bin": new Uint8Array(100 * 1024 * 1024) });
+    expect(bomb.length).toBeLessThan(1024 * 1024);
+    expect(read(bomb)).toThrow(/entpackt viel größer als die ZIP-Datei/);
+    // Auch viele kleine Einträge zählen zusammen
+    const many = zipSync(Object.fromEntries(Array.from({ length: 11 }, (_, i) => [`dateien/${i}.bin`, new Uint8Array(10 * 1024 * 1024)])));
+    expect(read(many)).toThrow(/entpackt viel größer/);
+  });
+
+  it("liest eine Sicherung mit großen, aber gewöhnlichen Dateien weiter", () => {
+    const bytes = zipSync({ "manifest.json": encode("{}"), "dateien/gross.bin": new Uint8Array(10 * 1024 * 1024) });
+    // Die Größe stört nicht: erst der Inhalt (hier ein leeres Manifest) wird bemängelt
+    expect(() => readWebExport([{ name: "x.zip", bytes }])).toThrow(/unerwartetes Format/);
+  });
+
+  it("begrenzt das Entpacken auf das Zwanzigfache der ZIP-Datei plus 64 MiB, höchstens 2 GiB", () => {
+    expect(maxUnpackedBytes(0)).toBe(64 * 1024 ** 2);
+    expect(maxUnpackedBytes(1024 ** 2)).toBe(84 * 1024 ** 2);
+    expect(maxUnpackedBytes(100 * 1024 ** 2)).toBe(2 * 1024 ** 3);
+    expect(maxUnpackedBytes(1024 ** 4)).toBe(2 * 1024 ** 3);
   });
 });
