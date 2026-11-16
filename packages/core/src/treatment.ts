@@ -1,3 +1,4 @@
+import type { BasisPoints } from "./money.ts";
 import { normalizeUstId, ustIdProblem } from "./zm.ts";
 import { vatTerritory } from "./vat-territories.ts";
 import type { OutgoingTaxDetails } from "./outgoing-tax.ts";
@@ -119,7 +120,7 @@ export function treatmentNote(treatment: TaxTreatment, exemptionReason?: string 
 export function treatmentIssues(
   treatment: TaxTreatment,
   input: {
-    rates: number[];
+    rates: BasisPoints[];
     sellerUstId?: string;
     buyerUstId?: string;
     buyerCountry?: string;
