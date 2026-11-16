@@ -1,4 +1,6 @@
 import { normalizeUstId, ustIdProblem } from "./zm.ts";
+import { vatTerritory } from "./vat-territories.ts";
+import type { OutgoingTaxDetails } from "./outgoing-tax.ts";
 
 /**
  * Umsatzsteuerliche Behandlung einer Ausgangsrechnung. Außer „regulaer“ stehen alle Positionen
@@ -116,16 +118,27 @@ export function treatmentNote(treatment: TaxTreatment, exemptionReason?: string 
 /** Was an einer Rechnung mit dieser Behandlung fehlt oder nicht passt; leer = in Ordnung. */
 export function treatmentIssues(
   treatment: TaxTreatment,
-  input: { rates: number[]; sellerUstId?: string; buyerUstId?: string; buyerCountry?: string; exemptionReason?: string | null },
+  input: {
+    rates: number[];
+    sellerUstId?: string;
+    buyerUstId?: string;
+    buyerCountry?: string;
+    buyerPostalCode?: string;
+    foreignPlace?: OutgoingTaxDetails["foreignPlace"];
+    exemptionReason?: string | null;
+  },
 ): string[] {
   if (treatment === "regulaer") return [];
   const issues: string[] = [];
   if (input.rates.some((rate) => rate !== 0)) issues.push(`${TAX_TREATMENTS[treatment].label}: alle Positionen müssen 0 % haben`);
   const country = input.buyerCountry?.toUpperCase();
+  // Eine PLZ öffnet den Drittlandweg, sperrt aber keine ausdrücklich gewählte andere Behandlung.
+  // Der unverbindliche Hinweis steht getrennt von diesen Pflichtprüfungen im Kontakt und im Entwurf.
+  const territory = vatTerritory(country, input.buyerPostalCode);
   if (treatment === "reverse_charge") {
     if (!input.sellerUstId?.trim()) issues.push("Reverse Charge braucht deine USt-IdNr. in den Firmendaten");
     if (!input.buyerUstId?.trim()) issues.push("Reverse Charge braucht die USt-IdNr. des Kunden");
-    if (country === "DE") issues.push("Reverse Charge gilt nur für Kunden im EU-Ausland");
+    if (country === "DE" && !territory) issues.push("Reverse Charge gilt nur für Kunden im EU-Ausland");
   }
   if (treatment === "ig_lieferung") {
     // § 14a Abs. 3 UStG: auf der Rechnung die USt-IdNr. von Lieferer und Abnehmer; § 6a Abs. 1 Satz 1 Nr. 4: der Abnehmer
@@ -139,7 +152,7 @@ export function treatmentIssues(
     }
     // Nordirland gehört für Waren weiter zum Gemeinschaftsgebiet (XI-Nummer bei Ländercode GB)
     const nordirland = country === "GB" && buyerUstId.startsWith("XI");
-    if (country && (country === "DE" || !(inEuVatArea(country) || nordirland))) {
+    if (country && !territory && (country === "DE" || !(inEuVatArea(country) || nordirland))) {
       issues.push("Innergemeinschaftliche Lieferung nur an Kunden in einem anderen EU-Mitgliedstaat");
     }
   }
@@ -147,11 +160,16 @@ export function treatmentIssues(
     // EN 16931 BR-G-02: Kategorie G verlangt die USt-IdNr. des Verkäufers (BT-31) oder seines Steuervertreters
     if (!input.sellerUstId?.trim()) issues.push("Ausfuhrlieferung braucht deine USt-IdNr. in den Firmendaten (EN 16931 BR-G-02)");
     // Haben nimmt die Anschrift des Kunden als Bestimmungsort; liegt sie in der EU, passt die Ausfuhr nicht
-    if (country && inEuVatArea(country)) {
+    if (country && !territory && inEuVatArea(country)) {
       issues.push("Ausfuhrlieferung nur an Kunden außerhalb der EU; im Gemeinschaftsgebiet ist es eine innergemeinschaftliche Lieferung");
     }
   }
-  if (treatment === "drittland" && country === "DE") issues.push("Der Kunde sitzt in Deutschland; die Leistung ist im Inland steuerbar");
+  const place = input.foreignPlace;
+  const actualForeignPlace =
+    place?.noForeignVat && /^[A-Z]{2}$/.test(place.country) && (!inEuVatArea(place.country) || vatTerritory(place.country, place.postalCode));
+  if (treatment === "drittland" && country === "DE" && !territory && !actualForeignPlace) {
+    issues.push("Der Kunde sitzt in Deutschland; die Leistung ist im Inland steuerbar");
+  }
   if (treatment === "steuerfrei" && !input.exemptionReason?.trim()) {
     issues.push("Bei steuerfreien Umsätzen bitte die Vorschrift angeben, z. B. „Steuerfrei nach § 4 Nr. 14 UStG“");
   }

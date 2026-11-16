@@ -82,6 +82,7 @@ import { PropertyRetentionField } from "./PropertyRetentionField.tsx";
 import { OutgoingTaxFields } from "./OutgoingTaxFields.tsx";
 import { ActionBar } from "./ActionBar.tsx";
 import { MoreActionsMenu } from "./MoreActionsMenu.tsx";
+import { VatTerritoryHint } from "./VatTerritoryHint.tsx";
 
 interface ContactOption {
   id: string;
@@ -89,6 +90,7 @@ interface ContactOption {
   ort: string;
   strasse: string;
   plz: string;
+  land: string;
   kundennummer: string | null;
   defaultFormat: DraftInput["format"] | null;
   leitwegId: string;
@@ -100,6 +102,16 @@ interface ContactOption {
   /** Für den Hinweis auf eine Dublette beim Anlegen im Dialog */
   ustId: string;
 }
+
+const invoiceContactChoice = (contact: ContactOption): ContactChoice => ({
+  id: contact.id,
+  name: contact.name,
+  ort: contact.ort,
+  nummer: contact.kundennummer,
+  ustId: contact.ustId,
+  isCustomer: contact.isCustomer,
+  isSupplier: false,
+});
 
 /** Abschlagsrechnung, die eine Schlussrechnung abziehen kann */
 export interface AbschlagOption {
@@ -292,10 +304,7 @@ export function InvoiceEditor({
   const [logo, setLogo] = useLoadedState(seller.logo ?? null);
 
   const contact = contacts.find((c) => c.id === contactId) ?? null;
-  const contactChoices: ContactChoice[] = useMemo(
-    () => contacts.map((c) => ({ id: c.id, name: c.name, ort: c.ort, nummer: c.kundennummer, ustId: c.ustId, isCustomer: c.isCustomer, isSupplier: false })),
-    [contacts],
-  );
+  const contactChoices = useMemo(() => contacts.map(invoiceContactChoice), [contacts]);
   const parsed = lines.map(parseLine);
   const schluss = kind === "rechnung" && variant === "schluss";
   /** Abschlagsrechnungen des gewählten Kunden; schon gewählte bleiben sichtbar */
@@ -1089,6 +1098,7 @@ export function InvoiceEditor({
                   )}
                 </Field>
               )}
+              {editable && <VatTerritoryHint country={contact?.land} postalCode={contact?.plz} />}
               <OutgoingTaxFields
                 treatment={taxTreatment}
                 details={taxDetails}

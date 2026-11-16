@@ -26,6 +26,7 @@ import {
   randImDialog,
 } from "./einrichtung.ts";
 import { receiptJpeg } from "./belegbild.ts";
+import { sondergebietePruefen, sondergebietsLeistungsortPruefen } from "./sondergebiete.ts";
 
 /**
  * Rechnungen, Angebote und Kasse in eigener, leerer Datenbank (Projekt „rechnungen“, e2e/durchlaeufe.ts), parallel zu
@@ -2863,6 +2864,14 @@ test("Festschreiben direkt nach „Entwurf speichern“: erst nach dem Neuladen,
   await page.getByRole("button", { name: "Entwurf löschen", exact: true }).click();
   await bestaetigen(page, "Entwurf löschen");
   await expect(page).toHaveURL(/\/rechnungen(?:\?.*)?$/);
+});
+
+test("Sondergebiete: Hinweis ohne stille Änderung in Kontakt, Rechnung und Angebot (#1046)", async () => {
+  await sondergebietePruefen(page);
+});
+
+test("Sondergebiete: tatsächlichen Leistungsort in Rechnung, Angebot und Serie selbst bestätigen (#1046)", async () => {
+  await sondergebietsLeistungsortPruefen(page);
 });
 
 test("Keine Fehler im Browser", async () => {

@@ -10,6 +10,7 @@ import { NoticeBanner } from "./NoticeBanner.tsx";
 import { parseSkontoRows, SkontoFields, toSkontoRows } from "./SkontoFields.tsx";
 import { FORMAT_LABEL, FORMATS } from "../lib/invoice.ts";
 import { useAction } from "../lib/use-action.ts";
+import { ContactAddressFields } from "./ContactAddressFields.tsx";
 
 const EMPTY: ContactInput = {
   kundennummer: "",
@@ -249,19 +250,7 @@ export function ContactForm({
         </div>
       </section>
 
-      <section className="form-section" aria-labelledby="contact-address">
-        <h2 id="contact-address">Anschrift</h2>
-        <Field label="Straße und Hausnummer">
-          {(control) => <input {...control} name="strasse" defaultValue={initial.strasse} autoComplete="street-address" />}
-        </Field>
-        <div className="form-row cols-address">
-          <Field label="PLZ">{(control) => <input {...control} name="plz" defaultValue={initial.plz} autoComplete="postal-code" inputMode="numeric" />}</Field>
-          <Field label="Ort">{(control) => <input {...control} name="ort" defaultValue={initial.ort} autoComplete="address-level2" />}</Field>
-          <Field label="Land (ISO-Code)">
-            {(control) => <input {...control} name="land" defaultValue={initial.land} maxLength={2} autoComplete="country" className="uppercase" />}
-          </Field>
-        </div>
-      </section>
+      <ContactAddressFields initial={initial} />
 
       <section className="form-section" aria-labelledby="contact-tax">
         <h2 id="contact-tax">Steuer und Zahlung</h2>

@@ -26,6 +26,13 @@ function treatmentSelect(html: string) {
 }
 
 describe("Gemeinsame Steuerfelder der Ausgangsbelege", () => {
+  it("erfasst den tatsächlichen Sondergebiets-Leistungsort gesondert von der Kundenanschrift", () => {
+    const html = render({ treatment: "drittland", details: { ...details, foreignPlace: { country: "DE", postalCode: "27498", noForeignVat: true } } });
+    expect(html).toContain("PLZ des tatsächlichen Leistungsorts (optional)");
+    expect(html).toContain('value="27498"');
+    expect(html).toContain("Helgoland: umsatzsteuerlich Drittland");
+  });
+
   it("lässt Kleinunternehmer § 19, eigene Befreiungen und geklärte Auslandsfälle wählen", () => {
     const select = treatmentSelect(render());
     for (const value of ["kleinunternehmer", "steuerfrei", "reverse_charge", "drittland", "eu_sonstige"]) {
