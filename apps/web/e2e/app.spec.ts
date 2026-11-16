@@ -1041,7 +1041,7 @@ test("Eigene Seiten: im Menü einhängen, im Rahmen anzeigen, ändern und entfer
   await expect(form.getByLabel("Öffnen")).toHaveValue("haben");
   await expect(paperless).toHaveAccessibleName("Paperless (öffnet in neuem Tab)");
   // Die eingeklappte Leiste steht verborgen daneben im DOM, mit demselben Hinweis
-  await expect(page.getByText("Öffnet in neuem Tab").filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("Öffnet in neuem Tab", { exact: true }).filter({ visible: true })).toBeVisible();
   await page.getByRole("button", { name: "Paperless bearbeiten" }).click();
   await expect(page.getByRole("form", { name: "Paperless bearbeiten" }).getByLabel("Öffnen")).toHaveValue("tab");
   await page.getByRole("button", { name: "Paperless entfernen" }).click();

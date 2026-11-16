@@ -3121,6 +3121,7 @@ test("Eigene Konten: anlegen, am Beleg und in der Aufteilung wählen, buchen, ar
   await expect(split.getByLabel("Eigenes Konto")).toHaveCount(1);
   await page.getByRole("button", { name: "Speichern" }).click();
   await expect(page.getByText(/aufgeteilt auf 2 Zeilen/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Codewerk GmbH", exact: true })).toBeVisible();
   await page.reload();
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("group", { name: "Aufteilung auf Kategorien" }).getByLabel("Eigenes Konto").first()).toHaveValue(/.+/);
