@@ -2540,6 +2540,7 @@ test("Direkt buchen auf eine Kategorie: Zahlung eines Privatkunden mit 19 %, Aus
   await expect(panel.getByText("100,00 € netto, 19,00 € Umsatzsteuer")).toBeVisible();
   await panel.getByRole("button", { name: "Buchen", exact: true }).click();
   await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("link", { name: "Offen · 1", exact: true })).toBeVisible();
 
   // Ausgang: Telefon, brutto ohne Vorsteuer; einen Steuersatz gibt es dort nicht
   await page
