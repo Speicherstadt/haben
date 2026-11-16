@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { vatTerritory } from "@haben/core";
+import { useId, useState } from "react";
 import { Field } from "./Field.tsx";
 import { VatTerritoryHint } from "./VatTerritoryHint.tsx";
 
@@ -6,6 +7,8 @@ import { VatTerritoryHint } from "./VatTerritoryHint.tsx";
 export function ContactAddressFields({ initial }: { initial: { strasse: string; plz: string; ort: string; land: string } }) {
   const [postalCode, setPostalCode] = useState(initial.plz);
   const [country, setCountry] = useState(initial.land);
+  const hintId = useId();
+  const describedBy = vatTerritory(country, postalCode) ? hintId : undefined;
   return (
     <section className="form-section" aria-labelledby="contact-address">
       <h2 id="contact-address">Anschrift</h2>
@@ -13,7 +16,7 @@ export function ContactAddressFields({ initial }: { initial: { strasse: string; 
         {(control) => <input {...control} name="strasse" defaultValue={initial.strasse} autoComplete="street-address" />}
       </Field>
       <div className="form-row cols-address">
-        <Field label="PLZ">
+        <Field label="PLZ" describedBy={describedBy}>
           {(control) => (
             <input
               {...control}
@@ -26,7 +29,7 @@ export function ContactAddressFields({ initial }: { initial: { strasse: string; 
           )}
         </Field>
         <Field label="Ort">{(control) => <input {...control} name="ort" defaultValue={initial.ort} autoComplete="address-level2" />}</Field>
-        <Field label="Land (ISO-Code)">
+        <Field label="Land (ISO-Code)" describedBy={describedBy}>
           {(control) => (
             <input
               {...control}
@@ -40,7 +43,7 @@ export function ContactAddressFields({ initial }: { initial: { strasse: string; 
           )}
         </Field>
       </div>
-      <VatTerritoryHint country={country} postalCode={postalCode} />
+      <VatTerritoryHint id={hintId} country={country} postalCode={postalCode} />
     </section>
   );
 }

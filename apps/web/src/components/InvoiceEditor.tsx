@@ -38,10 +38,11 @@ import {
   type OutgoingTaxDetails,
   type UnitLabel,
   distinctVatRates,
+  vatTerritory,
 } from "@haben/core";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { formatDate } from "../lib/format.ts";
 import { NoticeBanner } from "./NoticeBanner.tsx";
 import { downloadFrom } from "../lib/download.ts";
@@ -252,6 +253,7 @@ export function InvoiceEditor({
   const editable = kind === "rechnung" || quote;
 
   const [contactId, setContactId] = useState(initial.contactId ?? "");
+  const territoryHintId = useId();
   const [contactPersonId, setContactPersonId] = useState(initial.contactPersonId ?? "");
   /** Offener Dialog „Neuer Kunde“ mit dem vorgetragenen Namen; null = geschlossen */
   const [newContactName, setNewContactName] = useState<string | null>(null);
@@ -304,6 +306,7 @@ export function InvoiceEditor({
   const [logo, setLogo] = useLoadedState(seller.logo ?? null);
 
   const contact = contacts.find((c) => c.id === contactId) ?? null;
+  const territoryDescription = editable && vatTerritory(contact?.land, contact?.plz) ? territoryHintId : undefined;
   const contactChoices = useMemo(() => contacts.map(invoiceContactChoice), [contacts]);
   const parsed = lines.map(parseLine);
   const schluss = kind === "rechnung" && variant === "schluss";
@@ -913,7 +916,7 @@ export function InvoiceEditor({
                   </span>
                 </div>
               )}
-              <Field label="Kunde" error={error("contact")} style={{ gridColumn: "1 / -1" }}>
+              <Field label="Kunde" error={error("contact")} describedBy={territoryDescription} style={{ gridColumn: "1 / -1" }}>
                 {(control) => (
                   <ContactCombobox
                     {...control}
@@ -1098,8 +1101,9 @@ export function InvoiceEditor({
                   )}
                 </Field>
               )}
-              {editable && <VatTerritoryHint country={contact?.land} postalCode={contact?.plz} />}
+              {editable && <VatTerritoryHint id={territoryHintId} country={contact?.land} postalCode={contact?.plz} />}
               <OutgoingTaxFields
+                describedBy={territoryDescription}
                 treatment={taxTreatment}
                 details={taxDetails}
                 exemptionReason={exemptionReason}
