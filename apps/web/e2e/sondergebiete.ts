@@ -12,6 +12,8 @@ export async function sondergebietePruefen(page: Page) {
   await page.getByLabel("Ort", { exact: true }).fill("Santa Cruz de Tenerife");
   await page.getByLabel("Land (ISO-Code)").fill("ES");
   await expect(hint).toBeVisible();
+  await expect(page.getByLabel("PLZ", { exact: true })).toHaveAccessibleDescription(/Kanarische Inseln: umsatzsteuerlich Drittland/);
+  await expect(page.getByLabel("Land (ISO-Code)")).toHaveAccessibleDescription(/Kanarische Inseln: umsatzsteuerlich Drittland/);
   await page.getByRole("button", { name: "Kontakt anlegen", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Versionen" })).toBeVisible();
   const contactUrl = new URL(page.url()).pathname;
@@ -23,6 +25,7 @@ export async function sondergebietePruefen(page: Page) {
     await treatment.selectOption("ig_lieferung");
     await kundeWaehlen(page, `${name} · Santa Cruz de Tenerife`);
     await expect(hint).toBeVisible();
+    await expect(treatment).toHaveAccessibleDescription(/Kanarische Inseln: umsatzsteuerlich Drittland/);
     await expect(treatment).toHaveValue("ig_lieferung");
     await page.getByLabel("Beschreibung Position 1", { exact: true }).fill("Beispielware");
     await page.getByLabel("Menge Position 1", { exact: true }).fill("1");
@@ -71,6 +74,8 @@ export async function sondergebietsLeistungsortPruefen(page: Page) {
     await country.fill("DE");
     await expect(postalCode).toHaveValue("");
     await postalCode.fill("27498");
+    await expect(country).toHaveAccessibleDescription(/Helgoland: umsatzsteuerlich Drittland/);
+    await expect(postalCode).toHaveAccessibleDescription(/Helgoland: umsatzsteuerlich Drittland/);
     await confirmation.selectOption("bestaetigt");
     await postalCode.fill("10115");
     await expect(confirmation).toHaveValue("");
