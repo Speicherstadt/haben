@@ -3438,3 +3438,55 @@ test("Sammelrechnung des Dienstleisters: an der Gebührenzeile als bester Treffe
   await page.waitForLoadState("networkidle");
   for (const zeile of await gebuehren.all()) await expect(zeile).toContainText("Zugeordnet");
 });
+
+test("Anlage G: Gewerbegewinn und erklärte Steuerermäßigung nachtragen (#1214)", async () => {
+  await go("/einstellungen");
+  const firma = page.getByRole("form", { name: "Firmendaten" });
+  await firma.getByLabel("Einkunftsart").selectOption("gewerbe");
+  await firma.getByRole("button", { name: "Speichern" }).click();
+  await expect(page.getByText("Firmendaten gespeichert.")).toBeVisible();
+  const jahr = YEAR - 2;
+  await go(`/jahreserklaerung/${jahr}`);
+  const karte = page.getByRole("region", { name: `Abgabe außerhalb von Haben: Einkommensteuererklärung ${jahr}` });
+  await karte.getByRole("button", { name: "Abgabe vermerken" }).click();
+  const dialog = page.getByRole("dialog", { name: `Einkommensteuererklärung ${jahr} als abgegeben vermerken` });
+  await dialog.getByLabel("Tag der Abgabe").fill(`${jahr + 1}-05-20`);
+  await dialog.getByLabel("Transferticket").fill("GEWERBE1214");
+  await dialog.getByLabel("Begründung").fill("Einkommensteuererklärung außerhalb von Haben mit WISO abgegeben.");
+  await dialog.getByRole("button", { name: "Vermerken" }).click();
+  await expect(dialog).not.toBeVisible();
+
+  const form = page.getByRole("form", { name: "Angaben zur Einkommensteuer" });
+  const erfassen = form.locator("details", { hasText: "Zeilenwerte aus dem Übermittlungsprotokoll" });
+  await erfassen.locator("summary").click();
+  const gewinn = erfassen.getByLabel("Laufende Gewinne aus Gewerbebetrieb (einkuenfteGewerbeLaufend)");
+  await expect(gewinn).toBeVisible();
+  await gewinn.fill("60.000,00");
+  await erfassen.getByLabel("Einkünfte aus Gewerbebetrieb (einkuenfteGewerbe)").fill("60.000,00");
+  await erfassen.getByLabel("Gewerbesteuer-Messbetrag (§ 35 EStG) (gewerbesteuerMessbetrag)").fill("1.242,50");
+  await erfassen.getByLabel("Tatsächlich zu zahlende Gewerbesteuer (§ 35 EStG) (gewerbesteuerTatsaechlich)").fill("4.969,99");
+  await erfassen
+    .getByLabel("Steuerermäßigung bei Einkünften aus Gewerbebetrieb (§ 35 EStG) laut Steuerprogramm (steuerermaessigungGewerbesteuer)")
+    .fill("4.000,00");
+  // Anlage S bleibt für zusätzliche freiberufliche Einkünfte verfügbar, obwohl die Firma ein Gewerbe ist.
+  await erfassen.getByLabel("Einkünfte aus selbständiger Arbeit (einkuenfteSelbstaendig)").fill("1.234,56");
+  await erfassen.getByRole("button", { name: "Zeilenwerte speichern" }).click();
+  await expect(form.getByText("Diese Zahlen stammen aus dem Übermittlungsprotokoll", { exact: false })).toBeVisible();
+
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  const aufstellung = form.locator("details", { hasText: "Alle erklärten Zeilen" });
+  await aufstellung.locator("summary").click();
+  await expect(aufstellung.locator('th[scope="rowgroup"]')).toHaveText(["Anlage G", "Anlage S", "Berechnung"]);
+  for (const [field, amount] of [
+    ["einkuenfteGewerbeLaufend", "60.000,00"],
+    ["einkuenfteGewerbe", "60.000,00"],
+    ["gewerbesteuerMessbetrag", "1.242,50"],
+    ["gewerbesteuerTatsaechlich", "4.969,99"],
+    ["steuerermaessigungGewerbesteuer", "4.000,00"],
+    ["einkuenfteSelbstaendig", "1.234,56"],
+  ]) {
+    await expect(aufstellung.getByRole("row").filter({ hasText: `(${field})` })).toContainText(amount);
+  }
+  await expect(form.getByLabel("Gewerbesteuer-Messbetrag (§ 35 EStG) (gewerbesteuerMessbetrag)")).toHaveCount(0);
+});
