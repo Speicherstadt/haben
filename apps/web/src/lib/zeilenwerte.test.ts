@@ -42,7 +42,7 @@ describe("erklärte Zeilen (#997)", () => {
 
     // Die Anlage steht am Feld, damit die Aufstellung sie ohne zweite Tabelle zeigen kann
     expect(new Set(zeilen.map((z) => z.gruppe))).toEqual(
-      new Set(["Anlage N", "Anlage S", "Anlage Vorsorgeaufwand", "Sonderausgaben", "Anlage KAP", "Progressionsvorbehalt", "Berechnung"]),
+      new Set(["Anlage N", "Anlage G", "Anlage S", "Anlage Vorsorgeaufwand", "Sonderausgaben", "Anlage KAP", "Progressionsvorbehalt", "Berechnung"]),
     );
     // Reihenfolge wie im Vordruck: erst die Anlagen, dann die Berechnung
     expect(zeilen[0]?.gruppe).toBe("Anlage N");
