@@ -58,6 +58,31 @@ describe("erklärte Zeilen (#997)", () => {
     expect(ERKLAERTE_ZEILEN.euer.every((z) => !("gruppe" in z))).toBe(true);
   });
 
+  it("führt Gewerbegewinn und Gewerbesteuer in Anlage G vor Anlage S (#1214)", () => {
+    const zeilen = ERKLAERTE_ZEILEN.est;
+    const gewerbe = zeilen.filter((z) => z.gruppe === "Anlage G");
+    expect(gewerbe).toEqual([
+      { field: "einkuenfteGewerbeLaufend", text: "Laufende Gewinne aus Gewerbebetrieb", gruppe: "Anlage G" },
+      { field: "einkuenfteGewerbe", text: "Einkünfte aus Gewerbebetrieb", gruppe: "Anlage G" },
+      { field: "gewerbesteuerMessbetrag", text: "Gewerbesteuer-Messbetrag (§ 35 EStG)", gruppe: "Anlage G" },
+      { field: "gewerbesteuerTatsaechlich", text: "Tatsächlich zu zahlende Gewerbesteuer (§ 35 EStG)", gruppe: "Anlage G" },
+    ]);
+    const felder = zeilenFelder("est");
+    expect(felder.indexOf("gewerbesteuerTatsaechlich") + 1).toBe(felder.indexOf("einkuenfteSelbstaendigLaufend"));
+    expect(new Set(felder).size).toBe(felder.length);
+  });
+
+  it("führt die erklärte Gewerbesteuerermäßigung in der Berechnung vor der Einkommensteuer (#1214)", () => {
+    const zeilen = ERKLAERTE_ZEILEN.est;
+    expect(zeilen.find((z) => z.field === "steuerermaessigungGewerbesteuer")).toEqual({
+      field: "steuerermaessigungGewerbesteuer",
+      text: "Steuerermäßigung bei Einkünften aus Gewerbebetrieb (§ 35 EStG) laut Steuerprogramm",
+      gruppe: "Berechnung",
+    });
+    const felder = zeilenFelder("est");
+    expect(felder.indexOf("steuerermaessigungGewerbesteuer") + 1).toBe(felder.indexOf("festgesetzteSteuer"));
+  });
+
   // Der Vordruck druckt die Schlusszeile ohne Richtung, die Vermerke führen Erstattungen negativ (#1072, #1076)
   it("führt Zeile 65 der Anlage EÜR, obwohl sie kein Feld in EUER_FIELDS hat (#1072)", () => {
     // Im Protokoll steht "Aufwendungen für ein häusliches Arbeitszimmer" mit einem Betrag; ohne eigene Zeile fehlt
