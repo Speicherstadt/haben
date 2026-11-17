@@ -1,5 +1,5 @@
 import type { LegacySource } from "../../db/schema.ts";
-import type { ReconciliationCheck } from "./lexoffice.ts";
+import type { ReconciliationCheck } from "./umzug-abgleich.ts";
 
 /*
  * Abgleich je Jahr für Belege aus der Export-ZIP von sevDesk (#1106). Ein Exportbeleg steht in einem von drei Zuständen:

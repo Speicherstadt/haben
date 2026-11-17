@@ -31,7 +31,7 @@ describe.skipIf(!testDatabaseUrl).each([
 ] as const)("Dateistand: Randfälle, %s und %s (Postgres)", (kontenrahmen, versteuerung) => {
   let sql: postgres.Sql;
   let sevdesk: typeof import("./sevdesk.ts");
-  let archiv: typeof import("./lexoffice.ts");
+  let archiv: typeof import("./umzug-abgleich.ts") & typeof import("./umzug-belege.ts");
   let offen: typeof import("./legacy-open.ts");
   /** Antwort auf getXml: erst ein Serverfehler, dann „keine E-Rechnung“ */
   let xmlStatus = 500;
@@ -51,7 +51,7 @@ describe.skipIf(!testDatabaseUrl).each([
   beforeAll(async () => {
     sql = await setupTestDb();
     sevdesk = await import("./sevdesk.ts");
-    archiv = await import("./lexoffice.ts");
+    archiv = { ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-belege.ts")) };
     offen = await import("./legacy-open.ts");
     const importPkg = await import("@haben/import");
     await sql`insert into company (id, name, strasse, plz, ort, email, steuernummer, bundesland, kontenrahmen, versteuerung, rechtsform)

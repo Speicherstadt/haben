@@ -1,3 +1,4 @@
+import { LEGACY_SOURCE } from "../../../lib/altbestand.ts";
 import { FILE_STATE_LABELS, FILE_STATUS_LABELS, fileStatesForYear, latestFileStates, legacyFileStatus } from "./dateistand.ts";
 import { mitIndexXml } from "./beschreibung.ts";
 import { createHash } from "node:crypto";
@@ -1310,17 +1311,6 @@ async function* yearFiles(year: number, now: Date): AsyncGenerator<ArchiveFile> 
   }
 }
 
-const LEGACY_SOURCE_LABELS = {
-  lexoffice: "Lexoffice",
-  sevdesk: "sevDesk",
-  buchhaltungsbutler: "BuchhaltungsButler",
-  accountable: "Accountable",
-  wiso: "WISO",
-  import: "JSON-Import",
-  fastbill: "FastBill",
-  "sevdesk-export": "sevDesk-Export",
-} as const;
-
 const LEGACY_TYPE_LABELS: Record<string, string> = {
   invoice: "Rechnung",
   creditnote: "Gutschrift",
@@ -1441,7 +1431,7 @@ async function* legacyFiles(year: number, problems: string[]): AsyncGenerator<Ar
         paths.push(path.slice("lexoffice/".length));
       } catch (error) {
         problems.push(
-          `${LEGACY_SOURCE_LABELS[voucher.source]}-Beleg ${voucher.number || voucher.id}: Datei ${file.filename} nicht lesbar – ${error instanceof Error ? error.message : String(error)}`,
+          `${LEGACY_SOURCE[voucher.source].name}-Beleg ${voucher.number || voucher.id}: Datei ${file.filename} nicht lesbar – ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }
@@ -1464,7 +1454,7 @@ async function* legacyFiles(year: number, problems: string[]): AsyncGenerator<Ar
       paths.join(" | "),
       (filesByVoucher.get(voucher.id) ?? []).map((f) => f.sha256).join(" | "),
       voucher.lexofficeId,
-      LEGACY_SOURCE_LABELS[voucher.source],
+      LEGACY_SOURCE[voucher.source].name,
       FILE_STATUS_LABELS[legacyFileStatus(fileStates.get(voucher.id) ?? null, filesByVoucher.get(voucher.id)?.length ?? 0, voucher.raw.ohneBeleg === true)],
     ]);
   }
@@ -1544,7 +1534,7 @@ async function* legacyFiles(year: number, problems: string[]): AsyncGenerator<Ar
           p.transactionId ?? "",
           p.externalId,
           voucher,
-          LEGACY_SOURCE_LABELS[p.source],
+          LEGACY_SOURCE[p.source].name,
           p.createdAt.toISOString(),
         ]),
       ),

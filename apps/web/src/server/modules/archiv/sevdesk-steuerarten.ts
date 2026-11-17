@@ -4,7 +4,7 @@ import { desc, sql } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
-import { progressMessage } from "./lexoffice.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 
 /*
  * Eigene Steuerarten aus sevDesk (GET /TaxSet, #472): je Abruf einmal unverändert gespeichert. Ein Beleg mit taxType

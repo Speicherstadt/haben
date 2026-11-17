@@ -1,3 +1,4 @@
+import { LEGACY_SOURCE } from "../../../lib/altbestand.ts";
 import { legacyTakeoverCutoff, TakeoverError } from "../auswertungen/index.ts";
 import {
   addDays,
@@ -34,17 +35,6 @@ const SALES = new Set(["invoice"]);
 const PURCHASES = new Set(["purchaseinvoice"]);
 const OPEN_ITEM_TYPES = new Set([...SALES, ...PURCHASES]);
 
-const SOURCE_LABEL = {
-  lexoffice: "Lexoffice",
-  sevdesk: "sevDesk",
-  buchhaltungsbutler: "BuchhaltungsButler",
-  accountable: "Accountable",
-  wiso: "WISO",
-  import: "JSON-Import",
-  fastbill: "FastBill",
-  "sevdesk-export": "sevDesk",
-} as const;
-
 export interface OpenLegacyItem {
   id: string;
   source: LegacyVoucher["source"];
@@ -75,16 +65,21 @@ function blockerFor(voucher: LegacyVoucher, state: LegacyOpenAt, cutoff: string,
     return "Umsatzsteuer an das Finanzamt – kein Beleg in Haben; die Zahlung im Bankabgleich als „Umsatzsteuer an das Finanzamt“ zuordnen";
   if (voucher.currency !== "EUR") return "Fremdwährung";
   if (voucher.date > cutoff) return "nach dem Stichtag ausgestellt – gehört in die Bücher von Haben; dort als Rechnung bzw. Beleg erfassen";
-  if (state.issue) return `Stand am Stichtag unklar (${state.issue}) – in ${SOURCE_LABEL[voucher.source]} prüfen und von Hand erfassen`;
+  if (state.issue)
+    return `Stand am Stichtag unklar (${state.issue}) – in ${voucher.source === "sevdesk-export" ? LEGACY_SOURCE[voucher.source].product : LEGACY_SOURCE[voucher.source].name} prüfen und von Hand erfassen`;
   // Die Rechnung in Haben trägt den Betrag des Original-PDFs; offen ist dort, was keine Zahlung im Bankabgleich deckt.
   // Eine Zahlung vor dem Stichtag hat keinen Bankumsatz in Haben, eine Ausbuchung änderte die Steuer (§ 17 Abs. 1 UStG).
   if (state.open !== Math.abs(voucher.gross))
-    return `bis zum Stichtag teilweise bezahlt – Restbetrag erst in ${SOURCE_LABEL[voucher.source]} ausgleichen oder in Haben direkt buchen`;
+    return `bis zum Stichtag teilweise bezahlt – Restbetrag erst in ${voucher.source === "sevdesk-export" ? LEGACY_SOURCE[voucher.source].product : LEGACY_SOURCE[voucher.source].name} ausgleichen oder in Haben direkt buchen`;
   if (voucher.taxes.some((t) => ![1900, 700, 0].includes(t.rate))) return "Steuersatz, den Haben nicht kennt";
   if (voucher.gross <= 0) return "Betrag nicht positiv";
   // Dateistand (#345): ein fehlendes XML neben dem PDF blockiert ebenso, das XML einer E-Rechnung ist das Original
   if (fileState === "anhang_fehlt") return `XML der E-Rechnung fehlt – „Erneut abrufen“ versucht es noch einmal`;
-  if (!hasPdf) return takeoverFileIssue(fileState) ?? `keine Datei aus ${SOURCE_LABEL[voucher.source]}`;
+  if (!hasPdf)
+    return (
+      takeoverFileIssue(fileState) ??
+      `keine Datei aus ${voucher.source === "sevdesk-export" ? LEGACY_SOURCE[voucher.source].product : LEGACY_SOURCE[voucher.source].name}`
+    );
   return null;
 }
 
@@ -356,7 +351,7 @@ async function takeOverInvoice(
   const rebuild = (priceMode: PriceMode) => {
     const lines = taxes.map((t, i) => ({
       position: i + 1,
-      description: `Rechnung ${voucher.number} aus ${SOURCE_LABEL[voucher.source]}${taxes.length > 1 ? ` (${t.rate / 100} %)` : ""}`,
+      description: `Rechnung ${voucher.number} aus ${voucher.source === "sevdesk-export" ? LEGACY_SOURCE[voucher.source].product : LEGACY_SOURCE[voucher.source].name}${taxes.length > 1 ? ` (${t.rate / 100} %)` : ""}`,
       quantity: 1000,
       unit: "Psch.",
       unitPrice: priceMode === "brutto" ? t.net + t.tax : t.net,
@@ -370,7 +365,7 @@ async function takeOverInvoice(
   const { priceMode, totals, lines } = matches(netto) ? netto : rebuild("brutto");
   if (totals.gross !== voucher.gross || totals.tax !== voucher.tax) {
     throw new TakeoverError(
-      `Die Steuer lässt sich nicht centgenau nachbilden (${SOURCE_LABEL[voucher.source]} ${voucher.tax / 100} €, Haben ${netto.totals.tax / 100} €).`,
+      `Die Steuer lässt sich nicht centgenau nachbilden (${voucher.source === "sevdesk-export" ? LEGACY_SOURCE[voucher.source].product : LEGACY_SOURCE[voucher.source].name} ${voucher.tax / 100} €, Haben ${netto.totals.tax / 100} €).`,
     );
   }
 
@@ -413,7 +408,7 @@ async function takeOverInvoice(
         serviceTo: voucher.serviceTo,
         paymentTermDays: term,
         dueDate,
-        note: `Aus ${SOURCE_LABEL[voucher.source]} übernommen; das PDF ist das Original.`,
+        note: `Aus ${voucher.source === "sevdesk-export" ? LEGACY_SOURCE[voucher.source].product : LEGACY_SOURCE[voucher.source].name} übernommen; das PDF ist das Original.`,
         priceMode,
         taxTreatment,
         net: totals.net,
@@ -451,7 +446,7 @@ async function takeOverInvoice(
     if (!covering)
       await post(tx, company, {
         date: cutoff.bookingDate,
-        description: `Offene Rechnung ${voucher.number} aus ${SOURCE_LABEL[voucher.source]} · ${contact!.name}`,
+        description: `Offene Rechnung ${voucher.number} aus ${voucher.source === "sevdesk-export" ? LEGACY_SOURCE[voucher.source].product : LEGACY_SOURCE[voucher.source].name} · ${contact!.name}`,
         sourceType: "invoice",
         sourceId: id,
         lines: openingInvoicePosting(totals, company.kontenrahmen, company.versteuerung),
@@ -494,7 +489,7 @@ async function takeOverDocument(
         dueDate: voucher.dueDate,
         category,
         payment: "bank",
-        note: `Aus ${SOURCE_LABEL[voucher.source]} übernommen; die Vorsteuer ist dort schon angemeldet.`,
+        note: `Aus ${voucher.source === "sevdesk-export" ? LEGACY_SOURCE[voucher.source].product : LEGACY_SOURCE[voucher.source].name} übernommen; die Vorsteuer ist dort schon angemeldet.`,
         net: voucher.net,
         tax: voucher.tax,
         gross: voucher.gross,
@@ -506,7 +501,7 @@ async function takeOverDocument(
     if (!covering)
       await post(tx, company, {
         date: cutoff.bookingDate,
-        description: `Offener Beleg ${voucher.number || file.filename} aus ${SOURCE_LABEL[voucher.source]} · ${voucher.contactName}`,
+        description: `Offener Beleg ${voucher.number || file.filename} aus ${voucher.source === "sevdesk-export" ? LEGACY_SOURCE[voucher.source].product : LEGACY_SOURCE[voucher.source].name} · ${voucher.contactName}`,
         sourceType: "document",
         sourceId: id,
         lines: openingDocumentPosting(voucher.gross, company.kontenrahmen),

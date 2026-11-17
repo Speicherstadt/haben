@@ -1,5 +1,4 @@
 [
-  "apps/web/src/components/archiv/Migration.tsx",
   "apps/web/src/components/InvoiceEditor.tsx",
   "apps/web/src/components/KapgErklaerungen.tsx",
   "apps/web/src/components/RecurringForm.tsx",
@@ -16,7 +15,6 @@
   "apps/web/src/server/db/schema.ts",
   "apps/web/src/server/modules/archiv/export.ts",
   "apps/web/src/server/modules/archiv/legacy-open.ts",
-  "apps/web/src/server/modules/archiv/lexoffice.ts",
   "apps/web/src/server/modules/bank/bank-sync.ts",
   "apps/web/src/server/modules/bank/bank.ts",
   "apps/web/src/server/modules/belege/documents.ts",

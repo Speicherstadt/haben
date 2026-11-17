@@ -77,7 +77,7 @@ function exportZip(kontenrahmen: Kontenrahmen, opts: { ohneAusgabebild?: boolean
 describe.skipIf(!testDatabaseUrl)("sevDesk ohne API: Abgleich je Jahr (Postgres)", () => {
   let sev: typeof import("./sevdesk-export.ts");
   let archive: typeof import("./archive.ts");
-  let lex: typeof import("./lexoffice.ts");
+  let lex: typeof import("./umzug-abgleich.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
 
@@ -85,7 +85,7 @@ describe.skipIf(!testDatabaseUrl)("sevDesk ohne API: Abgleich je Jahr (Postgres)
     sql = await setupTestDb();
     sev = await import("./sevdesk-export.ts");
     archive = await import("./archive.ts");
-    lex = await import("./lexoffice.ts");
+    lex = await import("./umzug-abgleich.ts");
   }, 30_000);
 
   afterAll(async () => {

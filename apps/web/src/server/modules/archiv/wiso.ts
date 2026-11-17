@@ -1,5 +1,6 @@
+import { latestImportFor, refreshImportRuns } from "./umzug-lauf.ts";
 import { previewWisoExport, WisoParseError, type WisoPreview } from "@haben/import";
-import { and, desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import type { LegacyPayment, LexofficeImportProgress } from "../../db/schema.ts";
@@ -7,7 +8,8 @@ import { UserError } from "../../errors.ts";
 import { sha256Of } from "../../storage.ts";
 import { loadCompany } from "../stammdaten/index.ts";
 import { addArchiveFile, MAX_ARCHIVE_SIZE } from "./archive.ts";
-import { finish, progressMessage, STALE_MS } from "./lexoffice.ts";
+import { finish } from "./umzug-lauf.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 
 export const MAX_WISO_CSV_SIZE = MAX_ARCHIVE_SIZE;
 export const WISO_ORIGINAL_NOTE = "WISO-Originalexport (Buchungen CSV)";
@@ -36,24 +38,7 @@ export function wisoSummary(preview: WisoPreview) {
   };
 }
 
-export async function latestWisoImport() {
-  const [row] = await db
-    .select()
-    .from(schema.lexofficeImports)
-    .where(eq(schema.lexofficeImports.source, SOURCE))
-    .orderBy(desc(schema.lexofficeImports.startedAt))
-    .limit(1);
-  if (!row) return null;
-  if (row.status === "laeuft" && Date.now() - row.updatedAt.getTime() > STALE_MS) {
-    const [updated] = await db
-      .update(schema.lexofficeImports)
-      .set({ status: "abgebrochen", error: "Der Import wurde unterbrochen. Ein neuer Import setzt dort fort.", finishedAt: new Date() })
-      .where(and(eq(schema.lexofficeImports.id, row.id), eq(schema.lexofficeImports.status, "laeuft")))
-      .returning();
-    return updated ?? row;
-  }
-  return row;
-}
+export const latestWisoImport = () => latestImportFor("wiso");
 
 /**
  * WISO EÜR bucht nach Zahlung: „Zahlungsdatum“ ist der Tag des Zu- oder Abflusses. Als Zahlung festgehalten, zählt die
@@ -75,7 +60,8 @@ async function archiveOriginalCsv(actor: string, bytes: Uint8Array, filename: st
 }
 
 export async function startWisoImport(actor: string, bytes: Uint8Array, filename: string) {
-  if ((await latestWisoImport())?.status === "laeuft") {
+  const runs = await refreshImportRuns();
+  if (runs.get("wiso")?.status === "laeuft") {
     throw new WisoImportError("Ein WISO-Import läuft bereits.");
   }
   const preview = await previewWisoCsv(bytes);

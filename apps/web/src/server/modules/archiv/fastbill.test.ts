@@ -188,7 +188,7 @@ function fakeFastbill(server: Server): typeof fetch {
 
 describe.skipIf(!testDatabaseUrl)("Umzug aus FastBill (Postgres)", () => {
   let fastbill: typeof import("./fastbill.ts");
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-abgleich.ts");
   let importPkg: typeof import("@haben/import");
   let sql: postgres.Sql;
   let server: Server;
@@ -197,7 +197,7 @@ describe.skipIf(!testDatabaseUrl)("Umzug aus FastBill (Postgres)", () => {
   beforeAll(async () => {
     sql = await setupTestDb();
     fastbill = await import("./fastbill.ts");
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")) };
     importPkg = await import("@haben/import");
   }, 30_000);
 

@@ -32,14 +32,22 @@ const note = (accountingTypeId: string, extra: Record<string, unknown> = {}) =>
 const positions = [{ sumNet: "100.00", sumTax: "19.00", sumGross: "119.00", taxRate: "19" }] as never[];
 
 describe.skipIf(!testDatabaseUrl)("sevDesk-Gutschrift auf Buchungskonto: Kontoart von Hand (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") &
+    typeof import("./umzug-abgleich.ts") &
+    typeof import("./umzug-belege.ts") &
+    typeof import("./umzug-umsatzsteuer.ts");
   let kontoart: typeof import("./sevdesk-kontoart-hand.ts");
   let sql: postgres.Sql;
   let importId: string;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = {
+      ...(await import("./lexoffice.ts")),
+      ...(await import("./umzug-abgleich.ts")),
+      ...(await import("./umzug-belege.ts")),
+      ...(await import("./umzug-umsatzsteuer.ts")),
+    };
     kontoart = await import("./sevdesk-kontoart-hand.ts");
   }, 30_000);
 

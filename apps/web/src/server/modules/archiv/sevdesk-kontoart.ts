@@ -1,5 +1,5 @@
 import type { AccountingKind, AccountingTypeKinds } from "../auswertungen/index.ts";
-import type { ReconciliationCheck } from "./lexoffice.ts";
+import type { ReconciliationCheck } from "./umzug-abgleich.ts";
 
 /*
  * Gutschriften mit `bookingCategory` ACCOUNTING_TYPE bucht sevDesk nach dem gewählten Konto: mit Erlöskonto als
