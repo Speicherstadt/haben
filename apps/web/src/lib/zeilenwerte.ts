@@ -60,6 +60,8 @@ const EST_ANLAGEN: readonly { anlage: string; felder: Readonly<Record<string, st
     },
   },
   {
+    // Gewerbliche Einkünfte gehören in Anlage G, selbständige Arbeit daneben in Anlage S (ELSTER-Anleitung 2025):
+    // https://www.elster.de/eportal/helpGlobal?themaGlobal=help_est_ufa_10_2025, Abschnitt „Anlage G“.
     anlage: "Anlage G",
     felder: {
       einkuenfteGewerbeLaufend: "Laufende Gewinne aus Gewerbebetrieb",
