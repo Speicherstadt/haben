@@ -26,14 +26,20 @@ test.afterAll(() => {
 
 test("Ersteinrichtung fragt Rechtsform und Bereiche, „weiß ich nicht“ erinnert auf der Übersicht", async () => {
   await gehe(page, "/");
+  // Der Hinweis am Code sagt, wer ihn hat, und führt zur Anleitung
+  await expect(page.getByText("Den Code hat, wer Haben installiert hat. Er steht beim Start im Log des Servers.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "So findest du ihn" })).toHaveAttribute("href", /\/einrichtung\.html#konto-anlegen$/);
+  await expect(page.getByText("Nach dem Anlegen richtest du einen Passkey ein: Anmelden mit Fingerabdruck, Gesicht oder PIN deines Geräts.")).toBeVisible();
   await page.getByLabel("Einrichtungscode").fill(SETUP_CODE);
   await page.getByLabel("Name").fill(USER.name);
   await page.getByLabel("E-Mail").fill(USER.email);
   await page.getByLabel(/Passwort/).fill(USER.password);
   await page.getByRole("button", { name: "Konto anlegen" }).click();
+  await expect(page.getByText(/Mit einem Passkey meldest du dich künftig mit Fingerabdruck, Gesicht oder PIN deines Geräts an/)).toBeVisible();
   await page.getByRole("button", { name: "Später" }).click();
   await page.waitForURL("**/einrichtung");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Haben einrichten");
+  await expect(page.getByText(/bei „Weiß ich nicht“ bleibt die bisherige Angabe, die Übersicht fragt später nach\.$/)).toBeVisible();
 
   await antworten(frage("Wie bist du selbständig?"), "Mit Gewerbeanmeldung");
   // Kleinunternehmer bleibt bei „Weiß ich nicht“; Versteuerung und Voranmeldung fragt Haben dann trotzdem
@@ -67,7 +73,7 @@ test("Ersteinrichtung fragt Rechtsform und Bereiche, „weiß ich nicht“ erinn
   await gehe(page, "/einstellungen?bereich=firma");
   const firma = page.getByRole("form", { name: "Firmendaten" });
   await expect(firma.getByLabel("Einkunftsart (für die Anlage EÜR)")).toHaveValue("gewerbe");
-  await expect(firma.getByLabel("Kontenrahmen (wie in Lexoffice)")).toHaveValue("SKR04");
+  await expect(firma.getByLabel("Kontenrahmen")).toHaveValue("SKR04");
   await expect(firma.getByLabel("Kleinunternehmer nach § 19 UStG")).not.toBeChecked();
 });
 
@@ -117,6 +123,56 @@ test("Fragen erneut durchgehen: vorausgefüllt, geänderte Rechtsform erst nach 
   // Abgebrochen: nichts geändert
   await gehe(page, "/einstellungen?bereich=firma");
   await expect(page.getByRole("form", { name: "Firmendaten" }).getByLabel("Rechtsform")).toHaveValue("einzelunternehmen");
+});
+
+test("„Weiß ich noch nicht“ nach „Ja“ oder „Nein“ speichert und lässt den Bereich im Menü (#1362)", async () => {
+  await gehe(page, "/einstellungen?bereich=bereiche");
+  await page.getByRole("link", { name: "Fragen erneut durchgehen" }).click();
+  await page.waitForURL("**/einrichtung");
+  await page.getByRole("button", { name: "Weiter" }).click();
+  await page.getByRole("button", { name: "Weiter" }).click();
+
+  // Vorausgefüllt mit „Ja“; „Weiß ich noch nicht“ danach nimmt die Antwort zurück, statt sie leer mitzuschicken
+  await expect(frage("Schreibst du Angebote?").getByRole("radio", { name: "Ja" })).toBeChecked();
+  await antworten(frage("Schreibst du Angebote?"), "Weiß ich noch nicht");
+  await antworten(frage("Nimmst du Bargeld ein?"), "Nein");
+  await antworten(frage("Nimmst du Bargeld ein?"), "Weiß ich noch nicht");
+  await antworten(frage("Ziehst du Geld per Lastschrift ein?"), "Nein");
+  await page.getByRole("button", { name: "Fertig" }).click();
+  // Vor dem Fix: „Invalid input: expected boolean, received undefined“, die Seite bleibt stehen
+  await expect(page).toHaveURL(/\/einstellungen\?bereich=bereiche$/);
+
+  // Nur „Nein“ blendet aus; die beiden offenen Bereiche bleiben
+  await expect(menue().getByRole("link", { name: "Lastschriften", exact: true })).toHaveCount(0);
+  for (const da of ["Angebote", "Kasse"]) await expect(menue().getByRole("link", { name: da, exact: true })).toBeVisible();
+  const karte = page.getByRole("region", { name: "Bereiche im Menü" });
+  await expect(karte.getByRole("checkbox", { name: "Kasse", exact: true })).toBeChecked();
+  await expect(karte.getByRole("checkbox", { name: "Lastschriften", exact: true })).not.toBeChecked();
+  await karte.getByRole("checkbox", { name: "Lastschriften", exact: true }).check();
+  await expect(menue().getByRole("link", { name: "Lastschriften", exact: true })).toBeVisible();
+});
+
+test("Leere Belegliste: Satz mit Beispiel, Weg zum Postfach, kein Filter und keine doppelte Postfach-Zeile (#1253)", async () => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await gehe(page, "/belege");
+  const liste = page.getByRole("region", { name: "Belegliste" });
+  await expect(liste).toContainText("Noch keine Belege. Lege den ersten oben ab");
+  await expect(liste).toContainText("Stromrechnung");
+  // Ob Haben ausliest, sagt die Ablagefläche darüber (ohne KI nur E-Rechnungen); die leere Liste verspricht es nicht
+  await expect(liste).not.toContainText("liest die Angaben aus");
+  await expect(page.getByRole("navigation", { name: "Filter" })).toHaveCount(0);
+  // Der Weg zum Postfach steht im Leerzustand, nicht noch einmal darüber
+  await expect(page.getByText("Rechnungen per E-Mail?")).toHaveCount(0);
+  // Der Hinweis steht unter dem Knopf, nicht daneben, wo er am Handy mitten im Satz umbräche
+  const knopf = liste.getByRole("link", { name: "Postfach für Belege einrichten" });
+  for (const breite of [1440, 375]) {
+    await page.setViewportSize({ width: breite, height: 1000 });
+    const k = (await knopf.boundingBox())!;
+    const h = (await liste.getByText("Dann holt Haben Rechnungen").boundingBox())!;
+    expect(h.y, `Hinweis unter dem Knopf bei ${breite} px`).toBeGreaterThanOrEqual(k.y + k.height);
+  }
+  await knopf.click();
+  await expect(page).toHaveURL(/\/einstellungen\?bereich=email/);
 });
 
 test("Am Handy ohne waagrechtes Scrollen, hell und dunkel", async () => {

@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { amountError, formatDecimal, parseEuro, parsePersonenkonto } from "@haben/core";
+import { amountError, evatrPruefbar, formatDecimal, parseEuro, parsePersonenkonto } from "@haben/core";
 import { useRef, useState, type FormEvent } from "react";
 import { UstIdHinweis } from "./UstIdHinweis.tsx";
 import { saveContact } from "../server/functions/contacts.ts";
@@ -128,7 +128,7 @@ export function ContactForm({
         onUpdated?.();
         await router.invalidate();
       } else {
-        await navigate({ to: "/kontakte/$id", params: { id: result.id } });
+        await navigate({ to: "/kontakte/$id", params: { id: result.id }, search: evatrPruefbar(input.ustId) ? { bestaetigen: true } : {} });
       }
     });
   }
@@ -240,7 +240,7 @@ export function ContactForm({
         </div>
       </section>
 
-      <ContactAddressFields initial={initial} />
+      <ContactAddressFields initial={initial} countryLabel={onSaved ? undefined : "Land (z. B. DE)"} />
 
       <section className="form-section" aria-labelledby="contact-tax">
         <h2 id="contact-tax">Steuer und Zahlung</h2>

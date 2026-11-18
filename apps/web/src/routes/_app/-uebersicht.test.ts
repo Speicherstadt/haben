@@ -46,7 +46,7 @@ function fixture() {
       recent: [],
       bank: [],
       payables: { total: 0, count: 0, overdueCount: 0, nextDue: null },
-      revenuePreviousMonth: { net: 0 },
+      revenuePreviousMonth: 0,
     },
     backup: { failed: [], overdue: false, state: "ok" },
   };
@@ -146,5 +146,34 @@ describe("Übersicht: Fragen zur Einrichtung", () => {
     const html = render();
     expect(html).not.toContain("Haben einrichten");
     expect(html).not.toContain("Kleinunternehmer klären");
+  });
+});
+
+// Hinweise in Alltagssprache (#1253): Fachwort bleibt erkennbar, Ziel (Link) bleibt
+describe("Übersicht: Hinweise in Klartext", () => {
+  beforeEach(() => {
+    state.data = fixture();
+    state.einrichtung = null;
+  });
+
+  it("Geldtransit: sagt, was zwischen den Konten fehlt, in beiden Richtungen", () => {
+    state.data.transit = 50000;
+    let html = render();
+    expect(html).toContain("Geldtransit nicht ausgeglichen");
+    expect(html).toContain("500,00");
+    expect(html).toContain("abgegangen, aber auf keinem deiner Konten angekommen");
+    expect(html).toContain("Beim Geldtransit, dem Geld zwischen deinen eigenen Konten, fehlt die Gegenbuchung");
+    expect(html).toContain('href="/bank"');
+    state.data.transit = -50000;
+    html = render();
+    expect(html).toContain("angekommen, ohne dass es woanders abgegangen ist");
+  });
+
+  it("AfA: Abschreibung ausgeschrieben, AfA in Klammern, Ziel bleibt das Anlagenverzeichnis", () => {
+    state.data.afaPending = [{ year: 2025, count: 2 }];
+    const html = render();
+    expect(html).toContain("Abschreibung (AfA) 2025 buchen");
+    expect(html).toContain("Für 2 Anlagen im Anlagenverzeichnis ist sie noch nicht gebucht");
+    expect(html).toContain('href="/anlagen"');
   });
 });

@@ -1,3 +1,4 @@
+import { waehleKategorie } from "./kategorie.ts";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import { zipSync } from "fflate";
@@ -524,7 +525,7 @@ test("Beleg hochladen und buchen", async ({ browser }) => {
   await expect(page.getByLabel("Lieferant", { exact: true })).toHaveValue("Funknetz Mobil GmbH");
   await page.getByLabel("Rechnungsnummer").fill("MF-0815");
   await page.getByLabel("Belegdatum").fill(day(-9));
-  await page.getByLabel("Kategorie").selectOption("telefon");
+  await waehleKategorie(page.getByLabel("Kategorie"), "telefon");
   await page.getByLabel("Netto", { exact: true }).fill("38,57");
   await page.getByRole("button", { name: "Bestätigen und buchen" }).click();
   await faktenZeigen(page, "Betrag");
@@ -555,7 +556,9 @@ test("Überweisung als SEPA-Datei: offenen Beleg wählen, Datei herunterladen, V
 
   await go("/ueberweisungen");
   const form = page.getByRole("form", { name: "SEPA-Überweisung erzeugen" });
-  await expect(form.getByLabel("Auftraggeberkonto")).toContainText("Girokonto · DE45 1203 0000 1234 5678 90");
+  // Einleitung in drei Schritten statt Dateiformat und Fachwort
+  await expect(page.getByRole("list").filter({ hasText: "Online-Banking hochladen" }).getByRole("listitem")).toHaveCount(3);
+  await expect(form.getByLabel("Konto, von dem das Geld abgeht")).toContainText("Girokonto · DE45 1203 0000 1234 5678 90");
   await expect(form).toContainText("DE02 1001 0010 0006 8201 01");
   // Später ist der Beleg bezahlt: Die Liste mit Auswahl prüft axe deshalb hier, am Desktop und am Handy (WCAG 2.2 AA wie
   // barrierefreiheit.spec.ts). AxeBuilder braucht einen eigenen Kontext, mit derselben Sitzung
@@ -646,6 +649,20 @@ test("Kontoauszug importieren und zuordnen", async () => {
     await expect(page.getByRole("complementary", { name: "Zuordnung" }).getByRole("heading", { name: party })).toBeHidden();
     await page.waitForLoadState("networkidle");
   }
+});
+
+test("Zuordnen-Panel: der Satz zur Rechnung nennt die Bedingung für „bezahlt“", async () => {
+  await go("/bank");
+  await page
+    .getByRole("link", { name: /Rheinpixel GmbH/ })
+    .first()
+    .click();
+  const panel = page.getByRole("complementary", { name: "Zuordnung" });
+  await expect(panel.getByRole("heading", { name: "Rheinpixel GmbH" })).toBeVisible();
+  await expect(panel.getByText("Bester Treffer")).toBeVisible();
+  // Ein Teilbetrag im Feld: Der Satz verspricht „bezahlt“ nur, wenn die Zahlung den offenen Betrag deckt
+  await panel.getByLabel("Betrag").fill("500,00");
+  await expect(panel).toContainText("Deckt die Zahlung den offenen Betrag, gilt die Rechnung als bezahlt (Bank an Forderungen)");
 });
 
 test("Buchungen und Konten stimmen mit den Vorgängen überein", async () => {
@@ -1124,7 +1141,7 @@ test("Dauerbeleg: Miete mit Vertrag anlegen, Beleg zu prüfen, im Bankabgleich b
   await page.getByLabel("Lieferant", { exact: true }).fill("Hafen Immobilien GmbH");
   await page.getByLabel("Vertrags- oder Kundennummer (optional)").fill("MV-2026-17");
   // Eigene Kategorie für Miete (#312): DATEV 4210 bzw. 6310
-  await page.getByLabel("Kategorie").selectOption({ label: "Miete für Geschäftsräume" });
+  await waehleKategorie(page.getByLabel("Kategorie"), "miete");
   await page.getByLabel("Erster Beleg am").fill(termin);
   await page.getByLabel("Fällig Tage nach dem Termin").fill("3");
   await page

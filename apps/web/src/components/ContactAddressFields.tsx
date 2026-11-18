@@ -4,7 +4,13 @@ import { Field } from "./Field.tsx";
 import { VatTerritoryHint } from "./VatTerritoryHint.tsx";
 
 /** Anschrift mit unverbindlichem Sondergebiets-Hinweis, auch im Dialog für einen neuen Kontakt. */
-export function ContactAddressFields({ initial }: { initial: { strasse: string; plz: string; ort: string; land: string } }) {
+export function ContactAddressFields({
+  initial,
+  countryLabel = "Land (ISO-Code)",
+}: {
+  initial: { strasse: string; plz: string; ort: string; land: string };
+  countryLabel?: string;
+}) {
   const [postalCode, setPostalCode] = useState(initial.plz);
   const [country, setCountry] = useState(initial.land);
   const hintId = useId();
@@ -29,7 +35,7 @@ export function ContactAddressFields({ initial }: { initial: { strasse: string; 
           )}
         </Field>
         <Field label="Ort">{(control) => <input {...control} name="ort" defaultValue={initial.ort} autoComplete="address-level2" />}</Field>
-        <Field label="Land (ISO-Code)" describedBy={describedBy}>
+        <Field label={countryLabel} describedBy={describedBy}>
           {(control) => (
             <input
               {...control}

@@ -53,6 +53,7 @@ export function validateForFormat(doc: InvoiceDocument): string[] {
       buyerPostalCode: buyer.plz,
       foreignPlace: doc.foreignPlace,
       exemptionReason: doc.exemptionReason,
+      correctsInvoice: isCreditNote(doc),
     }),
   );
 
