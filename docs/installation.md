@@ -86,7 +86,7 @@ Hinter PgBouncer braucht Haben `pool_mode = session`, bei anderen Poolern den en
 
 ## Docker Compose
 
-Die Downloadbefehle ermitteln den letzten veröffentlichten Release-Tag und laden alle Vorlagen aus diesem Stand. Dazu gehören die Images mit `latest`; `main` gehört zum Entwicklungsimage `edge`. Für eine feste Version `x.y.z` setzt du für die Vorlagen `TAG=vx.y.z`, bevor du `RAW` bildest. In `compose.override.yml` setzt du die Image-Tags von `app`, `db` und `backup` ebenfalls auf `x.y.z`.
+Die Downloadbefehle laden alle Vorlagen aus dem letzten veröffentlichten Release. Die Standardkonfiguration verwendet den Image-Tag `latest`. Für eine feste Version `x.y.z` setzt du für die Vorlagen `TAG=vx.y.z`, bevor du `RAW` bildest. In `compose.override.yml` setzt du die Image-Tags von `app`, `db` und `backup` ebenfalls auf `x.y.z`.
 
 > [!TIP]
 > Der [Compose-Generator](compose-generator.md) erzeugt im Browser `.env` und bei Bedarf `compose.override.yml` nach dem Stand von `main`. Für eine Installation mit Vorlagen aus dem letzten Release nutze die Befehle unten.
@@ -237,15 +237,14 @@ Port 3000 der App gehört nicht ins Internet: Dort könnte jeder `X-Forwarded-Fo
 
 ### Compose
 
-Neben `compose.yml` eine `compose.override.yml` ablegen ([Abweichungen](#docker-compose)):
-
-`RAW` bleibt die Adresse aus der Installation oben, damit Override und Compose-Datei aus demselben Release stammen.
+Lade die Beispiel-Override-Datei mit dem Release-Tag deiner `compose.yml`.
 
 ```sh
-curl -fLo compose.override.yml "$RAW/compose.override.example.yml"
+TAG=vx.y.z
+curl -fLO "https://raw.githubusercontent.com/firsttris/haben/$TAG/deploy/compose.override.example.yml"
 ```
 
-Darin `DEIN_PROXY_NETZ` durch das Netz deines Proxy-Containers ersetzen. Das zeigt:
+Übernimm die passenden Einträge in `compose.override.yml`. Gibt es noch keine, kannst du die Beispieldatei unter diesem Namen kopieren. Ersetze `DEIN_PROXY_NETZ` durch das Netz deines Proxy-Containers. Das zeigt:
 
 ```sh
 docker inspect DEIN_PROXY_CONTAINER -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}'
