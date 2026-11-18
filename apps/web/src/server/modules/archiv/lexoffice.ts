@@ -595,7 +595,11 @@ export async function reconciliation() {
         taxSetId: customTaxSetId("lexoffice_vouchers"),
         ohneBeleg: WITHOUT_RECEIPT,
         fileState: latestFileStateSql("lexoffice_vouchers"),
-        ohneBelegbild: sql<boolean>`coalesce((lexoffice_vouchers.raw->>'ohneBelegbild')::boolean, false)`,
+        // Alte sevDesk-Exporte setzten dateiFehlt auch ohne XML-Eintrag. In diesem Fall ist fileName ausdrücklich JSON-null.
+        ohneBelegbild: sql<boolean>`coalesce((lexoffice_vouchers.raw->>'ohneBelegbild')::boolean, false)
+          or coalesce(lexoffice_vouchers.source = 'sevdesk-export'
+            and lexoffice_vouchers.raw->'dateiFehlt' = 'true'::jsonb
+            and lexoffice_vouchers.raw->'fileName' = 'null'::jsonb, false)`,
         privat: sql<boolean>`coalesce((lexoffice_vouchers.raw->>'privat')::boolean, false)`,
         bbNeutral: sql<boolean>`coalesce((lexoffice_vouchers.raw->>'neutral')::boolean, false)`,
         accountingTypeUnclear: accountingTypeUnclear("lexoffice_vouchers"),

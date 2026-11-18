@@ -127,6 +127,18 @@ describe.skipIf(!testDatabaseUrl)("sevDesk ohne API: Export-ZIP übernehmen (Pos
     expect(check?.detail).toContain("1 ohne Belegbild im Export, 1 Datei fehlt im Export");
   });
 
+  it("ordnet bereits importierte Belege anhand des gespeicherten XML-Dateinamens ein", async () => {
+    const [imp] =
+      await sql`insert into lexoffice_imports (status, progress, source) values ('fertig', '{"phase":"fertig"}'::jsonb, 'sevdesk-export') returning id`;
+    // Alte Importe haben für beide Belege dateiFehlt gesetzt und den Dateinamen aus document.xml gespeichert.
+    await sql`insert into lexoffice_vouchers (lexoffice_id, import_id, source, type, direction, number, date, status, contact_name, net, tax, gross, taxes, categories, raw)
+      values ('sevdesk-export/alt1', ${imp!.id}, 'sevdesk-export', 'salesinvoice', 'einnahme', 'ALT-1', '2024-01-15', 'unchecked', 'Kunde', 100, 0, 100, '[]', '[]', '{"ohneBelegbild":false,"dateiFehlt":true,"fileName":null}'),
+        ('sevdesk-export/alt2', ${imp!.id}, 'sevdesk-export', 'salesinvoice', 'einnahme', 'ALT-2', '2024-01-15', 'unchecked', 'Kunde', 100, 0, 100, '[]', '[]', '{"ohneBelegbild":false,"dateiFehlt":true,"fileName":"beleg.pdf"}')`;
+    const year = (await lex.reconciliation()).years.find((year) => year.year === 2024);
+    const check = year?.checks.find((check) => check.label === "Belege aus dem sevDesk-Export übernommen");
+    expect(check?.detail).toContain("1 ohne Belegbild im Export, 1 Datei fehlt im Export");
+  });
+
   it("lehnt eine fremde ZIP mit Grund ab und legt nichts an", async () => {
     const fremd = zip({ "Belege.zip": zip({ "a.pdf": strToU8("%PDF-1.4") }), "readme.txt": strToU8("x") });
     await expect(sev.analyseSevdeskExport(fremd, "fremd.zip")).rejects.toThrow(/Buchungsdaten & Belegbilder/);
