@@ -24,7 +24,8 @@ import { PrivatanteilVorgaben, privatanteilFehler, privatanteilTexte, privatante
 import { ArchiveSearchCard } from "../../components/ArchiveSearchCard.tsx";
 import { ArchiveTargetCard } from "../../components/ArchiveTargetCard.tsx";
 import { DatevCard } from "../../components/DatevCard.tsx";
-import { EnableBankingCard } from "../../components/EnableBankingCard.tsx";
+import { EtsyPaymentsCard } from "../../components/EtsyPaymentsCard.tsx";
+import { KontoabrufKarten } from "../../components/FintsCard.tsx";
 import { StoreReportsCard } from "../../components/StoreReportsCard.tsx";
 import { ExchangeRatesCard } from "../../components/ExchangeRatesCard.tsx";
 import { FilePicker } from "../../components/FilePicker.tsx";
@@ -65,6 +66,7 @@ import { emailFehler, useSubmitCheck } from "../../lib/use-submit-check.ts";
 import { getBackupStatus } from "../../server/functions/backup.ts";
 import { getEnableBankingSettings } from "../../server/functions/bank.ts";
 import { getStoreConnections } from "../../server/functions/stores.ts";
+import { getEtsySettings } from "../../server/functions/etsy.ts";
 import { removeCertificate, uploadCertificate } from "../../server/functions/certificate.ts";
 import { RELIGIONEN } from "../../lib/religion.ts";
 import { SETTINGS_AREAS, settingsAreas, type SettingsArea } from "../../lib/settings-areas.ts";
@@ -93,6 +95,12 @@ import { UnitsCard } from "../../components/UnitsCard.tsx";
 import { getUnits } from "../../server/functions/units.ts";
 import { Status } from "../../components/Status.tsx";
 
+/** Anbindungen unter Bank: Kontoabruf über Enable Banking, Finanzberichte der Stores und Etsy Payments */
+async function loadBankConnections() {
+  const [enableBanking, stores, etsy] = await Promise.all([getEnableBankingSettings(), getStoreConnections(), getEtsySettings()]);
+  return { enableBanking, stores, etsy };
+}
+
 export const Route = createFileRoute("/_app/einstellungen")({
   beforeLoad: ({ context, search }) => {
     if (context.oidc.only && search.bereich === "sicherheit") throw redirect({ to: "/einstellungen", search: { bereich: "zugaenge" }, replace: true });
@@ -117,8 +125,7 @@ export const Route = createFileRoute("/_app/einstellungen")({
       backup,
       mcp,
       rates,
-      enableBanking,
-      stores,
+      bankConnections,
       customPages,
       zugaenge,
       extraction,
@@ -143,8 +150,7 @@ export const Route = createFileRoute("/_app/einstellungen")({
       getBackupStatus(),
       getMcpSettings(),
       getExchangeRates(),
-      getEnableBankingSettings(),
-      getStoreConnections(),
+      loadBankConnections(),
       getCustomPages(),
       getZugaenge(),
       getExtractionSettings(),
@@ -172,8 +178,7 @@ export const Route = createFileRoute("/_app/einstellungen")({
       backup,
       mcp,
       rates,
-      enableBanking,
-      stores,
+      ...bankConnections,
       customPages,
       zugaenge,
       extraction,
@@ -210,6 +215,7 @@ function SettingsPage() {
     rates,
     enableBanking,
     stores,
+    etsy,
     customPages,
     zugaenge,
     extraction,
@@ -281,8 +287,9 @@ function SettingsPage() {
           )}
           {bereich === "bank" && (
             <>
-              <EnableBankingCard data={enableBanking} />
+              <KontoabrufKarten data={enableBanking} />
               <StoreReportsCard connections={stores.connections} contacts={stores.contacts} />
+              <EtsyPaymentsCard data={etsy} />
             </>
           )}
           {bereich === "zugaenge" && zugaenge.mode === "sso" && <SsoZugaengeCard accounts={zugaenge.ssoAccounts} providerName={oidc.name} />}
@@ -329,6 +336,14 @@ const dunningErrors = (baseRate: string, fees: Record<"1" | "2" | "3", string>) 
   "dunning-fee-2": dunningFeeError(fees["2"]),
   "dunning-fee-3": dunningFeeError(fees["3"]),
 });
+
+/**
+ * Klartext unter den Feldern Versteuerung und Kontenrahmen; ist das Feld gesperrt, folgt der genaue Grund aus settings-guard.ts.
+ * Quelle: Ist-Versteuerung gestattet das Finanzamt auf Antrag (§ 20 UStG, docs/einrichtung.md: Versteuerung).
+ */
+const VERSTEUERUNG_HINT = "Ist: Die Umsatzsteuer zählt, wenn der Kunde zahlt. Soll: schon mit der Rechnung. Ist gestattet das Finanzamt auf Antrag.";
+const KONTENRAHMEN_HINT =
+  "Legt fest, auf welche Kontonummern Haben bucht (SKR03 oder SKR04). Nimm denselben wie bisher in Lexoffice oder bei deiner Steuerberatung.";
 
 function CompanyForm() {
   const { company, issues, letterIssues, locks } = Route.useLoaderData();
@@ -568,7 +583,7 @@ function CompanyForm() {
           </div>
         )}
         <div className="form-row cols-2">
-          <Field label="Versteuerung" hint={locks.versteuerung}>
+          <Field label="Versteuerung" hint={locks.versteuerung ? `${VERSTEUERUNG_HINT} ${locks.versteuerung}` : VERSTEUERUNG_HINT}>
             {(control) => (
               <>
                 {locks.versteuerung && <input type="hidden" name="versteuerung" value={company.versteuerung} />}
@@ -584,7 +599,7 @@ function CompanyForm() {
               </>
             )}
           </Field>
-          <Field label="Kontenrahmen (wie in Lexoffice)" hint={locks.kontenrahmen}>
+          <Field label="Kontenrahmen" hint={locks.kontenrahmen ? `${KONTENRAHMEN_HINT} ${locks.kontenrahmen}` : KONTENRAHMEN_HINT}>
             {(control) => (
               <>
                 {/* Gesperrte Felder werden nicht mitgeschickt; der Wert kommt dann aus dem versteckten Feld */}
