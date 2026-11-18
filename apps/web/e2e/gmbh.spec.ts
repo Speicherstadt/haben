@@ -1,3 +1,4 @@
+import { waehleKategorie } from "./kategorie.ts";
 import { filePickerPruefen } from "./dateiauswahl.ts";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
@@ -53,6 +54,14 @@ test("Einrichtung als GmbH mit SKR04", async () => {
   await page.getByRole("button", { name: "Konto anlegen" }).click();
   await page.getByRole("button", { name: "Später" }).click();
   await fragenUeberspringen(page);
+
+  // Noch ohne Firmendaten: der Hinweis vor dem Festschreiben steht einmal da, mit einem Link direkt in die Firmendaten (#1254)
+  await go("/rechnungen/neu");
+  const vorFestschreiben = page.locator(".banner", { hasText: "Vor dem Festschreiben" });
+  await expect(vorFestschreiben).toContainText("Firmendaten: Firmenname fehlt");
+  expect((await vorFestschreiben.textContent())?.match(/Vor dem Festschreiben/g)).toHaveLength(1);
+  await expect(vorFestschreiben.getByRole("link", { name: "Firmendaten ergänzen" })).toHaveAttribute("href", "/einstellungen?bereich=firma");
+  await go("/einstellungen");
 
   const firma = page.getByRole("form", { name: "Firmendaten" });
   await firma.getByLabel("Name", { exact: true }).fill("Nordlicht Software GmbH");
@@ -318,6 +327,7 @@ test("Ausschüttungen: Steuerabzug berechnen, ohne Gewinnvortrag nicht buchbar",
   await page.waitForURL("**/ausschuettungen");
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("heading", { name: `Ausschüttungen ${year}` })).toBeVisible();
+  await expect(page.getByText(`Noch keine Ausschüttung, die in ${year} bei den Gesellschaftern ankommt`)).toBeVisible();
 
   const form = page.getByRole("form", { name: "Neue Ausschüttung" });
   // Beim Tippen meldet das Datumsfeld schon Zwischenstände wie 0002-01-02; das Geschäftsjahr folgt dem fertigen Datum
@@ -513,7 +523,7 @@ test("Beleg stornieren und neu erfassen: Gegenbuchung, Hinweis am Beleg, Entwurf
   await page.getByLabel("Lieferant", { exact: true }).fill("Codewerk Lizenzen GmbH");
   await page.getByLabel("Rechnungsnummer").fill("L-4711");
   await page.getByLabel("Belegdatum").fill(currentDay());
-  await page.getByLabel("Kategorie").selectOption("software");
+  await waehleKategorie(page.getByLabel("Kategorie"), "software");
   // Wie im Anlass (#237): der Bruttobetrag im Feld „Netto“
   await page.getByLabel("Netto", { exact: true }).fill("119,00");
   await page.getByRole("button", { name: "Bestätigen und buchen" }).click();
@@ -658,6 +668,7 @@ test("Lohn: Gesellschafter-Geschäftsführer anlegen, im laufenden Monat abrechn
   await go(lohnSeite);
   const nav = page.getByRole("navigation", { name: "Hauptnavigation" });
   await expect(nav.getByRole("group", { name: "Personal" }).getByRole("link", { name: "Lohn" })).toBeVisible();
+  await expect(page.getByText(/Noch keine Mitarbeiter\. Den ersten legst du mit „Mitarbeiter anlegen“ an/)).toBeVisible();
   expect(await axe(), "/lohn ohne Mitarbeiter").toEqual([]);
   await page.getByRole("link", { name: "Mitarbeiter anlegen" }).click();
   await page.waitForURL("**/lohn/mitarbeiter/neu");

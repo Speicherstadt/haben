@@ -18,7 +18,10 @@ type Detected =
   | { format: "camt053"; text: string }
   | {
       // accountable-xlsx steht nicht in der Liste: diese Umsaetze kommen mit dem Export, nie als Datei
-      format: Exclude<StatementFormat, "camt053" | "enablebanking" | "googleplay-earnings" | "appstore-finance" | "store-payout" | "accountable-xlsx">;
+      format: Exclude<
+        StatementFormat,
+        "camt053" | "enablebanking" | "fints" | "googleplay-earnings" | "appstore-finance" | "store-payout" | "accountable-xlsx" | "csv-zuordnung"
+      >;
       rows: string[][];
       headerRow: number;
     };
@@ -111,6 +114,9 @@ export function parseStatement(bytes: Uint8Array, filename?: string): ParsedStat
       return parseEbay(detected.rows, detected.headerRow);
     case "etsy-csv":
       return parseEtsy(detected.rows, detected.headerRow);
+    // Der Zahlungsverlauf von Etsy Payments kommt über die API (etsy-ledger.ts), nicht als Datei
+    case "etsy-ledger":
+      throw new StatementParseError("Der Etsy-Zahlungsverlauf kommt über die API, nicht als Datei.");
   }
 }
 

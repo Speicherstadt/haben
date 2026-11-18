@@ -1,3 +1,4 @@
+import { bookingsCheckDetail, datevBookingCounts, type DatevBookingCounts } from "./datev-abgleich.ts";
 import { SEVDESK_EXPORT_IST_CHECK, sevdeskExportIstIssue, sevdeskExportYear, voucherSourceChecks, withoutExportImage } from "./sevdesk-export-abgleich.ts";
 import { unclearFrom } from "../auswertungen/index.ts";
 import { accountingTypeChecks, ACCOUNTING_TYPE_VAT_ISSUE, unclearAccountingTypes } from "./sevdesk-kontoart.ts";
@@ -14,7 +15,7 @@ import { legacyTaxSetFields, vatFieldsOf } from "./sevdesk-steuerarten.ts";
 import { fileCheck, fileCounts, legacyFileStatus, OPEN_FILE_STATUSES } from "./dateistand.ts";
 import { latestImportFor } from "./umzug-lauf.ts";
 import { legacyPayments, neutralKindOf } from "./umzug-umsatzsteuer.ts";
-import { reconciliationVoucherRows, reconciliationBookingRows, reconciliationDatevRows, reconciliationSourceFiles } from "./umzug-abgleich-daten.ts";
+import { reconciliationVoucherRows, reconciliationDatevRows, reconciliationSourceFiles } from "./umzug-abgleich-daten.ts";
 
 /** Belege nur als Archiv: Summen und Steuer kommen aus ihrem DATEV-Buchungsstapel. */
 const ARCHIVE_ONLY_SOURCES = new Set<LegacySource>(["buchhaltungsbutler", "sevdesk-export"]);
@@ -53,7 +54,7 @@ async function reconciliationData() {
   const vatIssueOf = (year: number) =>
     [paymentIssueOf(year), unclearAccountsIn(year) ? ACCOUNTING_TYPE_VAT_ISSUE : null, exportIstIssueOf(year)].filter(Boolean).join(" ") || null;
 
-  const bookingRows = await reconciliationBookingRows(company.kontenrahmen);
+  const bookingRows = await datevBookingCounts(company.kontenrahmen);
   const files = await db.select({ kind: schema.archiveFiles.kind, year: schema.archiveFiles.year }).from(schema.archiveFiles);
   // Protokolle der aus sevDesk übernommenen Voranmeldungen zählen wie abgelegte ELSTER-Protokolle (#472)
   const vatProtocols = await db
@@ -73,7 +74,7 @@ async function reconciliationData() {
   const fastbillPartlyCanceled = await fastbillPartlyCanceledByYear();
   const years = new Set<number>(fastbillWaiting.keys());
   for (const v of voucherRows) years.add(Number(v.date.slice(0, 4)));
-  for (const b of bookingRows) years.add(Number(b.year));
+  for (const year of bookingRows.keys()) years.add(year);
   for (const f of files) if (f.year) years.add(f.year);
   // Jahre mit aus sevDesk übernommenen Voranmeldungen, auch ohne Belege und ohne Protokoll (#472)
   for (const r of await db.selectDistinct({ year: schema.legacyVatReports.year }).from(schema.legacyVatReports)) years.add(r.year);
@@ -112,7 +113,7 @@ function reconciliationChecks(
     yearRows: ReconciliationData["classified"];
     vouchers: ReconciliationData["businessRows"];
     withoutReceipt: number;
-    bookings: ReconciliationData["bookingRows"][number] | undefined;
+    bookings: DatevBookingCounts | undefined;
     fileStatuses: ReturnType<typeof legacyFileStatus>[];
     sevdeskExport: ReturnType<typeof sevdeskExportYear>;
   },
@@ -139,16 +140,10 @@ function reconciliationChecks(
     },
     {
       ok: Boolean(bookings) && bookings!.unmatched === 0,
-      // Buchungen ohne Belegnummer (Umbuchungen, Privates) brauchen nicht immer einen Beleg; sie stehen nur im Hinweis
+      // Buchungen ohne Belegnummer (Umbuchungen, Privates) brauchen nicht immer einen Beleg; sie stehen nur im Hinweis.
+      // Ein Belegfeld ohne Ziffer ist keine Nummer, sondern etwa der Name eines Zahlungsdienstleisters (#1355).
       label: "Jede Buchung mit Belegnummer findet ihren Beleg",
-      detail: bookings
-        ? [
-            bookings.unmatched === 0 ? "alle gefunden" : `${bookings.unmatched} ohne passenden Beleg`,
-            bookings.without_number > 0 ? `${bookings.without_number} ohne Belegnummer` : "",
-          ]
-            .filter(Boolean)
-            .join(", ")
-        : "–",
+      detail: bookings ? bookingsCheckDetail(bookings) : "–",
     },
     ...(nurAccountable ? [] : [{ ok: kinds("idea") > 0, label: "IDEA-Export archiviert", detail: kinds("idea") > 0 ? "liegt vor" : "fehlt" }]),
     {
@@ -184,7 +179,7 @@ function reconciliationVat(year: number, data: ReconciliationData, vatIssue: str
             payments: legacyPayments(v),
             taxType: v.taxType,
             taxSubType: v.taxSubType,
-            vatFields: vatFieldsOf(v.taxSetId, taxSets),
+            vatFields: vatFieldsOf(v.taxSetId, taxSets, v.taxType),
           })),
         versteuerung,
       ).filter((m) => m.month.startsWith(`${year}-`));
@@ -242,7 +237,7 @@ function reconciliationYear(year: number, data: ReconciliationData) {
   const withoutFile = fileStatuses.filter((f) => OPEN_FILE_STATUSES.has(f) && f !== "anhang_fehlt").length;
   const sevdeskExport = sevdeskExportYear(yearRows);
   const unchecked = vouchers.filter((v) => v.status === "unchecked").length;
-  const bookings = bookingRows.find((b) => Number(b.year) === year);
+  const bookings = bookingRows.get(year);
   const vatIssue = vatIssueOf(year);
   const vat = reconciliationVat(year, data, vatIssue);
   // Einnahmen je Steuerart, damit Sonderfälle (EU, Drittland, § 13b) beim Vergleich auffallen
@@ -270,7 +265,7 @@ function reconciliationYear(year: number, data: ReconciliationData) {
     withoutFile,
     files: fileCounts(fileStatuses),
     unchecked,
-    bookings: bookings ? { total: bookings.total, unmatched: bookings.unmatched, withoutNumber: bookings.without_number } : null,
+    bookings: bookings ? { total: bookings.total, unmatched: bookings.unmatched, withoutNumber: bookings.withoutNumber } : null,
     vat,
     vatIssue,
     taxTypes: [...taxTypes].map(([taxType, count]) => ({ taxType, count })).sort((a, b) => b.count - a.count),

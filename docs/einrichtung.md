@@ -34,7 +34,7 @@ Die folgenden Schritte gelten für den Standardmodus mit lokaler Anmeldung. Läu
 
 Beim ersten Aufruf leitet Haben auf `/setup` weiter. Das erste Konto ist der **Inhaber** mit allen Rechten: Du gibst den Einrichtungscode, Name, E-Mail und ein Passwort mit mindestens 12 Zeichen ein und klickst „Konto anlegen“.
 
-Den Einrichtungscode schreibt Haben beim Start ins Log, solange es noch kein Konto gibt, etwa `Einrichtungscode für https://haben.example.de/setup: K7QM-3XRP-W9TD`. Du findest ihn mit `docker compose logs app` bzw. `journalctl --user -u haben-app`. Er sorgt dafür, dass niemand anderes eine frisch gestartete Instanz zuerst erreicht und das Konto anlegt. Nach jedem Neustart gibt es einen neuen Code; einen festen setzt du mit `HABEN_SETUP_CODE`. Sobald es ein Konto gibt, lehnt Haben jede weitere Registrierung ab („Haben ist bereits eingerichtet. Weitere Zugänge gibt es nur per Einladung.“), und `/setup` leitet auf die Anmeldung um. Der Einrichtungscode gilt nur für dieses erste Konto.
+Den Einrichtungscode schreibt Haben beim Start ins Log, solange es noch kein Konto gibt, etwa `Einrichtungscode für https://haben.example.de/setup: K7QM-3XRP-W9TD`. Du findest ihn mit `docker compose logs app` bzw. `journalctl --user -u haben-app`. Hast du Haben nicht selbst installiert, fragst du die Person, die es getan hat. Der Einrichtungscode sorgt dafür, dass niemand anderes eine frisch gestartete Instanz zuerst erreicht und das Konto anlegt. Nach jedem Neustart gibt es einen neuen Code; einen festen setzt du mit `HABEN_SETUP_CODE`. Sobald es ein Konto gibt, lehnt Haben jede weitere Registrierung ab („Haben ist bereits eingerichtet. Weitere Zugänge gibt es nur per Einladung.“), und `/setup` leitet auf die Anmeldung um. Der Einrichtungscode gilt nur für dieses erste Konto.
 
 Direkt danach bietet Haben an, einen Passkey hinzuzufügen. Damit meldest du dich künftig ohne Passwort an, etwa mit Fingerabdruck, Gesichtserkennung oder einem Sicherheitsschlüssel. Das Passwort bleibt als Rückfallebene. Du kannst den Schritt mit „Später“ überspringen. Danach folgen die [Fragen zur Einrichtung](#fragen-zur-einrichtung).
 
@@ -142,7 +142,7 @@ Das Zeichen gilt für alle Zugänge der Instanz, auch für die [Steuerberatung](
 
 Unter **Einstellungen › Beleggestaltung › Logo und Blatt** oder über das Zahnrad in der [Vorschau](rechnungen.md#vorschau) lädst du dein Logo hoch, als PNG (gern mit transparentem Hintergrund) oder JPEG bis 1 MB.
 
-- Es steht oben im Briefkopf von Rechnungen, Angeboten und Mahnungen, ohne Verzerrung; Größe und Seite stellst du unter [Logo und Blatt](#logo-und-blatt) ein. Es wird sofort gespeichert; **Entfernen** fragt vorher nach.
+- Es steht oben im Briefkopf von Rechnungen, Angeboten und Mahnungen, ohne Verzerrung; Größe und Stelle legst du unter [Logo und Blatt](#logo-und-blatt) fest. Es wird sofort gespeichert; **Entfernen** fragt vorher nach.
 - Die Vorschau bei Rechnung, Angebot und Mahnung zeigt es ebenfalls.
 - Es gilt für alles, was ab dann festgeschrieben wird; schon festgeschriebene PDFs bleiben unverändert.
 - Im Änderungsprotokoll steht, wann sich das Logo geändert hat, mit SHA-256, aber ohne die Bilddaten.
@@ -166,7 +166,7 @@ Unter **Einstellungen › Beleggestaltung › Logo und Blatt** oder über das Za
 | --- | --- |
 | Schrift | IBM Plex Sans (ab Werk), IBM Plex Serif, Source Sans 3, Figtree, Fira Sans, Inter, Libre Franklin, Literata, Lora oder Nunito Sans; im PDF eingebettet, wie PDF/A es verlangt |
 | Logo S, M, L | Höchstens 12 × 40 mm, 18 × 60 mm (ab Werk) oder 24 × 80 mm; auch L endet über dem Anschriftfeld |
-| Logo links, rechts | Seite im Briefkopf |
+| Logo links, Mitte, rechts | Stelle im Briefkopf; „Mitte“ steht mittig auf dem Blatt. Ein eigenes Layout, das nur `look.logoLeft` kennt, setzt es bei „Mitte“ rechts |
 | Falz- und Lochmarken | Striche am linken Rand für den Fensterumschlag nach DIN 5008 |
 | GiroCode | QR-Code für die Überweisung, auf Rechnung und Mahnung |
 | Kundennummer | Nur auf dem Blatt; das XML der E-Rechnung nennt sie weiter |
@@ -287,7 +287,7 @@ Nutzt du die Kleinunternehmerregelung nach § 19 UStG, setzt du unter **Einstell
 
 | Bereich | Wirkung |
 | --- | --- |
-| Rechnungen | Vorgabe ist „Kleinunternehmer nach § 19 UStG“ mit 0 % und dem entsprechenden Hinweis. Eigene Steuerbefreiungen nach § 4 Nr. 14 Buchst. a oder Nr. 21 und bestätigte Auslandsleistungen lassen sich gesondert zuordnen; eine regulär besteuerte Rechnung lässt sich nicht festschreiben. Dieselbe Auswahl gilt für Angebote und wiederkehrende Rechnungen. Siehe [Rechnungen](rechnungen.md#umsatzsteuer-auf-der-rechnung). |
+| Rechnungen | Vorgabe ist „Kleinunternehmer: ohne Umsatzsteuer“ mit 0 % und dem entsprechenden Hinweis. Eigene Steuerbefreiungen nach § 4 Nr. 14 Buchst. a oder Nr. 21 und bestätigte Auslandsleistungen lassen sich gesondert zuordnen; eine regulär besteuerte Rechnung lässt sich nicht festschreiben. Dieselbe Auswahl gilt für Angebote und wiederkehrende Rechnungen. Siehe [Rechnungen](rechnungen.md#umsatzsteuer-auf-der-rechnung). |
 | Belege | Gebucht ohne Vorsteuerabzug: der Bruttobetrag geht auf das Aufwandskonto. Siehe [Belege](belege.md#ohne-vorsteuerabzug). |
 | Voranmeldung | Die Seite weist darauf hin, dass du in der Regel keine Voranmeldung abgibst. Nötig ist sie nur, wenn du selbst Steuer schuldest, etwa für Leistungen ausländischer Unternehmer an dich (Reverse Charge). |
 | Übersicht | Die Aufgaben „Voranmeldung senden“, zum ELSTER-Zertifikat und zu den Firmendaten für ELSTER entfallen. |
@@ -373,6 +373,8 @@ Beim ersten Start nach dem Update prüft Haben diese Jahre wie der [Abgleich im 
 - Rechnung und Vorgang gegen ihre Buchung.
 - Übermittelte Umsatzsteuererklärung und Anlage EÜR: jede übermittelte Zahl gegen die Rechnung aus dem Journal, außer Vorauszahlungen und Abschlusszahlung der Umsatzsteuer (sie kommen aus den gesendeten Voranmeldungen). Bei einer [vermerkten](jahreserklaerung.md#abgabe-außerhalb-von-haben-vermerken) Erklärung der beim Vermerk gerechnete Gewinn bzw. die Steuer, bei neueren Vermerken jede damals gerechnete Zahl.
 
+Belege mit § 13b oder innergemeinschaftlichem Erwerb, die vor Version 0.7.0 gebucht wurden, tragen im Journal die Steuer ohne Vorsteuerabzug in derselben Aufwandszeile wie das Netto bzw. das private Netto ohne Steuerschlüssel auf den Entnahmen. Für Kz 46, 84, 89 und 93 und die Verprobung rechnet Haben bei Buchungen, die vor dem Update angelegt wurden, und ihren Stornos die Bemessungsgrundlage so, wie eine heutige Buchung sie trüge; die gebuchten Zeilen bleiben unverändert ([#1396](https://github.com/firsttris/haben/issues/1396)). Nur Erwerb zu 19 % und 7 % auf einem Beleg mit Privatanteil bleibt, wie gebucht.
+
 Offene Zeiträume und nicht abgegebene Jahreserklärungen rechnen ohne Vergleich aus dem Journal. Stimmt alles, ändert sich nichts, was beim Finanzamt ist, und die Prüfung läuft nie wieder. Das Ergebnis steht im Änderungsprotokoll.
 
 **Bei einer Abweichung startet Haben nicht.** Im Log stehen Jahr, Zeitraum und Befund mit beiden Beträgen. Buchungen, Anmeldungen und Firmendaten bleiben unverändert, die bisherige Version läuft auf derselben Datenbank weiter. Meist fehlen älteren Buchungen Steuerschlüssel oder Bemessungsgrundlage. Dann gibt es zwei Wege:
@@ -398,11 +400,13 @@ Unter **Einstellungen › Rechnungen › Nummernformat** legst du fest, wie Rech
 | `{JJ}` | dasselbe zweistellig, z. B. `26` |
 | `{MM}` | Monat des Rechnungs- bzw. Angebotsdatums zweistellig, z. B. `10` |
 | `{N}` bis `{NNNNNN}` | laufende Nummer mit mindestens so vielen Stellen, vorne mit Nullen aufgefüllt; mehr Stellen werden nie abgeschnitten |
+| `{KUNDENNR}` | Kundennummer des Kunden, z. B. `K-0001`; nie direkt neben der laufenden Nummer |
 
-Beispiele: `RE-{JJJJ}-{NNNN}` ergibt `RE-2026-0034`, `R{JJ}{NNN}` ergibt `R26034`, `RE-{JJJJ}-{MM}-{NNNN}` ergibt `RE-2026-10-0034`.
+Beispiele: `RE-{JJJJ}-{NNNN}` ergibt `RE-2026-0034`, `R{JJ}{NNN}` ergibt `R26034`, `RE-{JJJJ}-{MM}-{NNNN}` ergibt `RE-2026-10-0034`, `RE-{KUNDENNR}-{NNN}` ergibt `RE-K-0001-034`.
 
 - Jahr und Monat kommen aus dem Rechnungs- bzw. Angebotsdatum, nicht aus dem Tag des Festschreibens: Eine Rechnung vom 31. Oktober, die du am 2. November festschreibst, heißt `RE-2026-10-…`. Die Überschrift im Editor zeigt die voraussichtliche Nummer schon so.
 - Die laufende Nummer muss genau einmal vorkommen. Beginnt der Zähler jedes Jahr neu, gehört auch das Jahr dazu, erst damit bleibt jede Nummer eindeutig (§ 14 Abs. 4 Nr. 4 UStG); der Monat allein reicht nicht.
+- Mit `{KUNDENNR}` braucht der Kunde eine Kundennummer aus Buchstaben, Ziffern, Bindestrich, Unterstrich und Punkt; fehlt sie oder enthält sie andere Zeichen, schreibt Haben den Beleg nicht fest und sagt es. Storno und Rechnungskorrektur tragen die Kundennummer der ursprünglichen Rechnung; ist dort keine verwendbare eingefroren, gilt die heutige des Kontakts. Der Zähler bleibt für alle Kunden gemeinsam. Die fertige Nummer darf höchstens 36 Zeichen lang werden, weil DATEV im Belegfeld 1 nur 36 Zeichen übernimmt — eine zu lange Kundennummer hält das Festschreiben auf.
 - Außerhalb der Platzhalter gehen Buchstaben, Ziffern, Bindestrich, Unterstrich und Punkt, insgesamt höchstens 30 Zeichen. Leerzeichen und Schrägstrich gehen nicht, weil die Nummer auch im Dateinamen und im Verwendungszweck steht.
 - Unter dem Feld steht ein Beispiel oder, was am Format nicht passt.
 
@@ -444,7 +448,7 @@ Unter **Einstellungen › Rechnungen › Standardanhänge für Angebote** hinter
 
 Unter **Einstellungen › Rechnungen › Kundennummern** legst du ein Format fest, mit dem Haben beim Anlegen eines Kunden ohne eigene Nummer die nächste Kundennummer vergibt (reine Lieferanten bekommen keine), etwa `K-{NNNN}` → `K-0001`.
 
-- Platzhalter wie beim [Nummernformat](#nummernformat); das Jahr ist hier nicht nötig.
+- Platzhalter wie beim [Nummernformat](#nummernformat); das Jahr ist hier nicht nötig, `{KUNDENNR}` gibt es nicht.
 - **Nächste laufende Nummer** setzt den Zähler (mindestens 1). Nummern, die ein Kontakt schon trägt (von Hand oder aus einem Import), überspringt Haben; lückenlos müssen Kundennummern nicht sein.
 - Bleibt das Format leer, trägst du Kundennummern von Hand ein.
 - Das gilt auch für Kontakte, die über die [REST-API](api.md) angelegt werden.
@@ -517,7 +521,7 @@ Der Beleg geht dann an OpenRouter und an den Anbieter des Modells. Wie lange sie
 
 ## Bankkonten
 
-Bankkonten musst du meist nicht von Hand anlegen. Mit dem automatischen Abruf über Enable Banking legt Haben die freigegebenen Konten beim Verbinden an (Einrichtung in [Anbindungen](installation-anbindungen.md#kontoabruf-enable-banking), Ablauf in [Bank](bank.md#automatischer-abruf)). Beim ersten Import eines DKB-CSV oder CAMT.053-Auszugs legt Haben das Konto über die IBAN aus der Datei an. N26-CSV-Dateien enthalten keine eigene IBAN. Dafür legst du das Konto vorher an:
+Bankkonten musst du meist nicht von Hand anlegen. Mit dem automatischen Abruf über Enable Banking oder FinTS legt Haben die freigegebenen Konten beim Verbinden an (Einrichtung in [Anbindungen](installation-anbindungen.md#kontoabruf-enable-banking) und [Kontoabruf über FinTS](installation-anbindungen.md#kontoabruf-über-fints), Ablauf in [Bank](bank.md#automatischer-abruf)). Beim ersten Import eines DKB-CSV oder CAMT.053-Auszugs legt Haben das Konto über die IBAN aus der Datei an. N26-CSV-Dateien enthalten keine eigene IBAN. Dafür legst du das Konto vorher an:
 
 1. Auf der Seite **Bank** „Konto hinzufügen“ wählen.
 2. Name (z. B. „N26 Business“) und IBAN eintragen und „Konto anlegen“.

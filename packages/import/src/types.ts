@@ -12,8 +12,12 @@ export type StatementFormat =
   | "ing-csv"
   /** Umsätze eines Kontos oder einer Pocket bei C24 (Komma-CSV ohne IBAN und Kontostand) */
   | "c24-csv"
+  /** Unbekannte Bank-CSV, Spalten von Hand zugeordnet (#1275) */
+  | "csv-zuordnung"
   | "camt053"
   | "enablebanking"
+  /** Abruf über FinTS (HKKAZ mit MT940 oder HKCAZ mit CAMT.052), #654 */
+  | "fints"
   /** Kontobewegungen aus dem Accountable-Export (Daten.xlsx, Sheet „Kontobewegungen“) */
   | "accountable-xlsx"
   | "paypal-csv"
@@ -21,6 +25,8 @@ export type StatementFormat =
   | "shopify-payments-csv"
   | "ebay-csv"
   | "etsy-csv"
+  /** Zahlungsverlauf von Etsy Payments über die Open API v3 (kein Dateiimport) */
+  | "etsy-ledger"
   | "googleplay-earnings"
   | "appstore-finance"
   | "store-payout";
@@ -32,6 +38,7 @@ export const PSP_FORMATS: StatementFormat[] = [
   "shopify-payments-csv",
   "ebay-csv",
   "etsy-csv",
+  "etsy-ledger",
   "googleplay-earnings",
   "appstore-finance",
   "store-payout",

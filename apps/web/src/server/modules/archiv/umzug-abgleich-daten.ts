@@ -1,9 +1,7 @@
 import { accountingTypeUnclear, taxTypeOf } from "../auswertungen/index.ts";
-import { datevBookingFound, datevInternalId, datevWithoutReceipt } from "./datev-belegnummer.ts";
 import { effectivePayment } from "../auswertungen/index.ts";
 import { effectiveAmount, effectiveDirection, effectiveTaxes, effectiveType } from "../auswertungen/index.ts";
 import { eq, sql } from "drizzle-orm";
-import type { loadCompany } from "../stammdaten/index.ts";
 import { ohneJit } from "../../db/ohne-jit.ts";
 import { sevdeskPositionAccounts } from "./sevdesk-kategorie.ts";
 import { db, schema } from "../../db/index.ts";
@@ -47,16 +45,6 @@ export async function reconciliationVoucherRows() {
       })
       .from(schema.lexofficeVouchers),
   );
-}
-
-export async function reconciliationBookingRows(kontenrahmen: Awaited<ReturnType<typeof loadCompany>>["kontenrahmen"]) {
-  return db.execute<{ year: number; total: number; unmatched: number; without_number: number }>(sql`
-    select extract(year from b.date)::int as year, count(*)::int as total,
-      count(*) filter (where b.voucher_field1 <> '' and not ${datevInternalId("b.voucher_field1")}
-        and not ${datevBookingFound({ number: "b.voucher_field1", link: "b.document_link", file: "b.file_id", date: "b.date" })}
-        and not ${datevWithoutReceipt(kontenrahmen, "b.contra_account", "b.file_id")})::int as unmatched,
-      count(*) filter (where b.voucher_field1 = '' or ${datevInternalId("b.voucher_field1")})::int as without_number
-    from datev_bookings b group by 1`);
 }
 
 export async function reconciliationDatevRows() {
