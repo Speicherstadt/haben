@@ -308,8 +308,12 @@ function buildGroupVoucher(key: string, group: WisoCsvRow[], skr: Kontenrahmen):
 export function previewWisoExport(bytes: Uint8Array, skr: Kontenrahmen): WisoPreview {
   const { rows, unreadableBookingDates } = parseWisoCsv(bytes);
   const groups = new Map<string, WisoCsvRow[]>();
+  let debitTotal: Cents = 0;
+  let creditTotal: Cents = 0;
 
   for (const row of rows) {
+    debitTotal += row.soll;
+    creditTotal += row.haben;
     const year = row.zahlungsdatum.slice(0, 4);
     const key = row.buchungsnummer ? `${year}/${row.buchungsnummer}` : `${year}/row-${row.rowNumber}`;
     const existing = groups.get(key);
@@ -340,6 +344,8 @@ export function previewWisoExport(bytes: Uint8Array, skr: Kontenrahmen): WisoPre
     dateTo: dates[dates.length - 1]!,
     bookings: vouchers.length,
     rows: rows.length,
+    debitTotal,
+    creditTotal,
     vouchers,
     warnings,
   };

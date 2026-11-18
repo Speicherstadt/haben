@@ -24,6 +24,8 @@ Für ein Einzelunternehmen mit EÜR bietet sich der Wechsel zum **1. Januar** an
 
 Der CSV-Export der Buchungen (`Daten Export › Buchungen als CSV-Datei`) hat in WISO Steuer (Modul EÜR) dieselben 18 Spalten wie in WISO EÜR & Kasse und nutzt denselben Import. Für die übrigen Exporte von WISO Steuer sind gleiche Formate nicht bestätigt.
 
+Der Testlauf zeigt die Summen der CSV-Spalten **Soll** und **Haben**. Sie enthalten Teilbuchungen, neutrale Zeilen wie Saldovorträge und negative Zeilen mit ihrem Vorzeichen.
+
 Die Buchungs-CSV enthält kein Rechnungs- oder Leistungsdatum. Das Archivdatum bleibt das Zahlungsdatum; Buchungs- und Wertstellungsdatum bleiben in den Quelldaten erhalten. Leistungsangaben bleiben unbekannt, auch bei bereits archivierten WISO-Buchungen. Ihre gespeicherten Daten und die Original-CSV bleiben unverändert.
 
 ## 1. Das letzte WISO-Jahr abschließen und sichern

@@ -1,3 +1,4 @@
+import { formatEuro } from "@haben/core";
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState, type FormEvent } from "react";
@@ -122,6 +123,12 @@ function WisoPreviewFacts({ preview, busy, onStart }: { preview: Preview; busy: 
         <div>
           <span className="muted">Zeilen</span>
           <strong>{preview.rows}</strong>
+        </div>
+        <div>
+          <span className="muted">Soll laut CSV</span> <strong>{formatEuro(preview.debitTotal)}</strong>
+        </div>
+        <div>
+          <span className="muted">Haben laut CSV</span> <strong>{formatEuro(preview.creditTotal)}</strong>
         </div>
       </div>
       {preview.warnings.length > 0 && (
