@@ -58,6 +58,7 @@ Den Rundgang in Bildern gibt die [Startseite](index.md), den schnellen
 | | |
 |---|---|
 | [Umsatzsteuer-Voranmeldung](umsatzsteuer.md) | Kennzahlen aus den Buchungen, Vorprüfung, Prüfen, Test- und Echtübermittlung, XML-Import in Mein ELSTER, Berichtigung, Zahlung an das Finanzamt, Dauerfristverlängerung, Zusammenfassende Meldung |
+| [Umsatzsteuerliche Sondergebiete](umsatzsteuer-sondergebiete.md) | Anschriftenhinweise, tatsächlicher Leistungsort und Grenzen der PLZ-Erkennung |
 | [Jahreserklärungen](jahreserklaerung.md) | Umsatzsteuererklärung, Anlage EÜR mit AVEÜR und Einkommensteuererklärung, für GmbH und UG Körperschaft- und Gewerbesteuererklärung, Prüfen, Test- und Echtübermittlung, Belege von ELSTER |
 | [Auswertungen und Jahresexport](auswertungen.md) | EÜR, offene Posten, Monatsverlauf, CSV, Archiv-ZIP mit Prüfsummen, Aufbewahrung |
 | [Fristen](fristen.md) | Voranmeldungen, Abgabefristen, Vorauszahlungen, Einspruchsfristen; Kalender-Abo und Erinnerungen per E-Mail |

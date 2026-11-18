@@ -22,7 +22,7 @@ export function vatTerritory(country: string | null | undefined, postalCode: str
     if (postcode.startsWith("51")) return "Ceuta";
     if (postcode.startsWith("52")) return "Melilla";
   }
-  // Poste Italiane, September 2026, S. 29–30; keine Ausweitung auf benachbarte Gemeinden oder Seegewässer.
+  // Poste Italiane, CAP-Liste, S. 29–30; keine Ausweitung auf benachbarte Gemeinden oder Seegewässer.
   // https://business.poste.it/business/files/1476493455505/copertura-cap-servizi-rendicontazione.pdf
   if (code === "IT" && postcode === "23041") return "Livigno / Trepalle";
   if (code === "IT" && postcode === "22061") return "Campione d’Italia";
