@@ -133,19 +133,7 @@ function ManualEntryForm({ data }: { data: Awaited<ReturnType<typeof getManualEn
   return (
     <>
       <form ref={form} className="card stack" onSubmit={onSubmit} aria-label="Manuelle Buchung" noValidate>
-        {!gmbh && (
-          <p className="muted small" style={{ margin: 0 }}>
-            <strong>Der Bank-Anfangsbestand braucht keine Buchung.</strong> Den Kontostand aus dem Kontoauszug findest du unter <Link to="/bank">Bank</Link>.
-          </p>
-        )}
-        <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
-          Soll an Haben auf frei gewählten Konten ({data.kontenrahmen}),{" "}
-          {gmbh ? "etwa das Stammkapital, ein Gesellschafterdarlehen oder eine falsche Kontierung" : "etwa eine Ausgabe ohne Beleg gegen Privat"}. Bank, Kasse,
-          offene Posten, Umsatzsteuer, Erlöse aus Rechnungen und Anlagen führen ihre eigenen Seiten und lassen sich hier nicht bebuchen.
-          {mitSchluesseln &&
-            ` Mit Steuerschlüssel bucht eine Zeile auf das Erlöskonto des Satzes, etwa eine Leistung für private Zwecke gegen ${gmbh ? "das Gesellschafter-Verrechnungskonto" : "Privat"}, oder als Sachentnahme auf ${SACHENTNAHME_KONTEN[data.kontenrahmen][1900]} (19 %) bzw. ${SACHENTNAHME_KONTEN[data.kontenrahmen][700]} (7 %), wenn Waren oder Gegenstände des Betriebs privat entnommen werden; der Betrag ist brutto, Haben teilt ihn in Netto und Umsatzsteuer. Vorsteuer gibt es nur mit Beleg.`}{" "}
-          Die Buchung ist sofort festgeschrieben; korrigiert wird per Storno.
-        </p>
+        <Buchungshinweise kontenrahmen={data.kontenrahmen} gmbh={gmbh} mitSchluesseln={mitSchluesseln} />
         {gmbh && (
           <fieldset className="mode-switch" style={{ border: 0, padding: 0, margin: 0 }}>
             <legend className="visually-hidden">Art der Buchung</legend>
@@ -324,6 +312,34 @@ function ManualEntryForm({ data }: { data: Awaited<ReturnType<typeof getManualEn
         <NoticeBanner notice={notice} />
       </form>
       {kind === "eroeffnung" && data.datevEroeffnung && <DatevEroeffnung data={data.datevEroeffnung} />}
+    </>
+  );
+}
+
+function Buchungshinweise({
+  kontenrahmen,
+  gmbh,
+  mitSchluesseln,
+}: {
+  kontenrahmen: Awaited<ReturnType<typeof getManualEntryForm>>["kontenrahmen"];
+  gmbh: boolean;
+  mitSchluesseln: boolean;
+}) {
+  return (
+    <>
+      {!gmbh && (
+        <p className="muted small" style={{ margin: 0 }}>
+          <strong>Der Bank-Anfangsbestand braucht keine Buchung.</strong> Den Kontostand aus dem Kontoauszug findest du unter <Link to="/bank">Bank</Link>.
+        </p>
+      )}
+      <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
+        Soll an Haben auf frei gewählten Konten ({kontenrahmen}),{" "}
+        {gmbh ? "etwa das Stammkapital, ein Gesellschafterdarlehen oder eine falsche Kontierung" : "etwa eine Ausgabe ohne Beleg gegen Privat"}. Bank, Kasse,
+        offene Posten, Umsatzsteuer, Erlöse aus Rechnungen und Anlagen führen ihre eigenen Seiten und lassen sich hier nicht bebuchen.
+        {mitSchluesseln &&
+          ` Mit Steuerschlüssel bucht eine Zeile auf das Erlöskonto des Satzes, etwa eine Leistung für private Zwecke gegen ${gmbh ? "das Gesellschafter-Verrechnungskonto" : "Privat"}, oder als Sachentnahme auf ${SACHENTNAHME_KONTEN[kontenrahmen][1900]} (19 %) bzw. ${SACHENTNAHME_KONTEN[kontenrahmen][700]} (7 %), wenn Waren oder Gegenstände des Betriebs privat entnommen werden; der Betrag ist brutto, Haben teilt ihn in Netto und Umsatzsteuer. Vorsteuer gibt es nur mit Beleg.`}{" "}
+        Die Buchung ist sofort festgeschrieben; korrigiert wird per Storno.
+      </p>
     </>
   );
 }
