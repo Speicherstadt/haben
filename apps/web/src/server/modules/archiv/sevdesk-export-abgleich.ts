@@ -5,8 +5,8 @@ import type { ReconciliationCheck } from "./lexoffice.ts";
  * Abgleich je Jahr für Belege aus der Export-ZIP von sevDesk (#1106). Ein Exportbeleg steht in einem von drei Zuständen:
  *
  * - mit Datei: Beleglink und Belegbild im Export (oder aus einem späteren Upload nachgetragen);
- * - Datei fehlt: Beleglink da, die Datei fehlt im Export. Ein Fehler, wie ein Beleg aus der API ohne Datei;
- * - ohne Belegbild im Export: Belegdaten ohne Beleglink. Eigene Zahl, kein Fehler: Ein Bild gibt es in sevDesk nicht.
+ * - Datei fehlt: Eintrag in document.xml, aber keine Datei im Export. Ein Fehler, wie ein Beleg aus der API ohne Datei;
+ * - ohne Belegbild im Export: Kein Eintrag in document.xml, auch wenn ein Beleglink vorliegt.
  *
  * Der vierte Zustand, Buchungen ohne Beleg (Zahlung, Privat, Umbuchung), steht wie bei den anderen Quellen bei den
  * Buchungen des Stapels („ohne Belegnummer“, datevWithoutReceipt).

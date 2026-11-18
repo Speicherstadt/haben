@@ -60,10 +60,8 @@ Doppelt angelegt wird nichts:
 Statt „Belege und Rechnungen per API abgerufen“ zeigt der Abgleich „Belege aus dem sevDesk-Export übernommen“, mit Zahlen für die Zustände eines Belegs:
 
 - **mit Datei:** Beleglink und Belegbild im Export;
-- **Datei fehlt im Export:** Die Buchung hat einen Beleglink, die Datei fehlt in der ZIP-Datei. Das hält „Jeder Beleg hat eine Datei“ offen;
-- **ohne Belegbild im Export:** Belegdaten ohne Beleglink. Kein Fehler, denn auch sevDesk hat dazu kein Bild.
-
-In Buchhaltungsversion 2.0 hat auch ein Beleg ohne Bild einen Beleglink; seine Kennung steht dann in keiner `document.xml`. Haben zählt ihn heute noch als „Datei fehlt im Export“ ([#1374](https://github.com/firsttris/haben/issues/1374)). Prüfe solche Belege in sevDesk, bevor du den Punkt als Fehler behandelst.
+- **Datei fehlt im Export:** Zum Beleglink steht eine Datei in `document.xml`, die in der ZIP-Datei fehlt. Das hält „Jeder Beleg hat eine Datei“ offen.
+- **ohne Belegbild im Export:** Der Beleg hat keinen Beleglink oder der Link steht in keiner `document.xml`. Letzteres kommt in Buchhaltungsversion 2.0 auch bei Belegen ohne Bild vor.
 
 Bei „Jede Buchung mit Belegnummer findet ihren Beleg“ findet eine Buchung mit Beleglink ihren Beleg nur über dessen Kennung, auch die weiteren Zeilen desselben Belegs. Zwei Belege mit derselben Nummer zählen so getrennt; Zahlungen ohne Beleglink finden ihren Beleg weiter über die Nummer.
 

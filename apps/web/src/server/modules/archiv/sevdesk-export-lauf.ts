@@ -193,9 +193,9 @@ function rawOf(voucher: SevExportVoucher, archive: Archive, file: { fileName: st
     fileName: voucher.document?.fileName ?? null,
     archive: voucher.document?.archive ?? null,
     exportFileId: zipFileId,
-    // Belegdaten ohne Beleglink: kein Belegbild im Export; Beleglink ohne Datei: die Datei fehlt im Export
-    ohneBelegbild: voucher.guid === null,
-    dateiFehlt: voucher.guid !== null && file === null,
+    // Erst ein Eintrag in document.xml kündigt eine Datei an. sevDesk 2.0 vergibt Beleglinks auch ohne Belegbild.
+    ohneBelegbild: voucher.document === null,
+    dateiFehlt: voucher.document !== null && file === null,
   };
 }
 
