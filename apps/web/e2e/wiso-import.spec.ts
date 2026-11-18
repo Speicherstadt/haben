@@ -23,7 +23,7 @@ const WISO_HEADERS = [
   "Umsatzart",
 ];
 
-function wisoCsv(): Buffer {
+function wisoCsv(amount = "119,00"): Buffer {
   const row = [
     "101",
     "1",
@@ -34,7 +34,7 @@ function wisoCsv(): Buffer {
     "Bank",
     "8400",
     "Erlöse 19 % USt",
-    "119,00",
+    amount,
     "0,00",
     "USt 19 %",
     "19,00",
@@ -53,17 +53,35 @@ test("WISO: Testlauf, Import und Beleg im Archiv", async ({ browser }) => {
   await gehe(page, "/archiv");
   await page.getByRole("button", { name: "Umzug aus WISO", exact: true }).click();
   const card = page.getByRole("region", { name: "WISO-Buchungen als CSV prüfen und importieren" });
-  await card.getByLabel("WISO-Buchungs-CSV").setInputFiles({
-    name: "wiso-buchungen.csv",
-    mimeType: "text/csv",
-    buffer: wisoCsv(),
+  const file = card.getByLabel("WISO-Buchungs-CSV");
+  const testlauf = card.getByRole("button", { name: "Testlauf starten" });
+  const uebernehmen = card.getByRole("button", { name: "Diese Daten importieren" });
+  const started = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    if (request.method() === "POST" && request.postData()?.includes('filename="wiso-alt.csv"')) {
+      started.resolve();
+      await release.promise;
+    }
+    await route.continue();
   });
-  await card.getByRole("button", { name: "Testlauf starten" }).click();
+  await file.setInputFiles({ name: "wiso-alt.csv", mimeType: "text/csv", buffer: wisoCsv("239,00") });
+  await testlauf.click();
+  try {
+    await started.promise;
+    await file.setInputFiles({ name: "wiso-buchungen.csv", mimeType: "text/csv", buffer: wisoCsv() });
+  } finally {
+    release.resolve();
+  }
+  await expect(testlauf).toBeEnabled();
+  await expect(uebernehmen).toHaveCount(0);
+  await testlauf.click();
   await expect(card.locator(".facts")).toContainText("2023", { timeout: 30_000 });
   await expect(card.locator(".facts")).toContainText("1");
   await expect(card.locator(".facts > div", { hasText: "Soll laut CSV" })).toContainText("119,00 €");
   await expect(card.locator(".facts > div", { hasText: "Haben laut CSV" })).toContainText("0,00 €");
-  await card.getByRole("button", { name: "Diese Daten importieren" }).click();
+  await uebernehmen.click();
   await bestaetigen(page, "Import starten");
   await expect(card.getByText(/Import abgeschlossen: 1 Buchungen übernommen/)).toBeVisible({ timeout: 60_000 });
 

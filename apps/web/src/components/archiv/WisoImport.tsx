@@ -26,27 +26,30 @@ export function WisoImport({ initial }: { initial: ImportRow | null }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const submitCheck = useSubmitCheck({ file: file ? null : "Bitte eine WISO-Buchungs-CSV auswählen." });
-  const [preview, setPreview] = useState<Preview | null>(null);
+  const [checked, setChecked] = useState<{ file: File; summary: Preview } | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const preview = checked && checked.file === file ? checked.summary : null;
 
-  const formData = () => {
+  const formData = (csv: File) => {
     const data = new FormData();
-    if (file) data.append("file", file);
+    data.append("file", csv);
     return data;
   };
   const onPreview = (event: FormEvent) => {
     event.preventDefault();
-    if (!submitCheck.check()) return;
-    void previewAction.run(async () => setPreview(await previewFn({ data: formData() })));
+    if (!submitCheck.check() || !file) return;
+    void previewAction.run(async () => setChecked({ file, summary: await previewFn({ data: formData(file) }) }));
   };
-  const onImport = () =>
-    importAction.run(async () => {
-      setResult(await importFn({ data: formData() }));
+  const onImport = () => {
+    if (!checked || checked.file !== file) return;
+    void importAction.run(async () => {
+      setResult(await importFn({ data: formData(checked.file) }));
       setConfirming(false);
-      setPreview(null);
+      setChecked(null);
       await router.invalidate();
     });
+  };
 
   const done = result || (initial?.status === "fertig" ? initial : null);
   return (
@@ -69,9 +72,11 @@ export function WisoImport({ initial }: { initial: ImportRow | null }) {
               inputRef={fileInput}
               accept=".csv"
               required
+              disabled={importAction.busy}
               onChange={(event) => {
                 setFile(event.target.files?.[0] ?? null);
-                setPreview(null);
+                setChecked(null);
+                setConfirming(false);
                 setResult(null);
               }}
             />
@@ -97,7 +102,7 @@ export function WisoImport({ initial }: { initial: ImportRow | null }) {
           ).
         </p>
       )}
-      <WisoConfirmDialog preview={preview} open={confirming} onConfirm={() => void onImport()} onClose={() => setConfirming(false)} />
+      <WisoConfirmDialog preview={preview} open={confirming && preview !== null} onConfirm={onImport} onClose={() => setConfirming(false)} />
     </section>
   );
 }
