@@ -140,6 +140,12 @@ function ManualEntryForm({ data }: { data: Awaited<ReturnType<typeof getManualEn
           {mitSchluesseln &&
             ` Mit Steuerschlüssel bucht eine Zeile auf das Erlöskonto des Satzes, etwa eine Leistung für private Zwecke gegen ${gmbh ? "das Gesellschafter-Verrechnungskonto" : "Privat"}, oder als Sachentnahme auf ${SACHENTNAHME_KONTEN[data.kontenrahmen][1900]} (19 %) bzw. ${SACHENTNAHME_KONTEN[data.kontenrahmen][700]} (7 %), wenn Waren oder Gegenstände des Betriebs privat entnommen werden; der Betrag ist brutto, Haben teilt ihn in Netto und Umsatzsteuer. Vorsteuer gibt es nur mit Beleg.`}{" "}
           Die Buchung ist sofort festgeschrieben; korrigiert wird per Storno.
+          {!gmbh && (
+            <>
+              {" "}
+              Der Bank-Anfangsbestand braucht keine Buchung. Den Kontostand aus dem Kontoauszug findest du unter <Link to="/bank">Bank</Link>.
+            </>
+          )}
         </p>
         {gmbh && (
           <fieldset className="mode-switch" style={{ border: 0, padding: 0, margin: 0 }}>

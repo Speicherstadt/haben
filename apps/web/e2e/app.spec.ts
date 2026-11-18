@@ -197,6 +197,13 @@ test("Einrichtung: Konto, Firmendaten und Rechnungsnummer", async () => {
   await expect(logoZeichen).toHaveCount(0);
 });
 
+test("Bank-Anfangsbestand im Einzelunternehmen", async () => {
+  await go("/buchungen/neu");
+  const form = page.getByRole("form", { name: "Manuelle Buchung" });
+  await expect(form).toContainText("Der Bank-Anfangsbestand braucht keine Buchung.");
+  await expect(form.getByRole("link", { name: "Bank", exact: true })).toHaveAttribute("href", "/bank");
+});
+
 test("Kunden anlegen", async () => {
   for (const c of CUSTOMERS) await kontaktAnlegen(page, c);
   await go("/kontakte");
