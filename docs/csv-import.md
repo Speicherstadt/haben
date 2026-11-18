@@ -145,6 +145,8 @@ Der Import ist eine [Übernahme aus der bisherigen Buchhaltung](anlagen.md#über
 | Bisherige AfA | bisherige AfA, kumulierte AfA | Statt des Restbuchwerts: Anschaffungskosten minus bisherige AfA. Stehen beide da, müssen sie zusammenpassen |
 | Notiz | Notiz, Bemerkung, Inventarnummer | |
 
+Bei der Dublettenprüfung vergleicht Haben Bezeichnung, Anschaffungsdatum und Anschaffungskosten. Ist die Notiz oder Inventarnummer in der Importzeile ausgefüllt, muss sie ebenfalls übereinstimmen. So kannst du baugleiche Anlagen mit unterschiedlichen Inventarnummern einzeln übernehmen.
+
 Lexware Office liefert das Anlagenverzeichnis weder über die Schnittstelle noch als Datei; die Liste schreibst du aus dem Anlagenverzeichnis ab oder exportierst sie aus der bisherigen Buchhaltung.
 
 ### Was der Import bucht: nichts

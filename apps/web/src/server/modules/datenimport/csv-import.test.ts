@@ -154,6 +154,32 @@ describe.skipIf(!testDatabaseUrl)("CSV-Import (Postgres)", () => {
     "Laptop neu;Computer;10.01.2026;1.500,00;;1.500,00",
   ].join("\n");
 
+  it("Anlagen: acht baugleiche Stücke mit eigenen Inventarnummern einmal übernehmen", async () => {
+    const kopf = "Bezeichnung;Art;Anschaffungsdatum;Anschaffungskosten;Nutzungsdauer;Restbuchwert;Inventarnummer";
+    const stuhl = "Stuhl;Büromöbel;15.03.2024;300,00;13;250,00";
+    const nummern = Array.from({ length: 8 }, (_, i) => `INV-${i + 1}`);
+    const file = bytes([kopf, ...nummern.map((nummer) => `${stuhl};${nummer}`), `${stuhl}; inv-1 `].join("\n"));
+    const config = options("anlagen", { stichtag: "2026-01-01" });
+
+    expect((await csv.previewCsvImport(file, config)).counts).toEqual({ neu: 8, dublette: 1, fehler: 0 });
+    expect(await csv.runCsvImport(actor, file, config)).toEqual({ created: 8, duplicates: 1, failed: 0 });
+    expect((await sql`select note from assets order by note`).map(({ note }) => note)).toEqual(nummern);
+
+    const ohneNummer = bytes([kopf, `${stuhl};`, `${stuhl}; `].join("\n"));
+    expect((await csv.previewCsvImport(file, config)).counts).toEqual({ neu: 0, dublette: 9, fehler: 0 });
+    await expect(csv.runCsvImport(actor, file, config)).rejects.toThrow("Alle Zeilen sind Dubletten");
+    expect((await csv.previewCsvImport(ohneNummer, config)).counts).toEqual({ neu: 0, dublette: 2, fehler: 0 });
+  });
+
+  it("Anlagen: ohne Inventarnummer bleiben gleiche Zeilen Dubletten", async () => {
+    const kopf = "Bezeichnung;Art;Anschaffungsdatum;Anschaffungskosten;Nutzungsdauer;Restbuchwert";
+    const stuhl = "Stuhl;Büromöbel;15.03.2024;300,00;13;250,00";
+    const file = bytes([kopf, stuhl, stuhl].join("\n"));
+    const config = options("anlagen", { stichtag: "2026-01-01" });
+    expect(await csv.runCsvImport(actor, file, config)).toEqual({ created: 1, duplicates: 1, failed: 0 });
+    expect((await csv.previewCsvImport(file, config)).counts).toEqual({ neu: 0, dublette: 2, fehler: 0 });
+  });
+
   for (const [kontenrahmen, versteuerung, konto, vortrag] of [
     ["SKR03", "ist", "0320", "9000"],
     ["SKR04", "soll", "0520", "9000"],

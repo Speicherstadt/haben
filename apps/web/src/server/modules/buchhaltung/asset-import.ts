@@ -54,12 +54,13 @@ export async function planAssetImport(
 /**
  * Plan einer Übernahme aus Zeilen, wie sie der CSV-Import oder der Umzug aus sevDesk liest: dieselben Prüfungen wie
  * „Anlage übernehmen“, Dubletten gegen den Bestand. `stockKeys` liest die Merkmale des Bestands, etwa die Kennung aus
- * sevDesk in der Notiz; ohne sie Bezeichnung, Anschaffung und Kosten.
+ * sevDesk in der Notiz. Beim CSV-Import zählen Bezeichnung, Anschaffung und Kosten, ergänzt um die Notiz.
  */
 export async function planAssetCandidates(
   q: Db | Tx,
   rows: readonly RowCandidate<AssetRow>[],
-  stockKeys: (stock: readonly StockAsset[]) => DuplicateKey[] = (stock) => stock.flatMap(assetKeys),
+  stockKeys: (stock: readonly StockAsset[]) => DuplicateKey[] = (stock) =>
+    stock.flatMap((a) => (a.note.trim() ? [...assetKeys(a), ...assetKeys(a, a.note)] : assetKeys(a))),
 ): Promise<PlannedRow<z.output<typeof assetInputSchema>>[]> {
   const { rechtsform } = await loadCompany(q);
   const candidates = rows.map((row) => {

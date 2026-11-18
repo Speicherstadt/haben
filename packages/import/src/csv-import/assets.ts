@@ -242,13 +242,15 @@ export function assetCandidates(table: CsvTable, mapping: ColumnMapping, opening
       title: name || "(ohne Bezeichnung)",
       value: errors.length > 0 ? null : asset,
       errors,
-      keys: asset ? assetKeys(asset) : [],
+      keys: asset ? assetKeys(asset, asset.note) : [],
     };
   });
 }
 
-/** Eine Anlage erkennt Haben an Bezeichnung, Anschaffungsdatum und Anschaffungskosten zusammen */
-export function assetKeys(a: { name: string; acquisitionDate: string; cost: Cents }) {
+/** Bezeichnung, Anschaffung und Kosten; beim CSV-Import mit Notiz bzw. Inventarnummer, wenn vorhanden */
+export function assetKeys(a: { name: string; acquisitionDate: string; cost: Cents }, note?: string) {
   const [year, month, day] = a.acquisitionDate.split("-");
-  return duplicateKey("Bezeichnung, Anschaffung und Kosten", `${a.name} · ${day}.${month}.${year} · ${formatDecimal(a.cost)} €`);
+  const basis = `${a.name} · ${day}.${month}.${year} · ${formatDecimal(a.cost)} €`;
+  const notiz = note?.trim();
+  return notiz ? duplicateKey("Bezeichnung, Anschaffung, Kosten und Notiz", `${basis} · ${notiz}`) : duplicateKey("Bezeichnung, Anschaffung und Kosten", basis);
 }
