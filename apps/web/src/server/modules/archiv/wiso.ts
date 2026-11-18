@@ -1,4 +1,3 @@
-import { latestImportFor, refreshImportRuns } from "./umzug-lauf.ts";
 import { previewWisoExport, WisoParseError, type WisoPreview } from "@haben/import";
 import { eq } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
@@ -8,7 +7,7 @@ import { UserError } from "../../errors.ts";
 import { sha256Of } from "../../storage.ts";
 import { loadCompany } from "../stammdaten/index.ts";
 import { addArchiveFile, MAX_ARCHIVE_SIZE } from "./archive.ts";
-import { finish } from "./umzug-lauf.ts";
+import { finish, latestImportFor } from "./umzug-lauf.ts";
 import { progressMessage } from "./umzug-gemeinsam.ts";
 
 export const MAX_WISO_CSV_SIZE = MAX_ARCHIVE_SIZE;
@@ -60,8 +59,7 @@ async function archiveOriginalCsv(actor: string, bytes: Uint8Array, filename: st
 }
 
 export async function startWisoImport(actor: string, bytes: Uint8Array, filename: string) {
-  const runs = await refreshImportRuns();
-  if (runs.get("wiso")?.status === "laeuft") {
+  if ((await latestWisoImport())?.status === "laeuft") {
     throw new WisoImportError("Ein WISO-Import läuft bereits.");
   }
   const preview = await previewWisoCsv(bytes);

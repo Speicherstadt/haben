@@ -22,7 +22,7 @@ import type { LexofficeImportProgress } from "../../db/schema.ts";
 import { storeLegacyVoucher } from "./legacy-store.ts";
 import { LEGACY_SOURCE } from "../../../lib/altbestand.ts";
 import { LexofficeError, fallbackName, progressMessage } from "./umzug-gemeinsam.ts";
-import { finish, latestImportFor, refreshImportRuns, importControllersFor } from "./umzug-lauf.ts";
+import { finish, latestImportFor, importControllersFor } from "./umzug-lauf.ts";
 
 export { LexofficeError } from "./umzug-gemeinsam.ts";
 
@@ -98,14 +98,12 @@ export async function startWebImport(actor: string, parts: { name: string; bytes
 }
 
 async function launchImport(actor: string, sourceFor: (signal: AbortSignal) => LexofficeSource, options: { wait?: boolean }): Promise<string> {
-  const runs = await refreshImportRuns();
-
-  if (runs.get("lexoffice")?.status === "laeuft") throw new LexofficeError("Ein Abruf läuft bereits.");
+  if ((await latestImport())?.status === "laeuft") throw new LexofficeError("Ein Abruf läuft bereits.");
 
   // Diese beiden Meldungen gehörten schon zur Lexware-Office-Verbindung.
 
   for (const source of ["sevdesk", "fastbill"] as const) {
-    if (runs.get(source)?.status === "laeuft") throw new LexofficeError(`Ein Abruf aus ${LEGACY_SOURCE[source].product} läuft bereits.`);
+    if ((await latestImportFor(source))?.status === "laeuft") throw new LexofficeError(`Ein Abruf aus ${LEGACY_SOURCE[source].product} läuft bereits.`);
   }
 
   const progress: LexofficeImportProgress = {

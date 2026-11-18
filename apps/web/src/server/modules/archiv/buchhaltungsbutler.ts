@@ -1,4 +1,3 @@
-import { latestImportFor, refreshImportRuns } from "./umzug-lauf.ts";
 import {
   BuchhaltungsbutlerError,
   DatevParseError,
@@ -16,7 +15,7 @@ import { UserError } from "../../errors.ts";
 import { sha256Of, storeFile } from "../../storage.ts";
 import { loadCompany } from "../stammdaten/index.ts";
 import { addArchiveFile, BB_ORIGINAL_NOTE, MAX_ARCHIVE_SIZE } from "./archive.ts";
-import { finish } from "./umzug-lauf.ts";
+import { finish, latestImportFor } from "./umzug-lauf.ts";
 import { progressMessage } from "./umzug-gemeinsam.ts";
 
 export const MAX_BB_EXPORT_SIZE = 500 * 1024 * 1024;
@@ -37,8 +36,7 @@ export async function previewBbExport(parts: ExportPart[]) {
 export const latestBuchhaltungsbutlerImport = () => latestImportFor("buchhaltungsbutler");
 
 export async function startBuchhaltungsbutlerImport(actor: string, parts: ExportPart[]) {
-  const runs = await refreshImportRuns();
-  if (runs.get("buchhaltungsbutler")?.status === "laeuft") throw new BuchhaltungsbutlerImportError("Ein BuchhaltungsButler-Import läuft bereits.");
+  if ((await latestBuchhaltungsbutlerImport())?.status === "laeuft") throw new BuchhaltungsbutlerImportError("Ein BuchhaltungsButler-Import läuft bereits.");
   const preview = await previewBbExport(parts);
   const progress: LexofficeImportProgress = {
     phase: "belege",

@@ -88,7 +88,7 @@ export const latestSevdeskImport = () => latestImportFor("sevdesk");
  */
 export async function startSevdeskImport(actor: string, options: { wait?: boolean } = {}): Promise<string> {
   const key = await apiKey();
-  await refreshImportRuns();
+  await refreshImportRuns("lexoffice", "fastbill");
   const progress: LexofficeImportProgress = {
     phase: "kontakte",
     contacts: 0,

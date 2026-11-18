@@ -1,7 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
 
-import { LEGACY_SOURCE } from "../../../lib/altbestand.ts";
-
 import { db, schema } from "../../db/index.ts";
 
 import type { LegacySource, LexofficeImportProgress } from "../../db/schema.ts";
@@ -76,14 +74,9 @@ export async function latestImportFor(source: LegacySource) {
   return row;
 }
 
-/** Der eindeutige Abrufindex gilt für alle Quellen, auch für später ergänzte Umzüge. */
-
-export async function refreshImportRuns() {
-  const runs = new Map<LegacySource, Awaited<ReturnType<typeof latestImportFor>>>();
-
-  for (const source of Object.keys(LEGACY_SOURCE) as LegacySource[]) runs.set(source, await latestImportFor(source));
-
-  return runs;
+/** Prüft beim Start die für diesen Importweg relevanten Laufstände. Die Sperre gilt in der Datenbank für alle Quellen. */
+export async function refreshImportRuns(...sources: LegacySource[]) {
+  for (const source of sources) await latestImportFor(source);
 }
 
 export async function finish(id: string, progress: LexofficeImportProgress, status: "fertig" | "fehler" | "abgebrochen", error: string | null) {
