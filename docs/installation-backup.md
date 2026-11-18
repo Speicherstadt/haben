@@ -141,13 +141,16 @@ Nur das alte Image ohne das alte Backup reicht nicht: Die alte Version startet d
 Bisher lief das Backup der Quadlets als `~/.config/haben/backup.sh` mit restic auf dem Host. Der Container ersetzt es, restic auf dem Host brauchst du danach nicht mehr. Das bestehende Repository und seine Stände bleiben nutzbar.
 
 ```sh
-RAW=https://raw.githubusercontent.com/firsttris/haben/main/deploy
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/firsttris/haben/releases/latest)
+TAG=${RELEASE##*/}
+RAW=https://raw.githubusercontent.com/firsttris/haben/$TAG/deploy
 # Passwort des bisherigen Repositorys als Secret, ohne den Zeilenumbruch am Ende der Datei: restic nimmt
 # RESTIC_PASSWORD wörtlich, nur RESTIC_PASSWORD_FILE schneidet ihn ab
 tr -d '\n' < ~/.config/haben/restic-password | podman secret create haben-restic-password -
-# Neue Units, die alte Service-Unit und die Skripte entfallen
-for f in haben-backup.container haben-backups.volume; do curl -o ~/.config/containers/systemd/$f "$RAW/quadlet/$f"; done
-rm ~/.config/systemd/user/haben-backup.service ~/.config/haben/backup.sh ~/.config/haben/restore.sh
+# Alte Service-Unit und Skripte erst nach erfolgreichen Downloads entfernen
+curl -fLo ~/.config/containers/systemd/haben-backup.container "$RAW/quadlet/haben-backup.container" &&
+  curl -fLo ~/.config/containers/systemd/haben-backups.volume "$RAW/quadlet/haben-backups.volume" &&
+  rm ~/.config/systemd/user/haben-backup.service ~/.config/haben/backup.sh ~/.config/haben/restore.sh
 ```
 
 Dann `~/.config/haben/backup.env` anpassen:
@@ -208,8 +211,11 @@ Schlägt das Upgrade fehl, bricht der Container mit der Meldung von `pg_upgrade`
 
 ```sh
 docker compose exec backup backup.sh   # Stand vor dem Update sichern
-curl -O https://raw.githubusercontent.com/firsttris/haben/main/deploy/compose.yml
-docker compose pull && docker compose up -d
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/firsttris/haben/releases/latest)
+TAG=${RELEASE##*/}
+RAW=https://raw.githubusercontent.com/firsttris/haben/$TAG/deploy
+curl -fLo compose.yml.neu "$RAW/compose.yml" && mv compose.yml.neu compose.yml &&
+  docker compose pull && docker compose up -d
 docker compose logs db                 # „Upgrade auf PostgreSQL 18 fertig“
 ```
 
@@ -217,10 +223,12 @@ Hast du `compose.yml` angepasst statt eine `compose.override.yml` zu nutzen, än
 
 ```sh
 systemctl --user start haben-backup    # Stand vor dem Update sichern
-curl -o ~/.config/containers/systemd/haben-db.container \
-  https://raw.githubusercontent.com/firsttris/haben/main/deploy/quadlet/haben-db.container
-systemctl --user daemon-reload
-systemctl --user restart haben-db haben-app
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/firsttris/haben/releases/latest)
+TAG=${RELEASE##*/}
+RAW=https://raw.githubusercontent.com/firsttris/haben/$TAG/deploy
+UNIT=~/.config/containers/systemd/haben-db.container
+curl -fLo "$UNIT.neu" "$RAW/quadlet/haben-db.container" && mv "$UNIT.neu" "$UNIT" &&
+  systemctl --user daemon-reload && systemctl --user restart haben-db haben-app
 journalctl --user -u haben-db -n 20    # „Upgrade auf PostgreSQL 18 fertig“
 ```
 
