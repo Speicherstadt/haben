@@ -61,6 +61,8 @@ test("WISO: Testlauf, Import und Beleg im Archiv", async ({ browser }) => {
   await card.getByRole("button", { name: "Testlauf starten" }).click();
   await expect(card.locator(".facts")).toContainText("2023", { timeout: 30_000 });
   await expect(card.locator(".facts")).toContainText("1");
+  await expect(card.locator(".facts > div", { hasText: "Soll laut CSV" })).toContainText("119,00 €");
+  await expect(card.locator(".facts > div", { hasText: "Haben laut CSV" })).toContainText("0,00 €");
   await card.getByRole("button", { name: "Diese Daten importieren" }).click();
   await bestaetigen(page, "Import starten");
   await expect(card.getByText(/Import abgeschlossen: 1 Buchungen übernommen/)).toBeVisible({ timeout: 60_000 });

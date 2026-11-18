@@ -35,6 +35,7 @@ describe("previewWisoExport", () => {
     expect(preview.years).toEqual([2026]);
     expect(preview.bookings).toBe(4);
     expect(preview.rows).toBe(5);
+    expect(preview).toMatchObject({ debitTotal: 3_409_591, creditTotal: 32_669 });
     expect(preview.dateFrom).toBe("2026-01-01");
     expect(preview.dateTo).toBe("2026-02-17");
 
@@ -134,6 +135,7 @@ describe("previewWisoExport", () => {
       "2;1;11.01.2026;11.01.2026;Storno Lizenz;4806;Wartung;1200;Bank;-0,50;0,00;13b 19% And;19,00;USt § 13b;B2;11.01.2026;;0",
     ]);
     const preview = previewWisoExport(bytes, "SKR03");
+    expect(preview).toMatchObject({ debitTotal: 0, creditTotal: 0 });
     const [beleg, storno] = preview.vouchers.map((v) => v.voucher);
     expect({ gross: beleg!.gross, tax: beleg!.tax }).toEqual({ gross: 50, tax: 0 });
     expect({ gross: storno!.gross, tax: storno!.tax }).toEqual({ gross: -50, tax: 0 });
