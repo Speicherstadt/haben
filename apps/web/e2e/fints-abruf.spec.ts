@@ -455,3 +455,45 @@ test("„Über FinTS verbinden“ ist gesperrt, solange eine Zeile „Rufe ab �
   await expect(verbinden).toBeEnabled();
   await expect(abruf().getByText(grund)).toHaveCount(0);
 });
+
+test("Zugeklapptes Verbinden, das noch auf die Bank wartet, ersetzt keinen Schritt an der Zeile", async () => {
+  // Wie #1660 in der anderen Reihenfolge: Klappt „Über FinTS verbinden“ oben das Formular bei „Verbinde …“ zu, sind die
+  // Knöpfe an den Zeilen frei; die späte Antwort auf das Verbinden darf den Schritt an der Zeile nicht ersetzen
+  await gehe(page, "/bank");
+  const verbinden = abruf().getByRole("button", { name: "Über FinTS verbinden" });
+  const form = page.getByRole("form", { name: "Über FinTS verbinden" });
+  const tan = freigabe().getByLabel("TAN", { exact: true });
+  let loslassen!: () => void;
+  const gehalten = new Promise<void>((fertig) => {
+    loslassen = fertig;
+  });
+  let anfrage: import("@playwright/test").Request | undefined;
+  await page.route(
+    (url) => url.pathname.startsWith("/_serverFn/"),
+    async (route) => {
+      if (route.request().method() !== "POST" || anfrage) return route.fallback();
+      anfrage = route.request();
+      await gehalten;
+      await route.continue();
+    },
+  );
+  bank.zustand.scaBeiAnmeldung = true;
+  try {
+    await verbinden.click();
+    await zugangEingeben();
+    await expect(form.getByRole("button", { name: "Verbinde …" })).toBeVisible();
+    await verbinden.click();
+    await expect(form).toHaveCount(0);
+    bank.zustand.scaBeiUmsaetzen = true;
+    await abruf().getByRole("button", { name: "Jetzt abrufen" }).click();
+    await expect(tan).toBeVisible();
+  } finally {
+    loslassen();
+    await page.unrouteAll({ behavior: "wait" });
+  }
+  await anfrage?.response();
+  await page.waitForTimeout(1000);
+  await expect(tan).toBeVisible();
+  await freigabe().getByRole("button", { name: "Abbrechen" }).click();
+  bank.zustand.scaBeiUmsaetzen = false;
+});
