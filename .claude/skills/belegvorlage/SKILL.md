@@ -49,7 +49,7 @@ Vor dem Setzen sucht Haben im Quelltext jedes Feld, das in den Tabellen unten �
 Danach setzt Haben das Layout mit Beispieldaten und lehnt es ab, wenn auf dem Blatt etwas davon fehlt:
 
 - Absender mit Name und vollständiger Anschrift, also Straße sowie PLZ und Ort (`author` und `senderLine`; die Fußzeile genügt dafür nicht, denn was dort steht, legt die Gestaltung fest; § 14 Abs. 4 Nr. 1 UStG) und Empfänger (`recipient`), die Bezeichnung des Belegs (`title`, keine feste Überschrift wie „Rechnung“), bei Storno und Korrektur der Bezug auf die Rechnung (`reference`; § 31 Abs. 5 UStDV), Angaben aus `meta`, auf Belegen jede Zeile (Nummer, Datum, Leistungsdatum, Referenzen).
-- Jede Position mit Menge und Bezeichnung (`lines`), die Summen mit Umsatzsteuer und Steuersatz je Satz, etwa „Umsatzsteuer 19 %“ (`totals.rows`, bei Bruttopreisen in `totals.included`, bei Fremdwährung zusätzlich in Euro in `totals.euroTax`), der Hinweis ohne Steuerausweis (`taxNote`), bei Skonto der Zahlungssatz (`payment`; § 14 Abs. 4 Nr. 7 UStG), auf Rechnungen die Steuernummer oder die USt-IdNr. des Ausstellers, eine genügt (meist in der Fußzeile, `footer`; § 14 Abs. 4 Nr. 2 UStG; Angebot, Auftragsbestätigung, Lieferschein und Mahnung brauchen keine) und bei GmbH oder UG die Pflichtangaben aus `legal`, gern je Angabe auf eigener Zeile (Trenner „ · “; § 14 Abs. 4 UStG, § 35a GmbHG). Die Stelle, die in der Gestaltung gewählt ist, nennt `look.legalPosition` („spalte“ neben `footer`, „zeile“ darunter, „layout“ nach deiner Wahl); stehen die Angaben über Platzhalter schon in der Fußzeile, ist `legal` null und `look.legalInFooter` gesetzt. Ein Layout, das keines der beiden Felder nennt, bekommt die Platzhalter leer und die Angaben nur über `legal`, damit nichts doppelt steht.
+- Jede Position mit Menge und Bezeichnung (`lines`), die Summen mit Umsatzsteuer und Steuersatz je Satz, etwa „Umsatzsteuer 19 %“ (`totals.rows`, bei Bruttopreisen in `totals.included`, bei Fremdwährung zusätzlich in Euro in `totals.euroTax`), der Hinweis ohne Steuerausweis (`taxNote`), bei Skonto der Zahlungssatz (`payment`; § 14 Abs. 4 Nr. 7 UStG), auf Rechnungen die Steuernummer oder die USt-IdNr. des Ausstellers, eine genügt (meist in der Fußzeile, `footer`; § 14 Abs. 4 Nr. 2 UStG; Angebot, Auftragsbestätigung, Lieferschein und Mahnung brauchen keine) und bei GmbH oder UG die Pflichtangaben aus `legal`, gern je Angabe auf eigener Zeile (Trenner „ · “; § 14 Abs. 4 UStG, § 35a GmbHG). Die Stelle, die in der Gestaltung gewählt ist, nennt `look.legalPosition` („spalte“ neben `footer`, „zeile“ darunter, „layout“ nach deiner Wahl); stehen die Angaben über Platzhalter schon in der Fußzeile, ist `legal` null. Ein Layout, das `look.legalPosition` nicht nennt, bekommt die Platzhalter leer und die Angaben nur über `legal`, damit nichts doppelt steht.
 - Bei einem Entwurf der Vermerk aus `draft` auf jeder Seite.
 - Mehrseitige Belege müssen gehen: Die Beispiele haben bis zu 40 Positionen und bis zu 15 Zeilen im Infoblock.
 
@@ -137,7 +137,7 @@ Ein Layout läuft ohne Änderung weiter, solange seine Version des Feldvertrags 
 | `footerFormatted[][][].bold` | `boolean` | ja |  | fett |
 | `footerFormatted[][][].italic` | `boolean` | ja |  | kursiv |
 | `footerFormatted[][][].underline` | `boolean` | ja |  | unterstrichen |
-| `legal` | `null \| string` | ja | ja | Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile, Angaben getrennt durch „ · “; null ohne und wenn sie schon in der Fußzeile stehen (look.legalInFooter) |
+| `legal` | `null \| string` | ja | ja | Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile, Angaben getrennt durch „ · “; null ohne und wenn sie über ihre Platzhalter schon in der eigenen Fußzeile (footer) stehen |
 | `accent` | `string` | ja |  | Akzentfarbe #RRGGBB |
 | `palette` | `object` | ja |  | Grautöne #RRGGBB, aus der Akzentfarbe abgeleitet |
 | `palette.ink` | `string` | ja |  | Text |
@@ -151,7 +151,6 @@ Ein Layout läuft ohne Änderung weiter, solange seine Version des Feldvertrags 
 | `look.foldMarks` | `boolean` | ja |  | Falz- und Lochmarken drucken |
 | `look.backgroundPages` | `"erste" \| "alle"` | ja |  | Briefpapier nur auf der ersten oder auf allen Seiten |
 | `look.legalPosition` | `"layout" \| "spalte" \| "zeile"` | nein |  | Stelle von legal im Fuß: „spalte“ als eigene Spalte neben footer, je Angabe eine Zeile; „zeile“ als Zeile unter den Spalten; „layout“, wie es das Layout vorsieht. Eingebaute Layouts bekommen die Stelle aufgelöst |
-| `look.legalInFooter` | `boolean` | nein |  | Die Pflichtangaben stehen über Platzhalter schon in der eigenen Fußzeile (footer); legal ist dann null. Ein Layout, das weder dies noch legalPosition nennt, bekommt die Platzhalter leer und die Angaben nur über legal |
 | `look.options` | `object` | nein |  | Optionen eines eingebauten Layouts, schon aufgelöst, etwa { fuss: „rechts“ }; leer bei eigenen Layouts |
 | `font` | `object` | ja |  | Gewählte Schrift; Familien, wie Typst sie nennt |
 | `font.regular` | `string` | ja |  | Familie für normalen Text |
@@ -258,7 +257,7 @@ Ein Layout läuft ohne Änderung weiter, solange seine Version des Feldvertrags 
 | `footerFormatted[][][].bold` | `boolean` | ja |  | fett |
 | `footerFormatted[][][].italic` | `boolean` | ja |  | kursiv |
 | `footerFormatted[][][].underline` | `boolean` | ja |  | unterstrichen |
-| `legal` | `null \| string` | ja | ja | Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile, Angaben getrennt durch „ · “; null ohne und wenn sie schon in der Fußzeile stehen (look.legalInFooter) |
+| `legal` | `null \| string` | ja | ja | Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile, Angaben getrennt durch „ · “; null ohne und wenn sie über ihre Platzhalter schon in der eigenen Fußzeile (footer) stehen |
 | `accent` | `string` | ja |  | Akzentfarbe #RRGGBB |
 | `palette` | `object` | ja |  | Grautöne #RRGGBB, aus der Akzentfarbe abgeleitet |
 | `palette.ink` | `string` | ja |  | Text |
@@ -272,7 +271,6 @@ Ein Layout läuft ohne Änderung weiter, solange seine Version des Feldvertrags 
 | `look.foldMarks` | `boolean` | ja |  | Falz- und Lochmarken drucken |
 | `look.backgroundPages` | `"erste" \| "alle"` | ja |  | Briefpapier nur auf der ersten oder auf allen Seiten |
 | `look.legalPosition` | `"layout" \| "spalte" \| "zeile"` | nein |  | Stelle von legal im Fuß: „spalte“ als eigene Spalte neben footer, je Angabe eine Zeile; „zeile“ als Zeile unter den Spalten; „layout“, wie es das Layout vorsieht. Eingebaute Layouts bekommen die Stelle aufgelöst |
-| `look.legalInFooter` | `boolean` | nein |  | Die Pflichtangaben stehen über Platzhalter schon in der eigenen Fußzeile (footer); legal ist dann null. Ein Layout, das weder dies noch legalPosition nennt, bekommt die Platzhalter leer und die Angaben nur über legal |
 | `look.options` | `object` | nein |  | Optionen eines eingebauten Layouts, schon aufgelöst, etwa { fuss: „rechts“ }; leer bei eigenen Layouts |
 | `font` | `object` | ja |  | Gewählte Schrift; Familien, wie Typst sie nennt |
 | `font.regular` | `string` | ja |  | Familie für normalen Text |

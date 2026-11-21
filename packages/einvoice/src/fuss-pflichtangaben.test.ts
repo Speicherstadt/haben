@@ -67,17 +67,12 @@ describe("Stelle der Pflichtangaben für die Vorlage (Feldvertrag)", () => {
     expect(look({ options: { ...DEFAULT_OPTIONS, legalPosition: "spalte" } }).legalPosition).toBe("spalte");
   });
 
-  it("legalInFooter, wenn die Platzhalter in der geltenden Fußzeile stehen", () => {
-    expect(look(eigene(["{firma}", MIT_ALLEN])).legalInFooter).toBe(true);
-    expect(look(eigene(["{firma}", "{sitz}"])).legalInFooter).toBe(false);
-    expect(look(eigene(["{firma}", MIT_ALLEN], { footerCustom: false })).legalInFooter).toBe(false);
-    expect(look(eigene(["{firma}", "{ustid}"])).legalInFooter).toBe(false);
-    expect(look({ ...eigene(["{firma}", MIT_ALLEN]), legalFieldOnly: true }).legalInFooter).toBe(false);
+  it("kein eigenes Feld dafür, dass die Angaben in der Fußzeile stehen: legal ist dann null", () => {
+    expect(look(eigene(["{firma}", MIT_ALLEN]))).not.toHaveProperty("legalInFooter");
   });
 
   it("erkennt eigene Layouts, die die neuen Felder nennen", () => {
     expect(kenntPflichtangabenFelder('#let p = d.look.at("legalPosition", default: "layout")')).toBe(true);
-    expect(kenntPflichtangabenFelder("#if d.look.legalInFooter { }")).toBe(true);
     expect(kenntPflichtangabenFelder("#d.legal")).toBe(false);
   });
 });

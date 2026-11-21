@@ -119,7 +119,7 @@ export interface Letterhead {
    */
   pdfFrom?: (request: PdfRequest) => Uint8Array | undefined;
   /**
-   * Eigenes Layout, das look.legalPosition und look.legalInFooter nicht kennt (kenntPflichtangabenFelder): Die Pflichtangaben
+   * Eigenes Layout, das look.legalPosition nicht kennt (kenntPflichtangabenFelder): Die Pflichtangaben
    * kommen nur über legal, ihre Platzhalter in der Fußzeile bleiben leer (#1651).
    */
   legalFieldOnly?: boolean;

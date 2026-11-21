@@ -1,5 +1,4 @@
 import {
-  activeFooterColumns,
   accentPalette,
   DEFAULT_ACCENT,
   DEFAULT_OPTIONS,
@@ -7,7 +6,6 @@ import {
   LETTERHEAD_FONTS,
   LOGO_SIZES,
   layoutOptionen,
-  legalInFooter,
   legalStelle,
   layoutVorgaben,
   layoutVorlagen,
@@ -50,12 +48,6 @@ function legalPosition(letterhead: Letterhead, layout: ReturnType<typeof katalog
   return stelle === "rand" ? gewaehlt : stelle;
 }
 
-/** Stehen die Platzhalter der Pflichtangaben in der geltenden eigenen Fußzeile? Wie in footerData (pdf.ts) */
-function inFooter(letterhead: Letterhead): boolean {
-  const columns = letterhead.options ? activeFooterColumns(letterhead.options) : null;
-  return Boolean(columns) && !letterhead.legalFieldOnly && legalInFooter(columns!);
-}
-
 /** Daten für die Vorlage mit dem Briefkopf: Akzentfarbe und passende Grautöne immer, das Logo als Dateiname neben der Vorlage */
 export function templateInputs(data: object, letterhead: Letterhead): object {
   const { logo, background, options = DEFAULT_OPTIONS } = letterhead;
@@ -70,7 +62,6 @@ export function templateInputs(data: object, letterhead: Letterhead): object {
     foldMarks: options.foldMarks,
     backgroundPages: options.backgroundPages,
     legalPosition: legalPosition(letterhead, layout, optionen),
-    legalInFooter: inFooter(letterhead),
     // Feldvertrag: leer bei eigenen Layouts; die tragen kein eingebautes Layout im Briefkopf (withCustomLayout)
     options: letterhead.layout ? optionen : {},
   };

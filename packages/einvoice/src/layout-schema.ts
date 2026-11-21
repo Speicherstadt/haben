@@ -53,7 +53,7 @@ const common = {
   footer: z.array(z.array(z.string())).describe("Spalten der Fußzeile, je Spalte die Zeilen als Text"),
   footerFormatted: z.array(z.array(runs)).nullable().describe("Eigene Fußzeile mit Auszeichnungen, je Spalte und Zeile; null bei der automatischen Fußzeile"),
   legal: text(
-    "Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile, Angaben getrennt durch „ · “; null ohne und wenn sie schon in der Fußzeile stehen (look.legalInFooter)",
+    "Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile, Angaben getrennt durch „ · “; null ohne und wenn sie über ihre Platzhalter schon in der eigenen Fußzeile (footer) stehen",
   ).nullable(),
   // Aus dem Briefkopf (templateInputs)
   accent: text("Akzentfarbe #RRGGBB"),
@@ -74,9 +74,6 @@ const common = {
         .describe(
           "Stelle von legal im Fuß: „spalte“ als eigene Spalte neben footer, je Angabe eine Zeile; „zeile“ als Zeile unter den Spalten; „layout“, wie es das Layout vorsieht. Eingebaute Layouts bekommen die Stelle aufgelöst",
         ),
-      legalInFooter: flag(
-        "Die Pflichtangaben stehen über Platzhalter schon in der eigenen Fußzeile (footer); legal ist dann null. Ein Layout, das weder dies noch legalPosition nennt, bekommt die Platzhalter leer und die Angaben nur über legal",
-      ).optional(),
       options: z
         .record(z.string(), z.string())
         .optional()

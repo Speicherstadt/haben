@@ -352,7 +352,7 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
       const { pdf } = await layouts.withCustomLayout("rechnung", head, (lh) => buildEInvoice({ ...sampleDocument(), seller: gmbhSeller, ...lh }));
       return pdfText(pdf);
     };
-    // Vor #1651 geschrieben: kennt weder look.legalPosition noch look.legalInFooter
+    // Vor #1651 geschrieben: kennt look.legalPosition nicht
     const alt = await setzen(eigene("beleg").replaceAll("legalPosition", "altePosition"), "Altes Layout");
     expect(alt).toContain("Registergericht: Amtsgericht Charlottenburg");
     expect(alt).not.toContain("Sitzplatz");

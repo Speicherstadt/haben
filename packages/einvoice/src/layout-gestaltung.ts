@@ -19,7 +19,7 @@ const zurArt = (art: "beleg" | "mahnung", type: LayoutDocumentType) => (art === 
  * Kennt ein eigenes Layout die Felder zu den Pflichtangaben im Fuß (#1651)? Sonst bekommt es sie nur über legal und die
  * Platzhalter leer, damit nichts doppelt steht; ältere Layouts setzen legal immer.
  */
-export const kenntPflichtangabenFelder = (source: string): boolean => nennt(source, "look.legalPosition|look.legalInFooter");
+export const kenntPflichtangabenFelder = (source: string): boolean => nennt(source, "look.legalPosition");
 
 /** Einstellungen, die auf diese Art wirken, deren Felder der Quelltext aber nirgends nennt */
 export function ungenutzteGestaltung(source: string, art: "beleg" | "mahnung"): LayoutGestaltung[] {
