@@ -3,7 +3,7 @@ import { roundHalfAwayFromZero, taxOf, type BasisPoints, type Cents } from "./mo
 import { discountBasis, discountedLineAmount, splitDocumentDiscount, type Discount, type DiscountableLine } from "./rabatt.ts";
 
 /**
- * Position mit Kennzeichen „Arbeits-, Maschinen- und Fahrtkosten“ (§ 35a Abs. 5 Satz 1 EStG; BMF-Schreiben vom
+ * Position mit Kennzeichen „Arbeits-, Maschinen- und Fahrtkosten“ (§ 35a Abs. 5 Satz 2 EStG; BMF-Schreiben vom
  * 09.11.2016, BStBl I S. 1213, Rz. 39: Arbeitskosten einschließlich der in Rechnung gestellten Maschinen- und
  * Fahrtkosten, ohne Material)
  */

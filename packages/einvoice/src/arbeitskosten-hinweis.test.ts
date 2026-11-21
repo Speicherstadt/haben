@@ -81,4 +81,10 @@ describe("Anteil der Arbeits-, Maschinen- und Fahrtkosten (#712)", () => {
     expect(lesbar(xml)).toContain(`<${tag}>Darin sind Arbeits-, Maschinen- und Fahrtkosten von 225,98 € inkl. USt enthalten (§ 35a EStG).</${tag}>`);
     expect(xml).toContain(`<${tag}>Vielen Dank.</${tag}>`);
   });
+
+  it("nennt den Betrag in Fremdwährung in PDF und XML in der Währung der Rechnung", async () => {
+    const doc = { ...mitFahrt(sampleDocument({ format: "xrechnung-cii" })), currency: "USD" };
+    expect(lesbar(pdfData(doc).taxNote)).toContain("von 225,98 USD inkl. USt");
+    expect(lesbar((await buildEInvoice(doc)).xml)).toContain("von 225,98 USD inkl. USt");
+  });
 });

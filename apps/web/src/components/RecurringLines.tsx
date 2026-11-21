@@ -9,9 +9,9 @@ import {
   parseQuantity,
   RECURRING_PLACEHOLDERS,
 } from "@haben/core";
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
 import { unitOptions } from "../lib/units.ts";
-import { ArbeitskostenField, LineArbeitskosten } from "./ArbeitskostenField.tsx";
+import { ArbeitskostenField, LineArbeitskosten, useArbeitskostenSchalter } from "./ArbeitskostenField.tsx";
 import { FormattedTextarea } from "./FormattedTextarea.tsx";
 import { Icon } from "./Icon.tsx";
 import { LineAmount, LineCell } from "./LineCell.tsx";
@@ -245,13 +245,8 @@ export function RecurringPositions(props: {
 }) {
   const { lines, setLines } = props;
   const updateLine = (key: number, patch: Partial<LineState>) => setLines((prev) => prev.map((line) => (line.key === key ? { ...line, ...patch } : line)));
-  // § 35a EStG (#712) wie im Rechnungseditor: an, sobald eine Position das Kennzeichen trägt; aus nimmt es allen
-  const [schalter, setSchalter] = useState(false);
-  const arbeitskosten = schalter || lines.some((line) => line.arbeitskosten);
-  const setArbeitskosten = (on: boolean) => {
-    setSchalter(on);
-    if (!on) setLines((prev) => prev.map((line) => (line.arbeitskosten ? { ...line, arbeitskosten: false } : line)));
-  };
+  // § 35a EStG (#712), dieselbe Regel wie im Rechnungseditor
+  const [arbeitskosten, setArbeitskosten] = useArbeitskostenSchalter(lines, setLines);
   return (
     <section className="card" aria-labelledby="recurring-lines">
       <h2 id="recurring-lines">Positionen</h2>

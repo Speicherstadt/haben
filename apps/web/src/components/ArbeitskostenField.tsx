@@ -1,15 +1,35 @@
-import { useId } from "react";
+import { useId, useState } from "react";
+
+/** Die zwei Werte des Kennzeichens nach § 35a EStG (#712), gleich in Position und Artikel */
+export const ARBEITSKOSTEN_OPTIONEN = [
+  ["nein", "Material und Sonstiges"],
+  ["ja", "Arbeit, Maschinen, Fahrt"],
+] as const;
 
 /**
- * Schalter für den Anteil der Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG, #712). Haben kennt kein Merkmal
- * „Privatkunde“; wer den Anteil nicht will, schaltet ihn ab, und alle Positionen verlieren ihr Kennzeichen.
+ * Schalter „Anteil ausweisen“ über Positionen mit Kennzeichen arbeitskosten, für Rechnung, Angebot und wiederkehrende
+ * Rechnung: an, sobald eine Position das Kennzeichen trägt (auch aus einem Artikel), damit der Satz nie unbemerkt auf dem
+ * Blatt steht; aus nimmt es allen Positionen. Haben kennt kein Merkmal „Privatkunde“.
  */
-export function ArbeitskostenField({ checked, onChange, disabled = false }: { checked: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
+export function useArbeitskostenSchalter<L extends { arbeitskosten: boolean }>(
+  lines: L[],
+  setLines: (update: (prev: L[]) => L[]) => void,
+): [boolean, (on: boolean) => void] {
+  const [schalter, setSchalter] = useState(false);
+  const an = schalter || lines.some((line) => line.arbeitskosten);
+  const setAn = (on: boolean) => {
+    setSchalter(on);
+    if (!on) setLines((prev) => prev.map((line) => (line.arbeitskosten ? { ...line, arbeitskosten: false } : line)));
+  };
+  return [an, setAn];
+}
+
+export function ArbeitskostenField({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) {
   const hintId = useId();
   return (
     <div className="checkbox-hinted">
       <label className="checkbox">
-        <input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} aria-describedby={hintId} />
+        <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} aria-describedby={hintId} />
         Anteil der Arbeits-, Maschinen- und Fahrtkosten ausweisen (§ 35a EStG)
       </label>
       <span id={hintId} className="field-hint">
@@ -30,8 +50,11 @@ export function LineArbeitskosten({ index, value, onChange }: { index: number; v
       value={value ? "ja" : "nein"}
       onChange={(e) => onChange(e.target.value === "ja")}
     >
-      <option value="nein">Material und Sonstiges</option>
-      <option value="ja">Arbeit, Maschinen, Fahrt</option>
+      {ARBEITSKOSTEN_OPTIONEN.map(([value, label]) => (
+        <option key={value} value={value}>
+          {label}
+        </option>
+      ))}
     </select>
   );
 }

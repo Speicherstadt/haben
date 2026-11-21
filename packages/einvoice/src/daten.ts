@@ -144,7 +144,12 @@ export function toEInvoiceData(doc: InvoiceDocument): Invoice {
   // KoSIT XRechnung 3.0.2, Abschnitt 11.17 (BT-22), nennt diesen Hinweis ausdrücklich:
   // https://xeinkauf.de/app/uploads/2024/07/XRechnung-v3.0.2.pdf#page=61
   // Der Anteil nach § 35a EStG (#712) steht im XML wie auf dem Blatt, sonst wäre er in der E-Rechnung nicht zu ermitteln
-  const notes = [doc.intro, doc.propertyRetention ? texts(doc.language).propertyRetention : null, arbeitskostenHinweis(doc, texts(doc.language)), doc.note]
+  const notes = [
+    doc.intro,
+    doc.propertyRetention ? texts(doc.language).propertyRetention : null,
+    arbeitskostenHinweis(doc, texts(doc.language, doc.currency)),
+    doc.note,
+  ]
     .map((n) => plainFormattedText(n?.trim() ?? ""))
     .filter(Boolean);
   if (notes.length > 0) invoice["cbc:Note"] = notes;

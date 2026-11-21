@@ -98,6 +98,7 @@ Viele Auftraggeber verlangen ihre Bestellnummer auf jeder Rechnung und weisen Re
 | Einzelpreis | In Euro, z. B. `95,00`. Negative Preise sind möglich, für einen Nachlass aber besser der [Rabatt](#rabatte). |
 | Rabatt | Optional, als Prozent (`10 %`) oder Betrag (`50,00`), siehe [Rabatte](#rabatte). |
 | Steuersatz | 19 %, 7 % oder 0 % |
+| Kosten für § 35a EStG | Nur mit dem Haken **Anteil der Arbeits-, Maschinen- und Fahrtkosten ausweisen**: **Material und Sonstiges** oder **Arbeit, Maschinen, Fahrt**, hinter der Bezeichnung. Siehe [Arbeits-, Maschinen- und Fahrtkosten](#arbeits--maschinen--und-fahrtkosten--35a-estg). |
 
 Der Zeilenbetrag ist Menge mal Einzelpreis, kaufmännisch auf Cent gerundet. Bei Nettopreisen rechnet Haben die Umsatzsteuer nach EN 16931 je Steuersatz auf die Summe der Zeilennetto, nicht als Summe der Steuer je Zeile. Bei mehreren Steuersätzen weist das PDF die Steuer je Satz mit ihrer Bemessungsgrundlage aus.
 
@@ -295,14 +296,14 @@ Bei steuerpflichtigen Werklieferungen oder sonstigen Leistungen im Zusammenhang 
 
 ## Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG)
 
-Privatkunden können für Handwerkerleistungen und haushaltsnahe Dienstleistungen einen Teil der Kosten von ihrer Einkommensteuer abziehen. Das gilt nur für die Arbeitskosten ([§ 35a Abs. 5 Satz 1 EStG](https://www.gesetze-im-internet.de/estg/__35a.html)), dazu zählen auch die in Rechnung gestellten Maschinen- und Fahrtkosten, Material aber nicht (BMF-Schreiben vom 09.11.2016, BStBl I S. 1213, Rz. 39). Der Anteil muss sich aus der Rechnung ermitteln lassen, ein eigener Ausweis der Umsatzsteuer darauf ist nicht nötig (Rz. 40). Beispiel: 3 Rauchwarnmelder je 31,00 €, Montage 3 × 8,00 € und Anfahrt 35,00 € ergeben 59,00 € Arbeits- und Fahrtkosten.
+Privatkunden können für Handwerkerleistungen und haushaltsnahe Dienstleistungen einen Teil der Kosten von ihrer Einkommensteuer abziehen. Das gilt nur für die Arbeitskosten ([§ 35a Abs. 5 Satz 2 EStG](https://www.gesetze-im-internet.de/estg/__35a.html)), dazu zählen auch die in Rechnung gestellten Maschinen- und Fahrtkosten, Material aber nicht; Verbrauchsmittel wie Reinigungs- oder Schmiermittel zählen zu den Arbeitskosten (BMF-Schreiben vom 09.11.2016, BStBl I S. 1213, Rz. 39). Arbeit außerhalb des Haushalts, etwa in der Werkstatt, ist nicht begünstigt; kennzeichne sie als **Material und Sonstiges** oder als eigene Position. Der Anteil muss sich aus der Rechnung ermitteln lassen, ein eigener Ausweis der Umsatzsteuer darauf ist nicht nötig (Rz. 40). Beispiel: 3 Rauchwarnmelder je 31,00 €, Montage 3 × 8,00 € und Anfahrt 35,00 € ergeben 59,00 € Arbeits- und Fahrtkosten.
 
-- Im Editor von Rechnung und Angebot **Anteil der Arbeits-, Maschinen- und Fahrtkosten ausweisen (§ 35a EStG)** anhaken. Hinter der Bezeichnung jeder Position steht dann die Auswahl **Material und Sonstiges** oder **Arbeit, Maschinen, Fahrt**. Haben erkennt Privatkunden nicht selbst; ohne Haken erscheint kein Satz.
+- Im Editor von Rechnung, Angebot und wiederkehrender Rechnung **Anteil der Arbeits-, Maschinen- und Fahrtkosten ausweisen (§ 35a EStG)** anhaken. Hinter der Bezeichnung jeder Position steht dann die Auswahl **Material und Sonstiges** oder **Arbeit, Maschinen, Fahrt**. Haben erkennt Privatkunden nicht selbst; ohne Haken erscheint kein Satz.
 - Unter den Summen steht dann „Darin sind Arbeits-, Maschinen- und Fahrtkosten von 59,00 € enthalten (§ 35a EStG).“, bei regulärer Besteuerung mit „inkl. USt“. Der Betrag ist die Summe der gekennzeichneten Positionen nach ihrem Rabatt, um ihren Anteil am Gesamtrabatt gemindert, bei Nettopreisen mit der Umsatzsteuer ihres Satzes. Der Satz steht im PDF, auch in eigenen Layouts über das Pflichtfeld `taxNote`, und als BT-22 in ZUGFeRD und XRechnung, auf Englisch auch englisch.
 - Im Angebot zählen optionale und alternative Positionen nicht mit, wie bei der Summe. Die Rechnung aus dem Angebot, Kopien, Storno, Rechnungskorrektur und wiederkehrende Rechnungen übernehmen die Auswahl je Position. Das Storno nennt den Anteil mit Minus.
 - In der Schlussrechnung nennt der Satz den Anteil der ganzen Leistung vor Abzug der Abschlagsrechnungen; Abschlagsrechnungen nennen ihren eigenen Anteil, wenn ihre Positionen gekennzeichnet sind.
 - Im [Artikelkatalog](#artikelkatalog) legt **Kosten für § 35a EStG** die Vorgabe fest, die beim Einfügen in die Position geht. Fügst du einen solchen Artikel ein, ist der Haken gesetzt; nimmst du ihn heraus, verlieren alle Positionen das Kennzeichen.
-- Die REST-API nimmt und liefert je Position `arbeitskosten` und am Artikel ebenso ([API](api.md)).
+- In der REST-API heißt das Feld `arbeitskosten`, je Position und am Artikel ([API](api.md#beispiele)).
 - Haben prüft nicht, ob die Leistung im Haushalt des Kunden erbracht wurde und ob er unbar zahlt; beides ist Voraussetzung für den Abzug (§ 35a Abs. 4 und Abs. 5 Satz 3 EStG).
 
 ## Was beim Festschreiben passiert
@@ -472,7 +473,7 @@ Für Monatspauschalen, Wartungsverträge oder Hosting legst du unter **Rechnunge
 | Leistungszeitraum | **Laufend:** die Monate ab dem Rechnungsmonat (Vorauszahlung). **Vergangen:** die Monate davor (Abrechnung). **Keiner:** ohne Leistungszeitraum, dann gilt das Rechnungsdatum. |
 | Was am Termin passiert | **Entwurf anlegen:** du prüfst und schreibst selbst fest. **Direkt festschreiben:** Nummer, PDF, XML und Buchung wie beim Festschreiben von Hand; auf Wunsch **und per E-Mail an den Kunden schicken** (Vorlage und Adresse wie beim [Versand von Hand](#per-e-mail-versenden)). |
 | Aktiv | Ohne Häkchen erzeugt die Vorlage keine Rechnungen. |
-| Kunde, Einleitung, Positionen mit Text zur Position, Zahlungsziel, Format, Umsatzsteuer, Preise (netto oder brutto), Hinweis, Aufbewahrungshinweis | wie im Rechnungseditor |
+| Kunde, Einleitung, Positionen mit Text zur Position, Zahlungsziel, Format, Umsatzsteuer, Preise (netto oder brutto), Hinweis, Aufbewahrungshinweis, Anteil der Arbeits-, Maschinen- und Fahrtkosten | wie im Rechnungseditor |
 | Zahlungsart | Überweisung oder SEPA-Lastschrift; bei Lastschrift wählt jeder Lauf das Mandat selbst, siehe [Lastschrift](rechnungen-zahlung.md#lastschrift) |
 
 In Einleitung, Beschreibungen, Texten zur Position und Hinweis ersetzt Haben Platzhalter:

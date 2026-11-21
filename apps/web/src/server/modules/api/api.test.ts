@@ -332,6 +332,24 @@ describe.skipIf(!testDatabaseUrl)("REST-API /api/v1 (Postgres)", () => {
       expect(plain.lines).toEqual([expect.objectContaining({ itemNumber: "" })]);
     });
 
+    it("liest und schreibt das Kennzeichen Arbeits-, Maschinen- und Fahrtkosten je Position und am Artikel (#712)", async () => {
+      const t = await token(["rechnungen:entwuerfe", "artikel:schreiben"]);
+      const material = { description: "Rauchwarnmelder", quantity: 1000, unit: "Stk.", unitPrice: 3_100, taxRate: 1900 };
+      const montage = { ...material, description: "Montage", unitPrice: 800, arbeitskosten: true };
+      const created = await call(t, "POST", "/rechnungen", draft({ lines: [material, montage] }));
+      expect(created.status).toBe(201);
+      const invoice = schemas.invoiceSchema.parse(created.json);
+      expect(invoice.lines.map((l) => l.arbeitskosten)).toEqual([false, true]);
+      const patched = schemas.invoiceSchema.parse((await call(t, "PATCH", `/rechnungen/${invoice.id}`, { note: "Danke" })).json);
+      expect(patched.lines.map((l) => l.arbeitskosten)).toEqual([false, true]);
+      const artikel = await call(t, "POST", "/artikel", { description: "Montage", unit: "Stk.", unitPrice: 800, taxRate: 1900, arbeitskosten: true });
+      expect(artikel.status).toBe(201);
+      expect(artikel.json).toMatchObject({ arbeitskosten: true });
+      expect((await call(t, "PATCH", `/artikel/${(artikel.json as { id: string }).id}`, { arbeitskosten: false })).json).toMatchObject({
+        arbeitskosten: false,
+      });
+    });
+
     it("nimmt Format und Sprache ohne Angabe vom Kontakt wie der Rechnungseditor", async () => {
       const t = await token(["rechnungen:entwuerfe", "kontakte:schreiben"]);
       const amt = (await call(t, "POST", "/kontakte", { name: "Stadt Regensburg", leitwegId: "09362000-12345-67", language: "en" })).json!;

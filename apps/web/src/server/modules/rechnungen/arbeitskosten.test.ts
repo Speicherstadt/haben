@@ -79,6 +79,7 @@ describe.skipIf(!testDatabaseUrl)("Arbeits-, Maschinen- und Fahrtkosten nach § 
       serviceTo: null,
       paymentTermDays: 14,
       format: "zugferd",
+      note: "",
       lines: lines as never,
     });
   /** Betrag und Währung trennt ein geschütztes Leerzeichen (formatEuro) */

@@ -129,7 +129,7 @@ export const TEXTS = {
     quantity: (quantity: Millis, unit: string) => `${formatQuantity(quantity)} ${unit}`,
     note: (treatment: TaxTreatment, reason?: string | null) => treatmentNote(treatment, reason),
     // § 14b Abs. 1 Satz 5 mit Satz 3 UStG: zwei Jahre ab Schluss des Ausstellungsjahres; § 34a UStDV begründet keine pauschale Pflicht für KU.
-    // § 35a Abs. 5 Satz 1 EStG; BMF vom 09.11.2016 (BStBl I S. 1213) Rz. 39 f.: Anteil aus der Rechnung ermittelbar
+    // § 35a Abs. 5 Satz 2 EStG; BMF vom 09.11.2016 (BStBl I S. 1213) Rz. 39 f.: Anteil aus der Rechnung ermittelbar
     arbeitskosten: (amount: string, inclVat: boolean, beforeDeductions: boolean) =>
       `${beforeDeductions ? "In der gesamten Leistung vor Abzug der Abschlagsrechnungen sind" : "Darin sind"} Arbeits-, Maschinen- und Fahrtkosten von ${amount}${inclVat ? " inkl. USt" : ""} enthalten (§ 35a EStG).`,
     propertyRetention:

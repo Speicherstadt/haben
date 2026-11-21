@@ -28,9 +28,10 @@ describe("Felder des Einstellungsexports", () => {
 
   it("hält die Felder der Formatversion fest", () => {
     // Ändert sich die Liste, schlägt das hier fehl: Formatversion in format.ts prüfen und, ob der Import Dateien der
-    // bisherigen Version weiter liest; danach den neuen Wert eintragen
+    // bisherigen Version weiter liest; danach den neuen Wert eintragen. Artikel mit arbeitskosten (#712): Version 1
+    // bleibt, ältere Dateien ohne das Feld liest articleInputSchema mit false
     const felder = Object.fromEntries(Object.entries(FELDER).map(([name, { mit }]) => [name, [...mit].sort()]));
     const sha256 = createHash("sha256").update(JSON.stringify(felder)).digest("hex");
-    expect({ version: SETTINGS_EXPORT_VERSION, sha256 }).toEqual({ version: 1, sha256: "85524f638a0248cfe4b53e33be9d9098a756089a095dfe1ece387756da6283cd" });
+    expect({ version: SETTINGS_EXPORT_VERSION, sha256 }).toEqual({ version: 1, sha256: "c179319f95c5b961682466ff640afa8d9afee598431fd1f7d6d1448587b31cd7" });
   });
 });

@@ -1,3 +1,4 @@
+import { ARBEITSKOSTEN_OPTIONEN } from "./ArbeitskostenField.tsx";
 import { amountError, formatDecimal, ITEM_NUMBER_MAX, LINE_DETAIL_MAX, parseEuro } from "@haben/core";
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -137,8 +138,11 @@ export function ArticleForm({
         >
           {(control) => (
             <select {...control} name="arbeitskosten" defaultValue={initial?.arbeitskosten ? "ja" : "nein"}>
-              <option value="nein">Material und Sonstiges</option>
-              <option value="ja">Arbeit, Maschinen, Fahrt</option>
+              {ARBEITSKOSTEN_OPTIONEN.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
           )}
         </Field>
