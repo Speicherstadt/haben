@@ -293,9 +293,14 @@ async function removeLayout(actor: string, id: string): Promise<void> {
       where settings->'layouts' is not null`);
     await tx.delete(schema.belegLayouts).where(eq(schema.belegLayouts.id, id));
   });
-  // Erst nach der Transaktion: Lehnt die Prüfung der Fußzeile das Löschen ab, bleiben Renderer und Pakete stehen
-  await dropRenderer(id);
-  await clearPackages(id);
+  // Erst nach der Transaktion: Lehnt die Prüfung der Fußzeile das Löschen ab, bleiben Renderer und Pakete stehen. Scheitert
+  // das Aufräumen, ist das Layout trotzdem gelöscht; ein übrig gebliebener Cache gehört zu keinem Layout mehr
+  try {
+    await dropRenderer(id);
+    await clearPackages(id);
+  } catch (error) {
+    console.warn(`Layout ${id} gelöscht, Paket-Cache nicht entfernt: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 /** Art eines eigenen Layouts (Mahnung oder Beleg); null = eingebaut. Ein unbekanntes eingebautes oder gelöschtes eigenes wirft */

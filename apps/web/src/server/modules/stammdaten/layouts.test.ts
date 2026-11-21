@@ -1,6 +1,6 @@
 import { LAYOUT_DOCUMENT_TYPES } from "@haben/core";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dunningAmounts } from "@haben/core";
@@ -374,6 +374,20 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
     await andere;
     await expect(loeschen).rejects.toThrow("Kürze auf 3 Spalten");
     expect((await liste.listLayouts()).find((l) => l.id === id)?.packagesMissing).toBe(false);
+  }, 60_000);
+
+  it("ein Fehler beim Aufräumen nach dem Löschen meldet das Löschen nicht als gescheitert (#1651)", async () => {
+    const { id } = await anlegen({ name: "Mit Paket", art: "beleg", source: mitPaket, approve: ["@preview/demo:0.1.0"] }, { fetch: universum() });
+    await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id });
+    // Ohne Schreibrecht im Ordner des Layouts lässt sich der Paket-Cache nicht entfernen (EACCES)
+    const ordner = join(process.env.DOCUMENTS_DIR!, "vorlagen", id);
+    chmodSync(ordner, 0o555);
+    try {
+      await layouts.deleteLayout(actor, id);
+    } finally {
+      chmodSync(ordner, 0o755);
+    }
+    expect((await letterhead.loadDesign()).layouts.rechnung).toEqual({ kind: "eingebaut", id: "klar" });
   }, 60_000);
 
   it("Pflichtangaben der GmbH: ein Layout ohne die neuen Felder bekommt sie einmal über legal, eines mit über die Platzhalter (#1651)", async () => {
