@@ -304,3 +304,41 @@ test("erneut verbinden, das Formular oben mit „Über FinTS verbinden“ zugekl
   await expect(abruf().getByText("Verbindung nicht gefunden.")).toHaveCount(0);
   bank.zustand.scaBeiUmsaetzen = false;
 });
+
+test("„Über FinTS verbinden“ ist gesperrt, solange an einer Zeile ein Schritt der Bank offen ist", async () => {
+  const verbinden = abruf().getByRole("button", { name: "Über FinTS verbinden" });
+  const grund = "„Über FinTS verbinden“ geht wieder, sobald die Freigabe für Testbank gesendet oder abgebrochen ist.";
+  const tan = freigabe().getByLabel("TAN", { exact: true });
+  await verbinden.click();
+  await zugangEingeben();
+  await freigabe().getByLabel("TAN-Verfahren").selectOption({ label: "chipTAN manuell" });
+  await freigabe().getByRole("button", { name: "Weiter" }).click();
+  await expect(abruf().getByText(/^Testbank verbunden/)).toBeVisible();
+
+  // Sonst ersetzte der Schritt beim Verbinden den an der Zeile, ohne dass Haben den Vorgang bei der Bank verwirft
+  bank.zustand.scaBeiUmsaetzen = true;
+  await abruf().getByRole("button", { name: "Jetzt abrufen" }).click();
+  await expect(tan).toBeVisible();
+  await expect(verbinden).toBeDisabled();
+  await expect(abruf().getByText(grund)).toBeVisible();
+  await expect(verbinden).toHaveAccessibleDescription(grund);
+  await freigabe().getByRole("button", { name: "Abbrechen" }).click();
+  await expect(freigabe()).toHaveCount(0);
+  await expect(verbinden).toBeEnabled();
+  await expect(abruf().getByText(grund)).toHaveCount(0);
+
+  await abruf().getByRole("button", { name: "Jetzt abrufen" }).click();
+  await expect(tan).toBeVisible();
+  await expect(verbinden).toBeDisabled();
+  await tan.fill("123456");
+  await freigabe().getByRole("button", { name: "TAN senden" }).click();
+  await expect(abruf().getByText(/^Testbank, \d+ neue Umsätze\.$/)).toBeVisible();
+  await expect(verbinden).toBeEnabled();
+
+  // Danach verbindet der Knopf wie bisher
+  await verbinden.click();
+  await zugangEingeben();
+  await freigabe().getByLabel("TAN-Verfahren").selectOption({ label: "chipTAN manuell" });
+  await freigabe().getByRole("button", { name: "Weiter" }).click();
+  await expect(abruf().getByText(/^Testbank verbunden/)).toBeVisible();
+});
