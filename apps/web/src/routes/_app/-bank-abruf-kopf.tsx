@@ -1,30 +1,37 @@
 import { useId, type Dispatch, type SetStateAction } from "react";
-import type { FintsOffen } from "../../components/FintsAbruf.tsx";
+import type { FintsZustand } from "../../components/FintsAbruf.tsx";
 import type { Data } from "./-bank-daten.ts";
+
+/** Grund, aus dem „Über FinTS verbinden“ gesperrt ist, oder null */
+function verbindenGesperrt(fints: Data["fints"], { offen, busy }: FintsZustand): string | null {
+  const zeile = fints.connections.find((c) => c.id === offen?.fuer);
+  if (zeile) return `„Über FinTS verbinden“ geht wieder, sobald die Freigabe für ${zeile.bankName} gesendet oder abgebrochen ist.`;
+  const abruf = fints.connections.find((c) => c.id === busy);
+  return abruf ? `„Über FinTS verbinden“ geht wieder, sobald der Abruf für ${abruf.bankName} fertig ist.` : null;
+}
 
 /**
  * Kopf des Bereichs mit „Bank verbinden“ und „Über FinTS verbinden“. Ist an der Zeile einer FinTS-Verbindung ein Schritt
  * der Bank offen, etwa die TAN nach „Jetzt abrufen“, ist „Über FinTS verbinden“ gesperrt: Der Schritt beim Verbinden
- * ersetzte ihn, ohne dass Haben den Vorgang bei der Bank verwirft (#1647). Gehört der Schritt zum Verbinden selbst, bleibt
- * der Knopf frei und klappt das Formular zu wie „Abbrechen“
+ * ersetzte ihn, ohne dass Haben den Vorgang bei der Bank verwirft (#1647). Ebenso, solange an der Zeile „Rufe ab …“ steht,
+ * denn die Bank kann darauf mit einem Schritt antworten (#1660). Gehört der Schritt zum Verbinden selbst, bleibt der Knopf
+ * frei und klappt das Formular zu wie „Abbrechen“
  */
 export function AbrufKopf({
   sync,
   fints,
   busy,
-  fintsOffen,
+  fintsZustand,
   setConnecting,
-  setFintsConnecting,
 }: {
   sync: Data["sync"];
   fints: Data["fints"];
   busy: boolean;
-  fintsOffen: FintsOffen;
+  fintsZustand: FintsZustand;
   setConnecting: Dispatch<SetStateAction<boolean>>;
-  setFintsConnecting: Dispatch<SetStateAction<boolean>>;
 }) {
   const hinweis = useId();
-  const zeile = fints.connections.find((c) => c.id === fintsOffen?.fuer);
+  const grund = verbindenGesperrt(fints, fintsZustand);
   return (
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -39,18 +46,18 @@ export function AbrufKopf({
             <button
               type="button"
               className="btn"
-              onClick={() => setFintsConnecting((v) => !v)}
-              disabled={busy || zeile !== undefined}
-              aria-describedby={zeile ? hinweis : undefined}
+              onClick={() => fintsZustand.setVerbinden((v) => !v)}
+              disabled={busy || grund !== null}
+              aria-describedby={grund ? hinweis : undefined}
             >
               Über FinTS verbinden
             </button>
           )}
         </div>
       </div>
-      {zeile && (
+      {grund && (
         <p id={hinweis} className="small muted" style={{ margin: 0 }}>
-          „Über FinTS verbinden“ geht wieder, sobald die Freigabe für {zeile.bankName} gesendet oder abgebrochen ist.
+          {grund}
         </p>
       )}
     </>

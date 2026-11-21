@@ -1,6 +1,6 @@
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useId, useState, type FormEvent } from "react";
 import { defaultFetchFrom, fetchFromForConnect } from "../lib/bank-connect.ts";
 import { errorMessage, formatDate, formatDateTime } from "../lib/format.ts";
 import { useSubmitCheck } from "../lib/use-submit-check.ts";
@@ -24,10 +24,33 @@ type Meldung = { tone: "ok" | "danger" | "info"; text: string };
 /** Offener Schritt der Bank beim Verbinden („neu“) oder an der Zeile einer Verbindung (ihre ID); die Bankseite führt ihn */
 export type FintsOffen = { fuer: string; schritt: Offen } | null;
 
+/**
+ * Was die Bankseite für FinTS führt, damit der Kopf des Bereichs es kennt: Formular „Über FinTS verbinden“ offen
+ * (verbinden), offener Schritt der Bank und die Zeile mit laufender Anfrage (busy: ihre ID beim Abruf, `x-<ID>` beim Trennen)
+ */
+export function useFintsZustand() {
+  const [verbinden, setVerbinden] = useState(false);
+  const [offen, setOffen] = useState<FintsOffen>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  return { verbinden, setVerbinden, offen, setOffen, busy, setBusy };
+}
+export type FintsZustand = ReturnType<typeof useFintsZustand>;
+
 export const FINTS_ANLEITUNG = "https://github.com/Speicherstadt/haben/blob/main/docs/installation-anbindungen.md#kontoabruf-über-fints";
 
 /** Name mit den letzten vier Ziffern der IBAN; neue Konten tragen sie schon im Namen („Testbank Girokonto …2051“) */
 const kontoName = (a: { name: string; iban: string }) => (a.name.endsWith(a.iban.slice(-4)) ? a.name : `${a.name} …${a.iban.slice(-4)}`);
+
+/**
+ * Grund an einer Zeile, solange oben „Über FinTS verbinden“ offen ist: Ein Schritt der Bank an der Zeile stünde sonst neben
+ * dem Formular, und dessen Schritt ersetzte ihn, ohne dass Haben den Vorgang bei der Bank verwirft (#1660). Nennt jeden
+ * Knopf, der deshalb gesperrt ist; „Trennen“ nur, solange die Bank beim Verbinden auf einen Schritt wartet
+ */
+function sperrGrund(c: Verbindung, schritt: boolean): string {
+  const knoepfe = [...(schritt ? ["Trennen"] : []), ...(c.status === "fehler" ? ["Zugang ändern"] : []), "Jetzt abrufen"];
+  const liste = new Intl.ListFormat("de").format(knoepfe.map((k) => `„${k}“`));
+  return `${liste} ${knoepfe.length > 1 ? "gehen" : "geht"} wieder, sobald das Verbinden über FinTS oben fertig oder abgebrochen ist.`;
+}
 
 const meldungenAus = (s: Extract<Schritt, { art: "fertig" }>): Meldung[] => [
   { tone: s.ok ? "ok" : "danger", text: s.meldung },
@@ -155,19 +178,28 @@ export function FintsAbruf({
   setVerbinden,
   offen,
   setOffen,
+  busy,
+  setBusy,
 }: {
   fints: Fints;
   verbinden: boolean;
   setVerbinden: (v: boolean) => void;
   offen: FintsOffen;
   setOffen: (o: FintsOffen) => void;
+  busy: string | null;
+  setBusy: (b: string | null) => void;
 }) {
   const router = useRouter();
   const sync = useServerFn(syncFints);
   const disconnect = useServerFn(disconnectFints);
   const verwerfen = useServerFn(cancelFints);
   const [vorlage, setVorlage] = useState<Verbindung | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const grundId = useId();
+  // ID des Grundes an der Zeile, solange oben „Über FinTS verbinden“ offen ist (an)
+  const grund = (c: Verbindung, an = verbinden) => (an ? `${grundId}-${c.id}` : undefined);
+  const gesperrt = busy !== null || offen !== null;
+  // Wartet die Bank beim Verbinden auf einen Schritt, ist auch „Trennen“ gesperrt, und der Grund nennt es mit
+  const schrittNeu = verbinden && offen?.fuer === "neu";
   const [meldungen, setMeldungen] = useState<Meldung[]>([]);
   const [trennt, setTrennt] = useState<Verbindung | null>(null);
 
@@ -247,16 +279,22 @@ export function FintsAbruf({
             <span className="small muted">{c.accounts.map(kontoName).join(" · ") || "Keine Konten"}</span>
             <span className="small muted">{c.lastSyncAt ? `Zuletzt abgerufen ${formatDateTime(c.lastSyncAt)}` : "Noch nicht abgerufen"}</span>
             {c.lastError && <span className="field-error">{c.lastError}</span>}
+            {verbinden && (
+              <span id={grund(c)} className="small muted">
+                {sperrGrund(c, schrittNeu)}
+              </span>
+            )}
           </div>
           <div className="actions">
-            <button type="button" className="btn btn-danger" disabled={busy !== null || offen !== null} onClick={() => setTrennt(c)}>
+            <button type="button" className="btn btn-danger" disabled={gesperrt} aria-describedby={grund(c, schrittNeu)} onClick={() => setTrennt(c)}>
               Trennen
             </button>
             {c.status === "fehler" && fints.configured && (
               <button
                 type="button"
                 className="btn"
-                disabled={busy !== null || offen !== null}
+                disabled={gesperrt || verbinden}
+                aria-describedby={grund(c)}
                 onClick={() => {
                   setVorlage(c);
                   setVerbinden(true);
@@ -269,7 +307,8 @@ export function FintsAbruf({
               <button
                 type="button"
                 className="btn btn-primary"
-                disabled={busy !== null || offen !== null}
+                disabled={gesperrt || verbinden}
+                aria-describedby={grund(c)}
                 onClick={() => void run(c.id, async () => ergebnis(c.id, await sync({ data: c.id })))}
               >
                 {busy === c.id ? "Rufe ab …" : "Jetzt abrufen"}

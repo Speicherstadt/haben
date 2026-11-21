@@ -2,7 +2,7 @@ import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { ConnectionStatus } from "../../components/BankStatus.tsx";
-import { FintsAbruf, type FintsOffen } from "../../components/FintsAbruf.tsx";
+import { FintsAbruf, useFintsZustand } from "../../components/FintsAbruf.tsx";
 import { defaultFetchFrom, fetchFromForConnect } from "../../lib/bank-connect.ts";
 import { errorMessage, formatDate, formatDateTime } from "../../lib/format.ts";
 import { useSubmitCheck } from "../../lib/use-submit-check.ts";
@@ -24,8 +24,7 @@ export function BankSync({ sync, fints, result }: { sync: Sync; fints: Data["fin
   const disconnectFn = useServerFn(disconnectBank);
   const connectFn = useServerFn(connectBank);
   const [connecting, setConnecting] = useState(false);
-  const [fintsConnecting, setFintsConnecting] = useState(false);
-  const [fintsOffen, setFintsOffen] = useState<FintsOffen>(null);
+  const fintsZustand = useFintsZustand();
   const [disconnecting, setDisconnecting] = useState<Sync["connections"][number] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [messages, setMessages] = useState<{ tone: "ok" | "danger" | "info"; text: string }[]>([]);
@@ -64,7 +63,7 @@ export function BankSync({ sync, fints, result }: { sync: Sync; fints: Data["fin
 
   return (
     <section className="card" aria-label="Automatischer Abruf" style={{ marginBottom: 16, gap: 12 }}>
-      <AbrufKopf sync={sync} fints={fints} busy={busy !== null} fintsOffen={fintsOffen} setConnecting={setConnecting} setFintsConnecting={setFintsConnecting} />
+      <AbrufKopf sync={sync} fints={fints} busy={busy !== null} fintsZustand={fintsZustand} setConnecting={setConnecting} />
 
       {result && (
         <div className={`banner banner-${result.ok ? "ok" : "danger"}`} role="status" style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
@@ -98,7 +97,7 @@ export function BankSync({ sync, fints, result }: { sync: Sync; fints: Data["fin
         <p>Die abgerufenen Umsätze bleiben erhalten.</p>
       </ConfirmDialog>
 
-      {sync.connections.length === 0 && fints.connections.length === 0 && !connecting && !fintsConnecting && (
+      {sync.connections.length === 0 && fints.connections.length === 0 && !connecting && !fintsZustand.verbinden && (
         <p className="small muted" style={{ margin: 0 }}>
           Noch keine Bank verbunden. Nach der Freigabe bei deiner Bank holt Haben die Umsätze einmal täglich; der Import per CSV oder CAMT bleibt daneben
           möglich.
@@ -156,7 +155,7 @@ export function BankSync({ sync, fints, result }: { sync: Sync; fints: Data["fin
         );
       })}
 
-      <FintsAbruf fints={fints} verbinden={fintsConnecting} setVerbinden={setFintsConnecting} offen={fintsOffen} setOffen={setFintsOffen} />
+      <FintsAbruf fints={fints} {...fintsZustand} />
 
       {messages.length > 0 && (
         <ul className="upload-messages" role="status">
