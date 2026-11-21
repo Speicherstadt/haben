@@ -82,6 +82,18 @@ async function loadBankConnections() {
   return { enableBanking, stores, etsy, paypal, stripe };
 }
 
+/** Beleggestaltung: Logo, Briefpapier, Gestaltung, Layouts und Vorschau der Fußzeile */
+async function loadGestaltung() {
+  const [logo, background, design, overview, footerPreview] = await Promise.all([
+    getLogo(),
+    getBackground(),
+    getLetterheadDesign(),
+    getLayouts(),
+    getFooterPreview(),
+  ]);
+  return { logo, background, design, layouts: overview.layouts, layoutHints: overview.hints, footerPreview };
+}
+
 export const Route = createFileRoute("/_app/einstellungen")({
   beforeLoad: ({ context, search }) => {
     if (context.oidc.only && search.bereich === "sicherheit") throw redirect({ to: "/einstellungen", search: { bereich: "zugaenge" }, replace: true });
@@ -94,10 +106,7 @@ export const Route = createFileRoute("/_app/einstellungen")({
       numbering,
       eric,
       mail,
-      logo,
-      background,
-      design,
-      overview,
+      gestaltung,
       inbox,
       exportArea,
       chainHead,
@@ -113,17 +122,13 @@ export const Route = createFileRoute("/_app/einstellungen")({
       quoteDefaultAttachments,
       ownAccounts,
       units,
-      footerPreview,
     ] = await Promise.all([
       getCompany(),
       getVatPeriod({ data: currentFilingPeriod(new Date()) }),
       getNumbering(),
       getEricStatus(),
       getMailSettings(),
-      getLogo(),
-      getBackground(),
-      getLetterheadDesign(),
-      getLayouts(),
+      loadGestaltung(),
       getInbox(),
       getExportArea(),
       getChainHead(),
@@ -139,7 +144,6 @@ export const Route = createFileRoute("/_app/einstellungen")({
       getQuoteDefaultAttachments(),
       getOwnAccounts(),
       getUnits(),
-      getFooterPreview(),
     ]);
     return {
       ...company,
@@ -148,11 +152,7 @@ export const Route = createFileRoute("/_app/einstellungen")({
       numbering,
       eric,
       mail,
-      logo,
-      background,
-      design,
-      layouts: overview.layouts,
-      layoutHints: overview.hints,
+      ...gestaltung,
       inbox,
       ...exportArea,
       chainHead,
@@ -168,7 +168,6 @@ export const Route = createFileRoute("/_app/einstellungen")({
       quoteDefaultAttachments,
       ownAccounts,
       units,
-      footerPreview,
     };
   },
   head: () => ({ meta: [{ title: "Einstellungen · Haben" }], links: [{ rel: "stylesheet", href: reportStyles }] }),
