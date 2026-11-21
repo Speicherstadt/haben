@@ -77,7 +77,7 @@ Unter **Einstellungen › Beleggestaltung › Layouts** wählst du ein Layout f�
 | Modern | Akzentfarbe farbig oder sparsam; Linie über dem Fuß (ab Werk ohne) |
 | Strukturiert | Infoblock als Tabelle oder im Kasten |
 | Elegant | Fuß in der Randspalte (ab Werk) oder unten; Kerndaten als Liste oder zweispaltig (nur mit Fuß unten) |
-| Atelier | Fuß unten (ab Werk) oder in der Randspalte; Kerndaten als Liste oder zweispaltig (nur mit Fuß unten). Steht das Logo links, steht der Name rechts daneben; mit Fuß unten steht die Linie unter dem Kopf bei jeder Logogröße gleich hoch und über dem Fenster des Umschlags |
+| Atelier | Fuß unten (ab Werk) oder in der Randspalte; Kerndaten als Liste oder zweispaltig (nur mit Fuß unten). Steht das Logo links, steht der Name rechts daneben; mit Fuß unten stehen Logo und Name unten bündig auf der Linie unter dem Kopf, bei jeder Logogröße gleich hoch und über dem Fenster des Umschlags |
 
 - Die Optionen stehen unter der Zuordnung, je eingebautem Layout einmal; sie gelten für jede Belegart mit diesem Layout. Ein Wert, den eine andere Option ausschließt, ist ausgegraut.
 - In der [Vorschau](rechnungen.md#vorschau) zeigt das Zahnrad das Layout der Belegart mit seinen Optionen; eine Änderung dort siehst du sofort und speicherst sie mit **Gestaltung speichern**.
