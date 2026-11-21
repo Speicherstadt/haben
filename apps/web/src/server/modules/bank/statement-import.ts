@@ -83,6 +83,8 @@ export async function storeStatement(
 export async function prepareStatement(tx: Tx, statement: ParsedStatement, filename: string, accountId: string | null) {
   const account = await importAccount(tx, statement, filename, accountId);
 
+  // Auch ein Import, der sich mit dem neuen Zeitraum überschneidet, ist ein Kandidat: Sein Endsaldo steht
+  // dann mitten im neuen Zeitraum, und checkBalanceContinuity vergleicht die Salden nicht direkt.
   const [previous] = await tx
     .select({ closingBalance: schema.bankImports.closingBalance, periodTo: schema.bankImports.periodTo })
     .from(schema.bankImports)
@@ -90,7 +92,7 @@ export async function prepareStatement(tx: Tx, statement: ParsedStatement, filen
       and(
         eq(schema.bankImports.bankAccountId, account.id),
         echterImport,
-        statement.periodFrom ? lte(schema.bankImports.periodTo, statement.periodFrom) : sql`true`,
+        statement.periodTo ? lte(schema.bankImports.periodFrom, statement.periodTo) : sql`true`,
       ),
     )
     .orderBy(desc(schema.bankImports.periodTo), desc(schema.bankImports.createdAt))
@@ -178,7 +180,7 @@ export async function statementResult(
   tx: Tx,
   account: { id: string; name: string },
   statement: ParsedStatement,
-  continuity: { ok: boolean; message?: string },
+  continuity: { ok: boolean; message?: string; hinweis?: string },
   added: number,
   transactions: (ParsedTransaction & { dedupHash: string })[],
 ): Promise<ImportResult> {
@@ -187,7 +189,7 @@ export async function statementResult(
     accountName: account.name,
     added,
     skipped: transactions.length - added,
-    warnings: statement.warnings,
+    warnings: [...statement.warnings, ...(continuity.hinweis ? [continuity.hinweis] : [])],
     gap: continuity.ok ? null : (continuity.message ?? "Lücke zum vorigen Import"),
     quelle: await quellenHinweis(tx, account.id, statement.format, added, statement.periodFrom, statement.periodTo, transactions),
   };

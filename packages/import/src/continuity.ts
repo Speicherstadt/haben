@@ -9,7 +9,7 @@ function germanDate(iso: string): string {
 export function checkBalanceContinuity(
   previous: { closingBalance?: Cents; periodTo?: string } | null,
   next: { openingBalance?: Cents; periodFrom?: string },
-): { ok: boolean; message?: string } {
+): { ok: boolean; message?: string; hinweis?: string } {
   if (previous === null) {
     return { ok: true, message: "Erster Import für dieses Konto; es gibt keinen Endsaldo zum Vergleich." };
   }
@@ -22,7 +22,7 @@ export function checkBalanceContinuity(
   if (previous.periodTo && next.periodFrom && next.periodFrom <= previous.periodTo) {
     return {
       ok: true,
-      message: `Der Zeitraum überschneidet sich mit dem vorigen Import (bis ${germanDate(previous.periodTo)}); die Salden können nicht direkt verglichen werden.`,
+      hinweis: `Der Zeitraum überschneidet sich mit einem vorhandenen Import (bis ${germanDate(previous.periodTo)}); die Salden können nicht direkt verglichen werden.`,
     };
   }
   const since = previous.periodTo ? ` (Stand ${germanDate(previous.periodTo)})` : "";
