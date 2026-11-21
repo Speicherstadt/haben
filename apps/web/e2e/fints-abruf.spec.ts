@@ -495,5 +495,6 @@ test("Zugeklapptes Verbinden, das noch auf die Bank wartet, ersetzt keinen Schri
   await page.waitForTimeout(1000);
   await expect(tan).toBeVisible();
   await freigabe().getByRole("button", { name: "Abbrechen" }).click();
-  bank.zustand.scaBeiUmsaetzen = false;
+  // Das verworfene Verbinden hat die Anmeldung mit TAN nie abgeschlossen, die Testbank setzt scaBeiAnmeldung also nicht selbst zurück
+  Object.assign(bank.zustand, { scaBeiAnmeldung: false, scaBeiUmsaetzen: false });
 });
