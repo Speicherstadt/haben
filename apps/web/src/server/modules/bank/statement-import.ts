@@ -10,7 +10,7 @@ import {
   type ParsedStatement,
   type ParsedTransaction,
 } from "@haben/import";
-import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { importAccount } from "./import-konto.ts";
 import { recordDuplicateCandidates } from "./duplicate-scan.ts";
@@ -84,7 +84,8 @@ export async function prepareStatement(tx: Tx, statement: ParsedStatement, filen
   const account = await importAccount(tx, statement, filename, accountId);
 
   // Auch ein Import, der sich mit dem neuen Zeitraum überschneidet, ist ein Kandidat: Sein Endsaldo steht
-  // dann mitten im neuen Zeitraum, und checkBalanceContinuity vergleicht die Salden nicht direkt.
+  // dann mitten im neuen Zeitraum, und checkBalanceContinuity vergleicht die Salden nicht direkt. Ein leerer
+  // Auszug mit Kontostand hat keinen Anfang, aber ein Ende; er zählt mit seinem Enddatum.
   const [previous] = await tx
     .select({ closingBalance: schema.bankImports.closingBalance, periodTo: schema.bankImports.periodTo })
     .from(schema.bankImports)
@@ -92,7 +93,7 @@ export async function prepareStatement(tx: Tx, statement: ParsedStatement, filen
       and(
         eq(schema.bankImports.bankAccountId, account.id),
         echterImport,
-        statement.periodTo ? lte(schema.bankImports.periodFrom, statement.periodTo) : sql`true`,
+        statement.periodTo ? or(isNull(schema.bankImports.periodFrom), lte(schema.bankImports.periodFrom, statement.periodTo)) : sql`true`,
       ),
     )
     .orderBy(desc(schema.bankImports.periodTo), desc(schema.bankImports.createdAt))
