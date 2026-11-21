@@ -1,0 +1,120 @@
+import type postgres from "postgres";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+
+/*
+ * Saldenprüfung über Importe hinweg (#1643): Ein kurzer Export, dessen Zeitraum sich mit einem vorhandenen Import
+ * überschneidet, darf keine Lücke melden, sondern den Überschneidungshinweis. Haben verglich sonst mit einem
+ * älteren Import und stellte dessen Endsaldo einem Zwischenstand der neuen Datei gegenüber.
+ */
+
+const IBAN = "DE12120300001234567890";
+
+/** DKB-Auszug wie in bank.test.ts: Kopfzeile mit Kontostand, eine Zeile je Umsatz */
+function dkbCsv(rows: string[][], balance: string, date: string) {
+  const header = `"Girokonto";"${IBAN}"\n""\n"Kontostand vom ${date}:";"${balance}"\n""\n`;
+  const columns = `"Buchungsdatum";"Wertstellung";"Status";"Zahlungspflichtige*r";"Zahlungsempfänger*in";"Verwendungszweck";"Umsatztyp";"IBAN";"Betrag (€)";"Gläubiger-ID";"Mandatsreferenz";"Kundenreferenz"\n`;
+  const body = rows.map((r) => r.map((c) => `"${c}"`).join(";")).join("\n");
+  return new TextEncoder().encode(`﻿${header}${columns}${body}\n`);
+}
+
+const eingang = (date: string, zweck: string, betrag: string) => [
+  date,
+  date,
+  "Gebucht",
+  "Beispiel AG",
+  "Testkonto",
+  zweck,
+  "Eingang",
+  "DE89370400440532013000",
+  betrag,
+  "",
+  "",
+  "",
+];
+
+describe.skipIf(!testDatabaseUrl)("Saldenprüfung bei überlappenden Importen (Postgres)", () => {
+  let bank: typeof import("./index.ts");
+  let sql: postgres.Sql;
+  const actor = "test-user";
+
+  beforeAll(async () => {
+    sql = await setupTestDb();
+    bank = await import("./index.ts");
+  }, 30_000);
+
+  afterAll(async () => {
+    await sql?.end();
+  });
+
+  beforeEach(async () => {
+    await leeren(sql)`truncate allocations, bank_transactions, bank_imports, bank_accounts, company cascade`;
+    await sql`insert into company (id, name, strasse, plz, ort, email, telefon, steuernummer, ust_id, bundesland, iban, versteuerung, kontenrahmen)
+      values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '+49 941 1', '198/113/10010',
+              'DE123456789', 'BY', 'DE89370400440532013000', 'ist', 'SKR03')`;
+  });
+
+  it("meldet keine Lücke, wenn sich der kurze Export mit dem Jahresexport überschneidet", async () => {
+    // Vorjahr: 900,00 € + 100,00 € = 1.000,00 €
+    expect(
+      await bank.importStatement(
+        actor,
+        { bytes: dkbCsv([eingang("15.06.25", "RE 2025-001", "100,00")], "1.000,00 €", "31.12.2025"), filename: "a-2025.csv" },
+        null,
+      ),
+    ).toMatchObject({ added: 1, skipped: 0, gap: null });
+
+    // Jahresexport 2026 mit 20.04.2026 und 17.11.2026: 1.000,00 € + 450,00 € + 50,00 € = 1.500,00 €
+    expect(
+      await bank.importStatement(
+        actor,
+        {
+          bytes: dkbCsv([eingang("20.04.26", "RE 2026-001", "450,00"), eingang("17.11.26", "RE 2026-002", "50,00")], "1.500,00 €", "19.11.2026"),
+          filename: "b-2026.csv",
+        },
+        null,
+      ),
+    ).toMatchObject({ added: 2, skipped: 0, gap: null });
+
+    // Kurzexport mit demselben Umsatz vom 17.11.2026: sein Anfangssaldo ist ein Zwischenstand, kein Jahresabschluss
+    const kurz = await bank.importStatement(
+      actor,
+      { bytes: dkbCsv([eingang("17.11.26", "RE 2026-002", "50,00")], "1.500,00 €", "21.11.2026"), filename: "c-kurz.csv" },
+      null,
+    );
+    expect(kurz).toMatchObject({ added: 0, skipped: 1 });
+    expect(kurz.gap).toBeNull();
+    expect(kurz.warnings.join(" ")).toMatch(/überschneidet sich mit einem vorhandenen Import \(bis 19\.11\.2026\)/);
+  });
+
+  it("meldet weiterhin eine Lücke, wenn sich der Zeitraum nicht überschneidet", async () => {
+    expect(
+      await bank.importStatement(
+        actor,
+        { bytes: dkbCsv([eingang("15.06.25", "RE 2025-001", "100,00")], "1.000,00 €", "31.12.2025"), filename: "a-2025.csv" },
+        null,
+      ),
+    ).toMatchObject({ added: 1, skipped: 0, gap: null });
+
+    expect(
+      await bank.importStatement(
+        actor,
+        {
+          bytes: dkbCsv([eingang("20.04.26", "RE 2026-001", "450,00"), eingang("17.11.26", "RE 2026-002", "50,00")], "1.500,00 €", "19.11.2026"),
+          filename: "b-2026.csv",
+        },
+        null,
+      ),
+    ).toMatchObject({ added: 2, skipped: 0, gap: null });
+
+    // Ab 20.11.2026, also nach dem Jahresexport: Anfangssaldo 1.800,00 € passt nicht zu dessen Endsaldo 1.500,00 €
+    const danach = await bank.importStatement(
+      actor,
+      { bytes: dkbCsv([eingang("20.11.26", "RE 2026-003", "50,00")], "1.850,00 €", "31.12.2026"), filename: "d-danach.csv" },
+      null,
+    );
+    expect(danach).toMatchObject({ added: 1, skipped: 0 });
+    expect(danach.gap).toMatch(/^Lücke: Anfangssaldo 1\.800,00\s€ passt nicht zum Endsaldo 1\.500,00\s€ \(Stand 19\.11\.2026\)/);
+    expect(danach.warnings.join(" ")).not.toMatch(/überschneidet/);
+  });
+});
