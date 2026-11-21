@@ -10,7 +10,7 @@ import { today as todayInGermany } from "../server/today.ts";
 import { FintsStatus } from "./BankStatus.tsx";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { Field } from "./Field.tsx";
-import { type Offen, type Schritt, SchrittForm } from "./FintsSchritt.tsx";
+import { type Offen, type Schritt, SchrittForm, useAntwort } from "./FintsSchritt.tsx";
 
 /*
  * Kontoabruf über FinTS (#654) auf der Bankseite: Verbinden mit Bankleitzahl, FinTS-Adresse, Anmeldename und PIN,
@@ -60,6 +60,7 @@ const meldungenAus = (s: Extract<Schritt, { art: "fertig" }>): Meldung[] => [
 /** Zugang zum Online-Banking; mit vorlage für „Zugang ändern“ schon ausgefüllt, nur die PIN fehlt */
 function VerbindenForm({ vorlage, onSchritt, onAbbrechen }: { vorlage: Verbindung | null; onSchritt: (s: Schritt) => Promise<void>; onAbbrechen: () => void }) {
   const connect = useServerFn(connectFints);
+  const antwort = useAntwort(onSchritt);
   const today = todayInGermany();
   const [blz, setBlz] = useState(vorlage?.bankCode ?? "");
   const [url, setUrl] = useState(vorlage?.url ?? "");
@@ -95,7 +96,7 @@ function VerbindenForm({ vorlage, onSchritt, onAbbrechen }: { vorlage: Verbindun
         pin,
         fetchFrom: fetchFromForConnect(fetchFrom, today),
       };
-      await onSchritt(await connect({ data }));
+      await antwort(await connect({ data }));
     } catch (e) {
       setError(errorMessage(e));
     } finally {

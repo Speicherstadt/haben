@@ -1,5 +1,6 @@
+import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { errorMessage } from "../lib/format.ts";
 import { useSubmitCheck } from "../lib/use-submit-check.ts";
 import { cancelFints, continueFints } from "../server/functions/fints.ts";
@@ -9,10 +10,33 @@ import { Field } from "./Field.tsx";
 export type Schritt = Awaited<ReturnType<typeof continueFints>>;
 export type Offen = Exclude<Schritt, { art: "fertig" }>;
 
+/**
+ * Gibt die Antwort der Bank an onSchritt, solange das Formular noch steht. Kommt sie erst, nachdem es zugeklappt ist, gilt
+ * das Zuklappen wie „Abbrechen“: Ein offener Schritt wird bei der Bank verworfen, statt den an einer Zeile zu ersetzen,
+ * und die Seite lädt neu (#1660)
+ */
+export function useAntwort(onSchritt: (s: Schritt) => Promise<void>) {
+  const router = useRouter();
+  const verwerfen = useServerFn(cancelFints);
+  const zu = useRef(false);
+  useEffect(() => {
+    zu.current = false;
+    return () => {
+      zu.current = true;
+    };
+  }, []);
+  return async (s: Schritt) => {
+    if (!zu.current) return onSchritt(s);
+    if (s.art !== "fertig") await verwerfen({ data: s.vorgang }).catch(() => undefined);
+    await router.invalidate();
+  };
+}
+
 /** Was die Bank gerade will: ein TAN-Verfahren oder -Medium wählen, eine TAN eingeben oder in der App freigeben */
 export function SchrittForm({ schritt, onSchritt, onAbbrechen }: { schritt: Offen; onSchritt: (s: Schritt) => Promise<void>; onAbbrechen: () => void }) {
   const weiter = useServerFn(continueFints);
   const verwerfen = useServerFn(cancelFints);
+  const antwort = useAntwort(onSchritt);
   const medien = schritt.art === "verfahren" && schritt.verfahren.length === 1 ? schritt.verfahren[0]!.medien : [];
   const [wahl, setWahl] = useState(schritt.art === "verfahren" ? (medien[0] ?? String(schritt.verfahren[0]?.id ?? "")) : "");
   const [tan, setTan] = useState("");
@@ -38,7 +62,7 @@ export function SchrittForm({ schritt, onSchritt, onAbbrechen }: { schritt: Offe
           : medien.length > 0
             ? { vorgang: schritt.vorgang, verfahren: schritt.verfahren[0]!.id, medium: wahl }
             : { vorgang: schritt.vorgang, verfahren: Number(wahl) };
-      await onSchritt(await weiter({ data }));
+      await antwort(await weiter({ data }));
     } catch (e) {
       setError(errorMessage(e));
     } finally {
