@@ -162,7 +162,7 @@ export function FooterCard({
                     fieldRef={(element) => {
                       fields.current[index] = element;
                     }}
-                    className="mono"
+                    className="mono autogrow"
                     rows={5}
                     maxLength={MAX_FOOTER_TEXT}
                     value={text}

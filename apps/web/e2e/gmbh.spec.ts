@@ -647,6 +647,8 @@ test("Fußzeile der GmbH (#1651): Pflichtangaben in der Vorschau, Platzhalter al
   await karte.getByLabel("Spalte 4").fill("{rechtsform} Sitz {sitz}\n{registergericht} {registernummer}\nGF {geschaeftsfuehrung}\n{aufsichtsrat}");
   await expect(karte.getByRole("alert")).toHaveCount(0);
   await expect(stelle.getByRole("button", { name: "Als Spalte" })).toBeDisabled();
+  // Das Feld wächst mit, keine umbrochene Zeile ist weggescrollt
+  await expect.poll(() => karte.getByLabel("Spalte 4").evaluate((feld: HTMLTextAreaElement) => feld.scrollHeight - feld.clientHeight)).toBeLessThanOrEqual(1);
   await expect(karte.getByText("Steht in deiner Fußzeile")).toBeVisible();
   await expect(vorschau).toContainText("GF Erika Gesellschafter");
   await expect(vorschau).not.toContainText("Registergericht:");
