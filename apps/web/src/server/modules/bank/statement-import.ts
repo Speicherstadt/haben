@@ -93,14 +93,19 @@ export async function prepareStatement(tx: Tx, statement: ParsedStatement, filen
       and(
         eq(schema.bankImports.bankAccountId, account.id),
         echterImport,
-        statement.periodTo ? or(isNull(schema.bankImports.periodFrom), lte(schema.bankImports.periodFrom, statement.periodTo)) : sql`true`,
+        statement.periodTo
+          ? or(
+              and(isNull(schema.bankImports.periodFrom), lte(schema.bankImports.periodTo, statement.periodTo)),
+              lte(schema.bankImports.periodFrom, statement.periodTo),
+            )
+          : sql`true`,
       ),
     )
     .orderBy(desc(schema.bankImports.periodTo), desc(schema.bankImports.createdAt))
     .limit(1);
   const continuity = checkBalanceContinuity(
     previous ? { closingBalance: previous.closingBalance ?? undefined, periodTo: previous.periodTo ?? undefined } : null,
-    { openingBalance: statement.openingBalance, periodFrom: statement.periodFrom },
+    { openingBalance: statement.openingBalance, periodFrom: statement.periodFrom, periodTo: statement.periodTo },
   );
 
   // Konto sperren, damit parallele Importe dieselben Umsätze nicht doppelt anlegen
