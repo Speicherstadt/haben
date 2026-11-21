@@ -625,7 +625,7 @@ test("Fußzeile der GmbH (#1651): Pflichtangaben in der Vorschau, Platzhalter al
   await go("/einstellungen?bereich=gestaltung");
   const karte = page.getByRole("region", { name: "Fußzeile" });
   const vorschau = karte.locator(".footer-preview");
-  const stelle = karte.getByRole("group", { name: "Stelle der Pflichtangaben" });
+  const stelle = karte.getByRole("group", { name: "Stelle der Registerangaben" });
   const speichern = karte.getByRole("button", { name: "Fußzeile speichern" });
   // Auch ohne eigene Fußzeile: Klar setzt die Angaben als vierte Spalte
   await expect(vorschau).toContainText("Registergericht: Amtsgericht Bremen, HRB 12345 HB");

@@ -313,6 +313,6 @@ Diese Einstellungen unter Einstellungen › Beleggestaltung kommen nur über ihr
 | Spalte USt je Position | `hideVatColumn` | Rechnung, Storno und Korrektur; Angebot; Auftragsbestätigung |
 | Briefpapier | `background` | alle |
 | Seiten mit Briefpapier | `look.backgroundPages` | alle |
-| Pflichtangaben | `look.legalPosition` | alle |
+| Registerangaben | `look.legalPosition` | alle |
 
 <!-- feldvertrag:ende -->

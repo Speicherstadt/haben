@@ -314,7 +314,7 @@ export const LAYOUT_GESTALTUNG = {
   vatColumn: { label: "Spalte USt je Position", felder: "hideVatColumn", belege: ["rechnung", "angebot", "auftragsbestaetigung"] },
   background: { label: "Briefpapier", felder: "background", belege: ALLE_BELEGE },
   backgroundPages: { label: "Seiten mit Briefpapier", felder: "look.backgroundPages", belege: ALLE_BELEGE },
-  legalPosition: { label: "Pflichtangaben", felder: "look.legalPosition", belege: ALLE_BELEGE },
+  legalPosition: { label: "Registerangaben", felder: "look.legalPosition", belege: ALLE_BELEGE },
 } as const satisfies Record<string, { label: string; felder: string; belege: readonly LayoutDocumentType[] }>;
 
 export type LayoutGestaltung = keyof typeof LAYOUT_GESTALTUNG;

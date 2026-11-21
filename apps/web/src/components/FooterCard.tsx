@@ -46,17 +46,27 @@ const LEGAL_OPTIONS: { value: LegalPosition; label: string; name: string }[] = [
 
 type FooterSeller = Parameters<typeof footerValues>[0] & LegalInfoSource;
 
-/** Automatische Fußzeile und Pflichtangaben je Angabe, wie Haben sie setzt (getFooterPreview) */
+/** Automatische Fußzeile und Registerangaben je Angabe, wie Haben sie setzt (getFooterPreview) */
 export interface FooterPreview {
   automatic: string[][];
   legal: string[];
 }
 
+/** Werte der Platzhalter wie auf dem Blatt: IBAN in Vierergruppen (formatIban in packages/einvoice) */
+function previewValues(seller: FooterSeller, info: ReturnType<typeof legalInfo>) {
+  const filled = footerValues({ ...seller, ...(info ? { legalInfo: info } : {}) });
+  return { ...filled, iban: filled.iban.replace(/\s+/g, "").replace(/(.{4})(?=.)/g, "$1 ") };
+}
+
+/** Die Vorschau zeigt die Rechnung; ihr Layout bestimmt die Stelle. Ein eigenes Layout setzt sie selbst, gezeigt wie gewählt */
+const previewStelle = (design: LetterheadDesign, stellen: readonly PflichtangabenStelle[], position: LegalPosition): PflichtangabenStelle =>
+  design.layouts.rechnung.kind === "eingebaut" ? (stellen[0] ?? "spalte") : position === "spalte" ? "spalte" : "zeile";
+
 const plain = (lines: readonly string[]): FormattedTextRun[][] => lines.map((text) => [{ text, bold: false, italic: false, underline: false }]);
 
 /**
  * Fußzeile der Belege: automatisch aus den Firmendaten oder eigene Spalten mit Platzhaltern; bei GmbH und UG dazu die Stelle
- * der Pflichtangaben (#1651). Die Vorschau zeigt sie, wie sie auf der Rechnung stehen.
+ * der Registerangaben (#1651). Die Vorschau zeigt sie, wie sie auf der Rechnung stehen.
  */
 export function FooterCard({
   design,
@@ -96,31 +106,24 @@ export function FooterCard({
   // Nach dem Verringern kann die zuletzt fokussierte Spalte verborgen sein
   const active = Math.min(focused, count - 1);
   const kapitalgesellschaft = isKapitalgesellschaft(seller.rechtsform);
+  // Registerangaben hat heute jede Rechtsform außer dem Einzelunternehmen (legalInfo); nur dann gibt es ihre Einstellung
+  const info = legalInfo(seller);
   const withPosition = { ...design, legalPosition: position };
   const issues = own ? [...footerIssues(shown), ...legalFooterIssues(shown, { kapitalgesellschaft, legalAsColumn: legalAsColumn(withPosition) })] : [];
   const inFooter = own && legalInFooter(shown);
-  const filled = footerValues({ ...seller, ...(kapitalgesellschaft ? { legalInfo: legalInfo(seller) } : {}) });
-  // In Vierergruppen wie auf dem Blatt (formatIban in packages/einvoice)
-  const values = { ...filled, iban: filled.iban.replace(/\s+/g, "").replace(/(.{4})(?=.)/g, "$1 ") };
+  const values = previewValues(seller, info);
   const noBank = own && !shown.some((text) => text.includes("{iban}"));
-  // Die Rechnung zeigt die Vorschau; ihr Layout bestimmt die Stelle. Ein eigenes Layout setzt sie selbst, gezeigt wie gewählt
   const stellen = legalStellen(withPosition);
-  const stelle: PflichtangabenStelle = design.layouts.rechnung.kind === "eingebaut" ? (stellen[0] ?? "spalte") : position === "spalte" ? "spalte" : "zeile";
-  const nurRand = stellen.length > 0 && stellen.every((s) => s === "rand");
-  const legalHint = layoutHint(hints, "legalPosition");
-
   const edit = (index: number, text: string) =>
     setTexts(Array.from({ length: Math.max(texts.length, index + 1) }, (_, i) => (i === index ? text : (texts[i] ?? ""))));
 
   const { fields, touched, insert } = usePlaceholderInsert(shown, active, edit);
-  const placeholders = kapitalgesellschaft
-    ? FOOTER_PLACEHOLDERS
-    : FOOTER_PLACEHOLDERS.filter((name) => !(LEGAL_PLACEHOLDERS as readonly string[]).includes(name));
+  const placeholders = info ? FOOTER_PLACEHOLDERS : FOOTER_PLACEHOLDERS.filter((name) => !(LEGAL_PLACEHOLDERS as readonly string[]).includes(name));
 
   const onSave = () =>
     run(async () => {
       // Ausgeschaltet bleiben die Spalten gespeichert und kommen beim Einschalten wieder
-      await save({ data: { footerCustom: own, ...(own ? { footerColumns: shown } : {}), ...(kapitalgesellschaft ? { legalPosition: position } : {}) } });
+      await save({ data: { footerCustom: own, ...(own ? { footerColumns: shown } : {}), ...(info ? { legalPosition: position } : {}) } });
       await router.invalidate();
     }, "Fußzeile gespeichert. Sie gilt für alle Belege, die ab jetzt festgeschrieben werden.");
 
@@ -140,7 +143,7 @@ export function FooterCard({
         {!own && (
           <span id="footer-own-hint" className="field-hint">
             Haben setzt die Fußzeile aus den Firmendaten zusammen: Kontakt, Bank, Steuernummern
-            {kapitalgesellschaft && " und die Pflichtangaben der Gesellschaft"}.
+            {info && " und die Registerangaben der Gesellschaft"}.
           </span>
         )}
       </div>
@@ -188,48 +191,25 @@ export function FooterCard({
               </button>
             ))}
           </div>
-          {issues.map((issue) => (
-            <div key={issue} className="banner banner-danger" role="alert">
-              {issue}
-            </div>
-          ))}
-          {noBank && (
-            <div className="banner banner-warn" role="status">
-              Ohne {"{iban}"} steht die Bankverbindung nicht auf dem Blatt.
-            </div>
-          )}
+          <FooterIssues issues={issues} noBank={noBank} />
         </>
       )}
-      {kapitalgesellschaft && (
-        <div>
-          <h3>Pflichtangaben</h3>
-          <Segmented
-            label="Stelle der Pflichtangaben"
-            options={LEGAL_OPTIONS}
-            value={position}
-            onChange={setPosition}
-            disabled={inFooter || nurRand || legalHint?.aus}
-            describedBy={["footer-legal-hint", layoutHintId("legalPosition", legalHint)].filter(Boolean).join(" ")}
-          />
-          <p id="footer-legal-hint" className="field-hint footer-legal-hint">
-            {inFooter
-              ? "Steht in deiner Fußzeile: Wo die Platzhalter stehen, stehen auch die Angaben."
-              : nurRand
-                ? "Wirkt nicht in der Randspalte: Dort stehen die Angaben unter den übrigen."
-                : own
-                  ? "Ohne ihre Platzhalter in der Fußzeile setzt Haben die Angaben nach § 35a GmbHG selbst; mit einem davon brauchst du alle."
-                  : "Angaben nach § 35a GmbHG: Sitz, Registergericht und Nummer, Geschäftsführung."}
-            {!inFooter && !nurRand && stellen.includes("rand") && " In der Randspalte von Elegant und Atelier stehen sie immer unter den übrigen Angaben."}
-          </p>
-          <LayoutHintText option="legalPosition" hint={legalHint} />
-        </div>
+      {info && (
+        <LegalPositionField
+          position={position}
+          onChange={setPosition}
+          stellen={stellen}
+          inFooter={inFooter}
+          own={own}
+          hint={layoutHint(hints, "legalPosition")}
+        />
       )}
       <div>
         <h3>So steht sie auf dem Blatt</h3>
         <FooterSheetPreview
           columns={own ? customFooterRuns(shown, values) : preview.automatic.map(plain)}
-          legal={kapitalgesellschaft && !inFooter ? preview.legal : []}
-          stelle={stelle}
+          legal={info && !inFooter ? preview.legal : []}
+          stelle={previewStelle(design, stellen, position)}
         />
       </div>
       <div className="actions">
@@ -242,7 +222,68 @@ export function FooterCard({
   );
 }
 
-/** Spalten des Fußes und die Pflichtangaben an ihrer Stelle: als weitere Spalte, als Zeile darunter oder untereinander in der Randspalte */
+/** Warum sich die Fußzeile nicht speichern lässt, und der Hinweis ohne Bankverbindung */
+function FooterIssues({ issues, noBank }: { issues: readonly string[]; noBank: boolean }) {
+  return (
+    <>
+      {issues.map((issue) => (
+        <div key={issue} className="banner banner-danger" role="alert">
+          {issue}
+        </div>
+      ))}
+      {noBank && (
+        <div className="banner banner-warn" role="status">
+          Ohne {"{iban}"} steht die Bankverbindung nicht auf dem Blatt.
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Stelle der Registerangaben; aus, wenn ihre Platzhalter in der Fußzeile stehen oder jedes Layout sie in die Randspalte setzt */
+function LegalPositionField({
+  position,
+  onChange,
+  stellen,
+  inFooter,
+  own,
+  hint,
+}: {
+  position: LegalPosition;
+  onChange: (position: LegalPosition) => void;
+  stellen: readonly PflichtangabenStelle[];
+  inFooter: boolean;
+  own: boolean;
+  hint: ReturnType<typeof layoutHint>;
+}) {
+  const nurRand = stellen.length > 0 && stellen.every((s) => s === "rand");
+  return (
+    <div>
+      <h3>Registerangaben</h3>
+      <Segmented
+        label="Stelle der Registerangaben"
+        options={LEGAL_OPTIONS}
+        value={position}
+        onChange={onChange}
+        disabled={inFooter || nurRand || hint?.aus}
+        describedBy={["footer-legal-hint", layoutHintId("legalPosition", hint)].filter(Boolean).join(" ")}
+      />
+      <p id="footer-legal-hint" className="field-hint footer-legal-hint">
+        {inFooter
+          ? "Steht in deiner Fußzeile: Wo die Platzhalter stehen, stehen auch die Angaben."
+          : nurRand
+            ? "Wirkt nicht in der Randspalte: Dort stehen die Angaben unter den übrigen."
+            : own
+              ? "Ohne ihre Platzhalter in der Fußzeile setzt Haben die Registerangaben (§ 35a GmbHG) selbst; mit einem davon brauchst du alle."
+              : "Sitz, Registergericht und Nummer, Geschäftsführung (§ 35a GmbHG)."}
+        {!inFooter && !nurRand && stellen.includes("rand") && " In der Randspalte von Elegant und Atelier stehen sie immer unter den übrigen Angaben."}
+      </p>
+      <LayoutHintText option="legalPosition" hint={hint} />
+    </div>
+  );
+}
+
+/** Spalten des Fußes und die Registerangaben an ihrer Stelle: als weitere Spalte, als Zeile darunter oder untereinander in der Randspalte */
 function FooterSheetPreview({ columns, legal, stelle }: { columns: FormattedTextRun[][][]; legal: string[]; stelle: PflichtangabenStelle }) {
   const asColumn = legal.length > 0 && stelle !== "zeile";
   const all = asColumn ? [...columns, plain(legal)] : columns;
