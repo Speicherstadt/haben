@@ -1,5 +1,6 @@
 /*
  * Prüfung der SQL-Vorlage (vorlage.ts): <präfix>_integrity_problems meldet Befunde zu Kette, Kopf, Anmeldungen und Siegeln.
+ * Vorbild ist haben_integrity_problems in Haben, zuletzt drizzle/0311 dort (Siegel, die im Audit-Log stehen, aber fehlen).
  */
 
 export function pruefung(p: string): string {
