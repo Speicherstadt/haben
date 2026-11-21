@@ -77,7 +77,7 @@ export {
   storeExchangeRates,
   type ExchangeRate,
 } from "./exchange-rates.ts";
-export { AccentColorError, loadDesign, loadLetterhead, saveAccentColor, saveDesign } from "./letterhead.ts";
+export { AccentColorError, loadDesign, loadLetterhead, lockFooter, saveAccentColor, saveDesign } from "./letterhead.ts";
 export { loadLogo, logoInfo, MAX_LOGO_BYTES, removeLogo, saveLogo } from "./logo.ts";
 export {
   loadNavMark,
