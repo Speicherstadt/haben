@@ -568,8 +568,7 @@ test("Ist an einer Zeile ein Schritt der Bank offen, nennen die übrigen den Gru
     }
   };
 
-  // Nur der Umsatzabruf verlangt eine TAN; ein Test davor lässt die TAN bei der Anmeldung offen
-  Object.assign(bank.zustand, { scaBeiAnmeldung: false, scaBeiUmsaetzen: true });
+  bank.zustand.scaBeiUmsaetzen = true;
   await unten.getByRole("button", { name: "Jetzt abrufen" }).click();
   await expect(tan).toBeVisible();
   await gesperrtMitGrund();
