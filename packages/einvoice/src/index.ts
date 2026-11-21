@@ -4,6 +4,7 @@ export { LANGUAGES, texts, type Language } from "./i18n.ts";
 export { embedsInPdf } from "./typst-compiler.ts";
 export {
   asDraft,
+  footerColumns,
   legalLine,
   legalLines,
   logoFormat,

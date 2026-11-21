@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readdir, rename, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { DEFAULT_LAYOUT, eingebautesLayout, LAYOUT_DOCUMENT_TYPES, type LayoutDocumentType, type LayoutRef } from "@haben/core";
-import { createRenderClient, LAYOUT_SCHEMA_VERSION, type Letterhead, type PdfRequest } from "@haben/einvoice";
+import { createRenderClient, kenntPflichtangabenFelder, LAYOUT_SCHEMA_VERSION, type Letterhead, type PdfRequest } from "@haben/einvoice";
 import { eq, sql } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { env } from "../../env.ts";
@@ -370,24 +370,26 @@ export async function mitEingebautemLayout(
 export async function withCustomLayout<T>(type: LayoutDocumentType, letterhead: Letterhead, build: (letterhead: Letterhead) => T): Promise<T> {
   const layout = await customLayoutFor(type);
   if (!layout) return build(await mitEingebautemLayout(type, letterhead));
+  // Kennt das Layout die Stelle der Pflichtangaben nicht, bekommt es sie nur über legal (#1651)
+  const eigener = { ...letterhead, legalFieldOnly: !kenntPflichtangabenFelder(layout.source) };
   let request: PdfRequest | undefined;
   // Ganz durchlaufen lassen: buildEInvoice setzt das PDF erst nach einem await
   await build({
-    ...letterhead,
+    ...eigener,
     pdfFrom: (captured) => {
       request = captured;
       return undefined;
     },
   });
-  if (!request) return build(letterhead);
+  if (!request) return build(eigener);
   let pdf: Uint8Array;
   try {
     const renderer = await rendererFor(layout);
-    pdf = await renderer.renderPdf(await customLayoutJob(layout, dataForVersion(layout.schemaVersion, request.data), letterhead), request.date);
+    pdf = await renderer.renderPdf(await customLayoutJob(layout, dataForVersion(layout.schemaVersion, request.data), eigener), request.date);
   } catch (error) {
     throw new LayoutRenderError(
       `Das Layout „${layout.name}“ ließ sich nicht setzen: ${typstMeldung(error)}. Bitte unter Einstellungen › Beleggestaltung ein anderes wählen.`,
     );
   }
-  return build({ ...letterhead, pdfFrom: () => pdf });
+  return build({ ...eigener, pdfFrom: () => pdf });
 }

@@ -24,6 +24,7 @@ interface Daten {
   draft?: string;
   legal?: string | null;
   footer: string[][];
+  look?: { legalInFooter?: boolean };
   lines?: { description: string; quantity: string; net: string }[];
   totals?: { rows: Zeile[]; gross: Zeile; included?: { rows: Zeile[] } | null; euroTax?: { rows: Zeile[] } | null } | null;
   taxNote?: string | null;
@@ -47,6 +48,8 @@ function pflicht(art: LayoutBeispiel["art"], d: Daten): { was: string; text: str
       .split(" · ")
       .filter((text) => text.trim())
       .map((text) => ({ was: "Pflichtangaben der GmbH (legal)", text })),
+    // Stehen sie über Platzhalter in der Fußzeile, ist legal null; dann muss die Fußzeile aufs Blatt (#1651)
+    ...(d.look?.legalInFooter ? d.footer.flat().map((text) => ({ was: "Pflichtangaben der GmbH in der Fußzeile (footer)", text })) : []),
   ];
   if (art === "mahnung") {
     return [

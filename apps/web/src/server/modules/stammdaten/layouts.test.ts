@@ -338,6 +338,25 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
     expect(pdfText(pdf)).toMatch(/FASSUNG [AB]/);
   }, 60_000);
 
+  it("Pflichtangaben der GmbH: ein Layout ohne die neuen Felder bekommt sie einmal über legal, eines mit über die Platzhalter (#1651)", async () => {
+    const fuss = ["{firma}\n{strasse}\n{plz} {ort}", "{steuernummer}\nSitzplatz {sitz}\n{registergericht} {registernummer}\n{geschaeftsfuehrung}", "{rechtsform}\n{aufsichtsrat}"];
+    await letterhead.saveDesign(actor, { footerColumns: fuss });
+    const head = await letterhead.loadLetterhead();
+    const setzen = async (source: string, name: string) => {
+      const { id } = await anlegen({ name, art: "beleg", source });
+      await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id });
+      const { pdf } = await layouts.withCustomLayout("rechnung", head, (lh) => buildEInvoice({ ...sampleDocument(), seller: gmbhSeller, ...lh }));
+      return pdfText(pdf);
+    };
+    // Vor #1651 geschrieben: kennt weder look.legalPosition noch look.legalInFooter
+    const alt = await setzen(eigene("beleg").replaceAll("legalPosition", "altePosition"), "Altes Layout");
+    expect(alt).toContain("Registergericht: Amtsgericht Charlottenburg");
+    expect(alt).not.toContain("Sitzplatz");
+    const neu = await setzen(eigene("beleg"), "Neues Layout");
+    expect(neu).toContain("Sitzplatz Berlin");
+    expect(neu).not.toContain("Registergericht:");
+  }, 60_000);
+
   it("setzt Lieferschein und Mahnung mit dem eigenen Layout", async () => {
     const beleg = await anlegen({ name: "Für Lieferscheine", art: "beleg", source: eigene("beleg", "EIGENER LIEFERSCHEIN") });
     const mahnung = await anlegen({ name: "Für Mahnungen", art: "mahnung", source: eigene("mahnung", "EIGENE MAHNUNG") });

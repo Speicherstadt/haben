@@ -55,7 +55,7 @@ import { getExportArea } from "../../server/functions/export.ts";
 import { getNumbering } from "../../server/functions/invoices.ts";
 import { getInbox } from "../../server/functions/inbox.ts";
 import { getAppVersions, getChainHead, getDatabaseAccessInfo } from "../../server/functions/integrity.ts";
-import { getBackground, getLetterheadDesign, getLogo } from "../../server/functions/logo.ts";
+import { getBackground, getFooterPreview, getLetterheadDesign, getLogo } from "../../server/functions/logo.ts";
 import { getMailSettings } from "../../server/functions/mail.ts";
 import { getMcpSettings } from "../../server/functions/mcp.ts";
 import { getZugaenge } from "../../server/functions/zugang.ts";
@@ -113,6 +113,7 @@ export const Route = createFileRoute("/_app/einstellungen")({
       quoteDefaultAttachments,
       ownAccounts,
       units,
+      footerPreview,
     ] = await Promise.all([
       getCompany(),
       getVatPeriod({ data: currentFilingPeriod(new Date()) }),
@@ -138,6 +139,7 @@ export const Route = createFileRoute("/_app/einstellungen")({
       getQuoteDefaultAttachments(),
       getOwnAccounts(),
       getUnits(),
+      getFooterPreview(),
     ]);
     return {
       ...company,
@@ -166,6 +168,7 @@ export const Route = createFileRoute("/_app/einstellungen")({
       quoteDefaultAttachments,
       ownAccounts,
       units,
+      footerPreview,
     };
   },
   head: () => ({ meta: [{ title: "Einstellungen · Haben" }], links: [{ rel: "stylesheet", href: reportStyles }] }),
@@ -205,6 +208,7 @@ function SettingsPage() {
     quoteDefaultAttachments,
     ownAccounts,
     units,
+    footerPreview,
     ablage,
     neueInstanz,
   } = Route.useLoaderData();
@@ -255,7 +259,7 @@ function SettingsPage() {
               <LetterheadOptionsCard design={design} logo={logo?.sha256 ?? null} hints={layoutHints} />
               <LetterheadBackgroundCard design={design} background={background?.sha256 ?? null} hints={layoutHints} />
               <AccentColorCard color={design.accent} fromLayout={design.accentFromLayout} hint={layoutHints.accent} />
-              <FooterCard columns={design.footerColumns} seller={company} hidden={design.footerHidden && background !== null} />
+              <FooterCard design={design} seller={company} preview={footerPreview} hints={layoutHints} hidden={design.footerHidden && background !== null} />
               <LayoutsCard design={design} layouts={layouts} />
             </>
           )}

@@ -124,6 +124,53 @@ describe.skipIf(!testDatabaseUrl)("Briefkopf und Standardprofil (Postgres)", () 
     await letterhead.saveDesign(actor, { footerColumns: null });
     expect((await letterhead.loadLetterhead()).options?.footerColumns).toBeNull();
   });
+
+  describe("Pflichtangaben der GmbH in der Fußzeile (#1651)", () => {
+    const ALLE = "{rechtsform} {sitz}\n{registergericht} {registernummer}\n{geschaeftsfuehrung}\n{aufsichtsrat}";
+    const vier = ["{firma}", "{steuernummer}", "{iban}", "{email}"];
+    beforeEach(async () => {
+      await sql`update company set rechtsform = 'gmbh' where id = 1`;
+    });
+
+    it("lehnt einen Teil der Platzhalter ab und nennt die fehlenden", async () => {
+      await expect(letterhead.saveDesign(actor, { footerColumns: ["{firma}\n{sitz}", "{steuernummer}"] })).rejects.toThrow(
+        "es fehlen {rechtsform}, {registergericht}, {registernummer}, {geschaeftsfuehrung} und {aufsichtsrat}",
+      );
+      expect(await sql`select 1 from letterhead_profiles`).toHaveLength(0);
+      await letterhead.saveDesign(actor, { footerColumns: ["{firma}", `{steuernummer}\n${ALLE}`] });
+      expect((await letterhead.loadDesign()).footerColumns).toEqual(["{firma}", `{steuernummer}\n${ALLE}`]);
+    });
+
+    it("als Spalte höchstens 3 eigene Spalten, als Zeile 4", async () => {
+      await expect(letterhead.saveDesign(actor, { footerColumns: vier })).rejects.toThrow("Kürze auf 3 Spalten");
+      await letterhead.saveDesign(actor, { footerColumns: vier, legalPosition: "zeile" });
+      // Wer danach auf „Als Spalte“ stellt, hätte fünf Spalten
+      await expect(letterhead.saveDesign(actor, { legalPosition: "spalte" })).rejects.toThrow("Kürze auf 3 Spalten");
+      expect((await letterhead.loadDesign()).legalPosition).toBe("zeile");
+    });
+
+    it("eine gespeicherte Fußzeile mit 4 Spalten gilt weiter, bis sie wieder gespeichert wird", async () => {
+      await sql`insert into letterhead_profiles (name, is_default, settings) values ('Standard', true, ${JSON.stringify({ footerColumns: vier })}::jsonb)`;
+      await letterhead.saveDesign(actor, { accent: "#0055AA" });
+      expect((await letterhead.loadLetterhead()).options).toMatchObject({ footerColumns: vier, footerCustom: true });
+      await expect(letterhead.saveDesign(actor, { footerColumns: vier })).rejects.toThrow("Kürze auf 3 Spalten");
+    });
+
+    it("beim Einzelunternehmen keine Sperre", async () => {
+      await sql`update company set rechtsform = 'einzelunternehmen' where id = 1`;
+      await letterhead.saveDesign(actor, { footerColumns: ["{sitz}", ...vier.slice(1)] });
+      expect((await letterhead.loadDesign()).footerColumns).toHaveLength(4);
+    });
+
+    it("Ausschalten behält die eigenen Spalten, Einschalten bringt sie zurück", async () => {
+      await letterhead.saveDesign(actor, { footerColumns: ["{firma}", "{steuernummer}"], footerCustom: true });
+      await letterhead.saveDesign(actor, { footerCustom: false });
+      expect(await letterhead.loadDesign()).toMatchObject({ footerCustom: false, footerColumns: ["{firma}", "{steuernummer}"] });
+      await letterhead.saveDesign(actor, { footerCustom: true });
+      expect((await letterhead.loadDesign()).footerCustom).toBe(true);
+    });
+  });
+
   describe("Briefpapier", () => {
     const png = Uint8Array.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64"));
 

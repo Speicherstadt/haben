@@ -1,4 +1,14 @@
-import { bekannteLayoutOptionen, designWithDefaults, letterheadDesignInputSchema, type LetterheadDesign, type LetterheadDesignInput } from "@haben/core";
+import {
+  activeFooterColumns,
+  bekannteLayoutOptionen,
+  designWithDefaults,
+  isKapitalgesellschaft,
+  legalAsColumn,
+  legalFooterIssues,
+  letterheadDesignInputSchema,
+  type LetterheadDesign,
+  type LetterheadDesignInput,
+} from "@haben/core";
 import type { Letterhead } from "@haben/einvoice";
 import { eq, sql } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
@@ -10,6 +20,22 @@ import { loadLogo } from "./logo.ts";
 /** Briefkopf von Rechnungen, Angeboten und Mahnungen: Gestaltung aus dem Standardprofil, dazu das Logo */
 
 export class AccentColorError extends UserError {}
+
+export class FooterError extends UserError {}
+
+/**
+ * Pflichtangaben einer GmbH oder UG in der Fußzeile (#1651): alle Platzhalter oder keiner, als Spalte höchstens 4 Spalten.
+ * Nur, wenn die Eingabe die Fußzeile oder die Stelle ändert; eine ältere Fußzeile gilt weiter, bis sie gespeichert wird.
+ */
+async function checkFooter(tx: Tx, changes: LetterheadDesignInput): Promise<void> {
+  if (!("footerColumns" in changes || changes.footerCustom === true || "legalPosition" in changes)) return;
+  const next = designWithDefaults({ ...(await loadDesign(tx)), ...changes });
+  const columns = activeFooterColumns(next);
+  if (!columns) return;
+  const [company] = await tx.select({ rechtsform: schema.company.rechtsform }).from(schema.company);
+  const issues = legalFooterIssues(columns, { kapitalgesellschaft: isKapitalgesellschaft(company?.rechtsform ?? "einzelunternehmen"), legalAsColumn: legalAsColumn(next) });
+  if (issues.length > 0) throw new FooterError(issues.join(" "));
+}
 
 /** Ohne gespeichertes Profil gelten die Vorgaben; Einstellungen, die eine ältere Zeile nicht kennt, ebenso */
 export async function loadDesign(q: Db | Tx = db): Promise<LetterheadDesign> {
@@ -30,11 +56,15 @@ export async function saveDesign(actor: string, input: LetterheadDesignInput): P
   const parsed = letterheadDesignInputSchema.safeParse(input);
   if (!parsed.success) throw new AccentColorError("Die Gestaltung ist ungültig. Die Akzentfarbe hat die Form #RRGGBB, z. B. #1F6F5C.");
   return withActor(actor, async (tx) => {
-    const { layoutOptions, ...rest } = parsed.data;
+    const { layoutOptions, ...input } = parsed.data;
+    // Spalten speichern heißt eigene Fußzeile an, null heißt aus; so bleibt die Eingabe von vor #1651 gültig
+    const rest: LetterheadDesignInput =
+      "footerColumns" in input && !("footerCustom" in input) ? { ...input, footerCustom: input.footerColumns !== null } : input;
     // Eine eigene Farbe gilt ab jetzt statt der des Layouts; „Wie im Layout“ schaltet sie erst ausdrücklich wieder ab
     const changes: LetterheadDesignInput = rest.accent ? { accentFromLayout: false, ...rest, accent: rest.accent.toUpperCase() } : rest;
     const optionen = layoutOptions ? bekannteLayoutOptionen(layoutOptions) : undefined;
     if (optionen) changes.layoutOptions = optionen;
+    await checkFooter(tx, changes);
     const profiles = schema.letterheadProfiles;
     // In der Datenbank zusammenführen: Lesen und danach Schreiben ließe zwei gleichzeitige Änderungen sich überschreiben
     const [row] = await tx
