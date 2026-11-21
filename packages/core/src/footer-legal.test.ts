@@ -14,7 +14,8 @@ const seller = {
   legalInfo: { seat: "Bremen", registerCourt: "Amtsgericht Bremen", registerNumber: "HRB 34567 HB", managingDirectors: ["Erika Mustermann", "Jonas Beispiel"] },
 };
 
-const ALLE = "Sitz {sitz}\n{rechtsform}\n{registergericht} {registernummer}\nGeschäftsführung {geschaeftsfuehrung}\nVorsitz des Aufsichtsrats {aufsichtsratsvorsitz}";
+const ALLE =
+  "Sitz {sitz}\n{rechtsform}\n{registergericht} {registernummer}\nGeschäftsführung {geschaeftsfuehrung}\nVorsitz des Aufsichtsrats {aufsichtsratsvorsitz}";
 const stelle = (id: string, optionen: Record<string, string> = {}, gewaehlt: "layout" | "spalte" | "zeile" = "layout") => {
   const layout = eingebautesLayout(id)!;
   return legalStelle(layout, layoutOptionen(layout, optionen), gewaehlt);

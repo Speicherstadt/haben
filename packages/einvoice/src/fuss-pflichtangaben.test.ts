@@ -7,7 +7,8 @@ import type { Letterhead } from "./types.ts";
 
 /* Pflichtangaben der GmbH im Fuß (#1651): Platzhalter, Stelle und eigene Layouts, die die neuen Felder nicht kennen */
 
-const MIT_ALLEN = "Sitz {sitz}\n{rechtsform}\n{registergericht} {registernummer}\nGeschäftsführung {geschaeftsfuehrung}\nVorsitz des Aufsichtsrats {aufsichtsratsvorsitz}";
+const MIT_ALLEN =
+  "Sitz {sitz}\n{rechtsform}\n{registergericht} {registernummer}\nGeschäftsführung {geschaeftsfuehrung}\nVorsitz des Aufsichtsrats {aufsichtsratsvorsitz}";
 const eigene = (footerColumns: string[], mehr: Partial<LetterheadOptions> = {}): Letterhead => ({
   options: { ...DEFAULT_OPTIONS, footerColumns, footerCustom: true, ...mehr },
 });
