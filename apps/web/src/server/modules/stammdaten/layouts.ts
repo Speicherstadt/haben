@@ -19,7 +19,7 @@ import {
   writePackages,
 } from "./paket-download.ts";
 import { customLayoutJob, dataForVersion, layoutRenderer } from "./layout-renderer.ts";
-import { checkLayoutSwitch, loadDesign } from "./letterhead.ts";
+import { checkLayoutSwitch, loadDesign, lockFooter } from "./letterhead.ts";
 
 /*
  * Eigene Belegvorlagen (#113): hochladen, benennen, löschen und je Belegart zuordnen. Ein Layout gilt für alles, was ab
@@ -268,13 +268,26 @@ export function deleteLayout(actor: string, id: string): Promise<void> {
   return oneAtATime(id, () => removeLayout(actor, id));
 }
 
+/** Wo das Layout zugeordnet ist, gilt nach dem Löschen das eingebaute; das darf die Fußzeile nicht über 4 Spalten bringen */
+async function checkRemoval(q: Db | Tx, id: string): Promise<void> {
+  const current = await loadDesign(q);
+  const layouts = Object.fromEntries(
+    Object.entries(current.layouts).map(([type, ref]) => [type, ref.kind === "eigen" && ref.id === id ? DEFAULT_LAYOUT : ref]),
+  ) as typeof current.layouts;
+  await checkLayoutSwitch(q, current, { ...current, layouts });
+}
+
 async function removeLayout(actor: string, id: string): Promise<void> {
+  // Vor dem Aufräumen des Renderers, sonst bliebe ein Layout ohne Renderer zurück
+  await checkRemoval(db, id);
   await dropRenderer(id);
   await clearPackages(id);
   await withActor(actor, async (tx) => {
     // Erst das Profil, dann das Layout: Jede Änderung nimmt im Audit-Trigger die Sperre der Hash-Kette. Käme das Löschen
     // zuerst, hielte es diese Sperre, während es auf die Zeile des Profils wartet, und verhakte sich mit saveDesign, das
     // die Zeile hält und auf die Sperre wartet.
+    await lockFooter(tx);
+    await checkRemoval(tx, id);
     const fallback = JSON.stringify(DEFAULT_LAYOUT);
     await tx.execute(sql`
       update letterhead_profiles set settings = jsonb_set(settings, '{layouts}', (
@@ -319,6 +332,7 @@ export async function assignLayoutToAll(actor: string, ref: LayoutRef): Promise<
 async function zuordnen(actor: string, types: readonly LayoutDocumentType[], ref: LayoutRef): Promise<void> {
   const neu = Object.fromEntries(types.map((type) => [type, { kind: ref.kind, id: ref.id }]));
   await withActor(actor, async (tx) => {
+    await lockFooter(tx);
     const current = await loadDesign(tx);
     await checkLayoutSwitch(tx, current, { ...current, layouts: { ...current.layouts, ...neu } });
     const profiles = schema.letterheadProfiles;

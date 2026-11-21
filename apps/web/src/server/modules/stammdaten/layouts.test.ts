@@ -338,6 +338,18 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
     expect(pdfText(pdf)).toMatch(/FASSUNG [AB]/);
   }, 60_000);
 
+  it("Löschen eines eigenen Layouts, das die Pflichtangaben zur fünften Spalte machte, wird abgelehnt (#1651)", async () => {
+    await sql`insert into company (id, name, rechtsform) values (1, 'Testfirma GmbH', 'gmbh')`;
+    await layouts.assignLayoutToAll(actor, { kind: "eingebaut", id: "elegant" });
+    await letterhead.saveDesign(actor, { layoutOptions: { elegant: { fuss: "rechts" } }, footerColumns: ["{firma}", "{iban}", "{steuernummer}", "{email}"] });
+    const { id } = await anlegen({ name: "Eigenes", art: "beleg", source: eigene("beleg") });
+    await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id });
+    // Ohne das eigene Layout fiele die Rechnung auf Klar zurück, mit den Pflichtangaben als fünfter Spalte
+    await expect(layouts.deleteLayout(actor, id)).rejects.toThrow("Kürze auf 3 Spalten");
+    expect((await letterhead.loadDesign()).layouts.rechnung).toEqual({ kind: "eigen", id });
+    expect((await liste.listLayouts()).some((l) => l.id === id)).toBe(true);
+  });
+
   it("Pflichtangaben der GmbH: ein Layout ohne die neuen Felder bekommt sie einmal über legal, eines mit über die Platzhalter (#1651)", async () => {
     const fuss = [
       "{firma}\n{strasse}\n{plz} {ort}",
