@@ -84,6 +84,11 @@ export function layoutBeispiele(): LayoutBeispiel[] {
     references: { buyerOrder: "4500012345", sellerOrder: "A-2026-117", despatchAdvice: "LS-2026-089" },
   };
   const storno = sampleDocument({ kind: "storno" });
+  // Platzhalter der Pflichtangaben in der eigenen Fußzeile: legal ist null, look.legalInFooter gesetzt (#1651)
+  const mitPflichtangaben = briefkopf({
+    footerColumns: ["{firma}\n{strasse}", "Sitz {sitz}\n{registergericht} {registernummer}\nGeschäftsführung {geschaeftsfuehrung}\n{rechtsform}\n{aufsichtsrat}", "{steuernummer}"],
+    legalPosition: "zeile",
+  });
   const totals = sampleDocument({}).totals;
   const angebot = {
     ...sampleDocument({}),
@@ -130,6 +135,7 @@ export function layoutBeispiele(): LayoutBeispiel[] {
     rechnungBeleg("Rechnung als Kleinunternehmer", pdfData(klein)),
     rechnungBeleg("Rechnung mit Aufbewahrungshinweis", pdfData({ ...rechnung, propertyRetention: true }), kopf),
     rechnungBeleg("Stornorechnung", pdfData(storno)),
+    rechnungBeleg("Rechnung mit den Pflichtangaben der GmbH in der Fußzeile", pdfData({ ...rechnung, ...mitPflichtangaben }), mitPflichtangaben),
     rechnungBeleg("Rechnung mit allen Referenzen und Logo in der Mitte", mitWeiterenReferenzen(pdfData(referenzen)), briefkopf({ logoPosition: "mitte" })),
     beleg("Angebot", quotePdfData(angebot), kopf),
     beleg("Auftragsbestätigung", confirmationPdfData(angebot, "2026-10-05"), kopf),

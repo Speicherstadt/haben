@@ -83,8 +83,11 @@ export interface LetterheadOptions {
   vatColumn: boolean;
   /** Eigene Spalten der Fußzeile mit Platzhaltern; null = noch nie welche gespeichert */
   footerColumns: string[] | null;
-  /** Eigene Fußzeile an; aus bleiben die Spalten gespeichert und gelten beim Einschalten wieder (#1651) */
-  footerCustom: boolean;
+  /**
+   * Eigene Fußzeile an; aus bleiben die Spalten gespeichert und gelten beim Einschalten wieder (#1651). Fehlt = an, sobald
+   * Spalten da sind, wie vor #1651 (designWithDefaults setzt es immer)
+   */
+  footerCustom?: boolean;
   legalPosition: LegalPosition;
   /** Schrift der Belege; „layout“ = die Vorgabe des jeweiligen Layouts */
   font: LetterheadFont | "layout";
@@ -97,6 +100,7 @@ export interface LetterheadOptions {
 
 /** Gestaltung eines Briefkopf-Profils (#113). Neue Einstellungen brauchen eine Vorgabe in DEFAULT_DESIGN, ältere Zeilen kennen sie nicht */
 export interface LetterheadDesign extends LetterheadOptions {
+  footerCustom: boolean;
   layouts: LayoutAssignment;
   /** Gewählte Optionen je eingebautem Layout, etwa { atelier: { fuss: "rechts" } }; aufgelöst mit layoutOptionen */
   layoutOptions: Record<string, Record<string, string>>;
@@ -113,7 +117,6 @@ export const DEFAULT_OPTIONS: LetterheadOptions = {
   itemNumber: true,
   vatColumn: true,
   footerColumns: null,
-  footerCustom: false,
   legalPosition: "layout",
   font: "layout",
   accentFromLayout: true,
@@ -123,6 +126,7 @@ export const DEFAULT_OPTIONS: LetterheadOptions = {
 
 export const DEFAULT_DESIGN: LetterheadDesign = {
   ...DEFAULT_OPTIONS,
+  footerCustom: false,
   layouts: Object.fromEntries(LAYOUT_DOCUMENT_TYPES.map((type) => [type, DEFAULT_LAYOUT])) as LayoutAssignment,
   layoutOptions: {},
   accent: DEFAULT_ACCENT,

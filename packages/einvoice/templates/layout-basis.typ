@@ -42,8 +42,10 @@
 // Nur Wörter, die nicht in die Spalte passen, bekommen Umbruchstellen; Typst bricht sonst nicht innerhalb eines Worts
 #let umbruchstellen(wort) = if wort == "" { "" } else { wort.clusters().join("\u{200B}") }
 #let umbrechbar(inhalt, breite) = inhalt.split(" ").map(wort => if measure(text(wort)).width > breite { umbruchstellen(wort) } else { wort }).join(" ")
-// Angaben nach § 35a GmbHG als eigene Spalte im Fuß, je Angabe eine Zeile (statt einer langen Zeile über die ganze Breite)
-#let legal-zeilen = if legal == none { () } else { legal.split(" · ") }
+// Angaben nach § 35a GmbHG ab Werk als eigene Spalte im Fuß, je Angabe eine Zeile; mit look.legalPosition „zeile“ als Zeile
+// unter den Spalten (legal-zeile)
+#let legal-als-zeile = legal != none and look.at("legalPosition", default: "layout") == "zeile"
+#let legal-zeilen = if legal == none or legal-als-zeile { () } else { legal.split(" · ") }
 #let fuss-spalten-zahl = d.footer.len() + if legal-zeilen.len() > 0 { 1 } else { 0 }
 #let foot-breite = (satzbreite - 6mm * calc.max(fuss-spalten-zahl - 1, 0)) / calc.max(fuss-spalten-zahl, 1)
 
@@ -83,8 +85,26 @@
   set par(leading: 0.45em)
   context lines.map(footer-zeile).join(linebreak())
 }
-// Unter den Spalten nur noch, wenn ein Layout es so will (legal-unten); die Basis setzt die Angaben als Spalte
+// Unter den Spalten nur noch, wenn ein Layout es so will (legal-unten); die Basis setzt die Zeile im Fuß selbst (legal-zeile)
 #let legal-foot = none
+
+// Pflichtangaben als eine Zeile: Jede Angabe, die in die Breite passt, hält zusammen; umbrochen wird dann nur an einem
+// Trenner, und der bleibt am Ende der Zeile
+#let legal-text(breite) = {
+  set text(size: 7pt, fill: muted)
+  set par(leading: 0.45em)
+  context legal.split(" · ").map(teil => if measure(text(teil)).width <= breite { teil.replace(" ", "\u{00A0}") } else { umbrechbar(teil, breite) }).join("\u{00A0}· ")
+}
+
+// Pflichtangaben als Zeile über die ganze Breite unter den Spalten, durch eine feine Linie abgesetzt. Umbrochen wird erst,
+// wenn sie nicht in die Breite passt (legal-text). Ohne Linie über dem Fuß
+// (etwa Modern) auch ohne Linie darunter, nur mit Abstand.
+#let legal-zeile(linie: true, linie-farbe: rule) = {
+  set block(spacing: 0pt)
+  v(2.4mm)
+  if linie { line(length: 100%, stroke: 0.25pt + linie-farbe); v(1.8mm) } else { v(0.6mm) }
+  legal-text(satzbreite)
+}
 
 // Fuß: Spalten aus d.footer (oder d.footerFormatted), darunter die Angaben nach § 35a GmbHG; leer, wenn das Briefpapier ihn trägt
 #let fuss(linie: true, linie-farbe: rule) = if d.footer.len() == 0 { none } else {
@@ -97,6 +117,7 @@
     ..if d.at("footerFormatted", default: none) != none { d.footerFormatted.map(footer-col-formatted) } else { d.footer.map(footer-col) },
     ..if legal-zeilen.len() > 0 { (footer-col(legal-zeilen),) },
   )
+  if legal-als-zeile { legal-zeile(linie: linie, linie-farbe: linie-farbe) }
 }
 
 #let seitenzahl() = context {
