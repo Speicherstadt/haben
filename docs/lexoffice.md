@@ -180,7 +180,7 @@ Die API erlaubt etwa zwei Anfragen pro Sekunde. Haben hält zwischen zwei Anfrag
 - Wird der Server während des Abrufs neu gestartet, markiert Haben den Lauf nach drei Minuten ohne Fortschritt als abgebrochen. Auch dann setzt „Erneut abrufen“ fort.
 - Ist der Schlüssel ungültig oder fehlt die Berechtigung (Tarif gewechselt), bricht der Lauf mit Fehlermeldung ab.
 - Schlägt ein einzelner Beleg fehl, läuft der Abruf weiter. Die fehlgeschlagenen Belege stehen mit Nummer und Fehlermeldung in einer aufklappbaren Liste; der nächste Abruf versucht sie erneut.
-- Kommt nur eine Datei eines Belegs nicht (PDF, XML der E-Rechnung oder ein Anhang), legt Haben den Beleg trotzdem an und vermerkt die Datei am Beleg ([Dateistand](sevdesk.md#dateistand)). Der nächste Abruf holt sie nach; meldet Lexware Office dann ohne Fehler kein XML, ist nichts mehr offen. Fehlt das PDF einer Rechnung, das XML ihrer E-Rechnung oder bei einem Ausgabebeleg jede Datei, lässt er sich bis dahin in Schritt 3 nicht übernehmen.
+- Kommt nur eine Datei eines Belegs nicht (PDF, XML der E-Rechnung oder ein Anhang), legt Haben den Beleg trotzdem an und vermerkt die Datei am Beleg ([Dateistand](sevdesk.md#dateistand)). Der nächste Abruf holt sie nach; meldet Lexware Office dann ohne Fehler kein XML, ist nichts mehr offen. Fehlt das PDF einer Rechnung, das XML ihrer E-Rechnung oder eine Datei eines Ausgabebelegs, lässt er sich bis dahin in Schritt 3 nicht übernehmen.
 
 Der Schritt ist erledigt, wenn ein Lauf fertig ist und die Liste der fehlgeschlagenen Belege leer ist.
 
