@@ -10,15 +10,17 @@
 #show: seite.with(groesse: 9pt, leading: 0.62em, fuss-farbe: accent)
 
 // Kopf: Logo, Name oder beides, darunter eine Haarlinie in der Akzentfarbe über die ganze Breite. Sie steht fest 4 mm unter
-// dem größten Logo (L, 24 mm hoch, LOGO_SIZES), damit der Kopf bei jeder Größe und auch ohne Logo gleich hoch ist
+// dem größten Logo (L, 24 mm hoch, LOGO_SIZES), damit der Kopf bei jeder Größe und auch ohne Logo gleich hoch ist, und bei
+// 43 mm über dem Anschriftfeld (ab 45 mm), damit sie im Fensterumschlag nicht zu sehen ist. Dafür beginnt der Kopf 5 mm über
+// dem oberen Rand, bei 15 mm
 // Steht das Logo links, steht der Name rechts daneben; mittig oder rechts steht nur das Logo
 #if d.at("logo", default: none) != none {
-  logo()
-  if logo-stelle == "links" { place(top + right, dy: 4mm, text(font: serif, size: 21pt, tracking: 0.02em, d.author)) }
+  logo(dy: -5mm)
+  if logo-stelle == "links" { place(top + right, dy: -1mm, text(font: serif, size: 21pt, tracking: 0.02em, d.author)) }
 } else {
-  place(top + left, dy: 4mm, text(font: serif, size: 21pt, tracking: 0.02em, d.author))
+  place(top + left, dy: -1mm, text(font: serif, size: 21pt, tracking: 0.02em, d.author))
 }
-#place(top + left, dy: 28mm, line(length: satzbreite, stroke: haar))
+#place(top + left, dy: 23mm, line(length: satzbreite, stroke: haar))
 #anschrift()
 // Angaben zum Beleg untereinander, Beschriftung über dem Wert, rechtsbündig mit der Tabelle (bis 190 mm)
 #let angabe(m) = stack(spacing: 1.3mm, text(size: 6.4pt, fill: muted, tracking: 0.08em, upper(m.label)), text(font: serif, size: 10.5pt, zusammen(m.value)))
