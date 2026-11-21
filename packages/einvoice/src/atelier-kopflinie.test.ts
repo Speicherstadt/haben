@@ -21,15 +21,21 @@ const SATZBREITE = (210 - 25 - 20) * MM;
 
 afterAll(() => client.close());
 
-/** Lage der Kopflinie und Unterkante des Logos in mm von oben, aus den verschachtelten translate() der Gruppen im SVG */
-function kopf(svg: string): { linie: number; logoUnten: number } {
+/**
+ * Lage der Kopflinie, Unterkante des Logos und Grundlinie des Namens in mm von oben, aus den verschachtelten translate() der
+ * Gruppen im SVG. Der Name ist der erste Text in 21 pt (Gruppe typst-text mit scale(0.021)); ihr Ursprung ist die
+ * Grundlinie. Mit Logo in der Mitte oder rechts steht kein Name im Kopf
+ */
+function kopf(svg: string): { linie: number; logoUnten?: number; name?: number } {
   const stapel: number[] = [];
   let linie: number | undefined;
   let logoUnten: number | undefined;
+  let name: number | undefined;
   for (const [tag] of svg.matchAll(/<\/g>|<g\b[^>]*>|<image\b[^>]*>|<path\b[^>]*>/g)) {
     const y = stapel.reduce((summe, wert) => summe + wert, 0);
     if (tag === "</g>") stapel.pop();
     else if (tag.startsWith("<g")) {
+      if (tag.includes("typst-text") && tag.includes("scale(0.021,")) name ??= y / MM;
       if (!tag.endsWith("/>")) stapel.push(Number(/translate\([-\d.]+,\s*([-\d.]+)/.exec(tag)?.[1] ?? 0));
     } else if (tag.startsWith("<image")) {
       logoUnten ??= (y + Number(/height="([\d.]+)"/.exec(tag)?.[1])) / MM;
@@ -38,8 +44,8 @@ function kopf(svg: string): { linie: number; logoUnten: number } {
       if (linie === undefined && Math.abs(laenge - SATZBREITE) < 1) linie = y / MM;
     }
   }
-  if (linie === undefined || logoUnten === undefined) throw new Error("Kopflinie oder Logo nicht im SVG");
-  return { linie, logoUnten };
+  if (linie === undefined) throw new Error("Kopflinie nicht im SVG");
+  return { linie, logoUnten, name };
 }
 
 const mahnung = dunningPdfData({
@@ -54,9 +60,9 @@ const mahnung = dunningPdfData({
   closing: "",
 });
 
-async function render(vorlage: "beleg" | "mahnung", logoPosition: LogoPosition, logoSize: LogoSize) {
+async function render(vorlage: "beleg" | "mahnung", logoPosition: LogoPosition, logoSize: LogoSize, mitLogo = true) {
   const letterhead = {
-    logo: { data: BEISPIEL_PNG, format: "png" as const },
+    ...(mitLogo ? { logo: { data: BEISPIEL_PNG, format: "png" as const } } : {}),
     options: { ...DEFAULT_OPTIONS, logoPosition, logoSize },
     layout: { id: "atelier", optionen: { fuss: "unten" } },
   };
@@ -65,7 +71,7 @@ async function render(vorlage: "beleg" | "mahnung", logoPosition: LogoPosition, 
     workspace: templates,
     main: join(templates, layoutTemplate(vorlage, letterhead)),
     data: templateInputs(data, letterhead),
-    files: [{ name: "logo.png", base64: Buffer.from(BEISPIEL_PNG).toString("base64") }],
+    files: mitLogo ? [{ name: "logo.png", base64: Buffer.from(BEISPIEL_PNG).toString("base64") }] : [],
   };
   return kopf((await client.render(job)).svg);
 }
@@ -76,13 +82,20 @@ describe("Atelier mit Fuß unten: Kopflinie", () => {
       it(`${vorlage}, Logo L ${stelle}: Linie über dem Anschriftfeld (45 mm) und unter dem Logo`, async () => {
         const { linie, logoUnten } = await render(vorlage, stelle, "l");
         expect(linie).toBeLessThan(45);
-        expect(linie).toBeGreaterThan(logoUnten + 2);
+        expect(linie).toBeGreaterThan(logoUnten! + 2);
       });
     }
     it(`${vorlage}: Unterkante des Logos bei jeder Größe gleich hoch`, async () => {
       const unten = await Promise.all((["s", "m", "l"] as const).map(async (groesse) => (await render(vorlage, "links", groesse)).logoUnten));
       expect(unten[0]).toBeCloseTo(unten[2]!, 1);
       expect(unten[1]).toBeCloseTo(unten[2]!, 1);
+    });
+    it(`${vorlage}: Name auf der Grundlinie der Unterkante des Logos, ohne Logo ebenso, 4 mm über der Linie`, async () => {
+      const mit = await render(vorlage, "links", "m");
+      const ohne = await render(vorlage, "links", "m", false);
+      expect(mit.name).toBeCloseTo(mit.logoUnten!, 1);
+      expect(ohne.name).toBeCloseTo(mit.name!, 1);
+      expect(ohne.linie - ohne.name!).toBeCloseTo(4, 1);
     });
   }
 });
