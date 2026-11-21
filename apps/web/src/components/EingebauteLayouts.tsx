@@ -11,13 +11,13 @@ type Umfang = "variante" | "layout" | "alle";
 type Art = "beleg" | "mahnung";
 
 /** Adresse des Downloads einer Variante: Layout, Art und je Option der aufgelöste Wert */
-export function downloadHref(layout: EingebautesLayout, gewaehlt: Readonly<Record<string, string>>, art: Art): string {
+function downloadHref(layout: EingebautesLayout, gewaehlt: Readonly<Record<string, string>>, art: Art): string {
   const params = new URLSearchParams({ datei: "eingebaut", layout: layout.id, art, ...layoutOptionen(layout, gewaehlt) });
   return `${DOWNLOAD}?${params}`;
 }
 
 /** Adresse des ZIPs: alle Varianten eines Layouts oder, ohne Layout, aller eingebauten */
-export function zipHref(layout?: EingebautesLayout): string {
+function zipHref(layout?: EingebautesLayout): string {
   return `${DOWNLOAD}?${new URLSearchParams({ datei: "varianten", ...(layout ? { layout: layout.id } : {}) })}`;
 }
 

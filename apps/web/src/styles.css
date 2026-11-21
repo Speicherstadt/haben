@@ -1406,9 +1406,6 @@ summary { cursor: pointer; min-height: 24px; }
 .own-layout-name { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .own-layout-rename { display: flex; flex-wrap: wrap; gap: 8px; }
 .own-layouts .actions { flex-wrap: wrap; }
-@media (max-width: 640px) {
-  /* Erst die Variante wählen, dann laden */
-}
 
 /* Befehlspalette (#617): zentriertes Suchfeld im Dialog, Tastaturauswahl mit klarer Hervorhebung */
 .cmd-dialog { width: min(720px, calc(100vw - 32px)); max-height: min(640px, calc(100dvh - 80px)); margin: 64px auto auto; padding: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); overflow: hidden; }

@@ -43,7 +43,7 @@ const typstDict = (werte: Readonly<Record<string, string>>) => {
 };
 
 /** Gewählte Werte als Text, etwa „Fuß: Unten, Kerndaten: Zweispaltig“ */
-export function varianteName(layout: EingebautesLayout, optionen: Readonly<Record<string, string>>): string {
+function varianteName(layout: EingebautesLayout, optionen: Readonly<Record<string, string>>): string {
   return layout.optionen
     .flatMap((option) => {
       const wert = option.werte.find((w) => w.id === optionen[option.id]);
@@ -74,7 +74,7 @@ export function eingebautesLayoutAlsDatei(
   if (fest === datei && datei.includes('look.at("options"')) {
     throw new Error("layout-basis.typ liest die Optionen nicht mehr wie erwartet.");
   }
-  const name = [layout.name, ...Object.values(optionen), art]
+  const name = [layout.id, ...Object.values(optionen), art]
     .join("-")
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, "-");
