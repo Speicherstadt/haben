@@ -55,6 +55,15 @@ export function useInvoiceEditorState(props: InvoiceEditorProps) {
     setDirty(true);
   }
 
+  // § 35a EStG (#712): an, sobald eine Position das Kennzeichen trägt (auch aus einem Artikel); aus nimmt es allen
+  const [arbeitskostenSchalter, setArbeitskostenSchalter] = useState(false);
+  const arbeitskostenAusweisen = arbeitskostenSchalter || zahlung.lines.some((line) => line.arbeitskosten);
+  function setArbeitskostenAusweisen(on: boolean) {
+    setArbeitskostenSchalter(on);
+    if (!on) setLines((prev) => prev.map((line) => (line.arbeitskosten ? { ...line, arbeitskosten: false } : line)));
+    setDirty(true);
+  }
+
   return {
     ...editorProps(props),
     ...kopf,
@@ -84,6 +93,8 @@ export function useInvoiceEditorState(props: InvoiceEditorProps) {
     setNeuerEntwurf,
     touch,
     updateLine,
+    arbeitskostenAusweisen,
+    setArbeitskostenAusweisen,
   };
 }
 

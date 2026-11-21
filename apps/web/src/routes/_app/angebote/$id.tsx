@@ -57,6 +57,7 @@ function QuotePage() {
             taxRate: line.taxRate as 1900 | 700 | 0,
             discount: discountFromColumns(line.discountPercent, line.discountAmount),
             kind: line.kind,
+            arbeitskosten: line.arbeitskosten,
           })),
         }}
         planTemplates={data.planTemplates}

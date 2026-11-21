@@ -46,6 +46,7 @@ function lineRows(invoiceId: string, lines: LineInput[], lineNets: number[]) {
     net: lineNets[index]!,
     deductionOf: line.deductionOf ?? null,
     ...discountColumns(line.discount),
+    arbeitskosten: line.arbeitskosten ?? false,
   }));
 }
 
@@ -68,6 +69,7 @@ export const lineInputOf = (line: InvoiceLine): LineInput => ({
   unitPrice: line.unitPrice,
   taxRate: line.taxRate as 1900 | 700 | 0,
   discount: discountFromColumns(line.discountPercent, line.discountAmount),
+  arbeitskosten: line.arbeitskosten,
 });
 
 /** Positionen und Steuerzeilen eines Entwurfs speichern, wie sie draftValues berechnet hat */

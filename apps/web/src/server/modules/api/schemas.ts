@@ -158,6 +158,9 @@ const lineInputSchema = z
     taxRate: lineFields.taxRate.check(z.describe("Steuersatz in Basispunkten: 1900 = 19 %, 700 = 7 %, 0")),
     detail: lineFields.detail.describe("Mehrzeiliger Text unter der Bezeichnung (BT-154)"),
     itemNumber: lineFields.itemNumber.describe("Artikelnummer des Verkäufers (BT-155); leer = keine"),
+    arbeitskosten: lineFields.arbeitskosten.describe(
+      "Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG); ihr Anteil steht dann unter den Summen und im XML. Fehlt = nein",
+    ),
   })
   .strict()
   .register(requestSchemas, { id: "InvoiceLineInput" });
@@ -226,6 +229,7 @@ const lineSchema = z.object({
   unitPrice: inCents(z.number().int()).describe("Cent, wie eingegeben (netto oder brutto)"),
   taxRate: inBasisPoints(z.number().int()).describe("Basispunkte"),
   net: inCents(z.number().int()).describe("Zeilennetto in Cent"),
+  arbeitskosten: z.boolean().describe("Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG)"),
 });
 
 const LIST_STATUS = ["entwurf", "offen", "teilbezahlt", "bezahlt", "ausgebucht", "ueberfaellig", "storniert", "storno", "korrektur"] as const;

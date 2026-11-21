@@ -13,7 +13,9 @@ import { Field } from "./Field.tsx";
 type Article = Awaited<ReturnType<typeof getArticles>>[number];
 
 /** Vorbelegung eines neuen Artikels, wenn er aus einer Position entsteht */
-export type ArticlePrefill = Partial<Pick<Article, "description" | "detail" | "number" | "unit" | "unitPrice" | "taxRate" | "priceIncludesTax">>;
+export type ArticlePrefill = Partial<
+  Pick<Article, "description" | "detail" | "number" | "unit" | "unitPrice" | "taxRate" | "priceIncludesTax" | "arbeitskosten">
+>;
 
 const RATES = [
   [1900, "19 %"],
@@ -63,6 +65,7 @@ export function ArticleForm({
         unitPrice: price,
         taxRate: Number(text("taxRate")) as 1900 | 700 | 0,
         priceIncludesTax: text("priceMode") === "brutto",
+        arbeitskosten: text("arbeitskosten") === "ja",
         note: text("note"),
       };
       const { id } = await save({ data: { id: article?.id ?? null, article: values } });
@@ -124,6 +127,18 @@ export function ArticleForm({
             <select {...control} name="priceMode" defaultValue={initial?.priceIncludesTax ? "brutto" : "netto"}>
               <option value="netto">netto, zuzüglich Umsatzsteuer</option>
               <option value="brutto">brutto, inklusive Umsatzsteuer</option>
+            </select>
+          )}
+        </Field>
+        <Field
+          label="Kosten für § 35a EStG"
+          hint="Arbeit, Maschinen und Fahrt kann ein Privatkunde als Handwerkerleistung oder haushaltsnahe Dienstleistung absetzen. Haben nennt ihren Anteil unter den Summen, wenn du ihn in der Rechnung einschaltest."
+          style={{ gridColumn: "1 / -1" }}
+        >
+          {(control) => (
+            <select {...control} name="arbeitskosten" defaultValue={initial?.arbeitskosten ? "ja" : "nein"}>
+              <option value="nein">Material und Sonstiges</option>
+              <option value="ja">Arbeit, Maschinen, Fahrt</option>
             </select>
           )}
         </Field>

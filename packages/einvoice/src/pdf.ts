@@ -1,4 +1,5 @@
 import { bildFormat } from "@haben/core";
+import { arbeitskostenHinweis } from "./arbeitskosten-hinweis.ts";
 import { join } from "node:path";
 import type { RenderJob } from "./render-protocol.ts";
 import { compileWith, getCompiler, PACKAGE_DIR } from "./typst-compiler.ts";
@@ -94,6 +95,8 @@ export function itemNumberColumn(lines: Pick<InvoiceDocumentLine, "itemNumber">[
   return { itemNumbers: options?.itemNumber !== false && lines.some((line) => Boolean(line.itemNumber?.trim())) };
 }
 
+const withArbeitskosten = (note: string | null, hinweis: string | null) => (hinweis ? [note, hinweis].filter(Boolean).join("\n") : note);
+
 /** Gemeinsamer Teil von Rechnung und Angebot: Adressen, Positionen, Summenzeilen, Hinweise, Fußzeile */
 export function documentPdfData(
   doc: Pick<
@@ -139,7 +142,8 @@ export function documentPdfData(
     totalRows: [...documentDiscountRows(doc, gross, t), ...(gross ? [] : [{ label: t.totalNet, value: t.money(doc.totals.net) }, ...taxRows])],
     included: gross ? { label: t.included, rows: includedRows } : null,
     grossLabel: (label: string) => (gross ? t.inclVat(label) : label),
-    taxNote: t.note(treatment, doc.exemptionReason),
+    // Ohne gekennzeichnete Position bleibt der Hinweis wie bisher, das Blatt also bitgenau gleich
+    taxNote: withArbeitskosten(t.note(treatment, doc.exemptionReason), arbeitskostenHinweis(doc, t)),
     intro: doc.intro?.trim() ? doc.intro.trim() : null,
     hideVatColumn: !showsVatColumn(doc.options?.vatColumn ?? true, treatment === "regulaer" ? distinctVatRates(doc.lines) : doc.totals.taxes.length),
     note: doc.note?.trim() ? doc.note.trim() : null,

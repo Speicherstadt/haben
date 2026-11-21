@@ -938,6 +938,8 @@ html:has(.preview-dialog) body { padding-right: var(--page-scrollbar, 0px); }
 /* Artikelnummer (BT-155) als schmales Feld vor der Bezeichnung, wie die Spalte „Art.-Nr.“ im PDF; im Angebot die Art dahinter */
 .line-row > .line-title { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(6.5em, 9em) minmax(0, 1fr); gap: 8px; }
 .line-row > .line-title.with-kind { grid-template-columns: minmax(6.5em, 9em) minmax(0, 1fr) minmax(11em, 16em); }
+/* Angebot mit § 35a EStG (#712): Kosten der Position und Art nebeneinander hinter der Bezeichnung */
+.line-row > .line-title.with-kind.with-art { grid-template-columns: minmax(6.5em, 9em) minmax(0, 1fr) minmax(11em, 14em) minmax(11em, 16em); }
 .line-row > .format-field { grid-column: 1 / -1; }
 .line-row .line-detail { width: 100%; min-height: var(--control-h); padding: 9px 8px; border: 1px solid var(--line-strong); border-radius: 8px; font: inherit; font-size: 14px; line-height: 1.4; color: var(--ink); background-color: var(--surface); width: 100%; min-width: 0; resize: vertical; }
 .line-row input, .line-row select { min-height: var(--control-h); padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 8px; font: inherit; font-size: 14px; color: var(--ink); background-color: var(--surface); width: 100%; min-width: 0; }
@@ -965,7 +967,7 @@ html:has(.preview-dialog) body { padding-right: var(--page-scrollbar, 0px); }
   .line-net-value { display: flex; align-items: center; min-height: var(--control-h); }
   .line-row > .line-actions { align-self: end; }
   .line-row.with-discount > .line-actions { grid-column: 1 / -1; }
-  .line-row > .line-title, .line-row > .line-title.with-kind { grid-template-columns: 6.5em minmax(0, 1fr); }
+  .line-row > .line-title, .line-row > .line-title.with-kind, .line-row > .line-title.with-kind.with-art { grid-template-columns: 6.5em minmax(0, 1fr); }
   .line-row > .line-title.with-kind > .line-kind { grid-column: 1 / -1; }
 }
 textarea { font: inherit; font-size: 14px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--ink); background-color: var(--surface); resize: vertical; min-height: 72px; }
