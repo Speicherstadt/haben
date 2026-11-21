@@ -281,10 +281,12 @@ export function FintsAbruf({ fints, verbinden, setVerbinden }: { fints: Fints; v
   // Erst neu laden, dann schließen; solange ein Schritt offen ist, sind die Knöpfe an den Zeilen gesperrt
   const schrittAbbrechen = () => void router.invalidate({ sync: true }).then(schliessen);
 
-  // Klappt „Über FinTS verbinden“ oben das Formular zu, während die Bank beim Verbinden auf einen Schritt wartet, gilt das
-  // wie „Abbrechen“; sonst blieben die Knöpfe an den Zeilen gesperrt, ohne dass ein Schritt zu sehen ist
+  // Klappt „Über FinTS verbinden“ oben das Formular zu, gilt das wie „Abbrechen“: Nach „Zugang ändern“ öffnet der Knopf
+  // danach ein leeres Formular. Wartet die Bank beim Verbinden auf einen Schritt, verwirft das den Vorgang; sonst blieben
+  // die Knöpfe an den Zeilen gesperrt, ohne dass ein Schritt zu sehen ist
   // biome-ignore lint/correctness/useExhaustiveDependencies: nur, wenn das Formular zuklappt oder ein Schritt kommt
   useEffect(() => {
+    if (!verbinden) setVorlage(null);
     if (verbinden || offen?.fuer !== "neu") return;
     void verwerfen({ data: offen.schritt.vorgang }).catch(() => undefined);
     schrittAbbrechen();
