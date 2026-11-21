@@ -23,7 +23,7 @@ export class AccentColorError extends UserError {}
 
 export class FooterError extends UserError {}
 
-async function footerIssues(tx: Tx, design: LetterheadDesign): Promise<string[]> {
+async function footerIssues(tx: Db | Tx, design: LetterheadDesign): Promise<string[]> {
   const columns = activeFooterColumns(design);
   if (!columns) return [];
   const [company] = await tx.select({ rechtsform: schema.company.rechtsform }).from(schema.company);
@@ -37,7 +37,15 @@ async function footerIssues(tx: Tx, design: LetterheadDesign): Promise<string[]>
  * Ein Wechsel des Layouts oder der Fassung, der die Pflichtangaben erst zur eigenen Spalte macht, prüft die Fußzeile
  * wie ein Speichern; sonst stünden neben 4 eigenen Spalten 5 auf dem Blatt (#1651)
  */
-export async function checkLayoutSwitch(tx: Tx, current: LetterheadDesign, next: LetterheadDesign): Promise<void> {
+/**
+ * Wer die Fußzeile prüft und danach schreibt, nimmt zuerst diese Sperre: Sonst lesen zwei gleichzeitige Änderungen denselben
+ * Stand, jede geht für sich, und zusammengeführt stünden 5 Spalten auf dem Blatt
+ */
+export async function lockFooter(tx: Tx): Promise<void> {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext('haben.fusszeile'))`);
+}
+
+export async function checkLayoutSwitch(tx: Db | Tx, current: LetterheadDesign, next: LetterheadDesign): Promise<void> {
   if (!legalAsColumn(next) || legalAsColumn(current)) return;
   const issues = await footerIssues(tx, next);
   if (issues.length > 0) throw new FooterError(issues.join(" "));
@@ -84,6 +92,7 @@ export async function saveDesign(actor: string, input: LetterheadDesignInput): P
     const changes: LetterheadDesignInput = rest.accent ? { accentFromLayout: false, ...rest, accent: rest.accent.toUpperCase() } : rest;
     const optionen = layoutOptions ? bekannteLayoutOptionen(layoutOptions) : undefined;
     if (optionen) changes.layoutOptions = optionen;
+    await lockFooter(tx);
     await checkFooter(tx, changes);
     const profiles = schema.letterheadProfiles;
     // In der Datenbank zusammenführen: Lesen und danach Schreiben ließe zwei gleichzeitige Änderungen sich überschreiben

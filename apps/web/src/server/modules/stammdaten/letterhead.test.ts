@@ -179,6 +179,16 @@ describe.skipIf(!testDatabaseUrl)("Briefkopf und Standardprofil (Postgres)", () 
       expect((await letterhead.loadDesign()).layouts.rechnung.id).toBe("modern");
     });
 
+    it("zwei gleichzeitige Änderungen, die je für sich gingen, bringen zusammen keine fünfte Spalte aufs Blatt", async () => {
+      for (let runde = 0; runde < 10; runde++) {
+        await sql`delete from letterhead_profiles`;
+        await letterhead.saveDesign(actor, { footerColumns: vier.slice(0, 3), legalPosition: "zeile" });
+        await Promise.allSettled([letterhead.saveDesign(actor, { footerColumns: vier }), letterhead.saveDesign(actor, { legalPosition: "spalte" })]);
+        const design = await letterhead.loadDesign();
+        expect({ runde, spalten: design.footerColumns?.length, stelle: design.legalPosition }).not.toEqual({ runde, spalten: 4, stelle: "spalte" });
+      }
+    });
+
     it("beim Einzelunternehmen keine Sperre", async () => {
       await sql`update company set rechtsform = 'einzelunternehmen' where id = 1`;
       await letterhead.saveDesign(actor, { footerColumns: ["{sitz}", ...vier.slice(1)] });
