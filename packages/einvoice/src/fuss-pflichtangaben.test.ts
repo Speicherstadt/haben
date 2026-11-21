@@ -23,7 +23,12 @@ describe("Fußdaten mit Pflichtangaben", () => {
   it("mit allen Platzhaltern stehen die Angaben in der Fußzeile und nirgends sonst", () => {
     const fuss = footerData(gmbhSeller, undefined, eigene(["{firma}", "{iban}", `{steuernummer}\n${MIT_ALLEN}`]));
     expect(fuss.legal).toBeNull();
-    expect(fuss.footer[2]).toEqual(["13/345/67890", "Sitz Berlin", "Amtsgericht Charlottenburg HRB 123456 B", "Geschäftsführung Erika Mustermann, Max Mustermann"]);
+    expect(fuss.footer[2]).toEqual([
+      "13/345/67890",
+      "Sitz Berlin",
+      "Amtsgericht Charlottenburg HRB 123456 B",
+      "Geschäftsführung Erika Mustermann, Max Mustermann",
+    ]);
   });
 
   it("ein eigenes Layout ohne die neuen Felder bekommt die Angaben nur über legal, die Platzhalter bleiben leer", () => {
@@ -65,7 +70,7 @@ describe("Stelle der Pflichtangaben für die Vorlage (Feldvertrag)", () => {
   });
 
   it("erkennt eigene Layouts, die die neuen Felder nennen", () => {
-    expect(kenntPflichtangabenFelder("#let p = d.look.at(\"legalPosition\", default: \"layout\")")).toBe(true);
+    expect(kenntPflichtangabenFelder('#let p = d.look.at("legalPosition", default: "layout")')).toBe(true);
     expect(kenntPflichtangabenFelder("#if d.look.legalInFooter { }")).toBe(true);
     expect(kenntPflichtangabenFelder("#d.legal")).toBe(false);
   });

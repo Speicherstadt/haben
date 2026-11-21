@@ -339,11 +339,10 @@ export function footerData(seller: InvoiceDocument["seller"], t: Texts = TEXTS.d
   if (!columns) return { footer: footerColumns(seller, t), footerFormatted: null, legal: legalLine(seller.legalInfo, t) };
   const inFooter = !letterhead.legalFieldOnly && legalInFooter(columns);
   const values = { ...footerValues(seller), iban: seller.iban ? formatIban(seller.iban) : "" };
-  const runs = customFooterRuns(
-    columns,
-    letterhead.legalFieldOnly ? { ...values, ...legalFooterValues(undefined) } : values,
-    { labels: { taxNumber: t.taxNumber, vatId: t.vatId }, needsVatId: needsSellerVatId(treatment) },
-  );
+  const runs = customFooterRuns(columns, letterhead.legalFieldOnly ? { ...values, ...legalFooterValues(undefined) } : values, {
+    labels: { taxNumber: t.taxNumber, vatId: t.vatId },
+    needsVatId: needsSellerVatId(treatment),
+  });
   return {
     footer: runs.map((column) => column.map((line) => line.map((run) => run.text).join(""))),
     footerFormatted: runs,

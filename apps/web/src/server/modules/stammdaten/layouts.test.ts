@@ -339,7 +339,11 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
   }, 60_000);
 
   it("Pflichtangaben der GmbH: ein Layout ohne die neuen Felder bekommt sie einmal über legal, eines mit über die Platzhalter (#1651)", async () => {
-    const fuss = ["{firma}\n{strasse}\n{plz} {ort}", "{steuernummer}\nSitzplatz {sitz}\n{registergericht} {registernummer}\n{geschaeftsfuehrung}", "{rechtsform}\n{aufsichtsrat}"];
+    const fuss = [
+      "{firma}\n{strasse}\n{plz} {ort}",
+      "{steuernummer}\nSitzplatz {sitz}\n{registergericht} {registernummer}\n{geschaeftsfuehrung}",
+      "{rechtsform}\n{aufsichtsrat}",
+    ];
     await letterhead.saveDesign(actor, { footerColumns: fuss });
     const head = await letterhead.loadLetterhead();
     const setzen = async (source: string, name: string) => {

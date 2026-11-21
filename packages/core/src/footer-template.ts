@@ -3,20 +3,7 @@ import { type FormattedTextRun, parseTextFormatting } from "./text-format.ts";
 
 /** Eigene Fußzeile der Belege (#113): Spalten als Text mit Platzhaltern und Auszeichnungen, gleich für PDF und Vorschau */
 
-const CONTACT_PLACEHOLDERS = [
-  "firma",
-  "strasse",
-  "plz",
-  "ort",
-  "email",
-  "telefon",
-  "bank",
-  "kontoinhaber",
-  "iban",
-  "bic",
-  "steuernummer",
-  "ustid",
-] as const;
+const CONTACT_PLACEHOLDERS = ["firma", "strasse", "plz", "ort", "email", "telefon", "bank", "kontoinhaber", "iban", "bic", "steuernummer", "ustid"] as const;
 
 /** Pflichtangaben einer GmbH oder UG nach § 35a Abs. 1 GmbHG, je Angabe ein Platzhalter (#1651); Regeln in footer-legal.ts */
 export const LEGAL_PLACEHOLDERS = ["rechtsform", "sitz", "registergericht", "registernummer", "geschaeftsfuehrung", "aufsichtsrat"] as const;

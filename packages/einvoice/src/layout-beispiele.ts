@@ -86,7 +86,11 @@ export function layoutBeispiele(): LayoutBeispiel[] {
   const storno = sampleDocument({ kind: "storno" });
   // Platzhalter der Pflichtangaben in der eigenen Fußzeile: legal ist null, look.legalInFooter gesetzt (#1651)
   const mitPflichtangaben = briefkopf({
-    footerColumns: ["{firma}\n{strasse}", "Sitz {sitz}\n{registergericht} {registernummer}\nGeschäftsführung {geschaeftsfuehrung}\n{rechtsform}\n{aufsichtsrat}", "{steuernummer}"],
+    footerColumns: [
+      "{firma}\n{strasse}",
+      "Sitz {sitz}\n{registergericht} {registernummer}\nGeschäftsführung {geschaeftsfuehrung}\n{rechtsform}\n{aufsichtsrat}",
+      "{steuernummer}",
+    ],
     legalPosition: "zeile",
   });
   const totals = sampleDocument({}).totals;

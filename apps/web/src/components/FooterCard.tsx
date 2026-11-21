@@ -113,7 +113,9 @@ export function FooterCard({
     setTexts(Array.from({ length: Math.max(texts.length, index + 1) }, (_, i) => (i === index ? text : (texts[i] ?? ""))));
 
   const { fields, touched, insert } = usePlaceholderInsert(shown, active, edit);
-  const placeholders = kapitalgesellschaft ? FOOTER_PLACEHOLDERS : FOOTER_PLACEHOLDERS.filter((name) => !(LEGAL_PLACEHOLDERS as readonly string[]).includes(name));
+  const placeholders = kapitalgesellschaft
+    ? FOOTER_PLACEHOLDERS
+    : FOOTER_PLACEHOLDERS.filter((name) => !(LEGAL_PLACEHOLDERS as readonly string[]).includes(name));
 
   const onSave = () =>
     run(async () => {
@@ -137,7 +139,8 @@ export function FooterCard({
         </label>
         {!own && (
           <span id="footer-own-hint" className="field-hint">
-            Haben setzt die Fußzeile aus den Firmendaten zusammen: Kontakt, Bank, Steuernummern{kapitalgesellschaft && " und die Pflichtangaben der Gesellschaft"}.
+            Haben setzt die Fußzeile aus den Firmendaten zusammen: Kontakt, Bank, Steuernummern
+            {kapitalgesellschaft && " und die Pflichtangaben der Gesellschaft"}.
           </span>
         )}
       </div>

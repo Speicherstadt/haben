@@ -29,7 +29,10 @@ const list = (names: readonly string[]) => {
  * Warum sich die Spalten bei dieser Rechtsform nicht speichern lassen; leer = in Ordnung. Ergänzt footerIssues, das die
  * Rechtsform nicht kennt. legalAsColumn: Haben setzte die Pflichtangaben als eigene Spalte (legalAsColumn unten).
  */
-export function legalFooterIssues(columns: readonly string[], { kapitalgesellschaft, legalAsColumn }: { kapitalgesellschaft: boolean; legalAsColumn: boolean }): string[] {
+export function legalFooterIssues(
+  columns: readonly string[],
+  { kapitalgesellschaft, legalAsColumn }: { kapitalgesellschaft: boolean; legalAsColumn: boolean },
+): string[] {
   if (!kapitalgesellschaft) return [];
   const missing = missingLegalPlaceholders(columns);
   if (missing.length > 0 && missing.length < LEGAL_PLACEHOLDERS.length)

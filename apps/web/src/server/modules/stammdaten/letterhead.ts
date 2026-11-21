@@ -33,7 +33,10 @@ async function checkFooter(tx: Tx, changes: LetterheadDesignInput): Promise<void
   const columns = activeFooterColumns(next);
   if (!columns) return;
   const [company] = await tx.select({ rechtsform: schema.company.rechtsform }).from(schema.company);
-  const issues = legalFooterIssues(columns, { kapitalgesellschaft: isKapitalgesellschaft(company?.rechtsform ?? "einzelunternehmen"), legalAsColumn: legalAsColumn(next) });
+  const issues = legalFooterIssues(columns, {
+    kapitalgesellschaft: isKapitalgesellschaft(company?.rechtsform ?? "einzelunternehmen"),
+    legalAsColumn: legalAsColumn(next),
+  });
   if (issues.length > 0) throw new FooterError(issues.join(" "));
 }
 
