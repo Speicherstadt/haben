@@ -117,4 +117,29 @@ describe.skipIf(!testDatabaseUrl)("Saldenprüfung bei überlappenden Importen (P
     expect(danach.gap).toMatch(/^Lücke: Anfangssaldo 1\.800,00\s€ passt nicht zum Endsaldo 1\.500,00\s€ \(Stand 19\.11\.2026\)/);
     expect(danach.warnings.join(" ")).not.toMatch(/überschneidet/);
   });
+
+  it("nimmt einen leeren Auszug mit Kontostand als vorigen Import", async () => {
+    expect(
+      await bank.importStatement(
+        actor,
+        { bytes: dkbCsv([eingang("15.06.24", "RE 2024-001", "100,00")], "1.000,00 €", "31.12.2024"), filename: "a-2024.csv" },
+        null,
+      ),
+    ).toMatchObject({ added: 1, skipped: 0, gap: null });
+
+    // Leerer Auszug mit Kontostand: kein Umsatz, aber ein Endsaldo am 31.12.2025
+    expect(await bank.importStatement(actor, { bytes: dkbCsv([], "1.200,00 €", "31.12.2025"), filename: "b-leer.csv" }, null)).toMatchObject({
+      added: 0,
+      skipped: 0,
+    });
+
+    // Der nächste Auszug schließt an den leeren Auszug an, nicht an den von 2024
+    const danach = await bank.importStatement(
+      actor,
+      { bytes: dkbCsv([eingang("20.11.26", "RE 2026-001", "50,00")], "1.250,00 €", "31.12.2026"), filename: "c-2026.csv" },
+      null,
+    );
+    expect(danach).toMatchObject({ added: 1, skipped: 0, gap: null });
+    expect(danach.warnings.join(" ")).not.toMatch(/überschneidet/);
+  });
 });
