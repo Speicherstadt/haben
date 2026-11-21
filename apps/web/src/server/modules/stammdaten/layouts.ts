@@ -278,10 +278,6 @@ async function checkRemoval(q: Db | Tx, id: string): Promise<void> {
 }
 
 async function removeLayout(actor: string, id: string): Promise<void> {
-  // Vor dem Aufräumen des Renderers, sonst bliebe ein Layout ohne Renderer zurück
-  await checkRemoval(db, id);
-  await dropRenderer(id);
-  await clearPackages(id);
   await withActor(actor, async (tx) => {
     // Erst das Profil, dann das Layout: Jede Änderung nimmt im Audit-Trigger die Sperre der Hash-Kette. Käme das Löschen
     // zuerst, hielte es diese Sperre, während es auf die Zeile des Profils wartet, und verhakte sich mit saveDesign, das
@@ -297,6 +293,9 @@ async function removeLayout(actor: string, id: string): Promise<void> {
       where settings->'layouts' is not null`);
     await tx.delete(schema.belegLayouts).where(eq(schema.belegLayouts.id, id));
   });
+  // Erst nach der Transaktion: Lehnt die Prüfung der Fußzeile das Löschen ab, bleiben Renderer und Pakete stehen
+  await dropRenderer(id);
+  await clearPackages(id);
 }
 
 /** Art eines eigenen Layouts (Mahnung oder Beleg); null = eingebaut. Ein unbekanntes eingebautes oder gelöschtes eigenes wirft */

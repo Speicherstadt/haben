@@ -339,7 +339,7 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
   }, 60_000);
 
   it("Löschen eines eigenen Layouts, das die Pflichtangaben zur fünften Spalte machte, wird abgelehnt (#1651)", async () => {
-    await sql`insert into company (id, name, rechtsform) values (1, 'Testfirma GmbH', 'gmbh')`;
+    await sql`insert into company (id, name, rechtsform) values (1, 'Testfirma GmbH', 'gmbh') on conflict (id) do update set rechtsform = 'gmbh'`;
     await layouts.assignLayoutToAll(actor, { kind: "eingebaut", id: "elegant" });
     await letterhead.saveDesign(actor, { layoutOptions: { elegant: { fuss: "rechts" } }, footerColumns: ["{firma}", "{iban}", "{steuernummer}", "{email}"] });
     const { id } = await anlegen({ name: "Eigenes", art: "beleg", source: eigene("beleg") });
@@ -349,6 +349,32 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
     expect((await letterhead.loadDesign()).layouts.rechnung).toEqual({ kind: "eigen", id });
     expect((await liste.listLayouts()).some((l) => l.id === id)).toBe(true);
   });
+
+  it("eine Löschung, die nach einer gleichzeitigen Änderung der Fußzeile abgelehnt wird, lässt die Pakete stehen (#1651)", async () => {
+    await sql`insert into company (id, name, rechtsform) values (1, 'Testfirma GmbH', 'gmbh') on conflict (id) do update set rechtsform = 'gmbh'`;
+    await layouts.assignLayoutToAll(actor, { kind: "eingebaut", id: "elegant" });
+    await letterhead.saveDesign(actor, { layoutOptions: { elegant: { fuss: "rechts" } }, footerColumns: ["{firma}", "{iban}", "{steuernummer}"] });
+    const { id } = await anlegen({ name: "Mit Paket", art: "beleg", source: mitPaket, approve: ["@preview/demo:0.1.0"] }, { fetch: universum() });
+    await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id });
+    // Eine andere Änderung hält die Sperre der Fußzeile und speichert eine vierte Spalte, während gelöscht wird
+    let freigeben!: () => void;
+    const offen = new Promise<void>((resolve) => {
+      freigeben = resolve;
+    });
+    const andere = sql.begin(async (t) => {
+      await t`select set_config('haben.actor', ${actor}, true)`;
+      await t`select pg_advisory_xact_lock(hashtext('haben.fusszeile'))`;
+      await t`update letterhead_profiles set settings = jsonb_set(settings, '{footerColumns}', ${JSON.stringify(["{firma}", "{iban}", "{steuernummer}", "{email}"])}::jsonb) where is_default`;
+      await offen;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const loeschen = layouts.deleteLayout(actor, id);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    freigeben();
+    await andere;
+    await expect(loeschen).rejects.toThrow("Kürze auf 3 Spalten");
+    expect((await liste.listLayouts()).find((l) => l.id === id)?.packagesMissing).toBe(false);
+  }, 60_000);
 
   it("Pflichtangaben der GmbH: ein Layout ohne die neuen Felder bekommt sie einmal über legal, eines mit über die Platzhalter (#1651)", async () => {
     const fuss = [
