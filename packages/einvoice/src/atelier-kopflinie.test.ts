@@ -11,6 +11,7 @@ import { PACKAGE_DIR } from "./typst-compiler.ts";
 /*
  * Atelier mit Fuß unten (#113): Die Haarlinie unter dem Kopf läuft über die volle Satzbreite. Sie muss über dem Anschriftfeld
  * liegen (ab 45 mm, DIN 5008 Form B), sonst ist sie im Fenster des Umschlags zu sehen, und unter dem größten Logo (L).
+ * Das Logo steht unten bündig auf derselben Höhe wie die Grundlinie des Namens, bei jeder Größe (#1655).
  */
 
 const templates = join(PACKAGE_DIR, "templates");
@@ -78,5 +79,10 @@ describe("Atelier mit Fuß unten: Kopflinie", () => {
         expect(linie).toBeGreaterThan(logoUnten + 2);
       });
     }
+    it(`${vorlage}: Unterkante des Logos bei jeder Größe gleich hoch`, async () => {
+      const unten = await Promise.all((["s", "m", "l"] as const).map(async (groesse) => (await render(vorlage, "links", groesse)).logoUnten));
+      expect(unten[0]).toBeCloseTo(unten[2]!, 1);
+      expect(unten[1]).toBeCloseTo(unten[2]!, 1);
+    });
   }
 });
