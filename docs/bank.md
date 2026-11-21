@@ -173,7 +173,7 @@ Mit **Ist eine Dublette** nimmst du den Umsatz aus den offenen Beträgen und aus
 
 Beim automatischen Inhaltsabgleich können dieselben Zahlungen aus zwei Quellen unterschiedlich aussehen. Abruf und Datei schreiben den Verwendungszweck oft anders, und manche Exporte nennen das Zahlungsdatum statt des Buchungsdatums. Ein Konto bekommt seine Umsätze deshalb aus einer Quelle. Wer die Quelle wechselt, importiert ab dem Tag nach dem letzten vorhandenen Umsatz. Der [Abruf](#welche-umsätze-abgerufen-werden) beginnt nach einem Dateiimport von selbst dort.
 
-Liegen im Zeitraum einer neuen Datei schon Umsätze aus einem anderen Format oder aus dem Abruf (altes und neues CSV der DKB zählen als ein Format) und legt der Import trotzdem Umsätze neu an, meldet Haben das neben der Meldung zur Lücke, mit Zeitraum, Quelle und Anzahl. Reicht die Datei bis zum [Stichtag](#welche-umsätze-abgerufen-werden) eines Abrufs, nennt die Meldung ihn und den Abruf; eine Datei braucht es danach nur für eine Lücke im Abruf. Importiert wird trotzdem. Unscharf über Betrag und Datum verglichen wird bewusst nicht, sonst blieben echte gleiche Zahlungen an Folgetagen unbemerkt.
+Liegen im Zeitraum einer neuen Datei schon Umsätze aus einem anderen Format oder aus dem Abruf (altes und neues CSV der DKB zählen als ein Format) und legt der Import trotzdem Umsätze neu an, meldet Haben das in einer eigenen Meldung, mit Zeitraum, Quelle und Anzahl. Reicht die Datei bis zum [Stichtag](#welche-umsätze-abgerufen-werden) eines Abrufs, nennt die Meldung ihn und den Abruf; eine Datei braucht es danach nur für eine Lücke im Abruf. Importiert wird trotzdem. Unscharf über Betrag und Datum verglichen wird bewusst nicht, sonst blieben echte gleiche Zahlungen an Folgetagen unbemerkt.
 
 ### Saldenprüfung
 
