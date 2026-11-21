@@ -22,6 +22,8 @@ type Verbindung = Fints["connections"][number];
 type Schritt = Awaited<ReturnType<typeof continueFints>>;
 type Offen = Exclude<Schritt, { art: "fertig" }>;
 type Meldung = { tone: "ok" | "danger" | "info"; text: string };
+/** Offener Schritt der Bank beim Verbinden („neu“) oder an der Zeile einer Verbindung (ihre ID); die Bankseite führt ihn */
+export type FintsOffen = { fuer: string; schritt: Offen } | null;
 
 export const FINTS_ANLEITUNG = "https://github.com/Speicherstadt/haben/blob/main/docs/installation-anbindungen.md#kontoabruf-über-fints";
 
@@ -231,13 +233,24 @@ function VerbindenForm({ vorlage, onSchritt, onAbbrechen }: { vorlage: Verbindun
   );
 }
 
-/** FinTS im Bereich „Automatischer Abruf“: Formular zum Verbinden (verbinden) und die Verbindungen */
-export function FintsAbruf({ fints, verbinden, setVerbinden }: { fints: Fints; verbinden: boolean; setVerbinden: (v: boolean) => void }) {
+/** FinTS im Bereich „Automatischer Abruf“: Formular zum Verbinden (verbinden), die Verbindungen und der offene Schritt der Bank */
+export function FintsAbruf({
+  fints,
+  verbinden,
+  setVerbinden,
+  offen,
+  setOffen,
+}: {
+  fints: Fints;
+  verbinden: boolean;
+  setVerbinden: (v: boolean) => void;
+  offen: FintsOffen;
+  setOffen: (o: FintsOffen) => void;
+}) {
   const router = useRouter();
   const sync = useServerFn(syncFints);
   const disconnect = useServerFn(disconnectFints);
   const verwerfen = useServerFn(cancelFints);
-  const [offen, setOffen] = useState<{ fuer: string; schritt: Offen } | null>(null);
   const [vorlage, setVorlage] = useState<Verbindung | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [meldungen, setMeldungen] = useState<Meldung[]>([]);
