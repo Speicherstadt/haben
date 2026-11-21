@@ -156,6 +156,29 @@ describe.skipIf(!testDatabaseUrl)("Briefkopf und Standardprofil (Postgres)", () 
       await expect(letterhead.saveDesign(actor, { footerColumns: vier })).rejects.toThrow("Kürze auf 3 Spalten");
     });
 
+    it("ein Wechsel des Layouts oder der Fassung, der die Pflichtangaben zur fünften Spalte machte, wird abgelehnt", async () => {
+      const layouts = await import("./layouts.ts");
+      await letterhead.saveDesign(actor, { layoutOptions: { klar: { fassung: "klassisch" } } });
+      await letterhead.saveDesign(actor, { footerColumns: vier });
+      await expect(letterhead.saveDesign(actor, { layoutOptions: { klar: { fassung: "standard" } } })).rejects.toThrow("Kürze auf 3 Spalten");
+      await expect(layouts.assignLayoutToAll(actor, { kind: "eingebaut", id: "modern" })).rejects.toThrow("Kürze auf 3 Spalten");
+      const design = await letterhead.loadDesign();
+      expect(design.layoutOptions.klar).toEqual({ fassung: "klassisch" });
+      expect(design.layouts.rechnung.id).toBe("klar");
+      // Als Zeile darunter: jeder Wechsel geht
+      await letterhead.saveDesign(actor, { legalPosition: "zeile" });
+      await layouts.assignLayoutToAll(actor, { kind: "eingebaut", id: "modern" });
+      expect((await letterhead.loadDesign()).layouts.rechnung.id).toBe("modern");
+    });
+
+    it("eine ältere Fußzeile mit 4 Spalten hindert keinen Wechsel, der nichts verschlechtert", async () => {
+      await sql`insert into letterhead_profiles (name, is_default, settings) values ('Standard', true, ${JSON.stringify({ footerColumns: vier })}::jsonb)`;
+      await letterhead.saveDesign(actor, { layoutOptions: { klar: { fassung: "standard" } } });
+      const layouts = await import("./layouts.ts");
+      await layouts.assignLayoutToAll(actor, { kind: "eingebaut", id: "modern" });
+      expect((await letterhead.loadDesign()).layouts.rechnung.id).toBe("modern");
+    });
+
     it("beim Einzelunternehmen keine Sperre", async () => {
       await sql`update company set rechtsform = 'einzelunternehmen' where id = 1`;
       await letterhead.saveDesign(actor, { footerColumns: ["{sitz}", ...vier.slice(1)] });

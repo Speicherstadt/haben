@@ -23,21 +23,38 @@ export class AccentColorError extends UserError {}
 
 export class FooterError extends UserError {}
 
+async function footerIssues(tx: Tx, design: LetterheadDesign): Promise<string[]> {
+  const columns = activeFooterColumns(design);
+  if (!columns) return [];
+  const [company] = await tx.select({ rechtsform: schema.company.rechtsform }).from(schema.company);
+  return legalFooterIssues(columns, {
+    kapitalgesellschaft: isKapitalgesellschaft(company?.rechtsform ?? "einzelunternehmen"),
+    legalAsColumn: legalAsColumn(design),
+  });
+}
+
+/**
+ * Ein Wechsel des Layouts oder der Fassung, der die Pflichtangaben erst zur eigenen Spalte macht, prüft die Fußzeile
+ * wie ein Speichern; sonst stünden neben 4 eigenen Spalten 5 auf dem Blatt (#1651)
+ */
+export async function checkLayoutSwitch(tx: Tx, current: LetterheadDesign, next: LetterheadDesign): Promise<void> {
+  if (!legalAsColumn(next) || legalAsColumn(current)) return;
+  const issues = await footerIssues(tx, next);
+  if (issues.length > 0) throw new FooterError(issues.join(" "));
+}
+
 /**
  * Pflichtangaben einer GmbH oder UG in der Fußzeile (#1651): alle Platzhalter oder keiner, als Spalte höchstens 4 Spalten.
- * Nur, wenn die Eingabe die Fußzeile oder die Stelle ändert; eine ältere Fußzeile gilt weiter, bis sie gespeichert wird.
+ * Nur, wenn die Eingabe die Fußzeile, die Stelle oder das Layout ändert; eine ältere Fußzeile gilt weiter, bis sie gespeichert wird.
  */
 async function checkFooter(tx: Tx, changes: LetterheadDesignInput): Promise<void> {
-  if (!("footerColumns" in changes || changes.footerCustom === true || "legalPosition" in changes)) return;
-  const next = designWithDefaults({ ...(await loadDesign(tx)), ...changes });
-  const columns = activeFooterColumns(next);
-  if (!columns) return;
-  const [company] = await tx.select({ rechtsform: schema.company.rechtsform }).from(schema.company);
-  const issues = legalFooterIssues(columns, {
-    kapitalgesellschaft: isKapitalgesellschaft(company?.rechtsform ?? "einzelunternehmen"),
-    legalAsColumn: legalAsColumn(next),
-  });
-  if (issues.length > 0) throw new FooterError(issues.join(" "));
+  const current = await loadDesign(tx);
+  // Optionen je Layout zusammengeführt wie beim Speichern
+  const next = designWithDefaults({ ...current, ...changes, layoutOptions: { ...current.layoutOptions, ...changes.layoutOptions } });
+  if ("footerColumns" in changes || changes.footerCustom === true || "legalPosition" in changes) {
+    const issues = await footerIssues(tx, next);
+    if (issues.length > 0) throw new FooterError(issues.join(" "));
+  } else if (changes.layoutOptions) await checkLayoutSwitch(tx, current, next);
 }
 
 /** Ohne gespeichertes Profil gelten die Vorgaben; Einstellungen, die eine ältere Zeile nicht kennt, ebenso */

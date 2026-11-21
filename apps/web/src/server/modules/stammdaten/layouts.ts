@@ -19,7 +19,7 @@ import {
   writePackages,
 } from "./paket-download.ts";
 import { customLayoutJob, dataForVersion, layoutRenderer } from "./layout-renderer.ts";
-import { loadDesign } from "./letterhead.ts";
+import { checkLayoutSwitch, loadDesign } from "./letterhead.ts";
 
 /*
  * Eigene Belegvorlagen (#113): hochladen, benennen, löschen und je Belegart zuordnen. Ein Layout gilt für alles, was ab
@@ -320,6 +320,7 @@ async function zuordnen(actor: string, types: readonly LayoutDocumentType[], ref
   const neu = Object.fromEntries(types.map((type) => [type, { kind: ref.kind, id: ref.id }]));
   await withActor(actor, async (tx) => {
     const current = await loadDesign(tx);
+    await checkLayoutSwitch(tx, current, { ...current, layouts: { ...current.layouts, ...neu } });
     const profiles = schema.letterheadProfiles;
     // In der Datenbank zusammenführen, wie saveDesign: Zwei gleichzeitige Zuordnungen überschreiben sich nicht
     await tx
