@@ -11,8 +11,11 @@ import { LAYOUT_DOCUMENT_TYPES, type LegalPosition, type LetterheadDesign } from
 const legalIn = (columns: readonly string[]): Set<LegalPlaceholder> =>
   new Set(LEGAL_PLACEHOLDERS.filter((name) => columns.some((column) => column.includes(`{${name}}`))));
 
-/** Stehen Platzhalter der Pflichtangaben in den Spalten? Dann setzt Haben sie nicht noch einmal */
-export const legalInFooter = (columns: readonly string[]): boolean => legalIn(columns).size > 0;
+/**
+ * Stehen alle Platzhalter der Pflichtangaben in den Spalten? Dann setzt Haben sie nicht noch einmal. Nur einige, etwa aus
+ * der Zeit als Einzelunternehmen: Haben setzt sie trotzdem, lieber doppelt als eine fehlend.
+ */
+export const legalInFooter = (columns: readonly string[]): boolean => legalIn(columns).size === LEGAL_PLACEHOLDERS.length;
 
 /** Platzhalter der Pflichtangaben, die in den Spalten fehlen */
 export function missingLegalPlaceholders(columns: readonly string[]): LegalPlaceholder[] {

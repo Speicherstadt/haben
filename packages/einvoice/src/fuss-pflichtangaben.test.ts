@@ -31,6 +31,11 @@ describe("Fußdaten mit Pflichtangaben", () => {
     ]);
   });
 
+  it("nur einige Platzhalter, etwa aus der Zeit als Einzelunternehmen: Haben setzt die Angaben trotzdem über legal", () => {
+    const fuss = footerData(gmbhSeller, undefined, eigene(["{firma}", "{iban}", "{steuernummer}\nSitz {sitz}"]));
+    expect(fuss.legal).toContain("Registergericht: Amtsgericht Charlottenburg, HRB 123456 B");
+  });
+
   it("ein eigenes Layout ohne die neuen Felder bekommt die Angaben nur über legal, die Platzhalter bleiben leer", () => {
     const fuss = footerData(gmbhSeller, undefined, { ...eigene(["{firma}", `{steuernummer}\n${MIT_ALLEN}`]), legalFieldOnly: true });
     expect(fuss.legal).toContain("Sitz der Gesellschaft: Berlin");
@@ -63,10 +68,11 @@ describe("Stelle der Pflichtangaben für die Vorlage (Feldvertrag)", () => {
   });
 
   it("legalInFooter, wenn die Platzhalter in der geltenden Fußzeile stehen", () => {
-    expect(look(eigene(["{firma}", "{sitz}"])).legalInFooter).toBe(true);
-    expect(look(eigene(["{firma}", "{sitz}"], { footerCustom: false })).legalInFooter).toBe(false);
+    expect(look(eigene(["{firma}", MIT_ALLEN])).legalInFooter).toBe(true);
+    expect(look(eigene(["{firma}", "{sitz}"])).legalInFooter).toBe(false);
+    expect(look(eigene(["{firma}", MIT_ALLEN], { footerCustom: false })).legalInFooter).toBe(false);
     expect(look(eigene(["{firma}", "{ustid}"])).legalInFooter).toBe(false);
-    expect(look({ ...eigene(["{firma}", "{sitz}"]), legalFieldOnly: true }).legalInFooter).toBe(false);
+    expect(look({ ...eigene(["{firma}", MIT_ALLEN]), legalFieldOnly: true }).legalInFooter).toBe(false);
   });
 
   it("erkennt eigene Layouts, die die neuen Felder nennen", () => {

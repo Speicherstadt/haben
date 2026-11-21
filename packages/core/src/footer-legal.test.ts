@@ -40,7 +40,9 @@ describe("Platzhalter der Pflichtangaben (#1651)", () => {
 
   it("erkennt, ob die Platzhalter in der Fußzeile stehen, und nennt die fehlenden", () => {
     expect(legalInFooter(["{firma}", "{steuernummer}"])).toBe(false);
-    expect(legalInFooter(["{firma}", "{sitz}"])).toBe(true);
+    // Nur alle zählen: Eine Fußzeile aus der Zeit als Einzelunternehmen mit {sitz} allein ließe sonst den Rest weg
+    expect(legalInFooter(["{firma}", "{sitz}"])).toBe(false);
+    expect(legalInFooter(["{firma}", ALLE])).toBe(true);
     expect(missingLegalPlaceholders(["{sitz}\n{registernummer}"])).toEqual(["rechtsform", "registergericht", "geschaeftsfuehrung", "aufsichtsrat"]);
     expect(missingLegalPlaceholders([ALLE])).toEqual([]);
   });
