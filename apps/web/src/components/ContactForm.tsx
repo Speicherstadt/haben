@@ -73,12 +73,6 @@ export function ContactForm({
   const navigate = useNavigate();
   const save = useServerFn(saveContact);
   const { busy, notice, run } = useAction();
-  const ibanInput = useRef<HTMLInputElement>(null);
-  const takeIban = (iban: string) => {
-    if (!ibanInput.current) return;
-    ibanInput.current.value = iban;
-    ibanInput.current.focus();
-  };
   const [ustId, setUstId] = useState(contact?.ustId ?? prefill?.ustId ?? "");
   // Skonto: null = Vorgabe aus den Einstellungen; eigene Stufen, leer = ohne Skonto
   const [ownSkonto, setOwnSkonto] = useState(contact?.skonto != null);
@@ -147,66 +141,7 @@ export function ContactForm({
 
   return (
     <form className="card form-card contact-form" onSubmit={onSubmit} aria-label="Kontakt">
-      <section className="form-section" aria-labelledby="contact-basics">
-        <h2 id="contact-basics">Allgemein</h2>
-        <Field label="Name oder Firma">
-          {(control) => <input {...control} name="name" defaultValue={initial.name} required autoComplete="organization" placeholder="z. B. Muster GmbH" />}
-        </Field>
-        <fieldset className="field-group" style={{ border: 0, padding: 0, margin: 0 }}>
-          <legend className="small">Rolle</legend>
-          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-            <label className="checkbox">
-              <input type="checkbox" name="isCustomer" defaultChecked={initial.isCustomer ?? true} />
-              Kunde
-            </label>
-            <label className="checkbox">
-              <input type="checkbox" name="isSupplier" defaultChecked={initial.isSupplier ?? false} />
-              Lieferant
-            </label>
-          </div>
-          <p className="field-hint">Kunden stehen bei Rechnungen und Angeboten zur Auswahl, Lieferanten bei den Belegen. Beides geht.</p>
-        </fieldset>
-        <div className="form-row cols-2">
-          <Field label="E-Mail" hint="Mehrere Adressen mit Komma trennen, bis zu fünf. Der Versand schreibt an alle.">
-            {(control) => (
-              <input
-                {...control}
-                name="email"
-                type="email"
-                multiple
-                defaultValue={initial.email}
-                autoComplete="email"
-                placeholder="rechnung@kunde.de, freigabe@kunde.de"
-              />
-            )}
-          </Field>
-          <Field label="Telefon">
-            {(control) => (
-              <input {...control} name="telefon" type="tel" defaultValue={initial.telefon} autoComplete="tel" placeholder="optional, z. B. +49 941 123456" />
-            )}
-          </Field>
-        </div>
-        <div className="form-row cols-2">
-          <Field
-            label="Kundennummer"
-            hint={!contact && nextNumber ? `Leer lassen: Haben vergibt die nächste Nummer, voraussichtlich ${nextNumber}.` : undefined}
-          >
-            {(control) => (
-              <input {...control} name="kundennummer" defaultValue={initial.kundennummer} placeholder={!contact && nextNumber ? nextNumber : "optional"} />
-            )}
-          </Field>
-          <Field label="Lieferantennummer">
-            {(control) => (
-              <input
-                {...control}
-                name="lieferantennummer"
-                defaultValue={initial.lieferantennummer}
-                placeholder="optional, z. B. deine Kundennummer beim Lieferanten"
-              />
-            )}
-          </Field>
-        </div>
-      </section>
+      <ContactBasics initial={initial} isNew={!contact} nextNumber={nextNumber} />
 
       <section className="form-section" aria-labelledby="contact-address">
         <h2 id="contact-address">Anschrift</h2>
@@ -222,24 +157,7 @@ export function ContactForm({
         </div>
       </section>
 
-      <section className="form-section" aria-labelledby="contact-tax">
-        <h2 id="contact-tax">Steuer und Zahlung</h2>
-        <div className="form-row cols-2">
-          <Field label="USt-IdNr.">
-            {(control) => (
-              <input {...control} name="ustId" value={ustId} onChange={(e) => setUstId(e.target.value)} placeholder="DE123456789" className="mono" />
-            )}
-          </Field>
-          <div className="stack" style={{ gap: 4 }}>
-            <Field label="IBAN" describedBy={ibanSuggestion ? "iban-suggestion" : undefined}>
-              {(control) => (
-                <input {...control} ref={ibanInput} name="iban" defaultValue={initial.iban} placeholder="DE00 0000 0000 0000 0000 00" className="mono" />
-              )}
-            </Field>
-            {ibanSuggestion && <IbanSuggestionHint suggestion={ibanSuggestion} onTake={() => takeIban(ibanSuggestion.iban)} />}
-          </div>
-        </div>
-      </section>
+      <ContactTax initial={initial} ustId={ustId} onUstId={setUstId} ibanSuggestion={ibanSuggestion} />
 
       <section className="form-section" aria-labelledby="contact-invoices">
         <h2 id="contact-invoices">Rechnungen</h2>
@@ -308,6 +226,107 @@ function textFields(text: (name: keyof ContactInput) => string) {
     unsereLieferantennummer: text("unsereLieferantennummer"),
     lieferantennummer: text("lieferantennummer"),
   };
+}
+
+/** Abschnitt „Allgemein“: Name, Rolle, Kontaktwege und Nummern; isNew: beim Anlegen nennt das Feld Kundennummer die voraussichtlich nächste (nextNumber) */
+function ContactBasics({ initial, isNew, nextNumber }: { initial: ContactInput; isNew: boolean; nextNumber: string | null }) {
+  return (
+    <section className="form-section" aria-labelledby="contact-basics">
+      <h2 id="contact-basics">Allgemein</h2>
+      <Field label="Name oder Firma">
+        {(control) => <input {...control} name="name" defaultValue={initial.name} required autoComplete="organization" placeholder="z. B. Muster GmbH" />}
+      </Field>
+      <fieldset className="field-group" style={{ border: 0, padding: 0, margin: 0 }}>
+        <legend className="small">Rolle</legend>
+        <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+          <label className="checkbox">
+            <input type="checkbox" name="isCustomer" defaultChecked={initial.isCustomer ?? true} />
+            Kunde
+          </label>
+          <label className="checkbox">
+            <input type="checkbox" name="isSupplier" defaultChecked={initial.isSupplier ?? false} />
+            Lieferant
+          </label>
+        </div>
+        <p className="field-hint">Kunden stehen bei Rechnungen und Angeboten zur Auswahl, Lieferanten bei den Belegen. Beides geht.</p>
+      </fieldset>
+      <div className="form-row cols-2">
+        <Field label="E-Mail" hint="Mehrere Adressen mit Komma trennen, bis zu fünf. Der Versand schreibt an alle.">
+          {(control) => (
+            <input
+              {...control}
+              name="email"
+              type="email"
+              multiple
+              defaultValue={initial.email}
+              autoComplete="email"
+              placeholder="rechnung@kunde.de, freigabe@kunde.de"
+            />
+          )}
+        </Field>
+        <Field label="Telefon">
+          {(control) => (
+            <input {...control} name="telefon" type="tel" defaultValue={initial.telefon} autoComplete="tel" placeholder="optional, z. B. +49 941 123456" />
+          )}
+        </Field>
+      </div>
+      <div className="form-row cols-2">
+        <Field label="Kundennummer" hint={isNew && nextNumber ? `Leer lassen: Haben vergibt die nächste Nummer, voraussichtlich ${nextNumber}.` : undefined}>
+          {(control) => (
+            <input {...control} name="kundennummer" defaultValue={initial.kundennummer} placeholder={isNew && nextNumber ? nextNumber : "optional"} />
+          )}
+        </Field>
+        <Field label="Lieferantennummer">
+          {(control) => (
+            <input
+              {...control}
+              name="lieferantennummer"
+              defaultValue={initial.lieferantennummer}
+              placeholder="optional, z. B. deine Kundennummer beim Lieferanten"
+            />
+          )}
+        </Field>
+      </div>
+    </section>
+  );
+}
+
+/** Abschnitt „Steuer und Zahlung“: USt-IdNr. (gehört dem Formular, für den Hinweis auf gleiche Nummern) und IBAN samt Vorschlag vom Beleg */
+function ContactTax({
+  initial,
+  ustId,
+  onUstId,
+  ibanSuggestion,
+}: {
+  initial: ContactInput;
+  ustId: string;
+  onUstId: (ustId: string) => void;
+  ibanSuggestion: IbanSuggestion | null;
+}) {
+  const ibanInput = useRef<HTMLInputElement>(null);
+  const takeIban = (iban: string) => {
+    if (!ibanInput.current) return;
+    ibanInput.current.value = iban;
+    ibanInput.current.focus();
+  };
+  return (
+    <section className="form-section" aria-labelledby="contact-tax">
+      <h2 id="contact-tax">Steuer und Zahlung</h2>
+      <div className="form-row cols-2">
+        <Field label="USt-IdNr.">
+          {(control) => <input {...control} name="ustId" value={ustId} onChange={(e) => onUstId(e.target.value)} placeholder="DE123456789" className="mono" />}
+        </Field>
+        <div className="stack" style={{ gap: 4 }}>
+          <Field label="IBAN" describedBy={ibanSuggestion ? "iban-suggestion" : undefined}>
+            {(control) => (
+              <input {...control} ref={ibanInput} name="iban" defaultValue={initial.iban} placeholder="DE00 0000 0000 0000 0000 00" className="mono" />
+            )}
+          </Field>
+          {ibanSuggestion && <IbanSuggestionHint suggestion={ibanSuggestion} onTake={() => takeIban(ibanSuggestion.iban)} />}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 /** Die Nummer, unter der uns der Kunde führt (#711); nicht die Lieferantennummer oben, die meint die Gegenrichtung */
