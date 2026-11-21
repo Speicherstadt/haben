@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { type EingebautesLayout, layoutOptionen, layoutVorlagen } from "@haben/core";
+import { type EingebautesLayout, layoutOptionen, layoutVarianten, layoutVorlagen } from "@haben/core";
 import { PACKAGE_DIR } from "./typst-compiler.ts";
 
 /*
@@ -79,4 +79,19 @@ export function eingebautesLayoutAlsDatei(
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, "-");
   return { dateiname: `${name}.typ`, inhalt: kopf + fest };
+}
+
+/**
+ * Alle Varianten der Layouts für Beleg und Mahnung, für ein ZIP. Bei mehr als einem Layout liegt jedes in seinem Ordner,
+ * etwa „atelier/atelier-unten-liste-beleg.typ“.
+ */
+export function eingebauteLayoutDateien(layouts: readonly EingebautesLayout[]): { pfad: string; inhalt: string }[] {
+  return layouts.flatMap((layout) =>
+    layoutVarianten(layout).flatMap((optionen) =>
+      (["beleg", "mahnung"] as const).map((art) => {
+        const { dateiname, inhalt } = eingebautesLayoutAlsDatei(layout, optionen, art);
+        return { pfad: layouts.length > 1 ? `${layout.id}/${dateiname}` : dateiname, inhalt };
+      }),
+    ),
+  );
 }

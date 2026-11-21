@@ -253,3 +253,16 @@ export function optionenZurWahl(layout: EingebautesLayout, gewaehlt: Readonly<Re
     return [{ id: option.id, name: option.name, wert, werte }];
   });
 }
+
+/** Jede Variante, die die Gestaltung anbieten kann: je Option jeder Wert, den die früheren erlauben */
+export function layoutVarianten(layout: EingebautesLayout): Record<string, string>[] {
+  let kombinationen: Record<string, string>[] = [{}];
+  for (const option of layout.optionen) {
+    kombinationen = kombinationen.flatMap((bisher) => {
+      const erlaubt = option.werte.filter((wert) => wertErlaubt(wert, bisher));
+      // Eine Option ohne erlaubten Wert gilt nicht (Kerndaten bei Klar in der Fassung „Klassisch“)
+      return erlaubt.length === 0 ? [bisher] : erlaubt.map((wert) => ({ ...bisher, [option.id]: wert.id }));
+    });
+  }
+  return kombinationen;
+}

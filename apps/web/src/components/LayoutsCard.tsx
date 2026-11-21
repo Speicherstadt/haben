@@ -66,7 +66,6 @@ export function LayoutsCard({ design, layouts }: { design: LetterheadDesign; lay
       </p>
       <LayoutZuordnung design={design} layouts={layouts} />
       <LayoutOptionsSections design={design} />
-      <EingebauteLayouts design={design} />
       <OwnLayouts layouts={layouts} />
       <LayoutUpload />
       <section aria-labelledby="layout-hilfe-heading">
@@ -76,6 +75,7 @@ export function LayoutsCard({ design, layouts }: { design: LetterheadDesign; lay
           Aussehen und lade das Ergebnis hier hoch. Haben prüft es mit Beispieldaten, bevor es gilt.
         </p>
         <div className="actions" style={{ flexWrap: "wrap" }}>
+          <EingebauteLayouts design={design} />
           <a className="btn btn-sm" href={LAYOUTS_DOCS} target="_blank" rel="noreferrer">
             Dokumentation
           </a>

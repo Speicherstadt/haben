@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import { type Browser, expect, type Page, test } from "@playwright/test";
+import { unzipSync } from "fflate";
 import { paketArchiv } from "../src/server/modules/stammdaten/test-paket.ts";
 import { SESSION } from "./daten.ts";
 import { LAYOUT_PAKETE_PORT } from "./durchlaeufe.ts";
@@ -208,15 +209,18 @@ test("Die Downloads liefern die eingebauten Layouts, Beispieldaten, Feldvertrag 
 
 test("Ein eingebautes Layout in einer Variante herunterladen und als eigenes hochladen", async ({ browser }) => {
   const page = await einstellungen(browser);
-  const eingebaut = karte(page).getByRole("region", { name: "Eingebaute Layouts" });
-  const atelier = eingebaut.getByRole("listitem").filter({ hasText: "Atelier" });
+  await karte(page).getByRole("button", { name: "Eingebautes Layout herunterladen" }).click();
+  const dialog = page.getByRole("dialog", { name: "Eingebautes Layout herunterladen" });
+  await dialog.getByLabel("Layout", { exact: true }).selectOption({ label: "Atelier" });
+  await dialog.getByRole("group", { name: "Belegart" }).getByRole("button", { name: "Belege" }).click();
   // Zweispaltig nur mit dem Fuß unten, wie in der Gestaltung
-  await atelier.getByRole("group", { name: "Fuß (Atelier)" }).getByRole("button", { name: "In der Randspalte" }).click();
-  await expect(atelier.getByRole("group", { name: "Kerndaten (Atelier)" }).getByRole("button", { name: "Zweispaltig" })).toBeDisabled();
-  await atelier.getByRole("group", { name: "Fuß (Atelier)" }).getByRole("button", { name: "Unten" }).click();
-  await atelier.getByRole("group", { name: "Kerndaten (Atelier)" }).getByRole("button", { name: "Zweispaltig" }).click();
-  const [download] = await Promise.all([page.waitForEvent("download"), atelier.getByRole("link", { name: "Atelier für Belege herunterladen" }).click()]);
+  await dialog.getByRole("group", { name: "Fuß (Atelier)" }).getByRole("button", { name: "In der Randspalte" }).click();
+  await expect(dialog.getByRole("group", { name: "Kerndaten (Atelier)" }).getByRole("button", { name: "Zweispaltig" })).toBeDisabled();
+  await dialog.getByRole("group", { name: "Fuß (Atelier)" }).getByRole("button", { name: "Unten" }).click();
+  await dialog.getByRole("group", { name: "Kerndaten (Atelier)" }).getByRole("button", { name: "Zweispaltig" }).click();
+  const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "Herunterladen" }).click()]);
   expect(download.suggestedFilename()).toBe("atelier-unten-zweispaltig-beleg.typ");
+  await expect(dialog).toHaveCount(0);
   const quelltext = await readFile(await download.path(), "utf8");
   expect(quelltext).toContain('#let optionen = (fuss: "unten", kerndaten: "zweispaltig")');
 
@@ -229,5 +233,27 @@ test("Ein eingebautes Layout in einer Variante herunterladen und als eigenes hoc
     .getByRole("button", { name: "Layout löschen" })
     .click();
   await expect(zeile).toHaveCount(0);
+  await page.context().close();
+});
+
+test("Alle Varianten eines oder aller eingebauten Layouts als ZIP herunterladen", async ({ browser }) => {
+  const page = await einstellungen(browser);
+  const laden = async (umfang: string, layout?: string) => {
+    await karte(page).getByRole("button", { name: "Eingebautes Layout herunterladen" }).click();
+    const dialog = page.getByRole("dialog", { name: "Eingebautes Layout herunterladen" });
+    await dialog.getByRole("radio", { name: umfang }).check();
+    if (layout) await dialog.getByLabel("Layout", { exact: true }).selectOption({ label: layout });
+    else await expect(dialog.getByLabel("Layout", { exact: true })).toHaveCount(0);
+    const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "Herunterladen" }).click()]);
+    return { name: download.suggestedFilename(), dateien: Object.keys(unzipSync(await readFile(await download.path()))) };
+  };
+  const atelier = await laden("Alle Varianten eines Layouts", "Atelier");
+  expect(atelier.name).toBe("atelier-varianten.zip");
+  expect(atelier.dateien).toHaveLength(6);
+  expect(atelier.dateien).toContain("atelier-rechts-liste-mahnung.typ");
+  const alle = await laden("Alle eingebauten Layouts");
+  expect(alle.name).toBe("eingebaute-layouts.zip");
+  expect(alle.dateien).toContain("klar/klar-klassisch-beleg.typ");
+  expect(alle.dateien).toContain("atelier/atelier-unten-zweispaltig-mahnung.typ");
   await page.context().close();
 });

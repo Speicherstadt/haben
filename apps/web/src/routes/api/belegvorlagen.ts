@@ -1,6 +1,7 @@
-import { eingebautesLayout } from "@haben/core";
-import { eingebautesLayoutAlsDatei, layoutAnleitung, layoutBeispiele, layoutJsonSchema, startvorlage } from "@haben/einvoice";
+import { EINGEBAUTE_LAYOUTS, eingebautesLayout } from "@haben/core";
+import { eingebauteLayoutDateien, eingebautesLayoutAlsDatei, layoutAnleitung, layoutBeispiele, layoutJsonSchema, startvorlage } from "@haben/einvoice";
 import { createFileRoute } from "@tanstack/react-router";
+import { strToU8, zipSync } from "fflate";
 import { fileResponse } from "../../server/file-response.ts";
 import { layoutSource } from "../../server/modules/stammdaten/index.ts";
 import { requireUser } from "../../server/rollen.ts";
@@ -10,6 +11,7 @@ const json = (inhalt: unknown, filename: string) => text(`${JSON.stringify(inhal
 
 /**
  * Downloads für eigene Belegvorlagen: Startvorlage je Art, ein eingebautes Layout in einer Variante (?layout=…&<option>=<wert>),
+ * alle Varianten eines oder aller eingebauten Layouts als ZIP (datei=varianten, ?layout=… oder ohne),
  * Beispieldaten, Feldvertrag als JSON Schema, die Anleitung für KI-Agenten und ein gespeichertes Layout (?id=…)
  */
 export const Route = createFileRoute("/api/belegvorlagen")({
@@ -35,6 +37,14 @@ export const Route = createFileRoute("/api/belegvorlagen")({
             );
             const { dateiname, inhalt } = eingebautesLayoutAlsDatei(layout, gewaehlt, art);
             return text(inhalt, dateiname);
+          }
+          case "varianten": {
+            const id = url.searchParams.get("layout");
+            const layout = id === null ? undefined : eingebautesLayout(id);
+            if (id !== null && !layout) return new Response("Layout nicht gefunden", { status: 404 });
+            const dateien = eingebauteLayoutDateien(layout ? [layout] : EINGEBAUTE_LAYOUTS);
+            const zip = zipSync(Object.fromEntries(dateien.map((d) => [d.pfad, strToU8(d.inhalt)])));
+            return fileResponse(zip, { mimeType: "application/zip", filename: layout ? `${layout.id}-varianten.zip` : "eingebaute-layouts.zip" }, true);
           }
           case "beispiele":
             return json(

@@ -1,4 +1,4 @@
-import { EINGEBAUTE_LAYOUTS, LAYOUT_DOCUMENT_TYPES, layoutOptionen } from "@haben/core";
+import { EINGEBAUTE_LAYOUTS, LAYOUT_DOCUMENT_TYPES, layoutVarianten } from "@haben/core";
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -239,13 +239,9 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
   });
 
   // Jede Variante, die die Gestaltung anbieten kann; dass sie dasselbe setzt wie das eingebaute, prüft layout-startvorlage.test.ts
-  const varianten = EINGEBAUTE_LAYOUTS.flatMap((layout) => {
-    let kombinationen: Record<string, string>[] = [{}];
-    for (const option of layout.optionen)
-      kombinationen = kombinationen.flatMap((bisher) => option.werte.map((wert) => layoutOptionen(layout, { ...bisher, [option.id]: wert.id })));
-    const eindeutig = [...new Map(kombinationen.map((k) => [JSON.stringify(k), k])).values()];
-    return eindeutig.map((optionen) => [`${layout.name} ${JSON.stringify(optionen)}`, layout, optionen] as const);
-  });
+  const varianten = EINGEBAUTE_LAYOUTS.flatMap((layout) =>
+    layoutVarianten(layout).map((optionen) => [`${layout.name} ${JSON.stringify(optionen)}`, layout, optionen] as const),
+  );
 
   it.each(varianten)(
     "ein heruntergeladenes eingebautes Layout besteht die Prüfung beim Hochladen und setzt Beleg und Mahnung: %s",
