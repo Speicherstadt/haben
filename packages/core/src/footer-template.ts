@@ -6,7 +6,7 @@ import { type FormattedTextRun, parseTextFormatting } from "./text-format.ts";
 const CONTACT_PLACEHOLDERS = ["firma", "strasse", "plz", "ort", "email", "telefon", "bank", "kontoinhaber", "iban", "bic", "steuernummer", "ustid"] as const;
 
 /** Pflichtangaben einer GmbH oder UG nach § 35a Abs. 1 GmbHG, je Angabe ein Platzhalter (#1651); Regeln in footer-legal.ts */
-export const LEGAL_PLACEHOLDERS = ["rechtsform", "sitz", "registergericht", "registernummer", "geschaeftsfuehrung", "aufsichtsrat"] as const;
+export const LEGAL_PLACEHOLDERS = ["rechtsform", "sitz", "registergericht", "registernummer", "geschaeftsfuehrung", "aufsichtsratsvorsitz"] as const;
 export type LegalPlaceholder = (typeof LEGAL_PLACEHOLDERS)[number];
 
 export const FOOTER_PLACEHOLDERS = [...CONTACT_PLACEHOLDERS, ...LEGAL_PLACEHOLDERS] as const;
@@ -51,7 +51,7 @@ export function legalFooterValues(info: LegalInfo | undefined): Record<LegalPlac
     registergericht: info?.registerCourt ?? "",
     registernummer: info?.registerNumber ?? "",
     geschaeftsfuehrung: info?.managingDirectors.join(", ") ?? "",
-    aufsichtsrat: info?.supervisoryBoardChair ?? "",
+    aufsichtsratsvorsitz: info?.supervisoryBoardChair ?? "",
   };
 }
 

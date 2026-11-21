@@ -342,7 +342,7 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
     const fuss = [
       "{firma}\n{strasse}\n{plz} {ort}",
       "{steuernummer}\nSitzplatz {sitz}\n{registergericht} {registernummer}\n{geschaeftsfuehrung}",
-      "{rechtsform}\n{aufsichtsrat}",
+      "{rechtsform}\n{aufsichtsratsvorsitz}",
     ];
     await letterhead.saveDesign(actor, { footerColumns: fuss });
     const head = await letterhead.loadLetterhead();

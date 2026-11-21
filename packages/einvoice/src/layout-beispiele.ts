@@ -90,7 +90,7 @@ export function layoutBeispiele(): LayoutBeispiel[] {
   const mitPflichtangaben = briefkopf({
     footerColumns: [
       "{firma}\n{strasse}",
-      "Sitz {sitz}\n{registergericht} {registernummer}\nGeschäftsführung {geschaeftsfuehrung}\n{rechtsform}\n{aufsichtsrat}",
+      "Sitz {sitz}\n{registergericht} {registernummer}\nGeschäftsführung {geschaeftsfuehrung}\n{rechtsform}\n{aufsichtsratsvorsitz}",
       "{steuernummer}",
     ],
     legalPosition: "zeile",

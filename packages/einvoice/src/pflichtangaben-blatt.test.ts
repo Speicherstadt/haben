@@ -89,7 +89,7 @@ const seller = {
   },
 };
 const MARKEN = ["haftungsbeschränkt", "Charlottenburg", "HRB", "Westerhoff", "Lüdenscheid"];
-const MIT_ALLEN = "Sitz {sitz}\n{rechtsform}\n{registergericht} {registernummer}\n{geschaeftsfuehrung}\nAufsichtsrat {aufsichtsrat}";
+const MIT_ALLEN = "Sitz {sitz}\n{rechtsform}\n{registergericht} {registernummer}\n{geschaeftsfuehrung}\nVorsitz des Aufsichtsrats {aufsichtsratsvorsitz}";
 
 const mahnung = (letterhead: Letterhead) =>
   dunningPdfData({

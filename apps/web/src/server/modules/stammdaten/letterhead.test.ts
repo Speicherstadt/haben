@@ -126,7 +126,7 @@ describe.skipIf(!testDatabaseUrl)("Briefkopf und Standardprofil (Postgres)", () 
   });
 
   describe("Pflichtangaben der GmbH in der Fußzeile (#1651)", () => {
-    const ALLE = "{rechtsform} {sitz}\n{registergericht} {registernummer}\n{geschaeftsfuehrung}\n{aufsichtsrat}";
+    const ALLE = "{rechtsform} {sitz}\n{registergericht} {registernummer}\n{geschaeftsfuehrung}\n{aufsichtsratsvorsitz}";
     const vier = ["{firma}", "{steuernummer}", "{iban}", "{email}"];
     beforeEach(async () => {
       await sql`update company set rechtsform = 'gmbh' where id = 1`;
@@ -134,7 +134,7 @@ describe.skipIf(!testDatabaseUrl)("Briefkopf und Standardprofil (Postgres)", () 
 
     it("lehnt einen Teil der Platzhalter ab und nennt die fehlenden", async () => {
       await expect(letterhead.saveDesign(actor, { footerColumns: ["{firma}\n{sitz}", "{steuernummer}"] })).rejects.toThrow(
-        "es fehlen {rechtsform}, {registergericht}, {registernummer}, {geschaeftsfuehrung} und {aufsichtsrat}",
+        "es fehlen {rechtsform}, {registergericht}, {registernummer}, {geschaeftsfuehrung} und {aufsichtsratsvorsitz}",
       );
       expect(await sql`select 1 from letterhead_profiles`).toHaveLength(0);
       await letterhead.saveDesign(actor, { footerColumns: ["{firma}", `{steuernummer}\n${ALLE}`] });

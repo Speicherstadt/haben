@@ -14,7 +14,7 @@ const seller = {
   legalInfo: { seat: "Bremen", registerCourt: "Amtsgericht Bremen", registerNumber: "HRB 34567 HB", managingDirectors: ["Erika Mustermann", "Jonas Beispiel"] },
 };
 
-const ALLE = "Sitz {sitz}\n{rechtsform}\n{registergericht} {registernummer}\nGeschäftsführung {geschaeftsfuehrung}\nAufsichtsrat {aufsichtsrat}";
+const ALLE = "Sitz {sitz}\n{rechtsform}\n{registergericht} {registernummer}\nGeschäftsführung {geschaeftsfuehrung}\nVorsitz des Aufsichtsrats {aufsichtsratsvorsitz}";
 const stelle = (id: string, optionen: Record<string, string> = {}, gewaehlt: "layout" | "spalte" | "zeile" = "layout") => {
   const layout = eingebautesLayout(id)!;
   return legalStelle(layout, layoutOptionen(layout, optionen), gewaehlt);
@@ -43,7 +43,7 @@ describe("Platzhalter der Pflichtangaben (#1651)", () => {
     // Nur alle zählen: Eine Fußzeile aus der Zeit als Einzelunternehmen mit {sitz} allein ließe sonst den Rest weg
     expect(legalInFooter(["{firma}", "{sitz}"])).toBe(false);
     expect(legalInFooter(["{firma}", ALLE])).toBe(true);
-    expect(missingLegalPlaceholders(["{sitz}\n{registernummer}"])).toEqual(["rechtsform", "registergericht", "geschaeftsfuehrung", "aufsichtsrat"]);
+    expect(missingLegalPlaceholders(["{sitz}\n{registernummer}"])).toEqual(["rechtsform", "registergericht", "geschaeftsfuehrung", "aufsichtsratsvorsitz"]);
     expect(missingLegalPlaceholders([ALLE])).toEqual([]);
   });
 });
@@ -53,7 +53,7 @@ describe("Sperre beim Speichern", () => {
 
   it("GmbH: ein Teil der Platzhalter reicht nicht, die fehlenden sind genannt", () => {
     expect(legalFooterIssues(["Sitz {sitz}", "{steuernummer}"], gmbh)).toEqual([
-      "Pflichtangaben nach § 35a GmbHG unvollständig, es fehlen {rechtsform}, {registergericht}, {registernummer}, {geschaeftsfuehrung} und {aufsichtsrat}. Setze alle ein oder keinen, dann setzt Haben sie selbst.",
+      "Pflichtangaben nach § 35a GmbHG unvollständig, es fehlen {rechtsform}, {registergericht}, {registernummer}, {geschaeftsfuehrung} und {aufsichtsratsvorsitz}. Setze alle ein oder keinen, dann setzt Haben sie selbst.",
     ]);
   });
 
