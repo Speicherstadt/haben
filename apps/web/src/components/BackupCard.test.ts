@@ -1,8 +1,7 @@
-import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { BackupCard, RCLONE_CONFIG } from "./BackupCard.tsx";
+import { BackupCard } from "./BackupCard.tsx";
 
 type Status = Parameters<typeof BackupCard>[0]["status"];
 
@@ -44,38 +43,38 @@ describe("BackupCard: Speicherort (#1331)", () => {
 
 /*
  * #1513, kleinere Stufe: die Seite erklärt die rclone-Konfiguration des Backup-Containers und sagt, ob das Ziel aus
- * dieser Datei kommt. Ein Ziel, das in Haben selbst eingetragen wird (Stufe 2), nennt sie später als aus dem Dialog.
+ * dieser Datei kommt. Abschnitt und Wege selbst prüft backup-ziel.test.ts gegen deploy/backup/rclone-ziel.sh; hier
+ * steht, was in der Karte ankommt.
  */
 describe("BackupCard: rclone-Konfiguration (#1513)", () => {
   it("nennt beide Wege zur Konfiguration und das Format des Ziels", () => {
     const html = render(ok);
-    expect(html).toContain(`<span class="mono">${RCLONE_CONFIG.variable}</span>`);
-    expect(html).toContain(`<span class="mono">${RCLONE_CONFIG.datei}</span>`);
+    expect(html).toContain('<span class="mono">RCLONE_CONFIG</span>');
+    expect(html).toContain('<span class="mono">/var/lib/haben-backup/rclone.conf</span>');
     expect(html).toContain('<span class="mono">rclone:onedrive:haben</span>');
     expect(html).toContain("hier erscheint keine davon");
   });
 
-  // Die Wege sind die des Containers (rclone_config_file in deploy/backup/rclone-ziel.sh), nicht neu erfunden
-  it("sucht die Datei wie der Backup-Container", () => {
-    const skript = readFileSync(new URL("../../../../deploy/backup/rclone-ziel.sh", import.meta.url), "utf8");
-    expect(skript).toContain(`\${${RCLONE_CONFIG.variable}:-${RCLONE_CONFIG.datei}}`);
-    expect(skript).toContain("rclone:<abschnitt>:<pfad>");
-  });
-
-  it("Ziel aus einem Abschnitt der Datei", () => {
+  it("Herkunft des Ziels aus einem Abschnitt der Datei", () => {
     const html = render({ ...ok, target: { repository: "rclone:onedrive:haben", local: false } });
     expect(html).toContain("Herkunft des Ziels");
     expect(html).toContain("Aus der rclone-Konfiguration, Abschnitt onedrive");
   });
 
-  it("Abschnitt mit Parametern im Ziel zählt weiter als aus der Datei", () => {
-    expect(render({ ...ok, target: { repository: "rclone:fern,pass=GEHEIM:haben", local: false } })).toContain("Aus der rclone-Konfiguration, Abschnitt fern");
+  // Die Karte bekommt das Ziel schon ohne Zugangsdaten (backup-status.ts mit ohneZugangsdaten aus
+  // restic-ziel.ts); Angaben hinter dem Abschnitt prüft backup-ziel.test.ts
+  it("nennt den Abschnitt des Ziels", () => {
+    expect(render({ ...ok, target: { repository: "rclone:fern:haben", local: false } })).toContain("Aus der rclone-Konfiguration, Abschnitt fern");
   });
 
   it("Verbindungszeichenkette im Ziel braucht keine Datei", () => {
     expect(render({ ...ok, target: { repository: "rclone::webdav:haben", local: false } })).toContain(
       "Nicht aus einer Datei, die Verbindungszeichenkette bringt das Ziel selbst mit",
     );
+  });
+
+  it("Verzeichnis im Backup-Container ist keine Datei", () => {
+    expect(render({ ...ok, target: { repository: "/backups", local: true } })).toContain("Nicht aus einer Datei, ein Verzeichnis im Backup-Container");
   });
 
   it("Ziel ohne rclone steht direkt im Backup-Container", () => {

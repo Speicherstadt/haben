@@ -1,3 +1,4 @@
+import { RCLONE_CONFIG, zielHerkunft } from "../lib/backup-ziel.ts";
 import { formatDateTime, formatSize } from "../lib/format.ts";
 import type { getBackupStatus } from "../server/functions/backup.ts";
 
@@ -6,22 +7,33 @@ type Status = Awaited<ReturnType<typeof getBackupStatus>>;
 export const BACKUP_DOCS = "https://haben.app/installation-backup.html#backup-und-wiederherstellen";
 const ZWEITES_SYSTEM_DOCS = "https://haben.app/installation-backup.html#repository-auf-einem-zweiten-system";
 
-/** Wo der Backup-Container die rclone-Konfiguration sucht, in dieser Reihenfolge wie rclone_config_file in deploy/backup/rclone-ziel.sh */
-export const RCLONE_CONFIG = { variable: "RCLONE_CONFIG", datei: "/var/lib/haben-backup/rclone.conf" } as const;
-
 const ART = { backup: "Backup", restore_check: "Test-Restore" } as const;
 
-/**
- * Woher das Ziel kommt (#1513): aus dem Abschnitt einer rclone-Konfiguration, aus einer Verbindungszeichenkette im Ziel
- * selbst oder direkt aus RESTIC_REPOSITORY. Ein in Haben eingetragenes Ziel nennt später den Dialog statt der Datei
- * (Stufe 2 von #1513). Die Formen folgen rclone_ziel_abschnitt in deploy/backup/restic-ziel.sh.
- */
-function herkunft(target: Status["target"]): string {
+/** Woher das Ziel kommt (#1513); ohne eingetragenes Ziel sagt es der nächste Lauf */
+function herkunftText(target: Status["target"]): string {
   if (!target) return "Unbekannt bis zum nächsten Lauf mit aktuellem Backup-Image";
-  const abschnitt = /^rclone:(?!:)([^:,]*)/.exec(target.repository)?.[1];
-  if (abschnitt) return `Aus der rclone-Konfiguration, Abschnitt ${abschnitt}`;
-  if (target.repository.startsWith("rclone::")) return "Nicht aus einer Datei, die Verbindungszeichenkette bringt das Ziel selbst mit";
-  return "Nicht aus einer Datei, das Ziel steht als RESTIC_REPOSITORY im Backup-Container";
+  const herkunft = zielHerkunft(target);
+  switch (herkunft.art) {
+    case "datei":
+      return `Aus der rclone-Konfiguration, Abschnitt ${herkunft.abschnitt}`;
+    case "verbindungszeichenkette":
+      return "Nicht aus einer Datei, die Verbindungszeichenkette bringt das Ziel selbst mit";
+    case "verzeichnis":
+      return "Nicht aus einer Datei, ein Verzeichnis im Backup-Container";
+    case "eingetragen":
+      return "Nicht aus einer Datei, das Ziel steht als RESTIC_REPOSITORY im Backup-Container";
+  }
+}
+
+/** Beide Wege zur rclone-Konfiguration und das Format des Ziels (#1513) */
+function RcloneKonfiguration() {
+  return (
+    <p className="small muted" style={{ margin: 0 }}>
+      Ziele, die restic nicht selbst anspricht, etwa WebDAV, OneDrive oder SMB, gehen über rclone. Der Backup-Container sucht dessen Konfiguration zuerst in{" "}
+      <span className="mono">{RCLONE_CONFIG.variable}</span>, wenn die Variable gesetzt ist, sonst in <span className="mono">{RCLONE_CONFIG.datei}</span>. Ein
+      Ziel nennt einen Abschnitt daraus, etwa <span className="mono">rclone:onedrive:haben</span>. In der Datei stehen Zugangsdaten; hier erscheint keine davon.
+    </p>
+  );
 }
 
 /** Stand von Backup und wöchentlichem Test-Restore aus dem Backup-Container (Einstellungen → Export) */
@@ -75,7 +87,7 @@ export function BackupCard({ status }: { status: Status }) {
             )}
           </dd>
           <dt className="muted">Herkunft des Ziels</dt>
-          <dd style={{ margin: 0, overflowWrap: "anywhere" }}>{herkunft(target)}</dd>
+          <dd style={{ margin: 0, overflowWrap: "anywhere" }}>{herkunftText(target)}</dd>
           <dt className="muted">Letztes Backup</dt>
           <dd style={{ margin: 0 }}>
             {lastBackup ? (
@@ -94,12 +106,7 @@ export function BackupCard({ status }: { status: Status }) {
           </dd>
         </dl>
       )}
-      <p className="small muted" style={{ margin: 0 }}>
-        Ziele, die restic nicht selbst anspricht, etwa WebDAV, OneDrive oder SMB, gehen über rclone. Der Backup-Container sucht dessen Konfiguration zuerst in{" "}
-        <span className="mono">{RCLONE_CONFIG.variable}</span>, wenn die Variable gesetzt ist, sonst in <span className="mono">{RCLONE_CONFIG.datei}</span>. Ein
-        Ziel nennt einen Abschnitt daraus, etwa <span className="mono">rclone:onedrive:haben</span>. In der Datei stehen Zugangsdaten; hier erscheint keine
-        davon. Ein Ziel, das in Haben eingetragen wird, kommt aus dem Dialog statt aus der Datei.
-      </p>
+      <RcloneKonfiguration />
     </section>
   );
 }
