@@ -9,6 +9,7 @@ import { ConfirmDialog } from "../ConfirmDialog.tsx";
 import { Field } from "../Field.tsx";
 import { Icon } from "../Icon.tsx";
 import { NoticeBanner } from "../NoticeBanner.tsx";
+import { FastbillLoginFields } from "./FastbillTeile.tsx";
 import { type ConnectedSource, type FastbillPlan, SOURCES } from "./migration-quellen.ts";
 
 export function Connection({

@@ -25,6 +25,20 @@ vi.mock("./archive.ts", async (original) => {
     },
   };
 });
+vi.mock("@haben/import", async (original) => ({
+  ...(await original<typeof import("@haben/import")>()),
+  previewBuchhaltungsbutlerExport: () => ({
+    year: 2026,
+    dateFrom: null,
+    dateTo: null,
+    bookings: 0,
+    vouchers: [],
+    files: 0,
+    withoutReceipt: 0,
+    multipleFiles: 0,
+    warnings: [],
+  }),
+}));
 
 const HEADER =
   "Buchungsnummer;Teilbuchung;Zahlungsdatum;Wertstellungsdatum;Buchungstext;Konto;Kontobezeichnung;Gegenkonto;Gegenkontobezeichnung;Soll;Haben;Steuerschluessel;Steuersatz;Steuerschluesselbezeichnung;Belegnummer;Buchungsdatum;UStID;Umsatzart";
@@ -54,7 +68,9 @@ describe.skipIf(!testDatabaseUrl)("Abrufsperre beim Umzug (Postgres)", () => {
         }),
       ]);
       await sql`update lexoffice_imports set updated_at = now() - interval '4 minutes' where source = 'wiso'`;
-      await expect(startBuchhaltungsbutlerImport("bb-test", [])).rejects.toThrow();
+      await expect(startBuchhaltungsbutlerImport("bb-test", [])).rejects.toMatchObject({
+        cause: { code: "23505", constraint_name: "lexoffice_imports_one_running" },
+      });
       expect((await sql`select status from lexoffice_imports where source = 'wiso'`)[0]?.status).toBe("laeuft");
     } finally {
       gates.release.resolve();
