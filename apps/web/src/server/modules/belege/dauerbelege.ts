@@ -13,6 +13,7 @@ import {
   vorschauTermine,
   type DauerbelegStatus,
   RECURRENCE_KEYS,
+  type Recurrence,
   recurrenceParts,
   inCents,
   inBasisPoints,
@@ -164,6 +165,18 @@ async function lockVorlage(tx: Tx, id: string): Promise<Dauerbeleg> {
 }
 
 /**
+ * Wochen und Monate nur tauschen, solange es keinen Beleg gibt: Bei Wochen ist die Periode eines Belegs der Termin, bei
+ * Monaten der Monatserste (dauerbelegPeriode). Ein Monatsbeleg träfe sonst auf einen Wochenbeleg am Monatsersten, und der
+ * eindeutige Index ließe ihn ohne Fehler aus.
+ */
+async function checkUnitChange(tx: Tx, id: string, previous: Recurrence, next: Recurrence): Promise<void> {
+  if ((recurrenceParts(previous).weeks === null) === (recurrenceParts(next).weeks === null)) return;
+  const [used] = await tx.select({ id: schema.documents.id }).from(schema.documents).where(eq(schema.documents.recurringDocumentId, id)).limit(1);
+  if (used)
+    throw new DauerbelegError("Wochen und Monate lassen sich nicht mehr tauschen, sobald Belege angelegt sind. Beende den Dauerbeleg und lege einen neuen an.");
+}
+
+/**
  * Ändert die Vorlage, auf Wunsch mit neuem Vertrag. Das gilt nur für künftige Belege: Angelegte Belege tragen ihre
  * eigenen Felder und Beträge und behalten die Datei, die beim Anlegen hinterlegt war.
  */
@@ -173,6 +186,7 @@ export async function updateDauerbeleg(actor: string, id: string, input: Dauerbe
     const previous = await lockVorlage(tx, id);
     if (previous.status === "beendet") throw new DauerbelegError("Ein beendeter Dauerbeleg lässt sich nicht mehr ändern. Lege bei Bedarf einen neuen an.");
     await checkSupplier(tx, row.supplierContactId, previous.supplierContactId);
+    await checkUnitChange(tx, id, previous.recurrence, row.recurrence);
     const contract = file ? await storeContract(tx, file) : {};
     // Unveränderter Termin: Ankertag behalten, sonst würde aus dem Monatsletzten nach einer Änderung am 28.02. der 28.
     // Nur bei Monaten: Wochenläufe schieben den Termin, nicht den Ankertag
