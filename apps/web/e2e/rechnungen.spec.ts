@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import postgres from "postgres";
+import { serverAufrufe } from "./warten.ts";
 import { currentDay, day, firstLink, USER, YEAR } from "./daten.ts";
 import { databaseUrlFuer } from "./durchlaeufe.ts";
 import { HANDY, LAPTOP, sichtbar, statusBleibtSichtbar, zumEnde } from "./kopfzeile.ts";
@@ -330,14 +331,15 @@ test("Kontakt bearbeiten: Die Meldung „Gespeichert.“ bleibt nach dem Speiche
   await expect(page.getByRole("heading", { name: "Versionen" })).toBeVisible();
 
   await page.getByLabel("Ort").fill("Hamburg");
+  const speichern = serverAufrufe(page);
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
   // Nach dem Speichern lädt die Seite die neue Version und baut das Formular neu auf; die Meldung darf dabei nicht verschwinden
   await expect(page.getByText("Version 2")).toBeVisible();
   const meldung = page.getByRole("form", { name: "Kontakt" }).getByText("Gespeichert. Die vorige Fassung bleibt als Version erhalten.");
   await expect(meldung).toBeVisible();
   await expect(page.getByLabel("Ort")).toHaveValue("Hamburg");
-  // Auch nach kurzer Zeit noch da, nicht nur für einen Augenblick
-  await page.waitForTimeout(1000);
+  // Auch wenn Speichern und Neuladen ganz durch sind, nicht nur für einen Augenblick
+  await speichern.fertig();
   await expect(meldung).toBeVisible();
   // Archivieren: Die folgenden Tests rechnen nicht mit diesem Kunden
   await page.getByRole("button", { name: "Archivieren" }).click();

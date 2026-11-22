@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { KURS_NACHPRUEFEN, SCHLIESSEN_NACH, STILL_NACH } from "../lib/flyout-zeiten.ts";
 import { haeltKurs, type Punkt } from "../lib/zielkurs.ts";
 import { Icon, type IconName } from "./Icon.tsx";
 
@@ -42,13 +43,6 @@ export function weiter(elemente: ArrayLike<HTMLElement>, schritt: number) {
   const ziel = jetzt < 0 ? (schritt > 0 ? 0 : liste.length - 1) : (jetzt + schritt + liste.length) % liste.length;
   liste[ziel]?.focus();
 }
-// Öffnen sofort wie bei GitLab; den schrägen Weg ins Flyout schützt der Zielkurs. Schließen mit Verzug, damit der
-// Weg über die Lücke ins Flyout reicht (WCAG 1.4.13, „hoverable“)
-const SCHLIESSEN_NACH = 300;
-// Hält der Zeiger Kurs auf ein offenes Flyout (lib/zielkurs.ts), prüft das gestreifte Symbol so oft nach
-const KURS_NACHPRUEFEN = 50;
-// Ohne Bewegung so lange gilt der Zeiger als stehend
-const STILL_NACH = 60;
 
 /** Die letzten Lagen der Maus, für den Zielkurs; ein Zuhörer für alle Flyouts */
 const zeiger = { lagen: [] as Punkt[], zuletzt: 0, aktiv: false };
