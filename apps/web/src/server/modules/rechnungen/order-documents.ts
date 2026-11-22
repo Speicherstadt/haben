@@ -14,7 +14,7 @@ import { angebotMitPlatzhaltern, mitVorlage } from "./beleg-platzhalter.ts";
 /**
  * Auftragsbestätigung und Lieferschein entstehen auf Abruf aus festgeschriebenen Angeboten und
  * Rechnungen. Sie buchen nichts; Positionen und Datum folgen aus dem gespeicherten Beleg, Einleitung und Hinweis aus
- * dem aktuellen Standard-Textbaustein, wenn es einen gibt (#1494).
+ * dem Angebot, ohne eigenen Text dort aus dem aktuellen Standard-Textbaustein (#1494).
  */
 
 export class OrderDocumentError extends UserError {}
@@ -37,10 +37,10 @@ async function acceptedQuote(id: string) {
 export async function confirmationPdf(quoteId: string) {
   const { quote, lines, choices } = await acceptedQuote(quoteId);
   const buyer = await withCurrentBuyer(db, quote.buyer, quote.contactId);
-  // Ohne Entwurf greift der Standard beim Erzeugen (#1494): er ersetzt Einleitung bzw. Hinweis des Angebots
+  // Ohne Entwurf greift der Standard beim Erzeugen (#1494), aber nur, wo das Angebot keinen eigenen Text hat
   const standard = await standardTexte("auftragsbestaetigung");
   const texte = mitVorlage(quote);
-  const mitStandard = { intro: standard.kopf || texte.intro, note: standard.fuss || texte.note };
+  const mitStandard = { intro: texte.intro || standard.kopf, note: texte.note || standard.fuss };
   // Platzhalter mit den Werten der Bestätigung (gewählte Positionen), nicht mit denen des Angebots (#1334)
   const doc = angebotMitPlatzhaltern(
     quoteDocumentFor({ ...quote, ...mitStandard }, lines, withCurrentSeller(quote.seller, await loadCompany()), buyer, quote.number, {

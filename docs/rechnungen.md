@@ -194,12 +194,12 @@ Unter **Standard für** machst du einen Baustein zum Standard einer Belegart. Er
 | --- | --- | --- |
 | Rechnung, Angebot | Einleitung des neuen Entwurfs | Hinweis des neuen Entwurfs |
 | Mahnung | Einleitung, für jede Stufe | Schluss, für jede Stufe |
-| Auftragsbestätigung | ersetzt beim Erzeugen die Einleitung des Angebots | ersetzt beim Erzeugen den Hinweis des Angebots |
+| Auftragsbestätigung | beim Erzeugen, wenn das Angebot keine Einleitung hat | beim Erzeugen, wenn das Angebot keinen Hinweis hat |
 | Lieferschein | – | Hinweis, beim Erzeugen |
 
 - Je Belegart und Art gibt es höchstens einen Standard. Machst du einen weiteren zum Standard, löst er den bisherigen ab. Ein archivierter Baustein ist kein Standard mehr, auch nicht nach dem Wiederherstellen.
 - Ein Standard gilt für alle Kunden; ein Baustein für einen bestimmten Kunden kann kein Standard sein. Der Lieferschein hat nur einen Hinweis, dort geht nur ein Fußtext.
-- Auftragsbestätigung und Lieferschein haben keinen Entwurf: Der Standard greift jedes Mal, wenn du sie erzeugst, auch für ein schon angenommenes Angebot. Ohne Standard bleibt es bei den Texten des Angebots bzw. ohne Hinweis.
+- Auftragsbestätigung und Lieferschein haben keinen Entwurf: Der Standard greift jedes Mal, wenn du sie erzeugst, auch für ein schon angenommenes Angebot; einen eigenen Text des Angebots ersetzt er nicht. Ohne Standard bleibt es bei den Texten des Angebots bzw. ohne Hinweis.
 - Bei der Mahnung ersetzt ein Standard die Vorlage der Stufe, und zwar für alle Stufen gleich; ohne Standard bleiben die Vorlagen je Stufe (siehe [Mahnwesen](rechnungen-zahlung.md#mahnwesen)).
 - [Platzhalter](#platzhalter-in-einleitung-und-hinweis) bleiben im Entwurf stehen und werden in Rechnung und Angebot bei Vorschau und Festschreiben eingesetzt, in der Auftragsbestätigung beim Erzeugen. In Mahnung und Lieferschein setzt Haben keine Platzhalter ein.
 - Die frühere **Standard-Einleitung** aus den Firmendaten hat Haben beim Update in je einen Kopftext-Baustein mit Standard für Rechnungen bzw. Angebote übernommen, ebenso beim Übernehmen der Einstellungen aus einer älteren Exportdatei.
