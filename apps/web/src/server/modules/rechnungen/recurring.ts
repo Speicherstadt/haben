@@ -143,7 +143,12 @@ export async function updateRecurring(actor: string, id: string, input: Recurrin
   return withActor(actor, async (tx) => {
     const row = values(input);
     const [previous] = await tx
-      .select({ contactId: schema.recurringInvoices.contactId, nextDate: schema.recurringInvoices.nextDate, anchorDay: schema.recurringInvoices.anchorDay })
+      .select({
+        contactId: schema.recurringInvoices.contactId,
+        nextDate: schema.recurringInvoices.nextDate,
+        anchorDay: schema.recurringInvoices.anchorDay,
+        intervalWeeks: schema.recurringInvoices.intervalWeeks,
+      })
       .from(schema.recurringInvoices)
       .where(eq(schema.recurringInvoices.id, id))
       .for("update");
@@ -151,7 +156,9 @@ export async function updateRecurring(actor: string, id: string, input: Recurrin
     // Nur ein neuer Kunde wird geprüft: ein Kontakt, der inzwischen kein Kunde mehr ist, bleibt an der Vorlage
     if (row.contactId !== previous.contactId) await checkCustomer(tx, row.contactId);
     // Unveränderter Termin: Ankertag behalten, sonst würde aus dem Monatsletzten nach dem Speichern am 30.11. der 30.
-    const anchorDay = row.nextDate === previous.nextDate ? previous.anchorDay : row.anchorDay;
+    // Nur bei Monaten: Wochenläufe schieben den Termin, nicht den Ankertag
+    const keepAnchor = row.nextDate === previous.nextDate && previous.intervalWeeks === null;
+    const anchorDay = keepAnchor ? previous.anchorDay : row.anchorDay;
     const [updated] = await tx
       .update(schema.recurringInvoices)
       .set({ ...row, anchorDay, lastError: null })
