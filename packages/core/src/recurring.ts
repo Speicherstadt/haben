@@ -63,7 +63,7 @@ const addDays = (date: string, days: number) => {
   return d.toISOString().slice(0, 10);
 };
 
-/** Termin nach dem angegebenen: Monate am Ankertag, Wochen plus 7 bzw. 14 Tage */
+/** Termin nach dem angegebenen: Monate am Ankertag, Wochen plus 7, 14 oder 28 Tage */
 export function nextRecurrenceDate(date: string, recurrence: Recurrence, anchorDay: number): string {
   return nthRecurrenceDate(date, recurrence, anchorDay, 1);
 }

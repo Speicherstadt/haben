@@ -55,7 +55,6 @@ export const recurringInputSchema = z.object({
   /** Einzelpreise netto oder brutto inkl. USt */
   priceMode: z.enum(PRICE_MODES).default("netto"),
   lines: z.array(draftLineSchema).min(1, "Mindestens eine Position").max(200),
-  /** Monate oder Wochen, genau eins davon (#1691) */
   /** Abstand als Dauer nach ISO 8601, etwa P1W oder P3M (#1691) */
   recurrence: z.enum(RECURRENCE_KEYS, { error: "Intervall nicht unterstützt." }),
   nextDate: isoDate,
