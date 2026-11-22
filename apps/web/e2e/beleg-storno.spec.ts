@@ -5,6 +5,7 @@ import { currentDay, day } from "./daten.ts";
 import { databaseUrlFuer, portFuer } from "./durchlaeufe.ts";
 import { einrichten } from "./einrichtung.ts";
 import { kategorieName } from "./kategorie.ts";
+import { abgearbeitet } from "./warten.ts";
 
 /** Beleg und zugeordnete Bankzahlung in eigener Datenbank; der Storno läuft durch die echte Oberfläche (#653). */
 test.describe.configure({ mode: "serial" });
@@ -89,22 +90,21 @@ test("Beleg speichern, dann „Bestätigen und buchen“: der Dialog bleibt nach
   const id = await receipt(browser, "Review Flake GmbH", "R-1", currentDay(), false);
   await page.goto(`/belege/${id}`);
   await page.waitForLoadState("networkidle");
-  let neuGeladen = false;
   const ladeBeleg = (url: URL) => url.pathname.startsWith("/_serverFn/") && decodeURIComponent(url.search).includes(id);
   await page.route(ladeBeleg, async (route) => {
     if (route.request().method() !== "GET") return route.fallback();
     await new Promise((fertig) => setTimeout(fertig, 1500));
-    const antwort = await route.fetch();
-    neuGeladen = true;
-    await route.fulfill({ response: antwort });
+    await route.fulfill({ response: await route.fetch() });
   });
+  const neuGeladen = page.waitForResponse((antwort) => antwort.request().method() === "GET" && ladeBeleg(new URL(antwort.url())));
   await page.getByLabel("Rechnungsnummer").fill("R-2");
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
   await page.getByRole("button", { name: "Bestätigen und buchen", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("button", { name: "Buchen", exact: true })).toBeVisible();
-  await expect.poll(() => neuGeladen).toBe(true);
-  await page.waitForTimeout(1000);
+  // Erst wenn die Seite die neu geladenen Daten verarbeitet hat, zeigt sich, ob der Dialog bleibt
+  await (await neuGeladen).finished();
+  await abgearbeitet(page);
   await expect(dialog.getByRole("button", { name: "Buchen", exact: true })).toBeVisible();
   await page.unroute(ladeBeleg);
   await dialog.getByRole("button", { name: "Abbrechen" }).click();

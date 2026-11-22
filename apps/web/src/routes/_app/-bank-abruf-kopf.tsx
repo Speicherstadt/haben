@@ -1,13 +1,11 @@
 import { useId, type Dispatch, type SetStateAction } from "react";
-import type { FintsZustand } from "../../components/FintsAbruf.tsx";
+import { type FintsZustand, wartetAuf } from "../../components/FintsAbruf.tsx";
 import type { Data } from "./-bank-daten.ts";
 
 /** Grund, aus dem „Über FinTS verbinden“ gesperrt ist, oder null */
-function verbindenGesperrt(fints: Data["fints"], { offen, busy }: FintsZustand): string | null {
-  const zeile = fints.connections.find((c) => c.id === offen?.fuer);
-  if (zeile) return `„Über FinTS verbinden“ geht wieder, sobald die Freigabe für ${zeile.bankName} gesendet oder abgebrochen ist.`;
-  const abruf = fints.connections.find((c) => c.id === busy);
-  return abruf ? `„Über FinTS verbinden“ geht wieder, sobald der Abruf für ${abruf.bankName} fertig ist.` : null;
+function verbindenGesperrt(fints: Data["fints"], zustand: FintsZustand): string | null {
+  const sobald = wartetAuf(fints.connections, zustand);
+  return sobald ? `„Über FinTS verbinden“ geht wieder, sobald ${sobald}.` : null;
 }
 
 /**
