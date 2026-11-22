@@ -478,6 +478,7 @@ test("Zugeklapptes Verbinden, das noch auf die Bank wartet, ersetzt keinen Schri
     },
   );
   bank.zustand.scaBeiAnmeldung = true;
+  let verworfen!: Promise<unknown>;
   try {
     await verbinden.click();
     await zugangEingeben();
@@ -487,12 +488,13 @@ test("Zugeklapptes Verbinden, das noch auf die Bank wartet, ersetzt keinen Schri
     bank.zustand.scaBeiUmsaetzen = true;
     await abruf().getByRole("button", { name: "Jetzt abrufen" }).click();
     await expect(tan).toBeVisible();
+    verworfen = page.waitForResponse((r) => r.request() !== anfrage && r.request().method() === "POST" && new URL(r.url()).pathname.startsWith("/_serverFn/"));
   } finally {
     loslassen();
     await page.unrouteAll({ behavior: "wait" });
   }
-  await anfrage?.response();
-  await page.waitForTimeout(1000);
+  // Die späte Antwort verwirft den offenen Schritt bei der Bank (cancelFints) statt ihn an der Zeile einzusetzen
+  await verworfen;
   await expect(tan).toBeVisible();
   await freigabe().getByRole("button", { name: "Abbrechen" }).click();
   // Das verworfene Verbinden hat die Anmeldung mit TAN nie abgeschlossen, die Testbank setzt scaBeiAnmeldung also nicht selbst zurück
