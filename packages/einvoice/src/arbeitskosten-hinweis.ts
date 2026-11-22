@@ -5,17 +5,22 @@ import type { InvoiceDocument } from "./types.ts";
 /**
  * Anteil der Arbeits-, Maschinen- und Fahrtkosten als Satz unter den Summen und im XML (BT-22), sobald eine Position das
  * Kennzeichen trägt (#712); sonst null. Den Betrag rechnet arbeitskostenAnteil aus @haben/core. In der Schlussrechnung
- * nennt der Satz den Anteil der ganzen Leistung, die Abschlagsrechnungen tragen ihren eigenen.
+ * nennt der Satz den Anteil der ganzen Leistung, die Abschlagsrechnungen tragen ihren eigenen. Nennen die abgezogenen
+ * Abschlagsrechnungen einen Anteil, sagt ein zweiter Satz, wie viel davon auf sie und wie viel auf die Schlussrechnung
+ * entfällt (#1667); Storno und Rechnungskorrektur bleiben beim ersten Satz.
  */
-export function arbeitskostenHinweis(doc: Pick<InvoiceDocument, "lines" | "priceMode" | "discount" | "taxTreatment">, t: Texts): string | null {
+export function arbeitskostenHinweis(
+  doc: Pick<InvoiceDocument, "lines" | "priceMode" | "discount" | "taxTreatment"> & Partial<Pick<InvoiceDocument, "kind" | "deducted">>,
+  t: Texts,
+): string | null {
   const amount = arbeitskostenAnteil(doc.lines, doc.priceMode ?? "netto", doc.discount ?? null);
   if (amount === null) return null;
   const inclVat = (doc.taxTreatment ?? "regulaer") === "regulaer" && doc.lines.some((line) => line.arbeitskosten && line.taxRate > 0);
-  return t.arbeitskosten(
-    t.money(amount),
-    inclVat,
-    doc.lines.some((line) => line.deductionOf),
-  );
+  const schluss = doc.lines.some((line) => line.deductionOf);
+  const satz = t.arbeitskosten(t.money(amount), inclVat, schluss);
+  const abschlaege = (doc.deducted ?? []).reduce((sum, d) => sum + (d.arbeitskosten ?? 0), 0);
+  if (!schluss || doc.kind !== "rechnung" || abschlaege === 0) return satz;
+  return `${satz} ${t.arbeitskostenRest(t.money(abschlaege), t.money(amount - abschlaege))}`;
 }
 
 /** Steuerhinweis unter den Summen, danach der Satz zum Anteil; ohne gekennzeichnete Position bleibt er wie bisher, das Blatt bitgenau gleich */

@@ -52,6 +52,7 @@ import {
   rendererFor,
   typstMeldung,
 } from "../stammdaten/index.ts";
+import { deductedRefs } from "./advance-deductions.ts";
 import { buyerFrom, sellerFrom } from "./invoice-document.ts";
 import { directDebitFor } from "./lastschrift.ts";
 import { documentReferences, referenceColumns, referenceFieldsSchema } from "./order-references.ts";
@@ -156,7 +157,14 @@ async function previewBuyer(contactId: string | null, contactPersonId: string | 
   return found ? buyerFrom(found.contact, person) : { name: "[Kunde wählen]", strasse: "", plz: "", ort: "", land: "DE" };
 }
 
-function invoiceDocument(input: Input, company: Company, buyer: Buyer, letterhead: Letterhead, directDebit: InvoiceDocument["directDebit"]): InvoiceDocument {
+function invoiceDocument(
+  input: Input,
+  company: Company,
+  buyer: Buyer,
+  letterhead: Letterhead,
+  directDebit: InvoiceDocument["directDebit"],
+  deducted: NonNullable<InvoiceDocument["deducted"]>,
+): InvoiceDocument {
   if (input.kind === "angebot") throw new DocumentPreviewError("Ein Angebot ist keine Rechnung.");
   const { lineNets, totals } = computeInvoice(input.lines, input.priceMode, input.discount);
   const treatment = input.taxTreatment;
@@ -200,6 +208,7 @@ function invoiceDocument(input: Input, company: Company, buyer: Buyer, letterhea
     ...(exemptionReason ? { exemptionReason } : {}),
     language: input.language,
     ...(input.variant ? { variant: input.variant } : {}),
+    ...(deducted.length > 0 ? { deducted } : {}),
     ...documentReferences(referenceColumns(input)),
     ...(directDebit ? { directDebit } : {}),
     ...(input.kind === "rechnung" && input.paidPayment ? { paidPayment: input.paidPayment } : {}),
@@ -266,11 +275,13 @@ export async function documentPreview(input: Input): Promise<DocumentPreview> {
     company,
     db,
   );
+  // Abgezogene Abschlagsrechnungen wie im Entwurfs-PDF, mit ihrem Anteil nach § 35a EStG (#1667); nur IDs, die es geben kann
+  const deducted = input.kind === "rechnung" ? await deductedRefs(input.lines.filter((line) => z.uuid().safeParse(line.deductionOf).success)) : [];
   const t = texts(input.language, input.currency);
   const data =
     input.kind === "angebot"
       ? quotePdfData(angebotMitPlatzhaltern(quoteDocument(input, company, buyer, letterhead)))
-      : pdfData(rechnungMitPlatzhaltern(invoiceDocument(input, company, buyer, letterhead, directDebit)));
+      : pdfData(rechnungMitPlatzhaltern(invoiceDocument(input, company, buyer, letterhead, directDebit, deducted)));
   const { draft: _noMark, ...sheet } = asDraft(data, t);
   return renderPreview(
     input.kind === "angebot" ? "angebot" : "rechnung",
