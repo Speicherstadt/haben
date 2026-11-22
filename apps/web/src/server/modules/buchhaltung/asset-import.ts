@@ -48,7 +48,10 @@ export async function planAssetImport(
   mapping: ColumnMapping,
   stichtag: string,
 ): Promise<PlannedRow<z.output<typeof assetInputSchema>>[]> {
-  return planAssetCandidates(q, assetCandidates(table, mapping, stichtag));
+  const candidates = assetCandidates(table, mapping, stichtag);
+  // Die Inventarnummer hat bei gleichen Anlagen Vorrang. Die Vorschau zeigt weiter die Reihenfolge der Datei.
+  candidates.sort((a, b) => Number(Boolean(b.value?.note)) - Number(Boolean(a.value?.note)));
+  return (await planAssetCandidates(q, candidates)).sort((a, b) => a.line - b.line);
 }
 
 /**

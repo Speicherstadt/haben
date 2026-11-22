@@ -171,6 +171,19 @@ describe.skipIf(!testDatabaseUrl)("CSV-Import (Postgres)", () => {
     expect((await csv.previewCsvImport(ohneNummer, config)).counts).toEqual({ neu: 0, dublette: 2, fehler: 0 });
   });
 
+  it.each([true, false])("Anlagen: nummerierte Zeilen haben Vorrang vor gleichartigen Leerzeilen (Leerzeile zuerst: %s)", async (leerZuerst) => {
+    const kopf = "Bezeichnung;Art;Anschaffungsdatum;Anschaffungskosten;Nutzungsdauer;Restbuchwert;Inventarnummer";
+    const stuhl = "Stuhl;Büromöbel;15.03.2024;300,00;13;250,00";
+    const nummeriert = [`${stuhl};INV-1`, `${stuhl};INV-2`];
+    const zeilen = leerZuerst ? [`${stuhl};`, ...nummeriert] : [...nummeriert, `${stuhl};`];
+    const file = bytes([kopf, ...zeilen].join("\n"));
+    const config = options("anlagen", { stichtag: "2026-01-01" });
+    const vorschau = await csv.previewCsvImport(file, config);
+    expect(vorschau.rows.map((row) => row.status)).toEqual(leerZuerst ? ["dublette", "neu", "neu"] : ["neu", "neu", "dublette"]);
+    expect(vorschau.rows[leerZuerst ? 0 : 2]!.message).toContain(`Wie Zeile ${leerZuerst ? 3 : 2}`);
+    expect(await csv.runCsvImport(actor, file, config)).toEqual({ created: 2, duplicates: 1, failed: 0 });
+  });
+
   it("Anlagen: ohne Inventarnummer bleiben gleiche Zeilen Dubletten", async () => {
     const kopf = "Bezeichnung;Art;Anschaffungsdatum;Anschaffungskosten;Nutzungsdauer;Restbuchwert";
     const stuhl = "Stuhl;Büromöbel;15.03.2024;300,00;13;250,00";

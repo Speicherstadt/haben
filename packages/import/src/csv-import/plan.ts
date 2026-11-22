@@ -18,6 +18,8 @@ export interface RowCandidate<T> {
   value: T | null;
   errors: string[];
   keys: DuplicateKey[];
+  /** Schlüssel, unter denen eine neue Zeile in derselben Datei wiedergefunden werden kann. Standard: keys. */
+  rememberKeys?: DuplicateKey[];
 }
 
 export type PlannedRow<T> =
@@ -42,7 +44,10 @@ export function planRows<T>(candidates: readonly RowCandidate<T>[], existing: re
     if (stored) return { ...base, status: "dublette", value: null, message: `Gibt es schon (${stored.label} ${stored.value})` };
     const twice = row.keys.find((k) => inFile.has(id(k)));
     if (twice) return { ...base, status: "dublette", value: null, message: `Wie Zeile ${inFile.get(id(twice))} (${twice.label} ${twice.value})` };
-    for (const key of row.keys) inFile.set(id(key), row.line);
+    for (const key of row.rememberKeys ?? row.keys) {
+      const identifier = id(key);
+      if (!inFile.has(identifier)) inFile.set(identifier, row.line);
+    }
     return { ...base, status: "neu", value: row.value, message: null };
   });
 }

@@ -237,12 +237,14 @@ export function assetCandidates(table: CsvTable, mapping: ColumnMapping, opening
       };
       errors.push(...takeoverProblems(asset));
     }
+    const keys = asset ? assetKeys(asset, asset.note) : [];
     return {
       line: row.line,
       title: name || "(ohne Bezeichnung)",
       value: errors.length > 0 ? null : asset,
       errors,
-      keys: asset ? assetKeys(asset, asset.note) : [],
+      keys,
+      rememberKeys: asset?.note ? [...keys, ...assetKeys(asset)] : undefined,
     };
   });
 }
