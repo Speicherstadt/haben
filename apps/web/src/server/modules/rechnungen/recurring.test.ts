@@ -156,6 +156,16 @@ describe.skipIf(!testDatabaseUrl)("Wiederkehrende Rechnungen (Postgres)", () => 
     await expect(recurring.createRecurring(actor, template({ intervalMonths: null }))).rejects.toThrow("Intervall nicht unterstützt.");
   });
 
+  it("Wechsel von Wochen auf Monate nimmt den Ankertag vom nächsten Termin, auch wenn er unverändert bleibt", async () => {
+    const input = template({ intervalMonths: null, intervalWeeks: 2, nextDate: "2026-11-23" });
+    const created = await recurring.createRecurring(actor, input);
+    await recurring.runDueRecurring("2026-11-23", kleinunternehmerStand);
+    const [after] = await sql`select next_date from recurring_invoices where id = ${created.id}`;
+    expect(after!.next_date).toBe("2026-12-07");
+    const monthly = await recurring.updateRecurring(actor, created.id, { ...input, intervalMonths: 1, intervalWeeks: null, nextDate: "2026-12-07" });
+    expect(monthly.anchorDay).toBe(7);
+  });
+
   it("schreibt fest und endet nach dem Enddatum", async () => {
     const created = await recurring.createRecurring(actor, template({ mode: "festschreiben", nextDate: "2026-09-01", endDate: "2026-10-15" }));
     expect(await recurring.runDueRecurring("2026-12-01", kleinunternehmerStand)).toEqual({ created: 2, finalized: 2, mailed: 0, errors: [] });
