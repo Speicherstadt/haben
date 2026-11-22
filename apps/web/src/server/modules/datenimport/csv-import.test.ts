@@ -184,6 +184,17 @@ describe.skipIf(!testDatabaseUrl)("CSV-Import (Postgres)", () => {
     expect(await csv.runCsvImport(actor, file, config)).toEqual({ created: 2, duplicates: 1, failed: 0 });
   });
 
+  it("Anlagen: Trenner in Bezeichnung und Inventarnummer führen nicht zur gleichen Anlage", async () => {
+    const kopf = "Bezeichnung;Art;Anschaffungsdatum;Anschaffungskosten;Nutzungsdauer;Restbuchwert;Inventarnummer";
+    const anschaffung = "Büromöbel;15.03.2024;300,00;13;250,00";
+    const file = bytes([kopf, `Stuhl;${anschaffung};A · 15.03.2024 · 300,00 € · INV-1`, `Stuhl · 15.03.2024 · 300,00 € · A;${anschaffung};INV-1`].join("\n"));
+    const config = options("anlagen", { stichtag: "2026-01-01" });
+
+    expect((await csv.previewCsvImport(file, config)).counts).toEqual({ neu: 2, dublette: 0, fehler: 0 });
+    expect(await csv.runCsvImport(actor, file, config)).toEqual({ created: 2, duplicates: 0, failed: 0 });
+    expect((await csv.previewCsvImport(file, config)).counts).toEqual({ neu: 0, dublette: 2, fehler: 0 });
+  });
+
   it("Anlagen: ohne Inventarnummer bleiben gleiche Zeilen Dubletten", async () => {
     const kopf = "Bezeichnung;Art;Anschaffungsdatum;Anschaffungskosten;Nutzungsdauer;Restbuchwert";
     const stuhl = "Stuhl;Büromöbel;15.03.2024;300,00;13;250,00";

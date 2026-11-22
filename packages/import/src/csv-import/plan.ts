@@ -9,6 +9,8 @@ export interface DuplicateKey {
   label: string;
   /** Normalisiert verglichen (klein, ohne Leerraum am Rand) */
   value: string;
+  /** Eindeutiger Vergleichswert bei zusammengesetzten Merkmalen, die Vorschau zeigt weiterhin value. */
+  identity?: string;
 }
 
 export interface RowCandidate<T> {
@@ -32,7 +34,7 @@ export function duplicateKey(label: string, value: string | null | undefined): D
   return normalized ? [{ label, value: normalized }] : [];
 }
 
-const id = (key: DuplicateKey) => `${key.label}\u0000${key.value}`;
+const id = (key: DuplicateKey) => `${key.label}\u0000${key.identity ?? key.value}`;
 
 export function planRows<T>(candidates: readonly RowCandidate<T>[], existing: readonly DuplicateKey[]): PlannedRow<T>[] {
   const known = new Set(existing.map(id));

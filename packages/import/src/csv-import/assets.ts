@@ -254,5 +254,7 @@ export function assetKeys(a: { name: string; acquisitionDate: string; cost: Cent
   const [year, month, day] = a.acquisitionDate.split("-");
   const basis = `${a.name} · ${day}.${month}.${year} · ${formatDecimal(a.cost)} €`;
   const notiz = note?.trim();
-  return notiz ? duplicateKey("Bezeichnung, Anschaffung, Kosten und Notiz", `${basis} · ${notiz}`) : duplicateKey("Bezeichnung, Anschaffung und Kosten", basis);
+  if (!notiz) return duplicateKey("Bezeichnung, Anschaffung und Kosten", basis);
+  const identity = JSON.stringify([a.name.trim().toLowerCase(), a.acquisitionDate, a.cost, notiz.toLowerCase()]);
+  return duplicateKey("Bezeichnung, Anschaffung, Kosten und Notiz", `${basis} · ${notiz}`).map((key) => ({ ...key, identity }));
 }

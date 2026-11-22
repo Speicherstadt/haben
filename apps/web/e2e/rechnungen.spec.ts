@@ -2220,11 +2220,13 @@ test("CSV-Import: Kontakte, Artikel und Anlagen mit Vorschau, Zuordnung und Dubl
   await go("/artikel");
   await expect(page.getByRole("region", { name: "Artikelliste" })).toContainText("Datenmigration");
 
-  // Anlage mit Restbuchwert zum Stichtag; eine Anschaffung nach dem Stichtag gehört als Beleg gebucht
+  // Zwei baugleiche Anlagen mit eigener Inventarnummer, eine wiederholte Nummer und eine Anschaffung nach dem Stichtag
   const anlagen = [
-    "Bezeichnung;Art;Anschaffungsdatum;Anschaffungskosten;Nutzungsdauer;Restbuchwert",
-    `Lastenrad;Fahrzeug;01.04.${YEAR - 2};4.800,00;6;3.600,00`,
-    `Neuer Monitor;Computer;02.01.${YEAR};900,00;;900,00`,
+    "Bezeichnung;Art;Anschaffungsdatum;Anschaffungskosten;Nutzungsdauer;Restbuchwert;Inventarnummer",
+    `Lastenrad;Fahrzeug;01.04.${YEAR - 2};4.800,00;6;3.600,00;RAD-1`,
+    `Lastenrad;Fahrzeug;01.04.${YEAR - 2};4.800,00;6;3.600,00;RAD-2`,
+    `Lastenrad;Fahrzeug;01.04.${YEAR - 2};4.800,00;6;3.600,00;RAD-1`,
+    `Neuer Monitor;Computer;02.01.${YEAR};900,00;;900,00;`,
   ].join("\n");
   await go("/anlagen");
   await page.getByRole("link", { name: "CSV importieren" }).click();
@@ -2235,11 +2237,11 @@ test("CSV-Import: Kontakte, Artikel und Anlagen mit Vorschau, Zuordnung und Dubl
   await expect(page.getByRole("region", { name: "Vorschau" })).toContainText("als Beleg mit der Kategorie Anlagegut buchen");
   // Ein anderer Stichtag nach der Vorschau gilt nicht ungesehen: Der Import übernähme sonst andere Werte als gezeigt
   await page.getByLabel("Übernahmestichtag").fill(`${YEAR - 1}-01-01`);
-  await expect(page.getByRole("button", { name: "1 Anlage übernehmen" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "2 Anlagen übernehmen" })).toHaveCount(0);
   await page.getByLabel("Übernahmestichtag").fill(`${YEAR}-01-01`);
   await page.getByRole("button", { name: "Vorschau" }).click();
-  await page.getByRole("button", { name: "1 Anlage übernehmen" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "übernommen" })).toHaveText("1 Anlage übernommen, 1 fehlerhafte Zeile übersprungen.");
+  await page.getByRole("button", { name: "2 Anlagen übernehmen" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "übernommen" })).toHaveText("2 Anlagen übernommen, 1 Dublette und 1 fehlerhafte Zeile übersprungen.");
   await go(`/anlagen?jahr=${YEAR}`);
   await expect(page.getByText("Lastenrad").first()).toBeVisible();
 });
