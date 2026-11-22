@@ -8,7 +8,8 @@ import { ACTOR, dkbCsv, firma, kunde } from "./test-liquiditaet.ts";
  * Umsatzsteuer der noch nicht abgegebenen Zeiträume in der Liquiditätsvorschau (#1381) gegen Postgres: gebucht plus die
  * Steuer der erwarteten Posten. Bei Ist kommt die Steuer der offenen Rechnung aus dem Posten, bei Soll ist sie schon
  * gebucht; beide Wege ergeben dieselbe Zahllast. Monatlich mit Dauerfrist und Sondervorauszahlung (SKR03, Ist),
- * vierteljährlich ohne (SKR04, Soll).
+ * vierteljährlich ohne (SKR04, Soll). Eine angemeldete, nicht gezahlte Sondervorauszahlung bleibt nach ihrem Termin stehen,
+ * wenn er nach dem ersten Bankumsatz liegt.
  */
 
 describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Umsatzsteuer (Postgres)", () => {
@@ -78,6 +79,43 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Umsatzsteuer (Postgres)
     // Die offene Rechnung steht selbst als Eingang daneben
     expect(bericht.vorschau.eingaenge).toBe(238_000 + 110_000);
   }, 30_000);
+
+  it.each([
+    ["einzelunternehmen", "SKR03", "ist"],
+    ["einzelunternehmen", "SKR04", "soll"],
+    ["gmbh", "SKR04", "ist"],
+  ] as const)(
+    "überfällige Sondervorauszahlung (%s, %s, %s): ab dem ersten Umsatz der Konten im Bestand, bis sie gezahlt ist",
+    async (rechtsform, kontenrahmen, versteuerung) => {
+      await firma(sql, { rechtsform, kontenrahmen, versteuerung });
+      await sql`insert into vat_frequencies (year, from_month, frequency) values (2026, 1, 'monatlich')`;
+      await sql`insert into vat_extensions (year, active, sondervorauszahlung) values (2026, true, 110000), (2027, true, 130000)`;
+      const svz = async (optionen?: { ueberfaellige: boolean }) =>
+        (await vorschau.liquiditaetsvorschau("2027-02-15", "4w", optionen)).vorschau.zeitraeume
+          .flatMap((z) => z.posten)
+          .filter((p) => p.quelle.art === "sondervorauszahlung")
+          .map((p) => [p.datum, p.betrag, p.sicherheit, p.ueberfaellig ?? false, p.faellig ?? null]);
+
+      // Ohne Bankumsätze lässt sich „nicht gezahlt“ nicht erkennen
+      expect(await svz()).toEqual([]);
+      await bank.importStatement(ACTOR, dkbCsv([["05.01.27", "Nordwerk", "Rechnung", "100,00"]]), null);
+      // Privat- und Rücklagekonten zählen nicht zum Bestand und auch nicht für den Beginn der Bankdaten
+      for (const zweck of ["privat", "ruecklage"]) {
+        await sql`update bank_accounts set purpose = ${zweck}`;
+        expect(await svz()).toEqual([]);
+      }
+      await sql`update bank_accounts set purpose = 'geschaeft'`;
+      // Fällig am 10.02., heute der 15.: steht heute, fest, als überfällig; der Schalter für Forderungen lässt sie stehen
+      expect(await svz()).toEqual([["2027-02-15", 130_000, "fest", true, "2027-02-10"]]);
+      expect(await svz({ ueberfaellige: false })).toEqual([["2027-02-15", 130_000, "fest", true, "2027-02-10"]]);
+
+      await bank.importStatement(ACTOR, dkbCsv([["12.02.27", "Finanzamt Regensburg", "Sondervorauszahlung 2027", "-1.300,00"]], "svz.csv"), null);
+      const [tx] = await sql<{ id: string }[]>`select id from bank_transactions where amount = -130000`;
+      await bank.allocate(ACTOR, { kind: "sondervorauszahlung", transactionId: tx!.id, amount: -130_000 });
+      expect(await svz()).toEqual([]);
+    },
+    30_000,
+  );
 
   it("vierteljährlich ohne Dauerfrist (SKR04, Soll): die Steuer ist mit der Rechnung gebucht", async () => {
     await firma(sql, { kontenrahmen: "SKR04", versteuerung: "soll" });

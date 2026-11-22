@@ -65,10 +65,11 @@ describe("Posten", () => {
       HEUTE,
       "2026-12-17",
     );
-    expect(liste.map((p) => [p.datum, p.betrag, p.ueberfaellig ?? false])).toEqual([
-      [HEUTE, 2, true],
-      ["2026-12-01", 3, false],
-      ["2026-12-01", 1, false],
+    expect(liste.map((p) => [p.datum, p.betrag, p.ueberfaellig ?? false, p.faellig ?? null])).toEqual([
+      // Der eigentliche Termin bleibt für die Anzeige „fällig …“
+      [HEUTE, 2, true, "2026-11-02"],
+      ["2026-12-01", 3, false, null],
+      ["2026-12-01", 1, false, null],
     ]);
   });
 });

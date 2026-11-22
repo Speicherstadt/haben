@@ -7,7 +7,8 @@ import { ACTOR, dkbCsv, firma, kunde } from "./test-liquiditaet.ts";
 /*
  * Vorauszahlungen in der Liquiditätsvorschau (#1381) gegen Postgres: die letzte zugeordnete Zahlung je Steuerart
  * fortgeschrieben, Nachzahlungen für frühere Jahre und aufgehobene Zuordnungen zählen nicht; ohne Zahlung ein Viertel der
- * Prognose. Einzelunternehmen (ESt privat, SKR03/Ist und SKR04/Soll) und GmbH (KSt, GewSt).
+ * Prognose; ein nicht gezahlter Termin nach der letzten Zahlung bleibt überfällig stehen. Einzelunternehmen (ESt privat,
+ * SKR03/Ist und SKR04/Soll) und GmbH (KSt, GewSt).
  */
 
 const PERSON = { veranlagung: "einzel", a: { vorname: "Max", name: "Muster", religion: "11" } };
@@ -69,8 +70,9 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Vorauszahlungen (Postgr
     expect(kurz(posten)).toEqual([
       ["2026-12-10", 120_000, "erwartet", true, "Einkommensteuer, wie zuletzt gezahlt"],
       ["2027-03-10", 120_000, "erwartet", true, "Einkommensteuer, wie zuletzt gezahlt"],
-      // 15.11.2026 (Sonntag, also 16.11.) liegt vor heute und ist nicht gezahlt: Stufe 1 schreibt nur künftige Termine fort.
-      // 15.05.2027 ist ein Samstag, der Montag danach Pfingstmontag
+      // 15.11.2026 (Sonntag, also 16.11.) liegt vor heute, nach dem ersten Bankumsatz (10.06.) und ist nicht gezahlt: Er
+      // bleibt stehen, der Kern rückt ihn auf heute. 15.05.2027 ist ein Samstag, der Montag danach Pfingstmontag
+      ["2026-11-16", 50_000, "erwartet", false, "Gewerbesteuer, wie zuletzt gezahlt"],
       ["2027-02-15", 50_000, "erwartet", false, "Gewerbesteuer, wie zuletzt gezahlt"],
       ["2027-05-18", 50_000, "erwartet", false, "Gewerbesteuer, wie zuletzt gezahlt"],
       ["2026-12-10", 6_600, "erwartet", true, "Solidaritätszuschlag, wie zuletzt gezahlt"],
@@ -128,4 +130,26 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Vorauszahlungen (Postgr
       ["2026-12-10", 11_000, "erwartet", false, "Solidaritätszuschlag, wie zuletzt gezahlt"],
     ]);
   }, 30_000);
+
+  it.each([
+    ["SKR03", "ist"],
+    ["SKR04", "soll"],
+  ] as const)(
+    "GmbH (%s, %s): nicht gezahlte Körperschaftsteuer im September bleibt überfällig stehen, bis sie gezahlt ist",
+    async (kontenrahmen, versteuerung) => {
+      await firma(sql, { rechtsform: "gmbh", kontenrahmen, versteuerung });
+      await zahlungen([["10.06.26", 200_000, "kst", 2026]]);
+      const vorher = await vorauszahlungen.vorauszahlungPosten(await kontext.ladeKontext("2026-11-20", "4w"));
+      expect(kurz(vorher)).toEqual([
+        ["2026-09-10", 200_000, "erwartet", false, "Körperschaftsteuer, wie zuletzt gezahlt"],
+        ["2026-12-10", 200_000, "erwartet", false, "Körperschaftsteuer, wie zuletzt gezahlt"],
+      ]);
+      // Die Zahlung im September kam: nichts mehr überfällig
+      await zahlungen([["10.09.26", 200_000, "kst", 2026]]);
+      expect(kurz(await vorauszahlungen.vorauszahlungPosten(await kontext.ladeKontext("2026-11-20", "4w")))).toEqual([
+        ["2026-12-10", 200_000, "erwartet", false, "Körperschaftsteuer, wie zuletzt gezahlt"],
+      ]);
+    },
+    30_000,
+  );
 });

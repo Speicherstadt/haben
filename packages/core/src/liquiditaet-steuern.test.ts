@@ -34,6 +34,7 @@ describe("Vorauszahlungen fortschreiben", () => {
     text: "Einkommensteuer",
     quelleId: "z1",
     privat: true,
+    bankdatenAb: "2026-01-02",
   };
 
   it("die letzte Zahlung am nächsten Termin und danach, als erwartet und privat", () => {
@@ -47,10 +48,39 @@ describe("Vorauszahlungen fortschreiben", () => {
     expect(liste.map((p) => p.datum)).toEqual(["2027-03-10"]);
   });
 
+  it("ein nicht gezahlter Termin nach der letzten Zahlung bleibt stehen, wenn er nach dem Beginn der Bankdaten liegt", () => {
+    const liste = vorauszahlungsPosten({ ...basis, letzteZahlung: "2026-06-10", sicherheit: "erwartet" });
+    expect(liste.map((p) => [p.datum, p.sicherheit])).toEqual([
+      ["2026-09-10", "erwartet"],
+      ["2026-12-10", "erwartet"],
+      ["2027-03-10", "erwartet"],
+    ]);
+    // Vor dem ersten Bankumsatz lässt sich „nicht gezahlt“ nicht erkennen; ohne Bankumsätze gar nicht
+    expect(vorauszahlungsPosten({ ...basis, letzteZahlung: "2026-06-10", sicherheit: "erwartet", bankdatenAb: "2026-09-10" }).map((p) => p.datum)).toEqual([
+      "2026-12-10",
+      "2027-03-10",
+    ]);
+    expect(vorauszahlungsPosten({ ...basis, letzteZahlung: "2026-06-10", sicherheit: "erwartet", bankdatenAb: null }).map((p) => p.datum)).toEqual([
+      "2026-12-10",
+      "2027-03-10",
+    ]);
+  });
+
+  it("Werktagsregel: der 10.09.2028 ist ein Sonntag, überfällig erst nach Montag, dem 11.", () => {
+    const termin = { ...basis, letzteZahlung: "2028-06-09", sicherheit: "erwartet" as const, bis: "2028-10-31" };
+    expect(vorauszahlungsPosten({ ...termin, heute: "2028-09-11" }).map((p) => p.datum)).toEqual(["2028-09-11"]);
+    expect(vorauszahlungsPosten({ ...termin, heute: "2028-09-12" }).map((p) => p.datum)).toEqual(["2028-09-11"]);
+  });
+
   it("ohne Zahlung ab heute geschätzt, ohne Betrag nichts", () => {
     expect(vorauszahlungsPosten({ ...basis, letzteZahlung: null, sicherheit: "geschaetzt", privat: false }).map((p) => [p.datum, p.privat])).toEqual([
       ["2026-12-10", undefined],
       ["2027-03-10", undefined],
+    ]);
+    // Ohne Zahlung ist offen, ob überhaupt Vorauszahlungen festgesetzt sind: Termine vor heute bleiben weg
+    expect(vorauszahlungsPosten({ ...basis, letzteZahlung: null, sicherheit: "geschaetzt", bankdatenAb: "2025-01-02" }).map((p) => p.datum)).toEqual([
+      "2026-12-10",
+      "2027-03-10",
     ]);
     expect(vorauszahlungsPosten({ ...basis, betrag: 0, letzteZahlung: null, sicherheit: "geschaetzt" })).toEqual([]);
   });
@@ -128,7 +158,14 @@ describe("Umsatzsteuer aus den Posten", () => {
 });
 
 describe("Sondervorauszahlung", () => {
-  const basis = { heute: HEUTE, bis: "2027-05-19", frequencies: MONATLICH, gezahlt: new Set<number>(), bundesland: "BW" as const };
+  const basis = {
+    heute: HEUTE,
+    bis: "2027-05-19",
+    frequencies: MONATLICH,
+    gezahlt: new Set<number>(),
+    bundesland: "BW" as const,
+    bankdatenAb: "2026-06-01" as string | null,
+  };
 
   it("am 10. Februar, geschätzt aus dem Vorjahr, solange für das Jahr keine angemeldet ist", () => {
     expect(sondervorauszahlungsPosten({ ...basis, dauerfrist: DAUERFRIST })).toEqual([
@@ -149,5 +186,31 @@ describe("Sondervorauszahlung", () => {
     expect(sondervorauszahlungsPosten({ ...basis, dauerfrist: angemeldet, gezahlt: new Set([2027]) })).toEqual([]);
     expect(sondervorauszahlungsPosten({ ...basis, dauerfrist: DAUERFRIST, frequencies: QUARTAL })).toEqual([]);
     expect(sondervorauszahlungsPosten({ ...basis, dauerfrist: [...DAUERFRIST, { year: 2027, active: false, sondervorauszahlung: null }] })).toEqual([]);
+  });
+
+  describe("überfällig", () => {
+    const angemeldet = [...DAUERFRIST, { year: 2027, active: true, sondervorauszahlung: 130_000 }];
+    const nachTermin = { ...basis, heute: "2027-02-15", dauerfrist: angemeldet };
+
+    it("angemeldet und noch nicht gezahlt bleibt sie nach dem 10. Februar stehen, fest; der Kern rückt sie auf heute", () => {
+      expect(sondervorauszahlungsPosten(nachTermin)).toMatchObject([
+        { datum: "2027-02-10", betrag: 130_000, sicherheit: "fest", text: "Sondervorauszahlung 2027" },
+      ]);
+      expect(sondervorauszahlungsPosten({ ...nachTermin, gezahlt: new Set([2027]) })).toEqual([]);
+    });
+
+    it("nur nach dem Beginn der Bankdaten, ohne Bankumsätze nie, nicht angemeldet nie", () => {
+      expect(sondervorauszahlungsPosten({ ...nachTermin, bankdatenAb: "2027-02-10" })).toEqual([]);
+      expect(sondervorauszahlungsPosten({ ...nachTermin, bankdatenAb: "2027-02-09" })).toHaveLength(1);
+      expect(sondervorauszahlungsPosten({ ...nachTermin, bankdatenAb: null })).toEqual([]);
+      // Nur aus dem Vorjahr geschätzt: Ob für 2027 eine Dauerfrist besteht, ist nach dem Termin offen
+      expect(sondervorauszahlungsPosten({ ...nachTermin, dauerfrist: DAUERFRIST })).toEqual([]);
+    });
+
+    it("Werktagsregel: der 10.02.2029 ist ein Samstag, Termin Montag, der 12.", () => {
+      const j2029 = { ...basis, bis: "2029-03-31", dauerfrist: [{ year: 2029, active: true, sondervorauszahlung: 90_000 }] };
+      expect(sondervorauszahlungsPosten({ ...j2029, heute: "2029-02-11" }).map((p) => p.datum)).toEqual(["2029-02-12"]);
+      expect(sondervorauszahlungsPosten({ ...j2029, heute: "2029-02-13" }).map((p) => p.datum)).toEqual(["2029-02-12"]);
+    });
   });
 });
