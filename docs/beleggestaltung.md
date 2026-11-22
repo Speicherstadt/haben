@@ -57,15 +57,25 @@ Unter **Einstellungen › Beleggestaltung › Briefpapier** legst du ein Bild hi
 
 ## Fußzeile
 
-Unter **Einstellungen › Beleggestaltung › Fußzeile** schaltest du von der automatischen Fußzeile auf eigene Spalten um. Ab Werk setzt Haben sie aus den Firmendaten zusammen: Kontakt, Bank, Steuernummern.
+Unter **Einstellungen › Beleggestaltung › Fußzeile** schaltest du von der automatischen Fußzeile auf eigene Spalten um. Ab Werk setzt Haben sie aus den Firmendaten zusammen: Kontakt, Bank, Steuernummern, bei GmbH und UG dazu die Registerangaben. Schaltest du die eigene Fußzeile aus, bleiben deine Spalten gespeichert und sind beim Einschalten wieder da. Unten in der Karte siehst du, wie die Fußzeile auf der Rechnung steht, auch ohne eigene Spalten.
 
-- Du wählst zwei bis vier Spalten mit je höchstens fünf Zeilen und schreibst freien Text mit Platzhaltern: `{firma}`, `{strasse}`, `{plz}`, `{ort}`, `{email}`, `{telefon}`, `{bank}`, `{kontoinhaber}`, `{iban}`, `{bic}`, `{steuernummer}`, `{ustid}`. Unten in der Karte siehst du, wie sie auf dem Blatt steht.
+- Du wählst zwei bis vier Spalten mit je höchstens fünf Zeilen und schreibst freien Text mit Platzhaltern: `{firma}`, `{strasse}`, `{plz}`, `{ort}`, `{email}`, `{telefon}`, `{bank}`, `{kontoinhaber}`, `{iban}`, `{bic}`, `{steuernummer}`, `{ustid}`.
 - Text lässt sich auszeichnen wie in den Belegtexten: markieren und **F**, **K** oder **U** wählen, oder die Zeichen tippen (`*fett*`, `_kursiv_`, `__unterstrichen__`). Das gilt für deinen Text, auch um Platzhalter herum; Zeichen aus den Firmendaten bleiben wörtlich.
 - Fehlt der Wert zu einem Platzhalter, entfällt die ganze Zeile: Ohne Telefonnummer erscheint keine Zeile „Telefon“.
-- Steuernummer oder USt-IdNr. muss auf der Rechnung stehen (§ 14 Abs. 4 Nr. 2 UStG). Haben speichert die Fußzeile nur, wenn `{steuernummer}` oder `{ustid}` vorkommt. Die Pflichtangaben einer GmbH oder UG stehen weiter darunter.
+- Steuernummer oder USt-IdNr. muss auf der Rechnung stehen (§ 14 Abs. 4 Nr. 2 UStG). Haben speichert die Fußzeile nur, wenn `{steuernummer}` oder `{ustid}` vorkommt.
 - Hat deine Firma die genannte Nummer nicht, setzt Haben die vorhandene ans Ende der letzten Spalte. Bei Reverse Charge und innergemeinschaftlicher Lieferung steht die USt-IdNr. immer auf der Rechnung (§ 14a UStG).
 - Bricht eine Zeile um oder sind die Spalten hoch, wächst der untere Rand mit; es steht dann weniger Inhalt auf der Seite.
 - Dein Text wird nicht übersetzt: Auf englischen Belegen steht er so, wie du ihn schreibst.
+
+### Pflichtangaben einer GmbH oder UG
+
+Die Angaben nach [§ 35a GmbHG](rechnungen.md#pflichtangaben-einer-gmbh-oder-ug) setzt Haben selbst in den Fuß, oder du setzt sie mit Platzhaltern in deine Spalten:
+
+- `{rechtsform}`, `{sitz}`, `{registergericht}`, `{registernummer}`, `{geschaeftsfuehrung}` und `{aufsichtsratsvorsitz}`. Steht einer drin, müssen alle drinstehen, sonst lässt sich die Fußzeile nicht speichern; die Meldung nennt die fehlenden. `{rechtsform}` bleibt leer, wenn der Firmenname sie schon nennt, `{aufsichtsratsvorsitz}` ohne Vorsitzenden des Aufsichtsrats; ihre Zeilen entfallen.
+- **Registerangaben** wählt, wo Haben sie selbst setzt: **Wie im Layout** (Klar in der Fassung „Klassisch“ als Zeile darunter, die übrigen als Spalte), **Als Spalte** oder **Als Zeile darunter**, auch in Klassisch; in der Randspalte von Elegant und Atelier stehen sie immer unter den übrigen Angaben. Die Einstellung steht nur da, wenn die Firma Registerangaben hat, also nicht beim Einzelunternehmen. Stehen die Platzhalter in deiner Fußzeile, gilt deren Stelle, und die Einstellung ist aus.
+- Als Spalte zählen sie zu den höchstens vier Spalten, mit eigener Fußzeile bleiben also drei; als Zeile nicht. Eine Fußzeile mit vier Spalten von vor dieser Regel druckt Haben weiter, mit den Angaben als fünfter Spalte; beim nächsten Speichern verlangt die Karte, auf drei zu kürzen, die Platzhalter einzusetzen oder die Zeile zu wählen. Ein Wechsel von Layout oder Fassung und das Löschen eines eigenen Layouts, nach dem dort Klar gilt, werden ebenso abgelehnt, wenn sie die Angaben zur fünften Spalte machten.
+- Wird die Rechtsform später zur GmbH, bleibt eine gespeicherte Fußzeile ohne alle Platzhalter gültig; Haben setzt die Angaben dann selbst, auch wenn einzelne schon darin stehen.
+- Ein eigenes Layout, dessen Quelltext `look.legalPosition` nicht nennt, bekommt die Angaben nur als eine Zeile in `legal`; die Platzhalter bleiben dort leer, damit nichts doppelt steht ([Eigene Belegvorlagen](belegvorlagen.md)).
 
 ## Layouts
 

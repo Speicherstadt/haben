@@ -16,6 +16,7 @@ import {
   firmaErgaenzen,
   gestaltungUebernehmen,
   kontakteUebernehmen,
+  lockFooter,
   textbausteineUebernehmen,
   alteStandardEinleitungen,
 } from "../stammdaten/index.ts";
@@ -61,6 +62,8 @@ export async function importSettings(actor: string, archive: Uint8Array, today: 
   const result = await withActor(actor, async (tx) => {
     // Zwei Übernahmen gleichzeitig sähen beide eine leere Instanz
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('haben-einstellungen-uebernehmen', 0))`);
+    // Vor dem ersten Schreiben, wie Speichern und Zuordnen: Eine gleichzeitige Änderung der Fußzeile käme sonst dazwischen
+    await lockFooter(tx);
     const belegt = await schonAngelegt(tx);
     if (belegt.length > 0) throw new InstanzwechselError(nichtNeuMeldung(belegt));
     return uebernehmen(tx, actor, datei, today);

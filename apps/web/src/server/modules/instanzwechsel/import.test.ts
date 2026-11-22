@@ -234,6 +234,31 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     expect(nachher.ownAccounts).toEqual([expect.objectContaining({ kontenrahmen, account: konto })]);
   });
 
+  it("wartet auf eine gleichzeitige Änderung der Fußzeile, damit zusammengeführt keine fünfte Spalte entsteht (#1651)", async () => {
+    await testinstanz();
+    const zip = await exportierenUndNeu();
+    await mailEinrichten();
+    let freigeben!: () => void;
+    const offen = new Promise<void>((resolve) => {
+      freigeben = resolve;
+    });
+    const andere = sql.begin(async (t) => {
+      await t`select pg_advisory_xact_lock(hashtext('haben.fusszeile'))`;
+      await offen;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    let fertig = false;
+    const uebernahme = instanzwechsel.importSettings(actor, zip, HEUTE).then(() => {
+      fertig = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(fertig).toBe(false);
+    freigeben();
+    await andere;
+    await uebernahme;
+    expect(fertig).toBe(true);
+  });
+
   it("übernimmt Logo, Layout samt Zuordnung, Standardanhang und E-Mail-Vorlagen, ohne den Zugang zu ändern", async () => {
     await testinstanz();
     const text = await exportierenUndNeu();
