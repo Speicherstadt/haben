@@ -13,6 +13,7 @@ const bericht = (aenderung: Partial<IntegrityReport> = {}): IntegrityReport => (
   abgleich: { abweichungen: [], hinweise: [] },
   accountCollisions: [],
   triggerHints: [],
+  inventoryChecksum: { own: "a".repeat(64), shipped: "a".repeat(64) },
   files: null,
   ...aenderung,
 });

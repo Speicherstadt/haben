@@ -1,4 +1,13 @@
-import { type Abfrage, type Befund, type Hinweis, type Leser, leseMomentaufnahme, type Sollbestand, vergleiche } from "@firsttris/gobd-kern/sperren";
+import {
+  type Abfrage,
+  type Befund,
+  type Hinweis,
+  type Leser,
+  leseMomentaufnahme,
+  pruefsumme,
+  type Sollbestand,
+  vergleiche,
+} from "@firsttris/gobd-kern/sperren";
 import { type SQL, sql } from "drizzle-orm";
 import type { Db } from "./index.ts";
 import { sealedTables } from "./sealed-tables.ts";
@@ -134,14 +143,30 @@ export function hinweisText(hinweis: Hinweis): string {
   }
 }
 
-/** Der ausgelieferte Sollbestand stammt aus frischen Testmigrationen, niemals aus der geprüften Instanz. */
-export async function checkTriggerIntegrity(reader: Reader): Promise<{ problems: TriggerProblem[]; hints: string[] }> {
+/** Prüfsumme des eigenen Bestands und die des ausgelieferten Sollbestands, die auch in den Release Notes steht (#1683) */
+export interface InventoryChecksum {
+  own: string;
+  shipped: string;
+}
+
+/**
+ * Befunde, Hinweise und Prüfsumme aus einer Momentaufnahme. Der ausgelieferte Sollbestand stammt aus frischen
+ * Testmigrationen, niemals aus der geprüften Instanz.
+ */
+export async function checkTriggerInventory(reader: Reader): Promise<{ problems: TriggerProblem[]; hints: string[]; checksum: InventoryChecksum }> {
   const ist = await leseMomentaufnahme(leser(reader), { ...optionen, tabellen: expected.sealedTables });
   const { befunde, hinweise } = vergleiche(expected, ist, optionen.schema);
   return {
     problems: befunde.map((befund) => ({ art: "sperre", ...problem(befund), zeile: null, seq: null })),
     hints: hinweise.map(hinweisText),
+    checksum: { own: pruefsumme(ist.bestand), shipped: pruefsumme(expected) },
   };
+}
+
+/** Befunde und Hinweise ohne Prüfsumme */
+export async function checkTriggerIntegrity(reader: Reader): Promise<{ problems: TriggerProblem[]; hints: string[] }> {
+  const { problems, hints } = await checkTriggerInventory(reader);
+  return { problems, hints };
 }
 
 /** Eine Zeile beim Start; Befunde verhindern den Betrieb nicht und werden niemals automatisch repariert. */

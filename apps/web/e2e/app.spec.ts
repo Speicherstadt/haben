@@ -1,4 +1,5 @@
 import { waehleKategorie } from "./kategorie.ts";
+import { pruefsumme, type Sollbestand } from "@firsttris/gobd-kern/sperren";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import { zipSync } from "fflate";
@@ -6,6 +7,7 @@ import { readFileSync } from "node:fs";
 import postgres from "postgres";
 import { currentDay, currentYear, day, EIGENE_SEITE, fakeEigeneSeite, SESSION, YEAR } from "./daten.ts";
 import { databaseUrlFuer } from "./durchlaeufe.ts";
+import sollbestand from "../src/server/db/trigger-inventory.json" with { type: "json" };
 import {
   bestaetigen,
   faktenZeigen,
@@ -1253,6 +1255,16 @@ test("Dauerbeleg: Miete mit Vertrag anlegen, Beleg zu prüfen, im Bankabgleich b
   await expect(page.getByText(/Pausiert: Bis zum Fortsetzen/)).toBeVisible();
   await page.getByRole("button", { name: "Fortsetzen" }).click();
   await expect(page.getByText(/Aktiv: Haben legt zu jedem Termin/)).toBeVisible();
+});
+
+// Dieselbe Prüfsumme schreibt der Release-Workflow in die Versionshinweise (#1683)
+test("Kette prüfen zeigt die Prüfsumme der Sperren, gleich der in den Versionshinweisen", async () => {
+  await go("/einstellungen?bereich=export");
+  const card = page.locator("section.card").filter({ has: page.getByRole("heading", { name: "Änderungsprotokoll prüfen", exact: true }) });
+  await card.getByRole("button", { name: "Kette prüfen", exact: true }).click();
+  await expect(card).toContainText("Kette, Siegel und Sperren sind unverändert");
+  await expect(card).toContainText(`Prüfsumme der Sperren${pruefsumme(sollbestand as Sollbestand)}Gleich der Prüfsumme in den Versionshinweisen zu Haben`);
+  await expect(card.getByRole("link", { name: /^Versionshinweisen zu Haben / })).toHaveAttribute("href", /\/releases\/tag\/v/);
 });
 
 test("Kette prüfen unterscheidet Betreiberhinweise von abgeschalteten und fehlenden Sperren", async () => {
