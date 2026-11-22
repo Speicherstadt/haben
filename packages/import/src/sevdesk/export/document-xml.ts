@@ -27,11 +27,13 @@ function directionOf(type: string | null, archive: string): SevExportDirection |
 export function parseDocumentXml(bytes: Uint8Array, archive: string): DocumentXml {
   let parsed: unknown;
   try {
-    parsed = parser.parse(new TextDecoder("utf-8").decode(bytes));
+    parsed = parser.parse(new TextDecoder("utf-8").decode(bytes), true);
   } catch {
     return { ok: false, reason: `${archive}: document.xml ist kein gültiges XML.` };
   }
-  const root = record(record(parsed).archive);
+  const archiveRoot = record(parsed).archive;
+  if (archiveRoot === undefined) return { ok: false, reason: `${archive}: document.xml enthält kein archive-Element.` };
+  const root = record(archiveRoot);
   const system = text(root.generatingSystem);
   if (system !== null && system !== "sevDesk") {
     return { ok: false, reason: `${archive}: document.xml ist erzeugt von „${system}“, nicht von sevDesk.` };
