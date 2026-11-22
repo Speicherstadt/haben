@@ -134,6 +134,8 @@ async function post(config: OpenAiConfig, deps: OpenAiDeps, body: unknown, signa
   const headers: Record<string, string> = { "content-type": "application/json", accept: "application/json" };
   if (config.apiKey) headers.authorization = `Bearer ${config.apiKey}`;
   const endpoint = new URL(config.endpoint);
+  // OpenRouter: HTTP-Referer ist für die App-Zuordnung nötig, X-OpenRouter-Title setzt den Namen.
+  // https://openrouter.ai/docs/app-attribution
   if (endpoint.hostname === "openrouter.ai") {
     headers["HTTP-Referer"] = "https://haben.app";
     headers["X-OpenRouter-Title"] = "Haben";
