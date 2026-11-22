@@ -2199,6 +2199,13 @@
       "when": 1795324304682,
       "tag": "0313_standard_textbaustein",
       "breakpoints": true
+    },
+    {
+      "idx": 314,
+      "version": "7",
+      "when": 1795358642986,
+      "tag": "0314_arbeitskosten",
+      "breakpoints": true
     }
   ]
 }

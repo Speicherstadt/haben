@@ -144,6 +144,7 @@ export function documentFor(
       net: line.net,
       ...lineDiscountOf(line),
       ...(line.deductionOf ? { deductionOf: line.deductionOf } : {}),
+      ...(line.arbeitskosten ? { arbeitskosten: true } : {}),
     })),
     totals,
     ...invoiceDiscountOf(invoice),

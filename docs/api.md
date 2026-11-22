@@ -168,7 +168,7 @@ curl -s -X POST "$HABEN/rechnungen" -H "Authorization: Bearer $TOKEN" -H "Conten
 }'
 ```
 
-Je Position nimmt die API optional `detail` (Text unter der Bezeichnung, BT-154) und `itemNumber` (Artikelnummer, BT-155, bis 50 Zeichen) an.
+Je Position nimmt die API optional `detail` (Text unter der Bezeichnung, BT-154), `itemNumber` (Artikelnummer, BT-155, bis 50 Zeichen) und `arbeitskosten` an. `arbeitskosten: true` kennzeichnet Arbeits-, Maschinen- und Fahrtkosten; ihr Anteil steht dann unter den Summen und in BT-22 ([§ 35a EStG](rechnungen.md#arbeits--maschinen--und-fahrtkosten--35a-estg)). Ohne Feld gilt `false`.
 
 Die Antwort enthält Summen, Positionen und `url`, den Link auf den Entwurf in Haben:
 
@@ -226,7 +226,7 @@ Die Antwort des Kunden und die Rechnung aus dem Angebot bleiben ein Klick in [An
 
 `GET /artikel` listet aktive Artikel, sortiert nach Nummer und Bezeichnung. Mit `q` suchst du nach einem Teil der Nummer oder Bezeichnung. Mit `archived=true` enthält die Liste auch archivierte Artikel. `GET /artikel/{id}` liefert den Artikel zur ID.
 
-Für `POST /artikel` brauchst du eine einzeilige Bezeichnung (`description`), Einheit (`unit`), Einzelpreis in Cent (`unitPrice`) und Steuersatz in Basispunkten (`taxRate`). Die Einheit muss in Haben vorhanden sein. Mit `priceIncludesTax: true` gibst du einen Bruttopreis an. Du kannst Artikelnummer (`number`), Positionstext (`detail`) und interne Notiz (`note`) mitsenden. Bei Erfolg liefert Haben `201`, den angelegten Artikel und seinen API-Pfad im Header `Location`. Auch bei gleicher Artikelnummer legt `POST` einen neuen Artikel an.
+Für `POST /artikel` brauchst du eine einzeilige Bezeichnung (`description`), Einheit (`unit`), Einzelpreis in Cent (`unitPrice`) und Steuersatz in Basispunkten (`taxRate`). Die Einheit muss in Haben vorhanden sein. Mit `priceIncludesTax: true` gibst du einen Bruttopreis an. Du kannst Artikelnummer (`number`), Positionstext (`detail`), die Vorgabe `arbeitskosten` für § 35a EStG und interne Notiz (`note`) mitsenden. Bei Erfolg liefert Haben `201`, den angelegten Artikel und seinen API-Pfad im Header `Location`. Auch bei gleicher Artikelnummer legt `POST` einen neuen Artikel an.
 
 `PATCH /artikel/{id}` speichert die gesendeten Felder und liefert den Artikel mit `200` zurück. Für eine Preisänderung genügt etwa `{"unitPrice": 2380}`. Speichere für spätere Änderungen die `id` des Artikels. Zum Archivieren öffnest du den [Artikelkatalog](rechnungen.md#artikelkatalog) in Haben.
 

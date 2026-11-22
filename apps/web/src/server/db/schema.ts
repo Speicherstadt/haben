@@ -1571,6 +1571,8 @@ export const invoiceLines = pgTable(
     /** Positionsrabatt wie eingegeben: Prozent oder fester Betrag im Preismodus; net ist nach Rabatt */
     discountPercent: integer("discount_percent").$type<BasisPoints>(),
     discountAmount: integer("discount_amount").$type<Cents>(),
+    /** Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG, BMF vom 09.11.2016 Rz. 39); ihr Anteil steht unter den Summen (#712) */
+    arbeitskosten: boolean("arbeitskosten").notNull().default(false),
   },
   (t) => [
     index("invoice_lines_invoice").on(t.invoiceId),
@@ -1748,6 +1750,8 @@ export const quoteLines = pgTable(
     discountAmount: integer("discount_amount").$type<Cents>(),
     /** Optionale Position oder Alternative zur Hauptposition davor; beide zählen nicht zur Angebotssumme. null = normal */
     kind: text("kind", { enum: QUOTE_LINE_KINDS }),
+    /** Arbeits-, Maschinen- und Fahrtkosten wie bei der Rechnung; geht in die Rechnung aus dem Angebot über (#712) */
+    arbeitskosten: boolean("arbeitskosten").notNull().default(false),
   },
   (t) => [
     check("quote_lines_discount", sql`${t.discountPercent} is null or ${t.discountAmount} is null`),
@@ -1922,6 +1926,8 @@ export const articles = pgTable(
     taxRate: smallint("tax_rate").$type<BasisPoints>().notNull(),
     /** Preis enthält die Umsatzsteuer; passt das nicht zur Rechnung, wird beim Einfügen umgerechnet */
     priceIncludesTax: boolean("price_includes_tax").notNull().default(false),
+    /** Vorgabe für die Position: Arbeits-, Maschinen- und Fahrtkosten nach § 35a EStG (#712) */
+    arbeitskosten: boolean("arbeitskosten").notNull().default(false),
     /** Interne Notiz, erscheint nicht auf Belegen */
     note: text("note").notNull().default(""),
     /** Herkunft aus dem sevDesk-Abruf (GET /Part); ein neuer Abruf legt den Artikel nicht noch einmal an */
@@ -4030,7 +4036,19 @@ export const recurringInvoices = pgTable(
     priceMode: text("price_mode", { enum: PRICE_MODES }).notNull().default("netto"),
     /** detail: Beschreibung unter der Bezeichnung; fehlt bei Vorlagen von vor dem Feld */
     lines: jsonb("lines")
-      .$type<{ description: string; detail?: string; itemNumber?: string; quantity: Millis; unit: string; unitPrice: Cents; taxRate: BasisPoints }[]>()
+      .$type<
+        {
+          description: string;
+          detail?: string;
+          itemNumber?: string;
+          quantity: Millis;
+          unit: string;
+          unitPrice: Cents;
+          taxRate: BasisPoints;
+          /** § 35a EStG (#712); fehlt bei Vorlagen von vor dem Feld */
+          arbeitskosten?: boolean;
+        }[]
+      >()
       .notNull(),
     /** Monate zwischen zwei Rechnungen: 1, 3, 6 oder 12 */
     intervalMonths: smallint("interval_months").notNull(),

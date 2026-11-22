@@ -3889,6 +3889,7 @@
     { "table": "public.documents", "column": "vorsteuer_abzug", "expression": "true" },
     { "table": "public.invoice_attachments", "column": "created_at", "expression": "now()" },
     { "table": "public.invoice_attachments", "column": "id", "expression": "gen_random_uuid()" },
+    { "table": "public.invoice_lines", "column": "arbeitskosten", "expression": "false" },
     { "table": "public.invoice_lines", "column": "detail", "expression": "''::text" },
     { "table": "public.invoice_lines", "column": "id", "expression": "gen_random_uuid()" },
     { "table": "public.invoice_lines", "column": "item_number", "expression": "''::text" },
