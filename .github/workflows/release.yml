@@ -104,7 +104,8 @@ jobs:
           test "${#summe}" = 64
           gh release upload "$TAG" "$datei" --clobber
           gh release view "$TAG" --json body --jq .body > "$RUNNER_TEMP/notes.md"
-          if ! grep -q "Prüfsumme der Sperren" "$RUNNER_TEMP/notes.md"; then
+          # Erkannt am Dateinamen: „Prüfsumme der Sperren“ kann auch im Titel eines Pull Requests in den erzeugten Notizen stehen
+          if ! grep -qF "$(basename "$datei")" "$RUNNER_TEMP/notes.md"; then
             printf '\n\nPrüfsumme der Sperren, wie „Kette prüfen“ sie zeigt (`%s`, ohne die eingebauten Funktionen von PostgreSQL): `%s`\n' "$(basename "$datei")" "$summe" >> "$RUNNER_TEMP/notes.md"
             gh release edit "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
           fi
