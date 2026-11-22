@@ -34,8 +34,13 @@ type Folders = { ok: true; documents: SevExportDocument[]; files: Map<string, Se
 function readFolders(outer: Record<string, Uint8Array>, budget: Budget, hints: string[]): Folders {
   const documents: SevExportDocument[] = [];
   const files = new Map<string, SevExportFile>();
+  const archives = named(outer, FOLDER);
+  if (archives.length === 0) {
+    hints.push("Der Export enthält keine Belegordner. Beleglinks bleiben ungeklärt.");
+    return { ok: true, documents, files, incomplete: true };
+  }
   let incomplete = false;
-  for (const archive of named(outer, FOLDER)) {
+  for (const archive of archives) {
     const inner = unzipLimited(outer[archive]!, budget, () => true);
     if (!inner.ok) {
       if (inner.limit) return { ok: false, reason: inner.reason };

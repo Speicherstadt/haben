@@ -2,8 +2,9 @@ import { XMLParser } from "fast-xml-parser";
 import type { SevExportDirection, SevExportDocument } from "./types.ts";
 
 /*
- * `document.xml` im Namensraum http://xml.datev.de/bedi/tps/document/v06.0. Die Spezifikation ist nicht öffentlich;
- * der Aufbau ist an den Testdaten belegt (test-fixtures/sevdesk, beide Buchhaltungsversionen):
+ * `document.xml` im Namensraum http://xml.datev.de/bedi/tps/document/v06.0.
+ * DATEV: https://developer.datev.de/de/file-format/details/datev-xml-interface-online/getting-started-
+ * Der sevDesk-Aufbau ist an den Testdaten belegt (test-fixtures/sevdesk, beide Buchhaltungsversionen):
  * `<archive generatingSystem="sevDesk"><content><document guid="…" type="1|2"><extension name="…" xsi:type="File"/>`.
  */
 
@@ -38,9 +39,17 @@ export function parseDocumentXml(bytes: Uint8Array, archive: string): DocumentXm
   if (system !== null && system !== "sevDesk") {
     return { ok: false, reason: `${archive}: document.xml ist erzeugt von „${system}“, nicht von sevDesk.` };
   }
+  const content = record(root.content);
+  if (
+    (root.content !== undefined && root.content !== "" && typeof root.content !== "object") ||
+    Object.keys(content).some((key) => key !== "document") ||
+    (system === null && content.document === undefined)
+  ) {
+    return { ok: false, reason: `${archive}: document.xml enthält keine erkennbare sevDesk-Dateiliste.` };
+  }
   const documents: SevExportDocument[] = [];
   const hints: string[] = [];
-  for (const node of asArray(record(root.content).document)) {
+  for (const node of asArray(content.document)) {
     const element = record(node);
     const guid = text(element.guid);
     const fileName = text(record(asArray(element.extension)[0]).name);
