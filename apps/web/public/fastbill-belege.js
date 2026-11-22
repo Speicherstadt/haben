@@ -160,7 +160,8 @@
 
   /**
    * ZIP-Teile bis PART_LIMIT: add legt eine Datei in den laufenden Teil oder beginnt einen neuen, finish schreibt
-   * manifest.json in den Teil und lädt ihn herunter. missing ist die Liste der IDs ohne Datei, die jedes Manifest nennt
+   * manifest.json in den Teil und lädt ihn herunter. missing ist die Liste der IDs ohne Datei; ein Manifest nennt die bis zum
+   * Abschluss seines Teils
    */
   const zipParts = (createdAt, missing) => {
     const stamp = createdAt.slice(0, 10);
