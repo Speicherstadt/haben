@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { bestaetigen, durchlaufSeite, einrichten, gehe } from "./einrichtung.ts";
 
 /** Umzug aus WISO mit Testlauf, Import und Beleg im Archiv, in eigener, leerer Datenbank (Projekt „wiso-import“, e2e/durchlaeufe.ts) */
@@ -47,11 +47,41 @@ function wisoCsv(): Buffer {
   return Buffer.from([WISO_HEADERS, row].map((r) => r.join(";")).join("\r\n"));
 }
 
+async function gobdAbgleichen(page: Page) {
+  const abgleich = page.getByRole("region", { name: "WISO-GoBD-Dateien abgleichen" });
+  await abgleich.getByLabel("GoBD-Buchungsliste").setInputFiles({
+    name: "buchungsliste.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("Konto;Gegenkonto;Betrag;SollHaben\n1200;8400;119,00;S\n8400;1200;119,00;H"),
+  });
+  const susa = abgleich.getByLabel("GoBD-Summen- und Saldenliste");
+  const report = (betrag: string) => ({
+    name: "susa.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      "KontoNummer;AnfangssaldoSoll;AnfangssaldoHaben;BuchungsSummeSoll;BuchungsSummeHaben;SaldoSoll;SaldoHaben\n" +
+        `1200;0;0;${betrag};0;0;${betrag}\n8400;0;0;0;119,00;119,00;0`,
+    ),
+  });
+  const submit = abgleich.getByRole("button", { name: "Dateien abgleichen" });
+  await susa.setInputFiles(report("118,00"));
+  await submit.click();
+  const differences = abgleich.getByRole("table", { name: "Abweichungen je Konto" });
+  const movement = differences.getByRole("row", { name: /1200 Buchungssumme Soll/ });
+  await expect(movement).toContainText("119,00");
+  await expect(movement).toContainText("118,00");
+  await susa.setInputFiles(report("119,00"));
+  await expect(differences).toHaveCount(0);
+  await submit.click();
+  await expect(abgleich.getByRole("status")).toContainText("Buchungsliste und SuSa stimmen überein.");
+}
+
 test("WISO: Testlauf, Import und Beleg im Archiv", async ({ browser }) => {
   const { page, pageErrors } = await durchlaufSeite(browser);
   await einrichten(page);
   await gehe(page, "/archiv");
   await page.getByRole("button", { name: "Umzug aus WISO", exact: true }).click();
+  await gobdAbgleichen(page);
   const card = page.getByRole("region", { name: "WISO-Buchungen als CSV prüfen und importieren" });
   await card.getByLabel("WISO-Buchungs-CSV").setInputFiles({
     name: "wiso-buchungen.csv",
