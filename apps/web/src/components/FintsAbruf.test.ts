@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import { wartetAuf, zeilenGrund } from "./FintsAbruf.tsx";
 
 // Die Server-Funktionen brauchen die Umgebung der App; geprüft werden hier nur die Sätze
-vi.mock("../server/functions/fints.ts", () => ({}));
+vi.mock("../server/functions/fints.ts", () => ({ cancelFints: {}, connectFints: {}, continueFints: {}, disconnectFints: {}, syncFints: {} }));
+vi.mock("@tanstack/react-router", () => ({ useRouter: () => ({ invalidate: async () => {} }) }));
+vi.mock("@tanstack/react-start", () => ({ useServerFn: () => async () => ({}) }));
 
 type Verbindung = Parameters<typeof zeilenGrund>[0];
 
@@ -63,5 +65,28 @@ describe("Grund gesperrter FinTS-Knöpfe beim Trennen (#1677)", () => {
       text: "„Jetzt abrufen“ geht wieder, sobald das Verbinden über FinTS oben fertig oder abgebrochen ist.",
       trennen: false,
     });
+  });
+});
+
+describe("Grund beim Trennen ohne FINTS_PRODUKT_ID (Review #1693)", () => {
+  // Ohne Registrierungsnummer zeigt eine Zeile nur „Trennen“; der Grund darf keine Knöpfe nennen, die es nicht gibt
+  it("nennt an den übrigen Zeilen nur „Trennen“", async () => {
+    const { createElement } = await import("react");
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { FintsAbruf } = await import("./FintsAbruf.tsx");
+    const html = renderToStaticMarkup(
+      createElement(FintsAbruf, {
+        fints: { configured: false, connections: [zweiterZugang, zweitbank, giro] } as never,
+        verbinden: false,
+        setVerbinden: () => {},
+        offen: null,
+        setOffen: () => {},
+        busy: "x-b",
+        setBusy: () => {},
+      }),
+    );
+    expect(html).not.toContain(">Jetzt abrufen<");
+    expect(html).toContain("„Trennen“ geht wieder, sobald die Verbindung zu Testbank …3001 getrennt ist.");
+    expect(html).not.toContain("„Jetzt abrufen“");
   });
 });
