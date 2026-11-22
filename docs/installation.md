@@ -136,7 +136,16 @@ Der Dienst `backup` sichert Datenbank und Belege jeden Tag um 03:15 Uhr, siehe [
 
 **Updates:** `docker compose exec backup backup.sh && docker compose pull && docker compose up -d`. Migrationen laufen beim Start der App, siehe [Updates](installation-backup.md#updates).
 
-**Abweichungen** von `compose.yml`, etwa ein eigener Proxy, zusätzliche Mounts, `extra_hosts` oder eine feste Version, gehören in eine `compose.override.yml` daneben: Compose liest sie automatisch mit, und `compose.yml` lässt sich bei Updates neu herunterladen. Gibt es die Datei schon, kommen neue Einträge unter die vorhandenen Dienste. Die [Beispiel-Override-Datei](#compose) lädst du aus demselben Release.
+**Abweichungen** von `compose.yml`, etwa ein eigener Proxy, zusätzliche Mounts, `extra_hosts` oder eine feste Version, gehören in eine `compose.override.yml` daneben: Compose liest sie automatisch mit, und `compose.yml` lässt sich bei Updates neu herunterladen. Gibt es die Datei schon, kommen neue Einträge unter die vorhandenen Dienste.
+
+### Beispiel-Override-Datei
+
+Lade das Beispiel mit dem Release-Tag deiner `compose.yml` und übernimm nur die Einträge für deine Einrichtung.
+
+```sh
+TAG=vx.y.z
+curl -fLO "https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy/compose.override.example.yml"
+```
 
 ## Podman Quadlets
 
@@ -240,14 +249,7 @@ Port 3000 der App gehört nicht ins Internet: Dort könnte jeder `X-Forwarded-Fo
 
 ### Compose
 
-Lade die Beispiel-Override-Datei mit dem Release-Tag deiner `compose.yml`.
-
-```sh
-TAG=vx.y.z
-curl -fLO "https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy/compose.override.example.yml"
-```
-
-Übernimm die passenden Einträge in `compose.override.yml`. Gibt es noch keine, kannst du die Beispieldatei unter diesem Namen kopieren. Ersetze `DEIN_PROXY_NETZ` durch das Netz deines Proxy-Containers. Das zeigt:
+Lade die [Beispiel-Override-Datei](#beispiel-override-datei) und übernimm die Proxy-Einträge in `compose.override.yml`. Ersetze `DEIN_PROXY_NETZ` durch das Netz deines Proxy-Containers. Das zeigt:
 
 ```sh
 docker inspect DEIN_PROXY_CONTAINER -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}'
