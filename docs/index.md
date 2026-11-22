@@ -55,7 +55,7 @@ Rechnungen, Mahnungen und Versand per E-Mail gehören dazu.
 <div markdown>
 <span class="showcase-kicker">Belege</span>
 
-## Der Beleg kommt, wie er gerade da ist
+## Egal, wie der Beleg ankommt
 
 Per Drag-and-drop, mit der Kamera am Handy oder als Anhang an eine E-Mail. E-Rechnungen liest
 Haben direkt, alles andere auf Wunsch per KI – auch mit einem eigenen Modell auf deinem Server.
