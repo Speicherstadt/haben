@@ -219,13 +219,7 @@ async function runImport(actor: string, importId: string, client: LexofficeSourc
   await save(true);
 }
 
-async function importContacts(
-  actor: string,
-  client: LexofficeSource,
-  progress: LexofficeImportProgress,
-  signal: AbortSignal,
-  save: () => Promise<void>,
-) {
+async function importContacts(actor: string, client: LexofficeSource, progress: LexofficeImportProgress, signal: AbortSignal, save: () => Promise<void>) {
   for await (const raw of client.contacts()) {
     // Die Sicherung aus der Web-Oberfläche liest ohne Netz und kennt das Signal nicht: selbst prüfen
     signal.throwIfAborted();
