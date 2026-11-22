@@ -488,7 +488,7 @@ Für Wochen- und Monatspauschalen, Wartungsverträge oder Hosting legst du unter
 | Intervall | wöchentlich, alle 2 Wochen, monatlich, vierteljährlich, halbjährlich oder jährlich |
 | Nächste Rechnung am | Rechnungsdatum des nächsten Termins. Bei Monaten liegen die folgenden Termine am selben Tag im Monat; der 31. wird in kürzeren Monaten zum Monatsende und springt danach zurück. Bei Wochen liegen sie 7 bzw. 14 Tage später, am selben Wochentag. |
 | Endet nach dem | optional. Danach wird die Vorlage inaktiv. |
-| Leistungszeitraum | **Laufend:** die Monate ab dem Rechnungsmonat (Vorauszahlung), bei Wochen die 7 bzw. 14 Tage ab dem Rechnungsdatum. **Vergangen:** die Monate davor (Abrechnung), bei Wochen die Tage bis zum Vortag. **Keiner:** ohne Leistungszeitraum, dann gilt das Rechnungsdatum. |
+| Leistungszeitraum | **Laufend:** die Monate ab dem Rechnungsmonat (Vorauszahlung), bei Wochen die 7 bzw. 14 Tage ab dem Rechnungsdatum. **Vergangen:** die Monate davor (Abrechnung), bei Wochen die 7 bzw. 14 Tage bis zum Vortag. **Keiner:** ohne Leistungszeitraum, dann gilt das Rechnungsdatum. |
 | Was am Termin passiert | **Entwurf anlegen:** du prüfst und schreibst selbst fest. **Direkt festschreiben:** Nummer, PDF, XML und Buchung wie beim Festschreiben von Hand; auf Wunsch **und per E-Mail an den Kunden schicken** (Vorlage und Adresse wie beim [Versand von Hand](#per-e-mail-versenden)). |
 | Aktiv | Ohne Häkchen erzeugt die Vorlage keine Rechnungen. |
 | Kunde, Einleitung, Positionen mit Text zur Position, Zahlungsziel, Format, Umsatzsteuer, Preise (netto oder brutto), Hinweis, Aufbewahrungshinweis, Anteil der Arbeits-, Maschinen- und Fahrtkosten | wie im Rechnungseditor |
