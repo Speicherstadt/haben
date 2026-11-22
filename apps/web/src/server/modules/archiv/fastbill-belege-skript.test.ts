@@ -4,6 +4,7 @@ import { unzipSync } from "fflate";
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { FASTBILL_LIST_MARKER as LIST_MARKER } from "../../../lib/fastbill-skript.ts";
 import { fakeBrowser, runInConsole } from "./test-browser-skript.ts";
 
 /*
@@ -12,8 +13,6 @@ import { fakeBrowser, runInConsole } from "./test-browser-skript.ts";
  */
 
 const SCRIPT = readFileSync(new URL("../../../../public/fastbill-belege.js", import.meta.url), "utf8");
-/** Stelle für die Liste, wie LIST_MARKER in components/archiv/FastbillReceipts.tsx */
-const LIST_MARKER = /\/\*HABEN_LISTE\*\/\s*\[\]/;
 /** Grenze eines ZIP-Teils im Skript (PART_LIMIT) */
 const PART_LIMIT = 50 * 1024 * 1024;
 const HOST = "https://my.fastbill.com";
