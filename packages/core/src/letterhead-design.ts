@@ -67,6 +67,9 @@ export type LetterheadFont = keyof typeof LETTERHEAD_FONTS;
 /** Briefpapier nur auf der ersten Seite oder auf allen */
 export type BackgroundPages = "erste" | "alle";
 
+/** Stelle der Pflichtangaben einer GmbH oder UG im Fuß (#1651); „layout“ = die Vorgabe des Layouts (footer-legal.ts) */
+export type LegalPosition = "layout" | "spalte" | "zeile";
+
 /** Was die Gestaltung auf dem Blatt ändert, ohne Inhalt und Layoutwahl */
 export interface LetterheadOptions {
   logoSize: LogoSize;
@@ -78,8 +81,14 @@ export interface LetterheadOptions {
   itemNumber: boolean;
   /** Spalte USt je Position; bei mehreren Steuersätzen bleibt sie stehen, siehe showsVatColumn */
   vatColumn: boolean;
-  /** Eigene Spalten der Fußzeile mit Platzhaltern; null = automatisch aus den Firmendaten */
+  /** Eigene Spalten der Fußzeile mit Platzhaltern; null = noch nie welche gespeichert */
   footerColumns: string[] | null;
+  /**
+   * Eigene Fußzeile an; aus bleiben die Spalten gespeichert und gelten beim Einschalten wieder (#1651). Fehlt = an, sobald
+   * Spalten da sind, wie vor #1651 (designWithDefaults setzt es immer)
+   */
+  footerCustom?: boolean;
+  legalPosition: LegalPosition;
   /** Schrift der Belege; „layout“ = die Vorgabe des jeweiligen Layouts */
   font: LetterheadFont | "layout";
   /** Akzentfarbe aus dem Layout statt der eigenen (accent); gilt, solange nichts eigenes gewählt ist */
@@ -91,6 +100,7 @@ export interface LetterheadOptions {
 
 /** Gestaltung eines Briefkopf-Profils (#113). Neue Einstellungen brauchen eine Vorgabe in DEFAULT_DESIGN, ältere Zeilen kennen sie nicht */
 export interface LetterheadDesign extends LetterheadOptions {
+  footerCustom: boolean;
   layouts: LayoutAssignment;
   /** Gewählte Optionen je eingebautem Layout, etwa { atelier: { fuss: "rechts" } }; aufgelöst mit layoutOptionen */
   layoutOptions: Record<string, Record<string, string>>;
@@ -107,6 +117,7 @@ export const DEFAULT_OPTIONS: LetterheadOptions = {
   itemNumber: true,
   vatColumn: true,
   footerColumns: null,
+  legalPosition: "layout",
   font: "layout",
   accentFromLayout: true,
   backgroundPages: "erste",
@@ -115,6 +126,7 @@ export const DEFAULT_OPTIONS: LetterheadOptions = {
 
 export const DEFAULT_DESIGN: LetterheadDesign = {
   ...DEFAULT_OPTIONS,
+  footerCustom: false,
   layouts: Object.fromEntries(LAYOUT_DOCUMENT_TYPES.map((type) => [type, DEFAULT_LAYOUT])) as LayoutAssignment,
   layoutOptions: {},
   accent: DEFAULT_ACCENT,
@@ -122,8 +134,14 @@ export const DEFAULT_DESIGN: LetterheadDesign = {
 
 /** Vervollständigt gespeicherte Gestaltung um Einstellungen, die es beim Speichern noch nicht gab */
 export function designWithDefaults(stored: Partial<LetterheadDesign> | null | undefined): LetterheadDesign {
-  return { ...DEFAULT_DESIGN, ...stored, layouts: { ...DEFAULT_DESIGN.layouts, ...stored?.layouts } };
+  // Vor #1651 hieß „aus“ footerColumns: null; gespeicherte Spalten waren also immer an
+  const footerCustom = stored?.footerCustom ?? Boolean(stored?.footerColumns);
+  return { ...DEFAULT_DESIGN, ...stored, footerCustom, layouts: { ...DEFAULT_DESIGN.layouts, ...stored?.layouts } };
 }
+
+/** Die eigenen Spalten, die gerade gelten; null = automatische Fußzeile */
+export const activeFooterColumns = (options: Pick<LetterheadOptions, "footerColumns"> & { footerCustom?: boolean }): string[] | null =>
+  options.footerCustom !== false ? options.footerColumns : null;
 
 /**
  * Die Spalte darf nur entfallen, wenn alle Positionen denselben Satz haben: Dann nennt ihn die Summe eindeutig. Bei mehreren
@@ -150,6 +168,8 @@ export const letterheadDesignInputSchema = z
     layoutOptions: z.record(z.string().max(64), z.record(z.string().max(64), z.string().max(64))),
     backgroundPages: z.enum(["erste", "alle"]),
     footerHidden: z.boolean(),
+    footerCustom: z.boolean(),
+    legalPosition: z.enum(["layout", "spalte", "zeile"]),
     footerColumns: z
       .array(z.string().max(MAX_FOOTER_TEXT))
       .min(MIN_FOOTER_COLUMNS)

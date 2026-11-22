@@ -137,6 +137,36 @@ test("„Jetzt abrufen“ fragt die TAN ab, wenn die Bank sie verlangt", async (
   await expect(page.getByText("RE-2026-0050").first()).toBeVisible();
 });
 
+test("„Über FinTS verbinden“ öffnet nach zugeklapptem „Zugang ändern“ ein leeres Formular", async () => {
+  const sql = postgres(databaseUrlFuer("fints-abruf"), { max: 1, onnotice: () => {} });
+  try {
+    await sql`update fints_connections set status = 'fehler', last_error = 'Abruf fehlgeschlagen: PIN ungültig. (9942)'`;
+  } finally {
+    await sql.end();
+  }
+  await gehe(page, "/bank");
+  const form = page.getByRole("form", { name: "Über FinTS verbinden" });
+  const oeffnen = () => abruf().getByRole("button", { name: "Über FinTS verbinden" }).click();
+  await abruf().getByRole("button", { name: "Zugang ändern" }).click();
+  await expect(form.getByLabel("Bankleitzahl")).toHaveValue("12030000");
+  await oeffnen();
+  await expect(form).toHaveCount(0);
+  await oeffnen();
+  await expect(form.getByLabel("Bankleitzahl")).toHaveValue("");
+  await expect(form.getByLabel("FinTS-Adresse der Bank")).toHaveValue("");
+  await expect(form.getByLabel("Anmeldename")).toHaveValue("");
+  await form.getByRole("button", { name: "Abbrechen" }).click();
+
+  // „Zugang ändern“ füllt das Formular weiter mit den Angaben der Verbindung, nur die PIN fehlt
+  await abruf().getByRole("button", { name: "Zugang ändern" }).click();
+  await expect(form.getByLabel("Bankleitzahl")).toHaveValue("12030000");
+  await expect(form.getByLabel("FinTS-Adresse der Bank")).toHaveValue(bank.url);
+  await expect(form.getByLabel("Anmeldename")).toHaveValue("max");
+  await expect(form.getByLabel("PIN")).toHaveValue("");
+  await oeffnen();
+  await expect(form).toHaveCount(0);
+});
+
 test("nach einer abgelehnten PIN den Zugang ändern", async () => {
   // Wie nach einer neuen PIN bei der Bank: der Abruf im Hintergrund hat aufgehört, die Verbindung steht auf „Fehler“
   const sql = postgres(databaseUrlFuer("fints-abruf"), { max: 1, onnotice: () => {} });
@@ -303,4 +333,42 @@ test("erneut verbinden, das Formular oben mit „Über FinTS verbinden“ zugekl
   await page.unrouteAll({ behavior: "wait" });
   await expect(abruf().getByText("Verbindung nicht gefunden.")).toHaveCount(0);
   bank.zustand.scaBeiUmsaetzen = false;
+});
+
+test("„Über FinTS verbinden“ ist gesperrt, solange an einer Zeile ein Schritt der Bank offen ist", async () => {
+  const verbinden = abruf().getByRole("button", { name: "Über FinTS verbinden" });
+  const grund = "„Über FinTS verbinden“ geht wieder, sobald die Freigabe für Testbank gesendet oder abgebrochen ist.";
+  const tan = freigabe().getByLabel("TAN", { exact: true });
+  await verbinden.click();
+  await zugangEingeben();
+  await freigabe().getByLabel("TAN-Verfahren").selectOption({ label: "chipTAN manuell" });
+  await freigabe().getByRole("button", { name: "Weiter" }).click();
+  await expect(abruf().getByText(/^Testbank verbunden/)).toBeVisible();
+
+  // Sonst ersetzte der Schritt beim Verbinden den an der Zeile, ohne dass Haben den Vorgang bei der Bank verwirft
+  bank.zustand.scaBeiUmsaetzen = true;
+  await abruf().getByRole("button", { name: "Jetzt abrufen" }).click();
+  await expect(tan).toBeVisible();
+  await expect(verbinden).toBeDisabled();
+  await expect(abruf().getByText(grund)).toBeVisible();
+  await expect(verbinden).toHaveAccessibleDescription(grund);
+  await freigabe().getByRole("button", { name: "Abbrechen" }).click();
+  await expect(freigabe()).toHaveCount(0);
+  await expect(verbinden).toBeEnabled();
+  await expect(abruf().getByText(grund)).toHaveCount(0);
+
+  await abruf().getByRole("button", { name: "Jetzt abrufen" }).click();
+  await expect(tan).toBeVisible();
+  await expect(verbinden).toBeDisabled();
+  await tan.fill("123456");
+  await freigabe().getByRole("button", { name: "TAN senden" }).click();
+  await expect(abruf().getByText(/^Testbank, \d+ neue Umsätze\.$/)).toBeVisible();
+  await expect(verbinden).toBeEnabled();
+
+  // Danach verbindet der Knopf wie bisher
+  await verbinden.click();
+  await zugangEingeben();
+  await freigabe().getByLabel("TAN-Verfahren").selectOption({ label: "chipTAN manuell" });
+  await freigabe().getByRole("button", { name: "Weiter" }).click();
+  await expect(abruf().getByText(/^Testbank verbunden/)).toBeVisible();
 });

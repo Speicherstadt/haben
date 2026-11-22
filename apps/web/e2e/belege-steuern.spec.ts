@@ -113,6 +113,85 @@ test("Beleg prüfen: Ein Fehler beim Speichern steht nicht hinter den stehenden 
   if (vorher) await page.setViewportSize(vorher);
 });
 
+test("Beleg wechseln: J/K, Pfeiltasten und Wischen springen zum Nachbarn, ungespeicherte Änderungen fragen erst nach", async ({ browser }) => {
+  await go("/belege");
+  // Verschiedene Bilder, sonst legt Haben den zweiten Beleg nicht doppelt ab
+  for (const [name, titel] of [
+    ["wechsel-1.jpg", "Funknetz Mobil GmbH"],
+    ["wechsel-2.jpg", "Bürobedarf Nord GmbH"],
+  ] as const) {
+    await page.locator("input[type=file][multiple]").setInputFiles([{ name, mimeType: "image/jpeg", buffer: await receiptJpeg(browser, titel) }]);
+    await expect(page.getByText(`${name}: abgelegt.`)).toBeVisible();
+  }
+  // Ohne Belegdatum steht der zuletzt hochgeladene oben in der Liste
+  await page
+    .getByRole("link", { name: /wechsel-2\.jpg/ })
+    .first()
+    .click();
+  await page.waitForURL(/belege\/[0-9a-f-]{36}$/);
+  await page.waitForLoadState("networkidle");
+  const datei = page.locator(".page-head .eyebrow");
+  const position = page.getByRole("group", { name: "Zwischen Belegen wechseln" }).locator(".small");
+  const ueberschrift = page.locator(".page-head h1");
+  await expect(datei).toContainText("wechsel-2.jpg");
+  await expect(position).toHaveText(/^1 von /);
+  for (const [taste, ziel] of [
+    ["j", "wechsel-1.jpg"],
+    ["k", "wechsel-2.jpg"],
+    ["ArrowRight", "wechsel-1.jpg"],
+    ["ArrowLeft", "wechsel-2.jpg"],
+  ] as const) {
+    await ueberschrift.click();
+    await page.keyboard.press(taste);
+    await expect(datei).toContainText(ziel);
+  }
+  await expect(position).toHaveText(/^1 von /);
+
+  // Am Handy: nach links wischen zum nächsten, nach rechts zum vorigen Beleg
+  const wischen = (dx: number) =>
+    ueberschrift.evaluate((el, dx) => {
+      const punkt = (x: number) => new Touch({ identifier: 1, target: el, clientX: x, clientY: 200 });
+      el.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, touches: [punkt(200)] }));
+      el.dispatchEvent(new TouchEvent("touchend", { bubbles: true, changedTouches: [punkt(200 + dx)] }));
+    }, dx);
+  await wischen(-120);
+  await expect(datei).toContainText("wechsel-1.jpg");
+  await expect(position).toHaveText(/^2 von /);
+  await wischen(120);
+  await expect(datei).toContainText("wechsel-2.jpg");
+
+  // Im Eingabefeld bleibt „j“ ein Buchstabe; danach fragt der Wechsel erst nach
+  const nummer = page.getByLabel("Rechnungsnummer");
+  await nummer.press("j");
+  await expect(nummer).toHaveValue("j");
+  await expect(datei).toContainText("wechsel-2.jpg");
+  await ueberschrift.click();
+  await page.keyboard.press("j");
+  const rueckfrage = page.getByRole("dialog", { name: "Ohne Speichern wechseln?" });
+  await expect(rueckfrage).toBeVisible();
+  await rueckfrage.getByRole("button", { name: "Abbrechen" }).click();
+  await expect(rueckfrage).toBeHidden();
+  await expect(datei).toContainText("wechsel-2.jpg");
+  await expect(nummer).toHaveValue("j");
+  // Esc führt zur Liste, ebenfalls erst nach der Rückfrage
+  await ueberschrift.click();
+  await page.keyboard.press("Escape");
+  await bestaetigen(page, "Ohne Speichern wechseln");
+  await page.waitForURL(/\/belege$/);
+
+  // Die Belege gehören nur diesem Test: die folgenden zählen die offenen Belege. Nach dem Löschen geht es zum nächsten offenen
+  await page
+    .getByRole("link", { name: /wechsel-2\.jpg/ })
+    .first()
+    .click();
+  for (const ziel of ["wechsel-2.jpg", "wechsel-1.jpg"]) {
+    await expect(datei).toContainText(ziel);
+    await page.locator(".doc-actions").getByRole("button", { name: "Löschen" }).click();
+    await bestaetigen(page, "Beleg löschen");
+  }
+  await page.waitForURL(/\/belege$/);
+});
+
 test("Beleg prüfen: Kategorie per Suche wählen, auch ohne Umlaute, mit Tastatur und ohne Treffer", async ({ browser }) => {
   await go("/belege");
   await page

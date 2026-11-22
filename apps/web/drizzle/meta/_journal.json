@@ -2192,6 +2192,13 @@
       "when": 1795274706578,
       "tag": "0312_eingebaute_layouts_bestand",
       "breakpoints": true
+    },
+    {
+      "idx": 313,
+      "version": "7",
+      "when": 1795324304682,
+      "tag": "0313_standard_textbaustein",
+      "breakpoints": true
     }
   ]
 }

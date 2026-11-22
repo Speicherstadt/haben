@@ -22,6 +22,8 @@ type Verbindung = Fints["connections"][number];
 type Schritt = Awaited<ReturnType<typeof continueFints>>;
 type Offen = Exclude<Schritt, { art: "fertig" }>;
 type Meldung = { tone: "ok" | "danger" | "info"; text: string };
+/** Offener Schritt der Bank beim Verbinden („neu“) oder an der Zeile einer Verbindung (ihre ID); die Bankseite führt ihn */
+export type FintsOffen = { fuer: string; schritt: Offen } | null;
 
 export const FINTS_ANLEITUNG = "https://github.com/Speicherstadt/haben/blob/main/docs/installation-anbindungen.md#kontoabruf-über-fints";
 
@@ -231,13 +233,24 @@ function VerbindenForm({ vorlage, onSchritt, onAbbrechen }: { vorlage: Verbindun
   );
 }
 
-/** FinTS im Bereich „Automatischer Abruf“: Formular zum Verbinden (verbinden) und die Verbindungen */
-export function FintsAbruf({ fints, verbinden, setVerbinden }: { fints: Fints; verbinden: boolean; setVerbinden: (v: boolean) => void }) {
+/** FinTS im Bereich „Automatischer Abruf“: Formular zum Verbinden (verbinden), die Verbindungen und der offene Schritt der Bank */
+export function FintsAbruf({
+  fints,
+  verbinden,
+  setVerbinden,
+  offen,
+  setOffen,
+}: {
+  fints: Fints;
+  verbinden: boolean;
+  setVerbinden: (v: boolean) => void;
+  offen: FintsOffen;
+  setOffen: (o: FintsOffen) => void;
+}) {
   const router = useRouter();
   const sync = useServerFn(syncFints);
   const disconnect = useServerFn(disconnectFints);
   const verwerfen = useServerFn(cancelFints);
-  const [offen, setOffen] = useState<{ fuer: string; schritt: Offen } | null>(null);
   const [vorlage, setVorlage] = useState<Verbindung | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [meldungen, setMeldungen] = useState<Meldung[]>([]);
@@ -252,10 +265,7 @@ export function FintsAbruf({ fints, verbinden, setVerbinden }: { fints: Fints; v
     // alten Zeile fände sie nicht mehr. Ohne sync endete invalidate schon mit den alten Daten und lüde im Hintergrund nach
     await router.invalidate({ sync: true });
     setOffen(null);
-    if (fuer === "neu") {
-      setVerbinden(false);
-      setVorlage(null);
-    }
+    if (fuer === "neu") setVerbinden(false);
     setMeldungen(meldungenAus(s));
   }
 
@@ -273,7 +283,6 @@ export function FintsAbruf({ fints, verbinden, setVerbinden }: { fints: Fints; v
 
   const schliessen = () => {
     setVerbinden(false);
-    setVorlage(null);
     setOffen(null);
   };
 
@@ -281,10 +290,13 @@ export function FintsAbruf({ fints, verbinden, setVerbinden }: { fints: Fints; v
   // Erst neu laden, dann schließen; solange ein Schritt offen ist, sind die Knöpfe an den Zeilen gesperrt
   const schrittAbbrechen = () => void router.invalidate({ sync: true }).then(schliessen);
 
-  // Klappt „Über FinTS verbinden“ oben das Formular zu, während die Bank beim Verbinden auf einen Schritt wartet, gilt das
-  // wie „Abbrechen“; sonst blieben die Knöpfe an den Zeilen gesperrt, ohne dass ein Schritt zu sehen ist
+  // Jedes Zuklappen des Formulars setzt hier die Vorlage zurück, auch oben über „Über FinTS verbinden“: Nach „Zugang ändern“
+  // öffnet der Knopf danach ein leeres Formular. Wartet die Bank beim Verbinden auf einen Schritt, gilt das Zuklappen oben
+  // wie „Abbrechen“ und verwirft den Vorgang; sonst blieben die Knöpfe an den Zeilen gesperrt, ohne dass ein Schritt zu
+  // sehen ist
   // biome-ignore lint/correctness/useExhaustiveDependencies: nur, wenn das Formular zuklappt oder ein Schritt kommt
   useEffect(() => {
+    if (!verbinden) setVorlage(null);
     if (verbinden || offen?.fuer !== "neu") return;
     void verwerfen({ data: offen.schritt.vorgang }).catch(() => undefined);
     schrittAbbrechen();

@@ -14,6 +14,7 @@ import {
   saveDesign,
   saveLogo,
 } from "../modules/stammdaten/index.ts";
+import { footerPreview } from "../modules/rechnungen/index.ts";
 import { authMiddleware } from "../middleware.ts";
 
 export const getLogo = createServerFn({ method: "GET" })
@@ -23,6 +24,11 @@ export const getLogo = createServerFn({ method: "GET" })
 export const getLetterheadDesign = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(() => loadDesign());
+
+/** Automatische Fußzeile und Pflichtangaben für die Vorschau der Karte „Fußzeile“ */
+export const getFooterPreview = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(() => footerPreview());
 
 /** Das Bild kommt als Base64, wie es der Browser liest */
 export const uploadLogo = createServerFn({ method: "POST" })
