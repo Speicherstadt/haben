@@ -43,7 +43,7 @@ kommentier im Issue `/übernehmen`; dann ist es dir zugewiesen. Wie das genau ab
   [Mit KI-Werkzeugen](https://haben.app/mitwirken.html#mit-ki-werkzeugen).
 - Sprache: Deutsch für Kommentare, Doku, Commits und alles, was Nutzer sehen. Bezeichner bleiben Englisch.
 - Vor „Ready for review“ die erforderliche **Selbstprüfung** (mit KI-Agenten Skill `beitrag-pruefen`): passt die Änderung zu
-  Haben, ist sie gegen die Quellen geprüft, die einfachste Lösung, mit Tests und Doku? Das Ergebnis kommt als
+  Haben, ist sie gegen die Quellen geprüft, die einfachste und beste Lösung, mit Tests und Doku? Das Ergebnis kommt als
   Kommentar in den Pull Request; ein Maintainer oder Collaborator prüft es nur nach
   (Voraussetzungen und Ausnahmen: [Beiträge annehmen](https://haben.app/mitwirken.html#beiträge-annehmen)).
 - Vor dem Merge ein unabhängiges **TDD-Review** (`tdd-review`) für Code, eine **Doku-Prüfung** (`doku-pruefen`) für Markdown,

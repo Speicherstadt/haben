@@ -97,8 +97,10 @@ export { typstMeldung } from "./layout-pruefung.ts";
 export {
   artFor,
   assignLayout,
+  assignLayoutToAll,
   createLayout,
   customLayoutFor,
+  mitEingebautemLayout,
   deleteLayout,
   LayoutError,
   LayoutRenderError,
@@ -163,6 +165,7 @@ export {
   createTextBlock,
   listTextBlocks,
   setTextBlockArchived,
+  standardTexte,
   textBlockInputSchema,
   updateTextBlock,
   type TextBlock,
@@ -175,5 +178,6 @@ export {
   firmaErgaenzen,
   kontakteUebernehmen,
   textbausteineUebernehmen,
+  alteStandardEinleitungen,
 } from "./uebernahme.ts";
 export { gestaltungUebernehmen } from "./uebernahme-gestaltung.ts";

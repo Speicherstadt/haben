@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import { strFromU8, unzipSync } from "fflate";
+import { SETTINGS_EXPORT_VERSION } from "../src/server/modules/instanzwechsel/format.ts";
 import { SESSION } from "./daten.ts";
 import { CUSTOMERS } from "./einrichtung.ts";
 
@@ -21,7 +22,11 @@ test("lädt Firmendaten und Kontakte als ZIP herunter", async ({ page }) => {
   expect(download.suggestedFilename()).toMatch(/^Haben-Einstellungen-\d{4}-\d{2}-\d{2}\.zip$/);
   const zip = unzipSync(new Uint8Array(await readFile((await download.path())!)));
   const datei = JSON.parse(strFromU8(zip["einstellungen.json"]!));
-  expect(datei).toMatchObject({ format: "haben-einstellungen", version: 1, company: { name: "Mustermann IT · Max Mustermann", ort: "Regensburg" } });
+  expect(datei).toMatchObject({
+    format: "haben-einstellungen",
+    version: SETTINGS_EXPORT_VERSION,
+    company: { name: "Mustermann IT · Max Mustermann", ort: "Regensburg" },
+  });
   expect(datei.company).not.toHaveProperty("mcpEnabled");
   expect(datei.contacts.map((kontakt: { name: string }) => kontakt.name)).toEqual(expect.arrayContaining(CUSTOMERS.map((kunde) => kunde.name)));
 });
