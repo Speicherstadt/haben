@@ -591,6 +591,77 @@ test("Einkommensersatzleistungen: eintragen, speichern, nach dem Neuladen wieder
   await expect(feld("Arbeitslosengeld")).toHaveValue("");
 });
 
+test("Einkommensteuer: Kinder, Angaben des Ehegatten und ungültige Beträge beim Speichern", async () => {
+  // Die Tests danach (Senden an ELSTER) rechnen mit den bisher gespeicherten Angaben; am Ende kommen sie unverändert zurück
+  const sql = postgres(databaseUrlFuer("belege-steuern"), { max: 1 });
+  const vorher = await sql`select * from income_tax_inputs where year = ${YEAR - 1}`;
+  try {
+    await go(`/jahreserklaerung/${YEAR - 1}`);
+    const form = page.getByRole("form", { name: "Angaben zur Einkommensteuer" });
+    const feld = (name: string) => form.locator(`input[name="${name}"]`);
+    const kinder = form.locator("details.est-block").filter({ has: page.locator(".est-block-title", { hasText: /^Kinder$/ }) });
+    const kind = form.getByRole("group", { name: "Kind 1" });
+    const aufklappen = () =>
+      form.evaluate((f) => {
+        for (const block of f.querySelectorAll("details")) block.open = true;
+      });
+    const neuLaden = async () => {
+      await page.reload();
+      await page.waitForLoadState("networkidle");
+      await aufklappen();
+    };
+    await aufklappen();
+    await expect(kinder.locator("summary")).toContainText("keine");
+    await form.getByRole("button", { name: "+ Kind hinzufügen" }).click();
+    await kind.getByLabel("Vorname").fill("Lena");
+    await kind.getByLabel("Geburtsdatum").fill(`${YEAR - 10}-04-12`);
+    await kind.getByLabel("Familienkasse").fill("Familienkasse Baden-Württemberg West");
+    await kind.getByLabel("Kinderbetreuungskosten (€)").fill("viel");
+    // Bei Zusammenveranlagung tragen die Felder des Ehegatten „b-“
+    await feld("b-rv").fill("2.400,00");
+    await feld("erst-b-Elterngeld").fill("900");
+    await feld("kapMit").fill("350,00");
+    await form.getByLabel("Günstigerprüfung beantragen").check();
+    await feld("handwerker").fill("800");
+    await feld("spenden").fill("zwölf");
+    await form.getByRole("button", { name: "Angaben speichern" }).click();
+    await expect(form.getByRole("alert")).toContainText("Kein gültiger Betrag: Spenden, Kinderbetreuung Lena.");
+    await feld("spenden").fill("12,00");
+    await kind.getByLabel("Kinderbetreuungskosten (€)").fill("1.500,00");
+    await form.getByRole("button", { name: "Angaben speichern" }).click();
+    await expect(form.getByRole("status").filter({ hasText: "Angaben gespeichert." })).toBeVisible();
+
+    await neuLaden();
+    await expect(kinder.locator("summary")).toContainText("1 Kind");
+    await expect(kind.getByLabel("Vorname")).toHaveValue("Lena");
+    await expect(kind.getByLabel("Geburtsdatum")).toHaveValue(`${YEAR - 10}-04-12`);
+    await expect(kind.getByLabel("Familienkasse")).toHaveValue("Familienkasse Baden-Württemberg West");
+    await expect(kind.getByLabel("Kinderbetreuungskosten (€)")).toHaveValue("1.500,00");
+    await expect(feld("b-rv")).toHaveValue("2.400,00");
+    await expect(feld("erst-b-Elterngeld")).toHaveValue("900,00");
+    await expect(feld("kapMit")).toHaveValue("350,00");
+    await expect(form.getByLabel("Günstigerprüfung beantragen")).toBeChecked();
+    await expect(feld("handwerker")).toHaveValue("800,00");
+    await expect(feld("spenden")).toHaveValue("12,00");
+
+    await kind.getByRole("button", { name: "Kind entfernen" }).click();
+    await form.getByRole("button", { name: "Angaben speichern" }).click();
+    await expect(form.getByRole("status").filter({ hasText: "Angaben gespeichert." })).toBeVisible();
+    await neuLaden();
+    await expect(kinder.locator("summary")).toContainText("keine");
+    await expect(kind).toHaveCount(0);
+  } finally {
+    await sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'e2e-test', true)`;
+      await tx`delete from income_tax_inputs where year = ${YEAR - 1}`;
+      for (const row of vorher) {
+        await tx`insert into income_tax_inputs (year, data, updated_at) values (${row.year}, ${JSON.stringify(row.data)}::jsonb, ${row.updated_at})`;
+      }
+    });
+    await sql.end();
+  }
+});
+
 test("Finanzamt: Hinweis nur auf weggelassene Vorjahresleistungen (#1008)", async () => {
   const jahr = currentYear();
   const sql = postgres(databaseUrlFuer("belege-steuern"), { max: 1 });
