@@ -158,6 +158,54 @@ describe.skipIf(!testDatabaseUrl)("§ 35a EStG auf Abschlägen aus dem Zahlungsp
     expect(ohneNbsp(storno.xml)).not.toContain("Davon entfallen");
   }, 60_000);
 
+  it("die Vorschau im Editor nennt in der Schlussrechnung den Anteil der Abschläge wie das PDF", async () => {
+    const preview = await import("./document-preview.ts");
+    const quote = await angebot();
+    const abschlag = await plan.abschlagFromPlan(actor, quote.id, "2026-10-10", 0, null);
+    await invoices.finalizeInvoice(actor, abschlag.id, kleinunternehmerStand);
+    const schluss = (await invoices.getInvoice((await quotes.quoteToInvoice(actor, quote.id, "2026-12-01", "schluss")).id))!;
+    const input = preview.documentPreviewSchema.parse({
+      kind: "rechnung",
+      number: "",
+      issueDate: "2026-12-01",
+      dueDate: "2026-12-15",
+      validUntil: null,
+      serviceFrom: null,
+      serviceTo: null,
+      paymentTermDays: 14,
+      contactId,
+      buyerOrderReference: "",
+      sellerOrderReference: "",
+      despatchAdviceReference: "",
+      lines: schluss.lines.map((l) => ({
+        description: l.description,
+        quantity: l.quantity,
+        unit: l.unit,
+        unitPrice: l.unitPrice,
+        taxRate: l.taxRate,
+        arbeitskosten: l.arbeitskosten,
+        ...(l.deductionOf ? { deductionOf: l.deductionOf } : {}),
+      })),
+      discount: { kind: "prozent", value: 1000 },
+      plan: [],
+      intro: "",
+      note: "",
+      taxTreatment: "regulaer",
+      exemptionReason: "",
+      priceMode: "netto",
+      language: "de",
+      variant: "schluss",
+      corrects: null,
+      currency: "EUR",
+      skonto: [],
+      sepaMandateId: null,
+      design: {},
+    });
+    const result = await preview.documentPreview(input);
+    const blatt = ohneNbsp(result.text.flatMap((part) => part.lines).join(" ")).replace(/\s+/g, " ");
+    expect(blatt).toContain("Davon entfallen 2.216,70 € auf die Abschlagsrechnungen und 5.172,30 € auf diese Rechnung.");
+  }, 60_000);
+
   it("Bruttopreise: Aufteilung im Preismodus des Angebots, Summe je Satz unverändert", async () => {
     // Brutto 11.900 € und 2.140 € je Satz wie oben, ohne Rabatt; 30 %: 3.570 € (Arbeit 2.142 €) und 642 € (Arbeit 321 €)
     const quote = await angebot({
