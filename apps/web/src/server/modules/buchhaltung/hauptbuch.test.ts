@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /** Fehlermeldung samt Ursache: Drizzle verpackt den Fehler der Datenbank in „Failed query“ */
 async function failure(work: Promise<unknown>): Promise<string> {
@@ -44,7 +45,7 @@ describe("Hauptbuch als einziger Schreiber des Journals", () => {
 describe.skipIf(!testDatabaseUrl)("Hauptbuch, Transaktionen und Sperre der Firmendaten (Postgres)", () => {
   let sql: postgres.Sql;
   let ledger: typeof import("./ledger.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let quotes: typeof import("../rechnungen/quotes.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let guard: typeof import("../auswertungen/settings-guard.ts");
@@ -74,7 +75,7 @@ describe.skipIf(!testDatabaseUrl)("Hauptbuch, Transaktionen und Sperre der Firme
   beforeAll(async () => {
     sql = await setupTestDb();
     ledger = await import("./ledger.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    invoices = await import("../rechnungen/index.ts");
     quotes = await import("../rechnungen/quotes.ts");
     contacts = await import("../stammdaten/contacts.ts");
     guard = await import("../auswertungen/settings-guard.ts");
@@ -217,7 +218,7 @@ describe.skipIf(!testDatabaseUrl)("Hauptbuch, Transaktionen und Sperre der Firme
 
   describe("eine Transaktion je Anwendungsfall", () => {
     it("Storno: scheitert das Festschreiben, bleibt kein Entwurf und keine Nummer zurück", async () => {
-      const original = await invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, invoiceDraft())).id);
+      const original = await invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, invoiceDraft())).id, kleinunternehmerStand);
       // Firmendaten unvollständig: Festschreiben lehnt ab
       await sql`update company set steuernummer = '', ust_id = ''`;
       await expect(invoices.cancelInvoice(actor, original.id, `${year}-06-20`)).rejects.toThrow(/Noch nicht bereit/);
@@ -270,7 +271,7 @@ describe.skipIf(!testDatabaseUrl)("Hauptbuch, Transaktionen und Sperre der Firme
       await guard.saveCompany(actor, { ...before, versteuerung: "soll" }, today);
       const current = company.companySchema.parse(await company.loadCompany());
 
-      await invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, invoiceDraft())).id);
+      await invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, invoiceDraft())).id, kleinunternehmerStand);
       await expect(guard.saveCompany(actor, { ...current, kontenrahmen: "SKR04" }, today)).rejects.toThrow(
         new RegExp(`Kontenrahmen: Im Jahr ${year} gibt es schon Buchungen`),
       );
@@ -282,7 +283,7 @@ describe.skipIf(!testDatabaseUrl)("Hauptbuch, Transaktionen und Sperre der Firme
 
     it("die Datenbank lehnt auch ab, wenn die App ein anderes Datum annimmt", async () => {
       const current = company.companySchema.parse(await company.loadCompany());
-      await invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, invoiceDraft())).id);
+      await invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, invoiceDraft())).id, kleinunternehmerStand);
       // Mit einem Datum im Folgejahr meldet die App keine Sperre; die Datenbank rechnet mit dem echten Jahr
       expect(await failure(guard.saveCompany(actor, { ...current, kontenrahmen: "SKR04" }, `${year + 1}-01-02`))).toMatch(
         /Im Jahr \d+ gibt es schon Buchungen/,

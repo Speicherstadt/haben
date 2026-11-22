@@ -2,6 +2,7 @@ import { ACCOUNTS } from "@haben/core";
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /**
  * #853 Gegenprobe: Die Rechnung mit Leistungszeitraum, aber ohne Vorauszahlung, ist der häufigste Fall. Sie bekommt
@@ -68,7 +69,7 @@ describe.skipIf(!testDatabaseUrl)("Normale Rechnung mit Leistungszeitraum ohne V
       note: "",
       lines: [{ description: "Beratung", quantity: 1000, unit: "Psch.", unitPrice: 100_000, taxRate: 1900 }],
     });
-    return invoices.finalizeInvoice(actor, draft.id);
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
   }
 
   async function pay(invoiceId: string, date: string, amount: number) {
@@ -120,7 +121,7 @@ describe.skipIf(!testDatabaseUrl)("Normale Rechnung mit Leistungszeitraum ohne V
 
   // Rechnung mit und ohne Leistungszeitraum, sonst gleich: Die Steuer darf nicht davon abhängen, ob das Feld befüllt ist.
   // Bereits vereinnahmtes Entgelt mindert sich erst mit der Rückzahlung (§ 17 UStG, UStAE 17.1 Abs. 2 Satz 3,
-  // BFH V R 34/09), bei Soll wie bei Ist. Entscheidung: https://github.com/firsttris/haben/pull/1228#issuecomment-6925771896
+  // BFH V R 34/09), bei Soll wie bei Ist. Entscheidung: https://github.com/Speicherstadt/haben/pull/1228#issuecomment-6925771896
   for (const service of [null, "2026-10-05"] as const)
     for (const { frame, mode } of [
       { frame: "SKR03", mode: "soll" },
@@ -141,7 +142,7 @@ describe.skipIf(!testDatabaseUrl)("Normale Rechnung mit Leistungszeitraum ohne V
           note: "",
           lines: [{ description: "Nachlass", quantity: 1000, unit: "Psch.", unitPrice: -10_000, taxRate: 1900 }],
         });
-        const correction = await invoices.finalizeInvoice(actor, draft.id);
+        const correction = await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
         expect(correction.reductionRule).toBe("rueckgewaehr");
         expect(await kz81(10)).toEqual({ kz81: 100_000, tax81: 19_000 });
         expect(await kz81(12)).toEqual({ kz81: 0, tax81: 0 });

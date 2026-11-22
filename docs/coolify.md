@@ -8,13 +8,13 @@ description: >-
 # Coolify
 
 [Coolify](https://coolify.io/) startet Haben aus einer Datei,
-`deploy/coolify/compose.yml` aus dem [letzten Release](https://github.com/firsttris/haben/releases/latest): App, Datenbank
+`deploy/coolify/compose.yml` aus dem [letzten Release](https://github.com/Speicherstadt/haben/releases/latest): App, Datenbank
 und das tägliche Backup mit denselben Images wie mit [Docker Compose](installation.md#docker-compose). Die Schlüssel
 erzeugt Coolify beim Anlegen, Domain und HTTPS übernimmt sein Proxy statt des mitgelieferten Caddy.
 
 ## Dienst anlegen
 
-1. Im [letzten Release](https://github.com/firsttris/haben/releases/latest) auf den Tag klicken und
+1. Im [letzten Release](https://github.com/Speicherstadt/haben/releases/latest) auf den Tag klicken und
    `deploy/coolify/compose.yml` öffnen. Über **Raw** den Inhalt kopieren und in Coolify unter
    **+ New › Docker Compose** einfügen. Dieser Stand gehört zu den Images mit `latest`.
 2. Beim Dienst `app` die Domain eintragen, mit `https://`, etwa `https://haben.example.de`. Ohne eigene Domain vergibt

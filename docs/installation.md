@@ -7,7 +7,7 @@ description: >-
 
 # Installation
 
-Was du nach der Installation in der Oberfläche einrichtest, steht in [Erste Schritte](einrichtung.md).
+Was du nach der Installation in der Oberfläche einrichtest, steht in [Erste Schritte](einrichtung.md). Keinen eigenen Server oder keine eigene IT? Haben gibt es auf Anfrage gehostet oder über einen IT-Dienstleister aus dem Partnerprogramm, siehe [Gehostet oder mit Partner](gehostet.md).
 
 ## Überblick
 
@@ -59,16 +59,18 @@ Das fertige Image gibt es für amd64 und arm64 auf Docker Hub und in der GitHub 
 | `docker.io/tristanteu/haben:x.y` / `:x.y.z` | Feste Version, wenn du Updates selbst steuern willst |
 | `docker.io/tristanteu/haben:next` | Neuester Release Candidate (`:x.y.z-rc.1` usw.) zum Testen, nur mit Backup |
 | `docker.io/tristanteu/haben:edge` | Stand von `main`, nur zum Ausprobieren |
-| `ghcr.io/firsttris/haben:…` | Dieselben Tags bei GitHub |
-| `docker.io/tristanteu/haben-backup:…` / `ghcr.io/firsttris/haben-backup:…` | Backup-Container (`postgres:18` mit restic, `deploy/backup`), dieselben Tags wie die App |
-| `docker.io/tristanteu/haben-db:…` / `ghcr.io/firsttris/haben-db:…` | Datenbank-Container (`postgres:18` mit `pg_upgrade` für ältere Bestände, `deploy/db`), dieselben Tags wie die App |
+| `ghcr.io/speicherstadt/haben:…` | Dieselben Tags bei GitHub |
+| `docker.io/tristanteu/haben-backup:…` / `ghcr.io/speicherstadt/haben-backup:…` | Backup-Container (`postgres:18` mit restic, `deploy/backup`), dieselben Tags wie die App |
+| `docker.io/tristanteu/haben-db:…` / `ghcr.io/speicherstadt/haben-db:…` | Datenbank-Container (`postgres:18` mit `pg_upgrade` für ältere Bestände, `deploy/db`), dieselben Tags wie die App |
+
+> Bisher `ghcr.io/firsttris/…`? Stell auf `ghcr.io/speicherstadt/…` um, neue Versionen erscheinen nur noch dort. Die Images auf Docker Hub bleiben gleich.
 
 ERiC ist nicht enthalten, weil es nicht weitergegeben werden darf. Haben lädt es auf deinen Wunsch direkt von der Finanzverwaltung in das Volume `eric` (siehe [ERiC einbinden](installation-anbindungen.md#eric-einbinden)), oder du mountest es selbst. ERiC gibt es nur für Linux x86_64: Auf arm64 (z. B. Raspberry Pi) läuft alles außer der ELSTER-Übermittlung.
 
 Selbst bauen geht auch, zum Beispiel für einen eigenen Stand. Dafür brauchst du das Repository; danach in `compose.override.yml` beim Dienst `app` `image: haben` bzw. in `haben-app.container` `Image=localhost/haben:latest` eintragen:
 
 ```sh
-git clone https://github.com/firsttris/haben.git && cd haben
+git clone https://github.com/Speicherstadt/haben.git && cd haben
 podman build -t haben -f Containerfile --build-arg HABEN_COMMIT="$(git rev-parse HEAD)" .   # oder docker build
 ```
 
@@ -93,9 +95,9 @@ Die Downloadbefehle laden alle Vorlagen aus dem letzten veröffentlichten Releas
 
 ```sh
 mkdir haben && cd haben
-RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/firsttris/haben/releases/latest)
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)
 TAG=${RELEASE##*/}
-RAW=https://raw.githubusercontent.com/firsttris/haben/$TAG/deploy
+RAW=https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy
 curl -fLO "$RAW/compose.yml"
 curl -fLo .env "$RAW/compose.env.example"
 chmod 600 .env   # enthält Passwörter und Schlüssel, nur für dich lesbar
@@ -113,7 +115,7 @@ In `.env` trägst du ein:
 | `ENCRYPTION_KEY` | `openssl rand -base64 32`, zusätzlich an einem zweiten Ort sichern |
 | `RESTIC_PASSWORD` | Verschlüsselt das Backup: `openssl rand -base64 32`, ebenfalls an einem zweiten Ort sichern |
 | `RESTIC_REPOSITORY` | optional: Backup auf einem zweiten System statt im Volume `backups`, siehe [Backup und Wiederherstellen](installation-backup.md#backup-und-wiederherstellen) |
-| `BACKUP_TIME`, `RESTORE_CHECK_DAYS`, `BACKUP_HOST`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | optional, siehe [Backup und Wiederherstellen](installation-backup.md#backup-und-wiederherstellen) |
+| `BACKUP_TIME`, `RESTORE_CHECK_DAYS`, `BACKUP_HOST`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `RCLONE_CONFIG` | optional, siehe [Backup und Wiederherstellen](installation-backup.md#backup-und-wiederherstellen) |
 | `ERIC_AUTO_INSTALL`, `ERIC_SHA256`, `ERIC_HOME`, `ELSTER_HERSTELLER_ID`, `ANTHROPIC_API_KEY`, `EXTRACTION_PROVIDER`, `EXTRACTION_BASE_URL`, `EXTRACTION_MODEL`, `EXTRACTION_API_KEY`, `EXTRACTION_TIMEOUT_SECONDS`, `EXTRACTION_MAX_PAGES`, `EXTRACTION_INPUT`, `EXTRACTION_EXTRA_BODY`, `ENABLE_BANKING_APP_ID`, `HABEN_FIRMEN`, `LAYOUTS_MAX_COUNT`, `LAYOUTS_MAX_MB`, `LAYOUTS_PACKAGES_URL`, `ERIC_WORKER_COMMAND` | optional, siehe [Umgebungsvariablen](installation-konfiguration.md#umgebungsvariablen) |
 | `OIDC_ONLY`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_SCOPES`, `OIDC_DISPLAY_NAME`, `OIDC_GROUPS_CLAIM`, `OIDC_GROUP_INHABER`, `OIDC_GROUP_STEUERBERATUNG` | nur für den SSO-Modus, siehe [Single Sign-on mit OpenID Connect](installation-sso.md) |
 
@@ -142,9 +144,9 @@ Die Quadlets betreiben Haben rootless unter systemd: Zugangsdaten als Podman Sec
 ### Dateien ablegen
 
 ```sh
-RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/firsttris/haben/releases/latest)
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)
 TAG=${RELEASE##*/}
-RAW=https://raw.githubusercontent.com/firsttris/haben/$TAG/deploy
+RAW=https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy
 mkdir -p ~/.config/containers/systemd ~/.config/systemd/user ~/.config/haben
 for f in haben.network haben-db.volume haben-belege.volume haben-eric-log.volume haben-eric.volume haben-caddy.volume \
          haben-backups.volume haben-db.container haben-app.container haben-caddy.container haben-backup.container; do
@@ -241,7 +243,7 @@ Lade die Beispiel-Override-Datei mit dem Release-Tag deiner `compose.yml`.
 
 ```sh
 TAG=vx.y.z
-curl -fLO "https://raw.githubusercontent.com/firsttris/haben/$TAG/deploy/compose.override.example.yml"
+curl -fLO "https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy/compose.override.example.yml"
 ```
 
 Übernimm die passenden Einträge in `compose.override.yml`. Gibt es noch keine, kannst du die Beispieldatei unter diesem Namen kopieren. Ersetze `DEIN_PROXY_NETZ` durch das Netz deines Proxy-Containers. Das zeigt:
@@ -407,9 +409,9 @@ Damit du die Instanzen in der Oberfläche auseinanderhältst, gib jeder ein eige
 `deploy/instanzen/haben-instanzen.ts` legt Instanzen an, aktualisiert alle nacheinander und zeigt ihren Stand. Es läuft mit [Bun](https://bun.com) direkt aus einem Checkout des Repositorys, ohne `bun install` und ohne Build, und braucht dazu Docker mit Compose 2.23 oder neuer. Die Vorlagen (`compose.yml`, `compose.env.example`) nimmt es aus `deploy/` im Checkout:
 
 ```sh
-RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/firsttris/haben/releases/latest)
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)
 TAG=${RELEASE##*/}
-git clone --depth 1 --branch "$TAG" https://github.com/firsttris/haben.git ~/haben-werkzeug
+git clone --depth 1 --branch "$TAG" https://github.com/Speicherstadt/haben.git ~/haben-werkzeug
 cd ~/haben-werkzeug
 bun deploy/instanzen/haben-instanzen.ts neu firma1 firma1.example.de
 bun deploy/instanzen/haben-instanzen.ts neu firma2 firma2.example.de
@@ -419,7 +421,7 @@ Um das Werkzeug zu aktualisieren, wechselst du im Checkout zum letzten veröffen
 
 ```sh
 cd ~/haben-werkzeug
-RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/firsttris/haben/releases/latest)
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)
 TAG=${RELEASE##*/}
 git fetch --depth 1 origin "refs/tags/$TAG" && git switch --detach FETCH_HEAD
 ```

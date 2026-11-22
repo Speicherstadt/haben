@@ -42,6 +42,15 @@ export const DURCHLAEUFE = {
   "fints-abruf": 30,
   // Etsy Payments (#1133): nur dieser Server fragt die nachgebaute Etsy-API auf ETSY_PORT
   "etsy-abruf": 32,
+  // Zahlung und Gebühr eines Zahlungsdienstleisters in einer Zeile und in einem Schritt zugeordnet (#1417)
+  "zahlung-gebuehr": 36,
+  "bank-dubletten": 35,
+  // Vorschläge der Bankliste markieren und gemeinsam bestätigen (#1440)
+  "bank-bestaetigen": 37,
+  // PayPal-Umsätze über die Transaction Search (#1512): nur dieser Server fragt die nachgebaute PayPal-API auf PAYPAL_PORT
+  "paypal-abruf": 38,
+  // Stripe (#1280): nur dieser Server fragt die nachgebaute Stripe-API auf STRIPE_PORT
+  "stripe-abruf": 40,
 } as const;
 export type Durchlauf = keyof typeof DURCHLAEUFE;
 
@@ -54,11 +63,17 @@ export const FINTS_BANK_PORT = PORT + 31;
 /** Nachgebaute Etsy-API mit Anmeldung in etsy-abruf.spec.ts (ETSY_API_URL, ETSY_TOKEN_URL, ETSY_AUTH_URL) */
 export const ETSY_PORT = PORT + 33;
 
+/** Nachgebaute Stripe-API in stripe-abruf.spec.ts (STRIPE_API_URL) */
+export const STRIPE_PORT = PORT + 41;
+
 /**
  * Nachgebauter Dienst des BZSt für die Bestätigung von USt-IdNrn. in belege-steuern.spec.ts (EVATR_API_URL, #1385); jeder
  * Server zeigt dorthin, damit kein Test das echte BZSt fragt
  */
 export const EVATR_PORT = PORT + 34;
+
+/** Nachgebaute Transaction Search von PayPal in paypal-abruf.spec.ts (PAYPAL_API_URL) */
+export const PAYPAL_PORT = PORT + 39;
 
 /** Platzhalter für FINTS_PRODUKT_ID im Durchlauf „fints-abruf“; eine echte Registrierungsnummer steht nie im Repository */
 export const FINTS_PRODUKT_E2E = "HABENE2ETESTPRODUKT";

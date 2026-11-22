@@ -1,11 +1,12 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../test-db.ts";
+import { kleinunternehmerStand } from "../modules/auswertungen/test-umsatz-stand.ts";
 
 describe.skipIf(!testDatabaseUrl)("Befehlspalette-Suche nach Rolle (Postgres)", () => {
   let search: typeof import("./search-query.ts");
   let contacts: typeof import("../modules/stammdaten/contacts.ts");
-  let invoices: typeof import("../modules/rechnungen/invoices.ts");
+  let invoices: typeof import("../modules/rechnungen/index.ts");
   let quotes: typeof import("../modules/rechnungen/quotes.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
@@ -14,7 +15,7 @@ describe.skipIf(!testDatabaseUrl)("Befehlspalette-Suche nach Rolle (Postgres)", 
     sql = await setupTestDb();
     search = await import("./search-query.ts");
     contacts = await import("../modules/stammdaten/contacts.ts");
-    invoices = await import("../modules/rechnungen/invoices.ts");
+    invoices = await import("../modules/rechnungen/index.ts");
     quotes = await import("../modules/rechnungen/quotes.ts");
   }, 30_000);
 
@@ -66,7 +67,7 @@ describe.skipIf(!testDatabaseUrl)("Befehlspalette-Suche nach Rolle (Postgres)", 
       note: "",
       lines: [{ description: "Bergblick Entwicklung", quantity: 1000, unit: "Std.", unitPrice: 15000, taxRate: 1900 }],
     });
-    await invoices.finalizeInvoice(actor, finalDraft.id);
+    await invoices.finalizeInvoice(actor, finalDraft.id, kleinunternehmerStand);
 
     const quoteDraft = await quotes.createQuoteDraft(actor, {
       contactId: kunde.id,

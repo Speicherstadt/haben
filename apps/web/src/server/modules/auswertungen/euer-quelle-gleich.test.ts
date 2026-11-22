@@ -2,6 +2,7 @@ import type { EuerLine, EuerResult } from "@haben/core";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "./test-umsatz-stand.ts";
 
 function dkbCsv(rows: string[][]) {
   const header = `"Girokonto";"DE12 1203 0000 1234 5678 90"\n""\n`;
@@ -58,8 +59,8 @@ function kurz(e: EuerResult) {
 describe.skipIf(!testDatabaseUrl)("EÜR aus dem Journal: Kleinunternehmer, Bewirtung, Privatanteil, Anlagen (Postgres)", () => {
   let reports: typeof import("./reports.ts");
   let assets: typeof import("../buchhaltung/assets.ts");
-  let bank: typeof import("../bank/bank.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let bank: typeof import("../bank/index.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let documents: typeof import("../belege/documents.ts");
   let sql: postgres.Sql;
@@ -71,8 +72,8 @@ describe.skipIf(!testDatabaseUrl)("EÜR aus dem Journal: Kleinunternehmer, Bewir
     sql = await setupTestDb();
     reports = await import("./reports.ts");
     assets = await import("../buchhaltung/assets.ts");
-    bank = await import("../bank/bank.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    bank = await import("../bank/index.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     documents = await import("../belege/documents.ts");
   }, 30_000);
@@ -131,7 +132,7 @@ describe.skipIf(!testDatabaseUrl)("EÜR aus dem Journal: Kleinunternehmer, Bewir
       note: "",
       lines: lines.map((l) => ({ description: "Leistung", quantity: 1000, unit: "Psch." as const, unitPrice: l.net, taxRate: l.rate })),
     });
-    return invoices.finalizeInvoice(actor, draft.id);
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
   }
 
   async function bookedDocument(
@@ -218,7 +219,7 @@ describe.skipIf(!testDatabaseUrl)("EÜR aus dem Journal: Kleinunternehmer, Bewir
         taxTreatment: "kleinunternehmer",
         lines: [{ description: "Leistung", quantity: 1000, unit: "Psch." as const, unitPrice: 100_001, taxRate: 0 }],
       } as never);
-      const a = await invoices.finalizeInvoice(actor, draft.id);
+      const a = await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
       const bew = await bookedDocument(
         "2026-03-05",
         [
@@ -314,7 +315,7 @@ describe.skipIf(!testDatabaseUrl)("EÜR aus dem Journal: Kleinunternehmer, Bewir
       taxTreatment: "kleinunternehmer",
       lines: [{ description: "Leistung", quantity: 1000, unit: "Psch." as const, unitPrice: 100_000, taxRate: 0 }],
     } as never);
-    const a = await invoices.finalizeInvoice(actor, draft.id);
+    const a = await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
     const txs = await transactions([eingang("01.03.26", `RE ${a.number}`, "1000,00")]);
     await bank.allocate(actor, { kind: "invoice", transactionId: txs[0]!.id, invoiceId: a.id, amount: 100_000 });
     const [alloc] = await sql<{ id: string }[]>`select id from allocations where invoice_id = ${a.id}`;

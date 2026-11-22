@@ -2,6 +2,7 @@ import { JOURNAL_KENNZAHLEN } from "@haben/core";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /*
  * Stornos im Folgejahr von Buchungen, die noch im Format vor #551 bzw. #552 gebucht sind (Fälle aus Runde 3 des TDD-Reviews
@@ -13,9 +14,9 @@ import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 describe.skipIf(!testDatabaseUrl)("Stornos im Folgejahr von Buchungen im alten Format (Postgres)", () => {
   let figures: typeof import("./vat-figures.ts");
   let vat: typeof import("./vat.ts");
-  let bank: typeof import("../bank/bank.ts");
+  let bank: typeof import("../bank/index.ts");
   let cash: typeof import("../bank/cash-income.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let documents: typeof import("../belege/documents.ts");
   let cancellation: typeof import("../belege/cancellation.ts");
@@ -30,9 +31,9 @@ describe.skipIf(!testDatabaseUrl)("Stornos im Folgejahr von Buchungen im alten F
     sql = await setupTestDb();
     figures = await import("./vat-figures.ts");
     vat = await import("./vat.ts");
-    bank = await import("../bank/bank.ts");
+    bank = await import("../bank/index.ts");
     cash = await import("../bank/cash-income.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     documents = await import("../belege/documents.ts");
     cancellation = await import("../belege/cancellation.ts");
@@ -80,7 +81,7 @@ describe.skipIf(!testDatabaseUrl)("Stornos im Folgejahr von Buchungen im alten F
       lines: lines.map((l, i) => ({ description: `Leistung ${i}`, quantity: 1000, unit: "Psch." as const, unitPrice: l.unitPrice, taxRate: l.taxRate })),
       ...extra,
     } as never);
-    return invoices.finalizeInvoice(actor, draft.id);
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
   }
 
   type Figures = Awaited<ReturnType<typeof figures.computeVatFigures>>;

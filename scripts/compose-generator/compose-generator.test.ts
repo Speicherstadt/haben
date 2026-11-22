@@ -178,9 +178,9 @@ describe("compose.override.yml", () => {
 
   test("Image und Tag für alle Dienste von Haben", () => {
     const override = overrideFile({ ...standard, registry: "ghcr", imageTag: "next" });
-    expect(override).toContain("    image: ghcr.io/firsttris/haben-db:next");
-    expect(override).toContain("    image: ghcr.io/firsttris/haben:next");
-    expect(override.match(/image: ghcr\.io\/firsttris\/haben-backup:next/g)).toHaveLength(2);
+    expect(override).toContain("    image: ghcr.io/speicherstadt/haben-db:next");
+    expect(override).toContain("    image: ghcr.io/speicherstadt/haben:next");
+    expect(override.match(/image: ghcr\.io\/speicherstadt\/haben-backup:next/g)).toHaveLength(2);
     expect(override).not.toContain("caddy:");
   });
 
@@ -218,11 +218,11 @@ test("Generator und manuelle Anleitung haben dieselben Startschritte nach dem Do
     .split("\n")
     .filter((line) => line && !line.startsWith("#"))
     .map((line) =>
-      line === "curl -O https://raw.githubusercontent.com/firsttris/haben/main/deploy/compose.yml"
+      line === "curl -O https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy/compose.yml"
         ? [
-            "RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/firsttris/haben/releases/latest)",
+            "RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)",
             "TAG=${RELEASE##*/}",
-            "RAW=https://raw.githubusercontent.com/firsttris/haben/$TAG/deploy",
+            "RAW=https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy",
             'curl -fLO "$RAW/compose.yml"',
           ].join("\n")
         : line,

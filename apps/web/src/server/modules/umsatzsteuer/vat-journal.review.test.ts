@@ -2,6 +2,7 @@ import { JOURNAL_KENNZAHLEN } from "@haben/core";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 function dkbCsv(rows: string[][]) {
   const header = `"Girokonto";"DE12 1203 0000 1234 5678 90"\n""\n`;
@@ -31,8 +32,8 @@ const incoming = (date: string, purpose: string, amount: string) => [
  */
 describe.skipIf(!testDatabaseUrl)("Voranmeldung aus dem Journal in Sonderfällen (Postgres)", () => {
   let figures: typeof import("./vat-figures.ts");
-  let bank: typeof import("../bank/bank.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let bank: typeof import("../bank/index.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let documents: typeof import("../belege/documents.ts");
   let abgleich: typeof import("../auswertungen/abgleich.ts");
@@ -43,8 +44,8 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung aus dem Journal in Sonderfällen
   beforeAll(async () => {
     sql = await setupTestDb();
     figures = await import("./vat-figures.ts");
-    bank = await import("../bank/bank.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    bank = await import("../bank/index.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     documents = await import("../belege/documents.ts");
     abgleich = await import("../auswertungen/abgleich.ts");
@@ -88,7 +89,7 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung aus dem Journal in Sonderfällen
       exemptionReason: taxTreatment === "steuerfrei" ? "Steuerfrei nach § 4 Nr. 14 UStG" : "",
       lines: lines.map((l, i) => ({ description: `Leistung ${i}`, quantity: 1000, unit: "Psch." as const, unitPrice: l.unitPrice, taxRate: l.taxRate })),
     });
-    return invoices.finalizeInvoice(actor, draft.id);
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
   }
 
   async function rcDocument(date: string, net: number, tax: number, reverseCharge: "eu" | "drittland" | "ig_erwerb", privateShare: number, category?: string) {

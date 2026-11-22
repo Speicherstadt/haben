@@ -36,9 +36,9 @@ dem Host:
 
 ```sh
 mkdir -p /opt/haben && cd /opt/haben
-RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/firsttris/haben/releases/latest)
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)
 TAG=${RELEASE##*/}
-RAW=https://raw.githubusercontent.com/firsttris/haben/$TAG/deploy
+RAW=https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy
 curl -fLO "$RAW/compose.yml"
 curl -fLo .env "$RAW/compose.env.example"
 chmod 600 .env

@@ -1,6 +1,7 @@
 import { type BankAccount, type BankAnswer, type BankingInformation, type ClientResponse, FinTSClient, FinTSConfig, type Statement } from "lib-fints";
 import { bankdatenNichtLoggen } from "./log.ts";
 import { lesefehler, lesefehlerMerken, type UmsatzFormat, umsatzFormat } from "./lesefehler.ts";
+import { gespeichertesSparkassenMediumErgaenzen, synchronisierenMitSparkassenMedium } from "./sparkasse-medium.ts";
 import { mitEingetippterTan } from "./tan-eintippen.ts";
 import { umsatzabrufMitTanSchritt } from "./tan-schritt.ts";
 
@@ -72,10 +73,14 @@ export function fintsClient(produkt: FintsProdukt, zugang: FintsZugang, gespeich
         zugang.benutzer,
         zugang.pin,
         gespeichert.tanVerfahren ?? undefined,
-        gespeichert.tanMedium ?? undefined,
+        undefined,
         kundenId,
       )
     : FinTSConfig.forFirstTimeUse(produkt.id, produkt.version, zugang.url, zugang.blz, zugang.benutzer, zugang.pin, kundenId);
+  if (gespeichert?.tanMedium) {
+    gespeichertesSparkassenMediumErgaenzen(config, gespeichert.tanMedium);
+    config.selectTanMedia(gespeichert.tanMedium);
+  }
   config.debugEnabled = false;
   bankdatenNichtLoggen();
   const client = new FinTSClient(config);
@@ -124,7 +129,7 @@ function bild(photo: ClientResponse["tanPhoto"]): string | undefined {
  * Freigabe in der App nur, wenn die Bank sie so meldet: 3955 „Sicherheitsfreigabe erfolgt über anderen Kanal“, solange sie
  * aussteht 3956 (FinTS 3.0 Sicherheitsverfahren PIN/TAN, Rel. 2020, Kap. B „Abläufe beim Zwei-Schritt-Verfahren“,
  * Decoupled, Schritte 1b und 2b; Rückmeldungscodes der DK). Verlangt sie bei einem entkoppelten Verfahren nur 0030, will sie eine TAN zum
- * Eintippen, so die Consorsbank bei der Anmeldung mit ihrer App (firsttris/haben#654). python-fints entscheidet ebenso
+ * Eintippen, so die Consorsbank bei der Anmeldung mit ihrer App (Speicherstadt/haben#654). python-fints entscheidet ebenso
  * nach dem Code: bei der Dialoginitialisierung wertet es 3955 neben 0030 schon aus (fints/dialog.py), bei Aufträgen
  * (fints/client.py) bringt das erst der offene python-fints#218.
  */
@@ -154,7 +159,7 @@ function antwort<T>(client: FinTSClient, response: ClientResponse, wert: () => T
 export async function fintsSynchronisieren(client: FinTSClient, weiter?: FintsWeiter): Promise<FintsAntwort<BankingInformation>> {
   const response = weiter
     ? await mitEingetippterTan(client, weiter.tan, () => client.synchronizeWithTan(weiter.referenz, weiter.tan))
-    : await client.synchronize();
+    : await synchronisierenMitSparkassenMedium(client);
   return antwort(client, response, () => client.config.bankingInformation);
 }
 
