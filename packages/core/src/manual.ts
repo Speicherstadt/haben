@@ -206,7 +206,7 @@ export function manualPostingIssues(
     lines.some(({ account }) => account === ACCOUNTS[kontenrahmen].bank || /^900\d$/.test(account))
   ) {
     issues.push(
-      "Im Einzelunternehmen braucht der Bank-Anfangsbestand keine Buchung. Die EÜR erfasst Betriebseinnahmen und Betriebsausgaben. Den Kontostand aus dem Kontoauszug findest du unter Bank.",
+      "Im Einzelunternehmen braucht der Bank-Anfangsbestand keine Buchung. Die EÜR erfasst Betriebseinnahmen und Betriebsausgaben. Den Kontostand aus dem Kontoauszug findest du unter Bank",
     );
   }
   return issues;

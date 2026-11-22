@@ -84,7 +84,7 @@ describe("manuelle Buchung", () => {
     const lines = [line("9000", 100, 0), line(bank, 0, 100)];
     const bisher = [`Zeile 1: Konto 9000 ist ein Vortrags- oder statistisches Konto`, `Zeile 2: Konto ${bank} führt das Nebenbuch Bank`];
     const hinweis =
-      "Im Einzelunternehmen braucht der Bank-Anfangsbestand keine Buchung. Die EÜR erfasst Betriebseinnahmen und Betriebsausgaben. Den Kontostand aus dem Kontoauszug findest du unter Bank.";
+      "Im Einzelunternehmen braucht der Bank-Anfangsbestand keine Buchung. Die EÜR erfasst Betriebseinnahmen und Betriebsausgaben. Den Kontostand aus dem Kontoauszug findest du unter Bank";
     expect(manualPostingIssues(lines, kr, "einzelunternehmen")).toEqual([...bisher, hinweis]);
     expect(manualPostingIssues(lines, kr, "gmbh")).toEqual(bisher);
     expect(manualPostingIssues(lines, kr, "ug")).toEqual(bisher);
