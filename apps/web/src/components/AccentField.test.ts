@@ -14,10 +14,6 @@ describe("hexAusEingabe", () => {
     expect(hexAusEingabe("  #1D4E89 ")).toBe("#1D4E89");
   });
 
-  it("lässt einen eingefügten Wert mit Leerzeichen ganz stehen, damit trim() ihn noch retten kann", () => {
-    expect(html("#123456")).not.toMatch(/<input[^>]*value="#123456"[^>]*maxlength/i);
-  });
-
   it("ergänzt das fehlende #, wie es beim Kopieren aus anderen Programmen oft fehlt", () => {
     expect(hexAusEingabe("000000")).toBe("#000000");
   });
@@ -48,6 +44,14 @@ describe("AccentField", () => {
     const id = /<label[^>]*for="([^"]+)"[^>]*>Hex-Wert<\/label>/.exec(markup)?.[1];
     expect(id).toBeTruthy();
     expect(markup).toMatch(new RegExp(`<input[^>]*id="${id}"[^>]*value="#123456"`));
+  });
+
+  it("begrenzt das Feld nicht auf 7 Zeichen, damit ein eingefügter Wert mit Leerzeichen ganz ankommt und trim() ihn liest", () => {
+    expect(html("#123456")).not.toMatch(/maxlength/i);
+  });
+
+  it("öffnet den Farbwähler mit „Farbe des Layouts“ auf der Farbe des Layouts, wie das Feld Hex-Wert", () => {
+    expect(html("#1F6F5C", true, "#B5862A")).toMatch(/<input[^>]*type="color"[^>]*value="#b5862a"/);
   });
 
   it("zeigt mit „Farbe des Layouts“ die Farbe, die auf den Belegen steht, nicht die gespeicherte eigene", () => {
