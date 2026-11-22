@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import nodemailer from "nodemailer";
 import postgres from "postgres";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { testDatabaseUrl, workerDocumentsDir } from "../../test-db.ts";
 
 const MIGRATIONS = fileURLToPath(new URL("../../../../drizzle", import.meta.url));
@@ -139,5 +139,20 @@ describe.skipIf(!testDatabaseUrl)("Abgebrochene Prüfung von Kette und Siegeln (
     expect(sent[2]!.text).toContain("Die Prüfung ist fehlgeschlagen: Abgleich nicht lesbar.");
     // Der Prüfwert steht trotzdem in der Mail
     expect(sent[2]!.text).toContain(`Nr. ${head!.seq} · ${head!.hash}`);
+  }, 60_000);
+
+  it("scheitert die Prüfung ganz, steht der Fehler im Log, auf das die Mail verweist", async () => {
+    const fehler = new Error("Abgleich nicht lesbar");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await pruefwertMail.runDuePruefwertMail(at(25), async () => {
+        throw fehler;
+      });
+      expect(sent).toHaveLength(4);
+      expect(sent[3]!.text).toContain("Bitte im Log von Haben nachsehen.");
+      expect(log.mock.calls.some((args) => args.includes(fehler))).toBe(true);
+    } finally {
+      log.mockRestore();
+    }
   }, 60_000);
 });
