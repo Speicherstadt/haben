@@ -244,11 +244,21 @@ eigene Werkzeuge und Automationen gibt es die [REST-API](https://haben.app/api.h
 <details>
 <summary><b>Ist das sicher?</b></summary>
 
-Ein unabhängiges Audit gibt es bisher nicht, aber der Code ist offen. Wir prüfen automatisiert mit Cloudflares
-[Security Audit Skill](https://github.com/cloudflare/security-audit-skill) und `/security-review` von Claude Code.
-Zugangsdaten liegen verschlüsselt in der Datenbank, ERiC läuft getrennt vom App-Prozess, und Haben kommt mit gut zwanzig
-direkten Paketen zur Laufzeit aus, die Renovate aktuell hält. Lücken bitte vertraulich melden, wie in
-[SECURITY.md](SECURITY.md) beschrieben.
+Wir prüfen automatisiert, und du kannst es auch: Der Code ist offen. Ein unabhängiges Audit gibt es bisher nicht.
+
+- **Automatisiert geprüft:** mit Cloudflares [Security Audit Skill](https://github.com/cloudflare/security-audit-skill) und
+  `/security-review` von Claude Code. Lass deinen Agenten gern selbst über dieses Repository laufen.
+- **Abgesichert:** Zugangsdaten verschlüsselt in der Datenbank, ERiC getrennt vom App-Prozess, Rollen für Inhaber und
+  Steuerberatung, Festschreibung per Datenbank-Trigger, Änderungsprotokoll als Hashkette.
+- **Wenige Abhängigkeiten:** Rechnungen mit E-Rechnung, Bank, Steuern über ELSTER, Lohn, GmbH, Anmeldung mit Passkey
+  und SSO, E-Mail und KI kommen mit gut zwanzig direkten Paketen zur Laufzeit aus, ohne Komponentenbibliothek, mit
+  schlichtem CSS. Was mit wenigen Zeilen eigenem Code geht, holt Haben nicht als Paket dazu: Jedes Paket weniger ist
+  eine mögliche Lücke und ein Update weniger.
+- **Aktuell gehalten:** Renovate bringt Updates der Abhängigkeiten als Pull Request durch die CI; bekannte Lücken
+  (Dependabot-Warnungen und OSV-Datenbank) behebt es außerhalb des Zeitplans, siehe
+  [SECURITY.md](SECURITY.md#abhängigkeiten-aktuell-halten).
+- **Offen für alle:** Jeder kann den Code lesen und Lücken melden, bitte vertraulich wie in [SECURITY.md](SECURITY.md)
+  beschrieben.
 </details>
 
 <details>
