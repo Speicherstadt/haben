@@ -11,10 +11,10 @@ export const weitereText = (weitere: number) => (weitere === 0 ? "" : ` (und ${w
 /** Ein Befund als Zeile: „Beleg hosting.pdf: fehlt“ */
 export const dateiBefund = (p: FileProblem) => `${p.art} ${p.datei}: ${p.befund}${weitereText(p.weitere)}`;
 
-/** Meldung nach „Kette prüfen“ oder „Dateien prüfen“: Befunde zuerst, Abweichungen immer dazu, dann Kollisionen */
 /** Anfang des Befunds, wenn haben_integrity_problems abbricht (auswertungen/integrity.ts, #1604, #1716) */
 export const PRUEFUNG_ABGEBROCHEN = "Prüfung von Kette und Siegeln abgebrochen";
 
+/** Meldung nach „Kette prüfen“ oder „Dateien prüfen“: Befunde zuerst, Abweichungen immer dazu, dann Kollisionen */
 export function integrityNotice(result: IntegrityReport): NonNullable<Notice> {
   const differences = result.abgleich.abweichungen.length;
   const collisions = result.accountCollisions.length;
