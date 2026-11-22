@@ -72,14 +72,9 @@ function trenntAndere(connections: readonly Verbindung[], busy: string | null, a
   return c ? `die Verbindung zu ${nameImGrund(c, connections)} getrennt ist` : null;
 }
 
-/**
- * Gesperrte Knöpfe einer Zeile, „Trennen“ nur mit trennen; „Zugang ändern“ hat nur eine Verbindung mit Fehler. Ohne
- * FINTS_PRODUKT_ID (configured) gibt es an der Zeile nur „Trennen“
- */
-const knoepfe = (c: Verbindung, trennen: boolean, configured: boolean) => [
-  ...(trennen ? ["Trennen"] : []),
-  ...(configured ? [...(c.status === "fehler" ? ["Zugang ändern"] : []), "Jetzt abrufen"] : []),
-];
+/** Gesperrte Knöpfe einer Zeile, „Trennen“ nur mit trennen; „Zugang ändern“ nur bei Fehler; ohne FINTS_PRODUKT_ID nur „Trennen“ */
+const knoepfe = (c: Verbindung, trennen: boolean, configured: boolean) =>
+  [...(trennen ? ["Trennen"] : []), ...(c.status === "fehler" ? ["Zugang ändern"] : []), "Jetzt abrufen"].filter((k) => configured || k === "Trennen");
 
 function sperrSatz(namen: string[], sobald: string): string {
   const liste = new Intl.ListFormat("de").format(namen.map((k) => `„${k}“`));
