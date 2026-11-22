@@ -5,7 +5,8 @@ import { AccentField, hexAusEingabe } from "./AccentField.tsx";
 
 /* Farbe in der Spalte Gestaltung (#1674): Schwarz als Vorschlag, Hex-Wert direkt eingeben */
 
-const html = (accent: string, fromLayout = false) => renderToStaticMarkup(createElement(() => AccentField({ accent, fromLayout, onChange: () => {} })));
+const html = (accent: string, fromLayout = false, layoutAccent?: string) =>
+  renderToStaticMarkup(createElement(() => AccentField({ accent, fromLayout, layoutAccent, onChange: () => {} })));
 
 describe("hexAusEingabe", () => {
   it("nimmt #RRGGBB in jeder Schreibweise und gibt Großbuchstaben zurück", () => {
@@ -40,6 +41,11 @@ describe("AccentField", () => {
     const id = /<label[^>]*for="([^"]+)"[^>]*>Hex-Wert<\/label>/.exec(markup)?.[1];
     expect(id).toBeTruthy();
     expect(markup).toMatch(new RegExp(`<input[^>]*id="${id}"[^>]*value="#123456"`));
+  });
+
+  it("zeigt mit „Farbe des Layouts“ die Farbe, die auf den Belegen steht, nicht die gespeicherte eigene", () => {
+    const markup = html("#1F6F5C", true, "#B5862A");
+    expect(markup).toMatch(/<input[^>]*class="mono"[^>]*value="#B5862A"/);
   });
 });
 
