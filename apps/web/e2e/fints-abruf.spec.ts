@@ -137,6 +137,36 @@ test("„Jetzt abrufen“ fragt die TAN ab, wenn die Bank sie verlangt", async (
   await expect(page.getByText("RE-2026-0050").first()).toBeVisible();
 });
 
+test("„Über FinTS verbinden“ öffnet nach zugeklapptem „Zugang ändern“ ein leeres Formular", async () => {
+  const sql = postgres(databaseUrlFuer("fints-abruf"), { max: 1, onnotice: () => {} });
+  try {
+    await sql`update fints_connections set status = 'fehler', last_error = 'Abruf fehlgeschlagen: PIN ungültig. (9942)'`;
+  } finally {
+    await sql.end();
+  }
+  await gehe(page, "/bank");
+  const form = page.getByRole("form", { name: "Über FinTS verbinden" });
+  const oeffnen = () => abruf().getByRole("button", { name: "Über FinTS verbinden" }).click();
+  await abruf().getByRole("button", { name: "Zugang ändern" }).click();
+  await expect(form.getByLabel("Bankleitzahl")).toHaveValue("12030000");
+  await oeffnen();
+  await expect(form).toHaveCount(0);
+  await oeffnen();
+  await expect(form.getByLabel("Bankleitzahl")).toHaveValue("");
+  await expect(form.getByLabel("FinTS-Adresse der Bank")).toHaveValue("");
+  await expect(form.getByLabel("Anmeldename")).toHaveValue("");
+  await form.getByRole("button", { name: "Abbrechen" }).click();
+
+  // „Zugang ändern“ füllt das Formular weiter mit den Angaben der Verbindung, nur die PIN fehlt
+  await abruf().getByRole("button", { name: "Zugang ändern" }).click();
+  await expect(form.getByLabel("Bankleitzahl")).toHaveValue("12030000");
+  await expect(form.getByLabel("FinTS-Adresse der Bank")).toHaveValue(bank.url);
+  await expect(form.getByLabel("Anmeldename")).toHaveValue("max");
+  await expect(form.getByLabel("PIN")).toHaveValue("");
+  await oeffnen();
+  await expect(form).toHaveCount(0);
+});
+
 test("nach einer abgelehnten PIN den Zugang ändern", async () => {
   // Wie nach einer neuen PIN bei der Bank: der Abruf im Hintergrund hat aufgehört, die Verbindung steht auf „Fehler“
   const sql = postgres(databaseUrlFuer("fints-abruf"), { max: 1, onnotice: () => {} });

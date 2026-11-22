@@ -55,7 +55,7 @@ import { getExportArea } from "../../server/functions/export.ts";
 import { getNumbering } from "../../server/functions/invoices.ts";
 import { getInbox } from "../../server/functions/inbox.ts";
 import { getAppVersions, getChainHead, getDatabaseAccessInfo } from "../../server/functions/integrity.ts";
-import { getBackground, getLetterheadDesign, getLogo } from "../../server/functions/logo.ts";
+import { getBackground, getFooterPreview, getLetterheadDesign, getLogo } from "../../server/functions/logo.ts";
 import { getMailSettings } from "../../server/functions/mail.ts";
 import { getMcpSettings } from "../../server/functions/mcp.ts";
 import { getZugaenge } from "../../server/functions/zugang.ts";
@@ -82,6 +82,18 @@ async function loadBankConnections() {
   return { enableBanking, stores, etsy, paypal, stripe };
 }
 
+/** Beleggestaltung: Logo, Briefpapier, Gestaltung, Layouts und Vorschau der Fußzeile */
+async function loadGestaltung() {
+  const [logo, background, design, overview, footerPreview] = await Promise.all([
+    getLogo(),
+    getBackground(),
+    getLetterheadDesign(),
+    getLayouts(),
+    getFooterPreview(),
+  ]);
+  return { logo, background, design, layouts: overview.layouts, layoutHints: overview.hints, footerPreview };
+}
+
 export const Route = createFileRoute("/_app/einstellungen")({
   beforeLoad: ({ context, search }) => {
     if (context.oidc.only && search.bereich === "sicherheit") throw redirect({ to: "/einstellungen", search: { bereich: "zugaenge" }, replace: true });
@@ -94,10 +106,7 @@ export const Route = createFileRoute("/_app/einstellungen")({
       numbering,
       eric,
       mail,
-      logo,
-      background,
-      design,
-      overview,
+      gestaltung,
       inbox,
       exportArea,
       chainHead,
@@ -119,10 +128,7 @@ export const Route = createFileRoute("/_app/einstellungen")({
       getNumbering(),
       getEricStatus(),
       getMailSettings(),
-      getLogo(),
-      getBackground(),
-      getLetterheadDesign(),
-      getLayouts(),
+      loadGestaltung(),
       getInbox(),
       getExportArea(),
       getChainHead(),
@@ -146,11 +152,7 @@ export const Route = createFileRoute("/_app/einstellungen")({
       numbering,
       eric,
       mail,
-      logo,
-      background,
-      design,
-      layouts: overview.layouts,
-      layoutHints: overview.hints,
+      ...gestaltung,
       inbox,
       ...exportArea,
       chainHead,
@@ -205,6 +207,7 @@ function SettingsPage() {
     quoteDefaultAttachments,
     ownAccounts,
     units,
+    footerPreview,
     ablage,
     neueInstanz,
   } = Route.useLoaderData();
@@ -255,7 +258,7 @@ function SettingsPage() {
               <LetterheadOptionsCard design={design} logo={logo?.sha256 ?? null} hints={layoutHints} />
               <LetterheadBackgroundCard design={design} background={background?.sha256 ?? null} hints={layoutHints} />
               <AccentColorCard color={design.accent} fromLayout={design.accentFromLayout} hint={layoutHints.accent} />
-              <FooterCard columns={design.footerColumns} seller={company} hidden={design.footerHidden && background !== null} />
+              <FooterCard design={design} seller={company} preview={footerPreview} hints={layoutHints} hidden={design.footerHidden && background !== null} />
               <LayoutsCard design={design} layouts={layouts} />
             </>
           )}

@@ -118,6 +118,11 @@ export interface Letterhead {
    * aus dem Render-Prozess (withCustomLayout in apps/web).
    */
   pdfFrom?: (request: PdfRequest) => Uint8Array | undefined;
+  /**
+   * Eigenes Layout, das look.legalPosition nicht kennt (kenntPflichtangabenFelder): Die Pflichtangaben
+   * kommen nur über legal, ihre Platzhalter in der Fußzeile bleiben leer (#1651).
+   */
+  legalFieldOnly?: boolean;
 }
 
 /** Was eine Vorlage zum Setzen bekommt; data ist schon mit dem Briefkopf ergänzt (templateInputs) */

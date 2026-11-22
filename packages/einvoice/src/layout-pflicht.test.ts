@@ -51,6 +51,13 @@ describe("Prüfung der Pflichtangaben", () => {
     expect(fehlendeAngaben(rechnung, [ohne]).join()).toContain("Gesamtbetrag");
   });
 
+  it("verlangt die Pflichtangaben der GmbH auch aus der Fußzeile, wenn ihre Platzhalter dort stehen (#1651)", () => {
+    const mit = layoutBeispiele().find((b) => b.name === "Rechnung mit den Pflichtangaben der GmbH in der Fußzeile")!;
+    const text = JSON.stringify(mit.data);
+    expect(fehlendeAngaben(mit, [text])).toEqual([]);
+    expect(fehlendeAngaben(mit, [text.replaceAll("HRB 123456 B", "")]).join()).toContain("Pflichtangaben der GmbH in der Fußzeile");
+  });
+
   it("verlangt die vollständige Anschrift des Ausstellers, nicht nur den Namen (§ 14 Abs. 4 Nr. 1 UStG)", () => {
     const ohne = voll.replaceAll("Lindenstraße 12", "").replaceAll("10969 Berlin", "");
     expect(fehlendeAngaben(rechnung, [ohne]).join()).toContain("Anschrift des Absenders");

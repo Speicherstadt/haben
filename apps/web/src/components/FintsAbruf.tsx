@@ -265,10 +265,7 @@ export function FintsAbruf({
     // alten Zeile fände sie nicht mehr. Ohne sync endete invalidate schon mit den alten Daten und lüde im Hintergrund nach
     await router.invalidate({ sync: true });
     setOffen(null);
-    if (fuer === "neu") {
-      setVerbinden(false);
-      setVorlage(null);
-    }
+    if (fuer === "neu") setVerbinden(false);
     setMeldungen(meldungenAus(s));
   }
 
@@ -286,7 +283,6 @@ export function FintsAbruf({
 
   const schliessen = () => {
     setVerbinden(false);
-    setVorlage(null);
     setOffen(null);
   };
 
@@ -294,10 +290,13 @@ export function FintsAbruf({
   // Erst neu laden, dann schließen; solange ein Schritt offen ist, sind die Knöpfe an den Zeilen gesperrt
   const schrittAbbrechen = () => void router.invalidate({ sync: true }).then(schliessen);
 
-  // Klappt „Über FinTS verbinden“ oben das Formular zu, während die Bank beim Verbinden auf einen Schritt wartet, gilt das
-  // wie „Abbrechen“; sonst blieben die Knöpfe an den Zeilen gesperrt, ohne dass ein Schritt zu sehen ist
+  // Jedes Zuklappen des Formulars setzt hier die Vorlage zurück, auch oben über „Über FinTS verbinden“: Nach „Zugang ändern“
+  // öffnet der Knopf danach ein leeres Formular. Wartet die Bank beim Verbinden auf einen Schritt, gilt das Zuklappen oben
+  // wie „Abbrechen“ und verwirft den Vorgang; sonst blieben die Knöpfe an den Zeilen gesperrt, ohne dass ein Schritt zu
+  // sehen ist
   // biome-ignore lint/correctness/useExhaustiveDependencies: nur, wenn das Formular zuklappt oder ein Schritt kommt
   useEffect(() => {
+    if (!verbinden) setVorlage(null);
     if (verbinden || offen?.fuer !== "neu") return;
     void verwerfen({ data: offen.schritt.vorgang }).catch(() => undefined);
     schrittAbbrechen();
