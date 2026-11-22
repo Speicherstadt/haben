@@ -1,6 +1,6 @@
-import { createElement } from "react";
+import { createElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AccentField, hexAusEingabe } from "./AccentField.tsx";
 
 /* Farbe in der Spalte Gestaltung (#1674): Schwarz als Vorschlag, Hex-Wert direkt eingeben */
@@ -40,5 +40,29 @@ describe("AccentField", () => {
     const id = /<label[^>]*for="([^"]+)"[^>]*>Hex-Wert<\/label>/.exec(markup)?.[1];
     expect(id).toBeTruthy();
     expect(markup).toMatch(new RegExp(`<input[^>]*id="${id}"[^>]*value="#123456"`));
+  });
+});
+
+/** Alle Elemente des Baums, den AccentField zurückgibt, ohne ihn zu rendern */
+function elemente(node: ReactNode): ReactElement<Record<string, unknown>>[] {
+  if (!node || typeof node !== "object" || !("props" in node)) return [];
+  const el = node as ReactElement<{ children?: ReactNode }>;
+  return [el as ReactElement<Record<string, unknown>>, ...[el.props.children].flat(Infinity).flatMap((kind) => elemente(kind as ReactNode))];
+}
+
+describe("AccentField: Eingabe im Feld Hex-Wert", () => {
+  it("schaltet „Farbe des Layouts“ aus, auch wenn der Wert der gespeicherten eigenen Farbe gleicht (Codex-Review #1687)", () => {
+    const onChange = vi.fn();
+    let baum: ReactNode;
+    renderToStaticMarkup(
+      createElement(() => {
+        baum = AccentField({ accent: "#1f6f5c", fromLayout: true, layoutAccent: "#B5862A", onChange });
+        return baum as ReactElement;
+      }),
+    );
+    const feld = elemente(baum).find((el) => el.props.label === "Hex-Wert")!;
+    const eingabe = (feld.props.children as (control: object) => ReactElement<{ onChange: (event: object) => void }>)({});
+    eingabe.props.onChange({ target: { value: "#1F6F5C" } });
+    expect(onChange).toHaveBeenCalledWith({ accent: "#1F6F5C", accentFromLayout: false });
   });
 });
