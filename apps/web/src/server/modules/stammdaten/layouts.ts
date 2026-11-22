@@ -295,12 +295,9 @@ async function removeLayout(actor: string, id: string): Promise<void> {
   });
   // Erst nach der Transaktion: Lehnt die Prüfung der Fußzeile das Löschen ab, bleiben Renderer und Pakete stehen. Scheitert
   // das Aufräumen, ist das Layout trotzdem gelöscht; ein übrig gebliebener Cache gehört zu keinem Layout mehr
-  try {
-    await dropRenderer(id);
-    await clearPackages(id);
-  } catch (error) {
-    console.warn(`Layout ${id} gelöscht, Paket-Cache nicht entfernt: ${error instanceof Error ? error.message : String(error)}`);
-  }
+  const warnen = (was: string) => (error: unknown) => console.warn(`Layout ${id} gelöscht, ${was}: ${error instanceof Error ? error.message : String(error)}`);
+  await dropRenderer(id).catch(warnen("Render-Prozess nicht beendet"));
+  await clearPackages(id).catch(warnen("Paket-Cache nicht entfernt"));
 }
 
 /** Art eines eigenen Layouts (Mahnung oder Beleg); null = eingebaut. Ein unbekanntes eingebautes oder gelöschtes eigenes wirft */

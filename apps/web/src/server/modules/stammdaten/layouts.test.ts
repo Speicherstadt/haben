@@ -1,15 +1,28 @@
 import { LAYOUT_DOCUMENT_TYPES } from "@haben/core";
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dunningAmounts } from "@haben/core";
 import { buildDeliveryNotePdf, buildDunningPdf, buildEInvoice, LAYOUT_PFLICHTFELDER, startvorlage } from "@haben/einvoice";
 import type postgres from "postgres";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { gmbhSeller, sampleBuyer, sampleDocument, sampleSeller } from "../../../../../../packages/einvoice/src/samples.ts";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 import { fakeUniverse, paketArchiv, tarEintrag } from "./test-paket.ts";
+
+// Ein Fehler beim Aufräumen des Paket-Caches, unabhängig von Dateirechten (als root wirkte chmod nicht)
+const aufraeumen = vi.hoisted(() => ({ scheitert: false }));
+vi.mock("./layout-pakete.ts", async (importOriginal) => {
+  const echt = await importOriginal<typeof import("./layout-pakete.ts")>();
+  return {
+    ...echt,
+    clearPackages: async (id: string) => {
+      if (aufraeumen.scheitert) throw Object.assign(new Error("EACCES: permission denied, rm"), { code: "EACCES" });
+      return echt.clearPackages(id);
+    },
+  };
+});
 
 const hasPoppler = spawnSync("pdftotext", ["-v"]).status === 0;
 
@@ -379,15 +392,17 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
   it("ein Fehler beim Aufräumen nach dem Löschen meldet das Löschen nicht als gescheitert (#1651)", async () => {
     const { id } = await anlegen({ name: "Mit Paket", art: "beleg", source: mitPaket, approve: ["@preview/demo:0.1.0"] }, { fetch: universum() });
     await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id });
-    // Ohne Schreibrecht im Ordner des Layouts lässt sich der Paket-Cache nicht entfernen (EACCES)
-    const ordner = join(process.env.DOCUMENTS_DIR!, "vorlagen", id);
-    chmodSync(ordner, 0o555);
+    const warnung = vi.spyOn(console, "warn").mockImplementation(() => {});
+    aufraeumen.scheitert = true;
     try {
       await layouts.deleteLayout(actor, id);
     } finally {
-      chmodSync(ordner, 0o755);
+      aufraeumen.scheitert = false;
     }
+    const meldungen = warnung.mock.calls.map(([text]) => String(text));
+    warnung.mockRestore();
     expect((await letterhead.loadDesign()).layouts.rechnung).toEqual({ kind: "eingebaut", id: "klar" });
+    expect(meldungen.some((text) => text.includes("Paket-Cache nicht entfernt"))).toBe(true);
   }, 60_000);
 
   it("Pflichtangaben der GmbH: ein Layout ohne die neuen Felder bekommt sie einmal über legal, eines mit über die Platzhalter (#1651)", async () => {
