@@ -24,7 +24,7 @@ export type FieldKey =
 type Ustva = ReturnType<typeof computeUstva>;
 
 /** Was jede Zeile der Tabelle zum Eintragen und zum Aufklappen der Buchungen braucht */
-export type KzEingabe = {
+type KzEingabe = {
   locked: boolean;
   editable: boolean;
   values: Record<FieldKey, string>;
@@ -190,7 +190,7 @@ export function KennzahlenTabelle({ data, shown, computed, eingabe }: Omit<TeilP
           {!locked && openSources === row.kz && <SourcesTable id={`kz-${row.kz}-quellen`} kind="inputTax" rows={row.sources} />}
         </div>
       ))}
-      <VorsteuerZeilen data={data} zeilen={zeilen} shown={shown} computed={computed} eingabe={eingabe} />
+      <BezugsZeilen data={data} zeilen={zeilen} shown={shown} computed={computed} eingabe={eingabe} />
       <WeitereZeilen data={data} zeilen={zeilen} shown={shown} computed={computed} eingabe={eingabe} />
       <div className="kz-row total">
         <div className="kz-num">83</div>
@@ -202,8 +202,8 @@ export function KennzahlenTabelle({ data, shown, computed, eingabe }: Omit<TeilP
   );
 }
 
-/** Vorsteuer (Kz 66) und § 13b als Leistungsempfänger (Kz 46/47, 84/85) */
-function VorsteuerZeilen({ data, zeilen, shown, eingabe }: TeilProps) {
+/** Bezogene Leistungen: Vorsteuer aus Rechnungen (Kz 66) und § 13b als Leistungsempfänger (Kz 46/47, 84/85) */
+function BezugsZeilen({ data, zeilen, shown, eingabe }: TeilProps) {
   const { rcRows } = zeilen;
   const { locked, editable, values, parsed, update, openSources, toggleSources } = eingabe;
   return (

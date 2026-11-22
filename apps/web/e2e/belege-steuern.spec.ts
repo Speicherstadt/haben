@@ -2599,7 +2599,7 @@ test("Voranmeldung außerhalb von Haben abgegeben: Abgabe vermerken, Zahllast im
   await expect(page.getByRole("region", { name: "Zahlung an das Finanzamt" })).toContainText("Lastschrift 190,00");
 });
 
-test("Voranmeldung von Hand: jede Kennzahl lässt sich eintragen, ein ungültiger Betrag sperrt das Speichern", async () => {
+test("Voranmeldung von Hand: alle angebotenen Kennzahlen eintragen, ein ungültiger Betrag sperrt das Speichern", async () => {
   // Mai vor dem Vorjahr: ohne Buchungen und ohne Anmeldung. Der Entwurf wird am Ende gelöscht, damit spätere Tests den
   // Monat leer vorfinden
   const year = YEAR - 2;
@@ -2628,7 +2628,7 @@ test("Voranmeldung von Hand: jede Kennzahl lässt sich eintragen, ein ungültige
     ];
     for (const [label, wert] of werte) await formular.getByLabel(label, { exact: true }).fill(wert);
     // Steuer zu 81, 86, 89 und 93 sowie Kz 47 und 85, abzüglich der Vorsteuer in Kz 66, 67 und 61
-    await expect(formular.locator(".kz-row.total")).toContainText("174,00");
+    await expect(formular.locator(".kz-row.total .kz-amount")).toHaveText(/^174,00/);
     const speichern = formular.getByRole("button", { name: "Entwurf speichern" });
     await expect(speichern).toBeDisabled();
     await formular.getByLabel("Begründung der Abweichung (Pflicht)").fill("Werte aus der alten Buchhaltung übernommen");
@@ -2649,7 +2649,7 @@ test("Voranmeldung von Hand: jede Kennzahl lässt sich eintragen, ein ungültige
     await formular.getByRole("button", { name: "Aus Buchungen berechnet" }).click();
     await expect(page.locator("#kz-81")).toHaveText(/^0,00/);
     await expect(formular.getByLabel("Begründung der Abweichung (Pflicht)")).toHaveCount(0);
-    await expect(formular.locator(".kz-row.total")).toContainText("0,00");
+    await expect(formular.locator(".kz-row.total .kz-amount")).toHaveText(/^0,00/);
   } finally {
     await sql.begin(async (tx) => {
       await tx`select set_config('haben.actor', 'e2e-test', true)`;
