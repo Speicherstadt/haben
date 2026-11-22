@@ -111,7 +111,7 @@ Der Server prüft kurz nach dem Start und danach stündlich, ob ein Termin fäll
 
 - **Ein Beleg „Zu prüfen“**, nicht gebucht: mit Lieferant, Vertragsnummer, Belegdatum (Termin), Fälligkeit, Kategorie, Bezahlung und den Beträgen der Vorlage. In der Liste steht er mit „Dauerbeleg“, auf seiner Seite mit einem Link zur Vorlage. Du prüfst ihn und buchst ihn wie jeden anderen Beleg mit **Bestätigen und buchen** oder im Bankabgleich mit **Buchen und zuordnen**. Ab dem Buchen ist er gesperrt und versiegelt.
 - **Der Vertrag als Datei des Belegs.** Bei Miete ersetzt der Mietvertrag die monatliche Rechnung; die GoBD verlangen zu jeder Buchung einen Beleg. Jeder Beleg nutzt die Datei, die bei seinem Anlegen an der Vorlage hing, unter ihrem SHA-256; die Notiz am Beleg nennt Dateiname und Prüfsumme. Im [Jahresarchiv](auswertungen.md) liegt sie bei jedem Beleg.
-- **Je Monat höchstens ein Beleg je Vorlage**, auch nach einem Neustart, bei zwei gleichzeitigen Läufen oder wenn du den nächsten Termin auf einen anderen Tag im selben Monat zurücksetzt (eindeutiger Index auf Vorlage und Periode). Bei Wochen gilt das je Termin.
+- **Je Periode höchstens ein Beleg je Vorlage** (eindeutiger Index auf Vorlage und Periode), auch nach einem Neustart oder bei zwei gleichzeitigen Läufen. Bei Monaten ist die Periode der Monat, auch wenn du den nächsten Termin auf einen anderen Tag im selben Monat zurücksetzt; bei Wochen der Termin.
 
 Einen ungebuchten Beleg aus einem Dauerbeleg kannst du [löschen](#löschen), etwa für einen mietfreien Monat; Haben legt ihn nicht neu an. Die Datei bleibt, solange die Vorlage sie nutzt.
 
