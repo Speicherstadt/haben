@@ -8,7 +8,7 @@ import {
   type EuerHerkunft,
   type Kontenrahmen,
 } from "@haben/core";
-import type { schema, Db, Tx } from "../../db/index.ts";
+import type { Db, Tx } from "../../db/index.ts";
 import { type Buchung, offenerPosten, type Verrechnung as RechnungsVerrechnung, type Zeile } from "./euer-journal-buchungen.ts";
 import { belegTeilzahlung, uebernommeneZeilen, type BelegNebenbuch } from "./euer-journal-nebenbuch.ts";
 import { offenerSaldo as offen, rechnungsAnteile } from "./euer-journal-anteile.ts";
@@ -28,7 +28,6 @@ export interface Ziel {
   invoiceId: string | null;
   documentId: string | null;
   loanId?: string | null;
-  zahlung?: Pick<typeof schema.allocations.$inferSelect, "amount" | "taxShares" | "taxSharesInvoiceId">;
 }
 
 /**

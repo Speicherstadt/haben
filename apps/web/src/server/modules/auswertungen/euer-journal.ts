@@ -32,23 +32,11 @@ async function ziele(q: Db | Tx, ids: string[]): Promise<Map<string, Ziel>> {
   const a = schema.allocations;
   const w = schema.writeOffs;
   const c = schema.cashEntries;
-  const zahlungsfelder = (t: typeof a | typeof c) => ({
-    id: t.id,
-    invoiceId: t.invoiceId,
-    documentId: t.documentId,
-    amount: t.amount,
-    taxShares: t.taxShares,
-    taxSharesInvoiceId: t.taxSharesInvoiceId,
-  });
   for (const block of bloecke(ids)) {
-    for (const { id, invoiceId, documentId, loanId, ...zahlung } of await q
-      .select({ ...zahlungsfelder(a), loanId: a.loanId })
-      .from(a)
-      .where(inArray(a.id, block)))
-      result.set(id, { invoiceId, documentId, loanId, zahlung });
+    for (const r of await q.select({ id: a.id, invoiceId: a.invoiceId, documentId: a.documentId, loanId: a.loanId }).from(a).where(inArray(a.id, block)))
+      result.set(r.id, r);
     for (const r of await q.select({ id: w.id, invoiceId: w.invoiceId, documentId: w.documentId }).from(w).where(inArray(w.id, block))) result.set(r.id, r);
-    for (const { id, invoiceId, documentId, ...zahlung } of await q.select(zahlungsfelder(c)).from(c).where(inArray(c.id, block)))
-      result.set(id, { invoiceId, documentId, zahlung });
+    for (const r of await q.select({ id: c.id, invoiceId: c.invoiceId, documentId: c.documentId }).from(c).where(inArray(c.id, block))) result.set(r.id, r);
   }
   return result;
 }
