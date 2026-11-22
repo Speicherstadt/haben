@@ -123,6 +123,7 @@ async function rechnungAusbuchen(
   tx: Tx,
   company: Awaited<ReturnType<typeof openBooks>>,
   input: { kind: "skonto" | "forderungsausfall"; invoiceId: string; date: string; amount?: number },
+  vorgegebeneAnteile?: TaxShare[],
 ): Promise<Ausbuchung> {
   const invoice = await lockInvoice(tx, input.invoiceId);
   if (invoice?.status !== "final") throw new BankError("Rechnung nicht gefunden.");
@@ -144,7 +145,10 @@ async function rechnungAusbuchen(
     throw new BankError(`Rechnung ${invoice.number} ist nur noch über ${open / 100} € offen.`);
   }
   const totals = (await invoiceTotalsById([invoice.id], tx)).get(invoice.id)!;
-  const taxShares = await invoiceTaxShares(tx, invoice.id, totals, amount);
+  if (vorgegebeneAnteile && vorgegebeneAnteile.reduce((sum, s) => sum + s.base + s.tax, 0) !== amount) {
+    throw new Error(`Vorgegebene Steueranteile ergeben nicht den ausgebuchten Betrag von Rechnung ${invoice.number}.`);
+  }
+  const taxShares = vorgegebeneAnteile ?? (await invoiceTaxShares(tx, invoice.id, totals, amount));
   const lines = invoiceWriteOffPosting(
     input.kind,
     totals,
@@ -171,13 +175,15 @@ export async function bookWriteOff(
   tx: Tx,
   company: Awaited<ReturnType<typeof openBooks>>,
   input: (WriteOffInput & { transactionId?: string; cashEntryId?: string }) | ExchangeDifferenceInput,
+  /** Nur Skonto nach Korrekturen (allocateWithRest, #1586): Anteile je Satz am Rest nach den Korrekturen */
+  vorgabe?: { taxShares: TaxShare[] },
 ): Promise<number> {
   let ausbuchung: Ausbuchung;
   if (input.kind === "kursdifferenz") {
     ausbuchung = "invoiceId" in input ? await kursdifferenzRechnung(tx, company, input) : await kursdifferenzBeleg(tx, company, input);
     if (ausbuchung.amount === 0) return 0;
   } else if (input.kind === "skontoErhalten") ausbuchung = await skontoErhalten(tx, company, input);
-  else ausbuchung = await rechnungAusbuchen(tx, company, input);
+  else ausbuchung = await rechnungAusbuchen(tx, company, input, vorgabe?.taxShares);
   const { amount, lines, description, target } = ausbuchung;
   const [row] = await insertWriteOff(tx, {
     kind: input.kind,

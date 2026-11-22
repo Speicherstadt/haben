@@ -165,6 +165,7 @@ export {
   createTextBlock,
   listTextBlocks,
   setTextBlockArchived,
+  standardTexte,
   textBlockInputSchema,
   updateTextBlock,
   type TextBlock,
@@ -177,5 +178,6 @@ export {
   firmaErgaenzen,
   kontakteUebernehmen,
   textbausteineUebernehmen,
+  alteStandardEinleitungen,
 } from "./uebernahme.ts";
 export { gestaltungUebernehmen } from "./uebernahme-gestaltung.ts";

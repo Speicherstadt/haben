@@ -54,55 +54,7 @@ function DocumentPage() {
     else leaveTo(id);
   }
   const duplizieren = useBelegDuplizieren(data, duplikat, dirty, leaveTo);
-
-  // J/K bzw. Pfeiltasten springen zum nächsten bzw. vorigen Beleg, wie im Bankabgleich
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      const target = event.target as HTMLElement;
-      if (isDialogOpen() || target.closest("input, select, textarea, [contenteditable]") || event.metaKey || event.ctrlKey || event.altKey) return;
-      const id =
-        event.key === "j" || event.key === "ArrowRight"
-          ? navigation.nextId
-          : event.key === "k" || event.key === "ArrowLeft"
-            ? navigation.previousId
-            : event.key === "Escape"
-              ? "liste"
-              : null;
-      if (!id) return;
-      event.preventDefault();
-      go(id);
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  });
-
-  // Auf dem Handy: nach links wischen zum nächsten, nach rechts zum vorigen Beleg (nicht in Eingabefeldern, nicht beim Scrollen)
-  useEffect(() => {
-    let start: { x: number; y: number } | null = null;
-    function onStart(event: TouchEvent) {
-      const target = event.target as HTMLElement;
-      const touch = event.touches[0];
-      start =
-        event.touches.length === 1 && touch && !isDialogOpen() && !target.closest("input, select, textarea, [contenteditable]")
-          ? { x: touch.clientX, y: touch.clientY }
-          : null;
-    }
-    function onEnd(event: TouchEvent) {
-      const touch = event.changedTouches[0];
-      if (!start || !touch) return;
-      const dx = touch.clientX - start.x;
-      const dy = touch.clientY - start.y;
-      start = null;
-      if (Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx) / 2) return;
-      go(dx < 0 ? navigation.nextId : navigation.previousId);
-    }
-    window.addEventListener("touchstart", onStart, { passive: true });
-    window.addEventListener("touchend", onEnd, { passive: true });
-    return () => {
-      window.removeEventListener("touchstart", onStart);
-      window.removeEventListener("touchend", onEnd);
-    };
-  });
+  useBelegWechsel(navigation, go);
 
   return (
     <>
@@ -195,4 +147,56 @@ function DocumentPage() {
       </div>
     </>
   );
+}
+
+/** Tastatur und Wischen wechseln den Beleg; go fragt bei ungespeicherten Änderungen erst nach */
+function useBelegWechsel(navigation: { previousId: string | null; nextId: string | null }, go: (id: string | null) => void) {
+  // J/K bzw. Pfeiltasten springen zum nächsten bzw. vorigen Beleg, wie im Bankabgleich
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      const target = event.target as HTMLElement;
+      if (isDialogOpen() || target.closest("input, select, textarea, [contenteditable]") || event.metaKey || event.ctrlKey || event.altKey) return;
+      const id =
+        event.key === "j" || event.key === "ArrowRight"
+          ? navigation.nextId
+          : event.key === "k" || event.key === "ArrowLeft"
+            ? navigation.previousId
+            : event.key === "Escape"
+              ? "liste"
+              : null;
+      if (!id) return;
+      event.preventDefault();
+      go(id);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  // Auf dem Handy: nach links wischen zum nächsten, nach rechts zum vorigen Beleg (nicht in Eingabefeldern, nicht beim Scrollen)
+  useEffect(() => {
+    let start: { x: number; y: number } | null = null;
+    function onStart(event: TouchEvent) {
+      const target = event.target as HTMLElement;
+      const touch = event.touches[0];
+      start =
+        event.touches.length === 1 && touch && !isDialogOpen() && !target.closest("input, select, textarea, [contenteditable]")
+          ? { x: touch.clientX, y: touch.clientY }
+          : null;
+    }
+    function onEnd(event: TouchEvent) {
+      const touch = event.changedTouches[0];
+      if (!start || !touch) return;
+      const dx = touch.clientX - start.x;
+      const dy = touch.clientY - start.y;
+      start = null;
+      if (Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx) / 2) return;
+      go(dx < 0 ? navigation.nextId : navigation.previousId);
+    }
+    window.addEventListener("touchstart", onStart, { passive: true });
+    window.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchend", onEnd);
+    };
+  });
 }
