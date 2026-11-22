@@ -64,7 +64,8 @@ function WisoAssetResult({ preview }: { preview: Preview }) {
   return (
     <div className="stack">
       <p role="status">
-        {preview.assets.length} Anlagen für {preview.year} erkannt. Übernahmestichtag für diese Werte: 01.01.{preview.year + 1}.
+        {preview.assets.length} {preview.assets.length === 1 ? "Anlage" : "Anlagen"} für {preview.year} erkannt. Übernahmestichtag für diese Werte: 01.01.
+        {preview.year + 1}.
       </p>
       {preview.warnings.length > 0 && (
         <ul className="upload-messages">
@@ -76,7 +77,7 @@ function WisoAssetResult({ preview }: { preview: Preview }) {
         </ul>
       )}
       <ScrollBox label="Erkannte WISO-Anlagen">
-        <table aria-label="Erkannte WISO-Anlagen">
+        <table className="data-table" aria-label="Erkannte WISO-Anlagen">
           <thead>
             <tr>
               <th scope="col">Nr.</th>
