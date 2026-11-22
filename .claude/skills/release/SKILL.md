@@ -87,7 +87,7 @@ Actions → **Bump version** (`bump.yml`) mit `bump` = die gewählte Art, auf `m
 
   Die Ankündigung in Discord (`discord-release.yml`) ging schon ohne die Hinweise raus. Betrifft ein Hinweis Daten, den Maintainer fragen, ob er sie mit Actions → *Discord-Release* und dem Tag noch einmal ankündigen will.
 - Fertige Version: Job `issues-schliessen` grün, seine Ausgabe nennt die geschlossenen Issues; im Project stehen sie in „Erledigt“.
-- Etwas rot: nicht neu taggen; Ursache melden, beheben, beim RC `prerelease`, sonst `patch`.
+- Etwas rot: nicht neu taggen; Ursache melden, beheben, beim RC `prerelease`, sonst `patch`. Scheitert nur der Job `sollbestand` (etwa am Netz), reicht es, ihn neu zu starten; er ersetzt die Datei und schreibt die Zeile nicht doppelt.
 
 ## 7. Beim RC: Testauftrag
 

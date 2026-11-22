@@ -44,8 +44,7 @@ function InventoryChecksumResult({ checksum }: { checksum: IntegrityReport["inve
         <div className="muted">Gleich der des Sollbestands, den diese Version ausliefert; veröffentlicht in den {link}.</div>
       ) : (
         <div className="muted" style={{ overflowWrap: "anywhere" }}>
-          Weicht vom Sollbestand ab, den diese Version ausliefert ({checksum.shipped}, veröffentlicht in den {link}); Befunde und Hinweise oben nennen, was
-          anders ist.
+          Weicht vom Sollbestand ab, den diese Version ausliefert ({checksum.shipped}, veröffentlicht in den {link}).
         </div>
       )}
     </div>
