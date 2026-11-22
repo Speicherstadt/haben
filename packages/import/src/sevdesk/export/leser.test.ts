@@ -24,9 +24,19 @@ const guid = (n: number) => `00000000-0000-4000-8000-00000000000${n}`;
 describe("Dateilisten für Beleglinks", () => {
   const stack = fixture("buchhaltung-2.0/extf-buchungsstapel-beleglink.csv");
 
-  it.each(["<anderes/>", "<archive><content></archive>"])("lehnt eine ungültige Dateiliste ab: %s", (xml) => {
+  it.each([
+    "<anderes/>",
+    "<archive><content></archive>",
+    "<archive><content><unrelated/></content></archive>",
+    '<archive generatingSystem="sevDesk"><content>true</content></archive>',
+  ])("lehnt eine ungültige Dateiliste ab: %s", (xml) => {
     const bytes = zip({ "EXTF_Buchungsstapel_2026.csv": stack, "DATEV_Rechnungsausgang_2026.zip": innerZip(strToU8(xml)) });
     expect(readSevdeskExport(bytes, { kontenrahmen: "SKR03" })).toMatchObject({ ok: false, reason: expect.stringContaining("document.xml") });
+  });
+
+  it("lässt offene Beleglinks bei einem Buchungsdaten-Export ohne Belegordner ungeklärt", () => {
+    const result = read({ "EXTF_Buchungsstapel_2026.csv": stack, "EXTF_GP_Stamm_2026.csv": fixture("buchhaltung-1.0/extf-gp-stamm.csv") });
+    expect(byGuid(result, "00000000-0000-0000-0000-000000000009")).toMatchObject({ document: null, documentUnclear: true });
   });
 
   it("akzeptiert eine gültige leere Dateiliste", () => {
