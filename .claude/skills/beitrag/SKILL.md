@@ -12,7 +12,7 @@ Ist ein Werkzeug für GitHub da, egal unter welchem Namen (`gh`, MCP-Server, Plu
 ## 1. Branch
 
 - Vom aktuellen `origin/main` (`git fetch origin`), ein Thema je Branch.
-- Schreibrecht in `firsttris/haben` prüfen: mit `gh` über `gh repo view firsttris/haben --json viewerPermission` (`WRITE`, `MAINTAIN`, `ADMIN`); nur mit git über `git push --dry-run origin HEAD:refs/heads/<branch>` (`403` heißt nein); ohne Zugang die Person fragen.
+- Schreibrecht in `Speicherstadt/haben` prüfen: mit `gh` über `gh repo view Speicherstadt/haben --json viewerPermission` (`WRITE`, `MAINTAIN`, `ADMIN`); nur mit git über `git push --dry-run origin HEAD:refs/heads/<branch>` (`403` heißt nein); ohne Zugang die Person fragen.
 - Mit Schreibrecht in `origin`, sonst im Fork der Person.
 
 ## 2. Commits
@@ -24,8 +24,9 @@ Prüfungen nach Skill `checks`, dann Commits wie unter „Branches, Titel und Co
 Als Datei (im Scratchpad), auf Deutsch:
 
 - Titel `Bereich: was sich ändert (#Issue)`; den Rest prüft der Workflow „PR-Regeln“.
-- Was und warum, `Umgesetzt #…` wenn der Pull Request das Issue fertig macht, sonst `Refs #…` (nie `Closes` oder `Fixes`, siehe „Branches, Titel und Commits“), wie geprüft, **was übersprungen wurde** (Skill `checks`).
+- Was und warum, `Umgesetzt #…` wenn der Pull Request das Issue fertig macht, bei einem Teil `Refs #…`, bei einem Bezug ohne Arbeit daran nur `#…` (nie `Closes` oder `Fixes`, siehe „Branches, Titel und Commits“), wie geprüft, **was übersprungen wurde** (Skill `checks`).
 - Bei Änderungen am Aussehen die Bilder nach Skill `pr-screenshots`.
+- Muss jemand beim Update etwas wissen oder tun: Abschnitt `## Für das Release` („Branches, Titel und Commits“).
 - Die Beschreibung wird die Nachricht des Squash-Commits auf `main` (`docs/mitwirken.md`, „Branches, Titel und Commits“): Sie nennt alles, was der Pull Request ändert, und beschreibt das Ergebnis, nicht den Weg dorthin.
 - Letzte Zeile „🤖 Generated with <Werkzeug>“.
 

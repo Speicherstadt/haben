@@ -2,7 +2,7 @@
     das Handy die Liste aller Bereiche. `hint` ist der Untertext (ein Satz in Klartext, eine Zeile, ohne Klammern),
     `keywords` sind Fachwörter, die nur die Schnellsuche kennt (#1253) */
 export const SETTINGS_AREAS = [
-  { id: "firma", label: "Firma", hint: "Anschrift, Steuern, Bank, Mahnwesen" },
+  { id: "firma", label: "Firma", hint: "Anschrift, Steuern, Bank, Mahnwesen", keywords: "Handelsregister Privatanteile Tageskurs Basiszinssatz" },
   { id: "persoenlich", label: "Persönliche Angaben", hint: "Steuer-ID, Veranlagung, Ehegatte" },
   { id: "bereiche", label: "Bereiche", hint: "Menüpunkte ein- und ausblenden" },
   { id: "rechnungen", label: "Rechnungen", hint: "Nummern, Zahlungspläne, Anhänge" },
@@ -15,7 +15,7 @@ export const SETTINGS_AREAS = [
   { id: "waehrung", label: "Fremdwährung", hint: "Umrechnungskurse zur Umsatzsteuer", keywords: "USt-Umrechnungskurse BMF" },
   { id: "ki", label: "KI-Assistenten und API", hint: "Zugang, Schlüssel, Belegauslesung", keywords: "Assistenten MCP API-Tokens Belege auslesen" },
   { id: "seiten", label: "Eigene Seiten", hint: "Eigene Werkzeuge im Menü" },
-  { id: "export", label: "Export", hint: "Jahresarchiv, Steuerberatung", keywords: "DATEV Ablage Backup Prüfung Version" },
+  { id: "export", label: "Export", hint: "Jahresarchiv, Steuerberatung", keywords: "DATEV Ablage Backup Prüfung Version Instanz" },
 ] as const;
 
 /** Im SSO-Modus ersetzt „Zugänge“ den Bereich Sicherheit: Passkeys, Passwort und Einladungen gibt es dort nicht */

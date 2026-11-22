@@ -4,6 +4,7 @@ export { parseGermanAmount, parseDotAmount, parseDate } from "./text.ts";
 export { decodeText } from "./decode.ts";
 export { parseStatement, detectStatementFormat } from "./parse.ts";
 export { transactionHash, withDedupHashes } from "./dedup.ts";
+export { findDuplicateCandidates } from "./duplicate-candidates.ts";
 export { checkBalanceContinuity } from "./continuity.ts";
 export {
   parseDatevBuchungsstapel,
@@ -25,6 +26,8 @@ export * from "./sevdesk/index.ts";
 export * from "./accountable/index.ts";
 export * from "./fastbill/index.ts";
 export * from "./enablebanking/index.ts";
+export * from "./paypal/index.ts";
+export * from "./stripe/index.ts";
 export * from "./fints/index.ts";
 export * from "./importvertrag/index.ts";
 export * from "./stores/index.ts";
