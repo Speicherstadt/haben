@@ -323,7 +323,7 @@ Auf der Seite **Buchungen** steht der Knopf **Buchung erfassen**. Damit buchst d
 | Auslagen des Gesellschafters in ein längerfristiges Darlehen umwandeln | 0730 an 0740 Verbindlichkeiten gegenüber Gesellschaftern, Restlaufzeit 1 bis 5 Jahre | 3510 an 3514 |
 | Falsche Kontierung umbuchen | neues an altes Aufwandskonto | ebenso |
 
-Im Einzelunternehmen braucht der Bank-Anfangsbestand keine Buchung für die EÜR ([§ 4 Abs. 3 EStG](https://www.gesetze-im-internet.de/estg/__4.html), [§ 11 EStG](https://www.gesetze-im-internet.de/estg/__11.html)). Den Kontostand aus dem Kontoauszug findest du unter [Bank](bank.md).
+Im Einzelunternehmen braucht der Bank-Anfangsbestand keine Buchung für die EÜR ([§ 4 Abs. 3 EStG](https://www.gesetze-im-internet.de/estg/__4.html), [§ 11 EStG](https://www.gesetze-im-internet.de/estg/__11.html)). Wenn der letzte Import oder Abruf einen Endsaldo liefert, zeigt Haben ihn unter [Bank](bank.md) am Kontoreiter.
 
 Eine Zeile hat ein Konto mit vier Ziffern und einen Betrag im Soll oder im Haben, bis zu 20 Zeilen je Buchung; Soll und Haben müssen gleich sein. Die Kontobezeichnung erscheint, wenn Haben das Konto kennt.
 

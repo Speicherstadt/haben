@@ -251,7 +251,8 @@ function Buchungshinweise({
     <>
       {!gmbh && (
         <p className="muted small" style={{ margin: 0 }}>
-          <strong>Der Bank-Anfangsbestand braucht keine Buchung.</strong> Den Kontostand aus dem Kontoauszug findest du unter <Link to="/bank">Bank</Link>.
+          <strong>Der Bank-Anfangsbestand braucht keine Buchung.</strong> Enthält der letzte Import oder Abruf einen Endsaldo, siehst du ihn unter{" "}
+          <Link to="/bank">Bank</Link>.
         </p>
       )}
       <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
