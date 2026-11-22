@@ -4,6 +4,7 @@ import { mkdir } from "node:fs/promises";
 import postgres from "postgres";
 import { spawn } from "node:child_process";
 import { serverEnvironment } from "./server-env.ts";
+import { abgearbeitet } from "./warten.ts";
 
 /*
  * SSO-Modus im Browser (playwright.sso-only.config.ts): Ersteinrichtung nur durch die Inhaber-Gruppe, automatische
@@ -38,14 +39,14 @@ async function capture(page: Page, view: string) {
 }
 
 /**
- * Startet die SSO-Anmeldung. Better Auth lässt je Adresse nur 3 Anmeldeversuche in 10 Sekunden zu, und im Test kommen
- * alle Browser von derselben Adresse; der Zähler beginnt erst nach 10 Sekunden Ruhe neu, deshalb so lange warten.
+ * Startet die SSO-Anmeldung. Better Auth lässt je Adresse nur 3 Anmeldeversuche in 10 Sekunden zu und liest die Adresse
+ * aus X-Forwarded-For (hinter Caddy, src/server/auth.ts); jeder Start kommt deshalb von einer eigenen Adresse
+ * (198.51.100.0/24, TEST-NET-2), statt dass der Test wartet.
  */
-let lastStart = 0;
+let starts = 0;
 async function startSso(page: Page, button: string) {
-  const wait = lastStart + 10_500 - Date.now();
-  if (wait > 0) await page.waitForTimeout(wait);
-  lastStart = Date.now();
+  starts += 1;
+  await page.setExtraHTTPHeaders({ "x-forwarded-for": `198.51.100.${starts}` });
   await page.getByRole("button", { name: button }).click();
 }
 
@@ -159,9 +160,16 @@ test("SSO-Modus: Einrichtung, automatische Anlage, Zugänge, Gruppenentzug und e
 
     // Abgelaufene Berechtigung: Zugriff verweigert, Weg zur erneuten SSO-Anmeldung, keine automatische Schleife
     await sql`update session set sso_expires_at = now() - interval '1 second' where user_id = (select id from "user" where email = 'inhaberin@example.de')`;
+    // Nach networkidle ist die Login-Seite hydriert; eine Schleife hätte die Anmeldung beim Anbieter dann schon gestartet
+    const anmeldungen: string[] = [];
+    const mitzaehlen = (anfrage: { url: () => string }) => {
+      if (new URL(anfrage.url()).pathname.startsWith("/api/auth/sign-in")) anmeldungen.push(anfrage.url());
+    };
+    page.on("request", mitzaehlen);
     await page.goto("/einstellungen?bereich=zugaenge", { waitUntil: "networkidle" });
-    await expect(page).toHaveURL(/\/login/);
-    await page.waitForTimeout(1500);
+    await abgearbeitet(page);
+    page.off("request", mitzaehlen);
+    expect(anmeldungen).toEqual([]);
     await expect(page).toHaveURL(/\/login/);
     await expect(page.getByRole("button", { name: "Mit Test-SSO anmelden" })).toBeVisible();
     await startSso(page, "Mit Test-SSO anmelden");
