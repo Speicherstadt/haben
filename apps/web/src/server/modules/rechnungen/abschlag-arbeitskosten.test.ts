@@ -228,6 +228,29 @@ describe.skipIf(!testDatabaseUrl)("§ 35a EStG auf Abschlägen aus dem Zahlungsp
     expect(ohneNbsp(fest.xml)).not.toContain("Davon entfallen");
   }, 60_000);
 
+  it("ein Abschlag ohne Anteil: die Schlussrechnung nennt nur die ganze Leistung (Nachtrag Review #1696)", async () => {
+    const quote = await angebot({
+      paymentPlan: [
+        { label: "Anzahlung", share: { kind: "prozent", value: 3000 }, due: "Auftragserteilung" },
+        { label: "Zwischen", share: { kind: "prozent", value: 3000 }, due: "Rohbau" },
+        { label: "Schlussrechnung", share: { kind: "rest" }, due: "Abnahme" },
+      ] as PaymentPlanRow[],
+    });
+    const erster = await plan.abschlagFromPlan(actor, quote.id, "2026-10-10", 0, null);
+    await invoices.finalizeInvoice(actor, erster.id, kleinunternehmerStand);
+    // Im Entwurf des zweiten nimmt jemand das Kennzeichen heraus: er nennt keinen Anteil
+    const zweiter = await plan.abschlagFromPlan(actor, quote.id, "2026-10-20", 1, null);
+    await sql`update invoice_lines set arbeitskosten = false where invoice_id = ${zweiter.id}`;
+    const zweiterFest = await invoices.finalizeInvoice(actor, zweiter.id, kleinunternehmerStand);
+    expect(ohneNbsp(zweiterFest.xml)).not.toContain("§ 35a EStG");
+    const schluss = await quotes.quoteToInvoice(actor, quote.id, "2026-12-01", "schluss");
+    const fest = await invoices.finalizeInvoice(actor, schluss.id, kleinunternehmerStand);
+    expect(ohneNbsp(fest.xml)).toContain(
+      "In der gesamten Leistung vor Abzug der Abschlagsrechnungen sind Arbeits-, Maschinen- und Fahrtkosten von 7.389,00 € inkl. USt enthalten (§ 35a EStG).",
+    );
+    expect(ohneNbsp(fest.xml)).not.toContain("Davon entfallen");
+  }, 60_000);
+
   it("Bruttopreise: Aufteilung im Preismodus des Angebots, Summe je Satz unverändert", async () => {
     // Brutto 11.900 € und 2.140 € je Satz wie oben, ohne Rabatt; 30 %: 3.570 € (Arbeit 2.142 €) und 642 € (Arbeit 321 €)
     const quote = await angebot({
