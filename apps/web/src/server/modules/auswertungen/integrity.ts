@@ -162,7 +162,8 @@ export type PruefwertResult =
   | { status: "beschaedigt"; seq: number; first: number; befund: string }
   /**
    * Hash stimmt und die Kette scheint lückenlos, aber Trigger, Funktionen oder andere Objekte der Datenbank weichen vom
-   * Sollbestand ab (checkTriggerIntegrity). Wer sie ändern kann, kann auch das Nachrechnen der Kette fälschen.
+   * Sollbestand ab (checkTriggerIntegrity), oder das Nachrechnen der Kette ist abgebrochen. Wer sie ändern kann, kann auch
+   * das Nachrechnen der Kette fälschen.
    */
   | { status: "unbestaetigt"; seq: number; befunde: string[] }
   /** Eintrag vorhanden, Hash anders: die Kette wurde bis zu diesem Eintrag neu berechnet */
@@ -184,11 +185,20 @@ export async function checkPruefwert(seq: number, hash: string): Promise<Pruefwe
       if (actual !== hash.toLowerCase()) return { status: "abweichend", seq, expected: hash.toLowerCase(), actual };
       // Zuerst der Katalog: Weicht er ab, ist auch das Nachrechnen der Kette nicht verlässlich
       const catalog = await checkTriggerIntegrity(tx);
-      const [broken] = await tx.execute<{ seq: string; befund: string }>(
-        sql`select seq, befund from haben_integrity_problems(1) where art = 'kette' and seq <= ${seq} order by seq limit 1`,
-      );
+      const befunde = catalog.problems.map((p) => `${p.tabelle}: ${p.befund}`);
+      // Im Savepoint wie in integrityRows: Bricht die Prüffunktion ab oder fehlt sie, ist der Prüfwert unbestätigt, nie „ok“ (#1716)
+      let broken: { seq: string; befund: string } | undefined;
+      try {
+        [broken] = await tx.transaction((sp) =>
+          sp.execute<{ seq: string; befund: string }>(
+            sql`select seq, befund from haben_integrity_problems(1) where art = 'kette' and seq <= ${seq} order by seq limit 1`,
+          ),
+        );
+      } catch (error) {
+        befunde.push(`haben_integrity_problems: Prüfung von Kette und Siegeln abgebrochen: ${fehlerGrund(error)}`);
+      }
       if (broken) return { status: "beschaedigt", seq, first: Number(broken.seq), befund: broken.befund };
-      if (catalog.problems.length > 0) return { status: "unbestaetigt", seq, befunde: catalog.problems.map((p) => `${p.tabelle}: ${p.befund}`) };
+      if (befunde.length > 0) return { status: "unbestaetigt", seq, befunde };
       return { status: "ok", seq };
     },
     { isolationLevel: "repeatable read", accessMode: "read only" },
