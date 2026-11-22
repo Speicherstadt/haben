@@ -1,7 +1,8 @@
+import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { BackupCard } from "./BackupCard.tsx";
+import { BackupCard, RCLONE_CONFIG } from "./BackupCard.tsx";
 
 type Status = Parameters<typeof BackupCard>[0]["status"];
 
@@ -38,5 +39,52 @@ describe("BackupCard: Speicherort (#1331)", () => {
 
   it("ohne jeden Lauf keine Zeile Speicherort", () => {
     expect(render({ ...ok, state: "keins", lastBackup: null })).not.toContain("Speicherort");
+  });
+});
+
+/*
+ * #1513, kleinere Stufe: die Seite erklärt die rclone-Konfiguration des Backup-Containers und sagt, ob das Ziel aus
+ * dieser Datei kommt. Ein Ziel, das in Haben selbst eingetragen wird (Stufe 2), nennt sie später als aus dem Dialog.
+ */
+describe("BackupCard: rclone-Konfiguration (#1513)", () => {
+  it("nennt beide Wege zur Konfiguration und das Format des Ziels", () => {
+    const html = render(ok);
+    expect(html).toContain(`<span class="mono">${RCLONE_CONFIG.variable}</span>`);
+    expect(html).toContain(`<span class="mono">${RCLONE_CONFIG.datei}</span>`);
+    expect(html).toContain('<span class="mono">rclone:onedrive:haben</span>');
+    expect(html).toContain("hier erscheint keine davon");
+  });
+
+  // Die Wege sind die des Containers (rclone_config_file in deploy/backup/rclone-ziel.sh), nicht neu erfunden
+  it("sucht die Datei wie der Backup-Container", () => {
+    const skript = readFileSync(new URL("../../../../deploy/backup/rclone-ziel.sh", import.meta.url), "utf8");
+    expect(skript).toContain(`\${${RCLONE_CONFIG.variable}:-${RCLONE_CONFIG.datei}}`);
+    expect(skript).toContain("rclone:<abschnitt>:<pfad>");
+  });
+
+  it("Ziel aus einem Abschnitt der Datei", () => {
+    const html = render({ ...ok, target: { repository: "rclone:onedrive:haben", local: false } });
+    expect(html).toContain("Herkunft des Ziels");
+    expect(html).toContain("Aus der rclone-Konfiguration, Abschnitt onedrive");
+  });
+
+  it("Abschnitt mit Parametern im Ziel zählt weiter als aus der Datei", () => {
+    expect(render({ ...ok, target: { repository: "rclone:fern,pass=GEHEIM:haben", local: false } })).toContain("Aus der rclone-Konfiguration, Abschnitt fern");
+  });
+
+  it("Verbindungszeichenkette im Ziel braucht keine Datei", () => {
+    expect(render({ ...ok, target: { repository: "rclone::webdav:haben", local: false } })).toContain(
+      "Nicht aus einer Datei, die Verbindungszeichenkette bringt das Ziel selbst mit",
+    );
+  });
+
+  it("Ziel ohne rclone steht direkt im Backup-Container", () => {
+    expect(render({ ...ok, target: { repository: "sftp:backup.example:/srv/restic/haben", local: false } })).toContain(
+      "Nicht aus einer Datei, das Ziel steht als RESTIC_REPOSITORY im Backup-Container",
+    );
+  });
+
+  it("Ziel unbekannt, solange kein Lauf eines eingetragen hat", () => {
+    expect(render(ok)).toContain("Unbekannt bis zum nächsten Lauf mit aktuellem Backup-Image");
   });
 });
