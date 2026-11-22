@@ -37,8 +37,10 @@ export function AccentField({
   const weak = !fromLayout && ACCENT_PATTERN.test(accent) && contrastOnWhite(accent) < MIN_TEXT_CONTRAST;
   const custom = !fromLayout && !SWATCHES.some((swatch) => swatch.hex === accent.toUpperCase());
   const pick = (hex: string) => onChange({ accent: hex, accentFromLayout: false });
-  // Die Eingabe folgt Klicks auf Vorschläge und Farbwähler; ein halber Wert bleibt stehen, bis er vollständig ist
-  const [text, setText] = useLoadedState(accent);
+  // Das Feld zeigt die Farbe, die auf den Belegen steht: mit „Farbe des Layouts“ die des Layouts, sonst die eigene.
+  // Es folgt Klicks auf Vorschläge und Farbwähler; ein halber Wert bleibt stehen, bis er vollständig ist
+  const wirksam = fromLayout && layoutAccent ? layoutAccent : accent;
+  const [text, setText] = useLoadedState(wirksam);
   const eingabe = (value: string) => {
     setText(value);
     const hex = hexAusEingabe(value);
@@ -74,7 +76,7 @@ export function AccentField({
             style={{ width: "9em" }}
             value={text}
             onChange={(event) => eingabe(event.target.value)}
-            onBlur={() => !hexAusEingabe(text) && setText(accent)}
+            onBlur={() => !hexAusEingabe(text) && setText(wirksam)}
             spellCheck={false}
             autoComplete="off"
           />
