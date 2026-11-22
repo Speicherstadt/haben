@@ -55,10 +55,10 @@ Die Trigger oben verhindern Versehen, aber wer die Datenbank direkt ändern kann
 **Prüfen** unter **Einstellungen › Export › Änderungsprotokoll prüfen**: „Kette prüfen“ rechnet jeden Hash und jedes Siegel nach und meldet:
 
 - geänderte, gelöschte oder fehlende Einträge und einen Kopf, der nicht zum Ende passt,
-- gelöschte festgeschriebene Datensätze, festgeschriebene ohne oder mit abweichendem Siegel, aufgehobene Festschreibungen sowie Werte und Zeilen, die ein älteres Siegel nicht abdeckt,
+- gelöschte festgeschriebene Datensätze, festgeschriebene ohne oder mit abweichendem Siegel, aufgehobene Festschreibungen sowie Werte und Zeilen, die ein älteres Siegel nicht abdeckt, und einen Standardwert einer solchen Spalte, der sich nicht auswerten lässt,
 - Siegel, die nicht zu ihrem Eintrag in der Kette passen oder trotz Eintrag fehlen,
 - abgeschaltete, fehlende oder veränderte Trigger und Funktionen von Haben (Sperren, Änderungsprotokoll, Siegel), veränderte Standardwerte in den versiegelten Tabellen und fremde Objekte, die Aufrufe von Haben übernehmen können,
-- eine abgebrochene Prüfung von Kette und Siegeln, etwa an einem Standardwert, der sich nicht auswerten lässt, oder an einer fehlenden Prüffunktion; die übrigen Prüfungen laufen weiter, über Kette und Siegel sagt der Bericht dann nichts aus.
+- eine abgebrochene Prüfung von Kette und Siegeln, etwa an einer fehlenden Prüffunktion; die übrigen Prüfungen laufen weiter, über Kette und Siegel sagt der Bericht dann nichts aus.
 
 Dazu zeigt „Kette prüfen“ den letzten Lauf der Dateiprüfung mit Zeitpunkt und je fehlender, veränderter oder nicht lesbarer Datei den Datensatz und den Dateinamen; „Dateien prüfen“ liest alle Dateien sofort, was bei vielen Belegen dauern kann.
 
@@ -77,7 +77,7 @@ Unter **Kontenkollisionen** nennt die Prüfung außerdem eigene Konten, deren Nu
 - schickt Haben den Prüfwert (`Nr. <seq> · <Hash>`) einmal pro Woche per E-Mail an die Adresse für Erinnerungen, wenn sich etwas geändert hat (abschaltbar unter Einstellungen › E-Mail),
 - steht er im Jahresarchiv in `protokoll/pruefwert.txt`.
 
-Ein aufbewahrter Prüfwert lässt sich unter „Änderungsprotokoll prüfen“ einfügen und vergleichen. Haben vergleicht dann den Hash des Eintrags dieser Nummer und rechnet die Kette bis dorthin nach. Stimmt beides, sind die Einträge bis zu dieser Nummer unverändert. Bei abweichendem Sollbestand bestätigt der Vergleich das nicht. Ob die festgeschriebenen Daten noch zu ihren Siegeln passen, zeigt „Kette prüfen“. Fehlt der Eintrag, wurde entweder ein älteres Backup eingespielt oder es wurden Einträge gelöscht. Eine stärkere Absicherung sind schreibgeschützte Backups (z. B. Object Lock) oder später ein qualifizierter Zeitstempel (RFC 3161) auf den Prüfwert.
+Ein aufbewahrter Prüfwert lässt sich unter „Änderungsprotokoll prüfen“ einfügen und vergleichen. Haben vergleicht dann den Hash des Eintrags dieser Nummer und rechnet die Kette bis dorthin nach. Stimmt beides, sind die Einträge bis zu dieser Nummer unverändert. Bei abweichendem Sollbestand oder abgebrochenem Nachrechnen bestätigt der Vergleich das nicht. Ob die festgeschriebenen Daten noch zu ihren Siegeln passen, zeigt „Kette prüfen“. Fehlt der Eintrag, wurde entweder ein älteres Backup eingespielt oder es wurden Einträge gelöscht. Eine stärkere Absicherung sind schreibgeschützte Backups (z. B. Object Lock) oder später ein qualifizierter Zeitstempel (RFC 3161) auf den Prüfwert.
 
 Die wöchentliche Mail prüft vorher Kette, Siegel und Sperren und vergleicht den Prüfwert der letzten Mail mit dem Eintrag dieser Nummer. Befunde stehen in der Mail, die des Katalogvergleichs mit Tabelle und Namen, auch wenn ohne neuen Eintrag manipuliert wurde; ebenso fehlende oder veränderte Dateien aus der letzten Dateiprüfung. Scheitert die Prüfung ganz, geht die Mail trotzdem hinaus, mit dem Prüfwert und „Die Prüfung ist fehlgeschlagen: …“.
 
