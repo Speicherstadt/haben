@@ -1,6 +1,7 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "./test-umsatz-stand.ts";
 
 /*
  * Vorgang gegen Buchung (#1116), Randfälle: Jede Buchung trägt den Kontenrahmen, mit dem sie entstand; eine Zahlung im
@@ -8,8 +9,8 @@ import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
  */
 describe.skipIf(!testDatabaseUrl)("Vorgang gegen Buchung, Randfälle (Postgres)", () => {
   let vorgang: typeof import("./abgleich-vorgang.ts");
-  let bank: typeof import("../bank/bank.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let bank: typeof import("../bank/index.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
@@ -18,8 +19,8 @@ describe.skipIf(!testDatabaseUrl)("Vorgang gegen Buchung, Randfälle (Postgres)"
   beforeAll(async () => {
     sql = await setupTestDb();
     vorgang = await import("./abgleich-vorgang.ts");
-    bank = await import("../bank/bank.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    bank = await import("../bank/index.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
   }, 30_000);
 
@@ -59,7 +60,7 @@ describe.skipIf(!testDatabaseUrl)("Vorgang gegen Buchung, Randfälle (Postgres)"
       note: "",
       lines: [{ description: "Leistung", quantity: 1000, unit: "Psch." as const, unitPrice: 100_000, taxRate: 1900 }],
     });
-    return invoices.finalizeInvoice(actor, draft.id);
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
   }
 
   /** Zahlungseingang über einen echten Bankumsatz, zugeordnet zur Rechnung */

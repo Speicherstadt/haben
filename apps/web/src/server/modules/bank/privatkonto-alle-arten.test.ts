@@ -2,6 +2,7 @@ import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 import type { EmployeeInput } from "../lohn/employees.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /*
  * Privatkonto-Regel für alle Buchungsarten (#873): Läuft die Zahlung über ein Konto mit dem Zweck „privat“, bucht Haben
@@ -79,7 +80,7 @@ const ANGESTELLTER: EmployeeInput = {
 
 describe.skipIf(!testDatabaseUrl)("Privatkonto: jede Buchungsart gegen Entnahme und Einlage (Postgres)", () => {
   let bank: typeof import("./index.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let documents: typeof import("../belege/documents.ts");
   let darlehen: typeof import("./darlehen.ts");
@@ -92,7 +93,7 @@ describe.skipIf(!testDatabaseUrl)("Privatkonto: jede Buchungsart gegen Entnahme 
   beforeAll(async () => {
     sql = await setupTestDb();
     bank = await import("./index.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     documents = await import("../belege/documents.ts");
     darlehen = await import("./darlehen.ts");
@@ -106,10 +107,11 @@ describe.skipIf(!testDatabaseUrl)("Privatkonto: jede Buchungsart gegen Entnahme 
 
   /** Firma im gewünschten Profil; jeder Fall beginnt bei null */
   async function firma(optionen: { rechtsform?: "einzelunternehmen" | "gmbh"; kontenrahmen?: "SKR03" | "SKR04"; versteuerung?: "ist" | "soll" } = {}) {
-    await leeren(sql)`truncate seals, write_offs, allocations, journal_lines, journal_entries, bank_transactions, bank_imports,
+    await leeren(sql)`truncate seals, audit_log, audit_chain, write_offs, allocations, journal_lines, journal_entries, bank_transactions, bank_imports,
       bank_accounts, vat_returns, loans, invoice_lines, invoices, invoice_number_counters, contact_versions, contacts,
       document_cancellations, document_settlements, document_amounts, document_splits, documents, payslip_cancellations, payslips,
       payroll_runs, employees, company cascade`;
+    await sql`insert into audit_chain (id, seq, hash) values (1, 0, haben_audit_genesis())`;
     await sql`insert into company (id, name, strasse, plz, ort, email, steuernummer, bundesland, iban, kontenrahmen, versteuerung, rechtsform)
       values (1, 'Beispielfirma', 'Beispielstraße 1', '28195', 'Bremen', 'rechnung@example.com', '60/145/12345', 'HB', ${FIRMEN_IBAN},
               ${optionen.kontenrahmen ?? "SKR03"}, ${optionen.versteuerung ?? "ist"}, ${optionen.rechtsform ?? "einzelunternehmen"})`;
@@ -277,7 +279,7 @@ describe.skipIf(!testDatabaseUrl)("Privatkonto: jede Buchungsart gegen Entnahme 
       format: "zugferd",
       lines: [{ description: "Leistungen November", quantity: 1000, unit: "Psch.", unitPrice: 400_000, taxRate: 1900 }],
     });
-    const invoice = await invoices.finalizeInvoice(actor, draft.id);
+    const invoice = await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
     const privat = await konto("privat");
     const transaction = await umsatz(privat, "2026-11-15", 4_760_00, "Kundin Beispiel GmbH");
 

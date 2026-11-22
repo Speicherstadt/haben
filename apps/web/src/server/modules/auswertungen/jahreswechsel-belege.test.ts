@@ -2,6 +2,7 @@ import { JOURNAL_KENNZAHLEN } from "@haben/core";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "./test-umsatz-stand.ts";
 
 /*
  * Voranmeldung und EÜR über den Jahreswechsel 2026/2027 (#542, docs/adr/journal-als-quelle.md) für Eingangsbelege, die
@@ -46,11 +47,11 @@ describe.skipIf(!testDatabaseUrl)("Jahreswechsel 2026/2027: Belege, Kasse, Über
   let figures: typeof import("../umsatzsteuer/vat-figures.ts");
   let vat: typeof import("../umsatzsteuer/vat.ts");
   let vermerk: typeof import("../umsatzsteuer/vermerk.ts");
-  let bank: typeof import("../bank/bank.ts");
+  let bank: typeof import("../bank/index.ts");
   let cash: typeof import("../bank/cash-income.ts");
   let cashBook: typeof import("../bank/cash.ts");
   let cashInvoice: typeof import("../bank/cash-invoice.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let documents: typeof import("../belege/documents.ts");
   let legacy: typeof import("../archiv/legacy-open.ts");
@@ -65,11 +66,11 @@ describe.skipIf(!testDatabaseUrl)("Jahreswechsel 2026/2027: Belege, Kasse, Über
     figures = await import("../umsatzsteuer/vat-figures.ts");
     vat = await import("../umsatzsteuer/vat.ts");
     vermerk = await import("../umsatzsteuer/vermerk.ts");
-    bank = await import("../bank/bank.ts");
+    bank = await import("../bank/index.ts");
     cash = await import("../bank/cash-income.ts");
     cashBook = await import("../bank/cash.ts");
     cashInvoice = await import("../bank/cash-invoice.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     documents = await import("../belege/documents.ts");
     legacy = await import("../archiv/legacy-open.ts");
@@ -150,7 +151,7 @@ describe.skipIf(!testDatabaseUrl)("Jahreswechsel 2026/2027: Belege, Kasse, Über
       note: "",
       lines: [{ description: "Leistung", quantity: 1000, unit: "Psch." as const, unitPrice: net, taxRate: 1900 }],
     });
-    return invoices.finalizeInvoice(actor, d.id);
+    return invoices.finalizeInvoice(actor, d.id, kleinunternehmerStand);
   }
 
   async function va(period: { year: number; month: number }) {

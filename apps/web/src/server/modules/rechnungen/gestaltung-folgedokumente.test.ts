@@ -1,9 +1,10 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 describe.skipIf(!testDatabaseUrl)("Gestaltung und festgeschriebene Belege (Postgres)", () => {
-  let invoices: typeof import("./invoices.ts");
+  let invoices: typeof import("./index.ts");
   let dunning: typeof import("./dunning.ts");
   let stammdaten: typeof import("../stammdaten/index.ts");
   let sql: postgres.Sql;
@@ -12,7 +13,7 @@ describe.skipIf(!testDatabaseUrl)("Gestaltung und festgeschriebene Belege (Postg
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    invoices = await import("./invoices.ts");
+    invoices = await import("./index.ts");
     dunning = await import("./dunning.ts");
     stammdaten = await import("../stammdaten/index.ts");
   }, 30_000);
@@ -51,7 +52,7 @@ describe.skipIf(!testDatabaseUrl)("Gestaltung und festgeschriebene Belege (Postg
       note: "",
       lines: [{ description: "Beratung", quantity: 1000, unit: "Psch.", unitPrice: 100_000, taxRate: 1900 }],
     });
-    invoiceId = (await invoices.finalizeInvoice(actor, draft.id)).id;
+    invoiceId = (await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand)).id;
   }, 30_000);
 
   const same = (a: Uint8Array, b: Uint8Array) => Buffer.compare(Buffer.from(a), Buffer.from(b)) === 0;

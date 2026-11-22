@@ -1,4 +1,4 @@
-import { type ExpenseCategory, gelernteBezahlung, mostFrequent, type Zahlweg } from "@haben/core";
+import { type ExpenseCategory, gelernteBezahlung, mostFrequent, ustIdVergleichbar, type Zahlweg } from "@haben/core";
 import { and, eq, or, type SQL, sql } from "drizzle-orm";
 import { db, schema } from "../../db/index.ts";
 import { documentNotCancelled } from "../../db/document-cancelled.ts";
@@ -16,17 +16,26 @@ export interface Lieferant {
   supplierContactId: string | null;
 }
 
-/** Gebuchte, nicht stornierte Belege desselben Lieferanten; null ohne jedes Merkmal */
-function desselbenLieferanten({ supplierName, supplierUstId, supplierContactId }: Lieferant): SQL | null {
+/**
+ * Belege desselben Lieferanten: derselbe Kontakt, dieselbe USt-IdNr. oder derselbe Name, dieselben Merkmale wie
+ * lieferantGruppen in packages/core/src/lieferant.ts, hier als Filter in SQL; null ohne jedes Merkmal
+ */
+export function lieferantGleich({ supplierName, supplierUstId, supplierContactId }: Lieferant): SQL | null {
   const name = supplierName.trim();
-  const ustId = supplierUstId.trim();
+  // Wie updateDocument sie speichert, damit auch die Eingabe vor dem Speichern passt
+  const ustId = ustIdVergleichbar(supplierUstId);
   const merkmale = [
     supplierContactId ? eq(schema.documents.supplierContactId, supplierContactId) : null,
     ustId ? eq(schema.documents.supplierUstId, ustId) : null,
     name ? sql`lower(btrim(${schema.documents.supplierName})) = lower(${name})` : null,
   ].filter((m): m is SQL => m !== null);
-  if (merkmale.length === 0) return null;
-  return and(eq(schema.documents.status, "gebucht"), documentNotCancelled(), or(...merkmale)) ?? null;
+  return merkmale.length === 0 ? null : (or(...merkmale) ?? null);
+}
+
+/** Gebuchte, nicht stornierte Belege desselben Lieferanten; null ohne jedes Merkmal */
+function desselbenLieferanten(lieferant: Lieferant): SQL | null {
+  const gleich = lieferantGleich(lieferant);
+  return gleich ? (and(eq(schema.documents.status, "gebucht"), documentNotCancelled(), gleich) ?? null) : null;
 }
 
 /**

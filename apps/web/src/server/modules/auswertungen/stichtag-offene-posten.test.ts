@@ -1,6 +1,7 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "./test-umsatz-stand.ts";
 
 /*
  * Offene Posten zum Stichtag 31.12. (#1110, Schritt 2): Die Ansicht zeigt den Abschlussstand des gewählten Jahres.
@@ -33,8 +34,8 @@ const row = (date: string, party: string, purpose: string, amount: string) => [
 ];
 
 describe.skipIf(!testDatabaseUrl)("Offene Posten zum Stichtag (Postgres)", () => {
-  let bank: typeof import("../bank/bank.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let bank: typeof import("../bank/index.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let documents: typeof import("../belege/documents.ts");
   let cancellation: typeof import("../belege/cancellation.ts");
@@ -47,8 +48,8 @@ describe.skipIf(!testDatabaseUrl)("Offene Posten zum Stichtag (Postgres)", () =>
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    bank = await import("../bank/bank.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    bank = await import("../bank/index.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     documents = await import("../belege/documents.ts");
     cancellation = await import("../belege/cancellation.ts");
@@ -114,7 +115,7 @@ describe.skipIf(!testDatabaseUrl)("Offene Posten zum Stichtag (Postgres)", () =>
       note: "",
       lines: [{ description: "Wartung Oktober", quantity: 1000, unit: "Psch.", unitPrice: 100_000, taxRate: 1900 }],
     });
-    const invoice = await invoices.finalizeInvoice(actor, draft.id);
+    const invoice = await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
     // Beleg aus dem Dezember 2025, im Februar 2026 bezahlt
     const altBeleg = await bookedDocument(1, { supplierName: "Hafenwerft Druck GmbH", documentDate: "2025-12-10", net: 25_000, tax: 4_750 });
     // Beleg aus dem Januar 2026: den gab es am 31.12.2025 noch nicht
@@ -226,7 +227,7 @@ describe.skipIf(!testDatabaseUrl)("Offene Posten zum Stichtag (Postgres)", () =>
       note: "",
       lines: [{ description: "Wartung Oktober", quantity: 1000, unit: "Psch.", unitPrice: 100_000, taxRate: 1900 }],
     });
-    const invoice = await invoices.finalizeInvoice(actor, draft.id);
+    const invoice = await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
     const beleg = await bookedDocument(3, { supplierName: "Hafenwerft Druck GmbH", documentDate: "2025-12-10", net: 25_000, tax: 4_750 });
 
     // Dezember 2025 ist schon abgegeben: ein Storno danach trägt das Datum der Erfassung, nicht das des Belegs
@@ -315,7 +316,7 @@ describe.skipIf(!testDatabaseUrl)("Offene Posten zum Stichtag (Postgres)", () =>
       note: "",
       lines: [{ description: "Beratung Dezember", quantity: 1000, unit: "Psch.", unitPrice: 50_000, taxRate: 1900 }],
     });
-    const invoice = await invoices.finalizeInvoice(actor, draft.id);
+    const invoice = await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
     // Ein Tag nach dem Stichtag bezahlt: am 31.12.2025 war der Posten noch vollständig offen
     await bank.importStatement(
       actor,

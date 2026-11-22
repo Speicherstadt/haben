@@ -1,6 +1,7 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /*
  * Verrechnung einer Ausgangsrechnung mit ihrer Kundenkorrektur ohne Zahlung (#877, zweite Stufe aus #274).
@@ -8,20 +9,20 @@ import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
  * Die Rechnung behält ihren Betrag, ihr offener Rest sinkt auf 141,50 EUR, und die Korrektur gilt als erledigt.
  */
 describe.skipIf(!testDatabaseUrl)("Verrechnung von Ausgangsrechnung und Kundenkorrektur (Postgres)", () => {
-  let invoices: typeof import("./invoices.ts");
+  let invoices: typeof import("./index.ts");
   let verrechnung: typeof import("./verrechnung.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
-  let bank: typeof import("../bank/bank.ts");
+  let bank: typeof import("../bank/index.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
   let contactId: string;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    invoices = await import("./invoices.ts");
+    invoices = await import("./index.ts");
     verrechnung = await import("./verrechnung.ts");
     contacts = await import("../stammdaten/contacts.ts");
-    bank = await import("../bank/bank.ts");
+    bank = await import("../bank/index.ts");
   }, 60_000);
 
   afterAll(async () => {
@@ -44,7 +45,7 @@ describe.skipIf(!testDatabaseUrl)("Verrechnung von Ausgangsrechnung und Kundenko
       },
       art === "korrektur" ? { kind: "korrektur", correctsId: correctsFor! } : {},
     );
-    return (await invoices.finalizeInvoice(actor, draft.id)).id;
+    return (await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand)).id;
   }
 
   /** Rechnung 159,00 EUR mit Korrektur -17,50 EUR: der Fall aus dem Issue */

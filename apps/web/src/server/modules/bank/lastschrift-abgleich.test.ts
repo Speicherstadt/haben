@@ -1,6 +1,7 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 const ACCOUNT_IBAN = "DE89370400440532013000";
 
@@ -35,7 +36,7 @@ const ACCOUNTS = {
 describe.skipIf(!testDatabaseUrl)("Lastschriften im Bankabgleich: Sammelgutschrift und Rücklastschrift (Postgres, #445)", () => {
   let sql: postgres.Sql;
   let bank: typeof import("./index.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let mandates: typeof import("../stammdaten/sepa-mandate.ts");
   const actor = "test-user";
@@ -43,7 +44,7 @@ describe.skipIf(!testDatabaseUrl)("Lastschriften im Bankabgleich: Sammelgutschri
   beforeAll(async () => {
     sql = await setupTestDb();
     bank = await import("./index.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     mandates = await import("../stammdaten/sepa-mandate.ts");
   }, 30_000);
@@ -109,6 +110,7 @@ describe.skipIf(!testDatabaseUrl)("Lastschriften im Bankabgleich: Sammelgutschri
             sepaMandateId: mandateId,
           })
         ).id,
+        kleinunternehmerStand,
       );
     const a = await invoice(25_000);
     const b = await invoice(10_000);

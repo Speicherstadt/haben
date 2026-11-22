@@ -80,7 +80,10 @@ function blockerFor(voucher: LegacyVoucher, state: LegacyOpenAt, cutoff: string,
   if (voucher.gross <= 0) return "Betrag nicht positiv";
   // Dateistand (#345): ein fehlendes XML neben dem PDF blockiert ebenso, das XML einer E-Rechnung ist das Original
   if (fileState === "anhang_fehlt") return `XML der E-Rechnung fehlt – „Erneut abrufen“ versucht es noch einmal`;
-  if (!hasPdf) return takeoverFileIssue(fileState) ?? `keine Datei aus ${SOURCE_LABEL[voucher.source]}`;
+  // Ein fehlgeschlagener Abruf blockiert auch neben einer anderen Datei, etwa einem weiteren Anhang aus Lexoffice oder einer
+  // später in sevDesk genannten Datei (#472): Unvollständig Abgerufenes übernimmt Haben nicht ohne Rückfrage (Konventionen, „Umzüge“)
+  if (fileState === "abruf_fehlgeschlagen") return takeoverFileIssue(fileState, SOURCE_LABEL[voucher.source]);
+  if (!hasPdf) return takeoverFileIssue(fileState, SOURCE_LABEL[voucher.source]) ?? `keine Datei aus ${SOURCE_LABEL[voucher.source]}`;
   return null;
 }
 
@@ -125,9 +128,10 @@ function sevPayDate(raw: Record<string, unknown>): string | null {
   return typeof raw.payDate === "string" ? raw.payDate : null;
 }
 
-async function itemsAt(cutoff: string): Promise<OpenLegacyItem[]> {
+/** Archivbelege, die offene Posten sein können */
+async function openItemVouchers() {
   // Alle Archivbelege mit korrelierten Unterabfragen: mit JIT dauerte schon das Kompilieren Sekunden (ohne-jit.ts)
-  const vouchers = await ohneJit((tx) =>
+  return ohneJit((tx) =>
     tx
       .select({
         ...getTableColumns(schema.lexofficeVouchers),
@@ -148,6 +152,10 @@ async function itemsAt(cutoff: string): Promise<OpenLegacyItem[]> {
       )
       .orderBy(schema.lexofficeVouchers.date, schema.lexofficeVouchers.number),
   );
+}
+
+/** Ob ein Archivbeleg schon als Rechnung oder Beleg übernommen ist */
+async function takenOverLookup() {
   const [invoices, documents] = await Promise.all([
     db
       .select({ id: schema.invoices.id, voucherId: schema.invoices.lexofficeVoucherId })
@@ -160,11 +168,15 @@ async function itemsAt(cutoff: string): Promise<OpenLegacyItem[]> {
   ]);
   const invoiceBy = new Map(invoices.map((i) => [i.voucherId, i.id]));
   const documentBy = new Map(documents.map((d) => [d.voucherId, d.id]));
-  const takenOverOf = (id: string): OpenLegacyItem["takenOver"] => {
+  return (id: string): OpenLegacyItem["takenOver"] => {
     const invoiceId = invoiceBy.get(id);
     const documentId = documentBy.get(id);
     return invoiceId ? { kind: "invoice", id: invoiceId } : documentId ? { kind: "document", id: documentId } : null;
   };
+}
+
+async function itemsAt(cutoff: string): Promise<OpenLegacyItem[]> {
+  const [vouchers, takenOverOf] = await Promise.all([openItemVouchers(), takenOverLookup()]);
   const candidates = vouchers
     .map((v) => {
       const issue = paymentHistoryIssue(v);

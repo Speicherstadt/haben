@@ -41,6 +41,8 @@ Der Testabruf läuft wie die Testübermittlung mit Testmerker und deiner Herstel
 
 Das Finanzamt setzt Einkommensteuer-Vorauszahlungen (fällig 10.3., 10.6., 10.9. und 10.12.) nach dem letzten Bescheid fest. Verdienst du in diesem Jahr weniger, kannst du die Herabsetzung formlos beantragen (§ 37 Abs. 3 EStG). Ein eigenes ELSTER-Formular dafür braucht es nicht; Haben schickt den Antrag als Sonstige Nachricht.
 
+Hast du unter [Einstellungen › Persönliche Angaben](einrichtung.md#persönliche-angaben) angegeben, dass keine Einkommensteuer-Vorauszahlungen festgesetzt sind, steht im Reiter ein Hinweis: Ein Herabsetzungsantrag ist dann gegenstandslos, es sei denn, das Finanzamt hat inzwischen wieder etwas festgesetzt. Der Antrag bleibt trotzdem ausfüllbar, weil der Haken eine Angabe von dir ist und kein Bescheid.
+
 Nur im Einzelunternehmen: Eine GmbH oder UG zahlt Körperschaftsteuer statt Einkommensteuer; bei ihr fehlt der Reiter, und Haben lehnt einen solchen Antrag ab. Eine Herabsetzung der Körperschaftsteuer-Vorauszahlungen schreibst du als [freie Nachricht](#freie-nachricht).
 
 Haben füllt den Antrag mit den Zahlen aus deiner Buchhaltung und schätzt die Steuer des Jahres:
@@ -53,6 +55,8 @@ Haben füllt den Antrag mit den Zahlen aus deiner Buchhaltung und schätzt die S
 | Voraussichtliche Steuer | Einkommensteuer, Solidaritätszuschlag und Kirchensteuer aus der Hochrechnung, siehe unten |
 | Gewünschte Vorauszahlung je Quartal | vorbelegt mit einem Viertel der voraussichtlichen Steuer, änderbar |
 | Bisherige Vorauszahlung je Quartal | trägst du ein |
+
+Gewinn bis heute, Hochrechnung, Vorjahr und die Rechnung zur voraussichtlichen Steuer stehen zugeklappt unter **Schätzrechnung**; der Kopf nennt darunter die Vorauszahlung je Termin. Die Adresse `/finanzamt#schaetzung` öffnet sie.
 
 ### Steuerprognose
 
@@ -68,7 +72,7 @@ Zum Gewinn kommt dagegen ein Erstattungsüberhang bei den Basisbeiträgen der Kr
 
 Bei Zusammenveranlagung gilt der Splittingtarif. Für Kinder vergleicht Haben Kindergeld und Kinderfreibeträge (Günstigerprüfung), haushaltsnahe Aufwendungen mindern die Steuer nach § 35a EStG. Solidaritätszuschlag mit Freigrenze und Milderungszone; Kirchensteuer mit 8 % in Baden-Württemberg und Bayern, sonst 9 %, bei nur einem kirchensteuerpflichtigen Ehegatten vereinfacht zur Hälfte.
 
-Arbeitslohn, Abzüge, Lohnsteuer und ein Erstattungsüberhang stammen aus den [Angaben zur Einkommensteuererklärung](jahreserklaerung.md#einkommensteuererklärung) des laufenden Jahres, sonst aus denen des Vorjahres; geschätzt ist nur der Gewinn für das laufende Jahr. Bei Angaben aus dem Vorjahr nennen die übernommenen Zeilen dessen Jahr (etwa „(Angaben 2025)“). Gibt es keine, rechnet Haben nur mit dem Pauschbetrag. Einbehaltene Lohnsteuer samt Soli und Kirchensteuer wird angerechnet; die Vorauszahlungen beziehen sich nur auf den Rest. Vermietung, Renten und Kapitalerträge fehlen; die Prognose ist eine Schätzung, keine Steuerberechnung des Finanzamts. Die Nennung im Antrag lässt sich abschalten.
+Arbeitslohn, Abzüge, Lohnsteuer und ein Erstattungsüberhang stammen aus den [Angaben zur Einkommensteuererklärung](jahreserklaerung.md#einkommensteuererklärung) des laufenden Jahres, sonst aus denen des Vorjahres; geschätzt ist nur der Gewinn für das laufende Jahr. Bei Angaben aus dem Vorjahr nennen die übernommenen Zeilen dessen Jahr (etwa „(Angaben 2025)“). Gibt es keine, rechnet Haben nur mit dem Pauschbetrag. Stammen sie aus dem Vorjahr und fällt Arbeitslohn an, sagt ein Hinweis unter der Schätzrechnung, dass zur Kirchensteuer darin auch die einbehaltene Lohnkirchensteuer gehört ([Kirchensteuer](jahreserklaerung.md#kirchensteuer)); ohne Arbeitslohn erscheint er nicht, denn Lohnkirchensteuer gibt es dort nicht. Einbehaltene Lohnsteuer samt Soli und Kirchensteuer wird angerechnet; die Vorauszahlungen beziehen sich nur auf den Rest. Vermietung, Renten und Kapitalerträge fehlen; die Prognose ist eine Schätzung, keine Steuerberechnung des Finanzamts. Die Nennung im Antrag lässt sich abschalten.
 
 Einkommensersatzleistungen wie Eltern- oder Krankengeld aus den Angaben des laufenden Jahres berücksichtigt Haben beim Progressionsvorbehalt ([§ 32b EStG](https://www.gesetze-im-internet.de/estg/__32b.html)). Bei übernommenen Vorjahresangaben lässt Haben diese Leistungen für beide Personen weg und nennt bei positiven Beträgen das Herkunftsjahr im Hinweis. In der Jahreserklärung ihres Bezugsjahres bleiben sie berücksichtigt. Erwartest du im laufenden Jahr ebenfalls Leistungen, trage sie in dessen Angaben zur Einkommensteuer ein.
 

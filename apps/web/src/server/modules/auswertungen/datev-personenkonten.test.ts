@@ -2,6 +2,7 @@ import { parseDatevBuchungsstapel } from "@haben/import";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "./test-umsatz-stand.ts";
 
 function dkbCsv(rows: string[][]) {
   const header = `"Girokonto";"DE12 1203 0000 1234 5678 90"\n""\n`;
@@ -13,10 +14,10 @@ const SAMMELKONTEN = { SKR03: { forderungen: "1400", verbindlichkeiten: "1600" }
 
 describe.skipIf(!testDatabaseUrl)("DATEV-Export mit Personenkonten (Postgres, #327)", () => {
   let datev: typeof import("./datev-export.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let documents: typeof import("../belege/documents.ts");
-  let bank: typeof import("../bank/bank.ts");
+  let bank: typeof import("../bank/index.ts");
   let ledger: typeof import("../buchhaltung/ledger.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
@@ -27,10 +28,10 @@ describe.skipIf(!testDatabaseUrl)("DATEV-Export mit Personenkonten (Postgres, #3
   beforeAll(async () => {
     sql = await setupTestDb();
     datev = await import("./datev-export.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     documents = await import("../belege/documents.ts");
-    bank = await import("../bank/bank.ts");
+    bank = await import("../bank/index.ts");
     ledger = await import("../buchhaltung/ledger.ts");
   }, 30_000);
 
@@ -74,7 +75,7 @@ describe.skipIf(!testDatabaseUrl)("DATEV-Export mit Personenkonten (Postgres, #3
       note: "",
       lines: [{ description: "Beratung", quantity: 1000, unit: "Std." as const, unitPrice: net, taxRate: 1900 as const }],
     });
-    return invoices.finalizeInvoice(actor, draft.id);
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
   }
 
   async function beleg(supplierContactId: string | null, gross: number, date = "2026-05-10") {
