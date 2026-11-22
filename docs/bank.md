@@ -173,11 +173,11 @@ Mit **Ist eine Dublette** nimmst du den Umsatz aus den offenen Beträgen und aus
 
 Beim automatischen Inhaltsabgleich können dieselben Zahlungen aus zwei Quellen unterschiedlich aussehen. Abruf und Datei schreiben den Verwendungszweck oft anders, und manche Exporte nennen das Zahlungsdatum statt des Buchungsdatums. Ein Konto bekommt seine Umsätze deshalb aus einer Quelle. Wer die Quelle wechselt, importiert ab dem Tag nach dem letzten vorhandenen Umsatz. Der [Abruf](#welche-umsätze-abgerufen-werden) beginnt nach einem Dateiimport von selbst dort.
 
-Liegen im Zeitraum einer neuen Datei schon Umsätze aus einem anderen Format oder aus dem Abruf (altes und neues CSV der DKB zählen als ein Format) und legt der Import trotzdem Umsätze neu an, meldet Haben das neben der Meldung zur Lücke, mit Zeitraum, Quelle und Anzahl. Reicht die Datei bis zum [Stichtag](#welche-umsätze-abgerufen-werden) eines Abrufs, nennt die Meldung ihn und den Abruf; eine Datei braucht es danach nur für eine Lücke im Abruf. Importiert wird trotzdem. Unscharf über Betrag und Datum verglichen wird bewusst nicht, sonst blieben echte gleiche Zahlungen an Folgetagen unbemerkt.
+Liegen im Zeitraum einer neuen Datei schon Umsätze aus einem anderen Format oder aus dem Abruf (altes und neues CSV der DKB zählen als ein Format) und legt der Import trotzdem Umsätze neu an, meldet Haben das in einer eigenen Meldung, mit Zeitraum, Quelle und Anzahl. Reicht die Datei bis zum [Stichtag](#welche-umsätze-abgerufen-werden) eines Abrufs, nennt die Meldung ihn und den Abruf; eine Datei braucht es danach nur für eine Lücke im Abruf. Importiert wird trotzdem. Unscharf über Betrag und Datum verglichen wird bewusst nicht, sonst blieben echte gleiche Zahlungen an Folgetagen unbemerkt.
 
 ### Saldenprüfung
 
-Haben vergleicht den Anfangssaldo der neuen Datei mit dem Endsaldo des vorigen Imports desselben Kontos. Passen sie nicht zusammen und überschneiden sich die Zeiträume nicht, meldet Haben eine Lücke mit Differenz, etwa: „Lücke: Anfangssaldo … passt nicht zum Endsaldo … des vorigen Imports. … vermutlich fehlen Umsätze dazwischen.“ Importiert wird trotzdem.
+Haben vergleicht den Anfangssaldo der neuen Datei mit dem Endsaldo des vorigen Imports desselben Kontos; ein später beginnender Import zählt dafür nicht. Passen sie nicht zusammen, meldet Haben eine Lücke mit Differenz, etwa: „Lücke: Anfangssaldo … passt nicht zum Endsaldo … des vorigen Imports. … vermutlich fehlen Umsätze dazwischen.“ Reicht der vorige Import über den Anfang der neuen Datei hinaus, kommt stattdessen ein Hinweis auf die Überschneidung. Importiert wird trotzdem.
 
 Bei DKB-CSV leitet Haben die Salden aus dem Kontostand im Dateikopf ab, wenn dessen Datum zum Zeitraum der Umsätze passt. Swan-CSV nennt beide Salden im Kopfblock. ING-CSV führt den Kontostand nach jeder Buchung; Haben übernimmt die Salden, wenn diese Spalte lückenlos aufgeht, sonst kommt ein Hinweis. Deutsche Bank, Norisbank und Postbank nennen den letzten Kontostand im Kopfblock und den am Ende der Datei; Haben übernimmt beide, wenn die Differenz aufgeht, sonst kommt ein Hinweis. N26-, Commerzbank- und C24-CSV und ein gefilterter ING-Export haben keine Salden; dort entfällt die Prüfung.
 
@@ -273,7 +273,7 @@ Liegt der Umsatz auf einem Konto mit dem Zweck **privat**, bucht Haben die Gegen
 
 Belege aus einem [Dauerbeleg](belege.md#dauerbelege) (Miete, Versicherung, Leasing) entstehen ungebucht mit dem Status „Zu prüfen“ und sind deshalb noch kein offener Posten. Damit die Abbuchung trotzdem ihren Beleg findet, sucht Haben für einen Ausgang auch unter diesen Belegen, wenn sie über das Geschäftskonto bezahlt werden, mit denselben Punkten wie oben. Gezeigt werden nur Treffer, deren Betrag genau zum Umsatz passt, unter **Dauerbeleg, noch zu prüfen**:
 
-- **Buchen und zuordnen** bucht den Beleg wie **Bestätigen und buchen** auf der Belegseite (Aufwand und Vorsteuer an Verbindlichkeiten, mit Belegdatum) und ordnet ihm in derselben Transaktion den Umsatz zu (Verbindlichkeiten an Bank). Fehlt dem Beleg etwas zum Buchen oder passt die Zuordnung nicht (etwa weil der Umsatz inzwischen zugeordnet ist), steht der Grund im Feld, und nichts ist gebucht.
+- **Buchen und zuordnen** bucht den Beleg wie **Bestätigen und buchen** auf der Belegseite (Aufwand und Vorsteuer an Verbindlichkeiten, mit Belegdatum) und ordnet ihm in derselben Transaktion den Umsatz zu (Verbindlichkeiten an Bank). Fehlt dem Beleg etwas zum Buchen oder passt die Zuordnung nicht (etwa weil der Umsatz inzwischen zugeordnet ist), steht der Grund im Feld, und nichts ist gebucht. Hast du den Beleg auf § 13b oder innergemeinschaftlichen Erwerb umgestellt, fehlt der Knopf: Dann buchst du ihn auf der Belegseite, deren Rückfrage bei § 13b EU und Erwerb die [USt-IdNr. des Lieferanten](belege-ausland.md#ust-idnr-des-lieferanten-bestätigen) beim BZSt bestätigt.
 - **Beleg prüfen** öffnet den Beleg; nach dem Buchen erscheint er hier als gewöhnlicher Vorschlag.
 
 Haben bucht einen Dauerbeleg nie von selbst, auch nicht bei einem eindeutigen Treffer.
@@ -356,7 +356,12 @@ Hast du selbst Skonto abgezogen, liegt die Abbuchung unter dem Beleg. Dann gibt 
 
 **Rechnung minus Korrektur:** Gibt es zur Rechnung eine offene Rechnungskorrektur, die den Rest genau ausgleicht, hat der Kunde die Korrektur gleich abgezogen. Gleicht keine einzelne den Rest aus, aber alle offenen Korrekturen der Rechnung zusammen, gilt dasselbe für alle. Der Hauptknopf beim besten Treffer heißt dann **Mit Korrektur … zuordnen** (bei mehreren **Mit Korrekturen … zuordnen**) und bucht die Aufteilung: die Rechnung über ihren offenen Betrag, jede Korrektur über ihren negativen Betrag; danach sind alle bezahlt, nichts wird ausgebucht. Haben bietet für den Rest weder Skonto noch Forderungsausfall, Gebühr oder Kursdifferenz an, sondern **Mit Korrektur … aufteilen**, das dieselbe Aufteilung zum Ansehen und Ändern öffnet.
 
-Zieht der Kunde die Korrektur ab und dann Skonto, rechnet Haben das Skonto vom geminderten Betrag (Rechnung 119,00 €, Korrektur −23,80 €, 2 % Skonto auf 95,20 € = 1,90 €, Zahlung 93,30 €). **Mit Korrektur … zuordnen, Rest … als Skonto** bucht die Aufteilung auf Rechnung und Korrekturen und bucht nur diese 1,90 € als gewährtes Skonto aus. Das gilt für die noch ganz offene Rechnung mit allen ihren offenen Korrekturen und nur, wenn Rechnung und Korrekturen denselben Steuersatz haben; sonst teilst du den Umsatz auf und buchst den Rest einzeln. Hebst du einen Teil auf, hebt Haben die ganze Aufteilung samt Skonto auf.
+Zieht der Kunde die Korrektur ab und dann Skonto, rechnet Haben das Skonto vom geminderten Betrag (Rechnung 119,00 €, Korrektur −23,80 €, 2 % Skonto auf 95,20 € = 1,90 €, Zahlung 93,30 €). **Mit Korrektur … zuordnen, Rest … als Skonto** bucht die Aufteilung auf Rechnung und Korrekturen und bucht nur diese 1,90 € als gewährtes Skonto aus. Das gilt für die noch ganz offene Rechnung mit allen ihren offenen Korrekturen. Hebst du einen Teil auf, hebt Haben die ganze Aufteilung samt Skonto auf.
+
+Bei mehreren Steuersätzen mindert das Skonto die Entgelte, die nach den Korrekturen übrig sind, nicht den Mix der Rechnung ([§ 17 Abs. 1 Satz 1 UStG](https://www.gesetze-im-internet.de/ustg_1980/__17.html): die Minderung je Umsatz). Beispiel: Rechnung 107,00 € (100,00 € netto zu 7 %) und 119,00 € (100,00 € netto zu 19 %), Korrektur −59,50 € nur auf den 19-%-Teil, offen 166,50 €, 2 % Skonto 3,33 €, Zahlung 163,17 €. Übrig sind 107,00 € zu 7 % und 59,50 € zu 19 %; danach teilt Haben das Skonto auf: 2,00 € netto und 0,14 € Umsatzsteuer zu 7 %, 1,00 € netto und 0,19 € Umsatzsteuer zu 19 %. Nach dem Mix der Rechnung wären es rund 1,58 € und 1,75 €, also zu viel Minderung auf 19 %.
+
+- Hat eine Korrektur einen Steuersatz, den die Rechnung nicht hat, gibt es den Knopf nicht; dann teilst du den Umsatz auf und buchst den Rest einzeln.
+- So verteilt nur **Mit Korrektur … zuordnen, Rest … als Skonto**. Teilst du von Hand auf und buchst den Rest danach unter **Ausbuchen** aus, verteilt Haben das Skonto nach dem Mix der Rechnung.
 
 Einen Forderungsausfall ohne Zahlung, etwa bei Insolvenz des Kunden, buchst du auf der Seite der Rechnung unter **Ausbuchen** (siehe [Rechnungen](rechnungen.md#ausbuchen)). Hebst du die Zuordnung einer Zahlung auf, hebt Haben einen mit ihr ausgebuchten Rest mit auf.
 
@@ -377,8 +382,8 @@ Die Differenz ist Aufwand oder Ertrag aus Kursdifferenzen, ohne Umsatzsteuer; di
 
 | Fall | SKR03 | SKR04 |
 | --- | --- | --- |
-| Kunde zahlt weniger, du zahlst mehr | 2150 Aufwendungen aus Kursdifferenzen | 6880 |
-| Kunde zahlt mehr, du zahlst weniger | 2660 Erträge aus Kursdifferenzen | 4840 |
+| Kunde zahlt weniger, du zahlst mehr | 2150 Aufwendungen aus der Währungsumrechnung | 6880 |
+| Kunde zahlt mehr, du zahlst weniger | 2660 Erträge aus der Währungsumrechnung | 4840 |
 
 Beispiel: Rechnung über 1.190,00 USD, zum USt-Kurs 1 EUR = 1,0812 USD sind das 1.100,63 €. Der Kunde überweist 1.095,00 €. Haben ordnet 1.095,00 € zu und bucht 5,63 € auf 2150 gegen Forderungen. Bei Ist-Versteuerung wird die Umsatzsteuer der Rechnung trotzdem voll fällig, auch auf den ausgebuchten Teil. In der EÜR stehen die Erlöse in voller Höhe und die 5,63 € als eigener Posten „Aufwendungen aus Kursdifferenzen“; im Abgleich der Auswertungen werden die Konten gegen diesen Posten geprüft.
 
