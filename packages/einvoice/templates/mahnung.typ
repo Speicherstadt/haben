@@ -3,7 +3,8 @@
 
 #let d = json(bytes(sys.inputs.data))
 #import "entwurf.typ": entwurf-vermerk, girocode-feld
-// Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) unter den Spalten des Fußes; ohne sie bleibt der Fuß wie bisher
+// Pflichtangaben einer GmbH oder UG (§ 35a GmbHG); ohne sie bleibt der Fuß wie bisher. Hier ab Werk als Zeile unter den
+// Spalten, mit look.legalPosition „spalte“ als eigene Spalte daneben, je Angabe eine Zeile
 #let legal = d.at("legal", default: none)
 
 // Grautöne für Text, Beschriftungen und Linien, aus der Akzentfarbe abgeleitet (accentPalette in packages/core)
@@ -31,7 +32,9 @@
 }
 // Spaltenbreite im Fuß. Nur Wörter, die nicht hineinpassen, bekommen Umbruchstellen; Typst bricht sonst nicht innerhalb eines
 // Worts, es liefe in die Nachbarspalte. Alle anderen bleiben beim Kopieren und Suchen unverändert.
-#let foot-breite = (165mm - 6mm * calc.max(d.footer.len() - 1, 0)) / calc.max(d.footer.len(), 1)
+#let legal-spalte = legal != none and d.at("look", default: (:)).at("legalPosition", default: "layout") == "spalte"
+#let fuss-spalten-zahl = d.footer.len() + if legal-spalte { 1 } else { 0 }
+#let foot-breite = (165mm - 6mm * calc.max(fuss-spalten-zahl - 1, 0)) / calc.max(fuss-spalten-zahl, 1)
 #let umbruchstellen(wort) = if wort == "" { "" } else { wort.clusters().join("\u{200B}") }
 #let umbrechbar(inhalt, breite) = inhalt.split(" ").map(wort => if measure(text(wort)).width > breite { umbruchstellen(wort) } else { wort }).join(" ")
 #let formatted(runs) = {
@@ -82,8 +85,23 @@
   context lines.map(footer-zeile).join(linebreak())
 }
 
-// Pflichtangaben über die ganze Breite unter den Spalten des Fußes
-#let legal-foot = if legal == none { none } else { pad(top: 2mm, footer-col((legal,), breite: 165mm)) }
+// Pflichtangaben als eine Zeile: Jede Angabe, die in die Breite passt, hält zusammen; umbrochen wird dann nur an einem
+// Trenner, und der bleibt am Ende der Zeile
+#let legal-text(breite) = {
+  set text(size: 7pt, fill: muted)
+  set par(leading: 0.45em)
+  context legal.split(" · ").map(teil => if measure(text(teil)).width <= breite { teil.replace(" ", "\u{00A0}") } else { umbrechbar(teil, breite) }).join("\u{00A0}· ")
+}
+
+// Pflichtangaben als Zeile über die ganze Breite unter den Spalten, durch eine feine Linie abgesetzt. Umbrochen wird erst,
+// wenn sie nicht in die Breite passt (legal-text).
+#let legal-foot = if legal == none or legal-spalte { none } else {
+  set block(spacing: 0pt)
+  v(2.4mm)
+  line(length: 100%, stroke: 0.25pt + rule)
+  v(1.8mm)
+  legal-text(165mm)
+}
 
 // Leer, wenn das Briefpapier selbst den Fuß trägt
 #let foot-spalten = if d.footer.len() == 0 { none } else {
@@ -91,9 +109,10 @@
   line(length: 100%, stroke: 0.4pt + rule)
   v(3mm)
   grid(
-    columns: d.footer.map(_ => 1fr),
+    columns: range(fuss-spalten-zahl).map(_ => 1fr),
     column-gutter: 6mm,
     ..if d.at("footerFormatted", default: none) != none { d.footerFormatted.map(footer-col-formatted) } else { d.footer.map(footer-col) },
+    ..if legal-spalte { (footer-col(legal.split(" · ")),) },
   )
   if legal-foot != none { legal-foot }
 }

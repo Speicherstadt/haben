@@ -73,6 +73,19 @@ describe("Schrift und Briefpapier in der Gestaltung", () => {
     expect(letterheadDesignInputSchema.safeParse({ footerHidden: true }).success).toBe(true);
   });
 
+  it("eigene Fußzeile: ohne gespeicherte Angabe an, wenn Spalten gespeichert sind (#1651)", () => {
+    expect(designWithDefaults({ accent: "#123456" }).footerCustom).toBe(false);
+    expect(designWithDefaults({ footerColumns: ["{firma}", "{ustid}"] }).footerCustom).toBe(true);
+    expect(designWithDefaults({ footerColumns: ["{firma}", "{ustid}"], footerCustom: false }).footerCustom).toBe(false);
+    expect(letterheadDesignInputSchema.safeParse({ footerCustom: false }).success).toBe(true);
+  });
+
+  it("Pflichtangaben ab Werk wie im Layout, sonst als Spalte oder Zeile", () => {
+    expect(DEFAULT_DESIGN.legalPosition).toBe("layout");
+    expect(letterheadDesignInputSchema.safeParse({ legalPosition: "zeile" }).success).toBe(true);
+    expect(letterheadDesignInputSchema.safeParse({ legalPosition: "rand" }).success).toBe(false);
+  });
+
   it("kennt nur erste Seite oder alle Seiten", () => {
     expect(letterheadDesignInputSchema.safeParse({ backgroundPages: "alle" }).success).toBe(true);
     expect(letterheadDesignInputSchema.safeParse({ backgroundPages: "letzte" }).success).toBe(false);

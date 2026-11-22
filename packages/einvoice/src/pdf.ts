@@ -11,7 +11,10 @@ import { girocodeSvg } from "./qr.ts";
 import {
   needsSellerVatId,
   type TaxTreatment,
+  activeFooterColumns,
   customFooterRuns,
+  legalFooterValues,
+  legalInFooter,
   parseTextFormatting,
   footerValues,
   discountedLineAmount,
@@ -324,19 +327,27 @@ export function legalLine(info: LegalInfo | undefined, t: Texts = TEXTS.de): str
   return lines.length > 0 ? lines.join(" · ") : null;
 }
 
-/** Fuß für die Vorlagen: drei Spalten und die Pflichtangaben der Gesellschaft */
+/**
+ * Fuß für die Vorlagen: Spalten und die Pflichtangaben der Gesellschaft (legal). Stehen deren Platzhalter in der eigenen
+ * Fußzeile, ist legal null; ein eigenes Layout, das das nicht kennt (legalFieldOnly), bekommt die Platzhalter leer (#1651).
+ */
 export function footerData(seller: InvoiceDocument["seller"], t: Texts = TEXTS.de, letterhead: Letterhead = {}, treatment: TaxTreatment = "regulaer") {
   const { options } = letterhead;
   // Nur mit Briefpapier: Ohne stünden die Pflichtangaben nirgends
   if (letterhead.background && options?.footerHidden) return { footer: [], footerFormatted: null, legal: null };
-  const legal = legalLine(seller.legalInfo, t);
-  if (!options?.footerColumns) return { footer: footerColumns(seller, t), footerFormatted: null, legal };
-  const runs = customFooterRuns(
-    options.footerColumns,
-    { ...footerValues(seller), iban: seller.iban ? formatIban(seller.iban) : "" },
-    { labels: { taxNumber: t.taxNumber, vatId: t.vatId }, needsVatId: needsSellerVatId(treatment) },
-  );
-  return { footer: runs.map((column) => column.map((line) => line.map((run) => run.text).join(""))), footerFormatted: runs, legal };
+  const columns = options ? activeFooterColumns(options) : null;
+  if (!columns) return { footer: footerColumns(seller, t), footerFormatted: null, legal: legalLine(seller.legalInfo, t) };
+  const inFooter = !letterhead.legalFieldOnly && legalInFooter(columns);
+  const values = { ...footerValues(seller), iban: seller.iban ? formatIban(seller.iban) : "" };
+  const runs = customFooterRuns(columns, letterhead.legalFieldOnly ? { ...values, ...legalFooterValues(undefined) } : values, {
+    labels: { taxNumber: t.taxNumber, vatId: t.vatId },
+    needsVatId: needsSellerVatId(treatment),
+  });
+  return {
+    footer: runs.map((column) => column.map((line) => line.map((run) => run.text).join(""))),
+    footerFormatted: runs,
+    legal: inFooter ? null : legalLine(seller.legalInfo, t),
+  };
 }
 
 /** Erkennt PNG und JPEG an den ersten Bytes (bildFormat in @haben/core); anderes lehnt Haben als Logo ab */

@@ -1,9 +1,10 @@
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { BUILTIN_LAYOUTS, type LetterheadDesign } from "@haben/core";
+import type { LetterheadDesign } from "@haben/core";
 import { formatDate } from "../lib/format.ts";
 import { useAction } from "../lib/use-action.ts";
+import { EingebauteLayouts } from "./EingebauteLayouts.tsx";
 import { LayoutOptionsSections } from "./LayoutOptionFields.tsx";
 import { LayoutZuordnung } from "./LayoutZuordnung.tsx";
 import { reloadLayoutPackages, removeLayout, renameLayoutFn, replaceLayout, uploadLayout } from "../server/functions/layouts.ts";
@@ -65,29 +66,6 @@ export function LayoutsCard({ design, layouts }: { design: LetterheadDesign; lay
       </p>
       <LayoutZuordnung design={design} layouts={layouts} />
       <LayoutOptionsSections design={design} />
-      <section aria-labelledby="eingebaute-layouts-heading">
-        <h3 id="eingebaute-layouts-heading">Eingebaute Layouts</h3>
-        <ul className="own-layouts">
-          {(["beleg", "mahnung"] as const).map((art) => (
-            <li key={art}>
-              <div className="own-layout-name">
-                <strong>{BUILTIN_LAYOUTS[0]!.name}</strong>
-                <span className="small muted">{ART_LABEL[art]} · als Grundlage für ein eigenes Layout</span>
-              </div>
-              <div className="actions">
-                <a
-                  className="btn btn-sm"
-                  href={`${DOWNLOAD}?datei=start&art=${art}`}
-                  download
-                  aria-label={`${BUILTIN_LAYOUTS[0]!.name} für ${ART_LABEL[art]} herunterladen`}
-                >
-                  Herunterladen
-                </a>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
       <OwnLayouts layouts={layouts} />
       <LayoutUpload />
       <section aria-labelledby="layout-hilfe-heading">
@@ -97,6 +75,7 @@ export function LayoutsCard({ design, layouts }: { design: LetterheadDesign; lay
           Aussehen und lade das Ergebnis hier hoch. Haben prüft es mit Beispieldaten, bevor es gilt.
         </p>
         <div className="actions" style={{ flexWrap: "wrap" }}>
+          <EingebauteLayouts design={design} />
           <a className="btn btn-sm" href={LAYOUTS_DOCS} target="_blank" rel="noreferrer">
             Dokumentation
           </a>
