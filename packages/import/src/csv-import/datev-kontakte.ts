@@ -7,8 +7,9 @@ import { duplicateKey, type RowCandidate } from "./plan.ts";
  * Kontakte aus DATEV-Stammdaten „Debitoren/Kreditoren“ (docs/csv-import.md, „Kontakte aus DATEV“, #472). Anders als
  * beim CSV-Import ist das Personenkonto der Schlüssel: Ein zweiter Import findet jede Nummer am Kontakt wieder und ändert
  * nichts. Derselbe Partner ist ein Debitor und ein Kreditor der Datei mit gleicher USt-IdNr. oder Steuernummer; der Name
- * allein führt nicht zusammen (#327), denn zwei Kunden dürfen gleich heißen. Einem Kontakt in Haben ohne Personenkonto
- * gibt der Import eine Nummer nur nach Bestätigung in der Vorschau, und nie eine, die schon ein anderer Kontakt trägt.
+ * allein führt nicht still zusammen (#327), denn zwei Kunden dürfen gleich heißen. Einem Kontakt in Haben ohne
+ * Personenkonto gibt der Import eine Nummer nur nach Bestätigung in der Vorschau, und nie eine, die schon ein anderer
+ * Kontakt trägt. Passt nur der Name, kann die Vorschau die Zeile stattdessen als neuen Kontakt anlegen.
  */
 
 export interface DatevContactCandidate extends RowCandidate<ContactRow> {
@@ -43,7 +44,14 @@ interface PlanBase {
 
 export type DatevContactPlan<T> =
   | (PlanBase & { status: "neu"; value: T; message: string | null })
-  | (PlanBase & { status: "zuordnen"; value: null; message: string; assign: { contactId: string; debitorNr: number | null; kreditorNr: number | null } })
+  | (PlanBase & {
+      status: "zuordnen";
+      value: null;
+      message: string;
+      assign: { contactId: string; debitorNr: number | null; kreditorNr: number | null };
+      /** Passt nur der Name: der Kontakt, der stattdessen neu angelegt werden kann; sonst null */
+      orNew: T | null;
+    })
   | (PlanBase & { status: "dublette" | "fehler"; value: null; message: string });
 
 const ROLLEN = ["debitor", "kreditor"] as const;
@@ -179,7 +187,7 @@ function otherNumber(c: DatevStockContact, wanted: { rolle: PersonenkontoRolle; 
 
 type StockResult =
   | { status: "fehler" | "dublette"; message: string }
-  | { status: "zuordnen-an"; contact: DatevStockContact; why: string }
+  | { status: "zuordnen-an"; contact: DatevStockContact; why: string; byName: boolean }
   | { status: "neu-hinweis"; hint: string | null };
 
 /** Ein Partner gegen den Bestand: Nummer schon da, Kontakt zum Bestätigen, Konflikt oder neu */
@@ -202,7 +210,7 @@ function againstStock(value: Numbers, stock: readonly DatevStockContact[]): Stoc
     if (missing.length === 0)
       return { status: "dublette", message: `Gibt es schon (${named(owner)}, ${wanted.map(({ rolle, nr }) => konto(rolle, nr)).join(" und ")})` };
     const has = wanted.filter(({ rolle }) => nrOf(owner, rolle) !== null).map(({ rolle, nr }) => konto(rolle, nr));
-    return { status: "zuordnen-an", contact: owner, why: `hat ${has.join(" und ")}` };
+    return { status: "zuordnen-an", contact: owner, why: `hat ${has.join(" und ")}`, byName: false };
   }
   const matches = stock.filter((c) => sameUstId(c.ustId, value.ustId) || sameText(c.kundennummer, value.kundennummer));
   if (matches.length > 1) {
@@ -220,10 +228,25 @@ function againstStock(value: Numbers, stock: readonly DatevStockContact[]): Stoc
     }
     const clash = otherNumber(match, wanted, `${named(match)} mit gleicher ${byUstId ? "USt-IdNr." : "Kundennummer"}`);
     if (clash) return { status: "fehler", message: clash };
-    return { status: "zuordnen-an", contact: match, why: `gleiche ${byUstId ? "USt-IdNr." : "Kundennummer"}` };
+    return { status: "zuordnen-an", contact: match, why: `gleiche ${byUstId ? "USt-IdNr." : "Kundennummer"}`, byName: false };
   }
-  const sameName = stock.find((c) => sameText(c.name, value.name));
-  return { status: "neu-hinweis", hint: sameName ? `Gleicher Name wie ${named(sameName)} in Haben; eigener Kontakt` : null };
+  return byName(value, wanted, stock);
+}
+
+/**
+ * Gleicher Name allein: Vorschlag nur an genau einen Kontakt, dem die Nummern fehlen und dessen USt-IdNr. nicht
+ * widerspricht. Eine andere Nummer für die Rolle heißt ein anderer Partner, denn das Personenkonto ist der Schlüssel.
+ */
+function byName(value: Numbers, wanted: { rolle: PersonenkontoRolle; nr: number }[], stock: readonly DatevStockContact[]): StockResult {
+  const same = stock.filter((c) => sameText(c.name, value.name));
+  const [match] = same;
+  if (!match) return { status: "neu-hinweis", hint: null };
+  const eigener = (why: string) => ({ status: "neu-hinweis" as const, hint: `Gleicher Name wie ${why}; eigener Kontakt` });
+  if (same.length > 1) return eigener(`mehrere Kontakte in Haben (${same.map((c) => `„${c.name}“`).join(", ")})`);
+  if (match.ustId && value.ustId && !sameUstId(match.ustId, value.ustId)) return eigener(`${named(match)} in Haben, aber andere USt-IdNr. (${match.ustId})`);
+  const other = wanted.find(({ rolle }) => nrOf(match, rolle) !== null);
+  if (other) return eigener(`${named(match)} in Haben, der ${konto(other.rolle, nrOf(match, other.rolle)!)} hat`);
+  return { status: "zuordnen-an", contact: match, why: "gleicher Name", byName: true };
 }
 
 /**
@@ -244,6 +267,10 @@ export function planDatevContacts<T extends Numbers>(
     if (planned.status === "neu-hinweis") return { ...base, status: "neu", value: c.value, message: withHints(planned.hint) };
     if (planned.status !== "zuordnen-an") return { ...base, status: planned.status, value: null, message: planned.message };
     const earlier = proposed.get(planned.contact.id);
+    if (earlier !== undefined && planned.byName) {
+      const hint = `Gleicher Name wie ${named(planned.contact)} in Haben, dem schon Zeile ${earlier} vorgeschlagen ist; eigener Kontakt`;
+      return { ...base, status: "neu", value: c.value, message: withHints(hint) };
+    }
     if (earlier !== undefined)
       return {
         ...base,
@@ -256,6 +283,6 @@ export function planDatevContacts<T extends Numbers>(
     const assign = { contactId: planned.contact.id, debitorNr: null as number | null, kreditorNr: null as number | null };
     for (const { rolle, nr } of missing) assign[`${rolle}Nr`] = nr;
     const message = `${missing.map(({ rolle, nr }) => konto(rolle, nr)).join(" und ")} an ${named(planned.contact)} vergeben (${planned.why})`;
-    return { ...base, status: "zuordnen", value: null, message: withHints(message)!, assign };
+    return { ...base, status: "zuordnen", value: null, message: withHints(message)!, assign, orNew: planned.byName ? c.value : null };
   });
 }
