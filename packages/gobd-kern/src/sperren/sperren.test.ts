@@ -101,6 +101,30 @@ describe.skipIf(!url)("Sperren gegen einen Sollbestand", () => {
     expect(await pruefen()).toEqual({ befunde: [], hinweise: [] });
   });
 
+  it("meldet Vorgaben replica für Datenbank und Rolle in fester Reihenfolge", async () => {
+    const rolle = `probe_replica_${randomBytes(4).toString("hex")}`;
+    const zurueck = new Error("zurückrollen");
+    // ALTER ROLE und ALTER DATABASE sind transaktional: Nach dem Zurückrollen bleibt keine Vorgabe.
+    await sql
+      .begin(async (tx) => {
+        await tx.unsafe(`CREATE ROLE ${rolle} NOLOGIN`);
+        await tx.unsafe(`ALTER ROLE ${rolle} IN DATABASE ${name} SET session_replication_role = replica`);
+        await tx.unsafe(`ALTER ROLE ${rolle} SET session_replication_role = replica`);
+        await tx.unsafe(`ALTER DATABASE ${name} SET session_replication_role = replica`);
+        const inTransaktion: Leser = { transaktion: (lesen) => lesen(((text, werte = []) => tx.unsafe(text, werte as never[])) as Abfrage) };
+        const ist = await leseMomentaufnahme(inTransaktion, { ...optionen, tabellen: soll.sealedTables });
+        expect(vergleiche(soll, ist, optionen.schema).befunde).toEqual([
+          { art: "replica", vorgabe: { bereich: "datenbank", datenbank: name } },
+          { art: "replica", vorgabe: { bereich: "rolle", rolle, datenbank: null } },
+          { art: "replica", vorgabe: { bereich: "rolle", rolle, datenbank: name } },
+        ]);
+        throw zurueck;
+      })
+      .catch((error: unknown) => {
+        if (error !== zurueck) throw error;
+      });
+  });
+
   // Zuletzt: Eine während des Tests neu geöffnete Verbindung behält replica als Vorgabe und meldete das auch danach
   it("meldet die dauerhafte Vorgabe replica der Datenbank", async () => {
     await admin.unsafe(`ALTER DATABASE ${name} SET session_replication_role = replica`);
