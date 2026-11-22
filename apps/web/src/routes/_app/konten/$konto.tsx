@@ -63,17 +63,21 @@ function SourceLink({
 }
 
 /**
- * Die Buchung, auf die ein Link zeigt (`#buchung-<id>`, aus der BWA, #1635): Die Seite markiert ihre Zeile und rollt sie in
- * die Mitte. Erst nach dem Laden, denn der Server kennt den Anker nicht; `:target` griffe bei einem Link innerhalb der App
+ * Die Buchung, auf die ein Link zeigt (`#buchung-<id>`, aus der BWA, #1635): Die Seite markiert ihre Zeile, rollt sie in
+ * die Mitte und setzt den Fokus darauf. Erst nach dem Laden, denn der Server kennt den Anker nicht; `:target` griffe bei einem Link innerhalb der App
  * nicht, weil der Router die Adresse ohne Seitenwechsel setzt.
  */
 function useZiel(): string {
   const hash = useLocation({ select: (l) => l.hash });
   const [ziel, setZiel] = useState("");
+  useEffect(() => setZiel(hash), [hash]);
+  // Erst nach dem Zeichnen mit `ziel`: Vorher hat die Zeile kein tabIndex und nimmt den Fokus nicht an
   useEffect(() => {
-    setZiel(hash);
-    if (hash.startsWith("buchung-")) document.getElementById(hash)?.scrollIntoView({ block: "center" });
-  }, [hash]);
+    if (!ziel.startsWith("buchung-")) return;
+    const zeile = document.getElementById(ziel);
+    zeile?.scrollIntoView({ block: "center" });
+    zeile?.focus({ preventScroll: true });
+  }, [ziel]);
   return ziel;
 }
 
@@ -220,7 +224,7 @@ function KontenblattPage() {
                 {rows.map((z, i) => {
                   const id = anker(z.entryId);
                   return (
-                    <tr key={`${z.entryId}-${i}`} id={id} aria-current={id && id === ziel ? "true" : undefined}>
+                    <tr key={`${z.entryId}-${i}`} id={id} aria-current={id && id === ziel ? "true" : undefined} tabIndex={id && id === ziel ? -1 : undefined}>
                       <td data-label="Datum">{shortDate(z.date)}</td>
                       <td data-label="Text">{z.description}</td>
                       <td className="mono small" data-label="Gegenkonto">

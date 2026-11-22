@@ -282,7 +282,7 @@ function VorgangLink({ v, rolle }: { v: BwaVorgang; rolle: string }) {
     <Link
       to="/konten/$konto"
       params={{ konto: v.konto }}
-      search={{ jahr: Number(v.datum.slice(0, 4)), von: v.datum, bis: v.datum }}
+      search={{ jahr: Number(v.buchungsdatum.slice(0, 4)), von: v.buchungsdatum, bis: v.buchungsdatum }}
       hash={`buchung-${v.buchungId}`}
     >
       {`${herkunft} · Konto\u00a0${v.konto}`}

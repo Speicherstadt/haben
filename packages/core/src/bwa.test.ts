@@ -49,7 +49,7 @@ const ALLE: EuerLineKey[] = [
   ...(Object.keys(PAUSCHALE_KONTEN) as PauschaleArt[]).map((k) => `pauschale:${k}` as const),
 ];
 
-const quelle = { buchungId: "b", sourceType: "allocation", sourceId: "s", rechnungId: null, belegId: null, konto: null };
+const quelle = { buchungId: "b", sourceType: "allocation", sourceId: "s", rechnungId: null, belegId: null, konto: null, buchungsdatum: "2026-01-01" };
 const posten = (datum: string, zeilen: BwaEuerPosten["zeilen"], kr: Kontenrahmen = "SKR03", extra: Partial<BwaEuerPosten> = {}): BwaEuerPosten => ({
   datum,
   kontenrahmen: kr,

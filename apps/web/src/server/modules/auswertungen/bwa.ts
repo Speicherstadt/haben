@@ -102,6 +102,7 @@ async function euerPosten(jahre: readonly number[], q: Db | Tx): Promise<BwaEuer
         rechnungId: b.invoiceId ?? (b.sourceType === "invoice" ? b.sourceId : null),
         belegId: b.documentId ?? (b.sourceType === "document" ? b.sourceId : null),
         konto: kontenblattKonto(b.kontenrahmen, b.zeilen),
+        buchungsdatum: b.buchungsdatum ?? b.date,
       },
     });
   };
@@ -177,6 +178,8 @@ export interface BwaVorgang {
   /** Die Buchung im Journal; ohne Rechnung und Beleg führt die Seite zu ihr ins Kontenblatt von `konto` (#1635) */
   buchungId: string;
   konto: string | null;
+  /** Tag im Journal und Kontenblatt; anders als `datum` bei einer USt-Vorauszahlung, die im Vorjahr zählt */
+  buchungsdatum: string;
   sourceType: string;
   sourceId: string;
   rechnungId: string | null;
@@ -208,12 +211,13 @@ export async function bwaZeileDetails(zeitraum: Zeitraum, zeile: Form43Zeile, q:
       vorgaenge: [],
     };
     gruppe.betrag += a.betrag;
-    const { buchungId, konto, sourceType, sourceId, rechnungId, belegId } = a.quelle;
+    const { buchungId, konto, buchungsdatum, sourceType, sourceId, rechnungId, belegId } = a.quelle;
     gruppe.vorgaenge.push({
       datum: a.datum,
       betrag: a.betrag,
       buchungId,
       konto,
+      buchungsdatum,
       sourceType,
       sourceId,
       rechnungId,
