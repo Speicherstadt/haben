@@ -1,4 +1,5 @@
 import { formatEuro } from "@haben/core";
+import { isInternalProvider } from "@haben/import/anbieter";
 import { Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { type FormEvent, useState } from "react";
@@ -9,8 +10,8 @@ import { FormDialog } from "./FormDialog.tsx";
 import { NoticeBanner } from "./NoticeBanner.tsx";
 
 /*
- * Konflikt im Abruf klären (#306, 3b): Die Bank liefert einen schon übernommenen Umsatz mit anderem Betrag, Buchungstag
- * oder anderer Art. Bis zur Entscheidung nimmt Haben den Abruf dieses Kontos nicht an. Überschrieben wird nie.
+ * Konflikt im Abruf klären (#306, 3b): Die Bank oder Etsy liefert einen schon übernommenen Umsatz mit anderem Betrag,
+ * Buchungstag oder anderer Art. Bis zur Entscheidung nimmt Haben den Abruf dieses Kontos nicht an. Überschrieben wird nie.
  */
 
 type Umsatz = { bookingDate: string; amount: number; counterpartyName: string | null; purpose: string | null };
@@ -42,21 +43,46 @@ function Spalte({ titel, umsatz, zuordnung }: { titel: string; umsatz: Umsatz; z
   );
 }
 
+/** Wer liefert: der Bankabruf (Bank › Automatischer Abruf), der Abruf von Etsy, PayPal oder Stripe oder ein Dienst über den REST-Import */
+const QUELLEN = {
+  bank: { wer: "Die Bank", von: "von der Bank", angaben: "der Bank", abruf: "aus dem Abruf dieses Kontos" },
+  etsy: { wer: "Etsy", von: "von Etsy", angaben: "von Etsy", abruf: "aus dem Etsy-Abruf" },
+  paypal: { wer: "PayPal", von: "von PayPal", angaben: "von PayPal", abruf: "aus dem PayPal-Abruf" },
+  stripe: { wer: "Stripe", von: "von Stripe", angaben: "von Stripe", abruf: "aus dem Stripe-Abruf" },
+  extern: { wer: "Der Dienst", von: "vom Dienst", angaben: "des Dienstes", abruf: "aus dieser Quelle" },
+} as const;
+
+/** Texte zum Anbieter einer Quelle (`import_sources.provider`): Etsy, PayPal und Stripe mit eigenem Namen, übrige interne sind Bankabrufe */
+export const quelleZuAnbieter = (provider: string): keyof typeof QUELLEN =>
+  provider === "etsy" || provider === "paypal" || provider === "stripe" ? provider : isInternalProvider(provider) ? "bank" : "extern";
+
 const ENTSCHEIDUNGEN = [
   {
     value: "keep",
     label: "Bisherigen Umsatz behalten",
-    hint: "Die Angaben der Bank gelten künftig als bekannt; ein neuer Umsatz entsteht nicht.",
+    hint: (angaben: string) => `Die Angaben ${angaben} gelten künftig als bekannt; ein neuer Umsatz entsteht nicht.`,
   },
   {
     value: "add",
     label: "Als weiteren Umsatz übernehmen",
-    hint: "Haben legt den gelieferten Umsatz zusätzlich an. Der bisherige bleibt mit seinen Zuordnungen stehen; beide bekommen einen Hinweis aufeinander.",
+    hint: () =>
+      "Haben legt den gelieferten Umsatz zusätzlich an. Der bisherige bleibt mit seinen Zuordnungen stehen; beide bekommen einen Hinweis aufeinander.",
   },
 ] as const;
 
 /** Knopf und Dialog für die offenen Konflikte einer Verbindung; nacheinander, ältester zuerst */
-export function KonfliktKlaeren({ konflikte, disabled }: { konflikte: ImportKonfliktDaten[]; disabled: boolean }) {
+export function KonfliktKlaeren({
+  konflikte,
+  disabled,
+  quelle = "bank",
+  onGeklaert,
+}: {
+  konflikte: ImportKonfliktDaten[];
+  disabled: boolean;
+  quelle?: keyof typeof QUELLEN;
+  /** Der letzte offene Konflikt ist geklärt; die Etsy-Karte behält dann die Zeile für die Bestätigung */
+  onGeklaert?: () => void;
+}) {
   const router = useRouter();
   const resolve = useServerFn(resolveBankConflict);
   const { busy, notice, run } = useAction();
@@ -82,10 +108,12 @@ export function KonfliktKlaeren({ konflikte, disabled }: { konflikte: ImportKonf
     if (ok && konflikte.length <= 1) {
       setOpen(false);
       setGeklaert(true);
+      onGeklaert?.();
     }
     if (ok) setEntscheidung("keep");
   }
 
+  const { wer, von, angaben, abruf } = QUELLEN[quelle];
   const zuordnung = konflikt
     ? konflikt.previous.open === 0
       ? "Ganz zugeordnet"
@@ -107,12 +135,12 @@ export function KonfliktKlaeren({ konflikte, disabled }: { konflikte: ImportKonf
         {konflikt && (
           <form onSubmit={(event) => void absenden(event)}>
             <p style={{ margin: 0 }}>
-              Die Bank liefert diesen Umsatz ({konflikt.sourceEventId}) jetzt anders als beim ersten Abruf. Bis du entscheidest, übernimmt Haben aus dem Abruf
-              dieses Kontos nichts. Die Entscheidung lässt sich nicht zurücknehmen.
+              {wer} liefert diesen Umsatz ({konflikt.sourceEventId}) jetzt anders als beim ersten Abruf. Bis du entscheidest, übernimmt Haben {abruf} nichts.
+              Die Entscheidung lässt sich nicht zurücknehmen.
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
               <Spalte titel="Bisher in Haben" umsatz={konflikt.previous} {...(zuordnung ? { zuordnung } : {})} />
-              <Spalte titel="Jetzt von der Bank" umsatz={konflikt.delivered} />
+              <Spalte titel={`Jetzt ${von}`} umsatz={konflikt.delivered} />
             </div>
             <fieldset className="choice-group">
               <legend>Was soll Haben tun?</legend>
@@ -130,7 +158,7 @@ export function KonfliktKlaeren({ konflikte, disabled }: { konflikte: ImportKonf
                     <span>{e.label}</span>
                   </label>
                   <span id={`konflikt-${e.value}-hint`} className="field-hint">
-                    {e.hint}
+                    {e.hint(angaben)}
                   </span>
                 </div>
               ))}
@@ -160,8 +188,9 @@ export function stichtagText(stichtage: { bankAccountId: string; cutoverDate: st
 type Bezug = { id: string; bookingDate: string; amount: number };
 
 /** Hinweis in der Detailansicht: am bisherigen Umsatz die nach einem Konflikt übernommenen, am übernommenen der bisherige */
-export function KlaerungHinweis({ klaerung }: { klaerung: { added: Bezug[]; previous: Bezug | null } | null }) {
+export function KlaerungHinweis({ klaerung }: { klaerung: { provider: string; added: Bezug[]; previous: Bezug | null } | null }) {
   if (!klaerung) return null;
+  const { wer } = QUELLEN[quelleZuAnbieter(klaerung.provider)];
   const verweis = (u: Bezug) => (
     <Link from="/bank" to="/bank" search={(prev) => ({ ...prev, umsatz: u.id })}>
       {formatDate(u.bookingDate)}, {betrag(u.amount)}
@@ -171,7 +200,7 @@ export function KlaerungHinweis({ klaerung }: { klaerung: { added: Bezug[]; prev
     <div className="banner banner-info" role="note">
       {klaerung.added.length > 0 && (
         <p style={{ margin: 0 }}>
-          Die Bank hat diesen Umsatz später anders geliefert. Nach dem Konflikt steht er zusätzlich als eigener Umsatz da:{" "}
+          {wer} hat diesen Umsatz später anders geliefert. Nach dem Konflikt steht er zusätzlich als eigener Umsatz da:{" "}
           {klaerung.added.map((u, i) => (
             <span key={u.id}>
               {i > 0 && " · "}

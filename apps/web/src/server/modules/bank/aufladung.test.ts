@@ -1,3 +1,4 @@
+import { kategorieMitKonto } from "@haben/core";
 import { parseDatevBuchungsstapel } from "@haben/import";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -39,7 +40,7 @@ function dkbCsv(rows: [date: string, name: string, purpose: string, amount: stri
 }
 
 describe.skipIf(!testDatabaseUrl)("Aufladung eines Guthabens (Postgres)", () => {
-  let bank: typeof import("./bank.ts");
+  let bank: typeof import("./index.ts");
   let archive: typeof import("../archiv/archive.ts");
   let reports: typeof import("../auswertungen/reports.ts");
   let abgleich: typeof import("../auswertungen/abgleich.ts");
@@ -50,7 +51,7 @@ describe.skipIf(!testDatabaseUrl)("Aufladung eines Guthabens (Postgres)", () => 
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    bank = await import("./bank.ts");
+    bank = await import("./index.ts");
     archive = await import("../archiv/archive.ts");
     reports = await import("../auswertungen/reports.ts");
     abgleich = await import("../auswertungen/abgleich.ts");
@@ -122,7 +123,7 @@ describe.skipIf(!testDatabaseUrl)("Aufladung eines Guthabens (Postgres)", () => 
     expect(entry!.description).toBe("Aufladung Guthaben: Sonstiger Aufwand · Funknetz Mobil");
     expect((await bank.transactionDetail(transactionId))?.allocations[0]).toMatchObject({
       kind: "aufladung",
-      kategorieLabel: "Sonstiger Aufwand",
+      kategorieLabel: kategorieMitKonto(kr, "sonstiges"),
     });
 
     // Keine Umsatzsteuer: Kz 81 und Kz 66 bleiben leer

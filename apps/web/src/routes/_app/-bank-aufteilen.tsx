@@ -35,13 +35,26 @@ export let nextSplitKey = 1;
 
 export const signed = (cents: number) => `${cents < 0 ? "-" : ""}${formatDecimal(Math.abs(cents))}`;
 
-/** Startzeilen: der gewählte Posten und der Rest, sonst der ganze offene Betrag und eine leere zweite Zeile */
+/** Gegenposten einer Aufteilung mit seinem offenen Betrag, etwa eine Korrektur der Rechnung (#1398) */
+type Gegenposten = Pick<SplitTarget, "type" | "id" | "open">;
+
+/**
+ * Startzeilen: der gewählte Posten und der Rest, sonst der ganze offene Betrag und eine leere zweite Zeile. Mit
+ * Gegenposten (Korrekturen der Rechnung, #1398) steht statt des Rests je Gegenposten eine Zeile über seinen offenen Betrag.
+ */
 function startZeilen(
   tx: Detail["transaction"],
   initial: SplitTarget | undefined,
   zweiteZeile: string,
   start: Pick<SplitRow, "steuer" | "darlehen" | "kategorie">,
+  gegenposten: readonly Gegenposten[],
 ): SplitRow[] {
+  if (initial && gegenposten.length > 0) {
+    return [
+      { key: nextSplitKey++, target: `${initial.type}:${initial.id}`, amount: signed(initial.open), ...start },
+      ...gegenposten.map((g) => ({ key: nextSplitKey++, target: `${g.type}:${g.id}`, amount: signed(g.open), ...start })),
+    ];
+  }
   return initial
     ? [
         { key: nextSplitKey++, target: `${initial.type}:${initial.id}`, amount: signed(initial.open), ...start },
@@ -93,6 +106,7 @@ function toPart(row: SplitRow, amount: number): SplitPart {
 export function SplitForm({
   tx,
   initial,
+  gegenposten,
   splitCandidates,
   directKinds,
   steuerOptionen,
@@ -104,6 +118,8 @@ export function SplitForm({
 }: {
   tx: Detail["transaction"];
   initial: SplitTarget | undefined;
+  /** Ziele der weiteren Zeilen statt der Bankgebühren, etwa die Korrekturen der Rechnung */
+  gegenposten?: readonly Gegenposten[];
   splitCandidates: SplitTarget[];
   directKinds: Data["directKinds"];
   steuerOptionen: SteuerOptionen;
@@ -119,7 +135,7 @@ export function SplitForm({
   const start = { steuer: steuerStart, darlehen: darlehenStart, kategorie: kategorieStart };
   // Fehlen die Bankgebühren im Angebot (privates Konto), startet die zweite Zeile leer (#873)
   const zweiteZeile = directKinds.some((k) => k.value === "gebuehren") ? "gebuehren" : "";
-  const [rows, setRows] = useState<SplitRow[]>(() => startZeilen(tx, initial, zweiteZeile, start));
+  const [rows, setRows] = useState<SplitRow[]>(() => startZeilen(tx, initial, zweiteZeile, start, gegenposten ?? []));
 
   const parsed = rows.map((r) => parseEuro(r.amount));
   const sum = parsed.reduce<number>((s, p) => s + (p ?? 0), 0);

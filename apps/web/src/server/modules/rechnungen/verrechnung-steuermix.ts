@@ -25,11 +25,23 @@ export function mixeNachVerrechnungen(
 }
 
 /**
+ * Mix einer Rechnung nach ihren Korrekturen (#1586): Eine Korrektur mindert das Entgelt der Rechnung je Satz um ihre eigenen
+ * Steueranteile, wie eine Verrechnung die der Gegenrechnung wegnimmt (mixeNachVerrechnungen). Ein Skonto auf den Rest
+ * mindert dann die Entgelte, die nach der Korrektur übrig sind (§ 17 Abs. 1 Satz 1 UStG), nicht den Mix der Rechnung.
+ * Die Korrekturen tragen negative Beträge; null, wenn eine einen Satz hat, den die Rechnung nicht hat.
+ */
+export function mixNachKorrekturen(totals: InvoiceTotals, korrekturen: readonly InvoiceTotals[]): InvoiceTotals | null {
+  const weg = korrekturen.flatMap((k) => k.taxes.map((t) => ({ rate: t.rate, base: -t.base, tax: -t.tax })));
+  if (weg.some((w) => !totals.taxes.some((t) => t.rate === w.rate))) return null;
+  return ohneSteueranteile(totals, weg);
+}
+
+/**
  * Steuermix je Rechnung nach Verrechnungen (mixeNachVerrechnungen): Nur der Rest ist vereinnahmbar, und nur darüber
  * verteilen sich die Zahlungen — sonst trüge bei zwei Steuersätzen der zurückgenommene Satz die Steuer mit (Befunde 2 und 3
  * im Review zu #877). Rechnungen ohne Verrechnung fehlen in der Map, für sie gilt ihr voller Mix.
  *
- * Die eine Stelle dafür: Voranmeldung (vat-figures.ts), EÜR (reports.ts) und Bankabgleich (bank.ts) lesen dieselben
+ * Die eine Stelle dafür: Voranmeldung (vat-figures.ts), EÜR (reports.ts) und Bankabgleich (settled-amounts.ts) lesen dieselben
  * Stände, damit alle dieselbe Zahlung gleich aufteilen.
  */
 export async function mixNachVerrechnungen(totals: Map<string, InvoiceTotals>, q: Db | Tx): Promise<Map<string, InvoiceTotals[]>> {

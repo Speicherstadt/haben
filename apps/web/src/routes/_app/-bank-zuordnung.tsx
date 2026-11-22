@@ -1,4 +1,8 @@
-import { formatDecimal, formatEuro } from "@haben/core";
+import { getRouteApi } from "@tanstack/react-router";
+import { formatDecimal } from "@haben/core";
+import { BankDuplicateNotice } from "../../components/BankDuplicateNotice.tsx";
+import { GebuehrWahl, zuordnenText } from "../../components/BankGebuehr.tsx";
+import { BuchungsVorschlag } from "../../components/BuchungsVorschlag.tsx";
 import { DarlehenFelder } from "../../components/DarlehenFelder.tsx";
 import { DauerbelegVorschlaege } from "../../components/DauerbelegVorschlaege.tsx";
 import { Field } from "../../components/Field.tsx";
@@ -12,16 +16,21 @@ import { SteuerFelder } from "../../components/SteuerFelder.tsx";
 import { StorePayoutBox } from "../../components/StorePayoutBox.tsx";
 import { VerrechnenFormular, VerrechnungAnzeige } from "../../components/Verrechnung.tsx";
 import { ZuordnungAufheben } from "../../components/ZuordnungAufheben.tsx";
-import { DIRECT_HINT, type Detail, zuAufhebendeZuordnung } from "./-bank-daten.ts";
+import { DIRECT_HINT, type Detail, korrekturText, zuAufhebendeZuordnung } from "./-bank-daten.ts";
 import { SplitForm } from "./-bank-aufteilen.tsx";
 import { RestAktionen } from "./-bank-zuordnung-rest.tsx";
 import { BuchungsartWahl, KandidatWahl } from "./-bank-zuordnung-wahl.tsx";
 import { BesterTreffer, DirektVorschlagKarte, UmsatzKopf, ZuordnungenListe } from "./-bank-zuordnung-teile.tsx";
-import { type Optionen, useZuordnung, type Zuordnung } from "./-bank-zuordnung-zustand.ts";
+import { type Gebuehr, type Optionen, useZuordnung, type Zuordnung } from "./-bank-zuordnung-zustand.ts";
 
-export function AllocationPanel({ detail, nextOpenId, ...optionen }: Optionen & { detail: Detail; nextOpenId: string | undefined }) {
-  const z = useZuordnung(detail, optionen, nextOpenId);
+const bankRoute = getRouteApi("/_app/bank");
+
+export function AllocationPanel({ detail, nextOpenId, gebuehr, ...optionen }: Optionen & { detail: Detail; nextOpenId: string | undefined; gebuehr: Gebuehr }) {
+  const z = useZuordnung(detail, optionen, nextOpenId, gebuehr);
   const { tx, busy, notice, run, aufrufe } = z;
+  const duplicateNotice = (
+    <BankDuplicateNotice tx={tx} reviews={detail.duplicateReviews} busy={busy} onDecision={(data) => void run(() => aufrufe.decideDuplicateFn({ data }))} />
+  );
   // Auf einem privaten Konto ohne Buchungsart bleibt nur die Kennzeichnung: „Zuordnen", „Direkt buchen" und „Aufteilen"
   // wären beim selben Umsatz eine zweite Aussage zum selben Vorgang — sie gelten erst, wenn die Kennzeichnung aufgehoben
   // ist (#1088)
@@ -29,12 +38,14 @@ export function AllocationPanel({ detail, nextOpenId, ...optionen }: Optionen & 
     return (
       <aside ref={z.panel} className="card" aria-label="Umsatz" style={{ gap: 16 }}>
         <PrivatUmsatz tx={tx} busy={busy} notice={notice} onAufheben={() => void run(() => aufrufe.unmarkPrivatFn({ data: { transactionId: tx.id } }))} />
+        {duplicateNotice}
       </aside>
     );
 
   return (
     <aside ref={z.panel} className="card" aria-label="Zuordnung" style={{ gap: 16 }}>
       <UmsatzKopf tx={tx} />
+      {duplicateNotice}
       <Stand z={z} />
       {tx.open !== 0 && z.wahl.mode === "split" && <Aufteilen z={z} />}
       {tx.open !== 0 && z.wahl.mode !== "split" && (
@@ -86,6 +97,7 @@ function Aufteilen({ z }: { z: Zuordnung }) {
       key={tx.id}
       tx={tx}
       initial={z.splitInitial}
+      gegenposten={z.splitKorrekturen.map((k) => ({ type: "invoice", id: k.id, open: k.open }))}
       splitCandidates={z.detail.splitCandidates}
       {...z.optionen}
       busy={z.busy}
@@ -135,6 +147,7 @@ function Vorschlaege({ z }: { z: Zuordnung }) {
 function Auswahl({ z }: { z: Zuordnung }) {
   const { tx, wahl, error, optionen } = z;
   const { mode, directKind } = wahl;
+  const kontenrahmen = bankRoute.useLoaderData().kontenrahmen;
   return (
     <>
       {mode === "other" && (
@@ -172,6 +185,7 @@ function Auswahl({ z }: { z: Zuordnung }) {
           onChange={wahl.setKategorie}
         />
       )}
+      {mode === "direct" && directKind === "kategorie" && <BuchungsVorschlag wahl={wahl.kategorie} amount={wahl.signedAmount} kontenrahmen={kontenrahmen} />}
     </>
   );
 }
@@ -194,6 +208,7 @@ function Knoepfe({ z }: { z: Zuordnung }) {
           />
         )}
       </Field>
+      {z.gebuehr && z.gebuehrWahl.moeglich && <GebuehrWahl gebuehr={z.gebuehr} wahl={z.gebuehrWahl} belege={z.detail.splitCandidates} busy={busy} />}
       <div className="actions">
         {mode !== "other" && (
           <button type="button" className="btn" onClick={() => wahl.setMode("other")} disabled={busy}>
@@ -214,7 +229,12 @@ function Knoepfe({ z }: { z: Zuordnung }) {
           disabled={busy || (mode === "direct" && wahl.directKind === "darlehen" && !wahl.darlehen.loanId)}
           onClick={() => void z.submitAllocation()}
         >
-          {mode === "direct" ? "Buchen" : skontoRest !== 0 ? `Zuordnen, Rest ${formatEuro(Math.abs(skontoRest))} als Skonto` : "Zuordnen"}
+          {zuordnenText({
+            direkt: mode === "direct",
+            skontoRest,
+            gebuehrMitbuchen: z.gebuehrWahl.mitbuchen,
+            korrekturen: z.korrekturTreffer && korrekturText(z.korrekturTreffer.corrections),
+          })}
         </button>
       </div>
     </>
@@ -237,6 +257,12 @@ function WeitereWege({ z }: { z: Zuordnung }) {
         onFeeRest={() => void rest.bookRestAsFee()}
         onSammel={(documentId) => void run(() => aufrufe.feesFn({ data: { transactionId: tx.id, documentId } }))}
         onRest={(kind) => void rest.bookRest(kind)}
+        onKorrektur={() => {
+          z.setSplitInitial(rest.target);
+          z.setSplitKorrekturen(rest.angebot.korrektur?.corrections ?? []);
+          wahl.setMode("split");
+        }}
+        onKorrekturSkonto={z.korrekturTreffer ? undefined : () => void rest.bookKorrekturSkonto()}
       />
       {wahl.mode !== "direct" && (
         <button type="button" className="btn" onClick={() => wahl.setMode("direct")} disabled={busy} title={DIRECT_HINT}>
@@ -248,6 +274,7 @@ function WeitereWege({ z }: { z: Zuordnung }) {
         className="btn"
         onClick={() => {
           z.setSplitInitial(rest.target);
+          z.setSplitKorrekturen([]);
           wahl.setMode("split");
         }}
         disabled={busy}

@@ -3,15 +3,19 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { z } from "zod/mini";
 import { TransactionStatus } from "../../components/BankStatus.tsx";
+import { UmsatzBetrag, useGebuehrZeilen } from "../../components/BankGebuehr.tsx";
 import { formatDate, daysUntil } from "../../lib/format.ts";
 import { getBankOverview } from "../../server/functions/bank.ts";
+import { getExternalBankSources } from "../../server/functions/bank-quellen.ts";
 import { ExcludedAccounts } from "../../components/BankKontoAusschliessen.tsx";
 import { isDialogOpen } from "../../components/ConfirmDialog.tsx";
+import { BestaetigenLeiste, useBestaetigen, useLeertasteMarkiert, ZeilenMarkierung } from "../../components/BankBestaetigen.tsx";
 import { BankSortierKopf } from "../../components/BankSortierKopf.tsx";
 import type { Data } from "./-bank-daten.ts";
 import { AllocationPanel } from "./-bank-zuordnung.tsx";
 import { BankSync } from "./-bank-verbindung.tsx";
 import { AccountSettings, ImportControls, SearchBox } from "./-bank-konto.tsx";
+import { ExterneQuelle } from "../../components/ExterneQuelle.tsx";
 
 const searchSchema = z.object({
   /** Ein Konto oder „alle“ (#617) */
@@ -37,17 +41,23 @@ export const Route = createFileRoute("/_app/bank")({
     sort: search.sort,
     dir: search.dir,
   }),
-  loader: ({ deps }) =>
-    getBankOverview({
-      data: {
-        konto: deps.konto,
-        filter: deps.filter ?? "offen",
-        suche: deps.suche ?? "",
-        umsatz: deps.umsatz,
-        sort: deps.sort ?? "datum",
-        dir: deps.dir ?? "ab",
-      },
-    }),
+  loader: async ({ deps }) => {
+    const [overview, quellen] = await Promise.all([
+      getBankOverview({
+        data: {
+          konto: deps.konto,
+          filter: deps.filter ?? "offen",
+          suche: deps.suche ?? "",
+          umsatz: deps.umsatz,
+          sort: deps.sort ?? "datum",
+          dir: deps.dir ?? "ab",
+        },
+      }),
+      // Externe Quellen für den REST-Import (#306, Schritt 4)
+      getExternalBankSources(),
+    ]);
+    return { ...overview, ...quellen };
+  },
   head: () => ({ meta: [{ title: "Bank · Haben" }] }),
   component: BankPage,
 });
@@ -55,27 +65,33 @@ export const Route = createFileRoute("/_app/bank")({
 const FORMAT_LABEL = (format: string) =>
   format === "enablebanking" || format === "fints"
     ? "Abruf"
-    : format.startsWith("camt")
-      ? "CAMT.053"
-      : format === "paypal-csv"
-        ? "PayPal"
-        : format === "stripe-csv"
-          ? "Stripe"
-          : format === "shopify-payments-csv"
-            ? "Shopify"
-            : format === "ebay-csv"
-              ? "eBay"
-              : format === "etsy-csv"
-                ? "Etsy"
-                : format === "etsy-ledger"
-                  ? "Etsy (Abruf)"
-                  : format === "googleplay-earnings"
-                    ? "Google Play"
-                    : format === "appstore-finance"
-                      ? "App Store"
-                      : format === "store-payout"
-                        ? "Auszahlung"
-                        : "CSV";
+    : format.startsWith("importvertrag")
+      ? "REST-Import"
+      : format.startsWith("camt")
+        ? "CAMT.053"
+        : format === "paypal-csv"
+          ? "PayPal"
+          : format === "paypal-api"
+            ? "PayPal (Abruf)"
+            : format === "stripe-csv"
+              ? "Stripe"
+              : format === "stripe-api"
+                ? "Stripe (Abruf)"
+                : format === "shopify-payments-csv"
+                  ? "Shopify"
+                  : format === "ebay-csv"
+                    ? "eBay"
+                    : format === "etsy-csv"
+                      ? "Etsy"
+                      : format === "etsy-ledger"
+                        ? "Etsy (Abruf)"
+                        : format === "googleplay-earnings"
+                          ? "Google Play"
+                          : format === "appstore-finance"
+                            ? "App Store"
+                            : format === "store-payout"
+                              ? "Auszahlung"
+                              : "CSV";
 
 /** J/K springen zum nächsten bzw. vorigen Umsatz */
 function useUmsatzTasten(transactions: Data["transactions"], index: number) {
@@ -106,14 +122,16 @@ function BankPage() {
   const richtung = search.dir ?? "ab";
   const filter = search.filter ?? "offen";
   const selectedId = data.detail?.transaction.id;
-  const index = data.transactions.findIndex((t) => t.id === selectedId);
+  const { zeilen, sichtbar, index } = useGebuehrZeilen(data.transactions, data.accounts, selectedId);
   const selectedAccount = data.accounts.find((a) => a.id === data.accountId);
   // „Alle Konten“ zeigt die Umsätze aller Konten, etwa für „Alle anzeigen“ der Schnellsuche (#617)
   const konto = data.allAccounts ? ("alle" as const) : (data.accountId ?? undefined);
   const openCount = data.allAccounts ? data.accounts.reduce((sum, a) => sum + a.openCount, 0) : (selectedAccount?.openCount ?? 0);
   const accountName = new Map(data.accounts.map((a) => [a.id, a.name]));
 
-  useUmsatzTasten(data.transactions, index);
+  const bestaetigen = useBestaetigen(sichtbar);
+  useLeertasteMarkiert(bestaetigen);
+  useUmsatzTasten(sichtbar, index);
 
   return (
     <>
@@ -176,6 +194,7 @@ function BankPage() {
               excludeBlockedBy={data.excludeBlockedBy}
             />
           )}
+          {selectedAccount && <ExterneQuelle key={`quelle-${selectedAccount.id}`} account={selectedAccount} daten={data} />}
 
           <div className="grid-main">
             <section className="card" style={{ padding: "8px 0 12px" }} aria-label="Umsätze">
@@ -196,39 +215,44 @@ function BankPage() {
                 {/* key: beim Kontowechsel leer neu aufsetzen, sonst trägt die Suche ins neue Konto */}
                 <SearchBox key={konto ?? ""} initial={search.suche ?? ""} />
               </div>
+              <BestaetigenLeiste b={bestaetigen} />
               <BankSortierKopf sort={sortierung} dir={richtung} />
               {data.transactions.length === 0 && (
                 <p className="muted" style={{ margin: 0, padding: "16px 20px" }}>
                   {filter === "offen" ? "Alles zugeordnet." : filter === "vorschlag" ? "Keine Umsätze mit Vorschlag." : "Keine Umsätze."}
                 </p>
               )}
-              {data.transactions.map((tx) => (
-                <Link
-                  key={tx.id}
-                  id={`tx-${tx.id}`}
-                  to="/bank"
-                  search={{ ...search, umsatz: tx.id }}
-                  replace
-                  className={`table-row tx-cols tx-row${tx.id === selectedId ? " selected" : ""}`}
-                  aria-current={tx.id === selectedId ? "true" : undefined}
-                >
-                  <div className="muted small">{formatDate(tx.bookingDate)}</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-                    <span className="ellipsis" style={{ fontWeight: 500 }}>
-                      {tx.counterpartyName || "–"}
-                    </span>
-                    <span className="small muted ellipsis">
-                      {data.allAccounts ? [accountName.get(tx.bankAccountId), tx.purpose].filter(Boolean).join(" · ") : tx.purpose}
-                    </span>
-                  </div>
-                  <div className="num" style={{ color: tx.amount > 0 ? "var(--accent-ink)" : undefined }}>
-                    {tx.amount > 0 ? "+" : "−"}
-                    {formatEuro(Math.abs(tx.amount))}
-                  </div>
-                  <div>
-                    <TransactionStatus tx={tx} />
-                  </div>
-                </Link>
+              {zeilen.map(({ umsatz: tx, gebuehr }) => (
+                <div key={tx.id} className="tx-wrap">
+                  {bestaetigen.markierbar.length > 0 && <ZeilenMarkierung id={tx.id} b={bestaetigen} label={tx.counterpartyName || "Umsatz"} />}
+                  <Link
+                    id={`tx-${tx.id}`}
+                    to="/bank"
+                    search={{ ...search, umsatz: tx.id }}
+                    replace
+                    className={`table-row tx-cols tx-row${tx.id === selectedId ? " selected" : ""}`}
+                    aria-current={tx.id === selectedId ? "true" : undefined}
+                  >
+                    <div className="muted small">{formatDate(tx.bookingDate)}</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+                      <span className="ellipsis" style={{ fontWeight: 500 }}>
+                        {tx.counterpartyName || "–"}
+                      </span>
+                      <span className="small muted ellipsis">
+                        {data.allAccounts ? [accountName.get(tx.bankAccountId), tx.purpose].filter(Boolean).join(" · ") : tx.purpose}
+                      </span>
+                      {tx.bestaetigung && (
+                        <span className="small" style={{ color: "var(--accent-ink)" }}>
+                          Vorschlag: {tx.bestaetigung.text}
+                        </span>
+                      )}
+                    </div>
+                    <UmsatzBetrag betrag={tx.amount} gebuehr={gebuehr?.amount ?? null} />
+                    <div>
+                      <TransactionStatus tx={tx} />
+                    </div>
+                  </Link>
+                </div>
               ))}
             </section>
             {data.detail ? (
@@ -239,7 +263,8 @@ function BankPage() {
                 steuerOptionen={{ steuerarten: data.steuerarten, steuerPosten: data.steuerPosten }}
                 darlehenOptionen={{ loans: data.loans, loanParts: data.loanParts }}
                 kategorieOptionen={{ kategorien: data.kategorien, kleinunternehmer: data.kleinunternehmer }}
-                nextOpenId={nextOpenAfter(data.transactions, data.detail.transaction.id)}
+                nextOpenId={nextOpenAfter(sichtbar, data.detail.transaction.id)}
+                gebuehr={zeilen.find((z) => z.umsatz.id === selectedId)?.gebuehr ?? null}
               />
             ) : (
               <aside className="card" aria-label="Zuordnung">
