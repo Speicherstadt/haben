@@ -209,23 +209,18 @@ describe.skipIf(!testDatabaseUrl)("Vorschlag „Rechnung mit Korrektur“ im Abg
     ).rejects.toThrow(/teilweise bezahlt/);
   }, 30_000);
 
-  it("bietet kein Skonto nach Korrektur an, wenn die Korrektur nur einen von zwei Steuersätzen trifft, und der Server lehnt es ab", async () => {
-    // Rechnung 100,00 € zu 19 % und 100,00 € zu 7 %, Korrektur −20,00 € nur zu 19 %: Das Ausbuchen verteilte nach dem Mix der Rechnung
-    const rechnung = await beleg(
-      [
-        { unitPrice: 10_000, taxRate: 1900 },
-        { unitPrice: 10_000, taxRate: 700 },
-      ],
-      "2026-11-02",
-    );
-    const korrektur = await beleg(-2000, "2026-11-05", rechnung.id);
+  it("bietet kein Skonto nach Korrektur an, wenn die Korrektur einen Satz hat, den die Rechnung nicht hat, und der Server lehnt es ab", async () => {
+    // Rechnung nur zu 19 %, Korrektur −20,00 € zu 7 %: Der Rest je Satz lässt sich nicht bestimmen (mixNachKorrekturen, #1586).
+    // Gemischte Sätze, die die Rechnung hat, prüft skonto-gemischte-saetze.test.ts.
+    const rechnung = await beleg(10_000, "2026-11-02");
+    const korrektur = await beleg([{ unitPrice: -2000, taxRate: 700 }], "2026-11-05", rechnung.id);
     const item = (await bank.openItems()).find((i) => i.id === rechnung.id);
     expect(item?.openCorrections).toHaveLength(1);
     expect(item?.skontoNachKorrektur).toBeUndefined();
-    const id = await zahlung("199,92", `Rechnung ${rechnung.number}`);
+    const id = await zahlung("95,20", `Rechnung ${rechnung.number}`);
     await expect(
       bank.allocateWithRest(actor, { transactionId: id, target: { kind: "invoice", invoiceId: rechnung.id }, rest: "skonto", korrekturen: [korrektur.id] }),
-    ).rejects.toThrow(/denselben Steuersatz/);
+    ).rejects.toThrow(/Steuersatz haben, den die Rechnung nicht hat/);
   }, 30_000);
 
   it("lässt einen Vorschlag mit Korrektur und Skonto nicht per „Bestätigen“ buchen", async () => {

@@ -3,6 +3,7 @@ import { filePickerPruefen } from "./dateiauswahl.ts";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
+import { FORM01 } from "@haben/core";
 import { bestaetigen, fragenUeberspringen, faktenZeigen, kundeWaehlen } from "./einrichtung.ts";
 import { currentDay, currentYear, vorschauAnheften } from "./daten.ts";
 import { anzahlungsbilanzPruefen } from "./anzahlung-bilanz.ts";
@@ -1229,6 +1230,27 @@ test("BWA der GmbH nach DATEV-Form 01: Forderungsverlust neutral, Zeile bis zum 
   await expect(tabelle.getByRole("rowheader", { name: "Betriebsergebnis" })).toBeVisible();
   await expect(tabelle.getByRole("rowheader", { name: "Vorläufiges Ergebnis" })).toBeVisible();
   await expect(tabelle.getByRole("rowheader", { name: "Gewinn laut EÜR" })).toHaveCount(0);
+
+  // Anteil (#1635): Kostenarten in % der Gesamtkosten, Ergebnisse ohne; Kennzahlen in % der Gesamtleistung
+  await expect(tabelle.locator("thead th").nth(2)).toHaveText("Anteil");
+  const anteil = (zeile: string) =>
+    tabelle
+      .locator("tbody tr")
+      .filter({ has: page.getByRole("rowheader", { name: zeile, exact: true }) })
+      .locator("td")
+      .nth(1);
+  await expect(anteil("Gesamtkosten")).toHaveText("100,0\u00a0%");
+  await expect(anteil("Vorläufiges Ergebnis")).toHaveText("–");
+  const kennzahlen = page.getByRole("region", { name: "Kennzahlen" });
+  await expect(kennzahlen.getByText("Rohertragsquote", { exact: true })).toBeVisible();
+  await expect(kennzahlen.getByText("Vorläufiges Ergebnis in % der Gesamtleistung")).toBeVisible();
+
+  // Leere Zeilen anzeigen: alle Zeilen der Form 01, Summen und Ergebnis stehen ohnehin
+  const zeilen = tabelle.locator("tbody tr");
+  await expect(zeilen).not.toHaveCount(FORM01.length);
+  await page.getByRole("checkbox", { name: "Leere Zeilen anzeigen" }).check();
+  await expect(page).toHaveURL(/[?&]leer=1/);
+  await expect(zeilen).toHaveCount(FORM01.length);
 
   // Die Zeile öffnet ihre Konten; „Warum?“ gibt es nur in Form 43
   await tabelle.getByRole("link", { name: "Sonstiger neutraler Aufwand" }).click();

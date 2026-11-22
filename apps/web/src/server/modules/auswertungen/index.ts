@@ -7,7 +7,7 @@
  */
 export { abgleichIssues, abgleichJahr, abweichungen, befundText, euerAbgleich, ohneUebernommeneZeilen, vatAbgleich, type AbgleichZeile } from "./abgleich.ts";
 export { datevExport, DatevExportError, datevNumbers, datevNumbersSchema, gebuchteJahre, saveDatevNumbers } from "./datev-export.ts";
-export { chainHead, checkIntegrity, checkPruefwert, formatPruefwert, parsePruefwert, type IntegrityReport } from "./integrity.ts";
+export { chainHead, checkIntegrity, checkPruefwert, formatPruefwert, parsePruefwert, type IntegrityReport, type PruefwertResult } from "./integrity.ts";
 export { runDueFileCheck, runFileCheck, type FileCheck, type FileProblem } from "./file-integrity.ts";
 export { vorauszahlungVorjahrHinweis, ZEHN_TAGE_REGEL, zehnTageKennzeichen, type ZehnTageKennzeichen } from "./euer-jahreswechsel.ts";
 export {
@@ -38,5 +38,5 @@ export {
 } from "./altbestand-kontoart.ts";
 export { taxTypeOf } from "./altbestand-steuerart.ts";
 export { lastStapelYear, legacyTakeoverCutoff, TakeoverError } from "./altbestand-stichtag.ts";
-export { bwaBericht, bwaWarum, bwaZeileDetails, type BwaBericht, type BwaGruppe, type BwaVorgang, type BwaZeileWerte } from "./bwa.ts";
+export { bwaBericht, bwaWarum, bwaZeileDetails, type BwaBericht, type BwaGruppe, type BwaKennzahlen, type BwaVorgang, type BwaZeileWerte } from "./bwa.ts";
 export { bwaForm01Konten, type BwaForm01Konto } from "./bwa-form01.ts";
