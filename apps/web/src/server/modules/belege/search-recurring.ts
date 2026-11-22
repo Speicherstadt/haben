@@ -7,7 +7,7 @@ export interface RecurringDocumentHit {
   id: string;
   name: string;
   supplierName: string;
-  intervalMonths: number;
+  recurrence: string;
   nextDate: string;
   status: (typeof schema.recurringDocuments.$inferSelect)["status"];
   lastError: string | null;
@@ -22,7 +22,7 @@ export function recurringDocumentsPart(query: string, limit: number) {
       id: rd.id,
       name: rd.name,
       supplierName: rd.supplierName,
-      intervalMonths: rd.intervalMonths,
+      recurrence: rd.recurrence,
       nextDate: rd.nextDate,
       status: rd.status,
       lastError: rd.lastError,

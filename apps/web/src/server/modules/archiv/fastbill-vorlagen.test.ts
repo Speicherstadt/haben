@@ -35,6 +35,7 @@ const RECURRING = [
   { ...base, INVOICE_ID: "5001", INVOICE_TITLE: "Wartung Website", FREQUENCY: "monthly" },
   { ...base, INVOICE_ID: "5002", INVOICE_TITLE: "Wochenpflege", FREQUENCY: "weekly" },
   { ...base, INVOICE_ID: "5003", INVOICE_TITLE: "Unbekannter Kunde", FREQUENCY: "yearly", CUSTOMER_ID: "999" },
+  { ...base, INVOICE_ID: "5004", INVOICE_TITLE: "Tagespflege", FREQUENCY: "daily" },
 ];
 
 describe.skipIf(!testDatabaseUrl)("Wiederkehrende Rechnungen aus FastBill (Postgres)", () => {
@@ -82,21 +83,23 @@ describe.skipIf(!testDatabaseUrl)("Wiederkehrende Rechnungen aus FastBill (Postg
     await sql?.end();
   });
 
-  it("legt eine monatliche Vorlage pausiert als Entwurf ohne E-Mail an und nennt, was nicht geht", async () => {
+  it("legt monatliche und wöchentliche Vorlagen pausiert als Entwurf ohne E-Mail an und nennt, was nicht geht", async () => {
     const progress = await run();
-    expect(progress.fastbillRecurring).toEqual({ imported: 1, known: 0 });
+    expect(progress.fastbillRecurring).toEqual({ imported: 2, known: 0 });
     expect(progress.failed.map((f) => [f.number, f.message])).toEqual([
-      ["Wochenpflege", expect.stringContaining("Turnus „weekly“")],
       ["Unbekannter Kunde", expect.stringContaining("Kunde der Vorlage ist nicht übernommen")],
+      ["Tagespflege", expect.stringContaining("Turnus „daily“")],
     ]);
-    const [recurring] = await sql`select r.name, r.active, r.mode, r.send_by_mail, r.interval_months, r.next_date::text as next_date,
-      r.payment_term_days, r.lines, c.name as kunde from recurring_invoices r join contacts c on c.id = r.contact_id`;
+    const [recurring, weekly] = await sql`select r.name, r.active, r.mode, r.send_by_mail, r.recurrence,
+      r.next_date::text as next_date, r.payment_term_days, r.lines, c.name as kunde
+      from recurring_invoices r join contacts c on c.id = r.contact_id order by r.name`;
+    expect(weekly).toMatchObject({ name: "Wochenpflege", active: false, mode: "entwurf", recurrence: "P1W" });
     expect(recurring).toMatchObject({
       name: "Wartung Website",
       active: false,
       mode: "entwurf",
       send_by_mail: false,
-      interval_months: 1,
+      recurrence: "P1M",
       next_date: "2027-03-01",
       payment_term_days: 21,
       kunde: "Muster GmbH",
@@ -107,7 +110,7 @@ describe.skipIf(!testDatabaseUrl)("Wiederkehrende Rechnungen aus FastBill (Postg
   it("legt beim zweiten Lauf nichts doppelt an, auch nicht nach dem Löschen in Haben", async () => {
     await sql`delete from recurring_invoices`;
     const progress = await run();
-    expect(progress.fastbillRecurring).toEqual({ imported: 0, known: 1 });
+    expect(progress.fastbillRecurring).toEqual({ imported: 0, known: 2 });
     expect(await sql`select count(*)::int as n from recurring_invoices`).toEqual([{ n: 0 }]);
   });
 

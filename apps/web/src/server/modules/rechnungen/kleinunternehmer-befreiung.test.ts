@@ -118,7 +118,7 @@ describe.skipIf(!testDatabaseUrl)("Kleinunternehmer mit eigener Steuerbefreiung 
       name: "Heilbehandlung monatlich",
       active: true,
       exemptionReason: "",
-      intervalMonths: 1,
+      recurrence: "P1M" as const,
       nextDate: "2026-11-01",
       endDate: null,
       servicePeriod: "keiner",

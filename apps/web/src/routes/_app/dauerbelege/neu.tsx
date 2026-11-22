@@ -49,7 +49,7 @@ function NewDauerbelegPage() {
           amounts: [{ taxRate: 0, net: 0, tax: 0 }],
           taxShown: false,
           note: "",
-          intervalMonths: 1,
+          recurrence: "P1M",
           nextDate: nextMonthStart(today),
           endDate: null,
           dueDays: 0,

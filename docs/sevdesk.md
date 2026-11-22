@@ -189,12 +189,12 @@ Eine Vorlage für wiederkehrende Belege (`voucherType` RV) wird ein [Dauerbeleg]
 | Status 100, nächster Termin (`recurringNextVoucher`) | angehalten, nächster Beleg an diesem Termin |
 | Status 50, ohne nächsten Termin | angehalten, nächster Beleg am Start (`recurringStartDate`) |
 | Status 1000, mit Ende (`recurringEndDate`) | beendet, wenn das Ende vorbei ist, sonst angehalten mit diesem Ende |
-| Intervall `recurringInterval` (`P0Y1M`, `P0Y3M`, `P0Y6M`, `P1Y`) | monatlich, vierteljährlich, halbjährlich, jährlich |
+| Intervall `recurringInterval` (etwa `P0Y1M`, `P0Y3M`, `P1Y`) | 1, 2 oder 4 Wochen, 1, 2, 3, 6 oder 12 Monate |
 | Lieferant, Belegnummer, Beträge je Steuersatz, Datei | Lieferant (mit Kontakt, wenn er Lieferant ist), Vertrags- oder Kundennummer, Beträge, Vertrag |
 
 Die [OpenAPI](https://api.sevdesk.de/openapi.yaml) beschreibt die Status nur für Belege (50 Entwurf, 100 offen, 1000 bezahlt), nicht für Vorlagen; die Zuordnung oben ist aus echten Antworten der Buchhaltungsversion 1.0 abgeleitet, 2.0 liefert dieselben Status 50 und 100. In 2.0 liefert `GET /Voucher` die Vorlagen auch ohne Filter; Haben zählt sie nicht als Belege ([#472](https://github.com/Speicherstadt/haben/issues/472)). Kategorie und Bezahlung kennt die Vorlage nicht: Haben setzt „Sonstiger Aufwand“ und das Geschäftskonto, ändere beides vor dem Fortsetzen. Hat die Vorlage keine Datei, lädst du vor dem Fortsetzen den Vertrag oder die Dauerrechnung hoch ([Ändern, pausieren, beenden](belege.md#ändern-pausieren-beenden)).
 
-Nicht übernommen werden Vorlagen für Einnahmen, in anderer Währung als Euro, mit negativer Summe, mit einem anderen Intervall (etwa wöchentlich) oder einem Steuersatz außer 19, 7 und 0 %. Der Abruf nennt sie mit Grund in der Liste der fehlgeschlagenen Belege; lege sie bei Bedarf selbst an.
+Nicht übernommen werden Vorlagen für Einnahmen, in anderer Währung als Euro, mit negativer Summe, mit einem anderen Intervall (etwa 3 Wochen) oder einem Steuersatz außer 19, 7 und 0 %. Der Abruf nennt sie mit Grund in der Liste der fehlgeschlagenen Belege; lege sie bei Bedarf selbst an.
 
 ### Steuerarten im Abgleich
 
@@ -314,12 +314,12 @@ sevDesk liefert die Vorlagen nur mit dem Filter `invoiceType=WKR`; belegt ist da
 | Positionen: Bezeichnung, Text, Menge, Preis, Steuersatz | Positionen; Einheit immer „Stk.“, sevDesk nennt sie nur als Kennung |
 | `showNet` | Preise netto oder brutto |
 | `timeToPay` | Zahlungsziel |
-| `accountIntervall` | Intervall: nur 1, 3, 6 oder 12 Monate |
+| `accountIntervall` | Intervall: 1, 2 oder 4 Wochen (belegt ist `P0Y0M1W`), 1, 2, 3, 6 oder 12 Monate |
 | `accountNextInvoice`, sonst `accountStartDate` | Nächste Rechnung am |
 | `accountEndDate` | Endet nach dem |
 | `taxType` `default`, `eu`, `noteu`, Kleinunternehmer | Umsatzsteuer regulär, innergemeinschaftliche Lieferung, Drittland, Kleinunternehmer; alles außer regulär mit Hinweis zum Prüfen |
 
-**Nicht übernommen** und als offener Punkt im Abruf genannt werden Vorlagen mit Wochen- oder Tagesintervall (etwa `P0Y0M1W`), in Fremdwährung, mit einem Steuersatz außer 19, 7 oder 0 %, mit Rabatt an einer Position, ohne Positionen, mit einer anderen Steuerart oder ohne übernommenen Kunden. Lege sie in Haben von Hand an. Skonto der Vorlage übernimmt Haben nicht und nennt es.
+**Nicht übernommen** und als offener Punkt im Abruf genannt werden Vorlagen mit anderem Intervall (etwa 3 Wochen, 5 Monate oder Tage, die keine ganzen Wochen sind), in Fremdwährung, mit einem Steuersatz außer 19, 7 oder 0 %, mit Rabatt an einer Position, ohne Positionen, mit einer anderen Steuerart oder ohne übernommenen Kunden. Lege sie in Haben von Hand an. Skonto der Vorlage übernimmt Haben nicht und nennt es.
 
 **Platzhalter** wie `[%KONTAKTPERSON%]`, `[%ZAHLUNGSZIEL%]` oder `[%Rechnungsnummer%]` stehen als Text in der Vorlage; Haben ersetzt sie nicht. Der Abruf und die Seite der Vorlage listen, welche vorkommen. Ersetze sie vor dem Aktivieren, etwa durch die [Platzhalter von Haben](rechnungen.md#wiederkehrende-rechnungen) oder festen Text.
 
@@ -330,6 +330,7 @@ sevDesk liefert die Vorlagen nur mit dem Filter `invoiceType=WKR`; belegt ist da
 | vorschüssig | Laufend |
 | nachfällig, monatlich | Laufend; liegt der nächste Termin am Monatsende, bleiben alle Termine am Monatsende |
 | nachfällig, mehrere Monate | Keiner, mit Hinweis: Haben hat keinen Zeitraum, der im Rechnungsmonat endet |
+| nachfällig, Wochen | Keiner, mit Hinweis: „Vergangen“ endet in Haben am Vortag, in sevDesk am Rechnungsdatum |
 | unklar (keine erzeugte Rechnung oder widersprüchlich) | Keiner, mit Hinweis |
 
 Ist es unklar, sieh in sevDesk an der Vorlage nach und setze den Leistungszeitraum selbst. Die Seite der Vorlage zeigt unter „Aus sevDesk übernommen“ den Status in sevDesk, das Ergebnis, die Platzhalter und die Hinweise. Prüfe vor dem Aktivieren „Nächste Rechnung am“: Liegt der Termin in der Vergangenheit, holt Haben die verpassten Termine nach.

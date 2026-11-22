@@ -1,15 +1,8 @@
-import { BESCHAEFTIGUNGSARTEN, DARLEHENSGEBER, formatEuro, PAUSCHALE_LABEL, periodKey } from "@haben/core";
+import { BESCHAEFTIGUNGSARTEN, DARLEHENSGEBER, formatEuro, PAUSCHALE_LABEL, periodKey, recurrenceLabel } from "@haben/core";
 import type { PaletteItem, PaletteSection } from "./befehlspalette.ts";
 import { ELSTER_KIND_LABEL } from "./elster.ts";
 import { formatDate } from "./format.ts";
 import type { CommandPaletteResult } from "../server/functions/search.ts";
-
-function intervalLabel(months: number): string {
-  if (months === 1) return "monatlich";
-  if (months === 3) return "vierteljährlich";
-  if (months === 6) return "halbjährlich";
-  return "jährlich";
-}
 
 function periodLabel(year: number, month: number): string {
   return month >= 41 && month <= 44 ? `Q${month - 40} ${year}` : `${String(month).padStart(2, "0")}/${year}`;
@@ -87,7 +80,7 @@ function buildRecurringAndCatalogSections(remote: CommandPaletteResult): Palette
         id: `rec-inv-${ri.id}`,
         kind: "link",
         title: ri.name,
-        meta: [ri.customer, intervalLabel(ri.intervalMonths), `nächster Termin ${formatDate(ri.nextDate)}`].join(" · "),
+        meta: [ri.customer, recurrenceLabel(ri.recurrence), `nächster Termin ${formatDate(ri.nextDate)}`].join(" · "),
         icon: "invoice",
         to: "/rechnungen/wiederkehrend/$id",
         params: { id: ri.id },
@@ -99,7 +92,7 @@ function buildRecurringAndCatalogSections(remote: CommandPaletteResult): Palette
         id: `rec-doc-${rd.id}`,
         kind: "link",
         title: rd.name,
-        meta: [rd.supplierName, intervalLabel(rd.intervalMonths), `nächster Termin ${formatDate(rd.nextDate)}`].join(" · "),
+        meta: [rd.supplierName, recurrenceLabel(rd.recurrence), `nächster Termin ${formatDate(rd.nextDate)}`].join(" · "),
         icon: "repeat",
         to: "/dauerbelege/$id",
         params: { id: rd.id },

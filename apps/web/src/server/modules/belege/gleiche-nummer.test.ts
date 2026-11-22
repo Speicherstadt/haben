@@ -162,7 +162,7 @@ describe.skipIf(!testDatabaseUrl)("Belege mit gleicher Rechnungsnummer desselben
         amounts: [{ taxRate: 1900, net: 100_000, tax: 19_000 }],
         taxShown: true,
         note: "",
-        intervalMonths: 1,
+        recurrence: "P1M",
         nextDate: "2026-08-31",
         endDate: null,
         dueDays: 3,

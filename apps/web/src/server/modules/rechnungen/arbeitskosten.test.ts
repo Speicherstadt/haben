@@ -158,7 +158,7 @@ describe.skipIf(!testDatabaseUrl)("Arbeits-, Maschinen- und Fahrtkosten nach § 
         { ...melder, quantity: 1000 },
         { ...montage, quantity: 1000 },
       ],
-      intervalMonths: 12,
+      recurrence: "P1Y" as const,
       nextDate: "2026-11-02",
       endDate: null,
       servicePeriod: "laufend",

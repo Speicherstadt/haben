@@ -1,8 +1,8 @@
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useId, useState, type Dispatch, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type SetStateAction } from "react";
+import { useEffect, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { ConnectionStatus } from "../../components/BankStatus.tsx";
-import { FintsAbruf, type FintsOffen } from "../../components/FintsAbruf.tsx";
+import { FintsAbruf, useFintsZustand } from "../../components/FintsAbruf.tsx";
 import { defaultFetchFrom, fetchFromForConnect } from "../../lib/bank-connect.ts";
 import { errorMessage, formatDate, formatDateTime } from "../../lib/format.ts";
 import { useSubmitCheck } from "../../lib/use-submit-check.ts";
@@ -11,6 +11,7 @@ import { today as todayInGermany } from "../../server/today.ts";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { KonfliktKlaeren, stichtagText } from "../../components/ImportKonflikt.tsx";
 import { Field } from "../../components/Field.tsx";
+import { AbrufKopf } from "./-bank-abruf-kopf.tsx";
 import type { Data } from "./-bank-daten.ts";
 
 export type Sync = Data["sync"];
@@ -23,8 +24,7 @@ export function BankSync({ sync, fints, result }: { sync: Sync; fints: Data["fin
   const disconnectFn = useServerFn(disconnectBank);
   const connectFn = useServerFn(connectBank);
   const [connecting, setConnecting] = useState(false);
-  const [fintsConnecting, setFintsConnecting] = useState(false);
-  const [fintsOffen, setFintsOffen] = useState<FintsOffen>(null);
+  const fintsZustand = useFintsZustand();
   const [disconnecting, setDisconnecting] = useState<Sync["connections"][number] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [messages, setMessages] = useState<{ tone: "ok" | "danger" | "info"; text: string }[]>([]);
@@ -63,7 +63,7 @@ export function BankSync({ sync, fints, result }: { sync: Sync; fints: Data["fin
 
   return (
     <section className="card" aria-label="Automatischer Abruf" style={{ marginBottom: 16, gap: 12 }}>
-      <AbrufKopf sync={sync} fints={fints} busy={busy !== null} fintsOffen={fintsOffen} setConnecting={setConnecting} setFintsConnecting={setFintsConnecting} />
+      <AbrufKopf sync={sync} fints={fints} busy={busy !== null} fintsZustand={fintsZustand} setConnecting={setConnecting} />
 
       {result && (
         <div className={`banner banner-${result.ok ? "ok" : "danger"}`} role="status" style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
@@ -97,7 +97,7 @@ export function BankSync({ sync, fints, result }: { sync: Sync; fints: Data["fin
         <p>Die abgerufenen Umsätze bleiben erhalten.</p>
       </ConfirmDialog>
 
-      {sync.connections.length === 0 && fints.connections.length === 0 && !connecting && !fintsConnecting && (
+      {sync.connections.length === 0 && fints.connections.length === 0 && !connecting && !fintsZustand.verbinden && (
         <p className="small muted" style={{ margin: 0 }}>
           Noch keine Bank verbunden. Nach der Freigabe bei deiner Bank holt Haben die Umsätze einmal täglich; der Import per CSV oder CAMT bleibt daneben
           möglich.
@@ -155,7 +155,7 @@ export function BankSync({ sync, fints, result }: { sync: Sync; fints: Data["fin
         );
       })}
 
-      <FintsAbruf fints={fints} verbinden={fintsConnecting} setVerbinden={setFintsConnecting} offen={fintsOffen} setOffen={setFintsOffen} />
+      <FintsAbruf fints={fints} {...fintsZustand} />
 
       {messages.length > 0 && (
         <ul className="upload-messages" role="status">
@@ -167,61 +167,6 @@ export function BankSync({ sync, fints, result }: { sync: Sync; fints: Data["fin
         </ul>
       )}
     </section>
-  );
-}
-
-/**
- * Kopf des Bereichs mit „Bank verbinden“ und „Über FinTS verbinden“. Ist an der Zeile einer FinTS-Verbindung ein Schritt
- * der Bank offen, etwa die TAN nach „Jetzt abrufen“, ist „Über FinTS verbinden“ gesperrt: Der Schritt beim Verbinden
- * ersetzte ihn, ohne dass Haben den Vorgang bei der Bank verwirft (#1647). Gehört der Schritt zum Verbinden selbst, bleibt
- * der Knopf frei und klappt das Formular zu wie „Abbrechen“
- */
-function AbrufKopf({
-  sync,
-  fints,
-  busy,
-  fintsOffen,
-  setConnecting,
-  setFintsConnecting,
-}: {
-  sync: Sync;
-  fints: Data["fints"];
-  busy: boolean;
-  fintsOffen: FintsOffen;
-  setConnecting: Dispatch<SetStateAction<boolean>>;
-  setFintsConnecting: Dispatch<SetStateAction<boolean>>;
-}) {
-  const hinweis = useId();
-  const zeile = fints.connections.find((c) => c.id === fintsOffen?.fuer);
-  return (
-    <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h2 style={{ margin: 0 }}>Automatischer Abruf</h2>
-        <div className="actions">
-          {sync.configured && (
-            <button type="button" className="btn" onClick={() => setConnecting((v) => !v)} disabled={busy}>
-              Bank verbinden
-            </button>
-          )}
-          {fints.configured && (
-            <button
-              type="button"
-              className="btn"
-              onClick={() => setFintsConnecting((v) => !v)}
-              disabled={busy || zeile !== undefined}
-              aria-describedby={zeile ? hinweis : undefined}
-            >
-              Über FinTS verbinden
-            </button>
-          )}
-        </div>
-      </div>
-      {zeile && (
-        <p id={hinweis} className="small muted" style={{ margin: 0 }}>
-          „Über FinTS verbinden“ geht wieder, sobald die Freigabe für {zeile.bankName} gesendet oder abgebrochen ist.
-        </p>
-      )}
-    </>
   );
 }
 
