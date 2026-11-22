@@ -1,11 +1,10 @@
 import {
-  addMonthsAnchored,
   computeInvoiceTotals,
   invoiceDueDate,
+  invoiceServicePeriod,
   leistungsdatum,
-  servicePeriodFor,
+  nextRecurrenceDate,
   type LiquiditaetsPosten,
-  type RecurringInterval,
   type ServicePeriodMode,
 } from "@haben/core";
 import { listRecurring } from "../rechnungen/index.ts";
@@ -30,7 +29,7 @@ export async function wiederkehrendPosten(k: Kontext): Promise<LiquiditaetsPoste
     let termin = vorlage.nextDate;
     for (let i = 0; i < HOECHSTENS_TERMINE && termin <= k.bis && (!vorlage.endDate || termin <= vorlage.endDate); i++) {
       const datum = invoiceDueDate(termin, vorlage.paymentTermDays, k.bundesland);
-      const zeitraum = servicePeriodFor(termin, vorlage.intervalMonths as RecurringInterval, vorlage.servicePeriod as ServicePeriodMode);
+      const zeitraum = invoiceServicePeriod(termin, vorlage.recurrence, vorlage.servicePeriod as ServicePeriodMode);
       const steuerAm =
         k.versteuerung(termin) === "ist" ? datum : leistungsdatum({ belegdatum: termin, leistungVon: zeitraum?.from, leistungBis: zeitraum?.to });
       posten.push({
@@ -42,7 +41,7 @@ export async function wiederkehrendPosten(k: Kontext): Promise<LiquiditaetsPoste
         sicherheit: "erwartet",
         ...(tax !== 0 && !k.kleinunternehmer(termin) ? { steuer: { betrag: tax, datum: steuerAm } } : {}),
       });
-      termin = addMonthsAnchored(termin, vorlage.intervalMonths, vorlage.anchorDay);
+      termin = nextRecurrenceDate(termin, vorlage.recurrence, vorlage.anchorDay);
     }
   }
   return posten;
