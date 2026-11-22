@@ -61,12 +61,6 @@ describe("BackupCard: rclone-Konfiguration (#1513)", () => {
     expect(html).toContain("Aus der rclone-Konfiguration, Abschnitt onedrive");
   });
 
-  // Die Karte bekommt das Ziel schon ohne Zugangsdaten (backup-status.ts mit ohneZugangsdaten aus
-  // restic-ziel.ts); Angaben hinter dem Abschnitt prüft backup-ziel.test.ts
-  it("nennt den Abschnitt des Ziels", () => {
-    expect(render({ ...ok, target: { repository: "rclone:fern:haben", local: false } })).toContain("Aus der rclone-Konfiguration, Abschnitt fern");
-  });
-
   it("Verbindungszeichenkette im Ziel braucht keine Datei", () => {
     expect(render({ ...ok, target: { repository: "rclone::webdav:haben", local: false } })).toContain(
       "Nicht aus einer Datei, die Verbindungszeichenkette bringt das Ziel selbst mit",

@@ -83,7 +83,7 @@ Das Firmenportal über den Instanzen der eigenen Firmen (#504, Stufe 2), ein eig
 | `src/styles/`, `styles.css` | Globales Stylesheet und seitenbezogene Stylesheets (Auswertungen, Archiv). Farben stehen als CSS-Variablen in `:root`; eine Farbe überschreibt sie per `[data-theme="…"]`, der dunkle Modus per `[data-mode="dark"]`. Klassen, die mehr als eine Seite nutzt, gehören ins globale Stylesheet, sonst fehlen sie auf Seiten, die das seitenbezogene nicht laden |
 | `src/lib/theme.ts` | Farbe und Modus: Listen, Speicherung im `localStorage` und ein Inline-Skript, das `<html data-theme data-mode>` vor dem ersten Zeichnen setzt (`__root.tsx`) |
 | `vite.config.ts` | Setzt `__HABEN_VERSION__` aus der Root-`package.json`; die Navigation zeigt so die ausgelieferte Version. Das Plugin `redact()` ersetzt React beim Bauen durch TanStack Redact |
-| `src/lib/` | Formatierung und Better-Auth-Client für den Browser |
+| `src/lib/` | Formatierung, Better-Auth-Client und andere reine Ableitungen für den Browser, etwa die Herkunft des Sicherungsziels (`backup-ziel.ts`) |
 
 ### Module im Server
 
