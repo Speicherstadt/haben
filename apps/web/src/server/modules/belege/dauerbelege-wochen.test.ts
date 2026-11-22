@@ -69,11 +69,23 @@ describe.skipIf(!testDatabaseUrl)("Dauerbelege in Wochen (Postgres, #1691)", () 
     expect((await belege(vier.id)).map((r) => r.document_date)).toEqual(["2026-11-02", "2026-11-30", "2026-12-28"]);
   });
 
-  it("Wechsel von Wochen auf Monate nimmt den Ankertag vom nächsten Termin", async () => {
-    const vorlage = await dauer.createDauerbeleg(actor, reinigung({ recurrence: "P2W", nextDate: "2026-11-23" }), vertrag());
-    await lauf.runDueDauerbelege("2026-11-23");
-    const monatlich = await dauer.updateDauerbeleg(actor, vorlage.id, reinigung({ recurrence: "P1M", nextDate: "2026-12-07" }), null);
-    expect(monatlich).toMatchObject({ recurrence: "P1M", anchorDay: 7 });
+  it("Wechsel zwischen Wochen und Monaten nur ohne Belege, sonst kollidieren die Perioden (Review #1691)", async () => {
+    // freitags: 25.12.2026 und 01.01.2027; der zweite Wochenbeleg hat die Periode 2027-01-01 wie ein Monatsbeleg im Januar
+    const vorlage = await dauer.createDauerbeleg(actor, reinigung({ nextDate: "2026-12-25" }), vertrag());
+    expect(await lauf.runDueDauerbelege("2027-01-01")).toEqual({ created: 2, errors: [] });
+    await expect(dauer.updateDauerbeleg(actor, vorlage.id, reinigung({ recurrence: "P1M", nextDate: "2027-01-29" }), null)).rejects.toThrow(
+      "Wochen und Monate lassen sich nicht mehr tauschen",
+    );
+    // Innerhalb der Wochen bleibt der Wechsel möglich
+    expect(await dauer.updateDauerbeleg(actor, vorlage.id, reinigung({ recurrence: "P2W", nextDate: "2027-01-08" }), null)).toMatchObject({
+      recurrence: "P2W",
+    });
+    // Ohne Belege geht auch der Wechsel auf Monate; der Ankertag kommt vom nächsten Termin
+    const neu = await dauer.createDauerbeleg(actor, reinigung({ name: "Fenster", recurrence: "P2W", nextDate: "2027-03-05" }), vertrag());
+    expect(await dauer.updateDauerbeleg(actor, neu.id, reinigung({ name: "Fenster", recurrence: "P1M", nextDate: "2027-03-31" }), null)).toMatchObject({
+      recurrence: "P1M",
+      anchorDay: 31,
+    });
   });
 
   it("lehnt ein unbekanntes Intervall ab", async () => {
