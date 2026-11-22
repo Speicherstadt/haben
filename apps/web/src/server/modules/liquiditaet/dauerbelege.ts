@@ -1,4 +1,4 @@
-import { addMonthsAnchored, dauerbelegFaellig, dauerbelegSummen, roundHalfAwayFromZero, type LiquiditaetsPosten } from "@haben/core";
+import { dauerbelegFaellig, dauerbelegSummen, folgeTermin, roundHalfAwayFromZero, type LiquiditaetsPosten } from "@haben/core";
 import { listDauerbelege } from "../belege/index.ts";
 import type { Kontext } from "./kontext.ts";
 
@@ -31,7 +31,7 @@ export async function dauerbelegPosten(k: Kontext): Promise<LiquiditaetsPosten[]
         sicherheit: "erwartet",
         ...(vorsteuer !== 0 ? { steuer: { betrag: -vorsteuer, datum: termin } } : {}),
       });
-      termin = addMonthsAnchored(termin, vorlage.intervalMonths, vorlage.anchorDay);
+      termin = folgeTermin(termin, vorlage);
     }
   }
   return posten;

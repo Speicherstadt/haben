@@ -35,9 +35,9 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Dauerbelege und wiederk
     felder: { status?: string; payment?: string; taxShown?: boolean; privateShare?: number; amounts: object[] } & Record<string, unknown>,
   ) {
     const [row] = await sql<{ id: string }[]>`insert into recurring_documents (name, status, supplier_name, category, payment, private_share,
-        amounts, tax_shown, interval_months, anchor_day, start_date, next_date, end_date, due_days, sha256, filename, mime_type, size)
+        amounts, tax_shown, recurrence, anchor_day, start_date, next_date, end_date, due_days, sha256, filename, mime_type, size)
       values (${name}, ${felder.status ?? "aktiv"}, 'Vermieter', 'miete', ${felder.payment ?? "bank"}, ${felder.privateShare ?? 0},
-              ${JSON.stringify(felder.amounts)}::jsonb, ${felder.taxShown ?? false}, ${Number(felder.interval ?? 1)}, ${Number(felder.anchor ?? 1)},
+              ${JSON.stringify(felder.amounts)}::jsonb, ${felder.taxShown ?? false}, ${String(felder.recurrence ?? "P1M")}, ${Number(felder.anchor ?? 1)},
               '2026-01-01', ${String(felder.next ?? "2026-12-01")}, ${(felder.end as string | undefined) ?? null}, ${Number(felder.dueDays ?? 0)},
               ${"b".repeat(64)}, 'vertrag.pdf', 'application/pdf', 1)
       returning id`;
@@ -54,7 +54,7 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Dauerbelege und wiederk
       end: "2027-01-31",
     });
     // Monatsletzter, vierteljährlich, ohne Steuerausweis
-    const abo = await dauerbeleg("Abo", { amounts: [{ taxRate: 0, net: 5_000, tax: 0 }], interval: 3, anchor: 31, next: "2026-11-30" });
+    const abo = await dauerbeleg("Abo", { amounts: [{ taxRate: 0, net: 5_000, tax: 0 }], recurrence: "P3M", anchor: 31, next: "2026-11-30" });
     await dauerbeleg("Privat bezahlt", { amounts: [{ taxRate: 0, net: 1_000, tax: 0 }], payment: "privat" });
     await dauerbeleg("Bar", { amounts: [{ taxRate: 0, net: 1_000, tax: 0 }], payment: "kasse" });
     await dauerbeleg("Pause", { amounts: [{ taxRate: 0, net: 1_000, tax: 0 }], status: "pausiert" });
@@ -80,8 +80,8 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Dauerbelege und wiederk
     const vorlage = async (name: string, active: boolean) => {
       const lines = [{ description: "Wartung", quantity: 1000, unit: "Monat", unitPrice: 100_000, taxRate: 1900 }];
       const [row] = await sql<{ id: string }[]>`insert into recurring_invoices (name, active, contact_id, payment_term_days, lines,
-          interval_months, anchor_day, next_date)
-        values (${name}, ${active}, ${contactId}, 14, ${JSON.stringify(lines)}::jsonb, 1, 15, '2026-12-15') returning id`;
+          recurrence, anchor_day, next_date)
+        values (${name}, ${active}, ${contactId}, 14, ${JSON.stringify(lines)}::jsonb, 'P1M', 15, '2026-12-15') returning id`;
       return row!.id;
     };
     const wartung = await vorlage("Wartung", true);
@@ -104,23 +104,32 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Dauerbelege und wiederk
     await sql`insert into vat_frequencies (year, from_month, frequency) values (2026, 1, 'monatlich')`;
     const contactId = await kunde(contacts);
     const lines = [{ description: "Wartung", quantity: 1000, unit: "Monat", unitPrice: 100_000, taxRate: 1900 }];
-    const vorlage = async (name: string, interval: number, servicePeriod: string) => {
+    const vorlage = async (name: string, recurrence: string, servicePeriod: string) => {
       const [row] = await sql<{ id: string }[]>`insert into recurring_invoices (name, active, contact_id, payment_term_days, lines,
-          interval_months, anchor_day, next_date, service_period)
-        values (${name}, true, ${contactId}, 14, ${JSON.stringify(lines)}::jsonb, ${interval}, 15, '2026-12-15', ${servicePeriod}) returning id`;
+          recurrence, anchor_day, next_date, service_period)
+        values (${name}, true, ${contactId}, 14, ${JSON.stringify(lines)}::jsonb, ${recurrence}, 15, '2026-12-15', ${servicePeriod}) returning id`;
       return row!.id;
     };
-    const abrechnung = await vorlage("Abrechnung", 1, "vorher");
-    const quartal = await vorlage("Quartal", 3, "laufend");
+    const abrechnung = await vorlage("Abrechnung", "P1M", "vorher");
+    const quartal = await vorlage("Quartal", "P3M", "laufend");
+    const woche = await vorlage("Woche", "P2W", "laufend");
 
     const posten = await wiederkehrend.wiederkehrendPosten(await kontext.ladeKontext("2026-11-20", "13w"));
     // Wie der Lauf (invoiceForDate, invoice-finalize.ts): „vorher“ am 15.12. rechnet den November ab, ausgeführt am 30.11.;
     // vierteljährlich „laufend“ am 15.12. deckt Dezember bis Februar, ausgeführt am 28.02.2027
-    expect(posten.map((p) => [p.quelle.id, p.datum, p.steuer])).toEqual([
+    expect(posten.filter((p) => p.quelle.id !== woche).map((p) => [p.quelle.id, p.datum, p.steuer])).toEqual([
       [abrechnung, "2026-12-29", { betrag: 19_000, datum: "2026-11-30" }],
       [abrechnung, "2027-01-29", { betrag: 19_000, datum: "2026-12-31" }],
       [abrechnung, "2027-03-01", { betrag: 19_000, datum: "2027-01-31" }],
       [quartal, "2026-12-29", { betrag: 19_000, datum: "2027-02-28" }],
+    ]);
+    // Alle 2 Wochen (#1695): Termine im Abstand von 14 Tagen, „laufend“ deckt die 14 Tage ab dem Rechnungsdatum
+    expect(posten.filter((p) => p.quelle.id === woche).map((p) => [p.datum, p.steuer?.datum])).toEqual([
+      ["2026-12-29", "2026-12-28"],
+      ["2027-01-12", "2027-01-11"],
+      ["2027-01-26", "2027-01-25"],
+      ["2027-02-09", "2027-02-08"],
+      ["2027-02-23", "2027-02-22"],
     ]);
 
     // Die 190 € gehören in die Umsatzsteuer November, fällig am 10.12.2026 (§ 13 Abs. 1 Nr. 1 Buchst. a Satz 1 UStG)

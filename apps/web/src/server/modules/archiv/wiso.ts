@@ -32,6 +32,8 @@ export function wisoSummary(preview: WisoPreview) {
     dateTo: preview.dateTo,
     bookings: preview.bookings,
     rows: preview.rows,
+    debitTotal: preview.debitTotal,
+    creditTotal: preview.creditTotal,
     warnings: preview.warnings,
   };
 }

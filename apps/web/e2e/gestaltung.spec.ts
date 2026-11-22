@@ -4,6 +4,7 @@ import { deflateSync } from "node:zlib";
 import { type Browser, expect, type Page, test } from "@playwright/test";
 import { SESSION } from "./daten.ts";
 import { HANDY, ziehen } from "./kopfzeile.ts";
+import { serverAufrufe } from "./warten.ts";
 
 /**
  * Gestaltung der Belege (#113): Zahnrad in der Vorschau, Spalte neben dem Blatt, Speichern für alle künftigen Belege.
@@ -756,13 +757,18 @@ test("Vorschau: Das Briefpapier bleibt auf einem langen Blatt so groß wie im PD
   await karte.getByLabel("Datei für das Briefpapier").setInputFiles({ name: "bogen.png", mimeType: "image/png", buffer: briefbogenPng() });
   await expect(karte.getByRole("img", { name: "Aktuelles Briefpapier" })).toBeVisible();
   try {
+    // Ohne Fahrt steht der Dialog gleich an seinem Platz; gemessen wird erst, wenn alle Seiten des Blatts geladen sind
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/rechnungen/neu");
     await page.waitForLoadState("networkidle");
     await page.getByLabel("Hinweis auf der Rechnung (optional)").fill(Array.from({ length: 90 }, (_, i) => `Hinweiszeile ${i + 1}`).join("\n"));
     await vorschauKnopf(page).click();
     await expect.poll(() => svg(page)).toContain("<image");
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(600);
+    const seiten = blatt(page).locator(".sheet-page img");
+    await expect
+      .poll(() => seiten.evaluateAll((bilder) => bilder.every((bild) => (bild as HTMLImageElement).complete && (bild as HTMLImageElement).naturalWidth > 0)))
+      .toBe(true);
     const { width, height } = (await blatt(page).boundingBox())!;
     const a4Hoehe = (width * 297) / 210;
     // Sonst prüft der Test nichts: Das Blatt muss deutlich länger sein als eine A4-Seite
@@ -815,10 +821,11 @@ test("Die Meldung „Fußzeile gespeichert“ bleibt stehen, wenn sich die Spalt
   const karte = page.getByRole("region", { name: "Fußzeile" });
   await karte.getByLabel("Eigene Fußzeile").check();
   await karte.getByLabel("Spalte 1").fill("Sprechzeiten Mo bis Fr");
+  const speichern = serverAufrufe(page);
   await karte.getByRole("button", { name: "Fußzeile speichern" }).click();
   await expect(karte.getByRole("status").last()).toContainText("Fußzeile gespeichert");
-  await page.waitForLoadState("networkidle");
-  await page.waitForTimeout(1000);
+  // Speichern und Neuladen ganz durch, dann muss die Meldung noch stehen
+  await speichern.fertig();
   try {
     await expect(karte.getByRole("status").last()).toContainText("Fußzeile gespeichert", { timeout: 1000 });
   } finally {
