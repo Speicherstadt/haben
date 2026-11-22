@@ -78,7 +78,7 @@ Du prüfst, wählst die Kategorie und buchst.
 
 ## Enter, und die Zahlung ist zugeordnet
 
-Die Umsätze kommen per PSD2 oder FinTS von selbst oder als Datei von DKB, Commerzbank, der Deutschen Bank, Norisbank, Postbank, ING, C24, N26, Swan, PayPal, Stripe und anderen.
+Die Umsätze kommen per PSD2 oder FinTS von selbst oder als Datei von DKB, ING, N26, PayPal, Stripe und vielen anderen.
 Zu jedem Umsatz schlägt Haben die passende Rechnung oder den Beleg vor und sagt, warum: Betrag,
 Rechnungsnummer, IBAN, Name.
 
@@ -130,11 +130,9 @@ ganze Jahr als ZIP mit Prüfsummen – für die Aufbewahrung und für die Steuer
 
 ## Umziehen und prüfen, dass alles da ist
 
-Aus Lexware Office, sevDesk und FastBill kommen Rechnungen, Belege und Kontakte mit, aus Lexware Office und sevDesk
-auch Buchungen, aus
-BuchhaltungsButler und Accountable Buchungen und Belege; die Originale bleiben im Archiv. Ein
-Abgleich je Jahr zeigt, dass alles da ist, bevor du kündigst. Kontakte, Artikel und Anlagen gehen
-auch per CSV.
+Rechnungen, Belege, Kontakte und Buchungen ziehen aus Lexware Office, sevDesk, FastBill,
+BuchhaltungsButler und Accountable mit um; die Originale bleiben im Archiv. Ein Abgleich je Jahr zeigt,
+dass alles da ist, bevor du kündigst.
 
 [Lexoffice](lexoffice.md) · [sevDesk](sevdesk.md) · [FastBill](fastbill.md) · [BuchhaltungsButler](buchhaltungsbutler.md) · [Accountable](accountable.md) · [CSV-Import](csv-import.md)
 </div>
@@ -173,7 +171,7 @@ teilst du direkt hinein, die Übersicht hast du unterwegs dabei.
 <div markdown>
 **🏠 Deine Daten bleiben bei dir**
 
-Auf deinem Server, Schlüssel verschlüsselt. Kein Dienst liest deine Rechnungen mit, solange du keinen einschaltest.
+Auf deinem Server, Zugangsdaten verschlüsselt. Kein Dienst liest deine Rechnungen mit, solange du keinen einschaltest.
 </div>
 <div markdown>
 **💶 Kein Abo**
@@ -231,7 +229,7 @@ Code, Roadmap und jedes Review öffentlich. [Mitmachen](mitwirken.md) kannst du 
 <div markdown>
 **🛠️ Gebaut mit Agenten**
 
-Geprüft von Menschen: rote Tests zuerst, frische Agenten im Review, ein Mensch beim Merge.
+Jede Änderung mit Tests, geprüft von frischen Agenten und gemergt von einem Menschen.
 [Agentic Engineering bei Haben](agentic-engineering.md)
 </div>
 </div>
