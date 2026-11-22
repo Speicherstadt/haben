@@ -40,7 +40,8 @@ describe("Einstellungen, die ein eigenes Layout nicht verwendet", () => {
   it("ein Feld von mehreren genügt, ein längerer Name zählt nicht", () => {
     expect(
       ungenutzteGestaltung("d.palette.ink d.font d.logo d.look.logoWidth d.look.logoLeft d.look.foldMarks d.qr d.background d.look.backgroundPages", "mahnung"),
-    ).toEqual(["logoMitte"]);
+      // Ohne look.legalPosition wirkt auch die Stelle der Pflichtangaben nicht (#1651)
+    ).toEqual(["logoMitte", "legalPosition"]);
     // qrPlaceholder ist nicht qr, itemNumber nicht itemNumbers
     const nur = ungenutzteGestaltung("d.qrPlaceholder l.itemNumber", "beleg");
     expect(nur).toContain("giroCode");

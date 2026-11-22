@@ -6,6 +6,7 @@ import {
   LETTERHEAD_FONTS,
   LOGO_SIZES,
   layoutOptionen,
+  legalStelle,
   layoutVorgaben,
   layoutVorlagen,
   logoStelle,
@@ -39,6 +40,14 @@ export function layoutTemplate(art: "beleg" | "mahnung", letterhead: Letterhead)
   return layoutVorlagen(layout, optionen)[art];
 }
 
+/** Stelle der Pflichtangaben (#1651): bei eingebauten Layouts aufgelöst, eigene bekommen die Wahl; die Randspalte setzt ihre eigene */
+function legalPosition(letterhead: Letterhead, layout: ReturnType<typeof katalogLayout>["layout"], optionen: Record<string, string>) {
+  const gewaehlt = letterhead.options?.legalPosition ?? "layout";
+  if (!letterhead.layout) return gewaehlt;
+  const stelle = legalStelle(layout, optionen, gewaehlt);
+  return stelle === "rand" ? gewaehlt : stelle;
+}
+
 /** Daten für die Vorlage mit dem Briefkopf: Akzentfarbe und passende Grautöne immer, das Logo als Dateiname neben der Vorlage */
 export function templateInputs(data: object, letterhead: Letterhead): object {
   const { logo, background, options = DEFAULT_OPTIONS } = letterhead;
@@ -52,6 +61,7 @@ export function templateInputs(data: object, letterhead: Letterhead): object {
     logoPosition: stelle,
     foldMarks: options.foldMarks,
     backgroundPages: options.backgroundPages,
+    legalPosition: legalPosition(letterhead, layout, optionen),
     // Feldvertrag: leer bei eigenen Layouts; die tragen kein eingebautes Layout im Briefkopf (withCustomLayout)
     options: letterhead.layout ? optionen : {},
   };

@@ -22,6 +22,7 @@ export {
   removeQuoteDefaultAttachment,
 } from "./quote-default-attachments.ts";
 export { fetchBaseRate } from "./base-rate.ts";
+export { footerPreview } from "./fuss-vorschau.ts";
 export { runDueBaseRate } from "./base-rate-job.ts";
 export {
   createDunning,

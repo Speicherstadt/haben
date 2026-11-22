@@ -1,21 +1,15 @@
+import type { LegalInfo } from "./geschaeftsbrief.ts";
 import { type FormattedTextRun, parseTextFormatting } from "./text-format.ts";
 
 /** Eigene Fußzeile der Belege (#113): Spalten als Text mit Platzhaltern und Auszeichnungen, gleich für PDF und Vorschau */
 
-export const FOOTER_PLACEHOLDERS = [
-  "firma",
-  "strasse",
-  "plz",
-  "ort",
-  "email",
-  "telefon",
-  "bank",
-  "kontoinhaber",
-  "iban",
-  "bic",
-  "steuernummer",
-  "ustid",
-] as const;
+const CONTACT_PLACEHOLDERS = ["firma", "strasse", "plz", "ort", "email", "telefon", "bank", "kontoinhaber", "iban", "bic", "steuernummer", "ustid"] as const;
+
+/** Pflichtangaben einer GmbH oder UG nach § 35a Abs. 1 GmbHG, je Angabe ein Platzhalter (#1651); Regeln in footer-legal.ts */
+export const LEGAL_PLACEHOLDERS = ["rechtsform", "sitz", "registergericht", "registernummer", "geschaeftsfuehrung", "aufsichtsratsvorsitz"] as const;
+export type LegalPlaceholder = (typeof LEGAL_PLACEHOLDERS)[number];
+
+export const FOOTER_PLACEHOLDERS = [...CONTACT_PLACEHOLDERS, ...LEGAL_PLACEHOLDERS] as const;
 export type FooterPlaceholder = (typeof FOOTER_PLACEHOLDERS)[number];
 export type FooterValues = Record<FooterPlaceholder, string>;
 
@@ -44,6 +38,21 @@ interface FooterSeller {
   bic?: string;
   steuernummer?: string;
   ustId?: string;
+  /** Nur bei GmbH und UG */
+  legalInfo?: LegalInfo;
+}
+
+/** Werte der Pflichtangaben; ohne Angaben (Einzelunternehmen) leer, dann fallen ihre Zeilen weg */
+export function legalFooterValues(info: LegalInfo | undefined): Record<LegalPlaceholder, string> {
+  return {
+    // Nur, wenn der Firmenname die Rechtsform nicht schon nennt (legalInfo in geschaeftsbrief.ts)
+    rechtsform: info?.legalForm ?? "",
+    sitz: info?.seat ?? "",
+    registergericht: info?.registerCourt ?? "",
+    registernummer: info?.registerNumber ?? "",
+    geschaeftsfuehrung: info?.managingDirectors.join(", ") ?? "",
+    aufsichtsratsvorsitz: info?.supervisoryBoardChair ?? "",
+  };
 }
 
 export function footerValues(seller: FooterSeller): FooterValues {
@@ -60,6 +69,7 @@ export function footerValues(seller: FooterSeller): FooterValues {
     bic: seller.bic ?? "",
     steuernummer: seller.steuernummer ?? "",
     ustid: seller.ustId ?? "",
+    ...legalFooterValues(seller.legalInfo),
   };
 }
 

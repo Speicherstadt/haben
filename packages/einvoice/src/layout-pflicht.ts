@@ -32,7 +32,7 @@ interface Daten {
 }
 
 /** Was auf dem Blatt stehen muss, mit dem Grund für die Meldung */
-function pflicht(art: LayoutBeispiel["art"], d: Daten): { was: string; text: string }[] {
+function pflicht({ art, legalImFuss }: LayoutBeispiel, d: Daten): { was: string; text: string }[] {
   const gemeinsam = [
     { was: "Name des Absenders", text: d.author },
     // Vollständige Anschrift des Ausstellers (§ 14 Abs. 4 Nr. 1 UStG): Straße sowie PLZ und Ort aus der Absenderzeile
@@ -47,6 +47,8 @@ function pflicht(art: LayoutBeispiel["art"], d: Daten): { was: string; text: str
       .split(" · ")
       .filter((text) => text.trim())
       .map((text) => ({ was: "Pflichtangaben der GmbH (legal)", text })),
+    // Stehen sie über Platzhalter in der Fußzeile, ist legal null; dann muss die Fußzeile aufs Blatt (#1651)
+    ...(legalImFuss ? d.footer.flat().map((text) => ({ was: "Pflichtangaben der GmbH in der Fußzeile (footer)", text })) : []),
   ];
   if (art === "mahnung") {
     return [
@@ -86,7 +88,7 @@ function pflicht(art: LayoutBeispiel["art"], d: Daten): { was: string; text: str
 export function fehlendeAngaben(beispiel: LayoutBeispiel, seiten: readonly string[]): string[] {
   const d = beispiel.data as Daten;
   const alles = kompakt(seiten.join(""));
-  const fehlt = pflicht(beispiel.art, d)
+  const fehlt = pflicht(beispiel, d)
     .filter(({ text }) => text.trim() && !alles.includes(kompakt(text)))
     .map(({ was, text }) => `${was} („${text.length > 60 ? `${text.slice(0, 57)}…` : text}“)`);
   // Nur auf Rechnungen, und eine der beiden genügt (§ 14 Abs. 4 Nr. 2 UStG); Angebot, Lieferschein und Mahnung brauchen keine

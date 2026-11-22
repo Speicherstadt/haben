@@ -23,7 +23,7 @@ Unter **Einstellungen › Beleggestaltung › Layouts**:
 - **Grenzen des Betreibers:** Mit `LAYOUTS_MAX_COUNT` (Anzahl) und `LAYOUTS_MAX_MB` (Speicher samt Paketen) begrenzt der Betreiber die eigenen Layouts, ohne Angabe gilt keine Grenze ([Umgebungsvariablen](installation-konfiguration.md#umgebungsvariablen)). Ist sie erreicht, lehnt Haben das Hochladen mit dem Grund ab.
 - **Zuordnen:** wie unter [Layouts](beleggestaltung.md#layouts). Storno und Korrektur folgen der Rechnung, Mahnungen brauchen ein Layout der Art Mahnung. Das gilt für alles, was ab dann erzeugt wird, auch für Entwürfe und die Vorschau; festgeschriebene Belege behalten ihr PDF.
 - **Einstellungen, die das Layout nicht verwendet:** Unter Logo und Blatt, Briefpapier und Akzentfarbe ist eine Einstellung aus, wenn kein Layout, das sie zeigen könnte, ihr Feld nennt, etwa der GiroCode, wenn die Layouts für Rechnung und Mahnung `qr` nicht verwenden. Der Hinweis darunter nennt Layout und Feld. Zeigt ein anderes Layout die Einstellung noch, bleibt sie an, und der Hinweis nennt die Belegarten, auf die sie nicht wirkt. Welche Einstellung an welchem Feld hängt, steht unter [Einstellungen der Gestaltung](#einstellungen-der-gestaltung). Auch das ist nur ein Blick in den Quelltext, keine Gewähr.
-- **Ersetzen, umbenennen, löschen:** Ersetzen prüft wie das Hochladen. Nach dem Löschen gilt dort, wo das Layout zugeordnet war, das eingebaute Layout Klar.
+- **Ersetzen, umbenennen, löschen:** Ersetzen prüft wie das Hochladen. Nach dem Löschen gilt dort, wo das Layout zugeordnet war, das eingebaute Layout Klar; machte das die [Pflichtangaben einer GmbH](beleggestaltung.md#pflichtangaben-einer-gmbh-oder-ug) zur fünften Spalte, lehnt Haben das Löschen ab.
 - **Fehler beim Erzeugen:** Lässt sich ein zugeordnetes Layout nicht setzen, etwa nach einem Update von Typst, meldet Haben das mit dem Namen des Layouts. Es fällt nicht still auf ein eingebautes zurück; wähle dann ein anderes Layout.
 
 ### Pakete
@@ -99,7 +99,7 @@ Feldvertrag Version 1. Ein Feld mit „Immer da: nein“ kann fehlen; in Typst m
 | `footerFormatted[][][].bold` | `boolean` | ja |  | fett |
 | `footerFormatted[][][].italic` | `boolean` | ja |  | kursiv |
 | `footerFormatted[][][].underline` | `boolean` | ja |  | unterstrichen |
-| `legal` | `null \| string` | ja | ja | Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile; null ohne |
+| `legal` | `null \| string` | ja | ja | Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile, Angaben getrennt durch „ · “; null ohne und wenn sie über ihre Platzhalter schon in der eigenen Fußzeile (footer) stehen |
 | `accent` | `string` | ja |  | Akzentfarbe #RRGGBB |
 | `palette` | `object` | ja |  | Grautöne #RRGGBB, aus der Akzentfarbe abgeleitet |
 | `palette.ink` | `string` | ja |  | Text |
@@ -112,6 +112,7 @@ Feldvertrag Version 1. Ein Feld mit „Immer da: nein“ kann fehlen; in Typst m
 | `look.logoPosition` | `"links" \| "mitte" \| "rechts"` | ja |  | Stelle des Logos im Briefkopf |
 | `look.foldMarks` | `boolean` | ja |  | Falz- und Lochmarken drucken |
 | `look.backgroundPages` | `"erste" \| "alle"` | ja |  | Briefpapier nur auf der ersten oder auf allen Seiten |
+| `look.legalPosition` | `"layout" \| "spalte" \| "zeile"` | nein |  | Stelle von legal im Fuß: „spalte“ als eigene Spalte neben footer, je Angabe eine Zeile; „zeile“ als Zeile unter den Spalten; „layout“, wie es das Layout vorsieht. Eingebaute Layouts bekommen die Stelle aufgelöst, außer mit Randspalte (Elegant, Atelier): Die setzt legal immer selbst und bekommt die Wahl, wie sie ist |
 | `look.options` | `object` | nein |  | Optionen eines eingebauten Layouts, schon aufgelöst, etwa { fuss: „rechts“ }; leer bei eigenen Layouts |
 | `font` | `object` | ja |  | Gewählte Schrift; Familien, wie Typst sie nennt |
 | `font.regular` | `string` | ja |  | Familie für normalen Text |
@@ -218,7 +219,7 @@ Feldvertrag Version 1. Ein Feld mit „Immer da: nein“ kann fehlen; in Typst m
 | `footerFormatted[][][].bold` | `boolean` | ja |  | fett |
 | `footerFormatted[][][].italic` | `boolean` | ja |  | kursiv |
 | `footerFormatted[][][].underline` | `boolean` | ja |  | unterstrichen |
-| `legal` | `null \| string` | ja | ja | Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile; null ohne |
+| `legal` | `null \| string` | ja | ja | Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile, Angaben getrennt durch „ · “; null ohne und wenn sie über ihre Platzhalter schon in der eigenen Fußzeile (footer) stehen |
 | `accent` | `string` | ja |  | Akzentfarbe #RRGGBB |
 | `palette` | `object` | ja |  | Grautöne #RRGGBB, aus der Akzentfarbe abgeleitet |
 | `palette.ink` | `string` | ja |  | Text |
@@ -231,6 +232,7 @@ Feldvertrag Version 1. Ein Feld mit „Immer da: nein“ kann fehlen; in Typst m
 | `look.logoPosition` | `"links" \| "mitte" \| "rechts"` | ja |  | Stelle des Logos im Briefkopf |
 | `look.foldMarks` | `boolean` | ja |  | Falz- und Lochmarken drucken |
 | `look.backgroundPages` | `"erste" \| "alle"` | ja |  | Briefpapier nur auf der ersten oder auf allen Seiten |
+| `look.legalPosition` | `"layout" \| "spalte" \| "zeile"` | nein |  | Stelle von legal im Fuß: „spalte“ als eigene Spalte neben footer, je Angabe eine Zeile; „zeile“ als Zeile unter den Spalten; „layout“, wie es das Layout vorsieht. Eingebaute Layouts bekommen die Stelle aufgelöst, außer mit Randspalte (Elegant, Atelier): Die setzt legal immer selbst und bekommt die Wahl, wie sie ist |
 | `look.options` | `object` | nein |  | Optionen eines eingebauten Layouts, schon aufgelöst, etwa { fuss: „rechts“ }; leer bei eigenen Layouts |
 | `font` | `object` | ja |  | Gewählte Schrift; Familien, wie Typst sie nennt |
 | `font.regular` | `string` | ja |  | Familie für normalen Text |
@@ -309,5 +311,6 @@ Diese Einstellungen unter Einstellungen › Beleggestaltung kommen nur über ihr
 | Spalte USt je Position | `hideVatColumn` | Rechnung, Storno und Korrektur; Angebot; Auftragsbestätigung |
 | Briefpapier | `background` | alle |
 | Seiten mit Briefpapier | `look.backgroundPages` | alle |
+| Registerangaben | `look.legalPosition` | alle |
 
 <!-- feldvertrag:ende -->

@@ -23,7 +23,15 @@ export interface LayoutOptionWert {
   vorlagen?: LayoutVorlagen;
   /** Andere Vorgaben für Schrift oder Akzentfarbe, solange dieser Wert gilt */
   vorgaben?: Partial<LayoutVorgaben>;
+  /** Andere Stelle der Pflichtangaben, solange dieser Wert gilt */
+  pflichtangaben?: PflichtangabenStelle;
 }
+
+/**
+ * Wo ein Layout die Pflichtangaben einer GmbH oder UG setzt (#1651): als Spalte neben den übrigen, als Zeile darunter
+ * oder untereinander in einer Randspalte. Spalte und Zeile kann man wählen, die Randspalte nicht.
+ */
+export type PflichtangabenStelle = "spalte" | "zeile" | "rand";
 
 export interface LayoutVorgaben {
   font: LetterheadFont;
@@ -49,6 +57,8 @@ export interface EingebautesLayout {
   vorgaben: LayoutVorgaben;
   logo: readonly LogoPosition[];
   optionen: readonly LayoutOption[];
+  /** Fehlt = als Spalte */
+  pflichtangaben?: PflichtangabenStelle;
 }
 
 export const MAX_LAYOUT_OPTIONEN = 3;
@@ -73,7 +83,13 @@ export const EINGEBAUTE_LAYOUTS: readonly EingebautesLayout[] = [
         werte: [
           { id: "standard", name: "Standard" },
           // Das Layout von Haben vor #113 (rechnung.typ, mahnung.typ); bestehende Installationen bekommen es per Migration 0312
-          { id: "klassisch", name: "Klassisch", vorlagen: { beleg: "rechnung.typ", mahnung: "mahnung.typ" }, vorgaben: { font: "plex-sans" } },
+          {
+            id: "klassisch",
+            name: "Klassisch",
+            vorlagen: { beleg: "rechnung.typ", mahnung: "mahnung.typ" },
+            vorgaben: { font: "plex-sans" },
+            pflichtangaben: "zeile",
+          },
         ],
       },
       kerndaten([
@@ -138,7 +154,7 @@ export const EINGEBAUTE_LAYOUTS: readonly EingebautesLayout[] = [
         id: "fuss",
         name: "Fuß",
         werte: [
-          { id: "rechts", name: "In der Randspalte", vorlagen: vorlagen("elegant-rechts"), logo: ["rechts", "links"] },
+          { id: "rechts", name: "In der Randspalte", vorlagen: vorlagen("elegant-rechts"), logo: ["rechts", "links"], pflichtangaben: "rand" },
           { id: "unten", name: "Unten", vorlagen: vorlagen("elegant-unten") },
         ],
       },
@@ -161,7 +177,7 @@ export const EINGEBAUTE_LAYOUTS: readonly EingebautesLayout[] = [
         name: "Fuß",
         werte: [
           { id: "unten", name: "Unten", vorlagen: vorlagen("atelier-unten") },
-          { id: "rechts", name: "In der Randspalte", vorlagen: vorlagen("atelier-rechts") },
+          { id: "rechts", name: "In der Randspalte", vorlagen: vorlagen("atelier-rechts"), pflichtangaben: "rand" },
         ],
       },
       kerndaten([
@@ -208,6 +224,11 @@ export function layoutVorlagen(layout: EingebautesLayout, optionen: Readonly<Rec
 /** Vorgaben für Schrift und Akzentfarbe bei den aufgelösten Optionen: die des Layouts, ergänzt um die eines Werts */
 export function layoutVorgaben(layout: EingebautesLayout, optionen: Readonly<Record<string, string>>): LayoutVorgaben {
   return Object.assign({}, layout.vorgaben, ...gewaehlteWerte(layout, optionen).map((wert) => wert.vorgaben ?? {}));
+}
+
+/** Stelle der Pflichtangaben, wie das Layout sie bei den aufgelösten Optionen vorsieht */
+export function layoutPflichtangaben(layout: EingebautesLayout, optionen: Readonly<Record<string, string>>): PflichtangabenStelle {
+  return gewaehlteWerte(layout, optionen).find((wert) => wert.pflichtangaben)?.pflichtangaben ?? layout.pflichtangaben ?? "spalte";
 }
 
 /** Erlaubte Stellen für das Logo bei den aufgelösten Optionen */

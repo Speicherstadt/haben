@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { readdir, rename, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { DEFAULT_LAYOUT, eingebautesLayout, LAYOUT_DOCUMENT_TYPES, type LayoutDocumentType, type LayoutRef } from "@haben/core";
-import { createRenderClient, LAYOUT_SCHEMA_VERSION, type Letterhead, type PdfRequest } from "@haben/einvoice";
+import { eingebautesLayout, LAYOUT_DOCUMENT_TYPES, type LayoutDocumentType, type LayoutRef } from "@haben/core";
+import { createRenderClient, kenntPflichtangabenFelder, LAYOUT_SCHEMA_VERSION, type Letterhead, type PdfRequest } from "@haben/einvoice";
 import { eq, sql } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { env } from "../../env.ts";
@@ -19,7 +19,8 @@ import {
   writePackages,
 } from "./paket-download.ts";
 import { customLayoutJob, dataForVersion, layoutRenderer } from "./layout-renderer.ts";
-import { loadDesign } from "./letterhead.ts";
+import { removeLayout } from "./layout-loeschen.ts";
+import { checkLayoutSwitch, loadDesign, lockFooter } from "./letterhead.ts";
 
 /*
  * Eigene Belegvorlagen (#113): hochladen, benennen, löschen und je Belegart zuordnen. Ein Layout gilt für alles, was ab
@@ -268,24 +269,6 @@ export function deleteLayout(actor: string, id: string): Promise<void> {
   return oneAtATime(id, () => removeLayout(actor, id));
 }
 
-async function removeLayout(actor: string, id: string): Promise<void> {
-  await dropRenderer(id);
-  await clearPackages(id);
-  await withActor(actor, async (tx) => {
-    // Erst das Profil, dann das Layout: Jede Änderung nimmt im Audit-Trigger die Sperre der Hash-Kette. Käme das Löschen
-    // zuerst, hielte es diese Sperre, während es auf die Zeile des Profils wartet, und verhakte sich mit saveDesign, das
-    // die Zeile hält und auf die Sperre wartet.
-    const fallback = JSON.stringify(DEFAULT_LAYOUT);
-    await tx.execute(sql`
-      update letterhead_profiles set settings = jsonb_set(settings, '{layouts}', (
-        select coalesce(jsonb_object_agg(key, case when value->>'kind' = 'eigen' and value->>'id' = ${id} then ${fallback}::jsonb else value end), '{}'::jsonb)
-        from jsonb_each(coalesce(settings->'layouts', '{}'::jsonb))
-      )), updated_at = now()
-      where settings->'layouts' is not null`);
-    await tx.delete(schema.belegLayouts).where(eq(schema.belegLayouts.id, id));
-  });
-}
-
 /** Art eines eigenen Layouts (Mahnung oder Beleg); null = eingebaut. Ein unbekanntes eingebautes oder gelöschtes eigenes wirft */
 async function layoutArt(ref: LayoutRef): Promise<"beleg" | "mahnung" | null> {
   if (ref.kind === "eingebaut") {
@@ -319,7 +302,9 @@ export async function assignLayoutToAll(actor: string, ref: LayoutRef): Promise<
 async function zuordnen(actor: string, types: readonly LayoutDocumentType[], ref: LayoutRef): Promise<void> {
   const neu = Object.fromEntries(types.map((type) => [type, { kind: ref.kind, id: ref.id }]));
   await withActor(actor, async (tx) => {
+    await lockFooter(tx);
     const current = await loadDesign(tx);
+    await checkLayoutSwitch(tx, current, { ...current, layouts: { ...current.layouts, ...neu } });
     const profiles = schema.letterheadProfiles;
     // In der Datenbank zusammenführen, wie saveDesign: Zwei gleichzeitige Zuordnungen überschreiben sich nicht
     await tx
@@ -370,24 +355,26 @@ export async function mitEingebautemLayout(
 export async function withCustomLayout<T>(type: LayoutDocumentType, letterhead: Letterhead, build: (letterhead: Letterhead) => T): Promise<T> {
   const layout = await customLayoutFor(type);
   if (!layout) return build(await mitEingebautemLayout(type, letterhead));
+  // Kennt das Layout die Stelle der Pflichtangaben nicht, bekommt es sie nur über legal (#1651)
+  const eigener = { ...letterhead, legalFieldOnly: !kenntPflichtangabenFelder(layout.source) };
   let request: PdfRequest | undefined;
   // Ganz durchlaufen lassen: buildEInvoice setzt das PDF erst nach einem await
   await build({
-    ...letterhead,
+    ...eigener,
     pdfFrom: (captured) => {
       request = captured;
       return undefined;
     },
   });
-  if (!request) return build(letterhead);
+  if (!request) return build(eigener);
   let pdf: Uint8Array;
   try {
     const renderer = await rendererFor(layout);
-    pdf = await renderer.renderPdf(await customLayoutJob(layout, dataForVersion(layout.schemaVersion, request.data), letterhead), request.date);
+    pdf = await renderer.renderPdf(await customLayoutJob(layout, dataForVersion(layout.schemaVersion, request.data), eigener), request.date);
   } catch (error) {
     throw new LayoutRenderError(
       `Das Layout „${layout.name}“ ließ sich nicht setzen: ${typstMeldung(error)}. Bitte unter Einstellungen › Beleggestaltung ein anderes wählen.`,
     );
   }
-  return build({ ...letterhead, pdfFrom: () => pdf });
+  return build({ ...eigener, pdfFrom: () => pdf });
 }

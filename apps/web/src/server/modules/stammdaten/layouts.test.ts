@@ -6,10 +6,23 @@ import { join } from "node:path";
 import { dunningAmounts } from "@haben/core";
 import { buildDeliveryNotePdf, buildDunningPdf, buildEInvoice, eingebautesLayoutAlsDatei, LAYOUT_PFLICHTFELDER, startvorlage } from "@haben/einvoice";
 import type postgres from "postgres";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { gmbhSeller, sampleBuyer, sampleDocument, sampleSeller } from "../../../../../../packages/einvoice/src/samples.ts";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 import { fakeUniverse, paketArchiv, tarEintrag } from "./test-paket.ts";
+
+// Ein Fehler beim Aufräumen des Paket-Caches, unabhängig von Dateirechten (als root wirkte chmod nicht)
+const aufraeumen = vi.hoisted(() => ({ scheitert: false }));
+vi.mock("./layout-pakete.ts", async (importOriginal) => {
+  const echt = await importOriginal<typeof import("./layout-pakete.ts")>();
+  return {
+    ...echt,
+    clearPackages: async (id: string) => {
+      if (aufraeumen.scheitert) throw Object.assign(new Error("EACCES: permission denied, rm"), { code: "EACCES" });
+      return echt.clearPackages(id);
+    },
+  };
+});
 
 const hasPoppler = spawnSync("pdftotext", ["-v"]).status === 0;
 
@@ -354,6 +367,83 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
     expect((await liste.listLayouts()).find((l) => l.id === id)?.packagesMissing).toBe(false);
     const { pdf } = await layouts.withCustomLayout("rechnung", {}, (lh) => buildEInvoice({ ...sampleDocument(), ...lh }));
     expect(pdfText(pdf)).toMatch(/FASSUNG [AB]/);
+  }, 60_000);
+
+  it("Löschen eines eigenen Layouts, das die Pflichtangaben zur fünften Spalte machte, wird abgelehnt (#1651)", async () => {
+    await sql`insert into company (id, name, rechtsform) values (1, 'Testfirma GmbH', 'gmbh') on conflict (id) do update set rechtsform = 'gmbh'`;
+    await layouts.assignLayoutToAll(actor, { kind: "eingebaut", id: "elegant" });
+    await letterhead.saveDesign(actor, { layoutOptions: { elegant: { fuss: "rechts" } }, footerColumns: ["{firma}", "{iban}", "{steuernummer}", "{email}"] });
+    const { id } = await anlegen({ name: "Eigenes", art: "beleg", source: eigene("beleg") });
+    await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id });
+    // Ohne das eigene Layout fiele die Rechnung auf Klar zurück, mit den Pflichtangaben als fünfter Spalte
+    await expect(layouts.deleteLayout(actor, id)).rejects.toThrow("Kürze auf 3 Spalten");
+    expect((await letterhead.loadDesign()).layouts.rechnung).toEqual({ kind: "eigen", id });
+    expect((await liste.listLayouts()).some((l) => l.id === id)).toBe(true);
+  });
+
+  it("eine Löschung, die nach einer gleichzeitigen Änderung der Fußzeile abgelehnt wird, lässt die Pakete stehen (#1651)", async () => {
+    await sql`insert into company (id, name, rechtsform) values (1, 'Testfirma GmbH', 'gmbh') on conflict (id) do update set rechtsform = 'gmbh'`;
+    await layouts.assignLayoutToAll(actor, { kind: "eingebaut", id: "elegant" });
+    await letterhead.saveDesign(actor, { layoutOptions: { elegant: { fuss: "rechts" } }, footerColumns: ["{firma}", "{iban}", "{steuernummer}"] });
+    const { id } = await anlegen({ name: "Mit Paket", art: "beleg", source: mitPaket, approve: ["@preview/demo:0.1.0"] }, { fetch: universum() });
+    await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id });
+    // Eine andere Änderung hält die Sperre der Fußzeile und speichert eine vierte Spalte, während gelöscht wird
+    let freigeben!: () => void;
+    const offen = new Promise<void>((resolve) => {
+      freigeben = resolve;
+    });
+    const andere = sql.begin(async (t) => {
+      await t`select set_config('haben.actor', ${actor}, true)`;
+      await t`select pg_advisory_xact_lock(hashtext('haben.fusszeile'))`;
+      await t`update letterhead_profiles set settings = jsonb_set(settings, '{footerColumns}', ${JSON.stringify(["{firma}", "{iban}", "{steuernummer}", "{email}"])}::jsonb) where is_default`;
+      await offen;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const loeschen = layouts.deleteLayout(actor, id);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    freigeben();
+    await andere;
+    await expect(loeschen).rejects.toThrow("Kürze auf 3 Spalten");
+    expect((await liste.listLayouts()).find((l) => l.id === id)?.packagesMissing).toBe(false);
+  }, 60_000);
+
+  it("ein Fehler beim Aufräumen nach dem Löschen meldet das Löschen nicht als gescheitert (#1651)", async () => {
+    const { id } = await anlegen({ name: "Mit Paket", art: "beleg", source: mitPaket, approve: ["@preview/demo:0.1.0"] }, { fetch: universum() });
+    await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id });
+    const warnung = vi.spyOn(console, "warn").mockImplementation(() => {});
+    aufraeumen.scheitert = true;
+    try {
+      await layouts.deleteLayout(actor, id);
+    } finally {
+      aufraeumen.scheitert = false;
+    }
+    const meldungen = warnung.mock.calls.map(([text]) => String(text));
+    warnung.mockRestore();
+    expect((await letterhead.loadDesign()).layouts.rechnung).toEqual({ kind: "eingebaut", id: "klar" });
+    expect(meldungen.some((text) => text.includes("Paket-Cache nicht entfernt"))).toBe(true);
+  }, 60_000);
+
+  it("Pflichtangaben der GmbH: ein Layout ohne die neuen Felder bekommt sie einmal über legal, eines mit über die Platzhalter (#1651)", async () => {
+    const fuss = [
+      "{firma}\n{strasse}\n{plz} {ort}",
+      "{steuernummer}\nSitzplatz {sitz}\n{registergericht} {registernummer}\n{geschaeftsfuehrung}",
+      "{rechtsform}\n{aufsichtsratsvorsitz}",
+    ];
+    await letterhead.saveDesign(actor, { footerColumns: fuss });
+    const head = await letterhead.loadLetterhead();
+    const setzen = async (source: string, name: string) => {
+      const { id } = await anlegen({ name, art: "beleg", source });
+      await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id });
+      const { pdf } = await layouts.withCustomLayout("rechnung", head, (lh) => buildEInvoice({ ...sampleDocument(), seller: gmbhSeller, ...lh }));
+      return pdfText(pdf);
+    };
+    // Vor #1651 geschrieben: kennt look.legalPosition nicht
+    const alt = await setzen(eigene("beleg").replaceAll("legalPosition", "altePosition"), "Altes Layout");
+    expect(alt).toContain("Registergericht: Amtsgericht Charlottenburg");
+    expect(alt).not.toContain("Sitzplatz");
+    const neu = await setzen(eigene("beleg"), "Neues Layout");
+    expect(neu).toContain("Sitzplatz Berlin");
+    expect(neu).not.toContain("Registergericht:");
   }, 60_000);
 
   it("setzt Lieferschein und Mahnung mit dem eigenen Layout", async () => {
