@@ -1000,7 +1000,7 @@ test("Textknöpfe: im gescrollten Artikel-Dialog schneidet der Rand die Leiste n
   }
 });
 
-test("Standard-Textbaustein: je für Rechnungen und Angebote vorbelegt und änderbar, archiviert kein Standard mehr (#1494)", async () => {
+test("Standard-Textbaustein: je für Rechnungen und Angebote vorbelegt und änderbar, für Mahnungen je Stufe, archiviert kein Standard mehr (#1494, #1678)", async () => {
   const standardBaustein = async (name: string, text: string, standardFuer: string) => {
     await go("/textbausteine");
     await page.getByRole("button", { name: "Neuer Textbaustein" }).click();
@@ -1015,6 +1015,8 @@ test("Standard-Textbaustein: je für Rechnungen und Angebote vorbelegt und ände
   await standardBaustein("Einleitung Rechnung", "Für die erbrachten Leistungen berechne ich Ihnen:", "Rechnungen");
   await standardBaustein("Einleitung Angebot", "Gerne biete ich Ihnen an:", "Angebote");
   await expect(page.getByRole("region", { name: "Textbausteine" })).toContainText("Standard für Rechnungen");
+  await standardBaustein("Einleitung letzte Mahnung", "Trotz Erinnerung und Mahnung ist die Rechnung weiter offen.", "Mahnungen: Letzte Mahnung");
+  await expect(page.locator(".table-row").filter({ hasText: "Einleitung letzte Mahnung" })).toContainText("Standard für Mahnungen: Letzte Mahnung");
 
   const einleitung = page.getByLabel("Einleitung über den Positionen (optional)");
   await go("/rechnungen/neu");
@@ -1026,7 +1028,7 @@ test("Standard-Textbaustein: je für Rechnungen und Angebote vorbelegt und ände
 
   // Die folgenden Tests rechnen mit leerer Einleitung: archivierte Bausteine sind kein Standard mehr
   await go("/textbausteine");
-  for (const name of ["Einleitung Rechnung", "Einleitung Angebot"]) {
+  for (const name of ["Einleitung Rechnung", "Einleitung Angebot", "Einleitung letzte Mahnung"]) {
     await page.locator(".table-row").filter({ hasText: name }).getByRole("button", { name: "Archivieren" }).click();
     await expect(page.getByText("Textbaustein archiviert.")).toBeVisible();
   }
