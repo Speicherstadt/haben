@@ -26,7 +26,7 @@ Der CSV-Export der Buchungen (`Daten Export › Buchungen als CSV-Datei`) hat in
 
 Der Testlauf zeigt die Summen der CSV-Spalten **Soll** und **Haben**. Sie enthalten Teilbuchungen, neutrale Zeilen wie Saldovorträge und negative Zeilen mit ihrem Vorzeichen.
 
-Bei fehlerhaften Datensätzen zeigt der Testlauf die ersten 20 Fehlerzeilen mit ihrer Nummer in der CSV sowie die Anzahl weiterer Fehlerzeilen. Dazu zählen beispielsweise ein ungültiges Zahlungsdatum oder ein unlesbarer Betrag. Korrigiere den Export und starte einen neuen Testlauf. Erst eine vollständig lesbare Datei lässt sich importieren.
+Bei Fehlern zeigt der Testlauf die ersten 20 betroffenen CSV-Datensätze und zählt weitere Fehler. Die Nummer zählt die Kopfzeile und leere Zeilen mit. Ein Feld mit Zeilenumbruch gehört weiterhin zu einem Datensatz. Solange der Testlauf Fehler meldet, ist keine Übernahme möglich. Korrigiere den Export und starte den Testlauf erneut.
 
 Die Buchungs-CSV enthält kein Rechnungs- oder Leistungsdatum. Das Archivdatum bleibt das Zahlungsdatum; Buchungs- und Wertstellungsdatum bleiben in den Quelldaten erhalten. Leistungsangaben bleiben unbekannt, auch bei bereits archivierten WISO-Buchungen. Ihre gespeicherten Daten und die Original-CSV bleiben unverändert.
 

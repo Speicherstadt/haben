@@ -26,10 +26,11 @@ export function WisoImport({ initial }: { initial: ImportRow | null }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const submitCheck = useSubmitCheck({ file: file ? null : "Bitte eine WISO-Buchungs-CSV auswählen." });
-  const [checked, setChecked] = useState<{ file: File; summary: Preview } | null>(null);
+  const [checked, setChecked] = useState<{ file: File; summary: Preview | null } | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const preview = checked && checked.file === file ? checked.summary : null;
+  const currentCheck = checked?.file === file ? checked : null;
+  const preview = currentCheck?.summary ?? null;
 
   const formData = (csv: File) => {
     const data = new FormData();
@@ -39,12 +40,13 @@ export function WisoImport({ initial }: { initial: ImportRow | null }) {
   const onPreview = (event: FormEvent) => {
     event.preventDefault();
     if (!submitCheck.check() || !file) return;
+    setChecked({ file, summary: null });
     void previewAction.run(async () => setChecked({ file, summary: await previewFn({ data: formData(file) }) }));
   };
   const onImport = () => {
-    if (!checked || checked.file !== file) return;
+    if (!preview || !file) return;
     void importAction.run(async () => {
-      setResult(await importFn({ data: formData(checked.file) }));
+      setResult(await importFn({ data: formData(file) }));
       setConfirming(false);
       setChecked(null);
       await router.invalidate();
@@ -88,7 +90,7 @@ export function WisoImport({ initial }: { initial: ImportRow | null }) {
           </button>
         </div>
       </form>
-      <NoticeBanner notice={previewAction.notice} />
+      <NoticeBanner notice={currentCheck ? previewAction.notice : null} />
       {preview && <WisoPreviewFacts preview={preview} busy={importAction.busy} onStart={() => setConfirming(true)} />}
       <NoticeBanner notice={importAction.notice} />
       {result && (
