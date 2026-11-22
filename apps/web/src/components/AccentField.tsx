@@ -55,7 +55,7 @@ export function AccentField({
       <div className="color-swatches">
         <label className="color-swatch color-swatch-custom" title="Eigene Farbe wählen" data-active={custom || undefined}>
           <span>{custom && <span className="color-swatch-dot" style={{ background: accent }} />}</span>
-          <input type="color" aria-label="Eigene Farbe wählen" value={accent.toLowerCase()} onChange={(event) => pick(event.target.value.toUpperCase())} />
+          <input type="color" aria-label="Eigene Farbe wählen" value={wirksam.toLowerCase()} onChange={(event) => pick(event.target.value.toUpperCase())} />
         </label>
         {SWATCHES.map((swatch) => (
           <button
