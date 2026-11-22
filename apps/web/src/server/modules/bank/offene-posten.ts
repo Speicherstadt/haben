@@ -1,8 +1,8 @@
-import { documentOpen, invoiceOpen, skontoZahlfristen, type OpenItem } from "@haben/core";
+import { documentOpen, invoiceOpen, skontoZahlfristen, type InvoiceTotals, type OpenItem } from "@haben/core";
 import { and, eq, inArray } from "drizzle-orm";
 import { type Db, db, schema, type Tx } from "../../db/index.ts";
 import { documentNotCancelled } from "../../db/document-cancelled.ts";
-import { invoicePayments, paidByTarget, paperCancellationIds } from "../rechnungen/index.ts";
+import { invoicePayments, invoiceTotalsById, mixNachKorrekturen, paidByTarget, paperCancellationIds } from "../rechnungen/index.ts";
 import { loadCompany } from "../stammdaten/index.ts";
 import { today } from "../../today.ts";
 import { documentPayees, ibanDecisions, payeeIbans } from "./document-payees.ts";
@@ -92,27 +92,36 @@ function attachOpenCorrections(items: OpenItem[], invoices: { id: string; kind: 
 }
 
 /**
- * Rechnungen, deren Steuer zusammen mit ihren Korrekturen auf genau einem Steuersatz liegt. Nur dort verteilt sich ein
- * Skonto nach der Korrektur richtig: Das Ausbuchen verteilt nach dem Mix der Rechnung, nach einer Korrektur auf nur
- * einen von zwei Sätzen wäre es der Mix aus Rechnung und Korrektur (§ 17 Abs. 1 UStG, #1398).
+ * Rechnungen, deren Rest nach den Korrekturen sich je Satz bestimmen lässt (mixNachKorrekturen): Nur dann verteilt sich ein
+ * Skonto nach der Korrektur auf die verbleibenden Entgelte (#1586). Die eine Prüfung für Abgleich und Buchung; sie
+ * schließt nur Korrekturen mit einem Satz aus, den die Rechnung nicht hat.
  */
-export async function mitEinemSteuersatz(gruppen: ReadonlyMap<string, readonly string[]>, q: Db | Tx = db): Promise<Set<string>> {
-  const ids = [...gruppen].flatMap(([rechnung, korrekturen]) => [rechnung, ...korrekturen]);
-  if (ids.length === 0) return new Set();
-  const rows = await q
-    .select({ invoiceId: schema.invoiceTaxes.invoiceId, rate: schema.invoiceTaxes.rate })
-    .from(schema.invoiceTaxes)
-    .where(inArray(schema.invoiceTaxes.invoiceId, ids));
-  const saetze = (id: string) => rows.filter((r) => r.invoiceId === id).map((r) => r.rate);
-  return new Set(
-    [...gruppen].filter(([rechnung, korrekturen]) => new Set([rechnung, ...korrekturen].flatMap(saetze)).size === 1).map(([rechnung]) => rechnung),
+export async function restMixeNachKorrekturen(
+  gruppen: ReadonlyMap<string, readonly string[]>,
+  q: Db | Tx = db,
+): Promise<Map<string, { rechnung: InvoiceTotals; rest: InvoiceTotals }>> {
+  const totals = await invoiceTotalsById(
+    [...gruppen].flatMap(([rechnung, korrekturen]) => [rechnung, ...korrekturen]),
+    q,
   );
+  const mixe = new Map<string, { rechnung: InvoiceTotals; rest: InvoiceTotals }>();
+  for (const [id, korrekturen] of gruppen) {
+    const rechnung = totals.get(id);
+    const rest =
+      rechnung &&
+      mixNachKorrekturen(
+        rechnung,
+        korrekturen.map((k) => totals.get(k)).filter((t): t is InvoiceTotals => t !== undefined),
+      );
+    if (rechnung && rest) mixe.set(id, { rechnung, rest });
+  }
+  return mixe;
 }
 
 /**
  * Skonto nach den offenen Korrekturen (skontoNachKorrektur): Zieht der Kunde die Korrekturen ab und dann Skonto, ist das
  * Skonto vom geminderten Betrag gerechnet, nicht vom Betrag der Rechnung (#1398). Nur wo das Skonto noch gilt (skonto)
- * und alles auf einem Steuersatz liegt (mitEinemSteuersatz).
+ * und sich der Rest je Satz bestimmen lässt (restMixeNachKorrekturen, #1586).
  */
 async function attachSkontoNachKorrektur(
   items: OpenItem[],
@@ -121,10 +130,10 @@ async function attachSkontoNachKorrektur(
 ): Promise<void> {
   const byId = new Map(invoices.map((inv) => [inv.id, inv]));
   const kandidaten = items.filter((item) => item.skonto && item.openCorrections);
-  const einSatz = await mitEinemSteuersatz(new Map(kandidaten.map((item) => [item.id, item.openCorrections!.map((k) => k.id)])));
+  const mixe = await restMixeNachKorrekturen(new Map(kandidaten.map((item) => [item.id, item.openCorrections!.map((k) => k.id)])));
   for (const item of kandidaten) {
     const inv = byId.get(item.id);
-    if (!inv || !item.openCorrections || !einSatz.has(item.id)) continue;
+    if (!inv || !item.openCorrections || !mixe.has(item.id)) continue;
     const gemindert = inv.gross + item.openCorrections.reduce((sum, k) => sum + k.open, 0);
     const fristen = gemindert > 0 ? skontoZahlfristen(inv.skonto, inv.issueDate, gemindert, bundesland) : [];
     if (fristen.length > 0) item.skontoNachKorrektur = fristen;
