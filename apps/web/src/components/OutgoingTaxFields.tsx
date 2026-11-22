@@ -163,7 +163,8 @@ export function ForeignTaxFields({
   const required = kleinunternehmer || treatment === "eu_sonstige";
   const hintId = useId();
   const hasPostalCode = ["DE", "ES", "IT", "GR"].includes(values.foreignPlace?.country ?? "");
-  const describedBy = hasPostalCode && vatTerritory(values.foreignPlace?.country, values.foreignPlace?.postalCode) ? hintId : undefined;
+  const territory = vatTerritory(values.foreignPlace?.country, values.foreignPlace?.postalCode);
+  const describedBy = hasPostalCode && territory ? hintId : undefined;
   return (
     <>
       <Field
@@ -213,7 +214,7 @@ export function ForeignTaxFields({
             {...control}
             value={values.foreignPlace?.noForeignVat ? "bestaetigt" : ""}
             disabled={disabled}
-            required={required}
+            required={required || (treatment === "drittland" && Boolean(territory))}
             onChange={(event) =>
               update({
                 foreignPlace: { ...values.foreignPlace, country: values.foreignPlace?.country ?? "", noForeignVat: event.target.value === "bestaetigt" },

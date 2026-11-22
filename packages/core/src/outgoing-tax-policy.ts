@@ -42,6 +42,8 @@ export function outgoingTaxIssues(treatment: TaxTreatment, details: OutgoingTaxD
     } else if (treatment === "regulaer" || treatment === "ig_lieferung" || treatment === "ausfuhr") {
       issues.push("Als Kleinunternehmer bitte § 19, eine unterstützte eigene Befreiung oder einen geklärten ausländischen Leistungsort wählen");
     }
+  } else if (treatment === "drittland" && territory && !foreignConfirmed) {
+    issues.push("Für den tatsächlichen Leistungsort im Sondergebiet bitte die Behandlung ohne auszuweisende ausländische Umsatzsteuer bestätigen");
   } else if (treatment === "kleinunternehmer") {
     issues.push("Kleinunternehmer ist in den Einstellungen nicht eingeschaltet");
   }

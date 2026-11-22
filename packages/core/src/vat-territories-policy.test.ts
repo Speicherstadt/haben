@@ -11,6 +11,15 @@ const atPlace = (country: string, postalCode?: string): OutgoingTaxDetails => ({
 });
 
 describe("Ausdrücklich erfasster tatsächlicher Leistungsort im Sondergebiet", () => {
+  it("verlangt auch bei Regelbesteuerung die Bestätigung der geänderten Sondergebiets-PLZ", () => {
+    const details = atPlace("ES", "38002");
+    details.foreignPlace!.noForeignVat = false;
+    expect(outgoingTaxIssues("drittland", details, false).join(" ")).toContain("bestätigen");
+    details.foreignPlace!.noForeignVat = true;
+    expect(outgoingTaxIssues("drittland", details, false)).toEqual([]);
+    expect(outgoingTaxIssues("drittland", { ...details, foreignPlace: null }, false)).toEqual([]);
+  });
+
   it("lässt den bestätigten tatsächlichen Leistungsort Helgoland auch für einen Kunden in Berlin zu", () => {
     const place = atPlace("DE", "27498").foreignPlace;
     const facts = { buyerCountry: "DE", buyerPostalCode: "10115", foreignPlace: place };
