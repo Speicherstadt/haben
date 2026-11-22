@@ -201,26 +201,6 @@ Unter jeder Kennzahl die Belege dahinter, das Journal
 [DATEV-Export](auswertungen.md#datev-export-für-die-steuerberatung) in SKR03 oder SKR04.
 </div>
 <div markdown>
-**🏢 Auch für GmbH und UG**
-
-Bilanz und GuV, E-Bilanz, Körperschaft- und Gewerbesteuer, Gewinnausschüttung.
-</div>
-<div markdown>
-**👥 Lohn inklusive**
-
-Abrechnung nach dem Programmablaufplan des BMF, Lohnsteuer-Anmeldung über ELSTER.
-</div>
-<div markdown>
-**🤖 KI, wenn du willst**
-
-Belege auslesen lassen oder Claude fragen, welche Rechnungen offen sind – nur lesend.
-</div>
-<div markdown>
-**♿ Per Tastatur bedienbar**
-
-Vollständig per Tastatur, jede Seite in der CI gegen WCAG 2.2 AA geprüft.
-</div>
-<div markdown>
 **🔓 Offen gebaut**
 
 Code, Roadmap und jedes Review öffentlich. [Mitmachen](mitwirken.md) kannst du auch ohne zu programmieren.
