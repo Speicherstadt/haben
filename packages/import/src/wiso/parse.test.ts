@@ -9,6 +9,26 @@ function csvBytes(lines: string[]): Uint8Array {
 }
 
 describe("previewWisoExport", () => {
+  it("meldet mehrere fehlerhafte CSV-Datensätze in einem Testlauf und zählt leere Zeilen bei ihren Nummern mit", () => {
+    const bytes = csvBytes([
+      "1;1;kein Datum;15.01.2026;Honorar;8400;Erlöse;1200;Bank;0,00;119,00;;19,00;;RE-1;15.01.2026;;0",
+      "",
+      "2;1;16.01.2026;16.01.2026;Honorar;8400;Erlöse;1200;Bank;nicht lesbar;119,00;;19,00;;RE-2;16.01.2026;;0",
+    ]);
+    expect(() => previewWisoExport(bytes, "SKR03")).toThrow(/Zeile 2: ungültiges Zahlungsdatum[^\n]*\nZeile 4: ungültiger Betrag in Soll/);
+  });
+
+  it("begrenzt die angezeigten Fehler und nennt die Anzahl der übrigen fehlerhaften Datensätze", () => {
+    const bytes = csvBytes(Array.from({ length: 22 }, () => "1;1;kein Datum"));
+    expect(() => previewWisoExport(bytes, "SKR03")).toThrow(/Zeile 21: ungültiges Zahlungsdatum\.\nWeitere fehlerhafte Zeilen: 2\.$/);
+  });
+
+  it("behält bei Leerzeilen die Archiv-ID einer Buchung ohne Nummer bei", () => {
+    const row = ";1;15.01.2026;15.01.2026;Honorar;8400;Erlöse;1200;Bank;0,00;119,00;;19,00;;RE-1;15.01.2026;;0";
+    const id = (lines: string[]) => previewWisoExport(csvBytes(lines), "SKR03").vouchers[0]!.voucher.lexofficeId;
+    expect(id(["", row])).toBe(id([row]));
+  });
+
   it.each([
     ["SKR03", "8400", "1200"],
     ["SKR04", "4400", "1800"],

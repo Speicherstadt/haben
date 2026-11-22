@@ -56,6 +56,16 @@ test("WISO: Testlauf, Import und Beleg im Archiv", async ({ browser }) => {
   const file = card.getByLabel("WISO-Buchungs-CSV");
   const testlauf = card.getByRole("button", { name: "Testlauf starten" });
   const uebernehmen = card.getByRole("button", { name: "Diese Daten importieren" });
+  const invalidDateRow = wisoCsv().toString().split("\r\n")[1]!.replace("15.03.2023", "kein Datum");
+  await file.setInputFiles({
+    name: "wiso-fehler.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(`${wisoCsv("kein Betrag")}\r\n\r\n${invalidDateRow}`),
+  });
+  await testlauf.click();
+  await expect(card.getByRole("alert")).toContainText("Zeile 2: ungültiger Betrag in Soll.");
+  await expect(card.getByRole("alert")).toContainText("Zeile 4: ungültiges Zahlungsdatum.");
+  await expect(uebernehmen).toHaveCount(0);
   const started = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   await page.route("**/*", async (route) => {
