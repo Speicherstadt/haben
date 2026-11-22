@@ -18,12 +18,9 @@ hide:
 
 # Haben ist, was dir gehört.
 
-<p class="showcase-claim">Deine Rechnungen, Belege und Steuern auf deinem eigenen Server, mit
-Open-Source-Software, die du prüfen kannst. Von der E-Rechnung bis zur Voranmeldung an ELSTER, ohne
-Abo und ohne fremden Dienst, der jede Rechnung sieht.</p>
-
-<p class="showcase-claim">Für Freiberufler und Selbstständige mit EÜR, Kleinunternehmer nach § 19 UStG
-und kleine GmbHs mit Bilanz.</p>
+<p class="showcase-claim">Rechnungen, Belege und Steuern für Freiberufler, Selbstständige und kleine
+GmbHs – auf deinem eigenen Server, mit Open-Source-Software, die du prüfen kannst. Von der E-Rechnung
+bis zur Voranmeldung an ELSTER, ohne Abo.</p>
 
 [Rundgang starten](#rundgang){ .md-button .md-button--primary } [Installieren](installation.md){ .md-button } [Alle Funktionen im Detail](ueberblick.md){ .md-button }
 
