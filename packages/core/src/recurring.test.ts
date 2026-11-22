@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   addMonthsAnchored,
-  dueDates,
   fillPlaceholders,
-  invoiceDueDates,
+  recurrenceDueDates,
   invoiceServicePeriod,
-  nextInvoiceDate,
-  nthInvoiceDate,
+  nextRecurrenceDate,
+  nthRecurrenceDate,
   servicePeriodFor,
   servicePeriodModes,
 } from "./recurring.ts";
@@ -31,32 +30,26 @@ describe("wiederkehrende Rechnungen", () => {
     expect(fillPlaceholders("Hosting {zeitraum}", { from: "2026-10-01", to: "2026-12-31" })).toBe("Hosting Oktober – Dezember 2026");
     expect(fillPlaceholders("{zeitraum}", { from: "2026-11-01", to: "2027-01-31" })).toBe("November 2026 – Januar 2027");
   });
-
-  it("holt verpasste Termine nach, bis zum Enddatum", () => {
-    expect(dueDates("2026-08-01", 1, 1, "2026-10-02", null)).toEqual(["2026-08-01", "2026-09-01", "2026-10-01"]);
-    expect(dueDates("2026-08-01", 1, 1, "2026-10-02", "2026-09-15")).toEqual(["2026-08-01", "2026-09-01"]);
-    expect(dueDates("2026-11-01", 1, 1, "2026-10-02", null)).toEqual([]);
-  });
 });
 
 describe("wiederkehrende Rechnungen mit Dauer nach ISO 8601 (#1691)", () => {
   it("Termine in Wochen über Monats- und Jahreswechsel, ohne Ankertag", () => {
-    expect(invoiceDueDates("2026-11-23", "P1W", 23, "2026-12-14", null)).toEqual(["2026-11-23", "2026-11-30", "2026-12-07", "2026-12-14"]);
-    expect(invoiceDueDates("2026-12-21", "P1W", 21, "2027-01-11", null)).toEqual(["2026-12-21", "2026-12-28", "2027-01-04", "2027-01-11"]);
-    expect(invoiceDueDates("2026-12-18", "P2W", 18, "2027-01-31", "2027-01-20")).toEqual(["2026-12-18", "2027-01-01", "2027-01-15"]);
-    expect(invoiceDueDates("2026-12-14", "P4W", 14, "2027-02-28", null)).toEqual(["2026-12-14", "2027-01-11", "2027-02-08"]);
+    expect(recurrenceDueDates("2026-11-23", "P1W", 23, "2026-12-14", null)).toEqual(["2026-11-23", "2026-11-30", "2026-12-07", "2026-12-14"]);
+    expect(recurrenceDueDates("2026-12-21", "P1W", 21, "2027-01-11", null)).toEqual(["2026-12-21", "2026-12-28", "2027-01-04", "2027-01-11"]);
+    expect(recurrenceDueDates("2026-12-18", "P2W", 18, "2027-01-31", "2027-01-20")).toEqual(["2026-12-18", "2027-01-01", "2027-01-15"]);
+    expect(recurrenceDueDates("2026-12-14", "P4W", 14, "2027-02-28", null)).toEqual(["2026-12-14", "2027-01-11", "2027-02-08"]);
     // Schaltjahr: 29. Februar liegt dazwischen
-    expect(nextInvoiceDate("2028-02-26", "P1W", 26)).toBe("2028-03-04");
-    expect(nextInvoiceDate("2026-01-31", "P2W", 31)).toBe("2026-02-14");
+    expect(nextRecurrenceDate("2028-02-26", "P1W", 26)).toBe("2028-03-04");
+    expect(nextRecurrenceDate("2026-01-31", "P2W", 31)).toBe("2026-02-14");
   });
 
   it("Monate und Jahre rechnen weiter am Ankertag", () => {
-    expect(nextInvoiceDate("2026-01-31", "P1M", 31)).toBe("2026-02-28");
-    expect(nextInvoiceDate("2026-12-31", "P2M", 31)).toBe("2027-02-28");
-    expect(nextInvoiceDate("2027-02-28", "P2M", 31)).toBe("2027-04-30");
-    expect(nextInvoiceDate("2028-02-29", "P1Y", 29)).toBe("2029-02-28");
-    expect(nthInvoiceDate("2027-01-31", "P1M", 31, 2)).toBe("2027-03-31");
-    expect(invoiceDueDates("2026-08-01", "P1M", 1, "2026-10-02", null)).toEqual(["2026-08-01", "2026-09-01", "2026-10-01"]);
+    expect(nextRecurrenceDate("2026-01-31", "P1M", 31)).toBe("2026-02-28");
+    expect(nextRecurrenceDate("2026-12-31", "P2M", 31)).toBe("2027-02-28");
+    expect(nextRecurrenceDate("2027-02-28", "P2M", 31)).toBe("2027-04-30");
+    expect(nextRecurrenceDate("2028-02-29", "P1Y", 29)).toBe("2029-02-28");
+    expect(nthRecurrenceDate("2027-01-31", "P1M", 31, 2)).toBe("2027-03-31");
+    expect(recurrenceDueDates("2026-08-01", "P1M", 1, "2026-10-02", null)).toEqual(["2026-08-01", "2026-09-01", "2026-10-01"]);
   });
 
   it("Leistungszeitraum: die Wochen ab dem Termin oder davor, Monate wie bisher", () => {

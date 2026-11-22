@@ -375,8 +375,7 @@ export function renderJob(art: "beleg" | "mahnung", data: object, letterhead: Le
 
 function compilePdf(template: string, data: object, date: string, label: string, letterhead: Letterhead): Uint8Array {
   if (letterhead.pdfFrom && (template === TEMPLATE || template === DUNNING_TEMPLATE)) {
-    const pdf = letterhead.pdfFrom({ template: template === TEMPLATE ? "rechnung.typ" : "mahnung.typ", data: templateInputs(data, letterhead), date });
-    if (pdf) return pdf;
+    return letterhead.pdfFrom({ template: template === TEMPLATE ? "rechnung.typ" : "mahnung.typ", data: templateInputs(data, letterhead), date });
   }
   // Eingebautes Layout der Belegart statt der bisherigen Vorlage
   const vorlage =

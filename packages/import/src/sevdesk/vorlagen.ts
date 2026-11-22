@@ -69,18 +69,6 @@ export function sevPlaceholders(texts: (string | null | undefined)[]): string[] 
 }
 
 /**
- * Intervall in Monaten aus der Angabe von sevDesk ("P0Y1M", "P1Y", "P0Y0M1W"); null bei Wochen, Tagen oder
- * einer unlesbaren Angabe. Belegt sind "P0Y1M" und "P0Y0M1W".
- */
-export function sevIntervalMonths(value: string | null | undefined): number | null {
-  const m = /^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?$/.exec((value ?? "").trim());
-  if (!m || m[0] === "P") return null;
-  if (Number(m[3] ?? 0) > 0 || Number(m[4] ?? 0) > 0) return null;
-  const months = Number(m[1] ?? 0) * 12 + Number(m[2] ?? 0);
-  return months > 0 ? months : null;
-}
-
-/**
  * Nachfällig oder vorschüssig, abgelesen an den Rechnungen, die per origin.id auf die Vorlage zeigen: Rechnungsdatum
  * gleich Ende des Leistungszeitraums heißt nachfällig, gleich Anfang vorschüssig. Ohne erzeugte Rechnung oder wenn sie
  * sich widersprechen, bleibt es unklar. Belegt für das Monatsintervall in Buchhaltungsversion 1.0 und für vorschüssige

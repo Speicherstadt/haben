@@ -1,8 +1,6 @@
 import { useServerFn } from "@tanstack/react-start";
 import { useState, type ReactNode } from "react";
 import {
-  ACCENT_PATTERN,
-  contrastOnWhite,
   DEFAULT_DESIGN,
   eingebautesLayout,
   LETTERHEAD_FONTS,
@@ -12,7 +10,6 @@ import {
   layoutVorgaben,
   type LayoutVorgaben,
   type LetterheadFont,
-  MIN_TEXT_CONTRAST,
   type LetterheadDesign,
   type LetterheadDesignInput,
   type LogoPosition,
@@ -21,6 +18,7 @@ import {
 import { useAction } from "../lib/use-action.ts";
 import { useLoadedState } from "../lib/use-loaded-state.ts";
 import { saveLetterheadDesign } from "../server/functions/logo.ts";
+import { AccentField } from "./AccentField.tsx";
 import { Field } from "./Field.tsx";
 import { layoutHint, LayoutHintText, layoutHintId, type LayoutHints } from "./LayoutHint.tsx";
 import { LogoUpload } from "./LogoUpload.tsx";
@@ -71,15 +69,6 @@ const SWITCHES = [
   { key: "itemNumber", label: "Artikelnummer", positions: true },
   { key: "vatColumn", label: "Spalte USt je Position", positions: true },
 ] as const;
-
-const SWATCHES = [
-  { hex: "#1F6F5C", name: "Grün" },
-  { hex: "#1D4E89", name: "Blau" },
-  { hex: "#6B3FA0", name: "Violett" },
-  { hex: "#9B1C1C", name: "Rot" },
-  { hex: "#B45309", name: "Orange" },
-  { hex: "#3F4A44", name: "Grau" },
-];
 
 /** Logo und Schalter; gleich im Panel der Vorschau und in den Einstellungen */
 export function DesignOptionFields({
@@ -200,62 +189,6 @@ export function DesignOptionFields({
         </p>
       </section>
     </>
-  );
-}
-
-function AccentField({
-  accent,
-  fromLayout,
-  layoutAccent,
-  onChange,
-}: {
-  accent: string;
-  /** Farbe aus dem Layout statt der eigenen */
-  fromLayout: boolean;
-  layoutAccent?: string | undefined;
-  onChange: (input: LetterheadDesignInput) => void;
-}) {
-  // Nur zur eigenen Farbe: Die Farbe eines Layouts ist dort gesetzt, wo sie sich liest
-  const weak = !fromLayout && ACCENT_PATTERN.test(accent) && contrastOnWhite(accent) < MIN_TEXT_CONTRAST;
-  const custom = !fromLayout && !SWATCHES.some((swatch) => swatch.hex === accent.toUpperCase());
-  const pick = (hex: string) => onChange({ accent: hex, accentFromLayout: false });
-  return (
-    <section>
-      <h3>Farbe</h3>
-      <div className="color-swatches">
-        <label className="color-swatch color-swatch-custom" title="Eigene Farbe wählen" data-active={custom || undefined}>
-          <span>{custom && <span className="color-swatch-dot" style={{ background: accent }} />}</span>
-          <input type="color" aria-label="Eigene Farbe wählen" value={accent.toLowerCase()} onChange={(event) => pick(event.target.value.toUpperCase())} />
-        </label>
-        {SWATCHES.map((swatch) => (
-          <button
-            key={swatch.hex}
-            type="button"
-            className="color-swatch"
-            aria-label={swatch.name}
-            aria-pressed={!fromLayout && accent.toUpperCase() === swatch.hex}
-            onClick={() => pick(swatch.hex)}
-          >
-            <span style={{ background: swatch.hex }} />
-          </button>
-        ))}
-      </div>
-      <label className="checkbox">
-        <input type="checkbox" checked={fromLayout} onChange={(event) => onChange({ accentFromLayout: event.target.checked })} />
-        Farbe des Layouts
-        {layoutAccent && <span className="color-swatch-dot" style={{ background: layoutAccent }} aria-hidden="true" />}
-      </label>
-      {custom && (
-        <p className="small muted">
-          Eigene Farbe <span className="mono">{accent}</span>
-        </p>
-      )}
-      {weak && (
-        <div className="banner banner-info" role="status">
-          Diese Farbe ist auf weißem Papier schwer zu lesen.
-        </div>
-      )}
-    </section>
   );
 }
 
