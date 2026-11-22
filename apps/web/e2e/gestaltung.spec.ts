@@ -128,9 +128,12 @@ test("Der Regenbogen-Punkt setzt eine eigene Farbe und zeigt sie an", async ({ b
   await gestaltungOeffnen(page);
   await panel(page).getByLabel("Eigene Farbe wählen").fill("#123456");
   await expect.poll(() => brand(page)).toBe("#123456");
-  await expect(panel(page)).toContainText("#123456");
+  // Die eigene Farbe steht im Feld Hex-Wert, der Regenbogen-Punkt ist gewählt (#1674)
+  await expect(panel(page).getByLabel("Hex-Wert")).toHaveValue("#123456");
+  await expect(panel(page).locator(".color-swatch-custom")).toHaveAttribute("data-active", "true");
   await panel(page).getByRole("button", { name: "Grün" }).click();
-  await expect(panel(page)).not.toContainText("Eigene Farbe #");
+  await expect(panel(page).getByLabel("Hex-Wert")).toHaveValue("#1F6F5C");
+  await expect(panel(page).locator(".color-swatch-custom")).not.toHaveAttribute("data-active");
   await page.context().close();
 });
 
