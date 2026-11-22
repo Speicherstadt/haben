@@ -83,6 +83,11 @@ export async function storeStatement(
 export async function prepareStatement(tx: Tx, statement: ParsedStatement, filename: string, accountId: string | null) {
   const account = await importAccount(tx, statement, filename, accountId);
 
+  // Voriger Import ist der, der zuletzt endet, unter denen, die spätestens mit der neuen Datei beginnen. Reicht er
+  // in den neuen Zeitraum hinein, steht sein Endsaldo mitten darin, und checkBalanceContinuity meldet die
+  // Überschneidung statt einer Lücke. Ein später beginnender Import sagt über den Anfangssaldo nichts. Ein leerer
+  // Auszug mit Kontostand hat keinen Anfang, aber ein Ende; er beginnt und endet mit seinem Enddatum.
+  const nextStart = statement.periodFrom ?? statement.periodTo;
   const [previous] = await tx
     .select({ closingBalance: schema.bankImports.closingBalance, periodTo: schema.bankImports.periodTo })
     .from(schema.bankImports)
@@ -90,14 +95,14 @@ export async function prepareStatement(tx: Tx, statement: ParsedStatement, filen
       and(
         eq(schema.bankImports.bankAccountId, account.id),
         echterImport,
-        statement.periodFrom ? lte(schema.bankImports.periodTo, statement.periodFrom) : sql`true`,
+        nextStart ? lte(sql`coalesce(${schema.bankImports.periodFrom}, ${schema.bankImports.periodTo})`, nextStart) : sql`true`,
       ),
     )
     .orderBy(desc(schema.bankImports.periodTo), desc(schema.bankImports.createdAt))
     .limit(1);
   const continuity = checkBalanceContinuity(
     previous ? { closingBalance: previous.closingBalance ?? undefined, periodTo: previous.periodTo ?? undefined } : null,
-    { openingBalance: statement.openingBalance, periodFrom: statement.periodFrom },
+    { openingBalance: statement.openingBalance, periodFrom: statement.periodFrom, periodTo: statement.periodTo },
   );
 
   // Konto sperren, damit parallele Importe dieselben Umsätze nicht doppelt anlegen
@@ -178,7 +183,7 @@ export async function statementResult(
   tx: Tx,
   account: { id: string; name: string },
   statement: ParsedStatement,
-  continuity: { ok: boolean; message?: string },
+  continuity: { ok: boolean; message?: string; hinweis?: string },
   added: number,
   transactions: (ParsedTransaction & { dedupHash: string })[],
 ): Promise<ImportResult> {
@@ -187,7 +192,7 @@ export async function statementResult(
     accountName: account.name,
     added,
     skipped: transactions.length - added,
-    warnings: statement.warnings,
+    warnings: [...statement.warnings, ...(continuity.hinweis ? [continuity.hinweis] : [])],
     gap: continuity.ok ? null : (continuity.message ?? "Lücke zum vorigen Import"),
     quelle: await quellenHinweis(tx, account.id, statement.format, added, statement.periodFrom, statement.periodTo, transactions),
   };

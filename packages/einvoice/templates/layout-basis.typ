@@ -145,14 +145,16 @@
 }
 
 // Logo oben im Briefkopf, Stelle und größte Maße aus dem Profil; dy verschiebt es etwa unter eine Kopffläche. „mitte“
-// steht mittig auf dem Blatt, nicht im Satzspiegel; rand ist der rechte Rand der Seite, wo er vom üblichen abweicht
+// steht mittig auf dem Blatt, nicht im Satzspiegel; rand ist der rechte Rand der Seite, wo er vom üblichen abweicht.
+// Mit unten steht die Unterkante des Logos so weit unter dy, bei jeder Größe; das Logo wächst dann nach oben
 #let logo-stelle = look.at("logoPosition", default: if look.logoLeft { "links" } else { "rechts" })
-#let logo(dy: 0mm, rand: rechts) = if d.at("logo", default: none) != none {
+#let logo(dy: 0mm, rand: rechts, unten: none) = if d.at("logo", default: none) != none {
   let ecke = if logo-stelle == "links" { left } else if logo-stelle == "mitte" { center } else { right }
   let dx = if logo-stelle == "mitte" { 105mm - (links + (210mm - links - rand) / 2) } else { 0mm }
   place(top + ecke, dx: dx, dy: dy, context {
     let hoch = image(d.logo, height: look.logoHeight * 1mm)
-    if measure(hoch).width > look.logoWidth * 1mm { image(d.logo, width: look.logoWidth * 1mm) } else { hoch }
+    let bild = if measure(hoch).width > look.logoWidth * 1mm { image(d.logo, width: look.logoWidth * 1mm) } else { hoch }
+    if unten == none { bild } else { move(dy: unten - measure(bild).height, bild) }
   })
 }
 
