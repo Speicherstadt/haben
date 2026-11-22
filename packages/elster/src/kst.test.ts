@@ -106,10 +106,14 @@ describe("Erklärungen der GmbH: Prüfungen vor dem XML", () => {
   });
 
   it.each([2024, 2025])("Gewerbesteuer %i: vorzeichenbehafteter Anteil stiller Gesellschafter in Zeile 52", (year) => {
-    for (const betrag of [120_099, -120_099]) {
+    for (const [betrag, volleEuro] of [
+      [120_099, 1200],
+      [-120_099, -1201],
+      [-99, -1],
+    ] as const) {
       const hinzurechnungen = { ...gewst.hinzurechnungen, renten: 50_000, stilleGesellschafter: betrag, beweglich: 75_000 };
       const xml = buildGewStXml({ ...gewst, year, hinzurechnungen });
-      expect(xml).toMatch(new RegExp(`<E4003302>500</E4003302>\\s*<E4003407>${Math.trunc(betrag / 100)}</E4003407>\\s*<E4003502>750</E4003502>`));
+      expect(xml).toMatch(new RegExp(`<E4003302>500</E4003302>\\s*<E4003407>${volleEuro}</E4003407>\\s*<E4003502>750</E4003502>`));
     }
     expect(buildGewStXml({ ...gewst, year })).not.toContain("E4003407");
   });
