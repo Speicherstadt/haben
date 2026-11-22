@@ -1277,7 +1277,8 @@ test("Umsatzsteuer an das Finanzamt ohne Beleg, für den Drilldown der BWA (#163
       "USt-Vorauszahlung",
       "Ausgang",
       "DE76750000000075001007",
-      "-1.234,00",
+      // kleiner als die Miete (595,00 €): bank-sortierung.spec.ts erwartet die Miete als größten Ausgang
+      "-234,00",
       "",
       "",
       "",

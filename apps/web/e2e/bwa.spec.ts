@@ -122,13 +122,13 @@ test("BWA: Umsatzsteuer-Zahlung ohne Beleg führt zur markierten Buchung im Kont
     .getByRole("link", { name: "Umsatzsteuer-Zahlungen" })
     .click();
   const details = page.getByRole("region", { name: `Umsatzsteuer-Zahlungen · ${YEAR}` });
-  // app.spec.ts bucht 1.234,00 € als „Umsatzsteuer an das Finanzamt“ (SKR03 1780, SKR04 3820)
+  // app.spec.ts bucht 234,00 € als „Umsatzsteuer an das Finanzamt“ (SKR03 1780, SKR04 3820)
   await details.getByRole("link", { name: /^Bank · Konto (1780|3820)$/ }).click();
   await expect(page).toHaveURL(/\/konten\/(1780|3820)\?.*von=\d{4}-\d{2}-\d{2}&bis=\d{4}-\d{2}-\d{2}#buchung-[0-9a-f-]{36}$/);
   const markiert = page.locator("tr[aria-current]");
   await expect(markiert).toHaveCount(1);
   await expect(markiert).toHaveAttribute("id", new URL(page.url()).hash.slice(1));
-  await expect(markiert).toContainText("1.234,00");
+  await expect(markiert).toContainText("234,00");
   await expect(markiert).toBeInViewport();
   // Der Fokus steht auf der Zeile: Tab geht von dort weiter, ein Screenreader liest sie vor
   await expect(markiert).toBeFocused();
