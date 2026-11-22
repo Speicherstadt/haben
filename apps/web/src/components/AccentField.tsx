@@ -74,7 +74,6 @@ export function AccentField({
             value={text}
             onChange={(event) => eingabe(event.target.value)}
             onBlur={() => !hexAusEingabe(text) && setText(accent)}
-            maxLength={7}
             spellCheck={false}
             autoComplete="off"
           />

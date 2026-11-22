@@ -13,6 +13,10 @@ describe("hexAusEingabe", () => {
     expect(hexAusEingabe("  #1D4E89 ")).toBe("#1D4E89");
   });
 
+  it("lässt einen eingefügten Wert mit Leerzeichen ganz stehen, damit trim() ihn noch retten kann", () => {
+    expect(html("#123456")).not.toMatch(/<input[^>]*value="#123456"[^>]*maxlength/i);
+  });
+
   it("ergänzt das fehlende #, wie es beim Kopieren aus anderen Programmen oft fehlt", () => {
     expect(hexAusEingabe("000000")).toBe("#000000");
   });
