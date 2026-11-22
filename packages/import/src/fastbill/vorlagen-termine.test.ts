@@ -29,7 +29,7 @@ describe("mapFbRecurring: Termine", () => {
     expect(mapped.ok).toBe(true);
     if (!mapped.ok) return;
     expect(mapped.template.nextDate).toBe("2027-03-01");
-    expect(invoiceDueDates(mapped.template.nextDate, mapped.template.interval, mapped.template.anchorDay, TODAY, mapped.template.endDate)).toEqual([]);
+    expect(invoiceDueDates(mapped.template.nextDate, mapped.template.recurrence, mapped.template.anchorDay, TODAY, mapped.template.endDate)).toEqual([]);
     expect(mapped.hints.join(" ")).toContain("2024-03-01");
   });
 

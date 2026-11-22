@@ -3,7 +3,7 @@ import {
   outgoingTaxIssues,
   type PaymentMethod,
   type PriceMode,
-  type InvoiceInterval,
+  type Recurrence,
   invoiceServicePeriod,
   type ServicePeriodMode,
   section4Note,
@@ -29,7 +29,7 @@ import {
 import { type LineState, lineState, parseLine, RecurringPositions, type RecurringLine } from "./RecurringLines.tsx";
 import { TextBlockField, type TextBlockOption } from "./TextBlockField.tsx";
 
-export type RecurringValues = InvoiceInterval & {
+export type RecurringValues = {
   name: string;
   active: boolean;
   contactId: string;
@@ -43,6 +43,7 @@ export type RecurringValues = InvoiceInterval & {
   taxDetails: OutgoingTaxDetails | null;
   priceMode: PriceMode;
   lines: RecurringLine[];
+  recurrence: Recurrence;
   nextDate: string;
   endDate: string | null;
   servicePeriod: ServicePeriodMode;
@@ -76,8 +77,7 @@ export function RecurringForm({
   onSubmit: (values: RecurringValues) => void;
 }) {
   const [v, setV] = useState<FormState>(() => formState(initial));
-  // Das Intervall kommt immer mit beiden Feldern (invoiceIntervalFromKey), Monate und Wochen mischen sich nicht
-  const set = (patch: Partial<FormState>) => setV((prev) => ({ ...prev, ...patch }) as FormState);
+  const set = (patch: Partial<FormState>) => setV((prev) => ({ ...prev, ...patch }));
   /** Getippter Name, wenn der Dialog für einen neuen Kunden offen ist; null = geschlossen */
   const [newContactName, setNewContactName] = useState<string | null>(null);
   const [lines, setLines] = useState<LineState[]>(() => initial.lines.map(lineState));
@@ -92,7 +92,7 @@ export function RecurringForm({
   const valid = parsed.length > 0 && parsed.every((l) => l.valid) && Object.values(fehler).every((e) => e === null);
   const { form, error, check } = useSubmitCheck(fehler);
 
-  const period = v.nextDate ? invoiceServicePeriod(v.nextDate, v, v.servicePeriod) : null;
+  const period = v.nextDate ? invoiceServicePeriod(v.nextDate, v.recurrence, v.servicePeriod) : null;
   const reference = period ?? (v.nextDate ? { from: v.nextDate, to: v.nextDate } : null);
   const sum = parsed.reduce((s, l) => s + (l.valid ? lineAmount(l.quantity, l.unitPrice) : 0), 0);
 

@@ -61,6 +61,7 @@ export * from "./holidays.ts";
 export * from "./afa.ts";
 export * from "./afa-methoden.ts";
 export * from "./private-use.ts";
+export * from "./recurrence.ts";
 export * from "./recurring.ts";
 export * from "./beleg-vorschlag.ts";
 export * from "./dauerbeleg.ts";

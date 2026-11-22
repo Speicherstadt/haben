@@ -123,7 +123,7 @@ describe.skipIf(!testDatabaseUrl)("sevDesk-Vorlagen wiederkehrender Rechnungen (
   it("ruft die Vorlagen mit dem Filter WKR ab und übernimmt sie pausiert als Entwurf", async () => {
     expect(calls).toContain("/Invoice?invoiceType=WKR");
     const rows = await sql`
-      select s.sevdesk_id, s.status, s.billing, s.billing_evidence, r.active, r.mode, r.send_by_mail, r.interval_months, r.interval_weeks, r.anchor_day,
+      select s.sevdesk_id, s.status, s.billing, s.billing_evidence, r.active, r.mode, r.send_by_mail, r.recurrence, r.anchor_day,
         r.next_date, r.end_date, r.service_period, r.price_mode, r.note, c.name as contact
       from sevdesk_recurring_templates s join recurring_invoices r on r.id = s.recurring_id join contacts c on c.id = r.contact_id
       order by s.sevdesk_id`;
@@ -136,10 +136,9 @@ describe.skipIf(!testDatabaseUrl)("sevDesk-Vorlagen wiederkehrender Rechnungen (
       });
     const byId = (id: string) => rows.find((r) => r.sevdesk_id === id);
     // Wochenvorlagen aus 1.0 und 2.0 (#1691), ohne erzeugte Rechnung: Leistungszeitraum offen
-    for (const id of ["ID_15", "ID_35"])
-      expect(byId(id)).toMatchObject({ interval_months: null, interval_weeks: 1, billing: "unklar", service_period: "keiner" });
+    for (const id of ["ID_15", "ID_35"]) expect(byId(id)).toMatchObject({ recurrence: "P1W", billing: "unklar", service_period: "keiner" });
     expect(byId("ID_35")).toMatchObject({ next_date: "2022-08-01", contact: "Kunde ID_18" });
-    for (const id of ["ID_20", "ID_26", "ID_40"]) expect(byId(id)).toMatchObject({ interval_months: 1, interval_weeks: null });
+    for (const id of ["ID_20", "ID_26", "ID_40"]) expect(byId(id)).toMatchObject({ recurrence: "P1M" });
     expect(byId("ID_20")).toMatchObject({
       status: "100",
       billing: "vorschuessig",
@@ -223,8 +222,7 @@ describe.skipIf(!testDatabaseUrl)("sevDesk-Vorlagen wiederkehrender Rechnungen (
       exemptionReason: r.exemptionReason,
       priceMode: r.priceMode as "netto",
       lines: r.lines as never,
-      intervalMonths: r.intervalMonths as 1,
-      intervalWeeks: null,
+      recurrence: r.recurrence,
       nextDate: r.nextDate,
       endDate: r.endDate,
       servicePeriod: r.servicePeriod as "laufend",

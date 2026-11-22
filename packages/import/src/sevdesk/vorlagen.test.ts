@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { SevDocumentPos, SevInvoice } from "./types.ts";
-import { mapSevRecurringInvoice, sevBilling, sevIntervalMonths, sevInvoiceInterval, sevPlaceholders, sevPlainText } from "./vorlagen.ts";
+import { mapSevRecurringInvoice, sevBilling, sevIntervalMonths, sevPlaceholders, sevPlainText } from "./vorlagen.ts";
 
 const fixture = (name: string) => JSON.parse(readFileSync(new URL(`../../test-fixtures/sevdesk/buchhaltung-1.0/${name}`, import.meta.url), "utf8"));
 const templates = fixture("rechnungsvorlage-wkr.json") as {
@@ -27,16 +27,6 @@ describe("sevDesk-Vorlagen wiederkehrender Rechnungen", () => {
     expect(sevIntervalMonths("P0Y0M0W14D")).toBeNull();
     expect(sevIntervalMonths("P")).toBeNull();
     expect(sevIntervalMonths(null)).toBeNull();
-  });
-
-  it("liest für Rechnungsvorlagen auch eine und zwei Wochen (#1691)", () => {
-    expect(sevInvoiceInterval("P0Y0M1W")).toEqual({ intervalMonths: null, intervalWeeks: 1 });
-    expect(sevInvoiceInterval("P0Y0M2W")).toEqual({ intervalMonths: null, intervalWeeks: 2 });
-    expect(sevInvoiceInterval("P0Y3M")).toEqual({ intervalMonths: 3, intervalWeeks: null });
-    expect(sevInvoiceInterval("P0Y0M3W")).toBeNull();
-    expect(sevInvoiceInterval("P0Y1M1W")).toBeNull();
-    expect(sevInvoiceInterval("P0Y2M")).toBeNull();
-    expect(sevInvoiceInterval("P0Y0M0W14D")).toBeNull();
   });
 
   it("leitet nachfällig und vorschüssig aus den erzeugten Rechnungen ab", () => {
@@ -93,7 +83,7 @@ describe("sevDesk-Vorlagen wiederkehrender Rechnungen", () => {
     const { vorlage, positions, erzeugteRechnungen } = v2.find((t) => t.vorlage.id === "ID_35")!;
     const mapped = mapSevRecurringInvoice(vorlage, positions, erzeugteRechnungen);
     if (!mapped.ok) throw new Error(mapped.reason);
-    expect(mapped.template).toMatchObject({ interval: { intervalMonths: null, intervalWeeks: 1 }, nextDate: "2022-08-01", servicePeriod: "keiner" });
+    expect(mapped.template).toMatchObject({ recurrence: "P1W", nextDate: "2022-08-01", servicePeriod: "keiner" });
     expect(mapped.hints.join(" ")).toContain("unklar");
   });
 
@@ -117,7 +107,7 @@ describe("sevDesk-Vorlagen wiederkehrender Rechnungen", () => {
     expect(mapped.billing).toBe("nachfaellig");
     expect(mapped.billingEvidence).toBe(2);
     expect(mapped.template).toMatchObject({
-      interval: { intervalMonths: 1, intervalWeeks: null },
+      recurrence: "P1M",
       nextDate: "2026-11-30",
       anchorDay: 31,
       servicePeriod: "laufend",
@@ -178,7 +168,7 @@ describe("sevDesk-Vorlagen wiederkehrender Rechnungen", () => {
     const mapped = mapSevRecurringInvoice({ ...t.invoice, accountIntervall: "P0Y3M" }, t.positions, generated);
     if (!mapped.ok) throw new Error(mapped.reason);
     expect(mapped.template.priceMode).toBe("brutto");
-    expect(mapped.template.interval).toEqual({ intervalMonths: 3, intervalWeeks: null });
+    expect(mapped.template.recurrence).toBe("P3M");
     expect(mapped.template.lines[0]).toMatchObject({
       description: "Position",
       unitPrice: 0,

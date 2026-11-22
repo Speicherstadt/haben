@@ -128,7 +128,7 @@ describe.skipIf(!testDatabaseUrl)("Rollen bei der Zuordnung von Kontakten (Postg
           taxTreatment: "regulaer" as const,
           exemptionReason: "",
           lines: [zeile],
-          intervalMonths: 1 as const,
+          recurrence: "P1M" as const,
           nextDate: "2026-11-30",
           endDate: null,
           servicePeriod: "laufend" as const,

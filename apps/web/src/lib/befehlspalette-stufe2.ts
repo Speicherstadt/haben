@@ -1,4 +1,13 @@
-import { BESCHAEFTIGUNGSARTEN, DARLEHENSGEBER, formatEuro, invoiceIntervalLabel, PAUSCHALE_LABEL, periodKey } from "@haben/core";
+import {
+  BESCHAEFTIGUNGSARTEN,
+  DARLEHENSGEBER,
+  formatEuro,
+  PAUSCHALE_LABEL,
+  periodKey,
+  RECURRING_INTERVALS,
+  type RecurringInterval,
+  recurrenceLabel,
+} from "@haben/core";
 import type { PaletteItem, PaletteSection } from "./befehlspalette.ts";
 import { ELSTER_KIND_LABEL } from "./elster.ts";
 import { formatDate } from "./format.ts";
@@ -80,7 +89,7 @@ function buildRecurringAndCatalogSections(remote: CommandPaletteResult): Palette
         id: `rec-inv-${ri.id}`,
         kind: "link",
         title: ri.name,
-        meta: [ri.customer, invoiceIntervalLabel(ri), `nächster Termin ${formatDate(ri.nextDate)}`].join(" · "),
+        meta: [ri.customer, recurrenceLabel(ri.recurrence), `nächster Termin ${formatDate(ri.nextDate)}`].join(" · "),
         icon: "invoice",
         to: "/rechnungen/wiederkehrend/$id",
         params: { id: ri.id },
@@ -92,11 +101,7 @@ function buildRecurringAndCatalogSections(remote: CommandPaletteResult): Palette
         id: `rec-doc-${rd.id}`,
         kind: "link",
         title: rd.name,
-        meta: [
-          rd.supplierName,
-          invoiceIntervalLabel({ intervalMonths: rd.intervalMonths, intervalWeeks: null }),
-          `nächster Termin ${formatDate(rd.nextDate)}`,
-        ].join(" · "),
+        meta: [rd.supplierName, RECURRING_INTERVALS[rd.intervalMonths as RecurringInterval] ?? "–", `nächster Termin ${formatDate(rd.nextDate)}`].join(" · "),
         icon: "repeat",
         to: "/dauerbelege/$id",
         params: { id: rd.id },

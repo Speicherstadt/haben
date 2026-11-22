@@ -3,15 +3,12 @@ import {
   addMonthsAnchored,
   dueDates,
   fillPlaceholders,
-  INVOICE_INTERVAL_OPTIONS,
   invoiceDueDates,
-  invoiceIntervalFromKey,
-  invoiceIntervalKey,
-  invoiceIntervalLabel,
   invoiceServicePeriod,
   nextInvoiceDate,
+  nthInvoiceDate,
   servicePeriodFor,
-  toInvoiceInterval,
+  servicePeriodModes,
 } from "./recurring.ts";
 
 describe("wiederkehrende Rechnungen", () => {
@@ -42,31 +39,35 @@ describe("wiederkehrende Rechnungen", () => {
   });
 });
 
-describe("wiederkehrende Rechnungen in Wochen (#1691)", () => {
-  const woechentlich = { intervalMonths: null, intervalWeeks: 1 } as const;
-  const zweiWochen = { intervalMonths: null, intervalWeeks: 2 } as const;
-  const monatlich = { intervalMonths: 1, intervalWeeks: null } as const;
-
-  it("Termine über Monats- und Jahreswechsel, ohne Ankertag", () => {
-    expect(invoiceDueDates("2026-11-23", woechentlich, 23, "2026-12-14", null)).toEqual(["2026-11-23", "2026-11-30", "2026-12-07", "2026-12-14"]);
-    expect(invoiceDueDates("2026-12-21", woechentlich, 21, "2027-01-11", null)).toEqual(["2026-12-21", "2026-12-28", "2027-01-04", "2027-01-11"]);
-    expect(invoiceDueDates("2026-12-18", zweiWochen, 18, "2027-01-31", "2027-01-20")).toEqual(["2026-12-18", "2027-01-01", "2027-01-15"]);
+describe("wiederkehrende Rechnungen mit Dauer nach ISO 8601 (#1691)", () => {
+  it("Termine in Wochen über Monats- und Jahreswechsel, ohne Ankertag", () => {
+    expect(invoiceDueDates("2026-11-23", "P1W", 23, "2026-12-14", null)).toEqual(["2026-11-23", "2026-11-30", "2026-12-07", "2026-12-14"]);
+    expect(invoiceDueDates("2026-12-21", "P1W", 21, "2027-01-11", null)).toEqual(["2026-12-21", "2026-12-28", "2027-01-04", "2027-01-11"]);
+    expect(invoiceDueDates("2026-12-18", "P2W", 18, "2027-01-31", "2027-01-20")).toEqual(["2026-12-18", "2027-01-01", "2027-01-15"]);
+    expect(invoiceDueDates("2026-12-14", "P4W", 14, "2027-02-28", null)).toEqual(["2026-12-14", "2027-01-11", "2027-02-08"]);
     // Schaltjahr: 29. Februar liegt dazwischen
-    expect(nextInvoiceDate("2028-02-26", woechentlich, 26)).toBe("2028-03-04");
-    expect(nextInvoiceDate("2026-01-31", zweiWochen, 31)).toBe("2026-02-14");
+    expect(nextInvoiceDate("2028-02-26", "P1W", 26)).toBe("2028-03-04");
+    expect(nextInvoiceDate("2026-01-31", "P2W", 31)).toBe("2026-02-14");
   });
 
-  it("Monate rechnen weiter am Ankertag", () => {
-    expect(nextInvoiceDate("2026-01-31", monatlich, 31)).toBe("2026-02-28");
-    expect(invoiceDueDates("2026-08-01", monatlich, 1, "2026-10-02", null)).toEqual(["2026-08-01", "2026-09-01", "2026-10-01"]);
+  it("Monate und Jahre rechnen weiter am Ankertag", () => {
+    expect(nextInvoiceDate("2026-01-31", "P1M", 31)).toBe("2026-02-28");
+    expect(nextInvoiceDate("2026-12-31", "P2M", 31)).toBe("2027-02-28");
+    expect(nextInvoiceDate("2027-02-28", "P2M", 31)).toBe("2027-04-30");
+    expect(nextInvoiceDate("2028-02-29", "P1Y", 29)).toBe("2029-02-28");
+    expect(nthInvoiceDate("2027-01-31", "P1M", 31, 2)).toBe("2027-03-31");
+    expect(invoiceDueDates("2026-08-01", "P1M", 1, "2026-10-02", null)).toEqual(["2026-08-01", "2026-09-01", "2026-10-01"]);
   });
 
-  it("Leistungszeitraum: die Wochen ab dem Termin oder davor", () => {
-    expect(invoiceServicePeriod("2026-12-28", woechentlich, "laufend")).toEqual({ from: "2026-12-28", to: "2027-01-03" });
-    expect(invoiceServicePeriod("2027-01-04", woechentlich, "vorher")).toEqual({ from: "2026-12-28", to: "2027-01-03" });
-    expect(invoiceServicePeriod("2026-11-23", zweiWochen, "laufend")).toEqual({ from: "2026-11-23", to: "2026-12-06" });
-    expect(invoiceServicePeriod("2026-11-23", zweiWochen, "keiner")).toBeNull();
-    expect(invoiceServicePeriod("2026-11-03", monatlich, "laufend")).toEqual({ from: "2026-11-01", to: "2026-11-30" });
+  it("Leistungszeitraum: die Wochen ab dem Termin oder davor, Monate wie bisher", () => {
+    expect(invoiceServicePeriod("2026-12-28", "P1W", "laufend")).toEqual({ from: "2026-12-28", to: "2027-01-03" });
+    expect(invoiceServicePeriod("2027-01-04", "P1W", "vorher")).toEqual({ from: "2026-12-28", to: "2027-01-03" });
+    expect(invoiceServicePeriod("2026-11-23", "P2W", "laufend")).toEqual({ from: "2026-11-23", to: "2026-12-06" });
+    expect(invoiceServicePeriod("2026-12-14", "P4W", "vorher")).toEqual({ from: "2026-11-16", to: "2026-12-13" });
+    expect(invoiceServicePeriod("2026-11-23", "P2W", "keiner")).toBeNull();
+    expect(invoiceServicePeriod("2026-11-03", "P1M", "laufend")).toEqual({ from: "2026-11-01", to: "2026-11-30" });
+    expect(invoiceServicePeriod("2026-12-03", "P2M", "laufend")).toEqual({ from: "2026-12-01", to: "2027-01-31" });
+    expect(invoiceServicePeriod("2027-01-03", "P1Y", "vorher")).toEqual({ from: "2026-01-01", to: "2026-12-31" });
   });
 
   it("{zeitraum} nennt bei Wochen die Tage", () => {
@@ -77,14 +78,8 @@ describe("wiederkehrende Rechnungen in Wochen (#1691)", () => {
     expect(fillPlaceholders("{zeitraum}", { from: "2026-11-23", to: "2026-11-23" })).toBe("November 2026");
   });
 
-  it("Bezeichnung und Spalten des Intervalls", () => {
-    expect(invoiceIntervalLabel(woechentlich)).toBe("wöchentlich");
-    expect(invoiceIntervalLabel(zweiWochen)).toBe("alle 2 Wochen");
-    expect(invoiceIntervalLabel({ intervalMonths: 3, intervalWeeks: null })).toBe("vierteljährlich");
-    expect(INVOICE_INTERVAL_OPTIONS.map((o) => o.label)).toEqual(["wöchentlich", "alle 2 Wochen", "monatlich", "vierteljährlich", "halbjährlich", "jährlich"]);
-    expect(invoiceIntervalFromKey(invoiceIntervalKey(zweiWochen))).toEqual(zweiWochen);
-    expect(toInvoiceInterval({ intervalMonths: 6, intervalWeeks: null })).toEqual({ intervalMonths: 6, intervalWeeks: null });
-    expect(() => toInvoiceInterval({ intervalMonths: 1, intervalWeeks: 1 })).toThrow();
-    expect(() => toInvoiceInterval({ intervalMonths: null, intervalWeeks: 3 })).toThrow();
+  it("Bezeichnungen des Leistungszeitraums je nach Intervall", () => {
+    expect(servicePeriodModes("P1M").laufend).toBe("Laufender Zeitraum (ab dem Rechnungsmonat)");
+    expect(servicePeriodModes("P4W").laufend).toBe("Laufender Zeitraum (ab dem Rechnungsdatum)");
   });
 });

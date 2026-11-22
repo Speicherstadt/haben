@@ -1,3 +1,4 @@
+import type { Recurrence } from "@haben/core";
 import { INTERNAL_ERROR } from "../../errors.ts";
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -53,7 +54,7 @@ describe.skipIf(!testDatabaseUrl)("Wiederkehrende Rechnungen (Postgres)", () => 
     taxTreatment: "regulaer" as const,
     exemptionReason: "",
     lines: [{ description: "Wartung {monat} {jahr}", quantity: 1000, unit: "Psch." as const, unitPrice: 50_000, taxRate: 1900 as const }],
-    intervalMonths: 1 as const,
+    recurrence: "P1M" as Recurrence,
     nextDate: "2026-08-31",
     endDate: null,
     servicePeriod: "laufend" as const,
@@ -126,8 +127,8 @@ describe.skipIf(!testDatabaseUrl)("Wiederkehrende Rechnungen (Postgres)", () => 
   });
 
   it("wöchentlich: Termine über den Jahreswechsel, Leistungszeitraum je Woche (#1691)", async () => {
-    const created = await recurring.createRecurring(actor, template({ intervalMonths: null, intervalWeeks: 1, nextDate: "2026-12-21" }));
-    expect(created).toMatchObject({ intervalMonths: null, intervalWeeks: 1 });
+    const created = await recurring.createRecurring(actor, template({ recurrence: "P1W", nextDate: "2026-12-21" }));
+    expect(created).toMatchObject({ recurrence: "P1W" });
     expect((await recurring.runDueRecurring("2027-01-05", kleinunternehmerStand)).created).toBe(3);
     const rows = await sql`select issue_date, service_from, service_to, note from invoices order by issue_date`;
     expect(rows.map((r) => [r.issue_date, r.service_from, r.service_to, r.note])).toEqual([
@@ -139,8 +140,8 @@ describe.skipIf(!testDatabaseUrl)("Wiederkehrende Rechnungen (Postgres)", () => 
     expect(next!.next_date).toBe("2027-01-11");
   });
 
-  it("alle 2 Wochen, vergangener Zeitraum; Wechsel auf Monate leert die Wochen; nie beides", async () => {
-    const input = template({ intervalMonths: null, intervalWeeks: 2, nextDate: "2026-11-23", servicePeriod: "vorher" });
+  it("alle 2 Wochen, vergangener Zeitraum; Wechsel auf Monate; unbekannte Intervalle abgelehnt", async () => {
+    const input = template({ recurrence: "P2W", nextDate: "2026-11-23", servicePeriod: "vorher" });
     const created = await recurring.createRecurring(actor, input);
     expect((await recurring.runDueRecurring("2026-12-07", kleinunternehmerStand)).created).toBe(2);
     const rows = await sql`select issue_date, service_from, service_to from invoices order by issue_date`;
@@ -148,21 +149,19 @@ describe.skipIf(!testDatabaseUrl)("Wiederkehrende Rechnungen (Postgres)", () => 
       ["2026-11-23", "2026-11-09", "2026-11-22"],
       ["2026-12-07", "2026-11-23", "2026-12-06"],
     ]);
-    const monthly = await recurring.updateRecurring(actor, created.id, { ...input, intervalMonths: 1, intervalWeeks: null, nextDate: "2026-12-21" });
-    expect(monthly).toMatchObject({ intervalMonths: 1, intervalWeeks: null });
-    await expect(recurring.updateRecurring(actor, created.id, { ...input, intervalMonths: 1, intervalWeeks: 1 })).rejects.toThrow(
-      "Intervall nicht unterstützt.",
-    );
-    await expect(recurring.createRecurring(actor, template({ intervalMonths: null }))).rejects.toThrow("Intervall nicht unterstützt.");
+    const monthly = await recurring.updateRecurring(actor, created.id, { ...input, recurrence: "P1M", nextDate: "2026-12-21" });
+    expect(monthly).toMatchObject({ recurrence: "P1M" });
+    await expect(recurring.updateRecurring(actor, created.id, { ...input, recurrence: "P3W" as Recurrence })).rejects.toThrow("Intervall nicht unterstützt.");
+    await expect(recurring.createRecurring(actor, template({ recurrence: "P12M" as Recurrence }))).rejects.toThrow("Intervall nicht unterstützt.");
   });
 
   it("Wechsel von Wochen auf Monate nimmt den Ankertag vom nächsten Termin, auch wenn er unverändert bleibt", async () => {
-    const input = template({ intervalMonths: null, intervalWeeks: 2, nextDate: "2026-11-23" });
+    const input = template({ recurrence: "P2W", nextDate: "2026-11-23" });
     const created = await recurring.createRecurring(actor, input);
     await recurring.runDueRecurring("2026-11-23", kleinunternehmerStand);
     const [after] = await sql`select next_date from recurring_invoices where id = ${created.id}`;
     expect(after!.next_date).toBe("2026-12-07");
-    const monthly = await recurring.updateRecurring(actor, created.id, { ...input, intervalMonths: 1, intervalWeeks: null, nextDate: "2026-12-07" });
+    const monthly = await recurring.updateRecurring(actor, created.id, { ...input, recurrence: "P1M", nextDate: "2026-12-07" });
     expect(monthly.anchorDay).toBe(7);
   });
 

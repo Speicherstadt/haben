@@ -1,6 +1,8 @@
+import { type Recurrence, recurrenceParts } from "./recurrence.ts";
+
 /**
  * Wiederkehrende Rechnungen: Intervall, nächstes Datum, Leistungszeitraum und Platzhalter im Text. Dauerbelege
- * (dauerbeleg.ts) rechnen nur in Monaten; Rechnungen auch in Wochen (#1691).
+ * (dauerbeleg.ts) rechnen in Monaten (RECURRING_INTERVALS); Rechnungen mit einer Dauer nach ISO 8601 (recurrence.ts, #1691).
  */
 export const RECURRING_INTERVALS = {
   1: "monatlich",
@@ -10,45 +12,6 @@ export const RECURRING_INTERVALS = {
 } as const;
 
 export type RecurringInterval = 1 | 3 | 6 | 12;
-
-/** Wochen zwischen zwei Rechnungen */
-export type RecurringWeeks = 1 | 2;
-
-/** Intervall einer wiederkehrenden Rechnung: Monate oder Wochen, genau eins davon (Spalten interval_months, interval_weeks) */
-export type InvoiceInterval = { intervalMonths: RecurringInterval; intervalWeeks: null } | { intervalMonths: null; intervalWeeks: RecurringWeeks };
-
-/** Auswahl im Formular, kürzestes Intervall zuerst; key ist der Wert im Auswahlfeld */
-export const INVOICE_INTERVAL_OPTIONS: readonly { key: string; label: string; interval: InvoiceInterval }[] = [
-  { key: "w1", label: "wöchentlich", interval: { intervalMonths: null, intervalWeeks: 1 } },
-  { key: "w2", label: "alle 2 Wochen", interval: { intervalMonths: null, intervalWeeks: 2 } },
-  ...([1, 3, 6, 12] as const).map((months) => ({
-    key: `m${months}`,
-    label: RECURRING_INTERVALS[months],
-    interval: { intervalMonths: months, intervalWeeks: null } as InvoiceInterval,
-  })),
-];
-
-/** Intervall aus den Spalten einer Vorlage; wirft, wenn nicht genau eins gesetzt oder der Wert unbekannt ist */
-export function toInvoiceInterval(row: { intervalMonths: number | null; intervalWeeks: number | null }): InvoiceInterval {
-  const found = INVOICE_INTERVAL_OPTIONS.find((o) => o.interval.intervalMonths === row.intervalMonths && o.interval.intervalWeeks === row.intervalWeeks);
-  if (!found) throw new Error(`Intervall nicht unterstützt: ${row.intervalMonths ?? "–"} Monate, ${row.intervalWeeks ?? "–"} Wochen`);
-  return found.interval;
-}
-
-export function invoiceIntervalKey(interval: InvoiceInterval): string {
-  return interval.intervalWeeks === null ? `m${interval.intervalMonths}` : `w${interval.intervalWeeks}`;
-}
-
-export function invoiceIntervalFromKey(key: string): InvoiceInterval {
-  const found = INVOICE_INTERVAL_OPTIONS.find((o) => o.key === key);
-  if (!found) throw new Error(`Intervall nicht unterstützt: ${key}`);
-  return found.interval;
-}
-
-/** „wöchentlich“, „alle 2 Wochen“, „monatlich“ …; unbekannt: Strich */
-export function invoiceIntervalLabel(row: { intervalMonths: number | null; intervalWeeks: number | null }): string {
-  return INVOICE_INTERVAL_OPTIONS.find((o) => o.interval.intervalMonths === row.intervalMonths && o.interval.intervalWeeks === row.intervalWeeks)?.label ?? "–";
-}
 
 /**
  * Leistungszeitraum der Rechnung, in ganzen Kalendermonaten:
@@ -62,12 +25,15 @@ export const SERVICE_PERIOD_MODES = {
 
 export type ServicePeriodMode = keyof typeof SERVICE_PERIOD_MODES;
 
-/** Dasselbe bei Wochen: ab dem Rechnungsdatum bzw. die Wochen davor */
-export const SERVICE_PERIOD_MODES_WEEKS: Record<ServicePeriodMode, string> = {
-  laufend: "Laufender Zeitraum (ab dem Rechnungsdatum)",
-  vorher: "Vergangener Zeitraum (die Wochen vor dem Rechnungsdatum)",
-  keiner: "Kein Leistungszeitraum",
-};
+/** Bezeichnungen für ein Intervall: bei Wochen ab dem Rechnungsdatum bzw. die Wochen davor */
+export function servicePeriodModes(recurrence: Recurrence): Record<ServicePeriodMode, string> {
+  if (recurrenceParts(recurrence).weeks === null) return SERVICE_PERIOD_MODES;
+  return {
+    laufend: "Laufender Zeitraum (ab dem Rechnungsdatum)",
+    vorher: "Vergangener Zeitraum (die Wochen vor dem Rechnungsdatum)",
+    keiner: "Kein Leistungszeitraum",
+  };
+}
 
 const iso = (year: number, monthIndex: number, day: number) => {
   const date = new Date(Date.UTC(year, monthIndex, day));
@@ -87,7 +53,7 @@ export function addMonthsAnchored(date: string, months: number, anchorDay: numbe
   return iso(targetYear, targetMonth, Math.min(anchorDay, daysInMonth(targetYear, targetMonth)));
 }
 
-export function servicePeriodFor(issueDate: string, interval: RecurringInterval, mode: ServicePeriodMode): { from: string; to: string } | null {
+export function servicePeriodFor(issueDate: string, interval: number, mode: ServicePeriodMode): { from: string; to: string } | null {
   if (mode === "keiner") return null;
   const year = Number(issueDate.slice(0, 4));
   const month = Number(issueDate.slice(5, 7)) - 1;
@@ -107,29 +73,31 @@ const addDays = (date: string, days: number) => {
 };
 
 /** Termin nach dem angegebenen: Monate am Ankertag, Wochen plus 7 bzw. 14 Tage */
-export function nextInvoiceDate(date: string, interval: InvoiceInterval, anchorDay: number): string {
-  return interval.intervalWeeks === null ? addMonthsAnchored(date, interval.intervalMonths, anchorDay) : addDays(date, 7 * interval.intervalWeeks);
+export function nextInvoiceDate(date: string, recurrence: Recurrence, anchorDay: number): string {
+  return nthInvoiceDate(date, recurrence, anchorDay, 1);
 }
 
 /** Der n-te Termin nach dem Start (n = 0: der Start), ohne Zwischenschritte: Monate am Ankertag, Wochen in Tagen */
-export function nthInvoiceDate(start: string, interval: InvoiceInterval, anchorDay: number, n: number): string {
-  return interval.intervalWeeks === null ? addMonthsAnchored(start, interval.intervalMonths * n, anchorDay) : addDays(start, 7 * interval.intervalWeeks * n);
+export function nthInvoiceDate(start: string, recurrence: Recurrence, anchorDay: number, n: number): string {
+  const { weeks, months } = recurrenceParts(recurrence);
+  return weeks === null ? addMonthsAnchored(start, months * n, anchorDay) : addDays(start, 7 * weeks * n);
 }
 
 /**
  * Leistungszeitraum einer Rechnung. Monate wie servicePeriodFor; Wochen: laufend = die Tage ab dem Rechnungsdatum,
  * vorher = die Tage bis zum Vortag.
  */
-export function invoiceServicePeriod(issueDate: string, interval: InvoiceInterval, mode: ServicePeriodMode): { from: string; to: string } | null {
-  if (interval.intervalWeeks === null) return servicePeriodFor(issueDate, interval.intervalMonths, mode);
+export function invoiceServicePeriod(issueDate: string, recurrence: Recurrence, mode: ServicePeriodMode): { from: string; to: string } | null {
+  const { weeks, months } = recurrenceParts(recurrence);
+  if (weeks === null) return servicePeriodFor(issueDate, months, mode);
   if (mode === "keiner") return null;
-  const days = 7 * interval.intervalWeeks;
+  const days = 7 * weeks;
   return mode === "laufend" ? { from: issueDate, to: addDays(issueDate, days - 1) } : { from: addDays(issueDate, -days), to: addDays(issueDate, -1) };
 }
 
 /** Alle fälligen Termine einer Rechnungsvorlage bis einschließlich heute, höchstens bis zum Enddatum */
-export function invoiceDueDates(nextDate: string, interval: InvoiceInterval, anchorDay: number, today: string, endDate: string | null): string[] {
-  return collectDueDates(nextDate, today, endDate, (date) => nextInvoiceDate(date, interval, anchorDay));
+export function invoiceDueDates(nextDate: string, recurrence: Recurrence, anchorDay: number, today: string, endDate: string | null): string[] {
+  return collectDueDates(nextDate, today, endDate, (date) => nextInvoiceDate(date, recurrence, anchorDay));
 }
 
 const monthName = (date: string) => new Intl.DateTimeFormat("de-DE", { month: "long", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));

@@ -4,12 +4,11 @@ import {
   type OutgoingTaxDetails,
   type PaymentMethod,
   type PriceMode,
-  INVOICE_INTERVAL_OPTIONS,
-  type InvoiceInterval,
-  invoiceIntervalFromKey,
-  invoiceIntervalKey,
-  SERVICE_PERIOD_MODES,
-  SERVICE_PERIOD_MODES_WEEKS,
+  RECURRENCE_KEYS,
+  RECURRENCES,
+  type Recurrence,
+  recurrenceParts,
+  servicePeriodModes,
   type ServicePeriodMode,
   type TaxTreatment,
   treatmentNote,
@@ -27,7 +26,7 @@ import type { ParsedLine } from "./RecurringLines.tsx";
 type Fehler = (key: string) => string | undefined;
 
 /** Bearbeitbarer Stand des Formulars; Zahlen und Datum ohne Wert als Text */
-export type FormState = InvoiceInterval & {
+export type FormState = {
   name: string;
   active: boolean;
   contactId: string;
@@ -40,6 +39,7 @@ export type FormState = InvoiceInterval & {
   exemptionReason: string;
   taxDetails: OutgoingTaxDetails | null;
   priceMode: PriceMode;
+  recurrence: Recurrence;
   nextDate: string;
   endDate: string;
   servicePeriod: ServicePeriodMode;
@@ -51,6 +51,7 @@ export type FormState = InvoiceInterval & {
 type TeilProps = { v: FormState; set: (patch: Partial<FormState>) => void; error: Fehler };
 
 export function RecurringSchedule({ v, set, error }: TeilProps) {
+  const { weeks } = recurrenceParts(v.recurrence);
   return (
     <div className="form-section" role="group" aria-labelledby="recurring-dates">
       <h2 id="recurring-dates">Termine</h2>
@@ -60,10 +61,10 @@ export function RecurringSchedule({ v, set, error }: TeilProps) {
         </Field>
         <Field label="Intervall">
           {(control) => (
-            <select {...control} value={invoiceIntervalKey(v)} onChange={(e) => set(invoiceIntervalFromKey(e.target.value))}>
-              {INVOICE_INTERVAL_OPTIONS.map(({ key, label }) => (
+            <select {...control} value={v.recurrence} onChange={(e) => set({ recurrence: e.target.value as Recurrence })}>
+              {RECURRENCE_KEYS.map((key) => (
                 <option key={key} value={key}>
-                  {label}
+                  {RECURRENCES[key]}
                 </option>
               ))}
             </select>
@@ -71,9 +72,9 @@ export function RecurringSchedule({ v, set, error }: TeilProps) {
         </Field>
       </div>
       <p id="next-hint" className="field-hint">
-        {v.intervalWeeks === null
+        {weeks === null
           ? "Rechnungsdatum. Die folgenden Termine liegen am selben Tag im Monat; der 31. wird zum Monatsende."
-          : `Rechnungsdatum. Die folgenden Termine liegen ${7 * v.intervalWeeks} Tage später, am selben Wochentag.`}
+          : `Rechnungsdatum. Die folgenden Termine liegen ${7 * weeks} Tage später, am selben Wochentag.`}
       </p>
       <div className="form-row cols-2">
         <Field label="Endet nach dem (optional)" error={error("endDate")}>
@@ -82,7 +83,7 @@ export function RecurringSchedule({ v, set, error }: TeilProps) {
         <Field label="Leistungszeitraum">
           {(control) => (
             <select {...control} value={v.servicePeriod} onChange={(e) => set({ servicePeriod: e.target.value as ServicePeriodMode })}>
-              {Object.entries(v.intervalWeeks === null ? SERVICE_PERIOD_MODES : SERVICE_PERIOD_MODES_WEEKS).map(([value, label]) => (
+              {Object.entries(servicePeriodModes(v.recurrence)).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>

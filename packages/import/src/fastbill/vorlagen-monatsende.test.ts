@@ -30,8 +30,8 @@ describe("mapFbRecurring", () => {
     const mapped = mapFbRecurring(vorlage({ START_DATE: start, OCCURENCES: occurrences }));
     expect(mapped.ok).toBe(true);
     if (!mapped.ok) return;
-    const { nextDate, interval, anchorDay, endDate } = mapped.template;
-    expect(invoiceDueDates(nextDate, interval, anchorDay, "2099-12-31", endDate)).toHaveLength(Number(occurrences));
+    const { nextDate, recurrence, anchorDay, endDate } = mapped.template;
+    expect(invoiceDueDates(nextDate, recurrence, anchorDay, "2099-12-31", endDate)).toHaveLength(Number(occurrences));
   });
 
   it("rundet einen Einzelpreis mit Bruchteilen von Cent nicht stillschweigend", () => {

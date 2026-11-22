@@ -7,8 +7,7 @@ export interface RecurringInvoiceHit {
   id: string;
   name: string;
   customer: string;
-  intervalMonths: number | null;
-  intervalWeeks: number | null;
+  recurrence: string;
   nextDate: string;
   active: boolean;
   lastError: string | null;
@@ -23,8 +22,7 @@ export function recurringInvoicesPart(query: string, limit: number) {
       id: ri.id,
       name: ri.name,
       customer: schema.contacts.name,
-      intervalMonths: ri.intervalMonths,
-      intervalWeeks: ri.intervalWeeks,
+      recurrence: ri.recurrence,
       nextDate: ri.nextDate,
       active: ri.active,
       lastError: ri.lastError,
