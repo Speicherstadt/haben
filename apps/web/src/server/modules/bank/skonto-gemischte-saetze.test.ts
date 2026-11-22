@@ -172,8 +172,9 @@ describe.skipIf(!testDatabaseUrl)("Skonto nach Korrektur bei gemischten Steuers�
     expect(await offen(zwei.rechnung.id, ...zwei.korrekturen)).toEqual([]);
   }, 60_000);
 
+  // Ohne Prozentzeichen im Titel: Vitest füllt bei it.each auch „%%“ mit einem Wert (der Titel zeigte „undefined“)
   it.each(["ist", "soll"] as const)(
-    "Korrektur hebt den 19-%%-Teil ganz auf: Skonto nur auf 7 %%, der Satz 19 %% steht mit null im Anteil (%s)",
+    "Korrektur hebt den Teil zu 19 Prozent ganz auf: Skonto nur auf 7 Prozent, 19 Prozent steht mit null im Anteil (%s)",
     async (versteuerung) => {
       await firma("SKR03", versteuerung);
       // Rest 107,00 € zu 7 %, 2 % Skonto 2,14 €, Zahlung 104,86 €
