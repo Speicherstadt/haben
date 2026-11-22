@@ -172,6 +172,24 @@ describe.skipIf(!testDatabaseUrl)("Skonto nach Korrektur bei gemischten Steuers�
     expect(await offen(zwei.rechnung.id, ...zwei.korrekturen)).toEqual([]);
   }, 60_000);
 
+  it.each(["ist", "soll"] as const)(
+    "Korrektur hebt den 19-%%-Teil ganz auf: Skonto nur auf 7 %%, der Satz 19 %% steht mit null im Anteil (%s)",
+    async (versteuerung) => {
+      await firma("SKR03", versteuerung);
+      // Rest 107,00 € zu 7 %, 2 % Skonto 2,14 €, Zahlung 104,86 €
+      const { rechnung, korrekturen } = await rechnungMitKorrekturen([{ unitPrice: -10_000, taxRate: 1900 }]);
+      await mitSkontoBuchen("104,86", rechnung.id, korrekturen);
+      expect(await offen(rechnung.id, ...korrekturen)).toEqual([]);
+      // Die Null-Zeile hält den Anteil gültig: recordedTaxShares verlangt dieselben Sätze wie die Rechnung
+      expect(await skontoAnteile()).toEqual([
+        { rate: 700, base: 200, tax: 14 },
+        { rate: 1900, base: 0, tax: 0 },
+      ]);
+      expect(await vat.computeVatFigures({ year: 2026, month: 11 })).toMatchObject({ kz86: 9800, tax86: 686, kz81: 0, tax81: 0 });
+    },
+    60_000,
+  );
+
   it("„Aufheben“ hebt Aufteilung und Skonto zusammen auf, mit genau umgekehrten Anteilen", async () => {
     await firma("SKR03", "ist");
     const { rechnung, korrekturen } = await rechnungMitKorrekturen([{ unitPrice: -5000, taxRate: 1900 }]);

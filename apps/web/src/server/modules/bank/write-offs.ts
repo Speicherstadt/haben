@@ -145,6 +145,9 @@ async function rechnungAusbuchen(
     throw new BankError(`Rechnung ${invoice.number} ist nur noch über ${open / 100} € offen.`);
   }
   const totals = (await invoiceTotalsById([invoice.id], tx)).get(invoice.id)!;
+  if (vorgegebeneAnteile && vorgegebeneAnteile.reduce((sum, s) => sum + s.base + s.tax, 0) !== amount) {
+    throw new Error(`Vorgegebene Steueranteile ergeben nicht den ausgebuchten Betrag von Rechnung ${invoice.number}.`);
+  }
   const taxShares = vorgegebeneAnteile ?? (await invoiceTaxShares(tx, invoice.id, totals, amount));
   const lines = invoiceWriteOffPosting(
     input.kind,
