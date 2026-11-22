@@ -130,8 +130,11 @@ test("BWA: Umsatzsteuer-Zahlung ohne Beleg führt zur markierten Buchung im Kont
   await expect(markiert).toHaveAttribute("id", new URL(page.url()).hash.slice(1));
   await expect(markiert).toContainText("1.234,00");
   await expect(markiert).toBeInViewport();
+  // Der Fokus steht auf der Zeile: Tab geht von dort weiter, ein Screenreader liest sie vor
+  await expect(markiert).toBeFocused();
   // Auch beim Laden der Adresse, etwa aus einem Lesezeichen
   await page.reload();
   await expect(page.locator("tr[aria-current]")).toHaveCount(1);
   await expect(page.locator("tr[aria-current]")).toBeInViewport();
+  await expect(page.locator("tr[aria-current]")).toBeFocused();
 });

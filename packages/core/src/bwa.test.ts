@@ -284,7 +284,9 @@ describe("Konto, in dessen Kontenblatt die BWA eine Buchung zeigt (#1635)", () =
     });
   }
 
-  it("ohne Zeilen kein Konto", () => {
+  it("ohne Zeilen kein Konto, ebenso nur mit Kategorienkonto und Steuer: nie ein Kategorienkonto", () => {
     expect(kontenblattKonto("SKR03", [])).toBeNull();
+    const a = ACCOUNTS.SKR03;
+    expect(kontenblattKonto("SKR03", [soll(EXPENSE_CATEGORIES.geldverkehr.SKR03, 100_00), haben(a.vorsteuer[1900], 19_00)])).toBeNull();
   });
 });

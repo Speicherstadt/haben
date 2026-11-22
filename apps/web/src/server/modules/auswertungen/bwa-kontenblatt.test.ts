@@ -38,13 +38,13 @@ const ANGESTELLTER: EmployeeInput = {
   iban: "DE02120300000000202051",
 };
 
-/** Kontoauszug im DKB-Format: je Zeile Empfänger, Zweck und Betrag in Cent, alle am 10.11.2026 */
-function dkbCsv(rows: [empfaenger: string, zweck: string, betrag: number][]) {
+/** Kontoauszug im DKB-Format: je Zeile Empfänger, Zweck und Betrag in Cent, alle am selben Tag (TT.MM.JJ) */
+function dkbCsv(rows: [empfaenger: string, zweck: string, betrag: number][], tag = "10.11.26") {
   const header = `"Girokonto";"DE89370400440532013000"\n""\n`;
   const columns = `"Buchungsdatum";"Wertstellung";"Status";"Zahlungspflichtige*r";"Zahlungsempfänger*in";"Verwendungszweck";"Umsatztyp";"IBAN";"Betrag (€)";"Gläubiger-ID";"Mandatsreferenz";"Kundenreferenz"\n`;
   const euro = (c: number) => `-${(Math.abs(c) / 100).toFixed(2).replace(".", ",")}`;
   const body = rows.map(([an, zweck, betrag]) =>
-    ["10.11.26", "10.11.26", "Gebucht", "Testfirma", an, zweck, "Ausgang", "DE02100100100006820101", euro(betrag), "", "", ""].map((c) => `"${c}"`).join(";"),
+    [tag, tag, "Gebucht", "Testfirma", an, zweck, "Ausgang", "DE02100100100006820101", euro(betrag), "", "", ""].map((c) => `"${c}"`).join(";"),
   );
   return new TextEncoder().encode(`${header + columns + body.join("\n")}\n`);
 }
@@ -70,7 +70,7 @@ describe.skipIf(!testDatabaseUrl)("BWA: Lohn- und Umsatzsteuerzahlungen im Konte
   });
 
   async function firma(versteuerung: "ist" | "soll", kontenrahmen: "SKR03" | "SKR04") {
-    await leeren(sql)`truncate allocations, bank_transactions, bank_imports, bank_accounts, journal_lines, journal_entries, year_closings,
+    await leeren(sql)`truncate vat_returns, allocations, bank_transactions, bank_imports, bank_accounts, journal_lines, journal_entries, year_closings,
       payslip_cancellations, payslips, payroll_runs, employees, company cascade`;
     await sql`insert into company (id, name, strasse, plz, ort, email, steuernummer, bundesland, iban, kontenrahmen, versteuerung, rechtsform)
       values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '198/113/10010', 'BY',
@@ -127,6 +127,24 @@ describe.skipIf(!testDatabaseUrl)("BWA: Lohn- und Umsatzsteuerzahlungen im Konte
             zeile,
           ).toEqual([["2026-11-10", betrag]]);
         }
+      }, 60_000);
+
+      it(`USt Dezember, gezahlt am 8. Januar: Die BWA zählt sie am 31.12., der Link führt zum Buchungstag (${kontenrahmen}, ${versteuerung})`, async () => {
+        await firma(versteuerung, kontenrahmen);
+        // § 11 Abs. 2 Satz 2 EStG: Die Vorauszahlung für Dezember, gezahlt bis 10. Januar, zählt im Vorjahr (euer-jahreswechsel.ts)
+        const [vat] = await sql<{ id: string }[]>`
+          insert into vat_returns (year, month, status, kz81, kz86, kz66, kz83, sent_at) values (2026, 12, 'sent', 0, 0, 0, 123400, now()) returning id`;
+        await bank.importStatement(actor, { bytes: dkbCsv([["Finanzamt Regensburg", "USt 12/26", 1_234_00]], "08.01.27"), filename: "fa.csv" }, null);
+        const [t] = await sql<{ id: string; amount: number }[]>`select id, amount from bank_transactions`;
+        await bank.allocate(actor, { kind: "ustva", transactionId: t!.id, vatReturnId: vat!.id, amount: t!.amount });
+
+        const vorgaenge = (await bwa.bwaZeileDetails(bwaZeitraum("monat", 2026, 12), "ustZahlung")).flatMap((g) => g.vorgaenge);
+        expect(vorgaenge.map((v) => [v.datum, v.buchungsdatum, v.betrag, v.konto])).toEqual([
+          ["2026-12-31", "2027-01-08", 1_234_00, ACCOUNTS[kontenrahmen].ustVorauszahlung],
+        ]);
+        const [v] = vorgaenge;
+        const blatt = await buchhaltung.kontenblatt(v!.konto!, buchhaltung.ledgerRangeVonBis({ von: v!.buchungsdatum, bis: v!.buchungsdatum }));
+        expect(blatt.zeilen.filter((z) => z.entryId === v!.buchungId).map((z) => [z.date, z.soll])).toEqual([["2027-01-08", 1_234_00]]);
       }, 60_000);
     }
   }
