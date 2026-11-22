@@ -7,6 +7,8 @@ import { loadCompany } from "../stammdaten/index.ts";
 import { today } from "../../today.ts";
 import { checkTriggerIntegrity } from "../../db/trigger-inventory.ts";
 
+import { PRUEFUNG_ABGEBROCHEN } from "../../../lib/pruefbericht.ts";
+
 export { formatPruefwert, parsePruefwert } from "../../../lib/pruefwert.ts";
 
 /**
@@ -86,7 +88,7 @@ async function integrityRows(tx: Parameters<Parameters<typeof db.transaction>[0]
         tabelle: "haben_integrity_problems",
         zeile: null,
         seq: null,
-        befund: `Prüfung von Kette und Siegeln abgebrochen: ${fehlerGrund(error)}`,
+        befund: `${PRUEFUNG_ABGEBROCHEN}: ${fehlerGrund(error)}`,
       },
     ];
   }
@@ -195,7 +197,7 @@ export async function checkPruefwert(seq: number, hash: string): Promise<Pruefwe
           ),
         );
       } catch (error) {
-        befunde.push(`haben_integrity_problems: Prüfung von Kette und Siegeln abgebrochen: ${fehlerGrund(error)}`);
+        befunde.push(`haben_integrity_problems: ${PRUEFUNG_ABGEBROCHEN}: ${fehlerGrund(error)}`);
       }
       if (broken) return { status: "beschaedigt", seq, first: Number(broken.seq), befund: broken.befund };
       if (befunde.length > 0) return { status: "unbestaetigt", seq, befunde };
