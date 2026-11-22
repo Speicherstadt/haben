@@ -148,7 +148,7 @@
   // ------------------------------------------------------------------ Ablauf
 
   /** Bricht ab, wenn das Skript nicht in FastBill läuft oder Haben die Liste nicht eingesetzt hat */
-  const pruefen = (LISTE) => {
+  const checkSetup = (LISTE) => {
     if (location.hostname !== "my.fastbill.com") {
       throw new Error("Bitte in my.fastbill.com ausführen, angemeldet, in der Konsole der Entwicklerwerkzeuge.");
     }
@@ -161,7 +161,7 @@
    * ZIP-Teile bis PART_LIMIT: add legt eine Datei in den laufenden Teil oder beginnt einen neuen, finish schreibt
    * manifest.json in den Teil und lädt ihn herunter. missing ist die Liste der IDs ohne Datei, die jedes Manifest nennt
    */
-  const teile = (createdAt, missing) => {
+  const zipParts = (createdAt, missing) => {
     const stamp = createdAt.slice(0, 10);
     let part = 0;
     let zip = null;
@@ -193,8 +193,8 @@
   };
 
   /** Lädt jede Datei der Liste in die Teile; gibt die Zahl der gefundenen und die Teile zurück */
-  const abrufen = async (LISTE, missing) => {
-    const zips = teile(new Date().toISOString(), missing);
+  const fetchReceipts = async (LISTE, missing) => {
+    const zips = zipParts(new Date().toISOString(), missing);
     let found = 0;
     for (const [index, entry] of LISTE.entries()) {
       const file = await receipt(entry);
@@ -211,10 +211,10 @@
   };
 
   (async (LISTE) => {
-    pruefen(LISTE);
+    checkSetup(LISTE);
     log(`${LISTE.length} Belege. Das dauert etwa ${Math.max(1, Math.ceil((LISTE.length * (PAUSE_MS + 300)) / 60000))} Minuten.`);
     const missing = [];
-    const { found, parts } = await abrufen(LISTE, missing);
+    const { found, parts } = await fetchReceipts(LISTE, missing);
     log(`Fertig: ${found} Belege in ${parts} ZIP-Datei(en).`);
     if (missing.length) {
       log(
