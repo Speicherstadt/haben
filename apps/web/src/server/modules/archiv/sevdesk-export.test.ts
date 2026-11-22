@@ -141,7 +141,7 @@ describe.skipIf(!testDatabaseUrl)("sevDesk ohne API: Export-ZIP übernehmen (Pos
     const offen = await lex.listLegacyVouchers({ year: 2026, direction: "alle", search: "", ohneDatei: true });
     expect(offen.map(({ id }) => id)).toContain(row!.id);
     const year = (await lex.reconciliation()).years.find((year) => year.year === 2026);
-    expect(year?.checks.find((check) => check.label === "Belege aus dem sevDesk-Export übernommen")?.ok).toBe(false);
+    expect(year?.checks.find((check) => check.label === "Jeder Beleg hat eine Datei")?.ok).toBe(false);
   });
 
   it("ordnet bereits importierte Belege anhand des gespeicherten XML-Dateinamens ein", async () => {
