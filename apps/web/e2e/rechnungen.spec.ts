@@ -94,6 +94,53 @@ test("Grundstücksleistung: fester Aufbewahrungshinweis, Entwurf speichern und e
   await expect(haken).toHaveCount(0);
 });
 
+test("§ 35a EStG: Artikel mit Arbeitskosten setzt den Haken, die Vorschau nennt den Anteil, Ausschalten nimmt das Kennzeichen (#712)", async () => {
+  await go("/artikel");
+  await page.getByRole("button", { name: "Neuer Artikel" }).click();
+  const form = page.getByRole("form", { name: "Neuer Artikel" });
+  await form.getByLabel("Bezeichnung").fill("Montage Rauchwarnmelder");
+  await form.getByLabel("Preis (€)").fill("8,00");
+  await form.getByLabel("Kosten für § 35a EStG").selectOption("ja");
+  await form.getByRole("button", { name: "Anlegen" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Artikel angelegt." })).toBeVisible();
+
+  await go("/rechnungen/neu");
+  await kundeWaehlen(page);
+  await page.getByLabel("Beschreibung Position 1").fill("Rauchwarnmelder");
+  await page.getByLabel(/Einzelpreis Position 1/).fill("31,00");
+  const haken = page.getByRole("checkbox", { name: "Anteil der Arbeits-, Maschinen- und Fahrtkosten ausweisen (§ 35a EStG)" });
+  const kosten = (position: number) => page.getByLabel(`Kosten der Position ${position} für § 35a EStG`);
+  const vorschau = page.getByLabel("Vorschau der Rechnung");
+  await expect(haken).not.toBeChecked();
+  await expect(kosten(1)).toHaveCount(0);
+  await expect(vorschau).not.toContainText("Fahrtkosten");
+
+  // Der Artikel bringt das Kennzeichen mit; der Haken geht damit an, jede Position zeigt ihre Auswahl
+  await page.getByRole("button", { name: "Position hinzufügen" }).click();
+  await artikelInPosition(page, 2, "Montage Rauchwarnmelder");
+  await expect(haken).toBeChecked();
+  await expect(kosten(1)).toHaveValue("nein");
+  await expect(kosten(2)).toHaveValue("ja");
+  await expect(vorschau).toContainText("Fahrtkosten");
+  await page.getByRole("button", { name: "Entwurf speichern", exact: true }).click();
+  await expect(page).toHaveURL(/\/rechnungen\/[0-9a-f-]{36}$/);
+  await page.reload({ waitUntil: "networkidle" });
+  await expect(haken).toBeChecked();
+  await expect(kosten(2)).toHaveValue("ja");
+
+  // Ausschalten nimmt allen Positionen das Kennzeichen
+  await haken.uncheck();
+  await expect(kosten(2)).toHaveCount(0);
+  await expect(vorschau).not.toContainText("Fahrtkosten");
+  await page.getByRole("button", { name: "Entwurf speichern", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Entwurf gespeichert." })).toBeVisible();
+  await page.reload({ waitUntil: "networkidle" });
+  await expect(haken).not.toBeChecked();
+  await page.getByRole("button", { name: "Entwurf löschen", exact: true }).click();
+  await bestaetigen(page, "Entwurf löschen");
+  await expect(page).toHaveURL(/\/rechnungen(?:\?.*)?$/);
+});
+
 test("Abschlag: Anzahlung ist Vorgabe, erbrachte Teilleistung braucht ein Leistungsdatum (#622)", async () => {
   await go("/rechnungen/neu");
   await page.getByLabel("Rechnungsart", { exact: true }).selectOption("abschlag");

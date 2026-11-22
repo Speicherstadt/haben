@@ -145,7 +145,7 @@ export const belegDatenSchema = z
     lines: z.array(line).describe("Positionen"),
     totals: totalsBlock.nullable().describe("Summenblock; null auf dem Lieferschein"),
     taxNote: text(
-      "Feste Pflichthinweise unter den Summen: ohne Steuerausweis (etwa Kleinunternehmer, Reverse Charge) und zur Aufbewahrung privater Grundstücksleistungen; null ohne",
+      "Feste Hinweise unter den Summen: ohne Steuerausweis (etwa Kleinunternehmer, Reverse Charge), zur Aufbewahrung privater Grundstücksleistungen und zum Anteil der Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG); null ohne",
     ).nullable(),
     intro: text("Einleitung über den Positionen ohne Auszeichnungszeichen; null ohne, fehlt auf dem Lieferschein").nullable().optional(),
     introFormatted: runs.nullable().optional().describe("Einleitung mit Auszeichnungen; null ohne, fehlt auf dem Lieferschein"),

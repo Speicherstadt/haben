@@ -12,6 +12,7 @@ export * from "./steuernummer.ts";
 export * from "./ustva.ts";
 export * from "./invoice.ts";
 export * from "./rabatt.ts";
+export * from "./arbeitskosten.ts";
 export * from "./angebotspositionen.ts";
 export * from "./zahlungsplan.ts";
 export * from "./posting.ts";

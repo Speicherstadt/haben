@@ -230,6 +230,8 @@ export function invoiceForDate(
       unit: line.unit as UnitLabel,
       unitPrice: line.unitPrice,
       taxRate: line.taxRate as 1900 | 700 | 0,
+      // Vorlagen von vor dem Feld haben kein Kennzeichen
+      arbeitskosten: line.arbeitskosten ?? false,
     })),
   };
 }

@@ -37,6 +37,7 @@ function articleOut(article: Article): z.output<typeof articleSchema> {
     unitPrice: article.unitPrice,
     taxRate: article.taxRate,
     priceIncludesTax: article.priceIncludesTax,
+    arbeitskosten: article.arbeitskosten,
     note: article.note,
     archived: article.archivedAt !== null,
     createdAt: article.createdAt.toISOString(),

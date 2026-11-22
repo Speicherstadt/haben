@@ -98,6 +98,7 @@ Viele Auftraggeber verlangen ihre Bestellnummer auf jeder Rechnung und weisen Re
 | Einzelpreis | In Euro, z. B. `95,00`. Negative Preise sind möglich, für einen Nachlass aber besser der [Rabatt](#rabatte). |
 | Rabatt | Optional, als Prozent (`10 %`) oder Betrag (`50,00`), siehe [Rabatte](#rabatte). |
 | Steuersatz | 19 %, 7 % oder 0 % |
+| Kosten für § 35a EStG | Nur mit dem Haken **Anteil der Arbeits-, Maschinen- und Fahrtkosten ausweisen**: **Material und Sonstiges** oder **Arbeit, Maschinen, Fahrt**, hinter der Bezeichnung. Siehe [Arbeits-, Maschinen- und Fahrtkosten](#arbeits--maschinen--und-fahrtkosten--35a-estg). |
 
 Der Zeilenbetrag ist Menge mal Einzelpreis, kaufmännisch auf Cent gerundet. Bei Nettopreisen rechnet Haben die Umsatzsteuer nach EN 16931 je Steuersatz auf die Summe der Zeilennetto, nicht als Summe der Steuer je Zeile. Bei mehreren Steuersätzen weist das PDF die Steuer je Satz mit ihrer Bemessungsgrundlage aus.
 
@@ -138,7 +139,7 @@ Der Gesamtbetrag stimmt damit auf den Cent mit den Endpreisen überein. Weil die
 
 Unter **Artikel** (Seitenleiste, Bereich Verkauf) legst du Positionen an, die du oft brauchst: Stundensatz, Tagessatz, Wartungspauschale.
 
-- Jeder Artikel hat eine Bezeichnung (eine Zeile), eine Einheit, einen Preis und einen Steuersatz, dazu optional einen **Text zur Position** (mehrzeilig, bis 2000 Zeichen), eine Artikelnummer und eine interne Notiz. Unter **Preis ist** legst du fest, ob der Preis netto oder brutto inklusive Umsatzsteuer gilt; in der Liste steht bei Bruttopreisen „brutto“.
+- Jeder Artikel hat eine Bezeichnung (eine Zeile), eine Einheit, einen Preis und einen Steuersatz, dazu optional einen **Text zur Position** (mehrzeilig, bis 2000 Zeichen), eine Artikelnummer, die Vorgabe **Kosten für § 35a EStG** ([Arbeits-, Maschinen- und Fahrtkosten](#arbeits--maschinen--und-fahrtkosten--35a-estg)) und eine interne Notiz. Unter **Preis ist** legst du fest, ob der Preis netto oder brutto inklusive Umsatzsteuer gilt; in der Liste steht bei Bruttopreisen „brutto“.
 - Passt der Preis nicht zum Preismodus der Rechnung, rechnet Haben ihn beim Einfügen um, kaufmännisch auf Cent gerundet: Ein Artikel zu 9,80 € brutto steht in einer Netto-Rechnung mit 8,24 €, ein Artikel zu 100,00 € netto in einer Brutto-Rechnung mit 119,00 €. Ohne Steuerausweis übernimmt Haben den Preis unverändert.
 - Im Editor für Rechnungen und Angebote sucht **Aus dem Katalog einfügen** nach Bezeichnung und Artikelnummer und fügt den Artikel als Position mit Menge 1 ein, mit Bezeichnung, Text und Artikelnummer. Ist die einzige Zeile noch leer, ersetzt er sie.
 - Ein Klick in die Beschreibung einer Position zeigt den Katalog, beim Tippen passende Artikel, jeweils mit Nummer, Preis (netto oder brutto) und Einheit; gesucht wird nach Bezeichnung und Artikelnummer, die Liste zeigt höchstens 50 Treffer. Wählst du einen Treffer mit Tastatur oder Maus, übernimmt die Position dessen Text, Artikelnummer, Einheit, Preis und Steuersatz; die Menge bleibt, bei einem Artikel ohne Text auch ein schon eingegebener Text der Position. Danach kannst du alles von Hand ändern.
@@ -311,6 +312,18 @@ Bei steuerpflichtigen Werklieferungen oder sonstigen Leistungen im Zusammenhang 
 - Nach dem Festschreiben ist die Auswahl gesperrt. Storno und Rechnungskorrektur übernehmen sie unveränderlich aus der ursprünglichen Rechnung. Bestehende Belegdateien ändern sich nicht.
 - Für Kleinunternehmer bleibt die Auswahl freiwillig verfügbar. [§ 34a UStDV](https://www.gesetze-im-internet.de/ustdv_1980/__34a.html) nennt den Hinweis nicht unter den Mindestangaben einer Kleinunternehmerrechnung; Haben setzt ihn dort nicht automatisch.
 
+## Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG)
+
+Privatkunden können für Handwerkerleistungen und haushaltsnahe Dienstleistungen einen Teil der Kosten von ihrer Einkommensteuer abziehen. Das gilt nur für die Arbeitskosten ([§ 35a Abs. 5 Satz 2 EStG](https://www.gesetze-im-internet.de/estg/__35a.html)), dazu zählen auch die in Rechnung gestellten Maschinen- und Fahrtkosten, Material aber nicht; Verbrauchsmittel bleiben nicht außer Ansatz, kennzeichne sie als **Arbeit, Maschinen, Fahrt** (BMF-Schreiben vom 09.11.2016, BStBl I S. 1213, geändert am 01.09.2021, BStBl I S. 1494, Rz. 39). Arbeit außerhalb des Haushalts ist nicht begünstigt; führe sie als eigene Position mit **Material und Sonstiges** und nenne in der Bezeichnung, dass sie außerhalb des Haushalts erbracht wurde (Rz. 39). Der Anteil muss sich aus der Rechnung ermitteln lassen, ein eigener Ausweis der Umsatzsteuer darauf ist nicht nötig (Rz. 40). Beispiel: 3 Rauchwarnmelder je 31,00 €, Montage 3 × 8,00 € und Anfahrt 35,00 € ergeben 59,00 € Arbeits- und Fahrtkosten.
+
+- Im Editor von Rechnung, Angebot und wiederkehrender Rechnung **Anteil der Arbeits-, Maschinen- und Fahrtkosten ausweisen (§ 35a EStG)** anhaken. Hinter der Bezeichnung jeder Position steht dann die Auswahl **Material und Sonstiges** oder **Arbeit, Maschinen, Fahrt**. Haben erkennt Privatkunden nicht selbst; ohne Haken erscheint kein Satz.
+- Unter den Summen steht dann „Darin sind Arbeits-, Maschinen- und Fahrtkosten von 59,00 € enthalten (§ 35a EStG).“, bei regulärer Besteuerung mit „inkl. USt“. Der Betrag ist die Summe der gekennzeichneten Positionen nach ihrem Rabatt, um ihren Anteil am Gesamtrabatt gemindert, bei Nettopreisen mit der Umsatzsteuer ihres Satzes. Der Satz nennt den Anteil vor Skonto; zieht der Kunde Skonto ab, sind seine Aufwendungen entsprechend kleiner. Der Satz steht im PDF, auch in eigenen Layouts über das Pflichtfeld `taxNote`, und als BT-22 in ZUGFeRD und XRechnung, auf Englisch auch englisch.
+- Im Angebot zählen optionale und alternative Positionen nicht mit, wie bei der Summe. Die Rechnung aus dem Angebot, Kopien, Storno, Rechnungskorrektur und wiederkehrende Rechnungen übernehmen die Auswahl je Position. Das Storno nennt den Anteil mit Minus.
+- In der Schlussrechnung nennt der Satz den Anteil der ganzen Leistung vor Abzug der Abschlagsrechnungen; Abschlagsrechnungen nennen ihren eigenen Anteil, wenn ihre Positionen gekennzeichnet sind.
+- Im [Artikelkatalog](#artikelkatalog) legt **Kosten für § 35a EStG** die Vorgabe fest, die beim Einfügen in die Position geht. Fügst du einen solchen Artikel ein, ist der Haken gesetzt; nimmst du ihn heraus, verlieren alle Positionen das Kennzeichen.
+- In der REST-API heißt das Feld `arbeitskosten`, je Position und am Artikel ([API](api.md#beispiele)).
+- Haben prüft nicht, ob die Leistung im Haushalt des Kunden erbracht wurde und ob er unbar zahlt; beides ist Voraussetzung für den Abzug (§ 35a Abs. 4 und Abs. 5 Satz 3 EStG).
+
 ## Was beim Festschreiben passiert
 
 Alles läuft in einer einzigen Datenbanktransaktion. Schlägt ein Schritt fehl, bleibt der Entwurf ohne Nummer zurück und im Nummernkreis entsteht keine Lücke. PDF und XML entstehen, bevor Haben etwas speichert; andere Vorgänge, etwa ein gleichzeitig gebuchter Beleg, warten so nicht auf das Erzeugen der Dateien.
@@ -478,7 +491,7 @@ Für Monatspauschalen, Wartungsverträge oder Hosting legst du unter **Rechnunge
 | Leistungszeitraum | **Laufend:** die Monate ab dem Rechnungsmonat (Vorauszahlung). **Vergangen:** die Monate davor (Abrechnung). **Keiner:** ohne Leistungszeitraum, dann gilt das Rechnungsdatum. |
 | Was am Termin passiert | **Entwurf anlegen:** du prüfst und schreibst selbst fest. **Direkt festschreiben:** Nummer, PDF, XML und Buchung wie beim Festschreiben von Hand; auf Wunsch **und per E-Mail an den Kunden schicken** (Vorlage und Adresse wie beim [Versand von Hand](#per-e-mail-versenden)). |
 | Aktiv | Ohne Häkchen erzeugt die Vorlage keine Rechnungen. |
-| Kunde, Einleitung, Positionen mit Text zur Position, Zahlungsziel, Format, Umsatzsteuer, Preise (netto oder brutto), Hinweis, Aufbewahrungshinweis | wie im Rechnungseditor |
+| Kunde, Einleitung, Positionen mit Text zur Position, Zahlungsziel, Format, Umsatzsteuer, Preise (netto oder brutto), Hinweis, Aufbewahrungshinweis, Anteil der Arbeits-, Maschinen- und Fahrtkosten | wie im Rechnungseditor |
 | Zahlungsart | Überweisung oder SEPA-Lastschrift; bei Lastschrift wählt jeder Lauf das Mandat selbst, siehe [Lastschrift](rechnungen-zahlung.md#lastschrift) |
 
 In Einleitung, Beschreibungen, Texten zur Position und Hinweis ersetzt Haben Platzhalter:

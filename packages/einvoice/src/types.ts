@@ -90,6 +90,8 @@ export interface InvoiceDocumentLine {
   discount?: Discount;
   /** Schlussrechnung: Abzug einer Abschlagsrechnung; zählt nicht zur Grundlage des Gesamtrabatts */
   deductionOf?: string;
+  /** Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG, #712); ihr Anteil steht unter den Summen, fehlt = nein */
+  arbeitskosten?: boolean;
 }
 
 /** Firmenlogo für den Briefkopf; PNG oder JPEG */

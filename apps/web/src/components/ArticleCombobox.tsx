@@ -15,6 +15,8 @@ export interface ArticleOption {
   taxRate: number;
   /** Preis inklusive Umsatzsteuer */
   priceIncludesTax: boolean;
+  /** Vorgabe für die Position (§ 35a EStG, #712) */
+  arbeitskosten: boolean;
 }
 
 const articleFields = (a: ArticleOption) => [a.description, a.number];
