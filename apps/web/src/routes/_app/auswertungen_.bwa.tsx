@@ -285,7 +285,7 @@ function VorgangLink({ v, rolle }: { v: BwaVorgang; rolle: string }) {
       search={{ jahr: Number(v.datum.slice(0, 4)), von: v.datum, bis: v.datum }}
       hash={`buchung-${v.buchungId}`}
     >
-      {herkunft} · Konto {v.konto}
+      {`${herkunft} · Konto\u00a0${v.konto}`}
     </Link>
   );
 }
