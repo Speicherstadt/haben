@@ -3,14 +3,15 @@ import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 import { EricGeprueftClient } from "../../test-eric.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /** Zusammenfassende Meldung (§ 18a UStG): Zeilen aus den Rechnungen, Vorprüfung, Übermittlung, Berichtigung, Sperre, Fristen */
 describe.skipIf(!testDatabaseUrl)("Zusammenfassende Meldung (Postgres)", () => {
   let zm: typeof import("./zm.ts");
   let figures: typeof import("./vat-figures.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
-  let bank: typeof import("../bank/bank.ts");
+  let bank: typeof import("../bank/index.ts");
   let fristen: typeof import("../finanzamt/fristen.ts");
   let crypto: typeof import("../../crypto.ts");
   let sql: postgres.Sql;
@@ -21,18 +22,21 @@ describe.skipIf(!testDatabaseUrl)("Zusammenfassende Meldung (Postgres)", () => {
   let abgleich: typeof import("../auswertungen/abgleich.ts");
 
   beforeAll(async () => {
+    // Abgeschaltet ist die Vorprüfung wie vor der Bestätigung beim BZSt (#1385); die prüft zm-bestaetigung.test.ts
+    process.env.HABEN_EVATR = "off";
     sql = await setupTestDb();
     zm = await import("./zm.ts");
     abgleich = await import("../auswertungen/abgleich.ts");
     figures = await import("./vat-figures.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
-    bank = await import("../bank/bank.ts");
+    bank = await import("../bank/index.ts");
     fristen = await import("../finanzamt/fristen.ts");
     crypto = await import("../../crypto.ts");
   }, 30_000);
 
   afterAll(async () => {
+    delete process.env.HABEN_EVATR;
     await sql?.end();
   });
 
@@ -85,7 +89,7 @@ describe.skipIf(!testDatabaseUrl)("Zusammenfassende Meldung (Postgres)", () => {
       exemptionReason: "",
       lines: [{ description: "Beratung", quantity: 1000, unit: "Psch." as const, unitPrice: net, taxRate: treatment === "regulaer" ? 1900 : 0 }],
     });
-    return invoices.finalizeInvoice(actor, draft.id);
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
   }
 
   /** Wie ERiC: kein simulierter Client, damit die Echtübermittlung durchgeht; jedes XML geht durch das echte Plugin, wenn da */
@@ -149,7 +153,7 @@ describe.skipIf(!testDatabaseUrl)("Zusammenfassende Meldung (Postgres)", () => {
     const b = await rechnung("2026-09-11", 100_000, { name: "Lumière SARL", land: "FR", ustId: "FR12345678901" });
     await invoices.cancelInvoice(actor, a.id, "2026-10-05");
     const korrektur = await invoices.createCorrection(actor, b.id, "2026-10-06");
-    await invoices.finalizeInvoice(actor, korrektur.id);
+    await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand);
     await rechnung("2026-11-02", 500_000, { name: "Nordlicht AB", land: "SE", ustId: "SE123456789001" });
     const c = await rechnung("2026-10-20", 100_000, { name: "Nordlicht AB", land: "SE", ustId: "SE123456789001" });
     await bank.writeOff(actor, { kind: "skonto", invoiceId: c.id, date: "2026-11-03", amount: 2_000 });

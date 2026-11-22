@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   evatrAnfrage,
   evatrAntwortSchema,
+  evatrFrisch,
+  evatrFrischGueltig,
+  evatrQualifiziertBestaetigt,
   evatrGueltig,
   evatrMeldung,
   evatrNachweis,
@@ -92,8 +95,10 @@ describe("Antwort", () => {
 describe("Status", () => {
   it("speichert nur Antworten zur Nummer als Nachweis", () => {
     for (const status of ["evatr-0000", "evatr-2001", "evatr-2002", "evatr-2006", "evatr-2008"]) expect(evatrNachweis(status)).toBe(true);
-    // Limit, eigene Nummer ungültig, Syntax, Dienst nicht verfügbar
-    for (const status of ["evatr-0008", "evatr-2005", "evatr-0005", "evatr-1001", "evatr-2011"]) expect(evatrNachweis(status)).toBe(false);
+    // Syntax und Länderkennzeichen der angefragten Nummer (#1578): eine falsche Prüfziffer ergibt evatr-0005
+    for (const status of ["evatr-0005", "evatr-0012", "evatr-2003"]) expect(evatrNachweis(status)).toBe(true);
+    // Limit, eigene Nummer falsch oder ungültig, Dienst nicht verfügbar
+    for (const status of ["evatr-0008", "evatr-0004", "evatr-2005", "evatr-1001", "evatr-2011"]) expect(evatrNachweis(status)).toBe(false);
   });
 
   it("gültig sind evatr-0000 und evatr-2008", () => {
@@ -110,6 +115,7 @@ describe("Status", () => {
       "Noch nicht gültig",
       "Nicht mehr gültig",
     ]);
+    expect(["evatr-0005", "evatr-0012", "evatr-2003"].map(evatrWort)).toEqual(["Syntaktisch falsch", "Syntaktisch falsch", "Syntaktisch falsch"]);
   });
 
   it("nennt die Zeiträume aus gueltigAb und gueltigBis", () => {
@@ -160,5 +166,39 @@ describe("evatrNeuNoetig", () => {
   it("eine zuletzt ungültige Nummer nicht bei jedem Speichern, deutsche nie", () => {
     expect(evatrNeuNoetig({ ...kontakt, name: "Neu" }, [{ ...einfach, status: "evatr-2001" }, qualifiziert])).toBe(false);
     expect(evatrNeuNoetig({ ...kontakt, ustId: "DE123456789" }, [])).toBe(false);
+  });
+});
+
+describe("evatrFrisch", () => {
+  it("gilt 30 Tage ab dem Zeitpunkt beim BZSt, danach nicht mehr", () => {
+    const jetzt = new Date("2026-12-18T12:00:00Z");
+    expect(evatrFrisch("2026-11-18T12:00:00Z", jetzt)).toBe(true);
+    expect(evatrFrisch(new Date("2026-11-18T11:59:59Z"), jetzt)).toBe(false);
+    expect(evatrFrisch("2026-12-18T12:00:00Z", jetzt)).toBe(true);
+  });
+});
+
+describe("evatrFrischGueltig", () => {
+  it("nur eine gültige Antwort aus der Frist; evatr-2008 zählt als gültig", () => {
+    const jetzt = new Date("2026-11-20T12:00:00Z");
+    expect(evatrFrischGueltig({ status: "evatr-0000", anfrageZeitpunkt: "2026-11-18T12:00:00Z" }, jetzt)).toBe(true);
+    expect(evatrFrischGueltig({ status: "evatr-2008", anfrageZeitpunkt: "2026-11-18T12:00:00Z" }, jetzt)).toBe(true);
+    expect(evatrFrischGueltig({ status: "evatr-2001", anfrageZeitpunkt: "2026-11-18T12:00:00Z" }, jetzt)).toBe(false);
+    expect(evatrFrischGueltig({ status: "evatr-0000", anfrageZeitpunkt: "2026-09-18T12:00:00Z" }, jetzt)).toBe(false);
+    expect(evatrFrischGueltig(undefined, jetzt)).toBe(false);
+  });
+});
+
+describe("evatrQualifiziertBestaetigt", () => {
+  const jetzt = new Date("2026-11-20T12:00:00Z");
+  const q = { art: "qualifiziert" as const, status: "evatr-0000", anfrageZeitpunkt: "2026-11-18T12:00:00Z", ergFirmenname: "A", ergOrt: "A" };
+  it("für Reverse Charge: frisch, gültig, qualifiziert, Name und Ort nicht „stimmt nicht“", () => {
+    expect(evatrQualifiziertBestaetigt(q, jetzt)).toBe(true);
+    // D (vom Mitgliedstaat nicht mitgeteilt) ist kein Widerspruch
+    expect(evatrQualifiziertBestaetigt({ ...q, ergOrt: "D" }, jetzt)).toBe(true);
+    expect(evatrQualifiziertBestaetigt({ ...q, ergOrt: "B" }, jetzt)).toBe(false);
+    expect(evatrQualifiziertBestaetigt({ ...q, ergFirmenname: "B" }, jetzt)).toBe(false);
+    expect(evatrQualifiziertBestaetigt({ ...q, art: "einfach" }, jetzt)).toBe(false);
+    expect(evatrQualifiziertBestaetigt({ ...q, anfrageZeitpunkt: "2026-09-18T12:00:00Z" }, jetzt)).toBe(false);
   });
 });

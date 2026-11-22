@@ -2,13 +2,14 @@ import nodemailer from "nodemailer";
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 type Sent = { to: string; bcc?: string; subject: string; text: string; html: string; attachments?: { filename: string; contentType: string }[] };
 
 describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres)", () => {
   let invoiceMail: typeof import("./invoice-mail.ts");
   let mail: typeof import("../mail/mail.ts");
-  let invoices: typeof import("./invoices.ts");
+  let invoices: typeof import("./index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let dunning: typeof import("./dunning.ts");
   let recurring: typeof import("./recurring.ts");
@@ -23,7 +24,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres
     sql = await setupTestDb();
     invoiceMail = await import("./invoice-mail.ts");
     mail = await import("../mail/mail.ts");
-    invoices = await import("./invoices.ts");
+    invoices = await import("./index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     dunning = await import("./dunning.ts");
     recurring = await import("./recurring.ts");
@@ -66,7 +67,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres
       note: "",
       lines: [{ description: "Beratung", quantity: 1000, unit: "Psch.", unitPrice: 100_000, taxRate: 1900 }],
     });
-    return (await invoices.finalizeInvoice(actor, draft.id)).id;
+    return (await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand)).id;
   }
 
   beforeEach(async () => {
@@ -282,7 +283,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres
 
     const draft = await quotes.quoteToInvoice(actor, quote.id, "2026-09-10");
     expect(draft).toMatchObject({ language: "en", note: "As per our quote AN-2026-001 of 1 Sept 2026." });
-    const invoice = await invoices.finalizeInvoice(actor, draft.id);
+    const invoice = await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
     const invoiceDraft = await invoiceMail.invoiceMailDraft(invoice.id);
     // Die deutsche Vorlage gilt nicht für englische Rechnungen; ohne englische Rechnungsvorlage der Standardtext
     expect(invoiceDraft.subject).toBe("Invoice 2026-002 from Testfirma");
@@ -325,7 +326,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres
       variant: "abschlag",
       lines: [{ description: "1. Abschlag", quantity: 1000, unit: "Psch.", unitPrice: 30_000, taxRate: 1900 }],
     });
-    const final = await invoices.finalizeInvoice(actor, abschlag.id);
+    const final = await invoices.finalizeInvoice(actor, abschlag.id, kleinunternehmerStand);
     // Betreff aus der Abschlagsvorlage, Text aus der allgemeinen Rechnungsvorlage
     expect(await invoiceMail.invoiceMailDraft(final.id)).toMatchObject({ subject: `Abschlag ${final.number}`, body: "Allgemein Abschlagsrechnung" });
     expect((await invoiceMail.invoiceMailDraft(invoiceId)).subject).toBe("Rechnung 2026-001");
@@ -344,6 +345,29 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres
     expect(await invoiceMail.dunningMailDraft(letzte.id)).toMatchObject({ subject: "Letzte Mahnung 2026-001", body: "Bitte zahlen bis 10.11.2026." });
 
     await expect(mail.saveMailSettings(actor, { ...settings, templates: { "mahnung:en": { subject: "x", body: "" } } })).rejects.toThrow(/Unbekannte Vorlage/);
+  });
+
+  it("Mahnung: {kunde} nennt den heutigen Namen des Kontakts wie das PDF der Mahnung", async () => {
+    await mail.saveMailSettings(actor, { ...settings, templates: { "mahnung:de": { subject: "Mahnung für {kunde}", body: "" } } });
+    await contacts.updateContact(actor, contactId, {
+      kundennummer: "10001",
+      name: "Nordwerk Software AG",
+      strasse: "Hafenstraße 5",
+      plz: "20457",
+      ort: "Hamburg",
+      land: "DE",
+      email: "buchhaltung@nordwerk.example",
+      ustId: "",
+      iban: "",
+      leitwegId: "",
+      defaultFormat: null,
+    });
+    const created = await dunning.createDunning(
+      actor,
+      { invoiceId, level: 1, dueDate: "2026-10-25", fee: 0, flatFee: false, interest: null, intro: "Bitte zahlen.", closing: "" },
+      "2026-10-15",
+    );
+    expect((await invoiceMail.dunningMailDraft(created.id)).subject).toBe("Mahnung für Nordwerk Software AG");
   });
 
   it("schickt Mahnungen mit eigenem PDF", async () => {
@@ -383,12 +407,12 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres
     };
     const vorlage = await recurring.createRecurring(actor, base);
     // Ohne E-Mail-Zugang: festgeschrieben, aber Fehler vermerkt
-    let run = await recurring.runDueRecurring("2026-10-01");
+    let run = await recurring.runDueRecurring("2026-10-01", kleinunternehmerStand);
     expect(run).toMatchObject({ created: 1, finalized: 1, mailed: 0 });
     expect(run.errors[0]).toMatch(/festgeschrieben, E-Mail nicht gesendet: Es ist kein E-Mail-Zugang/);
 
     await mail.saveMailSettings(actor, settings);
-    run = await recurring.runDueRecurring("2026-11-01");
+    run = await recurring.runDueRecurring("2026-11-01", kleinunternehmerStand);
     expect(run).toMatchObject({ created: 1, finalized: 1, mailed: 1, errors: [] });
     expect(sent[0]).toMatchObject({ to: "buchhaltung@nordwerk.example", subject: "Rechnung 2026-003 von Testfirma" });
     const [row] = await sql`select last_error from recurring_invoices where id = ${vorlage.id}`;

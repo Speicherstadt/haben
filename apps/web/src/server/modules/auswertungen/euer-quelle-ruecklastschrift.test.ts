@@ -2,6 +2,7 @@ import type { EuerLine, EuerResult } from "@haben/core";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "./test-umsatz-stand.ts";
 
 const ACCOUNT_IBAN = "DE89370400440532013000";
 
@@ -44,7 +45,7 @@ function kurz(e: EuerResult) {
 describe.skipIf(!testDatabaseUrl)("EÜR aus dem Journal: Rücklastschrift im Folgejahr, mit und ohne Wechsel der Versteuerung (Postgres)", () => {
   let sql: postgres.Sql;
   let bank: typeof import("../bank/index.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let mandates: typeof import("../stammdaten/sepa-mandate.ts");
   let reports: typeof import("./reports.ts");
@@ -53,7 +54,7 @@ describe.skipIf(!testDatabaseUrl)("EÜR aus dem Journal: Rücklastschrift im Fol
   beforeAll(async () => {
     sql = await setupTestDb();
     bank = await import("../bank/index.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     mandates = await import("../stammdaten/sepa-mandate.ts");
     reports = await import("./reports.ts");
@@ -132,6 +133,7 @@ describe.skipIf(!testDatabaseUrl)("EÜR aus dem Journal: Rücklastschrift im Fol
                 sepaMandateId: mandateId,
               })
             ).id,
+            kleinunternehmerStand,
           );
         const a = await invoice(25_001);
         const b = await invoice(10_000);

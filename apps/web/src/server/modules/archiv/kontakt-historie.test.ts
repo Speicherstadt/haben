@@ -1,6 +1,7 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 // Jede Probe legt hier Rechnungen, Belege und Buchungen an und liest sie über die Kontakthistorie zurück. Auf einem
 // geteilten CI-Läufer braucht die erste davon über fünf Sekunden statt der 0,4 s auf einer freien Maschine; das
@@ -13,7 +14,7 @@ const TODAY = "2026-11-11";
 describe.skipIf(!testDatabaseUrl)("Rechnungen und Belege am Kontakt (Postgres)", () => {
   let history: typeof import("./kontakt-historie.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let documents: typeof import("../belege/documents.ts");
   let cancellation: typeof import("../belege/cancellation.ts");
   let legacy: typeof import("./legacy-open.ts");
@@ -30,7 +31,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Belege am Kontakt (Postgres)",
     sql = await setupTestDb();
     history = await import("./kontakt-historie.ts");
     contacts = await import("../stammdaten/contacts.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    invoices = await import("../rechnungen/index.ts");
     documents = await import("../belege/documents.ts");
     cancellation = await import("../belege/cancellation.ts");
     legacy = await import("./legacy-open.ts");
@@ -81,7 +82,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Belege am Kontakt (Postgres)",
       note: "",
       lines: [{ description: "Beratung", quantity: 1000, unit: "Std." as const, unitPrice: net, taxRate: 1900 as const }],
     });
-    return finalize ? invoices.finalizeInvoice(actor, draft.id) : draft;
+    return finalize ? invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand) : draft;
   }
 
   async function beleg(supplierContactId: string, date: string, gross: number, book = true) {
@@ -162,7 +163,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Belege am Kontakt (Postgres)",
   it("Kunde: eine Rechnungskorrektur mindert; Rechnungen eines Namensvetters zählen nicht", async () => {
     const maerz = await rechnung(kunde, "2026-03-02", 400_000);
     const korrektur = await invoices.createCorrection(actor, maerz.id, "2026-03-20");
-    await invoices.finalizeInvoice(actor, korrektur.id);
+    await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand);
     await rechnung(namensvetter, "2026-04-01", 77_700);
 
     const { sales } = await history.contactHistory(kunde, TODAY);

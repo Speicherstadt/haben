@@ -16,7 +16,7 @@
 {{/* list Repository Tag Name-des-Werts */}}
 {{- define "haben.image" -}}
 {{- if not (index . 1) -}}
-{{- fail (printf "%s fehlt, etwa \"0.9.0\" (https://github.com/firsttris/haben/releases)" (index . 2)) -}}
+{{- fail (printf "%s fehlt, etwa \"0.9.0\" (https://github.com/Speicherstadt/haben/releases)" (index . 2)) -}}
 {{- end -}}
 {{- include "haben.text" (list (index . 2) (index . 1)) -}}
 {{- printf "%s:%s" (index . 0) (index . 1) -}}
@@ -120,6 +120,9 @@ helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | 
 - name: backups
   mountPath: /backups
 {{- end }}
+{{- with .Values.backup.extraVolumeMounts }}
+{{ toYaml . }}
+{{- end }}
 {{- end -}}
 
 {{- define "haben.backupVolumes" -}}
@@ -133,6 +136,9 @@ restore.sh und restore-check.sh auspacken, auf der Platte des Knotens statt im S
 - name: backups
   persistentVolumeClaim:
     claimName: {{ include "haben.fullname" . }}-backups
+{{- end }}
+{{- with .Values.backup.extraVolumes }}
+{{ toYaml . }}
 {{- end }}
 {{- end -}}
 

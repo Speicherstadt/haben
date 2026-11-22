@@ -1,6 +1,7 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /*
  * Steuerpfad der Verrechnung (#877, Etappe 4). Die Aufrechnung selbst ist umsatzsteuerlich neutral: Die Minderung hängt
@@ -8,20 +9,20 @@ import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
  * jeder weiteren Zahlung. Wer hier die Verrechnung übersieht, rechnet die Steuer der letzten Zahlung zu klein.
  */
 describe.skipIf(!testDatabaseUrl)("Verrechnung und Steueranteile der Zahlungen (Postgres)", () => {
-  let invoices: typeof import("./invoices.ts");
+  let invoices: typeof import("./index.ts");
   let verrechnung: typeof import("./verrechnung.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
-  let bank: typeof import("../bank/bank.ts");
+  let bank: typeof import("../bank/index.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
   let contactId: string;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    invoices = await import("./invoices.ts");
+    invoices = await import("./index.ts");
     verrechnung = await import("./verrechnung.ts");
     contacts = await import("../stammdaten/contacts.ts");
-    bank = await import("../bank/bank.ts");
+    bank = await import("../bank/index.ts");
   }, 60_000);
 
   afterAll(async () => {
@@ -44,7 +45,7 @@ describe.skipIf(!testDatabaseUrl)("Verrechnung und Steueranteile der Zahlungen (
       },
       {},
     );
-    return (await invoices.finalizeInvoice(actor, draft.id)).id;
+    return (await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand)).id;
   }
 
   /** Korrektur über 20,00 EUR netto plus 19 % = 23,80 EUR */
@@ -63,7 +64,7 @@ describe.skipIf(!testDatabaseUrl)("Verrechnung und Steueranteile der Zahlungen (
       },
       { kind: "korrektur", correctsId },
     );
-    return (await invoices.finalizeInvoice(actor, draft.id)).id;
+    return (await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand)).id;
   }
 
   /** Zahlungseingang über die Bank, wie aus dem Kontoauszug */

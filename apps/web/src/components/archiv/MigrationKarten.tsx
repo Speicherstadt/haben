@@ -1,56 +1,78 @@
-import { WebBackup } from "./WebBackup.tsx";
 import { BuchhaltungsButlerImport } from "./BuchhaltungsButlerImport.tsx";
-import { WisoImport } from "./WisoImport.tsx";
-import { SevdeskExportImport } from "./SevdeskExportImport.tsx";
 import { FastbillReceipts } from "./FastbillReceipts.tsx";
-import { FastbillArticles } from "./FastbillTeile.tsx";
+import { FastbillArticles, fastbillUsageText } from "./FastbillTeile.tsx";
+import { FastbillZeiten } from "./FastbillZeiten.tsx";
+import { ImportCard } from "./MigrationImportCard.tsx";
 import { Connection } from "./MigrationVerbindung.tsx";
-import { ImportCard } from "./MigrationAbruf.tsx";
-import type { Source, MigrationData, ImportRow } from "./umzug-quellen.ts";
+import { SevdeskExportImport } from "./SevdeskExportImport.tsx";
+import { WebBackup } from "./WebBackup.tsx";
+import { WisoImport } from "./WisoImport.tsx";
+import type { MigrationData, Source } from "./migration-quellen.ts";
 
-export function MigrationCards({ source, data, lastImport }: { source: Source; data: MigrationData; lastImport: ImportRow | null }) {
-  return source === "buchhaltungsbutler" ? (
-    <BuchhaltungsButlerImport key="buchhaltungsbutler" initial={data.bbImport} />
-  ) : source === "wiso" ? (
-    <WisoImport key="wiso" initial={data.wisoImport} />
-  ) : source === "accountable" ? (
-    <ImportCard key={`accountable-${lastImport?.id ?? "neu"}`} source="accountable" connected initial={lastImport} />
-  ) : (
+export function MigrationCards({ source, data }: { source: Source; data: MigrationData }) {
+  switch (source) {
+    case "lexoffice":
+      return <LexofficeCard data={data} />;
+    case "sevdesk":
+      return <SevdeskCard data={data} />;
+    case "fastbill":
+      return <FastbillCard data={data} />;
+    case "accountable":
+      return <AccountableCard initial={data.accountableImport} />;
+    case "buchhaltungsbutler":
+      return <BuchhaltungsButlerImport initial={data.bbImport} />;
+    case "wiso":
+      return <WisoImport initial={data.wisoImport} />;
+  }
+}
+
+function LexofficeCard({ data }: { data: MigrationData }) {
+  const { connection, lastImport } = data;
+  return (
     <>
-      {source === "sevdesk" ? (
-        <Connection key="sevdesk" source="sevdesk" connected={data.sevdeskConnection ? { name: "sevDesk", since: data.sevdeskConnection.createdAt } : null} />
-      ) : source === "fastbill" ? (
-        <Connection
-          key="fastbill"
-          source="fastbill"
-          plans={data.fastbillPlans}
-          connected={
-            data.fastbillConnection
-              ? {
-                  name: data.fastbillConnection.email,
-                  since: data.fastbillConnection.createdAt,
-                  detail: `Tarif ${data.fastbillPlans.find((p) => p.callsPerHour === data.fastbillConnection?.callsPerHour)?.label ?? ""}, ${data.fastbillConnection.callsPerHour} Anfragen pro Stunde.`,
-                }
-              : null
-          }
-        />
-      ) : (
-        <Connection
-          key="lexoffice"
-          source="lexoffice"
-          connected={data.connection ? { name: data.connection.organizationName || "Lexware Office", since: data.connection.createdAt } : null}
-        />
-      )}
-      {source === "lexoffice" && !data.connection && <WebBackup />}
-      <ImportCard
-        key={`${source}-${lastImport?.id ?? "neu"}`}
-        source={source}
-        connected={Boolean(source === "sevdesk" ? data.sevdeskConnection : source === "fastbill" ? data.fastbillConnection : data.connection)}
-        initial={lastImport}
-      />
-      {source === "sevdesk" && <SevdeskExportImport key={`sevdesk-export-${data.sevdeskExportImport?.id ?? "neu"}`} initial={data.sevdeskExportImport} />}
-      {source === "fastbill" && <FastbillReceipts receipts={data.fastbillReceipts} running={data.fastbillImport?.status === "laeuft"} />}
-      {source === "fastbill" && data.fastbillConnection && <FastbillArticles />}
+      <Connection source="lexoffice" connected={connection ? { name: connection.organizationName || "Lexware Office", since: connection.createdAt } : null} />
+      {!connection && <WebBackup />}
+      <ImportCard key={lastImport?.id ?? "neu"} source="lexoffice" connected={Boolean(connection)} initial={lastImport} />
     </>
   );
+}
+
+function SevdeskCard({ data }: { data: MigrationData }) {
+  const { sevdeskConnection, sevdeskImport, sevdeskExportImport } = data;
+  return (
+    <>
+      <Connection source="sevdesk" connected={sevdeskConnection ? { name: "sevDesk", since: sevdeskConnection.createdAt } : null} />
+      <ImportCard key={sevdeskImport?.id ?? "neu"} source="sevdesk" connected={Boolean(sevdeskConnection)} initial={sevdeskImport} />
+      <SevdeskExportImport key={`sevdesk-export-${sevdeskExportImport?.id ?? "neu"}`} initial={sevdeskExportImport} />
+    </>
+  );
+}
+
+function FastbillCard({ data }: { data: MigrationData }) {
+  const { fastbillConnection, fastbillPlans, fastbillUsage, fastbillImport, fastbillReceipts } = data;
+  return (
+    <>
+      <Connection
+        source="fastbill"
+        plans={fastbillPlans}
+        connected={
+          fastbillConnection
+            ? {
+                name: fastbillConnection.email,
+                since: fastbillConnection.createdAt,
+                detail: `Tarif ${fastbillPlans.find((plan) => plan.callsPerHour === fastbillConnection.callsPerHour)?.label ?? ""}, ${fastbillConnection.callsPerHour} Anfragen pro Stunde.${fastbillUsageText(fastbillUsage, fastbillConnection.callsPerHour)}`,
+              }
+            : null
+        }
+      />
+      <ImportCard key={fastbillImport?.id ?? "neu"} source="fastbill" connected={Boolean(fastbillConnection)} initial={fastbillImport} />
+      <FastbillReceipts receipts={fastbillReceipts} running={fastbillImport?.status === "laeuft"} />
+      {fastbillConnection && <FastbillArticles />}
+      {fastbillConnection && <FastbillZeiten />}
+    </>
+  );
+}
+
+function AccountableCard({ initial }: { initial: MigrationData["accountableImport"] }) {
+  return <ImportCard key={initial?.id ?? "neu"} source="accountable" connected initial={initial} />;
 }

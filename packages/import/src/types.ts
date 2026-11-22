@@ -12,6 +12,8 @@ export type StatementFormat =
   | "ing-csv"
   /** Umsätze eines Kontos oder einer Pocket bei C24 (Komma-CSV ohne IBAN und Kontostand) */
   | "c24-csv"
+  /** Umsätze aus dem Online-Banking der Deutschen Bank, Norisbank und Postbank (Semikolon-CSV mit Kopfblock) */
+  | "deutsche-bank-group-csv"
   /** Unbekannte Bank-CSV, Spalten von Hand zugeordnet (#1275) */
   | "csv-zuordnung"
   | "camt053"
@@ -21,7 +23,11 @@ export type StatementFormat =
   /** Kontobewegungen aus dem Accountable-Export (Daten.xlsx, Sheet „Kontobewegungen“) */
   | "accountable-xlsx"
   | "paypal-csv"
+  /** Abruf der Transaction Search über die PayPal-API (#1512) */
+  | "paypal-api"
   | "stripe-csv"
+  /** Abruf der Balance Transactions über die Stripe-API (#1280) */
+  | "stripe-api"
   | "shopify-payments-csv"
   | "ebay-csv"
   | "etsy-csv"
@@ -29,12 +35,17 @@ export type StatementFormat =
   | "etsy-ledger"
   | "googleplay-earnings"
   | "appstore-finance"
-  | "store-payout";
+  | "store-payout"
+  /** Lieferung eines Dienstes über den REST-Import (#306), ins Bankkonto bzw. ins Konto eines Zahlungsdienstleisters */
+  | "importvertrag"
+  | "importvertrag-psp";
 
 /** Exporte von Zahlungsdienstleistern: nur in ein Konto mit diesem Zweck importierbar */
 export const PSP_FORMATS: StatementFormat[] = [
   "paypal-csv",
+  "paypal-api",
   "stripe-csv",
+  "stripe-api",
   "shopify-payments-csv",
   "ebay-csv",
   "etsy-csv",
@@ -42,6 +53,7 @@ export const PSP_FORMATS: StatementFormat[] = [
   "googleplay-earnings",
   "appstore-finance",
   "store-payout",
+  "importvertrag-psp",
 ];
 
 /** Ein Umsatz, wie er in der Datei steht. Eingänge positiv, Ausgänge negativ. */
@@ -58,6 +70,12 @@ export interface ParsedTransaction {
   type?: string;
   /** Referenz der Bank, falls vorhanden (CAMT AcctSvcrRef, EndToEndId) */
   bankReference?: string;
+  /** Originale Enable-Banking-entry_reference, getrennt von der bisherigen bankReference. */
+  entryReference?: string;
+  /** Veränderliche transaction_id von Enable Banking; keine stabile Umsatzkennung. */
+  providerTransactionId?: string;
+  /** Position im Enable-Banking-Abruf vor der Sortierung des Auszugs. */
+  providerRowIndex?: number;
   /** Kennung des Auftraggebers (CAMT Refs/EndToEndId), auch wenn bankReference die Referenz der Bank trägt */
   endToEndId?: string;
   /** SEPA-Lastschrift: Gläubiger-ID und Mandatsreferenz, falls die Datei sie nennt */

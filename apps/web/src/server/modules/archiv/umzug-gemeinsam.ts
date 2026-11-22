@@ -8,7 +8,7 @@ export function progressMessage(error: unknown): string {
   if (message === undefined) console.error("Lexoffice-Abruf", error);
   return message ?? INTERNAL_ERROR;
 }
-export function fallbackName(voucher: LegacyVoucher, role: "pdf" | "xml" | "anhang", bytes: Uint8Array): string {
+export function fallbackName(voucher: Pick<LegacyVoucher, "number" | "lexofficeId">, role: "pdf" | "xml" | "anhang", bytes: Uint8Array): string {
   const base = (voucher.number || voucher.lexofficeId).replace(/[^\w.-]+/g, "_");
   const kind = sniff(bytes)?.kind;
   const extension = role === "xml" ? "xml" : kind === "jpeg" ? "jpg" : (kind ?? "pdf");

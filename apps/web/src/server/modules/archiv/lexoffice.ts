@@ -3,11 +3,6 @@ import {
   LexofficeApiError,
   LexofficeClient,
   mapContact,
-  mapPayments,
-  mapSalesDocument,
-  mapVoucher,
-  type LegacyVoucher,
-  type LexFile,
   readWebExport,
   type LexofficeClientOptions,
   type LexofficeSource,
@@ -19,9 +14,9 @@ import { withActor } from "../../db/actor.ts";
 import { env } from "../../env.ts";
 import { db, schema } from "../../db/index.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
-import { storeLegacyVoucher } from "./legacy-store.ts";
 import { LEGACY_SOURCE } from "../../../lib/altbestand.ts";
-import { LexofficeError, fallbackName, progressMessage } from "./umzug-gemeinsam.ts";
+import { importVoucher, nachladenDateien, offeneDateien, SALES_TYPES } from "./lexoffice-belege.ts";
+import { LexofficeError, progressMessage } from "./umzug-gemeinsam.ts";
 import { finish, latestImportFor, importControllersFor } from "./umzug-lauf.ts";
 
 export { LexofficeError } from "./umzug-gemeinsam.ts";
@@ -36,13 +31,8 @@ export function setLexofficeClientFactory(factory: (options: LexofficeClientOpti
   clientFactory = factory;
 }
 
-const SALES_TYPES = ["invoice", "creditnote", "downpaymentinvoice"] as const;
 const BOOKKEEPING_TYPES = ["salesinvoice", "salescreditnote", "purchaseinvoice", "purchasecreditnote"] as const;
-type SalesType = (typeof SALES_TYPES)[number];
 
-function isSalesType(type: string): type is SalesType {
-  return (SALES_TYPES as readonly string[]).includes(type);
-}
 async function apiKey(): Promise<string | null> {
   const [row] = await db.select().from(schema.lexofficeConnection).where(eq(schema.lexofficeConnection.id, 1));
   return row ? decrypt(row.ciphertext).toString("utf8") : null;
@@ -146,6 +136,32 @@ export function cancelImport(id: string): boolean {
   return true;
 }
 
+/**
+ * Belegliste des Laufs. Entwürfe sind keine Belege; der Abruf übergeht sie und zählt ihre Zahl, damit sie nicht still
+ * verschwindet (#1504). Vorgänge ohne Belegart kommen über die API gar nicht erst in die Liste — die Sicherung aus der
+ * Web-Oberfläche lässt sie schon beim Packen draußen (#183), deshalb gibt es dafür keinen Zähler.
+ */
+async function sammleBelegliste(
+  client: LexofficeSource,
+  progress: LexofficeImportProgress,
+  save: (force?: boolean) => Promise<void>,
+): Promise<{ id: string; type: string; number: string }[]> {
+  const listed: { id: string; type: string; number: string }[] = [];
+  let drafts = 0;
+  for await (const item of client.voucherList([...SALES_TYPES, ...BOOKKEEPING_TYPES])) {
+    if (item.voucherStatus === "draft") {
+      drafts += 1;
+      continue;
+    }
+    listed.push({ id: item.id, type: item.voucherType, number: item.voucherNumber ?? "" });
+    progress.listed = listed.length;
+    await save();
+  }
+  progress.ignored = drafts > 0 ? { drafts } : undefined;
+  await save(true);
+  return listed;
+}
+
 async function runImport(actor: string, importId: string, client: LexofficeSource, progress: LexofficeImportProgress, signal: AbortSignal) {
   let lastSave = 0;
   const save = async (force = false) => {
@@ -155,6 +171,61 @@ async function runImport(actor: string, importId: string, client: LexofficeSourc
   };
 
   // 1. Kontakte: vorhandene über die Lexoffice-ID überspringen, gleichnamige ohne ID verknüpfen
+  await importContacts(actor, client, progress, signal, save);
+
+  // 2. Belegliste; Entwürfe sind keine Belege und bleiben draußen
+  progress.phase = "liste";
+  await save(true);
+  const categories = new Map((await client.postingCategories()).map((c) => [c.id, c.name]));
+  const listed = await sammleBelegliste(client, progress, save);
+  const done = new Set((await db.select({ id: schema.lexofficeVouchers.lexofficeId }).from(schema.lexofficeVouchers)).map((r) => r.id));
+  // Belege mit fehlender Datei sind nicht abgeschlossen; eine spätere Sicherung kann die Datei enthalten (#1504)
+  const nachzuladen = await offeneDateien();
+
+  // 3. Je Beleg Details, Zahlungen und Dateien; Fehler einzelner Belege halten den Lauf nicht auf
+  progress.phase = "belege";
+  await save(true);
+  for (const item of listed) {
+    signal.throwIfAborted();
+    if (done.has(item.id)) {
+      const offen = nachzuladen.get(item.id);
+      if (!offen) {
+        progress.skipped += 1;
+        continue;
+      }
+      try {
+        if (await nachladenDateien(actor, importId, client, item, offen)) progress.nachgeladen = (progress.nachgeladen ?? 0) + 1;
+      } catch (error) {
+        if (error instanceof LexofficeApiError && (error.status === 401 || error.status === 403)) throw error;
+        if (signal.aborted || (error instanceof Error && error.name === "AbortError")) throw error;
+        progress.failed.push({ lexofficeId: item.id, number: offen[0]!.number, message: progressMessage(error) });
+      }
+      await save();
+      continue;
+    }
+    try {
+      // false: ein gleichzeitiger Lauf hat den Beleg schon übernommen
+      if (await importVoucher(actor, importId, client, item, categories, progress)) progress.imported += 1;
+      else progress.skipped += 1;
+    } catch (error) {
+      // Schlüssel ungültig, Tarif gewechselt oder abgebrochen: weitermachen ist sinnlos
+      if (error instanceof LexofficeApiError && (error.status === 401 || error.status === 403)) throw error;
+      // Abgebrochen: der Client meldet das als eigenen Fehler, nicht als AbortError
+      if (signal.aborted || (error instanceof Error && error.name === "AbortError")) throw error;
+      progress.failed.push({ lexofficeId: item.id, number: item.number, message: progressMessage(error) });
+    }
+    await save();
+  }
+  await save(true);
+}
+
+async function importContacts(
+  actor: string,
+  client: LexofficeSource,
+  progress: LexofficeImportProgress,
+  signal: AbortSignal,
+  save: () => Promise<void>,
+) {
   for await (const raw of client.contacts()) {
     // Die Sicherung aus der Web-Oberfläche liest ohne Netz und kennt das Signal nicht: selbst prüfen
     signal.throwIfAborted();
@@ -201,111 +272,4 @@ async function runImport(actor: string, importId: string, client: LexofficeSourc
     });
     await save();
   }
-
-  // 2. Belegliste; Entwürfe sind keine Belege und bleiben draußen
-  progress.phase = "liste";
-  await save(true);
-  const categories = new Map((await client.postingCategories()).map((c) => [c.id, c.name]));
-  const listed: { id: string; type: string; number: string }[] = [];
-  for await (const item of client.voucherList([...SALES_TYPES, ...BOOKKEEPING_TYPES])) {
-    if (item.voucherStatus === "draft") continue;
-    listed.push({ id: item.id, type: item.voucherType, number: item.voucherNumber ?? "" });
-    progress.listed = listed.length;
-    await save();
-  }
-  const done = new Set((await db.select({ id: schema.lexofficeVouchers.lexofficeId }).from(schema.lexofficeVouchers)).map((r) => r.id));
-
-  // 3. Je Beleg Details, Zahlungen und Dateien; Fehler einzelner Belege halten den Lauf nicht auf
-  progress.phase = "belege";
-  await save(true);
-  for (const item of listed) {
-    signal.throwIfAborted();
-    if (done.has(item.id)) {
-      progress.skipped += 1;
-      continue;
-    }
-    try {
-      // false: ein gleichzeitiger Lauf hat den Beleg schon übernommen
-      if (await importVoucher(actor, importId, client, item, categories, progress)) progress.imported += 1;
-      else progress.skipped += 1;
-    } catch (error) {
-      // Schlüssel ungültig, Tarif gewechselt oder abgebrochen: weitermachen ist sinnlos
-      if (error instanceof LexofficeApiError && (error.status === 401 || error.status === 403)) throw error;
-      // Abgebrochen: der Client meldet das als eigenen Fehler, nicht als AbortError
-      if (signal.aborted || (error instanceof Error && error.name === "AbortError")) throw error;
-      progress.failed.push({ lexofficeId: item.id, number: item.number, message: progressMessage(error) });
-    }
-    await save();
-  }
-  await save(true);
-}
-
-async function importVoucher(
-  actor: string,
-  importId: string,
-  client: LexofficeSource,
-  item: { id: string; type: string },
-  categories: Map<string, string>,
-  progress: LexofficeImportProgress,
-): Promise<boolean> {
-  let voucher: LegacyVoucher;
-  let raw: unknown;
-  const files: { role: "pdf" | "xml" | "anhang"; lexofficeFileId: string | null; file: LexFile }[] = [];
-  if (isSalesType(item.type)) {
-    raw = await client.salesDocument(item.type, item.id);
-    voucher = mapSalesDocument(item.type, raw as Parameters<typeof mapSalesDocument>[1], item.id);
-    const pdf = await client.salesDocumentPdf(item.type, item.id);
-    if (pdf) files.push({ role: "pdf", lexofficeFileId: null, file: pdf });
-    const xml = await client.salesDocumentXml(item.type, item.id);
-    if (xml) files.push({ role: "xml", lexofficeFileId: null, file: xml });
-  } else {
-    raw = await client.voucher(item.id);
-    voucher = mapVoucher(raw as Parameters<typeof mapVoucher>[0], item.id);
-    for (const fileId of voucher.fileIds) {
-      files.push({ role: "anhang", lexofficeFileId: fileId, file: await client.file(fileId) });
-    }
-  }
-  const payments = await client.payments(item.id);
-
-  return withActor(actor, async (tx) => {
-    const [contact] = voucher.contactLexofficeId
-      ? await tx.select({ id: schema.contacts.id }).from(schema.contacts).where(eq(schema.contacts.lexofficeId, voucher.contactLexofficeId))
-      : [];
-    const row = await storeLegacyVoucher(
-      tx,
-      {
-        lexofficeId: voucher.lexofficeId,
-        importId,
-        type: voucher.type,
-        direction: voucher.direction,
-        number: voucher.number,
-        date: voucher.date,
-        dueDate: voucher.dueDate,
-        serviceFrom: voucher.serviceFrom,
-        serviceTo: voucher.serviceTo,
-        status: voucher.status,
-        contactId: contact?.id ?? null,
-        contactName: voucher.contactName,
-        currency: voucher.currency,
-        net: voucher.net,
-        tax: voucher.tax,
-        gross: voucher.gross,
-        taxes: voucher.taxes,
-        categories: voucher.categories.map((c) => ({ ...c, name: categories.get(c.categoryId) ?? "" })),
-        payment: payments ? mapPayments(payments) : null,
-        remark: voucher.remark,
-        raw: raw as Record<string, unknown>,
-      },
-      files.map((entry) => ({
-        role: entry.role,
-        sourceFileId: entry.lexofficeFileId,
-        filename: entry.file.filename ?? fallbackName(voucher, entry.role, entry.file.bytes),
-        mimeType: entry.file.mimeType,
-        bytes: entry.file.bytes,
-      })),
-    );
-    if (!row) return false;
-    progress.files += row.files;
-    return true;
-  });
 }

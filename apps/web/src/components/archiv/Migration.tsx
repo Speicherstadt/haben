@@ -1,38 +1,29 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArchiveUpload } from "./ArchiveUpload.tsx";
+import { YearCheck } from "./MigrationJahre.tsx";
+import { MigrationCards } from "./MigrationKarten.tsx";
 import { OpenItems } from "./OpenItems.tsx";
 import { SevdeskAssets } from "./SevdeskAssets.tsx";
-import { ALL_SOURCES, type MigrationData, type Source } from "./umzug-quellen.ts";
-import { YearCheck } from "./MigrationJahr.tsx";
-import { MigrationCards } from "./MigrationKarten.tsx";
+import { ALL_SOURCES, type MigrationData, type Source } from "./migration-quellen.ts";
+
+/** Die zuletzt genutzte Quelle, sonst Lexware Office */
+function startSource(data: MigrationData): Source {
+  if (data.connection || data.lastImport) return "lexoffice";
+  if (data.sevdeskConnection || data.sevdeskImport || data.sevdeskExportImport) return "sevdesk";
+  if (data.fastbillConnection || data.fastbillImport) return "fastbill";
+  if (data.accountableImport) return "accountable";
+  if (data.bbImport) return "buchhaltungsbutler";
+  if (data.wisoImport) return "wiso";
+  return "lexoffice";
+}
 
 export function Migration({ data }: { data: MigrationData }) {
   const ready = data.years.length > 0 && data.years.every((y) => y.ready) && data.orderArchive.withoutPdf === 0;
-  const [source, setSource] = useState<Source>(() => {
-    if (data.connection || data.lastImport) return "lexoffice";
-    if (data.sevdeskConnection || data.sevdeskImport || data.sevdeskExportImport) return "sevdesk";
-    if (data.fastbillConnection || data.fastbillImport) return "fastbill";
-    if (data.accountableImport) return "accountable";
-    if (data.bbImport) return "buchhaltungsbutler";
-    if (data.wisoImport) return "wiso";
-    return "lexoffice";
-  });
+  const [source, setSource] = useState<Source>(() => startSource(data));
   const config = ALL_SOURCES[source];
   // Das Anlagenverzeichnis liefert nur die API von sevDesk
   const assets = source === "sevdesk" && Boolean(data.sevdeskConnection);
-  const lastImport =
-    source === "buchhaltungsbutler"
-      ? data.bbImport
-      : source === "wiso"
-        ? data.wisoImport
-        : source === "sevdesk"
-          ? data.sevdeskImport
-          : source === "fastbill"
-            ? data.fastbillImport
-            : source === "accountable"
-              ? data.accountableImport
-              : data.lastImport;
   return (
     <div className="stack">
       {data.externalImports.length > 0 && (
@@ -60,7 +51,7 @@ export function Migration({ data }: { data: MigrationData }) {
           </button>
         ))}
       </div>
-      <MigrationCards source={source} data={data} lastImport={lastImport} />
+      <MigrationCards source={source} data={data} />
       <OpenItems
         items={data.openItems}
         cutoff={data.cutoff}

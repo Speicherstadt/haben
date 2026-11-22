@@ -4,13 +4,12 @@ import { useId, useState, type FormEvent } from "react";
 import { formatDateTime } from "../../lib/format.ts";
 import { useAction } from "../../lib/use-action.ts";
 import { useSubmitCheck } from "../../lib/use-submit-check.ts";
-import { NoticeBanner } from "../NoticeBanner.tsx";
 import { saveFastbillLogin } from "../../server/functions/fastbill.ts";
 import { ConfirmDialog } from "../ConfirmDialog.tsx";
-import { Icon } from "../Icon.tsx";
-import { FastbillLoginFields } from "./FastbillTeile.tsx";
 import { Field } from "../Field.tsx";
-import { SOURCES, type ConnectedSource, type FastbillPlan } from "./umzug-quellen.ts";
+import { Icon } from "../Icon.tsx";
+import { NoticeBanner } from "../NoticeBanner.tsx";
+import { type ConnectedSource, type FastbillPlan, SOURCES } from "./migration-quellen.ts";
 
 export function Connection({
   source,

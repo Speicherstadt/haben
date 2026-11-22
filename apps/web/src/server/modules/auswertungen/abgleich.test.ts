@@ -2,6 +2,7 @@ import { formatEuro } from "@haben/core";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "./test-umsatz-stand.ts";
 
 function dkbCsv(rows: string[][]) {
   const header = `"Girokonto";"DE12 1203 0000 1234 5678 90"\n""\n`;
@@ -44,8 +45,8 @@ const ausgang = (date: string, name: string, amount: string) => [
  */
 describe.skipIf(!testDatabaseUrl)("Abgleich im Journal (Postgres)", () => {
   let abgleich: typeof import("./abgleich.ts");
-  let bank: typeof import("../bank/bank.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let bank: typeof import("../bank/index.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let documents: typeof import("../belege/documents.ts");
   let pauschalen: typeof import("../buchhaltung/pauschalen.ts");
@@ -60,8 +61,8 @@ describe.skipIf(!testDatabaseUrl)("Abgleich im Journal (Postgres)", () => {
   beforeAll(async () => {
     sql = await setupTestDb();
     abgleich = await import("./abgleich.ts");
-    bank = await import("../bank/bank.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    bank = await import("../bank/index.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     documents = await import("../belege/documents.ts");
     pauschalen = await import("../buchhaltung/pauschalen.ts");
@@ -111,7 +112,7 @@ describe.skipIf(!testDatabaseUrl)("Abgleich im Journal (Postgres)", () => {
       note: "",
       lines: lines.map((l) => ({ description: "Leistung", quantity: 1000, unit: "Psch." as const, unitPrice: l.net, taxRate: l.rate })),
     });
-    return invoices.finalizeInvoice(actor, draft.id);
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
   }
 
   async function bookedDocument(
@@ -467,7 +468,7 @@ describe.skipIf(!testDatabaseUrl)("Abgleich im Journal (Postgres)", () => {
             exemptionReason: taxTreatment === "steuerfrei" ? "Steuerfrei nach § 4 Nr. 21 UStG" : "",
             lines: [{ description: "Leistung", quantity: 1000, unit: "Psch." as const, unitPrice: 500_000, taxRate: 0 }],
           });
-          return invoices.finalizeInvoice(actor, draft.id);
+          return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
         }
         const rc = await special("reverse_charge", "AT", "ATU12345678", "2026-01-10");
         const ch = await special("drittland", "CH", "", "2026-01-12");

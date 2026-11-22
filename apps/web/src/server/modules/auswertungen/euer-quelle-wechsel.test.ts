@@ -2,6 +2,7 @@ import type { EuerLine, EuerResult } from "@haben/core";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "./test-umsatz-stand.ts";
 
 function dkbCsv(rows: string[][]) {
   const header = `"Girokonto";"DE12 1203 0000 1234 5678 90"\n""\n`;
@@ -58,8 +59,8 @@ function kurz(e: EuerResult) {
 describe.skipIf(!testDatabaseUrl)("EÜR aus dem Journal bei Wechseln zum Jahreswechsel und mit Anlagen (Postgres)", () => {
   let reports: typeof import("./reports.ts");
   let assets: typeof import("../buchhaltung/assets.ts");
-  let bank: typeof import("../bank/bank.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let bank: typeof import("../bank/index.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let documents: typeof import("../belege/documents.ts");
   let sql: postgres.Sql;
@@ -71,8 +72,8 @@ describe.skipIf(!testDatabaseUrl)("EÜR aus dem Journal bei Wechseln zum Jahresw
     sql = await setupTestDb();
     reports = await import("./reports.ts");
     assets = await import("../buchhaltung/assets.ts");
-    bank = await import("../bank/bank.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    bank = await import("../bank/index.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     documents = await import("../belege/documents.ts");
   }, 30_000);
@@ -131,7 +132,7 @@ describe.skipIf(!testDatabaseUrl)("EÜR aus dem Journal bei Wechseln zum Jahresw
       note: "",
       lines: lines.map((l) => ({ description: "Leistung", quantity: 1000, unit: "Psch." as const, unitPrice: l.net, taxRate: l.rate })),
     });
-    return invoices.finalizeInvoice(actor, draft.id);
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
   }
 
   async function bookedDocument(
@@ -198,7 +199,7 @@ describe.skipIf(!testDatabaseUrl)("EÜR aus dem Journal bei Wechseln zum Jahresw
           ...(vorher ? { taxTreatment: "kleinunternehmer" } : {}),
           lines: [{ description: "Leistung", quantity: 1000, unit: "Psch." as const, unitPrice: 33_333, taxRate: vorher ? 0 : 1900 }],
         } as never);
-        const a = await invoices.finalizeInvoice(actor, draft.id);
+        const a = await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
         const b = await bookedDocument("2025-12-12", [{ taxRate: 1900, net: 5_001, tax: 950 }], { category: "bewirtung" });
         await sql`update company set kleinunternehmer = ${nachher} where id = 1`;
         const txs = await transactions([eingang("10.02.26", `RE ${a.number} Teil`, "100,01"), ausgang("11.02.26", "Restaurant", "-33,33")]);

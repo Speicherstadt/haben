@@ -1,6 +1,7 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 function dkbCsv(rows: string[][]) {
   const header = `"Girokonto";"DE12 1203 0000 1234 5678 90"\n""\n`;
@@ -29,8 +30,8 @@ const incoming = (date: string, purpose: string, amount: string) => [
  */
 describe.skipIf(!testDatabaseUrl)("Teilzahlungen bei Ist-Versteuerung (Postgres)", () => {
   let figures: typeof import("./vat-figures.ts");
-  let bank: typeof import("../bank/bank.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let bank: typeof import("../bank/index.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let reports: typeof import("../auswertungen/reports.ts");
   let sql: postgres.Sql;
@@ -39,8 +40,8 @@ describe.skipIf(!testDatabaseUrl)("Teilzahlungen bei Ist-Versteuerung (Postgres)
   beforeAll(async () => {
     sql = await setupTestDb();
     figures = await import("./vat-figures.ts");
-    bank = await import("../bank/bank.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    bank = await import("../bank/index.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     reports = await import("../auswertungen/reports.ts");
   }, 30_000);
@@ -82,7 +83,7 @@ describe.skipIf(!testDatabaseUrl)("Teilzahlungen bei Ist-Versteuerung (Postgres)
       note: "",
       lines: [{ description: "Leistung", quantity: 1000, unit: "Psch.", unitPrice: 10_000, taxRate: 1900 }],
     });
-    return invoices.finalizeInvoice(actor, draft.id);
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
   }
 
   async function pay(invoiceId: string, rows: [date: string, purpose: string, amount: string][]) {
