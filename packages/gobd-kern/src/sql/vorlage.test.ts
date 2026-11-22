@@ -133,6 +133,19 @@ describe.skipIf(!url)("SQL-Vorlage gegen Postgres", () => {
     expect(gefunden).toContainEqual({ art: "kette", tabelle: "audit_log", befund: "Inhalt passt nicht zum Hash" });
   });
 
+  it("meldet ein Siegel, das im Audit-Log steht, aber samt Zeile an den Triggern vorbei gelöscht wurde", async () => {
+    const [e] = await mitAkteur("anna", (tx) => tx`insert into eingaenge (sha256) values (${"cd".repeat(32)}) returning id`);
+    const [s] = await sql`select id from seals where row_id = ${e!.id}`;
+    const [eintrag] = await sql`select seq from audit_log where table_name = 'seals' and row_id = ${s!.id} and action = 'INSERT'`;
+    await sql.begin(async (tx) => {
+      await tx`set local session_replication_role = replica`;
+      await tx`delete from seals where id = ${s!.id}`;
+      await tx`delete from eingaenge where id = ${e!.id}`;
+    });
+    const gefunden = await sql`select art, tabelle, zeile, seq, befund from kern_integrity_problems(100) where tabelle = 'eingaenge'`;
+    expect(gefunden).toEqual([{ art: "siegel", tabelle: "eingaenge", zeile: e!.id, seq: eintrag!.seq, befund: "Siegel fehlt, steht aber im Audit-Log" }]);
+  });
+
   it("meldet eine an den Triggern vorbei aus sealed_tables genommene Tabelle", async () => {
     const [b] = await mitAkteur("anna", (tx) => tx`insert into belege (betrag_cent, locked_at) values (3000, now()) returning id`);
     await sql.begin(async (tx) => {
