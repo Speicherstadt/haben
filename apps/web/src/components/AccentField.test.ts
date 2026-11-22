@@ -32,6 +32,13 @@ describe("AccentField", () => {
     expect(html("#1F6F5C")).toMatch(/<button[^>]*aria-label="Schwarz"[^>]*>/);
   });
 
+  it("bietet sieben Punkte an: Schwarz ersetzt das fast gleich aussehende Grau, das als eigene Farbe weiter gilt", () => {
+    const markup = html("#3F4A44");
+    expect(markup).not.toMatch(/aria-label="Grau"/);
+    expect(markup.match(/class="color-swatch[ "]/g)).toHaveLength(7);
+    expect(markup).toMatch(/<label[^>]*class="color-swatch color-swatch-custom"[^>]*data-active="true"/);
+  });
+
   it("zeigt Schwarz als gewählt, wenn es die eigene Farbe ist", () => {
     expect(html("#000000")).toMatch(/<button[^>]*aria-label="Schwarz"[^>]*aria-pressed="true"/);
   });
