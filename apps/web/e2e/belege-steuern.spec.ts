@@ -592,7 +592,7 @@ test("Einkommensersatzleistungen: eintragen, speichern, nach dem Neuladen wieder
 });
 
 test("Einkommensteuer: Kinder, Angaben des Ehegatten und ungültige Beträge beim Speichern", async () => {
-  // Die Tests danach (Senden an ELSTER) rechnen mit den bisher gespeicherten Angaben; am Ende kommen sie unverändert zurück
+  // Spätere Tests öffnen dasselbe Jahr; damit sie es vorfinden wie ohne diesen Test, kommen die gespeicherten Angaben am Ende unverändert zurück
   const sql = postgres(databaseUrlFuer("belege-steuern"), { max: 1 });
   const vorher = await sql`select * from income_tax_inputs where year = ${YEAR - 1}`;
   try {
