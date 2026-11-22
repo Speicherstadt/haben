@@ -1290,7 +1290,7 @@ test("Umsatzsteuer an das Finanzamt ohne Beleg, für den Drilldown der BWA (#163
   const sql = postgres(databaseUrlFuer(), { max: 1 });
   const [umsatz] = await sql<{ id: string }[]>`select id from bank_transactions where purpose = 'USt-Vorauszahlung'`;
   await sql.end();
-  await bank.allocate("e2e-ablauf", { kind: "ustVorauszahlung", transactionId: umsatz!.id, amount: -1_234_00 });
+  await bank.allocate("e2e-ablauf", { kind: "ustVorauszahlung", transactionId: umsatz!.id, amount: -234_00 });
   await (await import("../src/server/db/index.ts")).closeDatabase();
 });
 
