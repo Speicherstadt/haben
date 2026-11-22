@@ -1,15 +1,14 @@
 <div align="center">
 
-<h1>Haben: Open-Source-Buchhaltung, selbst gehostet</h1>
+<h1>Haben ist, was dir gehört.</h1>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/hero-dunkel.png">
   <img src="docs/hero-hell.png" alt="Haben, Deine Bücher. Dein Server.: E-Rechnung über 1.725,50 € festgeschrieben, Zahlungseingang zugeordnet, in der Voranmeldung Oktober mit Kennzahl 81 enthalten und an ELSTER übermittelt" width="900">
 </picture>
 
-<h3>Haben ist, was dir gehört.</h3>
+**Open-Source-Buchhaltung, selbst gehostet: für Freiberufler, Selbstständige, Kleinunternehmer und kleine GmbHs.**
 
-Die Buchhaltungssoftware für Freiberufler, Selbstständige, Kleinunternehmer und kleine GmbHs, die du selbst betreibst:
 Rechnungen mit E-Rechnung (ZUGFeRD, XRechnung), Belege, Bankabgleich, EÜR oder Bilanz mit E-Bilanz und die Steuern
 direkt an ELSTER. Für die GoBD gebaut, auf deinem Server; Daten gehen nur an Dienste, die du selbst einschaltest.
 
