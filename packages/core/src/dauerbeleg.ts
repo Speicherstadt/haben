@@ -4,7 +4,8 @@
  * kürzeren Monaten zum Monatsende und springt danach zurück, verpasste Termine werden nachgeholt.
  */
 import type { BasisPoints, Cents } from "./money.ts";
-import { addMonthsAnchored, dueDates, type RecurringInterval } from "./recurring.ts";
+import { type Recurrence, recurrenceParts } from "./recurrence.ts";
+import { recurrenceDueDates, nextRecurrenceDate } from "./recurring.ts";
 
 /** aktiv = legt Belege an, pausiert = vorübergehend nicht, beendet = endgültig (Enddatum erreicht oder von Hand) */
 export const DAUERBELEG_STATUS = {
@@ -19,7 +20,8 @@ export const DAUERBELEG_STATUS_KEYS = Object.keys(DAUERBELEG_STATUS) as [Dauerbe
 
 export interface DauerbelegTermine {
   nextDate: string;
-  intervalMonths: RecurringInterval;
+  /** Dauer nach ISO 8601 wie bei wiederkehrenden Rechnungen (recurrence.ts, #1691) */
+  recurrence: Recurrence;
   anchorDay: number;
   endDate: string | null;
 }
@@ -31,21 +33,22 @@ export interface DauerbelegBetrag {
 }
 
 /**
- * Periode eines Termins: der Monatserste. Je Vorlage und Periode entsteht höchstens ein Beleg (eindeutiger Index), auch
- * wenn der nächste Termin von Hand auf einen anderen Tag im selben Monat verschoben wird.
+ * Periode eines Termins: bei Monaten der Monatserste. Je Vorlage und Periode entsteht höchstens ein Beleg (eindeutiger
+ * Index), auch wenn der nächste Termin von Hand auf einen anderen Tag im selben Monat verschoben wird. Bei Wochen liegen
+ * mehrere Termine in einem Monat; dort ist die Periode der Termin selbst.
  */
-export function dauerbelegPeriode(termin: string): string {
-  return `${termin.slice(0, 7)}-01`;
+export function dauerbelegPeriode(termin: string, recurrence: Recurrence): string {
+  return recurrenceParts(recurrence).weeks === null ? `${termin.slice(0, 7)}-01` : termin;
 }
 
 /** Alle fälligen Termine bis einschließlich heute, höchstens bis zum Enddatum; verpasste werden nachgeholt */
 export function faelligeTermine(vorlage: DauerbelegTermine, heute: string): string[] {
-  return dueDates(vorlage.nextDate, vorlage.intervalMonths, vorlage.anchorDay, heute, vorlage.endDate);
+  return recurrenceDueDates(vorlage.nextDate, vorlage.recurrence, vorlage.anchorDay, heute, vorlage.endDate);
 }
 
-/** Termin nach dem angegebenen, am Ankertag */
-export function folgeTermin(termin: string, vorlage: Pick<DauerbelegTermine, "intervalMonths" | "anchorDay">): string {
-  return addMonthsAnchored(termin, vorlage.intervalMonths, vorlage.anchorDay);
+/** Termin nach dem angegebenen: Monate am Ankertag, Wochen plus 7, 14 oder 28 Tage */
+export function folgeTermin(termin: string, vorlage: Pick<DauerbelegTermine, "recurrence" | "anchorDay">): string {
+  return nextRecurrenceDate(termin, vorlage.recurrence, vorlage.anchorDay);
 }
 
 /** Die nächsten Termine für die Vorschau, höchstens bis zum Enddatum */
@@ -63,7 +66,7 @@ export function vorschauTermine(vorlage: DauerbelegTermine, anzahl: number): str
  * Erster Termin am oder nach dem Stichtag. Beim Fortsetzen nach einer Pause: Termine, die in die Pause fielen, legt
  * Haben nicht an (etwa mietfreie Monate); wer sie doch will, setzt den nächsten Termin zurück.
  */
-export function terminAbStichtag(vorlage: Pick<DauerbelegTermine, "nextDate" | "intervalMonths" | "anchorDay">, stichtag: string): string {
+export function terminAbStichtag(vorlage: Pick<DauerbelegTermine, "nextDate" | "recurrence" | "anchorDay">, stichtag: string): string {
   let termin = vorlage.nextDate;
   for (let i = 0; termin < stichtag && i < 1200; i++) termin = folgeTermin(termin, vorlage);
   return termin;

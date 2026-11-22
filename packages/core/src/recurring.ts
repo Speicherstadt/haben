@@ -1,18 +1,9 @@
 import { type Recurrence, recurrenceParts } from "./recurrence.ts";
 
 /**
- * Wiederkehrende Rechnungen: Intervall, nächstes Datum, Leistungszeitraum und Platzhalter im Text. Dauerbelege
- * (dauerbeleg.ts) rechnen in Monaten (RECURRING_INTERVALS); Rechnungen mit einer Dauer nach ISO 8601 (recurrence.ts, #1691).
+ * Wiederkehrende Rechnungen: Intervall, nächstes Datum, Leistungszeitraum und Platzhalter im Text. Termine für
+ * Rechnungen und Dauerbelege (dauerbeleg.ts) mit einer Dauer nach ISO 8601 (recurrence.ts, #1691).
  */
-export const RECURRING_INTERVALS = {
-  1: "monatlich",
-  3: "vierteljährlich",
-  6: "halbjährlich",
-  12: "jährlich",
-} as const;
-
-export type RecurringInterval = 1 | 3 | 6 | 12;
-
 /**
  * Leistungszeitraum der Rechnung, in ganzen Kalendermonaten:
  * laufend = ab dem Monat des Rechnungsdatums (Vorauszahlung), vorher = die Monate davor (Abrechnung), keiner = ohne.
@@ -72,13 +63,13 @@ const addDays = (date: string, days: number) => {
   return d.toISOString().slice(0, 10);
 };
 
-/** Termin nach dem angegebenen: Monate am Ankertag, Wochen plus 7 bzw. 14 Tage */
-export function nextInvoiceDate(date: string, recurrence: Recurrence, anchorDay: number): string {
-  return nthInvoiceDate(date, recurrence, anchorDay, 1);
+/** Termin nach dem angegebenen: Monate am Ankertag, Wochen plus 7, 14 oder 28 Tage */
+export function nextRecurrenceDate(date: string, recurrence: Recurrence, anchorDay: number): string {
+  return nthRecurrenceDate(date, recurrence, anchorDay, 1);
 }
 
 /** Der n-te Termin nach dem Start (n = 0: der Start), ohne Zwischenschritte: Monate am Ankertag, Wochen in Tagen */
-export function nthInvoiceDate(start: string, recurrence: Recurrence, anchorDay: number, n: number): string {
+export function nthRecurrenceDate(start: string, recurrence: Recurrence, anchorDay: number, n: number): string {
   const { weeks, months } = recurrenceParts(recurrence);
   return weeks === null ? addMonthsAnchored(start, months * n, anchorDay) : addDays(start, 7 * weeks * n);
 }
@@ -96,8 +87,8 @@ export function invoiceServicePeriod(issueDate: string, recurrence: Recurrence, 
 }
 
 /** Alle fälligen Termine einer Rechnungsvorlage bis einschließlich heute, höchstens bis zum Enddatum */
-export function invoiceDueDates(nextDate: string, recurrence: Recurrence, anchorDay: number, today: string, endDate: string | null): string[] {
-  return collectDueDates(nextDate, today, endDate, (date) => nextInvoiceDate(date, recurrence, anchorDay));
+export function recurrenceDueDates(nextDate: string, recurrence: Recurrence, anchorDay: number, today: string, endDate: string | null): string[] {
+  return collectDueDates(nextDate, today, endDate, (date) => nextRecurrenceDate(date, recurrence, anchorDay));
 }
 
 const monthName = (date: string) => new Intl.DateTimeFormat("de-DE", { month: "long", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
@@ -136,11 +127,6 @@ export function fillPlaceholders(text: string, reference: { from: string; to: st
     .replaceAll("{jahr}", fromYear)
     .replaceAll("{quartal}", quartal)
     .replaceAll("{zeitraum}", zeitraum);
-}
-
-/** Alle fälligen Termine bis einschließlich heute, höchstens bis zum Enddatum */
-export function dueDates(nextDate: string, interval: RecurringInterval, anchorDay: number, today: string, endDate: string | null): string[] {
-  return collectDueDates(nextDate, today, endDate, (date) => addMonthsAnchored(date, interval, anchorDay));
 }
 
 function collectDueDates(nextDate: string, today: string, endDate: string | null, next: (date: string) => string): string[] {

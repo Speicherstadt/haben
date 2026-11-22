@@ -4,7 +4,7 @@
  * sperren, Beleg anlegen, nächsten Termin weiterrücken. Je Vorlage und Periode entsteht höchstens ein Beleg (eindeutiger
  * Index documents_recurring_period), auch nach einem Neustart oder bei zwei gleichzeitigen Läufen.
  */
-import { dauerbelegFaellig, dauerbelegPeriode, dauerbelegSummen, documentOpen, folgeTermin, type RecurringInterval } from "@haben/core";
+import { dauerbelegFaellig, dauerbelegPeriode, dauerbelegSummen, documentOpen, folgeTermin } from "@haben/core";
 import { and, eq, lte } from "drizzle-orm";
 import { z } from "zod";
 import { withActor } from "../../db/actor.ts";
@@ -63,7 +63,7 @@ async function insertBeleg(tx: Tx, vorlage: Dauerbeleg, termin: string): Promise
       note: noteFor(vorlage, termin),
       ...totals,
       recurringDocumentId: vorlage.id,
-      recurringPeriod: dauerbelegPeriode(termin),
+      recurringPeriod: dauerbelegPeriode(termin, vorlage.recurrence),
     })
     .onConflictDoNothing({ target: [schema.documents.recurringDocumentId, schema.documents.recurringPeriod] })
     .returning({ id: schema.documents.id });
@@ -87,7 +87,7 @@ async function runTermin(id: string, heute: string): Promise<{ created: boolean 
       return null;
     }
     const created = await insertBeleg(tx, vorlage, termin);
-    const nextDate = folgeTermin(termin, { intervalMonths: vorlage.intervalMonths as RecurringInterval, anchorDay: vorlage.anchorDay });
+    const nextDate = folgeTermin(termin, vorlage);
     const ended = vorlage.endDate !== null && nextDate > vorlage.endDate;
     await tx
       .update(schema.recurringDocuments)

@@ -133,9 +133,16 @@ function requestBody(config: OpenAiConfig, images: string[], text: string | null
 async function post(config: OpenAiConfig, deps: OpenAiDeps, body: unknown, signal: AbortSignal): Promise<Response> {
   const headers: Record<string, string> = { "content-type": "application/json", accept: "application/json" };
   if (config.apiKey) headers.authorization = `Bearer ${config.apiKey}`;
+  const endpoint = new URL(config.endpoint);
+  // OpenRouter: HTTP-Referer ist für die App-Zuordnung nötig, X-OpenRouter-Title setzt den Namen.
+  // https://openrouter.ai/docs/app-attribution
+  if (endpoint.hostname === "openrouter.ai") {
+    headers["HTTP-Referer"] = "https://haben.app";
+    headers["X-OpenRouter-Title"] = "Haben";
+  }
   try {
     // Keiner Umleitung folgen: Ein 307/308 schickte den Beleg sonst an einen anderen Host als den eingerichteten
-    return await deps.fetch(config.endpoint, { method: "POST", headers, body: JSON.stringify(body), signal, redirect: "manual" });
+    return await deps.fetch(endpoint, { method: "POST", headers, body: JSON.stringify(body), signal, redirect: "manual" });
   } catch (error) {
     throw networkError(config, error);
   }

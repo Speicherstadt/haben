@@ -2213,6 +2213,13 @@
       "when": 1795362504548,
       "tag": "0315_wiederkehrend_wochen",
       "breakpoints": true
+    },
+    {
+      "idx": 316,
+      "version": "7",
+      "when": 1795363246324,
+      "tag": "0316_dauerbelege_dauer",
+      "breakpoints": true
     }
   ]
 }

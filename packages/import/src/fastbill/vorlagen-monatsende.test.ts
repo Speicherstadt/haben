@@ -1,4 +1,4 @@
-import { invoiceDueDates } from "@haben/core";
+import { recurrenceDueDates } from "@haben/core";
 import { describe, expect, it } from "vitest";
 import type { FbRecurring } from "./types.ts";
 import { mapFbRecurring } from "./vorlagen.ts";
@@ -31,7 +31,7 @@ describe("mapFbRecurring", () => {
     expect(mapped.ok).toBe(true);
     if (!mapped.ok) return;
     const { nextDate, recurrence, anchorDay, endDate } = mapped.template;
-    expect(invoiceDueDates(nextDate, recurrence, anchorDay, "2099-12-31", endDate)).toHaveLength(Number(occurrences));
+    expect(recurrenceDueDates(nextDate, recurrence, anchorDay, "2099-12-31", endDate)).toHaveLength(Number(occurrences));
   });
 
   it("rundet einen Einzelpreis mit Bruchteilen von Cent nicht stillschweigend", () => {

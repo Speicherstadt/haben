@@ -1,13 +1,4 @@
-import {
-  BESCHAEFTIGUNGSARTEN,
-  DARLEHENSGEBER,
-  formatEuro,
-  PAUSCHALE_LABEL,
-  periodKey,
-  RECURRING_INTERVALS,
-  type RecurringInterval,
-  recurrenceLabel,
-} from "@haben/core";
+import { BESCHAEFTIGUNGSARTEN, DARLEHENSGEBER, formatEuro, PAUSCHALE_LABEL, periodKey, recurrenceLabel } from "@haben/core";
 import type { PaletteItem, PaletteSection } from "./befehlspalette.ts";
 import { ELSTER_KIND_LABEL } from "./elster.ts";
 import { formatDate } from "./format.ts";
@@ -101,7 +92,7 @@ function buildRecurringAndCatalogSections(remote: CommandPaletteResult): Palette
         id: `rec-doc-${rd.id}`,
         kind: "link",
         title: rd.name,
-        meta: [rd.supplierName, RECURRING_INTERVALS[rd.intervalMonths as RecurringInterval] ?? "–", `nächster Termin ${formatDate(rd.nextDate)}`].join(" · "),
+        meta: [rd.supplierName, recurrenceLabel(rd.recurrence), `nächster Termin ${formatDate(rd.nextDate)}`].join(" · "),
         icon: "repeat",
         to: "/dauerbelege/$id",
         params: { id: rd.id },

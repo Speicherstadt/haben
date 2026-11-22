@@ -165,6 +165,44 @@ describe("OpenAI-kompatibler Dienst", () => {
     expect(service.requests[0]!.headers.authorization).toBe("Bearer geheim-123");
   });
 
+  it("ordnet Anfragen an OpenRouter öffentlich Haben zu, ohne die URL der Instanz zu senden", async () => {
+    const routedFetch: typeof fetch = (_url, init) => fetch(`${service.baseUrl}/chat/completions`, init);
+    await extractWithOpenAiCompatible({ ...config, endpoint: "https://openrouter.ai/api/v1/chat/completions", apiKey: "geheim-123" }, JPEG, "jpeg", {
+      fetch: routedFetch,
+      pdfToImages: noPdf,
+      pdfToText: noText,
+    });
+    expect(service.requests[0]!.headers["http-referer"]).toBe("https://haben.app");
+    expect(service.requests[0]!.headers["x-openrouter-title"]).toBe("Haben");
+    expect(service.requests[0]!.headers.authorization).toBe("Bearer geheim-123");
+  });
+
+  it("ordnet OpenRouter allein anhand des Hostnamens zu, unabhängig vom Protokoll", async () => {
+    const routedFetch: typeof fetch = (_url, init) => fetch(`${service.baseUrl}/chat/completions`, init);
+    await extractWithOpenAiCompatible({ ...config, endpoint: "http://openrouter.ai/api/v1/chat/completions" }, JPEG, "jpeg", {
+      fetch: routedFetch,
+      pdfToImages: noPdf,
+      pdfToText: noText,
+    });
+    expect(service.requests[0]!.headers["http-referer"]).toBe("https://haben.app");
+    expect(service.requests[0]!.headers["x-openrouter-title"]).toBe("Haben");
+  });
+
+  it("sendet die OpenRouter-Zuordnung weder an andere Dienste noch an ähnlich benannte Hosts", async () => {
+    await extract();
+    expect(service.requests[0]!.headers["http-referer"]).toBeUndefined();
+    expect(service.requests[0]!.headers["x-openrouter-title"]).toBeUndefined();
+
+    const routedFetch: typeof fetch = (_url, init) => fetch(`${service.baseUrl}/chat/completions`, init);
+    await extractWithOpenAiCompatible({ ...config, endpoint: "https://openrouter.ai.example.com/api/v1/chat/completions" }, JPEG, "jpeg", {
+      fetch: routedFetch,
+      pdfToImages: noPdf,
+      pdfToText: noText,
+    });
+    expect(service.requests[1]!.headers["http-referer"]).toBeUndefined();
+    expect(service.requests[1]!.headers["x-openrouter-title"]).toBeUndefined();
+  });
+
   it("nimmt zusätzliche Body-Felder aus EXTRACTION_EXTRA_BODY mit, etwa reasoning_effort", async () => {
     await extract({ extraBody: { reasoning_effort: "none", temperature: 0, max_tokens: 400 } });
     const body = service.requests[0]!.body as Record<string, unknown>;

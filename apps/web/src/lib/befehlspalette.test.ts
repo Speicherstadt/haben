@@ -237,7 +237,7 @@ describe("Befehlspalette-Ergebnisse (#617)", () => {
           more: false,
         },
         recurringDocuments: {
-          hits: [{ id: "d1", name: "Miete", supplierName: "Vermieter", intervalMonths: 1, nextDate: "2026-12-01", status: "pausiert", lastError: null }],
+          hits: [{ id: "d1", name: "Miete", supplierName: "Vermieter", recurrence: "P1M", nextDate: "2026-12-01", status: "pausiert", lastError: null }],
           more: false,
         },
         pauschalen: { hits: [{ id: "p1", art: "fahrt", date: "2026-09-15", description: "Termin", amount: 3600, storniert: true }], more: false },
