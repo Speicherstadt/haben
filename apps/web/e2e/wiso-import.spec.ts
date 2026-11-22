@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { readFile } from "node:fs/promises";
+import { textPdf } from "../src/server/modules/belege/test-text-pdf.ts";
 import { bestaetigen, durchlaufSeite, einrichten, gehe } from "./einrichtung.ts";
 
 /** Umzug aus WISO mit Testlauf, Import und Beleg im Archiv, in eigener, leerer Datenbank (Projekt „wiso-import“, e2e/durchlaeufe.ts) */
@@ -47,6 +49,18 @@ function wisoCsv(): Buffer {
   return Buffer.from([WISO_HEADERS, row].map((r) => r.join(";")).join("\r\n"));
 }
 
+function wisoAssetPdf(): Buffer {
+  const page = [
+    "Verzeichnis der abnutzbaren Anlagegüter 2023",
+    "Nr Bezeichnung Anschaffungs- Anschaffungs- Zugänge / ND AfA RBW AfA RBW Anlagen-",
+    "datum kosten Teilabgänge Vorjahre Vorjahr 2023 31.12.2023 abgang",
+    "410 Geschäftsausstattung",
+    "  008 Rechenmaschine 27.12.2022 588,19 3 16,34 571,85 196,06 375,79",
+    "Summen 588,19 16,34 571,85 196,06 375,79",
+  ].join("\n");
+  return Buffer.from(textPdf([page]));
+}
+
 test("WISO: Testlauf, Import und Beleg im Archiv", async ({ browser }) => {
   const { page, pageErrors } = await durchlaufSeite(browser);
   await einrichten(page);
@@ -74,5 +88,29 @@ test("WISO: Testlauf, Import und Beleg im Archiv", async ({ browser }) => {
   await expect(ohneBeleg).not.toHaveClass(/status-notice/);
   await page.getByRole("link", { name: /RE-2023-101/ }).click();
   await expect(page.getByRole("heading", { name: /RE-2023-101/ })).toBeVisible();
+
+  await gehe(page, "/archiv");
+  await page.getByRole("button", { name: "Umzug aus WISO", exact: true }).click();
+  const assets = page.getByRole("region", { name: "WISO-Anlagenverzeichnis als PDF prüfen" });
+  await assets.getByLabel("WISO-Anlagenverzeichnis").setInputFiles({ name: "Anlagen.pdf", mimeType: "application/pdf", buffer: wisoAssetPdf() });
+  await assets.getByRole("button", { name: "Anlagen prüfen" }).click();
+  await expect(assets.getByRole("row", { name: /008 Rechenmaschine/ })).toContainText("375,79");
+  const pendingDownload = page.waitForEvent("download");
+  await assets.getByRole("button", { name: "CSV-Entwurf laden" }).click();
+  const download = await pendingDownload;
+  expect(download.suggestedFilename()).toBe("WISO-Anlagen-2023-Entwurf.csv");
+  const csv = await readFile((await download.path())!, "utf8");
+  await assets.getByRole("link", { name: "Zum Anlagenimport" }).click();
+  await expect(page.getByLabel("Übernahmestichtag")).toHaveValue("2024-01-01");
+
+  const datei = page.getByLabel("CSV-Datei");
+  const vorschau = page.getByRole("button", { name: "Vorschau", exact: true });
+  await datei.setInputFiles({ name: "Entwurf.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+  await vorschau.click();
+  await expect(page.getByText(/Art: .*Bitte ergänzen/)).toBeVisible();
+  const ergaenzt = csv.replace("Bitte ergänzen;Bitte ergänzen", "Sonstiges;linear");
+  await datei.setInputFiles({ name: "Ergaenzt.csv", mimeType: "text/csv", buffer: Buffer.from(ergaenzt) });
+  await vorschau.click();
+  await expect(page.getByRole("row", { name: /Rechenmaschine/ })).toContainText("Neu");
   expect(pageErrors).toEqual([]);
 });

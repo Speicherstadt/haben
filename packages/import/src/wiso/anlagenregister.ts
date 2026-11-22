@@ -18,6 +18,8 @@ export interface WisoRegisterAsset {
   disposalDate: string | null;
 }
 
+// WISO EÜR & Kasse, Beispielexport Nr. 10 (pdftotext -layout):
+// https://github.com/Speicherstadt/haben/issues/565#issuecomment-6770106423
 const TITLE = /Verzeichnis der abnutzbaren Anlagegüter\s+(\d{4})/g;
 const HEADER = /^\s*Nr\.?\s+Bezeichnung\s+Anschaffungs-\s+Anschaffungs-\s+Zugänge\s*\/\s+ND\s+AfA\s+RBW\s+AfA\s+RBW\s+Anlagen-/;
 const DETAILS = /^\s*Anlagendetails\s+\d{4}\s*$/m;
