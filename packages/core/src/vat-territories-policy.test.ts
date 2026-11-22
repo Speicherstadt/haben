@@ -73,6 +73,12 @@ describe("Ausdrücklich erfasster tatsächlicher Leistungsort im Sondergebiet", 
     expect(JSON.stringify(details)).toBe(before);
   });
 
+  it.each(["reverse_charge", "eu_sonstige"] as const)("lehnt den ausdrücklich bestätigten Leistungsort auf den Kanaren für %s ab", (treatment) => {
+    expect(outgoingTaxIssues(treatment, atPlace("ES", "38002"), false)).not.toEqual([]);
+    expect(outgoingTaxIssues(treatment, atPlace("ES", "38002"), true)).not.toEqual([]);
+    expect(outgoingTaxIssues(treatment, atPlace("ES", "28001"), false)).toEqual([]);
+  });
+
   it("belässt die übrigen alten Leistungsortdaten ohne neue PLZ unverändert", () => {
     for (const country of ["DE", "ES", "IT", "GR", "AT", "CH"]) {
       const details = atPlace(country);

@@ -15,17 +15,14 @@ export function outgoingTaxIssues(treatment: TaxTreatment, details: OutgoingTaxD
   const place = details?.foreignPlace;
   // Nur der ausdrücklich erfasste tatsächliche Ort zählt hier, niemals die Anschrift des Kunden.
   const territory = vatTerritory(place?.country, place?.postalCode);
+  const euForeignPlace = place && place.country !== "DE" && inEuVatArea(place.country) && !territory;
   const foreignConfirmed = Boolean(
     place && /^[A-Z]{2}$/.test(place.country) && (place.country !== "DE" || (treatment === "drittland" && territory)) && place.noForeignVat,
   );
-  if (
-    place &&
-    ((treatment === "reverse_charge" && (place.country === "DE" || !inEuVatArea(place.country))) ||
-      (treatment === "drittland" && inEuVatArea(place.country) && !territory))
-  ) {
+  if (place && ((treatment === "reverse_charge" && !euForeignPlace) || (treatment === "drittland" && inEuVatArea(place.country) && !territory))) {
     issues.push("Der tatsächliche Leistungsort passt nicht zur gewählten EU-/Drittland-Behandlung");
   }
-  if (treatment === "eu_sonstige" && (!foreignConfirmed || !inEuVatArea(place!.country))) {
+  if (treatment === "eu_sonstige" && (!foreignConfirmed || !euForeignPlace)) {
     issues.push(
       "Für die sonstige EU-Leistung bitte den tatsächlichen Leistungsort im EU-Ausland und die Behandlung ohne auszuweisende ausländische Umsatzsteuer bestätigen",
     );
