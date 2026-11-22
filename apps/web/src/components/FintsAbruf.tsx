@@ -72,8 +72,14 @@ function trenntAndere(connections: readonly Verbindung[], busy: string | null, a
   return c ? `die Verbindung zu ${nameImGrund(c, connections)} getrennt ist` : null;
 }
 
-/** Gesperrte Knöpfe einer Zeile, „Trennen“ nur mit trennen; „Zugang ändern“ hat nur eine Verbindung mit Fehler */
-const knoepfe = (c: Verbindung, trennen: boolean) => [...(trennen ? ["Trennen"] : []), ...(c.status === "fehler" ? ["Zugang ändern"] : []), "Jetzt abrufen"];
+/**
+ * Gesperrte Knöpfe einer Zeile, „Trennen“ nur mit trennen; „Zugang ändern“ hat nur eine Verbindung mit Fehler. Ohne
+ * FINTS_PRODUKT_ID (configured) gibt es an der Zeile nur „Trennen“
+ */
+const knoepfe = (c: Verbindung, trennen: boolean, configured: boolean) => [
+  ...(trennen ? ["Trennen"] : []),
+  ...(configured ? [...(c.status === "fehler" ? ["Zugang ändern"] : []), "Jetzt abrufen"] : []),
+];
 
 function sperrSatz(namen: string[], sobald: string): string {
   const liste = new Intl.ListFormat("de").format(namen.map((k) => `„${k}“`));
@@ -88,16 +94,16 @@ function sperrSatz(namen: string[], sobald: string): string {
  * deren Abruf antwortet (#1662). Während „Trennen“ an einer anderen Zeile sind alle Knöpfe kurz gesperrt (#1677); bei
  * offenem Formular nennt ein zweiter Satz dann „Trennen“
  */
-export function zeilenGrund(c: Verbindung, connections: readonly Verbindung[], z: Pick<FintsZustand, "verbinden" | "offen" | "busy">) {
+export function zeilenGrund(c: Verbindung, connections: readonly Verbindung[], z: Pick<FintsZustand, "verbinden" | "offen" | "busy">, configured = true) {
   const getrennt = trenntAndere(connections, z.busy, c.id);
   if (z.verbinden) {
     const schritt = z.offen?.fuer === "neu";
-    const text = sperrSatz(knoepfe(c, schritt), "das Verbinden über FinTS oben fertig oder abgebrochen ist");
+    const text = sperrSatz(knoepfe(c, schritt, configured), "das Verbinden über FinTS oben fertig oder abgebrochen ist");
     if (getrennt && !schritt) return { text: `${text} ${sperrSatz(["Trennen"], getrennt)}`, trennen: true };
     return { text, trennen: schritt };
   }
   const sobald = wartetAuf(connections, z, c.id) ?? getrennt;
-  return sobald ? { text: sperrSatz(knoepfe(c, true), sobald), trennen: true } : null;
+  return sobald ? { text: sperrSatz(knoepfe(c, true, configured), sobald), trennen: true } : null;
 }
 
 const meldungenAus = (s: Extract<Schritt, { art: "fertig" }>): Meldung[] => [
@@ -265,7 +271,7 @@ export function FintsAbruf({
   const verwerfen = useServerFn(cancelFints);
   const [vorlage, setVorlage] = useState<Verbindung | null>(null);
   const grundId = useId();
-  const grundVon = (c: Verbindung) => zeilenGrund(c, fints.connections, { verbinden, offen, busy });
+  const grundVon = (c: Verbindung) => zeilenGrund(c, fints.connections, { verbinden, offen, busy }, fints.configured);
   // ID des Grundes an der Zeile für aria-describedby; mitTrennen für „Trennen“, das nicht jeder Grund nennt
   const grundZeile = (c: Verbindung, mitTrennen = false) => {
     const grund = grundVon(c);
