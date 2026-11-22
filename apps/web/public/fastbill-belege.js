@@ -15,7 +15,8 @@
  */
 {
   // Ein Block statt einer Funktion um alles: Die Hilfen bleiben lokal, auch wenn man das Skript zweimal einfügt, und keine
-  // Funktion wird länger als 80 Zeilen (#1676)
+  // Funktion wird länger als 80 Zeilen (#1676). Der Kommentar oben muss vor der Klammer bleiben: Safari setzt eine Eingabe,
+  // die mit { beginnt und mit } endet, ungeprüft in runde Klammern (WebKit, RuntimeManager.wrapLiteralExpression)
   const FORMAT = "haben-fastbill-belege";
   const VERSION = 1;
   const PART_LIMIT = 50 * 1024 * 1024;
