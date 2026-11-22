@@ -10,7 +10,7 @@ import {
   type ParsedStatement,
   type ParsedTransaction,
 } from "@haben/import";
-import { and, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { importAccount } from "./import-konto.ts";
 import { recordDuplicateCandidates } from "./duplicate-scan.ts";
@@ -83,9 +83,11 @@ export async function storeStatement(
 export async function prepareStatement(tx: Tx, statement: ParsedStatement, filename: string, accountId: string | null) {
   const account = await importAccount(tx, statement, filename, accountId);
 
-  // Auch ein Import, der sich mit dem neuen Zeitraum überschneidet, ist ein Kandidat: Sein Endsaldo steht
-  // dann mitten im neuen Zeitraum, und checkBalanceContinuity vergleicht die Salden nicht direkt. Ein leerer
-  // Auszug mit Kontostand hat keinen Anfang, aber ein Ende; er zählt mit seinem Enddatum.
+  // Voriger Import ist der, der zuletzt endet, unter denen, die spätestens mit der neuen Datei beginnen. Reicht er
+  // in den neuen Zeitraum hinein, steht sein Endsaldo mitten darin, und checkBalanceContinuity meldet die
+  // Überschneidung statt einer Lücke. Ein später beginnender Import sagt über den Anfangssaldo nichts. Ein leerer
+  // Auszug mit Kontostand hat keinen Anfang, aber ein Ende; er beginnt und endet mit seinem Enddatum.
+  const nextStart = statement.periodFrom ?? statement.periodTo;
   const [previous] = await tx
     .select({ closingBalance: schema.bankImports.closingBalance, periodTo: schema.bankImports.periodTo })
     .from(schema.bankImports)
@@ -93,12 +95,7 @@ export async function prepareStatement(tx: Tx, statement: ParsedStatement, filen
       and(
         eq(schema.bankImports.bankAccountId, account.id),
         echterImport,
-        statement.periodTo
-          ? or(
-              and(isNull(schema.bankImports.periodFrom), lte(schema.bankImports.periodTo, statement.periodTo)),
-              lte(schema.bankImports.periodFrom, statement.periodTo),
-            )
-          : sql`true`,
+        nextStart ? lte(sql`coalesce(${schema.bankImports.periodFrom}, ${schema.bankImports.periodTo})`, nextStart) : sql`true`,
       ),
     )
     .orderBy(desc(schema.bankImports.periodTo), desc(schema.bankImports.createdAt))
