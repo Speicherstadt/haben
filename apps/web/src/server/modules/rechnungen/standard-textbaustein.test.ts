@@ -154,21 +154,25 @@ describe.skipIf(!testDatabaseUrl)("Standard-Textbaustein je Belegart (Postgres, 
     expect(texts[3].closing).toBe(DUNNING_TEXTS[3].closing);
   });
 
-  it("Auftragsbestätigung und Lieferschein nehmen ihren Standard beim Erzeugen", async () => {
-    const angebot = await quotes.finalizeQuote(
-      actor,
-      (await quotes.createQuoteDraft(actor, { ...(await quotes.newQuoteDefaults("2026-11-02")), contactId, intro: "Einleitung des Angebots", lines })).id,
-    );
-    await quotes.setQuoteDecision(actor, angebot.id, "angenommen");
-    const ohne = pdfText((await docs.confirmationPdf(angebot.id)).pdf);
+  it("Auftragsbestätigung nimmt ihren Standard nur ohne eigenen Text des Angebots, der Lieferschein beim Erzeugen", async () => {
+    const angenommen = async (intro: string) => {
+      const draft = await quotes.createQuoteDraft(actor, { ...(await quotes.newQuoteDefaults("2026-11-02")), contactId, intro, lines });
+      const angebot = await quotes.finalizeQuote(actor, draft.id);
+      await quotes.setQuoteDecision(actor, angebot.id, "angenommen");
+      return angebot;
+    };
+    const mitText = await angenommen("Einleitung des Angebots");
+    const ohneText = await angenommen("");
     await baustein("kopf", "Vielen Dank für Ihren Auftrag {nummer}.", "auftragsbestaetigung");
     await baustein("fuss", "Ware vollständig erhalten:", "lieferschein");
-    const bestaetigung = pdfText((await docs.confirmationPdf(angebot.id)).pdf);
-    const lieferschein = pdfText((await docs.deliveryNotePdf("angebot", angebot.id)).pdf);
-    if (ohne === null || bestaetigung === null || lieferschein === null) return; // ohne pdftotext nur die Erzeugung geprüft
-    expect(ohne).toContain("Einleitung des Angebots");
-    expect(bestaetigung).toContain(`Vielen Dank für Ihren Auftrag ${angebot.number}.`);
-    expect(bestaetigung).not.toContain("Einleitung des Angebots");
+    const eigene = pdfText((await docs.confirmationPdf(mitText.id)).pdf);
+    const standard = pdfText((await docs.confirmationPdf(ohneText.id)).pdf);
+    const lieferschein = pdfText((await docs.deliveryNotePdf("angebot", mitText.id)).pdf);
+    if (eigene === null || standard === null || lieferschein === null) return; // ohne pdftotext nur die Erzeugung geprüft
+    // Entscheidung des Maintainers in #1576: Der eigene Text des Angebots geht vor
+    expect(eigene).toContain("Einleitung des Angebots");
+    expect(eigene).not.toContain(`Vielen Dank für Ihren Auftrag ${mitText.number}.`);
+    expect(standard).toContain(`Vielen Dank für Ihren Auftrag ${ohneText.number}.`);
     expect(lieferschein).toContain("Ware vollständig erhalten:");
   }, 60_000);
 
