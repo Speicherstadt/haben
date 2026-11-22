@@ -52,7 +52,7 @@ describe.skipIf(!testDatabaseUrl)("Migration 0314: Standard je Mahnstufe (Postgr
     const { migrate } = await import("drizzle-orm/postgres-js/migrator");
     await migrate(drizzle(sql), { migrationsFolder: MIGRATIONS });
 
-    expect(await sql`select name, kind, text, standard_fuer from text_blocks order by standard_fuer nulls first, kind`).toEqual([
+    expect(await sql`select name, kind, text, standard_fuer from text_blocks order by standard_fuer nulls first, kind desc`).toEqual([
       { name: "Dank", kind: "fuss", text: "Vielen Dank!", standard_fuer: null },
       { name: "Offen (Zahlungserinnerung)", kind: "kopf", text: "Unsere Rechnung ist noch offen.", standard_fuer: "mahnstufe_1" },
       { name: "Schluss (Zahlungserinnerung)", kind: "fuss", text: "Bei Rückfragen rufen Sie mich gern an.", standard_fuer: "mahnstufe_1" },

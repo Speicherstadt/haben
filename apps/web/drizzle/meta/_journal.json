@@ -2199,6 +2199,13 @@
       "when": 1795324304682,
       "tag": "0313_standard_textbaustein",
       "breakpoints": true
+    },
+    {
+      "idx": 314,
+      "version": "7",
+      "when": 1795359172970,
+      "tag": "0314_standard_je_mahnstufe",
+      "breakpoints": true
     }
   ]
 }
