@@ -14,6 +14,7 @@ import { WebBackup } from "./WebBackup.tsx";
 import { BuchhaltungsButlerImport } from "./BuchhaltungsButlerImport.tsx";
 import { SevdeskAssets } from "./SevdeskAssets.tsx";
 import { WisoImport } from "./WisoImport.tsx";
+import { WisoAssets } from "./WisoAssets.tsx";
 import { SevdeskExportImport } from "./SevdeskExportImport.tsx";
 import { FastbillReceipts } from "./FastbillReceipts.tsx";
 import { fastbillUsageText, FastbillArticles, FastbillLoginFields } from "./FastbillTeile.tsx";
@@ -116,7 +117,10 @@ export function Migration({ data }: { data: MigrationData }) {
       {source === "buchhaltungsbutler" ? (
         <BuchhaltungsButlerImport key="buchhaltungsbutler" initial={data.bbImport} />
       ) : source === "wiso" ? (
-        <WisoImport key="wiso" initial={data.wisoImport} />
+        <>
+          <WisoImport initial={data.wisoImport} />
+          <WisoAssets />
+        </>
       ) : source === "accountable" ? (
         <ImportCard key={`accountable-${lastImport?.id ?? "neu"}`} source="accountable" connected initial={lastImport} />
       ) : (
