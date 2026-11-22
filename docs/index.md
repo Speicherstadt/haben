@@ -75,7 +75,7 @@ Du prüfst, wählst die Kategorie und buchst.
 
 ## Enter, und die Zahlung ist zugeordnet
 
-Die Umsätze kommen über Enable Banking (PSD2) oder FinTS von selbst oder als Datei von DKB, ING, Commerzbank, Deutscher Bank, Postbank, C24, N26, PayPal, Stripe und vielen anderen.
+Die Umsätze kommen über Enable Banking (PSD2) oder FinTS von selbst oder als Datei von DKB, ING, Commerzbank, BW-Bank, Deutscher Bank, Postbank, C24, N26, PayPal, Stripe und vielen anderen.
 Zu jedem Umsatz schlägt Haben die passende Rechnung oder den Beleg vor und sagt, warum: Betrag,
 Rechnungsnummer, IBAN, Name.
 
