@@ -16,6 +16,7 @@ import {
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useId, useState, type FormEvent } from "react";
+import { AccountCombobox } from "../../../components/AccountCombobox.tsx";
 import { DatevEroeffnung } from "../../../components/DatevEroeffnung.tsx";
 import { Icon } from "../../../components/Icon.tsx";
 import { NoticeBanner } from "../../../components/NoticeBanner.tsx";
@@ -32,17 +33,27 @@ export const Route = createFileRoute("/_app/buchungen/neu")({
   component: ManualEntryPage,
 });
 
-/** Eine Zeile, wie sie im Formular steht: Beträge als Text, bis zum Buchen */
+/** Eine Zeile, wie sie im Formular steht: Beträge als Text, bis zum Buchen.
+ *  accountText ist die Eingabe im Konto-Feld (Nummer oder Namenseingabe zur Suche);
+ *  account ist die gewählte Kontonummer, leer bis die Auswahl übernommen wurde. */
 interface Row {
   key: number;
   account: string;
+  accountText: string;
   debit: string;
   credit: string;
   /** Steuerschlüssel einer freien Buchung; der Betrag ist dann brutto */
   taxCode: FreierSteuerschluessel | "";
 }
 
-const emptyRow = (key: number): Row => ({ key, account: "", debit: "", credit: "", taxCode: "" });
+const emptyRow = (key: number): Row => ({ key, account: "", accountText: "", debit: "", credit: "", taxCode: "" });
+
+/** Namenseingaben ohne Auswahl zählen als leeres Konto und brauchen einen Hinweis zur Auswahl. */
+function kontoSuchfehler(rows: Row[]): string[] {
+  return rows.flatMap((r, i) =>
+    r.accountText.trim() !== "" && r.account.trim() === "" ? [`Zeile ${i + 1}: Konto nicht gefunden; aus der Liste wählen oder die Nummer eingeben`] : [],
+  );
+}
 
 /** Steuerschlüssel freier Buchungen, wie sie die Auswahl nennt (docs/adr/journal-als-quelle.md, Entscheidung 4) */
 const SCHLUESSEL_NAME: Record<FreierSteuerschluessel, string> = { USt19: "USt 19 %", USt7: "USt 7 %", frei: "0 %" };
@@ -94,10 +105,11 @@ function ManualEntryForm({ data }: { data: Data }) {
     ...(kind === "umbuchung" && (!gmbh || mitSchluessel)
       ? freieBuchungIssues(lines, { kontenrahmen: data.kontenrahmen, rechtsform: data.rechtsform, kleinunternehmer: data.kleinunternehmer })
       : []),
+    ...kontoSuchfehler(rows),
   ];
   const sum = (side: "debit" | "credit") => lines.reduce((s, l) => s + (Number.isFinite(l[side]) ? l[side] : 0), 0);
   const difference = sum("debit") - sum("credit");
-  const touched = rows.some((r) => r.account || r.debit || r.credit);
+  const touched = rows.some((r) => r.account || r.accountText || r.debit || r.credit);
   // Was gebucht wird, wenn eine Zeile einen Steuerschlüssel trägt: brutto geteilt in Netto und Steuer
   const gebucht = mitSchluessel && issues.length === 0 ? freieBuchungPosting(lines, data.kontenrahmen) : null;
   // Was an den Zeilen fehlt, steht als Liste unter der Tabelle; das Konto der ersten Zeile zeigt darauf und bekommt den Fokus
@@ -181,7 +193,7 @@ function ManualEntryForm({ data }: { data: Data }) {
                 key={r.key}
                 r={r}
                 index={index}
-                kontoName={data.accounts[r.account.trim()] ?? ""}
+                accounts={data.accounts}
                 kontenrahmen={data.kontenrahmen}
                 mitSchluesseln={mitSchluesseln}
                 fehlerId={zeilenFehler && index === 0 ? zeilenFehlerId : null}
@@ -249,7 +261,7 @@ function ManualEntryForm({ data }: { data: Data }) {
 function BuchungsZeile({
   r,
   index,
-  kontoName,
+  accounts,
   kontenrahmen,
   mitSchluesseln,
   fehlerId,
@@ -259,7 +271,7 @@ function BuchungsZeile({
 }: {
   r: Row;
   index: number;
-  kontoName: string;
+  accounts: Data["accounts"];
   kontenrahmen: Data["kontenrahmen"];
   mitSchluesseln: boolean;
   fehlerId: string | null;
@@ -270,19 +282,19 @@ function BuchungsZeile({
   return (
     <tr>
       <td>
-        <input
-          aria-label={`Konto Zeile ${index + 1}`}
-          aria-invalid={fehlerId ? true : undefined}
-          aria-describedby={fehlerId ?? undefined}
-          className="mono"
-          inputMode="numeric"
-          maxLength={4}
-          size={6}
-          value={r.account}
-          onChange={(e) => update(r.key, { account: e.target.value.replace(/\D/g, "") })}
+        {/* Die Auswahl trägt Nummer und Namenseingabe zusammen; ein freier Zahlentext ohne Treffer zählt als Kontonummer */}
+        <AccountCombobox
+          index={index}
+          value={r.accountText}
+          accounts={accounts}
+          invalid={Boolean(fehlerId)}
+          describedBy={fehlerId ?? undefined}
+          onInput={(text) => update(r.key, { accountText: text, account: /^\d{1,4}$/.test(text.trim()) ? text.trim() : "" })}
+          onPick={(a) => update(r.key, { account: a.number, accountText: a.number })}
         />
       </td>
-      <td className="small muted">{kontoName}</td>
+      {/* Der Name steht schon in der Kontenzeile hinter der Nummer; die Spalte bleibt für Zeilen ohne Auswahl leer */}
+      <td className="small muted">{r.account ? (accounts[r.account] ?? "") : ""}</td>
       <td className="num">
         <input
           aria-label={`Soll Zeile ${index + 1}`}
@@ -311,7 +323,12 @@ function BuchungsZeile({
             onChange={(e) => {
               const taxCode = e.target.value as Row["taxCode"];
               // Ein Schlüssel gehört zu genau einem Erlöskonto; ein leeres Konto füllt Haben vor
-              update(r.key, { taxCode, ...(taxCode && !r.account ? { account: freieBuchungKonto(kontenrahmen, taxCode) } : {}) });
+              update(r.key, {
+                taxCode,
+                ...(taxCode && !r.account && !r.accountText
+                  ? { account: freieBuchungKonto(kontenrahmen, taxCode), accountText: freieBuchungKonto(kontenrahmen, taxCode) }
+                  : {}),
+              });
             }}
           >
             <option value="">ohne</option>

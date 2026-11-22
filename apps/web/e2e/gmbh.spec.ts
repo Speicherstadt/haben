@@ -1,3 +1,4 @@
+import { kontensuchePruefen } from "./kontensuche.ts";
 import { waehleKategorie } from "./kategorie.ts";
 import { filePickerPruefen } from "./dateiauswahl.ts";
 import AxeBuilder from "@axe-core/playwright";
@@ -86,6 +87,11 @@ test("Einrichtung als GmbH mit SKR04", async () => {
   await expect(page.getByRole("heading", { name: /^Umsatzsteuererklärung/ }).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: /Anlage EÜR/ })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: /Einkommensteuererklärung/ })).toHaveCount(0);
+});
+
+test("Manuelle Buchung: Konten nach Namen suchen, auswählen und leeren", async () => {
+  await go("/buchungen/neu");
+  await kontensuchePruefen(page);
 });
 
 test("Eröffnung nicht am 1. Januar: der Fehler steht am Datum und der Fokus dort (Review #971)", async () => {
