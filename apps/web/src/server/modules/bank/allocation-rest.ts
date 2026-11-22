@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { BankError } from "./bank-error.ts";
-import { documentOpen, invoiceOpen } from "@haben/core";
+import { documentOpen, invoiceOpen, paidTaxShares } from "@haben/core";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { withActor } from "../../db/actor.ts";
@@ -12,7 +12,7 @@ import { bookPart, type Part } from "./allocation.ts";
 import { type LockedTransaction, lockTransaction } from "./payment-booking.ts";
 import { settledOn } from "./settled-amounts.ts";
 import { bookWriteOff } from "./write-offs.ts";
-import { mitEinemSteuersatz } from "./offene-posten.ts";
+import { restMixeNachKorrekturen } from "./offene-posten.ts";
 
 export const restSchema = z.object({
   transactionId: z.uuid(),
@@ -95,17 +95,24 @@ async function allocateWithCorrectionsAndSkonto(
   if (parts.length !== gewaehlt.size || parts.some((p) => p.kind === "invoice" && !gewaehlt.has(p.invoiceId))) {
     throw new BankError("Die gewählten Korrekturen passen nicht zu den offenen Korrekturen der Rechnung. Bitte die Ansicht neu laden.");
   }
-  const einSatz = await mitEinemSteuersatz(new Map([[invoice.id, [...gewaehlt]]]), tx);
-  if (!einSatz.has(invoice.id)) {
+  const mix = (await restMixeNachKorrekturen(new Map([[invoice.id, [...gewaehlt]]]), tx)).get(invoice.id);
+  if (!mix) {
     throw new BankError(
-      "Skonto nach einer Korrektur geht nur, wenn Rechnung und Korrekturen denselben Steuersatz haben. Teile den Umsatz auf und buche den Rest einzeln.",
+      "Skonto nach einer Korrektur geht nur, wenn die Korrekturen keinen Steuersatz haben, den die Rechnung nicht hat. Teile den Umsatz auf und buche den Rest einzeln.",
     );
   }
   const invoiceAmount = bank.open - parts.reduce((sum, p) => sum + p.amount, 0);
+  const skonto = invoiceOpen({ ...invoice, paid: 0, cancelled: false }) - invoiceAmount;
+  if (skonto <= 0) throw new BankError(`Die Zahlung deckt Rechnung ${invoice.number} samt Korrekturen; es bleibt kein Skonto.`);
+  // Das Skonto mindert die Entgelte nach den Korrekturen (§ 17 Abs. 1 Satz 1 UStG, #1586), nicht den Mix der Rechnung. Es
+  // bucht zuerst; die Zuordnung danach schließt die Rechnung ab und bekommt so genau den Rest (settlementTaxShares). Jeder Satz
+  // der Rechnung steht im Anteil, auch mit null, damit Voranmeldung und EÜR ihn als gespeichert annehmen (recordedTaxShares).
+  const anteile = paidTaxShares(mix.rest, skonto);
+  const taxShares = mix.rechnung.taxes.map((t) => anteile.find((a) => a.rate === t.rate) ?? { rate: t.rate, base: 0, tax: 0 });
+  await bookWriteOff(tx, company, { kind: "skonto", invoiceId, date: bank.bookingDate, transactionId: bank.id, amount: skonto }, { taxShares });
   const splitId = randomUUID();
   await bookPart(tx, company, bank, { kind: "invoice", invoiceId, amount: invoiceAmount }, splitId);
   for (const part of parts) await bookPart(tx, company, bank, part, splitId);
-  await bookWriteOff(tx, company, { kind: "skonto", invoiceId, date: bank.bookingDate, transactionId: bank.id });
 }
 
 /**

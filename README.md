@@ -1,13 +1,14 @@
 <div align="center">
 
-<h1>Haben: Open-Source-Buchhaltung, selbst gehostet</h1>
+<h1>Haben ist, was dir gehört.</h1>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/hero-dunkel.png">
   <img src="docs/hero-hell.png" alt="Haben, Deine Bücher. Dein Server.: E-Rechnung über 1.725,50 € festgeschrieben, Zahlungseingang zugeordnet, in der Voranmeldung Oktober mit Kennzahl 81 enthalten und an ELSTER übermittelt" width="900">
 </picture>
 
-**Die Buchhaltungssoftware für Freiberufler, Selbstständige, Kleinunternehmer und kleine GmbHs, die du selbst betreibst.**<br>
+**Open-Source-Buchhaltung, selbst gehostet: für Freiberufler, Selbstständige, Kleinunternehmer und kleine GmbHs.**
+
 Rechnungen mit E-Rechnung (ZUGFeRD, XRechnung), Belege, Bankabgleich, EÜR oder Bilanz mit E-Bilanz und die Steuern
 direkt an ELSTER. Für die GoBD gebaut, auf deinem Server; Daten gehen nur an Dienste, die du selbst einschaltest.
 
@@ -46,12 +47,15 @@ direkt an ELSTER. Für die GoBD gebaut, auf deinem Server; Daten gehen nur an Di
 
 ## Warum Haben?
 
-**Haben ist, was dir gehört. Digitale Souveränität fängt mit deinen eigenen Büchern an.** 🇩🇪 🇪🇺
+**Digitale Souveränität fängt mit deinen eigenen Büchern an.** 🇩🇪 🇪🇺
 
 Rechnungen schreiben, Belege sammeln, Konto abgleichen, Voranmeldung schicken: Dafür braucht es kein Abo bei
 Lexware Office (früher lexoffice) oder sevDesk, und deine Rechnungen liegen nicht auf fremden Servern. Haben ist die
 Open-Source-Alternative dazu: eine Web-App für Buchhaltung, Steuern und Rechnungen, die du mit Docker oder Podman
 auf deinem eigenen Server betreibst.
+
+**Für wen?** Freiberufler und Selbstständige mit EÜR, Kleinunternehmer nach § 19 UStG und kleine GmbHs oder
+UGs mit Bilanz. Du brauchst einen Server oder Rechner mit Docker; die Steuerberatung kann einen eigenen Zugang bekommen.
 
 - **Ein Weg vom Beleg bis zum Finanzamt**: festschreiben, Zahlung zuordnen, Voranmeldung prüfen und senden
 - **Nachprüfbar statt „vertrau uns“**: Beim Umzug rechnet Haben deine alten Jahre nach, zum Vergleich mit deinen
@@ -178,39 +182,16 @@ beschreiben [Umzug aus Lexoffice](https://haben.app/lexoffice.html) und [Umzug a
 </details>
 
 <details>
-<summary><b>Für wen ist Haben gedacht?</b></summary>
-
-Für Freiberufler, Selbstständige und Kleinunternehmer mit Einnahmen-Überschuss-Rechnung (EÜR), auch mit
-Kleinunternehmerregelung nach § 19 UStG, und für kleine GmbHs und UGs. Eine GmbH oder UG macht ihre Buchhaltung in Haben, mit
-Gesellschafter-Verrechnungskonto statt Privatkonten; Bilanz und GuV zeigt Haben als Entwurf für die Steuerberatung und
-sendet E-Bilanz, Körperschaft- und Gewerbesteuererklärung (für eine GmbH ohne Beteiligungen und Organschaft) und
-bucht Gewinnausschüttungen samt Kapitalertragsteuer-Anmeldung und Steuerbescheinigungen für die Gesellschafter. Die Bilanz zur Hinterlegung beim Unternehmensregister
-erstellt Haben als PDF, mit den Vermerken zu Restlaufzeiten und gegenüber Gesellschaftern. Den Lohn des Gesellschafter-Geschäftsführers, von Minijobs und (als Entwurf zum Gegenprüfen) von Angestellten rechnet und bucht Haben, meldet die Lohnsteuer über ELSTER an und listet Beitragsnachweis und Meldungen zum Abtippen im SV-Meldeportal, siehe [Lohn](https://haben.app/lohn.html).
-</details>
-
-<details>
 <summary><b>Woher weiß ich, dass die Zahlen stimmen?</b></summary>
 
-Du musst Haben nicht glauben, du kannst nachrechnen:
+Du kannst nachrechnen: Vor dem Umzug rechnet Haben deine alten Jahre nach, zum Vergleich mit deinen Voranmeldungen
+und dem Abschluss der Steuerberatung ([Abgleich je Jahr](https://haben.app/lexoffice.html#schritt-5-abgleich-je-jahr)).
+Danach führt jede Kennzahl zu den Rechnungen, Belegen und Zahlungen dahinter
+([Abgleich im Journal](https://haben.app/buchhaltung.html#abgleich-im-journal)), und das Änderungsprotokoll ist eine
+versiegelte Hashkette ([Hash-Kette und Siegel](https://haben.app/buchhaltung.html#manipulationserkennung-hash-kette-und-siegel)).
 
-- **Vor dem Umzug:** Haben rechnet deine alten Jahre aus Lexware Office oder sevDesk nach, mit Einnahmen, Ausgaben und
-  Umsatzsteuer je Monat zum Vergleich mit deinen übermittelten Voranmeldungen. Bei GmbH und UG rechnet es aus dem
-  DATEV-Stapel Bilanz, GuV, Körperschaft- und Gewerbesteuer zum Vergleich mit dem Abschluss der Steuerberatung.
-  So siehst du vor der Kündigung, ob Haben auf dieselben Zahlen kommt, siehe
-  [Abgleich je Jahr](https://haben.app/lexoffice.html#schritt-5-abgleich-je-jahr).
-- **Im laufenden Jahr:** Unter jeder Kennzahl der Voranmeldung stehen die Rechnungen, Belege und Zahlungen dahinter,
-  jede Buchung im Journal führt zu ihrem Vorgang. Voranmeldung und EÜR rechnet Haben aus dem Journal und prüft es gegen
-  Rechnungen, Belege, gesendete Anmeldungen und Kontoauszüge, siehe
-  [Abgleich im Journal](https://haben.app/buchhaltung.html#abgleich-im-journal).
-- **Danach:** Das Änderungsprotokoll ist eine Hashkette, festgeschriebene Daten sind versiegelt, und den Prüfwert
-  bekommst du per E-Mail und im Jahresarchiv mit SHA-256-Prüfsummen, siehe
-  [Hash-Kette und Siegel](https://haben.app/buchhaltung.html#manipulationserkennung-hash-kette-und-siegel).
-- **Offen:** Code und Tests sind öffentlich, mit der Quelle (Gesetz, ERiC-Dokumentation, EN 16931) an den Stellen, wo
-  sie ein Detail entscheidet.
-
-Was das nicht ersetzt: Nachprüfbar heißt nicht geprüft. Ein Testat für die Software gibt es nicht, und ist eine
-Steuerregel falsch verstanden, rechnet Haben sie auch nachvollziehbar falsch. Die fachliche Prüfung bleibt bei dir und
-deiner Steuerberatung.
+Nachprüfbar heißt nicht geprüft: Ein Testat gibt es nicht, und eine falsch verstandene Steuerregel rechnet Haben
+nachvollziehbar falsch. Die fachliche Prüfung bleibt bei dir und deiner Steuerberatung.
 </details>
 
 <details>
@@ -328,9 +309,9 @@ Aufbau und Abläufe beschreibt die [Architektur](https://haben.app/architektur.h
 | `apps/web` | Oberfläche, Server Functions, Datenbank, Anmeldung |
 | `packages/core` | Beträge, Zeiträume, Voranmeldung, EÜR, Buchungssätze, Zuordnungsvorschläge |
 | `packages/einvoice` | Rechnungs-PDF, ZUGFeRD und XRechnung erzeugen, eingehende E-Rechnungen lesen |
-| `packages/elster` | ERiC-Anbindung im Worker-Prozess, XML für Voranmeldung, Jahreserklärungen und Nachrichten, Postfach, Belege von ELSTER |
-| `packages/gobd-kern` | Unveränderbare Ablage nach GoBD ohne Bezug auf Haben: Dateispeicher unter SHA-256, Dateityp, Prüfwert, `index.xml` nach dem Beschreibungsstandard |
-| `packages/import` | CSV-Import von Kontakten, Artikeln und Anlagen, Kontoauszüge (DKB, Commerzbank, BW-Bank, Deutsche Bank mit Norisbank und Postbank, ING, C24, N26, Swan, CAMT.053), Exporte von Zahlungsdienstleistern (PayPal, Stripe, Shopify Payments, eBay), Kontoabruf über Enable Banking und FinTS, DATEV-Buchungsstapel, Lexware Office (API und Web-Sicherung), sevDesk-API |
+| `packages/elster` | ERiC-Anbindung im Worker-Prozess, XML für Anmeldungen und Erklärungen, Postfach |
+| `packages/gobd-kern` | Unveränderbare Ablage nach GoBD, unabhängig von Haben: Dateispeicher unter SHA-256, `index.xml` |
+| `packages/import` | Kontoauszüge und Zahlungsdienstleister, Kontoabruf (Enable Banking, FinTS), DATEV, Umzug aus Lexware Office und sevDesk, CSV-Import |
 | `apps/elster-helfer` | Browser-Erweiterung „Haben für Mein ELSTER“ (TypeScript, Vite): trägt die Werte aus Haben in die Formulare ein |
 
 ## Mehr von uns

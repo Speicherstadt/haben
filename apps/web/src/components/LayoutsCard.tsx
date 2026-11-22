@@ -1,10 +1,13 @@
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { BUILTIN_LAYOUTS, LAYOUT_DOCUMENT_LABELS, LAYOUT_DOCUMENT_TYPES, type LayoutDocumentType, type LayoutRef, type LetterheadDesign } from "@haben/core";
+import type { LetterheadDesign } from "@haben/core";
 import { formatDate } from "../lib/format.ts";
 import { useAction } from "../lib/use-action.ts";
-import { assignLayoutFn, reloadLayoutPackages, removeLayout, renameLayoutFn, replaceLayout, uploadLayout } from "../server/functions/layouts.ts";
+import { EingebauteLayouts } from "./EingebauteLayouts.tsx";
+import { LayoutOptionsSections } from "./LayoutOptionFields.tsx";
+import { LayoutZuordnung } from "./LayoutZuordnung.tsx";
+import { reloadLayoutPackages, removeLayout, renameLayoutFn, replaceLayout, uploadLayout } from "../server/functions/layouts.ts";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { useSubmitCheck } from "../lib/use-submit-check.ts";
 import { Field } from "./Field.tsx";
@@ -46,8 +49,6 @@ function PackageDialog({ packages, onConfirm, onClose }: { packages: string[] | 
 }
 
 const ART_LABEL = { beleg: "Belege", mahnung: "Mahnungen" } as const;
-const artFor = (type: LayoutDocumentType) => (type === "mahnung" ? "mahnung" : "beleg");
-const refValue = (ref: LayoutRef) => `${ref.kind}:${ref.id}`;
 const DOWNLOAD = "/api/belegvorlagen";
 export const LAYOUTS_DOCS = "https://haben.app/belegvorlagen.html";
 
@@ -56,83 +57,15 @@ const readText = (file: File) => file.text();
 
 /** Welches Layout welche Belegart bekommt, die eigenen Layouts und was man zum Schreiben eines Layouts braucht */
 export function LayoutsCard({ design, layouts }: { design: LetterheadDesign; layouts: LayoutRow[] }) {
-  const router = useRouter();
-  const assign = useServerFn(assignLayoutFn);
-  const { busy, notice, run } = useAction();
-
-  const onAssign = (type: LayoutDocumentType, value: string) =>
-    run(async () => {
-      const [kind, id] = value.split(":") as [LayoutRef["kind"], string];
-      await assign({ data: { type, ref: { kind, id } } });
-      await router.invalidate();
-    }, "Gespeichert. Gilt für alles, was ab jetzt erzeugt wird.");
-
   return (
     <section className="card" aria-labelledby="layouts-heading">
       <h2 id="layouts-heading">Layouts</h2>
       <p className="small muted" style={{ margin: 0 }}>
-        Jede Belegart hat ihr eigenes Layout, eingebaut oder selbst geschrieben. Ein Wechsel gilt für alles, was ab jetzt erzeugt wird, auch für offene
-        Entwürfe; festgeschriebene Belege behalten ihr PDF.
+        Ein Layout gilt für alle Belegarten; einzelne können ein anderes bekommen, eingebaut oder selbst geschrieben. Ein Wechsel gilt für alles, was ab jetzt
+        erzeugt wird, auch für offene Entwürfe; festgeschriebene Belege behalten ihr PDF.
       </p>
-      <table className="layouts-table">
-        <thead>
-          <tr>
-            <th scope="col">Belegart</th>
-            <th scope="col">Layout</th>
-          </tr>
-        </thead>
-        <tbody>
-          {LAYOUT_DOCUMENT_TYPES.map((type) => (
-            <tr key={type}>
-              <td>{LAYOUT_DOCUMENT_LABELS[type]}</td>
-              <td>
-                <Field label={`Layout für ${LAYOUT_DOCUMENT_LABELS[type]}`} hideLabel>
-                  {(control) => (
-                    <select {...control} value={refValue(design.layouts[type])} disabled={busy} onChange={(event) => void onAssign(type, event.target.value)}>
-                      {BUILTIN_LAYOUTS.map((entry) => (
-                        <option key={entry.id} value={refValue(entry)}>
-                          {entry.name} (eingebaut)
-                        </option>
-                      ))}
-                      {layouts
-                        .filter((layout) => layout.art === artFor(type))
-                        .map((layout) => (
-                          <option key={layout.id} value={`eigen:${layout.id}`}>
-                            {layout.name}
-                          </option>
-                        ))}
-                    </select>
-                  )}
-                </Field>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <NoticeBanner notice={notice} />
-      <section aria-labelledby="eingebaute-layouts-heading">
-        <h3 id="eingebaute-layouts-heading">Eingebaute Layouts</h3>
-        <ul className="own-layouts">
-          {(["beleg", "mahnung"] as const).map((art) => (
-            <li key={art}>
-              <div className="own-layout-name">
-                <strong>{BUILTIN_LAYOUTS[0]!.name}</strong>
-                <span className="small muted">{ART_LABEL[art]} · als Grundlage für ein eigenes Layout</span>
-              </div>
-              <div className="actions">
-                <a
-                  className="btn btn-sm"
-                  href={`${DOWNLOAD}?datei=start&art=${art}`}
-                  download
-                  aria-label={`${BUILTIN_LAYOUTS[0]!.name} für ${ART_LABEL[art]} herunterladen`}
-                >
-                  Herunterladen
-                </a>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <LayoutZuordnung design={design} layouts={layouts} />
+      <LayoutOptionsSections design={design} />
       <OwnLayouts layouts={layouts} />
       <LayoutUpload />
       <section aria-labelledby="layout-hilfe-heading">
@@ -142,6 +75,7 @@ export function LayoutsCard({ design, layouts }: { design: LetterheadDesign; lay
           Aussehen und lade das Ergebnis hier hoch. Haben prüft es mit Beispieldaten, bevor es gilt.
         </p>
         <div className="actions" style={{ flexWrap: "wrap" }}>
+          <EingebauteLayouts design={design} />
           <a className="btn btn-sm" href={LAYOUTS_DOCS} target="_blank" rel="noreferrer">
             Dokumentation
           </a>

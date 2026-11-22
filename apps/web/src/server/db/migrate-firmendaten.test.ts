@@ -48,7 +48,8 @@ describe.skipIf(!testDatabaseUrl)("Firmendaten-Bestätigung bei einer bestehende
         await tx`update company set kleinunternehmer = true where id = 1`;
       });
       const before = {
-        company: await sql`select to_jsonb(company) as value from company`,
+        // Die Standard-Einleitungen entfernt Migration 0313 (#1494); sie stehen dann als Textbausteine da
+        company: await sql`select to_jsonb(company) - 'invoice_intro' - 'quote_intro' as value from company`,
         audit: await sql`select * from audit_log order by seq`,
         entries: await sql`select * from journal_entries order by id`,
         lines: await sql`select * from journal_lines order by id`,
@@ -68,10 +69,14 @@ describe.skipIf(!testDatabaseUrl)("Firmendaten-Bestätigung bei einer bestehende
         await sql`select to_jsonb(company) - 'firmendaten_gespeichert_at' - 'nav_color' - 'nav_logo' - 'ohne_vorsteuerabzug'
           - 'archive_search' - 'founded_on' - 'invoice_counter_per_customer' - 'quote_counter_per_customer' as value from company`,
       ).toEqual(before.company);
-      // Bisherige Einträge unverändert; neu ist nur die Zeile der Prüfung beim Update (Migration 0275, #1116)
+      // Bisherige Einträge unverändert; neu sind nur die Zeile der Prüfung beim Update (Migration 0275, #1116) und das
+      // Briefkopf-Profil mit dem bisherigen Layout für die eingerichtete Firma (Migration 0312, #113)
       const audit = await sql`select * from audit_log order by seq`;
       expect(audit.slice(0, before.audit.length)).toEqual(before.audit);
-      expect(audit.slice(before.audit.length).map((a) => [a.table_name, a.action])).toEqual([["journal_umstellung", "INSERT"]]);
+      expect(audit.slice(before.audit.length).map((a) => [a.table_name, a.action])).toEqual([
+        ["journal_umstellung", "INSERT"],
+        ["letterhead_profiles", "INSERT"],
+      ]);
       expect(await sql`select * from journal_entries order by id`).toEqual(before.entries);
       expect(await sql`select * from journal_lines order by id`).toEqual(before.lines);
 

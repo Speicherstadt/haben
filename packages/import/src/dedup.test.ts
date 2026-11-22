@@ -134,7 +134,7 @@ describe("checkBalanceContinuity", () => {
     const neu = parseStatement(fixture("dkb-neu.csv"));
     const r = checkBalanceContinuity(alt, neu);
     expect(r.ok).toBe(true);
-    expect(r.message).toMatch(/überschneidet/);
+    expect(r.hinweis).toMatch(/überschneidet/);
   });
 
   it("CAMT-Folgeauszug schließt an", () => {
