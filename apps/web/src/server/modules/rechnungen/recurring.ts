@@ -2,9 +2,9 @@ import { INTERNAL_ERROR, isUniqueViolation, UserError, userMessage } from "../..
 import {
   fillPlaceholders,
   invoiceDueDate,
-  invoiceDueDates,
+  recurrenceDueDates,
   invoiceServicePeriod,
-  nextInvoiceDate,
+  nextRecurrenceDate,
   PAYMENT_METHODS,
   PRICE_MODES,
   type Recurrence,
@@ -280,7 +280,7 @@ function describe(error: unknown): string {
 }
 
 async function runOne(recurring: RecurringInvoice, today: string, umsatzStand: UmsatzStand, result: RunResult): Promise<void> {
-  const dates = invoiceDueDates(recurring.nextDate, recurring.recurrence, recurring.anchorDay, today, recurring.endDate);
+  const dates = recurrenceDueDates(recurring.nextDate, recurring.recurrence, recurring.anchorDay, today, recurring.endDate);
   let lastError: string | null = null;
   // Sprache und Skonto aus dem Kontakt, wie beim Anlegen im Editor
   const [contact] = await db
@@ -334,7 +334,7 @@ async function runOne(recurring: RecurringInvoice, today: string, umsatzStand: U
     }
   }
   const last = dates.at(-1);
-  const nextDate = last ? nextInvoiceDate(last, recurring.recurrence, recurring.anchorDay) : recurring.nextDate;
+  const nextDate = last ? nextRecurrenceDate(last, recurring.recurrence, recurring.anchorDay) : recurring.nextDate;
   const ended = recurring.endDate !== null && nextDate > recurring.endDate;
   await withActor(RECURRING_ACTOR, (tx) =>
     tx

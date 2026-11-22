@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { SevDocumentPos, SevInvoice } from "./types.ts";
-import { mapSevRecurringInvoice, sevBilling, sevIntervalMonths, sevPlaceholders, sevPlainText } from "./vorlagen.ts";
+import { mapSevRecurringInvoice, sevBilling, sevPlaceholders, sevPlainText } from "./vorlagen.ts";
 
 const fixture = (name: string) => JSON.parse(readFileSync(new URL(`../../test-fixtures/sevdesk/buchhaltung-1.0/${name}`, import.meta.url), "utf8"));
 const templates = fixture("rechnungsvorlage-wkr.json") as {
@@ -18,17 +18,6 @@ const v2 = JSON.parse(readFileSync(new URL("../../test-fixtures/sevdesk/buchhalt
 }[];
 
 describe("sevDesk-Vorlagen wiederkehrender Rechnungen", () => {
-  it("liest die Intervalle von sevDesk in Monaten, Wochen und Tage gehen nicht", () => {
-    expect(sevIntervalMonths("P0Y1M")).toBe(1);
-    expect(sevIntervalMonths("P0Y3M")).toBe(3);
-    expect(sevIntervalMonths("P1Y")).toBe(12);
-    expect(sevIntervalMonths("P1Y0M")).toBe(12);
-    expect(sevIntervalMonths("P0Y0M1W")).toBeNull();
-    expect(sevIntervalMonths("P0Y0M0W14D")).toBeNull();
-    expect(sevIntervalMonths("P")).toBeNull();
-    expect(sevIntervalMonths(null)).toBeNull();
-  });
-
   it("leitet nachfällig und vorschüssig aus den erzeugten Rechnungen ab", () => {
     // ID_26: zwei Rechnungen am Monatsende für den Monat; ID_20: eine am Monatsanfang
     expect(sevBilling("ID_26", generated)).toEqual({

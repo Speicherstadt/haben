@@ -2114,9 +2114,9 @@ export const recurringDocuments = pgTable(
     /** Das Dokument weist die Umsatzsteuer gesondert aus (Dauerrechnung, Vertrag mit Steuerbetrag); sonst keine Vorsteuer */
     taxShown: boolean("tax_shown").notNull().default(false),
     note: text("note").notNull().default(""),
-    /** Monate zwischen zwei Belegen: 1, 3, 6 oder 12 */
-    intervalMonths: smallint("interval_months").notNull(),
-    /** Tag im Monat, auf den die Termine fallen (31 = Monatsende) */
+    /** Abstand zweier Belege als Dauer nach ISO 8601 wie bei wiederkehrenden Rechnungen: P1W … P1Y (#1691) */
+    recurrence: text("recurrence", { enum: RECURRENCE_KEYS }).notNull(),
+    /** Tag im Monat, auf den die Termine fallen (31 = Monatsende); bei Wochen ohne Wirkung */
     anchorDay: smallint("anchor_day").notNull(),
     /** Erster Termin beim Anlegen, nur zur Anzeige */
     startDate: date("start_date", { mode: "string" }).notNull(),
@@ -2142,7 +2142,7 @@ export const recurringDocuments = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    check("recurring_documents_interval", sql`${t.intervalMonths} in (1, 3, 6, 12)`),
+    check("recurring_documents_recurrence", sql`${t.recurrence} in ('P1W', 'P2W', 'P4W', 'P1M', 'P2M', 'P3M', 'P6M', 'P1Y')`),
     check("recurring_documents_anchor_day", sql`${t.anchorDay} between 1 and 31`),
     check("recurring_documents_private_share", sql`${t.privateShare} between 0 and 100`),
     check("recurring_documents_due_days", sql`${t.dueDays} between 0 and 120`),
@@ -2245,7 +2245,7 @@ export const documents = pgTable(
      */
     replacesDocumentId: uuid("replaces_document_id"),
     /**
-     * Aus einem Dauerbeleg angelegt: die Vorlage und die Periode (Monatserster des Termins). Je Vorlage und Periode
+     * Aus einem Dauerbeleg angelegt: die Vorlage und die Periode (Monatserster des Termins, bei Wochen der Termin). Je Vorlage und Periode
      * höchstens ein Beleg, auch bei gleichzeitigen Läufen. Die Datei ist der Vertrag der Vorlage, also dieselbe für
      * alle Belege der Vorlage. Nur beim Anlegen gesetzt, ab dem Buchen mit dem Beleg gesperrt und versiegelt.
      */

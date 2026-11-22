@@ -1,4 +1,4 @@
-import { formatEuro, ownerLabels, RECURRING_INTERVALS, type RecurringInterval, type Rechtsform, VORSTEUER_HINWEIS } from "@haben/core";
+import { formatEuro, ownerLabels, RECURRENCE_KEYS, RECURRENCES, type Recurrence, recurrenceParts, type Rechtsform, VORSTEUER_HINWEIS } from "@haben/core";
 import type { RefObject } from "react";
 import type { Betragszeile } from "../lib/betragszeile.ts";
 import { CategoryCombobox } from "./CategoryCombobox.tsx";
@@ -107,6 +107,7 @@ export function DauerbelegAllgemein({
 }
 
 export function DauerbelegTermine({ v, set, error, isNew }: TeilProps & { isNew: boolean }) {
+  const { weeks } = recurrenceParts(v.recurrence);
   return (
     <section className="form-section" aria-labelledby="dauerbeleg-termine">
       <h2 id="dauerbeleg-termine">Termine</h2>
@@ -117,10 +118,10 @@ export function DauerbelegTermine({ v, set, error, isNew }: TeilProps & { isNew:
         </Field>
         <Field label="Intervall">
           {(control) => (
-            <select {...control} value={v.intervalMonths} onChange={(e) => set({ intervalMonths: Number(e.target.value) as RecurringInterval })}>
-              {Object.entries(RECURRING_INTERVALS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
+            <select {...control} value={v.recurrence} onChange={(e) => set({ recurrence: e.target.value as Recurrence })}>
+              {RECURRENCE_KEYS.map((key) => (
+                <option key={key} value={key}>
+                  {RECURRENCES[key]}
                 </option>
               ))}
             </select>
@@ -128,8 +129,11 @@ export function DauerbelegTermine({ v, set, error, isNew }: TeilProps & { isNew:
         </Field>
       </div>
       <p id="dauer-next-hint" className="field-hint">
-        Belegdatum, etwa der Zahlungsbeginn laut Vertrag. Die folgenden Termine liegen am selben Tag im Monat; der 31. wird zum Monatsende. Liegt er in der
-        Vergangenheit, legt Haben die verpassten Belege mit ihrem Datum an.
+        Belegdatum, etwa der Zahlungsbeginn laut Vertrag.{" "}
+        {weeks === null
+          ? "Die folgenden Termine liegen am selben Tag im Monat; der 31. wird zum Monatsende."
+          : `Die folgenden Termine liegen ${7 * weeks} Tage später, am selben Wochentag.`}{" "}
+        Liegt er in der Vergangenheit, legt Haben die verpassten Belege mit ihrem Datum an.
       </p>
       <div className="form-row cols-2">
         <Field label="Fällig Tage nach dem Termin" describedBy="due-hint" error={error("due")}>

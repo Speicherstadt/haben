@@ -1,4 +1,4 @@
-import { type Cents, type Millis, nthInvoiceDate, type Recurrence, type ServicePeriodMode, TAX_RATES, type TaxTreatment } from "@haben/core";
+import { type Cents, type Millis, nthRecurrenceDate, type Recurrence, type ServicePeriodMode, TAX_RATES, type TaxTreatment } from "@haben/core";
 import { parseImportUnit } from "../csv-import/values.ts";
 import { lexToBasisPoints, lexToCents } from "../lexoffice/map.ts";
 import { fbDate, fbNumber } from "./map.ts";
@@ -138,12 +138,12 @@ export function mapFbRecurring(raw: FbRecurring, units: readonly string[] = [], 
   const anchorDay = Number(startDate.slice(8, 10));
   // OCCURENCES zählt alle Läufe ab dem Startdatum (Maintainer in #1523)
   const occurrences = Math.round(fbNumber(raw.OCCURENCES));
-  const endDate = occurrences > 0 ? nthInvoiceDate(startDate, recurrence, anchorDay, occurrences - 1) : null;
+  const endDate = occurrences > 0 ? nthRecurrenceDate(startDate, recurrence, anchorDay, occurrences - 1) : null;
   if (endDate) hints.push(`Laut FastBill ${occurrences} Läufe; Enddatum bitte prüfen.`);
   // Ein Startdatum in der Vergangenheit erzeugte beim Aktivieren alle Termine seit dann (dueDates, bis 120 Rechnungen);
   // deshalb der erste Termin ab heute
   let nextDate = startDate;
-  for (let n = 1; nextDate < today && n < 1200; n++) nextDate = nthInvoiceDate(startDate, recurrence, anchorDay, n);
+  for (let n = 1; nextDate < today && n < 1200; n++) nextDate = nthRecurrenceDate(startDate, recurrence, anchorDay, n);
   hints.push(
     nextDate === startDate
       ? "„Nächste Rechnung am“ ist das Startdatum aus FastBill. Prüfen, wann FastBill zuletzt abgerechnet hat."

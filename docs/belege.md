@@ -93,13 +93,13 @@ Für Ausgaben, die in festen Abständen mit gleichem Betrag anfallen, etwa Büro
 
 1. **Neuer Dauerbeleg** öffnen.
 2. **Bezeichnung**, **Lieferant** (aus den Kontakten, mit Suche und Anlegen wie am Beleg, oder frei), optional **USt-IdNr.** und **Vertrags- oder Kundennummer**, **Kategorie** (mit Suche wie am Beleg) und **Bezahlung** eintragen.
-3. Unter **Termine** das **Intervall** (monatlich, vierteljährlich, halbjährlich, jährlich), **Erster Beleg am**, optional **Endet nach dem** und **Fällig Tage nach dem Termin** wählen.
+3. Unter **Termine** das **Intervall** (wöchentlich, alle 2 oder 4 Wochen, monatlich, alle 2 Monate, vierteljährlich, halbjährlich, jährlich), **Erster Beleg am**, optional **Endet nach dem** und **Fällig Tage nach dem Termin** wählen.
 4. Unter **Dokument** den **Vertrag oder die Dauerrechnung** hochladen (PDF, Foto oder E-Rechnung wie beim Hochladen eines Belegs, bis 20 MB) und angeben, ob das Dokument die Umsatzsteuer gesondert ausweist; unter **Beträge je Termin** die Beträge je Steuersatz eintragen.
 5. **Dauerbeleg anlegen**.
 
 | Feld | Bedeutung |
 | --- | --- |
-| Erster Beleg am, später Nächster Beleg am | Belegdatum des nächsten Belegs, etwa der Zahlungsbeginn laut Vertrag. Die folgenden Termine liegen am selben Tag im Monat; der 31. wird in kürzeren Monaten zum Monatsende (28. oder im Schaltjahr 29. Februar) und springt danach zurück, wie bei [wiederkehrenden Rechnungen](rechnungen.md#wiederkehrende-rechnungen). |
+| Erster Beleg am, später Nächster Beleg am | Belegdatum des nächsten Belegs, etwa der Zahlungsbeginn laut Vertrag. Bei Monaten liegen die folgenden Termine am selben Tag im Monat; der 31. wird in kürzeren Monaten zum Monatsende (28. oder im Schaltjahr 29. Februar) und springt danach zurück. Bei Wochen liegen sie 7, 14 bzw. 28 Tage später, am selben Wochentag. Beides wie bei [wiederkehrenden Rechnungen](rechnungen.md#wiederkehrende-rechnungen). |
 | Endet nach dem | optional. Der letzte Beleg entsteht am letzten Termin bis zu diesem Tag, danach ist der Dauerbeleg beendet. |
 | Fällig Tage nach dem Termin | **Fällig am** des Belegs: 0 am Termin, 3 etwa für eine Miete bis zum dritten des Monats. |
 | Vertrags- oder Kundennummer | steht als Rechnungsnummer an jedem Beleg, im Verwendungszweck einer [SEPA-Überweisung](belege-bezahlen.md#überweisen-sepa-datei) und hilft dem Bankabgleich. |
@@ -111,7 +111,7 @@ Der Server prüft kurz nach dem Start und danach stündlich, ob ein Termin fäll
 
 - **Ein Beleg „Zu prüfen“**, nicht gebucht: mit Lieferant, Vertragsnummer, Belegdatum (Termin), Fälligkeit, Kategorie, Bezahlung und den Beträgen der Vorlage. In der Liste steht er mit „Dauerbeleg“, auf seiner Seite mit einem Link zur Vorlage. Du prüfst ihn und buchst ihn wie jeden anderen Beleg mit **Bestätigen und buchen** oder im Bankabgleich mit **Buchen und zuordnen**. Ab dem Buchen ist er gesperrt und versiegelt.
 - **Der Vertrag als Datei des Belegs.** Bei Miete ersetzt der Mietvertrag die monatliche Rechnung; die GoBD verlangen zu jeder Buchung einen Beleg. Jeder Beleg nutzt die Datei, die bei seinem Anlegen an der Vorlage hing, unter ihrem SHA-256; die Notiz am Beleg nennt Dateiname und Prüfsumme. Im [Jahresarchiv](auswertungen.md) liegt sie bei jedem Beleg.
-- **Je Monat höchstens ein Beleg je Vorlage**, auch nach einem Neustart, bei zwei gleichzeitigen Läufen oder wenn du den nächsten Termin auf einen anderen Tag im selben Monat zurücksetzt (eindeutiger Index auf Vorlage und Periode).
+- **Je Monat höchstens ein Beleg je Vorlage**, auch nach einem Neustart, bei zwei gleichzeitigen Läufen oder wenn du den nächsten Termin auf einen anderen Tag im selben Monat zurücksetzt (eindeutiger Index auf Vorlage und Periode). Bei Wochen gilt das je Termin.
 
 Einen ungebuchten Beleg aus einem Dauerbeleg kannst du [löschen](#löschen), etwa für einen mietfreien Monat; Haben legt ihn nicht neu an. Die Datei bleibt, solange die Vorlage sie nutzt.
 
