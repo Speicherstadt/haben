@@ -59,14 +59,14 @@ describe("andere Exporte der BW-Bank", () => {
   it("erkennt CSV-MT940 und verlangt CSV-CAMT V8", () => {
     expect(detectStatementFormat(lies("bw-bank-mt940.csv"))).toBe("bw-bank-csv");
     expect(() => parseStatement(lies("bw-bank-mt940.csv"))).toThrow(
-      "Das ist der Export „CSV-MT940“ der BW-Bank. Bitte im Online-Banking als Excel (CSV-CAMT V8) exportieren; der enthält alle Angaben vollständig.",
+      "Das ist der Export „CSV-MT940“. Bitte im Online-Banking als Excel (CSV-CAMT V8) exportieren; der enthält alle Angaben vollständig.",
     );
   });
 
   it("erkennt CSV-CAMT V2 und gefilterte Einträge und verlangt CSV-CAMT V8", () => {
     expect(detectStatementFormat(v2())).toBe("bw-bank-csv");
     expect(() => parseStatement(v2())).toThrow(
-      "Das ist der Export „CSV-CAMT V2“ oder „CSV - gefilterte Einträge“ der BW-Bank. Bitte im Online-Banking als Excel (CSV-CAMT V8) exportieren; der enthält alle Angaben vollständig.",
+      "Das ist der Export „CSV-CAMT V2“ oder „CSV - gefilterte Einträge“. Bitte im Online-Banking als Excel (CSV-CAMT V8) exportieren; der enthält alle Angaben vollständig.",
     );
   });
 });
