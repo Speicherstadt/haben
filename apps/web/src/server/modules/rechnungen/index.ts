@@ -22,6 +22,7 @@ export {
   removeQuoteDefaultAttachment,
 } from "./quote-default-attachments.ts";
 export { fetchBaseRate } from "./base-rate.ts";
+export { footerPreview } from "./fuss-vorschau.ts";
 export { runDueBaseRate } from "./base-rate-job.ts";
 export {
   createDunning,
@@ -129,7 +130,7 @@ export {
   type InvoiceSettlementInput,
   type SettlementCandidate,
 } from "./verrechnung.ts";
-export { mixeNachVerrechnungen, mixNachVerrechnungen } from "./verrechnung-steuermix.ts";
+export { mixeNachVerrechnungen, mixNachKorrekturen, mixNachVerrechnungen } from "./verrechnung-steuermix.ts";
 export { NumberFormatError, saveNumberFormats, type NumberFormats } from "./number-formats.ts";
 
 export { invoicePaymentList, type InvoicePayment } from "./invoice-payment-history.ts";

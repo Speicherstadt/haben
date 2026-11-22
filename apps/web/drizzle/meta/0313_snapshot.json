@@ -1,5 +1,5 @@
 {
-  "id": "2a5d9cb5-ca22-4128-be67-a3b0e6c46dba",
+  "id": "9d940c79-fcbc-4478-8deb-b347a9bed8dd",
   "prevId": "dce60b7b-19c3-4b97-8406-6318a6d52067",
   "version": "7",
   "dialect": "postgresql",
@@ -1206,13 +1206,6 @@
         },
         "price_includes_tax": {
           "name": "price_includes_tax",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "arbeitskosten": {
-          "name": "arbeitskosten",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
@@ -3667,20 +3660,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'zugferd'"
-        },
-        "invoice_intro": {
-          "name": "invoice_intro",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "quote_intro": {
-          "name": "quote_intro",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
         },
         "payment_plan_templates": {
           "name": "payment_plan_templates",
@@ -9023,13 +9002,6 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": false
-        },
-        "arbeitskosten": {
-          "name": "arbeitskosten",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         }
       },
       "indexes": {
@@ -15179,13 +15151,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "arbeitskosten": {
-          "name": "arbeitskosten",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         }
       },
       "indexes": {},
@@ -18655,6 +18620,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "standard_fuer": {
+          "name": "standard_fuer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "archived_at": {
           "name": "archived_at",
           "type": "timestamp with time zone",
@@ -18688,6 +18659,28 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "text_blocks_standard": {
+          "name": "text_blocks_standard",
+          "columns": [
+            {
+              "expression": "standard_fuer",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"text_blocks\".\"standard_fuer\" is not null and \"text_blocks\".\"archived_at\" is null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -18745,6 +18738,14 @@
         "text_blocks_kind": {
           "name": "text_blocks_kind",
           "value": "\"text_blocks\".\"kind\" in ('kopf', 'fuss')"
+        },
+        "text_blocks_standard_fuer": {
+          "name": "text_blocks_standard_fuer",
+          "value": "\"text_blocks\".\"standard_fuer\" is null or \"text_blocks\".\"standard_fuer\" in ('rechnung', 'angebot', 'auftragsbestaetigung', 'lieferschein', 'mahnung')"
+        },
+        "text_blocks_standard_passt": {
+          "name": "text_blocks_standard_passt",
+          "value": "\"text_blocks\".\"standard_fuer\" is null or (\"text_blocks\".\"contact_id\" is null and not (\"text_blocks\".\"standard_fuer\" = 'lieferschein' and \"text_blocks\".\"kind\" = 'kopf'))"
         }
       },
       "isRLSEnabled": false

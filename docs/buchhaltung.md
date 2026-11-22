@@ -195,7 +195,7 @@ Ein Wechsel zum Jahreswechsel gilt nur für künftige Buchungen. Ein noch offene
 | Gewährte Skonti | 8730 | 4730 |
 | Erhaltene Skonti | 3730 | 5730 |
 | Forderungsverluste | 2400 | 6930 |
-| Erträge bzw. Aufwendungen aus Kursdifferenzen (Fremdwährung) | 2660 bzw. 2150 | 4840 bzw. 6880 |
+| Erträge bzw. Aufwendungen aus der Währungsumrechnung (Kursdifferenzen bei Fremdwährung) | 2660 bzw. 2150 | 4840 bzw. 6880 |
 | Saldenvorträge Sachkonten | 9000 | 9000 |
 
 Achtung bei der Nummer 1200: In SKR03 ist das die Bank, in SKR04 die Forderungen; in SKR03 ist 1800 die Privatentnahme, in SKR04 die Bank; 4970 sind in SKR03 die Nebenkosten des Geldverkehrs, in SKR04 die Schadenersatzleistungen.
@@ -385,7 +385,7 @@ Ein Klick auf ein Konto öffnet das **Kontenblatt**. Es zeigt:
 - Den Saldoverlauf als Diagramm. Beim Darüberfahren erscheinen Datum, Saldo und Buchung.
 - Jede Buchung mit Datum, Text, Gegenkonten, Herkunft, Soll, Haben und laufendem Saldo.
 
-Über ein Quartal oder Jahr kommt eine Zwischensumme je Monat dazu. Gegenkonten und Herkunft sind verlinkt. Aus der [BWA](auswertungen.md#bwa-für-gmbh-und-ug) öffnet das Kontenblatt einen Zeitraum von–bis innerhalb eines Jahres; die Eröffnung reicht dann bis zum Tag vor „von“.
+Über ein Quartal oder Jahr kommt eine Zwischensumme je Monat dazu. Gegenkonten und Herkunft sind verlinkt. Aus der [BWA](bwa.md#bwa-für-gmbh-und-ug) öffnet das Kontenblatt einen Zeitraum von–bis innerhalb eines Jahres; die Eröffnung reicht dann bis zum Tag vor „von“.
 
 Am Handy werden die Tabellen zu Karten. Das Diagramm lässt sich dort waagrecht verschieben.
 

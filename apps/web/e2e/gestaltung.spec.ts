@@ -476,6 +476,9 @@ test("Eigene Fußzeile: Platzhalter, Prüfung und Übernahme aufs Blatt", async 
   await page.waitForLoadState("networkidle");
   const karte = page.getByRole("region", { name: "Fußzeile" });
   await karte.getByLabel("Eigene Fußzeile").check();
+  // Einzelunternehmen: keine Registerangaben, weder Einstellung noch Platzhalter (#1651)
+  await expect(karte.getByRole("group", { name: "Stelle der Registerangaben" })).toHaveCount(0);
+  await expect(karte.getByRole("button", { name: "{sitz}" })).toHaveCount(0);
   await karte.getByRole("button", { name: "4", exact: true }).click();
 
   await karte.getByLabel("Spalte 3").fill("");

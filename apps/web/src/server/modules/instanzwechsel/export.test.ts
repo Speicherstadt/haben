@@ -71,7 +71,7 @@ describe.skipIf(!testDatabaseUrl)("Export der Einstellungen (Postgres)", () => {
     await testinstanz();
     const export_ = await datei();
 
-    expect(export_).toMatchObject({ format: "haben-einstellungen", version: 2, exportedAt: "2026-12-20T10:00:00.000Z" });
+    expect(export_).toMatchObject({ format: "haben-einstellungen", version: 3, exportedAt: "2026-12-20T10:00:00.000Z" });
     expect(export_.company).toMatchObject({
       name: "Muster Design",
       steuernummer: "231/815/08150",

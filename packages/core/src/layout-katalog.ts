@@ -23,7 +23,15 @@ export interface LayoutOptionWert {
   vorlagen?: LayoutVorlagen;
   /** Andere Vorgaben für Schrift oder Akzentfarbe, solange dieser Wert gilt */
   vorgaben?: Partial<LayoutVorgaben>;
+  /** Andere Stelle der Pflichtangaben, solange dieser Wert gilt */
+  pflichtangaben?: PflichtangabenStelle;
 }
+
+/**
+ * Wo ein Layout die Pflichtangaben einer GmbH oder UG setzt (#1651): als Spalte neben den übrigen, als Zeile darunter
+ * oder untereinander in einer Randspalte. Spalte und Zeile kann man wählen, die Randspalte nicht.
+ */
+export type PflichtangabenStelle = "spalte" | "zeile" | "rand";
 
 export interface LayoutVorgaben {
   font: LetterheadFont;
@@ -49,6 +57,8 @@ export interface EingebautesLayout {
   vorgaben: LayoutVorgaben;
   logo: readonly LogoPosition[];
   optionen: readonly LayoutOption[];
+  /** Fehlt = als Spalte */
+  pflichtangaben?: PflichtangabenStelle;
 }
 
 export const MAX_LAYOUT_OPTIONEN = 3;
@@ -73,7 +83,13 @@ export const EINGEBAUTE_LAYOUTS: readonly EingebautesLayout[] = [
         werte: [
           { id: "standard", name: "Standard" },
           // Das Layout von Haben vor #113 (rechnung.typ, mahnung.typ); bestehende Installationen bekommen es per Migration 0312
-          { id: "klassisch", name: "Klassisch", vorlagen: { beleg: "rechnung.typ", mahnung: "mahnung.typ" }, vorgaben: { font: "plex-sans" } },
+          {
+            id: "klassisch",
+            name: "Klassisch",
+            vorlagen: { beleg: "rechnung.typ", mahnung: "mahnung.typ" },
+            vorgaben: { font: "plex-sans" },
+            pflichtangaben: "zeile",
+          },
         ],
       },
       kerndaten([
@@ -138,7 +154,7 @@ export const EINGEBAUTE_LAYOUTS: readonly EingebautesLayout[] = [
         id: "fuss",
         name: "Fuß",
         werte: [
-          { id: "rechts", name: "In der Randspalte", vorlagen: vorlagen("elegant-rechts"), logo: ["rechts", "links"] },
+          { id: "rechts", name: "In der Randspalte", vorlagen: vorlagen("elegant-rechts"), logo: ["rechts", "links"], pflichtangaben: "rand" },
           { id: "unten", name: "Unten", vorlagen: vorlagen("elegant-unten") },
         ],
       },
@@ -161,7 +177,7 @@ export const EINGEBAUTE_LAYOUTS: readonly EingebautesLayout[] = [
         name: "Fuß",
         werte: [
           { id: "unten", name: "Unten", vorlagen: vorlagen("atelier-unten") },
-          { id: "rechts", name: "In der Randspalte", vorlagen: vorlagen("atelier-rechts") },
+          { id: "rechts", name: "In der Randspalte", vorlagen: vorlagen("atelier-rechts"), pflichtangaben: "rand" },
         ],
       },
       kerndaten([
@@ -210,6 +226,11 @@ export function layoutVorgaben(layout: EingebautesLayout, optionen: Readonly<Rec
   return Object.assign({}, layout.vorgaben, ...gewaehlteWerte(layout, optionen).map((wert) => wert.vorgaben ?? {}));
 }
 
+/** Stelle der Pflichtangaben, wie das Layout sie bei den aufgelösten Optionen vorsieht */
+export function layoutPflichtangaben(layout: EingebautesLayout, optionen: Readonly<Record<string, string>>): PflichtangabenStelle {
+  return gewaehlteWerte(layout, optionen).find((wert) => wert.pflichtangaben)?.pflichtangaben ?? layout.pflichtangaben ?? "spalte";
+}
+
 /** Erlaubte Stellen für das Logo bei den aufgelösten Optionen */
 export function layoutLogo(layout: EingebautesLayout, optionen: Readonly<Record<string, string>>): readonly LogoPosition[] {
   return gewaehlteWerte(layout, optionen).find((wert) => wert.logo)?.logo ?? layout.logo;
@@ -252,4 +273,17 @@ export function optionenZurWahl(layout: EingebautesLayout, gewaehlt: Readonly<Re
     const werte = option.werte.map(({ id, name, ...rest }) => ({ id, name, erlaubt: wertErlaubt({ id, name, ...rest }, aufgeloest) }));
     return [{ id: option.id, name: option.name, wert, werte }];
   });
+}
+
+/** Jede Variante, die die Gestaltung anbieten kann: je Option jeder Wert, den die früheren erlauben */
+export function layoutVarianten(layout: EingebautesLayout): Record<string, string>[] {
+  let kombinationen: Record<string, string>[] = [{}];
+  for (const option of layout.optionen) {
+    kombinationen = kombinationen.flatMap((bisher) => {
+      const erlaubt = option.werte.filter((wert) => wertErlaubt(wert, bisher));
+      // Eine Option ohne erlaubten Wert gilt nicht (Kerndaten bei Klar in der Fassung „Klassisch“)
+      return erlaubt.length === 0 ? [bisher] : erlaubt.map((wert) => ({ ...bisher, [option.id]: wert.id }));
+    });
+  }
+  return kombinationen;
 }

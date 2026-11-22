@@ -234,6 +234,31 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     expect(nachher.ownAccounts).toEqual([expect.objectContaining({ kontenrahmen, account: konto })]);
   });
 
+  it("wartet auf eine gleichzeitige Änderung der Fußzeile, damit zusammengeführt keine fünfte Spalte entsteht (#1651)", async () => {
+    await testinstanz();
+    const zip = await exportierenUndNeu();
+    await mailEinrichten();
+    let freigeben!: () => void;
+    const offen = new Promise<void>((resolve) => {
+      freigeben = resolve;
+    });
+    const andere = sql.begin(async (t) => {
+      await t`select pg_advisory_xact_lock(hashtext('haben.fusszeile'))`;
+      await offen;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    let fertig = false;
+    const uebernahme = instanzwechsel.importSettings(actor, zip, HEUTE).then(() => {
+      fertig = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(fertig).toBe(false);
+    freigeben();
+    await andere;
+    await uebernahme;
+    expect(fertig).toBe(true);
+  });
+
   it("übernimmt Logo, Layout samt Zuordnung, Standardanhang und E-Mail-Vorlagen, ohne den Zugang zu ändern", async () => {
     await testinstanz();
     const text = await exportierenUndNeu();
@@ -496,14 +521,25 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
       expect(await sql`select 1 from ${sql(tabelle)}`, tabelle).toEqual([]);
   });
 
-  it("liest eine Datei der Version 1: Artikel ohne Kennzeichen für § 35a EStG bekommen „Material und Sonstiges“ (#712)", async () => {
+  it("liest eine Datei der Version 1: die Standard-Einleitungen der Firmendaten werden Standard-Bausteine (#1494)", async () => {
+    await testinstanz();
+    const zip = await exportierenUndNeu();
+    const { sha256: _, ...inhalt } = einstellungen(zip);
+    const alt = withChecksum({ ...inhalt, version: 1, company: { ...inhalt.company, invoiceIntro: "Für meine Leistungen berechne ich:", quoteIntro: "" } });
+    await instanzwechsel.importSettings(actor, neuGepackt(unzipSync(zip), { "einstellungen.json": strToU8(JSON.stringify(alt)) }), HEUTE);
+    expect(await sql`select kind, text, standard_fuer from text_blocks where standard_fuer is not null`).toEqual([
+      { kind: "kopf", text: "Für meine Leistungen berechne ich:", standard_fuer: "rechnung" },
+    ]);
+  });
+
+  it("liest eine Datei der Version 2: Artikel ohne Kennzeichen für § 35a EStG bekommen „Material und Sonstiges“ (#712)", async () => {
     await testinstanz();
     await sql`update articles set arbeitskosten = true`;
     const zip = await exportierenUndNeu();
     const { sha256: _, ...inhalt } = einstellungen(zip);
     expect(inhalt.articles).toEqual([expect.objectContaining({ arbeitskosten: true })]);
     const artikel = inhalt.articles.map(({ arbeitskosten: _a, ...rest }: Record<string, unknown>) => rest);
-    const alt = withChecksum({ ...inhalt, version: 1, articles: artikel });
+    const alt = withChecksum({ ...inhalt, version: 2, articles: artikel });
     await instanzwechsel.importSettings(actor, neuGepackt(unzipSync(zip), { "einstellungen.json": strToU8(JSON.stringify(alt)) }), HEUTE);
     expect(await sql`select description, arbeitskosten from articles`).toEqual([{ description: "Jahreslizenz", arbeitskosten: false }]);
   });
