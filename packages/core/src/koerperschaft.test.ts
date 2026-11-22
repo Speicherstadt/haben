@@ -127,7 +127,33 @@ describe("Körperschaft- und Gewerbesteuer", () => {
     expect(s.einkommen).toBe(1_054_800);
   });
 
-  it("Hinzurechnung nach § 8 Nr. 1 GewStG erst über 200.000 €", () => {
+  it.each([
+    ["SKR03", "2493", "2100"],
+    ["SKR04", "7399", "7300"],
+  ] as const)("%s: Gewinn- und Verlustanteile typisch stiller Gesellschafter", (kontenrahmen, beteiligung, zinsen) => {
+    // BFH I R 4/14 und I R 15/15: wirksame Verlustanteile gehen negativ in die Summe ein, ohne spiegelbildlichen Freibetrag.
+    for (const [anteil, schuldzinsen, ergebnis, hinzurechnung, verlust] of [
+      [2_500_000, 19_000_000, 1_000_000, 375_000, 0],
+      [-2_500_000, 25_000_000, -1_000_000, 625_000, 375_000],
+      [-2_000_000, 0, -1_000_000, -500_000, 1_500_000],
+    ] as const) {
+      const s = kapgSteuern(
+        kontenrahmen,
+        2025,
+        [
+          { account: beteiligung, saldo: anteil },
+          { account: zinsen, saldo: schuldzinsen },
+        ],
+        ergebnis,
+        ohneVortrag,
+      );
+      expect(s.gewstHinzurechnungen).toContainEqual(expect.objectContaining({ art: "stilleGesellschafter", brutto: anteil, betrag: anteil }));
+      expect(s.hinzurechnungGewst).toBe(hinzurechnung);
+      expect(s.verlustvortragGewst).toBe(verlust);
+    }
+  });
+
+  it("Positive Hinzurechnung nach § 8 Nr. 1 GewStG erst über 200.000 €", () => {
     const klein = kapgSteuern("SKR04", 2026, [{ account: "6310", saldo: 2_400_000 }], 1_000_000, ohneVortrag);
     expect(klein.hinzurechnungGewst).toBe(0);
     // Zinsen 150.000 € voll, Miete 200.000 € zur Hälfte: 250.000 € − 200.000 € Freibetrag, davon ein Viertel

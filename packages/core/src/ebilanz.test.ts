@@ -99,6 +99,10 @@ describe("ebilanzPosition", () => {
     // SKR04 S. 10, unter „Gewinnrücklagen“): eigene Position, keine Auffangposition im Eigenkapital
     ["SKR03", "0846", -25_000, "bs.eqLiab.equity.revenueRes.legal"],
     ["SKR04", "2930", -25_000, "bs.eqLiab.equity.revenueRes.legal"],
+    ["SKR03", "2493", 25_000, "is.netIncome.incomeSharing.gain.silentTypical"],
+    ["SKR03", "2493", -25_000, "is.netIncome.incomeSharing.loss.typPart"],
+    ["SKR04", "7399", 25_000, "is.netIncome.incomeSharing.gain.silentTypical"],
+    ["SKR04", "7399", -25_000, "is.netIncome.incomeSharing.loss.typPart"],
   ] as const)("%s %s Saldo %i → %s", (kontenrahmen, account, saldo, position) => {
     expect(ebilanzPosition(kontenrahmen, account, saldo)).toBe(position);
   });
