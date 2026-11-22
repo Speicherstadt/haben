@@ -349,8 +349,9 @@ export async function mitEingebautemLayout(
 }
 
 /**
- * Erzeugt ein PDF mit dem Layout der Belegart. build ist der Aufruf aus @haben/einvoice (etwa buildEInvoice); er läuft
- * bei einem eigenen Layout zweimal: erst fängt pdfFrom die fertigen Daten ab, dann liefert es das PDF aus dem Render-Prozess.
+ * Erzeugt ein PDF mit dem Layout der Belegart. build ist der Aufruf aus @haben/einvoice (etwa buildEInvoice); bei einem
+ * eigenen Layout ruft es ihn zweimal: Im ersten Aufruf fängt pdfFrom die fertigen Daten der Vorlage ab und bricht ab,
+ * bevor eine Vorlage gesetzt oder das XML erzeugt ist (#609); der zweite bekommt das PDF aus dem Render-Prozess.
  */
 export async function withCustomLayout<T>(type: LayoutDocumentType, letterhead: Letterhead, build: (letterhead: Letterhead) => T): Promise<T> {
   const layout = await customLayoutFor(type);
@@ -358,15 +359,19 @@ export async function withCustomLayout<T>(type: LayoutDocumentType, letterhead: 
   // Kennt das Layout die Stelle der Pflichtangaben nicht, bekommt es sie nur über legal (#1651)
   const eigener = { ...letterhead, legalFieldOnly: !kenntPflichtangabenFelder(layout.source) };
   let request: PdfRequest | undefined;
-  // Ganz durchlaufen lassen: buildEInvoice setzt das PDF erst nach einem await
-  await build({
-    ...eigener,
-    pdfFrom: (captured) => {
-      request = captured;
-      return undefined;
-    },
-  });
-  if (!request) return build(eigener);
+  const abgefangen = new Error("Daten für das eigene Layout abgefangen");
+  try {
+    // Ohne Aufruf von pdfFrom setzt build keine Belegvorlage; dann gilt sein Ergebnis
+    return await build({
+      ...eigener,
+      pdfFrom: (captured) => {
+        request = captured;
+        throw abgefangen;
+      },
+    });
+  } catch (error) {
+    if (error !== abgefangen || !request) throw error;
+  }
   let pdf: Uint8Array;
   try {
     const renderer = await rendererFor(layout);
