@@ -59,7 +59,7 @@ export function pruefwertNotice(result: PruefwertResult): NonNullable<Notice> {
     case "unbestaetigt":
       return {
         tone: "danger",
-        text: `Prüfwert Nr. ${result.seq} stimmt, die Kette lässt sich aber nicht bestätigen: ${result.befunde.every((b) => b.includes(PRUEFUNG_ABGEBROCHEN)) ? "Das Nachrechnen der Kette ist abgebrochen" : "Die Datenbank weicht vom Sollbestand ab"} (${result.befunde.length === 1 ? "ein Befund" : `${result.befunde.length} Befunde`}, etwa „${result.befunde[0]}“). Wer Trigger oder Funktionen ändern kann, kann auch das Nachrechnen fälschen. „Kette prüfen“ nennt alle Befunde.`,
+        text: `Prüfwert Nr. ${result.seq} stimmt, die Kette lässt sich aber nicht bestätigen: ${result.befunde.every((b) => b.startsWith(`haben_integrity_problems: ${PRUEFUNG_ABGEBROCHEN}: `)) ? "Das Nachrechnen der Kette ist abgebrochen" : "Die Datenbank weicht vom Sollbestand ab"} (${result.befunde.length === 1 ? "ein Befund" : `${result.befunde.length} Befunde`}, etwa „${result.befunde[0]}“). Wer Trigger oder Funktionen ändern kann, kann auch das Nachrechnen fälschen. „Kette prüfen“ nennt alle Befunde.`,
       };
     case "abweichend":
       return {
