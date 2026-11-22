@@ -210,6 +210,19 @@ export type ExpenseCategory = keyof typeof EXPENSE_CATEGORIES;
 
 export const EXPENSE_CATEGORY_KEYS = Object.keys(EXPENSE_CATEGORIES) as [ExpenseCategory, ...ExpenseCategory[]];
 
+/**
+ * Anzeige einer Ausgabekategorie mit der Nummer ihres Kontos im Kontenrahmen der Firma („6805 · Telefon“, #1438), nur für die
+ * Oberfläche: Buchungstexte, Exporte und gespeicherte Werte bleiben bei der Bezeichnung. Unbekannte Werte (etwa aus einem Import)
+ * erscheinen unverändert, das Anlagegut ohne Nummer.
+ */
+export function kategorieMitKonto(kontenrahmen: Kontenrahmen, kategorie: string): string {
+  if (!Object.hasOwn(EXPENSE_CATEGORIES, kategorie)) return kategorie;
+  const eintrag = EXPENSE_CATEGORIES[kategorie as ExpenseCategory];
+  // Beim Anlagegut steht das Konto erst mit der Art der Anlage fest (Pkw: SKR03 0320, SKR04 0520), nicht mit der Kategorie
+  if (kategorie === "anlage") return eintrag.label;
+  return `${eintrag[kontenrahmen]} · ${eintrag.label}`;
+}
+
 export const ACCOUNT_NAMES: Record<Kontenrahmen, Record<string, string>> = {
   SKR03: {
     // Kapitalgesellschaft: Gesellschafter und Eigenkapital (DATEV-Kontenrahmen SKR03 2026, Art.-Nr. 11174)
@@ -244,10 +257,10 @@ export const ACCOUNT_NAMES: Record<Kontenrahmen, Record<string, string>> = {
     "1774": "Umsatzsteuer aus innergemeinschaftlichem Erwerb 19 %",
     "8120": "Steuerfreie Umsätze § 4 Nr. 1a UStG",
     "8125": "Steuerfreie innergemeinschaftliche Lieferungen § 4 Nr. 1b UStG",
-    "2150": "Aufwendungen aus Kursdifferenzen",
+    "2150": "Aufwendungen aus der Währungsumrechnung",
     "2400": "Forderungsverluste (übliche Höhe)",
     "2650": "Sonstige Zinsen und ähnliche Erträge",
-    "2660": "Erträge aus Kursdifferenzen",
+    "2660": "Erträge aus der Währungsumrechnung",
     "2742": "Versicherungsentschädigungen und Schadenersatzleistungen",
     "3730": "Erhaltene Skonti",
     "8730": "Gewährte Skonti",
@@ -303,10 +316,10 @@ export const ACCOUNT_NAMES: Record<Kontenrahmen, Record<string, string>> = {
     "4339": "Erlöse aus im anderen EU-Land steuerbaren Leistungen, im Inland nicht steuerbare Umsätze",
     "4400": "Erlöse 19 % USt",
     "4730": "Gewährte Skonti",
-    "4840": "Erträge aus Kursdifferenzen",
+    "4840": "Erträge aus der Währungsumrechnung",
     "4970": "Versicherungsentschädigungen und Schadenersatzleistungen",
     "5730": "Erhaltene Skonti",
-    "6880": "Aufwendungen aus Kursdifferenzen",
+    "6880": "Aufwendungen aus der Währungsumrechnung",
     "6930": "Forderungsverluste (übliche Höhe)",
     "7100": "Sonstige Zinsen und ähnliche Erträge",
     "9000": "Saldenvorträge Sachkonten",

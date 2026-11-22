@@ -21,8 +21,9 @@ import { MAX_INVOICE_ATTACHMENTS } from "./attachment-limit.ts";
 import { attachmentsForMail, listInvoiceAttachments } from "./attachments.ts";
 import { listQuoteAttachments, quoteAttachmentsForMail } from "./quote-attachments.ts";
 import { invoiceDocumentTotals } from "./invoice-taxes.ts";
-import { invoiceTitle } from "./invoices.ts";
+import { invoiceTitle, withCurrentBuyer } from "./invoice-document.ts";
 import { escapeHtml, loadMailSettings, MailError, send } from "../mail/index.ts";
+import { fillTemplate } from "./beleg-platzhalter.ts";
 
 /**
  * Rechnungen, Angebote und Mahnungen per E-Mail: Empfänger aus der Rechnung bzw. dem Kontakt, Betreff und Text aus
@@ -30,10 +31,8 @@ import { escapeHtml, loadMailSettings, MailError, send } from "../mail/index.ts"
  * Anhang. Jeder Versand steht im Mail-Protokoll.
  */
 
-/** Ersetzt {name} durch den Wert; unbekannte Platzhalter bleiben stehen */
-export function fillTemplate(template: string, values: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (match, name: string) => values[name] ?? match);
-}
+// Dieselbe Ersetzung wie in Einleitung und Hinweis der Belege (#1334)
+export { fillTemplate };
 
 const germanDate = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
 
@@ -225,7 +224,9 @@ export async function sendInvoiceMailWithTemplate(actor: string, invoiceId: stri
 async function loadDunning(id: string) {
   const [dunning] = await db.select().from(schema.dunnings).where(eq(schema.dunnings.id, id));
   if (!dunning) throw new MailError("Mahnung nicht gefunden.");
-  return { dunning, invoice: await loadInvoice(dunning.invoiceId) };
+  const invoice = await loadInvoice(dunning.invoiceId);
+  // Die Mahnung ist ein neuer Brief: `{kunde}` nennt denselben Namen wie ihr PDF
+  return { dunning, invoice: invoice.buyer ? { ...invoice, buyer: await withCurrentBuyer(db, invoice.buyer, invoice.contactId) } : invoice };
 }
 
 /** Mahnungen sind deutsch (auch das PDF), also auch Datum und Art in der Mail, selbst bei einer englischen Rechnung */

@@ -1,10 +1,11 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Icon } from "../../components/Icon.tsx";
+import { EricHinweis } from "../../components/EricHinweis.tsx";
 import { getFinanzamt } from "../../server/functions/finanzamt.ts";
 import { today } from "../../server/today.ts";
 import styles from "../../styles/auswertungen.css?url";
-import type { Topic } from "./-finanzamt-daten.ts";
+import { type Topic, vorauszahlungHinweis } from "./-finanzamt-daten.ts";
 import { History, Postfach } from "./-finanzamt-postfach.tsx";
 import { BankChangeForm, MessageForm } from "./-finanzamt-nachrichten.tsx";
 import { PrepaymentForm } from "./-finanzamt-vorauszahlung.tsx";
@@ -23,6 +24,7 @@ function FinanzamtPage() {
   const basis = data.basis;
   const tabs = basis ? (["vorauszahlung", "nachricht", "bankverbindung"] as const) : (["nachricht", "bankverbindung"] as const);
   const [tab, setTab] = useState<Tab>(tabs[0]);
+  const hinweis = vorauszahlungHinweis(data.keineVorauszahlungen);
 
   return (
     <>
@@ -33,17 +35,7 @@ function FinanzamtPage() {
         </div>
       </div>
 
-      {data.mode === "simuliert" && (
-        <div className="banner banner-info" role="status">
-          <Icon name="info" />
-          <span>
-            ERiC ist nicht eingerichtet. Prüfen und Senden laufen simuliert, nichts geht an das Finanzamt.{" "}
-            <Link to="/einstellungen" search={{ bereich: "elster" }}>
-              ERiC einrichten
-            </Link>
-          </span>
-        </div>
-      )}
+      {data.mode === "simuliert" && <EricHinweis />}
       {data.issues.length > 0 && (
         <div className="banner" role="status">
           <Icon name="alert" />
@@ -67,7 +59,17 @@ function FinanzamtPage() {
         ))}
       </div>
 
-      {tab === "vorauszahlung" && basis && <PrepaymentForm key="v" data={data} basis={basis} />}
+      {tab === "vorauszahlung" && basis && (
+        <>
+          {hinweis && (
+            <div className="banner" role="status">
+              <Icon name="alert" />
+              <span>{hinweis}</span>
+            </div>
+          )}
+          <PrepaymentForm key="v" data={data} basis={basis} />
+        </>
+      )}
       {tab === "nachricht" && <MessageForm key="n" data={data} topic="nachricht" initial={{ betreff: "", text: "" }} />}
       {tab === "bankverbindung" && <BankChangeForm data={data} />}
 

@@ -3,16 +3,18 @@ import { buildConfirmationPdf, buildDeliveryNotePdf, type Buyer, type OrderRefer
 import type { UnitLabel } from "@haben/core";
 import { asc, eq } from "drizzle-orm";
 import { db, schema } from "../../db/index.ts";
-import { loadCompany, loadLetterhead, withCustomLayout } from "../stammdaten/index.ts";
-import { withCurrentLegalInfo } from "./invoices.ts";
+import { loadCompany, loadLetterhead, standardTexte, withCustomLayout } from "../stammdaten/index.ts";
+import { withCurrentBuyer, withCurrentSeller } from "./invoice-document.ts";
 import { quoteChoices } from "./quote-choices.ts";
 import { documentReferences, type ReferenceColumns } from "./order-references.ts";
 import { orderLines, quoteDocumentFor } from "./quotes.ts";
 import { today } from "../../today.ts";
+import { angebotMitPlatzhaltern, mitVorlage } from "./beleg-platzhalter.ts";
 
 /**
  * Auftragsbestätigung und Lieferschein entstehen auf Abruf aus festgeschriebenen Angeboten und
- * Rechnungen. Sie buchen nichts; Inhalt und Datum folgen aus dem gespeicherten Beleg.
+ * Rechnungen. Sie buchen nichts; Positionen und Datum folgen aus dem gespeicherten Beleg, Einleitung und Hinweis aus
+ * dem Angebot, ohne eigenen Text dort aus dem aktuellen Standard-Textbaustein (#1494).
  */
 
 export class OrderDocumentError extends UserError {}
@@ -34,10 +36,18 @@ async function acceptedQuote(id: string) {
  */
 export async function confirmationPdf(quoteId: string) {
   const { quote, lines, choices } = await acceptedQuote(quoteId);
-  const doc = quoteDocumentFor(quote, lines, withCurrentLegalInfo(quote.seller, await loadCompany()), quote.buyer, quote.number, {
-    choices,
-    withPlan: quote.paymentPlanInConfirmation,
-  });
+  const buyer = await withCurrentBuyer(db, quote.buyer, quote.contactId);
+  // Ohne Entwurf greift der Standard beim Erzeugen (#1494), aber nur, wo das Angebot keinen eigenen Text hat
+  const standard = await standardTexte("auftragsbestaetigung");
+  const texte = mitVorlage(quote);
+  const mitStandard = { intro: texte.intro || standard.kopf, note: texte.note || standard.fuss };
+  // Platzhalter mit den Werten der Bestätigung (gewählte Positionen), nicht mit denen des Angebots (#1334)
+  const doc = angebotMitPlatzhaltern(
+    quoteDocumentFor({ ...quote, ...mitStandard }, lines, withCurrentSeller(quote.seller, await loadCompany()), buyer, quote.number, {
+      choices,
+      withPlan: quote.paymentPlanInConfirmation,
+    }),
+  );
   const pdf = await withCustomLayout("auftragsbestaetigung", await loadLetterhead(), (letterhead) =>
     buildConfirmationPdf({ ...doc, ...letterhead }, today(quote.decidedAt)),
   );
@@ -51,6 +61,7 @@ interface DeliverySource {
   deliveryDate: string;
   seller: Seller;
   buyer: Buyer;
+  contactId: string | null;
   language: "de" | "en";
   lines: { description: string; detail: string; itemNumber: string; quantity: number; unit: string }[];
   /** Bestellnummer des Kunden und eigene Auftragsnummer; die Lieferscheinnummer nennt der Lieferschein nicht noch einmal */
@@ -68,6 +79,7 @@ async function deliverySource(source: "angebot" | "rechnung", id: string): Promi
       deliveryDate: quote.serviceTo ?? quote.serviceFrom ?? date,
       seller: quote.seller,
       buyer: quote.buyer,
+      contactId: quote.contactId,
       language: quote.language,
       lines: orderLines(lines, choices),
       references: orderReferencesOf(quote),
@@ -85,6 +97,7 @@ async function deliverySource(source: "angebot" | "rechnung", id: string): Promi
     deliveryDate: invoice.serviceTo ?? invoice.serviceFrom ?? invoice.issueDate,
     seller: invoice.seller,
     buyer: invoice.buyer,
+    contactId: invoice.contactId,
     language: invoice.language,
     // Abzüge einer Schlussrechnung sind keine Lieferung
     lines: lines.filter((l) => !l.deductionOf),
@@ -100,16 +113,20 @@ function orderReferencesOf(row: ReferenceColumns): OrderReferences {
 /** Lieferschein zu einem angenommenen Angebot oder einer festgeschriebenen Rechnung */
 export async function deliveryNotePdf(source: "angebot" | "rechnung", id: string) {
   const base = await deliverySource(source, id);
-  const seller = withCurrentLegalInfo(base.seller, await loadCompany());
+  const seller = withCurrentSeller(base.seller, await loadCompany());
+  const buyer = await withCurrentBuyer(db, base.buyer, base.contactId);
+  // Der Lieferschein hat keinen Entwurf: Ein Standard-Fußtext steht beim Erzeugen als Hinweis darauf (#1494)
+  const { fuss } = await standardTexte("lieferschein");
   const pdf = await withCustomLayout("lieferschein", await loadLetterhead(), (letterhead) =>
     buildDeliveryNotePdf({
       reference: { kind: source, number: base.number, issueDate: base.issueDate },
       deliveryDate: base.deliveryDate,
       date: base.date,
       seller,
-      buyer: base.buyer,
+      buyer,
       language: base.language,
       references: base.references,
+      ...(fuss ? { note: fuss } : {}),
       lines: base.lines.map((l, i) => ({
         position: i + 1,
         description: l.description,

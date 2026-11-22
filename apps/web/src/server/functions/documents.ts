@@ -1,5 +1,5 @@
 import { notFound } from "@tanstack/react-router";
-import { EXPENSE_CATEGORIES } from "@haben/core";
+import { EXPENSE_CATEGORIES, kategorieMitKonto, type Kontenrahmen } from "@haben/core";
 import { loadInboxSettings } from "../modules/belege/index.ts";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -17,6 +17,7 @@ import {
   documentInputSchema,
   documentNavigation,
   dauerbelegName,
+  duplicateDocument,
   getDocument,
   supplierCategory,
   supplierPayment,
@@ -26,7 +27,7 @@ import {
   updateDocument,
   uploadDocument,
 } from "../modules/belege/index.ts";
-import { extractionAvailable, extractionSettings, supplierSuggestion } from "../modules/belege/index.ts";
+import { belegeMitGleicherNummer, extractionAvailable, extractionSettings, supplierSuggestion } from "../modules/belege/index.ts";
 import {
   listSettlements,
   openAmount,
@@ -49,7 +50,9 @@ import { detailId } from "./schemas.ts";
 /** KI-Auslesung läuft nach der Antwort weiter; Fehler landen am Beleg. */
 const inBackground = (work: Promise<void>) => void work.catch((error) => console.error("Belegauslesung", error));
 
-const categoryOptions = Object.entries(EXPENSE_CATEGORIES).map(([value, { label }]) => ({ value, label }));
+/** Kategorien zur Auswahl, die Bezeichnung mit der Nummer des Kontos im Kontenrahmen der Firma (#1438) */
+const categoryOptions = (kontenrahmen: Kontenrahmen) =>
+  Object.keys(EXPENSE_CATEGORIES).map((value) => ({ value, label: kategorieMitKonto(kontenrahmen, value) }));
 
 export const getDocuments = createServerFn({ method: "GET" })
   .middleware([readMiddleware])
@@ -101,11 +104,13 @@ export const getDocumentDetail = createServerFn({ method: "GET" })
       splits: result.splits,
       // Je Hinweis das Feld, an dem er liegt: Die Seite klappt „Weitere Angaben“ dafür auf
       issues: result.document.lockedAt ? [] : bookingIssueList(result.document, result.amounts, today(), result.splits),
+      // Andere Belege desselben Lieferanten mit derselben Rechnungsnummer: Hinweis auf eine mögliche Dublette (#1314)
+      gleicheNummer: await belegeMitGleicherNummer(result.document),
       // Bisherige Kategorie und Bezahlung des Lieferanten als Hinweis am Feld, nur solange der Beleg offen ist (#295)
       categoryHint: result.document.lockedAt ? null : await supplierCategory(result.document),
       paymentHint: result.document.lockedAt ? null : await supplierPayment(result.document),
       aiAvailable: extractionAvailable(),
-      categories: categoryOptions,
+      categories: categoryOptions(company.kontenrahmen),
       // Eigene Sachkonten (#270) zur Wahl bei der Kategorie und je Zeile der Aufteilung
       ownAccounts: (await ownAccountsOverview()).accounts,
       // Vorschlag für „Neuen Lieferanten anlegen“ aus E-Rechnung oder Auslesung; die IBAN nur zum ausdrücklichen Übernehmen (#329)
@@ -118,6 +123,25 @@ export const getDocumentDetail = createServerFn({ method: "GET" })
         : null,
     };
   });
+
+/**
+ * Mögliche Dublette zu den Eingaben im Formular, noch vor dem Speichern (#1314, #1378): Lieferant und Rechnungsnummer
+ * wie gerade getippt oder ausgelesen; der Hinweis und der Buchungsdialog zeigen so nie einen alten Stand.
+ */
+export const checkSameInvoiceNumber = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      id: z.uuid(),
+      supplierName: z.string().max(200),
+      supplierUstId: z.string().max(50),
+      supplierContactId: z.uuid().nullable(),
+      invoiceNumber: z.string().max(100),
+      gross: z.number().int(),
+      recurringDocumentId: z.uuid().nullable(),
+    }),
+  )
+  .handler(({ data }) => belegeMitGleicherNummer(data));
 
 export const uploadDocuments = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
@@ -146,6 +170,22 @@ export const uploadDocuments = createServerFn({ method: "POST" })
       }
     }
     return results;
+  });
+
+/** Beleg duplizieren (#1295): neue Datei mit den Feldern des Belegs `id`, ohne Auslesung */
+export const duplicateDocumentFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((data: unknown) => {
+    if (!(data instanceof FormData)) throw new UserError("FormData erwartet");
+    const file = data.get("file");
+    if (!(file instanceof File)) throw new UserError("Keine Datei ausgewählt.");
+    return { id: z.uuid().parse(data.get("id")), file };
+  })
+  .handler(async ({ data, context }) => {
+    // Vor dem Einlesen prüfen, wie beim Hochladen
+    if (data.file.size > MAX_DOCUMENT_SIZE) throw new DocumentError(`${data.file.name}: größer als 20 MB.`);
+    const bytes = new Uint8Array(await data.file.arrayBuffer());
+    return duplicateDocument(context.user.id, data.id, { bytes, filename: data.file.name });
   });
 
 export const saveDocument = createServerFn({ method: "POST" })

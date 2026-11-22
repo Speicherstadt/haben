@@ -1,11 +1,11 @@
 ---
 name: "beitrag-pruefen"
-description: "Einen Pull Request an Haben vor dem TDD-Review auf vier Fragen prüfen: Wollen wir die Änderung in Haben (Passung, Issue, Nutzen gegen Last)? Ist sie nach den Primärquellen gebaut und fachlich richtig? Ist sie die einfachste Lösung? Hat sie Tests, Doku und alle Regeln aus docs/entwicklung.md, docs/mitwirken.md und DESIGN.md eingehalten? Zwei Rollen: Beitragende prüfen den eigenen Pull Request vor „Ready for review“ in einem frischen Agenten, bessern selbst nach, posten das Ergebnis als Kommentar (Selbstprüfung) und bringen danach tdd-review und doku-pruefen mit. Maintainer und Collaborators prüfen einen fremden Pull Request, prüfen eine vorhandene Selbstprüfung nach statt neu, machen Gewolltes fertig, führen tdd-review und mergen bei grüner CI, bei Steuer, Buchung, ELSTER und GoBD erst nach OK des Maintainers; hält an, wenn ein Mensch entscheiden muss. Für jeden neuen Beitrag, auch von Agenten."
+description: "Einen Pull Request an Haben vor dem TDD-Review auf vier Fragen prüfen: Wollen wir die Änderung in Haben (Passung, Issue, Nutzen gegen Last)? Ist sie nach den Primärquellen gebaut und fachlich richtig? Ist sie die einfachste und beste Lösung? Hat sie Tests, Doku und alle Regeln aus docs/entwicklung.md, docs/mitwirken.md und DESIGN.md eingehalten? Zwei Rollen: Beitragende prüfen den eigenen Pull Request vor „Ready for review“ in einem frischen Agenten, bessern selbst nach, posten das Ergebnis als Kommentar (Selbstprüfung) und bringen danach tdd-review und doku-pruefen mit. Maintainer und Collaborators prüfen einen fremden Pull Request, prüfen eine vorhandene Selbstprüfung nach statt neu, machen Gewolltes fertig, führen tdd-review und mergen bei grüner CI, bei Steuer, Buchung, ELSTER und GoBD erst nach OK des Maintainers; hält an, wenn ein Mensch entscheiden muss. Für jeden neuen Beitrag, auch von Agenten."
 ---
 
 # Beitrag prüfen
 
-Der Skill beantwortet vier Fragen, die das TDD-Review nicht stellt: **Wollen wir das in Haben?** **Ist es nach den Quellen gebaut und fachlich richtig?** **Ist es die einfachste Lösung?** **Ist es nach unseren Regeln gemacht?** Danach übernimmt `tdd-review`. Die Regeln stehen in `docs/mitwirken.md` unter „Beiträge annehmen“, hier die Schritte. Zwei Rollen:
+Der Skill beantwortet vier Fragen, die das TDD-Review nicht stellt: **Wollen wir das in Haben?** **Ist es nach den Quellen gebaut und fachlich richtig?** **Ist es die einfachste und beste Lösung?** **Ist es nach unseren Regeln gemacht?** Danach übernimmt `tdd-review`. Die Regeln stehen in `docs/mitwirken.md` unter „Beiträge annehmen“, hier die Schritte. Zwei Rollen:
 
 - **Selbstprüfung:** Der Beitragende prüft seinen eigenen Pull Request, bevor er auf „Ready for review“ geht und vor dem TDD-Review. Schritte 0 bis 4, dann „Selbstprüfung“ samt unabhängigem Review statt der Schritte 5 bis 7.
 - **Maintainer-Prüfung:** Ein Maintainer oder Collaborator (die prüfende Person) prüft einen fremden Pull Request, alle Schritte außer „Selbstprüfung“.
@@ -24,14 +24,14 @@ Jeder Text an den Beitragenden folgt dem [Verhaltenskodex](../../../CODE_OF_COND
 
 ## 0. Holen
 
-- **Rolle:** Ist die aufrufende Person Autor oder Co-Autor des Pull Requests: Selbstprüfung. Sonst Maintainer-Prüfung, nur mit Schreibrecht in `firsttris/haben`; ohne Schreibrecht abbrechen.
+- **Rolle:** Ist die aufrufende Person Autor oder Co-Autor des Pull Requests: Selbstprüfung. Sonst Maintainer-Prüfung, nur mit Schreibrecht in `Speicherstadt/haben`; ohne Schreibrecht abbrechen.
 - **Unabhängig:** Hat diese Session am Code mitgeschrieben: einen frischen Subagenten mit diesem Skill, der Rolle und der PR-Nummer starten, ohne eigene Einschätzung (wie `tdd-review`, Schritt 0). Gibt es für eine Selbstprüfung noch keinen Pull Request, vorher einen Entwurf nach Skill `beitrag` anlegen.
 - Metadaten mit dem vorhandenen GitHub-Werkzeug (`gh pr view <nr> --json …` oder GitHub-MCP `pull_request_read`): Autor, Fork oder Branch im Repo, Entwurf, Titel, Beschreibung, verknüpfte Issues, Commits, Checks, vorhandene Kommentare und Reviews, besonders den Kommentar von „PR-Regeln“.
 - Code: `git fetch origin main pull/<nr>/head:pr-<nr>`, dann `git diff --stat origin/main...pr-<nr>` und `git diff origin/main...pr-<nr>`. Konflikte: `git merge-tree --write-tree origin/main pr-<nr>`.
 - Das Issue lesen, auf das der Pull Request verweist, samt Akzeptanzkriterien und Diskussion.
 - Die Abschnitte lesen, die der Diff berührt (immer „Konventionen“ in `docs/entwicklung.md` und `docs/mitwirken.md` bis einschließlich „Beiträge annehmen“), bei der Oberfläche `DESIGN.md`, dazu die Nutzerseite des Bereichs in `docs/`, `docs/architektur.md` für Module und `docs/architektur-datenmodell.md` für Tabellen.
 - Hier noch keine Tests ausführen; das macht `tdd-review`.
-- **Selbstprüfung vorhanden?** (nur Maintainer-Prüfung) Sie zählt, wenn der Kommentar „Selbstprüfung“ den aktuellen Commit nennt (als Stand oder im Nachtrag zum Nachbessern), in einem frischen Agenten oder durch eine andere Person lief und alle vier Fragen mit Beleg beantwortet. Dann die Schritte 1 bis 4 nachprüfen statt neu machen: jede Zeile mit ✗, „teilweise“ oder „nicht prüfbar“, jede offene Frage und jeden Punkt des Nachtrags am Commit ansehen; „Wollen wir das?“ entscheidet die prüfende Person selbst, die Selbstprüfung liefert nur die Belege; ist die Änderung fachlich heikel (Schritt 2), mindestens eine Quelle selbst lesen und einen Fall selbst gegenrechnen; bei den Regeln Stichproben. Stimmt etwas davon nicht, die Schritte 1 bis 4 ganz machen. Fehlen bei einem Autor ohne Schreibrecht Selbstprüfung oder unabhängiges Review oder reichen sie nicht bis zu seinem letzten Commit, und geht es nicht um Nachbesserungen auf unsere Befunde oder, mit unabhängigem Review, um eine reine Testdaten-Änderung: nicht prüfen, sondern das berichten (`docs/mitwirken.md`, Beiträge annehmen, „Selbstprüfung“). Sonst ohne gültige Selbstprüfung alle Schritte; das ist kein Befund.
+- **Selbstprüfung vorhanden?** (nur Maintainer-Prüfung) Sie zählt, wenn der Kommentar „Selbstprüfung“ den aktuellen Commit nennt (als Stand oder im Nachtrag zum Nachbessern), in einem frischen Agenten oder durch eine andere Person lief und alle vier Fragen mit Beleg beantwortet. Dann die Schritte 1 bis 4 nachprüfen statt neu machen: jede Zeile mit ✗, „teilweise“ oder „nicht prüfbar“, jede offene Frage und jeden Punkt des Nachtrags am Commit ansehen; „Wollen wir das?“ und den „Besseren Weg“ aus Schritt 3 beantwortet die prüfende Person selbst, die Selbstprüfung liefert nur die Belege; ist die Änderung fachlich heikel (Schritt 2), mindestens eine Quelle selbst lesen und einen Fall selbst gegenrechnen; bei den Regeln Stichproben. Stimmt etwas davon nicht, die Schritte 1 bis 4 ganz machen. Fehlen bei einem Autor ohne Schreibrecht Selbstprüfung oder unabhängiges Review oder reichen sie nicht bis zu seinem letzten Commit, und geht es nicht um Nachbesserungen auf unsere Befunde oder, mit unabhängigem Review, um eine reine Testdaten-Änderung: nicht prüfen, sondern das berichten (`docs/mitwirken.md`, Beiträge annehmen, „Selbstprüfung“). Sonst ohne gültige Selbstprüfung alle Schritte; das ist kein Befund.
 
 ## 1. Wollen wir das?
 
@@ -39,9 +39,9 @@ Je Punkt ein Ergebnis mit Beleg:
 
 - **Passung:** `docs/roadmap.md` lesen („Bewusst nicht“, Zertifizierung, blockiert). Gehört es zur Buchhaltung für Freiberufler und kleine GmbHs, oder macht es Haben zu etwas anderem?
 - **Issue und Board:** Gibt es ein Issue, ist es dem Autor zugewiesen, steht es im Project „Roadmap“ (Spalte, Priorität)? Ohne Issue: Ist der Wunsch nachvollziehbar und würde der Maintainer ihn einplanen? Das ist eine Frage an die prüfende Person (bei einem Collaborator: an den Maintainer weitergeben), keine Entscheidung des Agenten.
-- **Doppelt:** offene und geschlossene Pull Requests zum Thema (`gh pr list --state all --search …` oder `gh api -X GET search/issues -f q='repo:firsttris/haben is:pr <begriffe>'`), dazu `git grep` auf `origin/main` und in `docs/`: Gibt es das schon, ganz oder teilweise? Wurde es abgelehnt, mit welchem Grund?
+- **Doppelt:** offene und geschlossene Pull Requests zum Thema (`gh pr list --state all --search …` oder `gh api -X GET search/issues -f q='repo:Speicherstadt/haben is:pr <begriffe>'`), dazu `git grep` auf `origin/main` und in `docs/`: Gibt es das schon, ganz oder teilweise? Wurde es abgelehnt, mit welchem Grund?
 - **Nutzen gegen Last:** Was gewinnt ein Nutzer im Alltag? Was kostet es dauerhaft: neue Einstellungen, Abhängigkeiten (Lizenz passend zur AGPL-3.0, gepflegt, Größe; `package.json` und `bun.lock`, `trustedDependencies`), neue Hosts oder Dienste, neue Tabellen und Migrationen, Sonderfälle in Buchung und Steuer, Wartung jedes Jahr (Jahreswerte)?
-- **Bestehende Installationen:** Was passiert beim Update mit vorhandenen Daten (Migration auf echten Beständen, festgeschriebene Jahre, Standardwerte für neue Spalten)? Ändert sich Verhalten, das Nutzer kennen, oder eine Schnittstelle (REST-API, MCP, Exporte, Belegvorlagen), auf die sich jemand verlässt? Braucht es einen Hinweis im Release?
+- **Bestehende Installationen:** Was passiert beim Update mit vorhandenen Daten (Migration auf echten Beständen, festgeschriebene Jahre, Standardwerte für neue Spalten)? Ändert sich Verhalten, das Nutzer kennen, oder eine Schnittstelle (REST-API, MCP, Exporte, Belegvorlagen), auf die sich jemand verlässt? Braucht es einen Hinweis im Release (Abschnitt `## Für das Release` in der Beschreibung)?
 - **Grundsätzliche Entscheidung:** Ist eine nötig, die der Maintainer treffen sollte (ein ADR in `docs/adr/` wert)?
 - **Ein Thema:** Trägt der Pull Request nur seine eigenen Commits und ein Thema? Sonst: Vorschlag, wie er sich teilen lässt.
 - **Vollständig:** jedes Akzeptanzkriterium des Issues als Liste mit erfüllt, teilweise oder fehlt, mit Datei oder Test als Beleg. `Umgesetzt #…` nur, wenn alles erfüllt ist, sonst `Refs #…`.
@@ -65,7 +65,7 @@ Der wichtigste Schritt bei Steuer, Buchung und Formaten: Hier sind Code und Test
   - Fehlt ein fachlicher Fall ganz, den die Quelle regelt und Nutzer von Haben haben, ist das ein Befund für „Vollständig“.
   - Ergebnis je Aussage: bestätigt (Quelle, Fundstelle), widerspricht (Zitat), nicht prüfbar (warum, z. B. braucht Steuerberatung). Nicht Prüfbares nicht als bestätigt melden.
 
-## 3. Die einfachste Lösung?
+## 3. Die einfachste und beste Lösung?
 
 Je Punkt ein Ergebnis mit Stelle im Diff:
 
@@ -76,6 +76,7 @@ Die Maßstäbe stehen in `docs/mitwirken.md`, „Beiträge annehmen“, Frage 3.
 - Ein Umweg, den nur ein Kommentar erklärt, deutet auf einen einfacheren Weg.
 - Modul, `packages/core` für Fachlogik, Import nur über `index.ts`.
 - **Eine Stelle:** Muss ein künftiger Weg (Zahlungsweg, Speicherweg, neue Spalte) etwas von Hand mitziehen, etwa derselbe Aufruf in jedem Zahlungsweg oder eine Feldliste je neuer Spalte? Die wiederholten Stellen im Diff belegen und die gemeinsame Stelle benennen; sonst kein Befund.
+- **Besserer Weg:** Unabhängig von der Länge fragen, ob ein anderer Ansatz besser wäre: vorhandenen Code oder ein Muster aus dem Repo nutzen (die `git grep`-Suche oben), die Ursache beheben statt einer Stelle, an der sie sich zeigt (wo entsteht der falsche Zustand?), Randfälle (leer, null, sehr groß, gleichzeitig, Fehler der Gegenstelle) und die Bedienung (Wege, Meldungen, Tastatur, Handy) bedenken. Den besseren Weg mit Stelle benennen; nur dann Befund, sonst Vorschlag.
 
 ## 4. Regeln
 
@@ -106,7 +107,7 @@ Stand: <Commit-SHA>, geprüft in einem frischen Agenten ohne den Verlauf der Ent
 ### Wollen wir das?            <je Punkt ein Satz mit Beleg; ohne Issue: „Frage an den Maintainer“>
 ### Vollständig                | Akzeptanzkriterium | erfüllt, teilweise oder fehlt | Datei oder Test |
 ### Quellen und fachlich       heikel: ja | nein – | Aussage oder Fall | Quelle, Fundstelle | Ergebnis |
-### Einfachste Lösung?         <was gestrichen wurde oder warum es so bleibt>
+### Einfachste und beste Lösung?  <was gestrichen wurde oder warum es so bleibt; besserer Weg mit Stelle oder „keiner“>
 ### Regeln                     | Regel | Ergebnis | Stelle |  (nur ✗ und „betrifft nicht“, „Rest ✓“)
 ### Offene Fragen an den Maintainer
 ### Nachtrag: nachgebessert bis <Commit-SHA>   <je Punkt: vorher → jetzt, Commit; nur nach dem Nachbessern>
@@ -118,7 +119,7 @@ Stand: <Commit-SHA>, geprüft in einem frischen Agenten ohne den Verlauf der Ent
 
 Aus den Schritten 1 bis 4 eines von drei Ergebnissen:
 
-- **Gleich mergen:** gewollt, fachlich richtig, einfach, Regeln eingehalten. Weiter mit Schritt 7.
+- **Gleich mergen:** gewollt, fachlich richtig, einfach, kein besserer Weg, Regeln eingehalten. Weiter mit Schritt 7.
 - **Übernehmen und fertig machen:** gewollt und der Weg stimmt, aber etwas fehlt oder ist falsch (Doku, Tests, Quellenangabe, fachlicher Fehler mit eindeutiger Quelle, Vereinfachung, Regelverstoß). Weiter mit Schritt 6.
 - **Anhalten:** nicht gewollt, grundsätzlich falscher Ansatz, mehrere Themen, eine Entscheidung für den Maintainer oder eine fachliche Frage ohne eindeutige Quelle. Nichts posten, nichts ändern; der prüfenden Person in dieser Form berichten und auf ihr Wort warten:
 
@@ -129,7 +130,7 @@ Aus den Schritten 1 bis 4 eines von drei Ergebnissen:
 
 ### Wollen wir das?            <je Punkt ein Satz mit Beleg>
 ### Quellen und fachlich       | Aussage oder Fall | Quelle, Fundstelle | Ergebnis |
-### Einfachste Lösung?         <was sich streichen ließe, mit Stelle; sonst „passt“>
+### Einfachste und beste Lösung?  <was sich streichen ließe, besserer Weg, je mit Stelle; sonst „passt“>
 ### Regeln                     | Regel | Ergebnis | Stelle |  (nur ✗, „Rest ✓“)
 ### Fragen an dich
 ```

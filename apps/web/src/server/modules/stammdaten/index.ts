@@ -97,8 +97,10 @@ export { typstMeldung } from "./layout-pruefung.ts";
 export {
   artFor,
   assignLayout,
+  assignLayoutToAll,
   createLayout,
   customLayoutFor,
+  mitEingebautemLayout,
   deleteLayout,
   LayoutError,
   LayoutRenderError,
@@ -130,13 +132,21 @@ export {
   type MandateOption,
 } from "./sepa-mandate.ts";
 export {
+  bestaetigeNummer,
   bestaetigeUstId,
+  evatrAbgeschaltet,
+  evatrMoeglich,
+  letzteBestaetigungen,
   listUstIdBestaetigungen,
   ustIdBestaetigungen,
+  ustIdVorBuchen,
+  ustIdVorFestschreiben,
+  type EvatrVerbindung,
   type UstIdBestaetigung,
   type UstIdBestaetigungsErgebnis,
   type UstIdBestaetigungsZustand,
 } from "./ustid-bestaetigung.ts";
+export { ustIdBestaetigungPdf } from "./ustid-bestaetigung-pdf.ts";
 export {
   ansprechpartnerSnapshot,
   ContactPersonError,
@@ -155,8 +165,19 @@ export {
   createTextBlock,
   listTextBlocks,
   setTextBlockArchived,
+  standardTexte,
   textBlockInputSchema,
   updateTextBlock,
   type TextBlock,
   type TextBlockInput,
 } from "./text-blocks.ts";
+export {
+  artikelUebernehmen,
+  einheitenUebernehmen,
+  einrichtungUebernehmen,
+  firmaErgaenzen,
+  kontakteUebernehmen,
+  textbausteineUebernehmen,
+  alteStandardEinleitungen,
+} from "./uebernahme.ts";
+export { gestaltungUebernehmen } from "./uebernahme-gestaltung.ts";

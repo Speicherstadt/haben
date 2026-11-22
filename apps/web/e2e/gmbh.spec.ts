@@ -3,6 +3,7 @@ import { filePickerPruefen } from "./dateiauswahl.ts";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
+import { FORM01 } from "@haben/core";
 import { bestaetigen, fragenUeberspringen, faktenZeigen, kundeWaehlen } from "./einrichtung.ts";
 import { currentDay, currentYear, vorschauAnheften } from "./daten.ts";
 import { anzahlungsbilanzPruefen } from "./anzahlung-bilanz.ts";
@@ -73,6 +74,8 @@ test("Einrichtung als GmbH mit SKR04", async () => {
   await firma.getByLabel(/^Steuernummer/).fill("60/145/12345");
   await firma.getByLabel("IBAN").fill("DE89370400440532013000");
   await firma.getByLabel("Rechtsform").selectOption("gmbh");
+  // Wer zur GmbH wechselt, hat noch keine Pflichtangaben (§ 35a GmbHG): Das Handelsregister steht dann offen (#1253)
+  await expect(firma.getByLabel("Registergericht")).toBeVisible();
   await firma.getByLabel(/^Kontenrahmen/).selectOption("SKR04");
   await firma.getByRole("button", { name: "Speichern" }).click();
   await expect(page.getByText("Firmendaten gespeichert.")).toBeVisible();
@@ -263,7 +266,7 @@ test("Hinterlegung: Registerangaben in den Firmendaten, Bilanz des Vorjahres als
   await expect(region).not.toContainText("Kostenlos");
   await expect(region).toContainText("Das Registergericht fehlt in den Firmendaten.");
   // Am Handy zeigt /einstellungen ohne ?bereich nur die Liste der Bereiche; der Link führt direkt in die Firma
-  await expect(region.getByRole("link", { name: "Einstellungen › Firmendaten" })).toHaveAttribute("href", "/einstellungen?bereich=firma");
+  await expect(region.getByRole("link", { name: "Einstellungen › Firmendaten" })).toHaveAttribute("href", "/einstellungen?bereich=firma#company-register");
   await expect(region.getByRole("button", { name: "Bilanz als PDF herunterladen" })).toBeDisabled();
 
   await go("/einstellungen");
@@ -578,7 +581,10 @@ test("Geschäftsbrief (§ 35a GmbHG): Geschäftsführer in den Firmendaten, Pfli
   // Fehlende Angaben sind ein Hinweis, keine Sperre (eine Vor-GmbH hat noch keine Registernummer)
   await go("/rechnungen/neu");
   await expect(page.locator("#letter-issues")).toContainText("Pflichtangaben für Geschäftsbriefe unvollständig (§ 35a GmbHG): Geschäftsführer fehlt.");
-  await expect(page.locator("#letter-issues").getByRole("link", { name: "Firmendaten ergänzen" })).toHaveAttribute("href", "/einstellungen?bereich=firma");
+  await expect(page.locator("#letter-issues").getByRole("link", { name: "Firmendaten ergänzen" })).toHaveAttribute(
+    "href",
+    "/einstellungen?bereich=firma#company-register",
+  );
   await kundeWaehlen(page, "Hafenkontor Logistik GmbH · Hamburg");
   await page.getByLabel("Beschreibung Position 1").fill("Softwarewartung");
   await page.getByLabel("Menge Position 1").fill("1");
@@ -1165,4 +1171,87 @@ test("Freie Buchung mit Steuerschlüssel: Leistung an den Gesellschafter, brutto
 test("Anzahlungsbilanz: Anforderungen getrennt und verdiente Forderung nach Papierstorno sichtbar (#750)", async () => {
   test.setTimeout(120_000);
   await anzahlungsbilanzPruefen(page);
+});
+
+test("Handelsregister (#1253): bei vollständigen Angaben zu, zeigt die Nummer und öffnet per Anker", async () => {
+  await go("/einstellungen?bereich=firma");
+  const firma = page.getByRole("form", { name: "Firmendaten" });
+  await expect(firma.getByLabel("Registergericht")).toBeHidden();
+  await expect(firma.locator("details", { has: page.getByRole("heading", { name: "Handelsregister und Geschäftsführung" }) }).locator("summary")).toContainText(
+    "HRB 12345 HB",
+  );
+  await go("/einstellungen?bereich=firma#company-register");
+  await expect(firma.getByLabel("Registergericht")).toBeVisible();
+  await expect(firma.getByLabel("Registergericht")).toHaveValue("Amtsgericht Bremen");
+  // Zuklappen und Speichern: Sitz, Gericht, Nummer, Geschäftsführung bleiben erhalten
+  await firma.locator("summary", { hasText: "Handelsregister und Geschäftsführung" }).click();
+  await firma.getByRole("button", { name: "Speichern" }).click();
+  await expect(page.getByText("Firmendaten gespeichert.")).toBeVisible();
+  await go("/einstellungen?bereich=firma#company-register");
+  await expect(firma.getByLabel("Registernummer")).toHaveValue("HRB 12345 HB");
+  await expect(firma.locator("textarea[name=geschaeftsfuehrer]")).toHaveValue("Erika Gesellschafter");
+});
+
+test("BWA der GmbH nach DATEV-Form 01: Forderungsverlust neutral, Zeile bis zum Kontenblatt im Zeitraum (#1380)", async () => {
+  const year = currentYear();
+  // Manuelle Buchung heute: Forderungsverlust gegen das Gesellschafter-Verrechnungskonto
+  await go("/buchungen/neu");
+  const form = page.getByRole("form", { name: "Manuelle Buchung" });
+  await form.getByLabel("Buchungstext").fill("Forderungsausfall Kunde Ostwind");
+  await form.getByLabel("Konto Zeile 1").fill("6930");
+  await form.getByLabel("Soll Zeile 1").fill("12,34");
+  await form.getByLabel("Konto Zeile 2").fill("3510");
+  await form.getByLabel("Haben Zeile 2").fill("12,34");
+  await form.getByRole("button", { name: "Buchen" }).click();
+  await page.waitForURL(/\/buchungen\?/);
+
+  await go(`/auswertungen?jahr=${year}`);
+  await page.getByRole("link", { name: "BWA", exact: true }).click();
+  await expect(page).toHaveURL(/\/auswertungen\/bwa/);
+  await page.getByLabel("Zeitraum").selectOption("jahr");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(`BWA ${year}`);
+  await expect(page.getByRole("heading", { name: "Kurzfristige Erfolgsrechnung" })).toBeVisible();
+  await expect(page.getByText("Eigene Auswertung von Haben nach dem Aufbau der DATEV-Form 01")).toBeVisible();
+  const tabelle = page.getByRole("table", { name: `BWA ${year}` });
+  await expect(tabelle.getByRole("rowheader", { name: "Betriebsergebnis" })).toBeVisible();
+  await expect(tabelle.getByRole("rowheader", { name: "Vorläufiges Ergebnis" })).toBeVisible();
+  await expect(tabelle.getByRole("rowheader", { name: "Gewinn laut EÜR" })).toHaveCount(0);
+
+  // Anteil (#1635): Kostenarten in % der Gesamtkosten, Ergebnisse ohne; Kennzahlen in % der Gesamtleistung
+  await expect(tabelle.locator("thead th").nth(2)).toHaveText("Anteil");
+  const anteil = (zeile: string) =>
+    tabelle
+      .locator("tbody tr")
+      .filter({ has: page.getByRole("rowheader", { name: zeile, exact: true }) })
+      .locator("td")
+      .nth(1);
+  await expect(anteil("Gesamtkosten")).toHaveText("100,0\u00a0%");
+  await expect(anteil("Vorläufiges Ergebnis")).toHaveText("–");
+  const kennzahlen = page.getByRole("region", { name: "Kennzahlen" });
+  await expect(kennzahlen.getByText("Rohertragsquote", { exact: true })).toBeVisible();
+  await expect(kennzahlen.getByText("Vorläufiges Ergebnis in % der Gesamtleistung")).toBeVisible();
+
+  // Leere Zeilen anzeigen: alle Zeilen der Form 01, Summen und Ergebnis stehen ohnehin
+  const zeilen = tabelle.locator("tbody tr");
+  await expect(zeilen).not.toHaveCount(FORM01.length);
+  await page.getByRole("checkbox", { name: "Leere Zeilen anzeigen" }).check();
+  await expect(page).toHaveURL(/[?&]leer=1/);
+  await expect(zeilen).toHaveCount(FORM01.length);
+
+  // Die Zeile öffnet ihre Konten; „Warum?“ gibt es nur in Form 43
+  await tabelle.getByRole("link", { name: "Sonstiger neutraler Aufwand" }).click();
+  const details = page.getByRole("region", { name: `Sonstiger neutraler Aufwand · ${year}` });
+  await expect(details).toBeVisible();
+  await expect(details.getByRole("region", { name: "Warum?" })).toHaveCount(0);
+  const konto = details.getByRole("row").filter({ hasText: "6930" });
+  await expect(konto).toContainText("12,34");
+  const link = konto.getByRole("link", { name: "6930" });
+  await expect(link).toHaveAttribute("href", new RegExp(`von=${year}-01-01.*bis=${year}-12-31`));
+  expect(await axe(), "/auswertungen/bwa mit Konten").toEqual([]);
+
+  await link.click();
+  await expect(page).toHaveURL(new RegExp(`/konten/6930\\?.*von=${year}-01-01`));
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("6930");
+  await expect(page.getByLabel("Zeitraum")).toHaveValue("frei");
+  await expect(page.getByRole("table").filter({ hasText: "Forderungsausfall Kunde Ostwind" })).toBeVisible();
 });

@@ -1,13 +1,13 @@
 ---
 title: "Auswertungen: EÜR, offene Posten und Jahresexport"
 description: >-
-  Einnahmen-Überschuss-Rechnung, Einnahmen und Ausgaben je Monat, offene Posten und das
-  Jahresarchiv als ZIP mit DATEV-Export für die Steuerberatung.
+  Einnahmen-Überschuss-Rechnung, Einnahmen und Ausgaben je Monat,
+  offene Posten und das Jahresarchiv als ZIP mit DATEV-Export.
 ---
 
 # Auswertungen und Jahresexport
 
-Die Seite „Auswertungen“ zeigt dir die Einnahmen-Überschuss-Rechnung (EÜR) eines Jahres, Einnahmen und Ausgaben je Monat und die offenen Posten. Unter „Einstellungen“ lädst du das Jahresarchiv als ZIP für die Aufbewahrung herunter. Als Anlage EÜR an das Finanzamt geht die EÜR unter [Jahreserklärungen](jahreserklaerung.md).
+Die Seite „Auswertungen“ zeigt dir die Einnahmen-Überschuss-Rechnung (EÜR) eines Jahres, Einnahmen und Ausgaben je Monat und die offenen Posten; unter „BWA“ die [betriebswirtschaftliche Auswertung](bwa.md) für einen Monat, ein Quartal oder einen freien Zeitraum mit Vergleich. Unter „Einstellungen“ lädst du das Jahresarchiv als ZIP für die Aufbewahrung herunter. Als Anlage EÜR an das Finanzamt geht die EÜR unter [Jahreserklärungen](jahreserklaerung.md).
 
 Eine GmbH oder UG bilanziert (§ 238 HGB, § 8 Abs. 1 KStG) und macht keine EÜR. Bei ihr zeigt die Seite Einnahmen und Ausgaben je Monat nach Zahlung, den Überschuss nach Zahlung und die offenen Posten, aber keine EÜR-Tabelle und kein „EÜR als CSV“; den Gewinn zeigt der [Jahresabschluss](gmbh-abschluss.md#jahresabschluss-gmbh-und-ug).
 
@@ -125,6 +125,10 @@ Diese Grundlage ist weder der EÜR-Gewinn noch die Summe ausgestellter Rechnunge
 
 Das Säulendiagramm zeigt je Monat die Einnahmen und Ausgaben netto nach Zahlungsdatum, also ohne Umsatzsteuer, Vorsteuer, Umsatzsteuerzahlungen an oder vom Finanzamt und nicht abziehbare Steuern. Bankgebühren zählen zu den Ausgaben. Fährst du mit der Maus über einen Monat oder springst per Tab-Taste hinein, siehst du die Werte. Unter „Als Tabelle anzeigen“ stehen dieselben Zahlen mit Überschuss je Monat und Jahressumme.
 
+## BWA
+
+<a id="bwa-für-gmbh-und-ug"></a>Die betriebswirtschaftliche Auswertung, für GmbH und UG als Kurzfristige Erfolgsrechnung, steht unter [BWA](bwa.md).
+
 ## Offene Posten
 
 Die drei Tabellen am Ende zeigen den Stand von heute oder, für ein vergangenes Jahr über den Schalter in der Jahresleiste, den zum 31.12. Sortiert wird nach Fälligkeit.
@@ -189,7 +193,7 @@ Unter **Einstellungen › Export › DATEV-Export** lädst du die Buchungen eine
 
 Haben bucht offene Posten im Journal auf die Sammelkonten „Forderungen aus Lieferungen und Leistungen“ (SKR03 1400, SKR04 1200) und „Verbindlichkeiten aus Lieferungen und Leistungen“ (SKR03 1600, SKR04 3300). Viele Kanzleien führen dagegen je Kunde einen Debitor und je Lieferant einen Kreditor. Mit **DATEV-Personenkonten** unter **Einstellungen › Export › DATEV-Export** setzt der Export diese Nummern ein; das Journal, die Saldenliste und alle Auswertungen in Haben bleiben bei den Sammelkonten.
 
-- **Nummern:** am Kontakt, Felder **DATEV-Debitor** und **DATEV-Kreditor** ([Kontakte](kontakte.md)), oder aus dem [CSV-Import](csv-import.md#kontakte).
+- **Nummern:** am Kontakt unter **Weitere Angaben**, Felder **DATEV-Debitor** und **DATEV-Kreditor** ([Kontakte](kontakte.md)), oder aus dem [CSV-Import](csv-import.md#kontakte).
 - **Welches Konto:** Entscheidend ist die Herkunft, nicht das Vorzeichen. Eine Rechnung und alles dazu (Zahlung, Teilzahlung, Rückzahlung, Skonto, Forderungsausfall, Storno, Korrektur, Bareinnahme) geht auf den Debitor des Kunden der Rechnung; ein Beleg und seine Zahlungen, Erstattungen und Skonti auf den Kreditor des Lieferanten, den der Beleg aus den Kontakten trägt. Eine Zeile wird ersetzt, nicht ergänzt: Die Summe der Debitoren ist der Saldo von 1400 bzw. 1200 in der Saldenliste, die der Kreditoren der von 1600 bzw. 3300. Eine Verrechnung zweier Belege steht mit beiden Seiten beim Kreditor des Lieferanten: die Rechnung mit ihrer Belegnummer im Soll, die Gutschrift mit ihrer im Haben, dazu an jedem Beleg, dessen Vorsteuer auf dem Zwischenkonto steht, die Umbuchung der Vorsteuer ([Verrechnen ohne Zahlung](belege.md#verrechnen-ohne-zahlung)).
 - **Ab einem Jahr:** Der Schalter gilt ab dem Beginn des gewählten Jahres; davor bleibt der Stapel bei den Sammelkonten. Hat ein betroffenes Jahr bis heute schon Buchungen, speichert Haben die Änderung (auch das Abschalten) nur mit einem Häkchen: Ein Stapel, den die Kanzlei schon hat, sähe danach anders aus. Die Änderung steht im Änderungsprotokoll.
 - **Fehlende Nummern vergibt Haben:** Braucht ein Kontakt für den Stapel einen Debitor bzw. Kreditor und hat keinen, vergibt der Export die nächste Nummer nach der höchsten bisher vergebenen (am Ende des Bereichs die erste nie vergebene) und trägt sie am Kontakt ein, mit Eintrag im Änderungsprotokoll. Nummern, die schon einmal an einem Kontakt standen, auch an einem archivierten oder später geänderten, vergibt Haben nicht noch einmal. Gleichzeitige Exporte warten aufeinander, so bekommt keine Nummer zwei Kontakte. Kontakte ohne offenen Posten im Jahr bekommen keine Nummer.
@@ -230,12 +234,12 @@ Zugeordnet wird nach Datum: Rechnungen nach Rechnungsdatum, Belege nach Belegdat
 | `pauschalen/pauschalen.csv` | Nur wenn vorhanden: Pauschalen ohne Beleg mit ihren Angaben als Eigenbeleg; Stornos als Gegenzeile |
 | `kasse/kassenbuch.csv` | Nur wenn vorhanden: Kassenbuch mit fortlaufender Nummer, Anfangsbestand und Bestand nach jeder Zeile, bei Bareinnahmen die Rechnungsnummer |
 | `buchungen/journal.csv` | Journal, eine Zeile je Buchungszeile mit Konto, Kontoname, Soll, Haben, Steuerschlüssel und, bei Ist-Versteuerung an der Zahlung, der Bemessungsgrundlage; Gegenbuchungen verweisen auf die Ursprungsbuchung |
-| `bank/<IBAN>/umsaetze.csv` | Importierte Umsätze je Konto mit zugeordnetem und offenem Betrag und ob der Umsatz verrechnet ist |
+| `bank/<IBAN>/umsaetze.csv` | Importierte Umsätze je Konto mit Originalbetrag, zugeordnetem und offenem Betrag sowie den Kennzeichnungen `Verrechnet` und `Dublette`. Bestätigte Dubletten haben einen offenen Betrag von 0 € |
 | `bank/zuordnungen.csv` | Zuordnungen zu Rechnungen, Belegen und Buchungen ohne Beleg; aufgehobene als Gegenzeile |
 | `bank/verrechnungen.csv` | Nur wenn vorhanden: miteinander verrechnete gegenläufige Umsätze mit Notiz, ohne Buchung ([Bank](bank.md#gegenläufige-umsätze-verrechnen)); aufgehobene als Gegenzeile |
 | `bank/ausbuchungen.csv` | Nur wenn vorhanden: ausgebuchte Reste (Skonto gewährt und erhalten, Forderungsausfall); aufgehobene als Gegenzeile; bei Skonto zu einer Bareinnahme die Nummer im Kassenbuch |
 | `bank/importe.csv` | Importierte Auszugsdateien und Kontoabrufe mit SHA-256, Zeitraum, Salden und Hinweisen (die Dateien selbst speichert der Bankimport nicht); abgelehnte Abrufe ohne Zeitraum nach dem Tag des Abrufs; ein Abruf, der einen Umsatz des Jahres verbunden hat (etwa vom 30.12. vor seinem Januar-Fenster), auch im Jahr dieses Umsatzes; ein abgelehnter Abruf mit geklärtem Konflikt auch im Jahr des bisherigen und des neuen Umsatzes |
-| `bank/quellen.csv` | Nur wenn vorhanden: Herkunft der abgerufenen Umsätze, je Ereignis der Bank die Quelle mit [Stichtag](bank.md#welche-umsätze-abgerufen-werden), der Abruf und der Umsatz, den Haben angelegt oder verbunden hat |
+| `bank/quellen.csv` | Nur wenn vorhanden: Herkunft der abgerufenen Umsätze, je abgerufenem oder geliefertem Ereignis (Bankabruf, Etsy, PayPal, Stripe oder REST-Import) die Quelle mit [Stichtag](bank.md#welche-umsätze-abgerufen-werden), der Abruf, der Umsatz, den Haben angelegt oder verbunden hat, und die gelieferten Referenzen: Anbieterreferenz, Ereigniscode, EndToEndId, bei Erstattung und Rückbelastung das ursprüngliche Ereignis, Auszahlung und Bestellung |
 | `bank/klaerungen.csv` | Nur wenn vorhanden: je [geklärtem Konflikt](bank.md#welche-umsätze-abgerufen-werden) im Abruf der bisherige und der gelieferte Umsatz, die Entscheidung, ein neu angelegter Umsatz und wer wann geklärt hat; der abgelehnte Abruf steht in `bank/importe.csv`; im Jahr des bisherigen Umsatzes und, wenn ein neuer angelegt wurde, auch in dessen Jahr |
 | `umsatzsteuer/<JJJJ-MM>/` | Je Monat die Voranmeldung als `anmeldung.json` (bei mehreren, etwa berichtigten, `anmeldung-1.json`, `anmeldung-2.json` …), `übermittlungen.csv` und je Prüfung oder Übermittlung das ERiC-Protokoll (PDF) sowie das gesendete und empfangene XML; bei einer [Abgabe außerhalb von Haben](umsatzsteuer.md#abgabe-außerhalb-von-haben-vermerken) das Übermittlungsprotokoll des Vermerks (PDF) |
 | `lexoffice/` | Nur bei übernommenem Altbestand aus Lexware Office, sevDesk, FastBill und den anderen Umzugsquellen, siehe unten |
@@ -256,7 +260,7 @@ Der Ordner `lexoffice/` enthält, falls du aus Lexoffice umgezogen bist (siehe [
 | --- | --- |
 | `lexoffice/belege/` | Original-PDFs, E-Rechnungs-XML und Anhänge der Lexoffice-Belege des Jahres |
 | `lexoffice/belege.csv` | Je Beleg Art, Richtung, Nummer, Kontakt, Beträge, Status, Zahlungsdatum, Steuersätze und Kategorien als JSON, Dateien mit SHA-256, Lexoffice-ID und [Dateistand](sevdesk.md#dateistand) |
-| `lexoffice/dateistand.csv` | Verlauf des Dateistands von Belegen aus sevDesk, aus dem Accountable-Stapel und aus der Lexoffice-Sicherung: fehlende Datei, fehlgeschlagener Abruf, fehlender Anhang, Bestätigung ohne Datei mit Benutzer-ID, Rücknahme einer Bestätigung, nachgeladene Datei |
+| `lexoffice/dateistand.csv` | Verlauf des Dateistands von Belegen aus sevDesk, aus dem Accountable-Stapel und aus Lexoffice: fehlende Datei, fehlgeschlagener Abruf, fehlender Anhang, Bestätigung ohne Datei mit Benutzer-ID, Rücknahme einer Bestätigung, nachgeladene Datei |
 | `lexoffice/zahlungen.csv` | Einzelzahlungen zu sevDesk-Vorgängen nach Zahlungsdatum: Belegnummer, Betrag, Konto, Umsatz- und Zuordnungs-ID der Quelle |
 | `lexoffice/datev-buchungen.csv` | Die Zeilen des DATEV-Buchungsstapels mit Datei und Zeilennummer im Original |
 | `lexoffice/originale/<Art>/` | Die unveränderten Originalexporte des Jahres: `datev`, `idea`, `elster`, `kontoauszug`, `storebericht` (Finanzberichte von Google Play und App Store), `sonstiges` |

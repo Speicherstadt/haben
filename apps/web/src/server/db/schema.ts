@@ -17,13 +17,14 @@ import {
   text,
   timestamp,
   index,
+  unique,
   uniqueIndex,
   uuid,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 import type { Buyer, Seller } from "@haben/einvoice";
-import type { BankCsvMapping, ParsedTransaction } from "@haben/import";
+import type { BankCsvMapping, ImportMovement, ParsedTransaction } from "@haben/import";
 import type { LetterheadDesign, OutgoingTaxDetails } from "@haben/core";
 import {
   ASSET_KIND_KEYS,
@@ -143,9 +144,6 @@ export const company = pgTable(
     /** Vorgabe für das Skonto neuer Rechnungen, je Stufe Frist in Tagen und Satz in Basispunkten; leer = kein Skonto */
     skonto: jsonb("skonto").$type<SkontoStufe[]>().notNull().default([]),
     defaultFormat: invoiceFormatEnum("default_format").notNull().default("zugferd"),
-    /** Vorgabe für die Einleitung über den Positionen neuer Rechnungen bzw. Angebote; im Beleg änderbar */
-    invoiceIntro: text("invoice_intro").notNull().default(""),
-    quoteIntro: text("quote_intro").notNull().default(""),
     /** Vorlagen für den Zahlungsplan im Angebot, z. B. „30/40/30“ und „50/50“ */
     paymentPlanTemplates: jsonb("payment_plan_templates").$type<PlanTemplate[]>().notNull().default(DEFAULT_PLAN_TEMPLATES),
     /** Kleinunternehmer nach § 19 UStG: Rechnungen ohne Umsatzsteuer, keine Voranmeldung, kein Vorsteuerabzug */
@@ -162,6 +160,9 @@ export const company = pgTable(
     /** Zähler je Kreis: false = beginnt jedes Jahr bei 1, true = läuft über den Jahreswechsel weiter (#328) */
     invoiceCounterRunning: boolean("invoice_counter_running").notNull().default(false),
     quoteCounterRunning: boolean("quote_counter_running").notNull().default(false),
+    /** Zähler je Kunde: eigener Nummernkreis pro Kontakt statt gemeinsamem Kreis; {KUNDENNR} wird im Format Pflicht (#1426) */
+    invoiceCounterPerCustomer: boolean("invoice_counter_per_customer").notNull().default(false),
+    quoteCounterPerCustomer: boolean("quote_counter_per_customer").notNull().default(false),
     /** Kundennummern automatisch, z. B. "K-{NNNN}"; leer = von Hand. Der Zähler läuft durch, ohne Jahr */
     customerNumberFormat: text("customer_number_format").notNull().default(""),
     customerNumberNext: integer("customer_number_next").notNull().default(1),
@@ -858,6 +859,12 @@ export const inboxSettings = pgTable(
     outboundFolder: text("outbound_folder"),
     /** Freigegebene Absender (Adresse oder Domain); leer: jeder Absender */
     allowedSenders: text("allowed_senders").array().notNull().default(sql`'{}'::text[]`),
+    /** Was mit einer abgelegten Mail im Postfach geschieht: gelesen markieren, in archive_folder verschieben oder löschen */
+    afterFetch: text("after_fetch", { enum: ["seen", "move", "delete"] })
+      .notNull()
+      .default("seen"),
+    /** Zielordner bei after_fetch = move */
+    archiveFolder: text("archive_folder"),
     enabled: boolean("enabled").notNull().default(true),
     lastRunAt: timestamp("last_run_at", { withTimezone: true }),
     /** Mails nicht freigegebener Absender beim letzten Abruf (nur die Zahl, ohne Absender und Betreff) */
@@ -865,7 +872,7 @@ export const inboxSettings = pgTable(
     lastError: text("last_error"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [check("inbox_settings_single_row", sql`${t.id} = 1`)],
+  (t) => [check("inbox_settings_single_row", sql`${t.id} = 1`), check("inbox_settings_after_fetch", sql`${t.afterFetch} in ('seen', 'move', 'delete')`)],
 );
 
 /** Abgerufene Mails mit den daraus angelegten Belegen; je Message-ID genau einmal */
@@ -1373,6 +1380,8 @@ export const invoices = pgTable(
     /** Kreis des Zählers: Jahr des Belegdatums, 0 = durchlaufender Zähler (counterCircle) */
     numberYear: smallint("number_year"),
     numberCounter: integer("number_counter"),
+    /** Kontakt des Kundenkreises, in dem die Nummer vergeben wurde; NULL = gemeinsamer Kreis (#1426) */
+    numberContactId: uuid("number_contact_id").references(() => contacts.id, { onDelete: "restrict" }),
     contactId: uuid("contact_id").references(() => contacts.id),
     contactVersion: integer("contact_version"),
     issueDate: date("issue_date", { mode: "string" }).notNull(),
@@ -1395,6 +1404,12 @@ export const invoices = pgTable(
     intro: text("intro").notNull().default(""),
     /** Hinweis unter den Summen (Fußtext) */
     note: text("note").notNull().default(""),
+    /**
+     * Einleitung und Hinweis mit Platzhaltern, wie sie im Entwurf standen (#1334): beim Festschreiben gesetzt, wenn
+     * Platzhalter eingesetzt wurden (intro/note tragen dann die Werte), sonst leer. Kopieren nimmt sie statt der Werte.
+     */
+    introVorlage: text("intro_vorlage").notNull().default(""),
+    noteVorlage: text("note_vorlage").notNull().default(""),
     /** Aufbewahrungshinweis für Grundstücksleistungen (§ 14 Abs. 4 Satz 1 Nr. 9 UStG), getrennt vom freien Fußtext */
     propertyRetention: boolean("property_retention").notNull().default(false),
     /**
@@ -1507,7 +1522,9 @@ export const invoices = pgTable(
     check("invoices_discount_percent", sql`${t.discountPercent} is null or ${t.discountPercent} between 1 and 10000`),
     // Storno und Korrektur verweisen immer auf das Original
     check("invoices_corrects_original", sql`${t.kind} = 'rechnung' or ${t.correctsId} is not null`),
-    uniqueIndex("invoices_number_counter").on(t.numberYear, t.numberCounter),
+    // Gleiche laufende Nummer in zwei Kreisen erlaubt, im selben Kreis nicht; Entwürfe tragen noch keinen Kreis.
+    // NULLS NOT DISTINCT am Index ergänzt die Migration von Hand — drizzle kennt es an Indexen nicht (#1426).
+    uniqueIndex("invoices_number_counter").on(t.numberYear, t.numberContactId, t.numberCounter).where(sql`${t.numberYear} is not null`),
     uniqueIndex("invoices_recurring_date").on(t.recurringId, t.recurringDate),
     index("invoices_number_trgm_idx").using("gin", sql`haben_unaccent(${t.number}) gin_trgm_ops`),
     index("invoices_buyer_order_reference_trgm_idx").using("gin", sql`haben_unaccent(${t.buyerOrderReference}) gin_trgm_ops`),
@@ -1608,11 +1625,21 @@ export const invoiceAttachments = pgTable(
   ],
 );
 
-/** Letzte vergebene laufende Nummer je Jahr (0 = durchlaufender Zähler); lückenlos, weil nur beim Festschreiben gezogen */
-export const invoiceNumberCounters = pgTable("invoice_number_counters", {
-  year: smallint("year").primaryKey(),
-  last: integer("last").notNull(),
-});
+/**
+ * Letzte vergebene laufende Nummer je Nummernkreis: Jahr des Belegdatums (0 = durchlaufender Zähler) mal Kreis;
+ * `contact_id` NULL ist der gemeinsame Kreis wie bisher, sonst der Kundenkreis eines Kontakts (#1426). Lückenlos,
+ * weil nur beim Festschreiben gezogen.
+ */
+export const invoiceNumberCounters = pgTable(
+  "invoice_number_counters",
+  {
+    year: smallint("year").notNull(),
+    last: integer("last").notNull(),
+    /** Kreis des Zählers: NULL = gemeinsamer Kreis, sonst der Kontakt des Kundenkreises (#1426) */
+    contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "restrict" }),
+  },
+  (t) => [unique().on(t.year, t.contactId).nullsNotDistinct()],
+);
 
 /**
  * Angebote: Entwurf frei änderbar, beim Festschreiben Nummer (eigener Kreis) und PDF, danach fest.
@@ -1627,6 +1654,8 @@ export const quotes = pgTable(
     /** Kreis des Zählers: Jahr des Belegdatums, 0 = durchlaufender Zähler (counterCircle) */
     numberYear: smallint("number_year"),
     numberCounter: integer("number_counter"),
+    /** Kontakt des Kundenkreises, in dem die Nummer vergeben wurde; NULL = gemeinsamer Kreis (#1426) */
+    numberContactId: uuid("number_contact_id").references(() => contacts.id, { onDelete: "restrict" }),
     contactId: uuid("contact_id").references(() => contacts.id),
     contactVersion: integer("contact_version"),
     /** Gewählter Ansprechpartner des Kunden (#424); der festgeschriebene Stand steht im Käufer */
@@ -1638,6 +1667,9 @@ export const quotes = pgTable(
     /** Einleitung über den Positionen (Kopftext) */
     intro: text("intro").notNull().default(""),
     note: text("note").notNull().default(""),
+    /** Einleitung und Hinweis mit Platzhaltern wie bei Rechnungen (#1334); Kopie, Rechnung und Auftragsbestätigung nehmen sie */
+    introVorlage: text("intro_vorlage").notNull().default(""),
+    noteVorlage: text("note_vorlage").notNull().default(""),
     /**
      * Referenzen nach EN 16931 (#389), leer = keine: Bestellnummer des Kunden (BT-13), eigene Auftragsnummer (BT-14) und
      * Lieferschein (BT-16). Gehen in die Rechnung aus dem Angebot über.
@@ -1686,7 +1718,8 @@ export const quotes = pgTable(
     index("quotes_buyer_name_trgm_idx").using("gin", sql`haben_unaccent(${t.buyer} ->> 'name') gin_trgm_ops`),
     index("quotes_gross_search_idx").on(t.gross),
     index("quotes_contactId_search_idx").on(t.contactId),
-    uniqueIndex("quotes_number_counter").on(t.numberYear, t.numberCounter),
+    // Kreise wie bei `invoices_number_counter` (#1426)
+    uniqueIndex("quotes_number_counter").on(t.numberYear, t.numberContactId, t.numberCounter).where(sql`${t.numberYear} is not null`),
   ],
 );
 
@@ -1905,6 +1938,9 @@ export const articles = pgTable(
 
 export const textBlockKinds = ["kopf", "fuss"] as const;
 export type TextBlockKind = (typeof textBlockKinds)[number];
+/** Belegarten, für die ein Textbaustein Standard sein kann (#1494) */
+export const textBlockStandards = ["rechnung", "angebot", "auftragsbestaetigung", "lieferschein", "mahnung"] as const;
+export type TextBlockStandard = (typeof textBlockStandards)[number];
 
 /**
  * Textbausteine zum Einfügen in Rechnungen, Angebote und wiederkehrende Rechnungen: Kopftext (Einleitung über den
@@ -1921,6 +1957,11 @@ export const textBlocks = pgTable(
     text: text("text").notNull(),
     /** Optional einem Kunden zugeordnet: steht bei dessen Belegen oben in der Auswahl */
     contactId: uuid("contact_id").references(() => contacts.id),
+    /**
+     * Standard für diese Belegart (#1494): füllt neue Belege vor, Kopftext die Einleitung, Fußtext den Hinweis bzw.
+     * Schlusstext. Höchstens ein aktiver Baustein je Belegart und Art; null = kein Standard
+     */
+    standardFuer: text("standard_fuer", { enum: textBlockStandards }),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1928,16 +1969,32 @@ export const textBlocks = pgTable(
   (t) => [
     index("text_blocks_contact").on(t.contactId),
     check("text_blocks_kind", sql`${t.kind} in ('kopf', 'fuss')`),
+    check(
+      "text_blocks_standard_fuer",
+      sql`${t.standardFuer} is null or ${t.standardFuer} in ('rechnung', 'angebot', 'auftragsbestaetigung', 'lieferschein', 'mahnung')`,
+    ),
+    // Der Lieferschein hat nur einen Hinweis; ein Standard gilt für alle Kunden
+    check(
+      "text_blocks_standard_passt",
+      sql`${t.standardFuer} is null or (${t.contactId} is null and not (${t.standardFuer} = 'lieferschein' and ${t.kind} = 'kopf'))`,
+    ),
+    uniqueIndex("text_blocks_standard").on(t.standardFuer, t.kind).where(sql`${t.standardFuer} is not null and ${t.archivedAt} is null`),
     index("text_blocks_name_trgm_idx").using("gin", sql`haben_unaccent(${t.name}) gin_trgm_ops`),
     index("text_blocks_text_trgm_idx").using("gin", sql`haben_unaccent(${t.text}) gin_trgm_ops`),
   ],
 );
 
-/** Letzte Angebotsnummer je Jahr (0 = durchlaufender Zähler) */
-export const quoteNumberCounters = pgTable("quote_number_counters", {
-  year: smallint("year").primaryKey(),
-  last: integer("last").notNull(),
-});
+/** Letzte Angebotsnummer je Nummernkreis (Kreise wie bei `invoiceNumberCounters`) */
+export const quoteNumberCounters = pgTable(
+  "quote_number_counters",
+  {
+    year: smallint("year").notNull(),
+    last: integer("last").notNull(),
+    /** Kreis des Zählers: NULL = gemeinsamer Kreis, sonst der Kontakt des Kundenkreises (#1426) */
+    contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "restrict" }),
+  },
+  (t) => [unique().on(t.year, t.contactId).nullsNotDistinct()],
+);
 
 /** Buchungen. Festgeschrieben ab Entstehung; Korrektur nur per Gegenbuchung. */
 export const journalEntries = pgTable(
@@ -2468,6 +2525,20 @@ export const importSources = pgTable(
   (t) => [uniqueIndex("import_sources_identity").on(t.provider, t.externalAccountId), check("import_sources_kind", sql`${t.accountKind} in ('bank', 'psp')`)],
 );
 
+/** Die in einem Abruf schon vorhandenen Umsätze; neue verbindet bereits bank_transactions.import_id. */
+export const bankImportTransactions = pgTable(
+  "bank_import_transactions",
+  {
+    bankImportId: uuid("bank_import_id")
+      .notNull()
+      .references(() => bankImports.id),
+    transactionId: uuid("transaction_id")
+      .notNull()
+      .references(() => bankTransactions.id),
+  },
+  (t) => [primaryKey({ columns: [t.bankImportId, t.transactionId] }), index("bank_import_transactions_transaction").on(t.transactionId, t.bankImportId)],
+);
+
 /** Jede angenommene Lieferung des Importvertrags mit ihrem Prüfwert und dem Stand danach; nur anhängen */
 export const importBatches = pgTable(
   "import_batches",
@@ -2487,6 +2558,8 @@ export const importBatches = pgTable(
     openFrom: date("open_from", { mode: "string" }),
     /** `batchFingerprint`: Dieselbe Lieferung noch einmal liefert das bisherige Ergebnis, mit anderem Inhalt ist sie ein Konflikt */
     fingerprint: text("fingerprint").notNull(),
+    /** Nachweis mehrfach vergebener Enable-Banking-Referenzen in dieser Lieferung. */
+    ambiguousEntryReferences: text("ambiguous_entry_references").array(),
     bankImportId: uuid("bank_import_id")
       .notNull()
       .references(() => bankImports.id),
@@ -2496,6 +2569,62 @@ export const importBatches = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("import_batches_key").on(t.sourceId, t.idempotencyKey), index("import_batches_source_created").on(t.sourceId, t.createdAt)],
+);
+
+/** Verdacht zwischen zwei gespeicherten Umsätzen. Der Import legt nur offene Vermerke an. */
+export const bankDuplicateReviews = pgTable(
+  "bank_duplicate_reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    transactionId: uuid("transaction_id")
+      .notNull()
+      .references(() => bankTransactions.id),
+    originalTransactionId: uuid("original_transaction_id")
+      .notNull()
+      .references(() => bankTransactions.id),
+    decision: text("decision", { enum: ["pending", "duplicate", "distinct"] })
+      .notNull()
+      .default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("bank_duplicate_reviews_pair").on(
+      sql`least(${t.transactionId}, ${t.originalTransactionId})`,
+      sql`greatest(${t.transactionId}, ${t.originalTransactionId})`,
+    ),
+    index("bank_duplicate_reviews_transaction").on(t.transactionId),
+    check("bank_duplicate_reviews_distinct_rows", sql`${t.transactionId} <> ${t.originalTransactionId}`),
+    check("bank_duplicate_reviews_decision", sql`${t.decision} in ('pending', 'duplicate', 'distinct')`),
+  ],
+);
+
+/** Entscheidung oder Gegenzeile zu einem Verdacht. Die Umsätze bleiben gesperrt. */
+export const bankDuplicateDecisions = pgTable(
+  "bank_duplicate_decisions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reviewId: uuid("review_id")
+      .notNull()
+      .references(() => bankDuplicateReviews.id),
+    decision: text("decision", { enum: ["pending", "duplicate", "distinct"] }).notNull(),
+    reversesId: uuid("reverses_id").references((): AnyPgColumn => bankDuplicateDecisions.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("bank_duplicate_decisions_review").on(t.reviewId),
+    uniqueIndex("bank_duplicate_decisions_reversal").on(t.reversesId),
+    check(
+      "bank_duplicate_decisions_kind",
+      sql`(${t.decision} in ('duplicate', 'distinct') and ${t.reversesId} is null) or (${t.decision} = 'pending' and ${t.reversesId} is not null)`,
+    ),
+  ],
+);
+
+/** Abschluss der einmaligen Bestandsprüfung, auch wenn kein Verdacht gefunden wurde. */
+export const bankDuplicateCheck = pgTable(
+  "bank_duplicate_check",
+  { id: integer("id").primaryKey(), createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow() },
+  (t) => [check("bank_duplicate_check_single", sql`${t.id} = 1`)],
 );
 
 /**
@@ -2520,6 +2649,11 @@ export const importMovements = pgTable(
     currency: text("currency").notNull(),
     /** Prüfwert aller Angaben der ersten Lieferung (`knownMovement`) */
     details: text("details").notNull(),
+    /**
+     * Referenzen der ersten Lieferung (Anbieterreferenz, Ereigniscode, EndToEndId, Bezug bei Erstattung und Rückbelastung,
+     * Auszahlung, Bestellung), wie geliefert (#306). Leer bei Bewegungen, die vor dieser Spalte übernommen wurden.
+     */
+    refs: jsonb("refs").$type<ImportMovement["references"]>(),
     transactionId: uuid("transaction_id")
       .notNull()
       .references(() => bankTransactions.id),
@@ -3356,6 +3490,14 @@ export type LexofficeImportProgress = {
   skipped: number;
   files: number;
   failed: { lexofficeId: string; number: string; message: string }[];
+  /**
+   * Entwürfe, die gar nicht erst in die Belegliste kommen (#1504), weil sie keine Belege sind. Vorgänge ohne Belegart
+   * zählt Haben nicht: die API liefert sie ohnehin nicht, und die Sicherung aus der Web-Oberfläche lässt sie schon beim
+   * Packen draußen (#183).
+   */
+  ignored?: { drafts: number };
+  /** Belege aus früheren Läufen, deren fehlende Datei in diesem Lauf doch noch ankam (#1504) */
+  nachgeladen?: number;
   /** sevDesk: Vorlagen wiederkehrender Belege, in diesem Lauf als Dauerbelege übernommen */
   recurring?: number;
   /** BuchhaltungsButler: Archivdateien mit dem DATEV-Stapel des Exports, auch wenn sie schon vorher im Archiv lagen */
@@ -3376,6 +3518,10 @@ export type LexofficeImportProgress = {
   vatReports?: number;
   /** sevDesk: Vorlagen wiederkehrender Rechnungen, pausiert übernommen, und ihre Platzhalter (#472) */
   sevdeskRecurring?: { imported: number; known: number; placeholders: string[] };
+  /** Umzug aus FastBill: übernommene und schon bekannte Vorlagen wiederkehrender Rechnungen */
+  fastbillRecurring?: { imported: number; known: number };
+  /** Umzug aus FastBill: archivierte, schon vorhandene und Angebote ohne PDF */
+  fastbillEstimates?: { imported: number; known: number; withoutPdf: number; pdfNachgeholt?: number };
   /** sevDesk: Artikel aus GET /Part, in diesem Lauf neu angelegt, mit vorhandenen verknüpft und schon früher übernommen */
   sevdeskArticles?: { imported: number; linked: number; known: number };
   /** sevDesk: Dateistand der Belege dieses Laufs nach den Zuständen in legacy_file_states (#345) */
@@ -3456,7 +3602,7 @@ export const legacyOrderFiles = pgTable(
     mimeType: text("mime_type").notNull(),
     sha256: text("sha256").notNull(),
     size: integer("size").notNull(),
-    origin: text("origin", { enum: ["sevdesk", "manuell", "import"] }).notNull(),
+    origin: text("origin", { enum: ["sevdesk", "fastbill", "manuell", "import"] }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("legacy_order_files_unique").on(t.orderId, t.sha256)],
@@ -3935,6 +4081,24 @@ export const sevdeskRecurringTemplates = pgTable("sevdesk_recurring_templates", 
   billingEvidence: integer("billing_evidence").notNull().default(0),
   /** Platzhalter von sevDesk wie [%KONTAKTPERSON%], als Text übernommen */
   placeholders: jsonb("placeholders").$type<string[]>().notNull(),
+  hints: jsonb("hints").$type<string[]>().notNull(),
+  raw: jsonb("raw").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Aus FastBill übernommene Vorlagen wiederkehrender Rechnungen (recurring.get): Antwort der API ohne Bankdaten, Hinweise
+ * zum Prüfen und die Vorlage in Haben. Je FastBill-Vorlage eine Zeile, ein neuer Abruf überspringt sie; wird die Vorlage
+ * in Haben gelöscht, bleibt der Nachweis ohne Verweis.
+ */
+export const fastbillRecurringTemplates = pgTable("fastbill_recurring_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** INVOICE_ID der Vorlage in FastBill */
+  fastbillId: text("fastbill_id").notNull().unique(),
+  importId: uuid("import_id")
+    .notNull()
+    .references(() => lexofficeImports.id),
+  recurringId: uuid("recurring_id").references(() => recurringInvoices.id, { onDelete: "set null" }),
   hints: jsonb("hints").$type<string[]>().notNull(),
   raw: jsonb("raw").$type<Record<string, unknown>>().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -4558,6 +4722,77 @@ export const etsyConnections = pgTable(
   (t) => [
     check("etsy_connections_id", sql`${t.id} = 'etsy'`),
     check("etsy_connections_rhythmus", sql`${t.rhythmus} in ('stuendlich', 'taeglich', 'woechentlich', 'monatlich')`),
+  ],
+);
+
+/**
+ * Zugang zur Transaction Search von PayPal über die API (Einstellungen › Bank, #1512). Genau eine Zeile, weil Haben ein
+ * PayPal-Konto je Installation anbindet. Client-ID und Secret der PayPal-App des Betreibers liegen zusammen verschlüsselt in
+ * ciphertext; die Kennung des Händlerkontos (`account_id`) ist nicht geheim und ermittelt Haben beim Speichern über die API.
+ * Sie ist die Kennung der Quellenbindung. Wird der Zugang entfernt, verschwindet die Zeile mit dem Abrufstand; der nächste
+ * Abruf beginnt am gewählten Tag.
+ */
+export const paypalConnections = pgTable(
+  "paypal_connections",
+  {
+    /** Es gibt genau eine Verbindung; der feste Wert hält es dabei */
+    id: text("id").primaryKey().default("paypal"),
+    /** Kennung des Händlerkontos, beim Speichern von PayPal ermittelt */
+    accountId: text("account_id").notNull(),
+    /** Letzte Zeichen der Client-ID für die Anzeige, ohne sie zu verraten */
+    keyHint: text("key_hint").notNull().default(""),
+    /** Zugang der Sandbox (api-m.sandbox.paypal.com): Testdaten, keine echten Umsätze */
+    sandbox: boolean("sandbox").notNull().default(false),
+    /** Client-ID und Secret als JSON: AES-256-GCM */
+    ciphertext: bytea("ciphertext").notNull(),
+    /** Zeitzone des PayPal-Kontos (IANA-Name): In ihr schreibt der Aktivitätenexport das Datum, nach ihr bildet Haben den Buchungstag */
+    zeitzone: text("zeitzone").notNull().default("Europe/Berlin"),
+    /** Erster Tag, den der nächste Abruf holt (Stand des Abrufs, rückt mit jedem Lauf vor) */
+    fetchFrom: date("fetch_from").notNull(),
+    /** Der in den Einstellungen gewählte erste Tag */
+    abrufStart: date("abruf_start").notNull(),
+    /** Wie oft der Zeitplan abruft: stuendlich, taeglich oder woechentlich */
+    rhythmus: text("rhythmus").notNull().default("taeglich"),
+    lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check("paypal_connections_id", sql`${t.id} = 'paypal'`),
+    check("paypal_connections_rhythmus", sql`${t.rhythmus} in ('stuendlich', 'taeglich', 'woechentlich')`),
+  ],
+);
+
+/**
+ * Zugang zu den Balance Transactions von Stripe über die API (Einstellungen › Bank, #1280). Genau eine Zeile, weil Haben
+ * ein Stripe-Konto je Installation anbindet. Der Schlüssel (`rk_…` mit Lesezugriff oder `sk_…`) liegt verschlüsselt in
+ * ciphertext; die Kennung des Kontos (`acct_…`) ist nicht geheim und ermittelt Haben beim Speichern über die API. Sie
+ * ist die Kennung der Quellenbindung. Wird der Zugang entfernt, verschwindet die Zeile mit dem Abrufstand; der nächste Abruf beginnt am gewählten Tag.
+ */
+export const stripeConnections = pgTable(
+  "stripe_connections",
+  {
+    /** Es gibt genau eine Verbindung; der feste Wert hält es dabei */
+    id: text("id").primaryKey().default("stripe"),
+    /** Kennung des Stripe-Kontos, beim Speichern von Stripe ermittelt */
+    accountId: text("account_id").notNull(),
+    /** Letzte Zeichen des Schlüssels für die Anzeige, ohne ihn zu verraten */
+    keyHint: text("key_hint").notNull().default(""),
+    /** Der Schlüssel: AES-256-GCM */
+    ciphertext: bytea("ciphertext").notNull(),
+    /** Erster Tag, den der nächste Abruf holt (Stand des Abrufs, rückt mit jedem Lauf vor) */
+    fetchFrom: date("fetch_from").notNull(),
+    /** Der in den Einstellungen gewählte erste Tag */
+    abrufStart: date("abruf_start").notNull(),
+    /** Wie oft der Zeitplan abruft: stuendlich, taeglich oder woechentlich */
+    rhythmus: text("rhythmus").notNull().default("taeglich"),
+    lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check("stripe_connections_id", sql`${t.id} = 'stripe'`),
+    check("stripe_connections_rhythmus", sql`${t.rhythmus} in ('stuendlich', 'taeglich', 'woechentlich')`),
   ],
 );
 
