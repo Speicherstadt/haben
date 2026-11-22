@@ -621,6 +621,60 @@ test("Geschäftsbrief (§ 35a GmbHG): Geschäftsführer in den Firmendaten, Pfli
   expect(pdf.subarray(0, 5).toString("latin1")).toBe("%PDF-");
 });
 
+test("Fußzeile der GmbH (#1651): Pflichtangaben in der Vorschau, Platzhalter alle oder keiner, Stelle wählbar, eigene Spalten bleiben", async () => {
+  await go("/einstellungen?bereich=gestaltung");
+  const karte = page.getByRole("region", { name: "Fußzeile" });
+  const vorschau = karte.locator(".footer-preview");
+  const stelle = karte.getByRole("group", { name: "Stelle der Registerangaben" });
+  const speichern = karte.getByRole("button", { name: "Fußzeile speichern" });
+  // Auch ohne eigene Fußzeile: Klar setzt die Angaben als vierte Spalte
+  await expect(vorschau).toContainText("Registergericht: Amtsgericht Bremen, HRB 12345 HB");
+  await expect(vorschau.locator(".footer-columns > div")).toHaveCount(4);
+
+  await karte.getByLabel("Eigene Fußzeile").check();
+  await karte.getByRole("button", { name: "4", exact: true }).click();
+  await karte.getByLabel("Spalte 4").fill("{telefon}");
+  await expect(karte.getByRole("alert")).toContainText("Kürze auf 3 Spalten");
+  await expect(speichern).toBeDisabled();
+  await stelle.getByRole("button", { name: "Als Zeile darunter" }).click();
+  await expect(karte.getByRole("alert")).toHaveCount(0);
+  await expect(vorschau.locator(".footer-columns > div")).toHaveCount(4);
+  await expect(vorschau.locator(".footer-preview-legal")).toContainText("Geschäftsführung: Erika Gesellschafter");
+
+  await karte.getByLabel("Spalte 4").fill("Sitz {sitz}");
+  await expect(karte.getByRole("alert")).toContainText(
+    "es fehlen {rechtsform}, {registergericht}, {registernummer}, {geschaeftsfuehrung} und {aufsichtsratsvorsitz}",
+  );
+  await expect(speichern).toBeDisabled();
+  await karte.getByLabel("Spalte 4").fill("{rechtsform} Sitz {sitz}\n{registergericht} {registernummer}\nGF {geschaeftsfuehrung}\n{aufsichtsratsvorsitz}");
+  await expect(karte.getByRole("alert")).toHaveCount(0);
+  await expect(stelle.getByRole("button", { name: "Als Spalte" })).toBeDisabled();
+  // Das Feld wächst mit, keine umbrochene Zeile ist weggescrollt
+  await expect.poll(() => karte.getByLabel("Spalte 4").evaluate((feld: HTMLTextAreaElement) => feld.scrollHeight - feld.clientHeight)).toBeLessThanOrEqual(1);
+  await expect(karte.getByText("Steht in deiner Fußzeile")).toBeVisible();
+  await expect(vorschau).toContainText("GF Erika Gesellschafter");
+  await expect(vorschau).not.toContainText("Registergericht:");
+  expect(await axe(), "/einstellungen Fußzeile der GmbH").toEqual([]);
+  await speichern.click();
+  await expect(karte.getByRole("status").last()).toContainText("Fußzeile gespeichert");
+
+  // Aus und wieder an: Der Text ist noch da. Erst neu laden, sonst überholt der neue Stand vom Server den Klick
+  await go("/einstellungen?bereich=gestaltung");
+  await karte.getByLabel("Eigene Fußzeile").uncheck();
+  await speichern.click();
+  await expect(karte.getByRole("status").last()).toContainText("Fußzeile gespeichert");
+  await page.waitForLoadState("networkidle");
+  await go("/einstellungen?bereich=gestaltung");
+  await expect(vorschau).toContainText("Registergericht: Amtsgericht Bremen");
+  await karte.getByLabel("Eigene Fußzeile").check();
+  await expect(karte.getByLabel("Spalte 4")).toHaveValue(/GF \{geschaeftsfuehrung\}/);
+
+  await karte.getByLabel("Eigene Fußzeile").uncheck();
+  await stelle.getByRole("button", { name: "Wie im Layout" }).click();
+  await speichern.click();
+  await expect(karte.getByRole("status").last()).toContainText("Fußzeile gespeichert");
+});
+
 test("Restlaufzeiten und Vermerke: Gesellschafter-Verrechnungskonto, vorschlagen und bestätigen", async () => {
   const year = currentYear();
   // Seit der Eröffnung aus dem DATEV-Stapel steht der Gesellschafter mit 300 € unter den Verbindlichkeiten

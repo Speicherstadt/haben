@@ -18,6 +18,8 @@ export interface LayoutBeispiel {
   data: object;
   /** Nur Rechnungen: Steuernummer und USt-IdNr. des Ausstellers, eine davon muss auf dem Blatt stehen (§ 14 Abs. 4 Nr. 2 UStG) */
   steuer?: string[];
+  /** Die Pflichtangaben der GmbH stehen über Platzhalter in der Fußzeile (legal ist null): footer muss aufs Blatt (#1651) */
+  legalImFuss?: boolean;
 }
 
 /** Ein weißes Pixel als PNG: steht für Logo und Briefpapier, wenn die Beispiele gesetzt werden */
@@ -84,6 +86,15 @@ export function layoutBeispiele(): LayoutBeispiel[] {
     references: { buyerOrder: "4500012345", sellerOrder: "A-2026-117", despatchAdvice: "LS-2026-089" },
   };
   const storno = sampleDocument({ kind: "storno" });
+  // Platzhalter der Pflichtangaben in der eigenen Fußzeile: legal ist null (#1651)
+  const mitPflichtangaben = briefkopf({
+    footerColumns: [
+      "{firma}\n{strasse}",
+      "Sitz {sitz}\n{registergericht} {registernummer}\nGeschäftsführung {geschaeftsfuehrung}\n{rechtsform}\n{aufsichtsratsvorsitz}",
+      "{steuernummer}",
+    ],
+    legalPosition: "zeile",
+  });
   const totals = sampleDocument({}).totals;
   const angebot = {
     ...sampleDocument({}),
@@ -130,6 +141,10 @@ export function layoutBeispiele(): LayoutBeispiel[] {
     rechnungBeleg("Rechnung als Kleinunternehmer", pdfData(klein)),
     rechnungBeleg("Rechnung mit Aufbewahrungshinweis", pdfData({ ...rechnung, propertyRetention: true }), kopf),
     rechnungBeleg("Stornorechnung", pdfData(storno)),
+    {
+      ...rechnungBeleg("Rechnung mit den Pflichtangaben der GmbH in der Fußzeile", pdfData({ ...rechnung, ...mitPflichtangaben }), mitPflichtangaben),
+      legalImFuss: true,
+    },
     rechnungBeleg("Rechnung mit allen Referenzen und Logo in der Mitte", mitWeiterenReferenzen(pdfData(referenzen)), briefkopf({ logoPosition: "mitte" })),
     beleg("Angebot", quotePdfData(angebot), kopf),
     beleg("Auftragsbestätigung", confirmationPdfData(angebot, "2026-10-05"), kopf),

@@ -96,6 +96,7 @@ export * from "./personenkonten.ts";
 export * from "./telefon.ts";
 export * from "./accent.ts";
 export * from "./footer-template.ts";
+export * from "./footer-legal.ts";
 export * from "./units.ts";
 export * from "./letterhead-design.ts";
 export * from "./layout-katalog.ts";
