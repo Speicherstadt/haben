@@ -91,6 +91,9 @@
 .chart .crosshair { stroke: var(--line-strong); stroke-width: 1; }
 .chart .marker { fill: var(--series-in); stroke: var(--surface); stroke-width: 2; }
 
+/* Ziel eines Links auf eine Buchung (BWA → Kontenblatt, #1635) */
+.report-table tr[aria-current] > td { background: var(--accent-soft); }
+
 /* Schmale Bildschirme: Tabellenzeilen als Karten */
 @media (max-width: 720px) {
   .stack-table thead { display: none; }
@@ -103,6 +106,7 @@
   .stack-table td[data-label] { position: relative; padding-left: 108px !important; }
   .stack-table td[data-label]::before { content: attr(data-label); position: absolute; left: 0; width: 100px; color: var(--muted); font-family: var(--sans); font-weight: 400; font-size: 12px; line-height: 1.6; }
   .stack-table td:empty { display: none; }
+  .stack-table tr[aria-current] { background: var(--accent-soft); border-radius: 8px; margin-inline: -8px; padding-inline: 8px; width: calc(100% + 16px); }
   .stack-table .group-row, .stack-table .subtotal-row { padding: 6px 0; }
 }
 

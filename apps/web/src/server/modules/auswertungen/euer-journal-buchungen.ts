@@ -27,7 +27,7 @@ export interface Buchung {
  * dem Beleg, den sie ausgleicht: die Grundlage der BWA nach Zufluss und Abfluss (#1380)
  */
 export type EuerBeitraege = (
-  buchung: Pick<Buchung, "id" | "date" | "kontenrahmen" | "sourceType" | "sourceId"> & { invoiceId: string | null; documentId: string | null },
+  buchung: Pick<Buchung, "id" | "date" | "kontenrahmen" | "sourceType" | "sourceId" | "zeilen"> & { invoiceId: string | null; documentId: string | null },
   beitrag: EuerAusJournal,
 ) => void;
 
@@ -49,7 +49,11 @@ export function meldenVerrechnung(
   kontenrahmen: Kontenrahmen,
   beitrag: EuerAusJournal,
 ): EuerAusJournal {
-  beitraege?.({ id: v.id, date: v.date, kontenrahmen, sourceType: "verrechnung", sourceId: v.id, invoiceId: null, documentId: v.dokumentId }, beitrag);
+  // Ohne eigene Zeilen: Die Verrechnung führt über ihren Beleg, nicht ins Kontenblatt
+  beitraege?.(
+    { id: v.id, date: v.date, kontenrahmen, sourceType: "verrechnung", sourceId: v.id, zeilen: [], invoiceId: null, documentId: v.dokumentId },
+    beitrag,
+  );
   return beitrag;
 }
 
