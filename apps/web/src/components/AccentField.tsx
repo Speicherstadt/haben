@@ -42,7 +42,8 @@ export function AccentField({
   const eingabe = (value: string) => {
     setText(value);
     const hex = hexAusEingabe(value);
-    if (hex && hex !== accent.toUpperCase()) pick(hex);
+    // Mit „Farbe des Layouts“ wirkt die gespeicherte eigene Farbe nicht; jede vollständige Eingabe schaltet auf sie um
+    if (hex && (fromLayout || hex !== accent.toUpperCase())) pick(hex);
   };
   return (
     <section>
