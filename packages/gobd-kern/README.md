@@ -51,7 +51,8 @@ Getrennte Rollen (die App darf Trigger nicht abschalten) richtet das Projekt sel
 import { leseMomentaufnahme, leseSollbestand, vergleiche, type Leser } from "@firsttris/gobd-kern/sperren";
 
 const leser: Leser = {
-  transaktion: (lesen) => sql.begin("isolation level repeatable read read only", (tx) => lesen((text, werte) => tx.unsafe(text, werte))),
+  // postgres.js: tx.unsafe nimmt nur seine eigenen Parametertypen, daher die Umwandlung der Werte
+  transaktion: (lesen) => sql.begin("isolation level repeatable read read only", (tx) => lesen((text, werte = []) => tx.unsafe(text, werte as never[]))),
 };
 const optionen = { schema: "public", praefix: "belegt" };
 
