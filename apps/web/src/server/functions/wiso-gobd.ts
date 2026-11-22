@@ -2,7 +2,7 @@ import { compareWisoGoBd, WisoParseError } from "@haben/import";
 import { createServerFn } from "@tanstack/react-start";
 import { UserError } from "../errors.ts";
 import { authMiddleware } from "../middleware.ts";
-import { MAX_WISO_CSV_SIZE } from "../modules/archiv/wiso.ts";
+import { MAX_WISO_CSV_SIZE } from "../modules/archiv/index.ts";
 
 function files(input: unknown) {
   if (!(input instanceof FormData)) throw new UserError("FormData erwartet");
