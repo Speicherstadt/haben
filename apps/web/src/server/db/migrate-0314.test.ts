@@ -37,12 +37,15 @@ describe.skipIf(!testDatabaseUrl)("Migration 0314: Standard je Mahnstufe (Postgr
     await sql?.end();
   });
 
+  // 200 UTF-16-Einheiten wie im Formular erlaubt; die Kopien bleiben darunter (179 und 183 Einheiten)
+  const EMOJI = "😀".repeat(100);
+
   it("verteilt den Standard „Mahnung“ auf die drei Stufen und lässt andere Bausteine", async () => {
     await sql.begin(async (tx) => {
       await tx`select set_config('haben.actor', 'test:vorher', true)`;
       await tx`insert into text_blocks (name, kind, text, standard_fuer) values
         ('Offen', 'kopf', 'Unsere Rechnung ist noch offen.', 'mahnung'),
-        ('Schluss', 'fuss', 'Bei Rückfragen rufen Sie mich gern an.', 'mahnung'),
+        (${EMOJI}, 'fuss', 'Bei Rückfragen rufen Sie mich gern an.', 'mahnung'),
         ('Einleitung', 'kopf', 'Für die Wartung berechne ich Ihnen:', 'rechnung'),
         ('Dank', 'fuss', 'Vielen Dank!', null)`;
     });
@@ -55,11 +58,11 @@ describe.skipIf(!testDatabaseUrl)("Migration 0314: Standard je Mahnstufe (Postgr
     expect(await sql`select name, kind, text, standard_fuer from text_blocks order by standard_fuer nulls first, kind desc`).toEqual([
       { name: "Dank", kind: "fuss", text: "Vielen Dank!", standard_fuer: null },
       { name: "Offen (Zahlungserinnerung)", kind: "kopf", text: "Unsere Rechnung ist noch offen.", standard_fuer: "mahnstufe_1" },
-      { name: "Schluss (Zahlungserinnerung)", kind: "fuss", text: "Bei Rückfragen rufen Sie mich gern an.", standard_fuer: "mahnstufe_1" },
+      { name: `${"😀".repeat(79)} (Zahlungserinnerung)`, kind: "fuss", text: "Bei Rückfragen rufen Sie mich gern an.", standard_fuer: "mahnstufe_1" },
       { name: "Offen", kind: "kopf", text: "Unsere Rechnung ist noch offen.", standard_fuer: "mahnstufe_2" },
-      { name: "Schluss", kind: "fuss", text: "Bei Rückfragen rufen Sie mich gern an.", standard_fuer: "mahnstufe_2" },
+      { name: EMOJI, kind: "fuss", text: "Bei Rückfragen rufen Sie mich gern an.", standard_fuer: "mahnstufe_2" },
       { name: "Offen (Letzte Mahnung)", kind: "kopf", text: "Unsere Rechnung ist noch offen.", standard_fuer: "mahnstufe_3" },
-      { name: "Schluss (Letzte Mahnung)", kind: "fuss", text: "Bei Rückfragen rufen Sie mich gern an.", standard_fuer: "mahnstufe_3" },
+      { name: `${"😀".repeat(83)} (Letzte Mahnung)`, kind: "fuss", text: "Bei Rückfragen rufen Sie mich gern an.", standard_fuer: "mahnstufe_3" },
       { name: "Einleitung", kind: "kopf", text: "Für die Wartung berechne ich Ihnen:", standard_fuer: "rechnung" },
     ]);
     const urheber = await sql`select distinct actor from audit_log where table_name = 'text_blocks' and actor <> 'test:vorher'`;

@@ -161,13 +161,22 @@ export async function textbausteineUebernehmen(tx: Tx, blocks: readonly unknown[
  * Ein Standard „Mahnung“ aus einer Exportdatei der Version 2 (#1494) galt für jede Stufe. Wie in Migration 0314 wird er
  * Standard der 1. Mahnung, Zahlungserinnerung und letzte Mahnung bekommen je eine Kopie (#1678); archiviert ist er keiner
  */
+/**
+ * Höchstens `max` UTF-16-Einheiten wie textBlockInputSchema, ohne ein Emoji zu teilen; dieselbe Regel wie Migration 0314:
+ * je Zeichen außerhalb der BMP ein Zeichen weniger
+ */
+function kuerzen(text: string, max: number): string {
+  const zeichen = Array.from(text);
+  return zeichen.slice(0, Math.max(max - zeichen.filter((z) => z.length > 1).length, 0)).join("");
+}
+
 function alterMahnungsStandard(raw: unknown): unknown[] {
   if (typeof raw !== "object" || raw === null || (raw as { standardFuer?: unknown }).standardFuer !== "mahnung") return [raw];
   const block = raw as { name?: unknown; archivedAt?: unknown };
   if (block.archivedAt) return [{ ...block, standardFuer: null }];
   const kopie = (level: 1 | 3) => {
     const zusatz = ` (${DUNNING_LEVELS[level].label})`;
-    return { ...block, name: `${String(block.name ?? "").slice(0, 200 - zusatz.length)}${zusatz}`, standardFuer: mahnstufeStandard(level) };
+    return { ...block, name: `${kuerzen(String(block.name ?? ""), 200 - zusatz.length)}${zusatz}`, standardFuer: mahnstufeStandard(level) };
   };
   return [{ ...block, standardFuer: mahnstufeStandard(2) }, kopie(1), kopie(3)];
 }

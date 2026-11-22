@@ -167,13 +167,23 @@ describe.skipIf(!testDatabaseUrl)("Standard-Textbaustein je Belegart (Postgres, 
   });
 
   it("ein Standard „Mahnung“ aus einer älteren Exportdatei gilt für jede Stufe, wie nach der Migration (#1678)", async () => {
+    const LANG = `${"a".repeat(178)}😀${"b".repeat(20)}`;
     await withActor(actor, (tx) =>
       stammdaten.textbausteineUebernehmen(tx, [
         { name: "Offen", kind: "kopf", text: "Unsere Rechnung ist noch offen.", contactId: null, standardFuer: "mahnung", archivedAt: null },
         { name: "Alt", kind: "fuss", text: "Archiviert", contactId: null, standardFuer: "mahnung", archivedAt: "2026-11-01T00:00:00.000Z" },
+        { name: LANG, kind: "fuss", text: "Bei Rückfragen rufen Sie mich gern an.", contactId: null, standardFuer: "mahnung", archivedAt: null },
       ]),
     );
-    expect(await sql`select name, kind, standard_fuer, archived_at is not null as archiviert from text_blocks order by name`).toEqual([
+    // Der lange Name wird gekürzt, ohne das Emoji zu teilen, und bleibt bei 200 UTF-16-Einheiten wie im Formular
+    expect((await sql`select name from text_blocks where kind = 'fuss' and standard_fuer is not null order by standard_fuer`).map((r) => r.name)).toEqual([
+      `${"a".repeat(178)} (Zahlungserinnerung)`,
+      LANG,
+      `${"a".repeat(178)}😀bbb (Letzte Mahnung)`,
+    ]);
+    expect(
+      await sql`select name, kind, standard_fuer, archived_at is not null as archiviert from text_blocks where kind = 'kopf' or archived_at is not null order by name`,
+    ).toEqual([
       { name: "Alt", kind: "fuss", standard_fuer: null, archiviert: true },
       { name: "Offen", kind: "kopf", standard_fuer: "mahnstufe_2", archiviert: false },
       { name: "Offen (Letzte Mahnung)", kind: "kopf", standard_fuer: "mahnstufe_3", archiviert: false },
