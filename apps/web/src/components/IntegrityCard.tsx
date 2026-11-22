@@ -41,10 +41,11 @@ function InventoryChecksumResult({ checksum }: { checksum: IntegrityReport["inve
       <div className="muted">Prüfsumme der Sperren</div>
       <code style={{ overflowWrap: "anywhere" }}>{checksum.own}</code>
       {checksum.own === checksum.shipped ? (
-        <div className="muted">Gleich der Prüfsumme in den {link}.</div>
+        <div className="muted">Gleich der des Sollbestands, den diese Version ausliefert; veröffentlicht in den {link}.</div>
       ) : (
         <div className="muted" style={{ overflowWrap: "anywhere" }}>
-          Weicht von der Prüfsumme in den {link} ab ({checksum.shipped}); Befunde und Hinweise oben nennen, was anders ist.
+          Weicht vom Sollbestand ab, den diese Version ausliefert ({checksum.shipped}, veröffentlicht in den {link}); Befunde und Hinweise oben nennen, was
+          anders ist.
         </div>
       )}
     </div>

@@ -1263,7 +1263,9 @@ test("Kette prüfen zeigt die Prüfsumme der Sperren, gleich der in den Versions
   const card = page.locator("section.card").filter({ has: page.getByRole("heading", { name: "Änderungsprotokoll prüfen", exact: true }) });
   await card.getByRole("button", { name: "Kette prüfen", exact: true }).click();
   await expect(card).toContainText("Kette, Siegel und Sperren sind unverändert");
-  await expect(card).toContainText(`Prüfsumme der Sperren${pruefsumme(sollbestand as Sollbestand)}Gleich der Prüfsumme in den Versionshinweisen zu Haben`);
+  await expect(card).toContainText(
+    `Prüfsumme der Sperren${pruefsumme(sollbestand as Sollbestand)}Gleich der des Sollbestands, den diese Version ausliefert; veröffentlicht in den Versionshinweisen zu Haben`,
+  );
   await expect(card.getByRole("link", { name: /^Versionshinweisen zu Haben / })).toHaveAttribute("href", /\/releases\/tag\/v/);
 });
 
