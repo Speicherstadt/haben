@@ -1,6 +1,7 @@
 import type { Bundesland, Horizont, Kontenrahmen, Rechtsform, Versteuerung } from "@haben/core";
 import { horizontEnde } from "@haben/core";
 import { kleinunternehmerHistory, loadCompany, versteuerungForYear, type Company } from "../stammdaten/index.ts";
+import { bankdatenBeginn } from "./konten.ts";
 
 /** Was jeder Adapter braucht: Stichtag, Ende des Horizonts und die Firmendaten, die Termine und Steuer bestimmen */
 export interface Kontext {
@@ -15,11 +16,13 @@ export interface Kontext {
   versteuerung: (datum: string) => Versteuerung;
   /** Kleinunternehmer am Tag: keine Umsatzsteuer, keine Vorsteuer */
   kleinunternehmer: (datum: string) => boolean;
+  /** Erster Bankumsatz der Konten im Bestand: Steuertermine vor heute zählen nur danach als überfällig; null ohne Umsätze */
+  bankdatenAb: string | null;
 }
 
 export async function ladeKontext(heute: string, horizont: Horizont): Promise<Kontext> {
   const bis = horizontEnde(heute, horizont);
-  const [company, ku] = await Promise.all([loadCompany(), kleinunternehmerHistory()]);
+  const [company, ku, bankdatenAb] = await Promise.all([loadCompany(), kleinunternehmerHistory(), bankdatenBeginn()]);
   const jahre = Array.from({ length: Number(bis.slice(0, 4)) - Number(heute.slice(0, 4)) + 1 }, (_, i) => Number(heute.slice(0, 4)) + i);
   const versteuerung = new Map(await Promise.all(jahre.map(async (jahr) => [jahr, await versteuerungForYear(jahr)] as const)));
   return {
@@ -32,5 +35,6 @@ export async function ladeKontext(heute: string, horizont: Horizont): Promise<Ko
     // Ein Jahr außerhalb des Horizonts kommt nur bei Posten vor heute vor; dort gilt das Jahr von heute
     versteuerung: (datum) => versteuerung.get(Number(datum.slice(0, 4))) ?? versteuerung.get(Number(heute.slice(0, 4)))!,
     kleinunternehmer: ku,
+    bankdatenAb,
   };
 }

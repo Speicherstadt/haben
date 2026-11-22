@@ -1,4 +1,6 @@
 import { addDays, type Cents } from "@haben/core";
+import { sql } from "drizzle-orm";
+import { db } from "../../db/index.ts";
 import { listAccounts } from "../bank/index.ts";
 
 /*
@@ -55,4 +57,15 @@ export async function kontostaende(heute: string): Promise<Kontostaende> {
     bestand: summe(konten.filter((k) => k.zweck !== "ruecklage")),
     ruecklage: summe(konten.filter((k) => k.zweck === "ruecklage")),
   };
+}
+
+/**
+ * Tag des ersten Bankumsatzes der Konten im Bestand (wie oben: nicht privat, keine Rücklage, nicht ausgeschlossen); null
+ * ohne Umsätze. Davor erkennt Haben nicht, ob ein Steuertermin gezahlt ist (liquiditaet-steuern.ts).
+ */
+export async function bankdatenBeginn(): Promise<string | null> {
+  const [row] = await db.execute<{ ab: string | null }>(sql`
+    select min(t.booking_date)::text as ab from bank_transactions t join bank_accounts a on a.id = t.bank_account_id
+    where a.excluded_at is null and a.purpose not in ('privat', 'ruecklage')`);
+  return row?.ab ?? null;
 }

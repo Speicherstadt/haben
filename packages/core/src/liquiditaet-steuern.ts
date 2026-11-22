@@ -12,7 +12,15 @@ import { filingPeriodOfMonth, frequencyAt, type VatFrequencySetting } from "./vo
  * Steuern in der Liquiditätsvorschau (#1381): Termine der Vorauszahlungen, die Umsatzsteuer noch nicht abgegebener
  * Voranmeldungszeiträume und die Sondervorauszahlung. Fällt ein Termin auf ein Wochenende oder einen Feiertag, gilt der
  * nächste Werktag (§ 108 Abs. 3 AO), wie bei den übrigen Fristen (fristen.ts).
+ *
+ * Überfällige Termine (Entscheidung in #1627): Ein Termin vor heute, der nicht gezahlt ist, bleibt stehen; `imHorizont`
+ * rückt ihn auf heute und kennzeichnet ihn. „Nicht gezahlt“ erkennt Haben nur an den Bankumsätzen. Vor dem ersten Umsatz
+ * der Konten im Bestand (`bankdatenAb`) fehlt die Zahlung womöglich nur, weil die Auszüge später beginnen, etwa im ersten
+ * Jahr mit Haben; ein Termin zählt deshalb nur, wenn er danach liegt, ohne Bankumsätze nie.
  */
+
+/** Ein Termin vor heute zählt als überfällig nur nach dem ersten Bankumsatz der Konten im Bestand */
+export const nachBankdatenBeginn = (termin: string, bankdatenAb: string | null): boolean => bankdatenAb !== null && termin > bankdatenAb;
 
 /** Steuerarten mit Vorauszahlungen */
 export type VorauszahlungsArt = Extract<Steuerart, "est" | "soli" | "kist" | "kst" | "gewst">;
@@ -39,9 +47,11 @@ export function vorauszahlungsTermineZwischen(art: VorauszahlungsArt, von: strin
 const DECKT_TERMIN_TAGE = 30;
 
 /**
- * Künftige Vorauszahlungen einer Steuerart im Horizont, je Termin derselbe Betrag. Vorschlag in #1381 bis zur Eingabe der
- * Bescheidbeträge: die letzte zugeordnete Zahlung fortschreiben (erwartet), ohne Zahlung ein Viertel der Prognose
- * (geschätzt). Termine bis 30 Tage nach der letzten Zahlung gelten als bezahlt.
+ * Vorauszahlungen einer Steuerart bis zum Ende des Horizonts, je Termin derselbe Betrag. Vorschlag in #1381 bis zur Eingabe
+ * der Bescheidbeträge: die letzte zugeordnete Zahlung fortschreiben (erwartet), ohne Zahlung ein Viertel der Prognose
+ * (geschätzt). Termine bis 30 Tage nach der letzten Zahlung gelten als bezahlt; spätere vor heute sind überfällig, wenn sie
+ * nach dem Beginn der Bankdaten liegen. Ohne Zahlung ist offen, ob überhaupt Vorauszahlungen festgesetzt sind: dann nur
+ * Termine ab heute.
  */
 export function vorauszahlungsPosten(input: {
   art: VorauszahlungsArt;
@@ -57,19 +67,25 @@ export function vorauszahlungsPosten(input: {
   /** ID für den Link: die Zahlung im Bankabgleich bzw. das Jahr der Prognose */
   quelleId: string;
   privat: boolean;
+  /** Tag des ersten Bankumsatzes der Konten im Bestand; null ohne Umsätze */
+  bankdatenAb: string | null;
 }): LiquiditaetsPosten[] {
   if (input.betrag <= 0) return [];
+  const { letzteZahlung } = input;
   // Daten als Text: der spätere von beiden (Math.max kennt keine Texte)
-  const ab = [input.heute, input.letzteZahlung ? addDays(input.letzteZahlung, DECKT_TERMIN_TAGE + 1) : input.heute].sort()[1]!;
-  return vorauszahlungsTermineZwischen(input.art, ab, input.bis, input.bundesland).map((datum) => ({
-    datum,
-    betrag: input.betrag,
-    richtung: "aus",
-    text: input.text,
-    quelle: { art: "vorauszahlung", id: input.quelleId },
-    sicherheit: input.sicherheit,
-    ...(input.privat ? { privat: true } : {}),
-  }));
+  const ab = letzteZahlung === null ? input.heute : [addDays(letzteZahlung, DECKT_TERMIN_TAGE + 1), input.bankdatenAb ?? input.heute].sort()[1]!;
+  const termine = vorauszahlungsTermineZwischen(input.art, ab, input.bis, input.bundesland);
+  return termine
+    .filter((datum) => datum >= input.heute || nachBankdatenBeginn(datum, input.bankdatenAb))
+    .map((datum) => ({
+      datum,
+      betrag: input.betrag,
+      richtung: "aus",
+      text: input.text,
+      quelle: { art: "vorauszahlung", id: input.quelleId },
+      sicherheit: input.sicherheit,
+      ...(input.privat ? { privat: true } : {}),
+    }));
 }
 
 /** Ein noch nicht abgegebener Voranmeldungszeitraum mit Fälligkeit */
@@ -137,7 +153,9 @@ export function umsatzsteuerPosten(zeitraeume: readonly (UstZeitraum & { gebucht
  * Sondervorauszahlung bei Dauerfristverlängerung und monatlicher Abgabe: anzumelden und zu zahlen bis zum 10. Februar
  * (§ 48 Abs. 2 UStDV). Der für das Jahr angemeldete Betrag ist fest; fehlt er noch, schätzt Haben den des letzten Jahres
  * davor. Angerechnet wird sie in der letzten Voranmeldung des Jahres (Kz 39), deren Fälligkeit nach dem längsten
- * Horizont liegt; für ein Jahr mit angemeldetem Betrag steckt der Abzug schon in `gebucht`.
+ * Horizont liegt; für ein Jahr mit angemeldetem Betrag steckt der Abzug schon in `gebucht`. Nach dem Termin bleibt nur
+ * eine angemeldete, nicht gezahlte stehen (überfällig, siehe oben); eine geschätzte nicht, denn ob für das Jahr eine
+ * Dauerfrist besteht, sagt erst die Anmeldung.
  */
 export function sondervorauszahlungsPosten(input: {
   heute: string;
@@ -147,13 +165,16 @@ export function sondervorauszahlungsPosten(input: {
   /** Jahre, für die die Sondervorauszahlung schon gezahlt ist */
   gezahlt: ReadonlySet<number>;
   bundesland: Bundesland | null;
+  /** Tag des ersten Bankumsatzes der Konten im Bestand; null ohne Umsätze */
+  bankdatenAb: string | null;
 }): LiquiditaetsPosten[] {
   const posten: LiquiditaetsPosten[] = [];
   for (let year = Number(input.heute.slice(0, 4)); year <= Number(input.bis.slice(0, 4)); year++) {
     const termin = naechsterWerktag(`${year}-02-10`, input.bundesland);
-    if (termin < input.heute || termin > input.bis || input.gezahlt.has(year)) continue;
+    if (termin > input.bis || input.gezahlt.has(year)) continue;
     if (!dauerfristActive(input.dauerfrist, year) || frequencyAt(input.frequencies, { year, month: 1 }) !== "monatlich") continue;
     const eigene = input.dauerfrist.find((s) => s.year === year && s.sondervorauszahlung !== null);
+    if (termin < input.heute && !(eigene && nachBankdatenBeginn(termin, input.bankdatenAb))) continue;
     const vorjahr = input.dauerfrist.filter((s) => s.year < year && s.active && s.sondervorauszahlung !== null).sort((a, b) => b.year - a.year)[0];
     const betrag = eigene?.sondervorauszahlung ?? vorjahr?.sondervorauszahlung ?? 0;
     if (betrag <= 0) continue;

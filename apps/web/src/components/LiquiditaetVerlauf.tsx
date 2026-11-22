@@ -14,7 +14,7 @@ import { formatDate } from "../lib/format.ts";
 import { siehtSeite } from "../lib/rollen.ts";
 import { Icon } from "./Icon.tsx";
 import { ScrollTable } from "./ScrollTable.tsx";
-import { Tag } from "./Status.tsx";
+import { Status, Tag } from "./Status.tsx";
 
 /*
  * Tabelle der Liquiditätsvorschau (#1381): je Woche bzw. Monat Anfang, Eingänge, Ausgänge, Ende und tiefster Stand; der
@@ -130,7 +130,10 @@ function PostenListe({ zeitraum, raster, rolle }: { zeitraum: ZeitraumStand; ras
               {p.ueberfaellig && (
                 <>
                   {" "}
-                  <Tag>überfällig</Tag>
+                  {/* Termin vor heute, noch nicht gezahlt: dringend wie eine überschrittene Frist (DESIGN.md › Status) */}
+                  <Status tone="warn" emphasis="urgent" inline detail={p.faellig ? `fällig ${formatDate(p.faellig)}` : undefined}>
+                    Überfällig
+                  </Status>
                 </>
               )}
             </td>

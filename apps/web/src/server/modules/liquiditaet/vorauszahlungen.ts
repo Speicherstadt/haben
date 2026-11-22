@@ -20,7 +20,8 @@ import type { Kontext } from "./kontext.ts";
  * die letzte im Bankabgleich zugeordnete Zahlung je Steuerart fortschreiben (erwartet), ohne Zahlung ein Viertel der
  * Prognose der Einkommensteuer (geschätzt). Für Körperschaft- und Gewerbesteuer gibt es keine Prognose des laufenden Jahres;
  * ohne Zahlung fehlen sie. Im Einzelunternehmen sind Einkommensteuer, Soli und Kirchensteuer privat (§ 12 Nr. 3 EStG):
- * Sie stehen trotzdem als Abfluss, weil sie meist vom Geschäftskonto gehen, und tragen „privat“.
+ * Sie stehen trotzdem als Abfluss, weil sie meist vom Geschäftskonto gehen, und tragen „privat“. Ein Termin nach der
+ * letzten Zahlung, der vor heute lag und nicht gezahlt ist, bleibt als überfällig stehen (liquiditaet-steuern.ts).
  */
 
 /** Eine Zahlung ist nur dann eine Vorauszahlung, wenn sie höchstens so alt ist; älter gilt die Festsetzung als überholt */
@@ -70,7 +71,7 @@ export async function vorauszahlungPosten(k: Kontext): Promise<LiquiditaetsPoste
     (art): art is VorauszahlungsArt => (VORAUSZAHLUNGS_ARTEN as readonly string[]).includes(art) && !(ohneEst && ["est", "soli", "kist"].includes(art)),
   );
   const zahlungen = (await letzteZahlungen(k.heute)).filter((z) => arten.includes(z.art));
-  const gemeinsam = { heute: k.heute, bis: k.bis, bundesland: k.bundesland };
+  const gemeinsam = { heute: k.heute, bis: k.bis, bundesland: k.bundesland, bankdatenAb: k.bankdatenAb };
   const posten = zahlungen.flatMap((z) =>
     vorauszahlungsPosten({
       ...gemeinsam,

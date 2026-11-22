@@ -48,7 +48,7 @@ async function forderungen(k: Kontext, receivables: OpenPosition[], ueberfaellig
       text: text(r),
       quelle: { art: "rechnung", id: r.id },
       sicherheit: ueberfaellig ? "geschaetzt" : "erwartet",
-      ...(ueberfaellig ? { ueberfaellig: true } : {}),
+      ...(ueberfaellig ? { ueberfaellig: true, faellig: r.dueDate } : {}),
       ...(steuer !== 0 ? { steuer: { betrag: steuer, datum } } : {}),
     });
   });

@@ -131,6 +131,7 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Konten und offene Poste
           quelle: { art: "rechnung", id: ueberfaellig.id },
           sicherheit: "geschaetzt",
           ueberfaellig: true,
+          faellig: "2026-11-16",
           ...(ist ? { steuer: { betrag: 19_000, datum: "2026-11-23" } } : {}),
         },
         {

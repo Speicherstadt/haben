@@ -47,6 +47,8 @@ export interface LiquiditaetsPosten {
   privat?: boolean;
   /** Der eigentliche Termin lag vor heute; der Posten steht deshalb heute bzw. am nächsten Werktag */
   ueberfaellig?: boolean;
+  /** Bei überfälligen Posten der eigentliche Termin, für die Anzeige „fällig …“ */
+  faellig?: string;
   /**
    * Umsatzsteuer (positiv) bzw. Vorsteuer (negativ), die der Posten in einem noch nicht abgegebenen Voranmeldungszeitraum
    * auslöst, mit dem Tag, an dem sie entsteht (Ist: Zahlungseingang, Soll: Ende der Leistung; Vorsteuer: Belegdatum). Daraus
@@ -138,13 +140,14 @@ export interface Vorschau {
 }
 
 /**
- * Posten vor heute rücken auf heute, wie eine überfällige Verbindlichkeit, die noch zu zahlen ist; Posten nach dem Ende
- * des Horizonts fallen weg. Sortiert nach Tag, am selben Tag Eingänge zuerst, dann nach Text.
+ * Posten vor heute rücken auf heute, wie eine überfällige Verbindlichkeit, die noch zu zahlen ist, und behalten ihren
+ * Termin in `faellig`; Posten nach dem Ende des Horizonts fallen weg. Sortiert nach Tag, am selben Tag Eingänge zuerst,
+ * dann nach Text.
  */
 export function imHorizont(posten: readonly LiquiditaetsPosten[], heute: string, bis: string): LiquiditaetsPosten[] {
   return posten
     .filter((p) => p.datum <= bis)
-    .map((p) => (p.datum < heute ? { ...p, datum: heute, ueberfaellig: true } : p))
+    .map((p) => (p.datum < heute ? { ...p, datum: heute, ueberfaellig: true, faellig: p.datum } : p))
     .sort((a, b) => a.datum.localeCompare(b.datum) || b.richtung.localeCompare(a.richtung) || a.text.localeCompare(b.text));
 }
 

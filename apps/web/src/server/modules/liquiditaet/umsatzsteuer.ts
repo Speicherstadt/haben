@@ -55,6 +55,6 @@ export async function umsatzsteuerPostenLaden(k: Kontext, posten: readonly Liqui
   const [frequencies, dauerfrist, gezahlt] = await Promise.all([loadFrequencies(), loadDauerfrist(), sondervorauszahlungGezahlt(k)]);
   const svz = k.kleinunternehmer(k.heute)
     ? []
-    : sondervorauszahlungsPosten({ heute: k.heute, bis: k.bis, frequencies, dauerfrist, gezahlt, bundesland: k.bundesland });
+    : sondervorauszahlungsPosten({ heute: k.heute, bis: k.bis, frequencies, dauerfrist, gezahlt, bundesland: k.bundesland, bankdatenAb: k.bankdatenAb });
   return [...umsatzsteuerPosten(liste, posten), ...svz];
 }

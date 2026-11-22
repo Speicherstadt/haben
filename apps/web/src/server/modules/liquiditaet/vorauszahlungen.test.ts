@@ -43,7 +43,8 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Vorauszahlungen (Postgr
     const euro = (cent: number) => `-${(cent / 100).toFixed(2).replace(".", ",")}`;
     await bank.importStatement(ACTOR, dkbCsv(liste.map(([datum, betrag, art, jahr]) => [datum, "Finanzamt Regensburg", `${art} ${jahr}`, euro(betrag)])), null);
     for (const [, betrag, art, jahr] of liste) {
-      const [tx] = await sql<{ id: string }[]>`select id from bank_transactions where purpose = ${`${art} ${jahr}`} and amount = ${-betrag}`;
+      const [tx] = await sql<{ id: string }[]>`select id from bank_transactions t where purpose = ${`${art} ${jahr}`} and amount = ${-betrag}
+        and not exists (select 1 from allocations a where a.transaction_id = t.id)`;
       await bank.allocate(ACTOR, { kind: "steuer", transactionId: tx!.id, amount: -betrag, steuer: { art, jahr, posten: "steuer" } });
     }
   }
@@ -125,6 +126,8 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Vorauszahlungen (Postgr
     ]);
     const posten = await vorauszahlungen.vorauszahlungPosten(await kontext.ladeKontext("2026-11-20", "13w"));
     expect(kurz(posten)).toEqual([
+      // 15.11.2026 (Sonntag, also 16.11.) ist nach dem ersten Bankumsatz am 17.08. nicht gezahlt: überfällig
+      ["2026-11-16", 80_000, "erwartet", false, "Gewerbesteuer, wie zuletzt gezahlt"],
       ["2027-02-15", 80_000, "erwartet", false, "Gewerbesteuer, wie zuletzt gezahlt"],
       ["2026-12-10", 200_000, "erwartet", false, "Körperschaftsteuer, wie zuletzt gezahlt"],
       ["2026-12-10", 11_000, "erwartet", false, "Solidaritätszuschlag, wie zuletzt gezahlt"],
