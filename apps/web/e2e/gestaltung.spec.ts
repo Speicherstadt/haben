@@ -115,7 +115,9 @@ test("Die Farbkreise stehen nebeneinander, auch mit den Stilen der Auswertungen"
   const gruen = await panel(page).getByRole("button", { name: "Grün" }).boundingBox();
   expect(blau!.width).toBeGreaterThan(40);
   expect(blau!.x).toBeGreaterThanOrEqual(gruen!.x + gruen!.width);
-  // Sieben Punkte in einer Zeile: Der Regenbogen rutscht nicht um
+  // Acht Punkte in einer Zeile: Der Regenbogen rutscht nicht um, Schwarz auch nicht
+  const schwarz = await panel(page).getByRole("button", { name: "Schwarz" }).boundingBox();
+  expect(schwarz!.y).toBeCloseTo(gruen!.y, 0);
   const regenbogen = await panel(page).getByLabel("Eigene Farbe wählen").boundingBox();
   expect(regenbogen!.y).toBeCloseTo(gruen!.y, 0);
   await page.context().close();
@@ -129,6 +131,30 @@ test("Der Regenbogen-Punkt setzt eine eigene Farbe und zeigt sie an", async ({ b
   await expect(panel(page)).toContainText("#123456");
   await panel(page).getByRole("button", { name: "Grün" }).click();
   await expect(panel(page)).not.toContainText("Eigene Farbe #");
+  await page.context().close();
+});
+
+test("Schwarz und ein getippter Hex-Wert setzen die Farbe, ein halber Wert noch nicht (#1674)", async ({ browser }) => {
+  const page = await editor(browser, BREIT);
+  await gestaltungOeffnen(page);
+  // Mit Schwarz hat das Blatt keine Farbe mehr: Auch die kräftigste ist ein neutrales Grau (R = G = B)
+  const neutral = async () => {
+    const hex = await brand(page);
+    return hex.slice(1, 3) === hex.slice(3, 5) && hex.slice(3, 5) === hex.slice(5, 7);
+  };
+  await panel(page).getByRole("button", { name: "Schwarz" }).click();
+  await expect.poll(neutral).toBe(true);
+  await expect(panel(page).getByLabel("Hex-Wert")).toHaveValue("#000000");
+
+  const hex = panel(page).getByLabel("Hex-Wert");
+  await hex.fill("1d4e");
+  await expect(hex).toHaveAttribute("aria-invalid", "true");
+  await expect.poll(neutral).toBe(true);
+  await hex.fill("1d4e89");
+  await expect.poll(() => brand(page)).toBe("#1D4E89");
+  await expect(panel(page).getByRole("button", { name: "Blau" })).toHaveAttribute("aria-pressed", "true");
+
+  await panel(page).getByRole("button", { name: "Verwerfen" }).click();
   await page.context().close();
 });
 
