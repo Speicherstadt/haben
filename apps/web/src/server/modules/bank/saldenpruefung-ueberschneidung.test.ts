@@ -118,6 +118,40 @@ describe.skipIf(!testDatabaseUrl)("Saldenprüfung bei überlappenden Importen (P
     expect(danach.warnings.join(" ")).not.toMatch(/überschneidet/);
   });
 
+  it("meldet die Lücke vor dem Anfang, auch wenn das Ende einen später importierten Zeitraum überschneidet", async () => {
+    // 2025: 900,00 € + 100,00 € = 1.000,00 €
+    expect(
+      await bank.importStatement(
+        actor,
+        { bytes: dkbCsv([eingang("15.06.25", "RE 2025-001", "100,00")], "1.000,00 €", "31.12.2025"), filename: "a-2025.csv" },
+        null,
+      ),
+    ).toMatchObject({ added: 1, skipped: 0, gap: null });
+
+    // Zweites Halbjahr 2026 zuerst importiert, Zeitraum 30.06.2026–31.12.2026
+    expect(
+      await bank.importStatement(
+        actor,
+        { bytes: dkbCsv([eingang("30.06.26", "RE 2026-002", "50,00")], "2.000,00 €", "31.12.2026"), filename: "c-2026-2.csv" },
+        null,
+      ),
+    ).toMatchObject({ added: 1, skipped: 0 });
+
+    // Nachgeholt ab 01.03.2026: Anfangssaldo 1.250,00 € − 150,00 € = 1.100,00 € statt 1.000,00 €, Januar und Februar
+    // fehlen. Nur das Ende (30.06.2026) überschneidet sich mit dem zweiten Halbjahr; die Lücke liegt am Anfang.
+    const nachgeholt = await bank.importStatement(
+      actor,
+      {
+        bytes: dkbCsv([eingang("01.03.26", "RE 2026-001", "100,00"), eingang("30.06.26", "RE 2026-002", "50,00")], "1.250,00 €", "30.06.2026"),
+        filename: "b-2026-1.csv",
+      },
+      null,
+    );
+    expect(nachgeholt).toMatchObject({ added: 1, skipped: 1 });
+    expect(nachgeholt.gap).toMatch(/^Lücke: Anfangssaldo 1\.100,00\s€ passt nicht zum Endsaldo 1\.000,00\s€ \(Stand 31\.12\.2025\)/);
+    expect(nachgeholt.warnings.join(" ")).not.toMatch(/überschneidet/);
+  });
+
   it("wählt keinen späteren leeren Auszug als vorigen Import", async () => {
     // 2025: 900,00 € + 100,00 € = 1.000,00 €
     expect(
