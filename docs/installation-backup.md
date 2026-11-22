@@ -276,11 +276,11 @@ Schlägt das Upgrade fehl, bricht der Container mit der Meldung von `pg_upgrade`
 **Einmalig für Installationen mit Postgres 16.** Bis Haben 0.2 lief die Datenbank im offiziellen Image `docker.io/library/postgres:16`. Das steht in deiner `compose.yml` bzw. in `haben-db.container` und ändert sich durch ein Update der Images nicht: Die Datenbank bleibt auf 16, bis du die Datei einmal neu holst. Das muss nicht sofort sein, das Backup-Image kommt mit beiden Versionen zurecht. Für den Umstieg:
 
 ```sh
-docker compose exec backup backup.sh   # Stand vor dem Update sichern
 RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)
 TAG=${RELEASE##*/}
 RAW=https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy
-curl -fLo compose.yml.neu "$RAW/compose.yml" && mv compose.yml.neu compose.yml &&
+curl -fLo compose.yml.neu "$RAW/compose.yml" &&
+  docker compose exec backup backup.sh && mv compose.yml.neu compose.yml &&
   docker compose pull && docker compose up -d
 docker compose logs db                 # „Upgrade auf PostgreSQL 18 fertig“
 ```
@@ -288,12 +288,12 @@ docker compose logs db                 # „Upgrade auf PostgreSQL 18 fertig“
 Hast du `compose.yml` angepasst statt eine `compose.override.yml` zu nutzen, ändere nur die Zeile `image: postgres:16` des Dienstes `db` in `image: tristanteu/haben-db:latest`. Mit den Quadlets:
 
 ```sh
-systemctl --user start haben-backup    # Stand vor dem Update sichern
 RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)
 TAG=${RELEASE##*/}
 RAW=https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy
 UNIT=~/.config/containers/systemd/haben-db.container
-curl -fLo "$UNIT.neu" "$RAW/quadlet/haben-db.container" && mv "$UNIT.neu" "$UNIT" &&
+curl -fLo "$UNIT.neu" "$RAW/quadlet/haben-db.container" &&
+  systemctl --user start haben-backup && mv "$UNIT.neu" "$UNIT" &&
   systemctl --user daemon-reload && systemctl --user restart haben-db haben-app
 journalctl --user -u haben-db -n 20    # „Upgrade auf PostgreSQL 18 fertig“
 ```

@@ -43,8 +43,9 @@ Haben bekommt so eine eigene Subdomain, etwa `https://haben.deinname.synology.me
 2. **Container Manager › Projekt › Erstellen:** Projektname `haben`, Pfad `/docker/haben`, Quelle „docker-compose.yml
    erstellen“.
 3. Im [letzten Release](https://github.com/Speicherstadt/haben/releases/latest) auf den Tag klicken und
-   `deploy/synology/compose.yml` öffnen. Über **Raw** den Inhalt kopieren (passend zu den Images mit `latest`) und
-   in das Feld einfügen. In der Zeile `BETTER_AUTH_URL` deine Adresse eintragen, mit `https://`, etwa
+   `deploy/synology/compose.yml` öffnen. Über **Raw** den Inhalt kopieren und in das Feld einfügen.
+   Für einen festen Stand ersetze `latest` in den Haben-Images durch die Versionsnummer des Tags ohne `v`.
+   In der Zeile `BETTER_AUTH_URL` deine Adresse eintragen, mit `https://`, etwa
    `BETTER_AUTH_URL: https://haben.deinname.synology.me`.
 4. Die Webportal-Einstellungen überspringen, „Projekt nach der Erstellung starten“ anhaken und fertigstellen. Der erste
    Start lädt die Images, das dauert ein paar Minuten.

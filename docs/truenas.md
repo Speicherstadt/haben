@@ -22,7 +22,8 @@ Dienst `schluessel`, der beim ersten Start die Schlüssel erzeugt. Du änderst d
 
 1. **Apps › Discover Apps › Custom App › Install via YAML**, Name `haben`.
 2. Im [letzten Release](https://github.com/Speicherstadt/haben/releases/latest) auf den Tag klicken und
-   `deploy/truenas/compose.yml` öffnen. Über **Raw** den Inhalt kopieren und einfügen; dieser Stand gehört zu den Images mit `latest`.
+   `deploy/truenas/compose.yml` öffnen. Über **Raw** den Inhalt kopieren und einfügen.
+   Für einen festen Stand ersetze `latest` in den Haben-Images durch die Versionsnummer des Tags ohne `v`.
    In der Zeile `BETTER_AUTH_URL` deine Adresse eintragen, mit `https://`, etwa
    `BETTER_AUTH_URL: https://haben.example.de`. Passkeys hängen an dieser Adresse; später nicht mehr ändern.
 3. Speichern. Der erste Start lädt die Images, das dauert ein paar Minuten.

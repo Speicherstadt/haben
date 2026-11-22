@@ -16,7 +16,7 @@ erzeugt Coolify beim Anlegen, Domain und HTTPS übernimmt sein Proxy statt des m
 
 1. Im [letzten Release](https://github.com/Speicherstadt/haben/releases/latest) auf den Tag klicken und
    `deploy/coolify/compose.yml` öffnen. Über **Raw** den Inhalt kopieren und in Coolify unter
-   **+ New › Docker Compose** einfügen. Dieser Stand gehört zu den Images mit `latest`.
+   **+ New › Docker Compose** einfügen. Für einen festen Stand ersetze `latest` in den Haben-Images durch die Versionsnummer des gewählten Tags ohne `v`.
 2. Beim Dienst `app` die Domain eintragen, mit `https://`, etwa `https://haben.example.de`. Ohne eigene Domain vergibt
    Coolify eine eigene; Passkeys hängen an der Domain, deshalb vor dem ersten Start festlegen.
 3. **Deploy.** Im Log von `app` steht nach „Listening on …“ der Einrichtungscode. Ruf die Domain auf, gib ihn ein und leg
