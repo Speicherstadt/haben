@@ -7,6 +7,7 @@ import { db, schema } from "../../db/index.ts";
 import { env } from "../../env.ts";
 import { UserError } from "../../errors.ts";
 import { today } from "../../today.ts";
+import { keineExterneQuelleFuerAbruf, openConflicts } from "../bank/index.ts";
 import { ETSY_RHYTHMEN, type EtsyRhythmus } from "./abruf-regeln.ts";
 
 /*
@@ -133,6 +134,8 @@ export const etsySettingsSchema = z.object({
  */
 export async function saveEtsyConnection(actor: string, input: z.input<typeof etsySettingsSchema>): Promise<void> {
   const data = etsySettingsSchema.parse(input);
+  // Ein Konto, eine Quelle (#306): hat das Konto des Abrufs schon eine externe Quelle, kein Zugang
+  await keineExterneQuelleFuerAbruf(db, "etsy");
   const existing = await loadEtsyConnection();
   const sharedSecret = data.sharedSecret?.trim() || existing?.secret.sharedSecret || "";
   if (!sharedSecret) throw new EtsyError("Das gemeinsame Geheimnis der Etsy-App (shared secret) fehlt.");
@@ -239,6 +242,8 @@ export async function etsySummary() {
     lastSyncAt: connection?.row.lastSyncAt ?? null,
     lastError: connection?.row.lastError ?? null,
     updatedAt: connection?.row.updatedAt ?? null,
+    /** Offene Konflikte des Abrufs (#306): Bis sie geklärt sind, übernimmt Haben aus dem Etsy-Abruf nichts */
+    konflikte: (await openConflicts()).filter((k) => k.provider === "etsy"),
   };
 }
 

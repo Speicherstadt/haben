@@ -1,14 +1,14 @@
-import { documentOpen, invoiceOpen, skontoZahlfristen, type OpenItem } from "@haben/core";
+import { documentOpen, invoiceOpen, skontoZahlfristen, type InvoiceTotals, type OpenItem } from "@haben/core";
 import { and, eq, inArray } from "drizzle-orm";
-import { db, schema } from "../../db/index.ts";
+import { type Db, db, schema, type Tx } from "../../db/index.ts";
 import { documentNotCancelled } from "../../db/document-cancelled.ts";
-import { invoicePayments, paidByTarget, paperCancellationIds } from "../rechnungen/index.ts";
+import { invoicePayments, invoiceTotalsById, mixNachKorrekturen, paidByTarget, paperCancellationIds } from "../rechnungen/index.ts";
 import { loadCompany } from "../stammdaten/index.ts";
 import { today } from "../../today.ts";
 import { documentPayees, ibanDecisions, payeeIbans } from "./document-payees.ts";
 import { directDebitReferences } from "./lastschrift-abgleich.ts";
 
-/* Offene Rechnungen und Belege für den Abgleich der Bankumsätze (bank.ts) */
+/* Offene Rechnungen und Belege für den Abgleich der Bankumsätze (transaction-detail.ts) */
 
 /** Bestellnummern einer Rechnung für den Abgleich: externe Referenz, Bestellnummer des Kunden, eigene Auftragsnummer */
 function orderReferencesOf(inv: { externalId: string | null; buyerOrderReference: string; sellerOrderReference: string }, externalId = inv.externalId) {
@@ -76,6 +76,70 @@ function bookedBankDocuments() {
   );
 }
 
+/**
+ * Offene Korrekturen an ihrer Rechnung (openCorrections): Der Abgleich bietet für „Rechnung minus Korrektur“ dann die
+ * Aufteilung an statt Skonto oder Forderungsausfall (#1398)
+ */
+function attachOpenCorrections(items: OpenItem[], invoices: { id: string; kind: string; correctsId: string | null }[]): void {
+  // Eine Korrektur korrigiert immer eine Rechnung, nie eine andere Korrektur (correction-checks.ts)
+  const byId = new Map(items.map((item) => [item.id, item]));
+  for (const inv of invoices) {
+    const original = inv.kind === "korrektur" && inv.correctsId ? byId.get(inv.correctsId) : undefined;
+    const correction = byId.get(inv.id);
+    if (!original || !correction) continue;
+    original.openCorrections = [...(original.openCorrections ?? []), { id: correction.id, number: correction.number, open: correction.open }];
+  }
+}
+
+/**
+ * Rechnungen, deren Rest nach den Korrekturen sich je Satz bestimmen lässt (mixNachKorrekturen): Nur dann verteilt sich ein
+ * Skonto nach der Korrektur auf die verbleibenden Entgelte (#1586). Die eine Prüfung für Abgleich und Buchung; sie
+ * schließt nur Korrekturen mit einem Satz aus, den die Rechnung nicht hat.
+ */
+export async function restMixeNachKorrekturen(
+  gruppen: ReadonlyMap<string, readonly string[]>,
+  q: Db | Tx = db,
+): Promise<Map<string, { rechnung: InvoiceTotals; rest: InvoiceTotals }>> {
+  const totals = await invoiceTotalsById(
+    [...gruppen].flatMap(([rechnung, korrekturen]) => [rechnung, ...korrekturen]),
+    q,
+  );
+  const mixe = new Map<string, { rechnung: InvoiceTotals; rest: InvoiceTotals }>();
+  for (const [id, korrekturen] of gruppen) {
+    const rechnung = totals.get(id);
+    const rest =
+      rechnung &&
+      mixNachKorrekturen(
+        rechnung,
+        korrekturen.map((k) => totals.get(k)).filter((t): t is InvoiceTotals => t !== undefined),
+      );
+    if (rechnung && rest) mixe.set(id, { rechnung, rest });
+  }
+  return mixe;
+}
+
+/**
+ * Skonto nach den offenen Korrekturen (skontoNachKorrektur): Zieht der Kunde die Korrekturen ab und dann Skonto, ist das
+ * Skonto vom geminderten Betrag gerechnet, nicht vom Betrag der Rechnung (#1398). Nur wo das Skonto noch gilt (skonto)
+ * und sich der Rest je Satz bestimmen lässt (restMixeNachKorrekturen, #1586).
+ */
+async function attachSkontoNachKorrektur(
+  items: OpenItem[],
+  invoices: { id: string; skonto: Parameters<typeof skontoZahlfristen>[0]; issueDate: string; gross: number }[],
+  bundesland: Parameters<typeof skontoZahlfristen>[3],
+): Promise<void> {
+  const byId = new Map(invoices.map((inv) => [inv.id, inv]));
+  const kandidaten = items.filter((item) => item.skonto && item.openCorrections);
+  const mixe = await restMixeNachKorrekturen(new Map(kandidaten.map((item) => [item.id, item.openCorrections!.map((k) => k.id)])));
+  for (const item of kandidaten) {
+    const inv = byId.get(item.id);
+    if (!inv || !item.openCorrections || !mixe.has(item.id)) continue;
+    const gemindert = inv.gross + item.openCorrections.reduce((sum, k) => sum + k.open, 0);
+    const fristen = gemindert > 0 ? skontoZahlfristen(inv.skonto, inv.issueDate, gemindert, bundesland) : [];
+    if (fristen.length > 0) item.skontoNachKorrektur = fristen;
+  }
+}
+
 /** Offene Rechnungen und Belege für den Abgleich */
 export async function openItems(): Promise<OpenItem[]> {
   const { invoices, stornos } = await finalInvoiceRows();
@@ -123,6 +187,8 @@ export async function openItems(): Promise<OpenItem[]> {
       ...(skonto.length > 0 ? { skonto } : {}),
     });
   }
+  attachOpenCorrections(items, invoices);
+  await attachSkontoNachKorrektur(items, invoices, bundesland);
   // Storno einer schon bezahlten Rechnung: die Erstattung wird der Stornorechnung zugeordnet
   for (const storno of stornos) {
     if (paperStornos.has(storno.id)) continue;

@@ -5,8 +5,9 @@ import { withActor } from "../../db/actor.ts";
 import { bankAccountIncludedSql, bankOpenAmountSql } from "../../db/bank-open.ts";
 import { db, schema, type Tx } from "../../db/index.ts";
 import { sha256Of } from "../../storage.ts";
-import { BankError, insertStatement } from "./bank.ts";
-import { freeHash, MovementConflictError, type StoreBatchInput } from "./import-batch.ts";
+import { BankError } from "./bank-error.ts";
+import { eventKey, freeHash, MovementConflictError, type StoreBatchInput } from "./import-batch.ts";
+import { insertStatement } from "./statement-import.ts";
 
 /*
  * Weg aus einem Konflikt des Importvertrags (#306, 3b, abgestimmt im Issue). Liefert die Bank eine schon übernommene
@@ -17,10 +18,11 @@ import { freeHash, MovementConflictError, type StoreBatchInput } from "./import-
  * Abruf des Kontos wieder.
  */
 
-/** Umsatz zu einer Bewegung: der des Auszugs zum Ereignis, sonst aus der Bewegung selbst (etwa eine Gebühr als Komponente) */
+/** Umsatz zu einer Bewegung: der des Auszugs zu ihrem Schlüssel (`eventKey`, auch bei der Gebühr einer Zahlung), sonst aus der Bewegung selbst */
 function transactionOf(input: StoreBatchInput, movement: ImportMovement): ParsedTransaction {
-  const row = input.statement.transactions.find((t) => input.eventOf(t) === movement.sourceEventId);
-  if (row && movement.component === "main") return row;
+  const key = eventKey(movement);
+  const row = input.statement.transactions.find((t) => input.eventOf(t) === key);
+  if (row) return row;
   return {
     bookingDate: movement.bookingDate,
     ...(movement.valueDate ? { valueDate: movement.valueDate } : {}),
@@ -69,6 +71,7 @@ export async function openConflicts() {
     .select({
       conflict: schema.importConflicts,
       bankAccountId: schema.importSources.bankAccountId,
+      provider: schema.importSources.provider,
       sourceEventId: schema.importMovements.sourceEventId,
       previous: {
         id: schema.bankTransactions.id,
@@ -90,6 +93,7 @@ export async function openConflicts() {
   return rows.map((r) => ({
     id: r.conflict.id,
     bankAccountId: r.bankAccountId,
+    provider: r.provider,
     sourceEventId: r.sourceEventId,
     since: r.conflict.createdAt.toISOString(),
     previous: r.previous,
@@ -152,8 +156,14 @@ export async function resolveConflict(actor: string, input: z.infer<typeof resol
  */
 export async function klaerungView(transactionId: string) {
   const previous = sql`(select m.transaction_id from import_movements m where m.id = ${schema.importConflicts.movementId})`;
+  const provider = sql`(select s.provider from import_movements m join import_sources s on s.id = m.source_id where m.id = ${schema.importConflicts.movementId})`;
   const rows = await db
-    .select({ previous: sql<string>`${previous}`, added: schema.importResolutions.transactionId, at: schema.importResolutions.createdAt })
+    .select({
+      previous: sql<string>`${previous}`,
+      provider: sql<string>`${provider}`,
+      added: schema.importResolutions.transactionId,
+      at: schema.importResolutions.createdAt,
+    })
     .from(schema.importResolutions)
     .innerJoin(schema.importConflicts, eq(schema.importConflicts.id, schema.importResolutions.conflictId))
     .where(
@@ -169,6 +179,8 @@ export async function klaerungView(transactionId: string) {
     return t!;
   };
   return {
+    /** Wer anders geliefert hat (Anbieter der Quelle): ein Konto hat genau eine Quelle */
+    provider: rows[0]!.provider,
     /** Weitere Umsätze, die nach einem Konflikt zu diesem übernommen wurden */
     added: await Promise.all(rows.filter((r) => r.previous === transactionId).map((r) => other(r.added!))),
     /** Der bisherige Umsatz, wenn dieser aus einer Klärung stammt */

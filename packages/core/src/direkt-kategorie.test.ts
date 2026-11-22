@@ -6,7 +6,10 @@ import {
   kategorieArt,
   kategorieFehler,
   kategoriePosting,
+  kategorieAnzeige,
+  kategorienMitKonto,
   kategorieText,
+  kategorieVorschlag,
   type KategorieAngabe,
 } from "./direkt-kategorie.ts";
 
@@ -219,5 +222,48 @@ describe("EÜR", () => {
     expect(euer.ausgaben.find((l) => l.key === "vorsteuer")?.amount).toBe(0);
     expect(euer.monthly.ausgaben[4]).toBe(30_00);
     expect(euer.gewinn).toBe(-30_00);
+  });
+});
+
+describe("kategorieAnzeige (#1438)", () => {
+  it("setzt bei Ausgaben die Nummer des Kontos vor die Bezeichnung, je Kontenrahmen", () => {
+    expect(kategorieAnzeige({ kategorie: "telefon", steuersatz: 0 }, "SKR04")).toBe("6805 · Telefon");
+    expect(kategorieAnzeige({ kategorie: "telefon", steuersatz: 0 }, "SKR03")).toBe("4920 · Telefon");
+  });
+
+  it("lässt Einnahmen ohne Nummer, ihr Erlöskonto hängt am Steuersatz", () => {
+    expect(kategorieAnzeige(erloese19, "SKR03")).toBe("Erlöse 19 %");
+    expect(kategorieAnzeige({ kategorie: "nichtSteuerbar", steuersatz: 0 }, "SKR04")).toBe("Nicht steuerbare Einnahme");
+  });
+
+  it("ändert den Buchungstext nicht: kategorieText bleibt bei der Bezeichnung", () => {
+    expect(kategorieText({ kategorie: "telefon", steuersatz: 0 })).toBe("Telefon");
+  });
+});
+
+describe("kategorienMitKonto (#1438)", () => {
+  it("setzt die Nummer vor die Ausgaben und lässt die Einnahmen, wie sie sind", () => {
+    const liste = kategorienMitKonto(direktKategorienFuer(), "SKR04");
+    expect(liste.find((k) => k.value === "telefon")?.label).toBe("6805 · Telefon");
+    expect(liste.find((k) => k.value === "erloese")?.label).toBe("Erlöse");
+    expect(liste.map((k) => k.value)).toEqual(direktKategorienFuer().map((k) => k.value));
+  });
+});
+
+describe("kategorieVorschlag (#1440)", () => {
+  it("zeigt Erlös und Umsatzsteuer mit Kontonummer und Steuerschlüssel, ohne die Bankzeile", () => {
+    const zeilen = kategorieVorschlag({ kategorie: "erloese", steuersatz: 1900 }, 11900, "SKR03");
+    expect(zeilen.map((z) => [z.konto, z.betrag, z.steuer])).toEqual([
+      ["8400", 10000, "19 %"],
+      ["1776", 1900, "19 %"],
+    ]);
+  });
+
+  it("zeigt eine Ausgabe mit negativem Betrag und ohne Steuer", () => {
+    const zeilen = kategorieVorschlag({ kategorie: "sonstiges", steuersatz: 0 }, -35, "SKR04");
+    expect(zeilen).toHaveLength(1);
+    expect(zeilen[0]?.betrag).toBe(-35);
+    expect(zeilen[0]?.steuer).toBe("ohne");
+    expect(zeilen[0]?.kontoName).not.toBe("");
   });
 });

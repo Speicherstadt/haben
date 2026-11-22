@@ -5,6 +5,7 @@ import { formatDate, formatDateTime } from "../lib/format.ts";
 import { useAction } from "../lib/use-action.ts";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { Field } from "./Field.tsx";
+import { KonfliktKlaeren } from "./ImportKonflikt.tsx";
 import { NoticeBanner } from "./NoticeBanner.tsx";
 import { connectEtsyFn, disconnectEtsyFn, type getEtsySettings, removeEtsyConnectionFn, saveEtsyConnectionFn, syncEtsyNow } from "../server/functions/etsy.ts";
 
@@ -37,6 +38,7 @@ export function EtsyPaymentsCard({ data }: { data: Data }) {
   const [sammelzeilen, setSammelzeilen] = useState(data.sammelzeilen);
   const [rhythmus, setRhythmus] = useState(data.rhythmus);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [geklaert, setGeklaert] = useState(false);
   const { busy, notice, run } = useAction();
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -69,8 +71,13 @@ export function EtsyPaymentsCard({ data }: { data: Data }) {
           {data.lastError}
         </div>
       )}
+      {(data.konflikte.length > 0 || geklaert) && (
+        <div className="actions">
+          <KonfliktKlaeren konflikte={data.konflikte} disabled={busy} quelle="etsy" onGeklaert={() => setGeklaert(true)} />
+        </div>
+      )}
 
-      <form onSubmit={onSubmit}>
+      <form className="stack" onSubmit={onSubmit}>
         <Field label="App-Schlüssel (keystring)" hint="Steht in der Etsy-App unter „Keystring“">
           {(control) => <input {...control} name="keystring" value={keystring} onChange={(event) => setKeystring(event.target.value)} autoComplete="off" />}
         </Field>
@@ -93,9 +100,9 @@ export function EtsyPaymentsCard({ data }: { data: Data }) {
           Die Gebührenrechnung (bei Etsy „USt.-Abrechnung“) frühestens am 5. des Folgemonats herunterladen und hochladen: Etsy korrigiert Gebühren im Übergang
           des Monats manchmal nach. Ab dem 5. stimmt sie auf den Cent mit den Sammelzeilen.
         </div>
-        <div className="row" style={{ gap: "0.5rem", flexWrap: "wrap" }}>
-          <button type="submit" className="btn btn-primary" disabled={busy}>
-            {busy ? "Speichere …" : "Speichern"}
+        <div className="actions">
+          <button type="button" className="btn btn-danger" disabled={busy || !data.configured} onClick={() => setConfirmingRemove(true)}>
+            Zugang entfernen
           </button>
           <button
             type="button"
@@ -116,6 +123,7 @@ export function EtsyPaymentsCard({ data }: { data: Data }) {
             disabled={busy || !data.connected}
             onClick={() =>
               void run(async () => {
+                setGeklaert(false);
                 const result = await sync();
                 await router.invalidate();
                 if (result.error) throw new Error(result.error);
@@ -138,8 +146,8 @@ export function EtsyPaymentsCard({ data }: { data: Data }) {
           >
             Trennen
           </button>
-          <button type="button" className="btn btn-danger" disabled={busy || !data.configured} onClick={() => setConfirmingRemove(true)}>
-            Zugang entfernen
+          <button type="submit" className="btn btn-primary" disabled={busy}>
+            {busy ? "Speichere …" : "Speichern"}
           </button>
         </div>
         <NoticeBanner notice={notice} />

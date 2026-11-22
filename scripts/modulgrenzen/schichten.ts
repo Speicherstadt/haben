@@ -30,8 +30,11 @@ export const SCHICHTEN = [
   "verfahrensdoku",
   "archiv",
   "datenimport",
+  "instanzwechsel",
   "stores",
   "etsy",
+  "paypal",
+  "stripe",
   "mcp",
   "api",
 ] as const;

@@ -51,6 +51,8 @@ const PAGES = [
   "/finanzamt",
   "/fristen",
   "/auswertungen",
+  "/auswertungen/bwa?zeitraum=jahr&zeile=erloese",
+  "/auswertungen/bwa?zeitraum=jahr&leer=1",
   "/buchungen",
   "/buchungen/neu",
   `/abschluss/${YEAR - 1}`,
@@ -100,6 +102,7 @@ const THEME_PAGES = [
   `/konten/1200?jahr=${YEAR}`,
   "/fristen",
   "/auswertungen",
+  "/auswertungen/bwa?zeitraum=jahr",
   `/jahreserklaerung/${YEAR}`,
   "/archiv",
   "/einstellungen?bereich=elster",
@@ -134,6 +137,14 @@ async function tabTo(p: Page, name: string, max = 80) {
     if (label === name || label.endsWith(`\n${name}`)) return;
   }
   throw new Error(`„${name}“ ist mit Tab nicht erreichbar`);
+}
+
+/** Klappt die einklappbaren Abschnitte der Firmendaten auf (#1253); Felder in zugeklappten Abschnitten sind nicht sichtbar */
+async function firmaAufklappen(page: Page) {
+  for (const abschnitt of await page.locator("form[aria-labelledby=company-heading] details").all()) {
+    if (!(await abschnitt.evaluate((d) => (d as HTMLDetailsElement).open))) await abschnitt.locator("summary").click();
+    await expect(abschnitt).toHaveAttribute("open", "");
+  }
 }
 
 async function open(p: Page, path: string) {
@@ -517,6 +528,7 @@ for (const group of chunks(PAGES, GROUP)) {
 
 test("Kontrollkästchen mit Hinweis: Der Name ist nur die Beschriftung, der Hinweis die Beschreibung, der Text schaltet um", async ({ page }) => {
   await open(page, "/einstellungen");
+  await firmaAufklappen(page);
   const faelle = [
     { name: "Kleinunternehmer nach § 19 UStG", hinweis: /^Rechnungen ohne Umsatzsteuer, keine Voranmeldung/ },
     { name: "Tageskurs statt USt-Umrechnungskurs (vom Finanzamt gestattet)", hinweis: /^Ohne Gestattung rechnet Haben Fremdwährung/ },
@@ -544,6 +556,7 @@ test.describe("Kontrollkästchen mit Hinweis am Handy", () => {
   test("Die Zeile mit dem Kästchen ist mindestens 44px hoch", async ({ page }) => {
     // Am Handy zeigt /einstellungen nur die Liste der Bereiche
     await open(page, "/einstellungen?bereich=firma");
+    await firmaAufklappen(page);
     for (const name of [
       "Kleinunternehmer nach § 19 UStG",
       "Tageskurs statt USt-Umrechnungskurs (vom Finanzamt gestattet)",
@@ -558,6 +571,7 @@ test.describe("Kontrollkästchen mit Hinweis am Handy", () => {
 
 test("Kontrollkästchen mit Hinweis: Der Hinweis fluchtet mit dem Text der Beschriftung", async ({ page }) => {
   await open(page, "/einstellungen");
+  await firmaAufklappen(page);
   for (const name of [
     "Kleinunternehmer nach § 19 UStG",
     "Tageskurs statt USt-Umrechnungskurs (vom Finanzamt gestattet)",
@@ -576,6 +590,7 @@ test("Kontrollkästchen mit Hinweis: Der Hinweis fluchtet mit dem Text der Besch
 
 test("Kontrollkästchen mit Hinweis am Desktop: Die Zeile ist nur so hoch wie der Text", async ({ page }) => {
   await open(page, "/einstellungen");
+  await firmaAufklappen(page);
   for (const name of [
     "Kleinunternehmer nach § 19 UStG",
     "Tageskurs statt USt-Umrechnungskurs (vom Finanzamt gestattet)",
@@ -589,6 +604,7 @@ test("Kontrollkästchen mit Hinweis am Desktop: Die Zeile ist nur so hoch wie de
 
 test("Kontrollkästchen mit Hinweis: Ein Klick auf den Hinweis schaltet nicht um", async ({ page }) => {
   await open(page, "/einstellungen");
+  await firmaAufklappen(page);
   const name = "Tageskurs statt USt-Umrechnungskurs (vom Finanzamt gestattet)";
   const kasten = page.getByRole("checkbox", { name, exact: true });
   const vorher = await kasten.isChecked();
@@ -795,4 +811,29 @@ test("Befehlspalette: Strg+K, Tastatursteuerung, Fokus-Rückgabe und axe in alle
   await expect(alle).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   expect(await axe(page), "Befehlspalette am Handy").toEqual([]);
+});
+
+/* Review #1470: Die Aufklappköpfe (`.est-block > summary`) der Jahreserklärung am Handy: Titel und Kurztext überlappen nicht und ragen nicht aus ihrer Box */
+test("Jahreserklärung am Handy: Titel und Kurztext im Aufklappkopf überlappen nicht", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto(`/jahreserklaerung/${YEAR}`);
+  await page.waitForLoadState("networkidle");
+  const fehler = await page.evaluate(() =>
+    [...document.querySelectorAll(".est-block > summary")].flatMap((summary) => {
+      const kinder = [...summary.children] as HTMLElement[];
+      const probleme: string[] = [];
+      for (const kind of kinder)
+        if (kind.scrollWidth > kind.clientWidth + 1) probleme.push(`${kind.textContent}: Text ragt aus der Box (${kind.scrollWidth} > ${kind.clientWidth})`);
+      const boxen = kinder.map((k) => k.getBoundingClientRect());
+      for (let i = 0; i < boxen.length; i++)
+        for (let j = i + 1; j < boxen.length; j++) {
+          const a = boxen[i];
+          const b = boxen[j];
+          if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1)
+            probleme.push(`${kinder[i].textContent} überlappt ${kinder[j].textContent}`);
+        }
+      return probleme;
+    }),
+  );
+  expect(fehler).toEqual([]);
 });
