@@ -314,7 +314,7 @@ sevDesk liefert die Vorlagen nur mit dem Filter `invoiceType=WKR`; belegt ist da
 | Positionen: Bezeichnung, Text, Menge, Preis, Steuersatz | Positionen; Einheit immer „Stk.“, sevDesk nennt sie nur als Kennung |
 | `showNet` | Preise netto oder brutto |
 | `timeToPay` | Zahlungsziel |
-| `accountIntervall` | Intervall: 1 oder 2 Wochen (`P0Y0M1W`, `P0Y0M2W`), 1, 3, 6 oder 12 Monate |
+| `accountIntervall` | Intervall: 1 oder 2 Wochen (belegt ist `P0Y0M1W`), 1, 3, 6 oder 12 Monate |
 | `accountNextInvoice`, sonst `accountStartDate` | Nächste Rechnung am |
 | `accountEndDate` | Endet nach dem |
 | `taxType` `default`, `eu`, `noteu`, Kleinunternehmer | Umsatzsteuer regulär, innergemeinschaftliche Lieferung, Drittland, Kleinunternehmer; alles außer regulär mit Hinweis zum Prüfen |
