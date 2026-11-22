@@ -2599,6 +2599,66 @@ test("Voranmeldung außerhalb von Haben abgegeben: Abgabe vermerken, Zahllast im
   await expect(page.getByRole("region", { name: "Zahlung an das Finanzamt" })).toContainText("Lastschrift 190,00");
 });
 
+test("Voranmeldung von Hand: jede Kennzahl lässt sich eintragen, ein ungültiger Betrag sperrt das Speichern", async () => {
+  // Mai vor dem Vorjahr: ohne Buchungen und ohne Anmeldung. Der Entwurf wird am Ende gelöscht, damit spätere Tests den
+  // Monat leer vorfinden
+  const year = YEAR - 2;
+  const sql = postgres(databaseUrlFuer("belege-steuern"), { max: 1 });
+  try {
+    await go(`/umsatzsteuer/${year}-05`);
+    const formular = page.getByRole("form", { name: "Kennzahlen" });
+    await formular.getByRole("button", { name: "Manuell überschreiben" }).click();
+    const werte: [string, string][] = [
+      ["Steuerpflichtige Umsätze 19 %", "1.000,00"],
+      ["Steuerpflichtige Umsätze 7 %", "200,00"],
+      ["Nicht steuerbare sonstige Leistungen im EU-Ausland (Reverse Charge)", "300,00"],
+      ["Übrige nicht steuerbare Umsätze (Leistungsort nicht im Inland)", "50,00"],
+      ["Steuerfreie Umsätze ohne Vorsteuerabzug", "40,00"],
+      ["Steuerfreie innergemeinschaftliche Lieferungen an Abnehmer mit USt-IdNr.", "500,00"],
+      ["Weitere steuerfreie Umsätze mit Vorsteuerabzug (Ausfuhrlieferungen)", "60,00"],
+      ["Steuerpflichtige innergemeinschaftliche Erwerbe 19 %", "100,00"],
+      ["Steuerpflichtige innergemeinschaftliche Erwerbe 7 %", "10,00"],
+      ["Vorsteuer aus Rechnungen anderer Unternehmer", "30,00"],
+      ["Sonstige Leistungen eines Unternehmers aus dem EU-Ausland (§ 13b Abs. 1 UStG)", "400,00"],
+      ["Steuer zu Kz 46 (Kz 47)", "76,00"],
+      ["Andere Leistungen, für die du die Steuer schuldest (§ 13b Abs. 2 UStG)", "20,00"],
+      ["Steuer zu Kz 84 (Kz 85)", "3,80"],
+      ["Vorsteuer aus Leistungen nach § 13b UStG", "79,80"],
+      ["Vorsteuer aus dem innergemeinschaftlichen Erwerb von Gegenständen", "19,70"],
+    ];
+    for (const [label, wert] of werte) await formular.getByLabel(label, { exact: true }).fill(wert);
+    // Steuer zu 81, 86, 89 und 93 sowie Kz 47 und 85, abzüglich der Vorsteuer in Kz 66, 67 und 61
+    await expect(formular.locator(".kz-row.total")).toContainText("174,00");
+    const speichern = formular.getByRole("button", { name: "Entwurf speichern" });
+    await expect(speichern).toBeDisabled();
+    await formular.getByLabel("Begründung der Abweichung (Pflicht)").fill("Werte aus der alten Buchhaltung übernommen");
+    await expect(speichern).toBeEnabled();
+    const kz66 = formular.getByLabel("Vorsteuer aus Rechnungen anderer Unternehmer", { exact: true });
+    await kz66.fill("dreißig");
+    await expect(kz66).toHaveAttribute("aria-invalid", "true");
+    await expect(speichern).toBeDisabled();
+    await kz66.fill("30,00");
+    await speichern.click();
+    await expect(page.getByText("Entwurf gespeichert.")).toBeVisible();
+
+    await page.reload();
+    await expect(formular.getByRole("button", { name: "Manuell überschreiben" })).toHaveAttribute("aria-pressed", "true");
+    for (const [label, wert] of werte) await expect(formular.getByLabel(label, { exact: true })).toHaveValue(wert);
+    await expect(formular.getByLabel("Begründung der Abweichung (Pflicht)")).toHaveValue("Werte aus der alten Buchhaltung übernommen");
+    // Zurück zu den Buchungen: der leere Monat, ohne Begründung
+    await formular.getByRole("button", { name: "Aus Buchungen berechnet" }).click();
+    await expect(page.locator("#kz-81")).toHaveText(/^0,00/);
+    await expect(formular.getByLabel("Begründung der Abweichung (Pflicht)")).toHaveCount(0);
+    await expect(formular.locator(".kz-row.total")).toContainText("0,00");
+  } finally {
+    await sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'e2e-test', true)`;
+      await tx`delete from vat_returns where year = ${year} and month = 5`;
+    });
+    await sql.end();
+  }
+});
+
 test("Anlage: ein Satz über dem Höchstsatz ist ein Fehler am Satz, der Fokus geht zum ersten Fehler (Review #971)", async () => {
   await go("/anlagen/neu");
   const form = page.getByRole("region", { name: "Angaben" });
