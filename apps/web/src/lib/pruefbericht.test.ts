@@ -74,6 +74,16 @@ describe("Prüfbericht", () => {
     expect(text).not.toContain("Sollbestand");
   });
 
+  // Den Namen eines fremden Objekts wählt, wer die Datenbank ändert; er macht aus einer Abweichung keinen Abbruch (#1716)
+  it("nennt den Sollbestand, wenn nur ein Objektname im Befund wie ein Abbruch klingt oder ein Abbruch dazukommt", () => {
+    const fremd = "Datenbank: Zusätzliche Relation Prüfung von Kette und Siegeln abgebrochen im Systemschema pg_catalog";
+    const abbruch = "haben_integrity_problems: Prüfung von Kette und Siegeln abgebrochen: function haben_integrity_problems(integer) does not exist";
+    expect(pruefwertNotice({ status: "unbestaetigt", seq: 46, befunde: [fremd] }).text).toContain("Die Datenbank weicht vom Sollbestand ab (ein Befund");
+    expect(pruefwertNotice({ status: "unbestaetigt", seq: 46, befunde: [fremd, abbruch] }).text).toContain(
+      "Die Datenbank weicht vom Sollbestand ab (2 Befunde",
+    );
+  });
+
   it("meldet die übrigen Ergebnisse des Prüfwert-Vergleichs wie bisher", () => {
     expect(pruefwertNotice({ status: "ok", seq: 7 }).tone).toBe("ok");
     expect(pruefwertNotice({ status: "beschaedigt", seq: 7, first: 2, befund: "Inhalt passt nicht zum Hash" }).text).toBe(
