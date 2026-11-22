@@ -1,6 +1,7 @@
 import { devices, expect, type Page, test } from "@playwright/test";
 import { filePickerPruefen, uploadButtonPruefen } from "./dateiauswahl.ts";
 import { SESSION } from "./daten.ts";
+import { bilder } from "./warten.ts";
 
 /**
  * Die Felder für Zertifikat und privaten Schlüssel liegen in `Field`, und `Field` umschließt seine Felder
@@ -35,8 +36,9 @@ test("Datei wählen in einem umschließenden label öffnet genau einen Dialog", 
     dialoge += 1;
   });
 
-  await page.getByText("Datei wählen", { exact: true }).first().click();
-  await page.waitForTimeout(1500);
+  await Promise.all([page.waitForEvent("filechooser"), page.getByText("Datei wählen", { exact: true }).first().click()]);
+  // Ein zweiter Dialog aus demselben Klick käme in derselben Aufgabe hinterher
+  await bilder(page);
 
   expect(dialoge).toBe(1);
 });

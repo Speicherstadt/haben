@@ -243,7 +243,7 @@ Die Tests sind auf Projekte in `apps/web/playwright.config.ts` verteilt; was ein
 - **Eigene Durchläufe** mit eigenem Server und eigener Datenbank für Themen, die eigene Daten brauchen, etwa eine GmbH oder eine festgeschriebene Erklärung; Ports und Datenbanken stehen in `e2e/durchlaeufe.ts`.
 - **`ohne-daten`** für Tests, die keine Daten brauchen.
 
-Ein neuer Test gehört in den Durchlauf seines Themas; nach `app.spec.ts` nur, wenn `mit-daten` seine Daten braucht. In der CI laufen die Tests in fünf Teilen (`bun run e2e --shard=<n>/5`) und SSO als sechster; Bericht und Traces hängen als Artefakt `e2e-bericht-teil-<n>` am Lauf.
+Ein neuer Test gehört in den Durchlauf seines Themas; nach `app.spec.ts` nur, wenn `mit-daten` seine Daten braucht. Er wartet auf Ereignisse, nie eine feste Zeit (`waitForTimeout`): auf Antworten, mit Assertionen wie `toBeVisible`, `expect.poll` oder `page.clock`; soll etwas nicht passieren, erst das auslösende Ereignis abwarten, dann prüfen (`e2e/warten.ts`). In der CI laufen die Tests in fünf Teilen (`bun run e2e --shard=<n>/5`) und SSO als sechster; Bericht und Traces hängen als Artefakt `e2e-bericht-teil-<n>` am Lauf.
 
 ### Bilder für README und Doku
 
