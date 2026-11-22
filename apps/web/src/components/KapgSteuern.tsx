@@ -102,7 +102,8 @@ export function KapgSteuern({ year, data, closed }: { year: number; data: KapgSt
             {row("Zu versteuerndes Einkommen", s.zvE, true)}
             {row("Körperschaftsteuer 15 %", s.kst)}
             {row("Solidaritätszuschlag 5,5 %", s.soli)}
-            {s.hinzurechnungGewst > 0 && row("+ Hinzurechnung nach § 8 Nr. 1 GewStG", s.hinzurechnungGewst)}
+            {s.hinzurechnungGewst !== 0 &&
+              row(s.hinzurechnungGewst < 0 ? "Negative Hinzurechnung nach § 8 Nr. 1 GewStG" : "+ Hinzurechnung nach § 8 Nr. 1 GewStG", s.hinzurechnungGewst)}
             {s.verlustabzugGewst > 0 && row("− Gewerbeverlust (§ 10a GewStG)", -s.verlustabzugGewst)}
             {row("Gewerbeertrag, auf volle 100 € abgerundet", s.gewerbeertrag, true)}
             {row("Steuermessbetrag 3,5 %", s.messbetrag)}
