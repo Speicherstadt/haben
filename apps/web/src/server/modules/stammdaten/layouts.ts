@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readdir, rename, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { DEFAULT_LAYOUT, eingebautesLayout, LAYOUT_DOCUMENT_TYPES, type LayoutDocumentType, type LayoutRef } from "@haben/core";
+import { eingebautesLayout, LAYOUT_DOCUMENT_TYPES, type LayoutDocumentType, type LayoutRef } from "@haben/core";
 import { createRenderClient, kenntPflichtangabenFelder, LAYOUT_SCHEMA_VERSION, type Letterhead, type PdfRequest } from "@haben/einvoice";
 import { eq, sql } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
@@ -19,6 +19,7 @@ import {
   writePackages,
 } from "./paket-download.ts";
 import { customLayoutJob, dataForVersion, layoutRenderer } from "./layout-renderer.ts";
+import { removeLayout } from "./layout-loeschen.ts";
 import { checkLayoutSwitch, loadDesign, lockFooter } from "./letterhead.ts";
 
 /*
@@ -266,38 +267,6 @@ export async function renameLayout(actor: string, id: string, input: string): Pr
 /** Löscht das Layout; wo es zugeordnet war, gilt wieder das eingebaute */
 export function deleteLayout(actor: string, id: string): Promise<void> {
   return oneAtATime(id, () => removeLayout(actor, id));
-}
-
-/** Wo das Layout zugeordnet ist, gilt nach dem Löschen das eingebaute; das darf die Fußzeile nicht über 4 Spalten bringen */
-async function checkRemoval(q: Db | Tx, id: string): Promise<void> {
-  const current = await loadDesign(q);
-  const layouts = Object.fromEntries(
-    Object.entries(current.layouts).map(([type, ref]) => [type, ref.kind === "eigen" && ref.id === id ? DEFAULT_LAYOUT : ref]),
-  ) as typeof current.layouts;
-  await checkLayoutSwitch(q, current, { ...current, layouts });
-}
-
-async function removeLayout(actor: string, id: string): Promise<void> {
-  await withActor(actor, async (tx) => {
-    // Erst das Profil, dann das Layout: Jede Änderung nimmt im Audit-Trigger die Sperre der Hash-Kette. Käme das Löschen
-    // zuerst, hielte es diese Sperre, während es auf die Zeile des Profils wartet, und verhakte sich mit saveDesign, das
-    // die Zeile hält und auf die Sperre wartet.
-    await lockFooter(tx);
-    await checkRemoval(tx, id);
-    const fallback = JSON.stringify(DEFAULT_LAYOUT);
-    await tx.execute(sql`
-      update letterhead_profiles set settings = jsonb_set(settings, '{layouts}', (
-        select coalesce(jsonb_object_agg(key, case when value->>'kind' = 'eigen' and value->>'id' = ${id} then ${fallback}::jsonb else value end), '{}'::jsonb)
-        from jsonb_each(coalesce(settings->'layouts', '{}'::jsonb))
-      )), updated_at = now()
-      where settings->'layouts' is not null`);
-    await tx.delete(schema.belegLayouts).where(eq(schema.belegLayouts.id, id));
-  });
-  // Erst nach der Transaktion: Lehnt die Prüfung der Fußzeile das Löschen ab, bleiben Renderer und Pakete stehen. Scheitert
-  // das Aufräumen, ist das Layout trotzdem gelöscht; ein übrig gebliebener Cache gehört zu keinem Layout mehr
-  const warnen = (was: string) => (error: unknown) => console.warn(`Layout ${id} gelöscht, ${was}: ${error instanceof Error ? error.message : String(error)}`);
-  await dropRenderer(id).catch(warnen("Render-Prozess nicht beendet"));
-  await clearPackages(id).catch(warnen("Paket-Cache nicht entfernt"));
 }
 
 /** Art eines eigenen Layouts (Mahnung oder Beleg); null = eingebaut. Ein unbekanntes eingebautes oder gelöschtes eigenes wirft */
