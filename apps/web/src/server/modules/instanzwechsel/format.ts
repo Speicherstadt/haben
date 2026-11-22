@@ -4,4 +4,6 @@
  * verwürfe; der Import muss Dateien älterer Versionen weiter lesen.
  */
 export const SETTINGS_EXPORT_FORMAT = "haben-einstellungen";
-export const SETTINGS_EXPORT_VERSION = 1;
+// 2: Artikel mit arbeitskosten (§ 35a EStG, #712). Eine Datei der Version 1 liest der Import weiter, ihre Artikel
+// bekommen false (articleInputSchema).
+export const SETTINGS_EXPORT_VERSION = 2;
