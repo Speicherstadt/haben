@@ -55,7 +55,7 @@ Die Trigger oben verhindern Versehen, aber wer die Datenbank direkt ändern kann
 **Prüfen** unter **Einstellungen › Export › Änderungsprotokoll prüfen**: „Kette prüfen“ rechnet jeden Hash und jedes Siegel nach und meldet:
 
 - geänderte, gelöschte oder fehlende Einträge und einen Kopf, der nicht zum Ende passt,
-- gelöschte festgeschriebene Datensätze, festgeschriebene ohne oder mit abweichendem Siegel, aufgehobene Festschreibungen sowie Werte und Zeilen, die ein älteres Siegel nicht abdeckt, und einen Standardwert einer solchen Spalte, der sich nicht auswerten lässt; die Werte dieser Spalte vergleicht sie dann erst, wenn der Standardwert zurückgesetzt ist,
+- gelöschte festgeschriebene Datensätze, festgeschriebene ohne oder mit abweichendem Siegel, aufgehobene Festschreibungen sowie Werte und Zeilen, die ein älteres Siegel nicht abdeckt, und einen Standardwert einer solchen Spalte, der sich nicht auswerten lässt; die Werte dieser Spalte vergleicht die Prüfung erst, wenn der Standardwert zurückgesetzt ist,
 - Siegel, die nicht zu ihrem Eintrag in der Kette passen oder trotz Eintrag fehlen,
 - abgeschaltete, fehlende oder veränderte Trigger und Funktionen von Haben (Sperren, Änderungsprotokoll, Siegel), veränderte Standardwerte in den versiegelten Tabellen und fremde Objekte, die Aufrufe von Haben übernehmen können,
 - eine abgebrochene Prüfung von Kette und Siegeln, etwa an einer fehlenden Prüffunktion; die übrigen Prüfungen laufen weiter, über Kette und Siegel sagt der Bericht dann nichts aus.
