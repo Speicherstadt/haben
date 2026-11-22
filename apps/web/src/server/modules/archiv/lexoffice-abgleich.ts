@@ -115,7 +115,11 @@ function jahresSummen(year: number, d: AbgleichDaten, vouchers: Beleg[], yearRow
   };
 }
 
-/** Umsatzsteuer je Monat des Jahres; bei Ist-Versteuerung nach den Zahlungen aus dem Zahlungsstatus, sonst nach Belegdatum */
+/**
+ * Umsatzsteuer je Monat des Jahres. Bei Ist-Versteuerung gehen alle Belege ein, denn eine Zahlung im Jahr kann zu einem
+ * Beleg aus einem anderen Jahr gehören; Einnahmen zählen nach den Zahlungen aus dem Zahlungsstatus, Vorsteuer und
+ * Sonderfälle wie § 13b nach Belegdatum (siehe `legacyVatByMonth`). Sonst zählen die Belege des Jahres nach Belegdatum.
+ */
 function jahresUmsatzsteuer(year: number, { businessRows, versteuerung, taxSets }: AbgleichDaten) {
   return legacyVatByMonth(
     businessRows
