@@ -88,7 +88,7 @@ Hinter PgBouncer braucht Haben `pool_mode = session`, bei anderen Poolern den en
 
 ## Docker Compose
 
-Die Downloadbefehle laden alle Vorlagen aus dem letzten veröffentlichten Release. Die Standardkonfiguration verwendet den Image-Tag `latest`. Für eine feste Version `x.y.z` setzt du für die Vorlagen `TAG=vx.y.z`, bevor du `RAW` bildest. In `compose.override.yml` setzt du die Image-Tags von `app`, `db` und `backup` ebenfalls auf `x.y.z`.
+Die Downloadbefehle laden alle Vorlagen aus dem letzten veröffentlichten Release. Die Standardkonfiguration verwendet den Image-Tag `latest`. Für eine feste Version `x.y.z` setzt du für die Vorlagen `TAG=vx.y.z`, bevor du `RAW` bildest. In `compose.override.yml` setzt du die Image-Tags von `app`, `db`, `backup` und `restore` ebenfalls auf `x.y.z`.
 
 > [!TIP]
 > Der [Compose-Generator](compose-generator.md) erzeugt im Browser `.env` und bei Bedarf `compose.override.yml` nach dem Stand von `main`. Für eine Installation mit Vorlagen aus dem letzten Release nutze die Befehle unten.

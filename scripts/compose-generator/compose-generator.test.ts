@@ -221,7 +221,7 @@ test("Generator und manuelle Anleitung haben dieselben Startschritte nach dem Do
       line === "curl -O https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy/compose.yml"
         ? [
             "RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)",
-            "TAG=${RELEASE##*/}",
+            `TAG=\${RELEASE##*/}`,
             "RAW=https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy",
             'curl -fLO "$RAW/compose.yml"',
           ].join("\n")
