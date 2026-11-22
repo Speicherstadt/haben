@@ -115,7 +115,7 @@ test("Die Farbkreise stehen nebeneinander, auch mit den Stilen der Auswertungen"
   const gruen = await panel(page).getByRole("button", { name: "Grün" }).boundingBox();
   expect(blau!.width).toBeGreaterThan(40);
   expect(blau!.x).toBeGreaterThanOrEqual(gruen!.x + gruen!.width);
-  // Acht Punkte in einer Zeile: Der Regenbogen rutscht nicht um, Schwarz auch nicht
+  // Sieben Punkte in einer Zeile: Der Regenbogen rutscht nicht um, Schwarz am Ende auch nicht
   const schwarz = await panel(page).getByRole("button", { name: "Schwarz" }).boundingBox();
   expect(schwarz!.y).toBeCloseTo(gruen!.y, 0);
   const regenbogen = await panel(page).getByLabel("Eigene Farbe wählen").boundingBox();

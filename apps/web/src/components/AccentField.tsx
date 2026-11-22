@@ -2,14 +2,16 @@ import { ACCENT_PATTERN, contrastOnWhite, type LetterheadDesignInput, MIN_TEXT_C
 import { useLoadedState } from "../lib/use-loaded-state.ts";
 import { Field } from "./Field.tsx";
 
-/** Vorschläge der Spalte Gestaltung; Schwarz für Belege ganz ohne Farbe, die Grautöne werden dann neutral (#1674) */
+/**
+ * Vorschläge der Spalte Gestaltung; Schwarz für Belege ganz ohne Farbe, die Grautöne werden dann neutral (#1674). Es ersetzt
+ * das frühere Grau #3F4A44, das als Punkt kaum davon zu unterscheiden war; wer es gespeichert hat, sieht es als eigene Farbe
+ */
 const SWATCHES = [
   { hex: "#1F6F5C", name: "Grün" },
   { hex: "#1D4E89", name: "Blau" },
   { hex: "#6B3FA0", name: "Violett" },
   { hex: "#9B1C1C", name: "Rot" },
   { hex: "#B45309", name: "Orange" },
-  { hex: "#3F4A44", name: "Grau" },
   { hex: "#000000", name: "Schwarz" },
 ];
 
