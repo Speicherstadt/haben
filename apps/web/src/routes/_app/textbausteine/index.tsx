@@ -111,7 +111,7 @@ function TextBlockForm({ block, contacts, onDone }: { block: Block | null; conta
         </Field>
         <Field
           label="Standard für"
-          hint="Füllt neue Belege dieser Art vor: ein Kopftext die Einleitung, ein Fußtext den Hinweis (bei der Mahnung den Schlusstext, beim Lieferschein nur ein Fußtext). Ein neuer Standard löst den bisherigen derselben Art ab; ein Standard gilt für alle Kunden."
+          hint="Füllt neue Belege dieser Art vor: ein Kopftext die Einleitung, ein Fußtext den Hinweis (bei der Mahnung den Schlusstext, beim Lieferschein nur ein Fußtext). Ein neuer Standard löst den bisherigen derselben Art ab; ein Standard gilt für alle Kunden. Platzhalter wie {nummer} setzt Haben nur in Rechnung und Angebot ein, in Mahnung und Lieferschein stehen sie wörtlich."
           style={{ gridColumn: "1 / -1" }}
         >
           {(control) => (

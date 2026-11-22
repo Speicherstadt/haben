@@ -6,6 +6,8 @@ import { readFileSync } from "node:fs";
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { SETTINGS_EXPORT_VERSION } from "./format.ts";
+import { withChecksum } from "./integritaet.ts";
 
 const KUNDE = "0b6a1c1e-5d7e-4f0a-9a43-1f2d3c4b5a60";
 const LIEFERANT = "5a2b8c4d-1e3f-4a5b-8c6d-7e8f9a0b1c2d";
@@ -494,6 +496,17 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
       expect(await sql`select 1 from ${sql(tabelle)}`, tabelle).toEqual([]);
   });
 
+  it("liest eine Datei der Version 1: die Standard-Einleitungen der Firmendaten werden Standard-Bausteine (#1494)", async () => {
+    await testinstanz();
+    const zip = await exportierenUndNeu();
+    const { sha256: _, ...inhalt } = einstellungen(zip);
+    const alt = withChecksum({ ...inhalt, version: 1, company: { ...inhalt.company, invoiceIntro: "Für meine Leistungen berechne ich:", quoteIntro: "" } });
+    await instanzwechsel.importSettings(actor, neuGepackt(unzipSync(zip), { "einstellungen.json": strToU8(JSON.stringify(alt)) }), HEUTE);
+    expect(await sql`select kind, text, standard_fuer from text_blocks where standard_fuer is not null`).toEqual([
+      { kind: "kopf", text: "Für meine Leistungen berechne ich:", standard_fuer: "rechnung" },
+    ]);
+  });
+
   it("lehnt ein verändertes oder beschädigtes ZIP ab, bevor es etwas schreibt", async () => {
     await testinstanz();
     const zip = await exportierenUndNeu();
@@ -580,7 +593,7 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     await expect(instanzwechsel.importSettings(actor, zipSync({ "kontakte.csv": strToU8("Name\n") }), HEUTE)).rejects.toThrow(
       "Das ist keine Einstellungsdatei von Haben: Im ZIP fehlt einstellungen.json.",
     );
-    const neuer = zipSync({ "einstellungen.json": strToU8(JSON.stringify({ format: "haben-einstellungen", version: 2 })) });
+    const neuer = zipSync({ "einstellungen.json": strToU8(JSON.stringify({ format: "haben-einstellungen", version: SETTINGS_EXPORT_VERSION + 1 })) });
     await expect(instanzwechsel.importSettings(actor, neuer, HEUTE)).rejects.toThrow(/neueren Version von Haben/);
   });
 });
