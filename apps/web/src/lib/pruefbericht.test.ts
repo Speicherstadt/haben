@@ -66,6 +66,14 @@ describe("Prüfbericht", () => {
     ).toContain("(2 Befunde, etwa");
   });
 
+  // Nur das Nachrechnen ist abgebrochen, der Sollbestand stimmt (#1716)
+  it("sagt bei einem Abbruch des Nachrechnens nicht, der Sollbestand weiche ab", () => {
+    const befund = "haben_integrity_problems: Prüfung von Kette und Siegeln abgebrochen: Integritätsprüfung kennt x im Siegel von y nicht";
+    const { text } = pruefwertNotice({ status: "unbestaetigt", seq: 46, befunde: [befund] });
+    expect(text).toContain("Das Nachrechnen der Kette ist abgebrochen (ein Befund, etwa");
+    expect(text).not.toContain("Sollbestand");
+  });
+
   it("meldet die übrigen Ergebnisse des Prüfwert-Vergleichs wie bisher", () => {
     expect(pruefwertNotice({ status: "ok", seq: 7 }).tone).toBe("ok");
     expect(pruefwertNotice({ status: "beschaedigt", seq: 7, first: 2, befund: "Inhalt passt nicht zum Hash" }).text).toBe(
