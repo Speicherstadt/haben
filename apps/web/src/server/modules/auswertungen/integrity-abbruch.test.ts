@@ -116,6 +116,27 @@ describe.skipIf(!testDatabaseUrl)("Abgebrochene Prüfung von Kette und Siegeln (
     expect(sent[0]!.text).toMatch(/kz41/);
   }, 60_000);
 
+  it("geänderter Wert hinter dem nicht auswertbaren Standardwert: Befunde bleiben, nach dem Zurücksetzen meldet das Siegel ihn", async () => {
+    // Direkt an den Sperren vorbei, ohne Eintrag im Audit-Log: Den Wert prüft das ältere Siegel nur am Standardwert
+    await sql.begin(async (tx) => {
+      await tx`set local session_replication_role = replica`;
+      await tx`update vat_returns set kz41 = 4711 where id = ${VORANMELDUNG}`;
+    });
+    const report = await integrity.checkIntegrity();
+    expect(report.problems).toContainEqual(expect.objectContaining({ art: "sperre", tabelle: "vat_returns", befund: expect.stringMatching(unauswertbar) }));
+    expect(report.problems.some((p) => p.art === "sperre" && /kz41/.test(p.befund) && !unauswertbar.test(p.befund))).toBe(true);
+    // Den gemeldeten Standardwert auf den aus den Migrationen zurückgesetzt: Jetzt fällt der geänderte Wert auf
+    await sql`alter table vat_returns alter kz41 set default 0`;
+    expect((await integrity.checkIntegrity()).problems).toEqual([
+      expect.objectContaining({
+        art: "siegel",
+        tabelle: "vat_returns",
+        zeile: VORANMELDUNG,
+        befund: "Spalte vat_returns.kz41 geändert, die das Siegel nicht abdeckt",
+      }),
+    ]);
+  }, 60_000);
+
   it("gelöschte Prüffunktion: Befund statt Ausnahme, die Mail nennt ihn", async () => {
     await sql`alter table vat_returns alter kz41 set default 0`;
     await sql`drop function haben_integrity_problems(integer)`;
