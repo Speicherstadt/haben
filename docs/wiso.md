@@ -24,7 +24,9 @@ Für ein Einzelunternehmen mit EÜR bietet sich der Wechsel zum **1. Januar** an
 
 Der CSV-Export der Buchungen (`Daten Export › Buchungen als CSV-Datei`) hat in WISO Steuer (Modul EÜR) dieselben 18 Spalten wie in WISO EÜR & Kasse und nutzt denselben Import. Für die übrigen Exporte von WISO Steuer sind gleiche Formate nicht bestätigt.
 
-Der **GoBD-Abgleich** vergleicht Anfangssalden, Soll- und Haben-Buchungssummen und Endsalden. In der geprüften SuSa aus WISO EÜR & Kasse ist der Soll-Überhang in `SaldoHaben` angegeben und der Haben-Überhang in `SaldoSoll`. Haben berücksichtigt diese Spaltenbelegung. Der Vergleich bezieht sich auf die beiden gewählten GoBD-Dateien. Der getrennte Import der Buchungs-CSV bleibt für die Archivübernahme zuständig.
+Der **GoBD-Abgleich** vergleicht Anfangssalden, Soll- und Haben-Buchungssummen und Endsalden. In der geprüften SuSa aus WISO EÜR & Kasse ist der Soll-Überhang in `SaldoHaben` angegeben und der Haben-Überhang in `SaldoSoll`. Haben berücksichtigt diese Spaltenbelegung. [Anonymisierter WISO-Beispielexport](https://github.com/Speicherstadt/haben/issues/565#issuecomment-6770106423)
+
+Der Vergleich bezieht sich auf die beiden gewählten GoBD-Dateien. Der getrennte Import der Buchungs-CSV bleibt für die Archivübernahme zuständig.
 
 Die Buchungs-CSV enthält kein Rechnungs- oder Leistungsdatum. Das Archivdatum bleibt das Zahlungsdatum; Buchungs- und Wertstellungsdatum bleiben in den Quelldaten erhalten. Leistungsangaben bleiben unbekannt, auch bei bereits archivierten WISO-Buchungen. Ihre gespeicherten Daten und die Original-CSV bleiben unverändert.
 
