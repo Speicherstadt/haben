@@ -36,9 +36,9 @@ const NUR_V8 = "Bitte im Online-Banking als Excel (CSV-CAMT V8) exportieren; der
 
 /** Haben liest nur CSV-CAMT V8; die anderen Exporte erkennt es am Kopf und verlangt einen neuen Export */
 function requireCamtV8(c: Columns): void {
-  if (c.has("blz") || !c.has("glaeubigerid")) throw new StatementParseError(`Das ist der Export „CSV-MT940“ der BW-Bank. ${NUR_V8}`);
+  if (c.has("blz") || !c.has("glaeubigerid")) throw new StatementParseError(`Das ist der Export „CSV-MT940“. ${NUR_V8}`);
   if (c.has("kategorie")) {
-    throw new StatementParseError(`Das ist der Export „CSV-CAMT V2“ oder „CSV - gefilterte Einträge“ der BW-Bank. ${NUR_V8}`);
+    throw new StatementParseError(`Das ist der Export „CSV-CAMT V2“ oder „CSV - gefilterte Einträge“. ${NUR_V8}`);
   }
 }
 
