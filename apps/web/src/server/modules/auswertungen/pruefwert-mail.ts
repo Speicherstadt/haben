@@ -113,10 +113,14 @@ export async function runDuePruefwertMail(now = new Date(), zusatz?: () => Promi
   const lastNow = known ? await rowHashAt(lastSeq) : null;
   const rewritten = known && lastHash !== undefined && lastNow !== lastHash;
   // Scheitert die Prüfung, geht die Mail trotzdem hinaus und nennt den Fehler: Ein Fehlschlag ist ein Befund, keine ruhige
-  // Woche (#1604). Sonst bliebe die Mail aus, und nur das Log des Servers wüsste davon
+  // Woche (#1604). Sonst bliebe die Mail aus, und nur das Log des Servers wüsste davon. Die Mail verweist auf das Log:
+  // Dort steht der Fehler samt Stack, den der Scheduler sonst nur bei einer Ausnahme schreibt
   const { report, fehler } = await checkIntegrity(undefined, zusatz).then(
     (report) => ({ report, fehler: null }),
-    (error: unknown) => ({ report: null, fehler: fehlerGrund(error) }),
+    (error: unknown) => {
+      console.error("Prüfung für die Prüfwert-Mail", error);
+      return { report: null, fehler: fehlerGrund(error) };
+    },
   );
   if (report && !changed && !rewritten && report.problems.length === 0 && report.abgleich.abweichungen.length === 0 && !report.files?.problemCount) {
     quietCheckAt = now.getTime();
