@@ -1,13 +1,14 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /*
  * Rabatte auf der Rechnung: Positionsrabatt (Prozent oder Betrag) und Gesamtrabatt je Steuersatz. Gebucht wird das Netto
  * nach Rabatt auf das Erlöskonto, die Steuer auf die rabattierte Bemessungsgrundlage; für SKR03 und SKR04, Soll und Ist.
  */
 describe.skipIf(!testDatabaseUrl)("Rabatte (Postgres)", () => {
-  let invoices: typeof import("./invoices.ts");
+  let invoices: typeof import("./index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
@@ -47,7 +48,7 @@ describe.skipIf(!testDatabaseUrl)("Rabatte (Postgres)", () => {
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    invoices = await import("./invoices.ts");
+    invoices = await import("./index.ts");
     contacts = await import("../stammdaten/contacts.ts");
   }, 30_000);
 
@@ -102,7 +103,7 @@ describe.skipIf(!testDatabaseUrl)("Rabatte (Postgres)", () => {
             [14_970, null, null],
           ]);
 
-          const final = await invoices.finalizeInvoice(actor, created.id);
+          const final = await invoices.finalizeInvoice(actor, created.id, kleinunternehmerStand);
           const a = ACCOUNTS[kontenrahmen];
           const tax = a[versteuerung];
           expect(await posting(final.id)).toEqual(
@@ -131,6 +132,7 @@ describe.skipIf(!testDatabaseUrl)("Rabatte (Postgres)", () => {
           const original = await invoices.finalizeInvoice(
             actor,
             (await invoices.createDraft(actor, draft({ discount: { kind: "betrag", value: 10_001 }, priceMode: "brutto" }))).id,
+            kleinunternehmerStand,
           );
           const storno = await invoices.cancelInvoice(actor, original.id, "2026-10-05");
           expect(storno).toMatchObject({ net: -original.net, tax: -original.tax, gross: -original.gross, discountAmount: -10_001 });
@@ -154,7 +156,11 @@ describe.skipIf(!testDatabaseUrl)("Rabatte (Postgres)", () => {
     });
 
     it("Korrektur übernimmt die Rabatte mit umgekehrtem Vorzeichen", async () => {
-      const original = await invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, draft({ discount: { kind: "betrag", value: 5000 } }))).id);
+      const original = await invoices.finalizeInvoice(
+        actor,
+        (await invoices.createDraft(actor, draft({ discount: { kind: "betrag", value: 5000 } }))).id,
+        kleinunternehmerStand,
+      );
       const correction = await invoices.createCorrection(actor, original.id, "2026-10-06");
       expect(correction).toMatchObject({ discountAmount: -5000, net: -original.net });
       const lines = await sql`select discount_percent, discount_amount from invoice_lines where invoice_id = ${correction.id} order by position`;
@@ -167,7 +173,7 @@ describe.skipIf(!testDatabaseUrl)("Rabatte (Postgres)", () => {
 
     it("Rechnungen ohne Rabatt bleiben wie bisher", async () => {
       const created = await invoices.createDraft(actor, draft({ lines: [line(9500, 1900, 10_000)], discount: null }));
-      const final = await invoices.finalizeInvoice(actor, created.id);
+      const final = await invoices.finalizeInvoice(actor, created.id, kleinunternehmerStand);
       expect(final).toMatchObject({ net: 95_000, tax: 18_050, discountPercent: null, discountAmount: null });
       expect(final.xml).not.toContain("AllowanceCharge");
     }, 30_000);

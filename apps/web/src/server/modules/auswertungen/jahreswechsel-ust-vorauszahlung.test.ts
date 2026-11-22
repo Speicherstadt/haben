@@ -2,6 +2,7 @@ import type { EuerResult } from "@haben/core";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "./test-umsatz-stand.ts";
 
 /*
  * Umsatzsteuer-Vorauszahlung für Dezember bzw. das vierte Quartal in den zehn Tagen nach dem Jahreswechsel 2026/2027 (#583).
@@ -44,8 +45,8 @@ describe.skipIf(!testDatabaseUrl)("Jahreswechsel 2026/2027: Umsatzsteuer-Vorausz
   let vermerk: typeof import("../umsatzsteuer/vermerk.ts");
   let zeitraum: typeof import("../umsatzsteuer/zeitraum.ts");
   let dauerfrist: typeof import("../umsatzsteuer/dauerfrist.ts");
-  let bank: typeof import("../bank/bank.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let bank: typeof import("../bank/index.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let documents: typeof import("../belege/documents.ts");
   let abgleich: typeof import("./abgleich.ts");
@@ -65,8 +66,8 @@ describe.skipIf(!testDatabaseUrl)("Jahreswechsel 2026/2027: Umsatzsteuer-Vorausz
     vermerk = await import("../umsatzsteuer/vermerk.ts");
     zeitraum = await import("../umsatzsteuer/zeitraum.ts");
     dauerfrist = await import("../umsatzsteuer/dauerfrist.ts");
-    bank = await import("../bank/bank.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    bank = await import("../bank/index.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     documents = await import("../belege/documents.ts");
     abgleich = await import("./abgleich.ts");
@@ -125,7 +126,7 @@ describe.skipIf(!testDatabaseUrl)("Jahreswechsel 2026/2027: Umsatzsteuer-Vorausz
       exemptionReason: "",
       lines: [{ description: "Leistung", quantity: 1000, unit: "Psch." as const, unitPrice: 100_000, taxRate: 1900 }],
     } as never);
-    const inv = await invoices.finalizeInvoice(actor, d.id);
+    const inv = await invoices.finalizeInvoice(actor, d.id, kleinunternehmerStand);
     const tx = await umsatzVom(payDate, "1.190,00");
     await bank.allocate(actor, { kind: "invoice", invoiceId: inv.id, transactionId: tx.id, amount: tx.amount } as never);
   }

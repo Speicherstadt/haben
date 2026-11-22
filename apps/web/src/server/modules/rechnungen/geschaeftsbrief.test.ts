@@ -6,6 +6,7 @@ import nodemailer from "nodemailer";
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 type Sent = { text: string; html: string };
 
@@ -27,7 +28,7 @@ const PFLICHTANGABEN = "Sitz der Gesellschaft: Regensburg · Registergericht: Am
 /** Pflichtangaben einer GmbH oder UG auf Rechnung, Mahnung und E-Mail (§ 35a Abs. 1 GmbHG) */
 describe.skipIf(!testDatabaseUrl)("Geschäftsbriefe nach § 35a GmbHG (Postgres)", () => {
   let sql: postgres.Sql;
-  let invoices: typeof import("./invoices.ts");
+  let invoices: typeof import("./index.ts");
   let invoiceMail: typeof import("./invoice-mail.ts");
   let dunning: typeof import("./dunning.ts");
   let mail: typeof import("../mail/mail.ts");
@@ -39,7 +40,7 @@ describe.skipIf(!testDatabaseUrl)("Geschäftsbriefe nach § 35a GmbHG (Postgres)
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    invoices = await import("./invoices.ts");
+    invoices = await import("./index.ts");
     invoiceMail = await import("./invoice-mail.ts");
     dunning = await import("./dunning.ts");
     mail = await import("../mail/mail.ts");
@@ -82,7 +83,7 @@ describe.skipIf(!testDatabaseUrl)("Geschäftsbriefe nach § 35a GmbHG (Postgres)
       lines: [{ description: "Beratung", quantity: 1000, unit: "Psch.", unitPrice: 100_000, taxRate: 1900 }],
     });
     expect(await invoices.finalizeIssues(draft.id)).toEqual([]);
-    return invoices.finalizeInvoice(actor, draft.id);
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
   }
 
   beforeEach(async () => {

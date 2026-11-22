@@ -1,6 +1,7 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 function dkbCsv(rows: string[][]) {
   const header = `"Girokonto";"DE12 1203 0000 1234 5678 90"\n""\n`;
@@ -9,13 +10,13 @@ function dkbCsv(rows: string[][]) {
 }
 
 describe.skipIf(!testDatabaseUrl)("Bruttopreise und gespeicherte Steuerzeilen (Postgres)", () => {
-  let invoices: typeof import("./invoices.ts");
+  let invoices: typeof import("./index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let quotes: typeof import("./quotes.ts");
   let recurring: typeof import("./recurring.ts");
   let articles: typeof import("../stammdaten/articles.ts");
   let figures: typeof import("../umsatzsteuer/vat-figures.ts");
-  let bank: typeof import("../bank/bank.ts");
+  let bank: typeof import("../bank/index.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
   let contactId: string;
@@ -40,20 +41,21 @@ describe.skipIf(!testDatabaseUrl)("Bruttopreise und gespeicherte Steuerzeilen (P
     lines,
   });
 
-  const final = async (input: Parameters<typeof invoices.createDraft>[1]) => invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, input)).id);
+  const final = async (input: Parameters<typeof invoices.createDraft>[1]) =>
+    invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, input)).id, kleinunternehmerStand);
 
   const storedTaxes = async (invoiceId: string) =>
     (await sql`select rate, base, tax from invoice_taxes where invoice_id = ${invoiceId} order by rate desc`).map((r) => ({ ...r }));
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    invoices = await import("./invoices.ts");
+    invoices = await import("./index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     quotes = await import("./quotes.ts");
     recurring = await import("./recurring.ts");
     articles = await import("../stammdaten/articles.ts");
     figures = await import("../umsatzsteuer/vat-figures.ts");
-    bank = await import("../bank/bank.ts");
+    bank = await import("../bank/index.ts");
   }, 30_000);
 
   afterAll(async () => {
@@ -183,7 +185,7 @@ describe.skipIf(!testDatabaseUrl)("Bruttopreise und gespeicherte Steuerzeilen (P
       [-119_000, -100_000, abschlag.id],
     ]);
     expect(lines[1]!.description).toMatch(/netto 1\.000,00\s€, USt 190,00\s€/);
-    const finalSchluss = await invoices.finalizeInvoice(actor, schluss.id);
+    const finalSchluss = await invoices.finalizeInvoice(actor, schluss.id, kleinunternehmerStand);
     expect(finalSchluss.xml).toContain('<cbc:PayableAmount currencyID="EUR">4760.00</cbc:PayableAmount>');
   }, 30_000);
 
@@ -223,7 +225,7 @@ describe.skipIf(!testDatabaseUrl)("Bruttopreise und gespeicherte Steuerzeilen (P
       servicePeriod: "laufend",
       mode: "entwurf",
     });
-    await recurring.runDueRecurring("2026-10-02");
+    await recurring.runDueRecurring("2026-10-02", kleinunternehmerStand);
     const [created] = await sql`select price_mode, gross, net, tax from invoices`;
     expect({ ...created }).toEqual({ price_mode: "brutto", gross: 2_990, net: 2_513, tax: 477 });
   });

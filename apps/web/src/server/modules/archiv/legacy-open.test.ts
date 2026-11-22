@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 import { today as heute } from "../../today.ts";
 import { addDays } from "@haben/core";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 function dkbCsv(rows: string[][]) {
   const header = `"Girokonto";"DE12 1203 0000 1234 5678 90"\n""\n`;
@@ -16,8 +17,8 @@ const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 9, 8, 7]);
 describe.skipIf(!testDatabaseUrl)("Offene Posten aus Lexoffice (Postgres)", () => {
   let legacy: typeof import("./legacy-open.ts");
   let cutoffReader: typeof import("../auswertungen/altbestand-stichtag.ts");
-  let bank: typeof import("../bank/bank.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let bank: typeof import("../bank/index.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let figures: typeof import("../umsatzsteuer/vat-figures.ts");
   let reports: typeof import("../auswertungen/reports.ts");
   let storage: typeof import("../../storage.ts");
@@ -28,8 +29,8 @@ describe.skipIf(!testDatabaseUrl)("Offene Posten aus Lexoffice (Postgres)", () =
     sql = await setupTestDb();
     legacy = await import("./legacy-open.ts");
     cutoffReader = await import("../auswertungen/altbestand-stichtag.ts");
-    bank = await import("../bank/bank.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    bank = await import("../bank/index.ts");
+    invoices = await import("../rechnungen/index.ts");
     figures = await import("../umsatzsteuer/vat-figures.ts");
     reports = await import("../auswertungen/reports.ts");
     storage = await import("../../storage.ts");
@@ -455,7 +456,7 @@ describe.skipIf(!testDatabaseUrl)("Offene Posten aus Lexoffice (Postgres)", () =
             taxRate: l.taxRate,
           })),
         } as never);
-        await invoices.finalizeInvoice(actor, draft.id);
+        await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
         await invoices.cancelInvoice(actor, invoiceId, "2026-11-03");
         // Kein Erlöskonto: Korrektur, Storno und Storno der Korrektur gehen gegen den Saldenvortrag
         const erloese = await sql`select l.account, sum(l.credit) - sum(l.debit) as saldo from journal_lines l

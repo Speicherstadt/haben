@@ -7,8 +7,8 @@ unser [Verhaltenskodex](CODE_OF_CONDUCT.md).
 
 ## Fehler und Wünsche melden
 
-Neues Issue über die Formulare: [Issue anlegen](https://github.com/firsttris/haben/issues/new/choose). Bitte vorher
-im [Project „Roadmap“](https://github.com/users/firsttris/projects/2) nachsehen, ob das Thema schon geplant ist, und
+Neues Issue über die Formulare: [Issue anlegen](https://github.com/Speicherstadt/haben/issues/new/choose). Bitte vorher
+im [Project „Roadmap“](https://github.com/orgs/Speicherstadt/projects/3) nachsehen, ob das Thema schon geplant ist, und
 unter [Bewusst nicht](https://haben.app/roadmap.html#bewusst-nicht), ob es ausgeschlossen ist. Wie ein gutes Issue
 aufgebaut ist, steht unter [Issues schreiben](https://haben.app/mitwirken.html#issues-schreiben). Fragen und Austausch
 gehen auf [Discord](https://discord.gg/CT2GQytSYH).
@@ -18,8 +18,8 @@ bitte privat melden, siehe [SECURITY.md](SECURITY.md).
 
 ## Etwas übernehmen
 
-Such dir eine Karte aus „Geplant“ im [Project „Roadmap“](https://github.com/users/firsttris/projects/2) aus, für den
-Einstieg gern mit dem Label [`einstieg`](https://github.com/firsttris/haben/issues?q=is%3Aopen+label%3Aeinstieg), und
+Such dir eine Karte aus „Geplant“ im [Project „Roadmap“](https://github.com/orgs/Speicherstadt/projects/3) aus, für den
+Einstieg gern mit dem Label [`einstieg`](https://github.com/Speicherstadt/haben/issues?q=is%3Aopen+label%3Aeinstieg), und
 kommentier im Issue `/übernehmen`; dann ist es dir zugewiesen. Wie das genau abläuft, steht unter
 [Etwas übernehmen](https://haben.app/mitwirken.html#etwas-übernehmen).
 
@@ -36,14 +36,14 @@ kommentier im Issue `/übernehmen`; dann ist es dir zugewiesen. Wie das genau ab
   `fix(bereich): …`, `test: …` mit Beschreibung auf Deutsch. Ein Entwurf ist willkommen; die CI startet mit „Ready for
   review“. Was bei einem Pull Request nur mit Doku geprüft wird, steht unter
   [Branches, Titel und Commits](https://haben.app/mitwirken.html#branches-titel-und-commits).
-- Issues in der Beschreibung mit `Umgesetzt #…`, wenn der Pull Request das Issue fertig macht, sonst mit `Refs #…`.
+- Issues in der Beschreibung mit `Umgesetzt #…`, wenn der Pull Request das Issue fertig macht, bei einem Teil mit `Refs #…`.
   Nie `Closes` oder `Fixes`: Das Issue schließt das Release, nicht der Merge.
 - Mit KI-Werkzeugen zu arbeiten ist in Ordnung. Der Transparenz halber bitte kennzeichnen: `Co-Authored-By:` im
   Commit, eine Zeile wie „🤖 Generated with <Werkzeug>“ im Pull Request. Siehe
   [Mit KI-Werkzeugen](https://haben.app/mitwirken.html#mit-ki-werkzeugen).
 - Sprache: Deutsch für Kommentare, Doku, Commits und alles, was Nutzer sehen. Bezeichner bleiben Englisch.
 - Vor „Ready for review“ die erforderliche **Selbstprüfung** (mit KI-Agenten Skill `beitrag-pruefen`): passt die Änderung zu
-  Haben, ist sie gegen die Quellen geprüft, die einfachste Lösung, mit Tests und Doku? Das Ergebnis kommt als
+  Haben, ist sie gegen die Quellen geprüft, die einfachste und beste Lösung, mit Tests und Doku? Das Ergebnis kommt als
   Kommentar in den Pull Request; ein Maintainer oder Collaborator prüft es nur nach
   (Voraussetzungen und Ausnahmen: [Beiträge annehmen](https://haben.app/mitwirken.html#beiträge-annehmen)).
 - Vor dem Merge ein unabhängiges **TDD-Review** (`tdd-review`) für Code, eine **Doku-Prüfung** (`doku-pruefen`) für Markdown,

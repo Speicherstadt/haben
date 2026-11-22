@@ -2,6 +2,7 @@ import type { StoreSettlement } from "@haben/import";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 const DESTINATIONS = [
   ["DE", "27498"],
@@ -92,7 +93,7 @@ describe.skipIf(!testDatabaseUrl)("Store-Entwürfe an Sondergebiete (Postgres)",
       expect(draft).toMatchObject({ tax_treatment: "drittland", net: 10_000, tax: 0 });
       // Tatsächlich vereinnahmt, damit Ist/Soll auf denselben abgeschlossenen Sachverhalt geprüft werden.
       await sql`update invoices set payment_method = 'bereits_bezahlt', paid_via = 'Store', paid_on = '2026-09-30' where id = ${draft!.id}`;
-      const final = await invoices.finalizeInvoice(actor, draft!.id);
+      const final = await invoices.finalizeInvoice(actor, draft!.id, kleinunternehmerStand);
       await contacts.updateContact(actor, contact.id, {
         ...contact,
         kundennummer: contact.kundennummer ?? "",

@@ -2,6 +2,7 @@ import type { OutgoingTaxDetails, TaxTreatment } from "@haben/core";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 describe.skipIf(!testDatabaseUrl)("Sondergebiete: Rechnungen, Angebote und Meldungen (Postgres)", () => {
   let sql: postgres.Sql;
@@ -66,7 +67,7 @@ describe.skipIf(!testDatabaseUrl)("Sondergebiete: Rechnungen, Angebote und Meldu
   async function final(contactId: string, treatment: TaxTreatment, amount = 10_000, details: OutgoingTaxDetails | null = null) {
     const draft = await invoices.createDraft(actor, input(contactId, treatment, amount, details));
     expect(await invoices.finalizeIssues(draft.id)).toEqual([]);
-    return invoices.finalizeInvoice(actor, draft.id);
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
   }
 
   it.each([
@@ -128,7 +129,7 @@ describe.skipIf(!testDatabaseUrl)("Sondergebiete: Rechnungen, Angebote und Meldu
     expect(converted.taxDetails).toEqual(actual);
     const loaded = (await invoices.getInvoice(converted.id))!;
     expect((await invoices.updateDraft(actor, converted.id, invoices.draftInputOf(loaded.invoice, loaded.lines))).taxDetails).toEqual(actual);
-    const original = await invoices.finalizeInvoice(actor, converted.id);
+    const original = await invoices.finalizeInvoice(actor, converted.id, kleinunternehmerStand);
     expect((await invoices.createCorrection(actor, original.id, "2026-09-30")).taxDetails).toEqual(actual);
     // Entwurf der Korrektur entfernen, dann den anderen Folgebeleg prüfen.
     const [correction] = await sql`select id from invoices where corrects_id=${original.id} and status='draft'`;

@@ -3,6 +3,7 @@ import { unzipSync } from "fflate";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /**
  * Bareinnahme auf eine Ausgangsrechnung im Kassenbuch: gebucht wie die Zuordnung eines Bankumsatzes (Kasse statt Bank),
@@ -10,7 +11,7 @@ import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
  */
 describe.skipIf(!testDatabaseUrl)("Bareinnahme auf eine Rechnung (Postgres)", () => {
   let cash: typeof import("./index.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let vat: typeof import("../umsatzsteuer/index.ts");
   let auswertungen: typeof import("../auswertungen/index.ts");
@@ -23,7 +24,7 @@ describe.skipIf(!testDatabaseUrl)("Bareinnahme auf eine Rechnung (Postgres)", ()
   beforeAll(async () => {
     sql = await setupTestDb();
     cash = await import("./index.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     vat = await import("../umsatzsteuer/index.ts");
     auswertungen = await import("../auswertungen/index.ts");
@@ -65,7 +66,7 @@ describe.skipIf(!testDatabaseUrl)("Bareinnahme auf eine Rechnung (Postgres)", ()
       contactId,
       lines: [{ description: "Leistungen September", quantity: 1000, unit: "Psch.", unitPrice: 400_000, taxRate: 1900 }],
     });
-    return invoices.finalizeInvoice(actor, draft.id);
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
   }
 
   async function balances() {

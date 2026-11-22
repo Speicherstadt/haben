@@ -123,10 +123,11 @@ Caddy signiert Zertifikate für lokale Namen wie `haben.lan` mit seiner eigenen 
 | `bankumsaetze_ohne_zuordnung` | Bankumsätze ohne Zuordnung je Konto |
 | `umsatzsteuer_voranmeldung` | Kennzahlen eines Monats oder Quartals aus den Buchungen, gespeicherter Stand, Vorprüfung und Abgleich mit dem Journal |
 | `ustva_ausfuellliste` | Werte der Voranmeldung zum Eintragen in Mein ELSTER, in der Reihenfolge des Formulars, siehe [Mein ELSTER mit KI-Assistent](elster-mit-assistent.md) |
+| `ustid_bestaetigungen` | letzte [Antwort des BZSt](kontakte.md#ust-idnr-beim-bzst-bestätigen) je USt-IdNr. eines Kontakts oder zu einer Nummer: Zeitpunkt, einfach oder qualifiziert, Status, Ergebnis für Name, Straße, PLZ und Ort und ob sie höchstens 30 Tage alt ist; ohne Nummer und Kontakt die Nummern der nächsten Zusammenfassenden Meldung oder eines gewählten Quartals ohne frische gültige Antwort. Fragt nie selbst beim BZSt und gibt die gesendete Anschrift nicht heraus |
 | `euer` | Einnahmen-Überschuss-Rechnung eines Jahres mit Monatswerten |
 | `jahreserklaerung` | Stand von Umsatzsteuererklärung, Anlage EÜR und Einkommensteuer mit Hinweisen und Steuerprognose |
 | `vorausgefuellte_belege` | abgerufene Belege der vorausgefüllten Steuererklärung (VaSt) ohne persönliche Stammdaten |
-| `archiv_auftragsdokumente` | aus sevDesk archivierte Angebote, Auftragsbestätigungen und Lieferscheine eines Jahres, filterbar nach Art und Nummer oder Kontakt, siehe [Umzug aus sevDesk](sevdesk.md#angebote-auftragsbestätigungen-und-lieferscheine) |
+| `archiv_auftragsdokumente` | aus sevDesk, FastBill oder lokalen Paketen archivierte Angebote, Auftragsbestätigungen und Lieferscheine eines Jahres, filterbar nach Art und Nummer oder Kontakt, siehe [Umzug aus sevDesk](sevdesk.md#angebote-auftragsbestätigungen-und-lieferscheine) und [Umzug aus FastBill](fastbill.md#angebote) |
 | `archiv_auftragsdokument` | ein archiviertes Auftragsdokument mit Positionen und Dateien |
 | `lexoffice_abgleich` | Umzug aus Lexware Office: Verbindung, letzter Abruf mit fehlgeschlagenen Belegen, je Jahr die Prüfungen, Summen, Steuerarten und die nachgerechnete Umsatzsteuer je Monat |
 | `lexoffice_belege` | abgerufene Lexoffice-Belege eines Jahres oder Monats mit Beträgen je Steuersatz, Steuerart und Zahlungen |
