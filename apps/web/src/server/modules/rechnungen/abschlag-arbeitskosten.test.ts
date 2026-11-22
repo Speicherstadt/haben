@@ -206,6 +206,28 @@ describe.skipIf(!testDatabaseUrl)("§ 35a EStG auf Abschlägen aus dem Zahlungsp
     expect(blatt).toContain("Davon entfallen 2.216,70 € auf die Abschlagsrechnungen und 5.172,30 € auf diese Rechnung.");
   }, 60_000);
 
+  it("Plan 50 % / 50 % / Rest: kein negativer Anteil für die Schlussrechnung (Review #1696)", async () => {
+    const quote = await angebot({
+      discount: null,
+      lines: [line("Verlegen", 105_100, 1900, true)],
+      paymentPlan: [
+        { label: "Anzahlung", share: { kind: "prozent", value: 5000 }, due: "Auftragserteilung" },
+        { label: "Zwischen", share: { kind: "prozent", value: 5000 }, due: "Rohbau" },
+        { label: "Schlussrechnung", share: { kind: "rest" }, due: "Abnahme" },
+      ] as PaymentPlanRow[],
+    });
+    // Je Abschlag 525,50 € + 99,85 € (99,845 € aufgerundet) = 625,35 €; ganze Leistung 1.051,00 € + 199,69 € = 1.250,69 €
+    for (const row of [0, 1]) {
+      await invoices.finalizeInvoice(actor, (await plan.abschlagFromPlan(actor, quote.id, "2026-10-10", row, null)).id, kleinunternehmerStand);
+    }
+    const schluss = await quotes.quoteToInvoice(actor, quote.id, "2026-12-01", "schluss");
+    const fest = await invoices.finalizeInvoice(actor, schluss.id, kleinunternehmerStand);
+    expect(ohneNbsp(fest.xml)).toContain(
+      "In der gesamten Leistung vor Abzug der Abschlagsrechnungen sind Arbeits-, Maschinen- und Fahrtkosten von 1.250,69 € inkl. USt enthalten (§ 35a EStG).",
+    );
+    expect(ohneNbsp(fest.xml)).not.toContain("Davon entfallen");
+  }, 60_000);
+
   it("Bruttopreise: Aufteilung im Preismodus des Angebots, Summe je Satz unverändert", async () => {
     // Brutto 11.900 € und 2.140 € je Satz wie oben, ohne Rabatt; 30 %: 3.570 € (Arbeit 2.142 €) und 642 € (Arbeit 321 €)
     const quote = await angebot({

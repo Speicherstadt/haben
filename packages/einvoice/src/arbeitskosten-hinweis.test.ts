@@ -66,7 +66,6 @@ describe("Anteil der Arbeits-, Maschinen- und Fahrtkosten (#712)", () => {
       deducted: [
         { number: "2026-030", issueDate: "2026-09-15", arbeitskosten: 6000 },
         { number: "2026-031", issueDate: "2026-09-30", arbeitskosten: 4000 },
-        { number: "2026-032", issueDate: "2026-10-15" },
       ],
       ...overrides,
     });
@@ -88,8 +87,24 @@ describe("Anteil der Arbeits-, Maschinen- und Fahrtkosten (#712)", () => {
 
     it("ohne Anteil auf den Abschlagsrechnungen und im Storno nur der erste Satz", () => {
       expect(lesbar(pdfData(schluss({ deducted: [{ number: "2026-030", issueDate: "2026-09-15" }] })).taxNote)).toBe(ganz);
+      // Nennt eine der abgezogenen keinen Anteil, wäre die Zahl für diese Rechnung zu hoch (§ 11 Abs. 2 EStG)
+      const gemischt = schluss({
+        deducted: [
+          { number: "2026-030", issueDate: "2026-09-15", arbeitskosten: 6000 },
+          { number: "2026-032", issueDate: "2026-10-15" },
+        ],
+      });
+      expect(lesbar(pdfData(gemischt).taxNote)).toBe(ganz);
       const storno = schluss({ kind: "storno" });
       expect(lesbar(pdfData(storno).taxNote)).not.toContain("Davon entfallen");
+    });
+
+    it("ohne zweiten Satz, wenn die Anteile der Abschläge nach Rundung über dem der ganzen Leistung liegen", () => {
+      const ueber = schluss({ deducted: [{ number: "2026-030", issueDate: "2026-09-15", arbeitskosten: 22_599 }] });
+      expect(lesbar(pdfData(ueber).taxNote)).toBe(ganz);
+      // Genau der ganze Anteil: 0,00 € auf diese Rechnung
+      const gleich = schluss({ deducted: [{ number: "2026-030", issueDate: "2026-09-15", arbeitskosten: 22_598 }] });
+      expect(lesbar(pdfData(gleich).taxNote)).toBe(`${ganz} Davon entfallen 225,98 € auf die Abschlagsrechnungen und 0,00 € auf diese Rechnung.`);
     });
   });
 
