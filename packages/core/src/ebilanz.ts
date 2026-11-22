@@ -1,4 +1,4 @@
-import { ASSET_ACCOUNTS, type ScheduleAsset, type ScheduleYear } from "./afa.ts";
+import { ASSET_ACCOUNTS } from "./afa.ts";
 import { postenForSaldo, type Posten } from "./hgb.ts";
 import { LOHN_KONTEN } from "./lohn-buchung.ts";
 import type { Cents } from "./money.ts";
@@ -159,6 +159,7 @@ const KAPITAL: Record<Kontenrahmen, Record<string, EbilanzZiel>> = {
       ...alle("1381 1382 1383 1665 1666", GMBH_GES),
       ...alle("1507 1508", SONSTIGE_GES),
       ...alle("0755 1667 1668", VERB_GES),
+      ...alle("0860 0868", ["bs.eqLiab.equity.retainedEarnings"]),
     ]),
     // Mit Restlaufzeit: im DATEV-Kontenrahmen nur unter den Verbindlichkeiten
     "0731": [GESELLSCHAFTER[1]!],
@@ -167,8 +168,7 @@ const KAPITAL: Record<Kontenrahmen, Record<string, EbilanzZiel>> = {
     "0800": ["bs.eqLiab.equity.subscribed.corp"],
     // Einbehaltene Kapitalertragsteuer, Soli und Kirchensteuer auf offene Ausschüttungen (ausschuettung.ts)
     "1746": [EB_KAPEST_FORDERUNG, EB_KAPEST_SCHULD],
-    "0860": ["bs.eqLiab.equity.retainedEarnings"],
-    "0868": ["bs.eqLiab.equity.retainedEarnings"],
+    "0846": ["bs.eqLiab.equity.revenueRes.legal"],
   },
   SKR04: {
     ...Object.fromEntries([
@@ -176,13 +176,13 @@ const KAPITAL: Record<Kontenrahmen, Record<string, EbilanzZiel>> = {
       ...alle("1307 1308 1309 3640 3641", GMBH_GES),
       ...alle("1330 1331 1335", SONSTIGE_GES),
       ...alle("3517 3519 3642 3643", VERB_GES),
+      ...alle("2970 2978", ["bs.eqLiab.equity.retainedEarnings"]),
     ]),
     "3511": GESELLSCHAFTER,
     "3514": [GESELLSCHAFTER[1]!],
     "2900": ["bs.eqLiab.equity.subscribed.corp"],
     "3760": [EB_KAPEST_FORDERUNG, EB_KAPEST_SCHULD],
-    "2970": ["bs.eqLiab.equity.retainedEarnings"],
-    "2978": ["bs.eqLiab.equity.retainedEarnings"],
+    "2930": ["bs.eqLiab.equity.revenueRes.legal"],
   },
 };
 
@@ -397,54 +397,4 @@ export function ebilanzZuordnung(
   return { zuordnung, fehlend };
 }
 
-/** Eine Zeile des Anlagenspiegels: Anschaffungskosten und AfA je Bilanzposition, brutto, Beträge positiv */
-export interface AnlagenspiegelZeile {
-  /** Bilanzposition unter bs.ass.fixAss, z. B. bs.ass.fixAss.tan.otherEquipm.passengerCars */
-  position: string;
-  akAnfang: Cents;
-  zugaenge: Cents;
-  /** Anschaffungskosten der Abgänge */
-  abgaenge: Cents;
-  afaAnfang: Cents;
-  afaJahr: Cents;
-  /** Kumulierte AfA der Abgänge */
-  afaAbgaenge: Cents;
-}
-
-/**
- * Anlagenspiegel einer Anlage im Jahr aus ihrem Abschreibungsplan (afa.ts), brutto mit den Anschaffungskosten. Eine
- * übernommene Anlage bringt ihre Anschaffungskosten mit; die AfA vor der Übernahme ist der Unterschied zum Buchwert.
- * GWG und Sammelposten scheiden aus, sobald sie abgeschrieben sind, im Jahr der letzten AfA (übliche Darstellung, der
- * Buchwert ist dann 0); andere Anlagen bleiben bis zum Abgang. null: im Jahr nicht im Bestand.
- */
-export function anlagenspiegelZeile(
-  kontenrahmen: Kontenrahmen,
-  asset: ScheduleAsset & { account: string },
-  schedule: readonly ScheduleYear[],
-  year: number,
-): AnlagenspiegelZeile | null {
-  const position = EBILANZ_KONTEN[kontenrahmen][asset.account]?.[0];
-  if (!position) throw new Error(`Anlagekonto ${asset.account} hat keine Position in der E-Bilanz`);
-  const start = Number((asset.opening?.date ?? asset.acquisitionDate).slice(0, 4));
-  const row = schedule.find((r) => r.year === year);
-  const last = schedule.at(-1);
-  const written = asset.method === "gwg" || asset.method === "sammelposten";
-  // Abgang im Jahr: verkauft oder entnommen, bei GWG und Sammelposten auch das Jahr der letzten AfA
-  const leaves = (asset.disposalDate && asset.method !== "sammelposten" ? Number(asset.disposalDate.slice(0, 4)) : null) ?? (written ? last?.year : null);
-  if (year < start || (leaves != null && year > leaves)) return null;
-  const cost = asset.cost;
-  const akAnfang = start < year || asset.opening ? cost : 0;
-  const bookValueStart = row ? row.opening : 0;
-  const afaJahr = row?.depreciation ?? 0;
-  const gone = leaves === year;
-  return {
-    position,
-    akAnfang,
-    zugaenge: akAnfang === 0 ? cost : 0,
-    abgaenge: gone ? cost : 0,
-    afaAnfang: akAnfang - bookValueStart,
-    afaJahr,
-    // Beim Abgang ist alles bis auf den Restbuchwert abgeschrieben; der Restbuchwert geht als Aufwand ab
-    afaAbgaenge: gone ? cost - (row?.disposal ?? 0) : 0,
-  };
-}
+export * from "./anlagenspiegel.ts";

@@ -4,6 +4,7 @@ import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 import { EricGeprueftClient } from "../../test-eric.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /*
  * Voranmeldung als offener Posten (Roadmap Platz 5): Abgabe außerhalb von Haben vermerken, Zahllast bzw. Erstattung
@@ -40,8 +41,8 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung als offener Posten (Postgres)", 
   let vermerk: typeof import("./vermerk.ts");
   let zahlung: typeof import("./zahlung.ts");
   let dauerfrist: typeof import("./dauerfrist.ts");
-  let bank: typeof import("../bank/bank.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let bank: typeof import("../bank/index.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let documents: typeof import("../belege/documents.ts");
   let fristen: typeof import("../finanzamt/fristen.ts");
@@ -58,8 +59,8 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung als offener Posten (Postgres)", 
     vermerk = await import("./vermerk.ts");
     zahlung = await import("./zahlung.ts");
     dauerfrist = await import("./dauerfrist.ts");
-    bank = await import("../bank/bank.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    bank = await import("../bank/index.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     documents = await import("../belege/documents.ts");
     fristen = await import("../finanzamt/fristen.ts");
@@ -106,7 +107,7 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung als offener Posten (Postgres)", 
       note: "",
       lines: [{ description: "Leistung", quantity: 1000, unit: "Psch." as const, unitPrice: net, taxRate: 1900 }],
     });
-    return invoices.finalizeInvoice(actor, draft.id);
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
   }
 
   async function beleg(date: string, net: number, tax: number) {

@@ -1,8 +1,8 @@
 import { formatHundredths } from "@haben/core";
-import { runDueFileCheck, runDuePruefwertMail } from "./modules/auswertungen/index.ts";
+import { kleinunternehmerStand, runDueFileCheck, runDuePruefwertMail } from "./modules/auswertungen/index.ts";
 import { runDueArchiveDeliveries } from "./modules/ablage/index.ts";
 import { erklaerteAbweichungsZeilen } from "./modules/jahreserklaerung/index.ts";
-import { runDueBankSyncs, runDueFintsSyncs } from "./modules/bank/index.ts";
+import { runDueBankSyncs, runDueFintsSyncs, runExistingDuplicateCheck } from "./modules/bank/index.ts";
 import { elsterClient, elsterMode } from "./modules/elster/index.ts";
 import { env } from "./env.ts";
 import { applyPublishedRates, runDueDauerbelege, runDueInboxFetch } from "./modules/belege/index.ts";
@@ -10,7 +10,10 @@ import { runDueExchangeRates } from "./modules/stammdaten/index.ts";
 import { runDueFristenMails, runDuePostfachFetch } from "./modules/finanzamt/index.ts";
 import { applyPublishedRatesToDrafts, runDueBaseRate, runDueRecurring } from "./modules/rechnungen/index.ts";
 import { runDueEtsySyncs } from "./modules/etsy/index.ts";
+import { runDuePayPalSyncs } from "./modules/paypal/index.ts";
+import { runDueStripeSyncs } from "./modules/stripe/index.ts";
 import { runDueStoreSyncs } from "./modules/stores/index.ts";
+import { runDueUstIdPruefung } from "./modules/umsatzsteuer/index.ts";
 import { today } from "./today.ts";
 
 const HOUR = 60 * 60 * 1000;
@@ -18,11 +21,38 @@ const HOUR = 60 * 60 * 1000;
 /** Ein Lauf auf einmal; Fehler landen im Log, der nächste Lauf versucht es erneut */
 let running = false;
 
+async function runDueBankJobs() {
+  try {
+    const result = await runExistingDuplicateCheck();
+    if (result) console.log(`Bankdubletten: Bestand geprüft, ${result.added} Verdachtspaare`);
+  } catch (error) {
+    console.error("Bankdublettenprüfung", error);
+  }
+  return runDueBankSyncs();
+}
+
+/** USt-IdNrn. aus Rechnungen beim BZSt bestätigen; höchstens einmal am Tag (runDueUstIdPruefung) */
+async function ustIdPruefung() {
+  try {
+    const result = await runDueUstIdPruefung();
+    if (result?.gefragt) console.log(`USt-IdNrn. beim BZSt: ${result.gefragt} von ${result.offen} angefragt`);
+    if (result?.ausfall) console.warn(`USt-IdNrn. beim BZSt: abgebrochen, ${result.ausfall}`);
+  } catch (error) {
+    console.error("USt-IdNrn. beim BZSt", error);
+  }
+}
+
+/** Die Bestätigung vor der Erinnerung, damit eine ungültige Nummer gleich in der Mail steht */
+async function ustIdPruefungUndErinnerung() {
+  await ustIdPruefung();
+  return runDueFristenMails(today());
+}
+
 export async function runScheduledJobs(): Promise<void> {
   if (running) return;
   running = true;
   try {
-    const result = await runDueRecurring(today());
+    const result = await runDueRecurring(today(), kleinunternehmerStand);
     if (result.created > 0 || result.errors.length > 0) {
       console.log(`Wiederkehrende Rechnungen: ${result.created} angelegt, ${result.finalized} festgeschrieben, ${result.mailed} per E-Mail versandt`);
       for (const error of result.errors) console.warn(error);
@@ -46,7 +76,7 @@ export async function runScheduledJobs(): Promise<void> {
     console.error("Dauerbelege", error);
   }
   try {
-    const result = await runDueBankSyncs();
+    const result = await runDueBankJobs();
     if (result.synced > 0) console.log(`Kontoabruf: ${result.synced} Verbindungen, ${result.added} neue Umsätze`);
     for (const error of result.errors) console.warn(error);
   } catch (error) {
@@ -72,6 +102,22 @@ export async function runScheduledJobs(): Promise<void> {
     for (const error of result.errors) console.warn(error);
   } catch (error) {
     console.error("Etsy Payments", error);
+  }
+  try {
+    const result = await runDuePayPalSyncs();
+    if (result.added > 0) console.log(`PayPal: ${result.added} neue Umsätze aus der Transaction Search`);
+    for (const message of result.messages) console.warn(`PayPal: ${message}`);
+    for (const error of result.errors) console.warn(error);
+  } catch (error) {
+    console.error("PayPal", error);
+  }
+  try {
+    const result = await runDueStripeSyncs();
+    if (result.added > 0) console.log(`Stripe: ${result.added} neue Umsätze aus den Balance Transactions`);
+    for (const message of result.messages) console.warn(`Stripe: ${message}`);
+    for (const error of result.errors) console.warn(error);
+  } catch (error) {
+    console.error("Stripe", error);
   }
   try {
     if (elsterMode() === "eric") {
@@ -111,7 +157,7 @@ export async function runScheduledJobs(): Promise<void> {
     console.error("Belege per E-Mail", error);
   }
   try {
-    const result = await runDueFristenMails(today());
+    const result = await ustIdPruefungUndErinnerung();
     if (result?.sent) console.log(`Fristen-Erinnerung: ${result.sent} Frist(en) per E-Mail erinnert`);
   } catch (error) {
     console.error("Fristen-Erinnerung", error);

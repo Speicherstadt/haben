@@ -1,16 +1,17 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /*
  * Review zu #919 (Verrechnung von Ausgangsrechnung und Kundenkorrektur, #877): Storno nach einer Verrechnung, Ist- und
  * Soll-Versteuerung, SKR03 und SKR04.
  */
 describe.skipIf(!testDatabaseUrl)("Verrechnung von Rechnung und Korrektur, Review (Postgres)", () => {
-  let invoices: typeof import("./invoices.ts");
+  let invoices: typeof import("./index.ts");
   let verrechnung: typeof import("./verrechnung.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
-  let bank: typeof import("../bank/bank.ts");
+  let bank: typeof import("../bank/index.ts");
   let figures: typeof import("../umsatzsteuer/vat-figures.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
@@ -18,10 +19,10 @@ describe.skipIf(!testDatabaseUrl)("Verrechnung von Rechnung und Korrektur, Revie
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    invoices = await import("./invoices.ts");
+    invoices = await import("./index.ts");
     verrechnung = await import("./verrechnung.ts");
     contacts = await import("../stammdaten/contacts.ts");
-    bank = await import("../bank/bank.ts");
+    bank = await import("../bank/index.ts");
     figures = await import("../umsatzsteuer/vat-figures.ts");
   }, 60_000);
 
@@ -46,7 +47,7 @@ describe.skipIf(!testDatabaseUrl)("Verrechnung von Rechnung und Korrektur, Revie
       },
       art === "korrektur" ? { kind: "korrektur", correctsId: correctsFor! } : {},
     );
-    return (await invoices.finalizeInvoice(actor, draft.id)).id;
+    return (await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand)).id;
   }
 
   async function zahle(invoiceId: string, betrag: number, datum: string): Promise<void> {

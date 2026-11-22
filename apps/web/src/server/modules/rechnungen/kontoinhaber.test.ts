@@ -1,10 +1,11 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 describe.skipIf(!testDatabaseUrl)("Kontoinhaber (Postgres)", () => {
   let sql: postgres.Sql;
-  let invoices: typeof import("./invoices.ts");
+  let invoices: typeof import("./index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   const actor = "test-user";
   let contactId: string;
@@ -22,7 +23,7 @@ describe.skipIf(!testDatabaseUrl)("Kontoinhaber (Postgres)", () => {
     });
   beforeAll(async () => {
     sql = await setupTestDb();
-    invoices = await import("./invoices.ts");
+    invoices = await import("./index.ts");
     contacts = await import("../stammdaten/contacts.ts");
   }, 30_000);
 
@@ -55,13 +56,13 @@ describe.skipIf(!testDatabaseUrl)("Kontoinhaber (Postgres)", () => {
 
   it("schreibt den Kontoinhaber in Verkäufer und XML der festgeschriebenen Rechnung", async () => {
     await sql`update company set kontoinhaber = 'Max Mustermann' where id = 1`;
-    const final = await invoices.finalizeInvoice(actor, (await invoiceDraft()).id);
+    const final = await invoices.finalizeInvoice(actor, (await invoiceDraft()).id, kleinunternehmerStand);
     expect(final.seller).toMatchObject({ name: "Testfirma", kontoinhaber: "Max Mustermann" });
     expect(final.xml).toMatch(/<ram:AccountName>Max Mustermann<\/ram:AccountName>/);
   });
 
   it("lässt den Kontoinhaber ohne Angabe weg; das XML nennt wie bisher die Firma", async () => {
-    const final = await invoices.finalizeInvoice(actor, (await invoiceDraft()).id);
+    const final = await invoices.finalizeInvoice(actor, (await invoiceDraft()).id, kleinunternehmerStand);
     expect(final.seller).not.toHaveProperty("kontoinhaber");
     expect(final.xml).toMatch(/<ram:AccountName>Testfirma<\/ram:AccountName>/);
   });

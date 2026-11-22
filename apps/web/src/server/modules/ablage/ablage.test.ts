@@ -3,6 +3,7 @@ import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 import { empfaengerStarten, type Empfaenger } from "./test-empfaenger.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /**
  * Ablage festgeschriebener Rechnungen im Archiv gegen zwei nachgebaute Empfänger mit verschiedenen Feldnamen und
@@ -12,7 +13,7 @@ import { empfaengerStarten, type Empfaenger } from "./test-empfaenger.ts";
 describe.skipIf(!testDatabaseUrl)("Ablage im Archiv (Postgres)", () => {
   let ablage: typeof import("./index.ts");
   let lauf: typeof import("./lauf.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let sql: postgres.Sql;
   let mitId: Empfaenger;
@@ -56,7 +57,7 @@ describe.skipIf(!testDatabaseUrl)("Ablage im Archiv (Postgres)", () => {
       note: "",
       lines: [{ description: "Beratung", quantity: 2000, unit: "Std." as const, unitPrice: 9500, taxRate: 1900 as const }],
     });
-    return invoices.finalizeInvoice(actor, draft.id);
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
   };
 
   const zeile = async (invoiceId: string) => (await sql`select * from archive_deliveries where invoice_id = ${invoiceId}`)[0];
@@ -65,7 +66,7 @@ describe.skipIf(!testDatabaseUrl)("Ablage im Archiv (Postgres)", () => {
     sql = await setupTestDb();
     ablage = await import("./index.ts");
     lauf = await import("./lauf.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     mitId = await empfaengerStarten({ status: 201, body: { id: "0b5e3c1a-7d2f-4e8a-9b61-2f4d8c0a1e77", sha256: "egal" } });
     ohneId = await empfaengerStarten({ status: 200, body: "c4a1f0d2-task" });
@@ -207,7 +208,7 @@ describe.skipIf(!testDatabaseUrl)("Ablage im Archiv (Postgres)", () => {
     await ablage.saveArchiveTarget(actor, zielMitId());
     const original = await festschreiben();
     const storno = await invoices.cancelInvoice(actor, original.id, "2026-10-05");
-    const korrektur = await invoices.finalizeInvoice(actor, (await invoices.createCorrection(actor, vorher.id, "2026-10-06")).id);
+    const korrektur = await invoices.finalizeInvoice(actor, (await invoices.createCorrection(actor, vorher.id, "2026-10-06")).id, kleinunternehmerStand);
     expect(await ablage.deliverInvoices(actor)).toEqual({ uebertragen: 3, fehler: 0 });
     expect(mitId.received.map((r) => r.files.datei!.name)).toEqual([original, storno, korrektur].map((i) => `Rechnung-${i.number}.pdf`));
     expect(await ablage.deliveryForInvoice(vorher)).toBeNull();

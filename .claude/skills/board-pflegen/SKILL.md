@@ -1,11 +1,11 @@
 ---
 name: "board-pflegen"
-description: "Project „Roadmap“ von Haben pflegen (https://github.com/users/firsttris/projects/2): offene Gespräche und Übernahme-Wünsche in Issues finden, neue Issues prüfen (wollen wir das, erledigt, Duplikat, genug Angaben) und einordnen, Fragen an den Maintainer mit Empfehlung und Antwortentwurf vorlegen, angekündigte Folge-Issues anlegen, Karten aufräumen, nach einem Release prüfen; das Ergebnis bekommt jedes fremde Issue als kurzen Kommentar. Mit gh und gh api graphql. Vorschläge an den Maintainer, umsetzen und kommentieren erst nach seinem OK. Wenn neue Issues da sind, einmal pro Woche oder nach einem Release."
+description: "Project „Roadmap“ von Haben pflegen (https://github.com/orgs/Speicherstadt/projects/3): offene Gespräche und Übernahme-Wünsche in Issues finden, neue Issues prüfen (wollen wir das, erledigt, Duplikat, genug Angaben) und einordnen, Fragen an den Maintainer mit Empfehlung und Antwortentwurf vorlegen, angekündigte Folge-Issues anlegen, Karten aufräumen, nach einem Release prüfen; das Ergebnis bekommt jedes fremde Issue als kurzen Kommentar. Mit gh und gh api graphql. Vorschläge an den Maintainer, umsetzen und kommentieren erst nach seinem OK. Wenn neue Issues da sind, einmal pro Woche oder nach einem Release."
 ---
 
 # Board pflegen
 
-Die Planung von Haben steht im [Project „Roadmap“](https://github.com/users/firsttris/projects/2); die Regeln dazu in [`docs/mitwirken.md`](../../../docs/mitwirken.md) unter „Etwas übernehmen“ und „Branches, Titel und Commits“ (Vom Issue zum Release), die Grundsätze und „Bewusst nicht“ in [`docs/roadmap.md`](../../../docs/roadmap.md). Was der Workflow „Board“ (`scripts/board/`) selbst schiebt, macht dieser Skill nicht noch einmal.
+Die Planung von Haben steht im [Project „Roadmap“](https://github.com/orgs/Speicherstadt/projects/3); die Regeln dazu in [`docs/mitwirken.md`](../../../docs/mitwirken.md) unter „Etwas übernehmen“ und „Branches, Titel und Commits“ (Vom Issue zum Release), die Grundsätze und „Bewusst nicht“ in [`docs/roadmap.md`](../../../docs/roadmap.md). Was der Workflow „Board“ (`scripts/board/`) selbst schiebt, macht dieser Skill nicht noch einmal.
 
 ## Voraussetzungen
 
@@ -27,15 +27,15 @@ Die Planung von Haben steht im [Project „Roadmap“](https://github.com/users/
 - **Eine Karte je Thema.** Gehören mehrere Issues zu einem Thema, stehen sie als eigene Karten direkt untereinander; Hinweis nur auf der ersten. Ein Thema ohne Issue ist ein Entwurf (Draft Item).
 - **Nicht ins Board:** Fragen, Sammel-Issues, Interna (Renovate, CI), Themen unter „Bewusst nicht“.
 - **`einstieg`:** Label für kleine, abgegrenzte Issues ohne Steuer- oder GoBD-Feinheiten, die niemand übernommen hat. Auch größere Issues, die sich in kleine Pull Requests teilen lassen und deren Ergebnis Tests absichern (etwa Aufräumen ohne Verhaltensänderung).
-- **Labels:** Jedes offene Issue hat einen Typ (`fehler`, `wunsch`, `steuer`, `umzug`, `frage`, `technik`, `doku`); die Formulare setzen ihn selbst, Issues per `gh issue create` oder von Agenten oft nicht. Dazu passt, wo es zutrifft, ein Themen-Label (`buchung`, `oberfläche`, `schnittstelle`, `jahreswerte`, `hosting`). Was jedes Label bedeutet, zeigt `gh label list --repo firsttris/haben`. Keine neuen Labels anlegen und keine englischen Doppel wie `bug`: Ein neues Label schlägt der Maintainer vor bzw. legt es an; findet sich eins, das nicht in dieser Liste steht, als Fund in Schritt 3 vorschlagen (ersetzen und löschen oder in die Liste aufnehmen).
+- **Labels:** Jedes offene Issue hat einen Typ (`fehler`, `wunsch`, `steuer`, `umzug`, `frage`, `technik`, `doku`); die Formulare setzen ihn selbst, Issues per `gh issue create` oder von Agenten oft nicht. Dazu passt, wo es zutrifft, ein Themen-Label (`buchung`, `oberfläche`, `schnittstelle`, `jahreswerte`, `hosting`). Was jedes Label bedeutet, zeigt `gh label list --repo Speicherstadt/haben`. Keine neuen Labels anlegen und keine englischen Doppel wie `bug`: Ein neues Label schlägt der Maintainer vor bzw. legt es an; findet sich eins, das nicht in dieser Liste steht, als Fund in Schritt 3 vorschlagen (ersetzen und löschen oder in die Liste aufnehmen).
 
 ## Ablauf
 
 ### 1. Lesen
 
 ```sh
-gh project item-list 2 --owner firsttris --limit 300 --format json > board.json
-gh issue list --repo firsttris/haben --state open --limit 300 --json number,title,author,labels,assignees,comments,createdAt,updatedAt > issues.json
+gh project item-list 3 --owner Speicherstadt --limit 300 --format json > board.json
+gh issue list --repo Speicherstadt/haben --state open --limit 300 --json number,title,author,labels,assignees,comments,createdAt,updatedAt > issues.json
 ```
 
 Daraus ermitteln:
@@ -47,6 +47,7 @@ Daraus ermitteln:
 - Karten in „In Arbeit“ ohne offenen PR und ohne Kommentar seit 14 Tagen (`gh issue view <n> --json comments,updatedAt`, `gh pr list --search "<n> in:body"`);
 - geschlossene Issues, deren Karte nicht in „Erledigt“ steht;
 - Karten in „Im nächsten Release“, deren PR kein `Umgesetzt #…` hat: die schließt das Release nicht (`scripts/board/regel.ts`);
+- **offene Teile:** Karten in „In Arbeit“, deren Pull Requests alle gemergt sind, nur mit `Refs`, und für die kein offener Pull Request mehr da ist (`gh pr list --state all --search "<n> in:body"`). Meist fehlte beim letzten Teil das `Umgesetzt`, und das Release schließt das Issue nie. Akzeptanzkriterien des Issues gegen die gemergten Pull Requests halten (Abschnitte „Offen“ oder „Nicht dabei“ in ihren Beschreibungen): ist alles da, mit der Vorlage „Erledigt“ schließen (Release, in dem der letzte Teil kam); bleibt ein klar abgegrenzter Rest, ihn als Folge-Issue anlegen (Schritt 5) und das Issue dann schließen; sonst bleibt die Karte, und der Zugewiesene bekommt eine kurze Frage nach dem Stand;
 - Entwürfe, für die es inzwischen ein Issue gibt.
 
 ### 2. Issues prüfen
@@ -88,18 +89,18 @@ Die Rangfolge in „Geplant“ entscheidet der Maintainer. Erledigtes ohne `Umge
 IDs einmal holen:
 
 ```sh
-gh project view 2 --owner firsttris --format json --jq .id          # PROJECT_ID
-gh project field-list 2 --owner firsttris --format json             # Feld- und Options-IDs
+gh project view 3 --owner Speicherstadt --format json --jq .id          # PROJECT_ID
+gh project field-list 3 --owner Speicherstadt --format json             # Feld- und Options-IDs
 ```
 
 | Schritt | Befehl |
 | --- | --- |
-| Issue hinzufügen | `gh project item-add 2 --owner firsttris --url https://github.com/firsttris/haben/issues/<n> --format json --jq .id` |
-| Entwurf anlegen | `gh project item-create 2 --owner firsttris --title "…" --body "…" --format json --jq .id` |
+| Issue hinzufügen | `gh project item-add 3 --owner Speicherstadt --url https://github.com/Speicherstadt/haben/issues/<n> --format json --jq .id` |
+| Entwurf anlegen | `gh project item-create 3 --owner Speicherstadt --title "…" --body "…" --format json --jq .id` |
 | Auswahlfeld setzen | `gh project item-edit --project-id $PROJECT_ID --id <item> --field-id <feld> --single-select-option-id <option>` |
 | Text setzen | `gh project item-edit --project-id $PROJECT_ID --id <item> --field-id <feld> --text "…"` |
-| Labels setzen | `gh issue edit <n> --repo firsttris/haben --add-label wunsch,buchung` |
-| Zuweisen (Übernahme) | `gh issue edit <n> --repo firsttris/haben --add-assignee <login>`; der Workflow „Board“ schiebt die Karte nach „In Arbeit“ |
+| Labels setzen | `gh issue edit <n> --repo Speicherstadt/haben --add-label wunsch,buchung` |
+| Zuweisen (Übernahme) | `gh issue edit <n> --repo Speicherstadt/haben --add-assignee <login>`; der Workflow „Board“ schiebt die Karte nach „In Arbeit“ |
 
 Position (das CLI kann es nicht): GraphQL, `afterId` ist die Karte darüber, ohne `afterId` ganz nach oben.
 
@@ -116,20 +117,20 @@ Wer ein Issue schreibt, soll wissen, dass es gelesen und wie es eingeordnet wurd
 
 - Ein Kommentar je geprüftem Issue und je Karte, die der Skill anlegt oder in eine andere Spalte schiebt, sofern das Issue noch keinen Kommentar zur Einordnung hat; auch bei Folge-Issues und bei Issues des Maintainers oder seiner Agenten: Wer das Issue später liest, sieht so, wo es steht. Bei eigenen Issues ohne „Danke!“.
 - Kurz, auf Deutsch, Du-Form; kein Termin und kein Versprechen; die Begründung aus Schritt 2 mit Link. Kein Hinweis auf das Werkzeug: Der Text ist eine Mitteilung des Maintainers.
-- `gh issue comment <n> --repo firsttris/haben --body-file <datei>`
+- `gh issue comment <n> --repo Speicherstadt/haben --body-file <datei>`
 
 | Ergebnis | Text (Vorlage, anpassen) |
 | --- | --- |
-| Aufnehmen | Danke! Ist jetzt im [Board](https://github.com/users/firsttris/projects/2) unter „Geplant“ (bzw. „Später“), Bereich Belege. Die Reihenfolge in der Spalte ist die Priorität. Wer es übernehmen möchte: [Etwas übernehmen](https://haben.app/mitwirken.html#etwas-übernehmen). Bei `einstieg` zusätzlich: Gut für den Einstieg geeignet. |
-| Teilweise | Danke! Ist jetzt im [Board](https://github.com/users/firsttris/projects/2) unter „…“, Bereich …, mit diesem Umfang: … Nicht dazu gehört …, weil … ([Bewusst nicht](https://haben.app/roadmap.html#bewusst-nicht), falls dort). |
-| Rückfrage | Danke! Damit wir es einordnen können, fehlt noch: … Sobald das da ist, kommt es ins [Board](https://github.com/users/firsttris/projects/2). |
-| Duplikat | Danke! Das Thema steht schon in #… (bzw. im Entwurf „…“ im [Board](https://github.com/users/firsttris/projects/2)). Was hier neu ist (…), ist dort vermerkt. |
+| Aufnehmen | Danke! Ist jetzt im [Board](https://github.com/orgs/Speicherstadt/projects/3) unter „Geplant“ (bzw. „Später“), Bereich Belege. Die Reihenfolge in der Spalte ist die Priorität. Wer es übernehmen möchte: [Etwas übernehmen](https://haben.app/mitwirken.html#etwas-übernehmen). Bei `einstieg` zusätzlich: Gut für den Einstieg geeignet. |
+| Teilweise | Danke! Ist jetzt im [Board](https://github.com/orgs/Speicherstadt/projects/3) unter „…“, Bereich …, mit diesem Umfang: … Nicht dazu gehört …, weil … ([Bewusst nicht](https://haben.app/roadmap.html#bewusst-nicht), falls dort). |
+| Rückfrage | Danke! Damit wir es einordnen können, fehlt noch: … Sobald das da ist, kommt es ins [Board](https://github.com/orgs/Speicherstadt/projects/3). |
+| Duplikat | Danke! Das Thema steht schon in #… (bzw. im Entwurf „…“ im [Board](https://github.com/orgs/Speicherstadt/projects/3)). Was hier neu ist (…), ist dort vermerkt. |
 | Nicht ins Board | Danke! Das planen wir nicht: [Bewusst nicht](https://haben.app/roadmap.html#bewusst-nicht), Zeile „…“. Kurz der Grund … |
-| Erledigt | Danke! Das gibt es seit v… ([Release](https://github.com/firsttris/haben/releases/tag/v…), PR #…). |
+| Erledigt | Danke! Das gibt es seit v… ([Release](https://github.com/Speicherstadt/haben/releases/tag/v…), PR #…). |
 
 Antworten in offenen Gesprächen (Schritt 1) und die Antworten auf Fragen an den Maintainer (Schritt 3) gehen genauso nach OK, mit dem freigegebenen Entwurf; Fragen zu einem PR als Kommentar im PR, nicht im Issue. Bei einer Übernahme: @-Erwähnung, „gehört dir“, Umfang in einem Satz (bei einer Skizze: „Die Skizze passt so“ oder was abweicht), Hinweis auf „In Arbeit“.
 
-**Folge-Issues, nach OK:** Jedes in einer freigegebenen Antwort angekündigte Issue gleich anlegen (`gh issue create --repo firsttris/haben --title "…" --body-file <datei> --label <typ>,<thema>`): Problem, Regel bzw. Vorschlag, Akzeptanzkriterien und ein Link auf den Kommentar mit der Entscheidung. Danach wie „Aufnehmen“ ins Board (Schritt 4) mit Hinweis, etwa wem es angeboten ist, und mit Kommentar zur Einordnung; zugewiesen wird erst nach `/übernehmen`.
+**Folge-Issues, nach OK:** Jedes in einer freigegebenen Antwort angekündigte Issue gleich anlegen (`gh issue create --repo Speicherstadt/haben --title "…" --body-file <datei> --label <typ>,<thema>`): Problem, Regel bzw. Vorschlag, Akzeptanzkriterien und ein Link auf den Kommentar mit der Entscheidung. Danach wie „Aufnehmen“ ins Board (Schritt 4) mit Hinweis, etwa wem es angeboten ist, und mit Kommentar zur Einordnung; zugewiesen wird erst nach `/übernehmen`.
 
 Schließen bleibt beim Maintainer, ebenso die Labels `rückmeldung`, `sammlung` und `verbesserung`.
 

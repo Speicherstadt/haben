@@ -1,6 +1,7 @@
 import type { Cents } from "@haben/core";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { finish, indexed, optional, optionalReference, pendingWarning, requireAmount, type Tx } from "./common.ts";
+import { gegenparteiAusFreitext } from "./camt-freitext.ts";
 import { StatementParseError } from "./errors.ts";
 import { normalizeIban, normalizeText, parseDate, parseDotAmount, requireDate } from "./text.ts";
 import type { ParsedStatement } from "./types.ts";
@@ -127,6 +128,48 @@ export function isCamt053(xml: string): boolean {
   return /<(\w+:)?BkToCstmrStmt[\s>]/.test(xml);
 }
 
+/** Gebuchter Eintrag (Ntry), dessen Angaben jede Transaktion daraus übernimmt */
+interface Eintrag {
+  entry: unknown;
+  bookingDate: string;
+  valueDate: string | undefined;
+  entryCurrency: string;
+  additional: string;
+  entryRef: string | undefined;
+}
+
+/** Transaktion aus einem Eintrag bzw. einem Posten (TxDtls) darin */
+function transaktion(d: unknown, amount: Cents, purposeFallback: string, inBatch: boolean, eintrag: Eintrag): Tx {
+  const { entry, bookingDate, valueDate, entryCurrency, additional, entryRef } = eintrag;
+  const endToEnd = optionalReference(text(d, "Refs", "EndToEndId"));
+  const credit = amount >= 0;
+  const party = child(d, "RltdPties", credit ? "Dbtr" : "Cdtr");
+  const ultimate = child(d, "RltdPties", credit ? "UltmtDbtr" : "UltmtCdtr");
+  const account = child(d, "RltdPties", credit ? "DbtrAcct" : "CdtrAcct");
+  const purpose = purposeOf(d);
+  // Der Text des Eintrags gilt in einer Sammelbuchung nicht für den einzelnen Posten
+  const freitext = text(d, "AddtlTxInf") ?? (inBatch ? "" : additional);
+  const ausFreitext = child(d, "RltdPties") === undefined ? gegenparteiAusFreitext(freitext, purpose, credit) : undefined;
+  return {
+    bookingDate,
+    valueDate,
+    amount,
+    currency: attr(d, "Ccy", "Amt") ?? entryCurrency,
+    counterpartyName: ausFreitext?.name ?? normalizeText(partyName(party) ?? partyName(ultimate)),
+    counterpartyIban: ausFreitext ? ausFreitext.iban : normalizeIban(text(account, "Id", "IBAN")),
+    purpose: purpose !== "" ? purpose : purposeFallback,
+    type: transactionType(d) ?? transactionType(entry) ?? optional(additional) ?? familyCode(entry),
+    // In Sammelbuchungen teilen sich alle Posten die Referenz des Eintrags
+    bankReference: optionalReference(text(d, "Refs", "AcctSvcrRef")) ?? (inBatch ? (endToEnd ?? entryRef) : (entryRef ?? endToEnd)),
+    endToEndId: endToEnd,
+    mandateReference: optional(normalizeText(text(d, "Refs", "MndtId"))),
+    // bis .001.02 direkt unter Cdtr, ab .001.08 unter Cdtr/Pty
+    creditorId: optional(
+      normalizeText(text(d, "RltdPties", "Cdtr", "Id", "PrvtId", "Othr", "Id") ?? text(d, "RltdPties", "Cdtr", "Pty", "Id", "PrvtId", "Othr", "Id")),
+    ),
+  };
+}
+
 /** ISO 20022 camt.053 (Versionen .001.02 bis .001.08). Nur ein Konto pro Datei. */
 export function parseCamt053(xml: string): ParsedStatement {
   const doc = parseXml(xml);
@@ -191,32 +234,8 @@ export function parseCamt053(xml: string): ParsedStatement {
       const ownAmount = (d: unknown): unknown => child(d, "Amt") ?? child(d, "AmtDtls", "TxAmt", "Amt");
       const batch = details.length > 1 && details.every((d) => ownAmount(d) !== undefined);
 
-      const build = (d: unknown, amount: Cents, purposeFallback: string, inBatch: boolean): Tx => {
-        const endToEnd = optionalReference(text(d, "Refs", "EndToEndId"));
-        const credit = amount >= 0;
-        const party = child(d, "RltdPties", credit ? "Dbtr" : "Cdtr");
-        const ultimate = child(d, "RltdPties", credit ? "UltmtDbtr" : "UltmtCdtr");
-        const account = child(d, "RltdPties", credit ? "DbtrAcct" : "CdtrAcct");
-        const purpose = purposeOf(d);
-        return {
-          bookingDate,
-          valueDate,
-          amount,
-          currency: attr(d, "Ccy", "Amt") ?? entryCurrency,
-          counterpartyName: normalizeText(partyName(party) ?? partyName(ultimate)),
-          counterpartyIban: normalizeIban(text(account, "Id", "IBAN")),
-          purpose: purpose !== "" ? purpose : purposeFallback,
-          type: transactionType(d) ?? transactionType(entry) ?? optional(additional) ?? familyCode(entry),
-          // In Sammelbuchungen teilen sich alle Posten die Referenz des Eintrags
-          bankReference: optionalReference(text(d, "Refs", "AcctSvcrRef")) ?? (inBatch ? (endToEnd ?? entryRef) : (entryRef ?? endToEnd)),
-          endToEndId: endToEnd,
-          mandateReference: optional(normalizeText(text(d, "Refs", "MndtId"))),
-          // bis .001.02 direkt unter Cdtr, ab .001.08 unter Cdtr/Pty
-          creditorId: optional(
-            normalizeText(text(d, "RltdPties", "Cdtr", "Id", "PrvtId", "Othr", "Id") ?? text(d, "RltdPties", "Cdtr", "Pty", "Id", "PrvtId", "Othr", "Id")),
-          ),
-        };
-      };
+      const eintrag: Eintrag = { entry, bookingDate, valueDate, entryCurrency, additional, entryRef };
+      const build = (d: unknown, amount: Cents, purposeFallback: string, inBatch: boolean): Tx => transaktion(d, amount, purposeFallback, inBatch, eintrag);
 
       if (batch) {
         let sum = 0;

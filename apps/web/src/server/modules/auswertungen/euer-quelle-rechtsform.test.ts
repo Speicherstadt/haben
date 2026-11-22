@@ -1,6 +1,7 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "./test-umsatz-stand.ts";
 
 function dkbCsv(rows: string[][]) {
   const header = `"Girokonto";"DE12 1203 0000 1234 5678 90"\n""\n`;
@@ -29,8 +30,8 @@ const eingang = (date: string, purpose: string, amount: string) => [
  */
 describe.skipIf(!testDatabaseUrl)("EÜR aus dem Journal: nur im Einzelunternehmen, ohne leere Zeilen (Postgres)", () => {
   let reports: typeof import("./reports.ts");
-  let bank: typeof import("../bank/bank.ts");
-  let invoices: typeof import("../rechnungen/invoices.ts");
+  let bank: typeof import("../bank/index.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
@@ -39,8 +40,8 @@ describe.skipIf(!testDatabaseUrl)("EÜR aus dem Journal: nur im Einzelunternehme
   beforeAll(async () => {
     sql = await setupTestDb();
     reports = await import("./reports.ts");
-    bank = await import("../bank/bank.ts");
-    invoices = await import("../rechnungen/invoices.ts");
+    bank = await import("../bank/index.ts");
+    invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
   }, 30_000);
 
@@ -127,7 +128,7 @@ describe.skipIf(!testDatabaseUrl)("EÜR aus dem Journal: nur im Einzelunternehme
       taxTreatment: "kleinunternehmer",
       lines: [{ description: "Leistung", quantity: 1000, unit: "Psch." as const, unitPrice: 100_000, taxRate: 0 }],
     } as never);
-    const a = await invoices.finalizeInvoice(actor, draft.id);
+    const a = await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
     const txs = await transactions([eingang("01.03.26", `RE ${a.number}`, "1000,00")]);
     await bank.allocate(actor, { kind: "invoice", transactionId: txs[0]!.id, invoiceId: a.id, amount: 100_000 });
     const [alloc] = await sql<{ id: string }[]>`select id from allocations where invoice_id = ${a.id}`;

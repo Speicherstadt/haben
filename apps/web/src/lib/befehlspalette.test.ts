@@ -112,7 +112,11 @@ describe("Befehlspalette-Ergebnisse (#617)", () => {
     ["datev", "export"],
     ["ablage", "export"],
     ["backup", "export"],
+    ["instanz", "export"],
     ["zertifikat", "elster"],
+    ["handelsregister", "firma"],
+    ["privatanteile", "firma"],
+    ["basiszinssatz", "firma"],
   ])("findet bei „%s“ den Einstellungsbereich %s", (suche, bereich) => {
     const bereiche = seiten.filter((s) => s.settingsArea);
     expect(buildPageSection(bereiche, suche)?.items.map((item) => item.id) ?? []).toContain(`page-einstellungen-${bereich}`);
