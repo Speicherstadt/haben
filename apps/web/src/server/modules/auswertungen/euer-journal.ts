@@ -95,8 +95,11 @@ function imZeitraum(year: number, umsatzBis: string | undefined, ohneManuelle: b
   );
 }
 
-/** Lädt, was die EÜR eines Jahres braucht: die Buchungen, die Verrechnungen und je Buchung, was sie ausgleicht */
-async function euerLauf(year: number, q: Db | Tx, umsatzBis: string | undefined, ohneManuelle: boolean) {
+/**
+ * Die EÜR eines Jahres aus dem Journal: Zeilen wie computeEuer, ohne AfA und Privatnutzung, die noch nicht gebucht sind.
+ * `ohneManuelle`: ohne manuelle Buchungen (GmbH und UG, dort Abschlussbuchungen, reports.ts); `beitraege` bekommt die Wirkung je Buchung.
+ */
+export async function euerAusJournal(year: number, q: Db | Tx = db, umsatzBis?: string, ohneManuelle = false, beitraege?: EuerBeitraege): Promise<EuerJournal> {
   const kuMonate = await Promise.all(Array.from({ length: 12 }, (_, i) => kleinunternehmerForMonth(year, i + 1, q)));
   const buchungenImJahr = await buchungen(q, imZeitraum(year, umsatzBis, ohneManuelle));
   // Vorauszahlung für Dezember bzw. das vierte Quartal vom 1. bis 10. Januar im Vorjahr (euer-jahreswechsel.ts)
@@ -173,19 +176,10 @@ async function euerLauf(year: number, q: Db | Tx, umsatzBis: string | undefined,
     zaehler: { uebernommen: 0, ungeklaerteImporte: 0 },
     ursprung: new Map(),
   };
-  return { jahr, verrechnet, lauf };
-}
-
-/**
- * Die EÜR eines Jahres aus dem Journal: Zeilen wie computeEuer, ohne AfA und Privatnutzung, die noch nicht gebucht sind.
- * `ohneManuelle`: ohne manuelle Buchungen (GmbH und UG, dort Abschlussbuchungen, reports.ts); `beitraege` bekommt die Wirkung je Buchung.
- */
-export async function euerAusJournal(year: number, q: Db | Tx = db, umsatzBis?: string, ohneManuelle = false, beitraege?: EuerBeitraege): Promise<EuerJournal> {
-  const { jahr, verrechnet, lauf } = await euerLauf(year, q, umsatzBis, ohneManuelle);
   const summe = leereEuerAusJournal();
   const monate = Array.from({ length: 12 }, () => leereEuerAusJournal());
   for (const b of jahr) {
-    const beitrag = melden(beitraege, b, lauf.zielVon.get(b.sourceId), await wirkung(lauf, b));
+    const beitrag = melden(beitraege, b, zielVon.get(b.sourceId), await wirkung(lauf, b));
     dazu(summe, beitrag);
     dazu(monate[Number(b.date.slice(5, 7)) - 1]!, beitrag);
   }
