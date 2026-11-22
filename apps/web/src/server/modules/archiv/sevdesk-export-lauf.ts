@@ -6,6 +6,7 @@ import type { LexofficeImportProgress, SevdeskExportProgress } from "../../db/sc
 import { sha256Of, sniff, storeFile } from "../../storage.ts";
 import { storeDatevBookings } from "./accountable-import.ts";
 import { progressMessage } from "./lexoffice.ts";
+import { sevdeskExportNeedsFile } from "./sevdesk-export-abgleich.ts";
 import type { StagedSevdeskExport } from "./sevdesk-export.ts";
 
 /*
@@ -168,6 +169,7 @@ type Archive = ReturnType<typeof archiveVoucherOf>;
 
 /** Was zum Nachweis am Beleg steht: Zeilen des Stapels, Beleginfo, Ordner und Datei im Export */
 function rawOf(voucher: SevExportVoucher, archive: Archive, file: { fileName: string } | null, zipFileId: string) {
+  const needsFile = sevdeskExportNeedsFile(voucher);
   return {
     guid: voucher.guid,
     key: voucher.key,
@@ -193,9 +195,9 @@ function rawOf(voucher: SevExportVoucher, archive: Archive, file: { fileName: st
     fileName: voucher.document?.fileName ?? null,
     archive: voucher.document?.archive ?? null,
     exportFileId: zipFileId,
-    // Erst ein Eintrag in document.xml kündigt eine Datei an. sevDesk 2.0 vergibt Beleglinks auch ohne Belegbild.
-    ohneBelegbild: voucher.document === null,
-    dateiFehlt: voucher.document !== null && file === null,
+    ...(voucher.documentUnclear ? { documentUnclear: true } : {}),
+    ohneBelegbild: !needsFile,
+    dateiFehlt: needsFile && file === null,
   };
 }
 

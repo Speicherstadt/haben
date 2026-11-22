@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import type { SevExportVoucher } from "@haben/import";
 import type { LegacySource } from "../../db/schema.ts";
 import type { ReconciliationCheck } from "./lexoffice.ts";
 
@@ -34,12 +35,15 @@ export const SEVDESK_EXPORT_IST_ISSUE =
 /** Belege mit Belegdaten, aber ohne Belegbild im Export: brauchen keine Datei */
 export const withoutExportImage = (v: ExportVoucherRow) => v.source === "sevdesk-export" && v.ohneBelegbild && Number(v.files) === 0;
 
+export const sevdeskExportNeedsFile = (v: SevExportVoucher) => v.document !== null || v.documentUnclear === true;
+
 export function ohneSevdeskExportBelegbildSql(alias: string) {
   const v = sql.identifier(alias);
   // Alte sevDesk-Exporte setzten dateiFehlt auch ohne XML-Eintrag. In diesem Fall ist fileName ausdrücklich JSON-null.
   return sql<boolean>`coalesce(${v}.source = 'sevdesk-export' and (
     ${v}.raw->'ohneBelegbild' = 'true'::jsonb
-    or (${v}.raw->'dateiFehlt' = 'true'::jsonb and ${v}.raw->'fileName' = 'null'::jsonb)
+    or (${v}.raw->'dateiFehlt' = 'true'::jsonb and ${v}.raw->'fileName' = 'null'::jsonb
+        and ${v}.raw->'documentUnclear' is distinct from 'true'::jsonb)
   ), false)`;
 }
 

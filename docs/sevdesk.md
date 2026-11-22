@@ -61,7 +61,7 @@ Statt „Belege und Rechnungen per API abgerufen“ zeigt der Abgleich „Belege
 
 - **mit Datei:** Beleglink und Belegbild im Export;
 - **Datei fehlt im Export:** Zum Beleglink steht eine Datei in `document.xml`, die in der ZIP-Datei fehlt. Das hält „Jeder Beleg hat eine Datei“ offen.
-- **ohne Belegbild im Export:** Der Beleg hat keinen Beleglink oder der Link steht in keiner `document.xml`. Letzteres kommt in Buchhaltungsversion 2.0 auch bei Belegen ohne Bild vor.
+- **ohne Belegbild im Export:** Der Beleg hat keinen Beleglink oder der Link steht in keiner der vollständig gelesenen Dateilisten (`document.xml`). Letzteres kommt in Buchhaltungsversion 2.0 auch bei Belegen ohne Bild vor. Fehlt eine Dateiliste in einem Belegordner oder lässt er sich nicht lesen, bleiben Beleglinks ohne Zuordnung im Abgleich offen. Die Vorschau nennt den Grund.
 
 Die Vorschau zählt „ohne Belegbild im Export“ und „Datei fehlt im Export“ getrennt. Der Link **Belege mit fehlender Datei ansehen** blendet Exportbelege ohne erwartetes Bild aus. In der vollständigen Archivliste bleiben sie sichtbar.
 

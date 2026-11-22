@@ -123,6 +123,27 @@ describe.skipIf(!testDatabaseUrl)("sevDesk ohne API: Export-ZIP übernehmen (Pos
     expect(offen.map(({ id }) => id)).toEqual([rows[0]!.id]);
   });
 
+  it("hält Beleglinks mit nicht prüfbarer Dateiliste im Archivfilter offen", async () => {
+    const bytes = zip({
+      "EXTF_Buchungsstapel_2026.csv": fixture("buchhaltung-2.0/extf-buchungsstapel-beleglink.csv"),
+      "DATEV_Rechnungsausgang_2026.zip": zip({ "beleg.pdf": strToU8("%PDF-1.4") }),
+      "DATEV_Rechnungseingang_2026.zip": innerZip(fixture("buchhaltung-2.0/document-rechnungseingang-beleglink.xml")),
+    });
+    const analysis = await sev.analyseSevdeskExport(bytes, NAME);
+    expect(analysis.hints).toContainEqual(expect.stringContaining("document.xml fehlt"));
+    expect(analysis.withoutImage).toBe(0);
+    expect(analysis.missingFile).toBe(analysis.vouchers - analysis.withFile);
+
+    const id = await sev.startSevdeskExportImport(actor, { wait: true });
+    expect((await sev.sevdeskExportImportStatus(id))?.status).toBe("fertig");
+    const [row] = await sql`select id, raw from lexoffice_vouchers where raw->>'guid' = '00000000-0000-0000-0000-000000000009'`;
+    expect(row!.raw).toMatchObject({ ohneBelegbild: false, dateiFehlt: true });
+    const offen = await lex.listLegacyVouchers({ year: 2026, direction: "alle", search: "", ohneDatei: true });
+    expect(offen.map(({ id }) => id)).toContain(row!.id);
+    const year = (await lex.reconciliation()).years.find((year) => year.year === 2026);
+    expect(year?.checks.find((check) => check.label === "Belege aus dem sevDesk-Export übernommen")?.ok).toBe(false);
+  });
+
   it("ordnet bereits importierte Belege anhand des gespeicherten XML-Dateinamens ein", async () => {
     const [imp] =
       await sql`insert into lexoffice_imports (status, progress, source) values ('fertig', '{"phase":"fertig"}'::jsonb, 'sevdesk-export') returning id`;
