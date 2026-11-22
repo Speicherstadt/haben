@@ -37,6 +37,43 @@ function dateienAbsatz(files: IntegrityReport["files"]): { befund: string | null
   return { befund: `${kopf}: ${dateienText(files.problemCount)} (${erste}${files.problemCount > 3 ? " …" : ""}).`, unveraendert: "" };
 }
 
+/**
+ * Befunde der Mail: gescheiterte Prüfung (#1604), Prüfwert der letzten Mail, der nicht mehr passt (umgeschrieben),
+ * Kette, Siegel und Sperren, Abgleich und Dateien; leer, wenn nichts auffällt
+ */
+function befundeDerWoche(
+  report: IntegrityReport | null,
+  fehler: string | null,
+  umgeschrieben: { seq: number; jetzt: string | null; vorher: string | null } | null,
+  dateienBefund: string | null,
+): string[] {
+  return [
+    ...(fehler ? [`Die Prüfung ist fehlgeschlagen: ${fehler.replace(/\.$/, "")}. Bitte im Log von Haben nachsehen.`] : []),
+    ...(umgeschrieben
+      ? [
+          umgeschrieben.jetzt === null
+            ? `Eintrag Nr. ${umgeschrieben.seq} aus der letzten Mail fehlt im Protokoll: Einträge wurden gelöscht oder ein älteres Backup eingespielt.`
+            : `Eintrag Nr. ${umgeschrieben.seq} aus der letzten Mail hat jetzt einen anderen Hash (${umgeschrieben.jetzt} statt ${umgeschrieben.vorher}): Das Protokoll wurde nachträglich verändert und neu verkettet.`,
+        ]
+      : []),
+    ...(report && report.problems.length > 0
+      ? [
+          `Prüfung von Kette, Siegeln und Sperren: ${report.problems.length}${report.truncated ? " oder mehr" : ""} Befunde. Die Datenbank wurde außerhalb von Haben verändert.`,
+          ...report.problems.filter((problem) => problem.art === "sperre").map((problem) => `${problem.tabelle}: ${problem.befund}.`),
+        ]
+      : []),
+    ...(report && report.abgleich.abweichungen.length > 0
+      ? [
+          `Abgleich im Journal: ${report.abgleich.abweichungen.length} ${report.abgleich.abweichungen.length === 1 ? "Abweichung" : "Abweichungen"} (${report.abgleich.abweichungen
+            .slice(0, 3)
+            .map((a) => `${a.zeitraum} ${a.posten}`)
+            .join("; ")}${report.abgleich.abweichungen.length > 3 ? " …" : ""}).`,
+        ]
+      : []),
+    ...(dateienBefund ? [dateienBefund] : []),
+  ];
+}
+
 /** Prüfungen ohne Anlass für eine Mail höchstens einmal am Tag; im Prozess gemerkt */
 let quietCheckAt = 0;
 
@@ -89,31 +126,7 @@ export async function runDuePruefwertMail(now = new Date(), zusatz?: () => Promi
   const pruefwert = formatPruefwert(head);
   const stand = zeitpunkt.format(now);
   const dateien = dateienAbsatz(report?.files ?? null);
-  const findings = [
-    ...(fehler ? [`Die Prüfung ist fehlgeschlagen: ${fehler.replace(/\.$/, "")}. Bitte im Log von Haben nachsehen.`] : []),
-    ...(rewritten
-      ? [
-          lastNow === null
-            ? `Eintrag Nr. ${lastSeq} aus der letzten Mail fehlt im Protokoll: Einträge wurden gelöscht oder ein älteres Backup eingespielt.`
-            : `Eintrag Nr. ${lastSeq} aus der letzten Mail hat jetzt einen anderen Hash (${lastNow} statt ${lastHash}): Das Protokoll wurde nachträglich verändert und neu verkettet.`,
-        ]
-      : []),
-    ...(report && report.problems.length > 0
-      ? [
-          `Prüfung von Kette, Siegeln und Sperren: ${report.problems.length}${report.truncated ? " oder mehr" : ""} Befunde. Die Datenbank wurde außerhalb von Haben verändert.`,
-          ...report.problems.filter((problem) => problem.art === "sperre").map((problem) => `${problem.tabelle}: ${problem.befund}.`),
-        ]
-      : []),
-    ...(report && report.abgleich.abweichungen.length > 0
-      ? [
-          `Abgleich im Journal: ${report.abgleich.abweichungen.length} ${report.abgleich.abweichungen.length === 1 ? "Abweichung" : "Abweichungen"} (${report.abgleich.abweichungen
-            .slice(0, 3)
-            .map((a) => `${a.zeitraum} ${a.posten}`)
-            .join("; ")}${report.abgleich.abweichungen.length > 3 ? " …" : ""}).`,
-        ]
-      : []),
-    ...(dateien.befund ? [dateien.befund] : []),
-  ];
+  const findings = befundeDerWoche(report, fehler, rewritten ? { seq: lastSeq, jetzt: lastNow, vorher: lastHash ?? null } : null, dateien.befund);
   const befund =
     findings.length === 0
       ? `Prüfung von Kette, Siegeln und Sperren: unverändert (${report?.entries} Einträge, ${report?.seals} Siegel).${dateien.unveraendert}`
