@@ -28,7 +28,8 @@ const bild = verweis.extend({ format: z.enum(["png", "jpg"]) });
 
 const aufbauSchema = z.object({
   format: z.literal(SETTINGS_EXPORT_FORMAT),
-  version: z.literal(SETTINGS_EXPORT_VERSION),
+  // Ältere Versionen liest der Import weiter (format.ts)
+  version: z.int().min(1).max(SETTINGS_EXPORT_VERSION),
   company: objekt.nullable(),
   einrichtung: objekt.nullable(),
   letterheadProfiles: zeilen,

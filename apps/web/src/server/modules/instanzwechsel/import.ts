@@ -16,7 +16,9 @@ import {
   firmaErgaenzen,
   gestaltungUebernehmen,
   kontakteUebernehmen,
+  lockFooter,
   textbausteineUebernehmen,
+  alteStandardEinleitungen,
 } from "../stammdaten/index.ts";
 import { saveFrequencyIn } from "../umsatzsteuer/index.ts";
 import { procedureDetailsSchema, putProcedureDetails } from "../verfahrensdoku/index.ts";
@@ -60,6 +62,8 @@ export async function importSettings(actor: string, archive: Uint8Array, today: 
   const result = await withActor(actor, async (tx) => {
     // Zwei Übernahmen gleichzeitig sähen beide eine leere Instanz
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('haben-einstellungen-uebernehmen', 0))`);
+    // Vor dem ersten Schreiben, wie Speichern und Zuordnen: Eine gleichzeitige Änderung der Fußzeile käme sonst dazwischen
+    await lockFooter(tx);
     const belegt = await schonAngelegt(tx);
     if (belegt.length > 0) throw new InstanzwechselError(nichtNeuMeldung(belegt));
     return uebernehmen(tx, actor, datei, today);
@@ -85,6 +89,7 @@ async function uebernehmen(tx: Tx, actor: string, datei: SettingsFile, today: st
   await artikelUebernehmen(tx, datei.articles);
   await kontakteUebernehmen(tx, actor, datei.contacts, datei.contactPersons);
   await textbausteineUebernehmen(tx, datei.textBlocks);
+  if (datei.company) await alteStandardEinleitungen(tx, datei.company);
   for (const raw of datei.ownAccounts) {
     const konto = geprueft(ownAccountSchema, raw, "Eigenes Konto");
     await mitBezeichnung(`Eigenes Konto ${konto.account}`, () => insertImportedOwnAccount(tx, actor, { ...konto, archived: konto.archivedAt !== null }));
