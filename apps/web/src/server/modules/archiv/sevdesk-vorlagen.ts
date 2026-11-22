@@ -95,13 +95,8 @@ async function importOne(actor: string, importId: string, client: SevdeskClient,
       })
       .returning({ id: schema.sevdeskRecurringTemplates.id });
     if (!link) return false;
-    const { anchorDay, intervalMonths, ...template } = mapped.template;
-    const recurringId = await importRecurringPaused(tx, {
-      ...template,
-      contactId: contact.id,
-      intervalMonths,
-      anchorDay,
-    });
+    const { interval, ...template } = mapped.template;
+    const recurringId = await importRecurringPaused(tx, { ...template, ...interval, contactId: contact.id });
     await tx.update(schema.sevdeskRecurringTemplates).set({ recurringId }).where(eq(schema.sevdeskRecurringTemplates.id, link.id));
     return true;
   });

@@ -47,6 +47,7 @@ export {
   mapSevRecurringInvoice,
   sevBilling,
   sevIntervalMonths,
+  sevInvoiceInterval,
   sevPlaceholders,
   sevPlainText,
   type SevBilling,

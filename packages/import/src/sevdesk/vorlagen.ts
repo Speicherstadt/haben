@@ -1,4 +1,4 @@
-import { type Cents, type Millis, TAX_RATES, type RecurringInterval, type ServicePeriodMode, type TaxTreatment } from "@haben/core";
+import { type Cents, type InvoiceInterval, type Millis, TAX_RATES, toInvoiceInterval, type ServicePeriodMode, type TaxTreatment } from "@haben/core";
 import { lexDate, lexToBasisPoints, lexToCents } from "../lexoffice/map.ts";
 import { sevNumber } from "./map.ts";
 import type { SevDocumentPos, SevInvoice } from "./types.ts";
@@ -34,7 +34,7 @@ export interface SevRecurringTemplate {
   taxTreatment: TaxTreatment;
   priceMode: "netto" | "brutto";
   lines: SevRecurringLine[];
-  intervalMonths: RecurringInterval;
+  interval: InvoiceInterval;
   anchorDay: number;
   nextDate: string;
   endDate: string | null;
@@ -77,6 +77,20 @@ export function sevIntervalMonths(value: string | null | undefined): number | nu
   if (Number(m[3] ?? 0) > 0 || Number(m[4] ?? 0) > 0) return null;
   const months = Number(m[1] ?? 0) * 12 + Number(m[2] ?? 0);
   return months > 0 ? months : null;
+}
+
+/**
+ * Intervall einer Rechnungsvorlage: die Monate aus sevIntervalMonths oder eine bzw. zwei Wochen ("P0Y0M1W", belegt in
+ * Buchhaltungsversion 2.0, #1691); null, wenn Haben es nicht kennt.
+ */
+export function sevInvoiceInterval(value: string | null | undefined): InvoiceInterval | null {
+  const m = /^P(?:0Y)?(?:0M)?(\d+)W(?:0D)?$/.exec((value ?? "").trim());
+  const raw = m ? { intervalMonths: null, intervalWeeks: Number(m[1]) } : { intervalMonths: sevIntervalMonths(value), intervalWeeks: null };
+  try {
+    return toInvoiceInterval(raw);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -204,11 +218,11 @@ export function mapSevRecurringInvoice(raw: SevInvoice, positions: SevDocumentPo
       ok: false,
       reason: `Währung ${currency}: Haben erzeugt wiederkehrende Rechnungen nur in Euro.`,
     };
-  const intervalMonths = sevIntervalMonths(raw.accountIntervall);
-  if (intervalMonths == null || ![1, 3, 6, 12].includes(intervalMonths))
+  const interval = sevInvoiceInterval(raw.accountIntervall);
+  if (!interval)
     return {
       ok: false,
-      reason: `Intervall „${raw.accountIntervall ?? ""}“: Haben kennt nur monatlich, vierteljährlich, halbjährlich und jährlich.`,
+      reason: `Intervall „${raw.accountIntervall ?? ""}“: Haben kennt nur wöchentlich, alle 2 Wochen, monatlich, vierteljährlich, halbjährlich und jährlich.`,
     };
   const tax = taxTreatmentOf(raw);
   if (!tax)
@@ -237,11 +251,14 @@ export function mapSevRecurringInvoice(raw: SevInvoice, positions: SevDocumentPo
   let servicePeriod: ServicePeriodMode = "keiner";
   let anchorDay = Number(nextDate.slice(8, 10));
   if (billing === "vorschuessig") servicePeriod = "laufend";
-  else if (billing === "nachfaellig" && intervalMonths === 1) {
+  else if (billing === "nachfaellig" && interval.intervalMonths === 1) {
     // Rechnung am Ende des Monats, für diesen Monat; der Termin bleibt am Monatsende
     servicePeriod = "laufend";
     if (lastDayOfMonth(nextDate)) anchorDay = 31;
-  } else if (billing === "nachfaellig")
+  } else if (billing === "nachfaellig" && interval.intervalWeeks !== null)
+    // sevDesk endet den Zeitraum am Rechnungsdatum, Haben mit „vorher“ am Vortag
+    hints.push("Nachfällig in Wochen kann Haben nicht genau abbilden: Leistungszeitraum ist „Keiner“. Bitte selbst setzen.");
+  else if (billing === "nachfaellig")
     hints.push("Nachfällig über mehrere Monate kann Haben nicht abbilden: Leistungszeitraum ist „Keiner“. Bitte selbst setzen.");
   else
     hints.push("Ob sevDesk nachfällig oder vorschüssig abrechnet, ist ohne erzeugte Rechnung unklar. In sevDesk nachsehen und den Leistungszeitraum setzen.");
@@ -257,7 +274,7 @@ export function mapSevRecurringInvoice(raw: SevInvoice, positions: SevDocumentPo
     taxTreatment: tax.treatment,
     priceMode,
     lines,
-    intervalMonths: intervalMonths as RecurringInterval,
+    interval,
     anchorDay,
     nextDate,
     endDate: lexDate(raw.accountEndDate),

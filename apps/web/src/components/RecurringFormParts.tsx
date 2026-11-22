@@ -4,9 +4,12 @@ import {
   type OutgoingTaxDetails,
   type PaymentMethod,
   type PriceMode,
-  RECURRING_INTERVALS,
-  type RecurringInterval,
+  INVOICE_INTERVAL_OPTIONS,
+  type InvoiceInterval,
+  invoiceIntervalFromKey,
+  invoiceIntervalKey,
   SERVICE_PERIOD_MODES,
+  SERVICE_PERIOD_MODES_WEEKS,
   type ServicePeriodMode,
   type TaxTreatment,
   treatmentNote,
@@ -24,7 +27,7 @@ import type { ParsedLine } from "./RecurringLines.tsx";
 type Fehler = (key: string) => string | undefined;
 
 /** Bearbeitbarer Stand des Formulars; Zahlen und Datum ohne Wert als Text */
-export type FormState = {
+export type FormState = InvoiceInterval & {
   name: string;
   active: boolean;
   contactId: string;
@@ -37,7 +40,6 @@ export type FormState = {
   exemptionReason: string;
   taxDetails: OutgoingTaxDetails | null;
   priceMode: PriceMode;
-  intervalMonths: RecurringInterval;
   nextDate: string;
   endDate: string;
   servicePeriod: ServicePeriodMode;
@@ -58,9 +60,9 @@ export function RecurringSchedule({ v, set, error }: TeilProps) {
         </Field>
         <Field label="Intervall">
           {(control) => (
-            <select {...control} value={v.intervalMonths} onChange={(e) => set({ intervalMonths: Number(e.target.value) as RecurringInterval })}>
-              {Object.entries(RECURRING_INTERVALS).map(([value, label]) => (
-                <option key={value} value={value}>
+            <select {...control} value={invoiceIntervalKey(v)} onChange={(e) => set(invoiceIntervalFromKey(e.target.value))}>
+              {INVOICE_INTERVAL_OPTIONS.map(({ key, label }) => (
+                <option key={key} value={key}>
                   {label}
                 </option>
               ))}
@@ -69,7 +71,9 @@ export function RecurringSchedule({ v, set, error }: TeilProps) {
         </Field>
       </div>
       <p id="next-hint" className="field-hint">
-        Rechnungsdatum. Die folgenden Termine liegen am selben Tag im Monat; der 31. wird zum Monatsende.
+        {v.intervalWeeks === null
+          ? "Rechnungsdatum. Die folgenden Termine liegen am selben Tag im Monat; der 31. wird zum Monatsende."
+          : `Rechnungsdatum. Die folgenden Termine liegen ${7 * v.intervalWeeks} Tage später, am selben Wochentag.`}
       </p>
       <div className="form-row cols-2">
         <Field label="Endet nach dem (optional)" error={error("endDate")}>
@@ -78,7 +82,7 @@ export function RecurringSchedule({ v, set, error }: TeilProps) {
         <Field label="Leistungszeitraum">
           {(control) => (
             <select {...control} value={v.servicePeriod} onChange={(e) => set({ servicePeriod: e.target.value as ServicePeriodMode })}>
-              {Object.entries(SERVICE_PERIOD_MODES).map(([value, label]) => (
+              {Object.entries(v.intervalWeeks === null ? SERVICE_PERIOD_MODES : SERVICE_PERIOD_MODES_WEEKS).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>

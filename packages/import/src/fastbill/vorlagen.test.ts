@@ -48,7 +48,7 @@ describe("mapFbRecurring", () => {
     expect(mapped.template).toMatchObject({
       name: "Wartung Website",
       intro: "Für die Betreuung im kommenden Jahr berechnen wir:",
-      intervalMonths: 12,
+      interval: { intervalMonths: 12, intervalWeeks: null },
       nextDate: "2027-03-01",
       anchorDay: 1,
       endDate: null,
@@ -71,16 +71,18 @@ describe("mapFbRecurring", () => {
   });
 
   it.each([
-    ["monthly", 1],
-    ["3 months", 3],
-    ["6 months", 6],
-    ["yearly", 12],
-  ])("ordnet den Turnus %s %i Monaten zu", (frequency, months) => {
+    ["weekly", null, 1],
+    ["2 weeks", null, 2],
+    ["monthly", 1, null],
+    ["3 months", 3, null],
+    ["6 months", 6, null],
+    ["yearly", 12, null],
+  ])("ordnet den Turnus %s zu: %s Monate, %s Wochen", (frequency, intervalMonths, intervalWeeks) => {
     const mapped = mapFbRecurring(vorlage({ FREQUENCY: frequency }));
-    expect(mapped.ok && mapped.template.intervalMonths).toBe(months);
+    expect(mapped.ok && mapped.template.interval).toEqual({ intervalMonths, intervalWeeks });
   });
 
-  it.each(["weekly", "2 weeks", "4 weeks", "2 months"])("übernimmt den Turnus %s nicht und nennt den Grund", (frequency) => {
+  it.each(["4 weeks", "2 months"])("übernimmt den Turnus %s nicht und nennt den Grund", (frequency) => {
     const mapped = mapFbRecurring(vorlage({ FREQUENCY: frequency }));
     expect(mapped).toEqual({ ok: false, reason: expect.stringContaining(`Turnus „${frequency}“`) });
   });

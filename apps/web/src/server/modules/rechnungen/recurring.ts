@@ -1,14 +1,15 @@
 import { INTERNAL_ERROR, isUniqueViolation, UserError, userMessage } from "../../errors.ts";
 import {
-  addMonthsAnchored,
-  dueDates,
   fillPlaceholders,
   invoiceDueDate,
+  invoiceDueDates,
+  type InvoiceInterval,
+  invoiceServicePeriod,
+  nextInvoiceDate,
   PAYMENT_METHODS,
   PRICE_MODES,
-  servicePeriodFor,
   TAX_TREATMENT_KEYS,
-  type RecurringInterval,
+  toInvoiceInterval,
   type ServicePeriodMode,
   type SkontoStufe,
   type UnitLabel,
@@ -53,7 +54,12 @@ export const recurringInputSchema = z.object({
   /** Einzelpreise netto oder brutto inkl. USt */
   priceMode: z.enum(PRICE_MODES).default("netto"),
   lines: z.array(draftLineSchema).min(1, "Mindestens eine Position").max(200),
-  intervalMonths: z.union([z.literal(1), z.literal(3), z.literal(6), z.literal(12)]),
+  /** Monate oder Wochen, genau eins davon (#1691) */
+  intervalMonths: z.union([z.literal(1), z.literal(3), z.literal(6), z.literal(12)]).nullable(),
+  intervalWeeks: z
+    .union([z.literal(1), z.literal(2)])
+    .nullable()
+    .default(null),
   nextDate: isoDate,
   endDate: isoDate.nullable(),
   servicePeriod: z.enum(["laufend", "vorher", "keiner"]),
@@ -71,12 +77,22 @@ function values(raw: RecurringInput) {
   if (input.endDate && input.endDate < input.nextDate) throw new RecurringError("Das Enddatum liegt vor dem nächsten Termin.");
   return {
     ...input,
+    ...intervalOf(input),
     ...outgoingTaxColumns(input),
     priceMode: effectivePriceMode(input),
     sendByMail: input.mode === "festschreiben" && input.sendByMail,
     anchorDay: Number(input.nextDate.slice(8, 10)),
     updatedAt: new Date(),
   };
+}
+
+/** Genau ein Intervall, Monate oder Wochen */
+function intervalOf(input: { intervalMonths: number | null; intervalWeeks: number | null }): InvoiceInterval {
+  try {
+    return toInvoiceInterval(input);
+  } catch {
+    throw new RecurringError("Intervall nicht unterstützt.");
+  }
 }
 
 export async function listRecurring() {
@@ -149,7 +165,8 @@ export async function updateRecurring(actor: string, id: string, input: Recurrin
 export type ImportedRecurring = Pick<
   RecurringInput,
   "name" | "contactId" | "paymentTermDays" | "intro" | "note" | "taxTreatment" | "priceMode" | "lines" | "nextDate" | "endDate" | "servicePeriod"
-> & { intervalMonths: RecurringInterval; anchorDay: number };
+> &
+  InvoiceInterval & { anchorDay: number };
 
 const importedSchema = recurringInputSchema
   .pick({ name: true, contactId: true, paymentTermDays: true, intro: true, note: true, taxTreatment: true, priceMode: true, lines: true })
@@ -162,7 +179,7 @@ const importedSchema = recurringInputSchema
  */
 export async function importRecurringPaused(tx: Tx, input: ImportedRecurring): Promise<string> {
   const row = importedSchema.parse(input);
-  if (![1, 3, 6, 12].includes(input.intervalMonths)) throw new RecurringError("Intervall nicht unterstützt.");
+  const interval = intervalOf(input);
   if (!Number.isInteger(input.anchorDay) || input.anchorDay < 1 || input.anchorDay > 31) throw new RecurringError("Ankertag ungültig.");
   await checkCustomer(tx, row.contactId);
   const [created] = await tx
@@ -170,7 +187,7 @@ export async function importRecurringPaused(tx: Tx, input: ImportedRecurring): P
     .values({
       ...row,
       exemptionReason: "",
-      intervalMonths: input.intervalMonths,
+      ...interval,
       anchorDay: input.anchorDay,
       active: false,
       mode: "entwurf",
@@ -201,7 +218,7 @@ export function invoiceForDate(
   skonto: SkontoStufe[] = [],
   sepaMandateId: string | null = null,
 ) {
-  const period = servicePeriodFor(date, recurring.intervalMonths as RecurringInterval, recurring.servicePeriod as ServicePeriodMode);
+  const period = invoiceServicePeriod(date, toInvoiceInterval(recurring), recurring.servicePeriod as ServicePeriodMode);
   const reference = period ?? { from: date, to: date };
   return {
     contactId: recurring.contactId,
@@ -266,8 +283,8 @@ function describe(error: unknown): string {
 }
 
 async function runOne(recurring: RecurringInvoice, today: string, umsatzStand: UmsatzStand, result: RunResult): Promise<void> {
-  const interval = recurring.intervalMonths as RecurringInterval;
-  const dates = dueDates(recurring.nextDate, interval, recurring.anchorDay, today, recurring.endDate);
+  const interval = toInvoiceInterval(recurring);
+  const dates = invoiceDueDates(recurring.nextDate, interval, recurring.anchorDay, today, recurring.endDate);
   let lastError: string | null = null;
   // Sprache und Skonto aus dem Kontakt, wie beim Anlegen im Editor
   const [contact] = await db
@@ -321,7 +338,7 @@ async function runOne(recurring: RecurringInvoice, today: string, umsatzStand: U
     }
   }
   const last = dates.at(-1);
-  const nextDate = last ? addMonthsAnchored(last, interval, recurring.anchorDay) : recurring.nextDate;
+  const nextDate = last ? nextInvoiceDate(last, interval, recurring.anchorDay) : recurring.nextDate;
   const ended = recurring.endDate !== null && nextDate > recurring.endDate;
   await withActor(RECURRING_ACTOR, (tx) =>
     tx

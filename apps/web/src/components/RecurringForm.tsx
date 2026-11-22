@@ -3,10 +3,10 @@ import {
   outgoingTaxIssues,
   type PaymentMethod,
   type PriceMode,
-  type RecurringInterval,
+  type InvoiceInterval,
+  invoiceServicePeriod,
   type ServicePeriodMode,
   section4Note,
-  servicePeriodFor,
   type TaxTreatment,
   lineAmount,
 } from "@haben/core";
@@ -29,7 +29,7 @@ import {
 import { type LineState, lineState, parseLine, RecurringPositions, type RecurringLine } from "./RecurringLines.tsx";
 import { TextBlockField, type TextBlockOption } from "./TextBlockField.tsx";
 
-export interface RecurringValues {
+export type RecurringValues = InvoiceInterval & {
   name: string;
   active: boolean;
   contactId: string;
@@ -43,7 +43,6 @@ export interface RecurringValues {
   taxDetails: OutgoingTaxDetails | null;
   priceMode: PriceMode;
   lines: RecurringLine[];
-  intervalMonths: RecurringInterval;
   nextDate: string;
   endDate: string | null;
   servicePeriod: ServicePeriodMode;
@@ -51,7 +50,7 @@ export interface RecurringValues {
   sendByMail: boolean;
   /** Überweisung oder Lastschrift (#445); das Mandat wählt jeder Lauf selbst */
   paymentMethod: PaymentMethod;
-}
+};
 
 /** Formular für eine Vorlage; Platzhalter wie {monat} werden in der Vorschau ersetzt */
 export function RecurringForm({
@@ -77,7 +76,8 @@ export function RecurringForm({
   onSubmit: (values: RecurringValues) => void;
 }) {
   const [v, setV] = useState<FormState>(() => formState(initial));
-  const set = (patch: Partial<FormState>) => setV((prev) => ({ ...prev, ...patch }));
+  // Das Intervall kommt immer mit beiden Feldern (invoiceIntervalFromKey), Monate und Wochen mischen sich nicht
+  const set = (patch: Partial<FormState>) => setV((prev) => ({ ...prev, ...patch }) as FormState);
   /** Getippter Name, wenn der Dialog für einen neuen Kunden offen ist; null = geschlossen */
   const [newContactName, setNewContactName] = useState<string | null>(null);
   const [lines, setLines] = useState<LineState[]>(() => initial.lines.map(lineState));
@@ -92,7 +92,7 @@ export function RecurringForm({
   const valid = parsed.length > 0 && parsed.every((l) => l.valid) && Object.values(fehler).every((e) => e === null);
   const { form, error, check } = useSubmitCheck(fehler);
 
-  const period = v.nextDate ? servicePeriodFor(v.nextDate, v.intervalMonths, v.servicePeriod) : null;
+  const period = v.nextDate ? invoiceServicePeriod(v.nextDate, v, v.servicePeriod) : null;
   const reference = period ?? (v.nextDate ? { from: v.nextDate, to: v.nextDate } : null);
   const sum = parsed.reduce((s, l) => s + (l.valid ? lineAmount(l.quantity, l.unitPrice) : 0), 0);
 

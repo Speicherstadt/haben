@@ -314,12 +314,12 @@ sevDesk liefert die Vorlagen nur mit dem Filter `invoiceType=WKR`; belegt ist da
 | Positionen: Bezeichnung, Text, Menge, Preis, Steuersatz | Positionen; Einheit immer „Stk.“, sevDesk nennt sie nur als Kennung |
 | `showNet` | Preise netto oder brutto |
 | `timeToPay` | Zahlungsziel |
-| `accountIntervall` | Intervall: nur 1, 3, 6 oder 12 Monate |
+| `accountIntervall` | Intervall: 1 oder 2 Wochen (`P0Y0M1W`, `P0Y0M2W`), 1, 3, 6 oder 12 Monate |
 | `accountNextInvoice`, sonst `accountStartDate` | Nächste Rechnung am |
 | `accountEndDate` | Endet nach dem |
 | `taxType` `default`, `eu`, `noteu`, Kleinunternehmer | Umsatzsteuer regulär, innergemeinschaftliche Lieferung, Drittland, Kleinunternehmer; alles außer regulär mit Hinweis zum Prüfen |
 
-**Nicht übernommen** und als offener Punkt im Abruf genannt werden Vorlagen mit Wochen- oder Tagesintervall (etwa `P0Y0M1W`), in Fremdwährung, mit einem Steuersatz außer 19, 7 oder 0 %, mit Rabatt an einer Position, ohne Positionen, mit einer anderen Steuerart oder ohne übernommenen Kunden. Lege sie in Haben von Hand an. Skonto der Vorlage übernimmt Haben nicht und nennt es.
+**Nicht übernommen** und als offener Punkt im Abruf genannt werden Vorlagen mit anderem Intervall (etwa 3 Wochen oder Tage), in Fremdwährung, mit einem Steuersatz außer 19, 7 oder 0 %, mit Rabatt an einer Position, ohne Positionen, mit einer anderen Steuerart oder ohne übernommenen Kunden. Lege sie in Haben von Hand an. Skonto der Vorlage übernimmt Haben nicht und nennt es.
 
 **Platzhalter** wie `[%KONTAKTPERSON%]`, `[%ZAHLUNGSZIEL%]` oder `[%Rechnungsnummer%]` stehen als Text in der Vorlage; Haben ersetzt sie nicht. Der Abruf und die Seite der Vorlage listen, welche vorkommen. Ersetze sie vor dem Aktivieren, etwa durch die [Platzhalter von Haben](rechnungen.md#wiederkehrende-rechnungen) oder festen Text.
 
@@ -330,6 +330,7 @@ sevDesk liefert die Vorlagen nur mit dem Filter `invoiceType=WKR`; belegt ist da
 | vorschüssig | Laufend |
 | nachfällig, monatlich | Laufend; liegt der nächste Termin am Monatsende, bleiben alle Termine am Monatsende |
 | nachfällig, mehrere Monate | Keiner, mit Hinweis: Haben hat keinen Zeitraum, der im Rechnungsmonat endet |
+| nachfällig, Wochen | Keiner, mit Hinweis: „Vergangen“ endet in Haben am Vortag, in sevDesk am Rechnungsdatum |
 | unklar (keine erzeugte Rechnung oder widersprüchlich) | Keiner, mit Hinweis |
 
 Ist es unklar, sieh in sevDesk an der Vorlage nach und setze den Leistungszeitraum selbst. Die Seite der Vorlage zeigt unter „Aus sevDesk übernommen“ den Status in sevDesk, das Ergebnis, die Platzhalter und die Hinweise. Prüfe vor dem Aktivieren „Nächste Rechnung am“: Liegt der Termin in der Vergangenheit, holt Haben die verpassten Termine nach.

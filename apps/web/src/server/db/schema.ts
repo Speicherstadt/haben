@@ -4050,9 +4050,11 @@ export const recurringInvoices = pgTable(
         }[]
       >()
       .notNull(),
-    /** Monate zwischen zwei Rechnungen: 1, 3, 6 oder 12 */
-    intervalMonths: smallint("interval_months").notNull(),
-    /** Tag im Monat, auf den die Termine fallen (31 = Monatsende) */
+    /** Monate zwischen zwei Rechnungen: 1, 3, 6 oder 12; null bei Wochen */
+    intervalMonths: smallint("interval_months"),
+    /** Wochen zwischen zwei Rechnungen: 1 oder 2 (#1691); null bei Monaten. Genau eins der beiden Intervalle ist gesetzt. */
+    intervalWeeks: smallint("interval_weeks"),
+    /** Tag im Monat, auf den die Termine fallen (31 = Monatsende); bei Wochen ohne Wirkung */
     anchorDay: smallint("anchor_day").notNull(),
     nextDate: date("next_date", { mode: "string" }).notNull(),
     endDate: date("end_date", { mode: "string" }),
@@ -4073,7 +4075,10 @@ export const recurringInvoices = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    check("recurring_interval", sql`${t.intervalMonths} in (1, 3, 6, 12)`),
+    check(
+      "recurring_interval",
+      sql`(${t.intervalMonths} in (1, 3, 6, 12) and ${t.intervalWeeks} is null) or (${t.intervalMonths} is null and ${t.intervalWeeks} in (1, 2))`,
+    ),
     check("recurring_anchor_day", sql`${t.anchorDay} between 1 and 31`),
     index("recurring_invoices_name_trgm_idx").using("gin", sql`haben_unaccent(${t.name}) gin_trgm_ops`),
   ],

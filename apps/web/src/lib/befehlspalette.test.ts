@@ -222,7 +222,19 @@ describe("Befehlspalette-Ergebnisse (#617)", () => {
         vatReturns: { hits: [vat], more: false },
         zmSubmissions: { hits: [{ id: "z1", year: 2026, month: 41, kind: "send", ok: false, code: 610001, createdAt: new Date("2026-04-10") }], more: false },
         recurringInvoices: {
-          hits: [{ id: "r1", name: "Wartung", customer: "Kunde", intervalMonths: 1, nextDate: "2026-12-01", active: false, lastError: "kaputt" }],
+          hits: [
+            {
+              id: "r1",
+              name: "Wartung",
+              customer: "Kunde",
+              intervalMonths: 1,
+              intervalWeeks: null,
+              nextDate: "2026-12-01",
+              active: false,
+              lastError: "kaputt",
+            },
+            { id: "r2", name: "Support", customer: "Kunde", intervalMonths: null, intervalWeeks: 2, nextDate: "2026-12-07", active: true, lastError: null },
+          ],
           more: false,
         },
         recurringDocuments: {
@@ -237,6 +249,8 @@ describe("Befehlspalette-Ergebnisse (#617)", () => {
     expect(status("vat-v1")).toMatchObject({ status: { kind: "vat", vat }, params: { zeitraum: "2026-Q1" } });
     expect(status("zm-z1")).toMatchObject({ status: { kind: "zm", ok: false, code: 610001 }, params: { quartal: "2026-Q1" } });
     expect(status("rec-inv-r1")).toMatchObject({ status: { kind: "recurringInvoice", active: false, lastError: "kaputt" } });
+    expect(status("rec-inv-r1")?.meta).toBe("Kunde · monatlich · nächster Termin 01.12.2026");
+    expect(status("rec-inv-r2")?.meta).toBe("Kunde · alle 2 Wochen · nächster Termin 07.12.2026");
     expect(status("rec-doc-d1")).toMatchObject({ status: { kind: "recurringDocument", status: "pausiert", lastError: null } });
     expect(status("pauschale-p1")).toMatchObject({ status: { kind: "pauschale", storniert: true } });
   });
