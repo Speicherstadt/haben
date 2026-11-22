@@ -79,7 +79,7 @@ Geheimnisse gehören nicht in das Dokument; die App gibt nur Namen, Rollen und Z
 Nicht auf npm, sondern als Datei an den Releases `gobd-kern-vX.Y.Z` von Haben (Actions → *GoBD-Kern als Release*):
 
 ```sh
-bun add https://github.com/Speicherstadt/haben/releases/download/gobd-kern-v0.2.0/firsttris-gobd-kern-0.2.0.tgz
+bun add https://github.com/Speicherstadt/haben/releases/download/gobd-kern-v0.2.1/firsttris-gobd-kern-0.2.1.tgz
 ```
 
 Das Paket enthält TypeScript-Quellen, für Bun und Bundler wie Vite. Ab 0.2.0 braucht es `zod` (Version 4) für das Schema der Angaben.
