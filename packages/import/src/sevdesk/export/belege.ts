@@ -161,7 +161,7 @@ function voucherOf(key: string, group: Group, document: SevExportDocument | null
   const fromPartner: SevExportDirection | null = digit >= 1 && digit <= 6 ? "ausgang" : digit >= 7 ? "eingang" : null;
   const direction = document?.direction ?? (accountKind ? KIND_DIRECTION[accountKind] : fromPartner);
   const directionFrom = document?.direction ? "document" : accountKind || fromPartner ? "konten" : null;
-  if (group.guid && !document) hints.push(`${label}: keine Datei im Export.`);
+  if (group.guid && !document) hints.push(`${label}: ohne Belegbild im Export (kein Eintrag in document.xml).`);
   const selfBilled = selfBilledCredit(group, document);
   if (document?.direction && sach?.kind && KIND_DIRECTION[sach.kind] !== document.direction && !selfBilled) {
     hints.push(`${label}: liegt im ${FOLDER[document.direction]}, gebucht auf ${KIND_NAME[sach.kind]} ${sach.account}; Richtung prüfen.`);

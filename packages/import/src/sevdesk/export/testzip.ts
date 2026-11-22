@@ -36,3 +36,15 @@ export function unmaskedStack10(): Uint8Array {
 }
 
 export const zip = (entries: Zippable): Uint8Array => zipSync(entries);
+
+/** sevDesk 2.0: ein Beleglink ohne XML-Eintrag und eine im XML genannte, fehlende ZIP-Datei. */
+export function beleglinkZip20() {
+  const ausgang = fixture("buchhaltung-2.0/document-rechnungsausgang-beleglink.xml");
+  const fehlendeDatei = fileNamesOf(ausgang).find((name) => name.includes("_Gutschrift_"))!;
+  const bytes = zip({
+    "EXTF_Buchungsstapel_2026.csv": fixture("buchhaltung-2.0/extf-buchungsstapel-beleglink.csv"),
+    "DATEV_Rechnungsausgang_2026.zip": innerZip(ausgang, [fehlendeDatei]),
+    "DATEV_Rechnungseingang_2026.zip": innerZip(fixture("buchhaltung-2.0/document-rechnungseingang-beleglink.xml")),
+  });
+  return { bytes, fehlendeDatei };
+}

@@ -2,7 +2,14 @@ import { accountingTypeKinds, type AccountingTypeKinds, accountingTypeUnclear, t
 import { INTERNAL_ERROR, isUniqueViolation, UserError, userMessage } from "../../errors.ts";
 import { truncatedNumberMatches } from "./datev-belegnummer.ts";
 import { bookingsCheckDetail, datevBookingCounts } from "./datev-abgleich.ts";
-import { SEVDESK_EXPORT_IST_CHECK, sevdeskExportIstIssue, sevdeskExportYear, voucherSourceChecks, withoutExportImage } from "./sevdesk-export-abgleich.ts";
+import {
+  ohneSevdeskExportBelegbildSql,
+  SEVDESK_EXPORT_IST_CHECK,
+  sevdeskExportIstIssue,
+  sevdeskExportYear,
+  voucherSourceChecks,
+  withoutExportImage,
+} from "./sevdesk-export-abgleich.ts";
 import { effectivePayment, paymentHistoryIssue, unclearFrom, visiblePayment } from "../auswertungen/index.ts";
 import { accountingTypeChecks, accountingTypeDecidable, accountingTypeIssue, ACCOUNTING_TYPE_VAT_ISSUE, unclearAccountingTypes } from "./sevdesk-kontoart.ts";
 import { effectiveAmount, effectiveContactName, effectiveDirection, effectiveTaxes, effectiveType } from "../auswertungen/index.ts";
@@ -595,6 +602,7 @@ export function fallbackName(voucher: Pick<LegacyVoucher, "number" | "lexofficeI
 
 export async function listLegacyVouchers(filter: { year: number; direction: "alle" | "einnahme" | "ausgabe"; search: string; ohneDatei: boolean }) {
   const term = filter.search.trim() ? `%${filter.search.trim()}%` : null;
+  const hatDatei = sql`exists (select 1 from lexoffice_voucher_files f where f.voucher_id = v.id)`;
   const rows = await db.execute<{
     id: string;
     source: LegacySource;
@@ -622,8 +630,10 @@ export async function listLegacyVouchers(filter: { year: number; direction: "all
       ${
         // Vorauswahl vor dem Limit; welcher Stand offen ist, entscheidet legacyFileStatus unten
         filter.ohneDatei
-          ? sql`and not coalesce((v.raw->>'ohneBeleg')::boolean, false) and (not exists (select 1 from lexoffice_voucher_files f where f.voucher_id = v.id)
-              or ${latestFileStateSql("v")} in ('abruf_fehlgeschlagen', 'anhang_fehlt'))`
+          ? sql`and not coalesce((v.raw->>'ohneBeleg')::boolean, false) and (
+              (not ${hatDatei} and not ${ohneSevdeskExportBelegbildSql("v")})
+              or (${hatDatei} and ${latestFileStateSql("v")} in ('abruf_fehlgeschlagen', 'anhang_fehlt'))
+            )`
           : sql``
       }
     order by v.date, v.number
@@ -806,11 +816,7 @@ export async function reconciliation() {
         taxSetId: customTaxSetId("lexoffice_vouchers"),
         ohneBeleg: WITHOUT_RECEIPT,
         fileState: latestFileStateSql("lexoffice_vouchers"),
-        // Alte sevDesk-Exporte setzten dateiFehlt auch ohne XML-Eintrag. In diesem Fall ist fileName ausdrücklich JSON-null.
-        ohneBelegbild: sql<boolean>`coalesce((lexoffice_vouchers.raw->>'ohneBelegbild')::boolean, false)
-          or coalesce(lexoffice_vouchers.source = 'sevdesk-export'
-            and lexoffice_vouchers.raw->'dateiFehlt' = 'true'::jsonb
-            and lexoffice_vouchers.raw->'fileName' = 'null'::jsonb, false)`,
+        ohneBelegbild: ohneSevdeskExportBelegbildSql("lexoffice_vouchers"),
         privat: sql<boolean>`coalesce((lexoffice_vouchers.raw->>'privat')::boolean, false)`,
         bbNeutral: sql<boolean>`coalesce((lexoffice_vouchers.raw->>'neutral')::boolean, false)`,
         accountingTypeUnclear: accountingTypeUnclear("lexoffice_vouchers"),

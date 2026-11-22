@@ -1,7 +1,7 @@
 import { strToU8 } from "fflate";
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { fileNamesOf, fixture, innerZip, zip } from "../../../../../../packages/import/src/sevdesk/export/testzip.ts";
+import { beleglinkZip20, fixture, innerZip, zip } from "../../../../../../packages/import/src/sevdesk/export/testzip.ts";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
 /*
@@ -100,13 +100,7 @@ describe.skipIf(!testDatabaseUrl)("sevDesk ohne API: Export-ZIP übernehmen (Pos
 
   it.each(["soll", "ist"] as const)("unterscheidet fehlendes Belegbild von fehlender ZIP-Datei (%s)", async (versteuerung) => {
     await company("SKR03", versteuerung);
-    const ausgang = fixture("buchhaltung-2.0/document-rechnungsausgang-beleglink.xml");
-    const fehlendeDatei = fileNamesOf(ausgang).find((name) => name.includes("_Gutschrift_"))!;
-    const bytes = zip({
-      "EXTF_Buchungsstapel_2026.csv": fixture("buchhaltung-2.0/extf-buchungsstapel-beleglink.csv"),
-      "DATEV_Rechnungsausgang_2026.zip": innerZip(ausgang, [fehlendeDatei]),
-      "DATEV_Rechnungseingang_2026.zip": innerZip(fixture("buchhaltung-2.0/document-rechnungseingang-beleglink.xml")),
-    });
+    const { bytes, fehlendeDatei } = beleglinkZip20();
 
     const analysis = await sev.analyseSevdeskExport(bytes, NAME);
     expect(analysis).toMatchObject({ withoutImage: 1, missingFile: 1 });
@@ -117,7 +111,7 @@ describe.skipIf(!testDatabaseUrl)("sevDesk ohne API: Export-ZIP übernehmen (Pos
     expect((await sev.sevdeskExportImportStatus(id))?.status).toBe("fertig");
     const ohneBild = "00000000-0000-0000-0000-000000000009";
     const fehlend = "00000000-0000-0000-0000-000000000005";
-    const rows = await sql`select raw from lexoffice_vouchers where raw->>'guid' in (${ohneBild}, ${fehlend}) order by raw->>'guid'`;
+    const rows = await sql`select id, raw from lexoffice_vouchers where raw->>'guid' in (${ohneBild}, ${fehlend}) order by raw->>'guid'`;
     expect(rows.map(({ raw }) => raw)).toEqual([
       expect.objectContaining({ guid: fehlend, ohneBelegbild: false, dateiFehlt: true }),
       expect.objectContaining({ guid: ohneBild, ohneBelegbild: true, dateiFehlt: false }),
@@ -125,6 +119,8 @@ describe.skipIf(!testDatabaseUrl)("sevDesk ohne API: Export-ZIP übernehmen (Pos
     const year = (await lex.reconciliation()).years.find((year) => year.year === 2026);
     const check = year?.checks.find((check) => check.label === "Belege aus dem sevDesk-Export übernommen");
     expect(check?.detail).toContain("1 ohne Belegbild im Export, 1 Datei fehlt im Export");
+    const offen = await lex.listLegacyVouchers({ year: 2026, direction: "alle", search: "", ohneDatei: true });
+    expect(offen.map(({ id }) => id)).toEqual([rows[0]!.id]);
   });
 
   it("ordnet bereits importierte Belege anhand des gespeicherten XML-Dateinamens ein", async () => {
@@ -137,6 +133,9 @@ describe.skipIf(!testDatabaseUrl)("sevDesk ohne API: Export-ZIP übernehmen (Pos
     const year = (await lex.reconciliation()).years.find((year) => year.year === 2024);
     const check = year?.checks.find((check) => check.label === "Belege aus dem sevDesk-Export übernommen");
     expect(check?.detail).toContain("1 ohne Belegbild im Export, 1 Datei fehlt im Export");
+    const filter = { year: 2024, direction: "alle", search: "" } as const;
+    expect((await lex.listLegacyVouchers({ ...filter, ohneDatei: true })).map(({ number }) => number)).toEqual(["ALT-2"]);
+    expect((await lex.listLegacyVouchers({ ...filter, ohneDatei: false })).map(({ number }) => number)).toEqual(["ALT-1", "ALT-2"]);
   });
 
   it("lehnt eine fremde ZIP mit Grund ab und legt nichts an", async () => {
