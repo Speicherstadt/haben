@@ -177,7 +177,7 @@ Liegen im Zeitraum einer neuen Datei schon Umsätze aus einem anderen Format ode
 
 ### Saldenprüfung
 
-Haben vergleicht den Anfangssaldo der neuen Datei mit dem Endsaldo des vorigen Imports desselben Kontos. Passen sie nicht zusammen und überschneiden sich die Zeiträume nicht, meldet Haben eine Lücke mit Differenz, etwa: „Lücke: Anfangssaldo … passt nicht zum Endsaldo … des vorigen Imports. … vermutlich fehlen Umsätze dazwischen.“ Importiert wird trotzdem. Passen sie nicht zusammen und überschneiden sich die Zeiträume, kommt statt der Lückenmeldung ein Hinweis auf die Überschneidung.
+Haben vergleicht den Anfangssaldo der neuen Datei mit dem Endsaldo des vorigen Imports desselben Kontos; ein später beginnender Import zählt dafür nicht. Passen sie nicht zusammen, meldet Haben eine Lücke mit Differenz, etwa: „Lücke: Anfangssaldo … passt nicht zum Endsaldo … des vorigen Imports. … vermutlich fehlen Umsätze dazwischen.“ Reicht der vorige Import über den Anfang der neuen Datei hinaus, kommt stattdessen ein Hinweis auf die Überschneidung. Importiert wird trotzdem.
 
 Bei DKB-CSV leitet Haben die Salden aus dem Kontostand im Dateikopf ab, wenn dessen Datum zum Zeitraum der Umsätze passt. Swan-CSV nennt beide Salden im Kopfblock. ING-CSV führt den Kontostand nach jeder Buchung; Haben übernimmt die Salden, wenn diese Spalte lückenlos aufgeht, sonst kommt ein Hinweis. Deutsche Bank, Norisbank und Postbank nennen den letzten Kontostand im Kopfblock und den am Ende der Datei; Haben übernimmt beide, wenn die Differenz aufgeht, sonst kommt ein Hinweis. N26-, Commerzbank- und C24-CSV und ein gefilterter ING-Export haben keine Salden; dort entfällt die Prüfung.
 
