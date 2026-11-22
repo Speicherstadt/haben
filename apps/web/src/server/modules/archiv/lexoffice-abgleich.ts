@@ -53,7 +53,6 @@ export function abgleichJahr(year: number, d: AbgleichDaten) {
   const sevdeskExport = sevdeskExportYear(yearRows);
   const unchecked = vouchers.filter((v) => v.status === "unchecked").length;
   const bookings = d.bookingRows.get(year);
-  // Ist-Versteuerung: Zahlungen aus dem Zahlungsstatus; sonst Belegdatum
   const vatIssue = vatIssueOf(year, d);
   const vat = vatIssue ? [] : jahresUmsatzsteuer(year, d);
   const checks = jahresPruefungen(year, d, { vouchers, yearRows, fileStatuses, sevdeskExport });
@@ -116,7 +115,7 @@ function jahresSummen(year: number, d: AbgleichDaten, vouchers: Beleg[], yearRow
   };
 }
 
-/** Umsatzsteuer je Monat des Jahres; bei Ist-Versteuerung zählen alle Belege mit ihren Zahlungen, sonst die des Jahres */
+/** Umsatzsteuer je Monat des Jahres; bei Ist-Versteuerung nach den Zahlungen aus dem Zahlungsstatus, sonst nach Belegdatum */
 function jahresUmsatzsteuer(year: number, { businessRows, versteuerung, taxSets }: AbgleichDaten) {
   return legacyVatByMonth(
     businessRows

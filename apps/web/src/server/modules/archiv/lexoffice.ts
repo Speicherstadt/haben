@@ -808,7 +808,7 @@ async function abgleichBelege(rechtsform: Rechtsform) {
 }
 export type AbgleichBelege = Awaited<ReturnType<typeof abgleichBelege>>;
 
-/** Was außer den Belegen im Archiv liegt: DATEV-Stapel, Dateien, Protokolle, Steuerarten, wartende FastBill-Belege */
+/** Was der Abgleich außer den Belegen braucht: DATEV-Stapel, Dateien, Protokolle, letzter Abruf, Steuerarten und die offenen Punkte aus FastBill */
 async function abgleichArchiv(kontenrahmen: Kontenrahmen) {
   const bookingRows = await datevBookingCounts(kontenrahmen);
   const files = await db.select({ kind: schema.archiveFiles.kind, year: schema.archiveFiles.year }).from(schema.archiveFiles);
