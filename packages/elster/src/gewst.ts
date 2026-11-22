@@ -46,6 +46,9 @@ export function buildGewStXml(input: GewStXmlInput): string {
   }
   if (!input.gegenstand.trim()) throw new ElsterEingabeError("Der Gegenstand des Unternehmens fehlt.");
   const h = input.hinzurechnungen;
+  // GewSt 1 A, Allgemeines: zugunsten des Steuerpflichtigen auf ganze Euro runden. Bei Zeile 52 senkt der kleinere Wert die Bemessungsgrundlage.
+  // https://www.elster.de/eportal/helpGlobal?themaGlobal=help_gewst_ufa_20_2025
+  const stilleGesellschafterEuro = Math.floor(h.stilleGesellschafter / 100);
   const gewst: XmlNode = [
     "GewSt1A",
     [
@@ -83,7 +86,7 @@ export function buildGewStXml(input: GewStXmlInput): string {
             [
               ["E4003202", euro(h.zinsen)],
               ["E4003302", euro(h.renten)],
-              ["E4003407", euro(h.stilleGesellschafter)],
+              ["E4003407", stilleGesellschafterEuro === 0 ? undefined : String(stilleGesellschafterEuro)],
               ["E4003502", euro(h.beweglich)],
               ["E4004402", euro(h.elektro)],
               ["E4003602", euro(h.unbeweglich)],
