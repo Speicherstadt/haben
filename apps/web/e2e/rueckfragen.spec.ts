@@ -681,18 +681,18 @@ test("Umzug: Die Frage eines inzwischen beendeten Abrufs kommt beim nächsten Ab
   await expect(rueckfrage("Abruf abbrechen?")).toHaveCount(0, { timeout: 10_000 });
 
   // Später ein neuer Abruf. Der Start-Aufruf bräuchte einen echten Schlüssel; hier legt er nur den Lauf an wie der Server
-  await page.route(
-    (url) => url.pathname.includes("_serverFn"),
-    async (route) => {
-      if (route.request().method() !== "POST") return route.fallback();
-      await sql`insert into lexoffice_imports (source, status, progress) values ('lexoffice', 'laeuft', ${fortschritt}::jsonb)`;
-      return route.continue({ url: antwort.url(), method: "GET" });
-    },
-  );
+  const serverFn = (url: URL) => url.pathname.includes("_serverFn");
+  await page.route(serverFn, async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    await sql`insert into lexoffice_imports (source, status, progress) values ('lexoffice', 'laeuft', ${fortschritt}::jsonb)`;
+    return route.continue({ url: antwort.url(), method: "GET" });
+  });
   await page.getByRole("button", { name: "Erneut abrufen" }).click();
   await expect(page.getByText("Läuft: Belege und Dateien")).toBeVisible({ timeout: 10_000 });
 
   await expect(rueckfrage("Abruf abbrechen?")).toHaveCount(0);
+  // Die Route nur für diesen Test aufheben: sonst fängt sie die Server-Aufrufe der nachfolgenden Tests ab
+  await page.unroute(serverFn);
 });
 
 test("Bank: ein zweites Konto für denselben Marktplatz fragt vorher nach (#1779)", async () => {
