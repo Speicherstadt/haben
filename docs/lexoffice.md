@@ -78,8 +78,6 @@ Das Skript ändert nichts in Lexware Office. Es ruft nur die Adressen auf, die d
 
 Belege, die das Skript nicht laden konnte, stehen in der ZIP-Datei und nach dem Hochladen in Schritt 2 unter den offenen Punkten beim Abruf. Lässt du das Skript später noch einmal laufen und lädst die neue Sicherung hoch, überspringt Haben alles, was schon da ist, und holt die fehlenden nach — auch das Original-PDF einer Rechnung und jeden einzelnen fehlenden Anhang eines Belegs.
 
-Der Fortschritt unter **Dateien** zählt alle in diesem Lauf neu gespeicherten Dateien. Dazu gehören auch Dateien, die Haben an bereits archivierte Belege anhängt.
-
 Buchungen, Bankumsätze, Voranmeldungen und Anlagen holst du wie beim Abruf über die API aus den Exporten (Schritt 4).
 
 ### Darf ich das?
@@ -167,6 +165,8 @@ Haben liest nur. Es legt in Lexware Office nichts an und ändert nichts. Nach de
 1. **Kontakte:** alle Kontakte mit Name, Rolle (Kunde, Lieferant oder beides; ohne Rolle als Kunde), Kunden- und Lieferantennummer, Rechnungsadresse (sonst Lieferadresse), erster E-Mail-Adresse und USt-IdNr. Archivierte Kontakte werden in Haben archiviert angelegt.
 2. **Belegliste:** alle Ausgangsrechnungen, Gutschriften und Abschlagsrechnungen aus dem Rechnungsmodul sowie alle Einnahme- und Ausgabebelege samt Gutschriften aus der Buchhaltung, archiviert und nicht archiviert. Entwürfe bleiben draußen; Schritt 2 nennt ihre Zahl unter „Übergangen, kein Beleg“.
 3. **Belege und Dateien:** je Beleg die Details, der Zahlungsstatus mit den einzelnen Zahlungen, das Original-PDF, bei E-Rechnungen das XML und bei Buchhaltungsbelegen alle angehängten Dateien. Die Kategorien aus Lexware Office kommen mit ihrem Namen dazu.
+
+Der Fortschritt unter **Dateien** zählt sowohl beim API-Abruf als auch beim ZIP-Import die neu an Belegen gespeicherten Dateien. Dazu gehören auch Dateien, die Haben an bereits archivierte Belege anhängt.
 
 Die Antwort der API wird je Beleg vollständig gespeichert, zum Nachweis. Beträge rechnet Haben in Cent um; maßgeblich sind Brutto und Steuer des Belegs, Netto ergibt sich daraus. Bei Schlussrechnungen rechnet Haben die verrechneten Abschläge je Steuersatz heraus, die Beträge entsprechen also dem geforderten Restbetrag. Die Abschlagsrechnungen sind eigene Belege; so zählen ihre Umsätze und Steuern im Abgleich und bei den offenen Posten nicht doppelt. Das gilt für Belege, die mit dieser Version abgerufen werden; schon gespeicherte Belege bleiben unverändert.
 
