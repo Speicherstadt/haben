@@ -1,7 +1,7 @@
 # Haben – Backup-Container: pg_dump und restic. backup.sh nimmt das pg_dump der Major-Version, in der die
 # Datenbank läuft: Ein Dump eines neueren pg_dump lässt sich in eine ältere Datenbank nicht einspielen.
-# Eingebaut sind die Versionen von UPGRADE_FROM an wie im Datenbank-Image (deploy/db), dazu eine neuere Version
-# als dort: Eine eigene Datenbank (etwa im Kubernetes-Cluster) kann schon eine neuere Version haben.
+# Eingebaut sind die Versionen von UPGRADE_FROM an wie im Datenbank-Image (deploy/db). Eine eigene Datenbank
+# (etwa im Kubernetes-Cluster) mit neuerer Version braucht ein Backup-Image mit dieser Version.
 # Compose betreibt ihn als Dienst mit täglichem Zeitplan, die Quadlets starten ihn über haben-backup.timer
 # einmal am Tag. Gebaut wird aus deploy/backup:  podman build -t haben-backup -f Containerfile deploy/backup
 FROM ghcr.io/restic/restic:0.20.0 AS restic
