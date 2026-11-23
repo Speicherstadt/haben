@@ -41,6 +41,7 @@ const FIELDS: FieldKey[] = [
   "kz46",
   "kz47",
   "kz48",
+  "kz50",
   "kz61",
   "kz62",
   "kz66",

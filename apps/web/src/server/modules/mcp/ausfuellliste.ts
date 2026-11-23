@@ -73,6 +73,12 @@ const FELDER: { kz: Feld; abschnitt: string; bezeichnung: string; volleEuro: boo
   },
   { kz: "kz45", abschnitt: "Ergänzende Angaben zu Umsätzen", bezeichnung: "Übrige nicht steuerbare Umsätze (Leistungsort nicht im Inland)", volleEuro: true },
   {
+    kz: "kz50",
+    abschnitt: "Ergänzende Angaben zu Umsätzen",
+    bezeichnung: "Minderung der Bemessungsgrundlage nach § 17 Abs. 1 Satz 1 i. V. m. Abs. 2 Nr. 1 Satz 1 UStG (in Kz 81 und 86 enthalten)",
+    volleEuro: true,
+  },
+  {
     kz: "kz66",
     abschnitt: "Abziehbare Vorsteuerbeträge",
     bezeichnung: "Vorsteuerbeträge aus Rechnungen von anderen Unternehmern (§ 15 Abs. 1 Satz 1 Nr. 1 UStG)",

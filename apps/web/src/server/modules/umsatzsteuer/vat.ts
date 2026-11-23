@@ -62,6 +62,8 @@ export interface FiguresInput {
   kz93?: Cents;
   kz61?: Cents;
   kz62?: Cents;
+  /** Minderung der Bemessungsgrundlage bei Uneinbringlichkeit */
+  kz50?: Cents;
   /** Abzug der Sondervorauszahlung in der letzten Voranmeldung des Jahres */
   kz39?: Cents;
 }
@@ -86,6 +88,7 @@ function stored(ustva: ReturnType<typeof computeUstva>) {
     kz93: ustva.kz93,
     kz61: ustva.kz61,
     kz62: ustva.kz62,
+    kz50: ustva.kz50,
     kz39: ustva.kz39,
     kz83: ustva.kz83,
   };
@@ -190,6 +193,7 @@ export async function createCorrection(actor: string, period: VatPeriod): Promis
         kz93: latest.kz93,
         kz61: latest.kz61,
         kz62: latest.kz62,
+        kz50: latest.kz50,
         kz39: latest.kz39,
         kz83: latest.kz83,
         source: uebernommen ? "manuell" : latest.source,

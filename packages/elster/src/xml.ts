@@ -23,7 +23,10 @@ export interface UstvaXmlInput {
   steuernummer13: string;
   figures: Pick<UstvaFigures, "kz81" | "kz86" | "kz66" | "kz83"> &
     Partial<
-      Pick<UstvaFigures, "kz21" | "kz45" | "kz48" | "kz46" | "kz47" | "kz84" | "kz85" | "kz67" | "kz39" | "kz41" | "kz43" | "kz89" | "kz93" | "kz61" | "kz62">
+      Pick<
+        UstvaFigures,
+        "kz21" | "kz45" | "kz48" | "kz46" | "kz47" | "kz84" | "kz85" | "kz67" | "kz39" | "kz41" | "kz43" | "kz89" | "kz93" | "kz61" | "kz62" | "kz50"
+      >
     >;
   datenlieferant: Datenlieferant;
   herstellerId: string;
@@ -222,6 +225,7 @@ export function ustvaNutzdaten(input: UstvaNutzdatenInput): string[] {
   base("46", figures.kz46);
   tax("47", figures.kz47);
   base("48", figures.kz48);
+  base("50", figures.kz50);
   tax("61", figures.kz61);
   tax("62", figures.kz62);
   tax("66", figures.kz66);

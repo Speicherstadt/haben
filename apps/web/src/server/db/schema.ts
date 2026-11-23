@@ -299,6 +299,8 @@ export const vatReturns = pgTable(
     kz61: integer("kz61").$type<Cents>().notNull().default(0),
     /** Entstandene Einfuhrumsatzsteuer (§ 15 Abs. 1 Satz 1 Nr. 2 UStG) */
     kz62: integer("kz62").$type<Cents>().notNull().default(0),
+    /** Minderung der Bemessungsgrundlage bei Uneinbringlichkeit (§ 17 Abs. 2 Nr. 1 UStG), in Kz 81/86 schon enthalten */
+    kz50: integer("kz50").$type<Cents>().notNull().default(0),
     /** Abzug der Sondervorauszahlung (Dauerfristverlängerung) in der letzten Voranmeldung des Jahres */
     kz39: integer("kz39").$type<Cents>().notNull().default(0),
     kz83: integer("kz83").$type<Cents>().notNull().default(0),
@@ -329,6 +331,7 @@ export const vatReturns = pgTable(
       kz93?: Cents;
       kz61?: Cents;
       kz62?: Cents;
+      kz50?: Cents;
       kz39?: Cents;
       kz83: Cents;
     }>(),

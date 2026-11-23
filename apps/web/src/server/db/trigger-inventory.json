@@ -3946,6 +3946,7 @@
     { "table": "public.vat_returns", "column": "kz46", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz47", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz48", "expression": "0" },
+    { "table": "public.vat_returns", "column": "kz50", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz61", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz62", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz66", "expression": "0" },

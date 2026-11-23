@@ -7,6 +7,7 @@ export type FieldKey =
   | "kz21"
   | "kz45"
   | "kz48"
+  | "kz50"
   | "kz66"
   | "kz46"
   | "kz47"
@@ -57,6 +58,14 @@ function kennzahlZeilen(data: PageData, shown: Ustva, computed: Ustva, editable:
       tax: null,
       sources: treated("drittland"),
     },
+    {
+      kz: "50",
+      field: "kz50" as const,
+      label: "Minderung der Bemessungsgrundlage bei Forderungsausfall (in Kz 81 und 86 enthalten)",
+      base: shown.kz50,
+      tax: null,
+      sources: data.figures.revenue.filter((r) => r.writeOffKind === "forderungsausfall" && r.treatment === "regulaer" && (r.rate === 1900 || r.rate === 700)),
+    },
     { kz: "48", field: "kz48" as const, label: "Steuerfreie Umsätze ohne Vorsteuerabzug", base: shown.kz48, tax: null, sources: treated("steuerfrei") },
     {
       kz: "41",
@@ -74,7 +83,7 @@ function kennzahlZeilen(data: PageData, shown: Ustva, computed: Ustva, editable:
       tax: null,
       sources: treated("ausfuhr"),
     },
-    // Kz 21, 45, 48, 41 und 43 nur zeigen, wenn es dort etwas gibt oder von Hand eingetragen wird
+    // Kz 21, 45, 50, 48, 41 und 43 nur zeigen, wenn es dort etwas gibt oder von Hand eingetragen wird
   ].filter((row) => ["81", "86"].includes(row.kz) || editable || row.base !== 0 || computed[row.field] !== 0);
   // § 13b als Leistungsempfänger: Bemessungsgrundlage und Steuer, nur wenn belegt oder von Hand
   const rcSources = (kind: "eu" | "drittland") => data.figures.reverseCharge.filter((r) => r.reverseCharge === kind);

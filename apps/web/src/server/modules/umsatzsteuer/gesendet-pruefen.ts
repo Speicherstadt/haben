@@ -8,6 +8,8 @@ import { computedValues } from "./vat.ts";
  * Haben den Zeitraum heute anders, hat eine Buchung oder eine Codeänderung ein angemeldetes Jahr still verändert. Je
  * Zeitraum zählt die zuletzt gesendete Anmeldung (auch eine Berichtigung). Bei von Hand überschriebenen Kennzahlen
  * (source „manuell“) wird mit den beim Speichern berechneten Werten verglichen (`computed`), nicht mit den gesendeten.
+ * Kz 50 (#1267) fehlt im Vergleich: Sie wiederholt nur, was Kz 81/86 schon mindern, ändert keine Steuer, und vor
+ * #1267 gesendete Anmeldungen haben sie nicht.
  */
 
 /** Die gespeicherten Kennzahlen einer Anmeldung, wie computedValues sie liefert */

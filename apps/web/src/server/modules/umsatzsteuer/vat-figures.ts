@@ -13,6 +13,7 @@ import {
 import { and, eq, gte, isNull, lt, ne, notInArray, or, sql } from "drizzle-orm";
 import { privateUseForMonth } from "../buchhaltung/index.ts";
 import { kleinunternehmerForMonth } from "../stammdaten/index.ts";
+import { ausbuchungsQuelle } from "./ausbuchung-quelle.ts";
 import { vorsteuerAusBelegen } from "./vorsteuer-belege.ts";
 import { kennzahlenAusDemJournal } from "./vat-journal.ts";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
@@ -28,6 +29,8 @@ export interface RevenueSource {
   type: "payment" | "invoice" | "entnahme" | "ausbuchung" | "direkt" | "kasse";
   /** Bei Entnahmen: das Fahrzeug */
   assetId?: string;
+  /** Bei Ausbuchungen: Skonto gewährt oder Forderungsausfall (dieser zählt bei 19 % und 7 % zusätzlich in Kz 50) */
+  writeOffKind?: "skonto" | "forderungsausfall";
   /** Bei Direktbuchungen: der Bankumsatz */
   transactionId?: string;
   /** Bei Bareinnahmen ohne Rechnung: die Zeile im Kassenbuch */
@@ -112,6 +115,8 @@ export interface VatFigures {
   kz61: Cents;
   /** Entstandene Einfuhrumsatzsteuer laut Bescheid des Zolls (Beleg der Kategorie „Einfuhrumsatzsteuer“), nach Belegdatum */
   kz62: Cents;
+  /** Minderung der Bemessungsgrundlage bei Uneinbringlichkeit (Forderungsausfall bei Soll), in Kz 81/86 schon enthalten */
+  kz50: Cents;
   /** Regulär besteuerte Umsätze zu 0 %, die in dieser Voranmeldung nicht gemeldet werden */
   steuerfrei: Cents;
   revenue: RevenueSource[];
@@ -332,6 +337,8 @@ export async function computeVatFigures(period: VatPeriod, q: Db | Tx = db, cont
     const rows = await q
       .select({
         date: schema.writeOffs.date,
+        // Nicht „kind“: das hieße für invoiceMode etwas anderes (TaxMetadata)
+        writeOffKind: schema.writeOffs.kind,
         amount: schema.writeOffs.amount,
         taxShares: schema.writeOffs.taxShares,
         taxSharesInvoiceId: schema.writeOffs.taxSharesInvoiceId,
@@ -366,20 +373,7 @@ export async function computeVatFigures(period: VatPeriod, q: Db | Tx = db, cont
       const stored = r.taxSharesInvoiceId === r.invoiceId ? r.taxShares?.map((t) => ({ rate: t.rate, base: -t.base, tax: -t.tax })) : null;
       const voll = totals.get(r.invoiceId)!;
       const shares = recordedTaxShares(voll, -r.amount, stored, mix.get(r.invoiceId) ?? [voll]);
-      for (const share of shares) {
-        revenue.push({
-          type: "ausbuchung",
-          date: r.date,
-          invoiceId: r.invoiceId,
-          number: r.number ?? "",
-          customer: r.buyer?.name ?? "",
-          treatment: r.treatment,
-          exemptionReason: r.exemptionReason,
-          rate: share.rate,
-          base: share.base,
-          tax: share.tax,
-        });
-      }
+      for (const share of shares) revenue.push(ausbuchungsQuelle(r, share));
     }
   }
 
