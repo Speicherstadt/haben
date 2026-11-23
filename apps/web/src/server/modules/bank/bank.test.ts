@@ -1019,6 +1019,107 @@ describe.skipIf(!testDatabaseUrl)("Bankabgleich (Postgres)", () => {
     30_000,
   );
 
+  const AMAZON_HEADER = [
+    "settlement-id",
+    "settlement-start-date",
+    "settlement-end-date",
+    "deposit-date",
+    "total-amount",
+    "currency",
+    "transaction-type",
+    "order-id",
+    "merchant-order-id",
+    "adjustment-id",
+    "shipment-id",
+    "marketplace-name",
+    "amount-type",
+    "amount-description",
+    "amount",
+    "fulfillment-id",
+    "posted-date",
+    "posted-date-time",
+    "order-item-code",
+    "merchant-order-item-id",
+    "merchant-adjustment-item-id",
+    "sku",
+    "quantity-purchased",
+    "promotion-id",
+  ].join("\t");
+
+  const AMAZON_CASES = [
+    { kontenrahmen: "SKR03", versteuerung: "ist", accounts: { bank: "1200", ust: "1776", fee: "4970", revenue: "8400" } },
+    { kontenrahmen: "SKR03", versteuerung: "soll", accounts: { bank: "1200", ust: "1776", fee: "4970", revenue: "8400" } },
+    { kontenrahmen: "SKR04", versteuerung: "ist", accounts: { bank: "1800", ust: "3806", fee: "6855", revenue: "4400" } },
+    { kontenrahmen: "SKR04", versteuerung: "soll", accounts: { bank: "1800", ust: "3806", fee: "6855", revenue: "4400" } },
+  ] as const;
+
+  it.each(AMAZON_CASES)(
+    "Amazon ($kontenrahmen, $versteuerung): Bestellung brutto zur Rechnung, Gebühren als Aufwand, Auszahlung als Geldtransit",
+    async ({ kontenrahmen, versteuerung, accounts }) => {
+      await sql`update company set kontenrahmen = ${kontenrahmen}, versteuerung = ${versteuerung}`;
+      const { invoice } = await finalInvoice(10_000);
+      const amazon = await bank.createProviderAccount(actor, { name: "Amazon", provider: "amazon" });
+      const line = (type: string, order: string, amountType: string, description: string, amount: string) => {
+        const c = Array(24).fill("");
+        c[0] = "28165578252";
+        c[6] = type;
+        c[7] = order;
+        c[8] = order;
+        c[11] = "Amazon.de";
+        c[12] = amountType;
+        c[13] = description;
+        c[14] = amount;
+        c[15] = "AFN";
+        c[16] = "03.10.2026";
+        c[17] = "03.10.2026 12:00:00 UTC";
+        return c.join("\t");
+      };
+      const head = Array(24).fill("");
+      head[0] = "28165578252";
+      head[1] = "01.10.2026 00:00:00 UTC";
+      head[2] = "15.10.2026 00:00:00 UTC";
+      head[3] = "17.10.2026 00:00:00 UTC";
+      head[4] = "104,73";
+      head[5] = "EUR";
+      const report = [
+        AMAZON_HEADER,
+        head.join("\t"),
+        line("Order", "1-11111-11111", "ItemPrice", "Principal", "119,00"),
+        line("Order", "1-11111-11111", "ItemFees", "Commission", "-14,27"),
+      ].join("\n");
+      const file = { bytes: new TextEncoder().encode(report), filename: "amazon-settlement.txt" };
+      expect(await bank.importStatement(actor, file, amazon.id)).toMatchObject({ added: 3 });
+      expect(await bank.importStatement(actor, file, amazon.id)).toMatchObject({ added: 0 });
+      await bank.importStatement(
+        actor,
+        {
+          bytes: dkbCsv([incoming("18.10.26", "Amazon Payments Europe S.C.A.", "LU280019410000000000", "Amazon Auszahlung 28165578252", "104,73")]),
+          filename: "dkb.csv",
+        },
+        null,
+      );
+
+      const [payment] = await sql`select id from bank_transactions where amount = 11900`;
+      const [fee] = await sql`select id from bank_transactions where amount = -1427`;
+      const [payout] = await sql`select id from bank_transactions where amount = -10473`;
+      const [incomingPayout] = await sql`select id from bank_transactions where amount = 10473`;
+      await bank.allocate(actor, { kind: "invoice", transactionId: payment!.id, invoiceId: invoice.id, amount: 11_900 });
+      await bank.allocate(actor, { kind: "gebuehren", transactionId: fee!.id, amount: -1_427 });
+      expect((await bank.transactionDetail(payout!.id))?.direct).toMatchObject({ kind: "geldtransit", counterpart: { id: incomingPayout!.id } });
+      expect((await bank.transactionDetail(incomingPayout!.id))?.direct).toMatchObject({ kind: "geldtransit", counterpart: { id: payout!.id } });
+      await bank.allocateTransfer(actor, { transactionId: incomingPayout!.id, counterpartId: payout!.id });
+
+      const balances = Object.fromEntries(
+        (await sql`select account, sum(debit - credit)::int as saldo from journal_lines group by account having sum(debit - credit) <> 0 order by 1`).map(
+          (r) => [r.account, r.saldo],
+        ),
+      );
+      expect(balances).toEqual({ [accounts.bank]: 10_473, [accounts.ust]: -1_900, [accounts.fee]: 1_427, [accounts.revenue]: -10_000 });
+      expect((await bank.listAccounts()).find((a) => a.id === amazon.id)).toMatchObject({ providerBalance: 0, openCount: 0 });
+    },
+    30_000,
+  );
+
   it("Gebühren eines Monats der Sammelrechnung des Dienstleisters zuordnen", async () => {
     const stripe = await bank.createProviderAccount(actor, { name: "Stripe", provider: "stripe" });
     const csv = [

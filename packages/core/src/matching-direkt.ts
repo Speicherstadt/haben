@@ -19,6 +19,7 @@ export const PAYMENT_PROVIDERS = {
   shopify: { label: "Shopify Payments", pattern: /shopify/i },
   etsy: { label: "Etsy Payments", pattern: /etsy/i },
   ebay: { label: "eBay", pattern: /ebay/i },
+  amazon: { label: "Amazon", pattern: /amazon/i },
   sumup: { label: "SumUp", pattern: /sum ?up/i },
   // Auszahlender laut Auszahlungsbeleg: Google Payment Ireland Ltd bzw. Apple Distribution International Ltd. Für Apple an
   // echten Kontoauszügen bestätigt („APPLE DISTRIBUTION INTL LTD“, #1628); den Absender „Apple Inc“ erkennt
