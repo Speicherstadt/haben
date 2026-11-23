@@ -10,6 +10,7 @@ import { NoticeBanner } from "../../../components/NoticeBanner.tsx";
 import { useAction } from "../../../lib/use-action.ts";
 import { cancelFinalInvoice, correctFinalInvoice } from "../../../server/functions/invoices.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
+import { KorrekturAktionen } from "../../../components/KorrekturAktionen.tsx";
 import { OutcomeStatus } from "../../../components/Status.tsx";
 import { Payments, WriteOffs } from "./-rechnung-zahlungen.tsx";
 import { type Detail, titleOf } from "./-rechnung-daten.ts";
@@ -190,14 +191,7 @@ export function FinalInvoice({ data }: { data: Detail }) {
               >
                 <p>Es wird sofort eine Stornorechnung mit neuer Nummer erzeugt und gebucht.</p>
               </ConfirmDialog>
-              <div className="actions">
-                <button type="button" className="btn btn-danger" onClick={() => setConfirming(true)} disabled={busy}>
-                  Stornieren
-                </button>
-                <button type="button" className="btn" onClick={onCorrect} disabled={busy}>
-                  Rechnungskorrektur anlegen
-                </button>
-              </div>
+              <KorrekturAktionen busy={busy} onCancel={() => setConfirming(true)} onCorrect={onCorrect} />
             </section>
           )}
         </div>
