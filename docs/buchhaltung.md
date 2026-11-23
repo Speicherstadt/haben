@@ -323,7 +323,7 @@ Auf der Seite **Buchungen** steht der Knopf **Buchung erfassen**. Damit buchst d
 | Auslagen des Gesellschafters in ein längerfristiges Darlehen umwandeln | 0730 an 0740 Verbindlichkeiten gegenüber Gesellschaftern, Restlaufzeit 1 bis 5 Jahre | 3510 an 3514 |
 | Falsche Kontierung umbuchen | neues an altes Aufwandskonto | ebenso |
 
-Eine Zeile hat ein Konto mit vier Ziffern und einen Betrag im Soll oder im Haben, bis zu 20 Zeilen je Buchung; Soll und Haben müssen gleich sein. Die Kontobezeichnung erscheint, wenn Haben das Konto kennt.
+Eine Zeile hat ein Konto mit vier Ziffern und einen Betrag im Soll oder im Haben, bis zu 20 Zeilen je Buchung; Soll und Haben müssen gleich sein. Ins Kontofeld tippst du die Nummer oder einen Teil der Bezeichnung, etwa „kapital“; die Liste zeigt die passenden Konten mit Nummer, Pfeiltasten und Enter oder ein Klick übernehmen die Nummer. Die Kontobezeichnung erscheint, wenn Haben das Konto kennt.
 
 Im Einzelunternehmen steht neben einem Erfolgskonto nur ein Privatkonto, etwa eine Ausgabe ohne Beleg, privat bezahlt (Aufwand an Privateinlagen). Jedes Erfolgskonto braucht eine Zeile der Anlage EÜR; Zahlungen gehen über Bank oder Kasse.
 
