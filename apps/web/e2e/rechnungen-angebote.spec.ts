@@ -4,12 +4,13 @@ import type { Durchlauf } from "./durchlaeufe.ts";
 import { statusBleibtSichtbar } from "./kopfzeile.ts";
 import { axeVerstoesse, bestaetigen, durchlaufSeite, gehe, kundeWaehlen, ohneAxeVerstoesse, rechnungFestschreiben } from "./einrichtung.ts";
 import { abzugEinspielen } from "./abzug.ts";
+import { eingabeNachAktion, fokusNachFehlschlag } from "./felder-sperre.ts";
 
 /**
  * Abschnitt von rechnungen (#1742) mit eigenem Server und eigener Datenbank, parallel zu den anderen Abschnitten:
  * Angebote bis zur Abschlags- und Schlussrechnung, Versand per E-Mail mit Anhängen, Leistungen und ihre Abrechnung,
- * Verrechnung, „Bereits bezahlt“, Festschreiben nach dem Speichern, Artikel-API, Kopieren und Zeiteinträge auf der
- * Kontaktseite.
+ * Verrechnung, „Bereits bezahlt“, Festschreiben nach dem Speichern, gesperrte Felder beim Speichern (auch der
+ * wiederkehrenden Rechnung), Artikel-API, Kopieren und Zeiteinträge auf der Kontaktseite.
  * Beginnt mit dem Abzug nach der Einrichtung mit drei Kunden und einer festgeschriebenen Rechnung in rechnungen.spec.ts
  * (e2e/abzug.ts).
  */
@@ -778,6 +779,36 @@ test("Kopieren mit Fehler im Entwurf: der Fokus steht auf dem Feld mit Fehler, n
   await page.getByRole("button", { name: "Entwurf löschen", exact: true }).click();
   await bestaetigen(page, "Entwurf löschen");
   await expect(page).toHaveURL(/\/rechnungen(?:\?.*)?$/);
+});
+
+test("Wiederkehrende Rechnung: Eingaben direkt nach dem Speichern bleiben erhalten (#1793)", async () => {
+  await go("/rechnungen/wiederkehrend/neu");
+  const bezeichnung = page.getByLabel("Bezeichnung");
+  await bezeichnung.fill("Wartung Sperre");
+  await kundeWaehlen(page);
+  await page.getByLabel("Beschreibung Position 1").fill("Wartung");
+  await page.getByLabel(/Einzelpreis Position 1/).fill("100,00");
+  await page.getByRole("button", { name: "Vorlage anlegen" }).click();
+  await page.waitForURL(/\/rechnungen\/wiederkehrend\/[0-9a-f-]{36}$/);
+  // Das Formular der neuen Seite, nicht mehr das von „neu“
+  await expect(page.getByRole("heading", { name: "Wartung Sperre", level: 1 })).toBeVisible();
+
+  await bezeichnung.fill("Wartung gespeichert");
+  await eingabeNachAktion(page, {
+    aktion: page.getByRole("button", { name: "Speichern", exact: true }),
+    feld: bezeichnung,
+    text: "Gleich danach getippt",
+    neuGeladen: page.getByRole("heading", { name: "Wartung gespeichert", level: 1 }),
+  });
+});
+
+test("Wiederkehrende Rechnung: Speichern schlägt fehl, der Fokus steht danach wieder im Feld (#1793)", async () => {
+  // Die Vorlage aus dem Test davor
+  await fokusNachFehlschlag(page, page.getByLabel("Bezeichnung"));
+  // Die Vorlage gehört nur diesen beiden Tests
+  await page.getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(page, "Vorlage löschen");
+  await expect(page).toHaveURL(/\/rechnungen\/wiederkehrend(?:\?.*)?$/);
 });
 
 test("Artikel-API: Rechte, Anlegen, Suchen und Ändern im Katalog (#297)", async ({ request }) => {
