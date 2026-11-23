@@ -199,6 +199,8 @@ Inhalte stehen in `.card`: Fläche `--surface`, Linie `--line`, Schatten `--shad
 
 Karte in Karte gibt es nicht: Ist ein Dialog oder Blatt selbst die Karte, verliert der Inhalt seinen Rahmen (wie das Formular im `NewContactDialog`).
 
+Zeigt ein Link auf eine Zeile einer Tabelle, etwa aus der BWA auf eine Buchung im Kontenblatt (`#buchung-…`), trägt die Zeile `aria-current` und die Fläche `--accent-soft` wie der aktive Bereich der Einstellungen, rollt in die Mitte und bekommt den Fokus (`tabindex="-1"`, Ring aus `:focus-visible`). Am Handy, wo die Zeile eine Karte ist, ragt die Fläche 8px in den Rand. Das setzt die Seite nach dem Laden; `:target` allein greift nicht, weil ein Link innerhalb der App die Seite nicht neu lädt.
+
 Hinweise (`.banner`) als direkte Kinder von `<main>` stehen 24px von ihren Nachbarn, folgen zwei aufeinander, nur 12px. Der Hinweis „ERiC ist nicht eingerichtet“ ist die Komponente `EricHinweis`, nie ein eigener Text; sein Link bricht nicht um.
 
 ### Blätter am Handy
