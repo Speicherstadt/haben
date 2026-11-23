@@ -1,11 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { abweichung, type BwaEuerPosten, FORM43_ZEILEN, form43, form43Anteile, form43KostenartZeile, form43Zeile, type Form43Zeile } from "./bwa.ts";
+import {
+  abweichung,
+  type BwaEuerPosten,
+  FORM43_ZEILEN,
+  form43,
+  form43Anteile,
+  form43KostenartZeile,
+  form43Zeile,
+  type Form43Zeile,
+  kontenblattKonto,
+} from "./bwa.ts";
 import { bwaZeitraum } from "./bwa-zeitraum.ts";
 import { kostenartOf } from "./bwa-kostenart.ts";
 import { euerErgebnis, type EuerLineKey } from "./euer.ts";
 import { postenOf } from "./hgb.ts";
 import { euerZuordnung } from "./journal-euer.ts";
 import { ACCOUNT_NAMES } from "./kontenplan.ts";
+import { LOHN_KONTEN } from "./lohn-buchung.ts";
 import { PAUSCHALE_KONTEN, type PauschaleArt } from "./pauschalen.ts";
 import { ACCOUNTS, EXPENSE_CATEGORIES, type ExpenseCategory, type Kontenrahmen } from "./posting.ts";
 
@@ -38,7 +49,7 @@ const ALLE: EuerLineKey[] = [
   ...(Object.keys(PAUSCHALE_KONTEN) as PauschaleArt[]).map((k) => `pauschale:${k}` as const),
 ];
 
-const quelle = { buchungId: "b", sourceType: "allocation", sourceId: "s", rechnungId: null, belegId: null };
+const quelle = { buchungId: "b", sourceType: "allocation", sourceId: "s", rechnungId: null, belegId: null, konto: null, buchungsdatum: "2026-01-01" };
 const posten = (datum: string, zeilen: BwaEuerPosten["zeilen"], kr: Kontenrahmen = "SKR03", extra: Partial<BwaEuerPosten> = {}): BwaEuerPosten => ({
   datum,
   kontenrahmen: kr,
@@ -252,5 +263,30 @@ describe("Abweichung zum Vergleich", () => {
 
   it("ohne Prozent, wenn der Vergleich 0 ist", () => {
     expect(abweichung(10_000, 0)).toEqual({ betrag: 10_000, prozent: null });
+  });
+});
+
+describe("Konto, in dessen Kontenblatt die BWA eine Buchung zeigt (#1635)", () => {
+  const soll = (account: string, betrag: number) => ({ account, debit: betrag, credit: 0 });
+  const haben = (account: string, betrag: number) => ({ account, debit: 0, credit: betrag });
+
+  for (const kr of ["SKR03", "SKR04"] as const) {
+    const a = ACCOUNTS[kr];
+    it(`Lohn- und Umsatzsteuerzahlung: das Gegenkonto der Bank (${kr})`, () => {
+      expect(kontenblattKonto(kr, [soll(LOHN_KONTEN[kr].verbLohn, 2_195_50), haben(a.bank, 2_195_50)])).toBe(LOHN_KONTEN[kr].verbLohn);
+      expect(kontenblattKonto(kr, [haben(a.bank, 1_234_00), soll(a.ustVorauszahlung, 1_234_00)])).toBe(a.ustVorauszahlung);
+    });
+
+    it(`sonst das Konto ohne Wirkung in der EÜR, etwa die Bank: Hinter einer Kategorie kann ein eigenes Konto stehen (${kr})`, () => {
+      const gebuehren = EXPENSE_CATEGORIES.geldverkehr[kr];
+      expect(kontenblattKonto(kr, [soll(gebuehren, 9_90), haben(a.bank, 9_90)])).toBe(a.bank);
+      expect(kontenblattKonto(kr, [soll(gebuehren, 100_00), soll(a.vorsteuer[1900], 19_00), haben(a.privateinlagen, 119_00)])).toBe(a.privateinlagen);
+    });
+  }
+
+  it("ohne Zeilen kein Konto, ebenso nur mit Kategorienkonto und Steuer: nie ein Kategorienkonto", () => {
+    expect(kontenblattKonto("SKR03", [])).toBeNull();
+    const a = ACCOUNTS.SKR03;
+    expect(kontenblattKonto("SKR03", [soll(EXPENSE_CATEGORIES.geldverkehr.SKR03, 100_00), haben(a.vorsteuer[1900], 19_00)])).toBeNull();
   });
 });

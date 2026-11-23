@@ -97,6 +97,8 @@ export const documentPreviewSchema = z.object({
         taxRate: inBasisPoints(z.number().int()),
         discount: z.nullable(discountSchema).default(null),
         kind: z.enum(QUOTE_LINE_KINDS).nullable().default(null),
+        /** Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG, #712) */
+        arbeitskosten: z.boolean().default(false),
         /** Abzug einer Abschlagsrechnung: zählt nicht zur Grundlage des Gesamtrabatts (discountBasis) */
         deductionOf: z.string().max(100).optional(),
       }),
@@ -185,6 +187,7 @@ function invoiceDocument(input: Input, company: Company, buyer: Buyer, letterhea
       net: lineNets[index]!,
       ...(line.discount ? { discount: line.discount } : {}),
       ...(line.deductionOf ? { deductionOf: line.deductionOf } : {}),
+      ...(line.arbeitskosten ? { arbeitskosten: true } : {}),
     })),
     totals,
     ...(input.discount ? { discount: input.discount } : {}),
@@ -230,6 +233,7 @@ function quoteDocument(input: Input, company: Company, buyer: Buyer, letterhead:
       ...(line.discount ? { discount: line.discount } : {}),
       ...(line.kind ? { kind: line.kind } : {}),
       ...(line.kind === "alternative" ? { alternativeTo: alternativeMain(lines, line.position) ?? 0 } : {}),
+      ...(line.arbeitskosten ? { arbeitskosten: true } : {}),
     })),
     totals: calc.totals,
     ...(input.discount ? { discount: input.discount } : {}),

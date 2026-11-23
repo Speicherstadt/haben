@@ -11,6 +11,7 @@ import {
 } from "@haben/core";
 import type { ReactNode } from "react";
 import { unitOptions } from "../lib/units.ts";
+import { ArbeitskostenField, LineArbeitskosten, useArbeitskostenSchalter } from "./ArbeitskostenField.tsx";
 import { FormattedTextarea } from "./FormattedTextarea.tsx";
 import { Icon } from "./Icon.tsx";
 import { LineAmount, LineCell } from "./LineCell.tsx";
@@ -19,7 +20,17 @@ import { LineAmount, LineCell } from "./LineCell.tsx";
 
 export type Rate = 1900 | 700 | 0;
 
-export type RecurringLine = { description: string; detail: string; itemNumber?: string; quantity: number; unit: string; unitPrice: number; taxRate: Rate };
+export type RecurringLine = {
+  description: string;
+  detail: string;
+  itemNumber?: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  taxRate: Rate;
+  /** § 35a EStG (#712); fehlt bei Vorlagen von vor dem Feld */
+  arbeitskosten?: boolean;
+};
 
 export interface LineState {
   key: number;
@@ -32,6 +43,8 @@ export interface LineState {
   unit: string;
   unitPrice: string;
   taxRate: Rate;
+  /** Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG), geht in jede Rechnung aus der Vorlage */
+  arbeitskosten: boolean;
 }
 
 let nextKey = 1;
@@ -45,6 +58,7 @@ export const lineState = (line: RecurringLine): LineState => ({
   unit: line.unit,
   unitPrice: line.unitPrice ? formatDecimal(line.unitPrice) : "",
   taxRate: line.taxRate,
+  arbeitskosten: line.arbeitskosten ?? false,
 });
 
 /** Neue Position mit Einheit und Steuersatz der letzten */
@@ -57,9 +71,10 @@ export const newLine = (last: LineState | undefined): LineState => ({
   unit: last?.unit ?? "Psch.",
   unitPrice: "",
   taxRate: last?.taxRate ?? 1900,
+  arbeitskosten: false,
 });
 
-export type ParsedLine = RecurringLine & { itemNumber: string; valid: boolean };
+export type ParsedLine = RecurringLine & { itemNumber: string; arbeitskosten: boolean; valid: boolean };
 
 /** Position mit gelesenen Zahlen; ohne Steuerausweis (special) immer 0 % */
 export function parseLine(line: LineState, special: boolean): ParsedLine {
@@ -73,6 +88,7 @@ export function parseLine(line: LineState, special: boolean): ParsedLine {
     unit: line.unit,
     unitPrice: unitPrice ?? 0,
     taxRate: special ? (0 as Rate) : line.taxRate,
+    arbeitskosten: line.arbeitskosten,
     valid: quantity !== null && quantity > 0 && unitPrice !== null && line.description.trim() !== "",
   };
 }
@@ -87,13 +103,21 @@ type RowProps = {
   /** Fehler der Position aus der Prüfung beim Speichern */
   fehler: string | null | undefined;
   removable: boolean;
+  /** Auswahl „Material oder Arbeit“ zeigen (§ 35a EStG) */
+  arbeitskosten: boolean;
   update: (patch: Partial<LineState>) => void;
   remove: () => void;
 };
 
-function LineTitle({ line, index, update, posFehlerId }: Pick<RowProps, "line" | "index" | "update"> & { posFehlerId: string | undefined }) {
+function LineTitle({
+  line,
+  index,
+  update,
+  arbeitskosten,
+  posFehlerId,
+}: Pick<RowProps, "line" | "index" | "update" | "arbeitskosten"> & { posFehlerId: string | undefined }) {
   return (
-    <div className="line-title">
+    <div className={arbeitskosten ? "line-title with-kind" : "line-title"}>
       <input
         className="line-item"
         placeholder="Art.-Nr."
@@ -112,6 +136,7 @@ function LineTitle({ line, index, update, posFehlerId }: Pick<RowProps, "line" |
         aria-invalid={line.description.trim() === ""}
         aria-describedby={posFehlerId}
       />
+      {arbeitskosten && <LineArbeitskosten index={index} value={line.arbeitskosten} onChange={(value) => update({ arbeitskosten: value })} />}
     </div>
   );
 }
@@ -175,11 +200,11 @@ function LineNumbers({
 }
 
 export function RecurringLineRow(props: RowProps) {
-  const { line, parsed: p, index, amountLabel, fehler, removable, update, remove } = props;
+  const { line, parsed: p, index, amountLabel, arbeitskosten, fehler, removable, update, remove } = props;
   const posFehlerId = fehler ? `pos-fehler-${line.key}` : undefined;
   return (
     <div className="line-row">
-      <LineTitle line={line} index={index} update={update} posFehlerId={posFehlerId} />
+      <LineTitle line={line} index={index} update={update} arbeitskosten={arbeitskosten} posFehlerId={posFehlerId} />
       <FormattedTextarea
         className="line-detail"
         rows={line.detail ? Math.min(6, line.detail.split("\n").length) : 1}
@@ -220,6 +245,8 @@ export function RecurringPositions(props: {
 }) {
   const { lines, setLines } = props;
   const updateLine = (key: number, patch: Partial<LineState>) => setLines((prev) => prev.map((line) => (line.key === key ? { ...line, ...patch } : line)));
+  // § 35a EStG (#712), dieselbe Regel wie im Rechnungseditor
+  const [arbeitskosten, setArbeitskosten] = useArbeitskostenSchalter(lines, setLines);
   return (
     <section className="card" aria-labelledby="recurring-lines">
       <h2 id="recurring-lines">Positionen</h2>
@@ -243,6 +270,7 @@ export function RecurringPositions(props: {
           units={props.units}
           fehler={props.error(`pos-${line.key}`)}
           removable={lines.length > 1}
+          arbeitskosten={arbeitskosten}
           update={(patch) => updateLine(line.key, patch)}
           remove={() => setLines((prev) => prev.filter((l) => l.key !== line.key))}
         />
@@ -253,6 +281,7 @@ export function RecurringPositions(props: {
         </button>
       </div>
       {props.fuss}
+      <ArbeitskostenField checked={arbeitskosten} onChange={setArbeitskosten} />
       <p className="small muted" style={{ margin: 0 }}>
         Platzhalter in Einleitung, Beschreibung, Text zur Position und Hinweis:{" "}
         {Object.entries(RECURRING_PLACEHOLDERS)

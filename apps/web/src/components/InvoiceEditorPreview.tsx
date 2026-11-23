@@ -18,7 +18,7 @@ export function InvoiceEditorPreview({ input, alreadyPaid, revision }: { input: 
   const quote = input.kind === "angebot";
   const lines = input.lines
     .filter((line) => line.valid)
-    .map(({ description, detail, itemNumber, quantity, unit, unitPrice, taxRate, discount, kind, deductionOf }) => ({
+    .map(({ description, detail, itemNumber, quantity, unit, unitPrice, taxRate, discount, kind, deductionOf, arbeitskosten }) => ({
       description,
       detail: detail ?? "",
       itemNumber: itemNumber ?? "",
@@ -28,6 +28,7 @@ export function InvoiceEditorPreview({ input, alreadyPaid, revision }: { input: 
       taxRate,
       discount: discount ?? null,
       kind: quote ? (kind ?? null) : null,
+      arbeitskosten: arbeitskosten ?? false,
       ...(deductionOf ? { deductionOf } : {}),
     }));
   return (

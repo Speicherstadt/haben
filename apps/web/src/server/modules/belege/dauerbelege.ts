@@ -12,7 +12,9 @@ import {
   terminAbStichtag,
   vorschauTermine,
   type DauerbelegStatus,
-  type RecurringInterval,
+  RECURRENCE_KEYS,
+  type Recurrence,
+  recurrenceParts,
   inCents,
   inBasisPoints,
   inProzent,
@@ -49,7 +51,8 @@ export const dauerbelegInputSchema = z.object({
     .max(3),
   taxShown: z.boolean(),
   note: z.string().max(2000).default(""),
-  intervalMonths: z.union([z.literal(1), z.literal(3), z.literal(6), z.literal(12)]),
+  /** Abstand als Dauer nach ISO 8601, etwa P1W oder P1M (#1691) */
+  recurrence: z.enum(RECURRENCE_KEYS, { error: "Intervall nicht unterstützt." }),
   nextDate: isoDate,
   endDate: isoDate.nullable(),
   dueDays: z.number().int().min(0).max(120).default(0),
@@ -132,7 +135,7 @@ export async function getDauerbeleg(id: string) {
     .leftJoin(schema.documentCancellations, eq(schema.documentCancellations.documentId, schema.documents.id))
     .where(eq(schema.documents.recurringDocumentId, id))
     .orderBy(desc(schema.documents.recurringPeriod));
-  const termine = vorlage.status === "beendet" ? [] : vorschauTermine({ ...vorlage, intervalMonths: vorlage.intervalMonths as RecurringInterval }, 3);
+  const termine = vorlage.status === "beendet" ? [] : vorschauTermine(vorlage, 3);
   return { vorlage, belege, termine, sevdesk };
 }
 
@@ -162,6 +165,18 @@ async function lockVorlage(tx: Tx, id: string): Promise<Dauerbeleg> {
 }
 
 /**
+ * Wochen und Monate nur tauschen, solange es keinen Beleg gibt: Bei Wochen ist die Periode eines Belegs der Termin, bei
+ * Monaten der Monatserste (dauerbelegPeriode). Ein Monatsbeleg träfe sonst auf einen Wochenbeleg am Monatsersten, und der
+ * eindeutige Index ließe ihn ohne Fehler aus.
+ */
+async function checkUnitChange(tx: Tx, id: string, previous: Recurrence, next: Recurrence): Promise<void> {
+  if ((recurrenceParts(previous).weeks === null) === (recurrenceParts(next).weeks === null)) return;
+  const [used] = await tx.select({ id: schema.documents.id }).from(schema.documents).where(eq(schema.documents.recurringDocumentId, id)).limit(1);
+  if (used)
+    throw new DauerbelegError("Wochen und Monate lassen sich nicht mehr tauschen, sobald Belege angelegt sind. Beende den Dauerbeleg und lege einen neuen an.");
+}
+
+/**
  * Ändert die Vorlage, auf Wunsch mit neuem Vertrag. Das gilt nur für künftige Belege: Angelegte Belege tragen ihre
  * eigenen Felder und Beträge und behalten die Datei, die beim Anlegen hinterlegt war.
  */
@@ -171,9 +186,12 @@ export async function updateDauerbeleg(actor: string, id: string, input: Dauerbe
     const previous = await lockVorlage(tx, id);
     if (previous.status === "beendet") throw new DauerbelegError("Ein beendeter Dauerbeleg lässt sich nicht mehr ändern. Lege bei Bedarf einen neuen an.");
     await checkSupplier(tx, row.supplierContactId, previous.supplierContactId);
+    await checkUnitChange(tx, id, previous.recurrence, row.recurrence);
     const contract = file ? await storeContract(tx, file) : {};
     // Unveränderter Termin: Ankertag behalten, sonst würde aus dem Monatsletzten nach einer Änderung am 28.02. der 28.
-    const anchorDay = row.nextDate === previous.nextDate ? previous.anchorDay : row.anchorDay;
+    // Nur bei Monaten: Wochenläufe schieben den Termin, nicht den Ankertag
+    const keepAnchor = row.nextDate === previous.nextDate && recurrenceParts(previous.recurrence).weeks === null;
+    const anchorDay = keepAnchor ? previous.anchorDay : row.anchorDay;
     const [saved] = await tx
       .update(schema.recurringDocuments)
       .set({ ...row, anchorDay, ...contract, lastError: null })
@@ -218,7 +236,7 @@ function nextStatus(vorlage: Dauerbeleg, aktion: DauerbelegAktion, heute: string
   // Eine aus sevDesk übernommene Vorlage hat die Prüfung des Formulars nicht durchlaufen; das Ende prüft der Status unten
   const problems = dauerbelegProbleme({ ...vorlage, endDate: null });
   if (problems.length > 0) throw new DauerbelegError(problems.join(" "));
-  const nextDate = terminAbStichtag({ ...vorlage, intervalMonths: vorlage.intervalMonths as RecurringInterval }, heute);
+  const nextDate = terminAbStichtag(vorlage, heute);
   return { status: vorlage.endDate !== null && nextDate > vorlage.endDate ? "beendet" : "aktiv", nextDate };
 }
 

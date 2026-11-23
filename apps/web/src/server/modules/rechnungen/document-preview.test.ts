@@ -73,6 +73,16 @@ describe.skipIf(!testDatabaseUrl)("Vorschau aus dem Formular (Postgres)", () => 
     expect(text((await preview.documentPreview(input())).text)).not.toMatch(/§\s*14b/);
   });
 
+  it("zeigt den Anteil der Arbeits-, Maschinen- und Fahrtkosten nur mit gekennzeichneter Position (#712)", async () => {
+    const lines = [
+      { description: "Rauchwarnmelder", itemNumber: "", quantity: 1000, unit: "Stk.", unitPrice: 3100, taxRate: 1900 },
+      { description: "Montage", itemNumber: "", quantity: 1000, unit: "Stk.", unitPrice: 800, taxRate: 1900, arbeitskosten: true },
+    ];
+    // 8,00 € netto + 19 % = 9,52 €
+    expect(text((await preview.documentPreview(input({ lines }))).text).replace(/\s+/g, " ")).toContain("Fahrtkosten von 9,52 € inkl. USt");
+    expect(text((await preview.documentPreview(input())).text)).not.toMatch(/§\s*35a/);
+  });
+
   it("zeigt ungespeicherte Gestaltung, ohne etwas zu speichern", async () => {
     const standard = await preview.documentPreview(input());
     const farbig = await preview.documentPreview(input({ design: { accent: "#9B1C1C" } }));

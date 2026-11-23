@@ -87,7 +87,7 @@ jobs:
         teil: [1, 2, 3, 4]
     services:
       postgres:
-        image: postgres:18
+        image: postgres:19
         env:
           POSTGRES_USER: haben
           POSTGRES_PASSWORD: haben
@@ -125,9 +125,9 @@ jobs:
     steps:
       - run: test "${{ needs.test-teil.result }}" = success
 
-  # Fünf Teile parallel (Playwright --shard), dazu SSO als eigener Teil. Jeder Teil, der Tests aus „mit-daten“
-  # hat, spielt vorher app.spec.ts („ablauf“) selbst durch, weil diese Tests auf dessen Daten aufbauen. Gebaut
-  # wird in jedem Teil, das läuft parallel und braucht kein Artefakt dazwischen
+  # Feste Teile parallel: welche Projekte in welchem Teil laufen, steht in apps/web/e2e/durchlaeufe.ts (TEILE);
+  # jeder Teil startet nur seine Server. Dazu SSO als eigener Teil. Gebaut wird in jedem Teil, das läuft parallel
+  # und braucht kein Artefakt dazwischen
   e2e-teil:
     needs: changes
     if: ${{ !cancelled() && !github.event.pull_request.draft && needs.changes.outputs.code != 'false' }}
@@ -135,16 +135,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        teil: [1, 2, 3, 4, 5, sso]
+        teil: [belege-steuern, rechnungen, ablauf, gmbh, importe, abruf, sso]
     services:
       postgres:
-        image: postgres:18
+        image: postgres:19
         env:
           POSTGRES_USER: haben
           POSTGRES_PASSWORD: haben
           POSTGRES_DB: haben_e2e
-          # Alle Server starten in jedem Teil (e2e/durchlaeufe.ts), je bis zu elf Verbindungen (Pool und Sperre),
-          # in einem Teil dazu die Server für Beenden und verzögerte Anfragen; Standard sind 100.
+          # Je Server des Teils (e2e/durchlaeufe.ts) bis zu elf Verbindungen (Pool und Sperre), in einem Teil dazu
+          # die Server für Beenden und verzögerte Anfragen; Standard sind 100.
           POSTGRES_INITDB_ARGS: "--set=max_connections=400"
         ports: ["5432:5432"]
         options: >-
@@ -181,10 +181,11 @@ jobs:
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends poppler-utils
       - run: bun run build
       # Vier Worker (playwright.config.ts), so viele Kerne hat der Runner
-      - name: Ende-zu-Ende-Tests, Teil ${{ matrix.teil }} von 5
+      - name: Ende-zu-Ende-Tests, Teil ${{ matrix.teil }}
         if: matrix.teil != 'sso'
-        run: bun run e2e --shard=${{ matrix.teil }}/5
+        run: bun run e2e
         env:
+          E2E_TEIL: ${{ matrix.teil }}
           E2E_DATABASE_URL: postgres://haben:haben@localhost:5432/haben_e2e
           E2E_APP_DATABASE_URL: postgres://haben_e2e_app:erfundenes-e2e-passwort@localhost:5432/haben_e2e
           # Der gebaute Server statt des Entwicklungsservers
@@ -566,7 +567,7 @@ jobs:
           bun ../apps/web/src/server/db/migrate.ts
           docker compose exec -T db psql -U haben_app -d haben -X -q < tests/rollen-db.sql
           docker compose exec -T db psql -U haben -d haben -qc "CREATE TABLE t (x text); INSERT INTO t VALUES ('vorher')"
-          # Das Backup-Image mit pg_dump 18 sichert die Datenbank 16 mit pg_dump 16; sonst scheitert der
+          # Das Backup-Image mit pg_dump 19 sichert die Datenbank 16 mit pg_dump 16; sonst scheitert der
           # Test-Restore am Einspielen in die Datenbank 16
           docker compose exec -T backup backup.sh
           test "$(docker compose exec -T db psql -U haben -d haben -Atc "SELECT string_agg(kind || '=' || ok, ',' ORDER BY id) FROM backup_status")" \
@@ -574,12 +575,12 @@ jobs:
           # Kein sauberes Herunterfahren, wie nach einem Absturz
           docker compose kill db
           docker compose up -d db backup
-          docker compose logs db | grep -q "Upgrade auf PostgreSQL 18 fertig"
-          test "$(docker compose exec -T db psql -U haben -d haben -Atc "SELECT current_setting('server_version_num')::int / 10000")" = 18
+          docker compose logs db | grep -q "Upgrade auf PostgreSQL 19 fertig"
+          test "$(docker compose exec -T db psql -U haben -d haben -Atc "SELECT current_setting('server_version_num')::int / 10000")" = 19
           test "$(docker compose exec -T db psql -U haben -d haben -Atc 'SELECT x FROM t')" = vorher
           # Rollen und Rechte stammen aus dem Cluster-Upgrade, nicht aus einer erneuten Rollenanlage.
           docker compose exec -T db psql -U haben_app -d haben -X -q < tests/rollen-db.sql
-          # Der alte Bestand liegt unverändert daneben, der neue in 18/docker
+          # Der alte Bestand liegt unverändert daneben, der neue in 19/docker
           docker compose exec -T db test -s /var/lib/postgresql/data/16/docker/PG_VERSION
           docker compose exec -T db test ! -e /var/lib/postgresql/data/PG_VERSION
           # Ein Neustart aktualisiert nicht noch einmal
@@ -591,6 +592,25 @@ jobs:
           docker compose exec -T backup restore-check.sh
           test "$(docker compose exec -T db psql -U haben -d haben -Atc "SELECT string_agg(kind || '=' || ok, ',' ORDER BY id) FROM backup_status")" \
             = "backup=true,restore_check=true,backup=true,restore_check=true"
+      # Eine eigene Datenbank kann neuer sein als haben-db (etwa im Kubernetes-Cluster): pg_dump 18 bricht an
+      # einem Server 19 ab, das Backup-Image bringt deshalb auch das pg_dump dieser Version mit
+      - name: Backup einer Datenbank 19
+        env:
+          HABEN_TEST_DB_IMAGE: postgres:19
+        run: |
+          set -x
+          docker compose down -v
+          # postgres ab 18 legt die Daten unter /var/lib/postgresql/<Version>/docker ab, compose.yml hängt das Volume
+          # für haben-db aber unter /var/lib/postgresql/data ein
+          printf 'services:\n  db:\n    environment:\n      PGDATA: /var/lib/postgresql/data/19\n' > neu.yml
+          docker compose -f compose.yml -f tests/rollen-db-compose.yml -f neu.yml up -d --wait db
+          docker compose -f compose.yml -f tests/rollen-db-compose.yml -f neu.yml up -d backup
+          test "$(docker compose exec -T db psql -U haben -d haben -Atc "SELECT current_setting('server_version_num')::int / 10000")" = 19
+          printf 'ci_app\nci_app\n' | docker compose exec -T db createuser -U haben --login --no-superuser --no-createdb --no-createrole --pwprompt haben_app
+          bun ../apps/web/src/server/db/migrate.ts
+          docker compose exec -T backup backup.sh
+          test "$(docker compose exec -T db psql -U haben -d haben -Atc "SELECT string_agg(kind || '=' || ok, ',' ORDER BY id) FROM backup_status")" \
+            = "backup=true,restore_check=true"
       - if: failure()
         run: docker compose logs
 

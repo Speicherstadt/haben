@@ -1,6 +1,6 @@
 # haben-db
 
-Datenbank für [Haben](https://github.com/Speicherstadt/haben), die selbst gehostete Buchhaltung: das offizielle Image `postgres:18`, dazu die Programme der älteren PostgreSQL-Versionen ab 16.
+Datenbank für [Haben](https://github.com/Speicherstadt/haben), die selbst gehostete Buchhaltung: das offizielle Image `postgres:19`, dazu die Programme der älteren PostgreSQL-Versionen ab 16.
 
 Findet der Container beim Start im Volume einen Datenbestand einer älteren Version, hebt er ihn mit `pg_upgrade --copy` auf die Version des Images an und startet danach wie `postgres`. Ein Update auf ein neues PostgreSQL ist damit nur noch ein neues Image:
 
