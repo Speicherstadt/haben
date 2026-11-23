@@ -24,4 +24,12 @@ describe("Zeilenwerte aus dem Übermittlungsprotokoll", () => {
     expect(ergebnis.fehler).toEqual({ gewinn: null, ausgaben: meldung, einlagen: null });
     expect(ergebnis.eingetragen).toBe(2);
   });
+
+  it("meldet einen Betrag über der Grenze des Servers am Feld, statt ihn zum Server zu schicken", () => {
+    const grenze = "Trag einen Betrag von -1.000.000.000,00 bis 1.000.000.000,00 ein, etwa 1.234,56, oder lass das Feld leer.";
+    const ergebnis = erklaerteZeilen(felder, { gewinn: "1.000.000.000,00", ausgaben: "1.000.000.000,01", einlagen: "-1.000.000.000,01" });
+    expect(ergebnis.fehler).toEqual({ gewinn: null, ausgaben: grenze, einlagen: grenze });
+    expect(ergebnis.zeilen).toEqual([{ field: "gewinn", amount: 1_000_000_000_00 }]);
+    expect(ergebnis.eingetragen).toBe(3);
+  });
 });
