@@ -1,4 +1,4 @@
-import { formatRateMonth, invoicePosting, legacyCorrectionPosting, lineAmount, outgoingTaxIssues, rateMonth } from "@haben/core";
+import { formatRateMonth, lineAmount, outgoingTaxIssues, rateMonth } from "@haben/core";
 import { buildEInvoice, validateForFormat, type Buyer } from "@haben/einvoice";
 import { and, asc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
@@ -6,10 +6,9 @@ import type { UmsatzgrenzeBestaetigung } from "../../../lib/kleinunternehmer.ts"
 import { withActor } from "../../db/actor.ts";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import { today } from "../../today.ts";
-import { openBooks, post } from "../buchhaltung/index.ts";
+import { openBooks } from "../buchhaltung/index.ts";
 import { ansprechpartnerSnapshot, type Contact, loadCompany, loadLetterhead, loadUnitCodes, sellerIssues, withCustomLayout } from "../stammdaten/index.ts";
 import { deductedRefs, deductionIds, deductionProblems, openAbschlaege } from "./advance-deductions.ts";
-import { advanceInvoicePosting } from "./advance-invoice.ts";
 import { advanceProcedure } from "./advance-procedure.ts";
 import { withAdvanceVatChange } from "./advance-vat.ts";
 import { cancelledIds } from "./cancelled-invoices.ts";
@@ -19,8 +18,8 @@ import { buyerFrom, buyerIssues, documentFor, invoiceTitle, numberedBuyer, selle
 import { lockDraft } from "./invoice-drafts.ts";
 import { InvoiceError } from "./invoice-error.ts";
 import { loadReplacement, normalReplacementId, replacementPerformanceDate, replacementProblem } from "./invoice-replacement.ts";
-import { restorePaperCancellation } from "./invoice-replacement-posting.ts";
-import { invoicePostingMode, invoiceVatDate } from "./invoice-tax.ts";
+import { postInvoice } from "./invoice-replacement-posting.ts";
+import { invoiceVatDate } from "./invoice-tax.ts";
 import { invoiceDocumentTotals, invoiceTotalsById } from "./invoice-taxes.ts";
 import { getInvoice, type Invoice, type InvoiceLine } from "./invoices.ts";
 import { directDebitFor, directDebitIssues } from "./lastschrift.ts";
@@ -34,7 +33,6 @@ import { rechnungMitPlatzhaltern, textMitVorlage } from "./beleg-platzhalter.ts"
 /* Festschreiben einer Rechnung: Prüfungen, Nummer, PDF und XML, Sperre und Buchung (GoBD) */
 
 type Company = Awaited<ReturnType<typeof loadCompany>>;
-type Totals = NonNullable<ReturnType<Awaited<ReturnType<typeof invoiceTotalsById>>["get"]>>;
 
 export const sha256 = (data: string | Uint8Array) => createHash("sha256").update(data).digest("hex");
 
@@ -369,50 +367,4 @@ async function prepareReferences(tx: Tx, invoice: Invoice, lines: InvoiceLine[],
     ? { advanceAccounting: replacement.advanceAccounting, replacesInvoiceId: replacement.id }
     : await advanceProcedure(invoice, lines, company, tx);
   return { corrects, replacement, prepared: { ...invoice, ...procedure, serviceDate: replacementPerformanceDate(invoice, replacement) } };
-}
-
-/** Bucht die festgeschriebene Rechnung: Abschläge mit Verfahren „deferred“ eigens, sonst Erlös und Umsatzsteuer */
-async function postInvoice(
-  tx: Tx,
-  invoice: Invoice,
-  totals: Totals,
-  company: Awaited<ReturnType<typeof openBooks>>,
-  corrects: Invoice | undefined,
-  description: string,
-): Promise<void> {
-  const replacedId = normalReplacementId(invoice);
-  if (replacedId) return restorePaperCancellation(tx, company, invoice.id, replacedId, description);
-  const versteuerung = await invoicePostingMode(invoice, tx);
-  const bookings =
-    invoice.advanceAccounting === "deferred"
-      ? await advanceInvoicePosting(invoice, totals, company.kontenrahmen, tx)
-      : [
-          {
-            date: await invoiceVatDate(invoice, tx),
-            // Übernommene Erlöse stehen in den alten Büchern; auch spätere Korrektur-Stornos folgen deren Ursprung.
-            lines: (await correctsLegacyInvoice(tx, corrects))
-              ? legacyCorrectionPosting(totals, company.kontenrahmen, versteuerung)
-              : invoicePosting(totals, company.kontenrahmen, versteuerung, invoice.taxTreatment),
-          },
-        ];
-  for (const booking of bookings)
-    if (booking.lines.length)
-      await post(tx, company, {
-        date: booking.date,
-        description,
-        sourceType: "invoice",
-        sourceId: invoice.id,
-        lines: booking.lines,
-      });
-}
-
-/** Korrigiert die Rechnung (über Korrekturen hinweg) eine aus Lexoffice übernommene? Dann gehören ihre Erlöse zu den alten Büchern */
-async function correctsLegacyInvoice(q: Db | Tx, corrects: Invoice | undefined): Promise<boolean> {
-  let current = corrects;
-  for (let depth = 0; current && depth < 20; depth++) {
-    if (current.lexofficeVoucherId) return true;
-    if (!current.correctsId) return false;
-    [current] = await q.select().from(schema.invoices).where(eq(schema.invoices.id, current.correctsId));
-  }
-  return false;
 }
