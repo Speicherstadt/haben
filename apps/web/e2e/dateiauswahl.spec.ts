@@ -61,7 +61,7 @@ test("Nach dem Klick auf Datei wählen liegt der Fokus auf dem Eingabefeld, Tab 
 });
 
 // Die übrigen Dateiauswahlen: sichtbare Felder über FilePicker in Field, Upload-Aktionen über UploadButton
-// (DESIGN.md, „Datei-Felder“). Vermerke zu SV-Meldungen und Voranmeldung prüfen gmbh.spec.ts und belege-steuern.spec.ts
+// (DESIGN.md, „Datei-Felder“). Vermerke zu SV-Meldungen und Voranmeldung prüfen gmbh.spec.ts und belege-steuern-erklaerungen.spec.ts
 // in ihrem Ablauf, dort gibt es die Daten dafür.
 
 test("CSV-Datei des BMF: FilePicker im Feld, Klick und Tastatur öffnen je genau einen Dialog", async ({ page }) => {

@@ -137,6 +137,38 @@ export function reviewHint(pr: { draft?: boolean; author_association?: string; u
 }
 
 /**
+ * Pfade, an denen sich ändern kann, was gebucht, versteuert, gemeldet oder festgeschrieben wird (docs/mitwirken.md,
+ * „Wer mergt was“). Buchungslogik in bank, belege und rechnungen erkennt kein Pfad; die bleibt bei beitrag-pruefen,
+ * Schritt 2 („im Zweifel heikel“).
+ */
+export const HEIKEL = [
+  /^packages\/(core|elster|gobd-kern)\//,
+  /^apps\/web\/src\/server\/modules\/(buchhaltung|umsatzsteuer|elster|jahreserklaerung|auswertungen|lohn|sv-meldungen|ausschuettung|finanzamt|koerperschaft)\//,
+  /^apps\/web\/drizzle\//,
+];
+
+/** Dateien eines Pull Requests an heiklen Pfaden, ohne Markdown */
+export function heikleDateien(files: string[]): string[] {
+  return files.filter((file) => !file.endsWith(".md") && HEIKEL.some((pfad) => pfad.test(file)));
+}
+
+/**
+ * Hinweis, dass der Merge auf das OK des Maintainers wartet. Für alle Pull Requests, auch von Maintainern: Ein Agent,
+ * der sie abarbeitet (prs-abarbeiten), soll es am Pull Request sehen und nicht aus der Prosa des Skills ableiten.
+ */
+export function heikelHint(files: string[]): Report[] {
+  const heikel = heikleDateien(files);
+  if (heikel.length === 0) return [];
+  const beispiele = heikel.slice(0, 3).join(", ") + (heikel.length > 3 ? ` und ${heikel.length - 3} weitere` : "");
+  return [
+    {
+      level: "warning",
+      message: `Fachlich heikel (${beispiele}): Quelle lesen und gegenrechnen, gemergt wird erst nach einem „OK“ des Maintainers (docs/mitwirken.md, Wer mergt was).`,
+    },
+  ];
+}
+
+/**
  * Wachstum, ab dem ein Hinweis kommt: Kleinere Änderungen an alten Dateien sind die Regel (im Review von #463 hätte
  * der Hinweis ohne Schwelle bei 50 von 100 Pull Requests angeschlagen) und würden ihn überhören lassen.
  */

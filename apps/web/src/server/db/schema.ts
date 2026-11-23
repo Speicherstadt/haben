@@ -1945,8 +1945,8 @@ export const articles = pgTable(
 
 export const textBlockKinds = ["kopf", "fuss"] as const;
 export type TextBlockKind = (typeof textBlockKinds)[number];
-/** Belegarten, für die ein Textbaustein Standard sein kann (#1494) */
-export const textBlockStandards = ["rechnung", "angebot", "auftragsbestaetigung", "lieferschein", "mahnung"] as const;
+/** Belegarten, für die ein Textbaustein Standard sein kann (#1494), die Mahnung je Stufe (#1678, mahnstufeStandard) */
+export const textBlockStandards = ["rechnung", "angebot", "auftragsbestaetigung", "lieferschein", "mahnstufe_1", "mahnstufe_2", "mahnstufe_3"] as const;
 export type TextBlockStandard = (typeof textBlockStandards)[number];
 
 /**
@@ -1965,8 +1965,8 @@ export const textBlocks = pgTable(
     /** Optional einem Kunden zugeordnet: steht bei dessen Belegen oben in der Auswahl */
     contactId: uuid("contact_id").references(() => contacts.id),
     /**
-     * Standard für diese Belegart (#1494): füllt neue Belege vor, Kopftext die Einleitung, Fußtext den Hinweis bzw.
-     * Schlusstext. Höchstens ein aktiver Baustein je Belegart und Art; null = kein Standard
+     * Standard für diese Belegart (#1494), bei der Mahnung für eine Stufe (#1678): füllt neue Belege vor, Kopftext die
+     * Einleitung, Fußtext den Hinweis bzw. Schlusstext. Höchstens ein aktiver Baustein je Belegart und Art; null = kein Standard
      */
     standardFuer: text("standard_fuer", { enum: textBlockStandards }),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
@@ -1978,7 +1978,7 @@ export const textBlocks = pgTable(
     check("text_blocks_kind", sql`${t.kind} in ('kopf', 'fuss')`),
     check(
       "text_blocks_standard_fuer",
-      sql`${t.standardFuer} is null or ${t.standardFuer} in ('rechnung', 'angebot', 'auftragsbestaetigung', 'lieferschein', 'mahnung')`,
+      sql`${t.standardFuer} is null or ${t.standardFuer} in ('rechnung', 'angebot', 'auftragsbestaetigung', 'lieferschein', 'mahnstufe_1', 'mahnstufe_2', 'mahnstufe_3')`,
     ),
     // Der Lieferschein hat nur einen Hinweis; ein Standard gilt für alle Kunden
     check(

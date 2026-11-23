@@ -45,7 +45,7 @@ const PAGES = [
   "/umsatzsteuer",
   // Quartal, das nicht zum eingestellten Zeitraum passt: mit Hinweis und gesperrtem Senden
   `/umsatzsteuer/${YEAR}-Q1`,
-  // Zusammenfassende Meldung, hier leer; mit der Leistung ins EU-Ausland und der Testübermittlung prüft sie belege-steuern.spec.ts
+  // Zusammenfassende Meldung, hier leer; mit der Leistung ins EU-Ausland und der Testübermittlung prüft sie belege-steuern-erklaerungen.spec.ts
   `/umsatzsteuer/zm/${YEAR + 1}-Q1`,
   `/jahreserklaerung/${YEAR}`,
   "/finanzamt",

@@ -165,6 +165,7 @@ export {
   createTextBlock,
   listTextBlocks,
   setTextBlockArchived,
+  mahnstufeStandard,
   standardTexte,
   textBlockInputSchema,
   updateTextBlock,
