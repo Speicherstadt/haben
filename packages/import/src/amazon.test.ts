@@ -151,6 +151,23 @@ describe("Amazon-Settlement-Report", () => {
     ]);
   });
 
+  it.each([
+    ["amazon-settlement-fr.txt", "Amazon.fr", 25],
+    ["amazon-settlement-it.txt", "Amazon.it", 5],
+    ["amazon-settlement-es.txt", "Amazon.es", 7],
+  ])("liest %s (Marktplatz %s, %i Umsätze, Summe null)", (name, marketplace, count) => {
+    const s = parseStatement(fixture(name), name);
+    expect(s.marketplace).toBe(marketplace);
+    expect(s.transactions).toHaveLength(count);
+    expect(s.transactions.reduce(sum, 0)).toBe(0);
+    expect(s.warnings).toEqual([]);
+  });
+
+  it("negative Abrechnung (Amazon.it): Amazon belastet, der Ausgleich im Konto ist positiv", () => {
+    const s = parseStatement(fixture("amazon-settlement-it.txt"), "amazon-settlement-it.txt");
+    expect(s.transactions.filter((t) => t.type === "Auszahlung").map((t) => [t.bookingDate, t.amount])).toEqual([["2026-11-17", 10]]);
+  });
+
   it("jeder Marktplatzname der Amazon-Vorlagen steht in der Auswahlliste der Konten", () => {
     const files = readdirSync(new URL("../test-fixtures/", import.meta.url)).filter((name) => /^amazon-settlement.*\.txt$/.test(name));
     expect(files.length).toBeGreaterThanOrEqual(4);
