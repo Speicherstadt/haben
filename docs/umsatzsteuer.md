@@ -444,6 +444,8 @@ Ist weder `ERIC_HOME` gesetzt noch ERiC unter Einstellungen › ELSTER › ERiC 
 - Zusammenfassende Meldung (mit „Bundeszentralamt für Steuern“ statt „Finanzamt“)
 - Jahreserklärung
 - Lohnsteuer-Anmeldung
+- Lohnsteuerbescheinigung (nur in Jahren, die ERiC sendet)
+- Ausschüttungen (Kapitalertragsteuer-Anmeldung, nur bei GmbH und UG)
 - Finanzamt
 
 Ein Ersatz-Client prüft dann nur, ob das XML wohlgeformt ist und Kz 83 enthält. Übermittlungen bekommen ein erfundenes Ticket (`fake-…`) und ein Protokoll-PDF mit dem Text „Testprotokoll – keine echte Übermittlung“.
