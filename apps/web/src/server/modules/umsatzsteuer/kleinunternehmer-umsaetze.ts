@@ -1,7 +1,7 @@
 import { periodRange, type JournalKennzahlen, type VatPeriod, type Versteuerung } from "@haben/core";
 import { and, eq, gte, inArray, isNull, lt, ne, or } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
-import { invoiceTotalsById } from "../rechnungen/index.ts";
+import { invoiceTaxReader, invoiceTotalsById } from "../rechnungen/index.ts";
 import type { RevenueSource } from "./vat-figures.ts";
 import { kennzahlenAusDemJournal } from "./vat-journal.ts";
 
@@ -41,19 +41,11 @@ export async function kleinunternehmerUmsaetze(period: VatPeriod, q: Db | Tx): P
     );
   const rechnungen = kandidaten.filter((r) => leistungstag(r) >= start && leistungstag(r) < end);
   if (rechnungen.length === 0) return [];
-  // Anzahlungen, auch ihr Storno und ihre Korrektur, zählen nicht
-  const urspruenge = [...new Set(rechnungen.flatMap((r) => (r.correctsId ? [r.correctsId] : [])))];
-  const anzahlungen = new Set(
-    urspruenge.length === 0
-      ? []
-      : (
-          await q
-            .select({ id: i.id })
-            .from(i)
-            .where(and(inArray(i.id, urspruenge), eq(i.advanceType, "anzahlung")))
-        ).map((r) => r.id),
-  );
-  const zaehlen = rechnungen.filter((r) => r.advanceType !== "anzahlung" && !(r.correctsId && anzahlungen.has(r.correctsId)));
+  // Anzahlungen zählen nicht, auch nicht ihr Storno, ihre Korrektur und deren Storno, das auf die Korrektur verweist
+  // (cancelInvoice): entscheidend ist der Anfang der Kette
+  const taxes = invoiceTaxReader(q);
+  const zaehlen: Rechnung[] = [];
+  for (const r of rechnungen) if ((await taxes.original(r)).advanceType !== "anzahlung") zaehlen.push(r);
   const totals = await invoiceTotalsById(
     zaehlen.map((r) => r.id),
     q,
