@@ -178,12 +178,18 @@ export async function confirmWithoutFile(actor: string, voucherId: string, note:
       .where(eq(schema.legacyFileStates.voucherId, voucherId))
       .orderBy(desc(schema.legacyFileStates.createdAt), desc(schema.legacyFileStates.id))
       .limit(1);
+    const pdfRequired =
+      (voucher.source === "sevdesk" && !voucher.lexofficeId.startsWith("voucher/")) ||
+      ((voucher.source === "accountable" || voucher.source === "lexoffice") && voucher.type !== "purchaseinvoice");
     if (latest?.state === "abruf_fehlgeschlagen" || latest?.state === "anhang_fehlt") {
-      throw new FileStateError(takeoverFileIssue(latest.state, voucher.source, voucher.rawQuelle)!);
+      const reload = takeoverFileIssue(latest.state, voucher.source, voucher.rawQuelle);
+      if (pdfRequired) throw new FileStateError(`Rechnungen und Gutschriften brauchen ihr Original-PDF. ${reload}`);
+      if (voucher.source === "sevdesk" && latest.state === "abruf_fehlgeschlagen") {
+        throw new FileStateError("sevDesk nennt zu diesem Beleg eine Datei. Im Umzug „Erneut abrufen“ wählen.");
+      }
+      throw new FileStateError(reload!);
     }
-    if (voucher.source === "sevdesk" && !voucher.lexofficeId.startsWith("voucher/"))
-      throw new FileStateError("Rechnungen und Gutschriften brauchen ihr Original-PDF; ein fehlendes PDF lässt sich nicht als „ohne Datei“ bestätigen.");
-    if (voucher.source === "accountable" && voucher.type !== "purchaseinvoice")
+    if (pdfRequired)
       throw new FileStateError("Rechnungen und Gutschriften brauchen ihr Original-PDF; ein fehlendes PDF lässt sich nicht als „ohne Datei“ bestätigen.");
     if (voucher.source === "accountable" && voucher.guid)
       throw new FileStateError(
@@ -191,8 +197,6 @@ export async function confirmWithoutFile(actor: string, voucherId: string, note:
       );
     if (voucher.source === "accountable" && voucher.documentPresent === true)
       throw new FileStateError("Accountable meldet zu dieser Buchung „Dokument vorhanden“; ein Einzelbeleg existiert, er hängt nur nicht an dieser Buchung.");
-    if (voucher.source === "lexoffice" && voucher.type !== "purchaseinvoice")
-      throw new FileStateError("Rechnungen und Gutschriften brauchen ihr Original-PDF; ein fehlendes PDF lässt sich nicht als „ohne Datei“ bestätigen.");
     // Nur eine Buchung ohne Beleg hatte in der Quelle nie ein Belegbild; fehlt die Datei nur im Export, ist das keine Aussage
     if (voucher.source === "lexoffice" && !voucher.ohneBeleg)
       throw new FileStateError(
