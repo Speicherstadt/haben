@@ -1,0 +1,204 @@
+import type postgres from "postgres";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
+
+/*
+ * Steuerfreie Umsätze ohne Vorsteuerabzug (Kz 48) und mit Vorsteuerabzug (Kz 43) bei Ist-Versteuerung im Zeitraum der
+ * Leistung (#1312). Anleitung zur UStVA 2026 (https://www.elster.de/eportal/helpGlobal?themaGlobal=help_ustva_2026), in
+ * beiden Abschnitten gleich: „Anzahlungen zu steuerfreien Umsätzen tragen Sie bitte nicht ein. Den Gesamtbetrag
+ * (Anzahlungen und Restzahlung) geben Sie bitte im Voranmeldungszeitraum der Leistungsausführung an.“ Eine Ausnahme für
+ * die Ist-Versteuerung nennt sie nicht. Soll bleibt, wie es ist.
+ */
+
+function dkbCsv(rows: string[][]) {
+  const header = `"Girokonto";"DE12 1203 0000 1234 5678 90"\n""\n`;
+  const columns = `"Buchungsdatum";"Wertstellung";"Status";"Zahlungspflichtige*r";"Zahlungsempfänger*in";"Verwendungszweck";"Umsatztyp";"IBAN";"Betrag (€)";"Gläubiger-ID";"Mandatsreferenz";"Kundenreferenz"\n`;
+  return new TextEncoder().encode(`${header + columns + rows.map((r) => r.map((c) => `"${c}"`).join(";")).join("\n")}\n`);
+}
+
+type Behandlung = "steuerfrei" | "ausfuhr";
+const KZ = { steuerfrei: "kz48", ausfuhr: "kz43" } as const;
+const SEP = { year: 2026, month: 9 };
+const OKT = { year: 2026, month: 10 };
+const NOV = { year: 2026, month: 11 };
+
+describe.skipIf(!testDatabaseUrl)("Kz 43 und 48 bei Ist im Zeitraum der Leistung (Postgres)", () => {
+  let vat: typeof import("./index.ts");
+  let bank: typeof import("../bank/index.ts");
+  let invoices: typeof import("../rechnungen/index.ts");
+  let contacts: typeof import("../stammdaten/contacts.ts");
+  let abgleich: typeof import("../auswertungen/abgleich.ts");
+  let sql: postgres.Sql;
+  const actor = "kz48-ist-test";
+
+  beforeAll(async () => {
+    sql = await setupTestDb();
+    vat = await import("./index.ts");
+    bank = await import("../bank/index.ts");
+    invoices = await import("../rechnungen/index.ts");
+    contacts = await import("../stammdaten/contacts.ts");
+    abgleich = await import("../auswertungen/abgleich.ts");
+  }, 30_000);
+  afterAll(async () => {
+    await sql?.end();
+  });
+
+  async function firma(kontenrahmen: "SKR03" | "SKR04", versteuerung: "ist" | "soll") {
+    await leeren(sql)`truncate vat_return_submissions, vat_returns, write_offs, allocations, bank_transactions, bank_imports,
+      bank_accounts, cash_entries, journal_lines, journal_entries, invoice_lines, invoice_taxes, invoices, invoice_number_counters,
+      contact_versions, contacts, company cascade`;
+    await sql`insert into company (id, name, strasse, plz, ort, email, telefon, steuernummer, ust_id, bundesland, iban, versteuerung, kontenrahmen)
+      values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '+49 941 1', '198/113/10010',
+              'DE123456789', 'BY', 'DE89370400440532013000', ${versteuerung}, ${kontenrahmen})`;
+  }
+
+  async function kunde(behandlung: Behandlung) {
+    return (
+      await contacts.createContact(actor, {
+        kundennummer: "",
+        name: `Kunde ${behandlung}`,
+        strasse: "Ring 1",
+        plz: behandlung === "ausfuhr" ? "8001" : "20457",
+        ort: behandlung === "ausfuhr" ? "Zürich" : "Hamburg",
+        land: behandlung === "ausfuhr" ? "CH" : "DE",
+        email: "a@b.example",
+        ustId: "",
+        iban: "",
+        leitwegId: "",
+        defaultFormat: null,
+      })
+    ).id;
+  }
+
+  async function rechnung(behandlung: Behandlung, net: number, felder: Record<string, unknown>) {
+    const draft = await invoices.createDraft(actor, {
+      contactId: await kunde(behandlung),
+      paymentTermDays: 14,
+      format: "zugferd",
+      note: "",
+      taxTreatment: behandlung,
+      exemptionReason: behandlung === "steuerfrei" ? "Steuerfrei nach § 4 Nr. 14 UStG" : "Steuerfreie Ausfuhrlieferung nach § 4 Nr. 1 Buchst. a UStG",
+      lines: [{ description: "Leistung", quantity: 1000, unit: "Psch." as const, unitPrice: net, taxRate: 0 }],
+      serviceTo: null,
+      ...felder,
+    } as never);
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
+  }
+
+  async function zahlung(invoiceId: string, date: string, amount: string) {
+    const purpose = crypto.randomUUID();
+    const row = [date, date, "Gebucht", "Kunde", "Testfirma", purpose, "Eingang", "DE02100100100006820101", amount, "", "", ""];
+    await bank.importStatement(actor, { bytes: dkbCsv([row]), filename: `${purpose}.csv` }, null);
+    const [tx] = await sql`select id, amount from bank_transactions where purpose = ${purpose}`;
+    await bank.allocate(actor, { kind: "invoice", transactionId: tx!.id, invoiceId, amount: Number(tx!.amount) });
+  }
+
+  /** Kz 43 bzw. 48 je Monat; die Quellen unter der Kennzahl ergeben denselben Betrag */
+  async function kennzahl(behandlung: Behandlung, period: { year: number; month: number }) {
+    const f = await vat.computeVatFigures(period);
+    const ausQuellen = f.revenue.filter((r) => r.treatment === behandlung).reduce((s, r) => s + r.base, 0);
+    expect(ausQuellen, `Quellen ${behandlung} ${period.month}/${period.year}`).toBe(f[KZ[behandlung]]);
+    return f[KZ[behandlung]];
+  }
+
+  async function journalSauber(periods: { year: number; month: number }[]) {
+    for (const p of periods) expect(abgleich.abweichungen((await abgleich.vatAbgleich(p)).zeilen), JSON.stringify(p)).toEqual([]);
+  }
+
+  /** Anzahlung 200 € im September bezahlt, Leistung im Oktober über 1.000 €, Schlussrechnung im November, Rest 800 € im November bezahlt */
+  async function anzahlungUndSchluss(behandlung: Behandlung) {
+    const anzahlung = await rechnung(behandlung, 20_000, { issueDate: "2026-09-05", serviceFrom: null, variant: "abschlag", advanceType: "anzahlung" });
+    await zahlung(anzahlung.id, "10.09.26", "200,00");
+    const schluss = await rechnung(behandlung, 100_000, {
+      issueDate: "2026-11-02",
+      serviceFrom: "2026-10-01",
+      serviceTo: "2026-10-31",
+      variant: "schluss",
+      deducts: [anzahlung.id],
+      contactId: anzahlung.contactId,
+    });
+    expect(schluss.net).toBe(80_000);
+    await zahlung(schluss.id, "16.11.26", "800,00");
+  }
+
+  for (const kontenrahmen of ["SKR03", "SKR04"] as const)
+    for (const behandlung of ["steuerfrei", "ausfuhr"] as const)
+      it(`${kontenrahmen}/ist: ${KZ[behandlung]} mit Anzahlung im September, Leistung im Oktober, Rest im November`, async () => {
+        await firma(kontenrahmen, "ist");
+        await anzahlungUndSchluss(behandlung);
+        expect(await kennzahl(behandlung, SEP)).toBe(0);
+        expect(await kennzahl(behandlung, OKT)).toBe(100_000);
+        expect(await kennzahl(behandlung, NOV)).toBe(0);
+        await journalSauber([SEP, OKT, NOV]);
+      }, 60_000);
+
+  for (const [kontenrahmen, behandlung] of [
+    ["SKR03", "steuerfrei"],
+    ["SKR04", "ausfuhr"],
+  ] as const)
+    it(`${kontenrahmen}/soll: ${KZ[behandlung]} mit Anzahlung bleibt wie bisher`, async () => {
+      await firma(kontenrahmen, "soll");
+      await anzahlungUndSchluss(behandlung);
+      expect([await kennzahl(behandlung, SEP), await kennzahl(behandlung, OKT), await kennzahl(behandlung, NOV)]).toEqual([20_000, 80_000, 0]);
+      await journalSauber([SEP, OKT, NOV]);
+    }, 60_000);
+
+  for (const [kontenrahmen, versteuerung, behandlung] of [
+    ["SKR03", "ist", "steuerfrei"],
+    ["SKR04", "ist", "ausfuhr"],
+    ["SKR04", "soll", "steuerfrei"],
+    ["SKR03", "soll", "ausfuhr"],
+  ] as const)
+    it(`${kontenrahmen}/${versteuerung}: ${KZ[behandlung]} im Monat der Leistung, nicht der Rechnung oder Zahlung`, async () => {
+      await firma(kontenrahmen, versteuerung);
+      const inv = await rechnung(behandlung, 50_000, { issueDate: "2026-10-03", serviceFrom: "2026-09-01", serviceTo: "2026-09-30" });
+      await zahlung(inv.id, "05.11.26", "500,00");
+      expect([await kennzahl(behandlung, SEP), await kennzahl(behandlung, OKT), await kennzahl(behandlung, NOV)]).toEqual([50_000, 0, 0]);
+    }, 60_000);
+
+  for (const [kontenrahmen, behandlung] of [
+    ["SKR04", "steuerfrei"],
+    ["SKR03", "ausfuhr"],
+  ] as const)
+    it(`${kontenrahmen}/ist: Storno im Monat des Stornos, mit umgekehrtem Vorzeichen`, async () => {
+      await firma(kontenrahmen, "ist");
+      const inv = await rechnung(behandlung, 50_000, { issueDate: "2026-09-10", serviceFrom: "2026-09-10" });
+      await invoices.cancelInvoice(actor, inv.id, "2026-11-02");
+      expect([await kennzahl(behandlung, SEP), await kennzahl(behandlung, OKT), await kennzahl(behandlung, NOV)]).toEqual([50_000, 0, -50_000]);
+    }, 60_000);
+
+  for (const kontenrahmen of ["SKR03", "SKR04"] as const)
+    it(`${kontenrahmen}/ist: Skonto mindert Kz 48 im Monat der Ausbuchung, die Aufhebung gegenläufig`, async () => {
+      // Anleitung zur UStVA 2026, Allgemein: „Bitte berücksichtigen Sie Entgelterhöhungen und Entgeltminderungen bei den Bemessungsgrundlagen.“
+      await firma(kontenrahmen, "ist");
+      const inv = await rechnung("steuerfrei", 80_000, { issueDate: "2026-10-03", serviceFrom: "2026-09-01", serviceTo: "2026-09-30" });
+      await zahlung(inv.id, "05.10.26", "784,00");
+      await bank.writeOff(actor, { kind: "skonto", invoiceId: inv.id, date: "2026-10-05" });
+      const [skonto] = await bank.listWriteOffs({ invoiceId: inv.id });
+      await bank.reverseWriteOff(actor, skonto!.id, "2026-11-04");
+      expect([await kennzahl("steuerfrei", SEP), await kennzahl("steuerfrei", OKT), await kennzahl("steuerfrei", NOV)]).toEqual([80_000, -1_600, 1_600]);
+    }, 60_000);
+
+  it("SKR04/ist: Bareinnahme ohne Rechnung zählt am Tag der Zahlung, eine Bareinnahme auf eine Rechnung nicht", async () => {
+    await firma("SKR04", "ist");
+    await bank.createCashIncome(actor, { date: "2026-10-12", amount: 20_000, text: "Kurs", steuer: { behandlung: "steuerfrei", steuersatz: 0 } }, "2026-11-23");
+    const inv = await rechnung("steuerfrei", 30_000, { issueDate: "2026-09-20", serviceFrom: "2026-09-20" });
+    await bank.createCashInvoiceEntry(actor, { invoiceId: inv.id, date: "2026-10-14", amount: 30_000 }, "2026-11-23");
+    expect([await kennzahl("steuerfrei", SEP), await kennzahl("steuerfrei", OKT)]).toEqual([30_000, 20_000]);
+  }, 60_000);
+
+  it("Gesendete Voranmeldung mit Kz 48 nach Zahlungseingang meldet keine Abweichung, ein anderer Wert schon", async () => {
+    await firma("SKR03", "ist");
+    const inv = await rechnung("steuerfrei", 50_000, { issueDate: "2026-10-03", serviceFrom: "2026-09-01", serviceTo: "2026-09-30" });
+    await zahlung(inv.id, "05.11.26", "500,00");
+    const entwurf = await vat.saveDraft(actor, NOV, { mode: "berechnet" });
+    expect(entwurf.kz48).toBe(0);
+    // So steht eine früher gesendete Anmeldung da: Kz 48 im Monat der Zahlung
+    await sql`update vat_returns set kz48 = 50000, status = 'sent', sent_at = now() where id = ${entwurf.id}`;
+    expect(await vat.gesendeteAbweichungen([2026])).toEqual([]);
+
+    await sql`update vat_returns set kz48 = 12300 where id = ${entwurf.id}`;
+    expect(await vat.gesendeteAbweichungen([2026])).toEqual([{ period: NOV, feld: "Kz 48", gesendet: 12_300, journal: 0 }]);
+  }, 60_000);
+});
