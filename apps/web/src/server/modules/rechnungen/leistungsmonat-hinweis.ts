@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
+import { anzahlungsAbzuege } from "./advance-deductions.ts";
 import { invoiceTaxReader, invoiceVatDate, leistungstag } from "./invoice-tax.ts";
 import { leistungsmonatHinweis } from "./leistungsmonat.ts";
 
@@ -23,7 +24,15 @@ export async function leistungsmonatHinweisFuer(invoice: typeof schema.invoices.
     .from(schema.vatReturns)
     .where(eq(schema.vatReturns.status, "sent"))
     .orderBy(schema.vatReturns.sentAt);
-  return leistungsmonatHinweis(tag, gesendet, { net: invoice.net, tax: invoice.tax }, invoice.lockedAt);
+  return leistungsmonatHinweis(tag, gesendet, { net: await entgelt(invoice, q), tax: invoice.tax }, invoice.lockedAt);
+}
+
+const steuerfrei = (invoice: typeof schema.invoices.$inferSelect) => invoice.taxTreatment === "steuerfrei" || invoice.taxTreatment === "ausfuhr";
+
+/** Kz 43 und 48 zählen die Schlussrechnung samt abgezogener Anzahlungen (umsatzsteuer/umsaetze-nach-leistung.ts), sonst der Nettobetrag */
+async function entgelt(invoice: typeof schema.invoices.$inferSelect, q: Db | Tx): Promise<number> {
+  if (!steuerfrei(invoice) || invoice.lexofficeVoucherId !== null) return invoice.net;
+  return invoice.net - ((await anzahlungsAbzuege([invoice.id], q)).get(invoice.id) ?? 0);
 }
 
 /**
@@ -31,7 +40,7 @@ export async function leistungsmonatHinweisFuer(invoice: typeof schema.invoices.
  * gar nicht (der Tag ist dann das Rechnungsdatum, also kein Hinweis) (umsatzsteuer/umsaetze-nach-leistung.ts, Anleitung zur UStVA 2026 unter Kz 43 und 48)
  */
 async function meldetag(invoice: typeof schema.invoices.$inferSelect, q: Db | Tx): Promise<string> {
-  const steuerfrei = invoice.taxTreatment === "steuerfrei" || invoice.taxTreatment === "ausfuhr";
-  if (!steuerfrei || invoice.lexofficeVoucherId !== null || (await invoiceTaxReader(q).companyMode(invoice)) !== "ist") return invoiceVatDate(invoice, q);
+  if (!steuerfrei(invoice) || invoice.lexofficeVoucherId !== null || (await invoiceTaxReader(q).companyMode(invoice)) !== "ist")
+    return invoiceVatDate(invoice, q);
   return invoice.advanceType === "anzahlung" ? invoice.issueDate : leistungstag(invoice);
 }

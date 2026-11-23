@@ -81,7 +81,7 @@ export { unbilledAdvanceRequest } from "./advance-invoice.ts";
 export { defaultSkonto } from "./skonto.ts";
 export { InvoiceError } from "./invoice-error.ts";
 export { UmsatzgrenzeError, type UmsatzStand } from "./umsatzgrenze.ts";
-export { abschlagLinks, openAbschlaege } from "./advance-deductions.ts";
+export { abschlagLinks, anzahlungsAbzuege, openAbschlaege } from "./advance-deductions.ts";
 export { applyPublishedRatesToDrafts } from "./draft-rate.ts";
 export { draftSchema, type DraftInput } from "./draft-schema.ts";
 export { cancelInvoice, createCorrection } from "./invoice-cancellation.ts";

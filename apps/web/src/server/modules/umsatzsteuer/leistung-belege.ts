@@ -1,7 +1,7 @@
 import { periodRange, type TaxTreatment, type VatPeriod } from "@haben/core";
-import { and, eq, gte, inArray, isNull, lt, ne, or } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lt, or } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
-import { invoiceTaxReader, invoiceTotalsById, leistungstag } from "../rechnungen/index.ts";
+import { anzahlungsAbzuege, invoiceTaxReader, invoiceTotalsById, leistungstag } from "../rechnungen/index.ts";
 import type { RevenueSource } from "./vat-figures.ts";
 
 /*
@@ -95,20 +95,5 @@ export async function ausbuchungenNachLeistung(period: VatPeriod, behandlungen: 
       tax: 0,
     });
   }
-  return result;
-}
-
-/** Je Rechnung die Summe ihrer Abzugspositionen für Anzahlungen (negativ) */
-export async function anzahlungsAbzuege(ids: string[], q: Db | Tx): Promise<Map<string, number>> {
-  if (ids.length === 0) return new Map();
-  const l = schema.invoiceLines;
-  const abschlag = schema.invoices;
-  const rows = await q
-    .select({ invoiceId: l.invoiceId, net: l.net })
-    .from(l)
-    .innerJoin(abschlag, eq(abschlag.id, l.deductionOf))
-    .where(and(inArray(l.invoiceId, ids), ne(abschlag.advanceType, "teilleistung")));
-  const result = new Map<string, number>();
-  for (const r of rows) result.set(r.invoiceId, (result.get(r.invoiceId) ?? 0) + r.net);
   return result;
 }

@@ -1,8 +1,8 @@
 import { periodRange, type Cents, type TaxTreatment, type VatPeriod, type Versteuerung } from "@haben/core";
 import { and, eq, gte, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
-import { heldUntilRefund, invoiceTaxReader } from "../rechnungen/index.ts";
-import { anzahlungsAbzuege, ausbuchungenNachLeistung, rechnungenNachLeistung, summe, type Zaehlt } from "./leistung-belege.ts";
+import { anzahlungsAbzuege, heldUntilRefund, invoiceTaxReader } from "../rechnungen/index.ts";
+import { ausbuchungenNachLeistung, rechnungenNachLeistung, summe, type Zaehlt } from "./leistung-belege.ts";
 import type { RevenueSource } from "./vat-figures.ts";
 
 /*
@@ -138,7 +138,9 @@ async function anzahlungenDerSchlussrechnungBeiSoll(period: VatPeriod, q: Db | T
 /**
  * Kz 43 und 48 im Zeitraum der Leistung: was zum Journal dazukommt (`dazu`), was aus ihm herausfällt (`heraus`, aus
  * kennzahlenAusDemJournal) und die Quellen unter den Kennzahlen. Bei Soll fallen die Buchungen steuerfreier Anzahlungen
- * heraus, bei Ist die Zahlungen; ihre Quellen ebenso, außer Zahlungen auf übernommene Rechnungen.
+ * heraus, bei Ist die Zahlungen; ihre Quellen ebenso, außer Zahlungen auf übernommene Rechnungen. Belege eines Jahres nach
+ * Ist zählen auch in einem späteren Jahr nach Soll wie bei Ist (Storno, Ausbuchung, gehaltene Beträge), ihre Zahlungen
+ * dort nicht: Die Leistung steht schon im Ist-Jahr (Wechsel zum Jahreswechsel, Rechnung im neuen Jahr).
  */
 export async function steuerfreiNachLeistung(
   period: VatPeriod,
@@ -155,17 +157,20 @@ export async function steuerfreiNachLeistung(
   const lexoffice = new Set(rechnungen.filter((r) => r.lexofficeVoucherId !== null).map((r) => r.id));
   const anzahlung = new Set(rechnungen.filter((r) => r.advanceType === "anzahlung").map((r) => r.id));
   const ist = versteuerung === "ist";
-  // Steuerplan einer Anzahlung (bei Soll und Ist), bei Ist dazu die Zahlungen auf Rechnungen
-  const weg = (r: RevenueSource) =>
-    steuerfrei(r.treatment) && ((r.type === "invoice" && anzahlung.has(r.invoiceId)) || (ist && r.type === "payment" && !lexoffice.has(r.invoiceId)));
-  const neu = ist
-    ? [
-        ...(await rechnungenNachLeistung(period, STEUERFREI, beiIstZaehlt, q)),
-        ...(await ausbuchungenNachLeistung(period, STEUERFREI, beiIstZaehlt, q)),
-        ...(await gehaltenBeiIst(period, q)),
-      ]
-    : await anzahlungenDerSchlussrechnungBeiSoll(period, q);
-  const heraus = ist ? journal.zahlungsanteil : journal.anzahlungsanteil;
+  // Zahlungen stehen unter den Quellen nur für Rechnungen eines Jahres nach Ist (vat-figures.ts), bei Soll also nur nach einem Wechsel
+  const zahlung = (r: RevenueSource) => r.type === "payment" && steuerfrei(r.treatment) && !lexoffice.has(r.invoiceId);
+  // Steuerplan einer Anzahlung (bei Soll und Ist) und die Zahlungen auf Rechnungen
+  const weg = (r: RevenueSource) => zahlung(r) || (steuerfrei(r.treatment) && r.type === "invoice" && anzahlung.has(r.invoiceId));
+  // beiIstZaehlt nimmt nur Belege, deren Kette in einem Jahr nach Ist beginnt
+  const neu = [
+    ...(await rechnungenNachLeistung(period, STEUERFREI, beiIstZaehlt, q)),
+    ...(await ausbuchungenNachLeistung(period, STEUERFREI, beiIstZaehlt, q)),
+    ...(await gehaltenBeiIst(period, q)),
+    ...(ist ? [] : await anzahlungenDerSchlussrechnungBeiSoll(period, q)),
+  ];
+  // Bei Soll trägt das Journal die Zahlungen eines Ist-Jahres mit ihrer Bemessungsgrundlage wie die Quellen
+  const zahlungen = teil(revenue.filter(zahlung));
+  const heraus = ist ? journal.zahlungsanteil : { kz43: journal.anzahlungsanteil.kz43 + zahlungen.kz43, kz48: journal.anzahlungsanteil.kz48 + zahlungen.kz48 };
   // Zahlungen auf übernommene Rechnungen stehen im Zahlungsanteil des Journals und bleiben
   const dazu = teil([...neu, ...(ist ? revenue.filter((r) => r.type === "payment" && lexoffice.has(r.invoiceId) && steuerfrei(r.treatment)) : [])]);
   return { kz43: dazu.kz43 - heraus.kz43, kz48: dazu.kz48 - heraus.kz48, revenue: [...revenue.filter((r) => !weg(r)), ...neu] };

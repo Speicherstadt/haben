@@ -163,3 +163,21 @@ export async function deductedRefs(lines: InvoiceLine[], q: Db | Tx = db) {
     .where(inArray(schema.invoices.id, ids));
   return ids.map((id) => rows.find((r) => r.id === id)!).map((r) => ({ number: r.number ?? "", issueDate: r.issueDate }));
 }
+
+/**
+ * Je Rechnung die Summe ihrer Abzugspositionen für Anzahlungen (negativ), ohne abgezogene Teilleistungen: Bei steuerfreien
+ * Umsätzen gehören sie zum Entgelt der Leistung (Kz 43 und 48, umsatzsteuer/umsaetze-nach-leistung.ts)
+ */
+export async function anzahlungsAbzuege(ids: string[], q: Db | Tx): Promise<Map<string, number>> {
+  if (ids.length === 0) return new Map();
+  const l = schema.invoiceLines;
+  const abschlag = schema.invoices;
+  const rows = await q
+    .select({ invoiceId: l.invoiceId, net: l.net })
+    .from(l)
+    .innerJoin(abschlag, eq(abschlag.id, l.deductionOf))
+    .where(and(inArray(l.invoiceId, ids), ne(abschlag.advanceType, "teilleistung")));
+  const result = new Map<string, number>();
+  for (const r of rows) result.set(r.invoiceId, (result.get(r.invoiceId) ?? 0) + r.net);
+  return result;
+}
