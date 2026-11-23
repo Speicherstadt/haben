@@ -353,9 +353,9 @@ Paperless-ngx schickt neue Dokumente mit einem Workflow ohne eigenen Code an Hab
 - **Aktion „Webhook“:** URL `https://<haben>/api/v1/belege`, Header `Authorization: Bearer <Token>` (Token mit `belege:anlegen`), Parameter statt JSON-Body, „Dokument anhängen“ an.
 - **Parameter:** `externalSource` = `paperless`, `externalId` = `{{ doc_id }}`, `note` = `Paperless: {{ doc_title }} ({{ correspondent }}) {{ doc_url }}`. Die Platzhalter rendert Paperless mit Jinja, also in doppelten geschweiften Klammern.
 
-Ein endgültig fehlgeschlagener Webhook wird später nicht automatisch nachgeholt. Bei einem abgelaufenen oder widerrufenen Token antwortet Haben mit `401`. Behebe die Ursache, ersetze bei Bedarf das Token und sende die Dokumente erneut, etwa über den Auslöser „Dokument aktualisiert“ mit einem Tag als Filter für die betroffenen Dokumente.
+Ein endgültig fehlgeschlagener Webhook wird später nicht automatisch nachgeholt. Bei einem abgelaufenen oder widerrufenen Token antwortet Haben mit `401`. Behebe die Ursache, ersetze bei Bedarf das Token und sende die Dokumente erneut, etwa über den Auslöser „Dokument aktualisiert“ mit einem Tag als Filter für die betroffenen Dokumente. [Workflow-Auslöser in Paperless-ngx](https://github.com/paperless-ngx/paperless-ngx/blob/v3.4.2/docs/usage.md#workflow-trigger-types)
 
-Über `externalSource` und `externalId` legt ein doppelt ausgelöster Workflow nichts doppelt an (siehe oben). Die Platzhalter im Header ersetzt Paperless nicht; das Token steht dort im Klartext, also nur ein Token mit `belege:anlegen`.
+Verwende beim Nachversand dieselben Werte für `externalSource` und `externalId`. So erkennt Haben einen bereits angelegten Beleg (siehe oben). Die Platzhalter im Header ersetzt Paperless nicht; das Token steht dort im Klartext, also nur ein Token mit `belege:anlegen`.
 
 ## Bankumsätze
 
