@@ -173,8 +173,7 @@ export function FinalInvoice({ data }: { data: Detail }) {
             <section className="card" aria-labelledby="amend-heading">
               <h2 id="amend-heading">Korrigieren</h2>
               <p className="small muted" style={{ margin: 0 }}>
-                Festgeschriebene Rechnungen bleiben unverändert. Eine Stornorechnung hebt sie vollständig auf, eine Rechnungskorrektur mindert den Betrag
-                teilweise.
+                Festgeschriebene Rechnungen bleiben unverändert.
               </p>
               <ConfirmDialog
                 open={confirming}

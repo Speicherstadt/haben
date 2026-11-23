@@ -648,7 +648,7 @@ Es gilt die Sprache der Rechnung bzw. des Angebots. Mahnungen sind immer deutsch
 
 ## Storno und Rechnungskorrektur
 
-Eine festgeschriebene Rechnung änderst du nicht, du stellst eine neue aus. Auf der Detailseite einer Rechnung gibt es dafür den Abschnitt **Korrigieren**.
+Eine festgeschriebene Rechnung änderst du nicht, du stellst eine neue aus. Auf der Detailseite einer Rechnung gibt es dafür den Abschnitt **Korrigieren**; unter jedem Knopf steht in einer Zeile, was er tut.
 
 | | Stornieren | Rechnungskorrektur anlegen |
 | --- | --- | --- |
