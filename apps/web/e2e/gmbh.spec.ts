@@ -353,7 +353,14 @@ test("Ausschüttungen: Steuerabzug berechnen, ohne Gewinnvortrag nicht buchbar",
   await form.getByLabel("Datum des Beschlusses").fill(`${year}-01-02`);
   // Vorbelegt mit dem Vorjahr; steht in der Steuerbescheinigung als Zeitraum (Muster II)
   await expect(form.getByLabel("Geschäftsjahr, dessen Gewinn ausgeschüttet wird")).toHaveValue(String(year - 1));
-  await form.getByLabel("Ausschüttung brutto").fill("1.000,00");
+  // Ein nicht lesbarer Betrag: Meldung an genau diesem Feld, Fokus dort, keine Berechnung (#1277)
+  const brutto = form.getByLabel("Ausschüttung brutto");
+  await brutto.fill("12€50");
+  await form.getByRole("button", { name: "Steuerabzug berechnen" }).click();
+  await expect(form.getByText("Trag einen Betrag über 0 ein, etwa 30.000,00.")).toBeVisible();
+  await expect(brutto).toBeFocused();
+  await expect(page.getByRole("region", { name: "Berechnung der Ausschüttung" })).toHaveCount(0);
+  await brutto.fill("1.000,00");
   await form.getByRole("button", { name: "Steuerabzug berechnen" }).click();
   // Anteilseigner aus den Angaben des Vorjahres; 25 % Kapitalertragsteuer, 5,5 % Soli
   const rechnung = page.getByRole("region", { name: "Berechnung der Ausschüttung" });
