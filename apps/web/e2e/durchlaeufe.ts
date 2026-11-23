@@ -90,19 +90,56 @@ export const MIT_DATEN = ["mit-daten", "mit-daten-2", "mit-daten-3"] as const sa
 /**
  * Feste Verteilung der Projekte auf die Teile der CI (Matrix in .github/workflows/ci.yml, E2E_TEIL), nach Dauer statt
  * nach Datei wie `--shard`. belege-steuern und rechnungen mit ihren parallelen Abschnitten (ABZUG_AUS) haben je einen
- * Teil. Die Tests mit Daten (MIT_DATEN) lasten vier Worker voll aus und sind in drei Teile verteilt; jeder
- * dieser Teile spielt „ablauf“ selbst durch (e2e/abzug.ts sichert und spielt im selben Job ein), daneben laufen auf den
- * freien Workern die kurzen Durchläufe. Nur „ablauf“ und „abzug“ stehen in mehreren Teilen, jedes andere Projekt in genau
- * einem (e2e-teile.test.ts); ein neuer Durchlauf kommt in den kürzesten Teil.
+ * Teil. Die Tests mit Daten (MIT_DATEN) sind in drei Teile verteilt; jeder spielt „ablauf“ selbst durch (e2e/abzug.ts
+ * sichert und spielt im selben Job ein), seriell auf einem Worker. Die drei anderen Worker nehmen in der Zeit die
+ * Durchläufe mit eigenem Server, die nicht auf „ablauf“ warten (CI-Logs #1742: je Teil gut 300 Worker-Sekunden frei).
+ * Die längste serielle Spec ohne Abschnitte (gmbh) liegt beim kürzesten mit-daten (mit-daten-2). Nur „ablauf“ und
+ * „abzug“ stehen in mehreren Teilen, jedes andere Projekt in genau einem (e2e-teile.test.ts); ein neuer Durchlauf kommt
+ * in den kürzesten Teil.
  */
 export const TEILE = {
   "belege-steuern": ["belege-steuern", "belege-steuern-belege", "belege-steuern-erklaerungen", "belege-steuern-bank", "belege-steuern-einstellungen"],
-  rechnungen: ["rechnungen", "rechnungen-kontakte", "rechnungen-artikel", "rechnungen-kasse", "rechnungen-angebote"],
-  ablauf: ["ablauf", "abzug", "mit-daten", "fremdrechnung-kleinunternehmer", "fints-abruf", "etsy-abruf"],
-  "ablauf-2": ["ablauf", "abzug", "mit-daten-2", "zahlung-gebuehr", "bank-dubletten", "bank-bestaetigen"],
-  "ablauf-3": ["ablauf", "abzug", "mit-daten-3", "paypal-abruf", "stripe-abruf"],
-  gmbh: ["gmbh", "rueckfragen", "belegimport", "bb-import", "beleg-storno", "dauerfrist-euer", "verrechnung", "firmen", "passwort", "fastbill-import"],
-  importe: [
+  rechnungen: [
+    "rechnungen",
+    "rechnungen-kontakte",
+    "rechnungen-artikel",
+    "rechnungen-kasse",
+    "rechnungen-angebote",
+    // Nutzt den Hauptserver, aber nicht dessen Daten: nie in einem Teil mit „abzug“, das die Hauptdatenbank ersetzt
+    "ohne-daten",
+  ],
+  ablauf: [
+    "ablauf",
+    "abzug",
+    "mit-daten",
+    "fremdrechnung-kleinunternehmer",
+    "fints-abruf",
+    "etsy-abruf",
+    "rueckfragen",
+    "belegimport",
+    "firmen",
+    "verrechnung",
+    "fastbill-import",
+  ],
+  "ablauf-2": [
+    "ablauf",
+    "abzug",
+    "mit-daten-2",
+    "zahlung-gebuehr",
+    "bank-dubletten",
+    "bank-bestaetigen",
+    "gmbh",
+    "beleg-storno",
+    "passwort",
+    "bb-import",
+    "dauerfrist-euer",
+  ],
+  "ablauf-3": [
+    "ablauf",
+    "abzug",
+    "mit-daten-3",
+    "paypal-abruf",
+    "stripe-abruf",
     "wiso-import",
     "sevdesk-export",
     "sevdesk-anlagen",
@@ -113,11 +150,12 @@ export const TEILE = {
     "umstellung",
     "accountable-ohne-beleg",
     "fremdrechnung",
-    // Nutzt den Hauptserver, aber nicht dessen Daten: nie in einem Teil mit „abzug“, das die Hauptdatenbank ersetzt
-    "ohne-daten",
   ],
 } as const satisfies Record<string, readonly Projekt[]>;
 export type Teil = keyof typeof TEILE;
+
+/** Der Teil, in dessen Job nach den Projekten die SSO-Tests (playwright.sso-only.config.ts) laufen; kein eigener Job */
+export const SSO_IM_TEIL: Teil = "rechnungen";
 
 /** Projekte des Teils aus E2E_TEIL; ohne Angabe alle (undefined), ein unbekannter Name bricht ab */
 export function projekteFuerTeil(teil = process.env.E2E_TEIL): readonly Projekt[] | undefined {

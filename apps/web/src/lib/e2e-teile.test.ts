@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { ABZUG_AUS, DURCHLAEUFE, HAUPTPROJEKTE, MIT_DATEN, projekteFuerTeil, TEILE } from "../../e2e/durchlaeufe.ts";
+import { ABZUG_AUS, DURCHLAEUFE, HAUPTPROJEKTE, MIT_DATEN, projekteFuerTeil, SSO_IM_TEIL, TEILE } from "../../e2e/durchlaeufe.ts";
 
 // Feste Verteilung der Ende-zu-Ende-Tests auf die Teile der CI (#1742)
 describe("TEILE", () => {
@@ -42,12 +42,17 @@ describe("TEILE", () => {
     const job = ci.slice(ci.indexOf("\n  e2e-teil:"));
     const zeile = job.match(/^\s+teil: \[(.*)\]$/m)?.[1] ?? "";
     const matrix = zeile.split(",").map((teil) => teil.trim());
-    expect(matrix).toEqual([...Object.keys(TEILE), "sso"]);
+    expect(matrix).toEqual(Object.keys(TEILE));
+    expect(job).toContain(`matrix.teil == '${SSO_IM_TEIL}'`);
+  });
+
+  it("hält die Zahl der E2E-Jobs bei höchstens sechs (docs/entwicklung.md, Tests)", () => {
+    expect(Object.keys(TEILE).length).toBeLessThanOrEqual(6);
   });
 
   it("liest E2E_TEIL: ohne Angabe alle, unbekannt bricht ab", () => {
     expect(projekteFuerTeil("")).toBeUndefined();
-    expect(projekteFuerTeil("rechnungen")).toEqual(["rechnungen", "rechnungen-kontakte", "rechnungen-artikel", "rechnungen-kasse", "rechnungen-angebote"]);
+    expect(projekteFuerTeil("rechnungen")).toEqual(["rechnungen", "rechnungen-kontakte", "rechnungen-artikel", "rechnungen-kasse", "rechnungen-angebote", "ohne-daten"]);
     expect(() => projekteFuerTeil("gibt-es-nicht")).toThrow("unbekannt");
   });
 });

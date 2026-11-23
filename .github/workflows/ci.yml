@@ -201,7 +201,7 @@ jobs:
           fi
 
   # Feste Teile parallel: welche Projekte in welchem Teil laufen, steht in apps/web/e2e/durchlaeufe.ts (TEILE);
-  # jeder Teil startet nur seine Server. Dazu SSO als eigener Teil. Gebaut wird in jedem Teil, das läuft parallel
+  # jeder Teil startet nur seine Server, ein Teil danach die SSO-Tests. Gebaut wird in jedem Teil, das läuft parallel
   # und braucht kein Artefakt dazwischen
   e2e-teil:
     needs: [changes, ci-image]
@@ -216,7 +216,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        teil: [belege-steuern, rechnungen, ablauf, ablauf-2, ablauf-3, gmbh, importe, sso]
+        teil: [belege-steuern, rechnungen, ablauf, ablauf-2, ablauf-3]
     services:
       postgres:
         image: postgres:19
@@ -273,7 +273,6 @@ jobs:
       - run: echo "E2E_START=$(date +%s)" >> "$GITHUB_ENV"
       # Vier Worker (playwright.config.ts), so viele Kerne hat der Runner
       - name: Ende-zu-Ende-Tests, Teil ${{ matrix.teil }}
-        if: matrix.teil != 'sso'
         run: bun run e2e
         env:
           E2E_TEIL: ${{ matrix.teil }}
@@ -281,8 +280,9 @@ jobs:
           E2E_APP_DATABASE_URL: postgres://haben_e2e_app:erfundenes-e2e-passwort@${{ env.DB_HOST }}:5432/haben_e2e
           # Der gebaute Server statt des Entwicklungsservers
           E2E_SERVER_COMMAND: bun .output/server/index.mjs
+      # SSO (≈40 s) ohne eigenen Job im Teil mit der meisten Luft (SSO_IM_TEIL in e2e/durchlaeufe.ts), auch nach Fehlern davor
       - name: SSO-Ende-zu-Ende mit Produktionsbuild und TLS
-        if: matrix.teil == 'sso'
+        if: ${{ !cancelled() && matrix.teil == 'rechnungen' }}
         run: bun run e2e --config playwright.sso-only.config.ts
         env:
           E2E_DATABASE_URL: postgres://haben:haben@${{ env.DB_HOST }}:5432/haben_sso_e2e
