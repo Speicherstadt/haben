@@ -98,7 +98,7 @@ Issue [#716](https://github.com/Speicherstadt/haben/issues/716) mit den Pull Req
 
 ## Leitplanken für Agenten
 
-<a id="doku-für-menschen-skills-für-agenten"></a>Dass kein ungeprüfter Code nach `main` kommt, hängt nicht davon ab, ob ein Agent die Regeln kennt, sondern davon, dass ein Fehler vor dem Merge auffällt.
+<a id="doku-für-menschen-skills-für-agenten"></a>Dass kein ungeprüfter Code nach `main` kommt (die Reparatur eines roten `main` wird danach geprüft, [Wer mergt was](mitwirken.md#wer-mergt-was)), hängt nicht davon ab, ob ein Agent die Regeln kennt, sondern davon, dass ein Fehler vor dem Merge auffällt.
 
 <div class="showcase-cards" markdown>
 <div markdown>
