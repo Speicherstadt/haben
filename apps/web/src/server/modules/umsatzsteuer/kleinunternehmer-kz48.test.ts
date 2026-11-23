@@ -395,6 +395,47 @@ describe.skipIf(!testDatabaseUrl)("Kleinunternehmer-Umsätze in Kz 48 (Postgres)
     });
   }
 
+  /*
+   * GmbH und UG (Verfahren deferred, #750): Der Ersatz einer stornierten Schlussrechnung übernimmt deren Zahlungen, das
+   * Papierstorno eröffnet keine Erstattung (docs/rechnungen.md, „Schlussrechnung bei GmbH und UG ersetzen“). Das Bezahlte
+   * hält Kz 48 deshalb nur bis zum Leistungstag des Ersatzes, wie die Anzahlung bei einer neuen Schlussrechnung
+   */
+  for (const [kontenrahmen, versteuerung] of [
+    ["SKR04", "ist"],
+    ["SKR03", "soll"],
+  ] as const)
+    it(`${kontenrahmen}/${versteuerung}: GmbH: Ersatz einer bezahlten, stornierten Schlussrechnung zählt die Leistung in Kz 48 einmal`, async () => {
+      await firma(kontenrahmen, versteuerung);
+      await sql`update company set rechtsform = 'gmbh' where id = 1`;
+      const festschreiben = async (werte: Partial<Parameters<typeof invoices.createDraft>[1]>, betrag: number) => {
+        const draft = await invoices.createDraft(actor, {
+          contactId,
+          issueDate: "2026-09-05",
+          serviceFrom: null,
+          serviceTo: null,
+          paymentTermDays: 14,
+          format: "zugferd",
+          note: "",
+          taxTreatment: "kleinunternehmer",
+          lines: [{ description: "Webdesign", quantity: 1000, unit: "Psch.", unitPrice: betrag, taxRate: 0 }],
+          ...werte,
+        });
+        return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
+      };
+      const leistung = { serviceFrom: "2026-10-01", serviceTo: "2026-10-31", variant: "schluss" } as const;
+      const anzahlung = await festschreiben({ variant: "abschlag", advanceType: "anzahlung" }, 30_000);
+      await zahlung(anzahlung.id, "2026-09-10", 30_000);
+      const alt = await festschreiben({ ...leistung, issueDate: "2026-11-04", deducts: [anzahlung.id] }, 100_000);
+      await zahlung(alt.id, "2026-11-06", 70_000);
+      await invoices.cancelInvoice(actor, alt.id, "2026-11-20");
+      const ersatz = await festschreiben({ ...leistung, issueDate: "2026-11-21", deducts: [anzahlung.id] }, 100_000);
+      expect(ersatz).toMatchObject({ advanceAccounting: "deferred", replacesInvoiceId: alt.id });
+
+      // Alte Schlussrechnung und Ersatz je 1.000 € im Monat der Leistung, das Papierstorno mindert im November
+      expect((await vat.computeVatFigures(oktober)).kz48).toBe(200_000);
+      expect((await vat.computeVatFigures(november)).kz48).toBe(-100_000);
+    });
+
   it("Gesendete Voranmeldung von vor #1268 meldet keine Abweichung, ein anderer Wert schon", async () => {
     await firma("SKR03", "soll");
     await rechnung();
