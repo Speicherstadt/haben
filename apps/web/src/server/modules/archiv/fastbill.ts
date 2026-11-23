@@ -74,7 +74,7 @@ export async function startFastbillImport(actor: string, options: { wait?: boole
   const login = await fastbillCredentials();
   if (!login) throw new FastbillError("Zuerst Login-E-Mail und API-Schlüssel hinterlegen.");
   const calls = await fastbillPreviousCalls();
-  await refreshImportRuns("lexoffice", "sevdesk");
+  await refreshImportRuns();
   const progress: LexofficeImportProgress = {
     phase: "kontakte",
     contacts: 0,

@@ -17,7 +17,7 @@ import type { LexofficeImportProgress } from "../../db/schema.ts";
 import { LEGACY_SOURCE } from "../../../lib/altbestand.ts";
 import { importVoucher, nachladenDateien, offeneDateien, SALES_TYPES } from "./lexoffice-belege.ts";
 import { LexofficeError, progressMessage } from "./umzug-gemeinsam.ts";
-import { finish, latestImportFor, importControllersFor } from "./umzug-lauf.ts";
+import { finish, latestImportFor, importControllersFor, refreshImportRuns } from "./umzug-lauf.ts";
 
 export { LexofficeError } from "./umzug-gemeinsam.ts";
 
@@ -95,6 +95,8 @@ async function launchImport(actor: string, sourceFor: (signal: AbortSignal) => L
   for (const source of ["sevdesk", "fastbill"] as const) {
     if ((await latestImportFor(source))?.status === "laeuft") throw new LexofficeError(`Ein Abruf aus ${LEGACY_SOURCE[source].product} läuft bereits.`);
   }
+
+  await refreshImportRuns();
 
   const progress: LexofficeImportProgress = {
     phase: "kontakte",

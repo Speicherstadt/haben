@@ -111,7 +111,7 @@ export async function accountableImportStatus(id: string): Promise<AccountableIm
 export async function startAccountableImport(actor: string, options: { wait?: boolean } = {}): Promise<string> {
   const upload = stagedExport();
   if (!upload) throw new AccountableError("Zuerst den Export hochladen.");
-  await refreshImportRuns("lexoffice", "sevdesk", "fastbill", "accountable");
+  await refreshImportRuns();
   const progress: LexofficeImportProgress = {
     phase: "belege",
     contacts: 0,

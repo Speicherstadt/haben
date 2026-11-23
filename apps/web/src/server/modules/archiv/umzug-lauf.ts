@@ -1,4 +1,5 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, lt } from "drizzle-orm";
+import { LEGACY_SOURCE } from "../../../lib/altbestand.ts";
 
 import { db, schema } from "../../db/index.ts";
 
@@ -59,13 +60,14 @@ export async function latestImportFor(source: LegacySource) {
 
   const running = controllers.get(source)?.has(row.id) || uploads.get(source)?.has(row.id);
 
-  if (row.status === "laeuft" && !running && Date.now() - row.updatedAt.getTime() > STALE_MS) {
+  const cutoff = new Date(Date.now() - STALE_MS);
+  if (row.status === "laeuft" && !running && row.updatedAt < cutoff) {
     const [updated] = await db
       .update(schema.lexofficeImports)
 
       .set({ status: "abgebrochen", error: interruptedMessage(source), finishedAt: new Date() })
 
-      .where(and(eq(schema.lexofficeImports.id, row.id), eq(schema.lexofficeImports.status, "laeuft")))
+      .where(and(eq(schema.lexofficeImports.id, row.id), eq(schema.lexofficeImports.status, "laeuft"), lt(schema.lexofficeImports.updatedAt, cutoff)))
       .returning();
 
     return updated ?? row;
@@ -74,9 +76,9 @@ export async function latestImportFor(source: LegacySource) {
   return row;
 }
 
-/** Prüft beim Start die für diesen Importweg relevanten Laufstände. Die Sperre gilt in der Datenbank für alle Quellen. */
-export async function refreshImportRuns(...sources: LegacySource[]) {
-  for (const source of sources) await latestImportFor(source);
+/** Beendet verwaiste Läufe vor dem Start. Der eindeutige Index bleibt die Sperre gegen gleichzeitige Starts. */
+export async function refreshImportRuns() {
+  for (const source of Object.keys(LEGACY_SOURCE) as LegacySource[]) await latestImportFor(source);
 }
 
 export async function finish(id: string, progress: LexofficeImportProgress, status: "fertig" | "fehler" | "abgebrochen", error: string | null) {

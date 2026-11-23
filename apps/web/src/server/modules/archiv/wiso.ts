@@ -7,12 +7,13 @@ import { UserError } from "../../errors.ts";
 import { sha256Of } from "../../storage.ts";
 import { loadCompany } from "../stammdaten/index.ts";
 import { addArchiveFile, MAX_ARCHIVE_SIZE } from "./archive.ts";
-import { finish, latestImportFor } from "./umzug-lauf.ts";
+import { finish, latestImportFor, refreshImportRuns, runningUploadsFor } from "./umzug-lauf.ts";
 import { progressMessage } from "./umzug-gemeinsam.ts";
 
 export const MAX_WISO_CSV_SIZE = MAX_ARCHIVE_SIZE;
 export const WISO_ORIGINAL_NOTE = "WISO-Originalexport (Buchungen CSV)";
 const SOURCE = "wiso" as const;
+const running = runningUploadsFor(SOURCE);
 
 export class WisoImportError extends UserError {}
 
@@ -64,6 +65,7 @@ export async function startWisoImport(actor: string, bytes: Uint8Array, filename
   if ((await latestWisoImport())?.status === "laeuft") {
     throw new WisoImportError("Ein WISO-Import läuft bereits.");
   }
+  await refreshImportRuns();
   const preview = await previewWisoCsv(bytes);
   const progress: LexofficeImportProgress = {
     phase: "belege",
@@ -79,6 +81,7 @@ export async function startWisoImport(actor: string, bytes: Uint8Array, filename
     tx.insert(schema.lexofficeImports).values({ source: SOURCE, progress }).returning({ id: schema.lexofficeImports.id }),
   );
   const importId = run!.id;
+  running.add(importId);
   try {
     await archiveOriginalCsv(actor, bytes, filename, preview.years[0]!);
     for (const item of preview.vouchers) {
@@ -127,5 +130,7 @@ export async function startWisoImport(actor: string, bytes: Uint8Array, filename
     const message = progressMessage(error);
     await finish(importId, progress, "fehler", message);
     throw error;
+  } finally {
+    running.delete(importId);
   }
 }

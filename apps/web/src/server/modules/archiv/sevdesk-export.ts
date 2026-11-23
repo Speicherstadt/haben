@@ -152,7 +152,7 @@ export async function sevdeskExportImportStatus(id: string): Promise<SevdeskExpo
 export async function startSevdeskExportImport(actor: string, options: { wait?: boolean } = {}): Promise<string> {
   const upload = staged;
   if (!upload) throw new SevdeskExportError("Zuerst den Export hochladen.");
-  await refreshImportRuns("lexoffice", "sevdesk", "fastbill", "accountable", "sevdesk-export");
+  await refreshImportRuns();
   const progress: LexofficeImportProgress = {
     phase: "belege",
     contacts: 0,

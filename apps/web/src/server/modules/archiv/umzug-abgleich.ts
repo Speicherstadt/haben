@@ -1,5 +1,5 @@
 import { datevBookingCounts } from "./datev-abgleich.ts";
-import { type Versteuerung } from "@haben/core";
+import type { Versteuerung } from "@haben/core";
 import { eq } from "drizzle-orm";
 import { loadCompany } from "../stammdaten/index.ts";
 import { loadSevdeskAccountCategories, sevdeskCategories } from "./sevdesk-kategorie.ts";

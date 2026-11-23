@@ -15,11 +15,12 @@ import { UserError } from "../../errors.ts";
 import { sha256Of, storeFile } from "../../storage.ts";
 import { loadCompany } from "../stammdaten/index.ts";
 import { addArchiveFile, BB_ORIGINAL_NOTE, MAX_ARCHIVE_SIZE } from "./archive.ts";
-import { finish, latestImportFor } from "./umzug-lauf.ts";
+import { finish, latestImportFor, refreshImportRuns, runningUploadsFor } from "./umzug-lauf.ts";
 import { progressMessage } from "./umzug-gemeinsam.ts";
 
 export const MAX_BB_EXPORT_SIZE = 500 * 1024 * 1024;
 const SOURCE = "buchhaltungsbutler" as const;
+const running = runningUploadsFor(SOURCE);
 
 export class BuchhaltungsbutlerImportError extends UserError {}
 
@@ -37,6 +38,7 @@ export const latestBuchhaltungsbutlerImport = () => latestImportFor("buchhaltung
 
 export async function startBuchhaltungsbutlerImport(actor: string, parts: ExportPart[]) {
   if ((await latestBuchhaltungsbutlerImport())?.status === "laeuft") throw new BuchhaltungsbutlerImportError("Ein BuchhaltungsButler-Import läuft bereits.");
+  await refreshImportRuns();
   const preview = await previewBbExport(parts);
   const progress: LexofficeImportProgress = {
     phase: "belege",
@@ -52,6 +54,7 @@ export async function startBuchhaltungsbutlerImport(actor: string, parts: Export
     tx.insert(schema.lexofficeImports).values({ source: SOURCE, progress }).returning({ id: schema.lexofficeImports.id }),
   );
   const importId = run!.id;
+  running.add(importId);
   try {
     progress.datevFileIds = await archiveOriginals(actor, parts, preview.year);
     const linkedContacts = new Set<string>();
@@ -71,6 +74,8 @@ export async function startBuchhaltungsbutlerImport(actor: string, parts: Export
     const message = progressMessage(error);
     await finish(importId, progress, "fehler", message);
     throw error;
+  } finally {
+    running.delete(importId);
   }
 }
 
