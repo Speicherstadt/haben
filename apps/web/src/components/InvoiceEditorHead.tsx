@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Icon } from "./Icon.tsx";
+import { FINALIZE_HINT, FINALIZE_HINT_ID } from "./InvoiceEditorHinweise.tsx";
 import { InvoiceCopyButton } from "./InvoiceCopyButton.tsx";
 import { NoticeBanner } from "./NoticeBanner.tsx";
 import { PreviewButton, type DocumentPreview } from "./DocumentPreview.tsx";
@@ -61,7 +62,7 @@ export function InvoiceEditorHead({ editor, preview }: { editor: InvoiceEditorMo
             Entwurf speichern
           </button>
           <InvoiceCopyButton invoice={copySource} action={{ busy, run }} prepare={prepareCopy} />
-          <button type="button" className="btn btn-primary" disabled={busy} onClick={onFinalize}>
+          <button type="button" className="btn btn-primary" title={FINALIZE_HINT} aria-describedby={FINALIZE_HINT_ID} disabled={busy} onClick={onFinalize}>
             Festschreiben
           </button>
         </div>
