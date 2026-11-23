@@ -282,7 +282,7 @@ Erlös-, Aufwands- und Steuerzeilen tragen einen Steuerschlüssel. Forderungen, 
 | `RC` | 0 % | 21 | Reverse Charge, Leistung im EU-Ausland |
 | `Drittland` | 0 % | 45 | Nicht steuerbar, Leistungsort im Drittland |
 | `Steuerfrei` | 0 % | 48 | Steuerfrei ohne Vorsteuerabzug |
-| `KU` | 0 % | – | Kleinunternehmer § 19 UStG |
+| `KU` | 0 % | – (Kz 48 siehe [Umsätze ohne Steuer](umsatzsteuer.md#umsätze-ohne-steuer-kz-21-41-43-45-und-48)) | Kleinunternehmer § 19 UStG |
 | `VSt19` | 19 % | 66 | Vorsteuer 19 % |
 | `VSt7` | 7 % | 66 | Vorsteuer 7 % |
 | `keineVSt` | 0 % | – | Ohne Vorsteuer, auch für Belege ohne Vorsteuerabzug |
