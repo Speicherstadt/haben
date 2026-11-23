@@ -39,6 +39,6 @@ console.log(`## Seit ${letzter} (${seitLetztem.length})\n${seitLetztem.map((c) =
 console.log(
   `## Schließt eine fertige Version\n${[...issues].map(([issue, prs]) => `- #${issue} (PR ${prs.map((p) => `#${p}`).join(", ")})`).join("\n") || "- keine"}\n`,
 );
-console.log(
-  `## Hinweise für das Release (${istRc(letzter) ? `seit ${letzter}` : `seit ${vorige ?? letzter}`})\n${hinweise(istRc(letzter) ? seitLetztem : seitFertig) || "keine"}`,
-);
+// Beim laufenden RC beide: seit ihm für einen weiteren RC, seit der vorigen fertigen Version für die fertige
+if (istRc(letzter)) console.log(`## Hinweise für einen weiteren RC (seit ${letzter})\n${hinweise(seitLetztem) || "keine"}\n`);
+console.log(`## Hinweise für ${istRc(letzter) ? "die fertige Version" : "das Release"} (seit ${vorige ?? letzter})\n${hinweise(seitFertig) || "keine"}`);

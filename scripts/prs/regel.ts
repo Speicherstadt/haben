@@ -69,8 +69,10 @@ export function lage(pr: PullRequest, maintainer: string[]): Lage {
       .map((c) => c.committedDate)
       .sort()
       .at(-1) ?? pr.createdAt;
+  // Beim eigenen Pull Request eines Maintainers sind seine Kommentare die des Autors, keine Befunde an ihn
+  const eigener = maintainer.includes(pr.author.login);
   const unsere = pr.comments
-    .filter((k) => maintainer.includes(k.author.login))
+    .filter((k) => !eigener && maintainer.includes(k.author.login))
     .map((k) => k.createdAt)
     .sort();
   const unserLetzter = unsere.at(-1);
