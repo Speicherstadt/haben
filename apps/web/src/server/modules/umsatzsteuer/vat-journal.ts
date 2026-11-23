@@ -31,6 +31,7 @@ export async function kennzahlenAusDemJournal(period: VatPeriod, versteuerung: V
       id: e.id,
       sourceType: e.sourceType,
       sourceId: e.sourceId,
+      reversesId: e.reversesId,
       kontenrahmen: e.kontenrahmen,
       alt: belegAusAlterVersion,
       account: l.account,
@@ -53,10 +54,7 @@ export async function kennzahlenAusDemJournal(period: VatPeriod, versteuerung: V
     .leftJoin(schema.invoices, or(eq(schema.invoices.id, schema.writeOffs.invoiceId), and(eq(e.sourceType, "invoice"), eq(e.sourceId, schema.invoices.id))))
     .where(and(gte(e.date, start), lt(e.date, end), notInArray(e.sourceType, ["eroeffnung", "asset"])))
     .orderBy(asc(e.id));
-  const buchungen = new Map<
-    string,
-    { id: string; sourceType: string; sourceId: string; kontenrahmen: Kontenrahmen; versteuerung: Versteuerung; alt: boolean; zeilen: JournalZeile[] }
-  >();
+  const buchungen = new Map<string, Buchung>();
   const taxes = invoiceTaxReader(q);
   for (const r of rows) {
     let b = buchungen.get(r.id);
@@ -78,6 +76,7 @@ export async function kennzahlenAusDemJournal(period: VatPeriod, versteuerung: V
         id: r.id,
         sourceType: r.sourceType,
         sourceId: r.sourceId,
+        reversesId: r.reversesId,
         kontenrahmen: r.kontenrahmen as Kontenrahmen,
         versteuerung: mode,
         alt: r.alt === true,
@@ -89,14 +88,40 @@ export async function kennzahlenAusDemJournal(period: VatPeriod, versteuerung: V
   }
   // Belege mit § 13b oder Erwerb von vor #551 (#1396) und Zahlungen bei Ist von vor #552 (#1502) mit der
   // Bemessungsgrundlage wie heute
-  const gelesen = await belegeWieHeute(await zahlungenWieHeute([...buchungen.values()], q), q);
+  return summeDerBuchungen(await belegeWieHeute(await zahlungenWieHeute([...buchungen.values()], q), q));
+}
+
+interface Buchung {
+  id: string;
+  sourceType: string;
+  sourceId: string;
+  /** Bei einer Gegenbuchung (Storno, Aufhebung): die gegengebuchte Buchung */
+  reversesId: string | null;
+  kontenrahmen: Kontenrahmen;
+  versteuerung: Versteuerung;
+  alt: boolean;
+  zeilen: JournalZeile[];
+}
+
+/** Summe über die Buchungen eines Zeitraums, je Kontenrahmen und Verfahren der Buchung */
+function summeDerBuchungen(buchungen: readonly Buchung[]): JournalKennzahlen {
+  const imZeitraum = new Set(buchungen.map((b) => b.id));
   const summe = leereJournalKennzahlen();
   // Ein Jahr hat einen Kontenrahmen; je Kontenrahmen gerechnet, falls ein Zeitraum doch beide sieht
   for (const kr of ["SKR03", "SKR04"] as const)
     for (const mode of ["ist", "soll"] as const) {
-      const eigene = gelesen.filter((b) => b.kontenrahmen === kr && b.versteuerung === mode).map((b) => b.zeilen);
+      const eigene = buchungen.filter((b) => b.kontenrahmen === kr && b.versteuerung === mode);
       if (eigene.length === 0) continue;
-      const k = kennzahlenAusJournal(kr, mode, eigene);
+      const k = kennzahlenAusJournal(
+        kr,
+        mode,
+        eigene.map((b) => b.zeilen),
+      );
+      // Kz 50 nennt nur Minderungen nach § 17 Abs. 2 Nr. 1 Satz 1 UStG (Anleitung zur UStVA 2026, Kz 50). Die Gegenbuchung
+      // einer Buchung aus einem früheren Zeitraum, etwa der Wiedereingang nach einem Forderungsausfall (Satz 2), erhöht
+      // Kz 81/86, mindert Kz 50 aber nicht; im selben Zeitraum heben sich beide auf.
+      const frueher = eigene.filter((b) => b.reversesId !== null && !imZeitraum.has(b.reversesId)).map((b) => b.zeilen);
+      if (frueher.length > 0) k.kz50 -= kennzahlenAusJournal(kr, mode, frueher).kz50;
       for (const feld of JOURNAL_KENNZAHLEN) summe[feld] += k[feld];
     }
   return summe;
