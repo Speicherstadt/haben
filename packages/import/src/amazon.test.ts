@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { AMAZON_MARKETPLACES } from "@haben/core";
 import { detectStatementFormat, PSP_FORMATS, parseStatement, StatementParseError, transactionHash, withDedupHashes } from "./index.ts";
@@ -139,8 +139,22 @@ describe("Amazon-Settlement-Report", () => {
     ]);
   });
 
-  it("jeder Marktplatzname der Vorlagen steht in der Auswahlliste der Amazon-Konten", () => {
-    for (const name of ["amazon-settlement.txt", "amazon-settlement-be.txt", "amazon-settlement-ie.txt"]) {
+  it("liest die niederländische Abrechnung (Amazon.nl)", () => {
+    const s = parseStatement(fixture("amazon-settlement-nl.txt"), "amazon-settlement-nl.txt");
+    expect(s.marketplace).toBe("Amazon.nl");
+    expect(s.transactions).toHaveLength(3);
+    expect(s.transactions.reduce(sum, 0)).toBe(0);
+    expect(brief(s)).toEqual([
+      ["2026-10-28", 546, "Verkauf · Bestellung 401-0000000-0000001"],
+      ["2026-10-28", -284, "Gebühr · Bestellung 401-0000000-0000001"],
+      ["2026-11-06", -262, "Auszahlung · Abrechnung 10000000004"],
+    ]);
+  });
+
+  it("jeder Marktplatzname der Amazon-Vorlagen steht in der Auswahlliste der Konten", () => {
+    const files = readdirSync(new URL("../test-fixtures/", import.meta.url)).filter((name) => /^amazon-settlement.*\.txt$/.test(name));
+    expect(files.length).toBeGreaterThanOrEqual(4);
+    for (const name of files) {
       const marketplace = parseStatement(fixture(name)).marketplace;
       expect(marketplace).toBeDefined();
       expect(AMAZON_MARKETPLACES).toContain(marketplace);
