@@ -1,8 +1,10 @@
+import type { Prozent } from "@haben/core";
+
 /**
  * Hinweis unter den Angaben, solange sie aus dem Vorjahr vorgeschlagen und nicht gespeichert sind. Lag der Hebesatz des
  * Vorjahres unter dem Mindesthebesatz des Jahres, nennt er die Anhebung (§ 16 Abs. 4 Satz 2 GewStG, #1310).
  */
-export function vorschlagHinweis(year: number, hebesatz: number, angehobenVon: number | null): string {
+export function vorschlagHinweis(year: number, hebesatz: Prozent, angehobenVon: Prozent | null): string {
   const anhebung =
     angehobenVon === null
       ? ""

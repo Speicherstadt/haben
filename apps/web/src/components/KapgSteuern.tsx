@@ -1,4 +1,4 @@
-import { formatEuro, parseEuro, parseWholePercent, type KapgSteuerAngaben, type KapgSteuern as Steuern } from "@haben/core";
+import { formatEuro, parseEuro, parseWholePercent, type KapgSteuerAngaben, type KapgSteuern as Steuern, type Prozent } from "@haben/core";
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useId, useState, type FormEvent } from "react";
@@ -13,7 +13,7 @@ export interface KapgSteuernData {
   angaben: KapgSteuerAngaben | null;
   gespeichert: boolean;
   /** Hebesatz des Vorjahres, wenn der Vorschlag ihn auf den Mindesthebesatz angehoben hat */
-  angehobenVon: number | null;
+  angehobenVon: Prozent | null;
   steuern: Steuern | null;
 }
 

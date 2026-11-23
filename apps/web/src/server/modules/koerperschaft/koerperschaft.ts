@@ -6,6 +6,7 @@ import {
   steuerKonten,
   type KapgSteuerAngaben,
   type KapgSteuern,
+  type Prozent,
   inBasisPoints,
   inCents,
   inProzent,
@@ -174,7 +175,7 @@ async function berechne(year: number, angaben: KapgSteuerAngaben): Promise<KapgS
  * beides fehlt der Hebesatz. `angehobenVon` nennt den Hebesatz des Vorjahres, wenn er unter dem Mindesthebesatz lag, damit
  * der Hinweis zum Vorschlag die Anhebung zeigt (#1310).
  */
-async function angabenFor(year: number): Promise<{ angaben: KapgSteuerAngaben | null; gespeichert: boolean; angehobenVon: number | null }> {
+async function angabenFor(year: number): Promise<{ angaben: KapgSteuerAngaben | null; gespeichert: boolean; angehobenVon: Prozent | null }> {
   const stored = await storedAngaben(year);
   if (stored) return { angaben: stored, gespeichert: true, angehobenVon: null };
   const vorjahr = await storedAngaben(year - 1);
@@ -197,7 +198,7 @@ async function angabenFor(year: number): Promise<{ angaben: KapgSteuerAngaben | 
 export async function kapgSteuernJahr(year: number): Promise<{
   angaben: KapgSteuerAngaben | null;
   gespeichert: boolean;
-  angehobenVon: number | null;
+  angehobenVon: Prozent | null;
   steuern: KapgSteuern | null;
   konten: ReturnType<typeof steuerKonten>;
 } | null> {

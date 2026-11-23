@@ -1,3 +1,4 @@
+import type { BasisPoints } from "@haben/core";
 import { describe, expect, it } from "vitest";
 import { vorschlagHinweis } from "./kapg-vorschlag.ts";
 
@@ -12,5 +13,11 @@ describe("Hinweis zum Vorschlag aus dem Vorjahr (#1310)", () => {
     expect(vorschlagHinweis(2027, 400, null)).toBe(
       "Vorgeschlagen aus 2026: Hebesatz und die Verlustvorträge nach der Rechnung des Vorjahres. Bitte mit dem Bescheid abgleichen und speichern.",
     );
+  });
+
+  it("nimmt Hebesätze nur in ganzen Prozent (geprüft im Typecheck, #1132)", () => {
+    const satzInBasispunkten: BasisPoints = 25_000;
+    // @ts-expect-error Basispunkte sind keine ganzen Prozent
+    expect(vorschlagHinweis(2027, 280, satzInBasispunkten)).toContain("25000 %");
   });
 });
