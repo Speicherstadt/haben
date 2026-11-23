@@ -193,6 +193,34 @@ describe.skipIf(!testDatabaseUrl)("Aufhebung einer Zuordnung am Tag der Aufhebun
 
     await expect(bank.allocate(actor, input)).rejects.toThrow(/aufgehobene Zuordnung auswählen/);
     expect(await sql`select id from allocations`).toHaveLength(4);
+
+    await bank.allocate(actor, { ...input, reassignsId: other!.id as string });
+    const [reassigned] = await sql`select a.id, a.date, j.date as journal_date from allocations a
+      join journal_entries j on j.source_type = 'allocation' and j.source_id = a.id
+      where a.reassigns_id = ${other!.id}`;
+    expect(reassigned).toMatchObject({ date: "2026-08-10", journal_date: "2026-08-10" });
+    await expect(bank.reverseAllocation(actor, reassigned!.id as string, "2026-08-09")).rejects.toThrow(/vor dem Wirktag/);
+    await bank.reverseAllocation(actor, reassigned!.id as string, "2026-08-20");
+    await expect(bank.allocate(actor, { ...input, reassignsId: other!.id as string })).rejects.toThrow(/nicht verfügbar/);
+    await bank.allocate(actor, { ...input, reassignsId: reassigned!.id as string });
+    const [secondReassignment] = await sql`select date from allocations where reassigns_id = ${reassigned!.id}`;
+    expect(secondReassignment).toEqual({ date: "2026-08-20" });
+  });
+
+  it("Eine Aufteilung kann einen aufgehobenen und einen zuvor offenen Teil getrennt zuordnen", async () => {
+    const first = await marchInvoice();
+    const second = await marchInvoice();
+    const { transactionId, allocationId } = await marchPayment(first.id, 40_000);
+    await bank.reverseAllocation(actor, allocationId, "2026-07-10");
+    const firstPart = { kind: "invoice" as const, invoiceId: first.id, amount: 40_000, reassignsId: allocationId };
+    const freshPart = { kind: "invoice" as const, invoiceId: second.id, amount: 79_000, reassignsId: null };
+
+    await expect(bank.allocate(actor, { ...freshPart, amount: 79_001, transactionId })).rejects.toThrow(/muss eine aufgehobene Zuordnung/);
+    await bank.allocateSplit(actor, { transactionId, parts: [firstPart, freshPart] });
+    expect(await sql`select invoice_id, date, reassigns_id from allocations where split_id is not null order by amount`).toEqual([
+      { invoice_id: first.id, date: "2026-07-10", reassigns_id: allocationId },
+      { invoice_id: second.id, date: null, reassigns_id: null },
+    ]);
   });
 
   it("ohne Datum gilt heute", async () => {

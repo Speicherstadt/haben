@@ -565,7 +565,7 @@ Unter **Zugeordnet** steht neben jeder Zuordnung **Aufheben**, bei einer Aufteil
 
 Eine Zuordnung lässt sich nur einmal aufheben.
 
-Der Tag der Aufhebung darf nicht in der Zukunft liegen. Als Untergrenze gilt das Buchungsdatum der Zahlung, bei einem künftigen Buchungsdatum heute. Änderbar bleibt der vorbelegte Tag in jedem Fall.
+Der Tag der Aufhebung darf nicht in der Zukunft liegen. Als Untergrenze gilt der Tag, an dem die Zuordnung wirksam wurde, bei einem künftigen Buchungsdatum heute. Änderbar bleibt der vorbelegte Tag in jedem Fall.
 
 Eine Aufhebung in einem schon gemeldeten Zeitraum bleibt erlaubt. Die Gegenbuchung wirkt an ihrem Tag, die abgegebene Voranmeldung ändert sich nicht nachträglich.
 
@@ -575,7 +575,9 @@ Zwei Fälle sind zu unterscheiden.
 
 **Die Bemessungsgrundlage ändert sich nachträglich**, etwa durch Rückzahlung, Storno oder Ausfall. Dann greift [§ 17 Abs. 1 UStG](https://www.gesetze-im-internet.de/ustg_1980/__17.html), und die Berichtigung gehört in den Zeitraum, in dem die Änderung eintritt. Dafür ist der Tag der Aufhebung richtig.
 
-**Die Zuordnung war von Anfang an falsch**, etwa auf die falsche Rechnung oder ohne jede Kundenzahlung. Das ist keine Änderung der Bemessungsgrundlage, sondern die Berichtigung eines Erfassungsfehlers. Bei Ist-Versteuerung entsteht die Steuer mit der Vereinnahmung ([§ 13 Abs. 1 Nr. 1 Buchstabe b UStG](https://www.gesetze-im-internet.de/ustg_1980/__13.html)), also gehört die Korrektur in den Monat der Zahlung; ist die Anmeldung dafür schon abgegeben, wird sie nach [§ 153 Abs. 1 AO](https://www.gesetze-im-internet.de/ao_1977/__153.html) berichtigt. Dafür den Tag der Zahlung wählen. Wer im Juli eine März-Zahlung von Rechnung A auf B umhängt und dabei den Tag der Aufhebung nimmt, bekommt B im März und die Gegenzeile von A im Juli — bis dahin stehen die März-Umsatzsteuer und das Bankkonto doppelt.
+**Die Zuordnung war von Anfang an falsch**, etwa auf die falsche Rechnung oder ohne jede Kundenzahlung. Bei Ist-Versteuerung entsteht die Steuer mit der Vereinnahmung ([§ 13 Abs. 1 Nr. 1 Buchstabe b UStG](https://www.gesetze-im-internet.de/ustg_1980/__13.html)). Soll die Berichtigung unmittelbar im Monat der Zahlung wirken, wähle bei der Aufhebung den Tag der Zahlung. Bei einer bereits abgegebenen fehlerhaften Anmeldung gilt [§ 153 Abs. 1 AO](https://www.gesetze-im-internet.de/ao_1977/__153.html).
+
+Ordne einen aufgehobenen Betrag unter **Aufgehobene Zuordnung** erneut zu. Haben übernimmt den Tag der Aufhebung für die neue Buchung und speichert ihren Bezug. Stehen mehrere aufgehobene Teile zur Wahl, wähle für jeden Betrag den passenden Teil, gegebenenfalls über **Aufteilen**. Einen bisher freien Teil buchst du über **Noch nie zugeordnet** zum Buchungstag des Umsatzes. Die ursprüngliche Zuordnung, ihre Aufhebung und die neue Zuordnung bleiben nachvollziehbar. Wird eine März-Zahlung im Juli aufgehoben und erneut derselben Leistung zugeordnet, gleichen sich die beiden Juli-Buchungen aus.
 
 Beim [Stornieren eines Belegs](belege.md#stornieren-und-neu-erfassen) kann Haben dessen Bankzuordnungen in derselben bestätigten Aktion aufheben. Die Rückfrage nennt die Zuordnungen einschließlich aller Teile betroffener Aufteilungen. Mit der Zahlung verknüpfte Ausbuchungen wie Skonto werden mit aufgehoben. Scheitert die Rücknahme oder der Belegstorno, wird keiner der beiden Teile gespeichert.
 

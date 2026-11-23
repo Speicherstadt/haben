@@ -2930,9 +2930,8 @@ export const allocations = pgTable(
       .references(() => bankTransactions.id),
     kind: allocationKindEnum("kind").notNull(),
     /**
-     * Tag, an dem die Zuordnung wirkt; leer heißt Buchungsdatum des Umsatzes. Gesetzt ist er bei der Gegenzeile einer
-     * Aufhebung (#782): Die wirkt am Tag der Aufhebung, auch wenn der Umsatz Monate älter ist. Ohne diese Spalte lägen
-     * Journal (Tag der Aufhebung) und Nebenbücher (Tag des Umsatzes) für den Zeitraum dazwischen auseinander.
+     * Wirktag der Aufhebung oder Wiederzuordnung; leer heißt Buchungsdatum des Umsatzes. Journal und Nebenbücher
+     * buchen beide an diesem Tag, auch wenn der Umsatz Monate älter ist (#782, #1454).
      */
     date: date("date", { mode: "string" }),
     invoiceId: uuid("invoice_id").references(() => invoices.id),
@@ -2942,6 +2941,8 @@ export const allocations = pgTable(
     /** Teile einer Aufteilung (Splitbuchung) tragen dieselbe ID und werden nur zusammen aufgehoben */
     splitId: uuid("split_id"),
     reversesId: uuid("reverses_id"),
+    /** Ursprüngliche Zuordnung. Die Wiederzuordnung übernimmt den Tag ihrer Aufhebung. */
+    reassignsId: uuid("reassigns_id"),
     /**
      * Rechnung: Netto und Steuer je Satz, wie gebucht (settlementTaxShares). Voranmeldung und EÜR lesen diese Werte, damit
      * alle Zahlungen zusammen genau die Steuer der Rechnung ergeben. Ältere Zuordnungen ohne: aus dem Betrag gerechnet.
@@ -3003,6 +3004,9 @@ export const allocations = pgTable(
     index("allocations_invoice").on(t.invoiceId),
     index("allocations_document").on(t.documentId),
     index("allocations_split").on(t.splitId),
+    index("allocations_reassigns").on(t.reassignsId),
+    check("allocations_reassignment", sql`${t.reassignsId} is null or (${t.reversesId} is null and ${t.date} is not null and ${t.reassignsId} <> ${t.id})`),
+    foreignKey({ name: "allocations_reassigns_fk", columns: [t.reassignsId], foreignColumns: [t.id] }),
     foreignKey({ name: "allocations_reverses_fk", columns: [t.reversesId], foreignColumns: [t.id] }),
   ],
 );

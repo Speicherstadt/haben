@@ -6,10 +6,11 @@ import { KategorieFelder, kategorieWahlFuer, type KategorieOptionen, type Katego
 import { useSubmitCheck } from "../../lib/use-submit-check.ts";
 import { Field } from "../../components/Field.tsx";
 import { DARLEHEN_OPTION, type Data, type Detail, KATEGORIE_OPTION, STEUER_OPTION, itemLabel, itemTarget } from "./-bank-daten.ts";
+import { ReassignmentField, reassignmentError, reassignmentId } from "./-bank-wiederzuordnung.tsx";
 
 export type SplitTarget = Detail["splitCandidates"][number];
 
-export type SplitPart =
+type SplitTargetPart =
   | { kind: "invoice"; invoiceId: string; amount: number }
   | { kind: "document"; documentId: string; amount: number }
   | { kind: "ustva"; vatReturnId: string; amount: number }
@@ -18,11 +19,14 @@ export type SplitPart =
   | { kind: "kategorie"; amount: number; kategorie: KategorieWahl }
   | { kind: DirectBooking; amount: number };
 
+export type SplitPart = SplitTargetPart & { reassignsId?: string | null };
+
 export interface SplitRow {
   key: number;
   /** "invoice:<id>", "document:<id>", eine Buchungsart ohne Beleg oder "steuer" */
   target: string;
   amount: string;
+  reassignment?: string;
   /** Nur bei "steuer": Steuerart, Bezugsjahr und Teil */
   steuer: SteuerWahl;
   /** Nur bei "darlehen": Darlehen und Teil der Rate */
@@ -67,7 +71,13 @@ function startZeilen(
 }
 
 /** Je Teil Ziel, Betrag und Bezugsjahr; was zur Summe fehlt, steht am Betrag des letzten Teils */
-export function teilFehler(rows: SplitRow[], parsed: (number | null)[], rest: number, open: number): Record<string, string | null> {
+export function teilFehler(
+  rows: SplitRow[],
+  parsed: (number | null)[],
+  rest: number,
+  open: number,
+  sources: Detail["reassignment"] = [],
+): Record<string, string | null> {
   return Object.fromEntries(
     rows.flatMap((r, i) => [
       [
@@ -88,6 +98,7 @@ export function teilFehler(rows: SplitRow[], parsed: (number | null)[], rest: nu
               : null,
       ],
       [`jahr-${r.key}`, r.target === "steuer" && !steuerangabe(r.steuer) ? BEZUGSJAHR_FEHLER : null],
+      [`herkunft-${r.key}`, reassignmentError(sources, parsed[i] ?? null, r.reassignment)],
     ]),
   ) as Record<string, string | null>;
 }
@@ -108,6 +119,8 @@ export function SplitForm({
   initial,
   gegenposten,
   splitCandidates,
+  reassignmentDetail,
+  gesellschaft,
   directKinds,
   steuerOptionen,
   darlehenOptionen,
@@ -121,6 +134,8 @@ export function SplitForm({
   /** Ziele der weiteren Zeilen statt der Bankgebühren, etwa die Korrekturen der Rechnung */
   gegenposten?: readonly Gegenposten[];
   splitCandidates: SplitTarget[];
+  reassignmentDetail: Pick<Detail, "transaction" | "reassignment" | "allocations">;
+  gesellschaft: boolean;
   directKinds: Data["directKinds"];
   steuerOptionen: SteuerOptionen;
   darlehenOptionen: DarlehenOptionen;
@@ -140,7 +155,8 @@ export function SplitForm({
   const parsed = rows.map((r) => parseEuro(r.amount));
   const sum = parsed.reduce<number>((s, p) => s + (p ?? 0), 0);
   const rest = tx.open - sum;
-  const { form, error, check } = useSubmitCheck(teilFehler(rows, parsed, rest, tx.open));
+  const sources = reassignmentDetail.reassignment;
+  const { form, error, check } = useSubmitCheck(teilFehler(rows, parsed, rest, tx.open, sources));
 
   function update(key: number, patch: Partial<SplitRow>) {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -156,7 +172,7 @@ export function SplitForm({
       onSubmit={(event) => {
         event.preventDefault();
         if (!check()) return;
-        onSubmit(rows.map((r, i) => toPart(r, parsed[i]!)));
+        onSubmit(rows.map((r, i) => ({ ...toPart(r, parsed[i]!), reassignsId: reassignmentId(r.reassignment, sources, parsed[i]!) })));
       }}
     >
       <div className="section-label">Aufteilen</div>
@@ -220,6 +236,18 @@ export function SplitForm({
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
+          {sources.length > 0 && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <ReassignmentField
+                detail={reassignmentDetail}
+                amount={parsed[index] ?? null}
+                value={row.reassignment}
+                error={error(`herkunft-${row.key}`)}
+                gesellschaft={gesellschaft}
+                onChange={(reassignment) => update(row.key, { reassignment })}
+              />
+            </div>
+          )}
           {row.target === "steuer" && (
             <div style={{ gridColumn: "1 / -1" }}>
               <SteuerFelder

@@ -61,17 +61,16 @@ export function zuAufhebendeZuordnung(
 ): AufzuhebendeZuordnung {
   const teile = a.splitId ? allocations.filter((other) => other.splitId === a.splitId && !other.reversed) : [a];
   const heute = todayInGermany();
+  const wirksam = teile.reduce((latest, teil) => (teil.date && teil.date > latest ? teil.date : latest), tag);
   return {
     id: a.id,
     bezeichnung: a.splitId ? `Aufteilung in ${teile.length} Teile` : zuordnungText(a, gesellschaft),
     betrag: teile.reduce((summe, teil) => summe + teil.amount, 0),
     aufteilung: a.splitId !== null,
     mitBeleg: teile.some((teil) => teil.kind === "invoice" || teil.kind === "document"),
-    // Die Zuordnung steht am Buchungsdatum ihres Umsatzes; früher kann die Aufhebung nicht wirken (#782). Liegt die
-    // Zahlung selbst in der Zukunft, ist heute der früheste Tag — dieselbe Grenze prüft der Server.
-    tag: tag <= heute ? tag : heute,
-    // Ist der Zeitraum der Zahlung gemeldet, wirkt die Aufhebung heute; sonst gehört die Korrektur dorthin (#782)
-    gemeldet: gemeldeteMonate.includes(tag.slice(0, 7)),
+    // Maßgeblich ist der späteste Wirktag der Teile; für vorgemerkte Umsätze in der Zukunft gilt heute (#782).
+    tag: wirksam <= heute ? wirksam : heute,
+    gemeldet: gemeldeteMonate.includes(wirksam.slice(0, 7)),
   };
 }
 
