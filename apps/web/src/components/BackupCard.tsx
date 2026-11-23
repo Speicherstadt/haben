@@ -40,8 +40,8 @@ function RcloneKonfiguration() {
 export function BackupCard({ status }: { status: Status }) {
   const { state, overdue, lastBackup, lastCheck, failed, target } = status;
   return (
-    <section className="card" aria-labelledby="sicherung-heading">
-      <h2 id="sicherung-heading">Sicherung</h2>
+    <section className="card" aria-labelledby="backup-heading">
+      <h2 id="backup-heading">Backup</h2>
       <p className="small muted" style={{ margin: 0 }}>
         Der Backup-Container sichert Datenbank und Belege täglich mit restic und spielt einmal pro Woche das letzte Backup probeweise in eine Wegwerf-Datenbank
         ein: Hash-Kette und Siegel werden geprüft, einige Belege mit ihrer Prüfsumme verglichen. Hier steht das Ergebnis.
