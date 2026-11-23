@@ -201,4 +201,19 @@ describe.skipIf(!testDatabaseUrl)("Kz 43 und 48 bei Ist im Zeitraum der Leistung
     await sql`update vat_returns set kz48 = 12300 where id = ${entwurf.id}`;
     expect(await vat.gesendeteAbweichungen([2026])).toEqual([{ period: NOV, feld: "Kz 48", gesendet: 12_300, journal: 0 }]);
   }, 60_000);
+
+  for (const [kontenrahmen, behandlung] of [
+    ["SKR03", "steuerfrei"],
+    ["SKR04", "ausfuhr"],
+  ] as const)
+    it(`${kontenrahmen}/ist: Leistung in einem schon gesendeten Monat zeigt an der Rechnung den Hinweis zur Berichtigung`, async () => {
+      // Keine spätere Voranmeldung enthält die Rechnung, die Zahlung meldet sie nicht mehr (wie bei Soll, #694)
+      await firma(kontenrahmen, "ist");
+      const entwurf = await vat.saveDraft(actor, OKT, { mode: "berechnet" });
+      await sql`update vat_returns set status = 'sent', sent_at = now() - interval '1 day' where id = ${entwurf.id}`;
+      const inv = await rechnung(behandlung, 50_000, { issueDate: "2026-11-03", serviceFrom: "2026-10-01", serviceTo: "2026-10-31" });
+      expect(await invoices.leistungsmonatHinweisFuer(inv)).toContain("gehört in die Voranmeldung 10/2026");
+      const anzahlung = await rechnung(behandlung, 20_000, { issueDate: "2026-11-05", serviceFrom: "2026-10-01", variant: "abschlag", advanceType: "anzahlung" });
+      expect(await invoices.leistungsmonatHinweisFuer(anzahlung)).toBeNull();
+    }, 60_000);
 });
