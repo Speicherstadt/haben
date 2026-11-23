@@ -1,3 +1,4 @@
+import type { DunningLevel } from "@haben/core";
 import { UserError } from "../../errors.ts";
 import { and, asc, eq, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
@@ -47,6 +48,9 @@ async function standardAbloesen(tx: Tx, values: z.output<typeof textBlockInputSc
   );
   await tx.update(schema.textBlocks).set({ standardFuer: null, updatedAt: new Date() }).where(gleich);
 }
+
+/** Standard der Mahnung einer Stufe (#1678): je Stufe ein eigener, ohne ihn gelten die Vorschläge der Stufe (DUNNING_TEXTS) */
+export const mahnstufeStandard = (level: DunningLevel) => `mahnstufe_${level}` as const satisfies schema.TextBlockStandard;
 
 /**
  * Texte des Standards einer Belegart (#1494): Kopftext für die Einleitung, Fußtext für Hinweis bzw. Schlusstext; leer

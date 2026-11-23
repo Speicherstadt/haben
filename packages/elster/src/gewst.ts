@@ -25,10 +25,10 @@ export interface GewStXmlInput extends Omit<Envelope, "datenArt"> {
   gewinn: Cents;
   /**
    * § 8 Nr. 1 GewStG in voller Höhe; den Hinzurechnungsbetrag ermittelt das Finanzamt (Zeilen 50 bis 56). Renten und
-   * dauernde Lasten (Buchst. b) stehen in Zeile 51; Elektrofahrzeuge und Fahrräder nach Buchst. d Satz 2 in Zeile 54, die
-   * übrigen beweglichen Wirtschaftsgüter ohne sie in Zeile 53.
+   * dauernde Lasten (Buchst. b) stehen in Zeile 51, Anteile typisch stiller Gesellschafter (Buchst. c) mit Vorzeichen in
+   * Zeile 52. Elektrofahrzeuge und Fahrräder nach Buchst. d Satz 2 stehen in Zeile 54, übrige bewegliche Wirtschaftsgüter in Zeile 53.
    */
-  hinzurechnungen: { zinsen: Cents; renten: Cents; beweglich: Cents; elektro: Cents; unbeweglich: Cents; rechte: Cents };
+  hinzurechnungen: { zinsen: Cents; renten: Cents; stilleGesellschafter: Cents; beweglich: Cents; elektro: Cents; unbeweglich: Cents; rechte: Cents };
   /** Darin enthaltene Vergütungen nach § 50a Abs. 1 Nr. 3 EStG an beschränkt Steuerpflichtige (Zeile 57); nur mit Rechten */
   rechteBeschraenktStpfl: Cents;
   /** Zum Schluss des Vorjahres festgestellter vortragsfähiger Gewerbeverlust (Zeile 148) */
@@ -46,6 +46,9 @@ export function buildGewStXml(input: GewStXmlInput): string {
   }
   if (!input.gegenstand.trim()) throw new ElsterEingabeError("Der Gegenstand des Unternehmens fehlt.");
   const h = input.hinzurechnungen;
+  // GewSt 1 A, Allgemeines: zugunsten des Steuerpflichtigen auf ganze Euro runden. Bei Zeile 52 senkt der kleinere Wert die Bemessungsgrundlage.
+  // https://www.elster.de/eportal/helpGlobal?themaGlobal=help_gewst_ufa_20_2025
+  const stilleGesellschafterEuro = Math.floor(h.stilleGesellschafter / 100);
   const gewst: XmlNode = [
     "GewSt1A",
     [
@@ -83,6 +86,7 @@ export function buildGewStXml(input: GewStXmlInput): string {
             [
               ["E4003202", euro(h.zinsen)],
               ["E4003302", euro(h.renten)],
+              ["E4003407", stilleGesellschafterEuro === 0 ? undefined : String(stilleGesellschafterEuro)],
               ["E4003502", euro(h.beweglich)],
               ["E4004402", euro(h.elektro)],
               ["E4003602", euro(h.unbeweglich)],

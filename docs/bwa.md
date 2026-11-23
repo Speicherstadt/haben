@@ -35,7 +35,7 @@ Die Umsatzrendite im Einzelunternehmen rechnet ohne Umsatzsteuer und Vorsteuer, 
 
 Anders als die EÜR zählt die BWA nicht abziehbare Ausgaben (30 % der Bewirtung, Gewerbesteuer, nicht abziehbare Nebenleistungen) als Kosten, denn bezahlt sind sie trotzdem. Die Zeile „nicht abziehbare Ausgaben“ darunter führt zum Gewinn laut EÜR. Eine Umsatzsteuer-Vorauszahlung, die die EÜR dem Vorjahr zurechnet ([Vorauszahlung um den Jahreswechsel](auswertungen.md#umsatzsteuer-vorauszahlung-um-den-jahreswechsel)), steht in der BWA am 31. Dezember des Vorjahres.
 
-Ein Klick auf eine Zeile mit Beträgen zeigt darunter, was darin steht: je Zeile der EÜR die Zahlungen mit Datum, Betrag und Link zur Rechnung oder zum Beleg. Die Kontonummer führt zum Kontenblatt; das zeigt die Buchungen nach Buchungsdatum, nicht nach Zahlung.
+Ein Klick auf eine Zeile mit Beträgen zeigt darunter, was darin steht: je Zeile der EÜR die Zahlungen mit Datum, Betrag und Link zur Rechnung oder zum Beleg. Die Kontonummer führt zum Kontenblatt; das zeigt die Buchungen nach Buchungsdatum, nicht nach Zahlung. Zahlungen ohne Rechnung und Beleg, etwa Lohn oder Umsatzsteuer an das Finanzamt, führen zu ihrer Buchung im Kontenblatt: am Tag der Zahlung, auch wenn die BWA sie am 31. Dezember des Vorjahres zeigt, die Zeile markiert.
 
 Mit einem Vergleich steht darüber „Warum?“: die Abweichung der Zeile nach Kontakt, die fünf größten einzeln, der Rest als „übrige“. Zusammen ergeben sie genau die Abweichung der Zeile.
 

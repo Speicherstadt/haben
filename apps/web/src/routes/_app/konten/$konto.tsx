@@ -1,6 +1,6 @@
 import { currentYear, MONTHS, formatEuro, kontoart, type Kontenrahmen } from "@haben/core";
-import { Link, createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
-import { Fragment } from "react";
+import { Link, createFileRoute, notFound, useLocation, useNavigate } from "@tanstack/react-router";
+import { Fragment, useEffect, useState } from "react";
 import { z } from "zod/mini";
 import { BalanceChart } from "../../../components/BalanceChart.tsx";
 import { JOURNAL_SOURCE, SaldoBetrag, ZEITRAEUME, lastDayBefore, shortDate, vorgangZurHerkunft } from "../../../components/Ledger.tsx";
@@ -62,6 +62,25 @@ function SourceLink({
   return <>{label}</>;
 }
 
+/**
+ * Die Buchung, auf die ein Link zeigt (`#buchung-<id>`, aus der BWA, #1635): Die Seite markiert ihre Zeile, rollt sie in
+ * die Mitte und setzt den Fokus darauf. Erst nach dem Laden, denn der Server kennt den Anker nicht; `:target` griffe bei einem Link innerhalb der App
+ * nicht, weil der Router die Adresse ohne Seitenwechsel setzt.
+ */
+function useZiel(): string {
+  const hash = useLocation({ select: (l) => l.hash });
+  const [ziel, setZiel] = useState("");
+  useEffect(() => setZiel(hash), [hash]);
+  // Erst nach dem Zeichnen mit `ziel`: Vorher hat die Zeile kein tabIndex und nimmt den Fokus nicht an
+  useEffect(() => {
+    if (!ziel.startsWith("buchung-")) return;
+    const zeile = document.getElementById(ziel);
+    zeile?.scrollIntoView({ block: "center" });
+    zeile?.focus({ preventScroll: true });
+  }, [ziel]);
+  return ziel;
+}
+
 function KontenblattPage() {
   const data = Route.useLoaderData();
   const { konto } = Route.useParams();
@@ -76,6 +95,14 @@ function KontenblattPage() {
   // Ertragskonten aus Sicht des Kontos positiv zeigen, wie in der Saldenliste
   const sign = kontoart(kr, konto, data.saldo) === "ertrag" ? -1 : 1;
   const multiMonth = vonBis ? vonBis.von.slice(0, 7) !== vonBis.bis.slice(0, 7) : !zeitraum.startsWith("m");
+  const ziel = useZiel();
+  // Anker nur an der ersten Zeile einer Buchung, falls sie das Konto mehrmals bebucht
+  const verankert = new Set<string>();
+  const anker = (entryId: string) => {
+    if (verankert.has(entryId)) return undefined;
+    verankert.add(entryId);
+    return `buchung-${entryId}`;
+  };
 
   // Zeilen nach Monat gruppieren, mit Zwischensumme je Monat
   const months = new Map<string, typeof data.zeilen>();
@@ -194,34 +221,37 @@ function KontenblattPage() {
             </tr>
             {[...months.entries()].map(([month, rows]) => (
               <Fragment key={month}>
-                {rows.map((z, i) => (
-                  <tr key={`${z.entryId}-${i}`}>
-                    <td data-label="Datum">{shortDate(z.date)}</td>
-                    <td data-label="Text">{z.description}</td>
-                    <td className="mono small" data-label="Gegenkonto">
-                      {z.gegenkonten.map((g, j) => (
-                        <span key={g}>
-                          {j > 0 && ", "}
-                          <Link to="/konten/$konto" params={{ konto: g }} search={suche}>
-                            {g}
-                          </Link>
-                        </span>
-                      ))}
-                    </td>
-                    <td className="small" data-label="Herkunft">
-                      <SourceLink type={z.sourceType} id={z.sourceId} reversal={z.reversal} invoiceId={z.invoiceId} documentId={z.documentId} />
-                    </td>
-                    <td className="num" data-label="Soll">
-                      {z.soll ? formatEuro(z.soll) : ""}
-                    </td>
-                    <td className="num" data-label="Haben">
-                      {z.haben ? formatEuro(z.haben) : ""}
-                    </td>
-                    <td className="num" data-label="Saldo">
-                      <SaldoBetrag kontenrahmen={kr} account={konto} saldo={z.saldo} />
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((z, i) => {
+                  const id = anker(z.entryId);
+                  return (
+                    <tr key={`${z.entryId}-${i}`} id={id} aria-current={id && id === ziel ? "true" : undefined} tabIndex={id && id === ziel ? -1 : undefined}>
+                      <td data-label="Datum">{shortDate(z.date)}</td>
+                      <td data-label="Text">{z.description}</td>
+                      <td className="mono small" data-label="Gegenkonto">
+                        {z.gegenkonten.map((g, j) => (
+                          <span key={g}>
+                            {j > 0 && ", "}
+                            <Link to="/konten/$konto" params={{ konto: g }} search={suche}>
+                              {g}
+                            </Link>
+                          </span>
+                        ))}
+                      </td>
+                      <td className="small" data-label="Herkunft">
+                        <SourceLink type={z.sourceType} id={z.sourceId} reversal={z.reversal} invoiceId={z.invoiceId} documentId={z.documentId} />
+                      </td>
+                      <td className="num" data-label="Soll">
+                        {z.soll ? formatEuro(z.soll) : ""}
+                      </td>
+                      <td className="num" data-label="Haben">
+                        {z.haben ? formatEuro(z.haben) : ""}
+                      </td>
+                      <td className="num" data-label="Saldo">
+                        <SaldoBetrag kontenrahmen={kr} account={konto} saldo={z.saldo} />
+                      </td>
+                    </tr>
+                  );
+                })}
                 {multiMonth && (
                   <tr className="subtotal-row">
                     <th scope="row" colSpan={4}>
