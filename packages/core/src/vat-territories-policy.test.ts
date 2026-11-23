@@ -79,6 +79,20 @@ describe("Ausdrücklich erfasster tatsächlicher Leistungsort im Sondergebiet", 
     expect(outgoingTaxIssues(treatment, atPlace("ES", "28001"), false)).toEqual([]);
   });
 
+  it.each(["27498", "78266"])("öffnet allein aus Kundenland DE und Sondergebiets-PLZ %s keinen EU-Fall", (buyerPostalCode) => {
+    const facts = {
+      rates: [0],
+      sellerUstId: "DE123456789",
+      buyerUstId: "FR40303265045",
+      buyerCountry: "DE",
+      buyerPostalCode,
+    };
+    expect.soft(treatmentIssues("reverse_charge", facts)).toContain("Reverse Charge gilt nur für Kunden im EU-Ausland");
+    expect.soft(treatmentIssues("ig_lieferung", facts)).toContain("Innergemeinschaftliche Lieferung nur an Kunden in einem anderen EU-Mitgliedstaat");
+    expect(treatmentIssues("ausfuhr", facts)).toEqual([]);
+    expect(treatmentIssues("drittland", facts)).toEqual([]);
+  });
+
   it("belässt die übrigen alten Leistungsortdaten ohne neue PLZ unverändert", () => {
     for (const country of ["DE", "ES", "IT", "GR", "AT", "CH"]) {
       const details = atPlace(country);
