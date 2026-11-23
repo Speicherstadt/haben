@@ -82,7 +82,7 @@ Danach steht unter dem Konto die Quelle mit Stichtag und bis wann geliefert ist;
 | Shopify Payments | Transaktionsexport mit Payout ID, Payout Date, Amount, Fee, Net | nein, wie oben | wie oben |
 | eBay | Transaktionsbericht (CSV), Spalten deutsch (Datum der Transaktionserstellung, Typ, Nettobetrag, Auszahlung Nr.) oder englisch (Transaction creation date, Type, Net amount, Payout ID) | nein, wie oben | wie oben |
 | Etsy | Monatsabrechnung (CSV), Spalten deutsch (Datum, Art, Titel, Info, Betrag, Gebühren & Steuern, Netto) oder englisch (Date, Type, Title, Info, Amount, Fees & Taxes, Net) | nein, wie oben | wie oben |
-| Amazon | Abrechnung (Settlement Report, Format V2), Tab-getrennt, je Marktplatz und Zeitraum: die erste Zeile ist die Zusammenfassung mit dem Auszahlungsbetrag, darunter eine Zeile je Position (transaction-type, amount-type, amount-description, amount); Beträge deutsch („6,49“) oder englisch („6.49“) | nein, wie oben | wie oben |
+| Amazon | Abrechnung (Settlement Report, Format V2), Tab-getrennt, je Marktplatz und Zeitraum: die erste Zeile ist die Zusammenfassung mit dem Auszahlungsbetrag, darunter eine Zeile je Position (transaction-type, amount-type, amount-description, amount); Beträge deutsch („6,49“) oder englisch („6.49“); das Amazon-Konto ist auf einen Marktplatz festgelegt, ein Report eines anderen wird abgelehnt | nein, wie oben | wie oben |
 | Andere Bank (CSV) | Jede andere CSV mit Kopfzeile; die Spalten ordnest du einmal selbst zu ([Andere Banken](bank-spaltenzuordnung.md)) | nein | nein |
 
 Bank und Format erkennt Haben am Inhalt, nicht am Dateinamen. CAMT.052 und CAMT.054 werden mit einer eigenen Meldung abgelehnt; nur der Tagesauszug CAMT.053 wird gelesen.
