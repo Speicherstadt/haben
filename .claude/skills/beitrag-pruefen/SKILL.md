@@ -43,7 +43,7 @@ Je Punkt ein Ergebnis mit Beleg:
 - **Nutzen gegen Last:** Was gewinnt ein Nutzer im Alltag? Was kostet es dauerhaft: neue Einstellungen, Abhängigkeiten (Lizenz passend zur AGPL-3.0, gepflegt, Größe; `package.json` und `bun.lock`, `trustedDependencies`), neue Hosts oder Dienste, neue Tabellen und Migrationen, Sonderfälle in Buchung und Steuer, Wartung jedes Jahr (Jahreswerte)?
 - **Bestehende Installationen:** Was passiert beim Update mit vorhandenen Daten (Migration auf echten Beständen, festgeschriebene Jahre, Standardwerte für neue Spalten)? Ändert sich Verhalten, das Nutzer kennen, oder eine Schnittstelle (REST-API, MCP, Exporte, Belegvorlagen), auf die sich jemand verlässt? Braucht es einen Hinweis im Release (Abschnitt `## Für das Release` in der Beschreibung)?
 - **Grundsätzliche Entscheidung:** Ist eine nötig, die der Maintainer treffen sollte (ein ADR in `docs/adr/` wert)?
-- **Ein Thema:** Trägt der Pull Request nur seine eigenen Commits und ein Thema? Sonst: Vorschlag, wie er sich teilen lässt.
+- **Ein Thema:** Trägt der Pull Request nur seine eigenen Commits und ein Thema? Aufräumen in den berührten Dateien (Pfadfinder-Regel, `docs/mitwirken.md`) ist kein zweites Thema. Sonst: Vorschlag, wie er sich teilen lässt.
 - **Vollständig:** jedes Akzeptanzkriterium des Issues als Liste mit erfüllt, teilweise oder fehlt, mit Datei oder Test als Beleg. `Umgesetzt #…` nur, wenn alles erfüllt ist, sonst `Refs #…`.
 - **Sicherheit und Datenschutz:** neue Angriffsfläche (Routen ohne `authMiddleware`, Uploads, Fremd-URLs, Webhooks), Zugriff auf fremde Daten, Geheimnisse, Logs mit Belegdaten.
 
@@ -64,7 +64,7 @@ Je Punkt ein Ergebnis mit Stelle im Diff:
 
 Die Maßstäbe stehen in `docs/mitwirken.md`, „Beiträge annehmen“, Frage 3. So prüfen:
 
-- Je Hunk des Diffs das Akzeptanzkriterium nennen, dem er dient; was keins hat, ist der Kandidat zum Streichen.
+- Je Hunk des Diffs das Akzeptanzkriterium nennen, dem er dient; was keins hat und kein Aufräumen nach der Pfadfinder-Regel ist, ist der Kandidat zum Streichen.
 - Mit `git grep` in `packages/*` und im Modul nach einer Funktion, Komponente oder Tabelle für dasselbe suchen.
 - Ein Umweg, den nur ein Kommentar erklärt, deutet auf einen einfacheren Weg.
 - Modul, `packages/core` für Fachlogik, Import nur über `index.ts`.

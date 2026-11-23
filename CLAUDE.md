@@ -50,6 +50,7 @@ Modules, the audit hash chain and seals: `docs/architektur.md`, tables: `docs/ar
 
 ## With every change
 
+- Leave every file you touch cleaner than you found it (flaky test, long function, dead code), without changing behavior, and list it under „Aufgeräumt“ in the PR (`mitwirken.md`, Pfadfinder-Regel).
 - Tests for what changed: Vitest, Postgres tests next to the module, Playwright for what a user clicks; a bug
   fix starts with a failing test; SKR03 and SKR04, Ist and Soll for bookings and tax, each covered, not every
   combination against Postgres (`mitwirken.md`).
