@@ -161,6 +161,18 @@ describe.skipIf(!testDatabaseUrl)("Kleinunternehmer-Umsätze in Kz 48 (Postgres)
     expect((await vat.computeVatFigures(november)).kz48).toBe(0);
   });
 
+  it("Storno der Korrektur einer Anzahlung zählt nicht", async () => {
+    // cancelInvoice storniert jede Korrektur für sich: Das Storno verweist auf die Korrektur, nicht auf die Anzahlung
+    await firma("SKR03", "ist");
+    const anzahlung = await direkt({ variant: "abschlag", advance_type: "anzahlung", issue_date: "2026-09-05" }, 30_000);
+    const korrektur = await direkt({ kind: "korrektur", corrects_id: anzahlung, issue_date: "2026-10-02" }, -5_000);
+    await direkt({ kind: "storno", corrects_id: anzahlung, issue_date: "2026-11-03" }, -30_000);
+    await direkt({ kind: "storno", corrects_id: korrektur, issue_date: "2026-11-03" }, 5_000);
+
+    expect((await vat.computeVatFigures(oktober)).kz48).toBe(0);
+    expect((await vat.computeVatFigures(november)).kz48).toBe(0);
+  });
+
   it("Teilleistung zählt im eigenen Monat, die Schlussrechnung nur mit dem Rest", async () => {
     await firma("SKR03", "soll");
     const teil = await direkt(
