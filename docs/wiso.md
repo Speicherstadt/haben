@@ -19,7 +19,7 @@ Für ein Einzelunternehmen mit EÜR bietet sich der Wechsel zum **1. Januar** an
 | Kontakte, Artikel und Anlagen | Noch kein automatischer Listenimport: aus den Listen eine CSV erstellen, [Spalten zuordnen und Vorschau prüfen](csv-import.md) |
 | Originalexporte und PDF-Listen | Unverändert aufbewahren; optional als Originaldateien im Archiv ablegen |
 | Buchungs-CSV (WISO EÜR & Kasse und WISO Steuer, Modul EÜR) | Unter **Archiv › Umzug › Umzug aus WISO** prüfen und unveränderlich als durchsuchbare Archivbelege samt Original-CSV übernehmen; Journalbuchungen entstehen daraus nicht |
-| GoBD-Buchungsliste | Noch kein WISO-Import; weder durchsuchbare Archivbuchungen noch Journalbuchungen entstehen daraus |
+| GoBD-Buchungsliste und SuSa | Unter **Archiv › Umzug › Umzug aus WISO** die beiden CSV-Dateien aus demselben Export abgleichen. Haben zeigt Abweichungen je Konto. |
 | Offene Rechnungen und Eingangsbelege | Kein automatischer WISO-Umzug; vor dem Start einzeln klären |
 
 Der CSV-Export der Buchungen (`Daten Export › Buchungen als CSV-Datei`) hat in WISO Steuer (Modul EÜR) dieselben 18 Spalten wie in WISO EÜR & Kasse und nutzt denselben Import. Für die übrigen Exporte von WISO Steuer sind gleiche Formate nicht bestätigt.
@@ -27,6 +27,10 @@ Der CSV-Export der Buchungen (`Daten Export › Buchungen als CSV-Datei`) hat in
 Der Testlauf zeigt die Summen der CSV-Spalten **Soll** und **Haben**. Sie enthalten Teilbuchungen, neutrale Zeilen wie Saldovorträge und negative Zeilen mit ihrem Vorzeichen.
 
 Bei Fehlern zeigt der Testlauf die ersten 20 betroffenen CSV-Datensätze und zählt weitere Fehler. Die Nummer zählt die Kopfzeile und leere Zeilen mit. Ein Feld mit Zeilenumbruch gehört weiterhin zu einem Datensatz. Solange der Testlauf Fehler meldet, ist keine Übernahme möglich. Korrigiere den Export und starte den Testlauf erneut.
+
+Der **GoBD-Abgleich** vergleicht Anfangssalden, Soll- und Haben-Buchungssummen und Endsalden. In der geprüften SuSa aus WISO EÜR & Kasse ist der Soll-Überhang in `SaldoHaben` angegeben und der Haben-Überhang in `SaldoSoll`. Haben berücksichtigt diese Spaltenbelegung. [Anonymisierter WISO-Beispielexport](https://github.com/Speicherstadt/haben/issues/565#issuecomment-6770106423)
+
+Der Vergleich bezieht sich auf die beiden gewählten GoBD-Dateien. Der getrennte Import der Buchungs-CSV bleibt für die Archivübernahme zuständig.
 
 Die Buchungs-CSV enthält kein Rechnungs- oder Leistungsdatum. Das Archivdatum bleibt das Zahlungsdatum; Buchungs- und Wertstellungsdatum bleiben in den Quelldaten erhalten. Leistungsangaben bleiben unbekannt, auch bei bereits archivierten WISO-Buchungen. Ihre gespeicherten Daten und die Original-CSV bleiben unverändert.
 

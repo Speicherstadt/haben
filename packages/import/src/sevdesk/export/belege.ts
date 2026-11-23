@@ -151,7 +151,7 @@ function selfBilledCredit(group: Group, document: SevExportDocument | null): boo
   );
 }
 
-function voucherOf(key: string, group: Group, document: SevExportDocument | null, hints: string[]): SevExportVoucher {
+function voucherOf(key: string, group: Group, document: SevExportDocument | null, hints: string[], foldersIncomplete: boolean): SevExportVoucher {
   const first = group.lines[0]!;
   const label = `Beleg ${first.booking.voucherField1 || "ohne Nummer"}${group.guid ? ` (GUID ${group.guid})` : ""}`;
   const sach = group.lines.find((l) => l.sach.kind)?.sach ?? null;
@@ -161,7 +161,8 @@ function voucherOf(key: string, group: Group, document: SevExportDocument | null
   const fromPartner: SevExportDirection | null = digit >= 1 && digit <= 6 ? "ausgang" : digit >= 7 ? "eingang" : null;
   const direction = document?.direction ?? (accountKind ? KIND_DIRECTION[accountKind] : fromPartner);
   const directionFrom = document?.direction ? "document" : accountKind || fromPartner ? "konten" : null;
-  if (group.guid && !document) hints.push(`${label}: keine Datei im Export.`);
+  const documentUnclear = Boolean(group.guid && !document && foldersIncomplete);
+  if (group.guid && !document && !documentUnclear) hints.push(`${label}: ohne Belegbild im Export (kein Eintrag in document.xml).`);
   const selfBilled = selfBilledCredit(group, document);
   if (document?.direction && sach?.kind && KIND_DIRECTION[sach.kind] !== document.direction && !selfBilled) {
     hints.push(`${label}: liegt im ${FOLDER[document.direction]}, gebucht auf ${KIND_NAME[sach.kind]} ${sach.account}; Richtung prüfen.`);
@@ -190,15 +191,16 @@ function voucherOf(key: string, group: Group, document: SevExportDocument | null
     rate: sameOf(rates),
     lines,
     document,
+    ...(documentUnclear ? { documentUnclear: true } : {}),
     selfBilled,
   };
 }
 
 /** Belege aus allen Stapeln; meldet GUIDs ohne Datei und Dateien ohne Buchung */
-export function buildVouchers(stacks: SevExportStack[], documents: SevExportDocument[], hints: string[]): SevExportVoucher[] {
+export function buildVouchers(stacks: SevExportStack[], documents: SevExportDocument[], hints: string[], foldersIncomplete: boolean): SevExportVoucher[] {
   const byGuid = new Map(documents.map((d) => [d.guid, d]));
   const groups = groupLines(stacks, hints);
-  const vouchers = [...groups].map(([key, group]) => voucherOf(key, group, group.guid ? (byGuid.get(group.guid) ?? null) : null, hints));
+  const vouchers = [...groups].map(([key, group]) => voucherOf(key, group, group.guid ? (byGuid.get(group.guid) ?? null) : null, hints, foldersIncomplete));
   for (const d of documents) {
     if (!groups.has(d.guid)) hints.push(`${d.archive}: Datei ${d.fileName} (GUID ${d.guid}) ohne Buchung im Stapel.`);
   }

@@ -56,7 +56,8 @@ Das fertige Image gibt es für amd64 und arm64 auf Docker Hub und in der GitHub 
 | Image | Inhalt |
 | --- | --- |
 | `docker.io/tristanteu/haben:latest` | Letzte veröffentlichte Version (Standard in Compose und Quadlet) |
-| `docker.io/tristanteu/haben:x.y` / `:x.y.z` | Feste Version, wenn du Updates selbst steuern willst |
+| `docker.io/tristanteu/haben:x.y` | Neuester Patch der Version `x.y` |
+| `docker.io/tristanteu/haben:x.y.z` | Feste Version, wenn du Updates selbst steuern willst |
 | `docker.io/tristanteu/haben:next` | Neuester Release Candidate (`:x.y.z-rc.1` usw.) zum Testen, nur mit Backup |
 | `docker.io/tristanteu/haben:edge` | Stand von `main`, nur zum Ausprobieren |
 | `ghcr.io/speicherstadt/haben:…` | Dieselben Tags bei GitHub |
@@ -88,13 +89,18 @@ Hinter PgBouncer braucht Haben `pool_mode = session`, bei anderen Poolern den en
 
 ## Docker Compose
 
+Die Downloadbefehle laden alle Vorlagen aus dem letzten veröffentlichten Release. Die Standardkonfiguration verwendet den Image-Tag `latest`. Während einer Veröffentlichung können die Images nacheinander verfügbar werden. Für eine feste Version `x.y.z` setzt du für die Vorlagen `TAG=vx.y.z`, bevor du `RAW` bildest. In `compose.override.yml` setzt du die Image-Tags von `app`, `db`, `backup` und `restore` ebenfalls auf `x.y.z`.
+
 > [!TIP]
-> Der [Compose-Generator](compose-generator.md) erzeugt dir `.env` mit frischen Schlüsseln, bei Bedarf `compose.override.yml` und die Befehle unten im Browser.
+> Der [Compose-Generator](compose-generator.md) erzeugt im Browser `.env` und bei Bedarf `compose.override.yml` nach dem Stand von `main`. Für eine Installation mit Vorlagen aus dem letzten Release nutze die Befehle unten.
 
 ```sh
 mkdir haben && cd haben
-curl -O https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy/compose.yml
-curl -o .env https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy/compose.env.example
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)
+TAG=${RELEASE##*/}
+RAW=https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy
+curl -fLO "$RAW/compose.yml"
+curl -fLo .env "$RAW/compose.env.example"
 chmod 600 .env   # enthält Passwörter und Schlüssel, nur für dich lesbar
 ```
 
@@ -130,7 +136,16 @@ Der Dienst `backup` sichert Datenbank und Belege jeden Tag um 03:15 Uhr, siehe [
 
 **Updates:** `docker compose exec backup backup.sh && docker compose pull && docker compose up -d`. Migrationen laufen beim Start der App, siehe [Updates](installation-backup.md#updates).
 
-**Abweichungen** von `compose.yml`, etwa ein eigener Proxy, zusätzliche Mounts, `extra_hosts` oder eine feste Version, gehören in eine `compose.override.yml` daneben: Compose liest sie automatisch mit, und `compose.yml` lässt sich bei Updates neu herunterladen. Gibt es die Datei schon, kommen neue Einträge unter die vorhandenen Dienste; Beispiele stehen in [`compose.override.example.yml`](https://github.com/Speicherstadt/haben/blob/main/deploy/compose.override.example.yml).
+**Abweichungen** von `compose.yml`, etwa ein eigener Proxy, zusätzliche Mounts, `extra_hosts` oder eine feste Version, gehören in eine `compose.override.yml` daneben: Compose liest sie automatisch mit, und `compose.yml` lässt sich bei Updates neu herunterladen. Gibt es die Datei schon, kommen neue Einträge unter die vorhandenen Dienste.
+
+### Beispiel-Override-Datei
+
+Lade das Beispiel mit dem Release-Tag deiner `compose.yml` und übernimm nur die Einträge für deine Einrichtung.
+
+```sh
+TAG=vx.y.z
+curl -fLO "https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy/compose.override.example.yml"
+```
 
 ## Podman Quadlets
 
@@ -139,15 +154,17 @@ Die Quadlets betreiben Haben rootless unter systemd: Zugangsdaten als Podman Sec
 ### Dateien ablegen
 
 ```sh
-RAW=https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)
+TAG=${RELEASE##*/}
+RAW=https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy
 mkdir -p ~/.config/containers/systemd ~/.config/systemd/user ~/.config/haben
 for f in haben.network haben-db.volume haben-belege.volume haben-eric-log.volume haben-eric.volume haben-caddy.volume \
          haben-backups.volume haben-db.container haben-app.container haben-caddy.container haben-backup.container; do
-  curl -o ~/.config/containers/systemd/$f "$RAW/quadlet/$f"
+  curl -fLo ~/.config/containers/systemd/$f "$RAW/quadlet/$f"
 done
-curl -o ~/.config/systemd/user/haben-backup.timer "$RAW/quadlet/haben-backup.timer"
-curl -o ~/.config/haben/Caddyfile "$RAW/Caddyfile"
-curl -o ~/.config/haben/haben.env "$RAW/haben.env.example"
+curl -fLo ~/.config/systemd/user/haben-backup.timer "$RAW/quadlet/haben-backup.timer"
+curl -fLo ~/.config/haben/Caddyfile "$RAW/Caddyfile"
+curl -fLo ~/.config/haben/haben.env "$RAW/haben.env.example"
 touch ~/.config/haben/backup.env   # optional RESTIC_REPOSITORY, siehe Backup und Wiederherstellen
 ```
 
@@ -193,7 +210,7 @@ In `~/.config/haben/haben.env` stehen die Werte, die nicht geheim sind. Mindeste
 BETTER_AUTH_URL=https://haben.example.de
 ```
 
-Im `Caddyfile` dieselbe Domain eintragen (erste Zeile `haben.example.de {`). Was es sonst einstellt (Weiterleitung an `haben-app:3000`, Sicherheits-Header, Upload-Grenze), steht in [`deploy/Caddyfile`](https://github.com/Speicherstadt/haben/blob/main/deploy/Caddyfile); `X-Frame-Options` bleibt dort `SAMEORIGIN`, nicht `DENY`, sonst bleiben die eingebetteten Vorschauen leer.
+Im `Caddyfile` dieselbe Domain eintragen (erste Zeile `haben.example.de {`). Was es sonst einstellt (Weiterleitung an `haben-app:3000`, Sicherheits-Header, Upload-Grenze), steht in der oben heruntergeladenen Datei; `X-Frame-Options` bleibt dort `SAMEORIGIN`, nicht `DENY`, sonst bleiben die eingebetteten Vorschauen leer.
 
 > [!NOTE]
 > Leere Zeilen wie `ELSTER_HERSTELLER_ID=` gelten als nicht gesetzt. Trag die Hersteller-ID erst ein, wenn du sie hast; sie muss dann genau fünf Ziffern haben.
@@ -232,13 +249,7 @@ Port 3000 der App gehört nicht ins Internet: Dort könnte jeder `X-Forwarded-Fo
 
 ### Compose
 
-Neben `compose.yml` eine `compose.override.yml` ablegen ([Abweichungen](#docker-compose)):
-
-```sh
-curl -o compose.override.yml https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy/compose.override.example.yml
-```
-
-Darin `DEIN_PROXY_NETZ` durch das Netz deines Proxy-Containers ersetzen. Das zeigt:
+Lade die [Beispiel-Override-Datei](#beispiel-override-datei) und übernimm die Proxy-Einträge in `compose.override.yml`. Ersetze `DEIN_PROXY_NETZ` durch das Netz deines Proxy-Containers. Das zeigt:
 
 ```sh
 docker inspect DEIN_PROXY_CONTAINER -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}'
@@ -289,7 +300,7 @@ Getestet sind die Beispiele mit Apache 2.4, nginx 1.30, Nginx Proxy Manager 2.16
 </VirtualHost>
 ```
 
-**Caddy:** Den Block aus [`deploy/Caddyfile`](https://github.com/Speicherstadt/haben/blob/main/deploy/Caddyfile) in dein Caddyfile übernehmen, mit deiner Domain (bei Caddy direkt auf dem Host `reverse_proxy 127.0.0.1:3000`), und `caddy reload` ausführen.
+**Caddy:** Den Block aus `deploy/Caddyfile` des verwendeten Releases in dein Caddyfile übernehmen, mit deiner Domain (bei Caddy direkt auf dem Host `reverse_proxy 127.0.0.1:3000`), und `caddy reload` ausführen.
 
 **nginx:** Zertifikat wie für deine anderen Seiten (etwa certbot). Wichtig sind `client_max_body_size` (Standard ist 1 MB) und die `proxy_set_header`-Zeilen:
 
@@ -401,13 +412,24 @@ Damit du die Instanzen in der Oberfläche auseinanderhältst, gib jeder ein eige
 `deploy/instanzen/haben-instanzen.ts` legt Instanzen an, aktualisiert alle nacheinander und zeigt ihren Stand. Es läuft mit [Bun](https://bun.com) direkt aus einem Checkout des Repositorys, ohne `bun install` und ohne Build, und braucht dazu Docker mit Compose 2.23 oder neuer. Die Vorlagen (`compose.yml`, `compose.env.example`) nimmt es aus `deploy/` im Checkout:
 
 ```sh
-git clone --depth 1 https://github.com/Speicherstadt/haben.git ~/haben-werkzeug
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)
+TAG=${RELEASE##*/}
+git clone --depth 1 --branch "$TAG" https://github.com/Speicherstadt/haben.git ~/haben-werkzeug
 cd ~/haben-werkzeug
 bun deploy/instanzen/haben-instanzen.ts neu firma1 firma1.example.de
 bun deploy/instanzen/haben-instanzen.ts neu firma2 firma2.example.de
 ```
 
-Das Werkzeug selbst aktualisierst du mit `git pull` im Checkout; die Instanzen aktualisiert danach `update`. Eine neue Vorlage übernimmt `update` nicht: Die `compose.yml` jeder Instanz bleibt, wie sie beim Anlegen war, bis du sie aus `deploy/` neu kopierst.
+Um das Werkzeug zu aktualisieren, wechselst du im Checkout zum letzten veröffentlichten Release-Tag:
+
+```sh
+cd ~/haben-werkzeug
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)
+TAG=${RELEASE##*/}
+git fetch --depth 1 origin "refs/tags/$TAG" && git switch --detach FETCH_HEAD
+```
+
+Die Instanzen aktualisiert danach der Befehl `update`. Ihre `compose.yml` bleibt dabei erhalten, bis du sie aus `deploy/` neu kopierst.
 
 Danach liegt unter `~/haben` (anders mit `--basis` oder `HABEN_INSTANZEN`):
 

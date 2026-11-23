@@ -134,7 +134,7 @@ export type { QuoteListStatus };
 /** Positionen einer Abschlagsrechnung aus einer Zeile des Zahlungsplans, mit der Zeile (quote-plan.ts) */
 export interface AbschlagPlanLines {
   row: number;
-  lines: { description: string; quantity: number; unit: UnitLabel; unitPrice: number; taxRate: 1900 | 700 | 0 }[];
+  lines: { description: string; quantity: number; unit: UnitLabel; unitPrice: number; taxRate: 1900 | 700 | 0; arbeitskosten?: boolean }[];
 }
 
 /** Berechnet die Positionen in der Transaktion, die das Angebot gesperrt hat, nach der Auswahl des Kunden */

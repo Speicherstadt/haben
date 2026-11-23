@@ -10,6 +10,7 @@ import { latestAccountableImport } from "./accountable.ts";
 import { latestFastbillImport } from "./fastbill.ts";
 import { finish, latestImport, progressMessage, STALE_MS } from "./lexoffice.ts";
 import { latestSevdeskImport } from "./sevdesk.ts";
+import { sevdeskExportNeedsFile } from "./sevdesk-export-abgleich.ts";
 import { runSevdeskExportImport } from "./sevdesk-export-lauf.ts";
 
 /*
@@ -98,8 +99,8 @@ async function analysisOf(bytes: Uint8Array, filename: string, exp: SevExport): 
     bookings: exp.stacks.reduce((sum, s) => sum + s.stack.bookings.length, 0),
     vouchers: v.length,
     withFile: v.filter((x) => x.guid !== null && exp.files.has(x.guid)).length,
-    missingFile: v.filter((x) => x.guid !== null && !exp.files.has(x.guid)).length,
-    withoutImage: v.filter((x) => x.guid === null).length,
+    missingFile: v.filter((x) => x.guid !== null && sevdeskExportNeedsFile(x) && !exp.files.has(x.guid)).length,
+    withoutImage: v.filter((x) => !sevdeskExportNeedsFile(x)).length,
     otherAccounts: v.filter((x) => x.accountKind === null).length,
     apiYears,
     inApiYears: v.filter((x) => apiYears.includes(Number(x.date.slice(0, 4)))).length,

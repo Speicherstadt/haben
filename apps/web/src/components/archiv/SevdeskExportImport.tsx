@@ -136,7 +136,8 @@ function Facts({ analysis }: { analysis: Analysis }) {
     ["Buchungen", analysis.bookings],
     ["Belege", analysis.vouchers],
     ["mit Belegbild", analysis.withFile],
-    ["ohne Belegbild", analysis.withoutImage + analysis.missingFile],
+    ["ohne Belegbild im Export", analysis.withoutImage],
+    ["Datei fehlt im Export", analysis.missingFile],
   ];
   return (
     <div className="stack" style={{ gap: 12 }} aria-live="polite">
