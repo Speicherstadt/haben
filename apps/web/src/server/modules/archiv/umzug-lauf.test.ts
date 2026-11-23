@@ -69,7 +69,7 @@ describe.skipIf(!testDatabaseUrl)("Abrufsperre beim Umzug (Postgres)", () => {
   });
   it("ein langsamer WISO-Import wird vom BuchhaltungsButler-Start nicht abgebrochen", async () => {
     const { latestWisoImport, startWisoImport } = await import("./wiso.ts");
-    const { startBuchhaltungsbutlerImport } = await import("./buchhaltungsbutler.ts");
+    const { BuchhaltungsbutlerImportError, startBuchhaltungsbutlerImport } = await import("./buchhaltungsbutler.ts");
     const running = startWisoImport("wiso-test", data, "wiso-test.csv");
     try {
       await Promise.race([
@@ -79,8 +79,10 @@ describe.skipIf(!testDatabaseUrl)("Abrufsperre beim Umzug (Postgres)", () => {
         }),
       ]);
       await sql`update lexoffice_imports set updated_at = now() - interval '4 minutes' where source = 'wiso'`;
-      await expect(startBuchhaltungsbutlerImport("bb-test", [])).rejects.toMatchObject({
-        cause: { code: "23505", constraint_name: "lexoffice_imports_one_running" },
+      await expect(startBuchhaltungsbutlerImport("bb-test", [])).rejects.toThrow(new BuchhaltungsbutlerImportError("Ein Abruf läuft bereits."));
+      await expect(sql`insert into lexoffice_imports (source, progress) values ('buchhaltungsbutler', '{"phase":"belege"}'::jsonb)`).rejects.toMatchObject({
+        code: "23505",
+        constraint_name: "lexoffice_imports_one_running",
       });
       expect((await sql`select status from lexoffice_imports where source = 'wiso'`)[0]?.status).toBe("laeuft");
       expect(await latestWisoImport()).toMatchObject({ status: "laeuft", error: null });
@@ -91,6 +93,7 @@ describe.skipIf(!testDatabaseUrl)("Abrufsperre beim Umzug (Postgres)", () => {
   }, 15_000);
 
   it("eine Statusabfrage lässt einen langsamen BuchhaltungsButler-Upload weiterlaufen", async () => {
+    const { WisoImportError, startWisoImport } = await import("./wiso.ts");
     const { latestBuchhaltungsbutlerImport, startBuchhaltungsbutlerImport } = await import("./buchhaltungsbutler.ts");
     const parts = ["EXTF_test_Buchungsstapel.csv", "BB_test.csv", "Belege.zip"].map((name, index) => ({ name, bytes: Uint8Array.of(index) }));
     const running = startBuchhaltungsbutlerImport("bb-test", parts);
@@ -103,6 +106,7 @@ describe.skipIf(!testDatabaseUrl)("Abrufsperre beim Umzug (Postgres)", () => {
       ]);
       await sql`update lexoffice_imports set updated_at = now() - interval '4 minutes' where source = 'buchhaltungsbutler'`;
       expect(await latestBuchhaltungsbutlerImport()).toMatchObject({ status: "laeuft", error: null });
+      await expect(startWisoImport("wiso-test", data, "wiso-test.csv")).rejects.toThrow(new WisoImportError("Ein Abruf läuft bereits."));
     } finally {
       gates.butler.release.resolve();
       await running;
