@@ -29,26 +29,35 @@ function fileIn(files: Record<string, Uint8Array>, fileName: string): Uint8Array
   return files[fileName] ?? files[Object.keys(files).find((path) => baseName(path) === fileName) ?? ""];
 }
 
-type Folders = { ok: true; documents: SevExportDocument[]; files: Map<string, SevExportFile> } | { ok: false; reason: string };
+type Folders = { ok: true; documents: SevExportDocument[]; files: Map<string, SevExportFile>; incomplete: boolean } | { ok: false; reason: string };
 
 function readFolders(outer: Record<string, Uint8Array>, budget: Budget, hints: string[]): Folders {
   const documents: SevExportDocument[] = [];
   const files = new Map<string, SevExportFile>();
-  for (const archive of named(outer, FOLDER)) {
+  const archives = named(outer, FOLDER);
+  if (archives.length === 0) {
+    hints.push("Der Export enthält keine Belegordner. Beleglinks bleiben ungeklärt.");
+    return { ok: true, documents, files, incomplete: true };
+  }
+  let incomplete = false;
+  for (const archive of archives) {
     const inner = unzipLimited(outer[archive]!, budget, () => true);
     if (!inner.ok) {
       if (inner.limit) return { ok: false, reason: inner.reason };
       hints.push(`${archive}: ${inner.reason}`);
+      incomplete = true;
       continue;
     }
     const xml = Object.keys(inner.files).find((path) => baseName(path).toLowerCase() === "document.xml");
     if (!xml) {
       hints.push(`${archive}: document.xml fehlt; die Belegdateien lassen sich keiner Buchung zuordnen.`);
+      incomplete = true;
       continue;
     }
     const parsed = parseDocumentXml(inner.files[xml]!, archive);
     if (!parsed.ok) return parsed;
     hints.push(...parsed.hints);
+    if (parsed.hints.length > 0) incomplete = true;
     for (const document of parsed.documents) {
       if (documents.some((d) => d.guid === document.guid)) {
         hints.push(`${archive}: GUID ${document.guid} steht schon in einem anderen document.xml; der erste Eintrag gilt.`);
@@ -60,7 +69,7 @@ function readFolders(outer: Record<string, Uint8Array>, budget: Budget, hints: s
       else hints.push(`${archive}: Datei ${document.fileName} (GUID ${document.guid}) steht in document.xml, fehlt aber in der ZIP.`);
     }
   }
-  return { ok: true, documents, files };
+  return { ok: true, documents, files, incomplete };
 }
 
 type Stacks = { ok: true; stacks: SevExportStack[] } | { ok: false; reason: string };
@@ -103,7 +112,7 @@ export function readSevdeskExport(archive: Uint8Array, options: SevExportOptions
   if (!folders.ok) return folders;
   const stacks = readStacks(outer.files, options, hints);
   if (!stacks.ok) return stacks;
-  const vouchers = buildVouchers(stacks.stacks, folders.documents, hints);
+  const vouchers = buildVouchers(stacks.stacks, folders.documents, hints, folders.incomplete);
   const partnerFiles = named(outer.files, PARTNERS).map((name) => ({ name, bytes: outer.files[name]! }));
   return { ok: true, export: { stacks: stacks.stacks, partnerFiles, vouchers, documents: folders.documents, files: folders.files, hints } };
 }

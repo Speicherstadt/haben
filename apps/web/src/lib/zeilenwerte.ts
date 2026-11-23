@@ -1,3 +1,4 @@
+import type { Cents } from "@haben/core";
 import type { UstErklaerungFigures } from "@haben/elster";
 import { EUER_AUSGABEN, EUER_EINNAHMEN, EUER_FIELDS } from "@haben/elster/euer-felder";
 import { z } from "zod";
@@ -11,6 +12,9 @@ import { z } from "zod";
  * Liste von Kennzahlen gab es hier einmal; sie war an die Zeilennummern eines Vordruckjahres gebunden (2024/2025:
  * Zeile 17 statt Kz 15) und deckte die Zeilen nicht ab, die Haben selbst übermittelt.
  */
+
+/** Größter Betrag einer Zeile in Cent, plus oder minus; die Grenze hält einen Tippfehler davon ab, die Summe zu sprengen */
+export const ZEILENBETRAG_GRENZE: Cents = 1_000_000_000_00;
 
 /** Eine Zeile, die außerhalb von Haben erklärt wurde: Schlüssel der Erklärung, Zeilentext und Anlage */
 export interface ErklaerteZeile {
@@ -57,6 +61,17 @@ const EST_ANLAGEN: readonly { anlage: string; felder: Readonly<Record<string, st
       werbungskostenSonstige: "davon weitere Werbungskosten",
       werbungskosten: "Werbungskosten insgesamt",
       einkuenfteNichtselbstaendig: "Einkünfte aus nichtselbständiger Arbeit",
+    },
+  },
+  {
+    // Gewerbliche Einkünfte gehören in Anlage G, selbständige Arbeit daneben in Anlage S (ELSTER-Anleitung 2025):
+    // https://www.elster.de/eportal/helpGlobal?themaGlobal=help_est_ufa_10_2025, Abschnitt „Anlagenauswahl“.
+    anlage: "Anlage G",
+    felder: {
+      einkuenfteGewerbeLaufend: "Laufende Gewinne aus Gewerbebetrieb",
+      einkuenfteGewerbe: "Einkünfte aus Gewerbebetrieb",
+      gewerbesteuerMessbetrag: "Gewerbesteuer-Messbetrag (§ 35 EStG)",
+      gewerbesteuerTatsaechlich: "Tatsächlich zu zahlende Gewerbesteuer (§ 35 EStG)",
     },
   },
   {
@@ -121,6 +136,9 @@ const EST_ANLAGEN: readonly { anlage: string; felder: Readonly<Record<string, st
       // § 32b EStG ändert nur den Steuersatz; die tarifliche Einkommensteuer entsteht in der Berechnung, nicht
       // im Progressionsvorbehalt. Die Zeile steht deshalb hier, hinter dem zu versteuernden Einkommen (#1084)
       tariflicheEinkommensteuer: "Tarifliche Einkommensteuer",
+      // § 35 Abs. 1 EStG begrenzt die Ermäßigung auch durch den Anteil der Einkommensteuer auf gewerbliche Einkünfte.
+      // Deshalb den erklärten Betrag übernehmen, nicht aus Messbetrag und Gewerbesteuer neu berechnen (#1214).
+      steuerermaessigungGewerbesteuer: "Steuerermäßigung bei Einkünften aus Gewerbebetrieb (§ 35 EStG) laut Steuerprogramm",
       // In der Erklärung setzt niemand etwas fest: Die Zahl kommt aus dem Steuerprogramm, festgesetzt wird sie erst im
       // Bescheid. Die Beschriftung sagt deshalb, woher sie stammt (#1084)
       festgesetzteSteuer: "Einkommensteuer laut Steuerprogramm",

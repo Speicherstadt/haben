@@ -183,8 +183,11 @@ export interface InvoiceDocument extends Letterhead {
   language?: "de" | "en";
   /** Nur bei kind „rechnung“; fehlt = normale Rechnung */
   variant?: InvoiceVariant;
-  /** Schlussrechnung: abgezogene Abschlagsrechnungen (BT-25); die Abzüge selbst stehen als negative Positionen in lines */
-  deducted?: { number: string; issueDate: string }[];
+  /**
+   * Schlussrechnung: abgezogene Abschlagsrechnungen (BT-25); die Abzüge selbst stehen als negative Positionen in lines.
+   * arbeitskosten ist der Anteil, den die Abschlagsrechnung nach § 35a EStG nennt (#1667)
+   */
+  deducted?: { number: string; issueDate: string; arbeitskosten?: number }[];
   /** Bestell-, Auftrags- und Lieferscheinnummer (BT-13, BT-14, BT-16) */
   references?: OrderReferences;
   /** Einzug per SEPA-Lastschrift (#445); fehlt = Überweisung. Nur bei Rechnungen mit Zahlbetrag in Euro */

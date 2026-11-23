@@ -3,11 +3,11 @@ import { createRoot } from "react-dom/client";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 // Server-Funktion als steuerbare Attrappe: Jeder Lauf wartet, bis der Test ihn beendet
-const runs: { data: { number: string }; finish: (ms: number) => void }[] = [];
+const runs: { data: { number: string }; finish: (ms: number) => void; fail: (error: unknown) => void }[] = [];
 vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
 const render = ({ data }: { data: { number: string } }) =>
-  new Promise<never>((resolve) => {
-    runs.push({ data, finish: (ms) => resolve({ svg: "<svg/>", ms, pages: 1, width: 595, height: 842, text: [] } as never) });
+  new Promise<never>((resolve, reject) => {
+    runs.push({ data, finish: (ms) => resolve({ svg: "<svg/>", ms, pages: 1, width: 595, height: 842, text: [] } as never), fail: reject });
   });
 
 const { useRenderedSheet } = await import("./use-rendered-sheet.ts");
@@ -81,6 +81,47 @@ describe("Vorschau nach einem langsamen Lauf", () => {
     await act(async () => runs[1]!.finish(2500));
     await tick(1500);
     expect(state.outdated).toBe(true);
+    root.unmount();
+  });
+});
+
+describe("Vorschau, deren Blatt nicht gesetzt werden kann (#1147)", () => {
+  it("meldet einen Netzfehler auf Deutsch und erholt sich mit dem nächsten Versuch", async () => {
+    runs.length = 0;
+    const root = createRoot(container);
+    await act(async () => root.render(createElement(Probe, { input: { number: "A" } })));
+    await act(async () => runs[0]!.fail(new TypeError("Failed to fetch")));
+    expect(state.failure).toBe("Die Vorschau ließ sich nicht erzeugen. Haben ist gerade nicht erreichbar.");
+
+    // „Erneut versuchen“: diesmal antwortet der Server
+    await act(async () => void state.refresh());
+    await act(async () => runs[1]!.finish(300));
+    await tick(10);
+    expect(state.failure).toBeNull();
+    expect(state.sheet).not.toBeNull();
+    root.unmount();
+  });
+
+  it("nennt einen Fachfehler des Servers hinter dem eigenen Satz", async () => {
+    runs.length = 0;
+    const root = createRoot(container);
+    await act(async () => root.render(createElement(Probe, { input: { number: "A" } })));
+    await act(async () => runs[0]!.fail(new Error("Das Layout braucht das Feld kunde.name.")));
+    expect(state.failure).toBe("Die Vorschau ließ sich nicht erzeugen. Das Layout braucht das Feld kunde.name.");
+    root.unmount();
+  });
+
+  it("versucht es nach einem Fehler mit der nächsten Eingabe erneut", async () => {
+    runs.length = 0;
+    const root = createRoot(container);
+    await act(async () => root.render(createElement(Probe, { input: { number: "A" } })));
+    await act(async () => runs[0]!.fail(new TypeError("Load failed")));
+    await act(async () => root.render(createElement(Probe, { input: { number: "B" } })));
+    await tick(600);
+    expect(runs[1]?.data.number).toBe("B");
+    await act(async () => runs[1]!.finish(300));
+    await tick(10);
+    expect(state.failure).toBeNull();
     root.unmount();
   });
 });

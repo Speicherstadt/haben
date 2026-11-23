@@ -1,3 +1,4 @@
+import { RCLONE_CONFIG, zielHerkunft } from "../lib/backup-ziel.ts";
 import { formatDateTime, formatSize } from "../lib/format.ts";
 import type { getBackupStatus } from "../server/functions/backup.ts";
 
@@ -7,6 +8,34 @@ export const BACKUP_DOCS = "https://haben.app/installation-backup.html#backup-un
 const ZWEITES_SYSTEM_DOCS = "https://haben.app/installation-backup.html#repository-auf-einem-zweiten-system";
 
 const ART = { backup: "Backup", restore_check: "Test-Restore" } as const;
+
+/** Woher das Ziel kommt (#1513); ohne eingetragenes Ziel sagt es der nächste Lauf */
+function herkunftText(target: Status["target"]): string {
+  if (!target) return "Unbekannt bis zum nächsten Lauf mit aktuellem Backup-Image";
+  const herkunft = zielHerkunft(target);
+  switch (herkunft.art) {
+    case "datei":
+      return `Aus der rclone-Konfiguration, Abschnitt ${herkunft.abschnitt}`;
+    case "verbindungszeichenkette":
+      return "Nicht aus einer Datei, die Verbindungszeichenkette bringt das Ziel selbst mit";
+    case "verzeichnis":
+      return "Nicht aus einer Datei, ein Verzeichnis im Backup-Container";
+    case "eingetragen":
+      return "Nicht aus einer Datei, das Ziel steht als RESTIC_REPOSITORY im Backup-Container";
+  }
+}
+
+/** Beide Wege zur rclone-Konfiguration und das Format des Ziels (#1513) */
+function RcloneKonfiguration() {
+  return (
+    <p className="small muted" style={{ margin: 0 }}>
+      Ziele, die restic nicht selbst anspricht, etwa WebDAV, OneDrive oder SMB, gehen über rclone. Im Image zeigt{" "}
+      <span className="mono">{RCLONE_CONFIG.variable}</span> schon auf <span className="mono">{RCLONE_CONFIG.datei}</span>; liegt die Datei woanders, setzt du
+      die Variable auf diesen Pfad. Ein Ziel nennt einen Abschnitt daraus, etwa <span className="mono">rclone:onedrive:haben</span>. In der Datei stehen
+      Zugangsdaten; hier erscheint keine davon.
+    </p>
+  );
+}
 
 /** Stand von Backup und wöchentlichem Test-Restore aus dem Backup-Container (Einstellungen → Export) */
 export function BackupCard({ status }: { status: Status }) {
@@ -58,6 +87,8 @@ export function BackupCard({ status }: { status: Status }) {
               "Unbekannt: Das nächste Backup mit aktuellem Backup-Image trägt ihn ein"
             )}
           </dd>
+          <dt className="muted">Herkunft des Ziels</dt>
+          <dd style={{ margin: 0, overflowWrap: "anywhere" }}>{herkunftText(target)}</dd>
           <dt className="muted">Letztes Backup</dt>
           <dd style={{ margin: 0 }}>
             {lastBackup ? (
@@ -76,6 +107,7 @@ export function BackupCard({ status }: { status: Status }) {
           </dd>
         </dl>
       )}
+      <RcloneKonfiguration />
     </section>
   );
 }

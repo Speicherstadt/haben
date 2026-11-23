@@ -74,6 +74,8 @@ export const TEXTS = {
     },
     planAbschlag: (n: number, label: string, share: string | null, quote: string, date: string) =>
       `${n}. ${label}${share ? ` ${share}` : ""} gemäß Angebot ${quote} vom ${date}`,
+    planAbschlagTeil: (description: string, arbeit: boolean) =>
+      `${description}, Anteil ${arbeit ? "Arbeits-, Maschinen- und Fahrtkosten" : "Material und Sonstiges"}`,
     inclVat: (label: string) => `${label} (inkl. USt)`,
     included: "darin enthalten",
     includedNet: (rate?: string) => (rate ? `Netto ${rate}` : "Netto"),
@@ -132,6 +134,7 @@ export const TEXTS = {
     // § 35a Abs. 5 Satz 2 EStG; BMF vom 09.11.2016 (BStBl I S. 1213) Rz. 39 f.: Anteil aus der Rechnung ermittelbar
     arbeitskosten: (amount: string, inclVat: boolean, beforeDeductions: boolean) =>
       `${beforeDeductions ? "In der gesamten Leistung vor Abzug der Abschlagsrechnungen sind" : "Darin sind"} Arbeits-, Maschinen- und Fahrtkosten von ${amount}${inclVat ? " inkl. USt" : ""} enthalten (§ 35a EStG).`,
+    arbeitskostenRest: (abschlaege: string, rest: string) => `Davon entfallen ${abschlaege} auf die Abschlagsrechnungen und ${rest} auf diese Rechnung.`,
     propertyRetention:
       "Bei steuerpflichtigen Grundstücksleistungen für den privaten Bereich sind diese Rechnung, ein Zahlungsbeleg oder eine andere beweiskräftige Unterlage zwei Jahre aufzubewahren (§ 14b Abs. 1 Satz 5 UStG). Die Frist beginnt mit dem Schluss des Kalenderjahres der Rechnungsausstellung.",
     countryLocale: "de",
@@ -183,6 +186,8 @@ export const TEXTS = {
     },
     planAbschlag: (n: number, label: string, share: string | null, quote: string, date: string) =>
       `${n}. ${label}${share ? ` ${share}` : ""} as per quote ${quote} of ${date}`,
+    planAbschlagTeil: (description: string, arbeit: boolean) =>
+      `${description}, share of ${arbeit ? "labour, machinery and travel costs" : "materials and other costs"}`,
     inclVat: (label: string) => `${label} (incl. VAT)`,
     included: "included",
     includedNet: (rate?: string) => (rate ? `Net ${rate}` : "Net"),
@@ -249,6 +254,7 @@ export const TEXTS = {
     note: (treatment: TaxTreatment, reason?: string | null) => (treatment === "regulaer" ? null : reason?.trim() || EN_NOTES[treatment]),
     arbeitskosten: (amount: string, inclVat: boolean, beforeDeductions: boolean) =>
       `${beforeDeductions ? "The total work before deducting the advance invoices includes" : "This includes"} labour, machinery and travel costs of ${amount}${inclVat ? " incl. VAT" : ""} (§ 35a EStG).`,
+    arbeitskostenRest: (abschlaege: string, rest: string) => `Of this, ${abschlaege} relates to the advance invoices and ${rest} to this invoice.`,
     propertyRetention:
       "For taxable property-related services supplied for private use, this invoice, proof of payment or other supporting document must be retained for two years (§ 14b(1), sentence 5 UStG). The period starts at the end of the calendar year in which the invoice was issued.",
     countryLocale: "en",
