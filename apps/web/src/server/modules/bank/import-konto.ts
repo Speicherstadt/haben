@@ -48,6 +48,10 @@ export async function importAccount(tx: Tx, statement: ParsedStatement, filename
         `${filename}: Diese Abrechnung gehört zu ${statement.marketplace}; das Konto ${account.name} ist für ${account.marketplace} eingerichtet.`,
       );
     }
+  } else if (statement.format === "amazon-settlement" && account.provider !== "amazon") {
+    // Nennt die Abrechnung keinen Marktplatz (etwa nur Sonderzeilen ohne marketplace-name), darf sie trotzdem nicht in
+    // ein fremdes Verrechnungskonto; sonst umginge ein solcher Report die Prüfung.
+    throw new BankError(`${filename}: Das ist eine Amazon-Abrechnung. Bitte unter „Konto“ das Amazon-Konto wählen.`);
   }
   return account;
 }
