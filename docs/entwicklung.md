@@ -132,6 +132,8 @@ Projektname und Ports gelten für jeden Befehl dieser Umgebung, auch für `run`,
 | `bun run docs:screenshots` | Nimmt die Bilder in README und Doku neu auf (`docs/screenshot-*.png`, hell und dunkel, siehe [Bilder für README und Doku](#bilder-für-readme-und-doku)), danach Vorschaubild und Hero |
 | `bun run --cwd apps/firmenportal start` | Startet das Firmenportal (#504); die Variablen wie in `deploy/firmenportal/firmenportal.env.example`, etwa in `apps/firmenportal/.env` (Bun liest sie selbst). Mit `PORTAL_URL=http://localhost:…` geht die Anmeldung nur in Chromium: Safari und WebKit speichern die `Secure`-Cookies dort nicht, für sie gehört TLS davor; Tests laufen mit `bun run test` (`apps/firmenportal/src/*.test.ts`, gegen einen OIDC-Testanbieter auf Loopback) |
 | `bun run --cwd apps/elster-helfer build` | Baut die Erweiterung „Haben für Mein ELSTER“ nach `apps/elster-helfer/dist`; diesen Ordner lädt Chrome als entpackte Erweiterung |
+| `bun scripts/prs/rangliste.ts` | Vorschlag für die Rangliste der offenen Pull Requests (Skill `prs-abarbeiten`), mit `gh` |
+| `bun scripts/release/vorschau.ts` | Vorschau auf das nächste Release: Art, Commits, Issues, die es schließt, und Hinweise (Skill `release`), nur mit git |
 | `bun run docs:social-preview` | Rendert `scripts/social-preview/social-preview.html` nach `docs/social-preview.png` (1280 × 640, Bild für Settings → Social preview) |
 | `bun run docs:hero` | Rendert `scripts/hero/hero.html` nach `docs/hero-hell.png` und `docs/hero-dunkel.png` (1280 × 360 bei doppelter Auflösung, mit Rahmen wie die Screenshots, siehe [Bilder für README und Doku](#bilder-für-readme-und-doku); Bild oben in der README; Slogan in IBM Plex Serif aus `packages/einvoice/fonts`) |
 
