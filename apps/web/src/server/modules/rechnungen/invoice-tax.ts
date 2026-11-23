@@ -23,6 +23,13 @@ type TaxMetadata = Pick<
 >;
 type Reference = Pick<TaxMetadata, "issueDate" | "correctsId"> & Partial<TaxMetadata>;
 
+/**
+ * Leistungstag einer Rechnung, wie ihn die Voranmeldung für Umsätze nach Leistung nimmt (Kz 43 und 48, #1268, #1312):
+ * beim Festschreiben eingefroren, sonst Leistung bis, Leistung von, Rechnungsdatum. Storno und Korrektur: ihr Datum.
+ */
+export const leistungstag = (r: Pick<Invoice, "issueDate"> & Partial<Pick<Invoice, "kind" | "serviceDate" | "serviceTo" | "serviceFrom">>) =>
+  r.kind === "rechnung" ? (r.serviceDate ?? r.serviceTo ?? r.serviceFrom ?? r.issueDate) : r.issueDate;
+
 /** Nur Schlussrechnungen mit neuen Abschlägen: Bestandsbelege behalten ihren bisherigen Zeitpunkt. */
 async function hasNewAdvance(id: string, q: Db | Tx): Promise<boolean> {
   const [advance] = await q

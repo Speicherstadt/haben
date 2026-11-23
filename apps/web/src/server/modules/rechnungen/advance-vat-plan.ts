@@ -146,6 +146,36 @@ export interface ManagedAdvancePlan {
 export const refundOnly = (original: Pick<Invoice, "advanceType" | "advanceAccounting" | "variant">) =>
   original.advanceType !== "anzahlung" && (original.advanceAccounting === null || original.variant === "schluss");
 
+/** Bis zur Rückzahlung gehaltene Steuer der Kette; Papierstornos einer Schlusskette (#750) buchen nichts und mindern deshalb auch nichts */
+async function heldSchedule(
+  original: Invoice,
+  invoices: Invoice[],
+  totals: Map<string, { taxes: TaxShare[] }>,
+  events: AdvanceVatEvent[],
+  taxes: ReturnType<typeof invoiceTaxReader>,
+): Promise<AdvanceVatChange[]> {
+  if (original.status !== "final" || !advanceUsesPayments(original.taxTreatment)) return [];
+  const posted: Invoice[] = [];
+  for (const invoice of invoices) if (await taxes.invoicePostingAllowed(invoice)) posted.push(invoice);
+  return advanceVatSchedule(totals.get(original.id)!.taxes, [...events, ...correctionEvents(original, posted, totals)], "held");
+}
+
+/**
+ * Die bis zur Rückzahlung gehaltene Bemessungsgrundlage einer Rechnung mit normalen Buchungen, unabhängig von der
+ * Versteuerung. Bei Ist bucht Haben sie nicht (dort mindert die Rückzahlung); die Voranmeldung braucht sie für Kz 43 und 48,
+ * die auch bei Ist im Zeitraum der Leistung zählen (#1312, umsatzsteuer/umsaetze-nach-leistung.ts).
+ */
+export async function heldUntilRefund(reference: Pick<Invoice, "id">, q: Db | Tx = db, taxes = invoiceTaxReader(q)): Promise<AdvanceVatChange[]> {
+  const [original] = await q.select().from(schema.invoices).where(eq(schema.invoices.id, reference.id));
+  if (!original || !refundOnly(original)) return [];
+  const invoices = await family(original.id, q);
+  const totals = await invoiceTotalsById(
+    invoices.map((i) => i.id),
+    q,
+  );
+  return heldSchedule(original, invoices, totals, await paymentEvents(invoices, q), taxes);
+}
+
 /** Gegenprobe aus den Nebenbüchern, ausdrücklich ohne Journalzeilen zu lesen. */
 export async function loadAdvanceVatPlan(reference: Pick<Invoice, "id">, q: Db | Tx = db, taxes = invoiceTaxReader(q)): Promise<ManagedAdvancePlan> {
   // Die Festschreibung kann den Verfahrensmarker gerade erst gesetzt haben; der Vorher-Lader hält noch den Entwurf.
@@ -160,13 +190,7 @@ export async function loadAdvanceVatPlan(reference: Pick<Invoice, "id">, q: Db |
   const total = totals.get(original.id)!.taxes;
   if (refundOnly(original)) {
     // Nur Soll braucht die Ergänzung: Bei Ist bucht schon die Rückzahlung die Steuer zurück (§ 13 Abs. 1 Nr. 1 b UStG).
-    // Papierstornos einer Schlusskette (#750) buchen nichts und mindern deshalb auch nichts.
-    const posted: Invoice[] = [];
-    for (const invoice of invoices) if (await taxes.invoicePostingAllowed(invoice)) posted.push(invoice);
-    const held =
-      original.status === "final" && advanceUsesPayments(original.taxTreatment) && (await taxes.companyMode(original)) === "soll"
-        ? advanceVatSchedule(total, [...events, ...correctionEvents(original, posted, totals)], "held")
-        : [];
+    const held = (await taxes.companyMode(original)) === "soll" ? await heldSchedule(original, invoices, totals, events, taxes) : [];
     return { original, kind: "refund", invoiceIds: new Set(), changes: held, postingChanges: held, balanceChanges: [] };
   }
   const normal = original.variant === null && original.advanceAccounting === "deferred";

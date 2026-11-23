@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
-import { invoiceTaxReader, invoiceVatDate } from "./invoice-tax.ts";
+import { invoiceTaxReader, invoiceVatDate, leistungstag } from "./invoice-tax.ts";
 import { leistungsmonatHinweis } from "./leistungsmonat.ts";
 
 /**
@@ -28,11 +28,10 @@ export async function leistungsmonatHinweisFuer(invoice: typeof schema.invoices.
 
 /**
  * Tag, nach dem die Voranmeldung die Rechnung meldet. § 4 UStG und Ausfuhr auch bei Ist nach dem Leistungstag, Anzahlungen
- * gar nicht (umsatzsteuer/umsaetze-nach-leistung.ts, Anleitung zur UStVA 2026 unter Kz 43 und 48)
+ * gar nicht (der Tag ist dann das Rechnungsdatum, also kein Hinweis) (umsatzsteuer/umsaetze-nach-leistung.ts, Anleitung zur UStVA 2026 unter Kz 43 und 48)
  */
 async function meldetag(invoice: typeof schema.invoices.$inferSelect, q: Db | Tx): Promise<string> {
   const steuerfrei = invoice.taxTreatment === "steuerfrei" || invoice.taxTreatment === "ausfuhr";
   if (!steuerfrei || invoice.lexofficeVoucherId !== null || (await invoiceTaxReader(q).companyMode(invoice)) !== "ist") return invoiceVatDate(invoice, q);
-  if (invoice.advanceType === "anzahlung") return invoice.issueDate;
-  return invoice.serviceDate ?? invoice.serviceTo ?? invoice.serviceFrom ?? invoice.issueDate;
+  return invoice.advanceType === "anzahlung" ? invoice.issueDate : leistungstag(invoice);
 }
