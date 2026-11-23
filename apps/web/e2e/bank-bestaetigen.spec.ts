@@ -70,6 +70,13 @@ test("Vorschläge markieren (Klick, Leertaste) und gemeinsam bestätigen", async
   await page.getByRole("link", { name: "Nächsten offenen" }).click();
   await expect(page.locator(".tx-row.selected")).toContainText("Reparatur vier");
 
+  // Suche mit nur einem Treffer im Filter „Offen“: Der Zähler gilt für alle, also führt der Knopf zurück zu allen offenen
+  await gehe(page, "/bank?suche=Unbekannt");
+  await expect(page.getByText("3 Umsätze noch offen")).toBeVisible();
+  await page.getByRole("link", { name: "Nächsten offenen" }).click();
+  await expect(page).not.toHaveURL(/suche=/);
+  await expect(page.locator(".tx-wrap")).toHaveCount(3);
+
   await gehe(page, "/bank?filter=alle");
 
   const zeile = (zweck: string) => page.locator(".tx-wrap").filter({ hasText: zweck });

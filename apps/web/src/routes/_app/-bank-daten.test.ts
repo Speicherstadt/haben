@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { type Data, type Detail, nextOpenAfter, offenText, type Posten, restAngebot } from "./-bank-daten.ts";
+import {
+  type Data,
+  type Detail,
+  fortschrittArt,
+  leereListeText,
+  naechsteSchritte,
+  naechstenOffenenZiel,
+  nextOpenAfter,
+  offenText,
+  type Posten,
+  restAngebot,
+} from "./-bank-daten.ts";
 
 // Rechnung über 119,00 €, Korrektur über −23,80 €, der Kunde zahlt 95,20 € (#1398)
 const korrektur = { id: "k1", number: "RE-2026-0002", open: -2380 };
@@ -97,5 +108,56 @@ describe("Fortschritt der Zuordnung (#1253)", () => {
 
   it("nimmt ohne Auswahl den ersten offenen Umsatz", () => {
     expect(nextOpenAfter(liste, undefined)).toBe("b");
+  });
+});
+
+describe("Knopf „Nächsten offenen“ (#1253)", () => {
+  it("wählt den nächsten offenen Umsatz der Liste und behält Filter und Suche", () => {
+    expect(naechstenOffenenZiel("b", "alle", "miete")).toEqual({ umsatz: "b" });
+  });
+
+  it("fehlt im Filter „Offen“ ohne Suche, wenn kein weiterer offener Umsatz in der Liste steht", () => {
+    expect(naechstenOffenenZiel(undefined, "offen", undefined)).toBeNull();
+    expect(naechstenOffenenZiel(undefined, undefined, "")).toBeNull();
+  });
+
+  it("öffnet bei aktiver Suche ohne weiteren Treffer alle offenen Umsätze ohne Suche", () => {
+    expect(naechstenOffenenZiel(undefined, "offen", "miete")).toEqual({ filter: "offen", suche: undefined, umsatz: undefined });
+  });
+
+  it("öffnet in einem anderen Filter den Filter „Offen“", () => {
+    expect(naechstenOffenenZiel(undefined, "zugeordnet", undefined)).toEqual({ filter: "offen", suche: undefined, umsatz: undefined });
+  });
+});
+
+describe("Fortschritt und leere Liste (#1253)", () => {
+  it("zeigt den Zähler, solange etwas offen ist, auch ohne Import", () => {
+    expect(fortschrittArt(3, true)).toBe("offen");
+    expect(fortschrittArt(3, false)).toBe("offen");
+  });
+
+  it("zeigt „Alles zugeordnet.“ nur, wenn alles erledigt und ein Import da ist", () => {
+    expect(fortschrittArt(0, true)).toBe("fertig");
+    expect(fortschrittArt(0, false)).toBe("keine");
+  });
+
+  it("nennt als nächste Schritte Belege und Voranmeldung, beim Kleinunternehmer nur Belege", () => {
+    expect(naechsteSchritte(false)).toEqual(["belege", "voranmeldung"]);
+    expect(naechsteSchritte(true)).toEqual(["belege"]);
+  });
+
+  it("lässt die leere Liste im Filter „Offen“ stumm, wenn „Alles zugeordnet.“ schon dasteht", () => {
+    expect(leereListeText("offen", 0, 0, true)).toBeNull();
+  });
+
+  it("sagt „Keine Umsätze.“ ohne Import, bei Suche ohne Treffer und in anderen Filtern", () => {
+    expect(leereListeText("offen", 0, 0, false)).toBe("Keine Umsätze.");
+    expect(leereListeText("offen", 0, 4, true)).toBe("Keine Umsätze.");
+    expect(leereListeText("zugeordnet", 0, 0, true)).toBe("Keine Umsätze.");
+    expect(leereListeText("vorschlag", 0, 2, true)).toBe("Keine Umsätze mit Vorschlag.");
+  });
+
+  it("zeigt keinen Text, solange die Liste Umsätze hat", () => {
+    expect(leereListeText("alle", 5, 0, true)).toBeNull();
   });
 });
