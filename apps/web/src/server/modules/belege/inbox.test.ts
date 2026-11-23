@@ -146,7 +146,9 @@ describe.skipIf(!testDatabaseUrl)("Belege per E-Mail (Postgres)", () => {
       expect(await sql`select 1 from documents`).toHaveLength(1);
     });
 
-    it("löscht keine Mail, an der die Verarbeitung scheitert, keine mit übersprungenem Anhang und keine ohne Anhang", async () => {
+    // Fünf Mails in einem Abruf, dazu zwei DDL-Befehle mit exklusiver Sperre auf documents: ohne Last rund 0,2 s, auf
+    // einem überlasteten CI-Runner aber über den 5 s Standard (Lauf 45166566255: Nachbartests 1 bis 3 s statt 0,1 s)
+    it("löscht keine Mail, an der die Verarbeitung scheitert, keine mit übersprungenem Anhang und keine ohne Anhang", { timeout: 30_000 }, async () => {
       await inbox.saveInboxSettings(actor, { ...settings, afterFetch: "delete" });
       await deliver(
         rechnung("kaputt"),
