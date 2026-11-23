@@ -118,7 +118,8 @@ function AssetPage() {
             </p>
           )}
           <AssetForm
-            key={String(asset.updatedAt)}
+            // Millisekunden, nicht der Text mit Sekunden: auch ein zweites Speichern in derselben Sekunde baut neu auf (#1804)
+            key={asset.updatedAt.getTime()}
             initial={{
               name: asset.name,
               kind: asset.kind,

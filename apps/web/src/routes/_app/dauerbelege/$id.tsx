@@ -71,7 +71,8 @@ function DauerbelegDetailPage() {
           </section>
         ) : (
           <DauerbelegForm
-            key={String(vorlage.updatedAt)}
+            // Millisekunden, nicht der Text mit Sekunden: auch ein zweites Speichern in derselben Sekunde baut neu auf (#1804)
+            key={vorlage.updatedAt.getTime()}
             initial={initial}
             suppliers={suppliers}
             categories={categories}
