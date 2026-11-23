@@ -185,13 +185,13 @@ Jeder Pull Request mit Code bekommt vor dem Merge ein unabhängiges **TDD-Review
 
 | Änderung | Gemergt wird |
 | --- | --- |
-| Alles nach Review (und Doku-Prüfung) bei grüner CI auf dem aktuellen Stand | vom Maintainer, von einem Collaborator mit dessen Zustimmung oder von einem Agenten, den der Maintainer dafür aufgerufen hat (Skills `beitrag-pruefen`, `prs-abarbeiten`) |
-| Fachlich heikel: was gebucht, versteuert, an ELSTER oder die Sozialversicherung gemeldet oder festgeschrieben wird, dazu Migrationen auf bestehenden Daten | erst nach einem „OK“ des Maintainers auf eine kurze Zusammenfassung mit Quelle und Gegenrechnung ([Beiträge annehmen](#beiträge-annehmen)); „PR-Regeln“ weist bei den Pfaden in `HEIKEL` (`scripts/pr-regeln/regel.ts`) darauf hin, Buchungslogik anderswo erkennt die Prüfung selbst |
+| Alles nach Review (und Doku-Prüfung) bei grüner CI auf dem aktuellen Stand | vom Maintainer oder, mit dessen Zustimmung, von einem Collaborator, selbst oder über einen Agenten, den sie dafür aufrufen (Skills `beitrag-pruefen`, `prs-abarbeiten`) |
+| Fachlich heikel: was gebucht, versteuert, an ELSTER oder die Sozialversicherung gemeldet, ausgewertet oder festgeschrieben wird, dazu Migrationen auf bestehenden Daten | erst nach einem „OK“ des Maintainers auf eine kurze Zusammenfassung mit Quelle und Gegenrechnung ([Beiträge annehmen](#beiträge-annehmen)); „PR-Regeln“ weist bei den Pfaden in `HEIKEL` (`scripts/pr-regeln/regel.ts`) darauf hin, Buchungslogik anderswo erkennt die Prüfung selbst |
 | Ohne Issue, grundsätzliche Entscheidung, Ablehnen | entscheidet der Maintainer zuerst |
 | Release | nur nach ausdrücklichem „OK“ des Maintainers ([Veröffentlichen](entwicklung.md#veröffentlichen)) |
 | Ein Check ist auf dem Pull Request rot und auf `main` genauso: derselbe Job mit demselben Fehler | trotzdem, wie oben, wenn der Pull Request die fehlschlagende Stelle nicht berührt und nicht fachlich heikel ist; der Merge-Kommentar verlinkt den roten Lauf auf `main` |
 | Reparatur eines roten `main` | direkt auf `main`, vom Maintainer oder auf seine Anweisung: nur was den Check wieder grün macht, nichts unter `HEIKEL`, kein Test abgeschwächt; die Commit-Nachricht verlinkt den roten Lauf. Danach prüft jemand anderes den Commit, Befunde kommen als Pull Request |
-| Rote CI, die der Pull Request verursacht oder die auf `main` nicht genauso rot ist, offener schwerer Befund nach vier Runden, Code ohne unabhängiges Review | nicht |
+| Rote CI, die der Pull Request verursacht oder die auf `main` nicht genauso rot ist, offener schwerer Befund nach vier Runden, Code ohne TDD-Review, Markdown ohne Doku-Prüfung | nicht |
 
 Haben steht unter der AGPL-3.0.
 
