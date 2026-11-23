@@ -168,9 +168,6 @@ function ImportProgress({
   running: boolean;
 }) {
   const accountable = source === "accountable";
-  // Was die Belegliste übergeht (#1504): Entwürfe, die keine Belege sind
-  const ignored = progress.ignored;
-  const ignoredText = ignored && ignored.drafts > 0 ? `${ignored.drafts} ${ignored.drafts === 1 ? "Entwurf" : "Entwürfe"}` : "";
   return (
     <div className="stack" style={{ gap: 12 }} aria-live="polite">
       <div className="small">
@@ -258,11 +255,7 @@ function ImportProgress({
           {run.error}
         </div>
       )}
-      {ignoredText && (
-        <p className="small muted" style={{ margin: 0 }}>
-          Übergangen, kein Beleg: {ignoredText}
-        </p>
-      )}
+      <OmittedVouchers progress={progress} />
       {progress.failed.length > 0 && (
         <details>
           <summary className="small">{progress.failed.length} offene Punkte beim Abruf</summary>
@@ -277,4 +270,29 @@ function ImportProgress({
       )}
     </div>
   );
+}
+
+function OmittedVouchers({ progress }: { progress: NonNullable<ImportRow["progress"]> }) {
+  const omitted = progress.webOmitted;
+  if (omitted) {
+    const counts = [
+      [omitted.drafts, "Entwurf", "Entwürfe"],
+      [omitted.quotations, "Angebot", "Angebote"],
+      [omitted.orderConfirmations, "Auftragsbestätigung", "Auftragsbestätigungen"],
+      [omitted.deliveryNotes, "Lieferschein", "Lieferscheine"],
+      [omitted.other, "sonstigen Vorgang", "sonstige Vorgänge"],
+    ] as const;
+    const parts = counts.filter(([count]) => count > 0).map(([count, singular, plural]) => `${count} ${count === 1 ? singular : plural}`);
+    return (
+      <p className="small muted" style={{ margin: 0 }}>
+        Die Sicherung lässt {parts.length ? parts.join(", ") : "keine Vorgänge"} aus.
+      </p>
+    );
+  }
+  const drafts = progress.ignored?.drafts ?? 0;
+  return drafts > 0 ? (
+    <p className="small muted" style={{ margin: 0 }}>
+      Übergangen, kein Beleg: {drafts} {drafts === 1 ? "Entwurf" : "Entwürfe"}
+    </p>
+  ) : null;
 }

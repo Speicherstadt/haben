@@ -14,7 +14,16 @@ import {
   webSalesDocument,
   webVoucherType,
 } from "./convert.ts";
-import { WEB_EXPORT_FORMAT, WEB_EXPORT_VERSION, webContactSchema, webEntrySchema, webManifestSchema, type WebContact, type WebEntry } from "./schema.ts";
+import {
+  WEB_EXPORT_FORMAT,
+  WEB_EXPORT_VERSION,
+  webContactSchema,
+  webEntrySchema,
+  webManifestSchema,
+  type WebContact,
+  type WebEntry,
+  type WebOmittedCounts,
+} from "./schema.ts";
 
 export { LexwareWebExportError };
 
@@ -29,6 +38,7 @@ export interface WebExportFailure {
 /** Inhalt einer oder mehrerer Teile der Sicherung */
 export interface WebExport {
   createdAt: string;
+  omitted?: WebOmittedCounts;
   contacts: WebContact[];
   entries: Map<string, WebEntry>;
   files: Map<string, Uint8Array>;
@@ -78,6 +88,9 @@ export function readWebExport(parts: { name: string; bytes: Uint8Array }[]): Web
       );
     }
     result.createdAt = manifest.createdAt;
+    // Wie createdAt bezieht sich der Hinweis auf den letzten Teil der Eingabe. Die Teile einer Sicherung
+    // wiederholen dieselben Gesamtzahlen. Zahlen aus separaten Sicherungen dürfen nicht addiert werden.
+    result.omitted = manifest.omitted;
     for (const c of readJson(files, "kontakte.json", webContactSchema.array(), part.name)) contacts.set(c.id, c);
     for (const failure of manifest.failed ?? []) {
       // Ein früherer Teil enthält den Beleg schon: der Fehler aus einem anderen Lauf zählt dann nicht

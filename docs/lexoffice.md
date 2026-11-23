@@ -76,6 +76,8 @@ Deine eigenen Daten holst du für den Umzug über die Web-Oberfläche: Ein Skrip
 
 Das Skript ändert nichts in Lexware Office. Es ruft nur die Adressen auf, die die Web-Oberfläche beim Anzeigen selbst abfragt, mit kurzen Pausen dazwischen, und schickt nichts an Haben oder sonst wohin: Die Daten landen nur als Download in deinem Browser.
 
+Schritt 2 zeigt unter „Die Sicherung lässt … aus“, wie viele Entwürfe, Angebote, Auftragsbestätigungen, Lieferscheine und sonstige Vorgänge das Skript beim Packen ausgelassen hat. Entwürfe zählen dabei nur als Entwürfe. Das aktuelle Skript schreibt dieselben Gesamtzahlen in jeden seiner ZIP-Teile. Sicherungen ohne diese Angaben, etwa aus einer älteren Skriptversion, lassen sich weiterhin importieren. Der Hinweis entfällt bei solchen ZIP-Dateien.
+
 Belege, die das Skript nicht laden konnte, stehen in der ZIP-Datei und nach dem Hochladen in Schritt 2 unter den offenen Punkten beim Abruf. Lässt du das Skript später noch einmal laufen und lädst die neue Sicherung hoch, überspringt Haben alles, was schon da ist, und holt die fehlenden nach — auch das Original-PDF einer Rechnung und jeden einzelnen fehlenden Anhang eines Belegs.
 
 Buchungen, Bankumsätze, Voranmeldungen und Anlagen holst du wie beim Abruf über die API aus den Exporten (Schritt 4).

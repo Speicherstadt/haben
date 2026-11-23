@@ -15,6 +15,16 @@ const str = z.string().nullish();
 const num = z.number().nullish();
 const bool = z.boolean().nullish();
 
+const omittedCount = z.number().int().nonnegative();
+const webOmittedCountsSchema = z.object({
+  drafts: omittedCount,
+  quotations: omittedCount,
+  orderConfirmations: omittedCount,
+  deliveryNotes: omittedCount,
+  other: omittedCount,
+});
+export type WebOmittedCounts = z.infer<typeof webOmittedCountsSchema>;
+
 export const webManifestSchema = z.looseObject({
   /** WEB_EXPORT_FORMAT; geprüft beim Lesen, damit die Meldung sagt, was nicht passt */
   format: z.string(),
@@ -22,6 +32,8 @@ export const webManifestSchema = z.looseObject({
   part: z.number(),
   createdAt: z.string(),
   vouchers: num,
+  /** Gesamtzahlen der Sicherung, identisch in jedem Teil. Ältere Sicherungen enthalten sie nicht (#1640). */
+  omitted: webOmittedCountsSchema.optional(),
   /** Belege, die das Skript nicht laden konnte */
   failed: z.array(z.looseObject({ id: z.string(), type: str, number: str, message: z.string() })).nullish(),
 });
