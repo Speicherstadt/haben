@@ -161,6 +161,26 @@ describe.skipIf(!testDatabaseUrl)("Aufhebung einer Zuordnung am Tag der Aufhebun
     for (const month of [3, 7]) expect(abgleich.abweichungen((await abgleich.vatAbgleich({ year: 2026, month })).zeilen)).toEqual([]);
   }, 60_000);
 
+  it.each(KONTENRAHMEN)(
+    "Erneute Zuordnung derselben Zahlung verschiebt die Voranmeldung nicht (%s)",
+    async (kontenrahmen) => {
+      await setKontenrahmen(kontenrahmen);
+      const invoice = await marchInvoice();
+      const { transactionId, allocationId } = await marchPayment(invoice.id);
+      await bank.reverseAllocation(actor, allocationId, "2026-07-10");
+      await bank.allocate(actor, { kind: "invoice", transactionId, invoiceId: invoice.id, amount: 119_000 });
+
+      const { computeVatFigures } = await import("../umsatzsteuer/index.ts");
+      const { abweichungen, vatAbgleich } = await import("../auswertungen/abgleich.ts");
+      const maerz = await computeVatFigures({ year: 2026, month: 3 });
+      const juli = await computeVatFigures({ year: 2026, month: 7 });
+      expect([maerz.kz81, maerz.tax81, juli.kz81, juli.tax81]).toEqual([100_000, 19_000, 0, 0]);
+      for (const month of [3, 7]) expect(abweichungen((await vatAbgleich({ year: 2026, month })).zeilen)).toEqual([]);
+      expect((await gegenbuchung(allocationId)).map((e) => e.date)).toEqual(["2026-07-10"]);
+    },
+    60_000,
+  );
+
   it("ohne Datum gilt heute", async () => {
     const invoice = await marchInvoice();
     const { allocationId } = await marchPayment(invoice.id);
