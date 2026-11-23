@@ -14,6 +14,17 @@ describe("Prüfung der Voranmeldung von Hand", () => {
     });
   });
 
+  it("hält die Grenze von saveVatDraft ein, ±1.000.000.000,00 € je Kennzahl", () => {
+    const zuGross = "Trag einen Betrag von -1.000.000.000,00 bis 1.000.000.000,00 ein, etwa 1.234,56.";
+    expect(manuellFehler({ kz81: 1_000_000_000_01, kz86: -1_000_000_000_01, kz66: 1_000_000_000_00, kz67: -1_000_000_000_00 }, begruendung)).toEqual({
+      kz81: zuGross,
+      kz86: zuGross,
+      kz66: null,
+      kz67: null,
+      reason: null,
+    });
+  });
+
   it("verlangt eine Begründung mit mindestens 10 Zeichen", () => {
     expect(manuellFehler({ kz81: 100 }, "zu kurz").reason).toBe(
       "Begründe die Abweichung mit mindestens 10 Zeichen, etwa „Zahlung vom 30.09. erst im Oktober zugeordnet“.",
