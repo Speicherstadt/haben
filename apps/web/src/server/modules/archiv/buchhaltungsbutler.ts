@@ -11,7 +11,7 @@ import { eq, sql } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { db, schema, type Tx } from "../../db/index.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
-import { UserError } from "../../errors.ts";
+import { isUniqueViolation, UserError } from "../../errors.ts";
 import { sha256Of, storeFile } from "../../storage.ts";
 import { loadCompany } from "../stammdaten/index.ts";
 import { addArchiveFile, BB_ORIGINAL_NOTE, MAX_ARCHIVE_SIZE } from "./archive.ts";
@@ -52,7 +52,10 @@ export async function startBuchhaltungsbutlerImport(actor: string, parts: Export
   };
   const [run] = await withActor(actor, (tx) =>
     tx.insert(schema.lexofficeImports).values({ source: SOURCE, progress }).returning({ id: schema.lexofficeImports.id }),
-  );
+  ).catch((error: unknown) => {
+    if (isUniqueViolation(error, "lexoffice_imports_one_running")) throw new BuchhaltungsbutlerImportError("Ein Abruf läuft bereits.");
+    throw error;
+  });
   const importId = run!.id;
   running.add(importId);
   try {

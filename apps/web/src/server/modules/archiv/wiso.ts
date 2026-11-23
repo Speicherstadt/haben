@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import type { LegacyPayment, LexofficeImportProgress } from "../../db/schema.ts";
-import { UserError } from "../../errors.ts";
+import { isUniqueViolation, UserError } from "../../errors.ts";
 import { sha256Of } from "../../storage.ts";
 import { loadCompany } from "../stammdaten/index.ts";
 import { addArchiveFile, MAX_ARCHIVE_SIZE } from "./archive.ts";
@@ -79,7 +79,10 @@ export async function startWisoImport(actor: string, bytes: Uint8Array, filename
   };
   const [run] = await withActor(actor, (tx) =>
     tx.insert(schema.lexofficeImports).values({ source: SOURCE, progress }).returning({ id: schema.lexofficeImports.id }),
-  );
+  ).catch((error: unknown) => {
+    if (isUniqueViolation(error, "lexoffice_imports_one_running")) throw new WisoImportError("Ein Abruf läuft bereits.");
+    throw error;
+  });
   const importId = run!.id;
   running.add(importId);
   try {
