@@ -6,6 +6,8 @@ import { reverseWriteOffFn, writeOffRest } from "../../../server/functions/bank.
 import { formatDate } from "../../../lib/format.ts";
 import { NoticeBanner } from "../../../components/NoticeBanner.tsx";
 import { useAction } from "../../../lib/use-action.ts";
+import { useSubmitCheck } from "../../../lib/use-submit-check.ts";
+import { ausbuchenFehler } from "./-ausbuchen-pruefung.ts";
 import type { getInvoiceDetail } from "../../../server/functions/invoices.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { Field } from "../../../components/Field.tsx";
@@ -63,10 +65,11 @@ export function WriteOffs({ invoiceId, open, writeOffs, today }: { invoiceId: st
   const [date, setDate] = useState(today);
   const [reversing, setReversing] = useState<WriteOffRow | null>(null);
   const parsed = parseEuro(amount);
+  const pruefung = useSubmitCheck(ausbuchenFehler({ betrag: amount, offen: open, datum: date }));
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (parsed === null || parsed <= 0) return;
+    if (!pruefung.check() || parsed === null) return;
     void run(async () => {
       await writeOffFn({ data: { kind, invoiceId, date, amount: parsed } });
       await router.invalidate();
@@ -122,7 +125,7 @@ export function WriteOffs({ invoiceId, open, writeOffs, today }: { invoiceId: st
         </div>
       ))}
       {open > 0 && (
-        <form className="stack" style={{ gap: 10 }} onSubmit={onSubmit}>
+        <form ref={pruefung.form} noValidate className="stack" style={{ gap: 10 }} onSubmit={onSubmit}>
           <p className="small muted" style={{ margin: 0 }}>
             Offen sind noch {formatEuro(open)}. Ausbuchen mindert Erlöse und Umsatzsteuer anteilig je Steuersatz (§ 17 UStG), bei Soll-Versteuerung in der
             Voranmeldung des Monats der Ausbuchung. Hat der Kunde Skonto abgezogen, geht es mit der Zahlung zusammen im Bankabgleich oder bei einer Barzahlung
@@ -137,23 +140,16 @@ export function WriteOffs({ invoiceId, open, writeOffs, today }: { invoiceId: st
                 </select>
               )}
             </Field>
-            <Field label="Datum">{(control) => <input {...control} type="date" value={date} onChange={(e) => setDate(e.target.value)} required />}</Field>
-            <Field label="Betrag">
-              {(control) => (
-                <input
-                  {...control}
-                  className="mono"
-                  inputMode="decimal"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  aria-invalid={parsed === null || parsed <= 0 || parsed > open}
-                />
-              )}
+            <Field label="Datum" error={pruefung.error("datum")}>
+              {(control) => <input {...control} type="date" value={date} onChange={(e) => setDate(e.target.value)} required />}
+            </Field>
+            <Field label="Betrag" error={pruefung.error("betrag")}>
+              {(control) => <input {...control} className="mono" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />}
             </Field>
           </div>
           <NoticeBanner notice={notice} />
           <div className="actions">
-            <button type="submit" className="btn" disabled={busy || parsed === null || parsed <= 0 || parsed > open}>
+            <button type="submit" className="btn" disabled={busy}>
               Ausbuchen
             </button>
           </div>

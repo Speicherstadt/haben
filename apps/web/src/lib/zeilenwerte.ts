@@ -1,3 +1,4 @@
+import type { Cents } from "@haben/core";
 import type { UstErklaerungFigures } from "@haben/elster";
 import { EUER_AUSGABEN, EUER_EINNAHMEN, EUER_FIELDS } from "@haben/elster/euer-felder";
 import { z } from "zod";
@@ -11,6 +12,9 @@ import { z } from "zod";
  * Liste von Kennzahlen gab es hier einmal; sie war an die Zeilennummern eines Vordruckjahres gebunden (2024/2025:
  * Zeile 17 statt Kz 15) und deckte die Zeilen nicht ab, die Haben selbst übermittelt.
  */
+
+/** Größter Betrag einer Zeile in Cent, plus oder minus; die Grenze hält einen Tippfehler davon ab, die Summe zu sprengen */
+export const ZEILENBETRAG_GRENZE: Cents = 1_000_000_000_00;
 
 /** Eine Zeile, die außerhalb von Haben erklärt wurde: Schlüssel der Erklärung, Zeilentext und Anlage */
 export interface ErklaerteZeile {

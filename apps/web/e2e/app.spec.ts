@@ -1151,12 +1151,20 @@ test("Lohn: Minijob anlegen und den laufenden Monat abrechnen", async ({ browser
   await form.getByLabel("Ort", { exact: true }).fill("Regensburg");
   await form.getByLabel("Geburtsdatum").fill("2001-03-15");
   await form.getByLabel("Art der Beschäftigung").selectOption("minijob");
-  await form.getByLabel("Monatsgehalt brutto in Euro").fill("520,00");
+  const gehalt = form.getByLabel("Monatsgehalt brutto in Euro");
+  await gehalt.fill("3.000 Euro");
   await form.getByLabel("Eintritt", { exact: true }).fill(`${currentYear()}-01-01`);
   await form.getByLabel("Steuer-ID").fill("47291830467");
   await form.getByLabel("Versicherungsnummer").fill("65150301A123");
   await form.getByLabel("Personengruppe").fill("109");
   await form.getByLabel("Beitragsgruppenschlüssel").fill("6100");
+  // Ein nicht lesbarer Betrag: Meldung an genau diesem Feld, Fokus dort, nichts angelegt (#1277)
+  await form.getByRole("button", { name: "Mitarbeiter anlegen" }).click();
+  await expect(form.getByText("Trag den Betrag ein, etwa 1.234,56.")).toBeVisible();
+  await expect(gehalt).toBeFocused();
+  await expect(gehalt).toHaveAttribute("aria-invalid", "true");
+  await expect(page).toHaveURL(/\/lohn\/mitarbeiter\/neu$/);
+  await gehalt.fill("520,00");
   await form.getByRole("button", { name: "Mitarbeiter anlegen" }).click();
   await page.waitForURL(/\/lohn$/);
   await expect(page.getByRole("link", { name: "Jonas Aushilfe", exact: true })).toBeVisible();

@@ -1,13 +1,15 @@
-import { formatEuro, parseEuro } from "@haben/core";
+import { formatEuro } from "@haben/core";
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { useAction } from "../../lib/use-action.ts";
+import { useSubmitCheck } from "../../lib/use-submit-check.ts";
 import { saveAnnualFigures } from "../../server/functions/annual.ts";
 import { ERKLAERTE_ZEILEN, type ErklaerteZeile, type ZeilenForm } from "../../lib/zeilenwerte.ts";
 import { Field } from "../Field.tsx";
 import { NoticeBanner } from "../NoticeBanner.tsx";
 import { Status } from "../Status.tsx";
+import { erklaerteZeilen } from "./erklaerte-zeilen-pruefung.ts";
 
 /** Zeilen, die ohne Aufklappen sichtbar sind: das Ergebnis der Erklärung */
 const KERN: Record<ZeilenForm, readonly string[]> = {
@@ -141,15 +143,13 @@ function Erfassen({
   const { busy, notice, setNotice, run } = useAction();
   const [werte, setWerte] = useState<Record<string, string>>({});
 
-  const zeilen = Object.entries(werte)
-    .map(([field, text]) => ({ field, cents: parseEuro(text) }))
-    .filter((z): z is { field: string; cents: number } => z.cents !== null)
-    .map(({ field, cents }) => ({ field, amount: cents }));
-
-  const leer = zeilen.length === 0;
+  const { zeilen, fehler, eingetragen } = erklaerteZeilen(felder, werte);
+  const pruefung = useSubmitCheck(fehler);
+  const leer = eingetragen === 0;
 
   async function absenden() {
-    if (leer) return;
+    // Mit einem ungültigen Wert wird nichts gespeichert, und die Eingaben bleiben stehen
+    if (leer || !pruefung.check()) return;
     await run(async () => {
       const result = await speichern({ data: { form, year, zeilen } });
       if (!result.ok) throw new Error(result.message);
@@ -170,6 +170,7 @@ function Erfassen({
           das äußere, fieldset, Hinweis und der Fuß mit „Angaben speichern" lägen außerhalb (#1084). Die Eingaben
           tragen keinen Namen, gehören also auch nicht zu den Angaben, die das umgebende Formular speichert. */}
       <div
+        ref={pruefung.form}
         style={{ display: "grid", gap: 8, paddingTop: 12 }}
         onKeyDown={(event) => {
           // Enter speichert wie in einem eigenen Formular — und löst nicht das Absenden der Einkommensteuer-Maske aus
@@ -185,7 +186,7 @@ function Erfassen({
         <NoticeBanner notice={notice} />
         <div className="form-row cols-2">
           {felder.map((z) => (
-            <Field key={z.field} label={`${z.text} (${z.field})`}>
+            <Field key={z.field} label={`${z.text} (${z.field})`} error={pruefung.error(z.field)}>
               {(control) => (
                 <input
                   {...control}
@@ -203,7 +204,7 @@ function Erfassen({
             Zeilenwerte speichern
           </button>
           <Status tone={leer ? undefined : "ok"} inline>
-            {leer ? "Noch nichts eingetragen" : `${zeilen.length} Zeilen`}
+            {leer ? "Noch nichts eingetragen" : `${eingetragen} Zeilen`}
           </Status>
         </div>
         <p className="small muted" style={{ margin: 0 }}>

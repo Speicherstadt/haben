@@ -23,12 +23,17 @@ export const UNITS = {
 
 export type UnitLabel = keyof typeof UNITS;
 
+/** Grenzen einer Position; der Editor meldet sie am Feld, bevor der Server sie abweist (#1277) */
+export const LINE_DESCRIPTION_MAX = 500;
+export const LINE_QUANTITY_MAX: Millis = 1_000_000_000;
+export const LINE_UNIT_PRICE_MAX: Cents = 100_000_000_00;
+
 export const invoiceLineInputSchema = z.object({
-  description: z.string().check(z.trim(), z.minLength(1, "Beschreibung fehlt"), z.maxLength(500)),
-  quantity: inMillis(z.int().check(z.minimum(1), z.maximum(1_000_000_000))),
+  description: z.string().check(z.trim(), z.minLength(1, "Beschreibung fehlt"), z.maxLength(LINE_DESCRIPTION_MAX)),
+  quantity: inMillis(z.int().check(z.minimum(1), z.maximum(LINE_QUANTITY_MAX))),
   // Feste (UNITS) oder eigene Einheit (#748); ob es die eigene gibt, prüft der Server
   unit: z.string().check(z.trim(), z.minLength(1, "Einheit fehlt"), z.maxLength(10, "Einheit höchstens 10 Zeichen")),
-  unitPrice: inCents(z.int().check(z.minimum(-100_000_000_00), z.maximum(100_000_000_00))),
+  unitPrice: inCents(z.int().check(z.minimum(-LINE_UNIT_PRICE_MAX), z.maximum(LINE_UNIT_PRICE_MAX))),
   taxRate: inBasisPoints(z.literal(TAX_RATES)),
 });
 
