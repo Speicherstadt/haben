@@ -70,7 +70,8 @@ describe.skipIf(!testDatabaseUrl)("Körperschaft- und Gewerbesteuer (Postgres)",
           [k.bank, 0, 100_000],
         ]);
 
-        expect((await kst.kapgSteuernJahr(2026))?.steuern).toBeNull();
+        // Ohne Angaben für 2025 gibt es keinen Vorschlag und nichts anzuheben (#1310)
+        expect(await kst.kapgSteuernJahr(2026)).toMatchObject({ angaben: null, steuern: null, angehobenVon: null });
         await expect(kst.bookSteuerrueckstellungen(actor, 2026, today)).rejects.toThrow("Hebesatz");
         await expect(kst.saveKapgAngaben(actor, 2026, { hebesatz: 150, verlustvortragKst: 0, verlustvortragGewst: 0 })).rejects.toThrow("mindestens 200");
         await kst.saveKapgAngaben(actor, 2026, { hebesatz: 400, verlustvortragKst: 1_000_000, verlustvortragGewst: 0 });
