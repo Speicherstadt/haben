@@ -506,7 +506,7 @@ Im Einzelunternehmen ist die einbehaltene Steuer eine Entnahme, angerechnet wird
 
 ## Zahlungsdienstleister
 
-<a id="google-play-und-app-store"></a>Konten bei PayPal, Stripe, Shopify Payments, eBay, Etsy, SumUp, Google Play und App Store stehen unter [Zahlungsdienstleister](bank-zahlungsdienstleister.md).
+<a id="google-play-und-app-store"></a>Konten bei PayPal, Stripe, Shopify Payments, eBay, Etsy, Amazon, SumUp, Google Play und App Store stehen unter [Zahlungsdienstleister](bank-zahlungsdienstleister.md).
 
 ## Buchungen
 
