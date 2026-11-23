@@ -13,6 +13,7 @@ describe.skipIf(!testDatabaseUrl)("Kleinunternehmer-Umsätze in Kz 48 (Postgres)
   let bank: typeof import("../bank/index.ts");
   let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
+  let cash: typeof import("../bank/cash-income.ts");
   let sql: postgres.Sql;
   const actor = "kz48-ku-test";
   const september = { year: 2026, month: 9 };
@@ -27,6 +28,7 @@ describe.skipIf(!testDatabaseUrl)("Kleinunternehmer-Umsätze in Kz 48 (Postgres)
     bank = await import("../bank/index.ts");
     invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/contacts.ts");
+    cash = await import("../bank/cash-income.ts");
   }, 30_000);
 
   afterAll(async () => {
@@ -35,7 +37,7 @@ describe.skipIf(!testDatabaseUrl)("Kleinunternehmer-Umsätze in Kz 48 (Postgres)
 
   async function firma(kontenrahmen: "SKR03" | "SKR04", versteuerung: "ist" | "soll") {
     await leeren(sql)`truncate vat_return_submissions, vat_returns, write_offs, allocations, bank_transactions, bank_imports,
-      bank_accounts, journal_lines, journal_entries, invoice_lines, invoice_taxes, invoices, invoice_number_counters,
+      bank_accounts, cash_entries, journal_lines, journal_entries, invoice_lines, invoice_taxes, invoices, invoice_number_counters,
       contact_versions, contacts, company cascade`;
     await sql`insert into company (id, name, strasse, plz, ort, email, telefon, steuernummer, ust_id, bundesland, iban, versteuerung,
         kontenrahmen, kleinunternehmer)
@@ -112,6 +114,31 @@ describe.skipIf(!testDatabaseUrl)("Kleinunternehmer-Umsätze in Kz 48 (Postgres)
         expect(new TextDecoder("latin1").decode((await vat.meinElsterUpload(entwurf.id)).bytes)).toContain("<Kz48>800</Kz48>");
       });
     }
+
+  for (const [kontenrahmen, versteuerung] of [
+    ["SKR04", "ist"],
+    ["SKR03", "soll"],
+  ] as const)
+    it(`${kontenrahmen}/${versteuerung}: Bareinnahme und direkt gebuchte Erlöse ohne Rechnung zählen am Tag der Zahlung`, async () => {
+      // Ohne Rechnung kennt Haben keinen anderen Tag (bareinnahme.ts, direkt-kategorie.ts); auch das sind Umsätze nach § 19 Abs. 1 UStG
+      await firma(kontenrahmen, versteuerung);
+      await cash.createCashIncome(
+        actor,
+        { date: "2026-10-12", amount: 20_000, text: "Markt", steuer: { behandlung: "kleinunternehmer", steuersatz: 0 } },
+        "2026-11-23",
+      );
+      const csv = `"Girokonto";"DE89370400440532013000"\n\n"Buchungsdatum";"Wertstellung";"Status";"Zahlungspflichtige*r";"Zahlungsempfänger*in";"Verwendungszweck";"Umsatztyp";"IBAN";"Betrag (€)";"Gläubiger-ID";"Mandatsreferenz";"Kundenreferenz"\n"15.10.26";"15.10.26";"Gebucht";"Privatkunde";"Testfirma";"Reparatur";"Eingang";"DE02100100100006820101";"150,00";"";"";""\n`;
+      await bank.importStatement(actor, { bytes: new TextEncoder().encode(csv), filename: "direkt.csv" }, null);
+      const [tx] = await sql`select id from bank_transactions where purpose = 'Reparatur'`;
+      await bank.allocate(actor, { kind: "kategorie", transactionId: tx!.id, amount: 15_000, kategorie: { kategorie: "erloese", steuersatz: 0 } });
+
+      const figures = await vat.computeVatFigures(oktober);
+      expect(figures).toMatchObject({ kz48: 35_000, kz48Kleinunternehmer: 35_000 });
+      expect(figures.kleinunternehmerUmsaetze.map((r) => [r.type, r.base])).toEqual([
+        ["direkt", 15_000],
+        ["kasse", 20_000],
+      ]);
+    });
 
   it("Storno zählt im Monat des Stornos, mit umgekehrtem Vorzeichen", async () => {
     await firma("SKR03", "ist");
