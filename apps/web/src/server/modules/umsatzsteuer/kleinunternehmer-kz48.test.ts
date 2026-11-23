@@ -96,6 +96,34 @@ describe.skipIf(!testDatabaseUrl)("Kleinunternehmer-Umsätze in Kz 48 (Postgres)
     return row!.id as string;
   }
 
+  /** Zahlungseingang (positiv) oder Rückzahlung (negativ) über die Bank, der Rechnung zugeordnet */
+  async function zahlung(invoiceId: string, datum: string, betrag: number) {
+    const tag = `${datum.slice(8)}.${datum.slice(5, 7)}.${datum.slice(2, 4)}`;
+    const zweck = `Zahlung ${invoiceId} ${datum} ${betrag}`;
+    const euro = `${betrag < 0 ? "-" : ""}${Math.trunc(Math.abs(betrag) / 100)},${String(Math.abs(betrag) % 100).padStart(2, "0")}`;
+    const csv = `"Girokonto";"DE89370400440532013000"\n\n"Buchungsdatum";"Wertstellung";"Status";"Zahlungspflichtige*r";"Zahlungsempfänger*in";"Verwendungszweck";"Umsatztyp";"IBAN";"Betrag (€)";"Gläubiger-ID";"Mandatsreferenz";"Kundenreferenz"\n"${tag}";"${tag}";"Gebucht";"Nordwerk";"Testfirma";"${zweck}";"Eingang";"DE02100100100006820101";"${euro}";"";"";""\n`;
+    await bank.importStatement(actor, { bytes: new TextEncoder().encode(csv), filename: `${datum}-${betrag}.csv` }, null);
+    const [tx] = await sql`select id from bank_transactions where purpose = ${zweck}`;
+    await bank.allocate(actor, { kind: "invoice", transactionId: tx!.id, invoiceId, amount: betrag });
+  }
+
+  /** Rechnungskorrektur, die das Entgelt um `minderung` mindert */
+  async function korrektur(originalId: string, datum: string, minderung: number) {
+    const draft = await invoices.createCorrection(actor, originalId, datum);
+    await invoices.updateDraft(actor, draft.id, {
+      contactId,
+      issueDate: datum,
+      serviceFrom: null,
+      serviceTo: null,
+      paymentTermDays: 0,
+      format: "zugferd",
+      note: "",
+      taxTreatment: "kleinunternehmer",
+      lines: [{ description: "Nachlass", quantity: 1000, unit: "Psch.", unitPrice: -minderung, taxRate: 0 }],
+    });
+    return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
+  }
+
   for (const kontenrahmen of ["SKR03", "SKR04"] as const)
     for (const versteuerung of ["ist", "soll"] as const) {
       it(`${kontenrahmen}/${versteuerung}: Kz 48 im Monat der Leistung, nicht der Rechnung oder Zahlung`, async () => {
@@ -149,13 +177,61 @@ describe.skipIf(!testDatabaseUrl)("Kleinunternehmer-Umsätze in Kz 48 (Postgres)
     expect((await vat.computeVatFigures(november)).kz48Kleinunternehmer).toBe(50_000);
   });
 
-  it("Storno zählt im Monat des Stornos, mit umgekehrtem Vorzeichen", async () => {
+  it("Storno einer unbezahlten Rechnung zählt im Monat des Stornos, mit umgekehrtem Vorzeichen", async () => {
     await firma("SKR03", "ist");
     const original = await direkt({ issue_date: "2026-09-10", service_date: "2026-09-10" }, 50_000);
     await direkt({ kind: "storno", corrects_id: original, issue_date: "2026-11-02" }, -50_000);
 
     expect((await vat.computeVatFigures(september)).kz48).toBe(50_000);
     expect((await vat.computeVatFigures(november)).kz48Kleinunternehmer).toBe(-50_000);
+  });
+
+  /*
+   * Schon bezahltes Entgelt mindern Storno und Korrektur erst mit der Rückzahlung, wie in Kz 81 und 86 (#1228; UStAE 17.1
+   * Abs. 2 Satz 3 und Abs. 8 Satz 5). So gilt für Kz 43 und 48 eine Regel (Tristan in #1745)
+   */
+  for (const [kontenrahmen, versteuerung] of [
+    ["SKR04", "ist"],
+    ["SKR03", "soll"],
+  ] as const)
+    it(`${kontenrahmen}/${versteuerung}: Storno einer bezahlten Rechnung mindert Kz 48 erst mit der Rückzahlung, je Rate`, async () => {
+      await firma(kontenrahmen, versteuerung);
+      const inv = await rechnung();
+      await zahlung(inv.id, "2026-10-20", 80_000);
+      const storno = await invoices.cancelInvoice(actor, inv.id, "2026-11-10");
+
+      expect((await vat.computeVatFigures(september)).kz48).toBe(80_000);
+      expect(await vat.computeVatFigures(november)).toMatchObject({ kz48: 0, kz48Kleinunternehmer: 0 });
+      await zahlung(storno.id, "2026-12-03", -30_000);
+      expect(await vat.computeVatFigures({ year: 2026, month: 12 })).toMatchObject({ kz48: -30_000, kz48Kleinunternehmer: -30_000 });
+      await zahlung(storno.id, "2027-01-14", -50_000);
+      expect(await vat.computeVatFigures({ year: 2027, month: 1 })).toMatchObject({ kz48: -50_000, kz48Kleinunternehmer: -50_000 });
+      expect((await vat.computeVatFigures(november)).kz48).toBe(0);
+    });
+
+  it("SKR03/ist: Korrektur einer teils bezahlten Rechnung mindert sofort nur den unbezahlten Teil, den Rest mit der Rückzahlung", async () => {
+    await firma("SKR03", "ist");
+    const inv = await rechnung();
+    await zahlung(inv.id, "2026-10-20", 75_000);
+    // 750 € bezahlt, Entgelt jetzt 700 €: 50 € Überzahlung warten auf die Rückzahlung
+    const k = await korrektur(inv.id, "2026-11-10", 10_000);
+
+    expect(await vat.computeVatFigures(november)).toMatchObject({ kz48: -5_000, kz48Kleinunternehmer: -5_000 });
+    await zahlung(k.id, "2026-12-03", -5_000);
+    expect((await vat.computeVatFigures({ year: 2026, month: 12 })).kz48).toBe(-5_000);
+  });
+
+  it("SKR04/soll: Korrektur einer bezahlten Rechnung mindert Kz 48 bis zur Rückzahlung nicht", async () => {
+    // Verrechnung ohne Zahlung ist keine Rückzahlung (#1228)
+    await firma("SKR04", "soll");
+    const inv = await rechnung();
+    await zahlung(inv.id, "2026-10-20", 80_000);
+    await korrektur(inv.id, "2026-11-10", 10_000);
+
+    const figures = await vat.computeVatFigures(november);
+    expect(figures).toMatchObject({ kz48: 0, kz48Kleinunternehmer: 0 });
+    // Die Liste unter Kz 48 nennt die Korrektur und den bis zur Rückzahlung gehaltenen Betrag
+    expect(figures.kleinunternehmerUmsaetze.map((r) => r.base).sort((a, b) => a - b)).toEqual([-10_000, 10_000]);
   });
 
   it("Anzahlung zählt nicht, die Schlussrechnung mit der ganzen Leistung im Monat der Leistung", async () => {
