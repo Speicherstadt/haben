@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { AMAZON_MARKETPLACES } from "@haben/core";
 import { detectStatementFormat, PSP_FORMATS, parseStatement, StatementParseError, transactionHash, withDedupHashes } from "./index.ts";
 
 const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`../test-fixtures/${name}`, import.meta.url)));
@@ -103,6 +104,31 @@ describe("Amazon-Settlement-Report", () => {
     expect(s.transactions).toHaveLength(37);
     expect(s.transactions.reduce(sum, 0)).toBe(0);
     expect(s.warnings).toEqual([]);
+  });
+
+  it("liest die belgische Abrechnung (Amazon.com.be): Versand und Steuer im Erlös, Rücksendekosten als Gebühr", () => {
+    const f = fixture("amazon-settlement-be.txt");
+    expect(detectStatementFormat(f)).toBe("amazon-settlement");
+    const s = parseStatement(f, "amazon-settlement-be.txt");
+    expect(s.marketplace).toBe("Amazon.com.be");
+    expect([s.periodFrom, s.periodTo]).toEqual(["2026-10-16", "2026-11-13"]);
+    expect(s.transactions).toHaveLength(7);
+    expect(s.transactions.reduce(sum, 0)).toBe(0);
+    expect(s.transactions.filter((t) => t.type === "Auszahlung").map((t) => [t.bookingDate, t.amount])).toEqual([["2026-11-15", -767]]);
+    expect(s.warnings).toEqual([]);
+    // Principal 4,73 + Shipping 1,24 = Erlös; FBAPerUnitFulfillmentFee −2,11, Commission −0,45 und ShippingChargeback −1,23 als Gebühr
+    expect(brief(s).filter(([, , p]) => String(p).includes("Bestellung 203-0000000-0000003"))).toEqual([
+      ["2026-10-31", 597, "Verkauf · Bestellung 203-0000000-0000003"],
+      ["2026-10-31", -379, "Gebühr · Bestellung 203-0000000-0000003"],
+    ]);
+  });
+
+  it("jeder Marktplatzname der Vorlagen steht in der Auswahlliste der Amazon-Konten", () => {
+    for (const name of ["amazon-settlement.txt", "amazon-settlement-be.txt"]) {
+      const marketplace = parseStatement(fixture(name)).marketplace;
+      expect(marketplace).toBeDefined();
+      expect(AMAZON_MARKETPLACES).toContain(marketplace);
+    }
   });
 
   it("verbucht die Auszahlung als negativen Umsatz am Auszahlungstag (Geldtransit)", () => {

@@ -33,7 +33,7 @@ export const PAYMENT_PROVIDERS = {
  * Die EUR-Marktplätze von Amazon (die `marketplace-name`-Werte des Settlement Reports). Ein Amazon-Konto gehört zu genau
  * einem Marktplatz; die Abrechnung eines anderen wird beim Import abgelehnt, damit kein Report ins falsche Verrechnungskonto läuft.
  */
-export const AMAZON_MARKETPLACES: readonly string[] = ["Amazon.de", "Amazon.fr", "Amazon.it", "Amazon.es", "Amazon.nl", "Amazon.be", "Amazon.ie"];
+export const AMAZON_MARKETPLACES: readonly string[] = ["Amazon.de", "Amazon.fr", "Amazon.it", "Amazon.es", "Amazon.nl", "Amazon.com.be", "Amazon.ie"];
 
 export type PaymentProvider = keyof typeof PAYMENT_PROVIDERS;
 
