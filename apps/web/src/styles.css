@@ -946,6 +946,8 @@ html:has(.preview-dialog) body { padding-right: var(--page-scrollbar, 0px); }
 /* Zahlen in der Schrift des Formulars, rechtsbündig mit gleich breiten Ziffern */
 .line-row input.num { font-family: var(--sans); font-size: 14px; font-variant-numeric: tabular-nums; }
 .line-row input[aria-invalid="true"] { border-color: var(--danger-ink); }
+/* Fehler je Feld der Position untereinander unter der Zeile (PositionsMeldungen) */
+.line-row > .line-errors { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 4px; }
 .line-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .line-cell-label { display: none; font-size: 13px; font-weight: 400; color: var(--muted); }
 .line-row > .line-net { align-items: flex-end; padding: 0 9px; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
