@@ -177,7 +177,7 @@ export async function bookPart(
   } else if (part.kind === "ruecklastschrift") {
     ({ lines, description, target } = await returnBooking(tx, company, bank, part));
   } else if (part.kind === "document") {
-    ({ lines, description, target } = await documentBooking(tx, company, bank, part, date));
+    ({ lines, description, target } = await documentBooking(tx, company, part, date));
   } else if (part.kind === "ustva") {
     // Buchung wie „Umsatzsteuer an das Finanzamt“ (SKR03 1780, SKR04 3820); neu ist nur der Bezug auf die Voranmeldung
     const label = await assertUstvaOffen(tx, part.vatReturnId, part.amount);

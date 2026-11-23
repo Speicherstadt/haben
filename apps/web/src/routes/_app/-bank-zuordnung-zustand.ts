@@ -186,10 +186,17 @@ function restBuchungen(wahl: Wahl, tx: Detail["transaction"], aufrufe: Aufrufe, 
  * Buchung „Rechnung minus Korrektur“ (#1398): als Aufteilung Rechnung über ihren offenen Betrag und jede Korrektur über
  * ihren; bleibt ein Skonto auf den geminderten Betrag, bucht der Server Aufteilung und Skonto zusammen
  */
-function korrekturBuchung(tx: Detail["transaction"], rechnung: { id: string; open: number }, zahlung: ZahlungMitKorrektur, aufrufe: Aufrufe, reassignsId?: string | null) {
+function korrekturBuchung(
+  tx: Detail["transaction"],
+  rechnung: { id: string; open: number },
+  zahlung: ZahlungMitKorrektur,
+  aufrufe: Aufrufe,
+  reassignsId?: string | null,
+) {
   if (zahlung.skonto !== 0) {
     const korrekturen = zahlung.corrections.map((k) => k.id);
-    return () => aufrufe.restFn({ data: { transactionId: tx.id, target: { kind: "invoice", invoiceId: rechnung.id }, rest: "skonto", korrekturen, reassignsId } });
+    return () =>
+      aufrufe.restFn({ data: { transactionId: tx.id, target: { kind: "invoice", invoiceId: rechnung.id }, rest: "skonto", korrekturen, reassignsId } });
   }
   const parts = [rechnung, ...zahlung.corrections].map((p) => ({ kind: "invoice" as const, invoiceId: p.id, amount: p.open }));
   return () => aufrufe.splitFn({ data: { transactionId: tx.id, parts } });

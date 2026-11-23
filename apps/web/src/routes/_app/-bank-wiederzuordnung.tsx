@@ -46,11 +46,7 @@ export function ReassignmentField({
   return (
     <Field label="Aufgehobene Zuordnung" error={error}>
       {(control) => (
-        <select
-          {...control}
-          value={value || (candidates.length === 1 ? candidates[0]?.id : "")}
-          onChange={(event) => onChange(event.target.value)}
-        >
+        <select {...control} value={value || (candidates.length === 1 ? candidates[0]?.id : "")} onChange={(event) => onChange(event.target.value)}>
           <option value="">Bitte wählen</option>
           {candidates.map((source) => {
             const previous = detail.allocations.find((allocation) => allocation.id === source.id);

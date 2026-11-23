@@ -113,6 +113,57 @@ function toPart(row: SplitRow, amount: number): SplitPart {
   return { kind: row.target as DirectBooking, amount };
 }
 
+function SplitTargetField({
+  index,
+  target,
+  candidates,
+  directKinds,
+  error,
+  onChange,
+}: {
+  index: number;
+  target: string;
+  candidates: SplitTarget[];
+  directKinds: Data["directKinds"];
+  error: string | undefined;
+  onChange: (value: string, item?: SplitTarget) => void;
+}) {
+  return (
+    <Field label={`Teil ${index + 1}`} error={error}>
+      {(control) => (
+        <select
+          {...control}
+          value={target}
+          onChange={(event) => {
+            const value = event.target.value;
+            onChange(
+              value,
+              candidates.find((candidate) => `${candidate.type}:${candidate.id}` === value),
+            );
+          }}
+        >
+          <option value="">Bitte wählen</option>
+          <optgroup label="Rechnungen, Belege und Voranmeldungen">
+            {candidates.map((candidate) => (
+              <option key={`${candidate.type}:${candidate.id}`} value={`${candidate.type}:${candidate.id}`}>
+                {itemLabel(candidate)} · {candidate.partyName} · offen {signed(candidate.open)} €
+              </option>
+            ))}
+          </optgroup>
+          {/* Die Aufladung bleibt eine Einzelbuchung und ist kein Teil einer Aufteilung (#1356). */}
+          <optgroup label="Direkt buchen">
+            {[...directKinds, KATEGORIE_OPTION, STEUER_OPTION, DARLEHEN_OPTION].map((kind) => (
+              <option key={kind.value} value={kind.value}>
+                {kind.label}
+              </option>
+            ))}
+          </optgroup>
+        </select>
+      )}
+    </Field>
+  );
+}
+
 /** Splitbuchung: den offenen Teil eines Umsatzes auf mehrere Ziele verteilen, Vorzeichen wie auf dem Konto */
 export function SplitForm({
   tx,
@@ -182,36 +233,14 @@ export function SplitForm({
       </p>
       {rows.map((row, index) => (
         <div key={row.key} className="split-row">
-          <Field label={<>Teil {index + 1}</>} error={error(`ziel-${row.key}`)}>
-            {(control) => (
-              <select
-                {...control}
-                value={row.target}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  const item = splitCandidates.find((c) => `${c.type}:${c.id}` === value);
-                  update(row.key, item ? { target: value, amount: signed(item.open) } : { target: value });
-                }}
-              >
-                <option value="">Bitte wählen</option>
-                <optgroup label="Rechnungen, Belege und Voranmeldungen">
-                  {splitCandidates.map((c) => (
-                    <option key={`${c.type}:${c.id}`} value={`${c.type}:${c.id}`}>
-                      {itemLabel(c)} · {c.partyName} · offen {signed(c.open)} €
-                    </option>
-                  ))}
-                </optgroup>
-                {/* Die Aufladung bleibt eine Einzelbuchung und ist kein Teil einer Aufteilung (#1356) */}
-                <optgroup label="Direkt buchen">
-                  {[...directKinds, KATEGORIE_OPTION, STEUER_OPTION, DARLEHEN_OPTION].map((k) => (
-                    <option key={k.value} value={k.value}>
-                      {k.label}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
-            )}
-          </Field>
+          <SplitTargetField
+            index={index}
+            target={row.target}
+            candidates={splitCandidates}
+            directKinds={directKinds}
+            error={error(`ziel-${row.key}`)}
+            onChange={(target, item) => update(row.key, item ? { target, amount: signed(item.open) } : { target })}
+          />
           <Field label="Betrag" error={error(`betrag-${row.key}`)}>
             {(control) => (
               <input

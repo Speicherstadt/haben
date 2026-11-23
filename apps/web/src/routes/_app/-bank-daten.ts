@@ -62,6 +62,7 @@ export function zuAufhebendeZuordnung(
   const teile = a.splitId ? allocations.filter((other) => other.splitId === a.splitId && !other.reversed) : [a];
   const heute = todayInGermany();
   const wirksam = teile.reduce((latest, teil) => (teil.date && teil.date > latest ? teil.date : latest), tag);
+  const vorgemerkt = wirksam > heute;
   return {
     id: a.id,
     bezeichnung: a.splitId ? `Aufteilung in ${teile.length} Teile` : zuordnungText(a, gesellschaft),
@@ -69,7 +70,7 @@ export function zuAufhebendeZuordnung(
     aufteilung: a.splitId !== null,
     mitBeleg: teile.some((teil) => teil.kind === "invoice" || teil.kind === "document"),
     // Maßgeblich ist der späteste Wirktag der Teile; für vorgemerkte Umsätze in der Zukunft gilt heute (#782).
-    tag: wirksam <= heute ? wirksam : heute,
+    tag: vorgemerkt ? heute : wirksam,
     gemeldet: gemeldeteMonate.includes(wirksam.slice(0, 7)),
   };
 }

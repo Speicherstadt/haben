@@ -149,7 +149,6 @@ export async function invoiceBooking(
 export async function documentBooking(
   tx: Tx,
   company: Awaited<ReturnType<typeof openBooks>>,
-  bank: LockedTransaction,
   part: { documentId: string; amount: number; sammel?: true },
   date: string,
 ): Promise<{ lines: PostingLine[]; description: string; target: Zuordnungsziel }> {
