@@ -99,7 +99,7 @@ describe("Anforderungen und realisierte Ansprüche zum Stichtag", () => {
     expect(stand.positions.find((p) => p.originId === "f")).toMatchObject({ kind: "unbilled", date: "2027-01-20" });
   });
 
-  it("ein ausdrücklich ersetztes normales Storno lässt den Anspruch einmal aufleben und zählt die alte Teilzahlung weiter", () => {
+  it("ein ausdrücklich ersetztes normales Storno erhält den Anspruch und zählt die alte Teilzahlung weiter", () => {
     const original: DeferredInvoice = { ...final, variant: null, issueDate: "2027-01-05" };
     const storno: DeferredInvoice = { ...cancel, issueDate: "2027-01-15" };
     const ersatz: DeferredInvoice = { ...replacement, variant: null };
@@ -111,8 +111,10 @@ describe("Anforderungen und realisierte Ansprüche zum Stichtag", () => {
 
     const before = advanceReceivables(inputs, paid, [], "2027-01-12");
     expect(before.positions).toMatchObject([{ id: original.id, kind: "request", open: 71_400 }]);
+    const withoutReplacement = advanceReceivables([original, storno], paid.slice(0, 1), [], "2027-02-28");
+    expect(withoutReplacement.positions).toMatchObject([{ id: storno.id, kind: "refund", open: -11_900 }]);
     const between = advanceReceivables(inputs, paid, [], "2027-02-28");
-    expect(between.positions).toMatchObject([{ id: storno.id, kind: "refund", open: -11_900 }]);
+    expect(between.positions).toMatchObject([{ id: original.id, kind: "unbilled", open: 71_400 }]);
     const replaced = advanceReceivables(inputs, paid, [], "2027-03-31");
     expect(replaced.positions).toMatchObject([
       { id: ersatz.id, originId: original.id, kind: "receivable", gross: 83_300, open: 71_400, dueDate: "2027-03-26" },
