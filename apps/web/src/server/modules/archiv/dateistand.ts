@@ -4,7 +4,7 @@ import { withActor } from "../../db/actor.ts";
 import { db, schema, type Tx } from "../../db/index.ts";
 import type { LegacyFileState, LegacySource } from "../../db/schema.ts";
 import { UserError } from "../../errors.ts";
-import { ohneDateiBestaetigbar } from "./ohne-datei.ts";
+import { ohneBelegGrund, ohneDateiBestaetigbar } from "./ohne-datei.ts";
 
 /*
  * Dateistand archivierter Belege (#345), gemeinsam für Importfortschritt, Belegansicht, Abgleich und Export. Die Zeilen in
@@ -285,6 +285,36 @@ export async function fileStateHistory(voucherId: string) {
     .where(eq(schema.legacyFileStates.voucherId, voucherId))
     .orderBy(schema.legacyFileStates.createdAt, schema.legacyFileStates.id);
   return rows.map(({ name, createdBy, ...row }) => ({ ...row, by: row.importId ? null : (name ?? createdBy) }));
+}
+
+/** Dateistand und nächste Aktion für die Belegansicht. */
+export async function legacyVoucherFileState(
+  voucher: {
+    id: string;
+    source: LegacySource;
+    type: string;
+    lexofficeId: string;
+    ohneBeleg: boolean;
+    rawGuid: string | null;
+    rawDocumentPresent: boolean | null;
+  },
+  files: number,
+  rawQuelle: string | null,
+) {
+  const history = await fileStateHistory(voucher.id);
+  const status = legacyFileStatus(history.at(-1)?.state ?? null, files, voucher.ohneBeleg);
+  const origin = { source: voucher.source, guid: voucher.rawGuid, documentPresent: voucher.rawDocumentPresent };
+  const canConfirmWithoutFile = (status === "ohne_datei_offen" || status === "ohne_beleg") && files === 0 && ohneDateiBestaetigbar({ ...voucher, ...origin });
+  return {
+    status,
+    reloadIssue: status === "abruf_fehlgeschlagen" || status === "anhang_fehlt" ? takeoverFileIssue(status, voucher.source, rawQuelle) : null,
+    label: FILE_STATUS_LABELS[status],
+    history,
+    canConfirmWithoutFile,
+    // Die Rückfrage beim Zurücknehmen unterscheidet am gespeicherten Merkmal die Buchung ohne Beleg von sevDesk (#1317).
+    ohneBeleg: voucher.ohneBeleg,
+    ohneBelegGrund: ohneBelegGrund(origin),
+  };
 }
 
 /** Verlauf aller Belege eines Jahres für den Export */
