@@ -1,8 +1,7 @@
-import { computeUstva, formatDecimal, formatEuro, parseEuro, parsePeriodKey, periodKey, periodLabel, quarterOfMonth } from "@haben/core";
-import { Link, createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
+import { computeUstva, formatDecimal, formatEuro, parseEuro, parsePeriodKey, periodKey, periodLabel } from "@haben/core";
+import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Icon } from "../../../components/Icon.tsx";
-import { EricHinweis } from "../../../components/EricHinweis.tsx";
 import { NoticeBanner } from "../../../components/NoticeBanner.tsx";
 import { FristenAbschnitt } from "../../../components/umsatzsteuer/FristenAbschnitt.tsx";
 import { VatStatus } from "../../../components/umsatzsteuer/VatStatus.tsx";
@@ -14,6 +13,7 @@ import { Field } from "../../../components/Field.tsx";
 import type { PageData } from "./-zeitraum-quellen.tsx";
 import { type FieldKey, KennzahlenTabelle } from "./-zeitraum-kennzahlen.tsx";
 import { AbgabeSpalte, useVoranmeldungAktionen } from "./-zeitraum-abgabe.tsx";
+import { ZeitraumHinweise } from "./-zeitraum-hinweise.tsx";
 
 export const Route = createFileRoute("/_app/umsatzsteuer/$zeitraum")({
   loader: ({ params }) => {
@@ -26,8 +26,6 @@ export const Route = createFileRoute("/_app/umsatzsteuer/$zeitraum")({
   }),
   component: VatPeriodPage,
 });
-
-const ELSTER_ABGABE_DOCS = "https://haben.app/elster-abgabe.html";
 
 const FIELDS: FieldKey[] = [
   "kz81",
@@ -102,74 +100,7 @@ function VatPeriodPage() {
         </Field>
       </div>
 
-      {data.mode === "simuliert" && <EricHinweis />}
-      {!data.herstellerIdConfigured && data.current?.status !== "sent" && (
-        <div className="banner banner-info" role="status">
-          <Icon name="info" />
-          <span>
-            Ohne eigene Hersteller-ID gibst du in Mein ELSTER ab: Entwurf speichern, „XML für Mein ELSTER“ herunterladen und dort im Formular
-            Umsatzsteuer-Voranmeldung unter Datenübernahme › XML-Import hochladen. Prüfen und absenden machst du in Mein ELSTER.{" "}
-            <a href={ELSTER_ABGABE_DOCS} target="_blank" rel="noreferrer">
-              Abgabe in Mein ELSTER
-            </a>
-          </span>
-        </div>
-      )}
-      {data.periodProblem && (
-        <div className="banner" role="status">
-          <Icon name="alert" />
-          <span>{data.periodProblem}</span>
-        </div>
-      )}
-      {data.companyIssues.length > 0 && (
-        <div className="banner" role="status">
-          <Icon name="alert" />
-          <span>
-            Firmendaten unvollständig: {data.companyIssues.join(", ")}.{" "}
-            <Link to="/einstellungen" search={{ bereich: "firma" }}>
-              In den Einstellungen ergänzen
-            </Link>
-          </span>
-        </div>
-      )}
-
-      {data.current?.status !== "sent" &&
-        data.preflight.map((issue) => (
-          <div key={issue.text} className={`banner ${issue.tone === "info" ? "banner-info" : ""}`} role="status">
-            <Icon name={issue.tone === "info" ? "info" : "alert"} />
-            <span>
-              {issue.text}{" "}
-              <Link to={issue.link}>
-                {
-                  {
-                    "/bank": "Zur Bank",
-                    "/belege": "Zu den Belegen",
-                    "/rechnungen": "Zu den Rechnungen",
-                    "/konten": "Zu den Konten",
-                  }[issue.link]
-                }
-              </Link>
-            </span>
-          </div>
-        ))}
-
-      {(data.figures.kz21 !== 0 || data.figures.kz41 !== 0) && (
-        <div className="banner banner-info" role="status">
-          <Icon name="info" />
-          <span>
-            {data.figures.kz41 !== 0 ? "Leistungen und Lieferungen ins EU-Ausland (Kz 21, 41)" : "Leistungen ins EU-Ausland (Kz 21)"} meldest du je Quartal
-            zusätzlich dem BZSt.{" "}
-            <Link
-              to="/umsatzsteuer/zm/$quartal"
-              params={{
-                quartal: periodKey({ year: data.period.year, month: data.period.month >= 41 ? data.period.month : quarterOfMonth(data.period.month) }),
-              }}
-            >
-              Zur Zusammenfassenden Meldung
-            </Link>
-          </span>
-        </div>
-      )}
+      <ZeitraumHinweise data={data} />
 
       {/* key: Formular bei Zeitraum- oder Anmeldungswechsel neu aufsetzen */}
       <VatReturnEditor key={`${key}-${data.current?.id ?? "neu"}-${data.current?.updatedAt ?? ""}`} data={data} notice={notice} setNotice={setNotice} />

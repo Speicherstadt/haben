@@ -314,7 +314,7 @@ Ein gespeicherter berechneter Entwurf friert die Zahlen nicht ein. Ändern sich 
 
 ## Vorprüfung
 
-Solange die Anmeldung nicht gesendet ist, prüft Haben, was im Monat noch fehlt und die Zahlen verfälschen könnte. Jeder Hinweis verlinkt auf die passende Seite.
+Solange die Anmeldung nicht gesendet ist, prüft Haben, was im Monat noch fehlt und die Zahlen verfälschen könnte. Jeder Hinweis verlinkt auf die passende Seite. Eine Warnung steht als eigener Hinweis über den Kennzahlen; die Hinweise ohne Warnung stehen zusammen mit dem Verweis auf die Zusammenfassende Meldung (siehe unten) in einem Hinweis als Liste.
 
 | Hinweis | Gewicht | Prüfung |
 | --- | --- | --- |
