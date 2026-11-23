@@ -40,6 +40,21 @@ describe("Meldung, wenn das Blatt nicht gesetzt werden kann (#1147)", () => {
     }
   });
 
+  it("nennt bei einer Fehlerseite des Reverse Proxys (Haben startet neu) denselben Satz statt ihres Inhalts", () => {
+    // TanStack Start wirft den Text einer Antwort ohne eigenes Format: nginx schickt HTML, Caddy (deploy/Caddyfile) einen
+    // leeren 502 ohne Content-Type („Invariant failed“), Traefik den Statustext
+    for (const text of [
+      "<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n</body>\r\n</html>",
+      "Invariant failed",
+      "Invariant failed: expected content-type header to be set",
+      "Bad Gateway",
+      "Service Unavailable",
+      "Gateway Timeout",
+    ]) {
+      expect(previewFailure(new Error(text))).toBe("Die Vorschau ließ sich nicht erzeugen. Haben ist gerade nicht erreichbar.");
+    }
+  });
+
   it("hängt eine Meldung des Servers an den eigenen Satz", () => {
     expect(previewFailure(new Error("Das Layout „Eigenes“ braucht das Feld kunde.name."))).toBe(
       "Die Vorschau ließ sich nicht erzeugen. Das Layout „Eigenes“ braucht das Feld kunde.name.",
