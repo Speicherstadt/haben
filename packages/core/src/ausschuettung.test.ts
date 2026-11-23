@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ausEinlagekonto, ausschuettungAnteil, ausschuettungPosting, kapestFrist, steuerabzug } from "./ausschuettung.ts";
+import { ausEinlagekonto, ausschuettungAnteil, ausschuettungPosting, kapestFrist, nachBeteiligung, steuerabzug } from "./ausschuettung.ts";
 import { directBookingsFor, directPosting } from "./posting.ts";
 
 describe("Steuerabzug auf Gewinnausschüttungen", () => {
@@ -38,6 +38,42 @@ describe("Steuerabzug auf Gewinnausschüttungen", () => {
     [1_000_000, -500_000, 2_000_000, 1_000_000],
   ])("§ 27 KStG: Leistung %i, ausschüttbarer Gewinn %i, Einlagekonto %i → %i", (leistung, gewinn, konto, erwartet) => {
     expect(ausEinlagekonto(leistung, gewinn, konto)).toBe(erwartet);
+  });
+});
+
+describe("Verteilung nach den Nennbeträgen der Geschäftsanteile (§ 29 Abs. 3 Satz 1 GmbHG)", () => {
+  it("drei gleiche Beteiligungen bekommen gleich viel, auch wenn die Anteile in Prozent nicht aufgehen (33,34 / 33,33 / 33,33)", () => {
+    expect(nachBeteiligung(9_000_000, [1_000_000, 1_000_000, 1_000_000])).toEqual([3_000_000, 3_000_000, 3_000_000]);
+  });
+
+  it("12.500 / 8.333 / 4.167 € Beteiligung: 100.000 € ergeben 50.000 / 33.332 / 16.668 €", () => {
+    expect(nachBeteiligung(10_000_000, [1_250_000, 833_300, 416_700])).toEqual([5_000_000, 3_333_200, 1_666_800]);
+  });
+
+  it.each([
+    // 1 Cent auf drei: der Rest an die größten Nachkommareste, bei gleichen an den ersten
+    [1, [1_000_000, 1_000_000, 1_000_000], [1, 0, 0]],
+    [100, [1_000_000, 1_000_000, 1_000_000], [34, 33, 33]],
+    // 100 € nach 2 : 1 : 1 €: 50 / 25 / 25 €
+    [10_000, [200, 100, 100], [5_000, 2_500, 2_500]],
+    // 10,01 € nach 3 : 7: 3,003 und 7,007 → 3,00 und 7,01
+    [1_001, [300, 700], [300, 701]],
+    // Wer keine Beteiligung hat, bekommt nichts
+    [10_000, [0, 2_500_000], [0, 10_000]],
+  ])("Rundungsreste: %i Cent nach %j → %j, die Summe stimmt", (betrag, beteiligungen, erwartet) => {
+    const teile = nachBeteiligung(betrag, beteiligungen);
+    expect(teile).toEqual(erwartet);
+    expect(teile.reduce((s, x) => s + x, 0)).toBe(betrag);
+  });
+
+  it("ganzzahlig auch über Number.MAX_SAFE_INTEGER: 100 Mrd. € nach 87.093.310 und 89.990.781 €", () => {
+    // Betrag mal Beteiligung ist rund 9 · 10^22; in Gleitkomma ergäbe das 4.918.189.404.152 und 5.081.810.595.848 Cent
+    expect(nachBeteiligung(10_000_000_000_000, [8_709_331_000, 8_999_078_100])).toEqual([4_918_189_404_151, 5_081_810_595_849]);
+  });
+
+  it("ohne Beteiligung lässt sich nicht verteilen", () => {
+    expect(() => nachBeteiligung(10_000, [0, 0])).toThrow(RangeError);
+    expect(() => nachBeteiligung(10_000, [])).toThrow(RangeError);
   });
 });
 
