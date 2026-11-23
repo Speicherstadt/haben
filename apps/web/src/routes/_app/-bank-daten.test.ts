@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Detail, type Posten, restAngebot } from "./-bank-daten.ts";
+import { type Data, type Detail, nextOpenAfter, offenText, type Posten, restAngebot } from "./-bank-daten.ts";
 
 // Rechnung über 119,00 €, Korrektur über −23,80 €, der Kunde zahlt 95,20 € (#1398)
 const korrektur = { id: "k1", number: "RE-2026-0002", open: -2380 };
@@ -63,5 +63,39 @@ describe("Rest einer Zahlung mit offener Korrektur (#1398)", () => {
 
   it("bietet bei voller Zahlung keine Korrektur an", () => {
     expect(restAngebot(rechnung([korrektur]), zahlung(11_900)).korrektur).toBeUndefined();
+  });
+});
+
+// Fortschritt der Zuordnung über der Umsatzliste (#1253)
+const zeile = (id: string, open: number, privat = false) => ({ id, open, privat }) as Data["transactions"][number];
+
+describe("Fortschritt der Zuordnung (#1253)", () => {
+  it("nennt die Zahl der offenen Umsätze, einzeln und mehrfach", () => {
+    expect(offenText(1)).toBe("1 Umsatz noch offen");
+    expect(offenText(12)).toBe("12 Umsätze noch offen");
+  });
+
+  const liste = [zeile("a", 0), zeile("b", 500), zeile("c", 0), zeile("d", 700)];
+
+  it("springt zum nächsten offenen Umsatz nach dem gewählten", () => {
+    expect(nextOpenAfter(liste, "a")).toBe("b");
+    expect(nextOpenAfter(liste, "b")).toBe("d");
+  });
+
+  it("beginnt am Ende der Liste wieder von vorn", () => {
+    expect(nextOpenAfter(liste, "d")).toBe("b");
+  });
+
+  it("gibt ohne anderen offenen Umsatz nichts zurück, auch wenn nur der gewählte offen ist", () => {
+    expect(nextOpenAfter([zeile("a", 0), zeile("b", 500)], "b")).toBeUndefined();
+    expect(nextOpenAfter([zeile("a", 0)], "a")).toBeUndefined();
+  });
+
+  it("überspringt als privat gekennzeichnete Umsätze, die nicht als offen zählen", () => {
+    expect(nextOpenAfter([zeile("a", 0), zeile("p", 900, true), zeile("b", 500)], "a")).toBe("b");
+  });
+
+  it("nimmt ohne Auswahl den ersten offenen Umsatz", () => {
+    expect(nextOpenAfter(liste, undefined)).toBe("b");
   });
 });
