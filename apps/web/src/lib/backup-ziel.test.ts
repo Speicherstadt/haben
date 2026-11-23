@@ -73,9 +73,9 @@ describe("zielHerkunft", () => {
     expect(zielHerkunft({ repository: "/backups", local: true })).toEqual({ art: "verzeichnis" });
   });
 
-  // Der Filter vor der Anzeige endet bei Leerraum; aus rclone:name,pass=ge heim:pfad wird rclone:name heim:pfad
-  it("Abschnitt mit Leerraum wird nicht als Name behauptet", () => {
-    expect(zielHerkunft({ repository: "rclone:name heim:pfad", local: false })).toEqual({ art: "datei", abschnitt: "" });
+  // rclone erlaubt Leerzeichen im Abschnitt ([mein backup]); der Name bleibt deshalb stehen
+  it("Abschnitt mit Leerzeichen bleibt ein Name", () => {
+    expect(zielHerkunft({ repository: "rclone:mein backup:haben", local: false })).toEqual({ art: "datei", abschnitt: "mein backup" });
   });
 
   it("Ziel von außen als RESTIC_REPOSITORY", () => {

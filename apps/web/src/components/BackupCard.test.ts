@@ -61,10 +61,10 @@ describe("BackupCard: rclone-Konfiguration (#1513)", () => {
     expect(html).toContain("Aus der rclone-Konfiguration, Abschnitt onedrive");
   });
 
-  it("Abschnitt ohne sicheren Namen: nur der Weg, kein Name", () => {
-    const html = render({ ...ok, target: { repository: "rclone:name heim:pfad", local: false } });
-    expect(html).toContain("Aus der rclone-Konfiguration");
-    expect(html).not.toContain("Abschnitt name heim");
+  it("Abschnitt mit Leerzeichen wird genannt", () => {
+    expect(render({ ...ok, target: { repository: "rclone:mein backup:haben", local: false } })).toContain(
+      "Aus der rclone-Konfiguration, Abschnitt mein backup",
+    );
   });
 
   it("Verbindungszeichenkette im Ziel braucht keine Datei", () => {

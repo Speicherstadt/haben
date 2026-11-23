@@ -43,7 +43,7 @@ Ohne `RESTIC_REPOSITORY` liegt das Backup im Volume `backups` bzw. `haben-backup
 | SFTP | `sftp:backup@example.de:/srv/restic/haben` | SSH-Schlüssel einhängen: in `compose.override.yml` bei `backup` und `restore` `~/.ssh:/root/.ssh:ro` unter `volumes` eintragen ([SFTP Schritt für Schritt](#sftp-schritt-für-schritt)) bzw. `Volume=%h/.ssh:/root/.ssh:ro` in `haben-backup.container`. Der Host muss in `known_hosts` stehen |
 | S3 (AWS, Hetzner, Backblaze …) | `s3:https://fsn1.your-objectstorage.com/bucket/haben` | `AWS_ACCESS_KEY_ID` und `AWS_SECRET_ACCESS_KEY` |
 | restic REST-Server | `rest:https://nutzer:passwort@backup.example.de/haben` | Im Passwort außer `A–Z`, `a–z`, `0–9` und `-._~!&'()*+,;=:@` jedes Zeichen prozentkodiert, etwa `/` als `%2F`, `#` als `%23`, `%` als `%25`, `$` als `%24` (Compose liest `$` in `.env` als Variable), Leerzeichen als `%20`, `ä` als `%C3%A4`; sonst liest restic die Adresse nicht oder falsch |
-| rclone (WebDAV, OneDrive, SMB und weitere) | `rclone:<abschnitt>:<pfad>` | rclone-Konfiguration als Datei einhängen ([Ziel über rclone](#ziel-über-rclone-für-webdav-onedrive-und-smb)) |
+| rclone (WebDAV, OneDrive, SMB und weitere) | `rclone:<abschnitt>:<pfad>` | rclone-Konfiguration als Datei einhängen ([Ziel über rclone](#ziel-über-rclone-für-webdav-onedrive-und-smb)); ohne Datei geht auch `rclone::<typ>,<parameter>:<pfad>`, dann stehen die Zugangsdaten aber im Klartext in der `.env` |
 
 Das Protokoll des Backup-Containers und Haben nennen Ziel und Fehlermeldungen ohne Nutzer und Passwort.
 

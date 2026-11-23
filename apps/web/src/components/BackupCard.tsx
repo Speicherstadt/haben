@@ -15,7 +15,7 @@ function herkunftText(target: Status["target"]): string {
   const herkunft = zielHerkunft(target);
   switch (herkunft.art) {
     case "datei":
-      return herkunft.abschnitt ? `Aus der rclone-Konfiguration, Abschnitt ${herkunft.abschnitt}` : "Aus der rclone-Konfiguration";
+      return `Aus der rclone-Konfiguration, Abschnitt ${herkunft.abschnitt}`;
     case "verbindungszeichenkette":
       return "Nicht aus einer Datei, die Verbindungszeichenkette bringt das Ziel selbst mit";
     case "verzeichnis":
