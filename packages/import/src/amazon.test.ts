@@ -123,8 +123,24 @@ describe("Amazon-Settlement-Report", () => {
     ]);
   });
 
+  it("liest die irische Abrechnung (Amazon.ie): Versandsteuer im Erlös, Rückvergütung als Erstattung", () => {
+    const s = parseStatement(fixture("amazon-settlement-ie.txt"), "amazon-settlement-ie.txt");
+    expect(s.marketplace).toBe("Amazon.ie");
+    expect([s.periodFrom, s.periodTo]).toEqual(["2026-08-23", "2026-10-04"]);
+    expect(s.transactions).toHaveLength(5);
+    expect(s.transactions.reduce(sum, 0)).toBe(0);
+    expect(brief(s)).toEqual([
+      ["2026-08-23", -366, "Sonstiges · Payable to Amazon"],
+      ["2026-09-28", 190, "Erstattung · FBA Inventory Reimbursement · REVERSAL_REIMBURSEMENT"],
+      // Principal 5,00 + Tax 1,15 + Shipping 1,08 + ShippingTax 0,25 − Rabatte = 6,15; Gebühr −2,52
+      ["2026-10-01", 615, "Verkauf · Bestellung 301-0000000-0000001"],
+      ["2026-10-01", -252, "Gebühr · Bestellung 301-0000000-0000001"],
+      ["2026-10-06", -187, "Auszahlung · Abrechnung 10000000003"],
+    ]);
+  });
+
   it("jeder Marktplatzname der Vorlagen steht in der Auswahlliste der Amazon-Konten", () => {
-    for (const name of ["amazon-settlement.txt", "amazon-settlement-be.txt"]) {
+    for (const name of ["amazon-settlement.txt", "amazon-settlement-be.txt", "amazon-settlement-ie.txt"]) {
       const marketplace = parseStatement(fixture(name)).marketplace;
       expect(marketplace).toBeDefined();
       expect(AMAZON_MARKETPLACES).toContain(marketplace);
