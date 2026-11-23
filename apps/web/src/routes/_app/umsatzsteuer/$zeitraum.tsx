@@ -237,26 +237,6 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
             </span>
           </div>
         )}
-        {!locked && (
-          <div className="mode-switch" role="group" aria-label="Herkunft der Kennzahlen">
-            <button
-              type="button"
-              className={`chip${mode === "berechnet" ? " active" : ""}`}
-              aria-pressed={mode === "berechnet"}
-              onClick={() => switchMode("berechnet")}
-            >
-              Aus Buchungen berechnet
-            </button>
-            <button
-              type="button"
-              className={`chip${mode === "manuell" ? " active" : ""}`}
-              aria-pressed={mode === "manuell"}
-              onClick={() => switchMode("manuell")}
-            >
-              Manuell überschreiben
-            </button>
-          </div>
-        )}
         {drift && (
           <div className="banner" role="alert">
             Seit der Übermittlung haben sich die Buchungen dieses Monats geändert. Aus den Buchungen ergäben sich jetzt {describe(computed)}. Prüfe die Änderung
@@ -273,6 +253,13 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
           Kz = Kennzahl, die Nummer des Felds im ELSTER-Formular.
         </p>
         <KennzahlenTabelle data={data} shown={shown} computed={computed} eingabe={{ locked, editable, values, parsed, update, openSources, toggleSources }} />
+        {!locked && (
+          <p className="small" style={{ margin: 0 }}>
+            <button type="button" className="link-button" onClick={() => switchMode(editable ? "berechnet" : "manuell")}>
+              {editable ? "Zurück zu den berechneten Werten" : "Werte von Hand ändern (nur wenn das Finanzamt es verlangt)"}
+            </button>
+          </p>
+        )}
         {editable && (
           <Field label="Begründung der Abweichung (Pflicht)" hint={<>Berechnet wären {describe(computed)}.</>}>
             {(control) => (

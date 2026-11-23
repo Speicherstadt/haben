@@ -541,7 +541,7 @@ test("Voranmeldung außerhalb von Haben abgegeben: Abgabe vermerken, Zahllast im
   const year = YEAR - 2;
   const yy = String(year).slice(2);
   await go(`/umsatzsteuer/${year}-06`);
-  await page.getByRole("button", { name: "Manuell überschreiben" }).click();
+  await page.getByRole("button", { name: /^Werte von Hand ändern/ }).click();
   await page.getByLabel("Steuerpflichtige Umsätze 19 %").fill("1.000,00");
   await page.getByLabel("Begründung der Abweichung (Pflicht)").fill("Rechnung aus der alten Buchhaltung, dort nicht gemeldet");
   await page.getByRole("button", { name: "Entwurf speichern" }).click();
@@ -642,7 +642,7 @@ test("Voranmeldung von Hand: alle angebotenen Kennzahlen eintragen, ein ungülti
   try {
     await go(`/umsatzsteuer/${year}-05`);
     const formular = page.getByRole("form", { name: "Kennzahlen" });
-    await formular.getByRole("button", { name: "Manuell überschreiben" }).click();
+    await formular.getByRole("button", { name: /^Werte von Hand ändern/ }).click();
     const werte: [string, string][] = [
       ["Steuerpflichtige Umsätze 19 %", "1.000,00"],
       ["Steuerpflichtige Umsätze 7 %", "200,00"],
@@ -677,11 +677,11 @@ test("Voranmeldung von Hand: alle angebotenen Kennzahlen eintragen, ein ungülti
     await expect(page.getByText("Entwurf gespeichert.")).toBeVisible();
 
     await page.reload();
-    await expect(formular.getByRole("button", { name: "Manuell überschreiben" })).toHaveAttribute("aria-pressed", "true");
+    await expect(formular.getByRole("button", { name: "Zurück zu den berechneten Werten" })).toBeVisible();
     for (const [label, wert] of werte) await expect(formular.getByLabel(label, { exact: true })).toHaveValue(wert);
     await expect(formular.getByLabel("Begründung der Abweichung (Pflicht)")).toHaveValue("Werte aus der alten Buchhaltung übernommen");
     // Zurück zu den Buchungen: der leere Monat, ohne Begründung
-    await formular.getByRole("button", { name: "Aus Buchungen berechnet" }).click();
+    await formular.getByRole("button", { name: "Zurück zu den berechneten Werten" }).click();
     await expect(page.locator("#kz-81")).toHaveText(/^0,00/);
     await expect(formular.getByLabel("Begründung der Abweichung (Pflicht)")).toHaveCount(0);
     await expect(formular.locator(".kz-row.total .kz-amount")).toHaveText(/^0,00/);
