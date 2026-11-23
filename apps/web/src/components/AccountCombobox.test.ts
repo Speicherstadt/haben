@@ -60,6 +60,12 @@ describe("Kontensuche", () => {
     expect(numbers("")).toEqual(Object.keys(accounts));
   });
 
+  it("zeigt die Nummer vor der Bezeichnung wie die Kategorien", () => {
+    const element = combobox("giro");
+    expect(element.props.describe({ number: "1205", name: "Girokonto" })).toMatchObject({ label: "1205 · Girokonto" });
+    expect(element.props.describe({ number: "1205", name: "Girokonto" }).meta).toBeUndefined();
+  });
+
   it("übergibt den gewählten Treffer mit seiner Kontonummer", () => {
     const onPick = vi.fn();
     const element = combobox("giro", onPick);

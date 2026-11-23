@@ -31,8 +31,8 @@ export function AccountCombobox({
   const items = (Object.entries(accounts) as [string, string][]).map(([number, name]) => ({ number, name }));
   const describe = (a: AccountOption): ComboboxOption => ({
     key: a.number,
-    label: a.name || `Konto ${a.number}`,
-    meta: a.number,
+    // Nummer vor der Bezeichnung wie bei den Kategorien (DESIGN.md, Auswahllisten), ohne eigenes Zeilenlayout
+    label: a.name ? `${a.number} · ${a.name}` : a.number,
     selected: a.number === value.trim(),
   });
   return (
