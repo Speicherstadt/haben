@@ -37,8 +37,9 @@ export function serviceHintState(editor: {
   return editor.variant === null && editor.currency === "EUR" && editor.taxTreatment === "regulaer" ? "normal" : "rechnung";
 }
 
-const ZEITRAUM = "Leistungszeitraum, wenn er vom Rechnungsdatum abweicht. Beide leer: gilt das Rechnungsdatum.";
-const NORMAL = `Tag oder Zeitraum der Leistung, wenn er vom Rechnungsdatum abweicht. Beide leer: Auf der Rechnung steht das Rechnungsdatum. Wirkung auf die Umsatzsteuer bei Zahlung vor der Leistung:`;
+const ZEITRAUM = "Leistungszeitraum, wenn er vom Rechnungsdatum abweicht. Beide leer: Auf der Rechnung steht das Rechnungsdatum.";
+const NORMAL =
+  "Tag oder Zeitraum der Leistung. Beide leer: Auf der Rechnung steht das Rechnungsdatum, eine Zahlung davor behandelt Haben wie bisher. Eingetragen, auch am Rechnungsdatum: Die Steuer auf eine Zahlung vor der Leistung entsteht im Monat der Zahlung.";
 const ANGEBOT = "Geplanter Leistungszeitraum. Leer: steht nicht im Angebot.";
 
 /** Text je Feld und Zustand: Nur bei erbrachter Teilleistung unterscheiden sich die Felder, dort ist allein „Leistung von“ Pflicht */
