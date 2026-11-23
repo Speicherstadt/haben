@@ -49,8 +49,8 @@ jobs:
         run: |
           set -euo pipefail
           # Pull Request: Merge-Commit gegen seine Basis; Push auf main: gegen den Stand vor dem Push
-          if [ "${{ github.event_name }}" = push ]; then
-            before="${{ github.event.before }}"
+          if [ "${EREIGNIS:-}" = push ]; then
+            before="${VORHER:-}"
             if [ -z "$before" ] || [ "$before" = 0000000000000000000000000000000000000000 ] || ! git fetch -q --depth=1 origin "$before"; then
               # Ohne Vergleichsstand läuft alles
               { echo code=true; echo einvoice=true; echo deploy=true; } >> "$GITHUB_OUTPUT"
@@ -77,10 +77,14 @@ jobs:
           echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
           # container und dev-compose im Pull Request nur, wenn Image, Compose oder Abhängigkeiten sich ändern; auf main
           # immer (Ausgabe leer), dort fällt ein Build-Fehler aus dem App-Code spätestens auf
-          if [ "${{ github.event_name }}" = pull_request ]; then
+          if [ "${EREIGNIS:-}" != push ]; then
             if grep -Eq "Containerfile$|(^|/)compose[^/]*\.ya?ml$|^deploy/|$always" <<< "$changed"; then bild=true; else bild=false; fi
             echo "bild=$bild" >> "$GITHUB_OUTPUT"
           fi
+        # Als Umgebung statt ${{ }} im Skript, damit scripts/ci/doku-filter.test.ts den Block unverändert ausführen kann
+        env:
+          EREIGNIS: ${{ github.event_name }}
+          VORHER: ${{ github.event.before }}
 
   # Lint und Typecheck brauchen keine Datenbank; gebaut wird in den Jobs e2e-teil
   check:
