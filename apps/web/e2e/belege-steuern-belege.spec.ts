@@ -1,6 +1,6 @@
 import { kategorieName, waehleKategorie } from "./kategorie.ts";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, type Route, test } from "@playwright/test";
+import { chromium, expect, type Page, type Route, test } from "@playwright/test";
 import postgres from "postgres";
 import { day, YEAR } from "./daten.ts";
 import { type Durchlauf, databaseUrlFuer } from "./durchlaeufe.ts";
@@ -568,6 +568,127 @@ test("Beleg am Laptop: Netto, Vorsteuer und Brutto sind neben der Vorschau ganz 
   await bestaetigen(laptop, "Beleg löschen");
   await laptop.waitForURL(/\/belege$/);
   await context.close();
+});
+
+/**
+ * Klassische Scrollleiste (Windows, Linux, macOS mit „Rollbalken immer anzeigen“, #1152): Playwright blendet Scrollleisten
+ * sonst aus. Ein eigener Browser, weil sich das je Test nicht umstellen lässt (wie in vorschau.spec.ts).
+ */
+async function mitScrollleiste(baseURL: string | undefined, viewport: { width: number; height: number }) {
+  const browser = await chromium.launch({ ignoreDefaultArgs: ["--hide-scrollbars"] });
+  const context = await browser.newContext({ baseURL, viewport, storageState: await page.context().storageState() });
+  const seite = await context.newPage();
+  return {
+    seite,
+    breite: (width: number, height = viewport.height) => seite.setViewportSize({ width, height }),
+    /** Spalten von .editor-grid: 1 untereinander, 2 nebeneinander */
+    spalten: () => seite.locator(".editor-grid").evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.split(" ").length),
+    scrollleiste: () => seite.evaluate(() => window.innerWidth - document.documentElement.clientWidth),
+    einklappen: async (zu: "einklappen" | "ausklappen") => {
+      await seite
+        .getByRole("navigation", { name: "Hauptnavigation" })
+        .getByRole("button", { name: `Seitenleiste ${zu}` })
+        .click();
+      if (zu === "einklappen") await expect(seite.locator("html")).toHaveAttribute("data-nav", "collapsed");
+      else await expect(seite.locator("html")).not.toHaveAttribute("data-nav", "collapsed");
+    },
+    schliessen: () => browser.close(),
+  };
+}
+
+test("Klassische Scrollleiste: Dauerbeleg steht ab 1201 px neben dem Vertrag, eingeklappt ab 1033 px, auch wenn die Seite scrollt (#1152)", async ({
+  baseURL,
+}) => {
+  await go("/dauerbelege/neu");
+  await page.getByLabel("Bezeichnung").fill("Lagerraum Scrollleiste");
+  await page.getByLabel("Lieferant", { exact: true }).fill("Hafen Immobilien GmbH");
+  await page.getByLabel("Erster Beleg am").fill(day(30));
+  await page
+    .locator("input[type=file]")
+    .setInputFiles([{ name: "lagervertrag.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n% Lagervertrag\n%%EOF\n") }]);
+  await page.getByLabel("Netto 1").fill("80,00");
+  await waehleKategorie(page.getByLabel("Kategorie"), "miete");
+  await page.getByRole("button", { name: "Dauerbeleg anlegen" }).click();
+  await page.waitForURL(/\/dauerbelege\/[0-9a-f-]{36}$/);
+
+  const { seite, breite, spalten, scrollleiste, einklappen, schliessen } = await mitScrollleiste(baseURL, { width: 1200, height: 800 });
+  await seite.goto(new URL(page.url()).pathname);
+  await seite.waitForLoadState("networkidle");
+  // Die Seite scrollt in beiden Anordnungen; die Scrollleiste nimmt ihr Platz weg, die Grenze bleibt dieselbe wie ohne sie
+  expect(await spalten()).toBe(1);
+  expect(await scrollleiste()).toBeGreaterThan(0);
+  await breite(1201);
+  await expect.poll(spalten).toBe(2);
+  expect(await scrollleiste()).toBeGreaterThan(0);
+  await einklappen("einklappen");
+  await breite(1032);
+  await expect.poll(spalten).toBe(1);
+  await breite(1033);
+  await expect.poll(spalten).toBe(2);
+  expect(await scrollleiste()).toBeGreaterThan(0);
+  await einklappen("ausklappen");
+  await expect.poll(spalten).toBe(1);
+  await schliessen();
+
+  await page.getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(page, "Vorlage löschen");
+  await page.waitForURL(/\/dauerbelege$/);
+});
+
+test("Klassische Scrollleiste: Beleg prüfen steht ab 1201 px nebeneinander, eingeklappt ab 1033 px, nichts ragt über die Seite (#1152)", async ({
+  browser,
+  baseURL,
+}) => {
+  const { seite, breite, spalten, scrollleiste, einklappen, schliessen } = await mitScrollleiste(baseURL, { width: 1200, height: 800 });
+  await seite.goto("/belege");
+  await seite.waitForLoadState("networkidle");
+  await seite
+    .locator("input[type=file][multiple]")
+    .setInputFiles([{ name: "scrollleiste.jpg", mimeType: "image/jpeg", buffer: await receiptJpeg(browser, "Bürohaus Nord GmbH") }]);
+  await expect(seite.getByText("scrollleiste.jpg: abgelegt.")).toBeVisible();
+  await seite
+    .getByRole("link", { name: /scrollleiste\.jpg/ })
+    .first()
+    .click();
+  await seite.waitForURL(/belege\/[0-9a-f-]{36}$/);
+  await seite.waitForLoadState("networkidle");
+  const main = seite.locator(".main");
+  /** Nichts ragt unten aus .main heraus: Sonst scrollen Seitenkopf und Leiste mit der Seite weg */
+  const ueberstand = () => main.evaluate((m) => m.scrollHeight - m.clientHeight);
+
+  // Untereinander scrollt die Seite mit Scrollleiste; ab 1201 px stehen beide nebeneinander, so hoch wie das Fenster
+  expect(await spalten()).toBe(1);
+  expect(await scrollleiste()).toBeGreaterThan(0);
+  await breite(1201);
+  await expect.poll(spalten).toBe(2);
+  expect(await ueberstand()).toBeLessThanOrEqual(0);
+  await einklappen("einklappen");
+  await breite(1032);
+  await expect.poll(spalten).toBe(1);
+  await breite(1033);
+  await expect.poll(spalten).toBe(2);
+  expect(await ueberstand()).toBeLessThanOrEqual(0);
+
+  // Niedriges Fenster: Der Beleg behält seine 520 px, die Seite scrollt ein Stück; .main wächst mit, Kopf und Leiste bleiben stehen
+  const niedrig = async (width: number) => {
+    await breite(width, 560);
+    await expect.poll(spalten).toBe(2);
+    expect(await scrollleiste()).toBeGreaterThan(0);
+    expect(await ueberstand()).toBeLessThanOrEqual(0);
+    await seite.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    expect(await seite.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    await expect(seite.locator(".main > .page-head")).toBeInViewport({ ratio: 1 });
+    expect((await seite.getByRole("navigation", { name: "Hauptnavigation" }).boundingBox())!.y).toBeGreaterThanOrEqual(0);
+    await seite.evaluate(() => window.scrollTo(0, 0));
+  };
+  await niedrig(1040);
+  await einklappen("ausklappen");
+  await niedrig(1210);
+
+  await seite.getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(seite, "Beleg löschen");
+  await seite.waitForURL(/\/belege$/);
+  await schliessen();
 });
 
 test("Dauerbeleg mit Bruttobetrag: Netto und Umsatzsteuer vorgerechnet, ohne ausgewiesene Steuer kein Brutto (#1059, #1100)", async () => {
