@@ -45,6 +45,7 @@ export async function listPostfachDocuments(limit = 200) {
         bereitstellungId: schema.postfachDocuments.bereitstellungId,
         datenart: schema.postfachDocuments.datenart,
         veranlagungszeitraum: schema.postfachDocuments.veranlagungszeitraum,
+        steuernummer: schema.postfachDocuments.steuernummer,
         bescheiddatum: schema.postfachDocuments.bescheiddatum,
         dateibezeichnung: schema.postfachDocuments.dateibezeichnung,
         filename: schema.postfachDocuments.filename,
@@ -67,17 +68,22 @@ export async function listPostfachDocuments(limit = 200) {
   });
 }
 
-/** Echte Bescheide, deren Einspruchsfrist heute noch läuft; je Bereitstellung einer */
+/**
+ * Echte Bescheide, deren Einspruchsfrist heute noch läuft; je Steuerfall einer.
+ *
+ * Ein Änderungsbescheid ersetzt den Bescheid, den er ändert (§ 172 AO), und damit auch dessen Frist. Deshalb zählt je
+ * Datenart, Veranlagungszeitraum und Steuerkonto nur das jüngste Bescheiddatum, sonst steht die erledigte Frist
+ * gleichrangig daneben (#1817). Anhänge desselben Bescheids fallen dabei zusammen, weil sie dasselbe Datum tragen.
+ */
 export async function openAppealDeadlines(today: string) {
-  const seen = new Set<string>();
-  return (await listPostfachDocuments())
-    .filter((d) => !d.test && d.frist && d.frist.fristende >= today)
-    .filter((d) => {
-      if (seen.has(d.bereitstellungId)) return false;
-      seen.add(d.bereitstellungId);
-      return true;
-    })
-    .sort((a, b) => a.frist!.fristende.localeCompare(b.frist!.fristende));
+  const juengster = new Map<string, Awaited<ReturnType<typeof listPostfachDocuments>>[number]>();
+  for (const bescheid of await listPostfachDocuments()) {
+    if (bescheid.test || !bescheid.frist || bescheid.frist.fristende < today) continue;
+    const schluessel = [bescheid.datenart, bescheid.veranlagungszeitraum, bescheid.steuernummer].join("\u0000");
+    const bisher = juengster.get(schluessel);
+    if (!bisher || bescheid.bescheiddatum > bisher.bescheiddatum) juengster.set(schluessel, bescheid);
+  }
+  return [...juengster.values()].sort((a, b) => a.frist!.fristende.localeCompare(b.frist!.fristende));
 }
 
 export async function postfachDocumentFile(id: string) {
