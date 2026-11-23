@@ -40,6 +40,7 @@ export function FinalInvoice({ data }: { data: Detail }) {
     void router.invalidate();
   };
   const cancelled = correctedBy.find((c) => c.kind === "storno" && c.status === "final");
+  const hatKorrekturen = correctedBy.some((c) => c.kind === "korrektur" && c.status === "final");
   const canAmend = inhaber && invoice.kind === "rechnung" && !cancelled;
 
   const cancelNow = () => {
@@ -188,7 +189,10 @@ export function FinalInvoice({ data }: { data: Detail }) {
                 onConfirm={cancelNow}
                 onClose={() => setConfirming(false)}
               >
-                <p>Es wird sofort eine Stornorechnung mit neuer Nummer erzeugt und gebucht.</p>
+                <p>
+                  Es wird sofort eine Stornorechnung mit neuer Nummer erzeugt und gebucht.
+                  {hatKorrekturen && " Jede festgeschriebene Korrektur bekommt ein eigenes Storno."}
+                </p>
               </ConfirmDialog>
               <KorrekturAktionen busy={busy} onCancel={() => setConfirming(true)} onCorrect={onCorrect} />
             </section>

@@ -22,8 +22,8 @@ describe("Korrigieren einer festgeschriebenen Rechnung", () => {
 
   it("erklärt jeden Knopf unter ihm und verbindet den Text mit dem Knopf", () => {
     const html = render();
-    expect(knopf(html, "Stornieren").text).toMatch(/^Hebt die Rechnung ganz auf/);
-    expect(knopf(html, "Rechnungskorrektur anlegen").text).toMatch(/^Mindert den Betrag teilweise/);
+    expect(knopf(html, "Stornieren").text).toMatch(/^Hebt die Rechnung ganz auf.*Korrekturen werden mit storniert/);
+    expect(knopf(html, "Rechnungskorrektur anlegen").text).toMatch(/^Mindert den Betrag: ein Entwurf mit allen Positionen negativ/);
   });
 
   it("sperrt beide Knöpfe, solange etwas läuft, und lässt die Erklärung stehen", () => {

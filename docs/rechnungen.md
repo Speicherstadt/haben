@@ -648,12 +648,12 @@ Es gilt die Sprache der Rechnung bzw. des Angebots. Mahnungen sind immer deutsch
 
 ## Storno und Rechnungskorrektur
 
-Eine festgeschriebene Rechnung änderst du nicht, du stellst eine neue aus. Auf der Detailseite einer Rechnung gibt es dafür den Abschnitt **Korrigieren**; unter jedem Knopf steht in einer Zeile, was er tut.
+Eine festgeschriebene Rechnung änderst du nicht, du stellst eine neue aus. Auf der Detailseite einer Rechnung gibt es dafür den Abschnitt **Korrigieren**.
 
 | | Stornieren | Rechnungskorrektur anlegen |
 | --- | --- | --- |
-| Zweck | Hebt die Rechnung vollständig auf. | Mindert den Betrag teilweise. |
-| Ergebnis | Stornorechnung mit allen Positionen negativ, sofort festgeschrieben und gebucht. | Entwurf mit allen Positionen negativ, den du anpasst. |
+| Zweck | Hebt die Rechnung vollständig auf. | Mindert den Betrag. |
+| Ergebnis | Stornorechnung mit allen Positionen negativ, sofort festgeschrieben und gebucht. Festgeschriebene Korrekturen der Rechnung bekommen je ein eigenes Storno. | Entwurf mit allen Positionen negativ, den du auf die Minderung kürzt. |
 | Bestätigung | Im Dialog **Stornieren**. | Festschreiben wie bei einer Rechnung. |
 | Bedingung | – | Gesamtbetrag muss negativ bleiben. |
 
