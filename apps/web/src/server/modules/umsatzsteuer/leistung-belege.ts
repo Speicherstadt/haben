@@ -21,8 +21,7 @@ export const summe = (quellen: readonly RevenueSource[]) => quellen.reduce((s, r
 export async function rechnungenNachLeistung(period: VatPeriod, behandlungen: readonly TaxTreatment[], zaehlt: Zaehlt, q: Db | Tx): Promise<RevenueSource[]> {
   const { start, end } = periodRange(period);
   const i = schema.invoices;
-  const imZeitraum = (spalte: typeof i.issueDate | typeof i.serviceDate | typeof i.serviceFrom | typeof i.serviceTo) =>
-    and(gte(spalte, start), lt(spalte, end));
+  const imZeitraum = (spalte: typeof i.issueDate | typeof i.serviceDate) => and(gte(spalte, start), lt(spalte, end));
   const kandidaten = await q
     .select()
     .from(i)
@@ -32,7 +31,7 @@ export async function rechnungenNachLeistung(period: VatPeriod, behandlungen: re
         inArray(i.taxTreatment, [...behandlungen]),
         // aus Lexoffice übernommen: dort schon gemeldet
         isNull(i.lexofficeVoucherId),
-        or(imZeitraum(i.issueDate), imZeitraum(i.serviceDate), imZeitraum(i.serviceFrom), imZeitraum(i.serviceTo)),
+        or(imZeitraum(i.issueDate), imZeitraum(i.serviceDate)),
       ),
     );
   const rechnungen = kandidaten.filter((r) => leistungstag(r) >= start && leistungstag(r) < end);

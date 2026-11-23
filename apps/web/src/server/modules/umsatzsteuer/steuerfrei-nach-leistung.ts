@@ -91,8 +91,7 @@ async function anzahlungenDerSchlussrechnungBeiSoll(period: VatPeriod, q: Db | T
   const { start, end } = periodRange(period);
   const i = schema.invoices;
   const l = schema.invoiceLines;
-  const imZeitraum = (spalte: typeof i.issueDate | typeof i.serviceDate | typeof i.serviceFrom | typeof i.serviceTo) =>
-    and(gte(spalte, start), lt(spalte, end));
+  const imZeitraum = (spalte: typeof i.issueDate | typeof i.serviceDate) => and(gte(spalte, start), lt(spalte, end));
   const kandidaten = await q
     .selectDistinct({ rechnung: i })
     .from(i)
@@ -103,7 +102,7 @@ async function anzahlungenDerSchlussrechnungBeiSoll(period: VatPeriod, q: Db | T
         inArray(i.taxTreatment, [...STEUERFREI]),
         isNull(i.lexofficeVoucherId),
         isNotNull(l.deductionOf),
-        or(imZeitraum(i.issueDate), imZeitraum(i.serviceDate), imZeitraum(i.serviceFrom), imZeitraum(i.serviceTo)),
+        or(imZeitraum(i.issueDate), imZeitraum(i.serviceDate)),
       ),
     );
   if (kandidaten.length === 0) return [];
