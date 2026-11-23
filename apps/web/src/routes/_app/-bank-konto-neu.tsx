@@ -152,22 +152,33 @@ export function NeuesKontoForm({
           Konto anlegen
         </button>
       </form>
-      <ConfirmDialog
-        open={pending !== null}
-        title={pending ? `Noch ein Konto für ${pending.marketplace} anlegen?` : ""}
-        confirmLabel="Konto trotzdem anlegen"
+      <MarktplatzRueckfrage
+        marketplace={pending?.marketplace}
         onConfirm={() => {
           const daten = pending;
           setPending(null);
           if (daten) void mitBusy(() => anlegen(daten));
         }}
         onClose={() => setPending(null)}
-      >
-        <p>
-          Für {pending?.marketplace} gibt es schon ein Konto. Ein zweites ist möglich, etwa für ein zweites Verkäuferkonto am selben Marktplatz. Die
-          Marktplatzprüfung sieht dann beide als passend an — beim Import wählst du selbst das richtige Konto.
-        </p>
-      </ConfirmDialog>
+      />
     </>
+  );
+}
+
+/** Rückfrage vor einem zweiten Konto für denselben Marktplatz */
+function MarktplatzRueckfrage({ marketplace, onConfirm, onClose }: { marketplace: string | undefined; onConfirm: () => void; onClose: () => void }) {
+  return (
+    <ConfirmDialog
+      open={marketplace !== undefined}
+      title={marketplace ? `Noch ein Konto für ${marketplace} anlegen?` : ""}
+      confirmLabel="Konto trotzdem anlegen"
+      onConfirm={onConfirm}
+      onClose={onClose}
+    >
+      <p>
+        Für {marketplace} gibt es schon ein Konto. Ein zweites ist möglich, etwa für ein zweites Verkäuferkonto am selben Marktplatz. Die Marktplatzprüfung
+        sieht dann beide als passend an — beim Import wählst du selbst das richtige Konto.
+      </p>
+    </ConfirmDialog>
   );
 }
