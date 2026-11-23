@@ -56,6 +56,11 @@ describe("lage", () => {
     expect(lage(pr({ author: { login: "firsttris" }, comments }), M).platz).toBe(2);
   });
 
+  it("eigener Pull Request eines von mehreren Maintainern: Kommentare des anderen bleiben Befunde", () => {
+    const comments = [kommentar("zweite", "2026-11-02T00:00:00Z")];
+    expect(lage(pr({ author: { login: "firsttris" }, comments }), ["firsttris", "zweite"]).platz).toBe(6);
+  });
+
   it("Fork ohne aktuelle Selbstprüfung: Platz 7, Nachbesserung auf unsere Befunde trotzdem Platz 4", () => {
     expect(lage(pr({ isCrossRepository: true }), M).platz).toBe(7);
     const comments = [kommentar("firsttris", "2026-11-02T00:00:00Z")];
