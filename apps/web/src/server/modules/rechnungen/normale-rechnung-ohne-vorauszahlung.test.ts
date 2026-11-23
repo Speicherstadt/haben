@@ -67,7 +67,7 @@ describe.skipIf(!testDatabaseUrl)("Normale Rechnung mit Leistungszeitraum ohne V
       paymentTermDays: 14,
       format: "zugferd" as const,
       note: "",
-      lines: [{ description: "Beratung", quantity: 1000, unit: "Psch.", unitPrice: 100_000, taxRate: 1900 }],
+      lines: [{ description: "Beratung", quantity: 1000, unit: "Psch.", unitPrice: 100_000, taxRate: 1900 as const }],
       replacesInvoiceId,
     };
     const draft = await invoices.createDraft(actor, input);
@@ -119,6 +119,21 @@ describe.skipIf(!testDatabaseUrl)("Normale Rechnung mit Leistungszeitraum ohne V
       expect.soft(await kz81(12)).toEqual({ kz81: 0, tax81: 0 });
       expect.soft((await bank.invoicePaymentList(replacement.id)).map(({ id }) => id)).toEqual([payment!.id]);
       expect(await sql`select id, invoice_id from allocations`).toEqual([{ id: payment!.id, invoice_id: original.id }]);
+    }, 30_000);
+
+  for (const { form, frame, mode } of cases)
+    it(`${form}, ${frame}, ${mode}: Ersatz ohne Leistungszeitraum übernimmt eine Teilzahlung`, async () => {
+      await sql`update company set rechtsform = ${form}, kontenrahmen = ${frame}, versteuerung = ${mode}`;
+      const original = await invoice(null, null, "2026-10-12");
+      await pay(original.id, "2026-10-20", 59_500);
+      const october = await kz81(10);
+      await invoices.cancelInvoice(actor, original.id, "2026-12-10");
+      const replacement = await invoice(null, null, "2026-12-15", original.id);
+
+      expect(await kz81(10)).toEqual(october);
+      expect(await kz81(12)).toEqual({ kz81: 0, tax81: 0 });
+      expect((await bank.openItems()).find((item) => item.id === replacement.id)).toMatchObject({ open: 59_500 });
+      expect(await sql`select * from haben_integrity_problems(100)`).toEqual([]);
     }, 30_000);
 
   for (const { form, frame, mode } of cases)

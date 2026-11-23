@@ -43,6 +43,7 @@ function InvoicePage() {
           numberFormat={data.numberFormat}
           lastFinalized={data.lastFinalized}
           corrects={data.corrects}
+          replaces={data.replaces}
           bundesland={data.bundesland}
           kleinunternehmer={data.kleinunternehmer}
           companySkonto={data.companySkonto}

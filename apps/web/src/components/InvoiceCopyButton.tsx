@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import type { useAction } from "../lib/use-action.ts";
-import { copyInvoiceAsDraft } from "../server/functions/invoices.ts";
+import { copyInvoiceAsDraft, copyInvoiceAsReplacementDraft } from "../server/functions/invoices.ts";
 
 type ActionState = Pick<ReturnType<typeof useAction>, "busy" | "run">;
 type CopySource = { id: string; kind: string; variant: string | null };
@@ -16,8 +16,8 @@ type Prepare = { pruefe: () => boolean; speichern: () => Promise<string | null> 
  * Entwurf. Abschlag und Schlussrechnung entstehen aus dem Angebot, Storno und Korrektur aus der Rechnung; dort gibt es
  * kein Kopieren (null). Fehler meldet die Seite über `action`.
  */
-export function useInvoiceCopy(invoice: CopySource | null, action: ActionState, prepare?: Prepare): (() => void) | null {
-  const copy = useServerFn(copyInvoiceAsDraft);
+export function useInvoiceCopy(invoice: CopySource | null, action: ActionState, prepare?: Prepare, replacement = false): (() => void) | null {
+  const copy = useServerFn(replacement ? copyInvoiceAsReplacementDraft : copyInvoiceAsDraft);
   const navigate = useNavigate();
   if (invoice?.kind !== "rechnung" || invoice.variant !== null) return null;
   return () => {
@@ -31,12 +31,22 @@ export function useInvoiceCopy(invoice: CopySource | null, action: ActionState, 
   };
 }
 
-export function InvoiceCopyButton({ invoice, action, prepare }: { invoice: CopySource | null; action: ActionState; prepare?: Prepare }) {
-  const onCopy = useInvoiceCopy(invoice, action, prepare);
+export function InvoiceCopyButton({
+  invoice,
+  action,
+  prepare,
+  replacement = false,
+}: {
+  invoice: CopySource | null;
+  action: ActionState;
+  prepare?: Prepare;
+  replacement?: boolean;
+}) {
+  const onCopy = useInvoiceCopy(invoice, action, prepare, replacement);
   if (!onCopy) return null;
   return (
-    <button type="button" className="btn" onClick={onCopy} disabled={action.busy}>
-      Kopieren
+    <button type="button" className={replacement ? "btn btn-primary" : "btn"} onClick={onCopy} disabled={action.busy}>
+      {replacement ? "Ersatzrechnung erstellen" : "Kopieren"}
     </button>
   );
 }

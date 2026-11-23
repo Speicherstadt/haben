@@ -174,6 +174,7 @@ const draftApiFields = {
   issueDate: draftFields.issueDate.describe("Rechnungsdatum JJJJ-MM-TT, Vorgabe heute"),
   serviceFrom: draftFields.serviceFrom,
   serviceTo: draftFields.serviceTo,
+  replacesInvoiceId: draftFields.replacesInvoiceId.describe("Rechnungsaustausch: UUID der bereits stornierten Rechnung; null entfernt den Bezug"),
   paymentTermDays: draftFields.paymentTermDays.describe("Zahlungsziel in Tagen, Vorgabe aus den Firmendaten"),
   paymentMethod: z.enum(["ueberweisung", "bereits_bezahlt"]).describe("Zahlungsart; bereits_bezahlt erfordert paidVia und paidOn"),
   paidVia: draftFields.paidVia.describe("Bei bereits_bezahlt: Zahlungsdienstleister (z. B. eBay) oder bar"),
@@ -260,6 +261,7 @@ export const invoiceSchema = z
   .object({
     ...invoiceSummaryShape,
     correctsId: z.uuid().nullable().describe("Storno und Korrektur: die ursprüngliche Rechnung"),
+    replacesInvoiceId: z.uuid().nullable().describe("Rechnungsaustausch: die ersetzte Rechnung"),
     serviceFrom: isoDate.nullable(),
     serviceTo: isoDate.nullable(),
     paymentTermDays: z.number().int(),

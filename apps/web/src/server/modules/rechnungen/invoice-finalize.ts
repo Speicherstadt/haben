@@ -1,4 +1,4 @@
-import { formatRateMonth, invoicePosting, legacyCorrectionPosting, leistungsdatum, lineAmount, outgoingTaxIssues, rateMonth } from "@haben/core";
+import { formatRateMonth, invoicePosting, legacyCorrectionPosting, lineAmount, outgoingTaxIssues, rateMonth } from "@haben/core";
 import { buildEInvoice, validateForFormat, type Buyer } from "@haben/einvoice";
 import { and, asc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
@@ -18,6 +18,8 @@ import { applyRateToDraft, serviceDate } from "./draft-rate.ts";
 import { buyerFrom, buyerIssues, documentFor, invoiceTitle, numberedBuyer, sellerFrom } from "./invoice-document.ts";
 import { lockDraft } from "./invoice-drafts.ts";
 import { InvoiceError } from "./invoice-error.ts";
+import { loadReplacement, normalReplacementId, replacementPerformanceDate, replacementProblem } from "./invoice-replacement.ts";
+import { restorePaperCancellation } from "./invoice-replacement-posting.ts";
 import { invoicePostingMode, invoiceVatDate } from "./invoice-tax.ts";
 import { invoiceDocumentTotals, invoiceTotalsById } from "./invoice-taxes.ts";
 import { getInvoice, type Invoice, type InvoiceLine } from "./invoices.ts";
@@ -63,6 +65,11 @@ export async function finalizeIssues(id: string, q: Db | Tx = db): Promise<strin
       : "Die korrigierte Rechnung fehlt";
     if (problem) issues.push(problem);
   }
+  const replacement = await loadReplacement(invoice, q);
+  if (normalReplacementId(invoice)) {
+    const problem = await replacementProblem(invoice, replacement, q);
+    if (problem) issues.push(problem);
+  }
   if (invoice.variant === "schluss") {
     const deducts = deductionIds(lines);
     if (deducts.length === 0) issues.push("Keine Abschlagsrechnung abgezogen");
@@ -86,7 +93,7 @@ export async function finalizeIssues(id: string, q: Db | Tx = db): Promise<strin
         sellerFrom(company),
         buyerFrom(contact, await ansprechpartnerSnapshot(q, invoice.contactPersonId)),
         "VORSCHAU",
-        data.corrects?.number ? { number: data.corrects.number, issueDate: data.corrects.issueDate } : null,
+        documentReference(data.corrects ?? replacement),
         await deductedRefs(lines, q),
         await directDebitFor(invoice, company, q),
         await loadUnitCodes(q),
@@ -186,6 +193,10 @@ function procedureColumns(invoice: Invoice) {
   };
 }
 
+function documentReference(invoice: Pick<Invoice, "number" | "issueDate"> | null | undefined) {
+  return invoice?.number ? { number: invoice.number, issueDate: invoice.issueDate } : null;
+}
+
 /** Festschreiben in einer laufenden Transaktion; prüft dort, was finalizeIssues meldet */
 export async function finalizeDraft(tx: Tx, id: string, umsatzStand: UmsatzStand, bestaetigt?: UmsatzgrenzeBestaetigung): Promise<Invoice> {
   // Angebote zuerst (lockQuotes): Die Prüfungen gegen andere Rechnungen desselben Angebots laufen erst unter der Sperre
@@ -204,12 +215,8 @@ export async function finalizeDraft(tx: Tx, id: string, umsatzStand: UmsatzStand
   const lines = await tx.select().from(schema.invoiceLines).where(eq(schema.invoiceLines.invoiceId, id)).orderBy(asc(schema.invoiceLines.position));
   const [contact] = await tx.select().from(schema.contacts).where(eq(schema.contacts.id, invoice.contactId!));
 
-  const deducts = deductionIds(lines);
-  const corrects = await recheckReferences(tx, invoice, deducts);
-  invoice = { ...invoice, ...(await advanceProcedure(invoice, lines, company, tx)) };
-  // „Ausgeführt am“ einfrieren (#694): Der Leistungsmonat entscheidet bei Soll-Versteuerung, wann die Umsatzsteuer
-  // gemeldet wird. Ab hier ist er unveränderlich, damit ein späterer Entwurfsstand die gemeldete Zahl nicht verschiebt.
-  invoice = { ...invoice, serviceDate: leistungsdatum({ belegdatum: invoice.issueDate, leistungVon: invoice.serviceFrom, leistungBis: invoice.serviceTo }) };
+  const { corrects, replacement, prepared } = await prepareReferences(tx, invoice, lines, company);
+  invoice = prepared;
   if (invoice.advanceAccounting === "deferred" && invoice.kind === "rechnung" && invoice.variant === "schluss") {
     const performed = invoice.serviceTo ?? invoice.serviceFrom ?? invoice.issueDate;
     if (performed > invoice.issueDate) throw new InvoiceError("Das Leistungsdatum der Schlussrechnung liegt nach dem Rechnungsdatum.");
@@ -239,7 +246,7 @@ export async function finalizeDraft(tx: Tx, id: string, umsatzStand: UmsatzStand
       seller,
       buyer,
       number,
-      corrects ? { number: corrects.number!, issueDate: corrects.issueDate } : null,
+      documentReference(corrects ?? replacement),
       await deductedRefs(lines, tx),
       await directDebitFor(invoice, company, tx),
       await loadUnitCodes(tx),
@@ -316,11 +323,13 @@ async function buyerForFinalization(
 }
 
 /**
- * Original und abgezogene Abschläge sperren und erneut prüfen: Ein paralleles Storno, eine Korrektur
- * oder eine andere Schlussrechnung kann seit finalizeIssues festgeschrieben worden sein. Gibt das Original zurück.
+ * Nach dem Sperren Original, Ersatzbezug und Abschläge erneut prüfen. Eine andere Rechnung kann seit
+ * finalizeIssues festgeschrieben worden sein. Der eingefrorene Leistungstag bestimmt beim Soll die Periode (#694).
  */
-async function recheckReferences(tx: Tx, invoice: Invoice, deducts: string[]): Promise<Invoice | undefined> {
-  const referenced = [...(invoice.correctsId ? [invoice.correctsId] : []), ...deducts];
+async function prepareReferences(tx: Tx, invoice: Invoice, lines: InvoiceLine[], company: Awaited<ReturnType<typeof openBooks>>) {
+  const deducts = deductionIds(lines);
+  const replacedId = normalReplacementId(invoice);
+  const referenced = [...deducts, invoice.correctsId, replacedId].filter((id): id is string => Boolean(id));
   if (referenced.length > 0) {
     await tx
       .select({ id: schema.invoices.id })
@@ -345,7 +354,21 @@ async function recheckReferences(tx: Tx, invoice: Invoice, deducts: string[]): P
     );
     if (problems.length > 0) throw new InvoiceError(`${problems.join(", ")}.`);
   }
-  return corrects;
+  const replacement = await loadReplacement(invoice, tx);
+  if (replacedId) {
+    // Eine parallele Zuordnung einer Erstattung darf nach der Prüfung keinen weiteren Geldfluss an diesem Storno anlegen.
+    await tx
+      .select({ id: schema.invoices.id })
+      .from(schema.invoices)
+      .where(and(eq(schema.invoices.correctsId, replacedId), eq(schema.invoices.kind, "storno"), eq(schema.invoices.status, "final")))
+      .for("update");
+    const problem = await replacementProblem(invoice, replacement, tx);
+    if (problem) throw new InvoiceError(`${problem}.`);
+  }
+  const procedure = replacement
+    ? { advanceAccounting: replacement.advanceAccounting, replacesInvoiceId: replacement.id }
+    : await advanceProcedure(invoice, lines, company, tx);
+  return { corrects, replacement, prepared: { ...invoice, ...procedure, serviceDate: replacementPerformanceDate(invoice, replacement) } };
 }
 
 /** Bucht die festgeschriebene Rechnung: Abschläge mit Verfahren „deferred“ eigens, sonst Erlös und Umsatzsteuer */
@@ -357,6 +380,8 @@ async function postInvoice(
   corrects: Invoice | undefined,
   description: string,
 ): Promise<void> {
+  const replacedId = normalReplacementId(invoice);
+  if (replacedId) return restorePaperCancellation(tx, company, invoice.id, replacedId, description);
   const versteuerung = await invoicePostingMode(invoice, tx);
   const bookings =
     invoice.advanceAccounting === "deferred"
