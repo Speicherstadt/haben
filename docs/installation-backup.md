@@ -254,7 +254,7 @@ podman pull docker.io/tristanteu/haben-backup:latest
 
 ### PostgreSQL-Update
 
-Die Datenbank läuft im Image `tristanteu/haben-db` (aus `deploy/db`): das offizielle `postgres:18` plus die Programme der älteren Versionen ab 16. Findet der Container beim Start im Volume noch einen Datenbestand einer älteren Version, hebt er ihn mit `pg_upgrade` an und startet danach normal. Ein Update auf ein neues Postgres ist damit ein normales Update wie oben, mit Backup vorher. Das Upgrade dauert bei einer Buchhaltung meist unter einer Minute; im Log steht es so:
+Die Datenbank läuft im Image `tristanteu/haben-db` (aus `deploy/db`): das offizielle `postgres:19` plus die Programme der älteren Versionen ab 16. Findet der Container beim Start im Volume noch einen Datenbestand einer älteren Version, hebt er ihn mit `pg_upgrade` an und startet danach normal. Ein Update auf ein neues Postgres ist damit ein normales Update wie oben, mit Backup vorher. Das Upgrade dauert bei einer Buchhaltung meist unter einer Minute; im Log steht es so:
 
 ```text
 haben-db: Aktualisiere die Datenbank von PostgreSQL 16 (/var/lib/postgresql/data) auf 18 (/var/lib/postgresql/data/18/docker) …
