@@ -1,6 +1,6 @@
 ---
 name: "doku-pruefen"
-description: "Unabhängige Prüfung der Markdown-Dateien eines Pull Requests in Haben (Doku, Skills, CLAUDE.md, AGENTS.md, DESIGN.md): stimmt der Text mit Code und Quelle, ist er kurz und ohne Füllsätze, steht jede Regel einmal am richtigen Ort (Doku für Menschen, Skills für Agenten), ist nichts Erzeugtes von Hand geändert und keine Never-Regel aufgeweicht? Befunde mit Zitat und Beleg im PR, selbst beheben, bei grüner CI mergen. Statt tdd-review, wenn kein Code geändert ist; bei Code und Markdown parallel zu tdd-review, nur für die Markdown-Dateien."
+description: "Unabhängige Prüfung der Markdown-Dateien eines Pull Requests in Haben (Doku, Skills, CLAUDE.md, AGENTS.md, DESIGN.md). Statt tdd-review, wenn nur Markdown geändert ist; bei Code und Markdown parallel dazu."
 ---
 
 # Doku prüfen

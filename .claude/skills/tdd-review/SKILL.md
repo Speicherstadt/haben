@@ -1,6 +1,6 @@
 ---
 name: "tdd-review"
-description: "Unabhängiges Review eines Pull Requests in Haben: nur Fehler melden, die ein fehlschlagender Test belegt, Findings im PR posten, nach Red-Green fixen, bis CI grün ist; mergen nur als Maintainer oder Collaborator mit Zustimmung. Für jeden Pull Request mit Code vor dem Merge; Markdown prüft doku-pruefen, bei Code und Markdown parallel."
+description: "Unabhängiges Review eines Pull Requests in Haben, das nur Fehler mit fehlschlagendem Test meldet und bis grüner CI behebt. Für jeden Pull Request mit Code vor dem Merge; Markdown prüft doku-pruefen, bei beidem parallel."
 ---
 
 # TDD-Review

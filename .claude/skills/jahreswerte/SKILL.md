@@ -1,6 +1,6 @@
 ---
 name: "jahreswerte"
-description: "Amtliche Jahreswerte in Haben nachziehen: Lohnsteuer-PAP des BMF, Rechengrößen und Beitragssätze der Sozialversicherung, Taxonomie der E-Bilanz, neue ERiC-Version, geänderte Normen des Gesetzeswächters und Stand von SKR03/SKR04. Wenn der Workflow „Jahreswerte prüfen“ ein Issue mit dem Label jahreswerte geöffnet hat oder ein Jahreswechsel-Test fehlschlägt."
+description: "Amtliche Jahreswerte in Haben nachziehen (Lohnsteuer-PAP, Sozialversicherung, E-Bilanz-Taxonomie, ERiC, Normen, SKR03/SKR04). Wenn ein Issue mit dem Label jahreswerte offen ist oder ein Jahreswechsel-Test fehlschlägt."
 ---
 
 # Jahreswerte nachziehen

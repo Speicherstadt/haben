@@ -1,6 +1,6 @@
 ---
 name: "prs-abarbeiten"
-description: "Die offenen Pull Requests an Haben als Maintainer der Reihe nach abarbeiten: immer zuerst alle, die nicht Draft sind, als Rangliste von „am einfachsten zu mergen“ bis „wartet auf den Autor“ an den Maintainer, dann gleich von oben nach unten je Pull Request beitrag-pruefen in einem frischen Agenten, Fixes auf den Branch, Befunde posten, bei grüner CI mergen und danach wieder von vorn. Bei Steuer, Buchung, ELSTER und GoBD erst nach OK des Maintainers. Wenn der Maintainer sagt „arbeite die Pull Requests ab“; auf eine Frage wie „was können wir mergen?“ nur die Rangliste."
+description: "Die offenen Pull Requests an Haben als Maintainer nacheinander abarbeiten, vom einfachsten Merge an. Wenn der Maintainer sagt „arbeite die Pull Requests ab“; auf „was können wir mergen?“ nur die Rangliste."
 ---
 
 # Pull Requests abarbeiten
@@ -28,7 +28,7 @@ Von oben nach unten, wie einfach der Merge ist:
 
 1. **Fertig:** Prüfung durch, Befunde behoben, CI grün, Beschreibung stimmt. Nur noch Nachprüfung der letzten Commits und Merge.
 2. **Klein und neu:** wenige Dateien, keine Migration, nicht heikel, CI grün
-3. **Neu und heikel oder groß:** braucht eine volle Prüfung und das OK des Maintainers
+3. **Neu und heikel oder groß** (heikel nach `beitrag-pruefen`, Schritt 2; Hinweis „Fachlich heikel“ im Kommentar von „PR-Regeln“): braucht eine volle Prüfung und das OK des Maintainers
 4. **Autor hat nachgeliefert:** nur die neuen Commits gegen die offenen Befunde prüfen
 5. **Konflikt oder rote CI**, die der Pull Request selbst verursacht
 6. **Wartet auf den Autor:** Befunde stehen schon im Pull Request, seitdem nichts Neues. Nichts tun.

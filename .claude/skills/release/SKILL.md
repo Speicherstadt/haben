@@ -1,6 +1,6 @@
 ---
 name: "release"
-description: "Eine neue Version von Haben veröffentlichen: Art des Releases vorschlagen (Release Candidate, Minor, Patch), vorher prüfen, nach OK des Maintainers über „Bump version“ auslösen und danach kontrollieren, dass Image, GitHub-Release und das Schließen der umgesetzten Issues durchgelaufen sind. Beim RC den Testauftrag für den Server erzeugen."
+description: "Eine neue Version von Haben veröffentlichen (Release Candidate, Minor oder Patch) und danach prüfen, dass Image, GitHub-Release und das Schließen der Issues durchgelaufen sind. Wenn der Maintainer ein Release will oder fragt, ob eins fällig ist."
 ---
 
 # Release

@@ -1,6 +1,6 @@
 ---
 name: "beitrag-pruefen"
-description: "Einen Pull Request an Haben vor dem TDD-Review auf vier Fragen prüfen: Wollen wir die Änderung in Haben (Passung, Issue, Nutzen gegen Last)? Ist sie nach den Primärquellen gebaut und fachlich richtig? Ist sie die einfachste und beste Lösung? Hat sie Tests, Doku und alle Regeln aus docs/entwicklung.md, docs/mitwirken.md und DESIGN.md eingehalten? Zwei Rollen: Beitragende prüfen den eigenen Pull Request vor „Ready for review“ in einem frischen Agenten, bessern selbst nach, posten das Ergebnis als Kommentar (Selbstprüfung) und bringen danach tdd-review und doku-pruefen mit. Maintainer und Collaborators prüfen einen fremden Pull Request, prüfen eine vorhandene Selbstprüfung nach statt neu, machen Gewolltes fertig, führen tdd-review und mergen bei grüner CI, bei Steuer, Buchung, ELSTER und GoBD erst nach OK des Maintainers; hält an, wenn ein Mensch entscheiden muss. Für jeden neuen Beitrag, auch von Agenten."
+description: "Einen Pull Request an Haben vor dem TDD-Review prüfen: gewollt, nach den Quellen richtig, einfachste Lösung, nach unseren Regeln. Als Selbstprüfung des eigenen Pull Requests vor „Ready for review“ oder als Maintainer für einen fremden bis zum Merge. Für jeden neuen Beitrag, auch von Agenten."
 ---
 
 # Beitrag prüfen
@@ -31,7 +31,7 @@ Jeder Text an den Beitragenden folgt dem [Verhaltenskodex](../../../CODE_OF_COND
 - Das Issue lesen, auf das der Pull Request verweist, samt Akzeptanzkriterien und Diskussion.
 - Die Abschnitte lesen, die der Diff berührt (immer „Konventionen“ in `docs/entwicklung.md` und `docs/mitwirken.md` bis einschließlich „Beiträge annehmen“), bei der Oberfläche `DESIGN.md`, dazu die Nutzerseite des Bereichs in `docs/`, `docs/architektur.md` für Module und `docs/architektur-datenmodell.md` für Tabellen.
 - Hier noch keine Tests ausführen; das macht `tdd-review`.
-- **Selbstprüfung vorhanden?** (nur Maintainer-Prüfung) Sie zählt, wenn der Kommentar „Selbstprüfung“ den aktuellen Commit nennt (als Stand oder im Nachtrag zum Nachbessern), in einem frischen Agenten oder durch eine andere Person lief und alle vier Fragen mit Beleg beantwortet. Dann die Schritte 1 bis 4 nachprüfen statt neu machen: jede Zeile mit ✗, „teilweise“ oder „nicht prüfbar“, jede offene Frage und jeden Punkt des Nachtrags am Commit ansehen; „Wollen wir das?“ und den „Besseren Weg“ aus Schritt 3 beantwortet die prüfende Person selbst, die Selbstprüfung liefert nur die Belege; ist die Änderung fachlich heikel (Schritt 2), mindestens eine Quelle selbst lesen und einen Fall selbst gegenrechnen; bei den Regeln Stichproben. Stimmt etwas davon nicht, die Schritte 1 bis 4 ganz machen. Fehlen bei einem Autor ohne Schreibrecht Selbstprüfung oder unabhängiges Review oder reichen sie nicht bis zu seinem letzten Commit, und geht es nicht um Nachbesserungen auf unsere Befunde oder, mit unabhängigem Review, um eine reine Testdaten-Änderung: nicht prüfen, sondern das berichten (`docs/mitwirken.md`, Beiträge annehmen, „Selbstprüfung“). Sonst ohne gültige Selbstprüfung alle Schritte; das ist kein Befund.
+- **Selbstprüfung vorhanden?** (nur Maintainer-Prüfung) Zuerst „Vorhandene Selbstprüfung nachprüfen“ in `references/maintainer.md`: ob sie zählt, die Schritte 1 bis 4 also nur nachgeprüft werden, oder ob der Pull Request gar nicht geprüft wird.
 
 ## 1. Wollen wir das?
 
@@ -53,17 +53,10 @@ Je Punkt ein Ergebnis mit Beleg:
 
 Der wichtigste Schritt bei Steuer, Buchung und Formaten: Hier sind Code und Test gemeinsam falsch und trotzdem grün. Ein grüner Test zeigt nur, dass der Code tut, was der Autor dachte.
 
-**Zuerst: fachlich heikel?** Ja, wenn die Änderung beeinflussen kann, was gebucht, versteuert, an ELSTER oder die Sozialversicherung gemeldet, ausgewertet oder festgeschrieben wird: Konten und Buchungssätze, Steuersätze und -beträge, Rundung, Ist und Soll, Fristen, Kennzahlen und XML für ELSTER, EÜR, Bilanz und E-Bilanz, Lohn, AfA, DATEV-Export, Siegel, Sperren und Audit-Kette, Migrationen auf bestehenden Daten. Anhaltspunkte im Diff: `packages/core`, `packages/elster`, die Module `buchhaltung`, `umsatzsteuer`, `elster`, `jahreserklaerung`, `auswertungen`, `lohn`, `sv-meldungen`, `ausschuettung`, `finanzamt`, Buchungslogik in `bank`, `belege`, `rechnungen`, und `apps/web/drizzle`. Im Zweifel: heikel.
+**Zuerst: fachlich heikel?** Ja, wenn die Änderung beeinflussen kann, was gebucht, versteuert, an ELSTER oder die Sozialversicherung gemeldet, ausgewertet oder festgeschrieben wird: Konten und Buchungssätze, Steuersätze und -beträge, Rundung, Ist und Soll, Fristen, Kennzahlen und XML für ELSTER, EÜR, Bilanz und E-Bilanz, Lohn, AfA, DATEV-Export, Siegel, Sperren und Audit-Kette, Migrationen auf bestehenden Daten. Anhaltspunkte: der Hinweis „Fachlich heikel“ im Kommentar von „PR-Regeln“ (Pfade in `HEIKEL`, `scripts/pr-regeln/regel.ts`), dazu Buchungslogik in `bank`, `belege` und `rechnungen`, die kein Pfad erkennt. Im Zweifel: heikel.
 
 - **Nicht heikel** (Oberfläche, Doku, Import ohne Buchungslogik, Werkzeuge): Schritt 2 mit „betrifft nicht“ abschließen. Hängt doch ein Detail an einem Format oder Fremdsystem (CSV einer Bank, API von Enable Banking oder Lexware Office), nur diese Stelle an der Formatbeschreibung prüfen.
-- **Heikel:** die volle Prüfung:
-  - Jede fachliche Aussage im Diff sammeln (Konto, Kennzahl, Frist, Satz, Rundung, Feld eines Formats, Business Term).
-  - Steht die Primärquelle im Kommentar und in der Commit-Nachricht? Fehlt sie, ist das ein Befund.
-  - Die Quelle selbst lesen und die Aussage daran prüfen, nicht nur ihr Dasein: Gesetz (gesetze-im-internet.de), BMF-Schreiben, Formularanleitung, ERiC-Dokumentation, EN 16931/XRechnung, DATEV-Formatbeschreibung, SKR03/SKR04 im Stand aus `scripts/jahreswerte/datev.ts`. Das Gesetz geht vor DATEV. Ratgeber und Blogs sind keine Quelle. GitHub-Quellen flach in den Scratchpad klonen.
-  - Gilt die Regel für **SKR03 und SKR04**, **Ist und Soll**, **Einzelunternehmen und GmbH**, und für das richtige Jahr (Rechtsstand, Übergangsregeln)?
-  - **Gegenrechnen:** für den typischen Fall und einen Randfall (Gutschrift, Jahreswechsel, Kleinunternehmer, Reverse Charge, Teilzahlung, was passt) das Ergebnis selbst aus der Quelle herleiten (Buchungssätze, Beträge in Cent, Kennzahlen, XML-Feld) und mit den Erwartungen in den Tests des Pull Requests vergleichen. Stimmt eine Erwartung nicht mit der Quelle überein, ist das ein Befund; der Test dazu entsteht in `tdd-review`.
-  - Fehlt ein fachlicher Fall ganz, den die Quelle regelt und Nutzer von Haben haben, ist das ein Befund für „Vollständig“.
-  - Ergebnis je Aussage: bestätigt (Quelle, Fundstelle), widerspricht (Zitat), nicht prüfbar (warum, z. B. braucht Steuerberatung). Nicht Prüfbares nicht als bestätigt melden.
+- **Heikel:** die volle Prüfung nach `references/fachlich.md`.
 
 ## 3. Die einfachste und beste Lösung?
 
@@ -80,92 +73,19 @@ Die Maßstäbe stehen in `docs/mitwirken.md`, „Beiträge annehmen“, Frage 3.
 
 ## 4. Regeln
 
-Was ein Skript prüft (Lint, Modulgrenzen, Dateigröße, Seitenabdeckung, Titel, Issue-Verweise, Doku-Hinweis, Feldvertrag, `TRUNCATE`-Trigger), steht im Kommentar von „PR-Regeln“ und in den Checks; das nur übernehmen, nicht nachbauen. Von Hand prüfen, je Punkt ✓, ✗ mit Datei und Zeile, oder „betrifft nicht“:
-
-- **Tests:** Zu jeder geänderten Funktion ein Test, der das neue Verhalten zeigt; ein Bugfix beginnt mit einem Test, der ohne den Fix rot ist (Commit-Reihenfolge ansehen); Buchung und Steuer mit SKR03 und SKR04, Ist und Soll; Postgres-Test neben dem Modul für Server und Datenbank, Playwright für das, was ein Nutzer klickt; neue Seiten in `e2e/seiten.spec.ts` und `e2e/barrierefreiheit.spec.ts`.
-- **Keine Tests geschwächt:** im Diff nach entfernten `it(`/`test(`, `.skip`, `.only`, `.todo`, `test.fixme`, gelockerten Erwartungen (`toBeCloseTo` statt `toBe`, weniger Felder in `toEqual`), geänderten Erwartungswerten ohne Grund in der Beschreibung, erhöhten Timeouts, `--passWithNoTests` suchen. Was übersprungen wurde, muss in der Beschreibung stehen.
-- **Doku:** Die Nutzerseite in `docs/`, die das Verhalten beschreibt, ist geändert und stimmt mit dem Code überein; neue Seiten mit `description:` und in `mkdocs.yml`; README nur bei neuem oder wegfallendem Bereich. Bei neuen Feldern der Belegvorlagen: Feldvertrag, `bun scripts/feldvertrag/schreiben.ts` gelaufen, kein Feld einer veröffentlichten Version entfernt, umbenannt oder umgetypt.
-- **Geld und Zahlen:** ganze Cent, Basispunkte, Tausendstel; keine `parseFloat`, `toFixed`, `Number(…)`, `/ 100` oder `* 1.19` an Beträgen; Rundung wie in der Quelle.
-- **GoBD:** keine bestehende Migration geändert (`git diff --name-status origin/main...pr-<nr> -- apps/web/drizzle`: nur `A`), `drizzle/meta/` erzeugt und nicht von Hand, keine Spalte einer versiegelten Tabelle umbenannt, gelöscht oder neu berechnet, kein Trigger gelockert; neue Tabellen mit Audit-Trigger und, wo nötig, `TRUNCATE`-Trigger; Schreiben über `withActor`; Korrekturen als neue Datensätze. Fasst der Diff Audit-Log, Hash-Kette, Siegel, Sperren, Dateispeicher oder Prüfwert an, nutzt er die vorhandenen Bausteine statt eigener (`docs/entwicklung.md`, „GoBD-Bausteine gibt es einmal“): `grep` im Diff nach `audit_log`, `sha256`/`createHash`, neuen Trigger-Funktionen.
-- **Pakete:** Baut der Diff in der App etwas nach, wofür es ein Paket gibt (ELSTER-XML, PDF oder E-Rechnung, Parser für Kontoauszüge, Fachlogik ohne Datenbank), statt das Paket zu erweitern (`docs/entwicklung.md`, „Jedes Paket ist die einzige Stelle für sein Thema“)?
-- **Übrige Konventionen:** Geheimnisse nur in `ciphertext`, ERiC nur im Kindprozess, Server-Funktionen dünn, funktional ohne Klassen, Deutsch außer Bezeichnern.
-- **Länge:** Jede Funktion, die „PR-Regeln“ als neu oder gewachsen über 80 Zeilen nennt, ist ein Befund „vor dem Merge nötig“, auch mit Grund in der Beschreibung; teilen darf die prüfende Person selbst (Kleinigkeit). Alte lange Funktionen, die der Pull Request nicht verlängert, sind kein Befund (`docs/mitwirken.md`, „Wenn eine Prüfung anschlägt“).
-- **Oberfläche:** `DESIGN.md` eingehalten und bei neuer Gestaltungsregel mitgeändert; Screenshots vorher und nachher, hell und dunkel, wo nötig am Handy.
-- **Pull Request:** Titel `Bereich: was sich ändert (#Issue)`; Beschreibung nennt alles, was sich ändert, das Ergebnis statt des Wegs, was lokal lief und was übersprungen wurde, `Umgesetzt #…` oder `Refs #…`; KI-Kennzeichnung (`Co-Authored-By:` in Commits, „🤖 Generated with …“ in der Beschreibung), wenn ein Agent beteiligt war; Entwurf oder „Ready for review“; CI-Stand.
+Was ein Skript prüft (Lint, Modulgrenzen, Dateigröße, Seitenabdeckung, Titel, Issue-Verweise, Doku-Hinweis, Feldvertrag, `TRUNCATE`-Trigger), steht im Kommentar von „PR-Regeln“ und in den Checks; das nur übernehmen, nicht nachbauen. Den Rest von Hand nach `references/regeln.md`.
 
 ## Selbstprüfung
 
-Nur für den eigenen Pull Request, statt der Schritte 5 bis 7; Urteil, Übernehmen und Merge bleiben beim Maintainer.
+Nur für den eigenen Pull Request, statt der Schritte 5 bis 7: nachbessern, Kommentar posten und unabhängiges Review mitbringen nach `references/selbstpruefung.md`.
 
-- **Selbst nachbessern:** Was nach den Schritten 1 bis 4 fehlt oder falsch ist, behebt der Beitragende mit eigenen Commits: ein fachlicher Fehler zuerst mit rotem Test, geprüft nach `checks`, die Beschreibung nachgezogen. Die Selbstprüfung läuft einmal: Danach bekommt der Kommentar einen Nachtrag mit dem neuen Stand und je behobenem Punkt dem Commit, ohne neue Prüfrunde; ob der Code danach stimmt, prüft das unabhängige Review im nächsten Punkt. Ganz neu, wieder in einem frischen Agenten, nur wenn das Nachbessern Umfang oder Ansatz ändert (ein Thema mehr oder weniger, ein anderer Lösungsweg).
-- **Kommentar im Pull Request:** Der Aufruf des Skills ist die Zustimmung dazu. Ein Kommentar je Pull Request; der Nachtrag zum Nachbessern kommt in denselben Kommentar. Was der Beitragende nicht entscheiden kann (ob die Änderung gewollt ist, eine Quelle, die nicht eindeutig ist), steht als offene Frage darin, nicht als erfüllt. Am Ende die Kennzeichnung als von Claude Code erzeugt.
+## 5. bis 7. Urteil, Fertigmachen, Merge
 
-```
-## Selbstprüfung (beitrag-pruefen)
-Stand: <Commit-SHA>, geprüft in einem frischen Agenten ohne den Verlauf der Entstehung
-
-### Wollen wir das?            <je Punkt ein Satz mit Beleg; ohne Issue: „Frage an den Maintainer“>
-### Vollständig                | Akzeptanzkriterium | erfüllt, teilweise oder fehlt | Datei oder Test |
-### Quellen und fachlich       heikel: ja | nein – | Aussage oder Fall | Quelle, Fundstelle | Ergebnis |
-### Einfachste und beste Lösung?  <was gestrichen wurde oder warum es so bleibt; besserer Weg mit Stelle oder „keiner“>
-### Regeln                     | Regel | Ergebnis | Stelle |  (nur ✗ und „betrifft nicht“, „Rest ✓“)
-### Offene Fragen an den Maintainer
-### Nachtrag: nachgebessert bis <Commit-SHA>   <je Punkt: vorher → jetzt, Commit; nur nach dem Nachbessern>
-```
-
-- **Unabhängiges Review mitbringen:** Danach Code nach Skill `tdd-review`, Markdown nach Skill `doku-pruefen`, bei beidem parallel, je in einem frischen Agenten (Skill `beitrag`, Schritt 6).
-
-## 5. Urteil
-
-Aus den Schritten 1 bis 4 eines von drei Ergebnissen:
-
-- **Gleich mergen:** gewollt, fachlich richtig, einfach, kein besserer Weg, Regeln eingehalten. Weiter mit Schritt 7.
-- **Übernehmen und fertig machen:** gewollt und der Weg stimmt, aber etwas fehlt oder ist falsch (Doku, Tests, Quellenangabe, fachlicher Fehler mit eindeutiger Quelle, Vereinfachung, Regelverstoß). Weiter mit Schritt 6.
-- **Anhalten:** nicht gewollt, grundsätzlich falscher Ansatz, mehrere Themen, eine Entscheidung für den Maintainer oder eine fachliche Frage ohne eindeutige Quelle. Nichts posten, nichts ändern; der prüfenden Person in dieser Form berichten und auf ihr Wort warten:
-
-```
-## <PR-Link> – <Titel>
-**Angehalten, weil:** <ein Satz>
-**Vorschlag:** Ablehnen | Teilen | <Entscheidung> – <zwei bis drei Sätze, mit besserem Weg, wenn es einen gibt>
-
-### Wollen wir das?            <je Punkt ein Satz mit Beleg>
-### Quellen und fachlich       | Aussage oder Fall | Quelle, Fundstelle | Ergebnis |
-### Einfachste und beste Lösung?  <was sich streichen ließe, besserer Weg, je mit Stelle; sonst „passt“>
-### Regeln                     | Regel | Ergebnis | Stelle |  (nur ✗, „Rest ✓“)
-### Fragen an dich
-```
-
-  Ablehnen und Schließen entscheidet der Maintainer. Lehnt er ein Thema grundsätzlich ab, eine Zeile für „Bewusst nicht“ in `docs/roadmap.md` vorschlagen (eigener Pull Request).
-
-## 6. Übernehmen und fertig machen
-
-- **Kleinigkeit oder Lücke?** Kleinigkeiten (Doku, ein fehlender Test, Quellenangabe, Titel oder Beschreibung, Regelverstoß ohne Umbau) machen wir sofort selbst. Fehlt mehr (ein Akzeptanzkriterium, ein fachlicher Fehler, eine Vereinfachung mit Umbau), fragt der Kommentar zuerst, ob der Beitragende selbst nachbessern will, mit Frist von zwei Tagen als Datum: „Willst du das selbst machen? Wenn bis <Datum> nichts kommt, übernehmen wir es.“ Dann hier anhalten und der prüfenden Person melden, ab wann es weitergeht. Antwortet niemand bis dahin oder bittet der Beitragende darum, weiter mit „Ergänzen“; bessert er selbst nach, mit Schritt 1 auf dem neuen Stand.
-- **Kommentar im Pull Request**, bevor die ersten Commits kommen: nach „Umgangston“ Dank, was gut ist, und was wir noch ergänzen (bei einer Lücke mit der Frage und der Frist von oben), als Liste mit Grund und Link auf Regel oder Quelle. Keine Duplikate des „PR-Regeln“-Kommentars. Am Ende die Kennzeichnung als von Claude Code erzeugt.
-- **Ergänzen:** je Punkt eigene Commits auf den Branch des Pull Requests, wie in `tdd-review`, Schritt 4 (Commits des Beitragenden nie umschreiben; bei einem fremden Fork nach Skill `fork-pushen`). Ein fachlicher Fehler beginnt mit einem roten Test. Geprüft nach `checks`.
-- **Beschreibung nachziehen:** Sie nennt danach alles, was der Pull Request tut, auch unsere Ergänzungen; sie wird der Squash-Commit.
-- Danach ist diese Session fürs TDD-Review nicht mehr unabhängig: weiter mit Schritt 7 über einen Subagenten nach `tdd-review`, Schritt 0.
-
-## 7. TDD-Review und Merge
-
-- **Review schon mitgebracht?** Wann es zählt, steht in `docs/mitwirken.md`, Review, Punkt 1. Im Pull Request nachsehen: Hinweis auf frischen Agenten oder andere Person, je Befund ein roter Test mit Commits für Test und Fix, ein Abschlusskommentar ohne spätere Commits, CI auf dem aktuellen Stand grün; dasselbe Konto für Autor und Reviewer ist kein Hindernis. Fehlt ein Merkmal, haben wir nach Schritt 6 Commits ergänzt oder lässt Schritt 2 einen Zweifel offen: eigenes Review.
-- Sonst Skill `tdd-review` bis zum Merge, mit dessen Regeln für Runden und CI; Markdown im PR parallel nach `doku-pruefen` (`tdd-review`, Schritt 0). Ohne eigene Commits in dieser Session darf sie das Review selbst machen.
-- **Nicht heikel** (nach Schritt 2): mergen per Squash, sobald die CI auf dem aktuellen Stand grün ist und Titel und Beschreibung passen. Der Aufruf durch den Maintainer genügt; ein Collaborator holt vorher seine Zustimmung ein.
-- **Heikel** (nach Schritt 2): bis grün fertig machen, dann nicht mergen, sondern dem Maintainer in höchstens fünf Zeilen berichten und auf sein „OK“ warten:
-
-```
-<PR-Link> – fachlich: <was sich an Buchung, Steuer oder Meldung ändert, ein Satz>
-Quelle: <Fundstelle> – gegengerechnet: <Fall: erwartet = Test>, <Randfall: erwartet = Test>
-Ergänzt von uns: <Commits in einem Halbsatz>; TDD-Review: <Befunde, behoben>
-Bestehende Daten: <was beim Update passiert, oder „unberührt“>
-Offen oder unsicher: <oder „nichts“>  –  CI grün, bereit zum Merge
-```
-
-  Erst nach dem „OK“ mergen; ein Collaborator holt es beim Maintainer ein. Kommen Fragen, sie beantworten oder nachbessern, nicht ohne „OK“ mergen.
-- Hält `tdd-review` an (offener schwerer Befund nach vier Runden, fachliche Entscheidung), nicht mergen und berichten.
-- Nach dem Merge ein kurzer Dank im Pull Request: was die Änderung den Nutzern bringt, dass sie mit dem nächsten Release kommt, gern eine passende nächste Karte oder `einstieg`.
+Nur Maintainer-Prüfung: nach `references/maintainer.md`. Die Berichtsvorlagen stehen in `references/vorlagen.md`.
 
 ## Abschlussbericht
 
 Selbstprüfung: PR-Link, Link zum Kommentar, was nachgebessert wurde (Commits), offene Fragen an den Maintainer.
 
 Maintainer-Prüfung: PR-Link, Urteil, ob eine Selbstprüfung genutzt wurde, was gepostet und selbst ergänzt wurde (Commits), Stand von TDD-Review und Checks, gemergt oder woran es hängt.
+

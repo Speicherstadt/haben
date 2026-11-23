@@ -28,6 +28,8 @@ the change before starting.
 | Releasing a version | `entwicklung.md`: Veröffentlichen, Release Candidates | `release` |
 | Yearly official values (PAP, social insurance, ERiC, taxonomy, laws) | `entwicklung.md`: Jahreswerte | `jahreswerte` |
 | Quick search (command palette): new group or field | `architektur.md`: Schnellsuche, `suche.md` | `schnellsuche-erweitern` |
+| Writing or changing a skill (description, `references/`) | `entwicklung.md`: Befehle, „Skills“ | |
+| Who may merge what | `mitwirken.md`: Wer mergt was | |
 | Rules a script checks | `mitwirken.md`: Automatische Prüfungen der Regeln | |
 
 Modules, the audit hash chain and seals: `docs/architektur.md`, tables: `docs/architektur-datenmodell.md`; the user page of the area

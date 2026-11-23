@@ -90,6 +90,8 @@ Was sich sicher entscheiden lässt, prüft ein Skript; was nicht, erscheint als 
 | Doku zum geänderten Verhalten | `scripts/pr-regeln/`: Code unter `apps/web/src`, `apps/firmenportal/src` oder `packages/*/src` ohne Änderung in `docs/` | Hinweis |
 | Bugfix beginnt mit einem Test | `scripts/pr-regeln/`: `fix`-Commit ohne geänderten Test | Hinweis |
 | Selbstprüfung und unabhängiges Review mitbringen ([Beiträge annehmen](#beiträge-annehmen)) | `scripts/pr-regeln/`: Pull Request außerhalb des Entwurfs von jemandem ohne Schreibrecht, nennt `tdd-review` für Code, `doku-pruefen` für Markdown (`docs/`, `mkdocs.yml`, `LICENSE`), bei beidem beide | Hinweis |
+| Fachlich heikle Pfade: Merge erst nach „OK“ des Maintainers ([Wer mergt was](#wer-mergt-was)) | `scripts/pr-regeln/`: Dateien unter `HEIKEL` in `regel.ts` | Hinweis |
+| Skills: Beschreibung höchstens 320 Zeichen, Hauptteil höchstens 1.500 Wörter (außer erzeugten), jede Datei unter `references/` in `SKILL.md` genannt und vorhanden ([Befehle](entwicklung.md#befehle), „Skills“) | `scripts/skills/` in `bun run lint` | Fehler |
 | Jedes Feld der Belegvorlagen im Feldvertrag, mit Beschreibung | `layout-schema.test.ts` in `bun run test` | Fehler |
 | Kein Feld einer Version fällt weg, wird umbenannt oder wechselt den Typ | `layout-schema.test.ts` gegen `layout-schema.v<n>.json` | Fehler |
 | Alte Layouts ergeben mit heutigen Daten ein PDF | `layout-kompatibel.test.ts` mit `templates/kompatibel/` | Fehler |
@@ -178,6 +180,16 @@ Jeder Pull Request mit Code bekommt vor dem Merge ein unabhängiges **TDD-Review
 6. **Merge:** durch einen Maintainer oder, mit dessen Zustimmung, einen Collaborator, immer per **Squash** des Pull Requests selbst; vorher passen Titel und Beschreibung zum Stand. Bei einem Ersatz-Pull-Request steht `Co-authored-by:` mit dem Beitragenden in der Beschreibung, und sein Pull Request wird mit Link auf den Ersatz geschlossen.
 
 **Runden:** Eine; eine zweite nur, wenn die erste Fixes am Code gebracht hat, denn die hat sonst niemand geprüft. Ein Codex- oder anderes KI-Review zählt zur selben Runde und prüft denselben Stand. Weitere Runden nur nach einem schweren Befund (Sicherheit, falsche Buchung oder Steuer, GoBD, Datenverlust), und nur für den Fix; höchstens vier Runden. Bleibt danach ein schwerer Befund offen, wird nicht gemergt, und der Maintainer entscheidet, ob der Pull Request geteilt oder neu angesetzt wird. Befunde, die nur mit konstruierten Eingaben auftreten, werden notiert, nicht behoben, außer bei Sicherheit.
+
+### Wer mergt was
+
+| Änderung | Gemergt wird |
+| --- | --- |
+| Alles nach Review (und Doku-Prüfung) bei grüner CI auf dem aktuellen Stand | vom Maintainer, von einem Collaborator mit dessen Zustimmung oder von einem Agenten, den der Maintainer dafür aufgerufen hat (Skills `beitrag-pruefen`, `prs-abarbeiten`) |
+| Fachlich heikel: was gebucht, versteuert, an ELSTER oder die Sozialversicherung gemeldet oder festgeschrieben wird, dazu Migrationen auf bestehenden Daten | erst nach einem „OK“ des Maintainers auf eine kurze Zusammenfassung mit Quelle und Gegenrechnung ([Beiträge annehmen](#beiträge-annehmen)); „PR-Regeln“ weist bei den Pfaden in `HEIKEL` (`scripts/pr-regeln/regel.ts`) darauf hin, Buchungslogik anderswo erkennt die Prüfung selbst |
+| Ohne Issue, grundsätzliche Entscheidung, Ablehnen | entscheidet der Maintainer zuerst |
+| Release | nur nach ausdrücklichem „OK“ des Maintainers ([Veröffentlichen](entwicklung.md#veröffentlichen)) |
+| Rote CI, offener schwerer Befund nach vier Runden, Code ohne unabhängiges Review | nicht |
 
 Haben steht unter der AGPL-3.0.
 
