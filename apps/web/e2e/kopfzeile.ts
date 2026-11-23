@@ -2,7 +2,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 
 /**
  * Prüfungen zum festen Seitenkopf, für kopfzeile.spec.ts und für Durchläufe mit eigenen Daten
- * (das Angebot in rechnungen.spec.ts).
+ * (das Angebot in rechnungen-angebote.spec.ts).
  */
 
 /** Laptop mit 14 Zoll (#355) und Handy */

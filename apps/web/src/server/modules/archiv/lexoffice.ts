@@ -2,6 +2,7 @@ import { accountingTypeKinds, type AccountingTypeKinds, accountingTypeUnclear, t
 import { INTERNAL_ERROR, isUniqueViolation, UserError, userMessage } from "../../errors.ts";
 import { truncatedNumberMatches } from "./datev-belegnummer.ts";
 import { datevBookingCounts } from "./datev-abgleich.ts";
+import { ohneSevdeskExportBelegbildSql } from "./sevdesk-export-abgleich.ts";
 import { effectivePayment, paymentHistoryIssue, unclearFrom, visiblePayment } from "../auswertungen/index.ts";
 import { accountingTypeDecidable, accountingTypeIssue } from "./sevdesk-kontoart.ts";
 import { effectiveAmount, effectiveContactName, effectiveDirection, effectiveTaxes, effectiveType } from "../auswertungen/index.ts";
@@ -585,6 +586,7 @@ export function fallbackName(voucher: Pick<LegacyVoucher, "number" | "lexofficeI
 
 export async function listLegacyVouchers(filter: { year: number; direction: "alle" | "einnahme" | "ausgabe"; search: string; ohneDatei: boolean }) {
   const term = filter.search.trim() ? `%${filter.search.trim()}%` : null;
+  const hatDatei = sql`exists (select 1 from lexoffice_voucher_files f where f.voucher_id = v.id)`;
   const rows = await db.execute<{
     id: string;
     source: LegacySource;
@@ -612,8 +614,10 @@ export async function listLegacyVouchers(filter: { year: number; direction: "all
       ${
         // Vorauswahl vor dem Limit; welcher Stand offen ist, entscheidet legacyFileStatus unten
         filter.ohneDatei
-          ? sql`and not coalesce((v.raw->>'ohneBeleg')::boolean, false) and (not exists (select 1 from lexoffice_voucher_files f where f.voucher_id = v.id)
-              or ${latestFileStateSql("v")} in ('abruf_fehlgeschlagen', 'anhang_fehlt'))`
+          ? sql`and not coalesce((v.raw->>'ohneBeleg')::boolean, false) and (
+              (not ${hatDatei} and not ${ohneSevdeskExportBelegbildSql("v")})
+              or (${hatDatei} and ${latestFileStateSql("v")} in ('abruf_fehlgeschlagen', 'anhang_fehlt'))
+            )`
           : sql``
       }
     order by v.date, v.number
@@ -782,7 +786,7 @@ async function abgleichBelege(rechtsform: Rechtsform) {
         taxSetId: customTaxSetId("lexoffice_vouchers"),
         ohneBeleg: WITHOUT_RECEIPT,
         fileState: latestFileStateSql("lexoffice_vouchers"),
-        ohneBelegbild: sql<boolean>`coalesce((lexoffice_vouchers.raw->>'ohneBelegbild')::boolean, false)`,
+        ohneBelegbild: ohneSevdeskExportBelegbildSql("lexoffice_vouchers"),
         privat: sql<boolean>`coalesce((lexoffice_vouchers.raw->>'privat')::boolean, false)`,
         bbNeutral: sql<boolean>`coalesce((lexoffice_vouchers.raw->>'neutral')::boolean, false)`,
         accountingTypeUnclear: accountingTypeUnclear("lexoffice_vouchers"),

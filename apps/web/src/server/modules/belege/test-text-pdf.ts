@@ -1,12 +1,12 @@
 /** Für Tests: PDFs mit Textschicht ohne weiteres Werkzeug (#329) */
 
-/** Kleinstes PDF mit Textschicht, je Eintrag eine Seite (Helvetica, Text als Literal); leere Einträge sind Seiten ohne Text */
+/** Kleinstes PDF mit Textschicht, je Eintrag eine Seite (Helvetica, Latin-1-Text); leere Einträge sind Seiten ohne Text */
 export function textPdf(pages: string[]): Uint8Array {
   const objects: string[] = [];
   const add = (body: string) => objects.push(body);
   const catalog = add("<< /Type /Catalog /Pages 2 0 R >>");
   add("PAGES");
-  const font = add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+  const font = add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
   const kids: number[] = [];
   for (const text of pages) {
     const lines = text.split("\n").map((line, i) => `BT /F1 11 Tf 50 ${780 - i * 14} Td (${line.replace(/[()\\]/g, (c) => `\\${c}`)}) Tj ET`);
@@ -24,5 +24,5 @@ export function textPdf(pages: string[]): Uint8Array {
   const xref = out.length;
   out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, "0")} 00000 n \n`).join("")}`;
   out += `trailer\n<< /Size ${objects.length + 1} /Root ${catalog} 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
-  return new TextEncoder().encode(out);
+  return Uint8Array.from(out, (char) => char.charCodeAt(0));
 }

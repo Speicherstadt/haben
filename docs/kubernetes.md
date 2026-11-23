@@ -163,7 +163,8 @@ Mit `postgresql.enabled: false` startet keine Datenbank. Die Zugänge stehen dan
 die App-Rolle und, für [getrennte Rollen](installation-konfiguration.md#getrennte-datenbankrollen), `MIGRATION_DATABASE_URL`
 für den Eigentümer, bei CloudNativePG etwa über den `-rw`-Service. Ein Pooler davor muss im Sitzungsmodus laufen, siehe
 [Image](installation.md#image). Das Backup braucht den Eigentümerzugang auch: `PGHOST`, `PGUSER` und `PGDATABASE` unter `backup.env`, `PGPASSWORD`
-unter `backup.secretEnv`. Schaltest du es ab, weil der Operator die Datenbank sichert, fehlen im Backup die Belege.
+unter `backup.secretEnv`. Es bringt `pg_dump` für PostgreSQL 16 bis 19 mit. Schaltest du es ab, weil der Operator die
+Datenbank sichert, fehlen im Backup die Belege.
 
 ## Ingress und Gateway API
 
