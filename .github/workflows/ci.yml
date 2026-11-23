@@ -117,13 +117,44 @@ jobs:
         env:
           TEST_DATABASE_URL: postgres://haben:haben@localhost:5432/haben_test
 
+  # Die Prüfsumme der Sperren (#1683) muss auf jeder Unterversion von PostgreSQL 19 dieselbe sein wie in den Release Notes.
+  # test-teil prüft sie auf der neuesten (postgres:19, wie das Image tristanteu/haben-db), dieser Job auf der ältesten.
+  sollbestand-postgres:
+    needs: changes
+    if: ${{ !cancelled() && !github.event.pull_request.draft && needs.changes.outputs.code != 'false' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:19.0
+        env:
+          POSTGRES_USER: haben
+          POSTGRES_PASSWORD: haben
+          POSTGRES_DB: haben_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U haben -d haben_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - name: Prüfsumme der Sperren auf PostgreSQL 19.0
+        run: bun --bun vitest run apps/web/src/server/db/trigger-inventory.pruefsumme.test.ts
+        env:
+          TEST_DATABASE_URL: postgres://haben:haben@localhost:5432/haben_test
+
   # Ein Ergebnis für die Regeln auf main (geforderter Check „test“), egal in wie viele Teile die Tests zerfallen
   test:
     if: ${{ always() && !github.event.pull_request.draft && needs.changes.outputs.code != 'false' }}
-    needs: [changes, test-teil]
+    needs: [changes, test-teil, sollbestand-postgres]
     runs-on: ubuntu-latest
     steps:
       - run: test "${{ needs.test-teil.result }}" = success
+      - run: test "${{ needs.sollbestand-postgres.result }}" = success
 
   # Feste Teile parallel: welche Projekte in welchem Teil laufen, steht in apps/web/e2e/durchlaeufe.ts (TEILE);
   # jeder Teil startet nur seine Server. Dazu SSO als eigener Teil. Gebaut wird in jedem Teil, das läuft parallel

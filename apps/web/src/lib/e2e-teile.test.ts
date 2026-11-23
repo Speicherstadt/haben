@@ -47,7 +47,7 @@ describe("TEILE", () => {
 
   it("liest E2E_TEIL: ohne Angabe alle, unbekannt bricht ab", () => {
     expect(projekteFuerTeil("")).toBeUndefined();
-    expect(projekteFuerTeil("rechnungen")).toEqual(["rechnungen"]);
+    expect(projekteFuerTeil("rechnungen")).toEqual(["rechnungen", "rechnungen-kontakte", "rechnungen-artikel", "rechnungen-kasse", "rechnungen-angebote"]);
     expect(() => projekteFuerTeil("gibt-es-nicht")).toThrow("unbekannt");
   });
 });

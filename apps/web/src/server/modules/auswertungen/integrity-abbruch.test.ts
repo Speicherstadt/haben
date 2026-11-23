@@ -88,28 +88,53 @@ describe.skipIf(!testDatabaseUrl)("Abgebrochene Prüfung von Kette und Siegeln (
     await sql?.end();
   });
 
-  const abgebrochen = /Prüfung von Kette und Siegeln abgebrochen: division by zero/;
+  const unauswertbar = /Standardwert von vat_returns\.kz41 lässt sich nicht auswerten: division by zero/;
 
-  it("Standardwert, der sich nicht auswerten lässt: Bericht mit Befund statt Ausnahme, auch der des Sollbestands", async () => {
+  it("Standardwert, der sich nicht auswerten lässt: Befund an der Spalte, die Prüfung läuft durch (#1716)", async () => {
     expect((await integrity.checkIntegrity()).problems).toEqual([]);
     await sql`alter table vat_returns alter kz41 set default (1/0)`;
+    // Die Prüffunktion selbst meldet die Spalte und bricht nicht ab; die übrigen Siegel bleiben ohne Befund
+    const befunde = await sql<{ art: string; tabelle: string; befund: string }[]>`select art, tabelle, befund from haben_integrity_problems()`;
+    expect(befunde).toEqual([{ art: "sperre", tabelle: "vat_returns", befund: expect.stringMatching(unauswertbar) }]);
     const report = await integrity.checkIntegrity();
-    expect(report.problems).toContainEqual(
-      expect.objectContaining({ art: "sperre", tabelle: "haben_integrity_problems", befund: expect.stringMatching(abgebrochen) }),
-    );
+    expect(report.problems).toContainEqual(expect.objectContaining({ art: "sperre", tabelle: "vat_returns", befund: expect.stringMatching(unauswertbar) }));
+    expect(report.problems.filter((p) => p.tabelle === "haben_integrity_problems" || p.art === "siegel")).toEqual([]);
     // Der Vergleich mit dem Sollbestand (#1591) meldet den geänderten Standardwert weiter
     expect(report.problems.some((p) => p.art === "sperre" && p.tabelle !== "haben_integrity_problems" && /kz41/.test(`${p.tabelle} ${p.befund}`))).toBe(true);
     // Kopf und Anzahlen aus derselben Transaktion kommen trotzdem
     expect(report.head?.seq).toBeGreaterThan(0);
+    // „Vergleichen“ mit dem richtigen Prüfwert: unbestätigt, weil der Sollbestand abweicht, keine Ausnahme
+    expect(await integrity.checkPruefwert(report.head!.seq, report.head!.hash)).toMatchObject({ status: "unbestaetigt" });
   }, 60_000);
 
-  it("die Prüfwert-Mail geht hinaus und nennt die abgebrochene Prüfung und den Befund des Sollbestands", async () => {
+  it("die Prüfwert-Mail geht hinaus und nennt den nicht auswertbaren Standardwert und den Befund des Sollbestands", async () => {
     const result = await pruefwertMail.runDuePruefwertMail(at(1));
     expect(result).toMatchObject({ problems: expect.any(Number) });
     expect(sent).toHaveLength(1);
     expect(sent[0]!.subject).toMatch(/^Haben: Änderungsprotokoll mit Befunden/);
-    expect(sent[0]!.text).toMatch(abgebrochen);
+    expect(sent[0]!.text).toMatch(unauswertbar);
     expect(sent[0]!.text).toMatch(/kz41/);
+  }, 60_000);
+
+  it("geänderter Wert hinter dem nicht auswertbaren Standardwert: Befunde bleiben, nach dem Zurücksetzen meldet das Siegel ihn", async () => {
+    // Direkt an den Sperren vorbei, ohne Eintrag im Audit-Log: Den Wert prüft das ältere Siegel nur am Standardwert
+    await sql.begin(async (tx) => {
+      await tx`set local session_replication_role = replica`;
+      await tx`update vat_returns set kz41 = 4711 where id = ${VORANMELDUNG}`;
+    });
+    const report = await integrity.checkIntegrity();
+    expect(report.problems).toContainEqual(expect.objectContaining({ art: "sperre", tabelle: "vat_returns", befund: expect.stringMatching(unauswertbar) }));
+    expect(report.problems.some((p) => p.art === "sperre" && /kz41/.test(p.befund) && !unauswertbar.test(p.befund))).toBe(true);
+    // Den gemeldeten Standardwert auf den aus den Migrationen zurückgesetzt: Jetzt fällt der geänderte Wert auf
+    await sql`alter table vat_returns alter kz41 set default 0`;
+    expect((await integrity.checkIntegrity()).problems).toEqual([
+      expect.objectContaining({
+        art: "siegel",
+        tabelle: "vat_returns",
+        zeile: VORANMELDUNG,
+        befund: "Spalte vat_returns.kz41 geändert, die das Siegel nicht abdeckt",
+      }),
+    ]);
   }, 60_000);
 
   it("gelöschte Prüffunktion: Befund statt Ausnahme, die Mail nennt ihn", async () => {
@@ -125,6 +150,11 @@ describe.skipIf(!testDatabaseUrl)("Abgebrochene Prüfung von Kette und Siegeln (
     await pruefwertMail.runDuePruefwertMail(at(9));
     expect(sent).toHaveLength(2);
     expect(sent[1]!.text).toMatch(/Prüfung von Kette und Siegeln abgebrochen/);
+    // „Vergleichen“ ohne Prüffunktion: unbestätigt mit dem Abbruch, nie „ok“ und keine Ausnahme (#1716)
+    const head = (await integrity.chainHead())!;
+    const vergleich = await integrity.checkPruefwert(head.seq, head.hash);
+    expect(vergleich).toMatchObject({ status: "unbestaetigt" });
+    expect(vergleich.status === "unbestaetigt" && vergleich.befunde.some((b) => /Prüfung von Kette und Siegeln abgebrochen/.test(b))).toBe(true);
   }, 60_000);
 
   it("scheitert die Prüfung ganz, geht die Mail trotzdem hinaus und nennt den Fehler", async () => {

@@ -208,10 +208,29 @@ describe("compose.override.yml", () => {
   });
 });
 
-test("Startbefehle stehen so in docs/installation.md", () => {
-  const anleitung = text("docs/installation.md");
+test("Generator und manuelle Anleitung haben dieselben Startschritte nach dem Download", () => {
+  const anleitung = text("docs/installation.md")
+    .replaceAll("\r\n", "\n")
+    .split("## Docker Compose\n")[1]!
+    .split("\n## ")[0]!
+    .replace(/[ \t]+# [^\n]*/g, "");
   const befehle = startCommands(true)
     .split("\n")
-    .filter((line) => line && !line.startsWith("#"));
-  for (const befehl of befehle) expect(anleitung).toContain(befehl);
+    .filter((line) => line && !line.startsWith("#"))
+    .map((line) =>
+      line === "curl -O https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy/compose.yml"
+        ? [
+            "RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)",
+            `TAG=\${RELEASE##*/}`,
+            "RAW=https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy",
+            'curl -fLO "$RAW/compose.yml"',
+          ].join("\n")
+        : line,
+    );
+  let position = 0;
+  for (const befehl of befehle) {
+    const fundstelle = anleitung.indexOf(`\n${befehl}\n`, position);
+    expect(fundstelle, befehl).toBeGreaterThanOrEqual(position);
+    position = fundstelle + befehl.length + 1;
+  }
 });

@@ -11,6 +11,9 @@ export const weitereText = (weitere: number) => (weitere === 0 ? "" : ` (und ${w
 /** Ein Befund als Zeile: „Beleg hosting.pdf: fehlt“ */
 export const dateiBefund = (p: FileProblem) => `${p.art} ${p.datei}: ${p.befund}${weitereText(p.weitere)}`;
 
+/** Anfang des Befunds, wenn haben_integrity_problems abbricht (auswertungen/integrity.ts, #1604, #1716) */
+export const PRUEFUNG_ABGEBROCHEN = "Prüfung von Kette und Siegeln abgebrochen";
+
 /** Meldung nach „Kette prüfen“ oder „Dateien prüfen“: Befunde zuerst, Abweichungen immer dazu, dann Kollisionen */
 export function integrityNotice(result: IntegrityReport): NonNullable<Notice> {
   const differences = result.abgleich.abweichungen.length;
@@ -56,7 +59,7 @@ export function pruefwertNotice(result: PruefwertResult): NonNullable<Notice> {
     case "unbestaetigt":
       return {
         tone: "danger",
-        text: `Prüfwert Nr. ${result.seq} stimmt, die Kette lässt sich aber nicht bestätigen: Die Datenbank weicht vom Sollbestand ab (${result.befunde.length === 1 ? "ein Befund" : `${result.befunde.length} Befunde`}, etwa „${result.befunde[0]}“). Wer Trigger oder Funktionen ändern kann, kann auch das Nachrechnen fälschen. „Kette prüfen“ nennt alle Befunde.`,
+        text: `Prüfwert Nr. ${result.seq} stimmt, die Kette lässt sich aber nicht bestätigen: ${result.befunde.every((b) => b.startsWith(`haben_integrity_problems: ${PRUEFUNG_ABGEBROCHEN}: `)) ? "Das Nachrechnen der Kette ist abgebrochen" : "Die Datenbank weicht vom Sollbestand ab"} (${result.befunde.length === 1 ? "ein Befund" : `${result.befunde.length} Befunde`}, etwa „${result.befunde[0]}“). Wer Trigger oder Funktionen ändern kann, kann auch das Nachrechnen fälschen. „Kette prüfen“ nennt alle Befunde.`,
       };
     case "abweichend":
       return {

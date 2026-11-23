@@ -1,8 +1,7 @@
 import { kleinunternehmerForMonth } from "../stammdaten/index.ts";
-import { leereEuerAusJournal, type EuerAusJournal, type InvoiceTotals, type Kontenrahmen } from "@haben/core";
-import { and, asc, eq, gte, inArray, lt, lte, ne } from "drizzle-orm";
+import { leereEuerAusJournal, type EuerAusJournal, type Kontenrahmen } from "@haben/core";
+import { and, asc, eq, gte, inArray, lt, ne } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
-import { invoiceTotalsById } from "../rechnungen/index.ts";
 import { imEuerJahr } from "./euer-jahreswechsel.ts";
 import {
   ausgleichsBuchungenJe,
@@ -33,23 +32,11 @@ async function ziele(q: Db | Tx, ids: string[]): Promise<Map<string, Ziel>> {
   const a = schema.allocations;
   const w = schema.writeOffs;
   const c = schema.cashEntries;
-  const zahlungsfelder = (t: typeof a | typeof c) => ({
-    id: t.id,
-    invoiceId: t.invoiceId,
-    documentId: t.documentId,
-    amount: t.amount,
-    taxShares: t.taxShares,
-    taxSharesInvoiceId: t.taxSharesInvoiceId,
-  });
   for (const block of bloecke(ids)) {
-    for (const { id, invoiceId, documentId, loanId, ...zahlung } of await q
-      .select({ ...zahlungsfelder(a), loanId: a.loanId })
-      .from(a)
-      .where(inArray(a.id, block)))
-      result.set(id, { invoiceId, documentId, loanId, zahlung });
+    for (const r of await q.select({ id: a.id, invoiceId: a.invoiceId, documentId: a.documentId, loanId: a.loanId }).from(a).where(inArray(a.id, block)))
+      result.set(r.id, r);
     for (const r of await q.select({ id: w.id, invoiceId: w.invoiceId, documentId: w.documentId }).from(w).where(inArray(w.id, block))) result.set(r.id, r);
-    for (const { id, invoiceId, documentId, ...zahlung } of await q.select(zahlungsfelder(c)).from(c).where(inArray(c.id, block)))
-      result.set(id, { invoiceId, documentId, zahlung });
+    for (const r of await q.select({ id: c.id, invoiceId: c.invoiceId, documentId: c.documentId }).from(c).where(inArray(c.id, block))) result.set(r.id, r);
   }
   return result;
 }
@@ -72,7 +59,6 @@ async function firmenKontenrahmen(q: Db | Tx): Promise<Kontenrahmen> {
 
 export interface EuerJournal {
   summe: EuerAusJournal;
-  kleinunternehmerUmsatz: { netto: number; steuerfrei: boolean };
   /**
    * Zahlungen auf aus Lexoffice übernommene Rechnungen und Belege: Deren Buchung steht gegen den Saldenvortrag, ohne Erlös-
    * bzw. Aufwandszeilen; verteilt wird auf die Zeilen, die Haben für Rechnung bzw. Beleg buchen würde (uebernommeneZeilen)
@@ -84,12 +70,12 @@ export interface EuerJournal {
   monate: EuerAusJournal[];
 }
 
-/** Buchungen des Jahres bzw. bis `umsatzBis`, ohne Eröffnungen und, wenn verlangt, ohne manuelle Buchungen */
-function imZeitraum(year: number, umsatzBis: string | undefined, ohneManuelle: boolean) {
+/** Buchungen des Jahres, ohne Eröffnungen und, wenn verlangt, ohne manuelle Buchungen */
+function imZeitraum(year: number, ohneManuelle: boolean) {
   const e = schema.journalEntries;
   return and(
     gte(e.date, `${year}-01-01`),
-    umsatzBis ? lte(e.date, umsatzBis) : lt(e.date, `${year + 1}-01-01`),
+    lt(e.date, `${year + 1}-01-01`),
     ne(e.sourceType, "eroeffnung"),
     ohneManuelle ? ne(e.sourceType, "manuell") : undefined,
   );
@@ -99,11 +85,11 @@ function imZeitraum(year: number, umsatzBis: string | undefined, ohneManuelle: b
  * Die EÜR eines Jahres aus dem Journal: Zeilen wie computeEuer, ohne AfA und Privatnutzung, die noch nicht gebucht sind.
  * `ohneManuelle`: ohne manuelle Buchungen (GmbH und UG, dort Abschlussbuchungen, reports.ts); `beitraege` bekommt die Wirkung je Buchung.
  */
-export async function euerAusJournal(year: number, q: Db | Tx = db, umsatzBis?: string, ohneManuelle = false, beitraege?: EuerBeitraege): Promise<EuerJournal> {
+export async function euerAusJournal(year: number, q: Db | Tx = db, ohneManuelle = false, beitraege?: EuerBeitraege): Promise<EuerJournal> {
   const kuMonate = await Promise.all(Array.from({ length: 12 }, (_, i) => kleinunternehmerForMonth(year, i + 1, q)));
-  const buchungenImJahr = await buchungen(q, imZeitraum(year, umsatzBis, ohneManuelle));
+  const buchungenImJahr = await buchungen(q, imZeitraum(year, ohneManuelle));
   // Vorauszahlung für Dezember bzw. das vierte Quartal vom 1. bis 10. Januar im Vorjahr (euer-jahreswechsel.ts)
-  const jahr = umsatzBis ? buchungenImJahr : await imEuerJahr(year, buchungenImJahr, q);
+  const jahr = await imEuerJahr(year, buchungenImJahr, q);
   const importiert = await importAnteile(q, jahr);
   const zielVon = await ziele(
     q,
@@ -123,23 +109,8 @@ export async function euerAusJournal(year: number, q: Db | Tx = db, umsatzBis?: 
 
   // Was die Zahlungen ausgleichen, gesammelt für alle Rechnungen und Belege des Jahres statt je Posten (#542, Schritt 9)
   const rechnungIds = [...new Set([...zielVon.values()].flatMap((z) => (z.invoiceId ? [z.invoiceId] : [])))];
-  const bilanzRechnungen = new Map<string, typeof schema.invoices.$inferSelect.taxTreatment>();
-  const bilanzSummen = new Map<string, InvoiceTotals>();
-  if (umsatzBis) {
-    const ids = [...new Set([...rechnungIds, ...jahr.filter((b) => b.sourceType === "invoice").map((b) => b.sourceId)])];
-    const i = schema.invoices;
-    for (const block of bloecke(ids)) {
-      const rechnungen = await q
-        .select({ id: i.id, steuer: i.taxTreatment })
-        .from(i)
-        .where(and(inArray(i.id, block), eq(i.advanceAccounting, "deferred")));
-      for (const { id, steuer } of rechnungen) bilanzRechnungen.set(id, steuer);
-    }
-    for (const block of bloecke(rechnungIds.filter((id) => bilanzRechnungen.has(id))))
-      for (const [id, summen] of await invoiceTotalsById(block, q)) bilanzSummen.set(id, summen);
-  }
   // Verrechnungen des Jahres (#274): Sie wirken wie Zahlungen auf beide Belege, auch wenn in dem Jahr keine Zahlung sie ausgleicht
-  const verrechnet = (await verrechnungenImJahr(q, year)).filter((v) => !umsatzBis || v.date <= umsatzBis);
+  const verrechnet = await verrechnungenImJahr(q, year);
   const einfacheBelege = [...zielVon.values()].flatMap((z) => (!z.invoiceId && z.documentId ? [z.documentId] : []));
   const belegIds = [...new Set([...einfacheBelege, ...verrechnet.map((v) => v.dokumentId)])];
   const gebuchtVon = { invoice: await buchungenJe(q, "invoice", rechnungIds), document: await buchungenJe(q, "document", belegIds) };
@@ -160,19 +131,15 @@ export async function euerAusJournal(year: number, q: Db | Tx = db, umsatzBis?: 
   const lauf: EuerLauf = {
     year,
     q,
-    umsatzBis,
     kuMonate,
     importiert,
     zielVon,
     anlageDarlehen,
-    bilanzRechnungen,
-    bilanzSummen,
     gebuchtVon,
     ausgleicheVon,
     verrechnungenVon,
     nebenbuchVon,
     anlagen,
-    kleinunternehmerUmsatz: { netto: 0, steuerfrei: false },
     zaehler: { uebernommen: 0, ungeklaerteImporte: 0 },
     ursprung: new Map(),
   };
@@ -190,6 +157,6 @@ export async function euerAusJournal(year: number, q: Db | Tx = db, umsatzBis?: 
     dazu(summe, beitrag);
     dazu(monate[Number(v.date.slice(5, 7)) - 1]!, beitrag);
   }
-  const { kleinunternehmerUmsatz, zaehler } = lauf;
-  return { summe, kleinunternehmerUmsatz, uebernommen: zaehler.uebernommen, ungeklaerteImporte: zaehler.ungeklaerteImporte, monate };
+  const { zaehler } = lauf;
+  return { summe, uebernommen: zaehler.uebernommen, ungeklaerteImporte: zaehler.ungeklaerteImporte, monate };
 }

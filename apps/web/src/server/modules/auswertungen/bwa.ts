@@ -106,7 +106,7 @@ async function euerPosten(jahre: readonly number[], q: Db | Tx): Promise<BwaEuer
       },
     });
   };
-  for (const jahr of jahre) await euerAusJournal(jahr, q, undefined, false, sammeln);
+  for (const jahr of jahre) await euerAusJournal(jahr, q, false, sammeln);
   return posten;
 }
 

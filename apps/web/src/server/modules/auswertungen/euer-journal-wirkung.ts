@@ -2,18 +2,13 @@ import {
   ACCOUNTS,
   euerAusZeilen,
   isExternalSettlementPayment,
-  invoicePosting,
-  kleinunternehmerKonten,
   leereEuerAusJournal,
-  recordedTaxShares,
-  totalsFromTaxes,
   zahlungsAnteil,
   type EuerAusJournal,
   type EuerHerkunft,
-  type InvoiceTotals,
   type Kontenrahmen,
 } from "@haben/core";
-import type { schema, Db, Tx } from "../../db/index.ts";
+import type { Db, Tx } from "../../db/index.ts";
 import { type Buchung, offenerPosten, type Verrechnung as RechnungsVerrechnung, type Zeile } from "./euer-journal-buchungen.ts";
 import { belegTeilzahlung, uebernommeneZeilen, type BelegNebenbuch } from "./euer-journal-nebenbuch.ts";
 import { offenerSaldo as offen, rechnungsAnteile } from "./euer-journal-anteile.ts";
@@ -33,7 +28,6 @@ export interface Ziel {
   invoiceId: string | null;
   documentId: string | null;
   loanId?: string | null;
-  zahlung?: Pick<typeof schema.allocations.$inferSelect, "amount" | "taxShares" | "taxSharesInvoiceId">;
 }
 
 /**
@@ -80,19 +74,15 @@ interface Ursprung {
 export interface EuerLauf {
   year: number;
   q: Db | Tx;
-  umsatzBis: string | undefined;
   kuMonate: boolean[];
   importiert: Awaited<ReturnType<typeof importAnteile>>;
   zielVon: Map<string, Ziel>;
   anlageDarlehen: Set<string>;
-  bilanzRechnungen: Map<string, typeof schema.invoices.$inferSelect.taxTreatment>;
-  bilanzSummen: Map<string, InvoiceTotals>;
   gebuchtVon: { invoice: Map<string, Buchung[]>; document: Map<string, Buchung[]> };
   ausgleicheVon: Map<string, Buchung[]>;
   verrechnungenVon: Map<string, RechnungsVerrechnung[]>;
   nebenbuchVon: Map<string, BelegNebenbuch>;
   anlagen: Set<string>;
-  kleinunternehmerUmsatz: { netto: number; steuerfrei: boolean };
   zaehler: { uebernommen: number; ungeklaerteImporte: number };
   ursprung: Map<string, Ursprung>;
 }
@@ -149,18 +139,6 @@ async function ursprungVon(l: EuerLauf, typ: "invoice" | "document", id: string,
   return u;
 }
 
-function erfasseUmsatz(l: EuerLauf, kr: Kontenrahmen, zeilen: readonly Zeile[], herkunft: EuerHerkunft) {
-  if (!l.umsatzBis || herkunft === "anlage" || herkunft === "asset") return;
-  const beitrag = kleinunternehmerKonten(kr, zeilen);
-  l.kleinunternehmerUmsatz.netto += beitrag.netto;
-  l.kleinunternehmerUmsatz.steuerfrei ||= beitrag.steuerfrei;
-}
-
-function erfasse(l: EuerLauf, kr: Kontenrahmen, zeilen: Zeile[], herkunft: EuerHerkunft, summe: EuerAusJournal, kleinunternehmer?: boolean) {
-  erfasseUmsatz(l, kr, zeilen, herkunft);
-  euerAusZeilen(kr, zeilen, herkunft, summe, kleinunternehmer);
-}
-
 /** Was eine Verrechnung zweier Belege bewirkt: wie eine Zahlung von `-betrag` auf den Beleg, ohne eigene Buchung */
 export async function wirkungVerrechnung(l: EuerLauf, v: Verrechnung, belegKontenrahmen: Kontenrahmen): Promise<EuerAusJournal> {
   const summe = leereEuerAusJournal();
@@ -169,7 +147,8 @@ export async function wirkungVerrechnung(l: EuerLauf, v: Verrechnung, belegKonte
   if (u.gesamt === 0) return summe;
   // betrag trägt das Vorzeichen des offenen Postens wie eine Buchung, ausgeglichen ist das Umgekehrte
   if (u.beleg && (u.beleg.effects?.has(v.id) || v.betrag !== u.gesamt)) belegTeilzahlung(l.year, u.beleg, -v.betrag, summe, v.id);
-  else erfasse(l, u.kontenrahmen, zahlungsAnteil(u.kontenrahmen, u.zeilen, u.gesamt, v.betrag), u.herkunft, summe, l.kuMonate[Number(v.date.slice(5, 7)) - 1]);
+  else
+    euerAusZeilen(u.kontenrahmen, zahlungsAnteil(u.kontenrahmen, u.zeilen, u.gesamt, v.betrag), u.herkunft, summe, l.kuMonate[Number(v.date.slice(5, 7)) - 1]);
   return summe;
 }
 
@@ -195,7 +174,6 @@ export async function wirkung(l: EuerLauf, b: Buchung): Promise<EuerAusJournal> 
   if (ausbuchungOhneZahlung(b)) return summe;
   // Eigene Zeilen der Buchung (Kursdifferenz, Umbuchung der Umsatzsteuer, die sich aufhebt) nach ihren Konten
   const eigene = zwischenkontoAlsVorsteuer(kr, b.zeilen);
-  if (b.sourceType !== "invoice" || !l.bilanzRechnungen.has(b.sourceId)) erfasseUmsatz(l, kr, eigene, herkunft);
   const umkehr = b.sourceType === "allocation" && b.reversesId !== null;
   // Rücknahme in derselben EÜR-Zeile: Eine aufgehobene Zahlung ist keine echte Finanzamtserstattung und umgekehrt.
   // Amtliche Anleitung EÜR 2025, Zeilen 18 und 58: https://www.elster.de/eportal/helpGlobal?themaGlobal=help_euer_ufa_77_2025
@@ -216,22 +194,13 @@ export async function wirkung(l: EuerLauf, b: Buchung): Promise<EuerAusJournal> 
     umkehr ? -1 : 1,
   );
   if (importAnteil) {
-    erfasse(l, importAnteil.kontenrahmen, alsZeilen(importAnteil.zeilen, importAnteil.anteil), "sonst", summe, kleinunternehmer);
+    euerAusZeilen(importAnteil.kontenrahmen, alsZeilen(importAnteil.zeilen, importAnteil.anteil), "sonst", summe, kleinunternehmer);
     return summe;
   }
   if (!hatOffenenPosten || ausgeglichen === 0) return summe;
   const typ = ziel?.invoiceId ? "invoice" : ziel?.documentId ? "document" : null;
   const zielId = ziel?.invoiceId ?? ziel?.documentId;
   if (!typ || !zielId) return summe;
-  const bilanzSteuer = typ === "invoice" ? l.bilanzRechnungen.get(zielId) : undefined;
-  const bilanzSumme = l.bilanzSummen.get(zielId);
-  if (bilanzSteuer && bilanzSumme && ziel?.zahlung) {
-    // UStAE 19.2 Abs. 1 Satz 2: Anzahlungen zählen am Zahlungstag. Die Bilanzumbuchungen bei Leistung sind kein Zufluss.
-    // https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Umsatzsteuer/Umsatzsteuer-Anwendungserlass/2025-03-18-sonderregelung-kleinunternehmer.pdf?__blob=publicationFile&v=3
-    const { amount, taxShares, taxSharesInvoiceId } = ziel.zahlung;
-    const anteile = recordedTaxShares(bilanzSumme, amount, taxSharesInvoiceId === zielId ? taxShares : null);
-    erfasseUmsatz(l, kr, invoicePosting(totalsFromTaxes(anteile), kr, "ist", bilanzSteuer), herkunft);
-  }
   const u = await ursprungVon(l, typ, zielId, kr);
   if (u.uebernommen) l.zaehler.uebernommen++;
   // Storniert: nichts mehr offen, Zahlung und Gegenbuchung heben sich auf
@@ -244,7 +213,6 @@ export async function wirkung(l: EuerLauf, b: Buchung): Promise<EuerAusJournal> 
   }
   // Beleg: jede Zahlung für sich (paidTaxShares)
   const zeilen = anteil ? alsZeilen(u.zeilen, anteil) : zahlungsAnteil(u.kontenrahmen, u.zeilen, u.gesamt, -ausgeglichen);
-  if (!bilanzSteuer) erfasseUmsatz(l, u.kontenrahmen, zeilen, u.herkunft);
   euerAusZeilen(u.kontenrahmen, zeilen, u.herkunft, summe, kleinunternehmer);
   return summe;
 }

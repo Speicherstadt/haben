@@ -1,11 +1,10 @@
-import { outgoingTaxDetailConflict, type PriceMode, type TaxTreatment, type UnitLabel } from "@haben/core";
+import { arbeitskostenAnteil, discountFromColumns, outgoingTaxDetailConflict, type PriceMode, type TaxTreatment, type UnitLabel } from "@haben/core";
 import { texts } from "@haben/einvoice";
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import { cancelledIds } from "./cancelled-invoices.ts";
 import type { DraftInput, LineInput } from "./draft-schema.ts";
 import { invoiceTotalsById } from "./invoice-taxes.ts";
-import type { InvoiceLine } from "./invoices.ts";
 
 /* Abschlagsrechnungen, die eine Schlussrechnung abzieht: offene Abschläge, Abzugspositionen und ihre Prüfung */
 
@@ -151,15 +150,47 @@ export async function deductionProblems(
 }
 
 /** Abschlagsrechnungen, die eine Schlussrechnung abzieht, in Reihenfolge der Positionen */
-export const deductionIds = (lines: InvoiceLine[]) => [...new Set(lines.map((l) => l.deductionOf).filter((id): id is string => Boolean(id)))];
+export const deductionIds = (lines: readonly { deductionOf?: string | null }[]) => [
+  ...new Set(lines.map((l) => l.deductionOf).filter((id): id is string => Boolean(id))),
+];
 
-/** Nummer und Datum der Abschlagsrechnungen, die eine Schlussrechnung abzieht, in Reihenfolge der Positionen */
-export async function deductedRefs(lines: InvoiceLine[], q: Db | Tx = db) {
+/**
+ * Nummer und Datum der Abschlagsrechnungen, die eine Schlussrechnung abzieht, in Reihenfolge der Positionen; dazu der
+ * Anteil der Arbeits-, Maschinen- und Fahrtkosten, den die Abschlagsrechnung nennt, falls sie gekennzeichnete
+ * Positionen hat (#1667)
+ */
+export async function deductedRefs(lines: readonly { deductionOf?: string | null }[], q: Db | Tx = db) {
   const ids = deductionIds(lines);
   if (ids.length === 0) return [];
   const rows = await q
-    .select({ id: schema.invoices.id, number: schema.invoices.number, issueDate: schema.invoices.issueDate })
+    .select({
+      id: schema.invoices.id,
+      number: schema.invoices.number,
+      issueDate: schema.invoices.issueDate,
+      priceMode: schema.invoices.priceMode,
+      discountPercent: schema.invoices.discountPercent,
+      discountAmount: schema.invoices.discountAmount,
+    })
     .from(schema.invoices)
     .where(inArray(schema.invoices.id, ids));
-  return ids.map((id) => rows.find((r) => r.id === id)!).map((r) => ({ number: r.number ?? "", issueDate: r.issueDate }));
+  const positionen = await q
+    .select({
+      invoiceId: schema.invoiceLines.invoiceId,
+      quantity: schema.invoiceLines.quantity,
+      unitPrice: schema.invoiceLines.unitPrice,
+      taxRate: schema.invoiceLines.taxRate,
+      discountPercent: schema.invoiceLines.discountPercent,
+      discountAmount: schema.invoiceLines.discountAmount,
+      arbeitskosten: schema.invoiceLines.arbeitskosten,
+      deductionOf: schema.invoiceLines.deductionOf,
+    })
+    .from(schema.invoiceLines)
+    .where(inArray(schema.invoiceLines.invoiceId, ids));
+  return ids
+    .flatMap((id) => rows.filter((r) => r.id === id))
+    .map((r) => {
+      const eigene = positionen.filter((p) => p.invoiceId === r.id).map((p) => ({ ...p, discount: discountFromColumns(p.discountPercent, p.discountAmount) }));
+      const arbeitskosten = arbeitskostenAnteil(eigene, r.priceMode, discountFromColumns(r.discountPercent, r.discountAmount));
+      return { number: r.number ?? "", issueDate: r.issueDate, ...(arbeitskosten !== null ? { arbeitskosten } : {}) };
+    });
 }

@@ -2227,6 +2227,13 @@
       "when": 1795425896463,
       "tag": "0317_standard_je_mahnstufe",
       "breakpoints": true
+    },
+    {
+      "idx": 318,
+      "version": "7",
+      "when": 1795431837210,
+      "tag": "0318_siegel_standardwert_befund",
+      "breakpoints": true
     }
   ]
 }

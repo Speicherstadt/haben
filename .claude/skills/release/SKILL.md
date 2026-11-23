@@ -55,7 +55,7 @@ Actions → **Bump version** (`bump.yml`) mit `bump` = die gewählte Art, auf `m
 
 - `release.yml` auf dem Tag: alle Jobs grün (`checks` übersprungen, wenn `main` schon geprüft war).
 - Docker Hub und GHCR: Tags `:x.y.z` und `:x.y`, `:latest` nur bei einer fertigen Version; beim RC `:x.y.z-rc.n` und `:next`.
-- GitHub-Release mit der Erweiterung „Haben für Mein ELSTER“ als ZIP; beim RC als Pre-release.
+- GitHub-Release mit der Erweiterung „Haben für Mein ELSTER“ als ZIP und `haben-sollbestand-X.Y.Z.json`, in den Notizen die Zeile „Prüfsumme der Sperren“ (Job `sollbestand`); beim RC als Pre-release mit `haben-sollbestand-X.Y.Z-rc.n.json`.
 - Hinweise aus Schritt 3, wenn es welche gibt, über die erzeugten Notizen setzen:
 
   ```sh
@@ -66,7 +66,7 @@ Actions → **Bump version** (`bump.yml`) mit `bump` = die gewählte Art, auf `m
 
   Die Ankündigung in Discord (`discord-release.yml`) ging schon ohne die Hinweise raus. Betrifft ein Hinweis Daten, den Maintainer fragen, ob er sie mit Actions → *Discord-Release* und dem Tag noch einmal ankündigen will.
 - Fertige Version: Job `issues-schliessen` grün, seine Ausgabe nennt die geschlossenen Issues; im Project stehen sie in „Erledigt“.
-- Etwas rot: nicht neu taggen; Ursache melden, beheben, beim RC `prerelease`, sonst `patch`.
+- Etwas rot: nicht neu taggen; Ursache melden, beheben, beim RC `prerelease`, sonst `patch`. Scheitert nur der Job `sollbestand` (etwa am Netz), reicht es, ihn neu zu starten; er ersetzt die Datei und schreibt die Zeile nicht doppelt.
 
 ## 7. Beim RC: Testauftrag
 

@@ -149,7 +149,7 @@ describe.skipIf(!testDatabaseUrl)("BWA nach Zufluss und Abfluss (Postgres, #1380
           const gesammelt: Record<string, number> = {};
           let bewirtung = 0;
           let gewerbesteuer = 0;
-          const euer = await euerJournal.euerAusJournal(jahr, undefined, undefined, false, (_b, beitrag) => {
+          const euer = await euerJournal.euerAusJournal(jahr, undefined, false, (_b, beitrag) => {
             for (const [key, betrag] of Object.entries(beitrag.zeilen)) gesammelt[key] = (gesammelt[key] ?? 0) + (betrag ?? 0);
             bewirtung += beitrag.bewirtungNichtAbziehbar;
             gewerbesteuer += beitrag.gewerbesteuerNichtAbziehbar;
