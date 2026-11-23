@@ -14,13 +14,29 @@ import { kennzahlenAusDemJournal } from "./vat-journal.ts";
  * kommt deshalb aus den Rechnungen, bei Ist und Soll nach dem Leistungstag wie bei der Soll-Versteuerung: eingefroren beim
  * Festschreiben, sonst Leistung bis, Leistung von, Rechnungsdatum. Storno und Korrektur zählen im Monat ihres Datums
  * (§ 17 UStG), ebenso Skonto und Forderungsausfall im Monat der Ausbuchung: Die Anleitung verlangt, Entgeltminderungen bei
- * den Bemessungsgrundlagen zu berücksichtigen. Bareinnahmen und direkt gebuchte Erlöse ohne Rechnung zählen am Tag der Zahlung: Ohne Rechnung kennt Haben
- * keinen anderen Tag (bareinnahme.ts, direkt-kategorie.ts in @haben/core).
+ * den Bemessungsgrundlagen zu berücksichtigen. Bareinnahmen und direkt gebuchte Erlöse ohne Rechnung zählen am Tag der
+ * Zahlung: Ohne Rechnung kennt Haben keinen anderen Tag (bareinnahme.ts, direkt-kategorie.ts in @haben/core).
+ *
+ * Erst ab 2025: Vorher war ein Umsatz nach § 19 Abs. 1 nicht steuerfrei, Kz 48 der UStVA 2024 nennt nur § 4 Nr. 8 bis 29,
+ * die der UStVA 2025 auch § 19 Abs. 1 (ERiC 44.3.6.0, UStVA-2024.xsd und UStVA-2025.xsd, Element Kz48). Storno, Korrektur
+ * und Ausbuchung eines Umsatzes von 2024 mindern Kz 48 deshalb auch 2025 nicht.
  */
 
-type Rechnung = typeof schema.invoices.$inferSelect;
+const STEUERFREI_AB = "2025-01-01";
 
-const leistungstag = (r: Rechnung) => (r.kind === "rechnung" ? (r.serviceDate ?? r.serviceTo ?? r.serviceFrom ?? r.issueDate) : r.issueDate);
+type Rechnung = typeof schema.invoices.$inferSelect;
+type Daten = Pick<Rechnung, "issueDate"> & Partial<Pick<Rechnung, "kind" | "serviceDate" | "serviceTo" | "serviceFrom">>;
+
+const leistungstag = (r: Daten) => (r.kind === "rechnung" ? (r.serviceDate ?? r.serviceTo ?? r.serviceFrom ?? r.issueDate) : r.issueDate);
+
+/**
+ * Ob ein Beleg in Kz 48 zählt; entscheidend ist der Anfang der Kette: Anzahlungen zählen nicht, auch nicht ihr Storno, ihre
+ * Korrektur und deren Storno, das auf die Korrektur verweist (cancelInvoice), und Leistungen vor 2025 nicht
+ */
+async function zaehlt(r: Rechnung, taxes: ReturnType<typeof invoiceTaxReader>): Promise<boolean> {
+  const anfang = await taxes.original(r);
+  return anfang.advanceType !== "anzahlung" && leistungstag(anfang) >= STEUERFREI_AB;
+}
 
 /** Die Umsätze als Kleinunternehmer im Zeitraum, je Rechnung mit dem Entgelt der Leistung */
 export async function kleinunternehmerUmsaetze(period: VatPeriod, q: Db | Tx): Promise<RevenueSource[]> {
@@ -42,11 +58,9 @@ export async function kleinunternehmerUmsaetze(period: VatPeriod, q: Db | Tx): P
     );
   const rechnungen = kandidaten.filter((r) => leistungstag(r) >= start && leistungstag(r) < end);
   if (rechnungen.length === 0) return [];
-  // Anzahlungen zählen nicht, auch nicht ihr Storno, ihre Korrektur und deren Storno, das auf die Korrektur verweist
-  // (cancelInvoice): entscheidend ist der Anfang der Kette
   const taxes = invoiceTaxReader(q);
   const zaehlen: Rechnung[] = [];
-  for (const r of rechnungen) if ((await taxes.original(r)).advanceType !== "anzahlung") zaehlen.push(r);
+  for (const r of rechnungen) if (await zaehlt(r, taxes)) zaehlen.push(r);
   const totals = await invoiceTotalsById(
     zaehlen.map((r) => r.id),
     q,
@@ -91,8 +105,8 @@ async function ausbuchungen(period: VatPeriod, q: Db | Tx): Promise<RevenueSourc
   const taxes = invoiceTaxReader(q);
   const result: RevenueSource[] = [];
   for (const { date, amount, rechnung } of rows) {
-    // wie oben: eine Anzahlung steht nicht in Kz 48, also mindert ihre Ausbuchung sie auch nicht
-    if ((await taxes.original(rechnung)).advanceType === "anzahlung") continue;
+    // Was nicht in Kz 48 steht (Anzahlung, Leistung vor 2025), mindert ihre Ausbuchung auch nicht
+    if (!(await zaehlt(rechnung, taxes))) continue;
     result.push({
       type: "ausbuchung",
       date,
@@ -139,7 +153,8 @@ export async function kennzahlenDerVoranmeldung(
   kennzahlen.kz81 += entnahme.reduce((s, r) => s + r.base, 0);
   kennzahlen.tax81 += entnahme.reduce((s, r) => s + r.tax, 0);
   const ohneRechnung = revenue.filter((r) => (r.type === "kasse" || r.type === "direkt") && r.treatment === "kleinunternehmer");
-  const kleinunternehmer = [...ohneRechnung, ...(await kleinunternehmerUmsaetze(period, q)), ...(await ausbuchungen(period, q))];
+  const kleinunternehmer =
+    periodRange(period).start < STEUERFREI_AB ? [] : [...ohneRechnung, ...(await kleinunternehmerUmsaetze(period, q)), ...(await ausbuchungen(period, q))];
   const kz48Kleinunternehmer = kleinunternehmer.reduce((s, r) => s + r.base, 0);
   return { ...kennzahlen, kz48: kennzahlen.kz48 + kz48Kleinunternehmer, kz48Kleinunternehmer, kleinunternehmerUmsaetze: kleinunternehmer };
 }
