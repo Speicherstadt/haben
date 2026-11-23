@@ -96,7 +96,7 @@ export function NeueAusschuettung() {
   const [vorschlag, setVorschlag] = useState<Vorschlag | null>(null);
   const input = () => eingabe(beschluss, auszahlungstag, geschaeftsjahr, betrag);
   // Je Feld eine Meldung statt eines Satzes für alle (#1277, DESIGN.md, Gesperrte Knöpfe)
-  const pruefung = useSubmitCheck(ausschuettungFehler({ beschluss, geschaeftsjahr, betrag }));
+  const pruefung = useSubmitCheck(ausschuettungFehler({ beschluss, auszahlungstag, geschaeftsjahr, betrag }));
 
   function berechnen(event: FormEvent) {
     event.preventDefault();
@@ -128,7 +128,7 @@ export function NeueAusschuettung() {
               />
             )}
           </Field>
-          <Field label="Auszahlungstag laut Beschluss (optional)">
+          <Field label="Auszahlungstag laut Beschluss (optional)" error={pruefung.error("auszahlungstag")}>
             {(control) => (
               <input
                 {...control}

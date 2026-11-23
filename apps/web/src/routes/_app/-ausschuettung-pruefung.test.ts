@@ -22,7 +22,8 @@ describe("Prüfung einer neuen Ausschüttung", () => {
   // Der Server nimmt beides an, sperrt dann aber „Beschluss buchen“ mit einem Hinweis (ausschuettungVorschlag); der Grund liegt im Formular
   it("Auszahlungstag nicht vor dem Beschluss", () => {
     expect(ausschuettungFehler({ ...gut, auszahlungstag: "2026-03-14" }).auszahlungstag).toBe("Wähle einen Tag ab dem Beschluss.");
-    for (const auszahlungstag of ["", "2026-03-15", "2026-04-01"]) expect(ausschuettungFehler({ ...gut, auszahlungstag }).auszahlungstag, auszahlungstag).toBeNull();
+    for (const auszahlungstag of ["", "2026-03-15", "2026-04-01"])
+      expect(ausschuettungFehler({ ...gut, auszahlungstag }).auszahlungstag, auszahlungstag).toBeNull();
   });
 
   it("Geschäftsjahr nicht nach dem Jahr des Beschlusses", () => {
@@ -37,8 +38,11 @@ describe("Prüfung einer neuen Ausschüttung", () => {
   });
 
   it("Geschäftsjahr: wie der Server von 1900 bis 2999", () => {
+    // Beschluss 2999, damit nur die Grenzen des Schemas zählen, nicht das Jahr des Beschlusses
+    const spaet = { ...gut, beschluss: "2999-06-30" };
     for (const geschaeftsjahr of ["1899", "3000", "25", "2025,5", "abc"])
-      expect(ausschuettungFehler({ ...gut, geschaeftsjahr }).geschaeftsjahr, geschaeftsjahr).not.toBeNull();
-    for (const geschaeftsjahr of ["1900", "2999", " 2025 "]) expect(ausschuettungFehler({ ...gut, geschaeftsjahr }).geschaeftsjahr, geschaeftsjahr).toBeNull();
+      expect(ausschuettungFehler({ ...spaet, geschaeftsjahr }).geschaeftsjahr, geschaeftsjahr).not.toBeNull();
+    for (const geschaeftsjahr of ["1900", "2999", " 2025 "])
+      expect(ausschuettungFehler({ ...spaet, geschaeftsjahr }).geschaeftsjahr, geschaeftsjahr).toBeNull();
   });
 });

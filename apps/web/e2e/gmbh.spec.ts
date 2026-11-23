@@ -361,6 +361,14 @@ test("Ausschüttungen: Steuerabzug berechnen, ohne Gewinnvortrag nicht buchbar",
   await expect(brutto).toBeFocused();
   await expect(page.getByRole("region", { name: "Berechnung der Ausschüttung" })).toHaveCount(0);
   await brutto.fill("1.000,00");
+  // Auszahlungstag vor dem Beschluss: am Feld statt eines gesperrten „Beschluss buchen“ nach der Berechnung
+  const auszahlung = form.getByLabel("Auszahlungstag laut Beschluss (optional)");
+  await auszahlung.fill(`${year}-01-01`);
+  await form.getByRole("button", { name: "Steuerabzug berechnen" }).click();
+  await expect(form.getByText("Wähle einen Tag ab dem Beschluss.")).toBeVisible();
+  await expect(auszahlung).toBeFocused();
+  await expect(page.getByRole("region", { name: "Berechnung der Ausschüttung" })).toHaveCount(0);
+  await auszahlung.fill("");
   await form.getByRole("button", { name: "Steuerabzug berechnen" }).click();
   // Anteilseigner aus den Angaben des Vorjahres; 25 % Kapitalertragsteuer, 5,5 % Soli
   const rechnung = page.getByRole("region", { name: "Berechnung der Ausschüttung" });
