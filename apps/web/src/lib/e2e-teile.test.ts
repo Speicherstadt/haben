@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { DURCHLAEUFE, HAUPTPROJEKTE, projekteFuerTeil, TEILE } from "../../e2e/durchlaeufe.ts";
+import { ABZUG_AUS, DURCHLAEUFE, HAUPTPROJEKTE, projekteFuerTeil, TEILE } from "../../e2e/durchlaeufe.ts";
 
 // Feste Verteilung der Ende-zu-Ende-Tests auf die Teile der CI (#1742)
 describe("TEILE", () => {
@@ -15,6 +15,13 @@ describe("TEILE", () => {
     const teil = Object.values(TEILE).find((projekte) => (projekte as readonly string[]).includes("mit-daten"));
     expect(teil).toContain("ablauf");
     expect(teil).toContain("abzug");
+  });
+
+  it("legt jeden Abschnitt in den Teil des Durchlaufs, aus dessen Abzug er beginnt", () => {
+    for (const [abschnitt, quelle] of Object.entries(ABZUG_AUS)) {
+      const teil = Object.values(TEILE).find((projekte) => (projekte as readonly string[]).includes(abschnitt));
+      expect(teil, abschnitt).toContain(quelle);
+    }
   });
 
   it("deckt sich mit der Matrix in ci.yml", () => {

@@ -2472,7 +2472,7 @@ test("Entwurf aus dem stehenden Kopf speichern: die Bestätigung erscheint im Fe
 
 test("Kasse: Bareinnahme ohne Rechnung aus einem Monat, in dem noch § 19 galt, bietet „Kleinunternehmer“ an (#276)", async () => {
   // Stand im Änderungsprotokoll: vor 40 Tagen Kleinunternehmer, heute nicht mehr (Ausschalten geht jederzeit), wie in
-  // belege-steuern.spec.ts (#295). Der Server prüft die Behandlung gegen den Stand am Ende des Monats der Bareinnahme.
+  // belege-steuern-bank.spec.ts (#295). Der Server prüft die Behandlung gegen den Stand am Ende des Monats der Bareinnahme.
   const datum = day(-40);
   const sql = postgres(databaseUrlFuer("rechnungen"), { max: 1 });
   try {

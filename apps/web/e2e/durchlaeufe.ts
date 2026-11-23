@@ -51,8 +51,25 @@ export const DURCHLAEUFE = {
   "paypal-abruf": 38,
   // Stripe (#1280): nur dieser Server fragt die nachgebaute Stripe-API auf STRIPE_PORT
   "stripe-abruf": 40,
+  // Abschnitte von belege-steuern, jeder aus dem Abzug nach dessen Einrichtung (ABZUG_AUS)
+  "belege-steuern-belege": 42,
+  "belege-steuern-erklaerungen": 43,
+  "belege-steuern-bank": 44,
+  "belege-steuern-einstellungen": 45,
 } as const;
 export type Durchlauf = keyof typeof DURCHLAEUFE;
+
+/**
+ * Abschnitte eines Durchlaufs (#1742): Der Durchlauf links beginnt mit einer Kopie der Datenbank, die der rechts nach
+ * seiner Einrichtung gesichert hat (e2e/abzug.ts), mit eigenem Server, damit die Abschnitte parallel laufen, ohne sich
+ * Daten zu teilen. Playwright startet ihn erst nach dem rechts (dependencies in playwright.config.ts).
+ */
+export const ABZUG_AUS: Partial<Record<Durchlauf, Durchlauf>> = {
+  "belege-steuern-belege": "belege-steuern",
+  "belege-steuern-erklaerungen": "belege-steuern",
+  "belege-steuern-bank": "belege-steuern",
+  "belege-steuern-einstellungen": "belege-steuern",
+};
 
 /** Projekte in playwright.config.ts, die den Hauptserver auf PORT nutzen */
 export const HAUPTPROJEKTE = ["ablauf", "abzug", "mit-daten", "ohne-daten"] as const;
@@ -60,12 +77,12 @@ export type Projekt = (typeof HAUPTPROJEKTE)[number] | Durchlauf;
 
 /**
  * Feste Verteilung der Projekte auf die Teile der CI (Matrix in .github/workflows/ci.yml, E2E_TEIL), nach Dauer statt
- * nach Datei wie `--shard`. Die seriellen Specs belege-steuern und rechnungen haben je einen Teil; „mit-daten“ beginnt
- * mit dem Abzug nach „ablauf“ (e2e/abzug.ts) und steht mit ihm in einem Teil, damit „ablauf“ nur einmal läuft. Ein neuer Durchlauf kommt in den
- * kürzesten Teil; e2e-teile.test.ts prüft, dass jedes Projekt genau einmal vorkommt.
+ * nach Datei wie `--shard`. belege-steuern mit seinen parallelen Abschnitten (ABZUG_AUS) und die serielle Spec rechnungen
+ * haben je einen Teil; „mit-daten“ beginnt mit dem Abzug nach „ablauf“ (e2e/abzug.ts) und steht mit ihm in einem Teil,
+ * damit „ablauf“ nur einmal läuft. Ein neuer Durchlauf kommt in den kürzesten Teil; e2e-teile.test.ts prüft, dass jedes Projekt genau einmal vorkommt.
  */
 export const TEILE = {
-  "belege-steuern": ["belege-steuern"],
+  "belege-steuern": ["belege-steuern", "belege-steuern-belege", "belege-steuern-erklaerungen", "belege-steuern-bank", "belege-steuern-einstellungen"],
   rechnungen: ["rechnungen"],
   ablauf: ["ablauf", "abzug", "mit-daten"],
   gmbh: ["gmbh", "rueckfragen", "belegimport", "bb-import", "beleg-storno", "dauerfrist-euer", "verrechnung", "firmen", "passwort", "fastbill-import"],
@@ -102,7 +119,7 @@ export function projekteFuerTeil(teil = process.env.E2E_TEIL): readonly Projekt[
   return TEILE[teil as Teil];
 }
 
-/** Die nachgebaute Enable-Banking-API in belege-steuern.spec.ts; + 7 und + 8 belegen langsame-anfrage und beenden */
+/** Die nachgebaute Enable-Banking-API in belege-steuern-einstellungen.spec.ts; + 7 und + 8 belegen langsame-anfrage und beenden */
 export const ENABLE_BANKING_PORT = PORT + 9;
 
 /** Nachgebaute FinTS-Bank in fints-abruf.spec.ts (@haben/import/fints-testbank) */
@@ -115,7 +132,7 @@ export const ETSY_PORT = PORT + 33;
 export const STRIPE_PORT = PORT + 41;
 
 /**
- * Nachgebauter Dienst des BZSt für die Bestätigung von USt-IdNrn. in belege-steuern.spec.ts (EVATR_API_URL, #1385); jeder
+ * Nachgebauter Dienst des BZSt für die Bestätigung von USt-IdNrn. in belege-steuern-erklaerungen.spec.ts (EVATR_API_URL, #1385); jeder
  * Server zeigt dorthin, damit kein Test das echte BZSt fragt
  */
 export const EVATR_PORT = PORT + 34;

@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 import {
+  ABZUG_AUS,
   appDatabaseUrlFuer,
   DURCHLAEUFE,
   databaseUrlFuer,
@@ -69,17 +70,17 @@ function webServer(durchlauf?: Durchlauf) {
       ANTHROPIC_API_KEY: "",
       EXTRACTION_PROVIDER: "",
       EXTRACTION_BASE_URL: "",
-      // Nachgebaute API in belege-steuern.spec.ts; ohne gespeicherten Zugang fragt kein Server dort an
+      // Nachgebaute API in belege-steuern-einstellungen.spec.ts; ohne gespeicherten Zugang fragt kein Server dort an
       ENABLE_BANKING_API_URL: `http://127.0.0.1:${ENABLE_BANKING_PORT}`,
       ENABLE_BANKING_APP_ID: "",
       ENABLE_BANKING_KEY: "",
       ENABLE_BANKING_KEY_FILE: "",
       // Nachgebaute sevDesk-API in sevdesk-anlagen.spec.ts; ohne gespeicherten Token fragt kein Server dort an
       SEVDESK_API_URL: `http://127.0.0.1:${SEVDESK_PORT}/api/v1`,
-      // Bestätigung von USt-IdNrn. beim BZSt (#1385) nur im Durchlauf „belege-steuern“ gegen den nachgebauten Dienst; die
-      // anderen Server schalten sie ab, und keiner fragt das echte BZSt
+      // Bestätigung von USt-IdNrn. beim BZSt (#1385) nur in „belege-steuern“ und seinen Abschnitten gegen den nachgebauten
+      // Dienst; die anderen Server schalten sie ab, und keiner fragt das echte BZSt
       EVATR_API_URL: `http://127.0.0.1:${EVATR_PORT}/app/v1/abfrage`,
-      HABEN_EVATR: durchlauf === "belege-steuern" ? "" : "off",
+      HABEN_EVATR: durchlauf?.startsWith("belege-steuern") ? "" : "off",
       // Nachgebaute Paketquelle in layouts.spec.ts, nie Typst Universe aus dem Test
       LAYOUTS_PACKAGES_URL: `http://127.0.0.1:${LAYOUT_PAKETE_PORT}`,
       // Kontoabruf über FinTS (#654) nur im Durchlauf „fints-abruf“; sonst bleibt FinTS aus wie ohne Registrierungsnummer
@@ -174,6 +175,8 @@ export default defineConfig({
     ...durchlaeufe.map((durchlauf) => ({
       name: durchlauf,
       testMatch: `${durchlauf}.spec.ts`,
+      // Ein Abschnitt beginnt mit dem Abzug seines Durchlaufs (e2e/abzug.ts)
+      dependencies: ABZUG_AUS[durchlauf] ? [ABZUG_AUS[durchlauf]] : [],
       use: { ...chromium, baseURL: `http://localhost:${portFuer(durchlauf)}` },
     })),
     // Braucht keine Daten aus der App
