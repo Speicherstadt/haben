@@ -14,7 +14,7 @@ import { and, eq, gte, isNull, lt, ne, notInArray, or, sql } from "drizzle-orm";
 import { privateUseForMonth } from "../buchhaltung/index.ts";
 import { kleinunternehmerForMonth } from "../stammdaten/index.ts";
 import { vorsteuerAusBelegen } from "./vorsteuer-belege.ts";
-import { kennzahlenAusDemJournal } from "./vat-journal.ts";
+import { kennzahlenDerVoranmeldung } from "./kleinunternehmer-umsaetze.ts";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import { bankAccountIncludedSql, bankNotPrivateMarkedSql, bankOpenAmountSql } from "../../db/bank-open.ts";
 import { advanceVatPlans, invoiceTaxReader, invoiceTotalsById, mixNachVerrechnungen } from "../rechnungen/index.ts";
@@ -112,6 +112,12 @@ export interface VatFigures {
   kz61: Cents;
   /** Entstandene Einfuhrumsatzsteuer laut Bescheid des Zolls (Beleg der Kategorie „Einfuhrumsatzsteuer“), nach Belegdatum */
   kz62: Cents;
+  /**
+   * Darin in Kz 48: Umsätze als Kleinunternehmer (§ 19 Abs. 1 UStG) im Monat der Leistung (#1268), aus den Rechnungen,
+   * nicht aus dem Journal; je Rechnung in `kleinunternehmerUmsaetze`
+   */
+  kz48Kleinunternehmer: Cents;
+  kleinunternehmerUmsaetze: RevenueSource[];
   /** Regulär besteuerte Umsätze zu 0 %, die in dieser Voranmeldung nicht gemeldet werden */
   steuerfrei: Cents;
   revenue: RevenueSource[];
@@ -471,12 +477,8 @@ export async function computeVatFigures(period: VatPeriod, q: Db | Tx = db, cont
 
   // Vorsteuer, § 13b, Erwerb und Einfuhrumsatzsteuer als Erläuterung aus den Belegen (vorsteuer-belege.ts)
   const { inputTax, reverseCharge, igErwerb, einfuhr } = await vorsteuerAusBelegen(period, q);
-  // Die Kennzahlen aus dem Journal (#542, #1116), wie bei DATEV aus Konto und Steuerschlüssel; die Privatnutzung von
-  // Fahrzeugen je Monat aus dem Anlagenverzeichnis (das Journal bucht sie erst mit der AfA)
-  const kennzahlen = await kennzahlenAusDemJournal(period, versteuerung, q);
-  const entnahme = revenue.filter((r) => r.type === "entnahme");
-  kennzahlen.kz81 += entnahme.reduce((s, r) => s + r.base, 0);
-  kennzahlen.tax81 += entnahme.reduce((s, r) => s + r.tax, 0);
+  // Aus dem Journal, dazu Privatnutzung und Umsätze als Kleinunternehmer (kleinunternehmer-umsaetze.ts)
+  const kennzahlen = await kennzahlenDerVoranmeldung(period, versteuerung, revenue, q);
   return {
     versteuerung,
     // Stand am Ende des Zeitraums der Voranmeldung, nicht der heutige

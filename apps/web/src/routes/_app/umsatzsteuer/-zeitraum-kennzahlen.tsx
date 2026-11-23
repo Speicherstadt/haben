@@ -57,7 +57,15 @@ function kennzahlZeilen(data: PageData, shown: Ustva, computed: Ustva, editable:
       tax: null,
       sources: treated("drittland"),
     },
-    { kz: "48", field: "kz48" as const, label: "Steuerfreie Umsätze ohne Vorsteuerabzug", base: shown.kz48, tax: null, sources: treated("steuerfrei") },
+    {
+      kz: "48",
+      field: "kz48" as const,
+      label: "Steuerfreie Umsätze ohne Vorsteuerabzug",
+      base: shown.kz48,
+      tax: null,
+      // Umsätze als Kleinunternehmer im Monat der Leistung (#1268)
+      sources: [...treated("steuerfrei"), ...data.figures.kleinunternehmerUmsaetze],
+    },
     {
       kz: "41",
       field: "kz41" as const,
