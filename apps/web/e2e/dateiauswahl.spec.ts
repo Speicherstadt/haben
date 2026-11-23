@@ -1,6 +1,7 @@
 import { devices, expect, type Page, test } from "@playwright/test";
 import { filePickerPruefen, uploadButtonPruefen } from "./dateiauswahl.ts";
 import { SESSION } from "./daten.ts";
+import { bilder } from "./warten.ts";
 
 /**
  * Die Felder für Zertifikat und privaten Schlüssel liegen in `Field`, und `Field` umschließt seine Felder
@@ -35,8 +36,9 @@ test("Datei wählen in einem umschließenden label öffnet genau einen Dialog", 
     dialoge += 1;
   });
 
-  await page.getByText("Datei wählen", { exact: true }).first().click();
-  await page.waitForTimeout(1500);
+  await Promise.all([page.waitForEvent("filechooser"), page.getByText("Datei wählen", { exact: true }).first().click()]);
+  // Ein zweiter Dialog aus demselben Klick käme in derselben Aufgabe hinterher
+  await bilder(page);
 
   expect(dialoge).toBe(1);
 });
@@ -59,7 +61,7 @@ test("Nach dem Klick auf Datei wählen liegt der Fokus auf dem Eingabefeld, Tab 
 });
 
 // Die übrigen Dateiauswahlen: sichtbare Felder über FilePicker in Field, Upload-Aktionen über UploadButton
-// (DESIGN.md, „Datei-Felder“). Vermerke zu SV-Meldungen und Voranmeldung prüfen gmbh.spec.ts und belege-steuern.spec.ts
+// (DESIGN.md, „Datei-Felder“). Vermerke zu SV-Meldungen und Voranmeldung prüfen gmbh.spec.ts und belege-steuern-erklaerungen.spec.ts
 // in ihrem Ablauf, dort gibt es die Daten dafür.
 
 test("CSV-Datei des BMF: FilePicker im Feld, Klick und Tastatur öffnen je genau einen Dialog", async ({ page }) => {

@@ -13,20 +13,16 @@
  *   manifest.json             Format, Version, Teil, Zeitpunkt, IDs ohne Datei
  *   belege/<INVOICE_ID>.<ext> die Datei der Ausgabe, benannt nach ihrer ID in FastBill
  */
-(async (LISTE) => {
+{
+  // Ein Block statt einer Funktion um alles: Die Hilfen bleiben lokal, auch wenn man das Skript zweimal einfügt, und keine
+  // Funktion wird länger als 80 Zeilen (#1676). Der Kommentar oben muss vor der Klammer bleiben: Safari setzt eine Eingabe,
+  // die mit { beginnt und mit } endet, ungeprüft in runde Klammern (WebKit, RuntimeManager.wrapLiteralExpression)
   const FORMAT = "haben-fastbill-belege";
   const VERSION = 1;
   const PART_LIMIT = 50 * 1024 * 1024;
   const PAUSE_MS = 150;
   const MAX_RETRIES = 5;
   const EXTENSIONS = { "application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic" };
-
-  if (location.hostname !== "my.fastbill.com") {
-    throw new Error("Bitte in my.fastbill.com ausführen, angemeldet, in der Konsole der Entwicklerwerkzeuge.");
-  }
-  if (!Array.isArray(LISTE) || LISTE.length === 0) {
-    throw new Error("Die Liste der Belege ist leer. Kopiere das Skript in Haben über „Skript kopieren“, nicht aus der Datei.");
-  }
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const log = (...args) => console.log("[Haben-FastBill]", ...args);
@@ -35,7 +31,7 @@
   // ------------------------------------------------------------------ HTTP
 
   /** Ein Abruf mit Pause davor; bei 429, 502–504 und Netzwerkfehlern mit wachsender Wartezeit wiederholt. */
-  async function request(url) {
+  const request = async (url) => {
     for (let attempt = 0; ; attempt++) {
       await sleep(PAUSE_MS);
       let response;
@@ -52,10 +48,10 @@
       }
       return response;
     }
-  }
+  };
 
   /** Datei einer Ausgabe oder null, wenn FastBill keine liefert (leere oder HTML-Antwort, etwa abgemeldet) */
-  async function receipt(entry) {
+  const receipt = async (entry) => {
     const url = new URL(entry.url);
     if (url.host !== location.host) return null;
     const response = await request(url);
@@ -66,7 +62,7 @@
     const disposition = response.headers.get("content-disposition") ?? "";
     const fromName = /\.([a-z0-9]{2,5})"?\s*$/i.exec(disposition)?.[1]?.toLowerCase();
     return { bytes, ext: EXTENSIONS[type] ?? fromName ?? "bin" };
-  }
+  };
 
   // ------------------------------------------------------------------ ZIP (ohne Kompression, wie lexware-sicherung.js)
 
@@ -80,14 +76,14 @@
     return table;
   })();
 
-  function crc32(bytes) {
+  const crc32 = (bytes) => {
     let c = 0xffffffff;
     for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
     return (c ^ 0xffffffff) >>> 0;
-  }
+  };
 
   /** Sammelt Einträge und baut daraus eine ZIP-Datei (Methode „stored“, Dateinamen in UTF-8) */
-  function zipWriter() {
+  const zipWriter = () => {
     const chunks = [];
     const central = [];
     let offset = 0;
@@ -137,9 +133,9 @@
         return new Blob([...chunks, ...central, end.buffer], { type: "application/zip" });
       },
     };
-  }
+  };
 
-  function download(blob, name) {
+  const download = (blob, name) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -148,52 +144,84 @@
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  }
+  };
 
   // ------------------------------------------------------------------ Ablauf
 
-  const createdAt = new Date().toISOString();
-  const stamp = createdAt.slice(0, 10);
-  log(`${LISTE.length} Belege. Das dauert etwa ${Math.max(1, Math.ceil((LISTE.length * (PAUSE_MS + 300)) / 60000))} Minuten.`);
-
-  let part = 0;
-  let zip = null;
-  let inPart = 0;
-  let found = 0;
-  const missing = [];
-
-  const finishPart = () => {
-    if (!zip || inPart === 0) return;
-    zip.add("manifest.json", encoder.encode(JSON.stringify({ format: FORMAT, version: VERSION, part, createdAt, count: inPart, missing })));
-    const name = `fastbill-belege-${stamp}-teil-${part}.zip`;
-    download(zip.finish(), name);
-    log(`${name} heruntergeladen (${inPart} Belege).`);
-    zip = null;
-    inPart = 0;
+  /** Bricht ab, wenn das Skript nicht in FastBill läuft oder Haben die Liste nicht eingesetzt hat */
+  const checkSetup = (LISTE) => {
+    if (location.hostname !== "my.fastbill.com") {
+      throw new Error("Bitte in my.fastbill.com ausführen, angemeldet, in der Konsole der Entwicklerwerkzeuge.");
+    }
+    if (!Array.isArray(LISTE) || LISTE.length === 0) {
+      throw new Error("Die Liste der Belege ist leer. Kopiere das Skript in Haben über „Skript kopieren“, nicht aus der Datei.");
+    }
   };
 
-  for (const [index, entry] of LISTE.entries()) {
-    const file = await receipt(entry);
-    if (!file) {
-      missing.push(entry.id);
-    } else {
-      if (zip && zip.size + file.bytes.length > PART_LIMIT) finishPart();
-      if (!zip) {
-        zip = zipWriter();
-        part += 1;
-      }
-      zip.add(`belege/${entry.id}.${file.ext}`, file.bytes);
-      inPart += 1;
-      found += 1;
-    }
-    if ((index + 1) % 25 === 0) log(`${index + 1} / ${LISTE.length}`);
-  }
-  finishPart();
+  /**
+   * ZIP-Teile bis PART_LIMIT: add legt eine Datei in den laufenden Teil oder beginnt einen neuen, finish schreibt
+   * manifest.json in den Teil und lädt ihn herunter. missing ist die Liste der IDs ohne Datei; ein Manifest nennt die bis zum
+   * Abschluss seines Teils
+   */
+  const zipParts = (createdAt, missing) => {
+    const stamp = createdAt.slice(0, 10);
+    let part = 0;
+    let zip = null;
+    let inPart = 0;
+    const finish = () => {
+      if (!zip || inPart === 0) return;
+      zip.add("manifest.json", encoder.encode(JSON.stringify({ format: FORMAT, version: VERSION, part, createdAt, count: inPart, missing })));
+      const name = `fastbill-belege-${stamp}-teil-${part}.zip`;
+      download(zip.finish(), name);
+      log(`${name} heruntergeladen (${inPart} Belege).`);
+      zip = null;
+      inPart = 0;
+    };
+    return {
+      get count() {
+        return part;
+      },
+      add(name, bytes) {
+        if (zip && zip.size + bytes.length > PART_LIMIT) finish();
+        if (!zip) {
+          zip = zipWriter();
+          part += 1;
+        }
+        zip.add(name, bytes);
+        inPart += 1;
+      },
+      finish,
+    };
+  };
 
-  log(`Fertig: ${found} Belege in ${part} ZIP-Datei(en).`);
-  if (missing.length) {
-    log(
-      `${missing.length} ohne Datei: FastBill liefert dort auch angemeldet nichts. Gibt es in FastBill wirklich keinen Beleg, übernimm diese Ausgaben in Haben „ohne Beleg“.`,
-    );
-  }
-})(/*HABEN_LISTE*/ []);
+  /** Lädt jede Datei der Liste in die Teile; gibt die Zahl der gefundenen und die Teile zurück */
+  const fetchReceipts = async (LISTE, missing) => {
+    const zips = zipParts(new Date().toISOString(), missing);
+    let found = 0;
+    for (const [index, entry] of LISTE.entries()) {
+      const file = await receipt(entry);
+      if (!file) {
+        missing.push(entry.id);
+      } else {
+        zips.add(`belege/${entry.id}.${file.ext}`, file.bytes);
+        found += 1;
+      }
+      if ((index + 1) % 25 === 0) log(`${index + 1} / ${LISTE.length}`);
+    }
+    zips.finish();
+    return { found, parts: zips.count };
+  };
+
+  (async (LISTE) => {
+    checkSetup(LISTE);
+    log(`${LISTE.length} Belege. Das dauert etwa ${Math.max(1, Math.ceil((LISTE.length * (PAUSE_MS + 300)) / 60000))} Minuten.`);
+    const missing = [];
+    const { found, parts } = await fetchReceipts(LISTE, missing);
+    log(`Fertig: ${found} Belege in ${parts} ZIP-Datei(en).`);
+    if (missing.length) {
+      log(
+        `${missing.length} ohne Datei: FastBill liefert dort auch angemeldet nichts. Gibt es in FastBill wirklich keinen Beleg, übernimm diese Ausgaben in Haben „ohne Beleg“.`,
+      );
+    }
+  })(/*HABEN_LISTE*/ []);
+}

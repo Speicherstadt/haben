@@ -81,6 +81,7 @@ describe.skipIf(!testDatabaseUrl)("Erklärungen der GmbH (Postgres)", () => {
         kontokorrent: "2118",
         darlehenGesellschafter: "2114",
         renten: "2127",
+        beteiligung: "2493",
         bewirtung: "4650",
       },
     ],
@@ -96,10 +97,56 @@ describe.skipIf(!testDatabaseUrl)("Erklärungen der GmbH (Postgres)", () => {
         kontokorrent: "7318",
         darlehenGesellschafter: "7316",
         renten: "7327",
+        beteiligung: "7399",
         bewirtung: "6640",
       },
     ],
   ] as const)("%s", (kontenrahmen, k) => {
+    it.each([120_000, -120_000])("übernimmt den Anteil stiller Gesellschafter mit Vorzeichen (%i Cent) in Zeile 52", async (betrag) => {
+      await setup(kontenrahmen, "soll");
+      await book("2025-03-01", [
+        [k.miete, 300_000, 0],
+        [k.bank, 0, 300_000],
+      ]);
+      const soll = Math.max(0, betrag);
+      const haben = Math.max(0, -betrag);
+      await book("2025-06-01", [
+        [k.beteiligung, soll, haben],
+        [k.bank, haben, soll],
+      ]);
+      await kst.saveKapgAngaben(actor, 2025, { hebesatz: 400, verlustvortragKst: 0, verlustvortragGewst: 0 });
+      const result = await erklaerung.submitKapg(actor, "gewst", 2025, new EricGeprueftClient(), { kind: "validate", today });
+      expect(result.ok).toBe(true);
+      const [row] = await sql`select request_xml from annual_submissions where form = 'gewst'`;
+      expect(row!.request_xml).toContain(`<E4003407>${betrag / 100}</E4003407>`);
+    });
+
+    it("weist gewinnmindernd gebuchte Umsatzsteuerzinsen bei den Entgelten für Schulden aus", async () => {
+      await setup(kontenrahmen, "soll");
+      const { withActor } = await import("../../db/actor.ts");
+      const { steuerbuchung } = await import("../bank/steuerzahlung.ts");
+      const datum = "2025-07-01";
+      const zinsteil = await withActor(actor, (tx) =>
+        steuerbuchung(
+          tx,
+          { kontenrahmen, rechtsform: "gmbh" },
+          { bookingDate: datum, counterpartyName: "Finanzamt", purpose: null },
+          { art: "ust", jahr: 2024, posten: "zinsen233a" },
+          -80_000,
+        ),
+      );
+      await book(
+        datum,
+        zinsteil.lines.map(({ account, debit, credit }) => [account, debit, credit]),
+      );
+      await kst.saveKapgAngaben(actor, 2025, { hebesatz: 400, verlustvortragKst: 0, verlustvortragGewst: 0 });
+
+      const client = new EricGeprueftClient();
+      expect((await erklaerung.submitKapg(actor, "gewst", 2025, client, { kind: "validate", today })).ok).toBe(true);
+      const [submission] = await sql`select request_xml from annual_submissions where form = 'gewst'`;
+      expect(submission?.request_xml).toContain("<E4003202>800</E4003202>");
+    });
+
     it.each(["ist", "soll"] as const)(
       "%s: Körperschaft- und Gewerbesteuererklärung prüfen, echt erst nach dem Abschluss",
       async (versteuerung) => {

@@ -1,8 +1,6 @@
 import {
   formatEuro,
-  FREIE_STEUERSCHLUESSEL,
   freieBuchungIssues,
-  freieBuchungKonto,
   SACHENTNAHME_KONTEN,
   freieBuchungPosting,
   type FreierSteuerschluessel,
@@ -17,7 +15,6 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useId, useState, type FormEvent } from "react";
 import { DatevEroeffnung } from "../../../components/DatevEroeffnung.tsx";
-import { Icon } from "../../../components/Icon.tsx";
 import { NoticeBanner } from "../../../components/NoticeBanner.tsx";
 import { useAction } from "../../../lib/use-action.ts";
 import { useSubmitCheck } from "../../../lib/use-submit-check.ts";
@@ -25,27 +22,13 @@ import { createManualEntryFn, getManualEntryForm } from "../../../server/functio
 import styles from "../../../styles/auswertungen.css?url";
 import { Field } from "../../../components/Field.tsx";
 import { buchungsdatumFehler } from "./-buchungsdatum.ts";
+import { BuchungsZeile, emptyRow, kontoSuchfehler, type Row, SCHLUESSEL_NAME } from "./-buchungs-zeile.tsx";
 
 export const Route = createFileRoute("/_app/buchungen/neu")({
   loader: () => getManualEntryForm(),
   head: () => ({ meta: [{ title: "Buchung erfassen · Haben" }], links: [{ rel: "stylesheet", href: styles }] }),
   component: ManualEntryPage,
 });
-
-/** Eine Zeile, wie sie im Formular steht: Beträge als Text, bis zum Buchen */
-interface Row {
-  key: number;
-  account: string;
-  debit: string;
-  credit: string;
-  /** Steuerschlüssel einer freien Buchung; der Betrag ist dann brutto */
-  taxCode: FreierSteuerschluessel | "";
-}
-
-const emptyRow = (key: number): Row => ({ key, account: "", debit: "", credit: "", taxCode: "" });
-
-/** Steuerschlüssel freier Buchungen, wie sie die Auswahl nennt (docs/adr/journal-als-quelle.md, Entscheidung 4) */
-const SCHLUESSEL_NAME: Record<FreierSteuerschluessel, string> = { USt19: "USt 19 %", USt7: "USt 7 %", frei: "0 %" };
 
 /** Betrag aus dem Feld; leer = 0, unlesbar = NaN, damit die Prüfung „Betrag ungültig“ meldet */
 const amountOf = (text: string) => (text.trim() === "" ? 0 : (parseEuro(text) ?? Number.NaN));
@@ -67,7 +50,7 @@ function ManualEntryPage() {
   );
 }
 
-type Data = Awaited<ReturnType<typeof getManualEntryForm>>;
+export type Data = Awaited<ReturnType<typeof getManualEntryForm>>;
 
 function ManualEntryForm({ data }: { data: Data }) {
   const navigate = useNavigate();
@@ -94,10 +77,11 @@ function ManualEntryForm({ data }: { data: Data }) {
     ...(kind === "umbuchung" && (!gmbh || mitSchluessel)
       ? freieBuchungIssues(lines, { kontenrahmen: data.kontenrahmen, rechtsform: data.rechtsform, kleinunternehmer: data.kleinunternehmer })
       : []),
+    ...kontoSuchfehler(rows),
   ];
   const sum = (side: "debit" | "credit") => lines.reduce((s, l) => s + (Number.isFinite(l[side]) ? l[side] : 0), 0);
   const difference = sum("debit") - sum("credit");
-  const touched = rows.some((r) => r.account || r.debit || r.credit);
+  const touched = rows.some((r) => r.account || r.accountText || r.debit || r.credit);
   // Was gebucht wird, wenn eine Zeile einen Steuerschlüssel trägt: brutto geteilt in Netto und Steuer
   const gebucht = mitSchluessel && issues.length === 0 ? freieBuchungPosting(lines, data.kontenrahmen) : null;
   // Was an den Zeilen fehlt, steht als Liste unter der Tabelle; das Konto der ersten Zeile zeigt darauf und bekommt den Fokus
@@ -128,14 +112,7 @@ function ManualEntryForm({ data }: { data: Data }) {
   return (
     <>
       <form ref={form} className="card stack" onSubmit={onSubmit} aria-label="Manuelle Buchung" noValidate>
-        <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
-          Soll an Haben auf frei gewählten Konten ({data.kontenrahmen}),{" "}
-          {gmbh ? "etwa das Stammkapital, ein Gesellschafterdarlehen oder eine falsche Kontierung" : "etwa eine Ausgabe ohne Beleg gegen Privat"}. Bank, Kasse,
-          offene Posten, Umsatzsteuer, Erlöse aus Rechnungen und Anlagen führen ihre eigenen Seiten und lassen sich hier nicht bebuchen.
-          {mitSchluesseln &&
-            ` Mit Steuerschlüssel bucht eine Zeile auf das Erlöskonto des Satzes, etwa eine Leistung für private Zwecke gegen ${gmbh ? "das Gesellschafter-Verrechnungskonto" : "Privat"}, oder als Sachentnahme auf ${SACHENTNAHME_KONTEN[data.kontenrahmen][1900]} (19 %) bzw. ${SACHENTNAHME_KONTEN[data.kontenrahmen][700]} (7 %), wenn Waren oder Gegenstände des Betriebs privat entnommen werden; der Betrag ist brutto, Haben teilt ihn in Netto und Umsatzsteuer. Vorsteuer gibt es nur mit Beleg.`}{" "}
-          Die Buchung ist sofort festgeschrieben; korrigiert wird per Storno.
-        </p>
+        <Buchungshinweise kontenrahmen={data.kontenrahmen} gmbh={gmbh} mitSchluesseln={mitSchluesseln} />
         {gmbh && (
           <ArtDerBuchung
             kind={kind}
@@ -155,9 +132,10 @@ function ManualEntryForm({ data }: { data: Data }) {
           </Field>
         </div>
 
-        {/* Am Handy scrollt die Tabelle für sich (styles.css); relativ, damit die unsichtbaren Spaltennamen (visually-hidden,
-            absolut) im Scrollbereich bleiben und die Seite nicht verbreitern */}
-        <table className="report-table" style={{ position: "relative" }}>
+        {/* Am Handy steht jede Zeile als Karte (stack-table): In einer seitlich scrollenden Tabelle schnitte der Scrollbereich
+            die Trefferliste der Kontosuche ab. Relativ, damit die unsichtbaren Spaltennamen (visually-hidden, absolut) in der
+            Tabelle bleiben und die Seite nicht verbreitern */}
+        <table className="report-table stack-table" style={{ position: "relative" }}>
           <caption className="visually-hidden">Buchungszeilen</caption>
           <thead>
             <tr>
@@ -181,7 +159,7 @@ function ManualEntryForm({ data }: { data: Data }) {
                 key={r.key}
                 r={r}
                 index={index}
-                kontoName={data.accounts[r.account.trim()] ?? ""}
+                accounts={data.accounts}
                 kontenrahmen={data.kontenrahmen}
                 mitSchluesseln={mitSchluesseln}
                 fehlerId={zeilenFehler && index === 0 ? zeilenFehlerId : null}
@@ -196,8 +174,12 @@ function ManualEntryForm({ data }: { data: Data }) {
               <th scope="row" colSpan={2}>
                 Summe{difference !== 0 && ` · Differenz ${formatEuro(Math.abs(difference))}`}
               </th>
-              <td className="num">{formatEuro(sum("debit"))}</td>
-              <td className="num">{formatEuro(sum("credit"))}</td>
+              <td className="num" data-label="Soll">
+                {formatEuro(sum("debit"))}
+              </td>
+              <td className="num" data-label="Haben">
+                {formatEuro(sum("credit"))}
+              </td>
               {mitSchluesseln && <td />}
               <td />
             </tr>
@@ -245,92 +227,32 @@ function ManualEntryForm({ data }: { data: Data }) {
   );
 }
 
-/** Eine Zeile der Buchung; fehlerId verbindet das Konto der ersten Zeile mit der Liste dessen, was noch fehlt */
-function BuchungsZeile({
-  r,
-  index,
-  kontoName,
+function Buchungshinweise({
   kontenrahmen,
+  gmbh,
   mitSchluesseln,
-  fehlerId,
-  entfernbar,
-  update,
-  entfernen,
 }: {
-  r: Row;
-  index: number;
-  kontoName: string;
-  kontenrahmen: Data["kontenrahmen"];
+  kontenrahmen: Awaited<ReturnType<typeof getManualEntryForm>>["kontenrahmen"];
+  gmbh: boolean;
   mitSchluesseln: boolean;
-  fehlerId: string | null;
-  entfernbar: boolean;
-  update: (key: number, patch: Partial<Row>) => void;
-  entfernen: () => void;
 }) {
   return (
-    <tr>
-      <td>
-        <input
-          aria-label={`Konto Zeile ${index + 1}`}
-          aria-invalid={fehlerId ? true : undefined}
-          aria-describedby={fehlerId ?? undefined}
-          className="mono"
-          inputMode="numeric"
-          maxLength={4}
-          size={6}
-          value={r.account}
-          onChange={(e) => update(r.key, { account: e.target.value.replace(/\D/g, "") })}
-        />
-      </td>
-      <td className="small muted">{kontoName}</td>
-      <td className="num">
-        <input
-          aria-label={`Soll Zeile ${index + 1}`}
-          inputMode="decimal"
-          size={10}
-          value={r.debit}
-          onChange={(e) => update(r.key, { debit: e.target.value })}
-        />
-      </td>
-      <td className="num">
-        <input
-          aria-label={`Haben Zeile ${index + 1}`}
-          inputMode="decimal"
-          size={10}
-          value={r.credit}
-          onChange={(e) => update(r.key, { credit: e.target.value })}
-        />
-      </td>
-      {mitSchluesseln && (
-        <td>
-          {/* biome-ignore lint/plugin: Zelle der Buchungstabelle: der Spaltenkopf und aria-label benennen sie, eine Hülle `.field` je Zelle sprengte die Zeile */}
-          <select
-            aria-label={`Steuerschlüssel Zeile ${index + 1}`}
-            style={{ minWidth: 136 }}
-            value={r.taxCode}
-            onChange={(e) => {
-              const taxCode = e.target.value as Row["taxCode"];
-              // Ein Schlüssel gehört zu genau einem Erlöskonto; ein leeres Konto füllt Haben vor
-              update(r.key, { taxCode, ...(taxCode && !r.account ? { account: freieBuchungKonto(kontenrahmen, taxCode) } : {}) });
-            }}
-          >
-            <option value="">ohne</option>
-            {(Object.keys(FREIE_STEUERSCHLUESSEL) as FreierSteuerschluessel[]).map((code) => (
-              <option key={code} value={code}>
-                {SCHLUESSEL_NAME[code]}
-              </option>
-            ))}
-          </select>
-        </td>
+    <>
+      {!gmbh && (
+        <p className="muted small" style={{ margin: 0 }}>
+          <strong>Der Bank-Anfangsbestand braucht keine Buchung.</strong> Enthält der letzte Import oder Abruf einen Endsaldo, siehst du ihn unter{" "}
+          <Link to="/bank">Bank</Link>.
+        </p>
       )}
-      <td>
-        {entfernbar && (
-          <button type="button" className="icon-btn" onClick={entfernen} aria-label={`Zeile ${index + 1} entfernen`}>
-            <Icon name="close" size={16} />
-          </button>
-        )}
-      </td>
-    </tr>
+      <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
+        Soll an Haben auf frei gewählten Konten ({kontenrahmen}),{" "}
+        {gmbh ? "etwa das Stammkapital, ein Gesellschafterdarlehen oder eine falsche Kontierung" : "etwa eine Ausgabe ohne Beleg gegen Privat"}. Bank, Kasse,
+        offene Posten, Umsatzsteuer, Erlöse aus Rechnungen und Anlagen führen ihre eigenen Seiten und lassen sich hier nicht bebuchen.
+        {mitSchluesseln &&
+          ` Mit Steuerschlüssel bucht eine Zeile auf das Erlöskonto des Satzes, etwa eine Leistung für private Zwecke gegen ${gmbh ? "das Gesellschafter-Verrechnungskonto" : "Privat"}, oder als Sachentnahme auf ${SACHENTNAHME_KONTEN[kontenrahmen][1900]} (19 %) bzw. ${SACHENTNAHME_KONTEN[kontenrahmen][700]} (7 %), wenn Waren oder Gegenstände des Betriebs privat entnommen werden; der Betrag ist brutto, Haben teilt ihn in Netto und Umsatzsteuer. Vorsteuer gibt es nur mit Beleg.`}{" "}
+        Die Buchung ist sofort festgeschrieben; korrigiert wird per Storno.
+      </p>
+    </>
   );
 }
 

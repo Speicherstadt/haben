@@ -35,7 +35,8 @@ const COLUMN_ALIASES: Partial<Record<ColumnName, readonly string[]>> = {
   Steuerschluesselbezeichnung: ["steuerschlüsselbezeichnung"],
 };
 
-const SALDOVORTRAG_ACCOUNTS = new Set(["9000", "9008", "9009"]);
+export const SALDOVORTRAG_ACCOUNTS = new Set(["9000", "9008", "9009"]);
+const MAX_REPORTED_ROW_ERRORS = 20;
 
 function buildColumnMap(header: string[]): Map<ColumnName, number> {
   const normalized = new Map<string, number>();
@@ -66,12 +67,47 @@ function cell(row: string[], cols: Map<ColumnName, number>, name: ColumnName): s
 }
 
 /** Betrag oder Steuersatz aus einer Zelle; leer ist 0 */
-function parseNumberField<T extends number>(parse: (input: string) => T | null, value: string, rowNumber: number, label: string): T {
+function parseNumberField<T extends number>(parse: (input: string) => T | null, value: string, label: string): T {
   const parsed = parse(value || "0");
   if (parsed === null) {
-    throw new WisoParseError(`Zeile ${rowNumber}: ungültiger Betrag in ${label} („${value}“).`);
+    throw new WisoParseError(`ungültiger Betrag in ${label}.`);
   }
   return parsed;
+}
+
+function parseWisoRow(raw: string[], cols: Map<ColumnName, number>, rowNumber: number) {
+  const read = (name: ColumnName) => cell(raw, cols, name);
+  const zahlungsdatum = parseDate(read("Zahlungsdatum"));
+  if (!zahlungsdatum) throw new WisoParseError("ungültiges Zahlungsdatum.");
+  const wertstellungsdatum = parseDate(read("Wertstellungsdatum")) ?? zahlungsdatum;
+  const buchungsdatumRaw = read("Buchungsdatum");
+  const buchungsdatum = parseDate(buchungsdatumRaw);
+  const soll = parseNumberField(parseGermanAmount, read("Soll"), "Soll");
+  const haben = parseNumberField(parseGermanAmount, read("Haben"), "Haben");
+  const steuersatz = parseNumberField(parseGermanRate, read("Steuersatz"), "Steuersatz");
+  if (steuersatz < 0) throw new WisoParseError("negativer Steuersatz.");
+  const row: WisoCsvRow = {
+    rowNumber,
+    buchungsnummer: read("Buchungsnummer"),
+    teilbuchung: read("Teilbuchung"),
+    zahlungsdatum,
+    wertstellungsdatum,
+    buchungstext: read("Buchungstext"),
+    konto: read("Konto"),
+    kontobezeichnung: read("Kontobezeichnung"),
+    gegenkonto: read("Gegenkonto"),
+    gegenkontobezeichnung: read("Gegenkontobezeichnung"),
+    soll,
+    haben,
+    steuerschluessel: read("Steuerschluessel"),
+    steuersatz,
+    steuerschluesselbezeichnung: read("Steuerschluesselbezeichnung"),
+    belegnummer: read("Belegnummer"),
+    buchungsdatum,
+    ustId: read("UStID"),
+    umsatzart: read("Umsatzart"),
+  };
+  return { row, unreadableBookingDate: Boolean(buchungsdatumRaw && !buchungsdatum) };
 }
 
 /**
@@ -80,57 +116,33 @@ function parseNumberField<T extends number>(parse: (input: string) => T | null, 
  */
 export function parseWisoCsv(bytes: Uint8Array): { rows: WisoCsvRow[]; unreadableBookingDates: number } {
   const text = decodeText(bytes).replace(/^\uFEFF/, "");
-  const rawRows = parseCsv(text, ";").filter((r) => !isBlankRow(r));
+  const rawRows = parseCsv(text, ";")
+    .map((raw, index) => ({ raw, sourceRowNumber: index + 1 }))
+    .filter(({ raw }) => !isBlankRow(raw));
   if (rawRows.length < 2) {
     throw new WisoParseError("Die WISO-CSV enthält keine Buchungszeilen.");
   }
-  const cols = buildColumnMap(rawRows[0]!);
+  const cols = buildColumnMap(rawRows[0]!.raw);
   const rows: WisoCsvRow[] = [];
+  const errors: string[] = [];
+  let invalidRows = 0;
   let unreadableBookingDates = 0;
 
   for (let i = 1; i < rawRows.length; i++) {
-    const raw = rawRows[i]!;
-    const rowNumber = i + 1;
-    const zahlungsdatumRaw = cell(raw, cols, "Zahlungsdatum");
-    const zahlungsdatum = parseDate(zahlungsdatumRaw);
-    if (!zahlungsdatum) {
-      throw new WisoParseError(`Zeile ${rowNumber}: ungültiges Zahlungsdatum („${zahlungsdatumRaw}“).`);
+    const { raw, sourceRowNumber } = rawRows[i]!;
+    try {
+      // Die bisherige Nummer ohne Leerzeilen bleibt Teil der Archiv-ID von Buchungen ohne Nummer.
+      const parsed = parseWisoRow(raw, cols, i + 1);
+      rows.push(parsed.row);
+      if (parsed.unreadableBookingDate) unreadableBookingDates += 1;
+    } catch (error) {
+      if (!(error instanceof WisoParseError)) throw error;
+      invalidRows += 1;
+      if (errors.length < MAX_REPORTED_ROW_ERRORS) errors.push(`Zeile ${sourceRowNumber}: ${error.message}`);
     }
-    const wertRaw = cell(raw, cols, "Wertstellungsdatum");
-    const wertstellungsdatum = (wertRaw ? parseDate(wertRaw) : null) ?? zahlungsdatum;
-    const buchungsdatumRaw = cell(raw, cols, "Buchungsdatum");
-    const buchungsdatum = buchungsdatumRaw ? parseDate(buchungsdatumRaw) : null;
-    if (buchungsdatumRaw && !buchungsdatum) unreadableBookingDates += 1;
-
-    const soll = parseNumberField(parseGermanAmount, cell(raw, cols, "Soll"), rowNumber, "Soll");
-    const haben = parseNumberField(parseGermanAmount, cell(raw, cols, "Haben"), rowNumber, "Haben");
-    const steuersatz = parseNumberField(parseGermanRate, cell(raw, cols, "Steuersatz") || "0", rowNumber, "Steuersatz");
-    if (steuersatz < 0) {
-      throw new WisoParseError(`Zeile ${rowNumber}: negativer Steuersatz.`);
-    }
-
-    rows.push({
-      rowNumber,
-      buchungsnummer: cell(raw, cols, "Buchungsnummer"),
-      teilbuchung: cell(raw, cols, "Teilbuchung"),
-      zahlungsdatum,
-      wertstellungsdatum,
-      buchungstext: cell(raw, cols, "Buchungstext"),
-      konto: cell(raw, cols, "Konto"),
-      kontobezeichnung: cell(raw, cols, "Kontobezeichnung"),
-      gegenkonto: cell(raw, cols, "Gegenkonto"),
-      gegenkontobezeichnung: cell(raw, cols, "Gegenkontobezeichnung"),
-      soll,
-      haben,
-      steuerschluessel: cell(raw, cols, "Steuerschluessel"),
-      steuersatz,
-      steuerschluesselbezeichnung: cell(raw, cols, "Steuerschluesselbezeichnung"),
-      belegnummer: cell(raw, cols, "Belegnummer"),
-      buchungsdatum,
-      ustId: cell(raw, cols, "UStID"),
-      umsatzart: cell(raw, cols, "Umsatzart"),
-    });
   }
+  if (invalidRows > errors.length) errors.push(`Weitere fehlerhafte Zeilen: ${invalidRows - errors.length}.`);
+  if (errors.length > 0) throw new WisoParseError(errors.join("\n"));
   return { rows, unreadableBookingDates };
 }
 
@@ -308,8 +320,12 @@ function buildGroupVoucher(key: string, group: WisoCsvRow[], skr: Kontenrahmen):
 export function previewWisoExport(bytes: Uint8Array, skr: Kontenrahmen): WisoPreview {
   const { rows, unreadableBookingDates } = parseWisoCsv(bytes);
   const groups = new Map<string, WisoCsvRow[]>();
+  let debitTotal: Cents = 0;
+  let creditTotal: Cents = 0;
 
   for (const row of rows) {
+    debitTotal += row.soll;
+    creditTotal += row.haben;
     const year = row.zahlungsdatum.slice(0, 4);
     const key = row.buchungsnummer ? `${year}/${row.buchungsnummer}` : `${year}/row-${row.rowNumber}`;
     const existing = groups.get(key);
@@ -340,6 +356,8 @@ export function previewWisoExport(bytes: Uint8Array, skr: Kontenrahmen): WisoPre
     dateTo: dates[dates.length - 1]!,
     bookings: vouchers.length,
     rows: rows.length,
+    debitTotal,
+    creditTotal,
     vouchers,
     warnings,
   };

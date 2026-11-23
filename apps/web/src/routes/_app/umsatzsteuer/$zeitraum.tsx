@@ -1,24 +1,20 @@
 import { computeUstva, formatDecimal, formatEuro, parseEuro, parsePeriodKey, periodKey, periodLabel, quarterOfMonth } from "@haben/core";
-import { Link, createFileRoute, notFound, useNavigate, useRouter } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
-import { useState, type FormEvent } from "react";
-import { ElsterSubmit } from "../../../components/ElsterSubmit.tsx";
-import { MeinElsterWerte } from "../../../components/MeinElsterWerte.tsx";
+import { Link, createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { Icon } from "../../../components/Icon.tsx";
 import { EricHinweis } from "../../../components/EricHinweis.tsx";
 import { NoticeBanner } from "../../../components/NoticeBanner.tsx";
 import { VatFrequencyCard } from "../../../components/umsatzsteuer/VatFrequencyCard.tsx";
 import { DauerfristCard } from "../../../components/umsatzsteuer/DauerfristCard.tsx";
-import { AbgabeVermerken } from "../../../components/umsatzsteuer/AbgabeVermerken.tsx";
 import { VatStatus } from "../../../components/umsatzsteuer/VatStatus.tsx";
-import { UstvaZahlung } from "../../../components/umsatzsteuer/UstvaZahlung.tsx";
 import { JournalVergleich } from "../../../components/umsatzsteuer/JournalVergleich.tsx";
-import { elsterNotice, zahllastFakt, type ElsterKind } from "../../../lib/elster.ts";
-import { formatLongDate, errorMessage } from "../../../lib/format.ts";
-import { createVatCorrection, getMeinElsterUstvaWerte, getVatPeriod, saveVatDraft, submitVatReturn } from "../../../server/functions/vat.ts";
+import { formatLongDate } from "../../../lib/format.ts";
+import { getVatPeriod } from "../../../server/functions/vat.ts";
 import type { Notice } from "../../../lib/use-action.ts";
 import { Field } from "../../../components/Field.tsx";
-import { History, type PageData, SourcesTable, SourcesToggle } from "./-zeitraum-quellen.tsx";
+import type { PageData } from "./-zeitraum-quellen.tsx";
+import { type FieldKey, KennzahlenTabelle } from "./-zeitraum-kennzahlen.tsx";
+import { AbgabeSpalte, useVoranmeldungAktionen } from "./-zeitraum-abgabe.tsx";
 
 export const Route = createFileRoute("/_app/umsatzsteuer/$zeitraum")({
   loader: ({ params }) => {
@@ -34,25 +30,6 @@ export const Route = createFileRoute("/_app/umsatzsteuer/$zeitraum")({
 
 const ELSTER_ABGABE_DOCS = "https://haben.app/elster-abgabe.html";
 
-type FieldKey =
-  | "kz81"
-  | "kz86"
-  | "kz21"
-  | "kz45"
-  | "kz48"
-  | "kz66"
-  | "kz46"
-  | "kz47"
-  | "kz84"
-  | "kz85"
-  | "kz67"
-  | "kz39"
-  | "kz41"
-  | "kz43"
-  | "kz89"
-  | "kz93"
-  | "kz61"
-  | "kz62";
 const FIELDS: FieldKey[] = [
   "kz81",
   "kz86",
@@ -205,12 +182,6 @@ function VatPeriodPage() {
 }
 
 function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: Notice; setNotice: (notice: Notice) => void }) {
-  const router = useRouter();
-  const save = useServerFn(saveVatDraft);
-  const submit = useServerFn(submitVatReturn);
-  const correct = useServerFn(createVatCorrection);
-  const loadWerte = useServerFn(getMeinElsterUstvaWerte);
-
   const current = data.current;
   const locked = current?.status === "sent";
   // Kz 39: die Sondervorauszahlung, abgezogen in der letzten Voranmeldung des Jahres
@@ -223,7 +194,6 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
   const [openSources, setOpenSources] = useState<string | null>(null);
   const toggleSources = (kz: string) => setOpenSources((open) => (open === kz ? null : kz));
   const [dirty, setDirty] = useState(!current);
-  const [busy, setBusy] = useState(false);
 
   const parsed = Object.fromEntries(FIELDS.map((f) => [f, parseEuro(values[f])])) as Record<FieldKey, number | null>;
   // Negative Werte sind erlaubt, etwa wenn Gutschriften im Monat überwiegen
@@ -250,117 +220,9 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
     setDirty(true);
   }
 
-  async function persist(): Promise<string> {
-    const result = await save({
-      data: mode === "berechnet" ? { mode: "berechnet", period: data.period } : { mode: "manuell", period: data.period, ...manualFigures, reason },
-    });
-    setDirty(false);
-    return result.id;
-  }
-
-  async function run(work: () => Promise<void>) {
-    setBusy(true);
-    setNotice(null);
-    try {
-      await work();
-    } catch (error) {
-      setNotice({ tone: "danger", text: errorMessage(error) });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const onSave = (event: FormEvent) => {
-    event.preventDefault();
-    void run(async () => {
-      await persist();
-      await router.invalidate();
-      setNotice({ tone: "ok", text: "Entwurf gespeichert." });
-    });
-  };
-
-  const onSubmit = (kind: ElsterKind, pin?: string) =>
-    run(async () => {
-      const id = dirty || !current ? await persist() : current.id;
-      const result = await submit({ data: { id, kind, pin } });
-      await router.invalidate();
-      setNotice(elsterNotice(kind, result, "Voranmeldung übermittelt und festgeschrieben."));
-    });
-
-  const onCorrect = () =>
-    run(async () => {
-      await correct({ data: data.period });
-      await router.invalidate();
-      setNotice({ tone: "info", text: "Berichtigte Anmeldung angelegt. Werte prüfen und erneut senden." });
-    });
+  const { busy, onSave, onSubmit, onCorrect } = useVoranmeldungAktionen(data, { mode, manualFigures, reason, dirty, setDirty }, setNotice);
 
   const editable = !locked && mode === "manuell";
-  const revenue = (rate: number) => data.figures.revenue.filter((r) => r.treatment === "regulaer" && r.rate === rate);
-  const treated = (treatment: string) => data.figures.revenue.filter((r) => r.treatment === treatment);
-  const rows = [
-    { kz: "81", field: "kz81" as const, label: "Steuerpflichtige Umsätze 19 %", base: shown.kz81, tax: shown.tax81 as number | null, sources: revenue(1900) },
-    { kz: "86", field: "kz86" as const, label: "Steuerpflichtige Umsätze 7 %", base: shown.kz86, tax: shown.tax86 as number | null, sources: revenue(700) },
-    {
-      kz: "21",
-      field: "kz21" as const,
-      label: "Nicht steuerbare sonstige Leistungen im EU-Ausland (Reverse Charge)",
-      base: shown.kz21,
-      tax: null,
-      sources: treated("reverse_charge"),
-    },
-    {
-      kz: "45",
-      field: "kz45" as const,
-      label: "Übrige nicht steuerbare Umsätze (Leistungsort nicht im Inland)",
-      base: shown.kz45,
-      tax: null,
-      sources: treated("drittland"),
-    },
-    { kz: "48", field: "kz48" as const, label: "Steuerfreie Umsätze ohne Vorsteuerabzug", base: shown.kz48, tax: null, sources: treated("steuerfrei") },
-    {
-      kz: "41",
-      field: "kz41" as const,
-      label: "Steuerfreie innergemeinschaftliche Lieferungen an Abnehmer mit USt-IdNr.",
-      base: shown.kz41,
-      tax: null,
-      sources: treated("ig_lieferung"),
-    },
-    {
-      kz: "43",
-      field: "kz43" as const,
-      label: "Weitere steuerfreie Umsätze mit Vorsteuerabzug (Ausfuhrlieferungen)",
-      base: shown.kz43,
-      tax: null,
-      sources: treated("ausfuhr"),
-    },
-    // Kz 21, 45, 48, 41 und 43 nur zeigen, wenn es dort etwas gibt oder von Hand eingetragen wird
-  ].filter((row) => ["81", "86"].includes(row.kz) || editable || row.base !== 0 || computed[row.field] !== 0);
-  // § 13b als Leistungsempfänger: Bemessungsgrundlage und Steuer, nur wenn belegt oder von Hand
-  const rcSources = (kind: "eu" | "drittland") => data.figures.reverseCharge.filter((r) => r.reverseCharge === kind);
-  const rcRows = [
-    {
-      kz: "46",
-      taxKz: "47",
-      base: "kz46" as const,
-      tax: "kz47" as const,
-      label: "Sonstige Leistungen eines Unternehmers aus dem EU-Ausland (§ 13b Abs. 1 UStG)",
-      sources: rcSources("eu"),
-    },
-    {
-      kz: "84",
-      taxKz: "85",
-      base: "kz84" as const,
-      tax: "kz85" as const,
-      label: "Andere Leistungen, für die du die Steuer schuldest (§ 13b Abs. 2 UStG)",
-      sources: rcSources("drittland"),
-    },
-  ].filter((row) => editable || shown[row.base] !== 0 || shown[row.tax] !== 0 || computed[row.base] !== 0 || computed[row.tax] !== 0);
-  // Innergemeinschaftlicher Erwerb: Bemessungsgrundlage 89/93, die Steuer rechnet das Formular daraus; Vorsteuer in Kz 61
-  const igeSources = (rate: number) => data.figures.igErwerb.filter((r) => r.rate === rate);
-  const igeRows = [
-    { kz: "89", field: "kz89" as const, label: "Steuerpflichtige innergemeinschaftliche Erwerbe 19 %", tax: shown.tax89, sources: igeSources(1900) },
-    { kz: "93", field: "kz93" as const, label: "Steuerpflichtige innergemeinschaftliche Erwerbe 7 %", tax: shown.tax93, sources: igeSources(700) },
-  ].filter((row) => editable || shown[row.field] !== 0 || computed[row.field] !== 0);
 
   return (
     <div className="grid-main">
@@ -410,254 +272,7 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
         <p className="small muted" style={{ margin: 0 }}>
           Kz = Kennzahl, die Nummer des Felds im ELSTER-Formular.
         </p>
-        <div className="kz-table">
-          <div className="kz-row head">
-            <div>Kz</div>
-            <div>Bezeichnung</div>
-            <div style={{ textAlign: "right" }}>Bemessung</div>
-            <div style={{ textAlign: "right" }}>Steuer</div>
-          </div>
-          {rows.map((row) => (
-            <div key={row.kz}>
-              <div className="kz-row">
-                <div className="kz-num">{row.kz}</div>
-                <div className="kz-label">
-                  <label htmlFor={`kz-${row.kz}`}>{row.label}</label>
-                  {!locked && (
-                    <SourcesToggle
-                      kind="revenue"
-                      rows={row.sources}
-                      open={openSources === row.kz}
-                      controls={`kz-${row.kz}-quellen`}
-                      onToggle={() => toggleSources(row.kz)}
-                    />
-                  )}
-                </div>
-                {editable ? (
-                  <input
-                    id={`kz-${row.kz}`}
-                    inputMode="decimal"
-                    value={values[row.field]}
-                    onChange={(event) => update(row.field, event.target.value)}
-                    aria-invalid={parsed[row.field] === null}
-                    aria-describedby="kz-hint"
-                  />
-                ) : (
-                  <output id={`kz-${row.kz}`} className="kz-amount">
-                    {formatEuro(row.base)}
-                  </output>
-                )}
-                <div className="kz-amount">{row.tax === null ? "" : formatEuro(row.tax)}</div>
-              </div>
-              {!locked && openSources === row.kz && <SourcesTable id={`kz-${row.kz}-quellen`} kind="revenue" rows={row.sources} />}
-            </div>
-          ))}
-          {igeRows.map((row) => (
-            <div key={row.kz}>
-              <div className="kz-row">
-                <div className="kz-num">{row.kz}</div>
-                <div className="kz-label">
-                  <label htmlFor={`kz-${row.kz}`}>{row.label}</label>
-                  {!locked && (
-                    <SourcesToggle
-                      kind="inputTax"
-                      rows={row.sources}
-                      open={openSources === row.kz}
-                      controls={`kz-${row.kz}-quellen`}
-                      onToggle={() => toggleSources(row.kz)}
-                    />
-                  )}
-                </div>
-                {editable ? (
-                  <input
-                    id={`kz-${row.kz}`}
-                    inputMode="decimal"
-                    value={values[row.field]}
-                    onChange={(event) => update(row.field, event.target.value)}
-                    aria-invalid={parsed[row.field] === null}
-                  />
-                ) : (
-                  <output id={`kz-${row.kz}`} className="kz-amount">
-                    {formatEuro(shown[row.field])}
-                  </output>
-                )}
-                <div className="kz-amount">{formatEuro(row.tax)}</div>
-              </div>
-              {!locked && openSources === row.kz && <SourcesTable id={`kz-${row.kz}-quellen`} kind="inputTax" rows={row.sources} />}
-            </div>
-          ))}
-          <div className="kz-row">
-            <div className="kz-num">66</div>
-            <div className="kz-label">
-              <label htmlFor="kz-66">Vorsteuer aus Rechnungen anderer Unternehmer</label>
-              {!locked && (
-                <SourcesToggle
-                  kind="inputTax"
-                  rows={data.figures.inputTax}
-                  open={openSources === "66"}
-                  controls="kz-66-quellen"
-                  onToggle={() => toggleSources("66")}
-                />
-              )}
-            </div>
-            <div />
-            {editable ? (
-              <input
-                id="kz-66"
-                inputMode="decimal"
-                value={values.kz66}
-                onChange={(event) => update("kz66", event.target.value)}
-                aria-invalid={parsed.kz66 === null}
-              />
-            ) : (
-              <output id="kz-66" className="kz-amount">
-                {formatEuro(shown.kz66)}
-              </output>
-            )}
-          </div>
-          {!locked && openSources === "66" && <SourcesTable id="kz-66-quellen" kind="inputTax" rows={data.figures.inputTax} />}
-          {rcRows.map((row) => (
-            <div key={row.kz}>
-              <div className="kz-row">
-                <div className="kz-num">
-                  {row.kz}/{row.taxKz}
-                </div>
-                <div className="kz-label">
-                  <label htmlFor={`kz-${row.kz}`}>{row.label}</label>
-                  {!locked && (
-                    <SourcesToggle
-                      kind="inputTax"
-                      rows={row.sources}
-                      open={openSources === row.kz}
-                      controls={`kz-${row.kz}-quellen`}
-                      onToggle={() => toggleSources(row.kz)}
-                    />
-                  )}
-                </div>
-                {editable ? (
-                  <>
-                    <input
-                      id={`kz-${row.kz}`}
-                      inputMode="decimal"
-                      value={values[row.base]}
-                      onChange={(event) => update(row.base, event.target.value)}
-                      aria-invalid={parsed[row.base] === null}
-                    />
-                    <input
-                      aria-label={`Steuer zu Kz ${row.kz} (Kz ${row.taxKz})`}
-                      inputMode="decimal"
-                      value={values[row.tax]}
-                      onChange={(event) => update(row.tax, event.target.value)}
-                      aria-invalid={parsed[row.tax] === null}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <output id={`kz-${row.kz}`} className="kz-amount">
-                      {formatEuro(shown[row.base])}
-                    </output>
-                    <div className="kz-amount">{formatEuro(shown[row.tax])}</div>
-                  </>
-                )}
-              </div>
-              {!locked && openSources === row.kz && <SourcesTable id={`kz-${row.kz}-quellen`} kind="inputTax" rows={row.sources} />}
-            </div>
-          ))}
-          {(rcRows.length > 0 || shown.kz67 !== 0) && (
-            <div className="kz-row">
-              <div className="kz-num">67</div>
-              <div className="kz-label">
-                <label htmlFor="kz-67">Vorsteuer aus Leistungen nach § 13b UStG</label>
-              </div>
-              <div />
-              {editable ? (
-                <input
-                  id="kz-67"
-                  inputMode="decimal"
-                  value={values.kz67}
-                  onChange={(event) => update("kz67", event.target.value)}
-                  aria-invalid={parsed.kz67 === null}
-                />
-              ) : (
-                <output id="kz-67" className="kz-amount">
-                  {formatEuro(shown.kz67)}
-                </output>
-              )}
-            </div>
-          )}
-          {(igeRows.length > 0 || shown.kz61 !== 0) && (
-            <div className="kz-row">
-              <div className="kz-num">61</div>
-              <div className="kz-label">
-                <label htmlFor="kz-61">Vorsteuer aus dem innergemeinschaftlichen Erwerb von Gegenständen</label>
-              </div>
-              <div />
-              {editable ? (
-                <input
-                  id="kz-61"
-                  inputMode="decimal"
-                  value={values.kz61}
-                  onChange={(event) => update("kz61", event.target.value)}
-                  aria-invalid={parsed.kz61 === null}
-                />
-              ) : (
-                <output id="kz-61" className="kz-amount">
-                  {formatEuro(shown.kz61)}
-                </output>
-              )}
-            </div>
-          )}
-          {(shown.kz62 !== 0 || computed.kz62 !== 0) && (
-            <div className="kz-row">
-              <div className="kz-num">62</div>
-              <div className="kz-label">
-                <label htmlFor="kz-62">Entstandene Einfuhrumsatzsteuer (§ 15 Abs. 1 Satz 1 Nr. 2 UStG)</label>
-              </div>
-              <div />
-              {editable ? (
-                <input
-                  id="kz-62"
-                  inputMode="decimal"
-                  value={values.kz62}
-                  onChange={(event) => update("kz62", event.target.value)}
-                  aria-invalid={parsed.kz62 === null}
-                />
-              ) : (
-                <output id="kz-62" className="kz-amount">
-                  {formatEuro(shown.kz62)}
-                </output>
-              )}
-            </div>
-          )}
-          {(shown.kz39 !== 0 || computed.kz39 !== 0) && (
-            <div className="kz-row">
-              <div className="kz-num">39</div>
-              <div className="kz-label">
-                <label htmlFor="kz-39">Abzug der festgesetzten Sondervorauszahlung (Dauerfristverlängerung)</label>
-              </div>
-              <div />
-              {editable ? (
-                <input
-                  id="kz-39"
-                  inputMode="decimal"
-                  value={values.kz39}
-                  onChange={(event) => update("kz39", event.target.value)}
-                  aria-invalid={parsed.kz39 === null}
-                />
-              ) : (
-                <output id="kz-39" className="kz-amount">
-                  {formatEuro(shown.kz39)}
-                </output>
-              )}
-            </div>
-          )}
-          <div className="kz-row total">
-            <div className="kz-num">83</div>
-            <div>{shown.kz83 < 0 ? "Verbleibender Überschuss (Erstattung)" : "Verbleibende Umsatzsteuer-Vorauszahlung"}</div>
-            <div />
-            <div className="kz-amount">{formatEuro(shown.kz83)}</div>
-          </div>
-        </div>
+        <KennzahlenTabelle data={data} shown={shown} computed={computed} eingabe={{ locked, editable, values, parsed, update, openSources, toggleSources }} />
         {editable && (
           <Field label="Begründung der Abweichung (Pflicht)" hint={<>Berechnet wären {describe(computed)}.</>}>
             {(control) => (
@@ -708,43 +323,7 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
         <NoticeBanner notice={notice} />
       </form>
 
-      <div className="stack">
-        {!locked && (
-          <ElsterSubmit
-            setup={data}
-            title="An ELSTER übermitteln"
-            ready={valid && data.companyIssues.length === 0}
-            busy={busy}
-            confirmTitle="Voranmeldung verbindlich senden?"
-            confirmFacts={[
-              { label: "Steuerart", value: "Umsatzsteuer-Voranmeldung" },
-              { label: "Zeitraum", value: periodLabel(data.period) },
-              zahllastFakt(shown.kz83),
-            ]}
-            confirmText="Die Voranmeldung geht an das Finanzamt und wird danach festgeschrieben."
-            footer="ERiC prüft die Daten vor dem Versand. Das Übertragungsprotokoll wird als PDF abgelegt. Die PIN wird nicht gespeichert."
-            onSubmit={onSubmit}
-          />
-        )}
-        <UstvaZahlung posten={data.posten} />
-        {!locked && current && (
-          <AbgabeVermerken
-            returnId={current.id}
-            kz83={shown.kz83}
-            blocked={dirty || stale}
-            today={data.today}
-            onFiled={() => setNotice({ tone: "ok", text: "Abgabe vermerkt und Voranmeldung festgeschrieben. Die Zahllast steht jetzt im Bankabgleich." })}
-          />
-        )}
-        {!data.herstellerIdConfigured && !locked && current && (
-          <MeinElsterWerte
-            load={() => loadWerte({ data: { id: current.id } })}
-            label={`Umsatzsteuer-Voranmeldung ${periodLabel(data.period)}`}
-            blocked={dirty || stale || data.companyIssues.length > 0}
-          />
-        )}
-        <History data={data} />
-      </div>
+      <AbgabeSpalte data={data} locked={locked} valid={valid} busy={busy} shown={shown} dirty={dirty} stale={stale} onSubmit={onSubmit} setNotice={setNotice} />
     </div>
   );
 }

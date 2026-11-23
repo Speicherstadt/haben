@@ -8,7 +8,7 @@ description: >-
 # Synology
 
 Haben läuft auf einer Synology im Container Manager als Projekt aus einer einzigen Datei,
-[`deploy/synology/compose.yml`](https://github.com/Speicherstadt/haben/blob/main/deploy/synology/compose.yml). Du änderst darin
+`deploy/synology/compose.yml` aus dem [letzten Release](https://github.com/Speicherstadt/haben/releases/latest). Du änderst darin
 eine Zeile, die Adresse. Die Schlüssel erzeugt das Projekt beim ersten Start selbst, HTTPS übernimmt der Reverse Proxy von
 DSM. Für die Grundeinrichtung brauchst du keine Kommandozeile.
 
@@ -42,8 +42,10 @@ Haben bekommt so eine eigene Subdomain, etwa `https://haben.deinname.synology.me
    ihn bei der Installation an).
 2. **Container Manager › Projekt › Erstellen:** Projektname `haben`, Pfad `/docker/haben`, Quelle „docker-compose.yml
    erstellen“.
-3. Den Inhalt von [`deploy/synology/compose.yml`](https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy/synology/compose.yml)
-   in das Feld kopieren und in der Zeile `BETTER_AUTH_URL` deine Adresse eintragen, mit `https://`, etwa
+3. Im [letzten Release](https://github.com/Speicherstadt/haben/releases/latest) auf den Tag klicken und
+   `deploy/synology/compose.yml` öffnen. Über **Raw** den Inhalt kopieren und in das Feld einfügen.
+   Für einen festen Stand ersetze `latest` in den Haben-Images durch die Versionsnummer des Tags ohne `v`.
+   In der Zeile `BETTER_AUTH_URL` deine Adresse eintragen, mit `https://`, etwa
    `BETTER_AUTH_URL: https://haben.deinname.synology.me`.
 4. Die Webportal-Einstellungen überspringen, „Projekt nach der Erstellung starten“ anhaken und fertigstellen. Der erste
    Start lädt die Images, das dauert ein paar Minuten.

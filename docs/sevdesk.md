@@ -60,10 +60,12 @@ Doppelt angelegt wird nichts:
 Statt „Belege und Rechnungen per API abgerufen“ zeigt der Abgleich „Belege aus dem sevDesk-Export übernommen“, mit Zahlen für die Zustände eines Belegs:
 
 - **mit Datei:** Beleglink und Belegbild im Export;
-- **Datei fehlt im Export:** Die Buchung hat einen Beleglink, die Datei fehlt in der ZIP-Datei. Das hält „Jeder Beleg hat eine Datei“ offen;
-- **ohne Belegbild im Export:** Belegdaten ohne Beleglink. Kein Fehler, denn auch sevDesk hat dazu kein Bild.
+- **Datei fehlt im Export:** Die in `document.xml` genannte Datei fehlt in der ZIP. Hier zählen auch offene Beleglinks, wenn Dateilisten fehlen oder Einträge daraus unlesbar sind. Die Vorschau nennt den Grund. Das hält „Jeder Beleg hat eine Datei“ offen. Ist eine ganze `document.xml` ungültig, weist Haben den Export ab.
+- **ohne Belegbild im Export:** Der Beleg hat keinen Beleglink oder der Link steht in keiner der vollständig gelesenen Dateilisten (`document.xml`). Letzteres kommt in Buchhaltungsversion 2.0 auch bei Belegen ohne Bild vor.
 
-In Buchhaltungsversion 2.0 hat auch ein Beleg ohne Bild einen Beleglink; seine Kennung steht dann in keiner `document.xml`. Haben zählt ihn heute noch als „Datei fehlt im Export“ ([#1374](https://github.com/Speicherstadt/haben/issues/1374)). Prüfe solche Belege in sevDesk, bevor du den Punkt als Fehler behandelst.
+Die Vorschau zählt „ohne Belegbild im Export“ und „Datei fehlt im Export“ getrennt. Der Link **Belege mit fehlender Datei ansehen** blendet Exportbelege ohne erwartetes Bild aus. In der vollständigen Archivliste bleiben sie sichtbar.
+
+Für ältere Importe nutzt Haben den damals gespeicherten Dateinamen. Fehlende Dateilisten aus dem ursprünglichen Export lassen sich daraus nicht rekonstruieren.
 
 Bei „Jede Buchung mit Belegnummer findet ihren Beleg“ findet eine Buchung mit Beleglink ihren Beleg nur über dessen Kennung, auch die weiteren Zeilen desselben Belegs. Zwei Belege mit derselben Nummer zählen so getrennt; Zahlungen ohne Beleglink finden ihren Beleg weiter über die Nummer.
 
@@ -123,7 +125,7 @@ Fehlt einem Beleg eine Datei, hält Haben fest, warum. Fortschritt, Belegliste, 
 
 Ein Beleg ohne Verweis auf eine Datei hat nicht sicher nie eine gehabt: In der API unterscheidet ihn kein Feld von einem Beleg, dessen Datei entfernt wurde. Deshalb bestätigst du „ohne Datei“ selbst; Haben speichert dazu deinen Namen, die Uhrzeit und deine Notiz. Eine Rechnung oder Gutschrift lässt sich nicht als „ohne Datei“ bestätigen: Jede fertige hat in sevDesk ein PDF. Die Bestätigung ändert nichts an der Steuer; für den Vorsteuerabzug braucht es weiter die Rechnung ([§ 15 Abs. 1 Nr. 1 UStG](https://www.gesetze-im-internet.de/ustg_1980/__15.html)).
 
-Weitere Anhänge eines Belegs nennt die API nicht, nur die eine Datei unter `document`. Ob einem Beleg in sevDesk mehr Dateien gehören, sieht Haben deshalb nicht. Eine dort später hochgeladene Datei erkennt Haben am geänderten `document` in der Belegliste ([Schritt 2, Punkt 9](#schritt-2-kontakte-rechnungen-und-belege-abrufen)); Archivkopie und frühere Dateien bleiben. Ein Stand wird nie überschrieben: Jede Feststellung, Bestätigung und nachgeladene Datei ist eine neue Zeile, der Jahresexport führt sie in `lexoffice/dateistand.csv`. Eine Bestätigung „ohne Datei“ lässt sich mit Grund zurücknehmen; sie steht danach als eigene Zeile „Bestätigung zurückgenommen“ im Verlauf. In sevDesk gilt der Beleg wieder als offen („Ohne Datei, zu prüfen“), im Accountable-Stapel und bei einer Ausgabe aus der Lexoffice-Sicherung steht er wieder als „Ohne Beleg“ und lässt sich erneut bestätigen. Belegansicht, Abgleich und die Spalte „Dateistand“ in `lexoffice/belege.csv` lesen die jüngste Zeile und zeigen denselben Stand. Offene Posten ohne Datei übernimmt Haben nicht, ebenso wenig einen mit Datei, solange der Abruf einer weiteren fehlschlug; die Liste nennt den Grund nach dem Stand.
+Weitere Anhänge eines Belegs nennt die API nicht, nur die eine Datei unter `document`. Ob einem Beleg in sevDesk mehr Dateien gehören, sieht Haben deshalb nicht. Eine dort später hochgeladene Datei erkennt Haben am neuen `document` in der Belegliste ([Schritt 2, Punkt 9](#schritt-2-kontakte-rechnungen-und-belege-abrufen)); Archivkopie und frühere Dateien bleiben. Ein Stand wird nie überschrieben: Jede Feststellung, Bestätigung und nachgeladene Datei ist eine neue Zeile, der Jahresexport führt sie in `lexoffice/dateistand.csv`. Eine Bestätigung „ohne Datei“ lässt sich mit Grund zurücknehmen; sie steht danach als eigene Zeile „Bestätigung zurückgenommen“ im Verlauf. In sevDesk gilt der Beleg wieder als offen („Ohne Datei, zu prüfen“), im Accountable-Stapel und bei einer Ausgabe aus der Lexoffice-Sicherung steht er wieder als „Ohne Beleg“ und lässt sich erneut bestätigen. Belegansicht, Abgleich und die Spalte „Dateistand“ in `lexoffice/belege.csv` lesen die jüngste Zeile und zeigen denselben Stand. Offene Posten ohne Datei übernimmt Haben nicht, ebenso wenig einen mit Datei, solange der Abruf einer weiteren fehlschlug; die Liste nennt den Grund nach dem Stand.
 
 ### Artikel
 
@@ -189,12 +191,12 @@ Eine Vorlage für wiederkehrende Belege (`voucherType` RV) wird ein [Dauerbeleg]
 | Status 100, nächster Termin (`recurringNextVoucher`) | angehalten, nächster Beleg an diesem Termin |
 | Status 50, ohne nächsten Termin | angehalten, nächster Beleg am Start (`recurringStartDate`) |
 | Status 1000, mit Ende (`recurringEndDate`) | beendet, wenn das Ende vorbei ist, sonst angehalten mit diesem Ende |
-| Intervall `recurringInterval` (`P0Y1M`, `P0Y3M`, `P0Y6M`, `P1Y`) | monatlich, vierteljährlich, halbjährlich, jährlich |
+| Intervall `recurringInterval` (etwa `P0Y1M`, `P0Y3M`, `P1Y`) | 1, 2 oder 4 Wochen, 1, 2, 3, 6 oder 12 Monate |
 | Lieferant, Belegnummer, Beträge je Steuersatz, Datei | Lieferant (mit Kontakt, wenn er Lieferant ist), Vertrags- oder Kundennummer, Beträge, Vertrag |
 
 Die [OpenAPI](https://api.sevdesk.de/openapi.yaml) beschreibt die Status nur für Belege (50 Entwurf, 100 offen, 1000 bezahlt), nicht für Vorlagen; die Zuordnung oben ist aus echten Antworten der Buchhaltungsversion 1.0 abgeleitet, 2.0 liefert dieselben Status 50 und 100. In 2.0 liefert `GET /Voucher` die Vorlagen auch ohne Filter; Haben zählt sie nicht als Belege ([#472](https://github.com/Speicherstadt/haben/issues/472)). Kategorie und Bezahlung kennt die Vorlage nicht: Haben setzt „Sonstiger Aufwand“ und das Geschäftskonto, ändere beides vor dem Fortsetzen. Hat die Vorlage keine Datei, lädst du vor dem Fortsetzen den Vertrag oder die Dauerrechnung hoch ([Ändern, pausieren, beenden](belege.md#ändern-pausieren-beenden)).
 
-Nicht übernommen werden Vorlagen für Einnahmen, in anderer Währung als Euro, mit negativer Summe, mit einem anderen Intervall (etwa wöchentlich) oder einem Steuersatz außer 19, 7 und 0 %. Der Abruf nennt sie mit Grund in der Liste der fehlgeschlagenen Belege; lege sie bei Bedarf selbst an.
+Nicht übernommen werden Vorlagen für Einnahmen, in anderer Währung als Euro, mit negativer Summe, mit einem anderen Intervall (etwa 3 Wochen) oder einem Steuersatz außer 19, 7 und 0 %. Der Abruf nennt sie mit Grund in der Liste der fehlgeschlagenen Belege; lege sie bei Bedarf selbst an.
 
 ### Steuerarten im Abgleich
 
@@ -314,12 +316,12 @@ sevDesk liefert die Vorlagen nur mit dem Filter `invoiceType=WKR`; belegt ist da
 | Positionen: Bezeichnung, Text, Menge, Preis, Steuersatz | Positionen; Einheit immer „Stk.“, sevDesk nennt sie nur als Kennung |
 | `showNet` | Preise netto oder brutto |
 | `timeToPay` | Zahlungsziel |
-| `accountIntervall` | Intervall: nur 1, 3, 6 oder 12 Monate |
+| `accountIntervall` | Intervall: 1, 2 oder 4 Wochen (belegt ist `P0Y0M1W`), 1, 2, 3, 6 oder 12 Monate |
 | `accountNextInvoice`, sonst `accountStartDate` | Nächste Rechnung am |
 | `accountEndDate` | Endet nach dem |
 | `taxType` `default`, `eu`, `noteu`, Kleinunternehmer | Umsatzsteuer regulär, innergemeinschaftliche Lieferung, Drittland, Kleinunternehmer; alles außer regulär mit Hinweis zum Prüfen |
 
-**Nicht übernommen** und als offener Punkt im Abruf genannt werden Vorlagen mit Wochen- oder Tagesintervall (etwa `P0Y0M1W`), in Fremdwährung, mit einem Steuersatz außer 19, 7 oder 0 %, mit Rabatt an einer Position, ohne Positionen, mit einer anderen Steuerart oder ohne übernommenen Kunden. Lege sie in Haben von Hand an. Skonto der Vorlage übernimmt Haben nicht und nennt es.
+**Nicht übernommen** und als offener Punkt im Abruf genannt werden Vorlagen mit anderem Intervall (etwa 3 Wochen, 5 Monate oder Tage, die keine ganzen Wochen sind), in Fremdwährung, mit einem Steuersatz außer 19, 7 oder 0 %, mit Rabatt an einer Position, ohne Positionen, mit einer anderen Steuerart oder ohne übernommenen Kunden. Lege sie in Haben von Hand an. Skonto der Vorlage übernimmt Haben nicht und nennt es.
 
 **Platzhalter** wie `[%KONTAKTPERSON%]`, `[%ZAHLUNGSZIEL%]` oder `[%Rechnungsnummer%]` stehen als Text in der Vorlage; Haben ersetzt sie nicht. Der Abruf und die Seite der Vorlage listen, welche vorkommen. Ersetze sie vor dem Aktivieren, etwa durch die [Platzhalter von Haben](rechnungen.md#wiederkehrende-rechnungen) oder festen Text.
 
@@ -330,6 +332,7 @@ sevDesk liefert die Vorlagen nur mit dem Filter `invoiceType=WKR`; belegt ist da
 | vorschüssig | Laufend |
 | nachfällig, monatlich | Laufend; liegt der nächste Termin am Monatsende, bleiben alle Termine am Monatsende |
 | nachfällig, mehrere Monate | Keiner, mit Hinweis: Haben hat keinen Zeitraum, der im Rechnungsmonat endet |
+| nachfällig, Wochen | Keiner, mit Hinweis: „Vergangen“ endet in Haben am Vortag, in sevDesk am Rechnungsdatum |
 | unklar (keine erzeugte Rechnung oder widersprüchlich) | Keiner, mit Hinweis |
 
 Ist es unklar, sieh in sevDesk an der Vorlage nach und setze den Leistungszeitraum selbst. Die Seite der Vorlage zeigt unter „Aus sevDesk übernommen“ den Status in sevDesk, das Ergebnis, die Platzhalter und die Hinweise. Prüfe vor dem Aktivieren „Nächste Rechnung am“: Liegt der Termin in der Vergangenheit, holt Haben die verpassten Termine nach.

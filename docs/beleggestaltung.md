@@ -22,7 +22,7 @@ Unter **Einstellungen › Beleggestaltung › Logo und Blatt** oder über das Za
 Unter **Einstellungen › Beleggestaltung › Akzentfarbe** stellst du die Farbe der Spaltenköpfe und Linien ein, etwa passend zu deinem Logo. Ab Werk ist **Farbe des Layouts** an: Das [Layout](#layouts) bestimmt die Farbe, Atelier ein Gold, alle anderen das Grün `#1F6F5C`. Übernimmst du eine eigene Farbe, gilt sie für alle Layouts, bis du **Farbe des Layouts** wieder einschaltest.
 
 - Text, Adressen, Beschriftungen, Positionen, dünne Linien und Fußzeile stehen in Grautönen, die Haben aus der Akzentfarbe ableitet: gleiche Helligkeit wie ab Werk, aber mit ihrem Farbton. Bei Blau sind sie leicht bläulich, bei einer grauen Akzentfarbe neutral grau; mit dem Standardgrün bleibt alles wie bisher.
-- Du wählst sie mit dem Farbfeld oder trägst sie als Hex-Wert in der Form `#RRGGBB` ein; **Auf Standard zurücksetzen** stellt das Grün wieder her und schaltet wie jede eigene Farbe **Farbe des Layouts** aus.
+- Du wählst sie mit dem Farbfeld oder trägst sie als Hex-Wert in der Form `#RRGGBB` ein, hier wie in der Spalte **Gestaltung** der [Vorschau](rechnungen.md#vorschau). Dort stehen zusätzlich Vorschläge; mit **Schwarz** sind die Belege ohne Farbe, die Grautöne neutral. **Auf Standard zurücksetzen** stellt das Grün wieder her und schaltet wie jede eigene Farbe **Farbe des Layouts** aus.
 - Die Vorschau im Editor zeigt sie ebenfalls.
 - Ist eine eigene Farbe auf weißem Papier schwer zu lesen (Kontrast unter 4,5 : 1 nach WCAG), weist Haben darauf hin. Speichern geht trotzdem; eine dunklere Variante des Logo-Farbtons liest sich besser.
 - Die Änderung steht im Änderungsprotokoll.

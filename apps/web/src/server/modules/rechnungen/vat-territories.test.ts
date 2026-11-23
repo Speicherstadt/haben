@@ -142,7 +142,7 @@ describe.skipIf(!testDatabaseUrl)("Sondergebiete: Rechnungen, Angebote und Meldu
       ...input(berlin.id, "drittland", 10_000, actual),
       exemptionReason: "",
       paymentMethod: "ueberweisung",
-      intervalMonths: 1,
+      recurrence: "P1M",
       nextDate: "2026-10-01",
       endDate: null,
       servicePeriod: "keiner",

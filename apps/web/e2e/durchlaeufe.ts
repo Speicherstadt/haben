@@ -51,10 +51,82 @@ export const DURCHLAEUFE = {
   "paypal-abruf": 38,
   // Stripe (#1280): nur dieser Server fragt die nachgebaute Stripe-API auf STRIPE_PORT
   "stripe-abruf": 40,
+  // Abschnitte von belege-steuern, jeder aus dem Abzug nach dessen Einrichtung (ABZUG_AUS)
+  "belege-steuern-belege": 42,
+  "belege-steuern-erklaerungen": 43,
+  "belege-steuern-bank": 44,
+  "belege-steuern-einstellungen": 45,
+  // Abschnitte von rechnungen, ebenso aus dem Abzug nach dessen Einrichtung
+  "rechnungen-kontakte": 46,
+  "rechnungen-artikel": 47,
+  "rechnungen-kasse": 48,
+  "rechnungen-angebote": 49,
 } as const;
 export type Durchlauf = keyof typeof DURCHLAEUFE;
 
-/** Die nachgebaute Enable-Banking-API in belege-steuern.spec.ts; + 7 und + 8 belegen langsame-anfrage und beenden */
+/**
+ * Abschnitte eines Durchlaufs (#1742): Der Durchlauf links beginnt mit einer Kopie der Datenbank, die der rechts nach
+ * seiner Einrichtung gesichert hat (e2e/abzug.ts), mit eigenem Server, damit die Abschnitte parallel laufen, ohne sich
+ * Daten zu teilen. Playwright startet ihn erst nach dem rechts (dependencies in playwright.config.ts).
+ */
+export const ABZUG_AUS: Partial<Record<Durchlauf, Durchlauf>> = {
+  "belege-steuern-belege": "belege-steuern",
+  "belege-steuern-erklaerungen": "belege-steuern",
+  "belege-steuern-bank": "belege-steuern",
+  "belege-steuern-einstellungen": "belege-steuern",
+  "rechnungen-kontakte": "rechnungen",
+  "rechnungen-artikel": "rechnungen",
+  "rechnungen-kasse": "rechnungen",
+  "rechnungen-angebote": "rechnungen",
+};
+
+/** Projekte in playwright.config.ts, die den Hauptserver auf PORT nutzen; „mit-daten“ in drei Gruppen (MIT_DATEN) */
+export const HAUPTPROJEKTE = ["ablauf", "abzug", "mit-daten", "mit-daten-2", "mit-daten-3", "ohne-daten"] as const;
+export type Projekt = (typeof HAUPTPROJEKTE)[number] | Durchlauf;
+
+/** Die Projekte, die nach „ablauf“ mit dessen Daten aus dem Abzug laufen; jedes in einem eigenen Teil mit „ablauf“ und „abzug“ */
+export const MIT_DATEN = ["mit-daten", "mit-daten-2", "mit-daten-3"] as const satisfies readonly Projekt[];
+
+/**
+ * Feste Verteilung der Projekte auf die Teile der CI (Matrix in .github/workflows/ci.yml, E2E_TEIL), nach Dauer statt
+ * nach Datei wie `--shard`. belege-steuern und rechnungen mit ihren parallelen Abschnitten (ABZUG_AUS) haben je einen
+ * Teil. Die Tests mit Daten (MIT_DATEN) lasten vier Worker voll aus und sind in drei Teile verteilt; jeder
+ * dieser Teile spielt „ablauf“ selbst durch (e2e/abzug.ts sichert und spielt im selben Job ein), daneben laufen auf den
+ * freien Workern die kurzen Durchläufe. Nur „ablauf“ und „abzug“ stehen in mehreren Teilen, jedes andere Projekt in genau
+ * einem (e2e-teile.test.ts); ein neuer Durchlauf kommt in den kürzesten Teil.
+ */
+export const TEILE = {
+  "belege-steuern": ["belege-steuern", "belege-steuern-belege", "belege-steuern-erklaerungen", "belege-steuern-bank", "belege-steuern-einstellungen"],
+  rechnungen: ["rechnungen", "rechnungen-kontakte", "rechnungen-artikel", "rechnungen-kasse", "rechnungen-angebote"],
+  ablauf: ["ablauf", "abzug", "mit-daten", "fremdrechnung-kleinunternehmer", "fints-abruf", "etsy-abruf"],
+  "ablauf-2": ["ablauf", "abzug", "mit-daten-2", "zahlung-gebuehr", "bank-dubletten", "bank-bestaetigen"],
+  "ablauf-3": ["ablauf", "abzug", "mit-daten-3", "paypal-abruf", "stripe-abruf"],
+  gmbh: ["gmbh", "rueckfragen", "belegimport", "bb-import", "beleg-storno", "dauerfrist-euer", "verrechnung", "firmen", "passwort", "fastbill-import"],
+  importe: [
+    "wiso-import",
+    "sevdesk-export",
+    "sevdesk-anlagen",
+    "vorjahre",
+    "steuerbefreiung",
+    "ablage",
+    "einrichtung",
+    "umstellung",
+    "accountable-ohne-beleg",
+    "fremdrechnung",
+    // Nutzt den Hauptserver, aber nicht dessen Daten: nie in einem Teil mit „abzug“, das die Hauptdatenbank ersetzt
+    "ohne-daten",
+  ],
+} as const satisfies Record<string, readonly Projekt[]>;
+export type Teil = keyof typeof TEILE;
+
+/** Projekte des Teils aus E2E_TEIL; ohne Angabe alle (undefined), ein unbekannter Name bricht ab */
+export function projekteFuerTeil(teil = process.env.E2E_TEIL): readonly Projekt[] | undefined {
+  if (!teil) return undefined;
+  if (!(teil in TEILE)) throw new Error(`E2E_TEIL „${teil}“ unbekannt, erlaubt: ${Object.keys(TEILE).join(", ")}`);
+  return TEILE[teil as Teil];
+}
+
+/** Die nachgebaute Enable-Banking-API in belege-steuern-einstellungen.spec.ts; + 7 und + 8 belegen langsame-anfrage und beenden */
 export const ENABLE_BANKING_PORT = PORT + 9;
 
 /** Nachgebaute FinTS-Bank in fints-abruf.spec.ts (@haben/import/fints-testbank) */
@@ -67,7 +139,7 @@ export const ETSY_PORT = PORT + 33;
 export const STRIPE_PORT = PORT + 41;
 
 /**
- * Nachgebauter Dienst des BZSt für die Bestätigung von USt-IdNrn. in belege-steuern.spec.ts (EVATR_API_URL, #1385); jeder
+ * Nachgebauter Dienst des BZSt für die Bestätigung von USt-IdNrn. in belege-steuern-erklaerungen.spec.ts (EVATR_API_URL, #1385); jeder
  * Server zeigt dorthin, damit kein Test das echte BZSt fragt
  */
 export const EVATR_PORT = PORT + 34;

@@ -77,21 +77,29 @@ export function steuerKonten(kontenrahmen: Kontenrahmen) {
  *
  * Die Konten tragen im DATEV-Kontenrahmen 2026 (SKR03 Art.-Nr. 11174, SKR04 Art.-Nr. 11175) das Kennzeichen G; die Gruppen
  * sind in beiden Kontenrahmen gleich groß (koerperschaft.test.ts). Das G bildet nur die Programmverbindung ab, nicht den
- * steuerlichen Ursprung (Fußnote 4 und „Erläuterungen zur Kennzeichnung“); nicht alle Konten damit gehören hierher. Nicht
- * dabei sind die Zinsen nach §§ 233a bis 237 AO, Abschreibungen auf ein Disagio, Vergütungen an Mitunternehmer und
- * Aufwendungen nach §§ 3 Nr. 40, 3c EStG bzw. § 8b KStG (etwa 2115, 2116 / 7350, 7351, Fußnote 9).
+ * steuerlichen Ursprung (Fußnote 4 und „Erläuterungen zur Kennzeichnung“). Gewinnmindernde AO-Zinsen zählen nach
+ * Ländererlassen vom 02.07.2012, BStBl I S. 654, Rz. 24a. Damnum und Disagio zählen nach R 8.1 Abs. 1 Satz 4 GewStR.
+ * Eigenständige Erstattungszinsen sind Betriebseinnahmen (BFH IV R 16/23, Rz. 21). Auch nicht abziehbare Zinsen,
+ * Vergütungen an Mitunternehmer und Aufwendungen nach §§ 3 Nr. 40, 3c EStG bzw. § 8b KStG (etwa 2115, 2116 / 7350,
+ * 7351, Fußnote 9) gehören nicht in diese Gruppe.
  *
  * Zinsen und Miete an Gesellschafter tragen nur das Kennzeichen K, kein G (die Gewerbesteuer der Körperschaften rechnet
  * DATEV im Programm Körperschaftsteuer, „Erläuterungen zur Kennzeichnung“). Sie gehören trotzdem dazu: § 8 Nr. 1 a, d und e
  * fragt nicht, wer Gläubiger oder Vermieter ist, und die Ausnahme für Mitunternehmer gibt es bei der GmbH nicht (#1346).
  */
-export type HinzurechnungArt = "zinsen" | "renten" | "beweglich" | "elektro" | "unbeweglich" | "rechte";
+export type HinzurechnungArt = "zinsen" | "renten" | "stilleGesellschafter" | "beweglich" | "elektro" | "unbeweglich" | "rechte";
 const HINZURECHNUNG: Record<Kontenrahmen, readonly [art: HinzurechnungArt, konten: readonly string[], anteil: BasisPoints, text: string][]> = {
   SKR03: [
     // Mit den Zinsen zur Finanzierung des Anlagevermögens aus dem Darlehen (darlehen.ts), an verbundene Unternehmen,
     // auf Kontokorrentkonten und für Gebäude, für Gesellschafterdarlehen (2114) und an Gesellschafter mit mehr als 25 % (2117)
-    ["zinsen", ["2100", "2109", "2110", "2114", "2117", "2118", "2119", "2120", "2125", "2126", "2129"], 10_000, "Zinsen (§ 8 Nr. 1 a)"],
+    [
+      "zinsen",
+      ["2100", "2107", "2109", "2110", "2111", "2114", "2117", "2118", "2119", "2120", "2123", "2124", "2125", "2126", "2129"],
+      10_000,
+      "Zinsen (§ 8 Nr. 1 a)",
+    ],
     ["renten", ["2127"], 10_000, "Renten und dauernde Lasten (§ 8 Nr. 1 b)"],
+    ["stilleGesellschafter", ["2493"], 10_000, "Gewinn- und Verlustanteile stiller Gesellschafter (§ 8 Nr. 1 c)"],
     // Mit Mietleasing für technische Anlagen und Maschinen (4810) und Betriebs- und Geschäftsausstattung (4965); Miete,
     // Pacht und Lizenzen auch als Fremdleistungen (3170, 3175, 3180); Miete und Pacht an Gesellschafter (4958)
     [
@@ -106,8 +114,14 @@ const HINZURECHNUNG: Record<Kontenrahmen, readonly [art: HinzurechnungArt, konte
     ["rechte", ["3180", "4964"], 2500, "Überlassung von Rechten (§ 8 Nr. 1 f)"],
   ],
   SKR04: [
-    ["zinsen", ["7300", "7309", "7310", "7316", "7317", "7318", "7319", "7320", "7325", "7326", "7329"], 10_000, "Zinsen (§ 8 Nr. 1 a)"],
+    [
+      "zinsen",
+      ["7300", "7305", "7309", "7310", "7311", "7316", "7317", "7318", "7319", "7320", "7323", "7324", "7325", "7326", "7329"],
+      10_000,
+      "Zinsen (§ 8 Nr. 1 a)",
+    ],
     ["renten", ["7327"], 10_000, "Renten und dauernde Lasten (§ 8 Nr. 1 b)"],
+    ["stilleGesellschafter", ["7399"], 10_000, "Gewinn- und Verlustanteile stiller Gesellschafter (§ 8 Nr. 1 c)"],
     [
       "beweglich",
       ["5970", "6498", "6560", "6833", "6835", "6836", "6838", "6840"],
@@ -250,12 +264,15 @@ export function kapgSteuern(
 
   const gewstHinzurechnungen = hinzurechnungGruppen(kontenrahmen, year)
     .map(([art, konten, quote, text]) => {
-      const brutto = Math.max(0, summe(konten));
+      // BFH I R 4/14: steuerlich wirksame Verlustanteile des typisch Stillen mindern die Summe der Finanzierungsanteile.
+      const saldo = summe(konten);
+      const brutto = art === "stilleGesellschafter" ? saldo : Math.max(0, saldo);
       return { art, text, brutto, anteil: quote, betrag: anteil(brutto, quote) };
     })
     .filter((z) => z.betrag !== 0);
   const gewichtet = gewstHinzurechnungen.reduce((sum, z) => sum + z.betrag, 0);
-  const hinzurechnungGewst = anteil(Math.max(0, gewichtet - GEWST_HINZURECHNUNG_FREIBETRAG), 2500);
+  // BFH I R 15/15: Der Freibetrag ist auf eine negative Summe nicht spiegelbildlich anzuwenden.
+  const hinzurechnungGewst = anteil(gewichtet < 0 ? gewichtet : Math.max(0, gewichtet - GEWST_HINZURECHNUNG_FREIBETRAG), 2500);
   const gewerbeertragVorVerlust = einkommen + hinzurechnungGewst;
   const verlustabzugGewst = verlustabzug(gewerbeertragVorVerlust, angaben.verlustvortragGewst, VERLUST_QUOTE_GEWST);
   const gewerbeertrag = abrunden(gewerbeertragVorVerlust - verlustabzugGewst, 10_000);

@@ -2206,6 +2206,34 @@
       "when": 1795358642986,
       "tag": "0314_arbeitskosten",
       "breakpoints": true
+    },
+    {
+      "idx": 315,
+      "version": "7",
+      "when": 1795362504548,
+      "tag": "0315_wiederkehrend_wochen",
+      "breakpoints": true
+    },
+    {
+      "idx": 316,
+      "version": "7",
+      "when": 1795363246324,
+      "tag": "0316_dauerbelege_dauer",
+      "breakpoints": true
+    },
+    {
+      "idx": 317,
+      "version": "7",
+      "when": 1795425896463,
+      "tag": "0317_standard_je_mahnstufe",
+      "breakpoints": true
+    },
+    {
+      "idx": 318,
+      "version": "7",
+      "when": 1795431837210,
+      "tag": "0318_siegel_standardwert_befund",
+      "breakpoints": true
     }
   ]
 }

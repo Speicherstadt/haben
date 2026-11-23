@@ -1,3 +1,4 @@
+import { formatEuro } from "@haben/core";
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState, type FormEvent } from "react";
@@ -10,6 +11,7 @@ import { Field } from "../Field.tsx";
 import { FilePicker } from "../FilePicker.tsx";
 import { Icon } from "../Icon.tsx";
 import { NoticeBanner } from "../NoticeBanner.tsx";
+import { WisoGoBdCheck } from "./WisoGoBdCheck.tsx";
 
 type MigrationData = Awaited<ReturnType<typeof getMigration>>;
 type ImportRow = NonNullable<MigrationData["wisoImport"]>;
@@ -25,27 +27,32 @@ export function WisoImport({ initial }: { initial: ImportRow | null }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const submitCheck = useSubmitCheck({ file: file ? null : "Bitte eine WISO-Buchungs-CSV auswählen." });
-  const [preview, setPreview] = useState<Preview | null>(null);
+  const [checked, setChecked] = useState<{ file: File; summary: Preview | null } | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const currentCheck = checked?.file === file ? checked : null;
+  const preview = currentCheck?.summary ?? null;
 
-  const formData = () => {
+  const formData = (csv: File) => {
     const data = new FormData();
-    if (file) data.append("file", file);
+    data.append("file", csv);
     return data;
   };
   const onPreview = (event: FormEvent) => {
     event.preventDefault();
-    if (!submitCheck.check()) return;
-    void previewAction.run(async () => setPreview(await previewFn({ data: formData() })));
+    if (!submitCheck.check() || !file) return;
+    setChecked({ file, summary: null });
+    void previewAction.run(async () => setChecked({ file, summary: await previewFn({ data: formData(file) }) }));
   };
-  const onImport = () =>
-    importAction.run(async () => {
-      setResult(await importFn({ data: formData() }));
+  const onImport = () => {
+    if (!preview || !file) return;
+    void importAction.run(async () => {
+      setResult(await importFn({ data: formData(file) }));
       setConfirming(false);
-      setPreview(null);
+      setChecked(null);
       await router.invalidate();
     });
+  };
 
   const done = result || (initial?.status === "fertig" ? initial : null);
   return (
@@ -68,9 +75,11 @@ export function WisoImport({ initial }: { initial: ImportRow | null }) {
               inputRef={fileInput}
               accept=".csv"
               required
+              disabled={importAction.busy}
               onChange={(event) => {
                 setFile(event.target.files?.[0] ?? null);
-                setPreview(null);
+                setChecked(null);
+                setConfirming(false);
                 setResult(null);
               }}
             />
@@ -82,7 +91,7 @@ export function WisoImport({ initial }: { initial: ImportRow | null }) {
           </button>
         </div>
       </form>
-      <NoticeBanner notice={previewAction.notice} />
+      <NoticeBanner notice={currentCheck ? previewAction.notice : null} />
       {preview && <WisoPreviewFacts preview={preview} busy={importAction.busy} onStart={() => setConfirming(true)} />}
       <NoticeBanner notice={importAction.notice} />
       {result && (
@@ -96,7 +105,8 @@ export function WisoImport({ initial }: { initial: ImportRow | null }) {
           ).
         </p>
       )}
-      <WisoConfirmDialog preview={preview} open={confirming} onConfirm={() => void onImport()} onClose={() => setConfirming(false)} />
+      <WisoConfirmDialog preview={preview} open={confirming && preview !== null} onConfirm={onImport} onClose={() => setConfirming(false)} />
+      <WisoGoBdCheck />
     </section>
   );
 }
@@ -122,6 +132,12 @@ function WisoPreviewFacts({ preview, busy, onStart }: { preview: Preview; busy: 
         <div>
           <span className="muted">Zeilen</span>
           <strong>{preview.rows}</strong>
+        </div>
+        <div>
+          <span className="muted">Soll laut CSV</span> <strong>{formatEuro(preview.debitTotal)}</strong>
+        </div>
+        <div>
+          <span className="muted">Haben laut CSV</span> <strong>{formatEuro(preview.creditTotal)}</strong>
         </div>
       </div>
       {preview.warnings.length > 0 && (

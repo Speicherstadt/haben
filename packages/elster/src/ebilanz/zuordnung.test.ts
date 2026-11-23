@@ -24,11 +24,20 @@ const TEILBAUM: Record<Posten, readonly string[]> = {
   "passiva.E": ["bs.eqLiab.defTax"],
   umsatzerloese: ["is.netIncome.regular.operatingTC.grossTradingProfit.totalOutput.netSales"],
   // Kleinst-GuV: Finanzerträge gehören zu den sonstigen Erträgen, Finanzaufwand zu den sonstigen Aufwendungen
-  sonstigeErtraege: ["is.netIncome.regular.operatingTC.otherOpRevenue", "is.netIncome.regular.fin.netInterest.income"],
+  // Typisch stille Beteiligungen haben eigene Positionen außerhalb des Ergebnisses der gewöhnlichen Geschäftstätigkeit.
+  sonstigeErtraege: [
+    "is.netIncome.regular.operatingTC.otherOpRevenue",
+    "is.netIncome.regular.fin.netInterest.income",
+    "is.netIncome.incomeSharing.loss.typPart",
+  ],
   materialaufwand: ["is.netIncome.regular.operatingTC.grossTradingProfit.materialServices"],
   personalaufwand: ["is.netIncome.regular.operatingTC.staff"],
   abschreibungen: ["is.netIncome.regular.operatingTC.deprAmort"],
-  sonstigeAufwendungen: ["is.netIncome.regular.operatingTC.otherCost", "is.netIncome.regular.fin.netInterest.expenses"],
+  sonstigeAufwendungen: [
+    "is.netIncome.regular.operatingTC.otherCost",
+    "is.netIncome.regular.fin.netInterest.expenses",
+    "is.netIncome.incomeSharing.gain.silentTypical",
+  ],
   steuern: ["is.netIncome.tax", "is.netIncome.otherTaxes"],
 };
 
@@ -74,6 +83,20 @@ describe.each([
       expect(unter(position, posten), `${posten} → ${position}`).toBe(true);
       expect(["bs.ass", "bs.eqLiab", "is.netIncome"]).toContain(wurzel(position, version));
     }
+  });
+
+  it("Typisch stille Beteiligung: Gewinnanteil mindert und Verlustübernahme erhöht das GuV-Ergebnis", () => {
+    const account = kontenrahmen === "SKR03" ? "2493" : "7399";
+    const gewinnanteil = ebilanzZuordnung(kontenrahmen, [{ account, saldo: 25_000 }]);
+    const verlustuebernahme = ebilanzZuordnung(kontenrahmen, [{ account, saldo: -25_000 }]);
+    expect(ebilanzWerte(gewinnanteil.zuordnung, version)).toEqual({
+      "is.netIncome.incomeSharing.gain.silentTypical": 25_000,
+      "bs.eqLiab.equity.netIncome": -25_000,
+    });
+    expect(ebilanzWerte(verlustuebernahme.zuordnung, version)).toEqual({
+      "is.netIncome.incomeSharing.loss.typPart": 25_000,
+      "bs.eqLiab.equity.netIncome": 25_000,
+    });
   });
 });
 

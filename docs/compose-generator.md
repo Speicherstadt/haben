@@ -11,7 +11,9 @@ hide:
 
 <link rel="stylesheet" href="assets/stylesheets/compose-generator.css">
 
-Hier entstehen `.env`, bei Bedarf `compose.override.yml` und die Befehle für den ersten Start nach [Docker Compose](installation.md#docker-compose). Passwörter und Schlüssel erzeugt dein Browser; sie verlassen dein Gerät nicht. `compose.yml` lädst du unverändert aus dem Repository, damit ein Update sie ersetzen kann; alles, was du hier abweichend wählst, steht im Override.
+Hier entstehen `.env`, bei Bedarf `compose.override.yml` und die Befehle für den ersten Start. Passwörter und Schlüssel erzeugt dein Browser; sie verlassen dein Gerät nicht. Abweichungen von `compose.yml` stehen im Override.
+
+Die generierten Startbefehle laden `compose.yml` aus dem Entwicklungsbranch `main`, auch wenn du ein festes Image-Tag wählst. Für eine Installation mit Vorlagen aus dem passenden Release verwende die [Docker-Compose-Anleitung](installation.md#docker-compose).
 
 > [!IMPORTANT]
 > **Schlüssel sichern:** Speichere `ENCRYPTION_KEY` und `RESTIC_PASSWORD` aus `.env` zusätzlich in deinem Passwortmanager; ohne beide ist das Backup wertlos, siehe [Backup und Wiederherstellen](installation-backup.md#backup-und-wiederherstellen).
@@ -39,7 +41,7 @@ Hier entstehen `.env`, bei Bedarf `compose.override.yml` und die Befehle für de
         <div class="cg-field">
           <label for="cg-image-tag">Version (Image-Tag)</label>
           <select id="cg-image-tag" class="cg-select">
-            <option value="latest" selected>latest (Empfohlen)</option>
+            <option value="latest" selected>latest</option>
             <option value="next">next (Release Candidate)</option>
             <option value="edge">edge (Entwicklungsstand)</option>
             <option value="custom">Feste Version (z. B. 1.2.3)</option>

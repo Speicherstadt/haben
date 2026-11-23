@@ -3,10 +3,10 @@ import {
   outgoingTaxIssues,
   type PaymentMethod,
   type PriceMode,
-  type RecurringInterval,
+  type Recurrence,
+  invoiceServicePeriod,
   type ServicePeriodMode,
   section4Note,
-  servicePeriodFor,
   type TaxTreatment,
   lineAmount,
 } from "@haben/core";
@@ -29,7 +29,7 @@ import {
 import { type LineState, lineState, parseLine, RecurringPositions, type RecurringLine } from "./RecurringLines.tsx";
 import { TextBlockField, type TextBlockOption } from "./TextBlockField.tsx";
 
-export interface RecurringValues {
+export type RecurringValues = {
   name: string;
   active: boolean;
   contactId: string;
@@ -43,7 +43,7 @@ export interface RecurringValues {
   taxDetails: OutgoingTaxDetails | null;
   priceMode: PriceMode;
   lines: RecurringLine[];
-  intervalMonths: RecurringInterval;
+  recurrence: Recurrence;
   nextDate: string;
   endDate: string | null;
   servicePeriod: ServicePeriodMode;
@@ -51,7 +51,7 @@ export interface RecurringValues {
   sendByMail: boolean;
   /** Überweisung oder Lastschrift (#445); das Mandat wählt jeder Lauf selbst */
   paymentMethod: PaymentMethod;
-}
+};
 
 /** Formular für eine Vorlage; Platzhalter wie {monat} werden in der Vorschau ersetzt */
 export function RecurringForm({
@@ -92,7 +92,7 @@ export function RecurringForm({
   const valid = parsed.length > 0 && parsed.every((l) => l.valid) && Object.values(fehler).every((e) => e === null);
   const { form, error, check } = useSubmitCheck(fehler);
 
-  const period = v.nextDate ? servicePeriodFor(v.nextDate, v.intervalMonths, v.servicePeriod) : null;
+  const period = v.nextDate ? invoiceServicePeriod(v.nextDate, v.recurrence, v.servicePeriod) : null;
   const reference = period ?? (v.nextDate ? { from: v.nextDate, to: v.nextDate } : null);
   const sum = parsed.reduce((s, l) => s + (l.valid ? lineAmount(l.quantity, l.unitPrice) : 0), 0);
 

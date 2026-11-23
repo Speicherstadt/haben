@@ -7,7 +7,7 @@ description: >-
 
 # Umzug aus WISO EÜR & Kasse
 
-Für ein Einzelunternehmen mit EÜR bietet sich der Wechsel zum **1. Januar** an: Das letzte Jahr bleibt in WISO, das neue beginnt in Haben. Kontakte, Artikel und Anlagen kannst du heute über selbst vorbereitete CSV-Dateien mit Vorschau übernehmen.
+Für ein Einzelunternehmen mit EÜR bietet sich der Wechsel zum **1. Januar** an: Das letzte Jahr bleibt in WISO, das neue beginnt in Haben. Für Anlagen kann Haben einen CSV-Entwurf aus dem WISO-PDF erstellen. CSV-Dateien für Kontakte und Artikel bereitest du selbst vor.
 
 > [!IMPORTANT]
 > Haben bietet als Rechtsform nur Einzelunternehmen, GmbH und UG an. Eine Partnerschaft ist damit derzeit nicht abgedeckt; richte sie nicht ersatzweise als Einzelunternehmen ein. GmbH und UG bilanzieren in Haben, dieser EÜR-Ablauf gilt für sie nicht. Bei einem Wechsel der Gewinnermittlung klärst du zuerst die Eignung mit der Steuerberatung; siehe [Einrichtung](einrichtung.md#rechtsform-einzelunternehmen-gmbh-oder-ug).
@@ -16,13 +16,22 @@ Für ein Einzelunternehmen mit EÜR bietet sich der Wechsel zum **1. Januar** an
 
 | Bestand aus WISO | Weg nach Haben |
 | --- | --- |
-| Kontakte, Artikel und Anlagen | Noch kein automatischer Listenimport: aus den Listen eine CSV erstellen, [Spalten zuordnen und Vorschau prüfen](csv-import.md) |
+| Kontakte und Artikel | Aus den Listen eine CSV erstellen, [Spalten zuordnen und Vorschau prüfen](csv-import.md) |
+| Anlagen | WISO-Anlagenverzeichnis auslesen, CSV-Entwurf ergänzen und im [Anlagenimport](csv-import.md#anlagen) prüfen |
 | Originalexporte und PDF-Listen | Unverändert aufbewahren; optional als Originaldateien im Archiv ablegen |
 | Buchungs-CSV (WISO EÜR & Kasse und WISO Steuer, Modul EÜR) | Unter **Archiv › Umzug › Umzug aus WISO** prüfen und unveränderlich als durchsuchbare Archivbelege samt Original-CSV übernehmen; Journalbuchungen entstehen daraus nicht |
-| GoBD-Buchungsliste | Noch kein WISO-Import; weder durchsuchbare Archivbuchungen noch Journalbuchungen entstehen daraus |
+| GoBD-Buchungsliste und SuSa | Unter **Archiv › Umzug › Umzug aus WISO** die beiden CSV-Dateien aus demselben Export abgleichen. Haben zeigt Abweichungen je Konto. |
 | Offene Rechnungen und Eingangsbelege | Kein automatischer WISO-Umzug; vor dem Start einzeln klären |
 
 Der CSV-Export der Buchungen (`Daten Export › Buchungen als CSV-Datei`) hat in WISO Steuer (Modul EÜR) dieselben 18 Spalten wie in WISO EÜR & Kasse und nutzt denselben Import. Für die übrigen Exporte von WISO Steuer sind gleiche Formate nicht bestätigt.
+
+Der Testlauf zeigt die Summen der CSV-Spalten **Soll** und **Haben**. Sie enthalten Teilbuchungen, neutrale Zeilen wie Saldovorträge und negative Zeilen mit ihrem Vorzeichen.
+
+Bei Fehlern zeigt der Testlauf die ersten 20 betroffenen CSV-Datensätze und zählt weitere Fehler. Die Nummer zählt die Kopfzeile und leere Zeilen mit. Ein Feld mit Zeilenumbruch gehört weiterhin zu einem Datensatz. Solange der Testlauf Fehler meldet, ist keine Übernahme möglich. Korrigiere den Export und starte den Testlauf erneut.
+
+Der **GoBD-Abgleich** vergleicht Anfangssalden, Soll- und Haben-Buchungssummen und Endsalden. In der geprüften SuSa aus WISO EÜR & Kasse ist der Soll-Überhang in `SaldoHaben` angegeben und der Haben-Überhang in `SaldoSoll`. Haben berücksichtigt diese Spaltenbelegung. [Anonymisierter WISO-Beispielexport](https://github.com/Speicherstadt/haben/issues/565#issuecomment-6770106423)
+
+Der Vergleich bezieht sich auf die beiden gewählten GoBD-Dateien. Der getrennte Import der Buchungs-CSV bleibt für die Archivübernahme zuständig.
 
 Die Buchungs-CSV enthält kein Rechnungs- oder Leistungsdatum. Das Archivdatum bleibt das Zahlungsdatum; Buchungs- und Wertstellungsdatum bleiben in den Quelldaten erhalten. Leistungsangaben bleiben unbekannt, auch bei bereits archivierten WISO-Buchungen. Ihre gespeicherten Daten und die Original-CSV bleiben unverändert.
 
@@ -47,7 +56,7 @@ Lege den ersten Tag der Buchhaltung in Haben fest und plane den [Bankimport](ban
 
 ## 3. Listen in CSV übertragen und prüfen
 
-Erstelle für Kontakte, Anlagen und gegebenenfalls Artikel je eine eigene CSV mit Spaltennamen in der ersten Zeile. Übertrage die Werte aus der jeweiligen Liste; Seitenköpfe, Fußzeilen und Summenzeilen sind keine Datensätze. Bei umbrochenen Namen und Bezeichnungen kontrollierst du den vollständigen Eintrag am Original.
+Bereite für Kontakte, Anlagen und gegebenenfalls Artikel je eine eigene CSV mit Spaltennamen in der ersten Zeile vor. Überträgst du Listenwerte von Hand, lasse Seitenköpfe, Fußzeilen und Summenzeilen weg. Bei umbrochenen Namen und Bezeichnungen kontrollierst du den vollständigen Eintrag am Original.
 
 Öffne **CSV importieren** unter **Kontakte**, **Anlagen** oder **Artikel**. Prüfe die erkannten Spaltenzuordnungen sowie Fehler und Dubletten vor **Übernehmen**. Die genauen Dateiformate und Feldregeln stehen im [CSV-Import](csv-import.md#so-gehst-du-vor).
 
@@ -63,18 +72,23 @@ Umsatz, Saldo, Kreditlimit und Zahlungsdauer aus der Kontaktliste sind keine ein
 
 ### Anlagen
 
+Unter **Archiv › Umzug › Umzug aus WISO** kannst du ein WISO-Anlagenverzeichnis als PDF mit Textebene prüfen (höchstens 20 MB und 100 Seiten). Haben liest die Liste auf dem eigenen Server aus und zeigt die gefundenen Anlagen sowie Hinweise zu abweichenden Summen und Änderungen. Wenn sich das PDF nicht lesen lässt, bereite die CSV von Hand vor. Die Vorschau speichert keine Anlage.
+
+Lade den **CSV-Entwurf** herunter und ergänze die Felder nach der folgenden Tabelle. Entferne aus dem Entwurf die Anlagen, die du nicht übernehmen willst. **Zum Anlagenimport** öffnet den Import mit dem 01.01. nach dem PDF-Abschlussjahr. Wähle dort die bearbeitete CSV-Datei und starte die **Vorschau**.
+
 Wähle für die gesamte Datei den **Übernahmestichtag 01.01.** des ersten Haben-Jahres. Der Restbuchwert gehört zum **31.12. des Vorjahres nach gebuchter Jahres-AfA**.
 
 | WISO-Liste oder Anlagendetails | CSV für Haben |
 | --- | --- |
-| Nr. und Bezeichnung | **Bezeichnung**, etwa `Konferenzstuhl [WISO 142]`; die Nummer zusätzlich in **Notiz** aufbewahren |
+| Nr. | Als **Inventarnummer** in die CSV schreiben oder im Import **Notiz** zuordnen. Führende Nullen als Text erhalten. |
+| Bezeichnung | **Bezeichnung** wie in WISO |
 | Anschaffungsdatum | **Anschaffungsdatum**, nicht der Umzugstag |
 | Anschaffungskosten | **Anschaffungskosten** wie in WISO geführt; [Vorsteueranteil beachten](csv-import.md#anlagen), nicht nach heutigem Kleinunternehmerstatus umrechnen; Veränderungen gesondert prüfen |
 | ND | **Nutzungsdauer (Jahre)** bzw. Monate passend zum bisherigen Plan |
-| Abschreibungsplan | **Art** und **Abschreibung** ausdrücklich passend wählen |
+| Abschreibungsplan | **Art** und **Abschreibung** nach den WISO-Anlagendetails wählen. Bei degressiver AfA zusätzlich den bisherigen **degressiven Satz** eintragen. |
 | RBW 31.12. des letzten WISO-Jahres | **Restbuchwert** |
 
-**Identische Anlagen:** Haben erkennt Dubletten an Bezeichnung, Anschaffungsdatum und Anschaffungskosten zusammen. Acht gleiche Stühle vom selben Tag brauchen deshalb unterscheidbare Bezeichnungen mit ihrer jeweiligen WISO-Nummer. Die Notiz allein verhindert keine Dublette.
+**Baugleiche Anlagen:** Haben vergleicht Bezeichnung, Anschaffungsdatum und Anschaffungskosten. Ist eine Inventarnummer oder Notiz eingetragen, zählt sie ebenfalls. Acht gleiche Stühle vom selben Tag kannst du mit ihrer jeweiligen WISO-Nummer einzeln übernehmen. Prüfe vor dem Speichern, ob alle acht Zeilen in der Vorschau als neu erscheinen. [Dubletten beim Anlagenimport](csv-import.md#anlagen)
 
 **Zugänge und Teilabgänge:** Übernimm die Spalte „Zugänge/Teilabgänge“ nicht pauschal als Zuschlag zu den Anschaffungskosten. Prüfe je Anlage Art und Zeitpunkt der Veränderung, die fortgeführten Kosten und den Buchwert anhand der Details. Unklare Fälle klärst du mit der Steuerberatung, statt den Plan passend zu rechnen.
 

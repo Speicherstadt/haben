@@ -256,4 +256,42 @@ describe.skipIf(!testDatabaseUrl)("Verrechnung in beiden Kontenrahmen und Verste
       }, 60_000);
     });
   }
+
+  // Monat der Verrechnung (#1728): Die EÜR nach Monaten (euer-quelle.ts) zeigt eine Verrechnung im Monat der Aufrechnung,
+  // wie eine Zahlung an diesem Tag; die Restzahlung im Monat ihrer Zahlung. Die Versteuerung ändert hier nichts (oben).
+  for (const kr of ["SKR03", "SKR04"] as const) {
+    it(`${kr}: zählt die Verrechnung in den Monaten der EÜR im Monat der Aufrechnung`, async () => {
+      await firma({ kr, versteuerung: "ist" });
+      const rechnung = await beleg("2026-02-10", 10_000, 1_900, "software"); // 119,00 EUR
+      const gutschrift = await beleg("2026-02-20", -3_000, -570, "telefon"); // -35,70 EUR
+      await verrechnung.settleDocuments(actor, {
+        documentId: rechnung,
+        counterDocumentId: gutschrift,
+        amount: 3_570,
+        date: "2026-03-12",
+        note: "Gutschrift",
+      });
+      await zahlung(rechnung, -8_330, "2026-06-15"); // Rest 83,30 EUR
+
+      const { summe, monate } = await euerJournal.euerAusJournal(2026);
+      const ohneNull = (w: typeof summe) => Object.fromEntries(Object.entries(w.zeilen).filter(([, v]) => v !== 0));
+      const leer = {};
+      // März: beide Seiten der Verrechnung, die Vorsteuer aus Rechnung und Gutschrift hebt sich auf; Juni: der Rest der Rechnung
+      expect(monate.map(ohneNull)).toEqual([
+        leer,
+        leer,
+        { "ausgabe:software": 3_000, "ausgabe:telefon": -3_000 },
+        leer,
+        leer,
+        { "ausgabe:software": 7_000, vorsteuer: 1_330 },
+        leer,
+        leer,
+        leer,
+        leer,
+        leer,
+        leer,
+      ]);
+      expect(ohneNull(summe)).toEqual({ "ausgabe:software": 10_000, "ausgabe:telefon": -3_000, vorsteuer: 1_330 });
+    }, 60_000);
+  }
 });
