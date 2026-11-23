@@ -1,6 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { buildVastAbholungXml, buildVastAnfrageXml, parseVastBeleg, parseVastBelegListe, parseVastDatenpakete, vastBelegartLabel } from "./vast.ts";
+import {
+  buildVastAbholungXml,
+  buildVastAnfrageXml,
+  parseVastBeleg,
+  parseVastBelegListe,
+  parseVastDatenpakete,
+  VAST_BELEGART_LABEL,
+  vastBelegartLabel,
+} from "./vast.ts";
 import { datenartVersionFromXml, hasTestmerker } from "./xml.ts";
 
 const input = { idnr: "02293417683", veranlagungsjahr: 2025, datenlieferant: "Erika Muster", herstellerId: "74931", test: true };
@@ -97,5 +105,14 @@ describe("Belegabruf-Antworten", () => {
   it("benennt Belegarten", () => {
     expect(vastBelegartLabel("VaSt_RBM")).toBe("Rentenbezugsmitteilung");
     expect(vastBelegartLabel("VaSt_XYZ")).toBe("XYZ");
+  });
+
+  it("nennt jede Belegart der Schemas 2022 bis 2025 mit Namen und keine andere", () => {
+    // ERiC 44.3.6.0, Dokumentation/Datenarten/ElsterDatenabholung/ElsterVaStDaten/VaSt-Belege/Schema/2022 bis 2025:
+    // je Belegart ein Schema, Wurzelelement wie das Attribut belegart der Belegliste; VaSt_Pers3 erst ab 2025
+    const schemas = ["LStB", "KRV", "RIE", "RUE", "LErsL", "Pers1", "Pers2", "Pers3", "RBM", "VWL", "FSA", "ZUS", "GDB"].map((b) => `VaSt_${b}`);
+    expect(Object.keys(VAST_BELEGART_LABEL).sort()).toEqual([...schemas].sort());
+    expect(vastBelegartLabel("VaSt_RIE")).toBe("Bescheinigung über Beiträge zur Riester-Rente");
+    expect(vastBelegartLabel("VaSt_Pers3")).toBe("Stammdaten des Steuerpflichtigen (Steuernummer)");
   });
 });
