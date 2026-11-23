@@ -11,6 +11,7 @@ import { JournalVergleich } from "../../../components/umsatzsteuer/JournalVergle
 import { formatLongDate } from "../../../lib/format.ts";
 import { getVatPeriod } from "../../../server/functions/vat.ts";
 import type { Notice } from "../../../lib/use-action.ts";
+import { usePruefungBeimSpeichern } from "./-zeitraum-pruefung.ts";
 import { Field } from "../../../components/Field.tsx";
 import type { PageData } from "./-zeitraum-quellen.tsx";
 import { type FieldKey, KennzahlenTabelle } from "./-zeitraum-kennzahlen.tsx";
@@ -196,7 +197,6 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
   const [dirty, setDirty] = useState(!current);
 
   const parsed = Object.fromEntries(FIELDS.map((f) => [f, parseEuro(values[f])])) as Record<FieldKey, number | null>;
-  // Negative Werte sind erlaubt, etwa wenn Gutschriften im Monat überwiegen
   const manualValid = Object.values(parsed).every((v) => v !== null) && reason.trim().length >= 10;
   const manualFigures = Object.fromEntries(FIELDS.map((f) => [f, parsed[f] ?? 0])) as Record<FieldKey, number>;
   // Ein Zeitraum, der nicht zum eingestellten Voranmeldungszeitraum passt, lässt sich nicht neu anmelden; berichtigen geht
@@ -221,12 +221,14 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
   }
 
   const { busy, onSave, onSubmit, onCorrect } = useVoranmeldungAktionen(data, { mode, manualFigures, reason, dirty, setDirty }, setNotice);
+  // Prüfung beim Speichern statt gesperrtem Knopf (#1270)
+  const { pruefung, speichern } = usePruefungBeimSpeichern(parsed, reason, mode, onSave);
 
   const editable = !locked && mode === "manuell";
 
   return (
     <div className="grid-main">
-      <form className="card" onSubmit={onSave} aria-labelledby="kz-heading">
+      <form ref={pruefung.form} noValidate className="card" onSubmit={speichern} aria-labelledby="kz-heading">
         <h2 id="kz-heading">Kennzahlen</h2>
         {data.kleinunternehmer && (
           <div className="banner banner-info" role="status">
@@ -272,9 +274,18 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
         <p className="small muted" style={{ margin: 0 }}>
           Kz = Kennzahl, die Nummer des Felds im ELSTER-Formular.
         </p>
-        <KennzahlenTabelle data={data} shown={shown} computed={computed} eingabe={{ locked, editable, values, parsed, update, openSources, toggleSources }} />
+        <KennzahlenTabelle
+          data={data}
+          shown={shown}
+          computed={computed}
+          eingabe={{ locked, editable, values, fehler: (f) => pruefung.error(f), update, openSources, toggleSources }}
+        />
         {editable && (
-          <Field label="Begründung der Abweichung (Pflicht)" hint={<>Berechnet wären {describe(computed)}.</>}>
+          <Field
+            label="Begründung der Abweichung (Pflicht)"
+            hint={<>Mindestens 10 Zeichen. Berechnet wären {describe(computed)}.</>}
+            error={pruefung.error("reason")}
+          >
             {(control) => (
               <textarea
                 {...control}
@@ -283,7 +294,6 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
                   setReason(event.target.value);
                   setDirty(true);
                 }}
-                aria-invalid={reason.trim().length < 10}
                 placeholder="z. B. Zahlung vom 30.09. erst im Oktober zugeordnet"
               />
             )}
@@ -303,7 +313,7 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
         </p>
         {!locked && (
           <div className="actions">
-            <button type="submit" className="btn" disabled={busy || !valid || (!dirty && Boolean(current) && !stale)}>
+            <button type="submit" className="btn" disabled={busy || !allowed || (!dirty && Boolean(current) && !stale)}>
               Entwurf speichern
             </button>
             {current && !dirty && !stale && data.companyIssues.length === 0 && (
