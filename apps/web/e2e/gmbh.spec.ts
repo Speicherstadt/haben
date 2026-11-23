@@ -2,7 +2,7 @@ import { waehleKategorie } from "./kategorie.ts";
 import { filePickerPruefen } from "./dateiauswahl.ts";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { FORM01 } from "@haben/core";
 import { bestaetigen, fragenUeberspringen, faktenZeigen, kundeWaehlen } from "./einrichtung.ts";
 import { currentDay, currentYear, vorschauAnheften } from "./daten.ts";
@@ -329,8 +329,10 @@ test("Jahreserklärung der GmbH: Körperschaft- und Gewerbesteuer, Anteilseigner
   await name.fill(USER.name);
   await form.getByLabel("Straße und Hausnummer Anteilseigner 1").fill("Hafenallee 3");
   await form.getByLabel("PLZ und Ort Anteilseigner 1").fill("28217 Bremen");
-  await form.getByLabel("Identifikationsnummer oder Steuernummer (13 Ziffern) Anteilseigner 1").fill("86095742719");
-  await form.getByLabel("Beteiligung in Euro Anteilseigner 1").fill("25.000,00");
+  const nummer = form.getByLabel("Identifikationsnummer oder Steuernummer Anteilseigner 1");
+  await nummer.fill("86095742719");
+  const beteiligung = form.getByLabel("Beteiligung in Euro Anteilseigner 1");
+  await beteiligung.fill("25.000,00");
   // Mehr als zwei Nachkommastellen rundet Haben nicht still (#1222): Meldung am Feld, der Hinweis dort nennt die Grenze,
   // Fokus im Feld, nichts gespeichert (#1277)
   const anteil = form.getByLabel("Anteil in Prozent Anteilseigner 1");
@@ -341,6 +343,9 @@ test("Jahreserklärung der GmbH: Körperschaft- und Gewerbesteuer, Anteilseigner
   );
   await expect(anteil).toBeFocused();
   await expect(page.getByText("Angaben gespeichert.")).toHaveCount(0);
+  // Hinweis und Fehler unter dem Anteil verschieben die Zeile nicht, die Eingaben stehen auf einer Höhe (DESIGN.md, Felder)
+  const oben = async (feld: Locator) => Math.round((await feld.boundingBox())?.y ?? 0);
+  expect([await oben(nummer), await oben(beteiligung)]).toEqual([await oben(anteil), await oben(anteil)]);
   await expect(page.getByRole("region", { name: /^Körperschaftsteuererklärung/ }).first()).toContainText("Die Anteilseigner fehlen.");
   await anteil.fill("100");
   await form.getByRole("button", { name: "Angaben speichern" }).click();

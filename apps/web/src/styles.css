@@ -557,6 +557,7 @@ textarea.autogrow { field-sizing: content; min-height: 8lh; max-height: 70vh; }
 .form-row.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .form-row.cols-address { grid-template-columns: 120px minmax(0, 1fr) 120px; }
 .form-row.cols-place { grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr); }
+/* Unten bündig, etwa für einen Knopf neben Feldern; nicht für Felder mit Hinweis oder Fehler, die schöben ihre Zeile nach oben (DESIGN.md, Felder) */
 .form-row.align-end { align-items: end; }
 /* Fieldset als Abschnitt ohne Browser-Rahmen; die Legende ist seine Überschrift */
 .fieldset-plain { border: 0; padding: 0; margin: 0; min-width: 0; }

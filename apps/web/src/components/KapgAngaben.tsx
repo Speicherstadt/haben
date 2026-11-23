@@ -82,7 +82,7 @@ type VertragZeile = {
 function VertragFelder({ v, i, set, remove, fehler }: VertragZeile) {
   return (
     <div className="stack sub-group" style={{ gap: 12 }} role="group" aria-label={`Vertrag ${i + 1}`}>
-      <div className="form-row cols-2 align-end">
+      <div className="form-row cols-2">
         <Field
           label={
             <>

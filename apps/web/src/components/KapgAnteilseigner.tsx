@@ -45,7 +45,7 @@ const Label = ({ text, i }: { text: ReactNode; i: number }) => (
 
 function Anschrift({ p, i, set, fehler }: Zeile) {
   return (
-    <div className="form-row cols-3 align-end">
+    <div className="form-row cols-3">
       <Field label={<Label text="Name" i={i} />} error={fehler("name")}>
         {(control) => <input {...control} value={p.name} onChange={(e) => set({ name: e.target.value })} required maxLength={200} />}
       </Field>
@@ -61,8 +61,8 @@ function Anschrift({ p, i, set, fehler }: Zeile) {
 
 function Beteiligung({ p, i, set, fehler }: Zeile) {
   return (
-    <div className="form-row cols-3 align-end">
-      <Field label={<Label text="Identifikationsnummer oder Steuernummer (13 Ziffern)" i={i} />} error={fehler("nummer")}>
+    <div className="form-row cols-3">
+      <Field label={<Label text="Identifikationsnummer oder Steuernummer" i={i} />} hint="11 oder 13 Ziffern" error={fehler("nummer")}>
         {(control) => <input {...control} inputMode="numeric" value={p.nummer} onChange={(e) => set({ nummer: e.target.value })} required />}
       </Field>
       <Field label={<Label text="Beteiligung in Euro" i={i} />} error={fehler("beteiligung")}>
@@ -77,7 +77,7 @@ function Beteiligung({ p, i, set, fehler }: Zeile) {
 
 function Kirchensteuer({ p, i, set, fehler }: Zeile) {
   return (
-    <div className="form-row cols-3 align-end">
+    <div className="form-row cols-3">
       <Field label={<Label text="Kirchensteuer bei Ausschüttungen" i={i} />}>
         {(control) => (
           <select {...control} value={p.kirchensteuer} onChange={(e) => set({ kirchensteuer: Number(e.target.value) as Person["kirchensteuer"] })}>
@@ -88,7 +88,7 @@ function Kirchensteuer({ p, i, set, fehler }: Zeile) {
         )}
       </Field>
       {p.kirchensteuer > 0 && (
-        <Field label={<Label text="Religionsschlüssel aus dem Kirchensteuerabzugsmerkmal" i={i} />} hint="Sechs Ziffern" error={fehler("religionsschluessel")}>
+        <Field label={<Label text="Religionsschlüssel" i={i} />} hint="Sechs Ziffern aus dem Kirchensteuerabzugsmerkmal" error={fehler("religionsschluessel")}>
           {(control) => (
             <input
               {...control}
