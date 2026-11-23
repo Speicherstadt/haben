@@ -81,13 +81,19 @@ describe("Gesendete Voranmeldung mit Kz 48 ohne die Umsätze als Kleinunternehme
 
   it("keine Änderung, wenn nur die Umsätze als Kleinunternehmer dazugekommen sind", () => {
     const gesendet = computeUstva({ kz81: 0, kz86: 0, kz66: 0, kz46: 10_000, kz47: 1_900, kz67: 1_900 });
-    const html = seite(gesendet, { ...computeUstva({ kz81: 0, kz86: 0, kz66: 0, kz46: 10_000, kz47: 1_900, kz67: 1_900, kz48: 80_000 }), kz48Kleinunternehmer: 80_000 });
+    const html = seite(gesendet, {
+      ...computeUstva({ kz81: 0, kz86: 0, kz66: 0, kz46: 10_000, kz47: 1_900, kz67: 1_900, kz48: 80_000 }),
+      kz48Kleinunternehmer: 80_000,
+    });
     expect(html).not.toContain("Seit der Übermittlung haben sich die Buchungen dieses Monats geändert");
   });
 
   it("ein anderer abweichender Wert fällt weiter auf", () => {
     const gesendet = computeUstva({ kz81: 0, kz86: 0, kz66: 0, kz46: 10_000, kz47: 1_900, kz67: 1_900 });
-    const html = seite(gesendet, { ...computeUstva({ kz81: 0, kz86: 0, kz66: 0, kz46: 12_000, kz47: 2_280, kz67: 2_280, kz48: 80_000 }), kz48Kleinunternehmer: 80_000 });
+    const html = seite(gesendet, {
+      ...computeUstva({ kz81: 0, kz86: 0, kz66: 0, kz46: 12_000, kz47: 2_280, kz67: 2_280, kz48: 80_000 }),
+      kz48Kleinunternehmer: 80_000,
+    });
     expect(html).toContain("Seit der Übermittlung haben sich die Buchungen dieses Monats geändert");
   });
 });
