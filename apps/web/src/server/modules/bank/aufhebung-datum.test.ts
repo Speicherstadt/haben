@@ -86,7 +86,7 @@ describe.skipIf(!testDatabaseUrl)("Aufhebung einer Zuordnung am Tag der Aufhebun
   }
 
   /** Zahlungseingang im März, dem Umsatz zugeordnet; gibt die Zuordnung zurück */
-  async function marchPayment(invoiceId: string) {
+  async function marchPayment(invoiceId: string, amount = 119_000) {
     await bank.importStatement(
       actor,
       {
@@ -98,7 +98,7 @@ describe.skipIf(!testDatabaseUrl)("Aufhebung einer Zuordnung am Tag der Aufhebun
       null,
     );
     const [tx] = await sql`select id from bank_transactions`;
-    await bank.allocate(actor, { kind: "invoice", transactionId: tx!.id as string, invoiceId, amount: 119_000 });
+    await bank.allocate(actor, { kind: "invoice", transactionId: tx!.id as string, invoiceId, amount });
     const [allocation] = await sql`select id from allocations where reverses_id is null`;
     return { transactionId: tx!.id as string, allocationId: allocation!.id as string };
   }
@@ -180,6 +180,20 @@ describe.skipIf(!testDatabaseUrl)("Aufhebung einer Zuordnung am Tag der Aufhebun
     },
     60_000,
   );
+
+  it("Erneute Zuordnung nach mehreren Aufhebungen braucht einen ausdrücklichen Bezug", async () => {
+    const first = await marchInvoice();
+    const second = await marchInvoice();
+    const { transactionId, allocationId } = await marchPayment(first.id, 59_500);
+    const input = { kind: "invoice" as const, transactionId, invoiceId: second.id, amount: 59_500 };
+    await bank.allocate(actor, input);
+    const [other] = await sql`select id from allocations where invoice_id = ${second.id}`;
+    await bank.reverseAllocation(actor, allocationId, "2026-07-10");
+    await bank.reverseAllocation(actor, other!.id as string, "2026-08-10");
+
+    await expect(bank.allocate(actor, input)).rejects.toThrow(/aufgehobene Zuordnung auswählen/);
+    expect(await sql`select id from allocations`).toHaveLength(4);
+  });
 
   it("ohne Datum gilt heute", async () => {
     const invoice = await marchInvoice();
