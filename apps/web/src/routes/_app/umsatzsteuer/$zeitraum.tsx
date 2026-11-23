@@ -54,9 +54,15 @@ const FIELDS: FieldKey[] = [
 
 type Figures = Pick<Record<FieldKey, number>, "kz81" | "kz86" | "kz66"> & Partial<Record<FieldKey, number>>;
 
+/**
+ * Kennzahlen für den Vergleich mit einer gesendeten Anmeldung: ohne Kz 50 wie der Abgleich in gesendet-pruefen.ts (#1267).
+ * Sie ändert keine Steuer, und vor #1267 gesendete Anmeldungen haben sie nicht.
+ */
+const GESENDET_VERGLEICHEN = FIELDS.filter((field) => field !== "kz50");
+
 /** Gleiche Kennzahlen? Fehlende Kz 21/45/48 (ältere Anmeldungen) zählen als 0 */
-function sameFigures(a: Figures, b: Figures): boolean {
-  return FIELDS.every((field) => (a[field] ?? 0) === (b[field] ?? 0));
+function sameFigures(a: Figures, b: Figures, fields: readonly FieldKey[] = FIELDS): boolean {
+  return fields.every((field) => (a[field] ?? 0) === (b[field] ?? 0));
 }
 type PeriodNotice = { key: string; notice: Notice };
 
@@ -209,7 +215,7 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
 
   // Gesendete Anmeldung, deren Buchungen sich danach geändert haben (z. B. Zuordnung aufgehoben)
   const sentBasis = locked ? (current!.source === "berechnet" ? current! : current!.computed) : null;
-  const drift = sentBasis !== null && sentBasis !== undefined && !sameFigures(sentBasis, computed);
+  const drift = sentBasis !== null && sentBasis !== undefined && !sameFigures(sentBasis, computed, GESENDET_VERGLEICHEN);
 
   function update(field: FieldKey, value: string) {
     setValues((prev) => ({ ...prev, [field]: value }));
