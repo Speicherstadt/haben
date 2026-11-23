@@ -3,7 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
-import { zeilenFelder, zeilenForm, type ZeilenForm } from "../../../lib/zeilenwerte.ts";
+import { ZEILENBETRAG_GRENZE, zeilenFelder, zeilenForm, type ZeilenForm } from "../../../lib/zeilenwerte.ts";
 import { AnnualError } from "./fehler.ts";
 
 /*
@@ -15,8 +15,8 @@ import { AnnualError } from "./fehler.ts";
  * UPDATE scheitert also.
  */
 
-/** Ein Betrag in Cent; die Grenze hält einen Tippfehler davon ab, die Summe zu sprengen */
-const zeilenBetrag = inCents(z.number().int().min(-1_000_000_000_00).max(1_000_000_000_00));
+/** Ein Betrag in Cent; dieselbe Grenze prüft die Oberfläche am Feld (erklaerte-zeilen-pruefung.ts) */
+const zeilenBetrag = inCents(z.number().int().min(-ZEILENBETRAG_GRENZE).max(ZEILENBETRAG_GRENZE));
 
 export const zeilenwerteSchema = z.object({
   form: zeilenForm,
