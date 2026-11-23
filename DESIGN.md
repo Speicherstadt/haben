@@ -263,6 +263,7 @@ Der Code hält diese Regeln noch nicht überall ein. Neuer Code hält sich an di
 
 - **4px-Raster:** In `apps/web/src/**/*.css` haben manche `padding`, `margin` und `gap` px-Werte, die nicht durch 4 teilbar sind (meist 2, 6 oder 10px). Sie stehen in `scripts/raster/altstellen.json`; neue meldet `bun run lint` als Fehler. Geräumt wird eine alte Stelle nur, wenn ein Pull Request sie ohnehin ändert.
 - **Farben:** Einige Regeln setzen einen festen Hex-Wert statt einer Variable, meist `#fff` für Text auf Navigationsflächen (`.brand`, `.nav-link:hover`).
+- **Felder beim Speichern:** Das Belegformular (`DocumentForm`), `ContactForm` (Kontakt) und `VatReturnEditor` (Voranmeldung, bei „Manuell überschreiben“) bauen sich nach dem Speichern mit neuem `updatedAt` im `key` neu auf, beim Kontakt mit neuer `version`, sperren aber nur die Knöpfe, nicht die Felder (siehe Gesperrte Knöpfe).
 - **Schriftgrößen:** `components/IbanCheck.tsx` setzt an zwei Überschriften `fontSize: 15`.
 - **Zeilen unten bündig:** `.form-row.cols-amount` (Betragszeile der Dauerbelege, `components/DauerbelegTeile.tsx`) richtet ihre Felder unten aus, obwohl sie Fehler tragen; ein Fehler schiebt die Eingabe dort nach oben.
 - **Verläufe:** `styles.css` nutzt `linear-gradient` für den auslaufenden Rand des Blatts in der Vorschau (`.preview-pane-body`, `.preview-dialog-body`, `.sheet-frame::before` und `::after`) und `conic-gradient` für das Farbfeld „Eigene Farbe“ (`.color-swatch-custom`).
