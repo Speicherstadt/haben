@@ -125,9 +125,9 @@ jobs:
     steps:
       - run: test "${{ needs.test-teil.result }}" = success
 
-  # Fünf Teile parallel (Playwright --shard), dazu SSO als eigener Teil. Jeder Teil, der Tests aus „mit-daten“
-  # hat, spielt vorher app.spec.ts („ablauf“) selbst durch, weil diese Tests auf dessen Daten aufbauen. Gebaut
-  # wird in jedem Teil, das läuft parallel und braucht kein Artefakt dazwischen
+  # Feste Teile parallel: welche Projekte in welchem Teil laufen, steht in apps/web/e2e/durchlaeufe.ts (TEILE);
+  # jeder Teil startet nur seine Server. Dazu SSO als eigener Teil. Gebaut wird in jedem Teil, das läuft parallel
+  # und braucht kein Artefakt dazwischen
   e2e-teil:
     needs: changes
     if: ${{ !cancelled() && !github.event.pull_request.draft && needs.changes.outputs.code != 'false' }}
@@ -135,7 +135,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        teil: [1, 2, 3, 4, 5, sso]
+        teil: [belege-steuern, rechnungen, ablauf, gmbh, importe, abruf, sso]
     services:
       postgres:
         image: postgres:19
@@ -143,8 +143,8 @@ jobs:
           POSTGRES_USER: haben
           POSTGRES_PASSWORD: haben
           POSTGRES_DB: haben_e2e
-          # Alle Server starten in jedem Teil (e2e/durchlaeufe.ts), je bis zu elf Verbindungen (Pool und Sperre),
-          # in einem Teil dazu die Server für Beenden und verzögerte Anfragen; Standard sind 100.
+          # Je Server des Teils (e2e/durchlaeufe.ts) bis zu elf Verbindungen (Pool und Sperre), in einem Teil dazu
+          # die Server für Beenden und verzögerte Anfragen; Standard sind 100.
           POSTGRES_INITDB_ARGS: "--set=max_connections=400"
         ports: ["5432:5432"]
         options: >-
@@ -181,10 +181,11 @@ jobs:
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends poppler-utils
       - run: bun run build
       # Vier Worker (playwright.config.ts), so viele Kerne hat der Runner
-      - name: Ende-zu-Ende-Tests, Teil ${{ matrix.teil }} von 5
+      - name: Ende-zu-Ende-Tests, Teil ${{ matrix.teil }}
         if: matrix.teil != 'sso'
-        run: bun run e2e --shard=${{ matrix.teil }}/5
+        run: bun run e2e
         env:
+          E2E_TEIL: ${{ matrix.teil }}
           E2E_DATABASE_URL: postgres://haben:haben@localhost:5432/haben_e2e
           E2E_APP_DATABASE_URL: postgres://haben_e2e_app:erfundenes-e2e-passwort@localhost:5432/haben_e2e
           # Der gebaute Server statt des Entwicklungsservers

@@ -12,7 +12,9 @@ import {
   habenFirmen,
   LAYOUT_PAKETE_PORT,
   PAYPAL_PORT,
+  type Projekt,
   portFuer,
+  projekteFuerTeil,
   SEVDESK_PORT,
   STRIPE_PORT,
 } from "./e2e/durchlaeufe.ts";
@@ -26,6 +28,10 @@ import {
  */
 const baseURL = `http://localhost:${portFuer()}`;
 const durchlaeufe = Object.keys(DURCHLAEUFE) as Durchlauf[];
+// Nur die Projekte und Server des CI-Teils aus E2E_TEIL (e2e/durchlaeufe.ts: TEILE); ohne Angabe alle
+const imTeil = projekteFuerTeil();
+const gewaehlt = (projekt: Projekt) => !imTeil || imTeil.includes(projekt);
+const hauptserver = gewaehlt("ablauf") || gewaehlt("mit-daten") || gewaehlt("ohne-daten");
 
 const chromium = { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } };
 
@@ -182,6 +188,6 @@ export default defineConfig({
       ],
       use: chromium,
     },
-  ],
-  webServer: [webServer(), ...durchlaeufe.map(webServer)],
+  ].filter((projekt) => gewaehlt(projekt.name as Projekt)),
+  webServer: [...(hauptserver ? [webServer()] : []), ...durchlaeufe.filter(gewaehlt).map(webServer)],
 });
