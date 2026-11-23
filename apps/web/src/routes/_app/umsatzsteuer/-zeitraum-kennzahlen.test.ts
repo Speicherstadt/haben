@@ -7,7 +7,26 @@ vi.mock("@tanstack/react-router", () => ({ Link: ({ children }: { children: Reac
 import { type FieldKey, KennzahlenTabelle } from "./-zeitraum-kennzahlen.tsx";
 import type { PageData } from "./-zeitraum-quellen.tsx";
 
-const FELDER: FieldKey[] = ["kz81", "kz86", "kz21", "kz45", "kz48", "kz66", "kz46", "kz47", "kz84", "kz85", "kz67", "kz39", "kz41", "kz43", "kz89", "kz93", "kz61", "kz62"];
+const FELDER: FieldKey[] = [
+  "kz81",
+  "kz86",
+  "kz21",
+  "kz45",
+  "kz48",
+  "kz66",
+  "kz46",
+  "kz47",
+  "kz84",
+  "kz85",
+  "kz67",
+  "kz39",
+  "kz41",
+  "kz43",
+  "kz89",
+  "kz93",
+  "kz61",
+  "kz62",
+];
 const leer = computeUstva({ kz81: 0, kz86: 0, kz66: 0 });
 const data = { figures: { revenue: [], inputTax: [], reverseCharge: [], igErwerb: [] } } as unknown as PageData;
 
