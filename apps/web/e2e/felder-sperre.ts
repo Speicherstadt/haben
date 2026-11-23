@@ -31,9 +31,10 @@ export async function eingabeNachAktion(page: Page, { aktion, feld, text, neuGel
 
 /**
  * Mehrmals kurz nacheinander speichern, ohne Verzögerung: Jedes Mal baut sich das Formular mit dem gespeicherten Stand
- * neu auf, auch wenn zwei Speichervorgänge in dieselbe Sekunde fallen (#1804). Zu sehen am Feld: Die Formulare schneiden
- * Leerzeichen am Ende ab, und nur ein neu aufgebautes Formular zeigt den Text ohne sie. Drei Durchgänge, damit praktisch
- * immer zwei Speichervorgänge in dieselbe Sekunde fallen; das nächste `fill` wartet, bis das Feld wieder frei ist.
+ * neu auf, auch wenn zwei Speichervorgänge in dieselbe Sekunde fallen (#1804). Zu sehen am Feld: Gespeichert wird der
+ * Text ohne Leerzeichen am Ende (beim Absenden oder im Schema des Servers), das Feld selbst behält sie; nur ein neu
+ * aufgebautes Formular zeigt den Text ohne sie. Drei Durchgänge, damit praktisch immer zwei Speichervorgänge in dieselbe
+ * Sekunde fallen; das nächste `fill` wartet, bis das Feld wieder frei ist.
  */
 export async function kurzNacheinanderSpeichern({ feld, speichern, texte }: { feld: Locator; speichern: Locator; texte: string[] }) {
   for (const text of texte) {
