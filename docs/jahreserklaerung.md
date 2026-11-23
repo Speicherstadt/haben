@@ -171,7 +171,7 @@ Die eingetragenen Angaben speichert Haben je Jahr; jede Änderung steht im Audit
 
 Woanders abgegeben, etwa mit WISO: [Abgabe außerhalb von Haben vermerken](#abgabe-außerhalb-von-haben-vermerken). Danach sind die Angaben nur lesbar; **Angaben bearbeiten** öffnet sie, **Angaben speichern** sperrt sie wieder. Anders als Vermerk und [erklärte Zeilen](#zeilenwerte-aus-dem-übermittlungsprotokoll) lassen sie sich so korrigieren.
 
-Arbeitslohn (Anlage N) je Person, Vorsorgeaufwand, Sonderausgaben, haushaltsnahe Aufwendungen, Kinder, Kapitalerträge und die Einkommensersatzleistungen stehen zugeklappt; im Titel steht, was eingetragen ist (z. B. „Vorsorgeaufwand · 4.230,00 €“, bei der Anlage N Bruttoarbeitslohn und Lohnsteuer aller Bescheinigungen zusammen). In der Anlage N klappen auch jede Lohnsteuerbescheinigung und die Werbungskosten einzeln auf. Fehlt beim Speichern eine Pflichtangabe in einem zugeklappten Block, klappt Haben ihn auf und setzt den Cursor ins Feld. **Angaben speichern** und die voraussichtliche Steuer bleiben am unteren Rand sichtbar. Über die Leiste oben springst du zwischen Umsatzsteuer, Anlage EÜR, Einkommensteuer, den Belegen von ELSTER und dem Verlauf.
+Arbeitslohn (Anlage N) je Person, Vorsorgeaufwand, Sonderausgaben, haushaltsnahe Aufwendungen, Kinder, Kapitalerträge und die Einkommensersatzleistungen stehen zugeklappt; im Titel steht, was eingetragen ist (z. B. „Vorsorgeaufwand · 4.230,00 €“, bei der Anlage N Bruttoarbeitslohn und Lohnsteuer aller Bescheinigungen zusammen). In der Anlage N klappen auch jede Lohnsteuerbescheinigung und die Werbungskosten einzeln auf. Fehlt beim Speichern eine Pflichtangabe oder stimmt eine Angabe nicht, etwa ein Betrag, den Haben nicht lesen kann, steht die Meldung am Feld und Haben speichert nichts; ein zugeklappter Block mit einem solchen Feld klappt auf, der Cursor steht im ersten. **Angaben speichern** und die voraussichtliche Steuer bleiben am unteren Rand sichtbar. Über die Leiste oben springst du zwischen Umsatzsteuer, Anlage EÜR, Einkommensteuer, den Belegen von ELSTER und dem Verlauf.
 
 | Anlage | Angaben |
 | --- | --- |
@@ -181,7 +181,7 @@ Arbeitslohn (Anlage N) je Person, Vorsorgeaufwand, Sonderausgaben, haushaltsnahe
 | Sonderausgaben | Gezahlte und erstattete Kirchensteuer samt der einbehaltenen Lohnkirchensteuer laut Lohnsteuerbescheinigung (siehe [Kirchensteuer](#kirchensteuer)), Spenden an steuerbegünstigte Empfänger im Inland; vom Geschäftskonto gezahlte Spenden stehen im Kontenblatt 1840 bzw. 2250 „Zuwendungen, Spenden“ ([Bank](bank.md#direkt-buchen)) |
 | Außergewöhnliche Belastungen | Selbst getragene Krankheitskosten |
 | Haushaltsnahe Aufwendungen (§ 35a EStG) | Minijobs im Haushalt, haushaltsnahe Dienstleistungen, Handwerkerleistungen (nur Arbeits-, Maschinen- und Fahrtkosten) |
-| Kind | Je Kind Vorname, Geburtsdatum, Steuer-ID, Familienkasse und Kinderbetreuungskosten; leibliches Kind beider Ehegatten bzw. der steuerpflichtigen Person, Wohnsitz im Inland im ganzen Jahr bzw. ab Geburt |
+| Kind | Bis zu 15 Kinder, je Kind Vorname, Geburtsdatum, Steuer-ID, Familienkasse und Kinderbetreuungskosten; leibliches Kind beider Ehegatten bzw. der steuerpflichtigen Person, Wohnsitz im Inland im ganzen Jahr bzw. ab Geburt |
 | KAP | Erträge mit und ohne inländischen Steuerabzug, ausländische Erträge, genutzter Sparer-Pauschbetrag, einbehaltene Kapitalertragsteuer, Solidaritätszuschlag und Kirchensteuer, Antrag auf Günstigerprüfung |
 
 Über den Angaben zeigt Haben das geschätzte zu versteuernde Einkommen und die voraussichtliche Steuer, berechnet wie die [Steuerprognose](finanzamt.md#steuerprognose) mit dem tatsächlichen Gewinn des Jahres. Mit Arbeitslohn kommen die bereits einbehaltene Lohnsteuer samt Soli und Kirchensteuer und die voraussichtliche Nachzahlung bzw. Erstattung dazu.
@@ -222,11 +222,11 @@ Für jede Person, die angestellt war, setzt du den Haken „hatte Arbeitslohn“
 | 25, 26 | Arbeitnehmerbeiträge zur Kranken- und Pflegeversicherung | Anlage Vorsorgeaufwand, Zeilen 11 und 13 |
 | 27 | Arbeitslosenversicherung | Anlage Vorsorgeaufwand, Zeile 43 |
 
-Bei mehreren Arbeitgebern gibt es je Bescheinigung eine Zeile; Haben schickt jede einzeln und die Summe.
+Bei mehreren Arbeitgebern gibt es je Bescheinigung eine Zeile, höchstens zehn je Person; Haben schickt jede einzeln und die Summe.
 
 Werbungskosten:
 
-- **Wege zur ersten Tätigkeitsstätte:** Anschrift, Tage dort, einfache Entfernung, optional Arbeitstage je Woche und Urlaubs- und Krankheitstage. Haben geht von Fahrten mit dem eigenen Auto aus.
+- **Wege zur ersten Tätigkeitsstätte:** Anschrift, Tage dort, einfache Entfernung, optional Arbeitstage je Woche und Urlaubs- und Krankheitstage. Steht eines davon da, braucht Haben Anschrift, Tage und Entfernung. Haben geht von Fahrten mit dem eigenen Auto aus.
 - **Homeoffice-Tage:** an denen du nicht zur Tätigkeitsstätte gefahren bist; mit dem Haken „dauerhaft kein anderer Arbeitsplatz“ in der Zeile für diesen Fall (2025: Zeile 59 statt 58).
 - **Häusliches Arbeitszimmer:** nur, wenn es den Mittelpunkt deiner gesamten beruflichen und betrieblichen Tätigkeit bildet: die Aufwendungen des Jahres oder stattdessen die Jahrespauschale von 1.260 €, die sich für jeden vollen Monat ohne diese Voraussetzung um 105 € mindert ([§ 4 Abs. 5 Satz 1 Nr. 6b EStG](https://www.gesetze-im-internet.de/estg/__4.html), für Arbeitnehmer über § 9 Abs. 5). Trag im Feld **Monate als Mittelpunkt** ein, in wie vielen Monaten das wenigstens zeitweise zutraf, denn gekürzt wird nur um volle Monate ohne; Haben rechnet die Pauschale dann zeitanteilig und sagt es, wenn der eingetragene Betrag darüber liegt. Die Homeoffice-Tagespauschale gibt es nicht für die Zeit, für die du das Arbeitszimmer absetzt (Nr. 6c Satz 3).
 - **Arbeitsmittel, Fortbildung, Gewerkschaft, Berufsverbände, weitere Werbungskosten** (etwa Kontoführung) als Beträge. Gewerkschaftsbeiträge zieht die Steuerschätzung ab 2026 zusätzlich zum Arbeitnehmer-Pauschbetrag ab (§ 9a Satz 3 EStG); in der Anlage N bis 2025 stehen sie mit den Berufsverbänden in einer Zeile, ab 2026 in einer eigenen. Zu den Fortbildungskosten meldet Haben ab 2026 steuerfreie Erstattungen mit 0; trag deshalb nur den Teil ein, den du selbst getragen hast.

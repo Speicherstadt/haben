@@ -517,6 +517,8 @@ test("Anlage N: Pflichtfeld im zugeklappten Block wird beim Speichern sichtbar",
   // und das Speichern bleibt ohne jede Rückmeldung stehen
   const brutto = n.getByRole("group", { name: "Lohnsteuerbescheinigung 2 · Erika" }).getByLabel("Nr. 3 Bruttoarbeitslohn", { exact: true });
   await expect(brutto).toBeFocused();
+  // Die Meldung steht am Feld (#1277)
+  await expect(brutto).toHaveAccessibleDescription("Trag den Bruttoarbeitslohn ein, etwa 42.000,00.");
 });
 
 test("Vorsorgeaufwand: Rürup, Wahlleistungen und Zuschüsse überstehen das Speichern (#943)", async () => {
@@ -624,9 +626,20 @@ test("Einkommensteuer: Kinder, Angaben des Ehegatten und ungültige Beträge bei
     await feld("kapMit").fill("350,00");
     await form.getByLabel("Günstigerprüfung beantragen").check();
     await feld("handwerker").fill("800");
-    await feld("spenden").fill("zwölf");
+    await feld("spenden").fill("12€50");
+    // Zugeklappt: Ein Fehler darin klappt den Block beim Speichern wieder auf (#1277)
+    const sonderausgaben = form.locator("details.est-block").filter({ has: page.locator(".est-block-title", { hasText: /^Sonderausgaben und Belastungen$/ }) });
+    await sonderausgaben.locator("summary").click();
+    await expect(feld("spenden")).toBeHidden();
     await form.getByRole("button", { name: "Angaben speichern" }).click();
-    await expect(form.getByRole("alert")).toContainText("Kein gültiger Betrag: Spenden, Kinderbetreuung Lena.");
+    // Je Feld die Meldung, der Fokus im ersten Feld mit Fehler, gespeichert ist nichts (#1277)
+    const meldung = "Trag den Betrag ein, etwa 1.234,56, oder lass das Feld leer.";
+    await expect(feld("spenden")).toBeFocused();
+    await expect(feld("spenden")).toHaveAccessibleDescription(`an steuerbegünstigte Empfänger im Inland ${meldung}`);
+    await expect(kind.getByLabel("Kinderbetreuungskosten (€)")).toHaveAccessibleDescription(meldung);
+    await expect(feld("handwerker")).not.toHaveAttribute("aria-invalid");
+    await expect(form.getByRole("status").filter({ hasText: "Angaben gespeichert." })).toHaveCount(0);
+    expect(await sql`select data from income_tax_inputs where year = ${YEAR - 1}`).toEqual(vorher.map(({ data }) => ({ data })));
     await feld("spenden").fill("12,00");
     await kind.getByLabel("Kinderbetreuungskosten (€)").fill("1.500,00");
     await form.getByRole("button", { name: "Angaben speichern" }).click();
