@@ -68,6 +68,36 @@ export async function chainHead(reader: Reader = db): Promise<ChainHead | null> 
 
 const MAX_ROWS = 100;
 
+type IntegrityRow = { art: IntegrityProblem["art"]; tabelle: string; zeile: string | null; seq: string | null; befund: string };
+
+/**
+ * Befunde von haben_integrity_problems. Bricht die Funktion ab, etwa weil sich der Standardwert einer Spalte, die ein
+ * älteres Siegel nicht abdeckt, nicht auswerten lässt, oder weil sie fehlt, wird das ein Befund (#1604): Ein Savepoint
+ * hält die Transaktion für die übrigen Prüfungen offen, und „Kette prüfen“ und die Prüfwert-Mail melden den Abbruch,
+ * statt mit einem Fehler zu enden. Über Kette und Siegel sagt der Bericht dann nichts aus.
+ */
+async function integrityRows(tx: Parameters<Parameters<typeof db.transaction>[0]>[0]): Promise<IntegrityRow[]> {
+  try {
+    return await tx.transaction((sp) => sp.execute<IntegrityRow>(sql`select art, tabelle, zeile, seq, befund from haben_integrity_problems(${MAX_ROWS})`));
+  } catch (error) {
+    return [
+      {
+        art: "sperre",
+        tabelle: "haben_integrity_problems",
+        zeile: null,
+        seq: null,
+        befund: `Prüfung von Kette und Siegeln abgebrochen: ${fehlerGrund(error)}`,
+      },
+    ];
+  }
+}
+
+/** Meldung eines Fehlers für Befunde; bei einer gescheiterten Abfrage die der Datenbank statt „Failed query: …“ */
+export function fehlerGrund(error: unknown): string {
+  if (error instanceof Error && error.cause instanceof Error) return error.cause.message;
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * Befunde, Kopf, Anzahlen und Abgleich aus einem Stand der Datenbank. Einzeln gelesen verschob ein Eintrag, der
  * dazwischen hinzukam, Anzahl und Kopf gegeneinander, und der Abgleich sah eine Buchung nebenher nur auf einer Seite.
@@ -79,9 +109,7 @@ function readSnapshot(now: string) {
       // Vor haben_integrity_problems: Den Suchpfad liest die Prüfung so, wie die Prüffunktionen ihn vorfinden. Eine fremde
       // Funktion, die sie aufrufen, könnte ihn bis zum Ende der Transaktion ändern.
       const triggers = await checkTriggerIntegrity(tx);
-      const rows = await tx.execute<{ art: IntegrityProblem["art"]; tabelle: string; zeile: string | null; seq: string | null; befund: string }>(
-        sql`select art, tabelle, zeile, seq, befund from haben_integrity_problems(${MAX_ROWS})`,
-      );
+      const rows = await integrityRows(tx);
       const head = await chainHead(tx);
       const [entries] = await tx.select({ n: count() }).from(schema.auditLog);
       const [seals] = await tx.select({ n: count() }).from(schema.seals);

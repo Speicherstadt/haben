@@ -16,7 +16,7 @@ jobs:
       # Dieselbe Version wie packageManager in package.json; Renovate hebt beide zusammen
       bun-version: 1.4.5
       install: bun install --frozen-lockfile
-      postgres: postgres:18
+      postgres: postgres:19
       # Die Tests leeren nur eine Datenbank, deren Name auf „e2e“ endet
       postgres-db: haben_e2e
       command: >-

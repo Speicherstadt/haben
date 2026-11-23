@@ -67,7 +67,7 @@ function startZeilen(
 }
 
 /** Je Teil Ziel, Betrag und Bezugsjahr; was zur Summe fehlt, steht am Betrag des letzten Teils */
-function teilFehler(rows: SplitRow[], parsed: (number | null)[], rest: number, open: number): Record<string, string | null> {
+export function teilFehler(rows: SplitRow[], parsed: (number | null)[], rest: number, open: number): Record<string, string | null> {
   return Object.fromEntries(
     rows.flatMap((r, i) => [
       [

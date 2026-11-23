@@ -87,6 +87,42 @@ describe.skipIf(!testDatabaseUrl)("Jahreserklärungen: erklärte Zeilenwerte (Po
     expect(uebersicht.ust.erklaert).toEqual({ base19: 70_000, vorsteuer: 95_546, abschluss: -50_368 });
   });
 
+  it.each([
+    ["SKR03", "ist"],
+    ["SKR04", "soll"],
+  ])("ergänzt Anlage G neben gespeicherter Anlage S unverändert (%s, %s; #1214)", async (kontenrahmen, versteuerung) => {
+    await sql`update company set einkunftsart = 'gewerbe', kontenrahmen = ${kontenrahmen}, versteuerung = ${versteuerung} where id = 1`;
+    await jahresvermerk.vermerkeJahresabgabe(
+      actor,
+      "est",
+      2025,
+      { filedOn: "2026-05-20", transferTicket: "GEWERBE12345", note: "Außerhalb von Haben mit WISO abgegeben." },
+      TODAY,
+    );
+    await zeilen.speichereErklaerteZeilen(actor, "est", 2025, [{ field: "einkuenfteSelbstaendig", amount: 123_456 }]);
+    const gewerbe = {
+      einkuenfteGewerbeLaufend: 6_000_000,
+      einkuenfteGewerbe: 6_000_000,
+      gewerbesteuerMessbetrag: 124_250,
+      gewerbesteuerTatsaechlich: 496_999,
+      // Der erklärte Wert kann zusätzlich durch den Ermäßigungshöchstbetrag begrenzt sein (§ 35 Abs. 1 EStG).
+      // Er stammt aus dem Steuerprogramm; Haben darf ihn nicht aus Messbetrag und Gewerbesteuer neu berechnen.
+      steuerermaessigungGewerbesteuer: 400_000,
+    };
+    expect(
+      await zeilen.speichereErklaerteZeilen(
+        actor,
+        "est",
+        2025,
+        Object.entries(gewerbe).map(([field, amount]) => ({ field, amount })),
+      ),
+    ).toBe(5);
+    expect((await annual.annualOverview(2025, TODAY)).est.erklaert).toEqual({ einkuenfteSelbstaendig: 123_456, ...gewerbe });
+    await expect(zeilen.speichereErklaerteZeilen(actor, "est", 2025, [{ field: "gewerbesteuerMessbetrag", amount: 0 }])).rejects.toThrow(
+      "Diese Zeile ist schon gespeichert und lässt sich nicht ändern: gewerbesteuerMessbetrag",
+    );
+  });
+
   it("zeigt in den Schlusszeilen die erklärten Beträge und kennzeichnet nur sie als laut Vermerk (#1076)", async () => {
     await vermerken("ust", "ABC123456789");
     const gerechnet = (await annual.annualOverview(2025, TODAY)).ust;
