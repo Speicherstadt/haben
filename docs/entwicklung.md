@@ -98,7 +98,7 @@ Mit [getrennten Datenbankrollen](installation-konfiguration.md#getrennte-datenba
 Die Doku baut ein Container mit Python, wie in der CI mit Zensical. Er läuft unter der eigenen Nutzerkennung, damit `site/` und `.cache/` danach nicht `root` gehören. Git braucht er nicht, der Befehl geht also auch in einem Git-Worktree; ohne git im Container fehlt nur das Änderungsdatum unter den Seiten:
 
 ```sh
-docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/docs -w /docs python:3.15-slim sh -c 'pip install -q --user -r requirements-docs.txt && python -m zensical build --strict'
+docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/docs -w /docs python:3.15-slim sh -c 'pip install -q --user -r requirements-docs.txt && python -m zensical build --strict && python scripts/doku-listen/haben_doku_listen.py site'
 ```
 
 ### Mehrere Umgebungen nebeneinander
@@ -141,6 +141,7 @@ Seiten der Doku:
 
 - **Front Matter:** `title:` (für Suchmaschinen, höchstens etwa 60 Zeichen; die Navigation nimmt den Namen aus `mkdocs.yml`) und `description:` (höchstens etwa 160 Zeichen, Pflicht). Daraus setzt `overrides/main.html` Beschreibung und Open Graph.
 - **Hinweise** im Stil von GitHub (`> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]` allein in der ersten Zeile); die deutschen Titel setzt `scripts/doku-hinweise`.
+- **Listen:** eine Leerzeile vor jeder Liste und vor dem Punkt nach einem eingerückten Absatz, sonst stehen die Punkte auf der Website im Fließtext (prüft `scripts/doku-listen` nach dem Build). Was zu einem Punkt gehört (weiterer Absatz, Code, Tabelle, Unterliste), ist um vier Leerzeichen eingerückt; mit zwei oder drei steht es außerhalb der Liste.
 - **Kurz halten:** Die Doku sagt Menschen, was gilt und warum. Schritte für Agenten stehen in den Skills unter `.claude/skills/`, wie ein Skript intern entscheidet, in dessen Kommentaren. Keine Sätze, die nur wiederholen, ankündigen oder zusammenfassen.
 - **Skills:** Die Beschreibung im Front Matter sagt nur, wann ein Agent den Skill lädt; sie steht in jeder Session im Kontext. Der Hauptteil trägt den Ablauf, den jeder Aufruf braucht; Vorlagen, lange Befehlslisten und was nur eine Rolle braucht, liegen unter `references/` im Ordner des Skills, und der Hauptteil sagt, wann sie zu lesen sind. Was ein Skript entscheiden kann, entscheidet ein Skript, nicht ein Absatz im Skill.
 - **Unterseiten statt langer Seiten:** Eine Seite bleibt unter etwa 8.000 Wörtern. Was nur ein Teil der Leser braucht (ein Anbieter, eine Rechtsform, ein Sonderfall, eine Nachschlagetabelle), steht auf einer eigenen Seite mit flachem Namen wie `bank-zahlungsdienstleister.md`, nicht in einem Unterordner: Kurzlinks wie `haben.app/bank/` legt `scripts/doku-kurzlinks` nur für Seiten direkt unter `docs/` an, und ein Ordner `bank/` nähme `bank.md` den Kurzlink. Die Anker bleiben gleich; an der alten Stelle steht ein kurzer Abschnitt mit den alten Ankern als `<a id>` und einem Verweis, damit Links aus ausgelieferten Versionen und von außen weiter treffen. Navigation in `mkdocs.yml` und `ueberblick.md` ändern sich zusammen.

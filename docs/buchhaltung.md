@@ -305,6 +305,7 @@ Regulär besteuerte Umsätze zu 0 % (Schlüssel `frei`) meldet Haben nicht; die 
 ## Die Seite „Buchungen“
 
 Unter **Buchungen** steht das Journal je Monat, neueste zuerst, mit Pfeilen zum Vor- und Folgemonat. Jede Buchung ist eine Zeile:
+
 - Datum und Herkunft („Rechnung“, „Beleg“, „Verrechnung“, „Bank“, „Anlage“, „Pauschale“, „Kasse“, „Ausbuchung“, „Vorsteuerfreigabe“ (Vorsteuer eines Belegs mit Leistungsdatum nach dem Belegdatum, [Vorsteuer (Kz 66)](umsatzsteuer.md#vorsteuer-kz-66)), „Lohn“, „Manuell“, „Import“ (aus dem [Datenimport](belegimport.md)), in GmbH und UG „Eröffnung“ und „Ausschüttung“, oder „Gegenbuchung“). Ein Klick auf die Herkunft öffnet den Vorgang.
 - Buchungstext.
 - Soll- und Habenkonto, jeweils das größte. Weitere Konten stehen als „+n“ daneben.
@@ -371,6 +372,7 @@ Das Formular zeigt beim Tippen, was fehlt; der Server prüft beim Buchen dasselb
 ## Die Seite „Konten“
 
 Unter **Konten** stehen oben Kacheln:
+
 - Bankstand laut Buchungen.
 - Offene Forderungen und offene Verbindlichkeiten.
 - Fällige Umsatzsteuer nach Vorsteuer und Vorauszahlungen.
@@ -379,6 +381,7 @@ Unter **Konten** stehen oben Kacheln:
 Im Einzelunternehmen rechnen Bank und Umsatzsteuer ab Jahresbeginn, ein Vortrag aus dem Vorjahr fehlt. In einer GmbH oder UG enthalten sie den [Saldenvortrag](gmbh-abschluss.md#saldenvortrag-und-eröffnung-gmbh-und-ug).
 
 Darunter steht die **Saldenliste**: jedes bebuchte Konto des Jahres, Quartals oder Monats mit Soll, Haben und Saldo.
+
 - **Gruppierung:** Die Konten stehen nach Kontenklasse, also nach der ersten Ziffer der Kontonummer. Im SKR03 sind das etwa 1 Finanz- und Privatkonten, 4 Betriebliche Aufwendungen und 8 Erlöskonten. Jede Klasse hat eine Zwischensumme und lässt sich einklappen.
 - **Eröffnung:** Sie ist der Saldo ab Jahresbeginn bis zum Beginn des gewählten Zeitraums, in einer GmbH oder UG dazu der Saldenvortrag aus den Vorjahren und die Eröffnungsbuchungen. Die Spalte erscheint nur, wenn es einen solchen Betrag gibt.
 - **Salden in Alltagssprache:** Erlöse und Aufwand stehen als positiver Betrag. Bei Bestandskonten wie Bank, Forderungen oder Steuern steht dazu „Guthaben“ oder „Schuld“. Die Buchhaltungsseite, S für Soll und H für Haben, steht klein daneben.
@@ -386,6 +389,7 @@ Darunter steht die **Saldenliste**: jedes bebuchte Konto des Jahres, Quartals od
 - **Suche:** „Konto suchen“ filtert nach Nummer oder Name.
 
 Ein Klick auf ein Konto öffnet das **Kontenblatt**. Es zeigt:
+
 - Eröffnung, Bewegungen und Endsaldo als Kacheln.
 - Den Saldoverlauf als Diagramm. Beim Darüberfahren erscheinen Datum, Saldo und Buchung.
 - Jede Buchung mit Datum, Text, Gegenkonten, Herkunft, Soll, Haben und laufendem Saldo.

@@ -31,11 +31,12 @@ Ist **In Haben** gewählt, ruft Haben die Adresse nach der Eingabe einmal auf un
 - **Eine eigene Adresse.** Die Seite muss unter einer anderen Herkunft laufen als Haben, also auf einer anderen Subdomain (`n8n.example.de` neben `haben.example.de`) oder einem anderen Port (`http://192.168.1.20:5678`). Die Adresse von Haben selbst lehnt Haben ab: Eine Seite derselben Herkunft hätte im Rahmen die volle Sitzung und könnte Rechnungen festschreiben oder an ELSTER senden.
 - **Einbetten erlauben** (nur für **In Haben**). Viele Seiten verbieten, dass eine andere Seite sie im Rahmen zeigt (`X-Frame-Options: DENY` oder `SAMEORIGIN`, oder `Content-Security-Policy: frame-ancestors` ohne die Adresse von Haben). Dann bleibt der Rahmen leer oder der Browser meldet, dass die Verbindung abgelehnt wurde. Abhilfe: die Seite mit diesem Header ausliefern, mit der Adresse deiner Haben-Instanz:
 
-  ```
-  Content-Security-Policy: frame-ancestors https://haben.example.de
-  ```
+    ```
+    Content-Security-Policy: frame-ancestors https://haben.example.de
+    ```
 
-  Liefert ein Workflow in n8n die Seite über den Knoten **Respond to Webhook**, setzt du den Header dort unter den Response-Headers. Lässt sich die Seite nicht ändern, wähle **In neuem Tab**.
+    Liefert ein Workflow in n8n die Seite über den Knoten **Respond to Webhook**, setzt du den Header dort unter den Response-Headers. Lässt sich die Seite nicht ändern, wähle **In neuem Tab**.
+
 - **Gleiches Protokoll** (nur für **In Haben**). Läuft Haben unter `https://`, zeigt der Browser im Rahmen keine Seite mit `http://` an (gemischte Inhalte). Läuft Haben im Heimnetz unter `http://`, geht beides.
 
 ## Anmeldung und Zugriff auf Haben
