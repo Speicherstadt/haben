@@ -71,7 +71,8 @@ export async function listPostfachDocuments(limit = 200) {
 /**
  * Echte Bescheide, deren Einspruchsfrist heute noch läuft; je Steuerfall einer.
  *
- * Ein Änderungsbescheid ersetzt den Bescheid, den er ändert (§ 172 AO), und damit auch dessen Frist. Deshalb zählt je
+ * Ein Änderungsbescheid ändert den Bescheid, den er ändert (§ 172 Abs. 1 AO); der geänderte wird insoweit
+ * gegenstandslos (§ 124 Abs. 2 AO), und die Frist läuft nur noch für den neuen (§ 355 Abs. 1 AO). Deshalb zählt je
  * Datenart, Veranlagungszeitraum und Steuerkonto nur das jüngste Bescheiddatum, sonst steht die erledigte Frist
  * gleichrangig daneben (#1817). Anhänge desselben Bescheids fallen dabei zusammen, weil sie dasselbe Datum tragen.
  */
