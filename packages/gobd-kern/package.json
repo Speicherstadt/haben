@@ -1,10 +1,10 @@
 {
   "name": "@firsttris/gobd-kern",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-only",
-  "description": "Bausteine für unveränderbare Aufbewahrung nach GoBD: Dateispeicher unter SHA-256, Prüfwert der Hash-Kette, index.xml nach dem Beschreibungsstandard, SQL-Vorlage für Hash-Kette, Siegel und Sperren in Postgres, Bausteine der Verfahrensdokumentation (Datenmodell, Angaben zum Betrieb, Texte zum Kern, Markdown)",
+  "description": "Bausteine für unveränderbare Aufbewahrung nach GoBD: Dateispeicher unter SHA-256, Prüfwert der Hash-Kette, index.xml nach dem Beschreibungsstandard, SQL-Vorlage für Hash-Kette, Siegel und Sperren in Postgres, Prüfung der Sperren gegen einen Sollbestand, Bausteine der Verfahrensdokumentation (Datenmodell, Angaben zum Betrieb, Texte zum Kern, Markdown)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Speicherstadt/haben.git",
@@ -26,6 +26,7 @@
     "./pruefwert": "./src/pruefwert.ts",
     "./beschreibung": "./src/beschreibung.ts",
     "./sql": "./src/sql/vorlage.ts",
+    "./sperren": "./src/sperren/index.ts",
     "./verfahrensdoku": "./src/verfahrensdoku/index.ts"
   },
   "files": [

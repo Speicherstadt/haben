@@ -1,4 +1,5 @@
 import { expect, type FileChooser, type Locator, type Page } from "@playwright/test";
+import { bilder } from "./warten.ts";
 
 /**
  * Prüfungen für die zwei Muster der Dateiauswahl (DESIGN.md, „Datei-Felder“): `FilePicker` in einem `Field` und
@@ -14,8 +15,8 @@ export async function genauEinDialog(page: Page, aktion: () => Promise<unknown>,
   };
   page.on("filechooser", zaehlen);
   const [chooser] = await Promise.all([page.waitForEvent("filechooser", { timeout: 5_000 }), aktion()]);
-  // Ein zweiter Dialog aus demselben Klick käme sofort hinterher
-  await page.waitForTimeout(500);
+  // Ein zweiter Dialog aus demselben Klick käme in derselben Aufgabe hinterher
+  await bilder(page);
   page.off("filechooser", zaehlen);
   expect(dialoge, `${wo}: genau ein Dateidialog`).toBe(1);
   return chooser;

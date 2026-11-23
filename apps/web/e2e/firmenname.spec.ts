@@ -3,6 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { THEMES } from "../src/lib/theme.ts";
 import { SESSION } from "./daten.ts";
 import { axeVerstoesse } from "./einrichtung.ts";
+import { abgearbeitet } from "./warten.ts";
 
 /**
  * Mehrere Firmen (#504): Unter „Haben“ steht der Name aus den Firmendaten, damit man sieht, in welcher Instanz man
@@ -412,7 +413,8 @@ test("Escape schließt in der Belegansicht nur den aufgeklappten Namen und bleib
   await expect(voll(page)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(voll(page)).toHaveCount(0);
-  await page.waitForTimeout(300);
+  // Ginge Escape auch an die Seite, hätte sie die Navigation zur Liste jetzt angestoßen
+  await abgearbeitet(page);
   expect(new URL(page.url()).pathname).toBe(pfad);
   // Mit Tastaturfokus auf „Haben“ ebenso
   await page.mouse.move(900, 500);
@@ -420,7 +422,8 @@ test("Escape schließt in der Belegansicht nur den aufgeklappten Namen und bleib
   await expect(voll(page)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(voll(page)).toHaveCount(0);
-  await page.waitForTimeout(300);
+  // Ginge Escape auch an die Seite, hätte sie die Navigation zur Liste jetzt angestoßen
+  await abgearbeitet(page);
   expect(new URL(page.url()).pathname).toBe(pfad);
 });
 

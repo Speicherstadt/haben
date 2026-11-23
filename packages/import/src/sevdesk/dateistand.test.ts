@@ -5,6 +5,7 @@ import { sevFileExpectation, sevFileFinding } from "./dateistand.ts";
 // Antworten aus Buchhaltung 1.0, nur Metadaten (test-fixtures/sevdesk/README.md)
 const fixture = JSON.parse(readFileSync(new URL("../../test-fixtures/sevdesk/buchhaltung-1.0/dateistand.json", import.meta.url), "utf8"));
 const vorlage = JSON.parse(readFileSync(new URL("../../test-fixtures/sevdesk/buchhaltung-1.0/beleg-aus-vorlage.json", import.meta.url), "utf8"));
+const nachgeladen = JSON.parse(readFileSync(new URL("../../test-fixtures/sevdesk/buchhaltung-1.0/beleg-datei-nachgeladen.json", import.meta.url), "utf8"));
 
 describe("sevFileExpectation", () => {
   it("erwartet beim Beleg mit document genau diese Datei, die GET /Document/{id} auflöst", () => {
@@ -16,6 +17,17 @@ describe("sevFileExpectation", () => {
     expect(sevFileExpectation("voucher", fixture.belegOhneDatei.voucher)).toEqual({ kind: "keine", templateId: null });
     const ausVorlage = vorlage.beleg;
     expect(sevFileExpectation("voucher", ausVorlage)).toEqual({ kind: "keine", templateId: vorlage.vorlage.id });
+  });
+
+  it("erkennt eine später in sevDesk hochgeladene Datei am neuen document desselben Belegs (#1184)", () => {
+    const [vorher, nachher] = nachgeladen;
+    expect(Object.keys(vorher.voucher)).not.toContain("document");
+    expect(sevFileExpectation("voucher", vorher.voucher)).toEqual({ kind: "keine", templateId: null });
+    expect(nachher.voucher.id).toBe(vorher.voucher.id);
+    expect(sevFileExpectation("voucher", nachher.voucher)).toEqual({ kind: "verweis", documentId: nachher.voucher.document.id });
+    // Außer document ändert sich nur update
+    const geaendert = Object.keys(nachher.voucher).filter((k) => JSON.stringify(nachher.voucher[k]) !== JSON.stringify(vorher.voucher[k]));
+    expect(geaendert.sort()).toEqual(["document", "update"]);
   });
 
   it("verlangt bei Rechnung und Gutschrift das PDF, auch wenn sie kein document tragen", () => {

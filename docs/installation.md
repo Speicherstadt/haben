@@ -60,7 +60,7 @@ Das fertige Image gibt es für amd64 und arm64 auf Docker Hub und in der GitHub 
 | `docker.io/tristanteu/haben:next` | Neuester Release Candidate (`:x.y.z-rc.1` usw.) zum Testen, nur mit Backup |
 | `docker.io/tristanteu/haben:edge` | Stand von `main`, nur zum Ausprobieren |
 | `ghcr.io/speicherstadt/haben:…` | Dieselben Tags bei GitHub |
-| `docker.io/tristanteu/haben-backup:…` / `ghcr.io/speicherstadt/haben-backup:…` | Backup-Container (`postgres:18` mit restic, `deploy/backup`), dieselben Tags wie die App |
+| `docker.io/tristanteu/haben-backup:…` / `ghcr.io/speicherstadt/haben-backup:…` | Backup-Container (`postgres:19` mit restic, `deploy/backup`), dieselben Tags wie die App |
 | `docker.io/tristanteu/haben-db:…` / `ghcr.io/speicherstadt/haben-db:…` | Datenbank-Container (`postgres:18` mit `pg_upgrade` für ältere Bestände, `deploy/db`), dieselben Tags wie die App |
 
 > Bisher `ghcr.io/firsttris/…`? Stell auf `ghcr.io/speicherstadt/…` um, neue Versionen erscheinen nur noch dort. Die Images auf Docker Hub bleiben gleich.
