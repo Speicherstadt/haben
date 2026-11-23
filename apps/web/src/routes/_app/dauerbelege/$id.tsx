@@ -84,7 +84,7 @@ function DauerbelegDetailPage() {
             onSubmit={(values, file) =>
               run(async () => {
                 await save({ data: dauerbelegFormData(vorlage.id, values, file) });
-                await router.invalidate();
+                await router.invalidate({ sync: true });
               }, "Gespeichert. Die Änderung gilt für künftige Belege.")
             }
           />
@@ -175,7 +175,7 @@ function DauerbelegKopf({
   const status = (aktion: "pausieren" | "fortsetzen" | "beenden", done: string) =>
     run(async () => {
       await changeStatus({ data: { id: vorlage.id, aktion } });
-      await router.invalidate();
+      await router.invalidate({ sync: true });
     }, done);
 
   return (

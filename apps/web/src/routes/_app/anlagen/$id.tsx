@@ -150,7 +150,7 @@ function AssetPage() {
                 await update({
                   data: { id: asset.id, asset: fromDocument ? rest : { ...rest, openingDate, openingBookValue } },
                 });
-                await router.invalidate();
+                await router.invalidate({ sync: true });
               }, "Gespeichert.")
             }
           />
