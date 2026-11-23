@@ -155,7 +155,7 @@ export function AssetPrivateUse({
  * Wählbare Methoden: Elektro nur bei Fahrzeugen im Einzelunternehmen; bei einer Beleg-Anlage (`fromDocument`) nur
  * Methoden auf dem Anlagekonto der Art, GWG und Sammelposten legt die Belegbuchung mit eigenem Konto fest.
  */
-function methodChoices(kind: AssetKind, fromDocument: boolean, elektroOffered: boolean): AssetMethod[] {
+export function methodChoices(kind: AssetKind, fromDocument: boolean, elektroOffered: boolean): AssetMethod[] {
   const all = Object.keys(ASSET_METHODS) as AssetMethod[];
   return all.filter((m) => (m !== "elektro" || (kind === "kfz" && elektroOffered)) && (!fromDocument || (m !== "gwg" && m !== "sammelposten")));
 }

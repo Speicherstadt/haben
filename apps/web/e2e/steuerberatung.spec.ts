@@ -93,6 +93,14 @@ test("Einladung, lesen ja, ändern nein, sperren", async ({ page: owner, browser
     await stb.goto(path);
     await expect(stb.getByRole("heading", { level: 1 }), path).toHaveText(heading);
   }
+  // Zahlungen ohne Beleg führen auch für die Steuerberatung aus der BWA ins Kontenblatt (#1635)
+  await stb.goto(`/auswertungen/bwa?jahr=${YEAR}&zeitraum=jahr&vergleich=keiner&zeile=ustZahlung`);
+  await stb
+    .getByRole("region", { name: `Umsatzsteuer-Zahlungen · ${YEAR}` })
+    .getByRole("link", { name: /^Bank · Konto \d{4}$/ })
+    .click();
+  await expect(stb).toHaveURL(/\/konten\/\d{4}\?.*#buchung-[0-9a-f-]{36}$/);
+  await expect(stb.locator("tr[aria-current]")).toHaveCount(1);
   const beleg = await firstLink(stb, "/belege", /^\/belege\/[0-9a-f-]{36}$/);
   expect(beleg, "app.spec.ts hat einen Beleg gebucht").not.toBeNull();
   await stb.goto(beleg!);

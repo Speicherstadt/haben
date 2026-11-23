@@ -125,4 +125,16 @@ describe("Scheduler", () => {
     await scheduler.runScheduledJobs();
     await vi.waitFor(() => expect(jobs.runDuePruefwertMail).toHaveBeenCalledOnce());
   });
+
+  it("nennt im Log eine gescheiterte Prüfung der Prüfwert-Mail, nicht „0 Befunde“", async () => {
+    jobs.runDueFileCheck.mockResolvedValue(null);
+    jobs.runDuePruefwertMail.mockResolvedValue({ seq: 7, problems: 0, rewritten: false, fileProblems: 0, failed: true });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await scheduler.runScheduledJobs();
+      await vi.waitFor(() => expect(log).toHaveBeenCalledWith("Prüfwert des Audit-Logs (Nr. 7) per E-Mail gesendet, Prüfung fehlgeschlagen"));
+    } finally {
+      log.mockRestore();
+    }
+  });
 });
