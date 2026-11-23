@@ -59,11 +59,6 @@ async function firmenKontenrahmen(q: Db | Tx): Promise<Kontenrahmen> {
 
 export interface EuerJournal {
   summe: EuerAusJournal;
-  /**
-   * Zahlungen auf aus Lexoffice übernommene Rechnungen und Belege: Deren Buchung steht gegen den Saldenvortrag, ohne Erlös-
-   * bzw. Aufwandszeilen; verteilt wird auf die Zeilen, die Haben für Rechnung bzw. Beleg buchen würde (uebernommeneZeilen)
-   */
-  uebernommen: number;
   /** Importierte Ausgleiche ohne eindeutigen Quellbezug; keine geschätzte EÜR-Zuordnung. */
   ungeklaerteImporte: number;
   /** Wirkung je Monat (Index 0 = Januar), für die Grafik nach Monaten */
@@ -140,7 +135,7 @@ export async function euerAusJournal(year: number, q: Db | Tx = db, ohneManuelle
     verrechnungenVon,
     nebenbuchVon,
     anlagen,
-    zaehler: { uebernommen: 0, ungeklaerteImporte: 0 },
+    zaehler: { ungeklaerteImporte: 0 },
     ursprung: new Map(),
   };
   const summe = leereEuerAusJournal();
@@ -157,6 +152,5 @@ export async function euerAusJournal(year: number, q: Db | Tx = db, ohneManuelle
     dazu(summe, beitrag);
     dazu(monate[Number(v.date.slice(5, 7)) - 1]!, beitrag);
   }
-  const { zaehler } = lauf;
-  return { summe, uebernommen: zaehler.uebernommen, ungeklaerteImporte: zaehler.ungeklaerteImporte, monate };
+  return { summe, ungeklaerteImporte: lauf.zaehler.ungeklaerteImporte, monate };
 }

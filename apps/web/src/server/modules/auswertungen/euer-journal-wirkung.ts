@@ -59,7 +59,6 @@ export interface Verrechnung {
 }
 
 interface Ursprung {
-  uebernommen: boolean;
   /** Kontenrahmen der ausgeglichenen Buchung; er kann zum Jahreswechsel gewechselt haben */
   kontenrahmen: Kontenrahmen;
   zeilen: Zeile[];
@@ -83,7 +82,7 @@ export interface EuerLauf {
   verrechnungenVon: Map<string, RechnungsVerrechnung[]>;
   nebenbuchVon: Map<string, BelegNebenbuch>;
   anlagen: Set<string>;
-  zaehler: { uebernommen: number; ungeklaerteImporte: number };
+  zaehler: { ungeklaerteImporte: number };
   ursprung: Map<string, Ursprung>;
 }
 
@@ -125,7 +124,6 @@ async function ursprungVon(l: EuerLauf, typ: "invoice" | "document", id: string,
   const gesamt = ersatz ? ersatz.gesamt : alle.filter((z) => offenerPosten(kontenrahmen, z)).reduce((s, z) => s + z.debit - z.credit, 0);
   const herkunft: EuerHerkunft = typ === "document" && l.anlagen.has(id) ? "anlage" : "sonst";
   const u: Ursprung = {
-    uebernommen: istUebernommen,
     kontenrahmen,
     zeilen,
     gesamt,
@@ -143,7 +141,6 @@ async function ursprungVon(l: EuerLauf, typ: "invoice" | "document", id: string,
 export async function wirkungVerrechnung(l: EuerLauf, v: Verrechnung, belegKontenrahmen: Kontenrahmen): Promise<EuerAusJournal> {
   const summe = leereEuerAusJournal();
   const u = await ursprungVon(l, "document", v.dokumentId, belegKontenrahmen);
-  if (u.uebernommen) l.zaehler.uebernommen++;
   if (u.gesamt === 0) return summe;
   // betrag trägt das Vorzeichen des offenen Postens wie eine Buchung, ausgeglichen ist das Umgekehrte
   if (u.beleg && (u.beleg.effects?.has(v.id) || v.betrag !== u.gesamt)) belegTeilzahlung(l.year, u.beleg, -v.betrag, summe, v.id);
@@ -202,7 +199,6 @@ export async function wirkung(l: EuerLauf, b: Buchung): Promise<EuerAusJournal> 
   const zielId = ziel?.invoiceId ?? ziel?.documentId;
   if (!typ || !zielId) return summe;
   const u = await ursprungVon(l, typ, zielId, kr);
-  if (u.uebernommen) l.zaehler.uebernommen++;
   // Storniert: nichts mehr offen, Zahlung und Gegenbuchung heben sich auf
   if (u.gesamt === 0) return summe;
   const anteil = u.anteile?.get(b.id);
