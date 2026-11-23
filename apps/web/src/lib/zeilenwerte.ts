@@ -60,6 +60,17 @@ const EST_ANLAGEN: readonly { anlage: string; felder: Readonly<Record<string, st
     },
   },
   {
+    // Gewerbliche Einkünfte gehören in Anlage G, selbständige Arbeit daneben in Anlage S (ELSTER-Anleitung 2025):
+    // https://www.elster.de/eportal/helpGlobal?themaGlobal=help_est_ufa_10_2025, Abschnitt „Anlagenauswahl“.
+    anlage: "Anlage G",
+    felder: {
+      einkuenfteGewerbeLaufend: "Laufende Gewinne aus Gewerbebetrieb",
+      einkuenfteGewerbe: "Einkünfte aus Gewerbebetrieb",
+      gewerbesteuerMessbetrag: "Gewerbesteuer-Messbetrag (§ 35 EStG)",
+      gewerbesteuerTatsaechlich: "Tatsächlich zu zahlende Gewerbesteuer (§ 35 EStG)",
+    },
+  },
+  {
     anlage: "Anlage S",
     felder: {
       einkuenfteSelbstaendigLaufend: "Laufende Gewinne, darin Gewinne aus freiberuflicher Tätigkeit",
@@ -121,6 +132,9 @@ const EST_ANLAGEN: readonly { anlage: string; felder: Readonly<Record<string, st
       // § 32b EStG ändert nur den Steuersatz; die tarifliche Einkommensteuer entsteht in der Berechnung, nicht
       // im Progressionsvorbehalt. Die Zeile steht deshalb hier, hinter dem zu versteuernden Einkommen (#1084)
       tariflicheEinkommensteuer: "Tarifliche Einkommensteuer",
+      // § 35 Abs. 1 EStG begrenzt die Ermäßigung auch durch den Anteil der Einkommensteuer auf gewerbliche Einkünfte.
+      // Deshalb den erklärten Betrag übernehmen, nicht aus Messbetrag und Gewerbesteuer neu berechnen (#1214).
+      steuerermaessigungGewerbesteuer: "Steuerermäßigung bei Einkünften aus Gewerbebetrieb (§ 35 EStG) laut Steuerprogramm",
       // In der Erklärung setzt niemand etwas fest: Die Zahl kommt aus dem Steuerprogramm, festgesetzt wird sie erst im
       // Bescheid. Die Beschriftung sagt deshalb, woher sie stammt (#1084)
       festgesetzteSteuer: "Einkommensteuer laut Steuerprogramm",

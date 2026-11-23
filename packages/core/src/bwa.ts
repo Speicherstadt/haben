@@ -1,6 +1,7 @@
 import { kostenartOf, type Kostenart } from "./bwa-kostenart.ts";
 import { imZeitraum, type Zeitraum } from "./bwa-zeitraum.ts";
 import { EUER_LABELS, type EuerLineKey } from "./euer.ts";
+import { euerZuordnung } from "./journal-euer.ts";
 import type { BasisPoints, Cents } from "./money.ts";
 import { roundHalfAwayFromZero } from "./money.ts";
 import { PAUSCHALE_KONTEN, PAUSCHALE_LABEL, type PauschaleArt } from "./pauschalen.ts";
@@ -190,6 +191,27 @@ export interface BwaQuelle {
   sourceId: string;
   rechnungId: string | null;
   belegId: string | null;
+  /** Konto, in dessen Kontenblatt die Buchung steht (kontenblattKonto); null bei einer Verrechnung, die ihren Beleg nennt */
+  konto: string | null;
+  /**
+   * Datum der Buchung im Journal und damit im Kontenblatt. Weicht vom Datum des Postens ab, wenn die EÜR eine Zahlung in
+   * ein anderes Jahr zählt (USt-Vorauszahlung bis 10. Januar, euer-jahreswechsel.ts)
+   */
+  buchungsdatum: string;
+}
+
+/**
+ * Das Konto, in dessen Kontenblatt die BWA eine Buchung ohne Rechnung und Beleg zeigt (#1635): bei Lohn- und
+ * Umsatzsteuerzahlungen das Gegenkonto der Bank (Verbindlichkeiten aus Lohn, Umsatzsteuer-Vorauszahlung), sonst das erste
+ * Konto ohne Wirkung in der EÜR, meist das Geldkonto, und ohne beides null. Nie ein Kategorienkonto: Die EÜR rechnet ein
+ * eigenes Konto auf seine Elternkategorie um (#270), deren Kontenblatt zeigt die Buchung dann nicht.
+ */
+export function kontenblattKonto(kontenrahmen: Kontenrahmen, zeilen: readonly { account: string }[]): string | null {
+  const zahlung = zeilen.find((z) => {
+    const zuordnung = euerZuordnung(kontenrahmen, z.account);
+    return zuordnung === "personal" || zuordnung === "ustZahlung";
+  });
+  return (zahlung ?? zeilen.find((z) => euerZuordnung(kontenrahmen, z.account) === null))?.account ?? null;
 }
 
 /** Was eine Buchung in der EÜR bewirkt, mit ihrem Datum: die Eingabe der Form 43 */

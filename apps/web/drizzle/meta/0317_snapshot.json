@@ -1,5 +1,5 @@
 {
-  "id": "13cefd20-e754-4b2e-8847-84471b281f12",
+  "id": "71227739-9911-47a6-9ce9-9d78fa8b0362",
   "prevId": "634298ef-e350-4e91-b187-1b8c0305c26f",
   "version": "7",
   "dialect": "postgresql",
@@ -18762,7 +18762,7 @@
         },
         "text_blocks_standard_fuer": {
           "name": "text_blocks_standard_fuer",
-          "value": "\"text_blocks\".\"standard_fuer\" is null or \"text_blocks\".\"standard_fuer\" in ('rechnung', 'angebot', 'auftragsbestaetigung', 'lieferschein', 'mahnung')"
+          "value": "\"text_blocks\".\"standard_fuer\" is null or \"text_blocks\".\"standard_fuer\" in ('rechnung', 'angebot', 'auftragsbestaetigung', 'lieferschein', 'mahnstufe_1', 'mahnstufe_2', 'mahnstufe_3')"
         },
         "text_blocks_standard_passt": {
           "name": "text_blocks_standard_passt",
@@ -20059,13 +20059,6 @@
         },
         "kz62": {
           "name": "kz62",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "kz50": {
-          "name": "kz50",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,

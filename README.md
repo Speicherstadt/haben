@@ -139,8 +139,11 @@ Gib Claude Code oder einem anderen Coding-Agenten dieses Repository und SSH-Zuga
 
 ```bash
 mkdir haben && cd haben
-curl -O https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy/compose.yml
-curl -o .env https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy/compose.env.example
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)
+TAG=${RELEASE##*/}
+RAW=https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy
+curl -fLO "$RAW/compose.yml"
+curl -fLo .env "$RAW/compose.env.example"
 chmod 600 .env
 ```
 
@@ -289,7 +292,7 @@ Alles im Detail, mit Suche: **https://haben.app/**. Jede Funktion oben verlinkt 
 [![Vite](https://img.shields.io/badge/Vite-646cff?logo=vite&logoColor=white)](https://vite.dev)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Drizzle-4169e1?logo=postgresql&logoColor=white)](https://orm.drizzle.team)
 
-Voraussetzungen: Bun in der Version aus `packageManager` in `package.json`, Git und PostgreSQL 18. Bun ist Laufzeit und Paketmanager zugleich.
+Voraussetzungen: Bun in der Version aus `packageManager` in `package.json`, Git und PostgreSQL 19. Bun ist Laufzeit und Paketmanager zugleich.
 
 ```sh
 bun install

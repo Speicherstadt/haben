@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { fixture, innerZip, unmaskedStack10, zip } from "../../../packages/import/src/sevdesk/export/testzip.ts";
+import { beleglinkZip20, fixture, innerZip, unmaskedStack10, zip } from "../../../packages/import/src/sevdesk/export/testzip.ts";
 import { bestaetigen, durchlaufSeite, einrichten, gehe } from "./einrichtung.ts";
 
 /**
@@ -33,6 +33,13 @@ test("sevDesk ohne API: Export prüfen, übernehmen und Beleg mit Belegbild im A
   await card.getByRole("button", { name: "Hochladen und prüfen" }).click();
   await expect(card.getByText(/Buchungsstapel.*fehlt/)).toBeVisible();
   await expect(card.getByRole("button", { name: "Übernehmen", exact: true })).toHaveCount(0);
+
+  const { bytes } = beleglinkZip20();
+  await card.getByLabel("Export-ZIP").setInputFiles({ name: "Beleglinks-2026.zip", mimeType: "application/zip", buffer: Buffer.from(bytes) });
+  await card.getByRole("button", { name: "Hochladen und prüfen" }).click();
+  const facts = card.locator(".progress-facts > div");
+  await expect(facts.filter({ has: page.getByText("ohne Belegbild im Export", { exact: true }) }).locator("strong")).toHaveText("1");
+  await expect(facts.filter({ has: page.getByText("Datei fehlt im Export", { exact: true }) }).locator("strong")).toHaveText("1");
 
   await card.getByLabel("Export-ZIP").setInputFiles({
     name: "BITTE-ENTPACKEN_Buchungsstapel_und_Belegbilder_1_1_20240101_bis_20241231.zip",
