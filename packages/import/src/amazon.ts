@@ -12,14 +12,13 @@ import type { ParsedStatement } from "./types.ts";
  * Berichte › Zahlungen, „Settlement Report“, Format GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2, Tab-getrennt). Die erste
  * Datenzeile ist die Zusammenfassung (settlement-id, Zeitraum, deposit-date, total-amount, currency); darunter steht jede
  * Position mit ihrem Betrag (amount), unterschieden in transaction-type, amount-type und amount-description. Der Aufbau
- * stammt aus einem echten amazon.de-Report (deutsche Formate: Komma-Beträge, TT.MM.JJJJ); englische Exporte schreiben
- * Punkt-Beträge und ISO-/US-Daten, deshalb liest der Parser beides.
+ * stammt aus echten Reports (deutsche Formate: Komma-Beträge, TT.MM.JJJJ; englische: Punkt-Beträge, ISO-/US-Daten),
+ * deshalb liest der Parser beides.
  *
  * Haben fasst die Positionen einer Bestellung wie bei den übrigen Zahlungsdienstleistern zu zwei Umsätzen zusammen: dem
  * Erlös brutto (ItemPrice und Promotion, also Principal + Tax − Rabatt) und der einbehaltenen Gebühr (ItemFees). So lässt
  * sich der Erlös der Rechnung zuordnen (voller Erlös, Bruttoprinzip) und die Gebühr einer Gebührenrechnung. Sonderzeilen
- * (Abo-Gebühr, Lagergebühr, Erstattung, Rückstellung, Kontenausgleich) werden eigene Umsätze; unbekannte bleiben mit
- * Hinweis, statt zu raten, geht Haben die Zeile wegen des enthaltenen Betrags trotzdem mit. Die Auszahlung (total-amount
+ * (Abo-Gebühr, Lagergebühr, Erstattung, Rückstellung, Kontenausgleich) werden eigene Umsätze; die Auszahlung (total-amount
  * am deposit-date) ist ein negativer Umsatz und wird im Bankabgleich als Geldtransit mit dem Eingang verbunden.
  * Nur Euro: die Abrechnungswährung steht in der Kopfline, andere Marktplätze (GBP, PLN, SEK) lehnt Haben ab.
  */
@@ -40,6 +39,9 @@ const specialLabel = (amountType: string, description: string): string =>
 /** Amazon schreibt deutsche („6,49“) und englische („6.49“) Beträge */
 const amazonAmount = (raw: string): Cents | null => parseGermanAmount(raw) ?? parseDotAmount(raw);
 
+/** „10.11.2026“ oder „10.11.2026 17:21:37 UTC“ → 2026-11-10 */
+const amazonDay = (raw: string, where: string) => pspDate(raw.trim().replace(/\s+\d{1,2}:\d{2}(?::\d{2})?.*$/, ""), where);
+
 /** Betrag lesbar melden */
 const euros = (cents: Cents) => `${(cents / 100).toFixed(2).replace(".", ",")} €`;
 
@@ -51,85 +53,116 @@ interface OrderTotal {
   fee: Cents;
 }
 
-/** Settlement-Report von Amazon (Tab-getrennt), nur Abrechnungen in Euro */
-export function parseAmazonSettlement(rows: string[][], headerRow: number): ParsedStatement {
-  const c = new Columns(rows[headerRow]!);
-  const settlement = c.getter("settlementid");
-  const start = c.getter("settlementstartdate");
-  const end = c.getter("settlementenddate");
-  const deposit = c.getter("depositdate");
-  const total = c.getter("totalamount");
-  const currency = c.getter("currency");
-  const type = c.getter("transactiontype");
-  const order = c.getter("orderid");
-  const amountType = c.getter("amounttype");
-  const description = c.getter("amountdescription");
-  const amount = c.getter("amount");
-  const marketplaceName = c.getter("marketplacename");
-  const posted = c.getter("posteddate");
+/** Zeile mit ihrer Nummer in der Datei */
+interface Position {
+  row: string[];
+  line: number;
+}
 
-  const day = (raw: string, where: string) => pspDate(raw.trim().replace(/\s+\d{1,2}:\d{2}(?::\d{2})?.*$/, ""), where);
-  const data = rows
-    .slice(headerRow + 1)
-    .map((row, i) => ({ row, line: headerRow + i + 2 }))
-    .filter(({ row }) => !isBlankRow(row));
+/** Zusammenfassung der Abrechnung aus der Kopfline */
+interface AmazonHead {
+  row: string[];
+  settlementId: string;
+  periodFrom: string | undefined;
+  periodTo: string | undefined;
+  payoutTotal: Cents | null;
+  payoutDate: string | undefined;
+}
 
-  // Kopfline: settlement-id und total-amount, aber keine Zeilenart
-  const head = data.find(({ row }) => total(row) !== "" && type(row) === "");
+/** Zugriff auf die Spalten des Reports */
+function amazonColumns(c: Columns) {
+  return {
+    settlement: c.getter("settlementid"),
+    start: c.getter("settlementstartdate"),
+    end: c.getter("settlementenddate"),
+    deposit: c.getter("depositdate"),
+    total: c.getter("totalamount"),
+    currency: c.getter("currency"),
+    type: c.getter("transactiontype"),
+    order: c.getter("orderid"),
+    amountType: c.getter("amounttype"),
+    description: c.getter("amountdescription"),
+    amount: c.getter("amount"),
+    marketplaceName: c.getter("marketplacename"),
+    posted: c.getter("posteddate"),
+  };
+}
+type AmazonColumns = ReturnType<typeof amazonColumns>;
+
+/** Kopfline lesen: settlement-id und total-amount, aber keine Zeilenart; nur Euro */
+function amazonHead(get: AmazonColumns, data: Position[]): AmazonHead {
+  const head = data.find(({ row }) => get.total(row) !== "" && get.type(row) === "");
   if (!head) throw new StatementParseError("Der Amazon-Settlement-Report nennt keinen Auszahlungsbetrag (Spalte total-amount fehlt).");
-  const headCurrency = currency(head.row).toUpperCase() || "EUR";
+  const headCurrency = get.currency(head.row).toUpperCase() || "EUR";
   if (headCurrency !== "EUR") {
     throw new StatementParseError(
       `Der Amazon-Settlement-Report ist in ${headCurrency}. Haben übernimmt Abrechnungen nur in Euro (Marktplätze DE, FR, IT, ES, NL, BE, IE).`,
     );
   }
-  const settlementId = settlement(head.row);
-  const periodFrom = start(head.row) ? day(start(head.row), "Kopfline") : undefined;
-  const periodTo = end(head.row) ? day(end(head.row), "Kopfline") : undefined;
-  const payoutTotal = total(head.row) ? requireAmount(amazonAmount(total(head.row)), total(head.row), "Kopfline") : null;
-  const payoutDate = (deposit(head.row) ? day(deposit(head.row), "Kopfline") : periodTo) ?? periodTo;
+  const periodFrom = get.start(head.row) ? amazonDay(get.start(head.row), "Kopfline") : undefined;
+  const periodTo = get.end(head.row) ? amazonDay(get.end(head.row), "Kopfline") : undefined;
+  return {
+    row: head.row,
+    settlementId: get.settlement(head.row),
+    periodFrom,
+    periodTo,
+    payoutTotal: get.total(head.row) ? requireAmount(amazonAmount(get.total(head.row)), get.total(head.row), "Kopfline") : null,
+    payoutDate: (get.deposit(head.row) ? amazonDay(get.deposit(head.row), "Kopfline") : periodTo) ?? periodTo,
+  };
+}
 
+/** Eine Sonderzeile als Umsatz; der Zweck nennt die Position, transaction-type entfällt, wenn er nur „other-transaction“ ist */
+function amazonSpecial(get: AmazonColumns, row: string[], kind: string, cents: Cents, settlementId: string, where: string): Tx {
+  const at = get.amountType(row);
+  const names = [at, get.description(row)].filter((n) => n !== "" && n !== kind);
+  const label = specialLabel(at, get.description(row));
+  return {
+    bookingDate: amazonDay(get.posted(row), where),
+    amount: cents,
+    currency: "EUR",
+    counterpartyName: "Amazon",
+    purpose: [label, ...names].filter(Boolean).join(" · "),
+    type: label,
+    bankReference: [settlementId, kind, at, get.description(row)].filter(Boolean).join("|"),
+  };
+}
+
+/** Alle Positionen in Bestellungen (Erlös und Gebühr) und Sonderzeilen aufteilen */
+function amazonPositions(get: AmazonColumns, data: Position[], head: AmazonHead) {
   const orders = new Map<string, OrderTotal>();
   const marketplaces = new Set<string>();
   const list: Tx[] = [];
   let positionSum = 0;
   for (const { row, line } of data) {
-    if (row === head.row || type(row) === "") continue;
-    const raw = amount(row);
+    if (row === head.row || get.type(row) === "") continue;
+    const raw = get.amount(row);
     if (!raw) continue;
     const where = `Zeile ${line}`;
     const cents = requireAmount(amazonAmount(raw), raw, where);
     positionSum += cents;
-    const kind = type(row);
-    const orderId = order(row);
-    if (marketplaceName(row)) marketplaces.add(marketplaceName(row));
+    const kind = get.type(row);
+    const orderId = get.order(row);
+    if (get.marketplaceName(row)) marketplaces.add(get.marketplaceName(row));
     if ((kind === "Order" || kind === "Refund") && orderId) {
       const key = `${kind}|${orderId}`;
-      const entry = orders.get(key) ?? { refund: kind === "Refund", date: day(posted(row), where), revenue: 0, fee: 0 };
-      entry.date = day(posted(row), where);
-      if (amountType(row) === "ItemFees") entry.fee += cents;
+      const entry = orders.get(key) ?? { refund: kind === "Refund", date: amazonDay(get.posted(row), where), revenue: 0, fee: 0 };
+      entry.date = amazonDay(get.posted(row), where);
+      if (get.amountType(row) === "ItemFees") entry.fee += cents;
       else entry.revenue += cents; // ItemPrice, Promotion, ShippingCharge, GiftWrap …
       orders.set(key, entry);
       continue;
     }
-    const at = amountType(row);
-    const label = specialLabel(at, description(row));
-    // Der Zweck nennt die Position; transaction-type entfällt, wenn er nur „other-transaction“ ist
-    const names = [at, description(row)].filter((n) => n !== "" && n !== kind);
-    list.push({
-      bookingDate: day(posted(row), where),
-      amount: cents,
-      currency: "EUR",
-      counterpartyName: "Amazon",
-      purpose: [label, ...names].filter(Boolean).join(" · "),
-      type: label,
-      bankReference: [settlementId, kind, at, description(row)].filter(Boolean).join("|"),
-    });
+    list.push(amazonSpecial(get, row, kind, cents, head.settlementId, where));
   }
+  return { list, orders, positionSum, marketplaces };
+}
 
+/** Je Bestellung den Erlös und die Gebühr als eigene Umsätze anhängen */
+function amazonOrderTransactions(list: Tx[], orders: Map<string, OrderTotal>, settlementId: string) {
   for (const [key, entry] of orders) {
     const value = key.slice(key.indexOf("|") + 1);
     const label = entry.refund ? "Erstattung" : "Verkauf";
+    const ref = [settlementId, entry.refund ? "Refund" : "Order", value].join("|");
     if (entry.revenue !== 0) {
       list.push({
         bookingDate: entry.date,
@@ -138,7 +171,7 @@ export function parseAmazonSettlement(rows: string[][], headerRow: number): Pars
         counterpartyName: "Amazon",
         purpose: `${label} · Bestellung ${value}`,
         type: label,
-        bankReference: [settlementId, entry.refund ? "Refund" : "Order", value].join("|"),
+        bankReference: ref,
       });
     }
     if (entry.fee !== 0) {
@@ -149,32 +182,55 @@ export function parseAmazonSettlement(rows: string[][], headerRow: number): Pars
         counterpartyName: "Amazon",
         purpose: `Gebühr · Bestellung ${value}`,
         type: "Gebühr",
-        bankReference: [settlementId, entry.refund ? "Refund" : "Order", value, "gebuehr"].join("|"),
+        bankReference: `${ref}|gebuehr`,
       });
     }
   }
+}
 
-  if (payoutTotal !== null && payoutTotal !== 0 && payoutDate) {
-    list.push({
-      bookingDate: payoutDate,
-      amount: -payoutTotal,
-      currency: "EUR",
-      counterpartyName: "Amazon",
-      purpose: `Auszahlung · Abrechnung ${settlementId}`,
-      type: "Auszahlung",
-      bankReference: ["amazon-payout", settlementId].join("|"),
-    });
-  }
-
+/** Abweichung der Positionssumme vom Auszahlungsbetrag und mehrere Marktplätze melden */
+function amazonWarnings(positionSum: Cents, payoutTotal: Cents | null, marketplaces: Set<string>): string[] {
   const warnings: string[] = [];
   if (payoutTotal !== null && positionSum !== payoutTotal) {
     warnings.push(`Die Summe der Positionen (${euros(positionSum)}) weicht vom Auszahlungsbetrag (${euros(payoutTotal)}) ab; bitte den Report prüfen.`);
   }
-  const marketplace = marketplaces.size === 1 ? [...marketplaces][0] : undefined;
   if (marketplaces.size > 1) {
     warnings.push(`Die Abrechnung nennt mehrere Marktplätze (${[...marketplaces].join(", ")}); der Marktplatz wird nicht geprüft.`);
   }
+  return warnings;
+}
+
+/** Settlement-Report von Amazon (Tab-getrennt), nur Abrechnungen in Euro */
+export function parseAmazonSettlement(rows: string[][], headerRow: number): ParsedStatement {
+  const get = amazonColumns(new Columns(rows[headerRow]!));
+  const data = rows
+    .slice(headerRow + 1)
+    .map((row, i) => ({ row, line: headerRow + i + 2 }))
+    .filter(({ row }) => !isBlankRow(row));
+  const head = amazonHead(get, data);
+  const { list, orders, positionSum, marketplaces } = amazonPositions(get, data, head);
+  amazonOrderTransactions(list, orders, head.settlementId);
+
+  if (head.payoutTotal !== null && head.payoutTotal !== 0 && head.payoutDate) {
+    list.push({
+      bookingDate: head.payoutDate,
+      amount: -head.payoutTotal,
+      currency: "EUR",
+      counterpartyName: "Amazon",
+      purpose: `Auszahlung · Abrechnung ${head.settlementId}`,
+      type: "Auszahlung",
+      bankReference: ["amazon-payout", head.settlementId].join("|"),
+    });
+  }
 
   list.sort((a, b) => a.bookingDate.localeCompare(b.bookingDate));
-  return finish({ format: "amazon-settlement", currency: "EUR", marketplace, periodFrom, periodTo, transactions: indexed(list), warnings });
+  return finish({
+    format: "amazon-settlement",
+    currency: "EUR",
+    marketplace: marketplaces.size === 1 ? [...marketplaces][0] : undefined,
+    periodFrom: head.periodFrom,
+    periodTo: head.periodTo,
+    transactions: indexed(list),
+    warnings: amazonWarnings(positionSum, head.payoutTotal, marketplaces),
+  });
 }

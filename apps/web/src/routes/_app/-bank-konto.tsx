@@ -7,13 +7,13 @@ import { errorMessage } from "../../lib/format.ts";
 import { PURPOSE_SHORT } from "../../lib/kontozweck.ts";
 import { useAction } from "../../lib/use-action.ts";
 import { useSubmitCheck } from "../../lib/use-submit-check.ts";
-import { addBankAccount, addProviderAccount, importStatements, updateBankAccount } from "../../server/functions/bank.ts";
+import { importStatements, updateBankAccount } from "../../server/functions/bank.ts";
 import { ExcludeAccountButton } from "../../components/BankKontoAusschliessen.tsx";
-import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Field } from "../../components/Field.tsx";
 import { UploadButton } from "../../components/UploadButton.tsx";
 import { ImportMeldungen, importMessages, type ImportMessage } from "../../components/BankImportMeldungen.tsx";
-import { hatMarktplatzKonto, type Data } from "./-bank-daten.ts";
+import { NeuesKontoForm } from "./-bank-konto-neu.tsx";
+import type { Data } from "./-bank-daten.ts";
 
 /** Name und Zweck des gewählten Kontos, etwa „Geschäftskonto“ und „Steuerkonto“ bei derselben Bank */
 export function AccountSettings({
@@ -184,17 +184,10 @@ function importErgebnisse(results: Awaited<ReturnType<typeof importStatements>>,
 export function ImportControls({ data }: { data: Data }) {
   const router = useRouter();
   const importFiles = useServerFn(importStatements);
-  const addAccount = useServerFn(addBankAccount);
-  const addProvider = useServerFn(addProviderAccount);
-  const [accountType, setAccountType] = useState<"bank" | "provider">("bank");
-  const [provider, setProvider] = useState("paypal");
-  const [marketplace, setMarketplace] = useState("");
   const [busy, setBusy] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
   const [targetAccount, setTargetAccount] = useState("");
   const [messages, setMessages] = useState<ImportMessage[]>([]);
-  /** Das Anlegen eines zweiten Kontos für denselben Marktplatz wartet auf die Rückfrage */
-  const [pending, setPending] = useState<{ name: string; provider: string; marketplace?: string } | null>(null);
 
   async function onFiles(files: File[]) {
     if (files.length === 0) return;
@@ -212,46 +205,6 @@ export function ImportControls({ data }: { data: Data }) {
     } finally {
       setBusy(false);
     }
-  }
-
-  /** Konto anlegen (Bank oder Zahlungsdienstleister) und die Seite darauf umstellen */
-  async function anlegen(p: { name: string; provider: string; marketplace?: string } | { name: string; iban: string }) {
-    const { id } =
-      "iban" in p
-        ? await addAccount({ data: { name: p.name, iban: p.iban } })
-        : await addProvider({ data: { name: p.name, provider: p.provider as "amazon", marketplace: p.marketplace } });
-    setShowAccount(false);
-    setTargetAccount(id);
-    await router.invalidate();
-    setMessages([{ tone: "ok", text: "Konto angelegt. Jetzt die Umsätze importieren." }]);
-  }
-
-  async function mitBusy(fn: () => Promise<void>) {
-    setBusy(true);
-    try {
-      await fn();
-    } catch (error) {
-      setMessages([{ tone: "danger", text: errorMessage(error) }]);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function onAddAccount(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const name = String(form.get("name"));
-    if (accountType === "bank") {
-      void mitBusy(() => anlegen({ name, iban: String(form.get("iban")) }));
-      return;
-    }
-    const marketplaceWahl = provider === "amazon" ? String(form.get("marketplace")) : undefined;
-    // Für denselben Marktplatz gibt es schon ein Konto: erst fragen, dann anlegen (die Marktplatzprüfung sieht beide als passend an)
-    if (hatMarktplatzKonto(data.accounts, provider, marketplaceWahl)) {
-      setPending({ name, provider, marketplace: marketplaceWahl });
-      return;
-    }
-    void mitBusy(() => anlegen({ name, provider, marketplace: marketplaceWahl }));
   }
 
   return (
@@ -285,79 +238,7 @@ export function ImportControls({ data }: { data: Data }) {
           {busy ? "Importiere …" : "CSV / CAMT importieren"}
         </UploadButton>
       </div>
-      {showAccount && (
-        <form className="card" onSubmit={onAddAccount} style={{ minWidth: 320 }}>
-          <Field label="Art">
-            {(control) => (
-              <select {...control} value={accountType} onChange={(e) => setAccountType(e.target.value as "bank" | "provider")}>
-                <option value="bank">Bankkonto (mit IBAN)</option>
-                <option value="provider">Zahlungsdienstleister (PayPal, Stripe, Shopify …)</option>
-              </select>
-            )}
-          </Field>
-          {accountType === "provider" && (
-            <>
-              <Field label="Dienstleister">
-                {(control) => (
-                  <select {...control} name="provider" value={provider} onChange={(e) => setProvider(e.target.value)}>
-                    {data.providers.map((p) => (
-                      <option key={p.value} value={p.value}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </Field>
-              {provider === "amazon" && (
-                <Field label="Marktplatz">
-                  {(control) => (
-                    <select {...control} name="marketplace" required value={marketplace} onChange={(e) => setMarketplace(e.target.value)}>
-                      <option value="" disabled>
-                        Marktplatz wählen
-                      </option>
-                      {AMAZON_MARKETPLACES.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </Field>
-              )}
-            </>
-          )}
-          <Field label="Name">
-            {(control) => <input {...control} name="name" required placeholder={accountType === "provider" ? "PayPal Geschäftskonto" : "N26 Business"} />}
-          </Field>
-          {accountType === "bank" ? (
-            <Field label="IBAN">{(control) => <input {...control} name="iban" required />}</Field>
-          ) : (
-            <span className="small muted">
-              Bekommt ein eigenes Verrechnungskonto (SKR03 1361 …, SKR04 1461 …). Importiere den CSV-Export des Dienstleisters und wähle dabei dieses Konto
-              unter „Konto“.
-            </span>
-          )}
-          <button type="submit" className="btn btn-primary" disabled={busy}>
-            Konto anlegen
-          </button>
-        </form>
-      )}
-      <ConfirmDialog
-        open={pending !== null}
-        title={pending ? `Noch ein Konto für ${pending.marketplace} anlegen?` : ""}
-        confirmLabel="Konto trotzdem anlegen"
-        onConfirm={() => {
-          const daten = pending;
-          setPending(null);
-          if (daten) void mitBusy(() => anlegen(daten));
-        }}
-        onClose={() => setPending(null)}
-      >
-        <p>
-          Für {pending?.marketplace} gibt es schon ein Konto. Ein zweites ist möglich, etwa für ein zweites Verkäuferkonto am selben Marktplatz. Die
-          Marktplatzprüfung sieht dann beide als passend an — beim Import wählst du selbst das richtige Konto.
-        </p>
-      </ConfirmDialog>
+      {showAccount && <NeuesKontoForm data={data} onClose={() => setShowAccount(false)} onCreated={setTargetAccount} onMessage={setMessages} />}
       <ImportMeldungen
         messages={messages}
         accounts={data.accounts.filter((a) => a.purpose !== "zahlungsdienstleister")}
