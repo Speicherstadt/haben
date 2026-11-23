@@ -28,6 +28,8 @@ export interface LineState {
   discount: string;
   /** Nur im Angebot: optional oder Alternative zur Hauptposition davor */
   kind: QuoteLineKind | null;
+  /** Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG, #712), aus dem Artikel vorbelegt */
+  arbeitskosten: boolean;
 }
 
 /** Position im Entwurf; im Angebot zusätzlich die Art */
@@ -50,6 +52,7 @@ export function toLineState(line: EditorLine): LineState {
     taxRate: line.taxRate,
     discount: discountInput(line.discount),
     kind: line.kind ?? null,
+    arbeitskosten: line.arbeitskosten ?? false,
   };
 }
 
@@ -65,6 +68,7 @@ export const emptyLine = (unit: string, taxRate: 1900 | 700 | 0): LineState => (
   taxRate,
   discount: "",
   kind: null,
+  arbeitskosten: false,
 });
 
 export type ParsedLine = InvoiceLineInput & {
@@ -72,6 +76,7 @@ export type ParsedLine = InvoiceLineInput & {
   itemNumber: string;
   discount: Discount | null;
   kind: QuoteLineKind | null;
+  arbeitskosten: boolean;
   valid: boolean;
   discountError: boolean;
 };
@@ -90,6 +95,7 @@ export function parseLine(line: LineState): ParsedLine {
     taxRate: line.taxRate,
     discount: discount === "ungültig" ? null : discount,
     kind: line.kind,
+    arbeitskosten: line.arbeitskosten,
   };
   const discountError = discount === "ungültig" || lineDiscountProblem(parsed) !== null;
   return {

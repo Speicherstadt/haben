@@ -18,6 +18,7 @@ Die API **bucht nichts, schreibt nichts fest und versendet nichts**. Ein Entwurf
 | --- | --- |
 | Kontakte | auflisten und suchen, lesen, anlegen, ändern (nicht löschen: Kontakte sind versioniert) |
 | Rechnungen | alle lesen, auch festgeschriebene; Entwürfe anlegen, ändern und löschen, solange sie Entwurf sind |
+| Wiederkehrende Rechnungen | [Vorlagen anlegen](#wiederkehrende-rechnungen) |
 | Angebote | alle lesen, auch festgeschriebene, mit der Antwort des Kunden und der Rechnung daraus |
 | Belege | hochladen (landen als „Zu prüfen“), auflisten und lesen, ob sie schon geprüft und gebucht sind; nicht ändern oder löschen |
 | Artikel | Katalogartikel auflisten, suchen, lesen, anlegen und ändern |
@@ -40,6 +41,7 @@ Es sind dieselben Tokens wie für die [KI-Assistenten](ki-assistenten.md); was e
 | `kontakte:schreiben` | dazu `POST /kontakte`, `PATCH /kontakte/{id}` |
 | `rechnungen:lesen` | `GET /rechnungen`, `GET /rechnungen/{id}` |
 | `rechnungen:entwuerfe` | dazu `POST /rechnungen`, `PATCH /rechnungen/{id}`, `DELETE /rechnungen/{id}` |
+| `rechnungen:vorlagen-anlegen` | `POST /rechnungen/wiederkehrend` |
 | `angebote:lesen` | `GET /angebote`, `GET /angebote/{id}` |
 | `belege:lesen` | `GET /belege`, `GET /belege/{id}` |
 | `belege:anlegen` | dazu `POST /belege` |
@@ -50,7 +52,7 @@ Es sind dieselben Tokens wie für die [KI-Assistenten](ki-assistenten.md); was e
 | `bank:importieren` | `GET /bankquellen`, `POST /bankimporte` |
 | `haben:lesen` | nur die Werkzeuge über [MCP](ki-assistenten.md), nicht die REST-API |
 
-Schreiben und anlegen schließen lesen ein. Ein Token ohne das nötige Recht bekommt `403`.
+„Dazu“ bedeutet, dass das Recht auch die Lesezugriffe der Zeile darüber erlaubt. Ein Token ohne das nötige Recht bekommt `403`.
 
 ## Grundlagen
 
@@ -168,7 +170,7 @@ curl -s -X POST "$HABEN/rechnungen" -H "Authorization: Bearer $TOKEN" -H "Conten
 }'
 ```
 
-Je Position nimmt die API optional `detail` (Text unter der Bezeichnung, BT-154) und `itemNumber` (Artikelnummer, BT-155, bis 50 Zeichen) an.
+Je Position nimmt die API optional `detail` (Text unter der Bezeichnung, BT-154), `itemNumber` (Artikelnummer, BT-155, bis 50 Zeichen) und `arbeitskosten` an. `arbeitskosten: true` kennzeichnet Arbeits-, Maschinen- und Fahrtkosten; ihr Anteil steht dann unter den Summen und in BT-22 ([§ 35a EStG](rechnungen.md#arbeits--maschinen--und-fahrtkosten--35a-estg)). Ohne Feld gilt `false`.
 
 Die Antwort enthält Summen, Positionen und `url`, den Link auf den Entwurf in Haben:
 
@@ -214,6 +216,24 @@ Ist die Rechnung schon festgeschrieben, antworten Ändern und Löschen mit `409`
 3. `POST /rechnungen` mit `contactId`, `externalSource`, `externalId` und den Positionen. Läuft der Abruf doppelt, kommt `200` mit der vorhandenen Rechnung statt eines Duplikats.
 4. In Haben die Entwürfe prüfen und festschreiben, dann wie gewohnt versenden.
 
+## Wiederkehrende Rechnungen
+
+`POST /rechnungen/wiederkehrend` legt eine [Vorlage](rechnungen.md#wiederkehrende-rechnungen) für einen vorhandenen Kunden an. Beispiel für einen monatlichen Termin:
+
+```json
+{
+  "name": "Monatlicher Service",
+  "contactId": "00000000-0000-4000-8000-000000000000",
+  "nextDate": "2027-01-31",
+  "recurrence": "P1M",
+  "lines": [
+    { "description": "Servicepauschale", "quantity": 1000, "unit": "Stk.", "unitPrice": 5000, "taxRate": 1900 }
+  ]
+}
+```
+
+`recurrence` ist das Intervall als Dauer nach ISO 8601: `P1W`, `P2W` oder `P4W` für jede, jede zweite oder vierte Woche, `P1M`, `P2M`, `P3M` oder `P6M` für Monate und `P1Y` für jährlich. Die Antwort `201 Created` enthält die ID und unter `url` den Link zur Vorlage. Öffne die pausierte Vorlage in Haben, prüfe die Daten und aktiviere sie dort. Nach der Aktivierung legt Haben zu jedem Termin einen Rechnungsentwurf an. Pro erfolgreichem Aufruf entsteht eine Vorlage.
+
 ## Angebote
 
 `GET /angebote` listet alle Angebote, Entwürfe zuerst, dann nach Nummer absteigend; `status` (`draft` oder `final`), `contactId` und `number` grenzen die Liste ein. Mit `number` prüft etwa eine Auftragsverwaltung die Angebotsnummer an einem Auftrag. `GET /angebote/{id}` liefert das Angebot mit Positionen.
@@ -226,7 +246,7 @@ Die Antwort des Kunden und die Rechnung aus dem Angebot bleiben ein Klick in [An
 
 `GET /artikel` listet aktive Artikel, sortiert nach Nummer und Bezeichnung. Mit `q` suchst du nach einem Teil der Nummer oder Bezeichnung. Mit `archived=true` enthält die Liste auch archivierte Artikel. `GET /artikel/{id}` liefert den Artikel zur ID.
 
-Für `POST /artikel` brauchst du eine einzeilige Bezeichnung (`description`), Einheit (`unit`), Einzelpreis in Cent (`unitPrice`) und Steuersatz in Basispunkten (`taxRate`). Die Einheit muss in Haben vorhanden sein. Mit `priceIncludesTax: true` gibst du einen Bruttopreis an. Du kannst Artikelnummer (`number`), Positionstext (`detail`) und interne Notiz (`note`) mitsenden. Bei Erfolg liefert Haben `201`, den angelegten Artikel und seinen API-Pfad im Header `Location`. Auch bei gleicher Artikelnummer legt `POST` einen neuen Artikel an.
+Für `POST /artikel` brauchst du eine einzeilige Bezeichnung (`description`), Einheit (`unit`), Einzelpreis in Cent (`unitPrice`) und Steuersatz in Basispunkten (`taxRate`). Die Einheit muss in Haben vorhanden sein. Mit `priceIncludesTax: true` gibst du einen Bruttopreis an. Du kannst Artikelnummer (`number`), Positionstext (`detail`), die Vorgabe `arbeitskosten` für § 35a EStG und interne Notiz (`note`) mitsenden. Bei Erfolg liefert Haben `201`, den angelegten Artikel und seinen API-Pfad im Header `Location`. Auch bei gleicher Artikelnummer legt `POST` einen neuen Artikel an.
 
 `PATCH /artikel/{id}` speichert die gesendeten Felder und liefert den Artikel mit `200` zurück. Für eine Preisänderung genügt etwa `{"unitPrice": 2380}`. Speichere für spätere Änderungen die `id` des Artikels. Zum Archivieren öffnest du den [Artikelkatalog](rechnungen.md#artikelkatalog) in Haben.
 

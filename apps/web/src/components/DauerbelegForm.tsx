@@ -1,4 +1,4 @@
-import { amountError, dauerbelegSummen, parseEuro, type RecurringInterval, type Rechtsform, type Prozent } from "@haben/core";
+import { amountError, dauerbelegSummen, parseEuro, type Recurrence, type Rechtsform, type Prozent } from "@haben/core";
 import { useRef, useState, type FormEvent } from "react";
 import { savedAsChoice, type ContactChoice } from "./ContactCombobox.tsx";
 import { NewContactDialog } from "./NewContactDialog.tsx";
@@ -18,7 +18,7 @@ export interface DauerbelegValues {
   amounts: { taxRate: Rate; net: number; tax: number }[];
   taxShown: boolean;
   note: string;
-  intervalMonths: RecurringInterval;
+  recurrence: Recurrence;
   nextDate: string;
   endDate: string | null;
   dueDays: number;

@@ -35,7 +35,7 @@ export async function editorContext(kind: "rechnung" | "angebot") {
     mandates,
     /** Ansprechpartner aller Kunden (#424), für die Auswahl unter „Kunde“ */
     contactPersons,
-    articles: articles.map(({ id, number, description, detail, unit, unitPrice, taxRate, priceIncludesTax }) => ({
+    articles: articles.map(({ id, number, description, detail, unit, unitPrice, taxRate, priceIncludesTax, arbeitskosten }) => ({
       id,
       number,
       description,
@@ -44,6 +44,7 @@ export async function editorContext(kind: "rechnung" | "angebot") {
       unitPrice,
       taxRate,
       priceIncludesTax,
+      arbeitskosten,
     })),
     textBlocks: textBlocks.map(({ id, name, kind, text, contactId }) => ({ id, name, kind, text, contactId })),
     /** Eigene Einheiten (#748) für die Auswahl in den Positionen, ohne archivierte */

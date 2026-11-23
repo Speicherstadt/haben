@@ -1,4 +1,4 @@
-import { bwaZeitraum } from "@haben/core";
+import { bwaZeitraum, FORM43_KOSTEN } from "@haben/core";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
@@ -14,19 +14,6 @@ function dkbCsv(rows: string[][]) {
   const columns = `"Buchungsdatum";"Wertstellung";"Status";"Zahlungspflichtige*r";"Zahlungsempfänger*in";"Verwendungszweck";"Umsatztyp";"IBAN";"Betrag (€)";"Gläubiger-ID";"Mandatsreferenz";"Kundenreferenz"\n`;
   return new TextEncoder().encode(`${header + columns + rows.map((r) => r.map((c) => `"${c}"`).join(";")).join("\n")}\n`);
 }
-const KOSTEN_43 = [
-  "material",
-  "fremdleistungen",
-  "personal",
-  "raum",
-  "steuernVersicherungenBeitraege",
-  "kfz",
-  "werbeReise",
-  "warenabgabe",
-  "instandhaltung",
-  "abschreibungen",
-  "verschiedeneKosten",
-];
 const umsatz = (date: string, purpose: string, amount: string) => [
   date,
   date,
@@ -204,7 +191,7 @@ describe.skipIf(!testDatabaseUrl)("BWA nach Zufluss und Abfluss (Postgres, #1380
         expect(anteile(["umsatzsteuer", "summeEinnahmen", "vorsteuer", "summeAusgaben", "ergebnis", "nichtAbziehbar", "gewinnEuer"])).toEqual(
           Array(7).fill(null),
         );
-        const kostenzeilen = jahr2027.zeilen.filter((z) => KOSTEN_43.includes(z.key));
+        const kostenzeilen = jahr2027.zeilen.filter((z) => (FORM43_KOSTEN as ReadonlySet<string>).has(z.key));
         expect(Math.abs(kostenzeilen.reduce((s, z) => s + (z.anteil ?? 0), 0) - 10000)).toBeLessThanOrEqual(kostenzeilen.length);
         // Über das Jahr ist kumuliert der Zeitraum
         expect(jahr2027.zeilen.map((z) => z.anteilKumuliert)).toEqual(jahr2027.zeilen.map((z) => z.anteil));

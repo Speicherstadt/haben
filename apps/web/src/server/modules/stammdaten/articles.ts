@@ -24,6 +24,8 @@ export const articleInputSchema = z.object({
   taxRate: inBasisPoints(z.union([z.literal(1900), z.literal(700), z.literal(0)])),
   /** Preis inklusive Umsatzsteuer; beim Einfügen in eine Rechnung mit anderem Preismodus umgerechnet */
   priceIncludesTax: z.boolean().default(false),
+  /** Vorgabe für die Position: Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG, #712) */
+  arbeitskosten: z.boolean().default(false),
   note: z.string().trim().max(1000).default(""),
 });
 
@@ -36,6 +38,7 @@ export const articlePatchSchema = articleInputSchema
     number: articleFields.number.unwrap(),
     detail: articleFields.detail.unwrap(),
     priceIncludesTax: articleFields.priceIncludesTax.unwrap(),
+    arbeitskosten: articleFields.arbeitskosten.unwrap(),
     note: articleFields.note.unwrap(),
   })
   .partial()

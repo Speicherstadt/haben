@@ -129,6 +129,9 @@ export const TEXTS = {
     quantity: (quantity: Millis, unit: string) => `${formatQuantity(quantity)} ${unit}`,
     note: (treatment: TaxTreatment, reason?: string | null) => treatmentNote(treatment, reason),
     // § 14b Abs. 1 Satz 5 mit Satz 3 UStG: zwei Jahre ab Schluss des Ausstellungsjahres; § 34a UStDV begründet keine pauschale Pflicht für KU.
+    // § 35a Abs. 5 Satz 2 EStG; BMF vom 09.11.2016 (BStBl I S. 1213) Rz. 39 f.: Anteil aus der Rechnung ermittelbar
+    arbeitskosten: (amount: string, inclVat: boolean, beforeDeductions: boolean) =>
+      `${beforeDeductions ? "In der gesamten Leistung vor Abzug der Abschlagsrechnungen sind" : "Darin sind"} Arbeits-, Maschinen- und Fahrtkosten von ${amount}${inclVat ? " inkl. USt" : ""} enthalten (§ 35a EStG).`,
     propertyRetention:
       "Bei steuerpflichtigen Grundstücksleistungen für den privaten Bereich sind diese Rechnung, ein Zahlungsbeleg oder eine andere beweiskräftige Unterlage zwei Jahre aufzubewahren (§ 14b Abs. 1 Satz 5 UStG). Die Frist beginnt mit dem Schluss des Kalenderjahres der Rechnungsausstellung.",
     countryLocale: "de",
@@ -244,6 +247,8 @@ export const TEXTS = {
       return `${new Intl.NumberFormat("en-GB", { maximumFractionDigits: 3 }).format(value)} ${value === 1 ? one : many}`;
     },
     note: (treatment: TaxTreatment, reason?: string | null) => (treatment === "regulaer" ? null : reason?.trim() || EN_NOTES[treatment]),
+    arbeitskosten: (amount: string, inclVat: boolean, beforeDeductions: boolean) =>
+      `${beforeDeductions ? "The total work before deducting the advance invoices includes" : "This includes"} labour, machinery and travel costs of ${amount}${inclVat ? " incl. VAT" : ""} (§ 35a EStG).`,
     propertyRetention:
       "For taxable property-related services supplied for private use, this invoice, proof of payment or other supporting document must be retained for two years (§ 14b(1), sentence 5 UStG). The period starts at the end of the calendar year in which the invoice was issued.",
     countryLocale: "en",

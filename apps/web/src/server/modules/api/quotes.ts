@@ -49,7 +49,7 @@ function quoteOut(row: ListRow, { quote, lines, choices }: Detail, baseUrl: stri
     priceMode: quote.priceMode,
     tax: quote.tax,
     decidedAt: quote.decidedAt?.toISOString() ?? null,
-    lines: lines.map(({ position, description, detail, itemNumber, quantity, unit, unitPrice, taxRate, net, kind }) => ({
+    lines: lines.map(({ position, description, detail, itemNumber, quantity, unit, unitPrice, taxRate, net, kind, arbeitskosten }) => ({
       position,
       description,
       detail,
@@ -60,6 +60,7 @@ function quoteOut(row: ListRow, { quote, lines, choices }: Detail, baseUrl: stri
       taxRate,
       net,
       kind,
+      arbeitskosten,
     })),
     choices,
     createdAt: quote.createdAt.toISOString(),

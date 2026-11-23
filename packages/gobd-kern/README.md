@@ -10,6 +10,7 @@ Bausteine für unveränderbare Aufbewahrung nach GoBD, aus [Haben](https://githu
 | `@firsttris/gobd-kern/beschreibung` | `index.xml` nach dem Beschreibungsstandard der Finanzverwaltung (Datenträgerüberlassung, § 147 Abs. 6 AO) |
 | `@firsttris/gobd-kern/verfahrensdoku` | Bausteine der Verfahrensdokumentation (GoBD Rz. 151 bis 155): Datenmodell mit Lücken, Schema der Angaben zum Betrieb, Texte zu dem, was dieses Paket leistet, und Markdown |
 | `@firsttris/gobd-kern/sql` | SQL-Vorlage für Audit-Log als Hash-Kette, Siegel, Sperren gegen Ändern, Löschen und `TRUNCATE` und die Prüfung in Postgres |
+| `@firsttris/gobd-kern/sperren` | Prüfen, ob die Sperren noch wirken: Trigger, eigene Funktionen und Standardwerte aus dem Katalog lesen und mit einem ausgelieferten Sollbestand vergleichen, dazu die Vorgabe `replica`, Zeilensicherheit und fremde Objekte, die Aufrufe übernehmen können |
 
 ```ts
 import { dateispeicher } from "@firsttris/gobd-kern/dateispeicher";
@@ -41,6 +42,30 @@ Danach meldet die Migration ihre Tabellen an:
 Eine Transaktion setzt ihren Akteur mit `select set_config('belegt.actor', $1, true)` (`akteurEinstellung("belegt")`). Änderungen mit Eintrag im Audit-Log gehen nur unter READ COMMITTED. `belegt_integrity_problems(100)` liefert alle Befunde zu Kette, Kopf und Siegeln. Versiegelte Tabellen brauchen eine Spalte `id` vom Typ `uuid`; ein Siegel gilt einer Zeile, abhängige Zeilen bekommen ihr eigenes. Eine Anmeldung lässt sich nicht zurücknehmen.
 
 Getrennte Rollen (die App darf Trigger nicht abschalten) richtet das Projekt selbst ein, wie Haben unter [Getrennte Datenbankrollen](https://haben.app/installation-konfiguration.html#getrennte-datenbankrollen).
+
+## Sperren prüfen
+
+`<präfix>_integrity_problems` prüft Kette und Siegel, aber nicht, ob die Trigger noch wirken: Ein Eigentümer oder Superuser kann einen Trigger abschalten oder löschen, eine Funktion ersetzen oder mit `session_replication_role = replica` alle normalen Trigger aussetzen. Das Modul liest dazu den Katalog und vergleicht ihn mit einem Sollbestand, den die App aus einer frisch migrierten Datenbank erzeugt und mit jeder Version ausliefert.
+
+```ts
+import { leseMomentaufnahme, leseSollbestand, vergleiche, type Leser } from "@firsttris/gobd-kern/sperren";
+
+const leser: Leser = {
+  // postgres.js: tx.unsafe nimmt nur seine eigenen Parametertypen, daher die Umwandlung der Werte
+  transaktion: (lesen) => sql.begin("isolation level repeatable read read only", (tx) => lesen((text, werte = []) => tx.unsafe(text, werte as never[]))),
+};
+const optionen = { schema: "public", praefix: "belegt" };
+
+// Generator, auf einer frisch migrierten Datenbank: Ergebnis als JSON zur App legen
+const soll = await leseSollbestand(leser, { ...optionen, tabellen: versiegelteTabellen });
+// Prüfung der laufenden Datenbank: die Tabellen aus dem Sollbestand, nie aus der geprüften Datenbank
+const ist = await leseMomentaufnahme(leser, { ...optionen, tabellen: soll.sealedTables });
+const { befunde, hinweise } = vergleiche(soll, ist, optionen.schema);
+```
+
+Zum Sollbestand gehören alle Trigger im Schema, ihre Funktionen und alle Funktionen `<präfix>_…` mit Hash über Rumpf und Definition, die Standardwerte der übergebenen Tabellen, die eingebauten Funktionen von PostgreSQL, die nicht fest eingebaut sind, und die Mitglieder der Erweiterungen. `tabellen` nennt die Tabellen, deren Standardwerte zählen, etwa die versiegelten, mit Schema wie `public.eingaenge`; im Generator darf es eine Funktion sein, die sie in derselben Transaktion abfragt. Befunde und Hinweise kommen als Daten (`art` und das betroffene Objekt), die Texte macht die App. Ein zusätzlicher Trigger ist nur ein Hinweis, ein Trigger aus dem Sollbestand, der fehlt, aus oder verändert ist, ein Befund.
+
+Grenzen ([#874](https://github.com/Speicherstadt/haben/pull/874)): Ein Trigger, der zwischendurch abgeschaltet und wieder eingeschaltet wurde, hinterlässt keinen Befund; was in der Zeit geändert wurde, zeigen höchstens Kette und Siegel, gegen einen Superuser nur ein außerhalb des Servers aufbewahrter Prüfwert (`pruefwert`). Eine Vorgabe `replica` aus `ALTER SYSTEM` bleibt verdeckt, wenn die prüfende Anmeldung die Rollenvorgabe `origin` hat; beides setzt nur ein Superuser. Den Sollbestand neu erzeugen, sobald sich die Hauptversion von PostgreSQL ändert: Die Ausgabe von `pg_get_functiondef` und `pg_get_expr` kann sich ändern, und die eingebauten Funktionen vergleicht die Prüfung nur auf der Hauptversion des Sollbestands.
 
 ## Verfahrensdokumentation
 
@@ -79,7 +104,7 @@ Geheimnisse gehören nicht in das Dokument; die App gibt nur Namen, Rollen und Z
 Nicht auf npm, sondern als Datei an den Releases `gobd-kern-vX.Y.Z` von Haben (Actions → *GoBD-Kern als Release*):
 
 ```sh
-bun add https://github.com/Speicherstadt/haben/releases/download/gobd-kern-v0.2.1/firsttris-gobd-kern-0.2.1.tgz
+bun add https://github.com/Speicherstadt/haben/releases/download/gobd-kern-v0.3.0/firsttris-gobd-kern-0.3.0.tgz
 ```
 
 Das Paket enthält TypeScript-Quellen, für Bun und Bundler wie Vite. Ab 0.2.0 braucht es `zod` (Version 4) für das Schema der Angaben.

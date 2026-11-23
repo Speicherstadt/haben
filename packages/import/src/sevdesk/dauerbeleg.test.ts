@@ -16,7 +16,7 @@ describe("mapSevRecurringVoucher", () => {
     expect(r.dauerbeleg).toMatchObject({
       sevdeskId: "ID_37",
       status: "pausiert",
-      intervalMonths: 1,
+      recurrence: "P1M",
       nextDate: "2024-01-15",
       anchorDay: 15,
       startDate: "2024-01-15",
@@ -42,7 +42,7 @@ describe("mapSevRecurringVoucher", () => {
 
   it("lässt Status 1000 mit abgelaufenem Ende beendet, mit künftigem Ende angehalten", () => {
     const vorbei = mapSevRecurringVoucher(mitEnde!.voucher, mitEnde!.positions, HEUTE);
-    expect(vorbei.ok && vorbei.dauerbeleg).toMatchObject({ status: "beendet", intervalMonths: 3, endDate: "2024-01-15" });
+    expect(vorbei.ok && vorbei.dauerbeleg).toMatchObject({ status: "beendet", recurrence: "P3M", endDate: "2024-01-15" });
     const kuenftig = mapSevRecurringVoucher(mitEnde!.voucher, mitEnde!.positions, "2024-01-15");
     expect(kuenftig.ok && kuenftig.dauerbeleg.status).toBe("pausiert");
     expect(kuenftig.ok && kuenftig.hinweise).toContain("In sevDesk endet die Vorlage am 15.01.2024.");
@@ -80,14 +80,22 @@ describe("mapSevRecurringVoucher", () => {
 
   it.each([
     [{ creditDebit: "D" }, "Einnahme: Dauerbelege in Haben sind Ausgaben."],
-    [{ recurringInterval: "P0Y0M1W", recurringIntervall: 0 }, "Intervall P0Y0M1W (0): Haben kennt 1, 3, 6 und 12 Monate."],
-    [{ recurringInterval: "P0Y2M", recurringIntervall: 2 }, "Intervall P0Y2M (2): Haben kennt 1, 3, 6 und 12 Monate."],
+    [{ recurringInterval: "P0Y0M3W", recurringIntervall: 0 }, "Intervall P0Y0M3W (0): Haben kennt nur 1, 2 und 4 Wochen sowie 1, 2, 3, 6 und 12 Monate."],
+    [{ recurringInterval: "P0Y5M", recurringIntervall: 5 }, "Intervall P0Y5M (5): Haben kennt nur 1, 2 und 4 Wochen sowie 1, 2, 3, 6 und 12 Monate."],
     [{ currency: "USD" }, "Währung USD: Dauerbelege in Haben sind in Euro."],
     [{ sumGross: "-100", sumNet: "-100" }, "Negative Summe: Dauerbelege sind Ausgaben, keine Gutschriften."],
     [{ recurringNextVoucher: null, recurringStartDate: null }, "Weder nächster Termin noch Start angegeben."],
     [{ voucherType: "VOU" }, "Keine Vorlage wiederkehrender Belege."],
   ])("übernimmt nicht und nennt den Grund: %o", (change, grund) => {
     expect(mapSevRecurringVoucher({ ...mitTermin!.voucher, ...change }, [], HEUTE)).toEqual({ ok: false, grund });
+  });
+
+  it("übernimmt Wochen und 2 Monate (#1691); bei Wochen vergleicht Haben recurringIntervall nicht", () => {
+    const woche = mapSevRecurringVoucher({ ...mitTermin!.voucher, recurringInterval: "P0Y0M1W", recurringIntervall: 0 }, mitTermin!.positions, HEUTE);
+    expect(woche.ok && woche.dauerbeleg.recurrence).toBe("P1W");
+    expect(woche.ok && woche.hinweise.join(" ")).not.toContain("widersprüchlich");
+    const zweiMonate = mapSevRecurringVoucher({ ...mitTermin!.voucher, recurringInterval: "P0Y2M", recurringIntervall: 2 }, mitTermin!.positions, HEUTE);
+    expect(zweiMonate.ok && zweiMonate.dauerbeleg.recurrence).toBe("P2M");
   });
 
   it("nimmt bei widersprüchlichem Intervall die ISO-Dauer und nennt das", () => {
