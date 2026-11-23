@@ -91,7 +91,7 @@ Was sich sicher entscheiden lässt, prüft ein Skript; was nicht, erscheint als 
 | Bugfix beginnt mit einem Test | `scripts/pr-regeln/`: `fix`-Commit ohne geänderten Test | Hinweis |
 | Selbstprüfung und unabhängiges Review mitbringen ([Beiträge annehmen](#beiträge-annehmen)) | `scripts/pr-regeln/`: Pull Request außerhalb des Entwurfs von jemandem ohne Schreibrecht, nennt `tdd-review` für Code, `doku-pruefen` für Markdown (`docs/`, `mkdocs.yml`, `LICENSE`), bei beidem beide | Hinweis |
 | Fachlich heikle Pfade: Merge erst nach „OK“ des Maintainers ([Wer mergt was](#wer-mergt-was)) | `scripts/pr-regeln/`: Dateien unter `HEIKEL` in `regel.ts` | Hinweis |
-| Skills: Beschreibung höchstens 320 Zeichen, Hauptteil höchstens 1.500 Wörter (außer erzeugten), jede Datei unter `references/` in `SKILL.md` genannt und vorhanden; `CLAUDE.md` und `AGENTS.md` höchstens 10.000 Zeichen ([Befehle](entwicklung.md#befehle), „Skills“) | `scripts/skills/` in `bun run lint` | Fehler |
+| Skills: Beschreibung höchstens 320 Zeichen, Hauptteil höchstens 1.500 Wörter (außer erzeugten), jede Datei unter `references/` in `SKILL.md` genannt und vorhanden; `CLAUDE.md` und `AGENTS.md` höchstens 10.000 Zeichen, jeder Skill in `AGENTS.md` genannt ([Befehle](entwicklung.md#befehle), „Skills“) | `scripts/skills/` in `bun run lint` | Fehler |
 | Jedes Feld der Belegvorlagen im Feldvertrag, mit Beschreibung | `layout-schema.test.ts` in `bun run test` | Fehler |
 | Kein Feld einer Version fällt weg, wird umbenannt oder wechselt den Typ | `layout-schema.test.ts` gegen `layout-schema.v<n>.json` | Fehler |
 | Alte Layouts ergeben mit heutigen Daten ein PDF | `layout-kompatibel.test.ts` mit `templates/kompatibel/` | Fehler |

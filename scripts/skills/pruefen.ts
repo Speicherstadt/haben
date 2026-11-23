@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { pruefeAnweisung, pruefeSkill } from "./regel.ts";
+import { pruefeAgentsMd, pruefeAnweisung, pruefeSkill } from "./regel.ts";
 
 /* Prüft die Skills in .claude/skills/, CLAUDE.md und AGENTS.md nach regel.ts. Läuft mit `bun run lint`. */
 
@@ -26,7 +26,15 @@ const skills = readdirSync(wurzel, { withFileTypes: true })
     });
   });
 
-const anweisungen = ["CLAUDE.md", "AGENTS.md"].flatMap((datei) => pruefeAnweisung(datei, readFileSync(join(repo, datei), "utf8")));
+const anweisungen = [
+  ...["CLAUDE.md", "AGENTS.md"].flatMap((datei) => pruefeAnweisung(datei, readFileSync(join(repo, datei), "utf8"))),
+  ...pruefeAgentsMd(
+    readFileSync(join(repo, "AGENTS.md"), "utf8"),
+    readdirSync(wurzel, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name),
+  ),
+];
 for (const { skill, message } of skills) console.error(`.claude/skills/${skill}: ${message}`);
 for (const { skill, message } of anweisungen) console.error(`${skill}: ${message}`);
 const befunde = [...skills, ...anweisungen];
