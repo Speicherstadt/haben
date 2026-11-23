@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { fristenOeffnen } from "./einrichtung.ts";
 import { ANONYMOUS, chunks, currentYear, fakeEigeneSeite, firstLink, SESSION, USER } from "./daten.ts";
 
 /**
@@ -199,6 +200,8 @@ for (const group of chunks(PAGES, GROUP)) {
     await withTheme(page, "wald");
     for (const path of group) {
       await open(page, path);
+      // axe prüft Zugeklapptes nicht: Zeitraum und Dauerfristverlängerung der Voranmeldung stehen unter „Fristen und Zeitraum ändern“
+      if (/^\/umsatzsteuer\/\d{4}-/.test(path)) await fristenOeffnen(page);
       expect.soft(await axe(page), path).toEqual([]);
     }
   });
