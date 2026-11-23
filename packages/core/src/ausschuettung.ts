@@ -1,6 +1,6 @@
 import { dueDate } from "./period.ts";
 import type { Bundesland } from "./steuernummer.ts";
-import type { Cents, Prozent } from "./money.ts";
+import type { BasisPoints, Cents, Prozent } from "./money.ts";
 import { ACCOUNTS, type Kontenrahmen } from "./posting.ts";
 import { VORTRAG_ACCOUNTS } from "./vortrag.ts";
 
@@ -71,6 +71,23 @@ export function nachBeteiligung(betrag: Cents, beteiligungen: readonly Cents[]):
   const order = teile.map((t, i) => [t % summe, i] as const).sort((x, y) => (x[0] === y[0] ? 0 : x[0] > y[0] ? -1 : 1));
   for (const [, i] of order.slice(0, rest)) result[i]! += 1;
   return result;
+}
+
+/**
+ * Anteile in Prozent (Hundertstel), die um mehr als ihre Rundung, also mehr als 0,01 Prozentpunkte, vom Verhältnis der
+ * Beteiligungen in Euro abweichen; dazu je Stelle der Anteil nach der Beteiligung, auf Hundertstel gerundet. Verteilt wird
+ * nach der Beteiligung (nachBeteiligung), ein abweichender Anteil deutet auf eine falsche Angabe. Ganzzahlig wie dort; ohne
+ * Beteiligungen gibt es kein Verhältnis und nichts zu melden.
+ */
+export function abweichendeAnteile(anteilseigner: readonly { beteiligung: Cents; anteil: BasisPoints }[]): { index: number; nachBeteiligung: BasisPoints }[] {
+  const summe = anteilseigner.reduce((s, a) => s + BigInt(a.beteiligung), 0n);
+  if (summe <= 0n) return [];
+  return anteilseigner.flatMap((a, index) => {
+    // |anteil − 10.000 · b / Σ| > 1, mit Σ multipliziert
+    const abstand = BigInt(a.anteil) * summe - 10_000n * BigInt(a.beteiligung);
+    if ((abstand < 0n ? -abstand : abstand) <= summe) return [];
+    return [{ index, nachBeteiligung: Number((20_000n * BigInt(a.beteiligung) + summe) / (2n * summe)) }];
+  });
 }
 
 /**

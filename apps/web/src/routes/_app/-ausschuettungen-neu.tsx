@@ -187,7 +187,8 @@ export function NeueAusschuettung() {
             {vorschlag.ausEinlagekonto > 0 ? `; ${formatEuro(vorschlag.ausEinlagekonto)} gehen ohne Steuerabzug aus dem Einlagekonto` : ""}.
           </p>
           <EmpfaengerTabelle empfaenger={vorschlag.empfaenger} />
-          {vorschlag.issues.map((text) => (
+          {/* Hinweise sperren das Buchen nicht, issues schon */}
+          {[...vorschlag.issues, ...vorschlag.hinweise].map((text) => (
             <div key={text} className="banner" role="status">
               {text}
             </div>

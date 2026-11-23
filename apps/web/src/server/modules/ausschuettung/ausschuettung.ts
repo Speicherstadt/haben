@@ -17,6 +17,7 @@ import { withActor } from "../../db/actor.ts";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import type { AusschuettungEmpfaenger } from "../../db/schema.ts";
 import { UserError } from "../../errors.ts";
+import { anteilHinweis } from "./anteil-hinweis.ts";
 import { ledgerRange, openBooks, post, saldenliste } from "../buchhaltung/index.ts";
 import { PRODUKT_VERSION, uebermitteln } from "../elster/index.ts";
 import { kapgErklaerungAngaben } from "../koerperschaft/index.ts";
@@ -171,7 +172,9 @@ export async function ausschuettungVorschlag(input: AusschuettungInput, q: Db | 
   }
   if (data.auszahlungstag && data.auszahlungstag < data.beschluss) issues.push("Der Auszahlungstag liegt vor dem Beschluss.");
   if (data.geschaeftsjahr > year) issues.push(`Das Geschäftsjahr ${data.geschaeftsjahr} liegt nach dem Jahr des Beschlusses.`);
-  return { ...data, zufluss, company: g.company, ausschuettbarerGewinn: g.ausschuettbarerGewinn, ausEinlagekonto: aus, empfaenger, issues };
+  // Hinweise halten die Buchung nicht an, anders als issues
+  const hinweise = teilbar ? anteilHinweis(year, anteilseigner) : [];
+  return { ...data, zufluss, company: g.company, ausschuettbarerGewinn: g.ausschuettbarerGewinn, ausEinlagekonto: aus, empfaenger, issues, hinweise };
 }
 
 /** Bucht den Gewinnverwendungsbeschluss und hält den Steuerabzug je Gesellschafter fest */
