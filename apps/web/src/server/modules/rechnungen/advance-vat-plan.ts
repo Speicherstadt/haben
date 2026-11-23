@@ -146,34 +146,22 @@ export interface ManagedAdvancePlan {
 export const refundOnly = (original: Pick<Invoice, "advanceType" | "advanceAccounting" | "variant">) =>
   original.advanceType !== "anzahlung" && (original.advanceAccounting === null || original.variant === "schluss");
 
-/**
- * Bis zur Rückzahlung gehaltener Teil der Minderungen (advanceVatSchedule, „held“). Papierstornos einer Schlusskette (#750)
- * buchen nichts und mindern deshalb auch nichts.
- */
-async function heldUntilRefund(
-  original: Invoice,
-  invoices: Invoice[],
-  totals: Map<string, { taxes: TaxShare[] }>,
-  events: AdvanceBalanceEvent[],
-  taxes: ReturnType<typeof invoiceTaxReader>,
-): Promise<AdvanceVatChange[]> {
-  const posted: Invoice[] = [];
-  for (const invoice of invoices) if (await taxes.invoicePostingAllowed(invoice)) posted.push(invoice);
-  return advanceVatSchedule(totals.get(original.id)!.taxes, [...events, ...correctionEvents(original, posted, totals)], "held");
-}
+/** Bis zur Rückzahlung gehaltener Teil der Minderungen (advanceVatSchedule, „held“) */
+const heldUntilRefund = (original: Invoice, invoices: Invoice[], totals: Map<string, { taxes: TaxShare[] }>, events: AdvanceBalanceEvent[]) =>
+  advanceVatSchedule(totals.get(original.id)!.taxes, [...events, ...correctionEvents(original, invoices, totals)], "held");
 
 /**
  * Dieselbe Regel für Kz 48 als Kleinunternehmer (#1268): Storno und Korrektur mindern schon bezahltes Entgelt erst mit der
  * Rückzahlung, bei Ist und Soll, weil Kz 48 nach dem Leistungstag zählt. Gebucht wird nichts, der Steuerschlüssel „KU“
- * führt in keine Kennzahl.
+ * führt in keine Kennzahl. Alle Belege der Kette, auch Papierstornos einer Schlusskette (#750): Kz 48 zählt sie mit.
  */
-export async function kleinunternehmerBisZurRueckzahlung(original: Invoice, q: Db | Tx, taxes = invoiceTaxReader(q)): Promise<AdvanceVatChange[]> {
+export async function kleinunternehmerBisZurRueckzahlung(original: Invoice, q: Db | Tx): Promise<AdvanceVatChange[]> {
   const invoices = await family(original.id, q);
   const totals = await invoiceTotalsById(
     invoices.map((i) => i.id),
     q,
   );
-  return heldUntilRefund(original, invoices, totals, await paymentEvents(invoices, q), taxes);
+  return heldUntilRefund(original, invoices, totals, await paymentEvents(invoices, q));
 }
 
 /** Gegenprobe aus den Nebenbüchern, ausdrücklich ohne Journalzeilen zu lesen. */
@@ -190,9 +178,12 @@ export async function loadAdvanceVatPlan(reference: Pick<Invoice, "id">, q: Db |
   const total = totals.get(original.id)!.taxes;
   if (refundOnly(original)) {
     // Nur Soll braucht die Ergänzung: Bei Ist bucht schon die Rückzahlung die Steuer zurück (§ 13 Abs. 1 Nr. 1 b UStG).
+    // Papierstornos einer Schlusskette (#750) buchen nichts und mindern deshalb auch nichts.
+    const posted: Invoice[] = [];
+    for (const invoice of invoices) if (await taxes.invoicePostingAllowed(invoice)) posted.push(invoice);
     const held =
       original.status === "final" && advanceUsesPayments(original.taxTreatment) && (await taxes.companyMode(original)) === "soll"
-        ? await heldUntilRefund(original, invoices, totals, events, taxes)
+        ? heldUntilRefund(original, posted, totals, events)
         : [];
     return { original, kind: "refund", invoiceIds: new Set(), changes: held, postingChanges: held, balanceChanges: [] };
   }

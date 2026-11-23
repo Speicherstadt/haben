@@ -159,7 +159,7 @@ async function bisZurRueckzahlung(period: VatPeriod, q: Db | Tx): Promise<Revenu
   const result: RevenueSource[] = [];
   for (const r of rechnungen) {
     if (!(await zaehlt(r, taxes))) continue;
-    for (const { date, shares } of await kleinunternehmerBisZurRueckzahlung(r, q, taxes))
+    for (const { date, shares } of await kleinunternehmerBisZurRueckzahlung(r, q))
       if (date >= start && date < end)
         result.push({
           type: "invoice",
