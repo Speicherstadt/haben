@@ -44,7 +44,7 @@ Modules, the audit hash chain and seals: `docs/architektur.md`, tables: `docs/ar
 - Store a secret outside a `ciphertext` column; run ERiC in the app process.
 - Point tests at a database with real data; skip, weaken or delete a test to get green; report a skipped
   test as passed.
-- Push to `main` (only exception: repairing a red `main`, by or on instruction of the maintainer, `mitwirken.md`: Wer mergt was), rewrite a contributor's commits, merge (only a maintainer, or a collaborator with the maintainer's approval), review your own code.
+- Push to `main`, rewrite a contributor's commits, merge (only a maintainer, or a collaborator with the maintainer's approval), review your own code.
 - Create or comment on issues and pull requests without being asked.
 - Stop the user's processes or touch their `haben-dev` compose project; work around `sudo`.
 
