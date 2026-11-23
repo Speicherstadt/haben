@@ -56,7 +56,7 @@ Nicht streichen: Fakten, Zahlen, Konten, Paragraphen, Links, Befehle, Front Matt
 
 ## 6. Skills, CLAUDE.md und AGENTS.md
 
-- Den Diff gegen „Never“ in `CLAUDE.md` lesen. Erlaubt ein Satz, auch nebenbei, etwas, das dort verboten ist (auf `main` pushen, ohne Maintainer mergen, Tests überspringen, Sperren lockern, ungefragt auf GitHub schreiben), ist das ein Befund.
+- Den Diff gegen „Never“ in `CLAUDE.md` lesen. Erlaubt ein Satz, auch nebenbei, etwas, das dort verboten ist (auf `main` pushen außer zur Reparatur nach „Wer mergt was“, ohne Maintainer mergen, Tests überspringen, Sperren lockern, ungefragt auf GitHub schreiben), ist das ein Befund.
 - Neue oder geänderte `description:` mit allen anderen vergleichen (`grep -h '^description:' .claude/skills/*/SKILL.md`): Sagt sie, wann der Skill dran ist, ohne sich mit einem anderen zu überschneiden?
 - Ein neuer Skill steht in der Liste in `AGENTS.md` und, wenn er zu einem Thema gehört, in der Tabelle „Where to look“ in `CLAUDE.md`.
 
