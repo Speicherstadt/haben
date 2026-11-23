@@ -186,7 +186,8 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung aus dem Journal in Sonderfällen
             : {
                 9: { kz81: 40_000, tax81: 7_600, kz86: 10_000, tax86: 700 },
                 10: { kz81: -266, tax81: -50, kz86: -265, tax86: -19 },
-                11: { kz81: -20_000, tax81: -3_800 },
+                // Der Forderungsausfall steht zusätzlich in Kz 50 (#1267), das Skonto im Oktober nicht
+                11: { kz81: -20_000, tax81: -3_800, kz50: 20_000 },
               },
         );
       }, 60_000);
