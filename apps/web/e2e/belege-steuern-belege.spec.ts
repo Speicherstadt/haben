@@ -378,9 +378,10 @@ test("Dauerbeleg: Eingaben direkt nach dem Speichern und nach Pausieren bleiben 
     text: "Gleich danach getippt",
     neuGeladen: page.getByRole("heading", { name: "Lagerraum gespeichert", level: 1 }),
   });
-  // Pausieren baut das Formular ebenso neu auf
+  // Pausieren baut das Formular ebenso neu auf. Die Eingabe davor ist ungespeichert, deshalb erst die Rückfrage (#1805)
+  await page.getByRole("button", { name: "Pausieren", exact: true }).click();
   await eingabeNachAktion(page, {
-    aktion: page.getByRole("button", { name: "Pausieren", exact: true }),
+    aktion: page.getByRole("dialog").getByRole("button", { name: "Trotzdem pausieren", exact: true }),
     feld: bezeichnung,
     text: "Nach dem Pausieren getippt",
     neuGeladen: page.getByText(/Pausiert: Bis zum Fortsetzen/),
@@ -391,6 +392,75 @@ test("Dauerbeleg: Speichern schlägt fehl, der Fokus steht danach wieder im Feld
   // Der Dauerbeleg aus dem Test davor
   await fokusNachFehlschlag(page, page.getByLabel("Bezeichnung"));
   // Der Dauerbeleg gehört nur diesen beiden Tests
+  await page.getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(page, "Vorlage löschen");
+  await expect(page).toHaveURL(/\/dauerbelege(?:\?.*)?$/);
+});
+
+test("Dauerbeleg: Pausieren, Fortsetzen und Beenden fragen bei ungespeicherten Änderungen nach (#1805)", async () => {
+  await go("/dauerbelege/neu");
+  const bezeichnung = page.getByLabel("Bezeichnung");
+  await bezeichnung.fill("Lagerraum Rückfrage");
+  await page.getByLabel("Lieferant", { exact: true }).fill("Hafen Immobilien GmbH");
+  await waehleKategorie(page.getByLabel("Kategorie"), "miete");
+  await page.getByLabel("Erster Beleg am").fill(day(30));
+  await page
+    .locator("input[type=file]")
+    .setInputFiles([{ name: "lagervertrag.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n% Lagervertrag Rückfrage\n%%EOF\n") }]);
+  await page.getByLabel("Netto 1").fill("80,00");
+  await page.getByRole("button", { name: "Dauerbeleg anlegen" }).click();
+  await page.waitForURL(/\/dauerbelege\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("heading", { name: "Lagerraum Rückfrage", level: 1 })).toBeVisible();
+  const dialog = page.getByRole("dialog");
+  const aktiv = page.getByText(/^Aktiv: Haben legt/);
+  const pausiert = page.getByText(/^Pausiert: Bis zum Fortsetzen/);
+
+  // Ohne Änderungen wie bisher: kein Dialog
+  await page.getByRole("button", { name: "Pausieren", exact: true }).click();
+  await expect(pausiert).toBeVisible();
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole("button", { name: "Fortsetzen", exact: true }).click();
+  await expect(aktiv).toBeVisible();
+  await expect(dialog).toHaveCount(0);
+
+  // Mit Änderung: Abbrechen lässt Status und Eingabe stehen
+  await bezeichnung.fill("Lagerraum ungespeichert");
+  await page.getByRole("button", { name: "Pausieren", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Lagerraum Rückfrage pausieren?" })).toContainText(
+    "Das Formular hat ungespeicherte Änderungen. Beim Pausieren gehen sie verloren.",
+  );
+  await dialog.getByRole("button", { name: "Abbrechen" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(bezeichnung).toHaveValue("Lagerraum ungespeichert");
+  await expect(aktiv).toBeVisible();
+  // Bestätigt: pausiert, die Änderung ist verworfen
+  await page.getByRole("button", { name: "Pausieren", exact: true }).click();
+  await bestaetigen(page, "Trotzdem pausieren");
+  await expect(pausiert).toBeVisible();
+  await expect(bezeichnung).toHaveValue("Lagerraum Rückfrage");
+
+  // Fortsetzen ebenso
+  await bezeichnung.fill("Lagerraum ungespeichert");
+  await page.getByRole("button", { name: "Fortsetzen", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Lagerraum Rückfrage fortsetzen?" })).toContainText("Beim Fortsetzen gehen sie verloren.");
+  await bestaetigen(page, "Trotzdem fortsetzen");
+  await expect(aktiv).toBeVisible();
+  await expect(bezeichnung).toHaveValue("Lagerraum Rückfrage");
+
+  // Beenden fragt ohnehin nach; mit Änderung nennt dieselbe Rückfrage den Verlust
+  const beenden = page.getByRole("dialog", { name: "Lagerraum Rückfrage beenden?" });
+  await page.getByRole("button", { name: "Beenden", exact: true }).click();
+  await expect(beenden).toContainText("Beenden ist endgültig");
+  await expect(beenden).not.toContainText("ungespeicherte Änderungen");
+  await beenden.getByRole("button", { name: "Abbrechen" }).click();
+  await bezeichnung.fill("Lagerraum ungespeichert");
+  await page.getByRole("button", { name: "Beenden", exact: true }).click();
+  await expect(beenden).toContainText("Das Formular hat ungespeicherte Änderungen. Beim Beenden gehen sie verloren.");
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await bestaetigen(page, "Beenden");
+  await expect(page.getByText(/^Beendet: Es entstehen keine Belege mehr/)).toBeVisible();
+
+  // Löschen fragt ohne Formular wie bisher; der Dauerbeleg gehört nur diesem Test
   await page.getByRole("button", { name: "Löschen", exact: true }).click();
   await bestaetigen(page, "Vorlage löschen");
   await expect(page).toHaveURL(/\/dauerbelege(?:\?.*)?$/);
