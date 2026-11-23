@@ -52,7 +52,7 @@ Den Rundgang in Bildern gibt die [Startseite](index.md), den schnellen
 | [Bankimport und Abgleich](bank.md) | Automatischer Abruf per PSD2 (Enable Banking) oder FinTS, DKB, Commerzbank, BW-Bank, Deutsche Bank, Norisbank, Postbank, ING, C24, N26, Swan, CAMT.053, Dubletten, Saldenprüfung, Vorschläge, Teilzahlungen, Buchungen ohne Beleg |
 | [Andere Banken](bank-spaltenzuordnung.md) | CSV einer Bank ohne eigenes Format: Spalten einmal zuordnen, gespeichert je Konto |
 | [Abruf über FinTS](bank-fints.md) | Bankkonten direkt bei der Bank abrufen, mit PIN, TAN-Verfahren und pushTAN, ohne Enable Banking |
-| [Zahlungsdienstleister](bank-zahlungsdienstleister.md) | PayPal, Stripe, Shopify Payments, eBay, Etsy, SumUp, Google Play und App Store mit Gebühren und Auszahlungen |
+| [Zahlungsdienstleister](bank-zahlungsdienstleister.md) | PayPal, Stripe, Shopify Payments, eBay, Etsy, Amazon, SumUp, Google Play und App Store mit Gebühren und Auszahlungen |
 | [Steuerzahlungen und Darlehen](bank-steuern-darlehen.md) | Zahlungen an Finanzamt und Gemeinde, Erstattungen, Darlehen mit Tilgung und Zinsen |
 
 ## Steuern und Auswertungen
