@@ -25,7 +25,7 @@ kommentier im Issue `/übernehmen`; dann ist es dir zugewiesen. Wie das genau ab
 
 ## Pull Requests
 
-- Ein Thema je Pull Request, auf einem eigenen Branch, in `main`. Direkt auf `main` wird nicht gepusht.
+- Ein Thema je Pull Request, auf einem eigenen Branch, in `main`. Direkt auf `main` wird nicht gepusht, außer zur Reparatur eines roten `main` ([Wer mergt was](https://haben.app/mitwirken.html#wer-mergt-was)).
 - Im selben Pull Request mitändern, was die Änderung betrifft: Tests (Vitest, Postgres-Tests neben dem Modul,
   Playwright in `apps/web/e2e/`), bei Buchungen und Steuer Testfälle für SKR03 und SKR04 sowie Ist und Soll, die Doku
   in `docs/`.

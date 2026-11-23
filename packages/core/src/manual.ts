@@ -200,6 +200,15 @@ export function manualPostingIssues(
   if (lines.length >= 2 && (!lines.some((l) => l.debit > 0) || !lines.some((l) => l.credit > 0))) issues.push("Es fehlt eine Seite");
   const accounts = new Set(lines.map((l) => l.account));
   if (lines.length >= 2 && accounts.size === 1) issues.push("Soll und Haben auf demselben Konto ändern nichts");
+  if (
+    rechtsform === "einzelunternehmen" &&
+    kind === "umbuchung" &&
+    lines.some(({ account }) => account === ACCOUNTS[kontenrahmen].bank || /^900\d$/.test(account))
+  ) {
+    issues.push(
+      "Im Einzelunternehmen braucht der Bank-Anfangsbestand keine Buchung. Die EÜR erfasst Betriebseinnahmen und Betriebsausgaben. Enthält der letzte Import oder Abruf einen Endsaldo, siehst du ihn unter Bank",
+    );
+  }
   return issues;
 }
 

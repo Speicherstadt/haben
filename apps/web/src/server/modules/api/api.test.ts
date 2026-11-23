@@ -103,6 +103,15 @@ describe.skipIf(!testDatabaseUrl)("REST-API /api/v1 (Postgres)", () => {
       expect(saved?.invoices).toEqual([]);
     });
 
+    it("nimmt wöchentliche Intervalle an und lehnt unbekannte ab", async () => {
+      const t = await token(["kontakte:schreiben", "rechnungen:vorlagen-anlegen"]);
+      const contact = await call(t, "POST", "/kontakte", kunde);
+      const weekly = await call(t, "POST", path, { ...vorlage(contact.json!.id), recurrence: "P1W" });
+      expect(weekly.status).toBe(201);
+      expect((await rechnungen.getRecurring(weekly.json!.id as string))?.recurring.recurrence).toBe("P1W");
+      expect((await call(t, "POST", path, { ...vorlage(contact.json!.id), recurrence: "P5W" })).status).toBe(400);
+    });
+
     it("verlangt das Vorlagenrecht und lehnt die Aktivierung per API ab", async () => {
       const draftToken = await token(["rechnungen:entwuerfe"]);
       const write = await token(["rechnungen:vorlagen-anlegen"]);

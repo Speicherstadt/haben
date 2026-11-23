@@ -87,7 +87,7 @@ export function steuerKonten(kontenrahmen: Kontenrahmen) {
  * DATEV im Programm Körperschaftsteuer, „Erläuterungen zur Kennzeichnung“). Sie gehören trotzdem dazu: § 8 Nr. 1 a, d und e
  * fragt nicht, wer Gläubiger oder Vermieter ist, und die Ausnahme für Mitunternehmer gibt es bei der GmbH nicht (#1346).
  */
-export type HinzurechnungArt = "zinsen" | "renten" | "beweglich" | "elektro" | "unbeweglich" | "rechte";
+export type HinzurechnungArt = "zinsen" | "renten" | "stilleGesellschafter" | "beweglich" | "elektro" | "unbeweglich" | "rechte";
 const HINZURECHNUNG: Record<Kontenrahmen, readonly [art: HinzurechnungArt, konten: readonly string[], anteil: BasisPoints, text: string][]> = {
   SKR03: [
     // Mit den Zinsen zur Finanzierung des Anlagevermögens aus dem Darlehen (darlehen.ts), an verbundene Unternehmen,
@@ -99,6 +99,7 @@ const HINZURECHNUNG: Record<Kontenrahmen, readonly [art: HinzurechnungArt, konte
       "Zinsen (§ 8 Nr. 1 a)",
     ],
     ["renten", ["2127"], 10_000, "Renten und dauernde Lasten (§ 8 Nr. 1 b)"],
+    ["stilleGesellschafter", ["2493"], 10_000, "Gewinn- und Verlustanteile stiller Gesellschafter (§ 8 Nr. 1 c)"],
     // Mit Mietleasing für technische Anlagen und Maschinen (4810) und Betriebs- und Geschäftsausstattung (4965); Miete,
     // Pacht und Lizenzen auch als Fremdleistungen (3170, 3175, 3180); Miete und Pacht an Gesellschafter (4958)
     [
@@ -120,6 +121,7 @@ const HINZURECHNUNG: Record<Kontenrahmen, readonly [art: HinzurechnungArt, konte
       "Zinsen (§ 8 Nr. 1 a)",
     ],
     ["renten", ["7327"], 10_000, "Renten und dauernde Lasten (§ 8 Nr. 1 b)"],
+    ["stilleGesellschafter", ["7399"], 10_000, "Gewinn- und Verlustanteile stiller Gesellschafter (§ 8 Nr. 1 c)"],
     [
       "beweglich",
       ["5970", "6498", "6560", "6833", "6835", "6836", "6838", "6840"],
@@ -262,12 +264,15 @@ export function kapgSteuern(
 
   const gewstHinzurechnungen = hinzurechnungGruppen(kontenrahmen, year)
     .map(([art, konten, quote, text]) => {
-      const brutto = Math.max(0, summe(konten));
+      // BFH I R 4/14: steuerlich wirksame Verlustanteile des typisch Stillen mindern die Summe der Finanzierungsanteile.
+      const saldo = summe(konten);
+      const brutto = art === "stilleGesellschafter" ? saldo : Math.max(0, saldo);
       return { art, text, brutto, anteil: quote, betrag: anteil(brutto, quote) };
     })
     .filter((z) => z.betrag !== 0);
   const gewichtet = gewstHinzurechnungen.reduce((sum, z) => sum + z.betrag, 0);
-  const hinzurechnungGewst = anteil(Math.max(0, gewichtet - GEWST_HINZURECHNUNG_FREIBETRAG), 2500);
+  // BFH I R 15/15: Der Freibetrag ist auf eine negative Summe nicht spiegelbildlich anzuwenden.
+  const hinzurechnungGewst = anteil(gewichtet < 0 ? gewichtet : Math.max(0, gewichtet - GEWST_HINZURECHNUNG_FREIBETRAG), 2500);
   const gewerbeertragVorVerlust = einkommen + hinzurechnungGewst;
   const verlustabzugGewst = verlustabzug(gewerbeertragVorVerlust, angaben.verlustvortragGewst, VERLUST_QUOTE_GEWST);
   const gewerbeertrag = abrunden(gewerbeertragVorVerlust - verlustabzugGewst, 10_000);

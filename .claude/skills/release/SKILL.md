@@ -1,6 +1,6 @@
 ---
 name: "release"
-description: "Eine neue Version von Haben veröffentlichen: Art des Releases vorschlagen (Release Candidate, Minor, Patch), vorher prüfen, nach OK des Maintainers über „Bump version“ auslösen und danach kontrollieren, dass Image, GitHub-Release und das Schließen der umgesetzten Issues durchgelaufen sind. Beim RC den Testauftrag für den Server erzeugen."
+description: "Eine neue Version von Haben veröffentlichen (Release Candidate, Minor oder Patch) und danach prüfen, dass Image, GitHub-Release und das Schließen der Issues durchgelaufen sind. Wenn der Maintainer ein Release will oder fragt, ob eins fällig ist."
 ---
 
 # Release
@@ -13,10 +13,10 @@ Wie Haben veröffentlicht wird, steht in [`docs/entwicklung.md`](../../../docs/e
 
 ```sh
 git fetch origin main --tags
-git describe --tags --abbrev=0 origin/main                     # letzter Tag
-git tag --list 'v*' --sort=-v:refname | head                   # läuft gerade ein RC?
-git log --oneline <letzter-tag>..origin/main                   # was seitdem gemergt ist
+bun scripts/release/vorschau.ts
 ```
+
+Das Skript nennt den letzten Tag (nur `v…`, nicht die Tags der Pakete wie `gobd-kern-v…`), die Commits seitdem, einen Vorschlag für die Art aus Schritt 2, die Issues, die eine fertige Version schließt, und die Hinweise für das Release aus Schritt 3.
 
 Die Squash-Commits auf `main` sind die PR-Beschreibungen; ihre erste Zeile ist der Titel mit `(#PR)`.
 
@@ -31,38 +31,17 @@ Die Squash-Commits auf `main` sind die PR-Beschreibungen; ihre erste Zeile ist d
 | RC läuft und ist beim Maintainer stabil | `patch` | `v0.8.0` |
 | Bruch mit bestehenden Instanzen | `major`, nur auf ausdrücklichen Wunsch | |
 
-Neue Migrationen: `git diff --name-only --diff-filter=A <letzter-tag>..origin/main -- apps/web/drizzle`.
+Den Vorschlag des Skripts gegen die Tabelle halten: Es erkennt Migrationen, `packages/elster` und `packages/gobd-kern`; Änderungen an Festschreibung, Audit-Log, Siegeln oder an ERiC und Übermittlung in `apps/web` und ob neue Funktionen dabei sind, entscheiden die Titel.
 
 ## 3. Vorher prüfen
 
 - **CI auf `main` grün** für den aktuellen Stand (letzter Lauf von `ci.yml` auf `main`).
 - **Zwischen RC und fertiger Version nur Fixes:** `git log --oneline <rc-tag>..origin/main` darf keine neuen Funktionen enthalten; sonst erst ein weiterer RC.
-- **Was geschlossen wird:** Eine fertige Version schließt jedes Issue, das seit der vorigen fertigen Version mit `Umgesetzt #…` gemergt wurde. Vorschau ohne Tag:
-
-  ```sh
-  git log --format=%B <vorige-fertige-version>..origin/main | grep -iE '^\s*umgesetzt:?\s+#'
-  ```
-
-  Nach dem Tag zeigt `bun scripts/board/release.ts vX.Y.Z --probe` dieselbe Liste.
+- **Was geschlossen wird:** Eine fertige Version schließt jedes Issue, das seit der vorigen fertigen Version mit `Umgesetzt #…` gemergt wurde. Vor dem Tag nennt sie das Skript aus Schritt 1, nach dem Tag zeigt `bun scripts/board/release.ts vX.Y.Z --probe` dieselbe Liste.
 - **Karten in „Im nächsten Release“, deren PR nur `Refs` hat:** Die schließt das Release nicht. Dem Maintainer melden; er schließt sie danach von Hand (Skill `board-pflegen`).
 - **Offene Teile:** Karten in „In Arbeit“, deren Pull Requests seit der vorigen fertigen Version alle nur mit `Refs` gemergt sind und für die kein offener Pull Request mehr da ist. Als Liste dem Maintainer vorlegen, bevor er das Release freigibt: Was fertig ist, bekommt im letzten Pull Request `Umgesetzt` (zählt auch nach dem Merge, `scripts/board/release.ts`) oder wird nach dem Release geschlossen (Skill `board-pflegen`, „offene Teile“).
 - **Offene Pull Requests**, die mit hinein sollen: beim Maintainer nachfragen.
-- **Hinweise für das Release:** die Abschnitte `## Für das Release` aus den Squash-Commits (`docs/mitwirken.md`, „Branches, Titel und Commits“), beim RC seit dem letzten Tag, bei einer fertigen Version seit der vorigen fertigen Version. Je Pull Request eine Überschrift mit seinem Titel:
-
-  ```sh
-  git log --format='%x1e%s%n%b' <von>..origin/main | awk 'BEGIN { RS = "\036" }
-    /\n## Für das Release/ {
-      n = split($0, z, "\n"); drin = 0; text = ""
-      for (i = 2; i <= n; i++) {
-        if (z[i] ~ /^## Für das Release/) { drin = 1; continue }
-        if (drin && z[i] ~ /^(## |🤖|---|[Cc]o-[Aa]uthored-[Bb]y:)/) break
-        if (drin) text = text z[i] "\n"
-      }
-      print "### " z[1] "\n" text
-    }' > hinweise.md
-  ```
-
-  Der Abschnitt endet an der nächsten Überschrift `##`, an „🤖 Generated with …“ oder an den Zeilen `Co-authored-by:` (auch groß geschrieben) und der Trennlinie `---------` davor. Was nur für Entwickler gilt, streichen; Zeilenumbrüche mitten im Satz zusammenziehen.
+- **Hinweise für das Release:** die Abschnitte `## Für das Release` aus den Squash-Commits (`docs/mitwirken.md`, „Branches, Titel und Commits“), beim RC seit dem letzten Tag, bei einer fertigen Version seit der vorigen fertigen Version. Das Skript aus Schritt 1 setzt sie je Pull Request unter seinem Titel zusammen; wo ein Abschnitt endet, steht in `hinweis` (`scripts/release/regel.ts`). Was nur für Entwickler gilt, streichen; Zeilenumbrüche mitten im Satz zusammenziehen.
 
 ## 4. Vorschlag an den Maintainer
 
@@ -76,7 +55,7 @@ Actions → **Bump version** (`bump.yml`) mit `bump` = die gewählte Art, auf `m
 
 - `release.yml` auf dem Tag: alle Jobs grün (`checks` übersprungen, wenn `main` schon geprüft war).
 - Docker Hub und GHCR: Tags `:x.y.z` und `:x.y`, `:latest` nur bei einer fertigen Version; beim RC `:x.y.z-rc.n` und `:next`.
-- GitHub-Release mit der Erweiterung „Haben für Mein ELSTER“ als ZIP; beim RC als Pre-release.
+- GitHub-Release mit der Erweiterung „Haben für Mein ELSTER“ als ZIP und `haben-sollbestand-X.Y.Z.json`, in den Notizen die Zeile „Prüfsumme der Sperren“ (Job `sollbestand`); beim RC als Pre-release mit `haben-sollbestand-X.Y.Z-rc.n.json`.
 - Hinweise aus Schritt 3, wenn es welche gibt, über die erzeugten Notizen setzen:
 
   ```sh
@@ -87,7 +66,7 @@ Actions → **Bump version** (`bump.yml`) mit `bump` = die gewählte Art, auf `m
 
   Die Ankündigung in Discord (`discord-release.yml`) ging schon ohne die Hinweise raus. Betrifft ein Hinweis Daten, den Maintainer fragen, ob er sie mit Actions → *Discord-Release* und dem Tag noch einmal ankündigen will.
 - Fertige Version: Job `issues-schliessen` grün, seine Ausgabe nennt die geschlossenen Issues; im Project stehen sie in „Erledigt“.
-- Etwas rot: nicht neu taggen; Ursache melden, beheben, beim RC `prerelease`, sonst `patch`.
+- Etwas rot: nicht neu taggen; Ursache melden, beheben, beim RC `prerelease`, sonst `patch`. Scheitert nur der Job `sollbestand` (etwa am Netz), reicht es, ihn neu zu starten; er ersetzt die Datei und schreibt die Zeile nicht doppelt.
 
 ## 7. Beim RC: Testauftrag
 

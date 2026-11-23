@@ -1,6 +1,6 @@
 ---
 name: "pr-screenshots"
-description: "Screenshots vorher und nachher für Pull Requests mit Änderungen am Aussehen von Haben: aufnehmen (hell und dunkel, Desktop und Handy) bevor die Oberfläche geändert wird, danach erneut, und in `Speicherstadt/haben-bilder` ablegen oder als Anhang hochladen. Zu Beginn jeder Arbeit an der Oberfläche laden, nicht erst beim Pull Request."
+description: "Screenshots vorher und nachher für Pull Requests, die das Aussehen von Haben ändern. Zu Beginn jeder Arbeit an der Oberfläche laden, bevor etwas geändert wird, nicht erst beim Pull Request."
 ---
 
 # Screenshots vorher und nachher

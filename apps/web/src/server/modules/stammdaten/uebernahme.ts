@@ -1,4 +1,4 @@
-import { ACCENT_PATTERN, numberFormatError, planTemplateSchema } from "@haben/core";
+import { ACCENT_PATTERN, DUNNING_LEVELS, numberFormatError, planTemplateSchema } from "@haben/core";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { BEREICH_IDS } from "../../../lib/bereiche.ts";
@@ -10,7 +10,7 @@ import { contactPersonInputSchema, insertContactPerson } from "./contact-persons
 import { contactSchema, insertContact } from "./contacts.ts";
 import { PLAN_TEMPLATES_MAX, planTemplatesProblem } from "./plan-templates.ts";
 import { taxpayerSchema } from "./taxpayer.ts";
-import { insertTextBlock, standardTexte, textBlockInputSchema } from "./text-blocks.ts";
+import { insertTextBlock, mahnstufeStandard, standardTexte, textBlockInputSchema } from "./text-blocks.ts";
 import { insertUnit } from "./units.ts";
 
 /*
@@ -147,7 +147,7 @@ export async function kontakteUebernehmen(tx: Tx, actor: string, contacts: reado
 }
 
 export async function textbausteineUebernehmen(tx: Tx, blocks: readonly unknown[]): Promise<void> {
-  for (const raw of blocks) {
+  for (const raw of blocks.flatMap(alterMahnungsStandard)) {
     const bezeichnung = `Textbaustein ${genannt(raw, "name")}`;
     const input = geprueft(textBlockInputSchema, raw, bezeichnung);
     const { archivedAt } = geprueft(archiviert, raw, bezeichnung);
@@ -155,6 +155,30 @@ export async function textbausteineUebernehmen(tx: Tx, blocks: readonly unknown[
     // Archiviert ist kein Standard mehr (#1494), wie bei setTextBlockArchived
     if (archivedAt) await tx.update(schema.textBlocks).set({ archivedAt: new Date(), standardFuer: null }).where(eq(schema.textBlocks.id, created.id));
   }
+}
+
+/**
+ * Ein Standard „Mahnung“ aus einer Exportdatei der Version 2 (#1494) galt für jede Stufe. Wie in Migration 0317 wird er
+ * Standard der 1. Mahnung, Zahlungserinnerung und letzte Mahnung bekommen je eine Kopie (#1678); archiviert ist er keiner
+ */
+/**
+ * Höchstens `max` UTF-16-Einheiten wie textBlockInputSchema, ohne ein Emoji zu teilen; dieselbe Regel wie Migration 0317:
+ * je Zeichen außerhalb der BMP ein Zeichen weniger
+ */
+function kuerzen(text: string, max: number): string {
+  const zeichen = Array.from(text);
+  return zeichen.slice(0, Math.max(max - zeichen.filter((z) => z.length > 1).length, 0)).join("");
+}
+
+function alterMahnungsStandard(raw: unknown): unknown[] {
+  if (typeof raw !== "object" || raw === null || (raw as { standardFuer?: unknown }).standardFuer !== "mahnung") return [raw];
+  const block = raw as { name?: unknown; archivedAt?: unknown };
+  if (block.archivedAt) return [{ ...block, standardFuer: null }];
+  const kopie = (level: 1 | 3) => {
+    const zusatz = ` (${DUNNING_LEVELS[level].label})`;
+    return { ...block, name: `${kuerzen(String(block.name ?? ""), 200 - zusatz.length)}${zusatz}`, standardFuer: mahnstufeStandard(level) };
+  };
+  return [{ ...block, standardFuer: mahnstufeStandard(2) }, kopie(1), kopie(3)];
 }
 
 /**
