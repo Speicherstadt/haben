@@ -56,6 +56,24 @@ export function ausschuettungAnteil(anteil: AusschuettungAnteil): AusschuettungA
 }
 
 /**
+ * Verteilt einen Betrag (ab 0) auf die Gesellschafter nach dem Verhältnis ihrer Geschäftsanteile, also nach deren
+ * Nennbeträgen in Cent (§ 29 Abs. 3 Satz 1 GmbHG), nicht nach einem gerundeten Anteil in Prozent. Ganzzahlig, denn
+ * Betrag mal Nennbetrag übersteigt Number.MAX_SAFE_INTEGER; die Rundungsreste gehen einzeln an die größten
+ * Nachkommareste, bei gleichen an den vorderen, damit die Summe stimmt. Ohne Nennbeträge (Summe 0) gibt es nichts zu
+ * verteilen: RangeError, der Aufrufer prüft das vorher.
+ */
+export function nachBeteiligung(betrag: Cents, beteiligungen: readonly Cents[]): Cents[] {
+  const summe = beteiligungen.reduce((s, b) => s + BigInt(b), 0n);
+  if (summe <= 0n) throw new RangeError("Ohne Beteiligungen lässt sich nichts verteilen");
+  const teile = beteiligungen.map((b) => BigInt(betrag) * BigInt(b));
+  const result = teile.map((t) => Number(t / summe));
+  const rest = betrag - result.reduce((s, x) => s + x, 0);
+  const order = teile.map((t, i) => [t % summe, i] as const).sort((x, y) => (x[0] === y[0] ? 0 : x[0] > y[0] ? -1 : 1));
+  for (const [, i] of order.slice(0, rest)) result[i]! += 1;
+  return result;
+}
+
+/**
  * Aufteilung einer Ausschüttung nach § 27 Abs. 1 Satz 3 KStG: Zuerst gilt der ausschüttbare Gewinn als verwendet, erst
  * der Rest mindert das steuerliche Einlagekonto, höchstens bis zu seinem Bestand. Ausschüttbarer Gewinn ist das
  * Eigenkapital laut Steuerbilanz zum Schluss des Vorjahres abzüglich gezeichnetem Kapital und Bestand des Einlagekontos
