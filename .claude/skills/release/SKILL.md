@@ -31,7 +31,7 @@ Die Squash-Commits auf `main` sind die PR-Beschreibungen; ihre erste Zeile ist d
 | RC läuft und ist beim Maintainer stabil | `patch` | `v0.8.0` |
 | Bruch mit bestehenden Instanzen | `major`, nur auf ausdrücklichen Wunsch | |
 
-Den Vorschlag des Skripts gegen die Tabelle halten: Es erkennt Migrationen, `packages/elster` und `packages/gobd-kern`; Änderungen an Festschreibung, Audit-Log oder Siegeln in `apps/web` und ob neue Funktionen dabei sind, entscheiden die Titel.
+Den Vorschlag des Skripts gegen die Tabelle halten: Es erkennt Migrationen, `packages/elster` und `packages/gobd-kern`; Änderungen an Festschreibung, Audit-Log, Siegeln oder an ERiC und Übermittlung in `apps/web` und ob neue Funktionen dabei sind, entscheiden die Titel.
 
 ## 3. Vorher prüfen
 
