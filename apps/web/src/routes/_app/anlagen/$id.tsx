@@ -118,8 +118,8 @@ function AssetPage() {
             </p>
           )}
           <AssetForm
-            // Millisekunden, nicht der Text mit Sekunden: auch ein zweites Speichern in derselben Sekunde baut neu auf (#1804)
-            key={asset.updatedAt.getTime()}
+            // Mit Millisekunden: String(Date) endet bei der Sekunde, zwei Aktionen in derselben Sekunde ließen das Formular stehen
+            key={asset.updatedAt.toISOString()}
             initial={{
               name: asset.name,
               kind: asset.kind,
