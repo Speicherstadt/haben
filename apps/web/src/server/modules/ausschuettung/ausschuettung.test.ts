@@ -177,20 +177,27 @@ describe.skipIf(!testDatabaseUrl)("Ausschüttungen (Postgres)", () => {
       expect((await a.dividendsOfYear(2026))[0]!.empfaenger).toEqual(gebucht!.empfaenger);
     }, 30_000);
 
-    it("Beteiligungen zusammen 0 €: kein Vorschlag zum Buchen, der Grund steht dabei", async () => {
+    it("Anteilseigner ohne Beteiligung (0 €): kein Vorschlag zum Buchen, der Grund steht dabei", async () => {
+      // Jeder Geschäftsanteil hat einen Nennbetrag in vollen Euro (§ 5 Abs. 2 GmbHG); 0 € neben einem Anteil in Prozent ist
+      // eine fehlende Angabe, nach ihr bekäme der Gesellschafter still nichts
       await setup(kontenrahmen, kontenrahmen === "SKR03" ? "soll" : "ist", k);
-      await kst.saveKapgErklaerungAngaben(actor, 2026, {
-        anteilseigner: [
-          { ...erika, beteiligung: 0, anteil: 5000 },
-          { ...max, beteiligung: 0, anteil: 5000 },
-        ],
-      });
       const input = { geschaeftsjahr: 2025, beschluss: "2026-03-01", brutto: 1_000_000 };
-      const grund = "Die Beteiligungen der Anteilseigner für 2026 ergeben zusammen 0 €";
-      expect((await a.ausschuettungVorschlag(input)).issues).toEqual([expect.stringContaining(grund)]);
-      const create = a.createAusschuettung(actor, input, today);
-      await expect(create).rejects.toThrow(grund);
-      await expect(create).rejects.toBeInstanceOf(a.AusschuettungError);
+      for (const [beteiligungen, namen] of [
+        [[0, 1_000_000], "Erika"],
+        [[0, 0], "Erika, Max"],
+      ] as const) {
+        await kst.saveKapgErklaerungAngaben(actor, 2026, {
+          anteilseigner: [
+            { ...erika, beteiligung: beteiligungen[0], anteil: 5000 },
+            { ...max, beteiligung: beteiligungen[1], anteil: 5000 },
+          ],
+        });
+        const grund = `Für 2026 fehlt die Beteiligung in Euro von ${namen}`;
+        expect((await a.ausschuettungVorschlag(input)).issues).toEqual([expect.stringContaining(grund)]);
+        const create = a.createAusschuettung(actor, input, today);
+        await expect(create).rejects.toThrow(grund);
+        await expect(create).rejects.toBeInstanceOf(a.AusschuettungError);
+      }
       expect(await a.dividendsOfYear(2026)).toEqual([]);
       const gebucht = await sql`select count(*)::int as n from journal_entries where source_type = 'ausschuettung'`;
       expect(gebucht[0]!.n).toBe(0);
