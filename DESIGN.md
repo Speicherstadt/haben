@@ -193,7 +193,7 @@ Geht es um Geld oder das Finanzamt, nennt `facts` über den Folgen, was bestäti
 
 Am Handy ist der Dialog ein Blatt von unten mit der Aktion über „Abbrechen“. Das ist eine gewollte Ausnahme von der Reihenfolge der Knöpfe: „Abbrechen“ liegt unten im Daumenbereich, damit man Löschen oder Festschreiben nicht aus Versehen trifft. Die Knöpfe stehen dafür per `column-reverse` umgedreht, im Markup kommt „Abbrechen“ zuerst. Weil der Fokus beim Öffnen dort liegt, schadet die abweichende Tab-Folge nicht. An Griff oder Titel nach unten gewischt, schließt es wie „Abbrechen“. Fokus beim Öffnen auf „Abbrechen“, danach zurück auf den Auslöser; Esc führt nichts aus.
 
-Rot (`danger`) sind Löschen, Stornieren, Entfernen, Widerrufen, Trennen, endgültiges Beenden und Abschließen, grün der erwartete nächste Schritt wie Festschreiben, Buchen und Senden. Der Dialog schließt vor der Aktion; das Ergebnis meldet die Seite. Tastenkürzel der Seite fragen `isDialogOpen()`.
+Rot (`danger`) sind Löschen, Stornieren, Entfernen, Widerrufen, Trennen, endgültiges Beenden, Abschließen und das Verwerfen ungespeicherter Änderungen („Ohne Speichern wechseln“), grün der erwartete nächste Schritt wie Festschreiben, Buchen und Senden. Der Dialog schließt vor der Aktion; das Ergebnis meldet die Seite. Tastenkürzel der Seite fragen `isDialogOpen()`.
 
 ### Karten
 
