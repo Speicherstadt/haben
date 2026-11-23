@@ -77,10 +77,15 @@ export function NeuesKontoForm({
 
   return (
     <>
-      <form className="card" onSubmit={onAddAccount} style={{ minWidth: 320 }}>
+      <form className="card" onSubmit={onAddAccount} style={{ width: "100%", maxWidth: 420 }}>
         <Field label="Art">
           {(control) => (
-            <select {...control} value={accountType} onChange={(e) => setAccountType(e.target.value as "bank" | "provider")}>
+            <select
+              {...control}
+              style={{ width: "100%", minWidth: 0 }}
+              value={accountType}
+              onChange={(e) => setAccountType(e.target.value as "bank" | "provider")}
+            >
               <option value="bank">Bankkonto (mit IBAN)</option>
               <option value="provider">Zahlungsdienstleister (PayPal, Stripe, Shopify …)</option>
             </select>
@@ -90,7 +95,7 @@ export function NeuesKontoForm({
           <>
             <Field label="Dienstleister">
               {(control) => (
-                <select {...control} name="provider" value={provider} onChange={(e) => setProvider(e.target.value)}>
+                <select {...control} style={{ width: "100%", minWidth: 0 }} name="provider" value={provider} onChange={(e) => setProvider(e.target.value)}>
                   {data.providers.map((p) => (
                     <option key={p.value} value={p.value}>
                       {p.label}
@@ -102,7 +107,14 @@ export function NeuesKontoForm({
             {provider === "amazon" && (
               <Field label="Marktplatz">
                 {(control) => (
-                  <select {...control} name="marketplace" required value={marketplace} onChange={(e) => setMarketplace(e.target.value)}>
+                  <select
+                    {...control}
+                    style={{ width: "100%", minWidth: 0 }}
+                    name="marketplace"
+                    required
+                    value={marketplace}
+                    onChange={(e) => setMarketplace(e.target.value)}
+                  >
                     <option value="" disabled>
                       Marktplatz wählen
                     </option>
@@ -118,10 +130,18 @@ export function NeuesKontoForm({
           </>
         )}
         <Field label="Name">
-          {(control) => <input {...control} name="name" required placeholder={accountType === "provider" ? "PayPal Geschäftskonto" : "N26 Business"} />}
+          {(control) => (
+            <input
+              {...control}
+              style={{ width: "100%", minWidth: 0 }}
+              name="name"
+              required
+              placeholder={accountType === "provider" ? "PayPal Geschäftskonto" : "N26 Business"}
+            />
+          )}
         </Field>
         {accountType === "bank" ? (
-          <Field label="IBAN">{(control) => <input {...control} name="iban" required />}</Field>
+          <Field label="IBAN">{(control) => <input {...control} style={{ width: "100%", minWidth: 0 }} name="iban" required />}</Field>
         ) : (
           <span className="small muted">
             Bekommt ein eigenes Verrechnungskonto (SKR03 1361 …, SKR04 1461 …). Importiere den CSV-Export des Dienstleisters und wähle dabei dieses Konto unter
