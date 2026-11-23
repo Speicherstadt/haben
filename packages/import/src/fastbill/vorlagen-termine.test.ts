@@ -1,4 +1,4 @@
-import { dueDates } from "@haben/core";
+import { recurrenceDueDates } from "@haben/core";
 import { describe, expect, it } from "vitest";
 import type { FbRecurring } from "./types.ts";
 import { mapFbRecurring } from "./vorlagen.ts";
@@ -29,8 +29,15 @@ describe("mapFbRecurring: Termine", () => {
     expect(mapped.ok).toBe(true);
     if (!mapped.ok) return;
     expect(mapped.template.nextDate).toBe("2027-03-01");
-    expect(dueDates(mapped.template.nextDate, mapped.template.intervalMonths, mapped.template.anchorDay, TODAY, mapped.template.endDate)).toEqual([]);
+    expect(recurrenceDueDates(mapped.template.nextDate, mapped.template.recurrence, mapped.template.anchorDay, TODAY, mapped.template.endDate)).toEqual([]);
     expect(mapped.hints.join(" ")).toContain("2024-03-01");
+  });
+
+  it("rückt wöchentlich in Schritten von 7 Tagen vor, das Enddatum aus OCCURENCES ebenso (#1691)", () => {
+    const mapped = mapFbRecurring(vorlage({ START_DATE: "2026-10-26", FREQUENCY: "weekly", OCCURENCES: "10" }), [], TODAY);
+    expect(mapped.ok && [mapped.template.nextDate, mapped.template.endDate]).toEqual(["2026-11-23", "2026-12-28"]);
+    const zwei = mapFbRecurring(vorlage({ START_DATE: "2026-12-21", FREQUENCY: "2 weeks", OCCURENCES: "3" }), [], TODAY);
+    expect(zwei.ok && [zwei.template.nextDate, zwei.template.endDate]).toEqual(["2026-12-21", "2027-01-18"]);
   });
 
   it("lässt ein Startdatum ab heute stehen", () => {

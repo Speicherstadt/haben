@@ -1,0 +1,8 @@
+language js(typescript, jsx);
+
+// Kein `waitForTimeout` in Playwright-Tests (docs/entwicklung.md, Tests): Eine feste Wartezeit ist auf einem schnellen
+// Rechner zu lang und in der CI zu kurz. Gewartet wird auf das Ereignis (Antwort, Assertion, expect.poll, page.clock);
+// Helfer für Prüfungen, dass etwas nicht passiert, stehen in apps/web/e2e/warten.ts.
+`$objekt.waitForTimeout($zeit)` as $aufruf where {
+    register_diagnostic(span=$aufruf, message="waitForTimeout: auf das Ereignis warten statt auf feste Zeit (waitForResponse, Assertion wie toBeVisible, expect.poll, page.clock; für „passiert nicht“ apps/web/e2e/warten.ts). docs/entwicklung.md, Tests.", severity="error")
+}

@@ -16,6 +16,8 @@ import type { Kontenrahmen } from "./posting.ts";
  * Kapitalgesellschaften“). Miete unbeweglich
  * (4210/6310) und Kfz-Leasing (4570/6560) stehen bei den Kategorien in ebilanz.ts, die übrigen Zinsen beim Darlehen. Ein
  * Konto, das koerperschaft.ts neu hinzurechnet, braucht hier oder in ebilanz.ts eine Position (ebilanz.test.ts).
+ * HGB-Taxonomien 6.9 und 6.10 führen die Aufwandsabschreibung auf Agio, Disagio oder Damnum im Rechenwerk unter
+ * expenses.amortDiscount. Die getrennten Positionen für AO-Zinsen stehen in ebilanz.ts bei steuerzahlungKonten.
  */
 
 const OC = "is.netIncome.regular.operatingTC.otherCost";
@@ -33,6 +35,7 @@ const POSITIONEN: Record<Kontenrahmen, readonly [konten: string, position: strin
     ["4222", `${OC}.leaseFix.shareholders`],
     ["4958", `${OC}.leaseMoveable.shareholders`],
     ["2100 2109 2118 2119 2125 2129", ZINSEN],
+    ["2123 2124", `${FIN}.amortDiscount`],
     ["2114", `${GESELLSCHAFTERDARLEHEN}.other`],
     ["2117", `${GESELLSCHAFTERDARLEHEN}.participationOver25pt`],
     ["2127", `${FIN}.annuities`],
@@ -46,6 +49,7 @@ const POSITIONEN: Record<Kontenrahmen, readonly [konten: string, position: strin
     ["6313", `${OC}.leaseFix.shareholders`],
     ["6833", `${OC}.leaseMoveable.shareholders`],
     ["7300 7309 7318 7319 7325 7329", ZINSEN],
+    ["7323 7324", `${FIN}.amortDiscount`],
     ["7316", `${GESELLSCHAFTERDARLEHEN}.other`],
     ["7317", `${GESELLSCHAFTERDARLEHEN}.participationOver25pt`],
     ["7327", `${FIN}.annuities`],

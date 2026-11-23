@@ -44,7 +44,7 @@ describe.skipIf(!testDatabaseUrl)("Mahnwesen (Postgres)", () => {
   beforeEach(async () => {
     await leeren(sql)`truncate dunnings, write_offs, allocations, cash_entries, bank_transactions, bank_imports, bank_accounts,
       journal_lines, journal_entries, invoice_lines, invoices, recurring_invoices, invoice_number_counters,
-      contact_versions, contacts, company, beleg_layouts cascade`;
+      contact_versions, contacts, company, beleg_layouts, letterhead_profiles cascade`;
     await sql`insert into company (id, name, strasse, plz, ort, email, telefon, steuernummer, ust_id, bundesland, iban, bic, bank, dunning)
       values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '+49 941 123456',
               '198/113/10010', 'DE123456789', 'BY', 'DE89370400440532013000', 'COBADEFFXXX', 'Commerzbank',
@@ -288,6 +288,18 @@ describe.skipIf(!testDatabaseUrl)("Mahnwesen (Postgres)", () => {
       expect(dunning.dunningInputSchema.safeParse(eingabe).success).toBe(false);
       expect(dunning.dunningPreviewSchema.safeParse({ ...eingabe, design: {} }).success).toBe(false);
     });
+
+    it("scheitert das eigene Layout, entsteht keine Mahnung und die Stufe bleibt frei (#609)", async () => {
+      const created = await layouts.createLayout(actor, { name: "Bricht", art: "mahnung", source: startvorlage("mahnung") });
+      if (!("id" in created)) throw new Error("Rückfrage statt Anlegen");
+      await layouts.assignLayout(actor, "mahnung", { kind: "eigen", id: created.id });
+      await sql`update beleg_layouts set source = '#nichtda' where id = ${created.id}`;
+      const { design: _design, ...input } = form();
+      await expect(dunning.createDunning(actor, input, "2026-10-15")).rejects.toThrow(/Layout „Bricht“ ließ sich nicht setzen/);
+      expect(await sql`select id from dunnings`).toEqual([]);
+      await sql`update beleg_layouts set source = ${startvorlage("mahnung")} where id = ${created.id}`;
+      expect((await dunning.createDunning(actor, input, "2026-10-15")).level).toBe(input.level);
+    }, 120_000);
 
     it("setzt mit dem eigenen Layout für Mahnungen", async () => {
       const eingebaut = await dunning.dunningPreview(form(), "2026-10-15");

@@ -12,7 +12,7 @@ Den Aufbau im Detail beschreibt [Architektur](architektur.md).
 ## Voraussetzungen
 
 - [Bun](https://bun.com) in der Version aus `packageManager` in `package.json` (Laufzeit und Paketmanager zugleich; Node, npm und pnpm braucht Haben nicht)
-- PostgreSQL 18, lokal oder als Container
+- PostgreSQL 19, lokal oder als Container
 - Alternativ zu beiden: Docker oder Podman mit Compose, siehe [Mit Docker Compose](#mit-docker-compose)
 - Optional: ein C-Compiler (`cc`) für die ERiC-Tests mit nachgebauter Bibliothek, Java 25 (wie in der CI) für den KoSIT-Validator
 
@@ -61,7 +61,7 @@ cd haben
 docker compose up   # http://localhost:3000
 ```
 
-Compose startet PostgreSQL 18 (dasselbe Image `tristanteu/haben-db` wie im Betrieb), installiert die Abhängigkeiten, wendet die Migrationen an und startet den Dev-Server. Der Projektordner ist in den Container eingehängt; Änderungen am Code lädt der Dev-Server beim Speichern neu. Nach einer Änderung an `bun.lock` reicht ein Neustart (`docker compose restart app`); nach einer Änderung an `deploy/dev/` oder einer neuen Bun-Version baut `docker compose up --build` den Container neu. Den Einrichtungscode für das erste Konto zeigt das Log (`docker compose logs app`).
+Compose startet PostgreSQL 19 (dasselbe Image `tristanteu/haben-db` wie im Betrieb), installiert die Abhängigkeiten, wendet die Migrationen an und startet den Dev-Server. Der Projektordner ist in den Container eingehängt; Änderungen am Code lädt der Dev-Server beim Speichern neu. Nach einer Änderung an `bun.lock` reicht ein Neustart (`docker compose restart app`); nach einer Änderung an `deploy/dev/` oder einer neuen Bun-Version baut `docker compose up --build` den Container neu. Den Einrichtungscode für das erste Konto zeigt das Log (`docker compose logs app`).
 
 - **Schlüssel:** `BETTER_AUTH_SECRET` und `HABEN_ENCRYPTION_KEY` erzeugt der Container beim ersten Start zufällig und legt sie im Volume `daten` ab, zusammen mit den Belegen und einem heruntergeladenen ERiC. Feste Schlüssel stehen nicht im Repository.
 - **`apps/web/.env`** ist nicht nötig. Liegt sie vor, gelten ihre übrigen Werte auch im Container (etwa `ANTHROPIC_API_KEY` oder `HABEN_SETUP_CODE`); Datenbank, Adresse, Schlüssel, Belegordner und ERiC setzt `compose.yml`.
@@ -132,6 +132,8 @@ Projektname und Ports gelten für jeden Befehl dieser Umgebung, auch für `run`,
 | `bun run docs:screenshots` | Nimmt die Bilder in README und Doku neu auf (`docs/screenshot-*.png`, hell und dunkel, siehe [Bilder für README und Doku](#bilder-für-readme-und-doku)), danach Vorschaubild und Hero |
 | `bun run --cwd apps/firmenportal start` | Startet das Firmenportal (#504); die Variablen wie in `deploy/firmenportal/firmenportal.env.example`, etwa in `apps/firmenportal/.env` (Bun liest sie selbst). Mit `PORTAL_URL=http://localhost:…` geht die Anmeldung nur in Chromium: Safari und WebKit speichern die `Secure`-Cookies dort nicht, für sie gehört TLS davor; Tests laufen mit `bun run test` (`apps/firmenportal/src/*.test.ts`, gegen einen OIDC-Testanbieter auf Loopback) |
 | `bun run --cwd apps/elster-helfer build` | Baut die Erweiterung „Haben für Mein ELSTER“ nach `apps/elster-helfer/dist`; diesen Ordner lädt Chrome als entpackte Erweiterung |
+| `bun scripts/prs/rangliste.ts` | Vorschlag für die Rangliste der offenen Pull Requests (Skill `prs-abarbeiten`), mit `gh` |
+| `bun scripts/release/vorschau.ts` | Vorschau auf das nächste Release: Art, Commits, Issues, die es schließt, und Hinweise (Skill `release`), nur mit git |
 | `bun run docs:social-preview` | Rendert `scripts/social-preview/social-preview.html` nach `docs/social-preview.png` (1280 × 640, Bild für Settings → Social preview) |
 | `bun run docs:hero` | Rendert `scripts/hero/hero.html` nach `docs/hero-hell.png` und `docs/hero-dunkel.png` (1280 × 360 bei doppelter Auflösung, mit Rahmen wie die Screenshots, siehe [Bilder für README und Doku](#bilder-für-readme-und-doku); Bild oben in der README; Slogan in IBM Plex Serif aus `packages/einvoice/fonts`) |
 
@@ -140,6 +142,7 @@ Seiten der Doku:
 - **Front Matter:** `title:` (für Suchmaschinen, höchstens etwa 60 Zeichen; die Navigation nimmt den Namen aus `mkdocs.yml`) und `description:` (höchstens etwa 160 Zeichen, Pflicht). Daraus setzt `overrides/main.html` Beschreibung und Open Graph.
 - **Hinweise** im Stil von GitHub (`> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]` allein in der ersten Zeile); die deutschen Titel setzt `scripts/doku-hinweise`.
 - **Kurz halten:** Die Doku sagt Menschen, was gilt und warum. Schritte für Agenten stehen in den Skills unter `.claude/skills/`, wie ein Skript intern entscheidet, in dessen Kommentaren. Keine Sätze, die nur wiederholen, ankündigen oder zusammenfassen.
+- **Skills:** Die Beschreibung im Front Matter sagt nur, wann ein Agent den Skill lädt; sie steht in jeder Session im Kontext. Der Hauptteil trägt den Ablauf, den jeder Aufruf braucht; Vorlagen, lange Befehlslisten und was nur eine Rolle braucht, liegen unter `references/` im Ordner des Skills, und der Hauptteil sagt, wann sie zu lesen sind. Was ein Skript entscheiden kann, entscheidet ein Skript, nicht ein Absatz im Skill.
 - **Unterseiten statt langer Seiten:** Eine Seite bleibt unter etwa 8.000 Wörtern. Was nur ein Teil der Leser braucht (ein Anbieter, eine Rechtsform, ein Sonderfall, eine Nachschlagetabelle), steht auf einer eigenen Seite mit flachem Namen wie `bank-zahlungsdienstleister.md`, nicht in einem Unterordner: Kurzlinks wie `haben.app/bank/` legt `scripts/doku-kurzlinks` nur für Seiten direkt unter `docs/` an, und ein Ordner `bank/` nähme `bank.md` den Kurzlink. Die Anker bleiben gleich; an der alten Stelle steht ein kurzer Abschnitt mit den alten Ankern als `<a id>` und einem Verweis, damit Links aus ausgelieferten Versionen und von außen weiter treffen. Navigation in `mkdocs.yml` und `ueberblick.md` ändern sich zusammen.
 - Was der Build sonst ergänzt (Änderungsdatum, Weiterleitungen, kanonische Startseite), machen die Skripte `scripts/doku-*`; Tests mit `python -m unittest discover -s scripts/<ordner>`.
 
@@ -159,6 +162,8 @@ Die Integrationstests in `apps/web/src/server` brauchen `TEST_DATABASE_URL`, son
 > `TEST_DATABASE_URL` niemals auf einen Server mit echten Daten zeigen lassen. Die Tests löschen und überschreiben die Datenbanken `<name>_vorlage` und `<name>_<Nummer>` daneben.
 
 Neue Tests des sevDesk-Umzugs nehmen `sevdeskFakeFetch` (`apps/web/src/server/modules/archiv/test-sevdesk-api.ts`) und beantworten nur die Pfade, auf die es ihnen ankommt; den Rest beantwortet es wie ein leeres Konto in Buchhaltungsversion 1.0. Ein neuer Abrufschritt, der kein leeres Ergebnis verträgt, etwa `/AccountingType/{id}`, bekommt seine Grundantwort dort und nicht in jedem einzelnen Test.
+
+Tests der Skripte aus `apps/web/public`, die in der Konsole eines anderen Programms laufen (`lexware-sicherung.js`, `fastbill-belege.js`), nehmen `fakeBrowser` und `runInConsole` (`apps/web/src/server/modules/archiv/test-browser-skript.ts`): Downloads und Blob-Adressen nachgebaut, Pausen ohne echtes Warten.
 
 Vitest setzt für jeden Lauf `TMPDIR` auf einen eigenen Ordner `haben-test-<PID>-…` und löscht ihn am Ende; was Tests mit `tmpdir()` anlegen, verschwindet mit. Den Ordner eines abgebrochenen Laufs löscht ein späterer Lauf bei seinem Start, wenn der Prozess des abgebrochenen nicht mehr läuft.
 
@@ -243,7 +248,7 @@ Die Tests sind auf Projekte in `apps/web/playwright.config.ts` verteilt; was ein
 - **Eigene Durchläufe** mit eigenem Server und eigener Datenbank für Themen, die eigene Daten brauchen, etwa eine GmbH oder eine festgeschriebene Erklärung; Ports und Datenbanken stehen in `e2e/durchlaeufe.ts`.
 - **`ohne-daten`** für Tests, die keine Daten brauchen.
 
-Ein neuer Test gehört in den Durchlauf seines Themas; nach `app.spec.ts` nur, wenn `mit-daten` seine Daten braucht. In der CI laufen die Tests in fünf Teilen (`bun run e2e --shard=<n>/5`) und SSO als sechster; Bericht und Traces hängen als Artefakt `e2e-bericht-teil-<n>` am Lauf.
+Ein neuer Test gehört in den Durchlauf seines Themas; nach `app.spec.ts` nur, wenn `mit-daten` seine Daten braucht. Er wartet auf Ereignisse, nie eine feste Zeit (`waitForTimeout`): auf Antworten, mit Assertionen wie `toBeVisible`, `expect.poll` oder `page.clock`; soll etwas nicht passieren, erst das auslösende Ereignis abwarten, dann prüfen (`e2e/warten.ts`). In der CI laufen die Projekte in festen Teilen, verteilt nach Dauer in `TEILE` in `e2e/durchlaeufe.ts`, und SSO als eigener Teil; `E2E_TEIL=<teil> bun run e2e` startet nur dessen Projekte und Server, ohne die Variable läuft alles. Ein neuer Durchlauf kommt dort in den kürzesten Teil, sonst schlägt `e2e-teile.test.ts` fehl; ein neuer Teil auch in die Matrix in `ci.yml`. Bericht und Traces hängen als Artefakt `e2e-bericht-teil-<teil>` am Lauf.
 
 ### Bilder für README und Doku
 

@@ -480,15 +480,15 @@ Stornorechnung und Rechnungskorrektur übernehmen die Sprache der ursprüngliche
 
 ## Wiederkehrende Rechnungen
 
-Für Monatspauschalen, Wartungsverträge oder Hosting legst du unter **Rechnungen › Wiederkehrend › Neue Vorlage** eine Vorlage an. Haben erzeugt daraus zu jedem Termin eine Rechnung.
+Für Wochen- und Monatspauschalen, Wartungsverträge oder Hosting legst du unter **Rechnungen › Wiederkehrend › Neue Vorlage** eine Vorlage an. Haben erzeugt daraus zu jedem Termin eine Rechnung.
 
 | Feld | Bedeutung |
 |---|---|
 | Bezeichnung | Name der Vorlage für die Liste, Pflicht |
-| Intervall | monatlich, vierteljährlich, halbjährlich oder jährlich |
-| Nächste Rechnung am | Rechnungsdatum des nächsten Termins. Die folgenden Termine liegen am selben Tag im Monat; der 31. wird in kürzeren Monaten zum Monatsende und springt danach zurück. |
+| Intervall | wöchentlich, alle 2 oder 4 Wochen, monatlich, alle 2 Monate, vierteljährlich, halbjährlich oder jährlich |
+| Nächste Rechnung am | Rechnungsdatum des nächsten Termins. Bei Monaten liegen die folgenden Termine am selben Tag im Monat; der 31. wird in kürzeren Monaten zum Monatsende und springt danach zurück. Bei Wochen liegen sie 7, 14 bzw. 28 Tage später, am selben Wochentag. |
 | Endet nach dem | optional. Danach wird die Vorlage inaktiv. |
-| Leistungszeitraum | **Laufend:** die Monate ab dem Rechnungsmonat (Vorauszahlung). **Vergangen:** die Monate davor (Abrechnung). **Keiner:** ohne Leistungszeitraum, dann gilt das Rechnungsdatum. |
+| Leistungszeitraum | **Laufend:** die Monate ab dem Rechnungsmonat (Vorauszahlung), bei Wochen die 7, 14 bzw. 28 Tage ab dem Rechnungsdatum. **Vergangen:** die Monate davor (Abrechnung), bei Wochen ebenso viele Tage bis zum Vortag. **Keiner:** ohne Leistungszeitraum, dann gilt das Rechnungsdatum. |
 | Was am Termin passiert | **Entwurf anlegen:** du prüfst und schreibst selbst fest. **Direkt festschreiben:** Nummer, PDF, XML und Buchung wie beim Festschreiben von Hand; auf Wunsch **und per E-Mail an den Kunden schicken** (Vorlage und Adresse wie beim [Versand von Hand](#per-e-mail-versenden)). |
 | Aktiv | Ohne Häkchen erzeugt die Vorlage keine Rechnungen. |
 | Kunde, Einleitung, Positionen mit Text zur Position, Zahlungsziel, Format, Umsatzsteuer, Preise (netto oder brutto), Hinweis, Aufbewahrungshinweis, Anteil der Arbeits-, Maschinen- und Fahrtkosten | wie im Rechnungseditor |
@@ -501,7 +501,7 @@ In Einleitung, Beschreibungen, Texten zur Position und Hinweis ersetzt Haben Pla
 | `{monat}` | November |
 | `{jahr}` | 2026 |
 | `{quartal}` | Q4 |
-| `{zeitraum}` | November 2026, bei mehreren Monaten Oktober – Dezember 2026 |
+| `{zeitraum}` | November 2026, bei mehreren Monaten Oktober – Dezember 2026, bei Wochen 23.11.2026 – 29.11.2026 |
 
 Bezug ist der Leistungszeitraum, ohne Leistungszeitraum das Rechnungsdatum. „Wartung {monat} {jahr}“ wird so zu „Wartung November 2026“. Die Vorschau unter dem Formular zeigt die nächste Rechnung.
 

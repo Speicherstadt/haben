@@ -1,8 +1,7 @@
-import type { Cents } from "@haben/core";
+import { type Cents, parseRecurrence, type Recurrence, recurrenceParts } from "@haben/core";
 import { lexDate } from "../lexoffice/map.ts";
 import { mapSevVoucher, sevNumber } from "./map.ts";
 import type { SevVoucher, SevVoucherPos } from "./types.ts";
-import { sevIntervalMonths } from "./vorlagen.ts";
 
 /*
  * Vorlage wiederkehrender Belege aus sevDesk (Voucher mit voucherType RV) als Dauerbeleg von Haben (#472). Die Bedeutung der
@@ -24,7 +23,8 @@ export interface SevDauerbeleg {
   payment: "bank";
   amounts: { taxRate: 1900 | 700 | 0; net: Cents; tax: Cents }[];
   taxShown: boolean;
-  intervalMonths: 1 | 3 | 6 | 12;
+  /** Dauer nach ISO 8601 (#1691) */
+  recurrence: Recurrence;
   anchorDay: number;
   startDate: string;
   nextDate: string;
@@ -35,7 +35,6 @@ export interface SevDauerbeleg {
 
 export type SevDauerbelegErgebnis = { ok: true; dauerbeleg: SevDauerbeleg; hinweise: string[] } | { ok: false; grund: string };
 
-const INTERVALLE = new Set([1, 3, 6, 12]);
 const SAETZE = new Set([1900, 700, 0]);
 
 const deutsch = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
@@ -63,10 +62,14 @@ export function mapSevRecurringVoucher(v: SevVoucher, positions: SevVoucherPos[]
   const currency = v.currency?.trim() || "EUR";
   if (currency !== "EUR") return { ok: false, grund: `Währung ${currency}: Dauerbelege in Haben sind in Euro.` };
 
-  const months = sevIntervalMonths(v.recurringInterval);
+  const recurrence = parseRecurrence(v.recurringInterval);
   const intervall = v.recurringIntervall == null || v.recurringIntervall === "" ? null : sevNumber(v.recurringIntervall);
-  if (months === null || !INTERVALLE.has(months))
-    return { ok: false, grund: `Intervall ${v.recurringInterval ?? "–"} (${intervall ?? "–"}): Haben kennt 1, 3, 6 und 12 Monate.` };
+  if (recurrence === null)
+    return {
+      ok: false,
+      grund: `Intervall ${v.recurringInterval ?? "–"} (${intervall ?? "–"}): Haben kennt nur 1, 2 und 4 Wochen sowie 1, 2, 3, 6 und 12 Monate.`,
+    };
+  const months = recurrenceParts(recurrence).months;
 
   const { voucher } = mapSevVoucher(v, positions);
   if (voucher.gross < 0) return { ok: false, grund: "Negative Summe: Dauerbelege sind Ausgaben, keine Gutschriften." };
@@ -83,7 +86,7 @@ export function mapSevRecurringVoucher(v: SevVoucher, positions: SevVoucherPos[]
   const end = lexDate(v.recurringEndDate);
   const hinweise: string[] = [];
   // Maßgeblich ist die ISO-Dauer; recurringIntervall stimmte im echten Konto mit ihr überein, in den Testdaten nicht
-  if (intervall !== null && intervall !== months)
+  if (intervall !== null && months !== null && intervall !== months)
     hinweise.push(`Intervall in sevDesk widersprüchlich (${v.recurringInterval}, ${intervall}); ${months} Monate übernommen.`);
   const nextDate = next ?? start;
   if (!nextDate) return { ok: false, grund: "Weder nächster Termin noch Start angegeben." };
@@ -121,7 +124,7 @@ export function mapSevRecurringVoucher(v: SevVoucher, positions: SevVoucherPos[]
       payment: "bank",
       amounts,
       taxShown: amounts.some((a) => a.tax > 0),
-      intervalMonths: months as 1 | 3 | 6 | 12,
+      recurrence,
       anchorDay: ankertag(start, nextDate),
       startDate: start ?? nextDate,
       nextDate,

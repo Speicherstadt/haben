@@ -1,4 +1,4 @@
-import { addMonthsAnchored, type Cents, type Millis, type RecurringInterval, type ServicePeriodMode, TAX_RATES, type TaxTreatment } from "@haben/core";
+import { type Cents, type Millis, nthRecurrenceDate, type Recurrence, type ServicePeriodMode, TAX_RATES, type TaxTreatment } from "@haben/core";
 import { parseImportUnit } from "../csv-import/values.ts";
 import { lexToBasisPoints, lexToCents } from "../lexoffice/map.ts";
 import { fbDate, fbNumber } from "./map.ts";
@@ -32,7 +32,7 @@ export interface FbRecurringTemplate {
   taxTreatment: TaxTreatment;
   priceMode: "netto" | "brutto";
   lines: FbRecurringLine[];
-  intervalMonths: RecurringInterval;
+  recurrence: Recurrence;
   anchorDay: number;
   nextDate: string;
   endDate: string | null;
@@ -41,8 +41,17 @@ export interface FbRecurringTemplate {
 
 export type FbRecurringMapped = { ok: true; template: FbRecurringTemplate; customerId: string | null; hints: string[] } | { ok: false; reason: string };
 
-/** FREQUENCY → Monate; Wochen und zwei Monate kennt Haben nicht */
-const FREQUENCIES: Record<string, RecurringInterval> = { monthly: 1, "3 months": 3, "6 months": 6, yearly: 12 };
+/** FREQUENCY → Dauer nach ISO 8601; alle Werte aus types.ts */
+const FREQUENCIES: Record<string, Recurrence> = {
+  weekly: "P1W",
+  "2 weeks": "P2W",
+  "4 weeks": "P4W",
+  monthly: "P1M",
+  "2 months": "P2M",
+  "3 months": "P3M",
+  "6 months": "P6M",
+  yearly: "P1Y",
+};
 
 /** Wie beim Abgleich der Belege (fastbillTaxType in auswertungen/altbestand-steuerart.ts): 1 unterscheidet Lieferung und Leistung nicht */
 const VAT_CASES: Record<string, TaxTreatment> = {
@@ -113,9 +122,8 @@ export function mapFbRecurring(raw: FbRecurring, units: readonly string[] = [], 
   const currency = text(raw.CURRENCY_CODE).toUpperCase() || "EUR";
   if (currency !== "EUR") return { ok: false, reason: `Währung ${currency}: Haben erzeugt wiederkehrende Rechnungen nur in Euro.` };
   const frequency = text(raw.FREQUENCY);
-  const intervalMonths = FREQUENCIES[frequency];
-  if (!intervalMonths)
-    return { ok: false, reason: `Turnus „${frequency}“: Haben kennt nur monatlich, vierteljährlich, halbjährlich und jährlich. Bitte von Hand anlegen.` };
+  const recurrence = Object.hasOwn(FREQUENCIES, frequency) ? FREQUENCIES[frequency] : undefined;
+  if (!recurrence) return { ok: false, reason: `Turnus „${frequency}“ ist unbekannt. Bitte von Hand anlegen.` };
   const vatCase = text(raw.VAT_CASE);
   const taxTreatment = VAT_CASES[vatCase];
   if (!taxTreatment) return { ok: false, reason: `Umsatzsteuerfall „${vatCase}“ ist nicht eindeutig zuzuordnen. Bitte von Hand anlegen.` };
@@ -130,12 +138,12 @@ export function mapFbRecurring(raw: FbRecurring, units: readonly string[] = [], 
   const anchorDay = Number(startDate.slice(8, 10));
   // OCCURENCES zählt alle Läufe ab dem Startdatum (Maintainer in #1523)
   const occurrences = Math.round(fbNumber(raw.OCCURENCES));
-  const endDate = occurrences > 0 ? addMonthsAnchored(startDate, intervalMonths * (occurrences - 1), anchorDay) : null;
+  const endDate = occurrences > 0 ? nthRecurrenceDate(startDate, recurrence, anchorDay, occurrences - 1) : null;
   if (endDate) hints.push(`Laut FastBill ${occurrences} Läufe; Enddatum bitte prüfen.`);
   // Ein Startdatum in der Vergangenheit erzeugte beim Aktivieren alle Termine seit dann (dueDates, bis 120 Rechnungen);
   // deshalb der erste Termin ab heute
   let nextDate = startDate;
-  for (let n = 1; nextDate < today && n < 1200; n++) nextDate = addMonthsAnchored(startDate, intervalMonths * n, anchorDay);
+  for (let n = 1; nextDate < today && n < 1200; n++) nextDate = nthRecurrenceDate(startDate, recurrence, anchorDay, n);
   hints.push(
     nextDate === startDate
       ? "„Nächste Rechnung am“ ist das Startdatum aus FastBill. Prüfen, wann FastBill zuletzt abgerechnet hat."
@@ -164,7 +172,7 @@ export function mapFbRecurring(raw: FbRecurring, units: readonly string[] = [], 
       taxTreatment,
       priceMode: text(raw.IS_GROSS) === "1" ? "brutto" : "netto",
       lines: result,
-      intervalMonths,
+      recurrence,
       anchorDay,
       nextDate,
       endDate,

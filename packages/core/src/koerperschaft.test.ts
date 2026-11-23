@@ -289,6 +289,27 @@ describe("Körperschaft- und Gewerbesteuer", () => {
     expect(gruppe(beweglich), beweglich).toEqual([["beweglich", 100_000, 20_000]]);
   });
 
+  it.each([
+    ["SKR03", ["2107", "2111", "2123", "2124"], ["2105", "2108"], "2657"],
+    ["SKR04", ["7305", "7311", "7323", "7324"], ["7306", "7308"], "7105"],
+  ] as const)("%s: berücksichtigt abzugsfähige AO-Zinsen und Disagio in voller Höhe", (kontenrahmen, abzugsfaehig, nichtAbzugsfaehig, erstattungszinsen) => {
+    const zinsen = (account: string, saldo: number) => kapgSteuern(kontenrahmen, 2025, [{ account, saldo }], 1_000_000, ohneVortrag).gewstHinzurechnungen;
+    for (const account of abzugsfaehig) expect(zinsen(account, 80_000), account).toMatchObject([{ art: "zinsen", brutto: 80_000, betrag: 80_000 }]);
+    for (const account of nichtAbzugsfaehig) expect(zinsen(account, 80_000), account).toEqual([]);
+    expect(
+      kapgSteuern(
+        kontenrahmen,
+        2025,
+        [
+          { account: abzugsfaehig[0], saldo: 80_000 },
+          { account: erstattungszinsen, saldo: -30_000 },
+        ],
+        1_000_000,
+        ohneVortrag,
+      ).gewstHinzurechnungen,
+    ).toMatchObject([{ art: "zinsen", brutto: 80_000, betrag: 80_000 }]);
+  });
+
   it("Jede Gruppe der Hinzurechnung hat in SKR03 und SKR04 gleich viele Konten", () => {
     const anzahl = (kontenrahmen: "SKR03" | "SKR04") =>
       Object.fromEntries(Object.entries(GEWST_HINZURECHNUNG_KONTEN[kontenrahmen]).map(([art, konten]) => [art, konten.length]));
