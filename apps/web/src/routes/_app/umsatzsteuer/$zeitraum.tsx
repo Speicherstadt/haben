@@ -206,9 +206,11 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
   // Gespeicherter berechneter Entwurf, dessen Werte sich inzwischen geändert haben
   const stale = !locked && current?.source === "berechnet" && !sameFigures(current, computed);
 
-  // Gesendete Anmeldung, deren Buchungen sich danach geändert haben (z. B. Zuordnung aufgehoben)
+  // Gesendete Anmeldung, deren Buchungen sich danach geändert haben (z. B. Zuordnung aufgehoben). Kz 48 gilt auch ohne die
+  // Umsätze als Kleinunternehmer als gleich, so hat Haben sie vor #1268 gemeldet (wie gesendet-pruefen.ts)
   const sentBasis = locked ? (current!.source === "berechnet" ? current! : current!.computed) : null;
-  const drift = sentBasis !== null && sentBasis !== undefined && !sameFigures(sentBasis, computed);
+  const computedVor1268 = computeUstva({ ...data.figures, kz48: data.figures.kz48 - data.figures.kz48Kleinunternehmer, kz39: data.kz39 });
+  const drift = sentBasis !== null && sentBasis !== undefined && !sameFigures(sentBasis, computed) && !sameFigures(sentBasis, computedVor1268);
 
   function update(field: FieldKey, value: string) {
     setValues((prev) => ({ ...prev, [field]: value }));
