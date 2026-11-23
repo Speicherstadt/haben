@@ -10,10 +10,7 @@ import { ConfirmDialog } from "../ConfirmDialog.tsx";
 import { Field } from "../Field.tsx";
 import { FilePicker } from "../FilePicker.tsx";
 import { NoticeBanner } from "../NoticeBanner.tsx";
-
-const SCRIPT_URL = "/fastbill-belege.js";
-/** Stelle im Skript, an der Haben die Liste der wartenden Ausgaben einsetzt */
-const LIST_MARKER = /\/\*HABEN_LISTE\*\/\s*\[\]/;
+import { FASTBILL_LIST_MARKER as LIST_MARKER, FASTBILL_SCRIPT_URL as SCRIPT_URL } from "../../lib/fastbill-skript.ts";
 
 type Receipt = Awaited<ReturnType<typeof getMigration>>["fastbillReceipts"][number];
 

@@ -1,6 +1,6 @@
 # haben-backup
 
-Backup für [Haben](https://github.com/Speicherstadt/haben), die selbst gehostete Buchhaltung: ein SQL-Dump der Datenbank und die Belegdateien, verschlüsselt mit [restic](https://restic.net). Basis ist `postgres:18` mit den Programmen der älteren Versionen ab 16: `backup.sh` sichert mit dem `pg_dump` der Version, in der die Datenbank läuft, damit sich der Dump in dieselbe Datenbank wieder einspielen lässt.
+Backup für [Haben](https://github.com/Speicherstadt/haben), die selbst gehostete Buchhaltung: ein SQL-Dump der Datenbank und die Belegdateien, verschlüsselt mit [restic](https://restic.net). Basis ist `postgres:19` mit den Programmen der älteren Versionen ab 16: `backup.sh` sichert mit dem `pg_dump` der Version, in der die Datenbank läuft, damit sich der Dump in dieselbe Datenbank wieder einspielen lässt.
 
 - Compose: Dienst `backup` in [`deploy/compose.yml`](https://github.com/Speicherstadt/haben/blob/main/deploy/compose.yml), sichert täglich um `BACKUP_TIME` (Standard 03:15).
 - Podman Quadlets: [`haben-backup.container`](https://github.com/Speicherstadt/haben/blob/main/deploy/quadlet/haben-backup.container), gestartet von `haben-backup.timer`.

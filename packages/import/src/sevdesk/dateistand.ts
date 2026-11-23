@@ -6,6 +6,8 @@
  *   mit dem Beleg als object oder baseObject ist leer).
  * - Ein leeres `document` unterscheidet sich in keinem Feld von einer entfernten Datei. Es beweist also nicht, dass es nie
  *   eine Datei gab; „ohne Datei“ bleibt offen, bis eine Person es in sevDesk geprüft und bestätigt hat.
+ * - Ein Beleg ohne Datei hat keinen Schlüssel `document`, nicht `null`. Lädt man später eine Datei hoch, steht dort
+ *   `{id, objectName: "Document"}`, sonst ändert sich nur `update` (beleg-datei-nachgeladen.json, #1184).
  * - Jede fertige Rechnung und Gutschrift hat ein PDF (Eintrag mit baseObject in GET /Document). Ein fehlendes PDF ist
  *   deshalb immer ein fehlgeschlagener Abruf, nie „ohne Datei“.
  */

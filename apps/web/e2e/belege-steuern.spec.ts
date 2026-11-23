@@ -31,6 +31,7 @@ import { LAPTOP, sichtbar } from "./kopfzeile.ts";
 import { receiptJpeg } from "./belegbild.ts";
 import { vorsteuerPruefen } from "./belege-vorsteuer.ts";
 import { ustIdBestaetigungPruefen, zmBestaetigungPruefen } from "./ustid-bestaetigung.ts";
+import { abgearbeitet, serverAufrufe } from "./warten.ts";
 
 /**
  * Belege, Bank und Steuern in eigener, leerer Datenbank (Projekt „belege-steuern“, e2e/durchlaeufe.ts), parallel zu
@@ -2083,11 +2084,17 @@ test("Kontaktformular: Gleiche USt-IdNr. wird gemeldet, auch beim archivierten K
   await expect(hinweis.getByRole("link", { name: "„Altbestand USt GmbH“ öffnen" })).toBeVisible();
   await page.getByLabel("USt-IdNr.").fill("DE666666666");
   await expect(hinweis).toHaveCount(0);
+  // Die Abfrage, die das Formular beim Bearbeiten nach dem Anlegen stellt: mit excludeId, also nicht schon die beim Anlegen
+  const eigeneAbfrage = page.waitForResponse((antwort) => {
+    const url = new URL(antwort.url());
+    return url.pathname.startsWith("/_serverFn/") && url.search.includes("DE666666666") && url.search.includes("excludeId");
+  });
   await page.getByRole("button", { name: "Kontakt anlegen" }).click();
   await expect(page.getByRole("heading", { name: "Versionen" })).toBeVisible();
 
   // Beim Bearbeiten nennt der Server den eigenen Kontakt nicht (excludeId), wohl aber einen fremden mit derselben USt-IdNr.
-  await page.waitForTimeout(1000);
+  await (await eigeneAbfrage).finished();
+  await abgearbeitet(page);
   await expect(hinweis).toHaveCount(0);
   await page.getByLabel("USt-IdNr.").fill("DE555555555");
   await expect(hinweis).toContainText("gibt es schon „Altbestand USt GmbH“");
@@ -3769,9 +3776,10 @@ test("Leistungszeitraum: zwei Felder am Beleg, gespeichert und wieder angezeigt 
   await weitereAngabenOeffnen(page);
   await page.getByLabel("Leistung von").fill(day(-24));
   await page.getByLabel("Leistung bis").fill(day(-9));
-  await page.getByRole("button", { name: "Speichern" }).click();
   // Die Meldung ist Beiwerk; der Beweis ist, dass der Zeitraum nach dem Neuladen noch steht
-  await page.waitForTimeout(1500);
+  const speichern = serverAufrufe(page);
+  await page.getByRole("button", { name: "Speichern" }).click();
+  await speichern.fertig();
 
   await page.reload();
   await belegdatum.waitFor({ state: "visible", timeout: 30_000 });
