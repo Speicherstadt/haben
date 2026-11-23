@@ -31,7 +31,7 @@ import {
   BankError,
   gemeldeteVoranmeldungen,
   createAccount,
-  createProviderAccount,
+  createProviderAccountChecked,
   providerAccountSchema,
   importStatementFile,
   UnbekannteCsvError,
@@ -194,8 +194,8 @@ export const addProviderAccount = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(providerAccountSchema)
   .handler(async ({ data, context }) => {
-    const account = await createProviderAccount(context.user.id, data);
-    return { id: account.id };
+    const { account, warnung } = await createProviderAccountChecked(context.user.id, data);
+    return { id: account.id, warnung };
   });
 
 export const excludeBankAccount = createServerFn({ method: "POST" })

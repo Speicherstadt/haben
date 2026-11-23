@@ -187,6 +187,7 @@ export function ImportControls({ data }: { data: Data }) {
   const addProvider = useServerFn(addProviderAccount);
   const [accountType, setAccountType] = useState<"bank" | "provider">("bank");
   const [provider, setProvider] = useState("paypal");
+  const [marketplace, setMarketplace] = useState("");
   const [busy, setBusy] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
   const [targetAccount, setTargetAccount] = useState("");
@@ -215,7 +216,7 @@ export function ImportControls({ data }: { data: Data }) {
     const form = new FormData(event.currentTarget);
     setBusy(true);
     try {
-      const { id } =
+      const { id, warnung } =
         accountType === "provider"
           ? await addProvider({
               data: {
@@ -224,11 +225,11 @@ export function ImportControls({ data }: { data: Data }) {
                 marketplace: provider === "amazon" ? String(form.get("marketplace")) : undefined,
               },
             })
-          : await addAccount({ data: { name: String(form.get("name")), iban: String(form.get("iban")) } });
+          : { ...(await addAccount({ data: { name: String(form.get("name")), iban: String(form.get("iban")) } })), warnung: null as string | null };
       setShowAccount(false);
       setTargetAccount(id);
       await router.invalidate();
-      setMessages([{ tone: "ok", text: "Konto angelegt. Jetzt die Umsätze importieren." }]);
+      setMessages([{ tone: "ok", text: "Konto angelegt. Jetzt die Umsätze importieren." }, ...(warnung ? [{ tone: "info" as const, text: warnung }] : [])]);
     } catch (error) {
       setMessages([{ tone: "danger", text: errorMessage(error) }]);
     } finally {
@@ -293,7 +294,7 @@ export function ImportControls({ data }: { data: Data }) {
               {provider === "amazon" && (
                 <Field label="Marktplatz">
                   {(control) => (
-                    <select {...control} name="marketplace" required defaultValue="">
+                    <select {...control} name="marketplace" required value={marketplace} onChange={(e) => setMarketplace(e.target.value)}>
                       <option value="" disabled>
                         Marktplatz wählen
                       </option>
@@ -305,6 +306,11 @@ export function ImportControls({ data }: { data: Data }) {
                     </select>
                   )}
                 </Field>
+              )}
+              {provider === "amazon" && marketplace && data.accounts.some((a) => a.provider === "amazon" && a.marketplace === marketplace) && (
+                <span className="small muted">
+                  Für {marketplace} gibt es schon ein Konto. Ein zweites ist möglich; achte beim Import darauf, das richtige Konto zu wählen.
+                </span>
               )}
             </>
           )}

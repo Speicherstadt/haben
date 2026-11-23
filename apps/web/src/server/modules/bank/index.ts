@@ -29,9 +29,11 @@ export {
   accountSettingsSchema,
   createAccount,
   createProviderAccount,
+  createProviderAccountChecked,
   listAccounts,
   ownAccounts,
   providerAccountSchema,
+  providerDuplicateWarning,
   updateAccount,
 } from "./accounts.ts";
 export { importStatement, type ImportResult, storeStatement, UnbekannteCsvError } from "./statement-import.ts";

@@ -1163,6 +1163,15 @@ describe.skipIf(!testDatabaseUrl)("Bankabgleich (Postgres)", () => {
     await expect(bank.updateAccount(actor, { id: amazon.id, name: "Amazon DE", marketplace: "Amazon.fr" })).rejects.toThrow(/keine Umsätze/);
   }, 30_000);
 
+  it("Amazon: ein zweites Konto für denselben Marktplatz ist möglich und wird gemeldet", async () => {
+    expect(await bank.providerDuplicateWarning("amazon", "Amazon.de")).toBeNull();
+    await bank.createProviderAccount(actor, { name: "Amazon 1", provider: "amazon", marketplace: "Amazon.de" });
+    expect(await bank.providerDuplicateWarning("amazon", "Amazon.de")).toMatch(/Für den Marktplatz Amazon\.de gibt es schon das Konto „Amazon 1"/);
+    const zweites = await bank.createProviderAccount(actor, { name: "Amazon 2", provider: "amazon", marketplace: "Amazon.de" });
+    expect(zweites.marketplace).toBe("Amazon.de");
+    expect(await bank.providerDuplicateWarning("paypal", null)).toBeNull();
+  }, 30_000);
+
   it("Gebühren eines Monats der Sammelrechnung des Dienstleisters zuordnen", async () => {
     const stripe = await bank.createProviderAccount(actor, { name: "Stripe", provider: "stripe" });
     const csv = [
