@@ -141,6 +141,25 @@ describe.skipIf(!testDatabaseUrl)("MCP-Listen mit offset weiterblättern (Postgr
     ]);
   });
 
+  it("bankumsaetze_ohne_zuordnung: total zählt beim Zahlungsdienstleister die gelieferten Zeilen, anzahl Zahlung und Gebühr als eine", async () => {
+    const [konto] =
+      await sql`insert into bank_accounts (name, purpose, provider, ledger_index) values ('Zahldienst', 'zahlungsdienstleister', 'paypal', 1) returning id`;
+    const [imp] = await sql`insert into bank_imports (bank_account_id, filename, sha256, format, added, skipped)
+      values (${konto!.id}, 'zahldienst.csv', 'sha-zahldienst', 'csv', 2, 0) returning id`;
+    await sql`insert into bank_transactions (bank_account_id, import_id, booking_date, amount, counterparty_name, purpose, bank_reference, dedup_hash) values
+      (${konto!.id}, ${imp!.id}, '2026-10-21', 5000, 'Kundin', 'Zahlung', 'txn_1', 'zahldienst-1'),
+      (${konto!.id}, ${imp!.id}, '2026-10-21', -175, 'Zahldienst', 'Gebühr', 'txn_1-gebuehr', 'zahldienst-2')`;
+    type Konto = { konto: string; anzahl: number; total: number; umsaetze: unknown[] };
+    const lesen = async (offset: number) =>
+      ((await run("bankumsaetze_ohne_zuordnung", { limit: 1, offset })) as Konto[]).find((k) => k.konto === "Zahldienst")!;
+    const seiten = [await lesen(0), await lesen(1), await lesen(2)];
+    expect(seiten.map((k) => [k.anzahl, k.total, k.umsaetze.length])).toEqual([
+      [1, 2, 1],
+      [1, 2, 1],
+      [1, 2, 0],
+    ]);
+  });
+
   it("archiv_auftragsdokumente", async () => {
     await blaettern(
       "archiv_auftragsdokumente",
