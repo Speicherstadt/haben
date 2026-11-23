@@ -122,6 +122,8 @@ Wiedererkannt wird ein Kontakt am Personenkonto, nicht am Namen:
 | Steuersatz | Umsatzsteuer, Steuersatz, Steuerart, USt, MwSt | Pflicht, ohne stille Vorgabe: Kleinunternehmer brauchen 0 %, alle anderen meist 19 % |
 | Notiz | Notiz, Bemerkung | |
 
+Die Vorgabe **Kosten für § 35a EStG** kennt der Import nicht; importierte Artikel kommen als „Material und Sonstiges“ an. Arbeit, Maschinen und Fahrt stellst du danach im Artikel um ([Arbeits-, Maschinen- und Fahrtkosten](rechnungen.md#arbeits--maschinen--und-fahrtkosten--35a-estg)).
+
 Die Namen folgen der [Mustervorlage für Produkte und Services](https://help.lexware.de/de-form/articles/548269-produkte-und-services-per-csv-datei-importieren) von Lexware Office. Deren Spalte „Verkaufspreis“ ist netto oder brutto, je nachdem, was in Lexware Office unter den Allgemeinen Einstellungen steht. Haben ordnet sie deshalb nicht selbst zu; du wählst sie in der Vorschau als Netto- oder Bruttopreis.
 
 Stehen Netto- und Bruttopreis da, wie im Export von Lexware Office, gilt der Nettopreis, und der Bruttopreis muss auf einen Cent genau dazu passen. Sonst wäre unklar, welcher stimmt, und Haben übernimmt die Zeile nicht.
@@ -144,6 +146,10 @@ Der Import ist eine [Übernahme aus der bisherigen Buchhaltung](anlagen.md#über
 | Restbuchwert zum Stichtag | Restbuchwert, Buchwert | Buchwert am Tag vor dem Stichtag, also zum 31.12. des Vorjahres |
 | Bisherige AfA | bisherige AfA, kumulierte AfA | Statt des Restbuchwerts: Anschaffungskosten minus bisherige AfA. Stehen beide da, müssen sie zusammenpassen |
 | Notiz | Notiz, Bemerkung, Inventarnummer | |
+
+Bei der Dublettenprüfung vergleicht Haben Bezeichnung, Anschaffungsdatum und Anschaffungskosten. Ist die Notiz oder Inventarnummer in der Importzeile ausgefüllt, muss sie ebenfalls übereinstimmen. So kannst du baugleiche Anlagen mit unterschiedlichen Inventarnummern einzeln übernehmen.
+
+Steht dieselbe Anlage mit und ohne Inventarnummer oder Notiz in einer Datei, zählt die Zeile ohne diese Angabe als Dublette. Die Zeilen mit verschiedenen Inventarnummern bleiben einzeln sichtbar.
 
 Lexware Office liefert das Anlagenverzeichnis weder über die Schnittstelle noch als Datei; die Liste schreibst du aus dem Anlagenverzeichnis ab oder exportierst sie aus der bisherigen Buchhaltung.
 

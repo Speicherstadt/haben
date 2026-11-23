@@ -98,6 +98,7 @@ Viele Auftraggeber verlangen ihre Bestellnummer auf jeder Rechnung und weisen Re
 | Einzelpreis | In Euro, z. B. `95,00`. Negative Preise sind möglich, für einen Nachlass aber besser der [Rabatt](#rabatte). |
 | Rabatt | Optional, als Prozent (`10 %`) oder Betrag (`50,00`), siehe [Rabatte](#rabatte). |
 | Steuersatz | 19 %, 7 % oder 0 % |
+| Kosten für § 35a EStG | Nur mit dem Haken **Anteil der Arbeits-, Maschinen- und Fahrtkosten ausweisen**: **Material und Sonstiges** oder **Arbeit, Maschinen, Fahrt**, hinter der Bezeichnung. Siehe [Arbeits-, Maschinen- und Fahrtkosten](#arbeits--maschinen--und-fahrtkosten--35a-estg). |
 
 Der Zeilenbetrag ist Menge mal Einzelpreis, kaufmännisch auf Cent gerundet. Bei Nettopreisen rechnet Haben die Umsatzsteuer nach EN 16931 je Steuersatz auf die Summe der Zeilennetto, nicht als Summe der Steuer je Zeile. Bei mehreren Steuersätzen weist das PDF die Steuer je Satz mit ihrer Bemessungsgrundlage aus.
 
@@ -138,7 +139,7 @@ Der Gesamtbetrag stimmt damit auf den Cent mit den Endpreisen überein. Weil die
 
 Unter **Artikel** (Seitenleiste, Bereich Verkauf) legst du Positionen an, die du oft brauchst: Stundensatz, Tagessatz, Wartungspauschale.
 
-- Jeder Artikel hat eine Bezeichnung (eine Zeile), eine Einheit, einen Preis und einen Steuersatz, dazu optional einen **Text zur Position** (mehrzeilig, bis 2000 Zeichen), eine Artikelnummer und eine interne Notiz. Unter **Preis ist** legst du fest, ob der Preis netto oder brutto inklusive Umsatzsteuer gilt; in der Liste steht bei Bruttopreisen „brutto“.
+- Jeder Artikel hat eine Bezeichnung (eine Zeile), eine Einheit, einen Preis und einen Steuersatz, dazu optional einen **Text zur Position** (mehrzeilig, bis 2000 Zeichen), eine Artikelnummer, die Vorgabe **Kosten für § 35a EStG** ([Arbeits-, Maschinen- und Fahrtkosten](#arbeits--maschinen--und-fahrtkosten--35a-estg)) und eine interne Notiz. Unter **Preis ist** legst du fest, ob der Preis netto oder brutto inklusive Umsatzsteuer gilt; in der Liste steht bei Bruttopreisen „brutto“.
 - Passt der Preis nicht zum Preismodus der Rechnung, rechnet Haben ihn beim Einfügen um, kaufmännisch auf Cent gerundet: Ein Artikel zu 9,80 € brutto steht in einer Netto-Rechnung mit 8,24 €, ein Artikel zu 100,00 € netto in einer Brutto-Rechnung mit 119,00 €. Ohne Steuerausweis übernimmt Haben den Preis unverändert.
 - Im Editor für Rechnungen und Angebote sucht **Aus dem Katalog einfügen** nach Bezeichnung und Artikelnummer und fügt den Artikel als Position mit Menge 1 ein, mit Bezeichnung, Text und Artikelnummer. Ist die einzige Zeile noch leer, ersetzt er sie.
 - Ein Klick in die Beschreibung einer Position zeigt den Katalog, beim Tippen passende Artikel, jeweils mit Nummer, Preis (netto oder brutto) und Einheit; gesucht wird nach Bezeichnung und Artikelnummer, die Liste zeigt höchstens 50 Treffer. Wählst du einen Treffer mit Tastatur oder Maus, übernimmt die Position dessen Text, Artikelnummer, Einheit, Preis und Steuersatz; die Menge bleibt, bei einem Artikel ohne Text auch ein schon eingegebener Text der Position. Danach kannst du alles von Hand ändern.
@@ -193,14 +194,14 @@ Unter **Standard für** machst du einen Baustein zum Standard einer Belegart. Er
 | Belegart | Kopftext | Fußtext |
 | --- | --- | --- |
 | Rechnung, Angebot | Einleitung des neuen Entwurfs | Hinweis des neuen Entwurfs |
-| Mahnung | Einleitung, für jede Stufe | Schluss, für jede Stufe |
+| Mahnung, je Stufe (Zahlungserinnerung, 1. Mahnung, letzte Mahnung) | Einleitung der Stufe | Schluss der Stufe |
 | Auftragsbestätigung | beim Erzeugen, wenn das Angebot keine Einleitung hat | beim Erzeugen, wenn das Angebot keinen Hinweis hat |
 | Lieferschein | – | Hinweis, beim Erzeugen |
 
-- Je Belegart und Art gibt es höchstens einen Standard. Machst du einen weiteren zum Standard, löst er den bisherigen ab. Ein archivierter Baustein ist kein Standard mehr, auch nicht nach dem Wiederherstellen.
+- Bei der Mahnung wählst du die Stufe, etwa **Mahnungen: Letzte Mahnung**; eine Stufe ohne Standard behält ihre Vorlage (siehe [Mahnwesen](rechnungen-zahlung.md#mahnwesen)). Ein Standard „Mahnungen“ aus einer älteren Version galt für jede Stufe: Beim Update bleibt er Standard der 1. Mahnung, Zahlungserinnerung und letzte Mahnung bekommen je eine Kopie mit dem Namen der Stufe in Klammern. Dasselbe gilt beim Übernehmen einer älteren Exportdatei; die Rückmeldung zählt dann die Bausteine der Datei, nicht die Kopien.
+- Je Belegart und Art gibt es höchstens einen Standard. Machst du einen weiteren zum Standard, löst er den bisherigen ab, bei der Mahnung den derselben Stufe. Ein archivierter Baustein ist kein Standard mehr, auch nicht nach dem Wiederherstellen.
 - Ein Standard gilt für alle Kunden; ein Baustein für einen bestimmten Kunden kann kein Standard sein. Der Lieferschein hat nur einen Hinweis, dort geht nur ein Fußtext.
 - Auftragsbestätigung und Lieferschein haben keinen Entwurf: Der Standard greift jedes Mal, wenn du sie erzeugst, auch für ein schon angenommenes Angebot; einen eigenen Text des Angebots ersetzt er nicht. Ohne Standard bleibt es bei den Texten des Angebots bzw. ohne Hinweis.
-- Bei der Mahnung ersetzt ein Standard die Vorlage der Stufe, und zwar für alle Stufen gleich; ohne Standard bleiben die Vorlagen je Stufe (siehe [Mahnwesen](rechnungen-zahlung.md#mahnwesen)).
 - [Platzhalter](#platzhalter-in-einleitung-und-hinweis) bleiben im Entwurf stehen und werden in Rechnung und Angebot bei Vorschau und Festschreiben eingesetzt, in der Auftragsbestätigung beim Erzeugen. In Mahnung und Lieferschein setzt Haben keine Platzhalter ein.
 - Die frühere **Standard-Einleitung** aus den Firmendaten hat Haben beim Update in je einen Kopftext-Baustein mit Standard für Rechnungen bzw. Angebote übernommen, ebenso beim Übernehmen der Einstellungen aus einer älteren Exportdatei.
 
@@ -310,6 +311,19 @@ Bei steuerpflichtigen Werklieferungen oder sonstigen Leistungen im Zusammenhang 
 - Wiederkehrende Rechnungen haben denselben Haken; jede daraus erzeugte Rechnung übernimmt ihn. Die REST-API verwendet `propertyRetention` ([API](api.md)).
 - Nach dem Festschreiben ist die Auswahl gesperrt. Storno und Rechnungskorrektur übernehmen sie unveränderlich aus der ursprünglichen Rechnung. Bestehende Belegdateien ändern sich nicht.
 - Für Kleinunternehmer bleibt die Auswahl freiwillig verfügbar. [§ 34a UStDV](https://www.gesetze-im-internet.de/ustdv_1980/__34a.html) nennt den Hinweis nicht unter den Mindestangaben einer Kleinunternehmerrechnung; Haben setzt ihn dort nicht automatisch.
+
+## Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG)
+
+Privatkunden können für Handwerkerleistungen und haushaltsnahe Dienstleistungen einen Teil der Kosten von ihrer Einkommensteuer abziehen. Das gilt nur für die Arbeitskosten ([§ 35a Abs. 5 Satz 2 EStG](https://www.gesetze-im-internet.de/estg/__35a.html)), dazu zählen auch die in Rechnung gestellten Maschinen- und Fahrtkosten, Material aber nicht; Verbrauchsmittel bleiben nicht außer Ansatz, kennzeichne sie als **Arbeit, Maschinen, Fahrt** (BMF-Schreiben vom 09.11.2016, BStBl I S. 1213, geändert am 01.09.2021, BStBl I S. 1494, Rz. 39). Arbeit außerhalb des Haushalts ist nicht begünstigt; führe sie als eigene Position mit **Material und Sonstiges** und nenne in der Bezeichnung, dass sie außerhalb des Haushalts erbracht wurde (Rz. 39). Der Anteil muss sich aus der Rechnung ermitteln lassen, ein eigener Ausweis der Umsatzsteuer darauf ist nicht nötig (Rz. 40). Beispiel: 3 Rauchwarnmelder je 31,00 €, Montage 3 × 8,00 € und Anfahrt 35,00 € ergeben 59,00 € Arbeits- und Fahrtkosten.
+
+- Im Editor von Rechnung, Angebot und wiederkehrender Rechnung **Anteil der Arbeits-, Maschinen- und Fahrtkosten ausweisen (§ 35a EStG)** anhaken. Hinter der Bezeichnung jeder Position steht dann die Auswahl **Material und Sonstiges** oder **Arbeit, Maschinen, Fahrt**. Haben erkennt Privatkunden nicht selbst; ohne Haken erscheint kein Satz.
+- Unter den Summen steht dann „Darin sind Arbeits-, Maschinen- und Fahrtkosten von 59,00 € enthalten (§ 35a EStG).“, bei regulärer Besteuerung mit „inkl. USt“. Der Betrag ist die Summe der gekennzeichneten Positionen nach ihrem Rabatt, um ihren Anteil am Gesamtrabatt gemindert, bei Nettopreisen mit der Umsatzsteuer ihres Satzes. Der Satz nennt den Anteil vor Skonto; zieht der Kunde Skonto ab, sind seine Aufwendungen entsprechend kleiner. Der Satz steht im PDF, auch in eigenen Layouts über das Pflichtfeld `taxNote`, und als BT-22 in ZUGFeRD und XRechnung, auf Englisch auch englisch.
+- Im Angebot zählen optionale und alternative Positionen nicht mit, wie bei der Summe. Die Rechnung aus dem Angebot, Kopien, Storno, Rechnungskorrektur und wiederkehrende Rechnungen übernehmen die Auswahl je Position. Das Storno nennt den Anteil mit Minus.
+- Eine Abschlagsrechnung aus dem [Zahlungsplan](angebote.md#zahlungsplan) eines Angebots mit gekennzeichneten Positionen teilt ihren Betrag je Steuersatz auf bis zu zwei Positionen auf, „…, Anteil Arbeits-, Maschinen- und Fahrtkosten“ und „…, Anteil Material und Sonstiges“, im Verhältnis des Auftrags nach Rabatt (prozentuale Aufteilung, Rz. 40). So nennt jede ihren eigenen Anteil, denn der Kunde setzt seine Aufwendungen im Jahr der Zahlung an ([§ 11 Abs. 2 EStG](https://www.gesetze-im-internet.de/estg/__11.html)). Andere Abschlagsrechnungen nennen einen Anteil, wenn du ihre Positionen kennzeichnest.
+- In der Schlussrechnung nennt der Satz den Anteil der ganzen Leistung vor Abzug der Abschlagsrechnungen. Nennt jede abgezogene Abschlagsrechnung einen Anteil, folgt ein zweiter Satz, etwa „Davon entfallen 2.216,70 € auf die Abschlagsrechnungen und 5.172,30 € auf diese Rechnung.“ Fehlt einer der Anteil oder liegen die je Abschlagsrechnung gerundeten Anteile zusammen über dem der ganzen Leistung (bei 50 % / 50 % / Rest möglich), bleibt es beim ersten Satz, ebenso in Storno und Rechnungskorrektur.
+- Im [Artikelkatalog](#artikelkatalog) legt **Kosten für § 35a EStG** die Vorgabe fest, die beim Einfügen in die Position geht. Fügst du einen solchen Artikel ein, ist der Haken gesetzt; nimmst du ihn heraus, verlieren alle Positionen das Kennzeichen.
+- In der REST-API heißt das Feld `arbeitskosten`, je Position und am Artikel ([API](api.md#beispiele)).
+- Haben prüft nicht, ob die Leistung im Haushalt des Kunden erbracht wurde und ob er unbar zahlt; beides ist Voraussetzung für den Abzug (§ 35a Abs. 4 und Abs. 5 Satz 3 EStG).
 
 ## Was beim Festschreiben passiert
 
@@ -467,18 +481,18 @@ Stornorechnung und Rechnungskorrektur übernehmen die Sprache der ursprüngliche
 
 ## Wiederkehrende Rechnungen
 
-Für Monatspauschalen, Wartungsverträge oder Hosting legst du unter **Rechnungen › Wiederkehrend › Neue Vorlage** eine Vorlage an. Haben erzeugt daraus zu jedem Termin eine Rechnung.
+Für Wochen- und Monatspauschalen, Wartungsverträge oder Hosting legst du unter **Rechnungen › Wiederkehrend › Neue Vorlage** eine Vorlage an. Haben erzeugt daraus zu jedem Termin eine Rechnung.
 
 | Feld | Bedeutung |
 |---|---|
 | Bezeichnung | Name der Vorlage für die Liste, Pflicht |
-| Intervall | monatlich, vierteljährlich, halbjährlich oder jährlich |
-| Nächste Rechnung am | Rechnungsdatum des nächsten Termins. Die folgenden Termine liegen am selben Tag im Monat; der 31. wird in kürzeren Monaten zum Monatsende und springt danach zurück. |
+| Intervall | wöchentlich, alle 2 oder 4 Wochen, monatlich, alle 2 Monate, vierteljährlich, halbjährlich oder jährlich |
+| Nächste Rechnung am | Rechnungsdatum des nächsten Termins. Bei Monaten liegen die folgenden Termine am selben Tag im Monat; der 31. wird in kürzeren Monaten zum Monatsende und springt danach zurück. Bei Wochen liegen sie 7, 14 bzw. 28 Tage später, am selben Wochentag. |
 | Endet nach dem | optional. Danach wird die Vorlage inaktiv. |
-| Leistungszeitraum | **Laufend:** die Monate ab dem Rechnungsmonat (Vorauszahlung). **Vergangen:** die Monate davor (Abrechnung). **Keiner:** ohne Leistungszeitraum, dann gilt das Rechnungsdatum. |
+| Leistungszeitraum | **Laufend:** die Monate ab dem Rechnungsmonat (Vorauszahlung), bei Wochen die 7, 14 bzw. 28 Tage ab dem Rechnungsdatum. **Vergangen:** die Monate davor (Abrechnung), bei Wochen ebenso viele Tage bis zum Vortag. **Keiner:** ohne Leistungszeitraum, dann gilt das Rechnungsdatum. |
 | Was am Termin passiert | **Entwurf anlegen:** du prüfst und schreibst selbst fest. **Direkt festschreiben:** Nummer, PDF, XML und Buchung wie beim Festschreiben von Hand; auf Wunsch **und per E-Mail an den Kunden schicken** (Vorlage und Adresse wie beim [Versand von Hand](#per-e-mail-versenden)). |
 | Aktiv | Ohne Häkchen erzeugt die Vorlage keine Rechnungen. |
-| Kunde, Einleitung, Positionen mit Text zur Position, Zahlungsziel, Format, Umsatzsteuer, Preise (netto oder brutto), Hinweis, Aufbewahrungshinweis | wie im Rechnungseditor |
+| Kunde, Einleitung, Positionen mit Text zur Position, Zahlungsziel, Format, Umsatzsteuer, Preise (netto oder brutto), Hinweis, Aufbewahrungshinweis, Anteil der Arbeits-, Maschinen- und Fahrtkosten | wie im Rechnungseditor |
 | Zahlungsart | Überweisung oder SEPA-Lastschrift; bei Lastschrift wählt jeder Lauf das Mandat selbst, siehe [Lastschrift](rechnungen-zahlung.md#lastschrift) |
 
 In Einleitung, Beschreibungen, Texten zur Position und Hinweis ersetzt Haben Platzhalter:
@@ -488,7 +502,7 @@ In Einleitung, Beschreibungen, Texten zur Position und Hinweis ersetzt Haben Pla
 | `{monat}` | November |
 | `{jahr}` | 2026 |
 | `{quartal}` | Q4 |
-| `{zeitraum}` | November 2026, bei mehreren Monaten Oktober – Dezember 2026 |
+| `{zeitraum}` | November 2026, bei mehreren Monaten Oktober – Dezember 2026, bei Wochen 23.11.2026 – 29.11.2026 |
 
 Bezug ist der Leistungszeitraum, ohne Leistungszeitraum das Rechnungsdatum. „Wartung {monat} {jahr}“ wird so zu „Wartung November 2026“. Die Vorschau unter dem Formular zeigt die nächste Rechnung.
 

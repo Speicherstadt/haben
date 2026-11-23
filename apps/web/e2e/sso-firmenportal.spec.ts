@@ -12,13 +12,19 @@ const BASE = `${process.env.E2E_SERVER_COMMAND ? "https" : "http"}://localhost:3
 /** Wie in playwright.sso-only.config.ts */
 const PORTAL = `${process.env.E2E_SERVER_COMMAND ? "https" : "http"}://localhost:3217`;
 
-/** Better Auth lässt je Adresse nur 3 Anmeldeversuche in 10 Sekunden zu (wie in sso-only.spec.ts) */
-let letzterStart = 0;
+/**
+ * Better Auth lässt je Adresse nur 3 Anmeldeversuche in 10 Sekunden zu und liest sie aus X-Forwarded-For (wie in
+ * sso-only.spec.ts); jede Anmeldung kommt deshalb von einer eigenen Adresse (203.0.113.0/24, TEST-NET-3)
+ */
+let starts = 0;
+async function eigeneAdresse(page: Page) {
+  starts += 1;
+  await page.setExtraHTTPHeaders({ "x-forwarded-for": `203.0.113.${starts}` });
+}
+
 async function habenAnmelden(page: Page, groups: string) {
   await page.goto(`${BASE}/login`, { waitUntil: "networkidle", timeout: 120_000 });
-  const warten = letzterStart + 10_500 - Date.now();
-  if (warten > 0) await page.waitForTimeout(warten);
-  letzterStart = Date.now();
+  await eigeneAdresse(page);
   await page.getByRole("button", { name: /^Mit Test-SSO (einrichten|anmelden)$/ }).click();
   await anbieter(page, "inhaberin@example.de", groups);
   await page.waitForURL(`${BASE}/`);
@@ -41,9 +47,8 @@ async function portalAnmelden(browser: Browser, groups: string): Promise<Page> {
 
 async function ohneVerstoesse(page: Page) {
   for (const colorScheme of ["light", "dark"] as const) {
-    await page.emulateMedia({ colorScheme });
-    // Knöpfe blenden ihre Fläche über --fade (0,15 s) über; axe soll den Endzustand messen
-    await page.waitForTimeout(300);
+    // Knöpfe blenden ihre Fläche über --fade (0,15 s) über; axe soll den Endzustand messen, ohne Übergang gleich
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
     expect((await new AxeBuilder({ page }).analyze()).violations, colorScheme).toEqual([]);
   }
 }
@@ -205,9 +210,7 @@ test("Firmenportal: mit genau einer Firma geht es nach der Anmeldung direkt dort
 test("Aus dem Firmenportal in eine Firma, ohne Klick auf der Login-Seite von Haben", async ({ browser }) => {
   const page = await portalAnmelden(browser, "haben-inhaber, haben-sued-inhaber");
   await page.waitForURL(`${PORTAL}/`);
-  const warten = letzterStart + 10_500 - Date.now();
-  if (warten > 0) await page.waitForTimeout(warten);
-  letzterStart = Date.now();
+  await eigeneAdresse(page);
   await firmen(page).filter({ hasText: "Studio Nord" }).click();
   // Haben startet die Anmeldung selbst; der Testanbieter fragt ohne eigene Sitzung noch einmal
   await anbieter(page, "inhaberin@example.de", "haben-inhaber");

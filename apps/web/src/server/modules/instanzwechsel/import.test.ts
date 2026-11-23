@@ -532,6 +532,18 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     ]);
   });
 
+  it("liest eine Datei der Version 2: Artikel ohne Kennzeichen für § 35a EStG bekommen „Material und Sonstiges“ (#712)", async () => {
+    await testinstanz();
+    await sql`update articles set arbeitskosten = true`;
+    const zip = await exportierenUndNeu();
+    const { sha256: _, ...inhalt } = einstellungen(zip);
+    expect(inhalt.articles).toEqual([expect.objectContaining({ arbeitskosten: true })]);
+    const artikel = inhalt.articles.map(({ arbeitskosten: _a, ...rest }: Record<string, unknown>) => rest);
+    const alt = withChecksum({ ...inhalt, version: 2, articles: artikel });
+    await instanzwechsel.importSettings(actor, neuGepackt(unzipSync(zip), { "einstellungen.json": strToU8(JSON.stringify(alt)) }), HEUTE);
+    expect(await sql`select description, arbeitskosten from articles`).toEqual([{ description: "Jahreslizenz", arbeitskosten: false }]);
+  });
+
   it("lehnt ein verändertes oder beschädigtes ZIP ab, bevor es etwas schreibt", async () => {
     await testinstanz();
     const zip = await exportierenUndNeu();

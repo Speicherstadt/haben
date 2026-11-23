@@ -127,7 +127,33 @@ describe("Körperschaft- und Gewerbesteuer", () => {
     expect(s.einkommen).toBe(1_054_800);
   });
 
-  it("Hinzurechnung nach § 8 Nr. 1 GewStG erst über 200.000 €", () => {
+  it.each([
+    ["SKR03", "2493", "2100"],
+    ["SKR04", "7399", "7300"],
+  ] as const)("%s: Gewinn- und Verlustanteile typisch stiller Gesellschafter", (kontenrahmen, beteiligung, zinsen) => {
+    // BFH I R 4/14 und I R 15/15: wirksame Verlustanteile gehen negativ in die Summe ein, ohne spiegelbildlichen Freibetrag.
+    for (const [anteil, schuldzinsen, ergebnis, hinzurechnung, verlust] of [
+      [2_500_000, 19_000_000, 1_000_000, 375_000, 0],
+      [-2_500_000, 25_000_000, -1_000_000, 625_000, 375_000],
+      [-2_000_000, 0, -1_000_000, -500_000, 1_500_000],
+    ] as const) {
+      const s = kapgSteuern(
+        kontenrahmen,
+        2025,
+        [
+          { account: beteiligung, saldo: anteil },
+          { account: zinsen, saldo: schuldzinsen },
+        ],
+        ergebnis,
+        ohneVortrag,
+      );
+      expect(s.gewstHinzurechnungen).toContainEqual(expect.objectContaining({ art: "stilleGesellschafter", brutto: anteil, betrag: anteil }));
+      expect(s.hinzurechnungGewst).toBe(hinzurechnung);
+      expect(s.verlustvortragGewst).toBe(verlust);
+    }
+  });
+
+  it("Positive Hinzurechnung nach § 8 Nr. 1 GewStG erst über 200.000 €", () => {
     const klein = kapgSteuern("SKR04", 2026, [{ account: "6310", saldo: 2_400_000 }], 1_000_000, ohneVortrag);
     expect(klein.hinzurechnungGewst).toBe(0);
     // Zinsen 150.000 € voll, Miete 200.000 € zur Hälfte: 250.000 € − 200.000 € Freibetrag, davon ein Viertel
@@ -287,6 +313,27 @@ describe("Körperschaft- und Gewerbesteuer", () => {
     for (const account of zinsen) expect(gruppe(account), account).toEqual([["zinsen", 100_000, 100_000]]);
     expect(gruppe(unbeweglich), unbeweglich).toEqual([["unbeweglich", 100_000, 50_000]]);
     expect(gruppe(beweglich), beweglich).toEqual([["beweglich", 100_000, 20_000]]);
+  });
+
+  it.each([
+    ["SKR03", ["2107", "2111", "2123", "2124"], ["2105", "2108"], "2657"],
+    ["SKR04", ["7305", "7311", "7323", "7324"], ["7306", "7308"], "7105"],
+  ] as const)("%s: berücksichtigt abzugsfähige AO-Zinsen und Disagio in voller Höhe", (kontenrahmen, abzugsfaehig, nichtAbzugsfaehig, erstattungszinsen) => {
+    const zinsen = (account: string, saldo: number) => kapgSteuern(kontenrahmen, 2025, [{ account, saldo }], 1_000_000, ohneVortrag).gewstHinzurechnungen;
+    for (const account of abzugsfaehig) expect(zinsen(account, 80_000), account).toMatchObject([{ art: "zinsen", brutto: 80_000, betrag: 80_000 }]);
+    for (const account of nichtAbzugsfaehig) expect(zinsen(account, 80_000), account).toEqual([]);
+    expect(
+      kapgSteuern(
+        kontenrahmen,
+        2025,
+        [
+          { account: abzugsfaehig[0], saldo: 80_000 },
+          { account: erstattungszinsen, saldo: -30_000 },
+        ],
+        1_000_000,
+        ohneVortrag,
+      ).gewstHinzurechnungen,
+    ).toMatchObject([{ art: "zinsen", brutto: 80_000, betrag: 80_000 }]);
   });
 
   it("Jede Gruppe der Hinzurechnung hat in SKR03 und SKR04 gleich viele Konten", () => {

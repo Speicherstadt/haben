@@ -237,18 +237,24 @@ export function assetCandidates(table: CsvTable, mapping: ColumnMapping, opening
       };
       errors.push(...takeoverProblems(asset));
     }
+    const keys = asset ? assetKeys(asset, asset.note) : [];
     return {
       line: row.line,
       title: name || "(ohne Bezeichnung)",
       value: errors.length > 0 ? null : asset,
       errors,
-      keys: asset ? assetKeys(asset) : [],
+      keys,
+      rememberKeys: asset?.note ? [...keys, ...assetKeys(asset)] : undefined,
     };
   });
 }
 
-/** Eine Anlage erkennt Haben an Bezeichnung, Anschaffungsdatum und Anschaffungskosten zusammen */
-export function assetKeys(a: { name: string; acquisitionDate: string; cost: Cents }) {
+/** Bezeichnung, Anschaffung und Kosten; beim CSV-Import mit Notiz bzw. Inventarnummer, wenn vorhanden */
+export function assetKeys(a: { name: string; acquisitionDate: string; cost: Cents }, note?: string) {
   const [year, month, day] = a.acquisitionDate.split("-");
-  return duplicateKey("Bezeichnung, Anschaffung und Kosten", `${a.name} · ${day}.${month}.${year} · ${formatDecimal(a.cost)} €`);
+  const basis = `${a.name} · ${day}.${month}.${year} · ${formatDecimal(a.cost)} €`;
+  const notiz = note?.trim();
+  if (!notiz) return duplicateKey("Bezeichnung, Anschaffung und Kosten", basis);
+  const identity = JSON.stringify([a.name.trim().toLowerCase(), a.acquisitionDate, a.cost, notiz.toLowerCase()]);
+  return duplicateKey("Bezeichnung, Anschaffung, Kosten und Notiz", `${basis} · ${notiz}`).map((key) => ({ ...key, identity }));
 }

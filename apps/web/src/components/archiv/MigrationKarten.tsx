@@ -7,6 +7,7 @@ import { Connection } from "./MigrationVerbindung.tsx";
 import { SevdeskExportImport } from "./SevdeskExportImport.tsx";
 import { WebBackup } from "./WebBackup.tsx";
 import { WisoImport } from "./WisoImport.tsx";
+import { WisoAssets } from "./WisoAssets.tsx";
 import type { MigrationData, Source } from "./migration-quellen.ts";
 
 export function MigrationCards({ source, data }: { source: Source; data: MigrationData }) {
@@ -22,7 +23,12 @@ export function MigrationCards({ source, data }: { source: Source; data: Migrati
     case "buchhaltungsbutler":
       return <BuchhaltungsButlerImport initial={data.bbImport} />;
     case "wiso":
-      return <WisoImport initial={data.wisoImport} />;
+      return (
+        <>
+          <WisoImport initial={data.wisoImport} />
+          <WisoAssets />
+        </>
+      );
   }
 }
 

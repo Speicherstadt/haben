@@ -91,6 +91,8 @@ export interface SevExportVoucher {
   rate: BasisPoints | null;
   lines: SevExportLine[];
   document: SevExportDocument | null;
+  /** Ein Beleglink ohne Zuordnung, solange nicht alle Dateilisten vollständig gelesen werden konnten. */
+  documentUnclear?: true;
   /**
    * Gutschrift im Gutschriftverfahren: im Rechnungsausgang, gebucht im Soll eines Aufwandskontos mit Vorsteuer (BU 8 oder 9).
    * Ein Aufwand, keine Minderung der Erlöse.

@@ -4,16 +4,16 @@ import { ANONYMOUS, chunks, currentYear, fakeEigeneSeite, firstLink, SESSION, US
 
 /**
  * Barrierefreiheit und Tastaturbedienung, mit den Daten und der Sitzung aus app.spec.ts (Projekt „mit-daten“ in
- * playwright.config.ts). axe-core prüft jede Seite gegen WCAG 2.2 AA und die Best Practices von axe, die
- * Farbkontraste zusätzlich in allen übrigen Themes. Die Tastaturtests melden sich ohne Maus an, springen mit dem
+ * playwright.config.ts). axe-core prüft jede Seite gegen WCAG 2.2 AA und die Best Practices von axe, nur im
+ * Standard-Theme Wald, die Farbkontraste auch dunkel; die übrigen Farben prüft src/lib/theme-kontrast.test.ts an den Tokens. Die Tastaturtests melden sich ohne Maus an, springen mit dem
  * Sprunglink zum Inhalt und tabben durch die Seiten: Jedes Element mit Fokus muss einen sichtbaren Rahmen haben.
  * Jede Seite ist ein eigener Test, damit sie sich auf die Worker verteilen; geschrieben wird nichts.
  */
 
 test.use({ storageState: SESSION });
 const WCAG = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"];
-/** Jede Farbe hell und dunkel, als „Farbe“ oder „Farbe:dunkel“ (withTheme) */
-const THEMES = ["wald", "ozean", "pflaume", "graphit", "wald:dunkel", "ozean:dunkel", "pflaume:dunkel", "graphit:dunkel"];
+/** Das Standard-Theme hell und dunkel (withTheme) */
+const THEMES = ["wald", "wald:dunkel"];
 
 const YEAR = currentYear();
 
@@ -45,13 +45,14 @@ const PAGES = [
   "/umsatzsteuer",
   // Quartal, das nicht zum eingestellten Zeitraum passt: mit Hinweis und gesperrtem Senden
   `/umsatzsteuer/${YEAR}-Q1`,
-  // Zusammenfassende Meldung, hier leer; mit der Leistung ins EU-Ausland und der Testübermittlung prüft sie belege-steuern.spec.ts
+  // Zusammenfassende Meldung, hier leer; mit der Leistung ins EU-Ausland und der Testübermittlung prüft sie belege-steuern-erklaerungen.spec.ts
   `/umsatzsteuer/zm/${YEAR + 1}-Q1`,
   `/jahreserklaerung/${YEAR}`,
   "/finanzamt",
   "/fristen",
   "/auswertungen",
   "/auswertungen/bwa?zeitraum=jahr&zeile=erloese",
+  "/auswertungen/liquiditaet?horizont=12m",
   "/auswertungen/bwa?zeitraum=jahr&leer=1",
   "/buchungen",
   "/buchungen/neu",
@@ -92,7 +93,7 @@ const PAGES = [
   "/steuerberatung",
 ];
 
-/** Für die übrigen Themes: Seiten, auf denen zusammen jede Art von Link, Knopf, Hinweis und Tabelle vorkommt */
+/** Für den dunklen Modus: Seiten, auf denen zusammen jede Art von Link, Knopf, Hinweis und Tabelle vorkommt */
 const THEME_PAGES = [
   "/",
   "/rechnungen",
@@ -103,6 +104,7 @@ const THEME_PAGES = [
   "/fristen",
   "/auswertungen",
   "/auswertungen/bwa?zeitraum=jahr",
+  "/auswertungen/liquiditaet",
   `/jahreserklaerung/${YEAR}`,
   "/archiv",
   "/einstellungen?bereich=elster",
@@ -754,7 +756,7 @@ test("Kennzahlen der Voranmeldung am Handy: Bezeichnung über die volle Breite, 
   expect(await axe(page), "axe am Handy").toEqual([]);
 });
 
-test("Befehlspalette: Strg+K, Tastatursteuerung, Fokus-Rückgabe und axe in allen Themes sowie am Handy", async ({ page }) => {
+test("Befehlspalette: Strg+K, Tastatursteuerung, Fokus-Rückgabe und axe hell, dunkel und am Handy", async ({ page }) => {
   await withTheme(page, "wald");
   await open(page, "/");
 

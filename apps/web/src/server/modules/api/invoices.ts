@@ -75,7 +75,7 @@ function invoiceOut(row: ListRow, invoice: Invoice, lines: InvoiceLine[], baseUr
     currency: invoice.currency,
     exchangeRate: invoice.exchangeRate,
     tax: invoice.tax,
-    lines: lines.map(({ position, description, detail, itemNumber, quantity, unit, unitPrice, taxRate, net }) => ({
+    lines: lines.map(({ position, description, detail, itemNumber, quantity, unit, unitPrice, taxRate, net, arbeitskosten }) => ({
       position,
       description,
       detail,
@@ -85,6 +85,7 @@ function invoiceOut(row: ListRow, invoice: Invoice, lines: InvoiceLine[], baseUr
       unitPrice,
       taxRate,
       net,
+      arbeitskosten,
     })),
     createdAt: invoice.createdAt.toISOString(),
     updatedAt: invoice.updatedAt.toISOString(),

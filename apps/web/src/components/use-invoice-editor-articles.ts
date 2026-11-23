@@ -31,6 +31,7 @@ export function useInvoiceEditorArticles(editor: InvoiceEditorFigures) {
               unit: article.unit as UnitLabel,
               unitPrice: articlePrice(article),
               taxRate: special ? 0 : (article.taxRate as 1900 | 700 | 0),
+              arbeitskosten: article.arbeitskosten,
             }
           : line,
       ),
@@ -52,6 +53,7 @@ export function useInvoiceEditorArticles(editor: InvoiceEditorFigures) {
         unit: line.unit,
         taxRate: special ? 1900 : line.taxRate,
         priceIncludesTax: grossPrices,
+        arbeitskosten: line.arbeitskosten,
         ...(price === null ? {} : { unitPrice: price }),
       },
     });
@@ -71,6 +73,7 @@ export function useInvoiceEditorArticles(editor: InvoiceEditorFigures) {
             unitPrice: p.unitPrice,
             taxRate: p.taxRate,
             priceIncludesTax: grossPrices,
+            arbeitskosten: p.arbeitskosten,
           },
         },
       });
@@ -86,6 +89,7 @@ export function useInvoiceEditorArticles(editor: InvoiceEditorFigures) {
       detail: article.detail,
       itemNumber: article.number,
       unitPrice: articlePrice(article),
+      arbeitskosten: article.arbeitskosten,
     };
     setLines((prev) => (prev.length === 1 && !prev[0]!.description.trim() && !prev[0]!.unitPrice.trim() ? [line] : [...prev, line]));
     setDirty(true);

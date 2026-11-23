@@ -1,4 +1,5 @@
 import { accountingTypeKinds, accountingTypeUnclear } from "../auswertungen/index.ts";
+import { ohneSevdeskExportBelegbildSql } from "./sevdesk-export-abgleich.ts";
 import { truncatedNumberMatches } from "./datev-belegnummer.ts";
 import { effectivePayment, paymentHistoryIssue, visiblePayment } from "../auswertungen/index.ts";
 import { accountingTypeDecidable, accountingTypeIssue } from "./sevdesk-kontoart.ts";
@@ -16,6 +17,7 @@ export const WITHOUT_RECEIPT = sql<boolean>`coalesce((lexoffice_vouchers.raw->>'
 
 export async function listLegacyVouchers(filter: { year: number; direction: "alle" | "einnahme" | "ausgabe"; search: string; ohneDatei: boolean }) {
   const term = filter.search.trim() ? `%${filter.search.trim()}%` : null;
+  const hatDatei = sql`exists (select 1 from lexoffice_voucher_files f where f.voucher_id = v.id)`;
   const rows = await db.execute<{
     id: string;
     source: LegacySource;
@@ -43,8 +45,10 @@ export async function listLegacyVouchers(filter: { year: number; direction: "all
       ${
         // Vorauswahl vor dem Limit; welcher Stand offen ist, entscheidet legacyFileStatus unten
         filter.ohneDatei
-          ? sql`and not coalesce((v.raw->>'ohneBeleg')::boolean, false) and (not exists (select 1 from lexoffice_voucher_files f where f.voucher_id = v.id)
-              or ${latestFileStateSql("v")} in ('abruf_fehlgeschlagen', 'anhang_fehlt'))`
+          ? sql`and not coalesce((v.raw->>'ohneBeleg')::boolean, false) and (
+              (not ${hatDatei} and not ${ohneSevdeskExportBelegbildSql("v")})
+              or (${hatDatei} and ${latestFileStateSql("v")} in ('abruf_fehlgeschlagen', 'anhang_fehlt'))
+            )`
           : sql``
       }
     order by v.date, v.number

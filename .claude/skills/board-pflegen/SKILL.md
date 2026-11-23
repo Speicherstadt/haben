@@ -1,6 +1,6 @@
 ---
 name: "board-pflegen"
-description: "Project „Roadmap“ von Haben pflegen (https://github.com/orgs/Speicherstadt/projects/3): offene Gespräche und Übernahme-Wünsche in Issues finden, neue Issues prüfen (wollen wir das, erledigt, Duplikat, genug Angaben) und einordnen, Fragen an den Maintainer mit Empfehlung und Antwortentwurf vorlegen, angekündigte Folge-Issues anlegen, Karten aufräumen, nach einem Release prüfen; das Ergebnis bekommt jedes fremde Issue als kurzen Kommentar. Mit gh und gh api graphql. Vorschläge an den Maintainer, umsetzen und kommentieren erst nach seinem OK. Wenn neue Issues da sind, einmal pro Woche oder nach einem Release."
+description: "Das Project „Roadmap“ von Haben pflegen: neue Issues prüfen und einordnen, offene Gespräche und Übernahme-Wünsche finden, Karten aufräumen. Wenn neue Issues da sind, einmal pro Woche oder nach einem Release."
 ---
 
 # Board pflegen
@@ -15,19 +15,7 @@ Die Planung von Haben steht im [Project „Roadmap“](https://github.com/orgs/S
 
 ## Das Board
 
-| Feld | Werte |
-| --- | --- |
-| Status | Später, Geplant, In Arbeit, Im nächsten Release, Erledigt |
-| Aufwand | S, S–M, M, M–L, L |
-| Bereich | Bank und Kasse, Belege, Rechnungen, Steuern, Buchhaltung, Lohn, Umzug, Oberfläche, Plattform |
-| Hinweis | Freitext ohne Markdown: Frist, Vorbedingung, wer es übernimmt |
-
-- **Rang** ist die Position in der Spalte, von oben nach unten. Es gibt keine Platznummer; in einer Ansicht keine Sortierung setzen, sonst ist der Rang nicht zu sehen.
-- **Reihenfolge in „Geplant“:** zuerst Fehler bei Steuer und Buchung, dann kleine Wünsche aus dem Alltag, dann was Freiberuflern und kleinen GmbHs beim Buchen am meisten fehlt (`docs/roadmap.md`).
-- **Eine Karte je Thema.** Gehören mehrere Issues zu einem Thema, stehen sie als eigene Karten direkt untereinander; Hinweis nur auf der ersten. Ein Thema ohne Issue ist ein Entwurf (Draft Item).
-- **Nicht ins Board:** Fragen, Sammel-Issues, Interna (Renovate, CI), Themen unter „Bewusst nicht“.
-- **`einstieg`:** Label für kleine, abgegrenzte Issues ohne Steuer- oder GoBD-Feinheiten, die niemand übernommen hat. Auch größere Issues, die sich in kleine Pull Requests teilen lassen und deren Ergebnis Tests absichern (etwa Aufräumen ohne Verhaltensänderung).
-- **Labels:** Jedes offene Issue hat einen Typ (`fehler`, `wunsch`, `steuer`, `umzug`, `frage`, `technik`, `doku`); die Formulare setzen ihn selbst, Issues per `gh issue create` oder von Agenten oft nicht. Dazu passt, wo es zutrifft, ein Themen-Label (`buchung`, `oberfläche`, `schnittstelle`, `jahreswerte`, `hosting`). Was jedes Label bedeutet, zeigt `gh label list --repo Speicherstadt/haben`. Keine neuen Labels anlegen und keine englischen Doppel wie `bug`: Ein neues Label schlägt der Maintainer vor bzw. legt es an; findet sich eins, das nicht in dieser Liste steht, als Fund in Schritt 3 vorschlagen (ersetzen und löschen oder in die Liste aufnehmen).
+Felder (Status, Aufwand, Bereich, Hinweis), Rang, Reihenfolge in „Geplant“, was nicht ins Board gehört, `einstieg` und Labels: `references/board.md`. Vor Schritt 2 lesen.
 
 ## Ablauf
 
@@ -86,53 +74,11 @@ Die Rangfolge in „Geplant“ entscheidet der Maintainer. Erledigtes ohne `Umge
 
 ### 4. Umsetzen, nach OK
 
-IDs einmal holen:
-
-```sh
-gh project view 3 --owner Speicherstadt --format json --jq .id          # PROJECT_ID
-gh project field-list 3 --owner Speicherstadt --format json             # Feld- und Options-IDs
-```
-
-| Schritt | Befehl |
-| --- | --- |
-| Issue hinzufügen | `gh project item-add 3 --owner Speicherstadt --url https://github.com/Speicherstadt/haben/issues/<n> --format json --jq .id` |
-| Entwurf anlegen | `gh project item-create 3 --owner Speicherstadt --title "…" --body "…" --format json --jq .id` |
-| Auswahlfeld setzen | `gh project item-edit --project-id $PROJECT_ID --id <item> --field-id <feld> --single-select-option-id <option>` |
-| Text setzen | `gh project item-edit --project-id $PROJECT_ID --id <item> --field-id <feld> --text "…"` |
-| Labels setzen | `gh issue edit <n> --repo Speicherstadt/haben --add-label wunsch,buchung` |
-| Zuweisen (Übernahme) | `gh issue edit <n> --repo Speicherstadt/haben --add-assignee <login>`; der Workflow „Board“ schiebt die Karte nach „In Arbeit“ |
-
-Position (das CLI kann es nicht): GraphQL, `afterId` ist die Karte darüber, ohne `afterId` ganz nach oben.
-
-```sh
-gh api graphql -f query='mutation($p:ID!,$i:ID!,$a:ID){updateProjectV2ItemPosition(input:{projectId:$p,itemId:$i,afterId:$a}){clientMutationId}}' \
-  -f p=$PROJECT_ID -f i=<item> -f a=<item-darüber>
-```
-
-Der Workflow „Item added to project“ setzt bei neuen Karten selbst einen Status, manchmal kurz nach dem eigenen Aufruf: Status zum Schluss noch einmal auslesen und bei Abweichung neu setzen. Nach Zuweisungen ebenso prüfen, dass die Karte in „In Arbeit“ steht.
+Karten anlegen, Felder setzen, Position per GraphQL, Labels, Zuweisung: Befehle in `references/umsetzen.md`. Zum Schluss den Status noch einmal auslesen; der Workflow „Item added to project“ überschreibt ihn manchmal.
 
 ### 5. Kommentieren, nach OK
 
-Wer ein Issue schreibt, soll wissen, dass es gelesen und wie es eingeordnet wurde. Das OK des Maintainers zur Tabelle aus Schritt 3 ist der Auftrag dafür.
-
-- Ein Kommentar je geprüftem Issue und je Karte, die der Skill anlegt oder in eine andere Spalte schiebt, sofern das Issue noch keinen Kommentar zur Einordnung hat; auch bei Folge-Issues und bei Issues des Maintainers oder seiner Agenten: Wer das Issue später liest, sieht so, wo es steht. Bei eigenen Issues ohne „Danke!“.
-- Kurz, auf Deutsch, Du-Form; kein Termin und kein Versprechen; die Begründung aus Schritt 2 mit Link. Kein Hinweis auf das Werkzeug: Der Text ist eine Mitteilung des Maintainers.
-- `gh issue comment <n> --repo Speicherstadt/haben --body-file <datei>`
-
-| Ergebnis | Text (Vorlage, anpassen) |
-| --- | --- |
-| Aufnehmen | Danke! Ist jetzt im [Board](https://github.com/orgs/Speicherstadt/projects/3) unter „Geplant“ (bzw. „Später“), Bereich Belege. Die Reihenfolge in der Spalte ist die Priorität. Wer es übernehmen möchte: [Etwas übernehmen](https://haben.app/mitwirken.html#etwas-übernehmen). Bei `einstieg` zusätzlich: Gut für den Einstieg geeignet. |
-| Teilweise | Danke! Ist jetzt im [Board](https://github.com/orgs/Speicherstadt/projects/3) unter „…“, Bereich …, mit diesem Umfang: … Nicht dazu gehört …, weil … ([Bewusst nicht](https://haben.app/roadmap.html#bewusst-nicht), falls dort). |
-| Rückfrage | Danke! Damit wir es einordnen können, fehlt noch: … Sobald das da ist, kommt es ins [Board](https://github.com/orgs/Speicherstadt/projects/3). |
-| Duplikat | Danke! Das Thema steht schon in #… (bzw. im Entwurf „…“ im [Board](https://github.com/orgs/Speicherstadt/projects/3)). Was hier neu ist (…), ist dort vermerkt. |
-| Nicht ins Board | Danke! Das planen wir nicht: [Bewusst nicht](https://haben.app/roadmap.html#bewusst-nicht), Zeile „…“. Kurz der Grund … |
-| Erledigt | Danke! Das gibt es seit v… ([Release](https://github.com/Speicherstadt/haben/releases/tag/v…), PR #…). |
-
-Antworten in offenen Gesprächen (Schritt 1) und die Antworten auf Fragen an den Maintainer (Schritt 3) gehen genauso nach OK, mit dem freigegebenen Entwurf; Fragen zu einem PR als Kommentar im PR, nicht im Issue. Bei einer Übernahme: @-Erwähnung, „gehört dir“, Umfang in einem Satz (bei einer Skizze: „Die Skizze passt so“ oder was abweicht), Hinweis auf „In Arbeit“.
-
-**Folge-Issues, nach OK:** Jedes in einer freigegebenen Antwort angekündigte Issue gleich anlegen (`gh issue create --repo Speicherstadt/haben --title "…" --body-file <datei> --label <typ>,<thema>`): Problem, Regel bzw. Vorschlag, Akzeptanzkriterien und ein Link auf den Kommentar mit der Entscheidung. Danach wie „Aufnehmen“ ins Board (Schritt 4) mit Hinweis, etwa wem es angeboten ist, und mit Kommentar zur Einordnung; zugewiesen wird erst nach `/übernehmen`.
-
-Schließen bleibt beim Maintainer, ebenso die Labels `rückmeldung`, `sammlung` und `verbesserung`.
+Jedes geprüfte Issue und jede angelegte oder verschobene Karte bekommt einen kurzen Kommentar zur Einordnung, dazu die freigegebenen Antworten und angekündigten Folge-Issues. Regeln und Vorlagen in `references/kommentieren.md`. Schließen bleibt beim Maintainer.
 
 ### 6. Prüfen
 

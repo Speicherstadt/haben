@@ -205,7 +205,7 @@ Ein Layout läuft ohne Änderung weiter, solange seine Version des Feldvertrags 
 | `totals.euroTax.rows` | `object[]` | ja |  | Umsatzsteuer in Euro je Satz, bei mehreren Sätzen auch gesamt |
 | `totals.euroTax.rows[].label` | `string` | ja |  | Bezeichnung, links |
 | `totals.euroTax.rows[].value` | `string` | ja |  | Wert, rechts |
-| `taxNote` | `null \| string` | ja | ja | Feste Pflichthinweise unter den Summen: ohne Steuerausweis (etwa Kleinunternehmer, Reverse Charge) und zur Aufbewahrung privater Grundstücksleistungen; null ohne |
+| `taxNote` | `null \| string` | ja | ja | Feste Hinweise unter den Summen: ohne Steuerausweis (etwa Kleinunternehmer, Reverse Charge), zur Aufbewahrung privater Grundstücksleistungen und zum Anteil der Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG); null ohne |
 | `intro` | `null \| string` | nein |  | Einleitung über den Positionen ohne Auszeichnungszeichen; null ohne, fehlt auf dem Lieferschein |
 | `introFormatted` | `null \| object[]` | nein |  | Einleitung mit Auszeichnungen; null ohne, fehlt auf dem Lieferschein |
 | `introFormatted[].text` | `string` | ja |  | Text des Abschnitts |

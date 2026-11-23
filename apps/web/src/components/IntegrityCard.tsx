@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState, type FormEvent } from "react";
 import { formatDateTime } from "../lib/format.ts";
 import { integrityNotice, pruefwertNotice, weitereText } from "../lib/pruefbericht.ts";
+import { releaseNotesUrl } from "../lib/release-notes.ts";
 import { useAction } from "../lib/use-action.ts";
 import { NoticeBanner } from "./NoticeBanner.tsx";
 import { comparePruefwert, runFileAndIntegrityCheck, runIntegrityCheck, type getChainHead } from "../server/functions/integrity.ts";
@@ -31,6 +32,24 @@ const TABELLEN: Record<string, string> = {
   pauschalen: "Pauschale",
   asset_depreciations: "AfA",
 };
+
+/** Prüfsumme der Sperren (#1683), zum Vergleich mit der Prüfsumme in den Versionshinweisen auf GitHub */
+function InventoryChecksumResult({ checksum }: { checksum: IntegrityReport["inventoryChecksum"] }) {
+  const link = <a href={releaseNotesUrl(__HABEN_VERSION__)}>Versionshinweisen zu Haben {__HABEN_VERSION__}</a>;
+  return (
+    <div className="small">
+      <div className="muted">Prüfsumme der Sperren</div>
+      <code style={{ overflowWrap: "anywhere" }}>{checksum.own}</code>
+      {checksum.own === checksum.shipped ? (
+        <div className="muted">Gleich der des Sollbestands, den diese Version ausliefert; veröffentlicht in den {link}.</div>
+      ) : (
+        <div className="muted" style={{ overflowWrap: "anywhere" }}>
+          Weicht vom Sollbestand ab, den diese Version ausliefert ({checksum.shipped}, veröffentlicht in den {link}).
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Letzte Vollprüfung der Dateien im Dokumentenspeicher: Zeitpunkt, Anzahl und je Datei mit Befund Art und Name */
 function FileCheckResult({ files }: { files: IntegrityReport["files"] }) {
@@ -138,6 +157,7 @@ export function IntegrityCard({ head }: { head: Head }) {
           </ul>
         </div>
       )}
+      {report && <InventoryChecksumResult checksum={report.inventoryChecksum} />}
       {report && <FileCheckResult files={report.files} />}
       {report && (report.abgleich.abweichungen.length > 0 || report.abgleich.hinweise.length > 0) && (
         <div className="small">

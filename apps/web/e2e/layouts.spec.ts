@@ -58,6 +58,20 @@ async function datei(page: Page, name: string, inhalt: string) {
 const startvorlage = async (page: Page) => (await page.request.get("/api/belegvorlagen?datei=start&art=beleg")).text();
 const ROT = `#place(top + left, dx: 5mm, dy: 5mm, text(14pt, fill: rgb("#d40000"))[EIGENES LAYOUT])`;
 
+// Hier statt in gestaltung.spec.ts: Die Tests dieser Datei ändern die Zuordnung und liefen dort parallel daneben
+test("Die Einstellungen nennen je Belegart das eingebaute Layout", async ({ browser }) => {
+  const page = await einstellungen(browser);
+  // Oben ein Layout für alle; die Tabelle je Belegart steht eingeklappt, solange alle dasselbe haben
+  await expect(karte(page).getByLabel("Layout", { exact: true })).toHaveValue("eingebaut:klar");
+  await karte(page).getByText("Je Belegart abweichend wählen").click();
+  await expect(karte(page).getByRole("row")).toHaveCount(6);
+  // Ohne eigene Zuordnung steht je Belegart das eingebaute Layout in der Auswahl
+  const mahnung = karte(page).getByLabel("Layout für Mahnung");
+  await expect(mahnung).toHaveValue("eingebaut:klar");
+  await expect(mahnung.locator("option:checked")).toHaveText("Klar (eingebaut)");
+  await page.context().close();
+});
+
 test("Ein Layout ohne Pflichtangaben wird abgelehnt und nicht gespeichert", async ({ browser }) => {
   const page = await einstellungen(browser);
   await expect(hochladen(page).locator(".banner-warn")).toContainText("keine Gewähr");

@@ -90,6 +90,8 @@ export interface InvoiceDocumentLine {
   discount?: Discount;
   /** Schlussrechnung: Abzug einer Abschlagsrechnung; zählt nicht zur Grundlage des Gesamtrabatts */
   deductionOf?: string;
+  /** Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG, #712); ihr Anteil steht unter den Summen, fehlt = nein */
+  arbeitskosten?: boolean;
 }
 
 /** Firmenlogo für den Briefkopf; PNG oder JPEG */
@@ -114,10 +116,10 @@ export interface Letterhead {
   layout?: { id: string; optionen?: Record<string, string> };
   /**
    * Eigenes Layout: bekommt die fertigen Daten der Vorlage und liefert das PDF, das statt der eingebauten Vorlage gilt.
-   * undefined = eingebaute Vorlage. Der Server nutzt das zweimal: einmal, um die Daten abzufangen, einmal mit dem PDF
-   * aus dem Render-Prozess (withCustomLayout in apps/web).
+   * Der Server nutzt das zweimal: einmal, um die Daten abzufangen (dort bricht pdfFrom mit einem Fehler ab), einmal mit
+   * dem PDF aus dem Render-Prozess (withCustomLayout in apps/web).
    */
-  pdfFrom?: (request: PdfRequest) => Uint8Array | undefined;
+  pdfFrom?: (request: PdfRequest) => Uint8Array;
   /**
    * Eigenes Layout, das look.legalPosition nicht kennt (kenntPflichtangabenFelder): Die Pflichtangaben
    * kommen nur über legal, ihre Platzhalter in der Fußzeile bleiben leer (#1651).
@@ -181,8 +183,11 @@ export interface InvoiceDocument extends Letterhead {
   language?: "de" | "en";
   /** Nur bei kind „rechnung“; fehlt = normale Rechnung */
   variant?: InvoiceVariant;
-  /** Schlussrechnung: abgezogene Abschlagsrechnungen (BT-25); die Abzüge selbst stehen als negative Positionen in lines */
-  deducted?: { number: string; issueDate: string }[];
+  /**
+   * Schlussrechnung: abgezogene Abschlagsrechnungen (BT-25); die Abzüge selbst stehen als negative Positionen in lines.
+   * arbeitskosten ist der Anteil, den die Abschlagsrechnung nach § 35a EStG nennt (#1667)
+   */
+  deducted?: { number: string; issueDate: string; arbeitskosten?: number }[];
   /** Bestell-, Auftrags- und Lieferscheinnummer (BT-13, BT-14, BT-16) */
   references?: OrderReferences;
   /** Einzug per SEPA-Lastschrift (#445); fehlt = Überweisung. Nur bei Rechnungen mit Zahlbetrag in Euro */

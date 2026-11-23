@@ -77,6 +77,18 @@ describe.skipIf(!testDatabaseUrl)("WISO-Import (Postgres)", () => {
     ]);
   });
 
+  it("legt bei einem gemischten Export mit Fehlerzeilen weder einen Lauf noch Dateien oder Belege an", async () => {
+    const bytes = wisoBytes([
+      "1;1;15.03.2026;15.03.2026;Honorar;8400;Erlöse;1200;Bank;0,00;119,00;;19,00;;RE-1;15.03.2026;;0",
+      "2;1;kein Datum",
+      "3;1;17.03.2026;17.03.2026;Honorar;8400;Erlöse;1200;Bank;falsch;119,00;;19,00;;RE-2;17.03.2026;;0",
+    ]);
+    await expect(wiso.startWisoImport("test-user", bytes, "wiso-mit-fehlern.csv")).rejects.toThrow(/Zeile 3: ungültiges Zahlungsdatum\.\nZeile 4:/);
+    expect(await sql`select count(*)::int as n from lexoffice_imports`).toEqual([{ n: 0 }]);
+    expect(await sql`select count(*)::int as n from lexoffice_vouchers`).toEqual([{ n: 0 }]);
+    expect(await sql`select count(*)::int as n from archive_files`).toEqual([{ n: 0 }]);
+  });
+
   it.each(["SKR03", "SKR04"] as const)("%s: archiviert ohne Leistungsdatum und erhält Zahlung, Original und Dublettenkennung", async (skr) => {
     await sql`update company set kontenrahmen = ${skr}`;
     const revenue = skr === "SKR03" ? "8400" : "4400";

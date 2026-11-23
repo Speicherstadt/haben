@@ -1,4 +1,4 @@
-import { formatEuro, type RecurringInterval, type ServicePeriodMode, type TaxTreatment, type UnitLabel } from "@haben/core";
+import { formatEuro, type ServicePeriodMode, type TaxTreatment, type UnitLabel } from "@haben/core";
 import { Link, createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -79,7 +79,7 @@ function RecurringDetailPage() {
             exemptionReason: recurring.exemptionReason,
             priceMode: recurring.priceMode,
             lines: recurring.lines.map((l) => ({ ...l, detail: l.detail ?? "", unit: l.unit as UnitLabel, taxRate: l.taxRate as 1900 | 700 | 0 })),
-            intervalMonths: recurring.intervalMonths as RecurringInterval,
+            recurrence: recurring.recurrence,
             nextDate: recurring.nextDate,
             endDate: recurring.endDate,
             servicePeriod: recurring.servicePeriod as ServicePeriodMode,

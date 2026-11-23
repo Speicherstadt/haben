@@ -8,6 +8,7 @@ import { db, schema } from "../../db/index.ts";
 import { customTaxSetId } from "./sevdesk-steuerarten.ts";
 import { latestFileStateSql } from "./dateistand.ts";
 import { WITHOUT_RECEIPT } from "./umzug-belege.ts";
+import { ohneSevdeskExportBelegbildSql } from "./sevdesk-export-abgleich.ts";
 
 const TAX_TYPE = sql<string | null>`${taxTypeOf("lexoffice_vouchers")}`;
 const TAX_SUB_TYPE = sql<string | null>`lexoffice_vouchers.raw->'taxConditions'->>'taxSubType'`;
@@ -35,7 +36,7 @@ export async function reconciliationVoucherRows() {
         taxSetId: customTaxSetId("lexoffice_vouchers"),
         ohneBeleg: WITHOUT_RECEIPT,
         fileState: latestFileStateSql("lexoffice_vouchers"),
-        ohneBelegbild: sql<boolean>`coalesce((lexoffice_vouchers.raw->>'ohneBelegbild')::boolean, false)`,
+        ohneBelegbild: ohneSevdeskExportBelegbildSql("lexoffice_vouchers"),
         privat: sql<boolean>`coalesce((lexoffice_vouchers.raw->>'privat')::boolean, false)`,
         bbNeutral: sql<boolean>`coalesce((lexoffice_vouchers.raw->>'neutral')::boolean, false)`,
         accountingTypeUnclear: accountingTypeUnclear("lexoffice_vouchers"),

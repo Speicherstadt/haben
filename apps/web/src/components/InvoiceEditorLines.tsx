@@ -1,6 +1,7 @@
 import { discountedLineAmount, formatEuro, ITEM_NUMBER_MAX, LINE_DETAIL_MAX, parseEuro, parseQuantity } from "@haben/core";
 import { emptyLine, type LineState, sameText } from "../lib/editor-lines.ts";
 import { unitOptions } from "../lib/units.ts";
+import { ArbeitskostenField, LineArbeitskosten } from "./ArbeitskostenField.tsx";
 import { ArticleCombobox, CatalogCombobox } from "./ArticleCombobox.tsx";
 import { Field } from "./Field.tsx";
 import { FormattedTextarea } from "./FormattedTextarea.tsx";
@@ -17,6 +18,7 @@ import { BELEG_PLATZHALTER } from "@haben/core";
 export function InvoiceEditorLines({ editor }: { editor: InvoiceEditorModel }) {
   const {
     amountLabel,
+    arbeitskostenAusweisen,
     articles,
     contactId,
     discountIssue,
@@ -35,6 +37,7 @@ export function InvoiceEditorLines({ editor }: { editor: InvoiceEditorModel }) {
     setIntro,
     setLines,
     setNote,
+    setArbeitskostenAusweisen,
     setPropertyRetention,
     special,
     textBlocks,
@@ -104,6 +107,7 @@ export function InvoiceEditorLines({ editor }: { editor: InvoiceEditorModel }) {
         contactId={contactId || null}
       />
       {!quote && <PropertyRetentionField checked={propertyRetention} onChange={touch(setPropertyRetention)} inherited={!editable} />}
+      <ArbeitskostenField checked={arbeitskostenAusweisen} onChange={setArbeitskostenAusweisen} />
       {editable && (
         <p className="small muted" style={{ margin: 0 }}>
           Platzhalter in Einleitung und Hinweis, eingesetzt in der Vorschau und beim Festschreiben:{" "}
@@ -209,9 +213,10 @@ function EditorLineRow({ editor, line, index }: { editor: InvoiceEditorModel; li
 
 /** Artikelnummer, Beschreibung mit Artikelsuche und im Angebot die Art der Position */
 function LineTitle({ editor, line, index, posFehlerId }: { editor: InvoiceEditorModel; line: LineState; index: number; posFehlerId: string | undefined }) {
-  const { articles, markTouched, openNewArticle, pickArticle, quote, showError, updateLine } = editor;
+  const { arbeitskostenAusweisen, articles, markTouched, openNewArticle, pickArticle, quote, showError, updateLine } = editor;
+  const selects = [quote && "with-kind", arbeitskostenAusweisen && (quote ? "with-art" : "with-kind")].filter(Boolean).join(" ");
   return (
-    <div className={quote ? "line-title with-kind" : "line-title"}>
+    <div className={selects ? `line-title ${selects}` : "line-title"}>
       <input
         className="line-item"
         placeholder="Art.-Nr."
@@ -233,6 +238,9 @@ function LineTitle({ editor, line, index, posFehlerId }: { editor: InvoiceEditor
         onCreate={(description) => openNewArticle(line, description)}
         onBlur={() => markTouched(line.key)}
       />
+      {arbeitskostenAusweisen && (
+        <LineArbeitskosten index={index} value={line.arbeitskosten} onChange={(arbeitskosten) => updateLine(line.key, { arbeitskosten })} />
+      )}
       {quote && <LineKind index={index} kind={line.kind} onKind={(value) => updateLine(line.key, { kind: value })} />}
     </div>
   );

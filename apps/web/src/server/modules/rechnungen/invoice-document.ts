@@ -101,7 +101,7 @@ export function documentFor(
   buyer: Buyer,
   number: string,
   corrects: { number: string; issueDate: string } | null,
-  deducted: { number: string; issueDate: string }[] = [],
+  deducted: NonNullable<InvoiceDocument["deducted"]> = [],
   directDebit?: DirectDebit,
   /** Codes eigener Einheiten (#748) aus loadUnitCodes; feste Einheiten brauchen keinen */
   unitCodes: Readonly<Record<string, string>> = {},
@@ -144,6 +144,7 @@ export function documentFor(
       net: line.net,
       ...lineDiscountOf(line),
       ...(line.deductionOf ? { deductionOf: line.deductionOf } : {}),
+      ...(line.arbeitskosten ? { arbeitskosten: true } : {}),
     })),
     totals,
     ...invoiceDiscountOf(invoice),
