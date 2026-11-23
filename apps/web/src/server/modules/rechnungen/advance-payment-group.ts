@@ -7,7 +7,7 @@ import { invoiceTaxReader } from "./invoice-tax.ts";
  * Vorgänger; beim Schlussbeleg gehört die ganze abschließend verbundene Kette zum bisherigen Verfahren.
  * Entscheidungen: #1454 und https://github.com/Speicherstadt/haben/issues/750#issuecomment-6837873675
  */
-export async function invoicePaymentGroups(ids: string[], q: Db | Tx = db): Promise<Map<string, string[]>> {
+export async function invoicePaymentGroups(ids: string[], q: Db | Tx = db, includeNormalSuccessors = false): Promise<Map<string, string[]>> {
   const result = new Map(ids.map((id) => [id, [id]]));
   if (!ids.length) return result;
   const rows = await q.execute<{ target_id: string; id: string }>(sql`with recursive parents(target_id,id,replaces_invoice_id) as (
@@ -20,10 +20,14 @@ export async function invoicePaymentGroups(ids: string[], q: Db | Tx = db): Prom
       where i.status='final' and i.kind='rechnung' and i.advance_accounting='deferred'
   ), normal(target_id,id,replaces_invoice_id) as (
     select id,id,replaces_invoice_id from invoices where id in ${[...result.keys()]}
-      and status='final' and kind='rechnung' and variant is null and replaces_invoice_id is not null
+      and status='final' and kind='rechnung' and variant is null and (replaces_invoice_id is not null or ${includeNormalSuccessors})
     union select n.target_id,i.id,i.replaces_invoice_id from normal n join invoices i on i.id=n.replaces_invoice_id
       where i.status='final' and i.kind='rechnung' and i.variant is null
-  ) select target_id,id from groups union select target_id,id from normal order by target_id,id`);
+  ), normalSuccessors(target_id,id) as (
+    select target_id,id from normal where replaces_invoice_id is null and ${includeNormalSuccessors}
+    union select n.target_id,i.id from normalSuccessors n join invoices i on i.replaces_invoice_id=n.id
+      where i.status='final' and i.kind='rechnung' and i.variant is null
+  ) select target_id,id from groups union select target_id,id from normal union select target_id,id from normalSuccessors order by target_id,id`);
   const grouped = new Map<string, string[]>();
   for (const { target_id, id } of rows) grouped.set(target_id, [...(grouped.get(target_id) ?? []), id]);
   for (const [id, group] of grouped) result.set(id, group);

@@ -675,7 +675,7 @@ Im Bankabgleich ist eine stornierte Rechnung nicht mehr offen. Eine Rechnungskor
 
 ### Rechnung für dieselbe Leistung austauschen
 
-Wenn sich nur der Beleg ändert, storniere die bisherige Rechnung und wähle auf ihrer Detailseite **Ersatzrechnung erstellen**. Der Entwurf verweist auf die bereits ausgestellte Rechnung. Kunde, Leistungszeitraum, Währung, Steuerbehandlung und Beträge je Steuersatz müssen weiterhin übereinstimmen. Eine Entgeltänderung erfasst du als Rechnungskorrektur. Hat es zum Storno bereits eine Erstattung oder Verrechnung gegeben, lehnt Haben den Austausch ab.
+Wenn sich nur der Beleg ändert, storniere die bisherige Rechnung und wähle auf ihrer Detailseite **Ersatzrechnung erstellen**. Der Entwurf verweist auf die bereits ausgestellte Rechnung. Kunde, Leistungszeitraum, Währung, Steuerbehandlung und Beträge je Steuersatz müssen weiterhin übereinstimmen. Eine Entgeltänderung erfasst du als Rechnungskorrektur. Solange auf dem Storno eine Erstattung oder Verrechnung wirksam ist, lehnt Haben den Austausch ab.
 
 Beim Festschreiben dokumentiert der neue Beleg dieselbe Leistung mit eigener Nummer und Verweis auf den Vorgänger. Die Umsatzsteuer wird einmal erfasst. Bereits zugeordnete Zahlungen bleiben am ursprünglichen Beleg gespeichert und werden beim offenen Betrag der Ersatzrechnung berücksichtigt. Das Papierstorno begründet nach Festschreiben des Ersatzes keine Erstattung. Für einen Stichtag zwischen Storno und Ersatz weist der Abschluss den weiterhin bestehenden Anspruch aus. Der Austausch eines Stornos aus einem abgeschlossenen Jahr muss im Abschluss dieses Jahres geklärt werden. Eine [erneute Bankzuordnung](bank.md#zuordnung-aufheben) ist ein eigener Vorgang.
 

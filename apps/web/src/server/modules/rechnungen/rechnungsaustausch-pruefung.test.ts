@@ -103,4 +103,22 @@ describe.skipIf(!testDatabaseUrl)("Rechnungsaustausch: Bezug und Festschreibung 
     await expect(invoices.updateDraft(actor, saved.id, input("2026-12-15", { replacesInvoiceId: null }))).rejects.toThrow();
     expect(await sql`select * from haben_integrity_problems(100)`).toEqual([]);
   });
+
+  it("Nachfolgerechnung mit rückdatierter Zahlung mindert den offenen Posten am Stichtag", async () => {
+    const source = await original();
+    expect(source.advanceAccounting).toBeNull();
+    await invoices.cancelInvoice(actor, source.id, "2026-11-10");
+    const draft = await invoices.createDraft(actor, input("2026-12-15", { replacesInvoiceId: source.id }));
+    const replacement = await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
+    const { openPositions } = await import("../auswertungen/index.ts");
+    const { createCashInvoiceEntry } = await import("../bank/index.ts");
+    const cutoff = "2026-11-30";
+    expect((await openPositions(cutoff, { bis: cutoff })).receivablesTotal).toBe(119_000);
+
+    await createCashInvoiceEntry(actor, { invoiceId: replacement.id, date: "2026-11-20", amount: 119_000 }, "2026-12-15");
+    const [row] = await sql`select coalesce(sum(l.debit-l.credit),0)::int as saldo
+      from journal_entries e join journal_lines l on l.entry_id=e.id where e.date <= ${cutoff} and l.account = '1400'`;
+    expect(row?.saldo).toBe(0);
+    expect((await openPositions(cutoff, { bis: cutoff })).receivablesTotal).toBe(0);
+  });
 });
