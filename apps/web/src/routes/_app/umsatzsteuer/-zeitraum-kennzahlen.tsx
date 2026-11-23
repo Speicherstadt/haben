@@ -1,4 +1,5 @@
 import { type computeUstva, formatEuro } from "@haben/core";
+import { KzFehler, kzFeld, kzOffen } from "./-zeitraum-feldfehler.tsx";
 import { type PageData, SourcesTable, SourcesToggle } from "./-zeitraum-quellen.tsx";
 
 export type FieldKey =
@@ -28,7 +29,8 @@ type KzEingabe = {
   locked: boolean;
   editable: boolean;
   values: Record<FieldKey, string>;
-  parsed: Record<FieldKey, number | null>;
+  /** Fehler je Feld nach dem ersten Speichern (useSubmitCheck, #1270) */
+  fehler: (field: FieldKey) => string | undefined;
   update: (field: FieldKey, value: string) => void;
   openSources: string | null;
   toggleSources: (kz: string) => void;
@@ -112,7 +114,7 @@ type TeilProps = { data: PageData; zeilen: ReturnType<typeof kennzahlZeilen>; sh
 export function KennzahlenTabelle({ data, shown, computed, eingabe }: Omit<TeilProps, "zeilen">) {
   const zeilen = kennzahlZeilen(data, shown, computed, eingabe.editable);
   const { rows, igeRows } = zeilen;
-  const { locked, editable, values, parsed, update, openSources, toggleSources } = eingabe;
+  const { locked, editable, values, update, openSources, toggleSources } = eingabe;
   return (
     <div className="kz-table">
       <div className="kz-row head">
@@ -143,8 +145,7 @@ export function KennzahlenTabelle({ data, shown, computed, eingabe }: Omit<TeilP
                 inputMode="decimal"
                 value={values[row.field]}
                 onChange={(event) => update(row.field, event.target.value)}
-                aria-invalid={parsed[row.field] === null}
-                aria-describedby="kz-hint"
+                {...kzFeld(eingabe, row.field, `kz-${row.kz}`, "kz-hint")}
               />
             ) : (
               <output id={`kz-${row.kz}`} className="kz-amount">
@@ -152,6 +153,7 @@ export function KennzahlenTabelle({ data, shown, computed, eingabe }: Omit<TeilP
               </output>
             )}
             <div className="kz-amount">{row.tax === null ? "" : formatEuro(row.tax)}</div>
+            <KzFehler eingabe={eingabe} field={row.field} id={`kz-${row.kz}`} />
           </div>
           {!locked && openSources === row.kz && <SourcesTable id={`kz-${row.kz}-quellen`} kind="revenue" rows={row.sources} />}
         </div>
@@ -178,7 +180,7 @@ export function KennzahlenTabelle({ data, shown, computed, eingabe }: Omit<TeilP
                 inputMode="decimal"
                 value={values[row.field]}
                 onChange={(event) => update(row.field, event.target.value)}
-                aria-invalid={parsed[row.field] === null}
+                {...kzFeld(eingabe, row.field, `kz-${row.kz}`)}
               />
             ) : (
               <output id={`kz-${row.kz}`} className="kz-amount">
@@ -186,6 +188,7 @@ export function KennzahlenTabelle({ data, shown, computed, eingabe }: Omit<TeilP
               </output>
             )}
             <div className="kz-amount">{formatEuro(row.tax)}</div>
+            <KzFehler eingabe={eingabe} field={row.field} id={`kz-${row.kz}`} />
           </div>
           {!locked && openSources === row.kz && <SourcesTable id={`kz-${row.kz}-quellen`} kind="inputTax" rows={row.sources} />}
         </div>
@@ -205,7 +208,7 @@ export function KennzahlenTabelle({ data, shown, computed, eingabe }: Omit<TeilP
 /** Bezogene Leistungen: Vorsteuer aus Rechnungen (Kz 66) und § 13b als Leistungsempfänger (Kz 46/47, 84/85) */
 function BezugsZeilen({ data, zeilen, shown, eingabe }: TeilProps) {
   const { rcRows } = zeilen;
-  const { locked, editable, values, parsed, update, openSources, toggleSources } = eingabe;
+  const { locked, editable, values, update, openSources, toggleSources } = eingabe;
   return (
     <>
       <div className="kz-row">
@@ -229,13 +232,14 @@ function BezugsZeilen({ data, zeilen, shown, eingabe }: TeilProps) {
             inputMode="decimal"
             value={values.kz66}
             onChange={(event) => update("kz66", event.target.value)}
-            aria-invalid={parsed.kz66 === null}
+            {...kzFeld(eingabe, "kz66", "kz-66")}
           />
         ) : (
           <output id="kz-66" className="kz-amount">
             {formatEuro(shown.kz66)}
           </output>
         )}
+        <KzFehler eingabe={eingabe} field="kz66" id="kz-66" />
       </div>
       {!locked && openSources === "66" && <SourcesTable id="kz-66-quellen" kind="inputTax" rows={data.figures.inputTax} />}
       {rcRows.map((row) => (
@@ -263,14 +267,15 @@ function BezugsZeilen({ data, zeilen, shown, eingabe }: TeilProps) {
                   inputMode="decimal"
                   value={values[row.base]}
                   onChange={(event) => update(row.base, event.target.value)}
-                  aria-invalid={parsed[row.base] === null}
+                  {...kzFeld(eingabe, row.base, `kz-${row.kz}`)}
                 />
                 <input
+                  id={`kz-${row.taxKz}`}
                   aria-label={`Steuer zu Kz ${row.kz} (Kz ${row.taxKz})`}
                   inputMode="decimal"
                   value={values[row.tax]}
                   onChange={(event) => update(row.tax, event.target.value)}
-                  aria-invalid={parsed[row.tax] === null}
+                  {...kzFeld(eingabe, row.tax, `kz-${row.taxKz}`)}
                 />
               </>
             ) : (
@@ -281,6 +286,8 @@ function BezugsZeilen({ data, zeilen, shown, eingabe }: TeilProps) {
                 <div className="kz-amount">{formatEuro(shown[row.tax])}</div>
               </>
             )}
+            <KzFehler eingabe={eingabe} field={row.base} id={`kz-${row.kz}`} />
+            <KzFehler eingabe={eingabe} field={row.tax} id={`kz-${row.taxKz}`} />
           </div>
           {!locked && openSources === row.kz && <SourcesTable id={`kz-${row.kz}-quellen`} kind="inputTax" rows={row.sources} />}
         </div>
@@ -292,7 +299,7 @@ function BezugsZeilen({ data, zeilen, shown, eingabe }: TeilProps) {
 /** Vorsteuer aus § 13b (Kz 67) und aus dem Erwerb (Kz 61), Einfuhrumsatzsteuer (Kz 62), Sondervorauszahlung (Kz 39) */
 function WeitereZeilen({ zeilen, shown, computed, eingabe }: TeilProps) {
   const { rcRows, igeRows } = zeilen;
-  const { editable, values, parsed, update } = eingabe;
+  const { editable, values, update } = eingabe;
   return (
     <>
       {(rcRows.length > 0 || shown.kz67 !== 0) && (
@@ -308,13 +315,14 @@ function WeitereZeilen({ zeilen, shown, computed, eingabe }: TeilProps) {
               inputMode="decimal"
               value={values.kz67}
               onChange={(event) => update("kz67", event.target.value)}
-              aria-invalid={parsed.kz67 === null}
+              {...kzFeld(eingabe, "kz67", "kz-67")}
             />
           ) : (
             <output id="kz-67" className="kz-amount">
               {formatEuro(shown.kz67)}
             </output>
           )}
+          <KzFehler eingabe={eingabe} field="kz67" id="kz-67" />
         </div>
       )}
       {(igeRows.length > 0 || shown.kz61 !== 0) && (
@@ -330,16 +338,17 @@ function WeitereZeilen({ zeilen, shown, computed, eingabe }: TeilProps) {
               inputMode="decimal"
               value={values.kz61}
               onChange={(event) => update("kz61", event.target.value)}
-              aria-invalid={parsed.kz61 === null}
+              {...kzFeld(eingabe, "kz61", "kz-61")}
             />
           ) : (
             <output id="kz-61" className="kz-amount">
               {formatEuro(shown.kz61)}
             </output>
           )}
+          <KzFehler eingabe={eingabe} field="kz61" id="kz-61" />
         </div>
       )}
-      {(shown.kz62 !== 0 || computed.kz62 !== 0) && (
+      {(shown.kz62 !== 0 || computed.kz62 !== 0 || kzOffen(eingabe, "kz62")) && (
         <div className="kz-row">
           <div className="kz-num">62</div>
           <div className="kz-label">
@@ -352,16 +361,17 @@ function WeitereZeilen({ zeilen, shown, computed, eingabe }: TeilProps) {
               inputMode="decimal"
               value={values.kz62}
               onChange={(event) => update("kz62", event.target.value)}
-              aria-invalid={parsed.kz62 === null}
+              {...kzFeld(eingabe, "kz62", "kz-62")}
             />
           ) : (
             <output id="kz-62" className="kz-amount">
               {formatEuro(shown.kz62)}
             </output>
           )}
+          <KzFehler eingabe={eingabe} field="kz62" id="kz-62" />
         </div>
       )}
-      {(shown.kz39 !== 0 || computed.kz39 !== 0) && (
+      {(shown.kz39 !== 0 || computed.kz39 !== 0 || kzOffen(eingabe, "kz39")) && (
         <div className="kz-row">
           <div className="kz-num">39</div>
           <div className="kz-label">
@@ -374,13 +384,14 @@ function WeitereZeilen({ zeilen, shown, computed, eingabe }: TeilProps) {
               inputMode="decimal"
               value={values.kz39}
               onChange={(event) => update("kz39", event.target.value)}
-              aria-invalid={parsed.kz39 === null}
+              {...kzFeld(eingabe, "kz39", "kz-39")}
             />
           ) : (
             <output id="kz-39" className="kz-amount">
               {formatEuro(shown.kz39)}
             </output>
           )}
+          <KzFehler eingabe={eingabe} field="kz39" id="kz-39" />
         </div>
       )}
     </>

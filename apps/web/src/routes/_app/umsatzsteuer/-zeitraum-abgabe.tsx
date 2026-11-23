@@ -79,11 +79,16 @@ export function useVoranmeldungAktionen(
   return { busy, onSave, onSubmit, onCorrect };
 }
 
+/** Ein Zeitraum, der nicht zum eingestellten Voranmeldungszeitraum passt, lässt sich nicht neu anmelden; berichtigen geht */
+export function anmeldbar(data: PageData): boolean {
+  return !data.periodProblem || Boolean(data.current?.berichtigt);
+}
+
 /** Rechte Spalte: an ELSTER senden, Zahlung an das Finanzamt, Abgabe außerhalb von Haben, Werte für Mein ELSTER, Verlauf */
 export function AbgabeSpalte({
   data,
   locked,
-  valid,
+  check,
   busy,
   shown,
   dirty,
@@ -93,7 +98,8 @@ export function AbgabeSpalte({
 }: {
   data: PageData;
   locked: boolean;
-  valid: boolean;
+  /** Prüft die Werte von Hand beim Druck auf „Nur prüfen“ oder „Senden“ (usePruefungBeimSpeichern) */
+  check: () => boolean;
   busy: boolean;
   shown: ReturnType<typeof computeUstva>;
   dirty: boolean;
@@ -109,7 +115,7 @@ export function AbgabeSpalte({
         <ElsterSubmit
           setup={data}
           title="An ELSTER übermitteln"
-          ready={valid && data.companyIssues.length === 0}
+          ready={anmeldbar(data) && data.companyIssues.length === 0}
           busy={busy}
           confirmTitle="Voranmeldung verbindlich senden?"
           confirmFacts={[
@@ -119,6 +125,7 @@ export function AbgabeSpalte({
           ]}
           confirmText="Die Voranmeldung geht an das Finanzamt und wird danach festgeschrieben."
           footer="ERiC prüft die Daten vor dem Versand. Das Übertragungsprotokoll wird als PDF abgelegt. Die PIN wird nicht gespeichert."
+          pruefen={check}
           onSubmit={onSubmit}
         />
       )}

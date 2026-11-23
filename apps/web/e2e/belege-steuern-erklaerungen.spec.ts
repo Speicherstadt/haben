@@ -649,7 +649,7 @@ test("Voranmeldung außerhalb von Haben abgegeben: Abgabe vermerken, Zahllast im
   await expect(page.getByRole("region", { name: "Zahlung an das Finanzamt" })).toContainText("Lastschrift 190,00");
 });
 
-test("Voranmeldung von Hand: alle angebotenen Kennzahlen eintragen, ein ungültiger Betrag sperrt das Speichern", async () => {
+test("Voranmeldung von Hand: alle angebotenen Kennzahlen eintragen, ein ungültiger Betrag meldet sich beim Speichern am Feld", async () => {
   // Mai vor dem Vorjahr: ohne Buchungen und ohne Anmeldung. Der Entwurf wird am Ende gelöscht, damit spätere Tests den
   // Monat leer vorfinden
   const year = YEAR - 2;
@@ -679,14 +679,27 @@ test("Voranmeldung von Hand: alle angebotenen Kennzahlen eintragen, ein ungülti
     for (const [label, wert] of werte) await formular.getByLabel(label, { exact: true }).fill(wert);
     // Steuer zu 81, 86, 89 und 93 sowie Kz 47 und 85, abzüglich der Vorsteuer in Kz 66, 67 und 61
     await expect(formular.locator(".kz-row.total .kz-amount")).toHaveText(/^174,00/);
+    // Speichern prüft beim Absenden statt gesperrt zu sein (#1270): ohne Begründung die Meldung am Feld, Fokus dort
     const speichern = formular.getByRole("button", { name: "Entwurf speichern" });
-    await expect(speichern).toBeDisabled();
-    await formular.getByLabel("Begründung der Abweichung (Pflicht)").fill("Werte aus der alten Buchhaltung übernommen");
-    await expect(speichern).toBeEnabled();
+    const begruendung = formular.getByLabel("Begründung der Abweichung (Pflicht)");
+    // Höchstens 1.000 Zeichen wie im Schema von saveVatDraft
+    await expect(begruendung).toHaveAttribute("maxlength", "1000");
+    await speichern.click();
+    await expect(formular.getByText("Begründe die Abweichung mit mindestens 10 Zeichen", { exact: false })).toBeVisible();
+    await expect(begruendung).toBeFocused();
+    await begruendung.fill("Werte aus der alten Buchhaltung übernommen");
     const kz66 = formular.getByLabel("Vorsteuer aus Rechnungen anderer Unternehmer", { exact: true });
     await kz66.fill("dreißig");
+    // „Nur prüfen“ im ELSTER-Kasten ist nicht gesperrt, sondern prüft dieselben Felder: Meldung und Fokus am Feld, kein Aufruf
+    await page.getByRole("form", { name: "An ELSTER übermitteln" }).getByRole("button", { name: "Nur prüfen" }).click();
+    await expect(formular.getByText("Trag den Betrag der Kennzahl ein, etwa 1.234,56.")).toBeVisible();
+    await expect(kz66).toBeFocused();
+    await expect(page.getByText("ERiC hat die Daten geprüft", { exact: false })).toHaveCount(0);
+    await speichern.click();
+    await expect(formular.getByText("Trag den Betrag der Kennzahl ein, etwa 1.234,56.")).toBeVisible();
+    await expect(kz66).toBeFocused();
     await expect(kz66).toHaveAttribute("aria-invalid", "true");
-    await expect(speichern).toBeDisabled();
+    await expect(page.getByText("Entwurf gespeichert.")).toHaveCount(0);
     await kz66.fill("30,00");
     await speichern.click();
     await expect(page.getByText("Entwurf gespeichert.")).toBeVisible();
