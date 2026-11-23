@@ -165,7 +165,22 @@ export async function kleinunternehmerBisZurRueckzahlung(original: Invoice, q: D
   );
   const anzahlungen = await anzahlungenDerKette(original, invoices, q);
   const mitAbzuegen = new Map([...totals].map(([id, t]) => [id, { taxes: [...t.taxes, ...(anzahlungen.abzuege.get(id) ?? [])] }]));
-  return heldUntilRefund(original, invoices, mitAbzuegen, [...(await paymentEvents(invoices, q)), ...anzahlungen.zahlungen]);
+  // Der Ersatz einer Bilanz-Schlussrechnung (#750) übernimmt deren Zahlungen, das Papierstorno erstattet nichts
+  // (docs/rechnungen.md): Das Bezahlte zählt ab dem Leistungstag des Ersatzes dort.
+  const [ersatz] = await q
+    .select({ serviceDate: schema.invoices.serviceDate, issueDate: schema.invoices.issueDate })
+    .from(schema.invoices)
+    .where(and(eq(schema.invoices.replacesInvoiceId, original.id), eq(schema.invoices.status, "final")));
+  const eigene = bisZumEnde(await paymentEvents(invoices, q), ersatz ? (ersatz.serviceDate ?? ersatz.issueDate) : null);
+  return heldUntilRefund(original, invoices, mitAbzuegen, [...eigene, ...anzahlungen.zahlungen]);
+}
+
+/** Zahlungen bis vor `ende`, dort mit umgekehrtem Vorzeichen zurückgenommen; spätere zählen nicht */
+function bisZumEnde(events: AdvanceBalanceEvent[], ende: string | null): AdvanceBalanceEvent[] {
+  if (!ende) return events;
+  const vorher = events.flatMap((e) => (e.paid && e.date >= ende ? [] : [e]));
+  const bezahlt = vorher.flatMap((e) => e.paid ?? []);
+  return bezahlt.length ? [...vorher, { date: ende, paid: negate(bezahlt) }] : vorher;
 }
 
 /**
@@ -211,11 +226,8 @@ async function anzahlungenDerKette(original: Invoice, invoices: Invoice[], q: Db
       .limit(1);
     // Leistungstag wie in Kz 48 (kleinunternehmer-umsaetze.ts)
     const ende = neu ? (neu.serviceDate ?? neu.issueDate) : null;
-    const bezahlt = (await paymentEvents(await family(anzahlung.id, q), q)).flatMap((e) =>
-      e.paid && (!ende || e.date < ende) ? [{ date: e.date, paid: e.paid }] : [],
-    );
-    zahlungen.push(...bezahlt);
-    if (ende && bezahlt.length) zahlungen.push({ date: ende, paid: negate(bezahlt.flatMap((e) => e.paid)) });
+    const bezahlt = (await paymentEvents(await family(anzahlung.id, q), q)).flatMap((e) => (e.paid ? [{ date: e.date, paid: e.paid }] : []));
+    zahlungen.push(...bisZumEnde(bezahlt, ende));
   }
   return { abzuege, zahlungen };
 }
