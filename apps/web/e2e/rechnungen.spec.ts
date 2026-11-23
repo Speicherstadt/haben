@@ -510,7 +510,7 @@ test("Festschreiben ohne Kunden nennt den Kunden am Feld statt der Rückfrage (R
   await go("/rechnungen/neu");
   await page.getByLabel("Beschreibung Position 1").fill("Beratung");
   await page.getByLabel("Menge Position 1").fill("1");
-  await preis.fill("100");
+  await page.getByLabel(/Einzelpreis Position 1/).fill("100");
   await page.locator(".main > .page-head").getByRole("button", { name: "Festschreiben" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("combobox", { name: "Kunde", exact: true })).toBeFocused();
@@ -521,7 +521,7 @@ test("Entwurf speichern nennt bei einem anderen Fehler nicht den fehlenden Kunde
   await go("/rechnungen/neu");
   await page.getByLabel("Beschreibung Position 1").fill("Beratung");
   await page.getByLabel("Menge Position 1").fill("1");
-  await preis.fill("100");
+  await page.getByLabel(/Einzelpreis Position 1/).fill("100");
   const ziel = page.getByLabel("Zahlungsziel in Tagen", { exact: true });
   await ziel.fill("200");
   const kunde = page.getByRole("combobox", { name: "Kunde", exact: true });
@@ -1557,7 +1557,7 @@ test("Rechnung mit Positions- und Gesamtrabatt in der Vorschau", async () => {
   await kundeWaehlen(page);
   await page.getByLabel("Beschreibung Position 1").fill("Beratung");
   await page.getByLabel("Menge Position 1").fill("10");
-  await preis.fill("100");
+  await page.getByLabel(/Einzelpreis Position 1/).fill("100");
   await page.getByLabel("Rabatt Position 1, Prozent oder Betrag").fill("50");
   await page.getByLabel("Gesamtrabatt (optional)").fill("10 %");
   const vorschau = page.getByLabel("Vorschau der Rechnung");
