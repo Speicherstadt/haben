@@ -254,6 +254,7 @@ describe("heikelHint", () => {
       "packages/gobd-kern/src/kette.ts",
       "apps/web/src/server/modules/umsatzsteuer/voranmeldung.ts",
       "apps/web/src/server/modules/lohn/abrechnung.test.ts",
+      "apps/web/src/server/modules/koerperschaft/koerperschaft.ts",
       "apps/web/drizzle/0200_neu.sql",
     ]) {
       expect(heikelHint([file]).map((r) => r.message)).toEqual([expect.stringContaining("OK“ des Maintainers")]);

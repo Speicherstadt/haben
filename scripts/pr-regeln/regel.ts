@@ -143,7 +143,7 @@ export function reviewHint(pr: { draft?: boolean; author_association?: string; u
  */
 export const HEIKEL = [
   /^packages\/(core|elster|gobd-kern)\//,
-  /^apps\/web\/src\/server\/modules\/(buchhaltung|umsatzsteuer|elster|jahreserklaerung|auswertungen|lohn|sv-meldungen|ausschuettung|finanzamt)\//,
+  /^apps\/web\/src\/server\/modules\/(buchhaltung|umsatzsteuer|elster|jahreserklaerung|auswertungen|lohn|sv-meldungen|ausschuettung|finanzamt|koerperschaft)\//,
   /^apps\/web\/drizzle\//,
 ];
 
