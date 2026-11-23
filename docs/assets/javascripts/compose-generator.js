@@ -224,7 +224,7 @@ export const overrideFile = (cfg) => {
   return `${lines.join("\n")}\n`;
 };
 
-/** Befehle für den ersten Start wie in docs/installation.md, „Docker Compose“. @param {boolean} withOverride */
+/** Startschritte wie in docs/installation.md, aber Download wie die Generator-Vorlagen von main. @param {boolean} withOverride */
 export const startCommands = (withOverride) =>
   [
     "mkdir haben && cd haben",

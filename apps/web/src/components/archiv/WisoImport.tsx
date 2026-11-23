@@ -11,6 +11,7 @@ import { Field } from "../Field.tsx";
 import { FilePicker } from "../FilePicker.tsx";
 import { Icon } from "../Icon.tsx";
 import { NoticeBanner } from "../NoticeBanner.tsx";
+import { WisoGoBdCheck } from "./WisoGoBdCheck.tsx";
 
 type MigrationData = Awaited<ReturnType<typeof getMigration>>;
 type ImportRow = NonNullable<MigrationData["wisoImport"]>;
@@ -105,6 +106,7 @@ export function WisoImport({ initial }: { initial: ImportRow | null }) {
         </p>
       )}
       <WisoConfirmDialog preview={preview} open={confirming && preview !== null} onConfirm={onImport} onClose={() => setConfirming(false)} />
+      <WisoGoBdCheck />
     </section>
   );
 }
