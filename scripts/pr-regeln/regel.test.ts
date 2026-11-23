@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { checkBody, checkTitle, checkTitleIssues, countWords, docPageHints, grownOldFiles, growthHints, hints, isBot, reviewHint } from "./regel.ts";
+import {
+  checkBody,
+  checkTitle,
+  checkTitleIssues,
+  countWords,
+  docPageHints,
+  grownOldFiles,
+  growthHints,
+  heikelHint,
+  hints,
+  isBot,
+  reviewHint,
+} from "./regel.ts";
 
 describe("checkTitle", () => {
   it.each([
@@ -231,5 +243,30 @@ describe("reviewHint", () => {
   it("schweigt bei Entwürfen und Bots", () => {
     expect(reviewHint({ ...fremd, draft: true }, ["docs/bank.md"])).toEqual([]);
     expect(reviewHint({ ...fremd, user: { login: "renovate[bot]", type: "Bot" } }, ["package.json"])).toEqual([]);
+  });
+});
+
+describe("heikelHint", () => {
+  it("weist auf Kern, ELSTER, Steuermodule und Migrationen hin", () => {
+    for (const file of [
+      "packages/core/src/ust.ts",
+      "packages/elster/src/xml.ts",
+      "packages/gobd-kern/src/kette.ts",
+      "apps/web/src/server/modules/umsatzsteuer/voranmeldung.ts",
+      "apps/web/src/server/modules/lohn/abrechnung.test.ts",
+      "apps/web/src/server/modules/koerperschaft/koerperschaft.ts",
+      "apps/web/drizzle/0200_neu.sql",
+    ]) {
+      expect(heikelHint([file]).map((r) => r.message)).toEqual([expect.stringContaining("OK“ des Maintainers")]);
+    }
+  });
+
+  it("schweigt bei Oberfläche, Doku und anderen Modulen", () => {
+    expect(heikelHint(["apps/web/src/routes/bank.tsx", "packages/core/README.md", "apps/web/src/server/modules/mail/senden.ts", "docs/bank.md"])).toEqual([]);
+  });
+
+  it("nennt höchstens drei Dateien", () => {
+    const files = ["a", "b", "c", "d", "e"].map((n) => `packages/core/src/${n}.ts`);
+    expect(heikelHint(files)[0].message).toContain("und 2 weitere");
   });
 });

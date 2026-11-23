@@ -4,7 +4,8 @@ import { SESSION, YEAR } from "./daten.ts";
 
 /*
  * BWA (#1380) mit den Daten aus app.spec.ts: von den Auswertungen aus öffnen, Zeitraum und Vergleich umschalten, eine Zeile
- * bis zur Rechnung aufklappen, „Warum?“ zum Vorjahr, leere Zeilen einblenden, Anteile und Kennzahlen (#1635).
+ * bis zur Rechnung aufklappen, „Warum?“ zum Vorjahr, leere Zeilen einblenden, Anteile und Kennzahlen, eine Zahlung ohne Beleg
+ * bis zur Buchung im Kontenblatt (#1635).
  */
 
 test.use({ storageState: SESSION });
@@ -112,4 +113,28 @@ test("BWA: Anteil je Zeile und Kennzahlen über der Tabelle (#1635)", async ({ p
   await expect(kennzahlen.getByText(`${YEAR - 1}:`)).toHaveCount(4);
   await page.getByLabel("Vergleich").selectOption("keiner");
   await expect(kennzahlen.getByText(`${YEAR - 1}:`)).toHaveCount(0);
+});
+
+test("BWA: Umsatzsteuer-Zahlung ohne Beleg führt zur markierten Buchung im Kontenblatt (#1635)", async ({ page }) => {
+  await page.goto(`/auswertungen/bwa?jahr=${YEAR}&zeitraum=jahr&vergleich=keiner`);
+  await page
+    .getByRole("table", { name: `BWA ${YEAR}` })
+    .getByRole("link", { name: "Umsatzsteuer-Zahlungen" })
+    .click();
+  const details = page.getByRole("region", { name: `Umsatzsteuer-Zahlungen · ${YEAR}` });
+  // app.spec.ts bucht 234,00 € als „Umsatzsteuer an das Finanzamt“ (SKR03 1780, SKR04 3820)
+  await details.getByRole("link", { name: /^Bank · Konto (1780|3820)$/ }).click();
+  await expect(page).toHaveURL(/\/konten\/(1780|3820)\?.*von=\d{4}-\d{2}-\d{2}&bis=\d{4}-\d{2}-\d{2}#buchung-[0-9a-f-]{36}$/);
+  const markiert = page.locator("tr[aria-current]");
+  await expect(markiert).toHaveCount(1);
+  await expect(markiert).toHaveAttribute("id", new URL(page.url()).hash.slice(1));
+  await expect(markiert).toContainText("234,00");
+  await expect(markiert).toBeInViewport();
+  // Der Fokus steht auf der Zeile: Tab geht von dort weiter, ein Screenreader liest sie vor
+  await expect(markiert).toBeFocused();
+  // Auch beim Laden der Adresse, etwa aus einem Lesezeichen
+  await page.reload();
+  await expect(page.locator("tr[aria-current]")).toHaveCount(1);
+  await expect(page.locator("tr[aria-current]")).toBeInViewport();
+  await expect(page.locator("tr[aria-current]")).toBeFocused();
 });

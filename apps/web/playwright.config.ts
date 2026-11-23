@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 import {
+  ABZUG_AUS,
   appDatabaseUrlFuer,
   DURCHLAEUFE,
   databaseUrlFuer,
@@ -12,7 +13,10 @@ import {
   habenFirmen,
   LAYOUT_PAKETE_PORT,
   PAYPAL_PORT,
+  MIT_DATEN,
+  type Projekt,
   portFuer,
+  projekteFuerTeil,
   SEVDESK_PORT,
   STRIPE_PORT,
 } from "./e2e/durchlaeufe.ts";
@@ -26,6 +30,12 @@ import {
  */
 const baseURL = `http://localhost:${portFuer()}`;
 const durchlaeufe = Object.keys(DURCHLAEUFE) as Durchlauf[];
+// Nur die Projekte und Server des CI-Teils aus E2E_TEIL (e2e/durchlaeufe.ts: TEILE); ohne Angabe alle
+const imTeil = projekteFuerTeil();
+const gewaehlt = (projekt: Projekt) => !imTeil || imTeil.includes(projekt);
+// Mit E2E_ABZUG=1 beginnen die Gruppen von „mit-daten“ (MIT_DATEN) mit dem Abzug eines früheren Laufs, ohne „ablauf“ (e2e/abzug.ts)
+const ausAbzug = Boolean(process.env.E2E_ABZUG);
+const hauptserver = gewaehlt("ablauf") || gewaehlt("ohne-daten");
 
 const chromium = { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } };
 
@@ -61,17 +71,17 @@ function webServer(durchlauf?: Durchlauf) {
       ANTHROPIC_API_KEY: "",
       EXTRACTION_PROVIDER: "",
       EXTRACTION_BASE_URL: "",
-      // Nachgebaute API in belege-steuern.spec.ts; ohne gespeicherten Zugang fragt kein Server dort an
+      // Nachgebaute API in belege-steuern-einstellungen.spec.ts; ohne gespeicherten Zugang fragt kein Server dort an
       ENABLE_BANKING_API_URL: `http://127.0.0.1:${ENABLE_BANKING_PORT}`,
       ENABLE_BANKING_APP_ID: "",
       ENABLE_BANKING_KEY: "",
       ENABLE_BANKING_KEY_FILE: "",
       // Nachgebaute sevDesk-API in sevdesk-anlagen.spec.ts; ohne gespeicherten Token fragt kein Server dort an
       SEVDESK_API_URL: `http://127.0.0.1:${SEVDESK_PORT}/api/v1`,
-      // Bestätigung von USt-IdNrn. beim BZSt (#1385) nur im Durchlauf „belege-steuern“ gegen den nachgebauten Dienst; die
-      // anderen Server schalten sie ab, und keiner fragt das echte BZSt
+      // Bestätigung von USt-IdNrn. beim BZSt (#1385) nur in „belege-steuern“ und seinen Abschnitten gegen den nachgebauten
+      // Dienst; die anderen Server schalten sie ab, und keiner fragt das echte BZSt
       EVATR_API_URL: `http://127.0.0.1:${EVATR_PORT}/app/v1/abfrage`,
-      HABEN_EVATR: durchlauf === "belege-steuern" ? "" : "off",
+      HABEN_EVATR: durchlauf?.startsWith("belege-steuern") ? "" : "off",
       // Nachgebaute Paketquelle in layouts.spec.ts, nie Typst Universe aus dem Test
       LAYOUTS_PACKAGES_URL: `http://127.0.0.1:${LAYOUT_PAKETE_PORT}`,
       // Kontoabruf über FinTS (#654) nur im Durchlauf „fints-abruf“; sonst bleibt FinTS aus wie ohne Registrierungsnummer
@@ -97,10 +107,59 @@ function webServer(durchlauf?: Durchlauf) {
   };
 }
 
+// Der Teil von barrierefreiheit.spec.ts in „mit-daten-2“, der Rest in „mit-daten-3“; die Titel samt Datei entscheiden
+const TITEL_2 = "(Farbkontraste|Theme-Fläche|Handy|Tastaturfokus)";
+const BARRIEREFREIHEIT_2 = new RegExp(`barrierefreiheit\\.spec\\.ts .*${TITEL_2}`);
+
+/** Dateien je Gruppe von „mit-daten“, nach der Dauer in der CI verteilt */
+const gruppen: Record<(typeof MIT_DATEN)[number], { testMatch: string[]; grepInvert?: RegExp }> = {
+  "mit-daten": {
+    testMatch: [
+      "anmelden.spec.ts",
+      "datumsfelder.spec.ts",
+      "einstellungen-export.spec.ts",
+      "firmenname.spec.ts",
+      "gestaltung.spec.ts",
+      "kopfzeile.spec.ts",
+      "seiten.spec.ts",
+      "vorschau.spec.ts",
+      "zz-doku-screenshots.spec.ts",
+    ],
+  },
+  "mit-daten-2": {
+    testMatch: [
+      "barrierefreiheit.spec.ts",
+      "bank-sortierung.spec.ts",
+      "basiszinssatz.spec.ts",
+      "bestaetigung.spec.ts",
+      "layouts.spec.ts",
+      "liquiditaet.spec.ts",
+      "rechtsform.spec.ts",
+    ],
+    // Alle Tests der anderen Dateien bleiben, von barrierefreiheit.spec.ts nur BARRIEREFREIHEIT_2
+    grepInvert: new RegExp(`barrierefreiheit\\.spec\\.ts (?!.*${TITEL_2})`),
+  },
+  "mit-daten-3": {
+    testMatch: [
+      "barrierefreiheit.spec.ts",
+      "befehlspalette.spec.ts",
+      "bwa.spec.ts",
+      "dateiauswahl.spec.ts",
+      "handy-felder.spec.ts",
+      "knopfreihenfolge.spec.ts",
+      "nav-einfahrbar.spec.ts",
+      "status-anordnung.spec.ts",
+      "steuerberatung.spec.ts",
+      "verfahrensdokumentation.spec.ts",
+    ],
+    grepInvert: BARRIEREFREIHEIT_2,
+  },
+};
+
 export default defineConfig({
   testDir: "e2e",
   testMatch: "**/*.spec.ts",
-  // „ablauf“ läuft für sich nacheinander, „mit-daten“ danach verteilt auf die Worker; die übrigen Durchläufe
+  // „ablauf“ läuft für sich nacheinander, die Gruppen von „mit-daten“ danach verteilt auf die Worker; die übrigen Durchläufe
   // mit eigenem Server und „ohne-daten“ von Anfang an daneben
   fullyParallel: true,
   workers: 4,
@@ -124,46 +183,20 @@ export default defineConfig({
   projects: [
     // Der Betrieb in der leeren Datenbank, Schritt für Schritt (test.describe.configure serial in der Datei); legt
     // an, was „mit-daten“ liest
-    { name: "ablauf", testMatch: "app.spec.ts", use: chromium },
-    // Liest nur, was „ablauf“ angelegt hat, mit dessen Sitzung (e2e/daten.ts). Playwright startet „ablauf“ auch
-    // mit, wenn nur eine dieser Dateien laufen soll
-    {
-      name: "mit-daten",
-      testMatch: [
-        "anmelden.spec.ts",
-        "barrierefreiheit.spec.ts",
-        "befehlspalette.spec.ts",
-        "dateiauswahl.spec.ts",
-        "firmenname.spec.ts",
-        "gestaltung.spec.ts",
-        "layouts.spec.ts",
-        "nav-einfahrbar.spec.ts",
-        "handy-felder.spec.ts",
-        "bank-sortierung.spec.ts",
-        "basiszinssatz.spec.ts",
-        "bestaetigung.spec.ts",
-        "bwa.spec.ts",
-        "datumsfelder.spec.ts",
-        "einstellungen-export.spec.ts",
-        "liquiditaet.spec.ts",
-        "kopfzeile.spec.ts",
-        "knopfreihenfolge.spec.ts",
-        "rechtsform.spec.ts",
-        "seiten.spec.ts",
-        "status-anordnung.spec.ts",
-        "steuerberatung.spec.ts",
-        "verfahrensdokumentation.spec.ts",
-        "vorschau.spec.ts",
-        "zz-doku-screenshots.spec.ts",
-      ],
-      dependencies: ["ablauf"],
-      use: chromium,
-    },
+    ...(ausAbzug ? [] : [{ name: "ablauf", testMatch: "app.spec.ts", use: chromium }]),
+    // Sichert den Stand nach „ablauf“ und spielt ihn ein (e2e/abzug.ts); mit E2E_ABZUG=1 nur den eines früheren Laufs
+    { name: "abzug", testMatch: "abzug.setup.ts", dependencies: ausAbzug ? [] : ["ablauf"], use: chromium },
+    // Lesen nur, was „ablauf“ angelegt hat, mit dessen Sitzung (e2e/daten.ts), aus dem Abzug. Drei Gruppen ähnlicher Dauer
+    // für drei CI-Teile (TEILE); barrierefreiheit.spec.ts ist allein länger als eine Gruppe und nach Titeln geteilt. Playwright
+    // startet „abzug“ (und ohne E2E_ABZUG „ablauf“) auch mit, wenn nur eine dieser Dateien laufen soll
+    ...MIT_DATEN.map((name) => ({ name, ...gruppen[name], dependencies: ["abzug"], use: chromium })),
     // Durchläufe mit eigenem Server und eigener Datenbank, von Anfang an daneben: die GmbH, weil die Rechtsform ab der
     // ersten Buchung fest ist, die übrigen, damit app.spec.ts kurz bleibt
     ...durchlaeufe.map((durchlauf) => ({
       name: durchlauf,
       testMatch: `${durchlauf}.spec.ts`,
+      // Ein Abschnitt beginnt mit dem Abzug seines Durchlaufs (e2e/abzug.ts)
+      dependencies: ABZUG_AUS[durchlauf] ? [ABZUG_AUS[durchlauf]] : [],
       use: { ...chromium, baseURL: `http://localhost:${portFuer(durchlauf)}` },
     })),
     // Braucht keine Daten aus der App
@@ -182,6 +215,6 @@ export default defineConfig({
       ],
       use: chromium,
     },
-  ],
-  webServer: [webServer(), ...durchlaeufe.map(webServer)],
+  ].filter((projekt) => gewaehlt(projekt.name as Projekt)),
+  webServer: [...(hauptserver ? [webServer()] : []), ...durchlaeufe.filter(gewaehlt).map(webServer)],
 });

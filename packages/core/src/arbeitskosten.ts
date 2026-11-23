@@ -25,17 +25,42 @@ export interface ArbeitskostenLine extends DiscountableLine {
  */
 export function arbeitskostenAnteil(lines: ArbeitskostenLine[], priceMode: PriceMode, discount: Discount | null = null): Cents | null {
   if (!lines.some((line) => line.arbeitskosten && !line.deductionOf)) return null;
+  let total = 0;
+  for (const [rate, { anteil }] of arbeitskostenJeSatz(lines, discount)) {
+    total += priceMode === "netto" ? anteil + taxOf(anteil, rate) : anteil;
+  }
+  return total;
+}
+
+/**
+ * Je Steuersatz der Anteil der gekennzeichneten Positionen und die Summe aller Positionen, beide nach Positionsrabatt und
+ * um ihren Anteil am Gesamtrabatt gemindert, im Preismodus der Positionen (ohne Steuer bei Nettopreisen).
+ * Abzugspositionen zählen nicht mit.
+ */
+export function arbeitskostenJeSatz(lines: ArbeitskostenLine[], discount: Discount | null = null): Map<BasisPoints, { anteil: Cents; summe: Cents }> {
   const basis = discountBasis(lines);
   const reductions = splitDocumentDiscount(lines, discount);
-  let total = 0;
+  const result = new Map<BasisPoints, { anteil: Cents; summe: Cents }>();
   for (const [rate, sum] of basis) {
+    const reduction = reductions.get(rate) ?? 0;
     const marked = lines
       .filter((line) => line.taxRate === rate && line.arbeitskosten && !line.deductionOf)
       .reduce((s, line) => s + discountedLineAmount(line), 0);
-    if (marked === 0 || sum === 0) continue;
-    const reduction = reductions.get(rate) ?? 0;
-    const amount = reduction === 0 ? marked : marked - roundHalfAwayFromZero((reduction * marked) / sum);
-    total += priceMode === "netto" ? amount + taxOf(amount, rate) : amount;
+    // Wie bisher: ohne Summe des Satzes kein Anteil, ohne Gesamtrabatt die gekennzeichneten Positionen unverändert
+    const anteil = marked === 0 || sum === 0 ? 0 : reduction === 0 ? marked : marked - roundHalfAwayFromZero((reduction * marked) / sum);
+    result.set(rate, { anteil, summe: sum - reduction });
   }
-  return total;
+  return result;
+}
+
+/**
+ * Teil eines Betrags, der auf Arbeits-, Maschinen- und Fahrtkosten entfällt, im Verhältnis anteil zu summe eines
+ * Steuersatzes, kaufmännisch gerundet. Für Abschläge aus dem Zahlungsplan: Das BMF-Schreiben lässt eine prozentuale
+ * Aufteilung durch den Rechnungsaussteller zu (Rz. 40), Abschlagszahlungen zählen nur mit eigener Rechnung, die den
+ * Anteil nennt (#1667)
+ */
+export function arbeitskostenTeil(betrag: Cents, { anteil, summe }: { anteil: Cents; summe: Cents }): Cents {
+  if (summe === 0 || anteil === 0) return 0;
+  if (anteil === summe) return betrag;
+  return roundHalfAwayFromZero((betrag * anteil) / summe);
 }

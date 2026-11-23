@@ -1,0 +1,47 @@
+name: CI-Image
+
+# Baut das Image für die E2E-Jobs aus .github/ci-image/Containerfile nach ghcr.io/speicherstadt/haben-ci:<tag>
+# (Tag aus tag.sh). Bis es da ist, laufen die E2E-Jobs in ci.yml ohne Container wie bisher.
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/ci-image/**"
+      - ".github/workflows/ci-image.yml"
+      - "package.json"
+      - "apps/web/package.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-image
+  cancel-in-progress: false
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - id: tag
+        run: .github/ci-image/tag.sh | tee -a "$GITHUB_OUTPUT"
+      - name: Bei ghcr.io anmelden
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Bauen und pushen, falls der Tag fehlt
+        env:
+          IMAGE: ghcr.io/speicherstadt/haben-ci:${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if docker manifest inspect "$IMAGE" >/dev/null 2>&1; then echo "$IMAGE gibt es schon"; exit 0; fi
+          docker build \
+            --build-arg PLAYWRIGHT_VERSION=${{ steps.tag.outputs.playwright }} \
+            --build-arg BUN_VERSION=${{ steps.tag.outputs.bun }} \
+            --label org.opencontainers.image.source=https://github.com/${{ github.repository }} \
+            -t "$IMAGE" -f .github/ci-image/Containerfile .github/ci-image
+          docker push "$IMAGE"

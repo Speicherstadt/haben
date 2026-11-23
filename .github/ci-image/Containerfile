@@ -1,0 +1,12 @@
+# CI-Image für die E2E-Jobs (ci.yml, e2e-teil): Chromium mit Systembibliotheken aus dem Playwright-Image, dazu Bun,
+# pdftotext und psql. Spart je Lauf `playwright install-deps` und apt, die an langsamen Spiegeln hängen (#1742).
+# Gebaut von ci-image.yml; der Tag kommt aus tag.sh, die Versionen aus package.json und apps/web/package.json.
+ARG PLAYWRIGHT_VERSION
+FROM mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-noble
+ARG BUN_VERSION
+# Die Browser liegen in /ms-playwright (PLAYWRIGHT_BROWSERS_PATH setzt das Basis-Image). Bun aus npm statt vom
+# Docker Hub, dessen Abruflimit anonyme Builds trifft
+RUN npm install -g --no-fund --no-audit "bun@${BUN_VERSION}" \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends poppler-utils postgresql-client \
+  && rm -rf /var/lib/apt/lists/*

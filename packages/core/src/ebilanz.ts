@@ -332,7 +332,7 @@ function kontenOf(kontenrahmen: Kontenrahmen): Record<string, EbilanzZiel> {
     ...lohnKonten(kontenrahmen),
     ...steuerzahlungKonten(kontenrahmen),
     ...darlehenKonten(kontenrahmen),
-    ...hinzurechnungPositionen(kontenrahmen).map(([konto, position]): [string, EbilanzZiel] => [konto, [position]]),
+    ...hinzurechnungPositionen(kontenrahmen),
   ];
   return Object.fromEntries(entries);
 }
