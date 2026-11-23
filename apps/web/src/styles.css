@@ -922,12 +922,13 @@ html:has(.preview-dialog) body { padding-right: var(--page-scrollbar, 0px); }
 .split-menu [role="menuitem"] > svg { flex-shrink: 0; color: var(--muted); }
 .split-menu-text { display: flex; flex-direction: column; gap: 2px; }
 /* Beleg prüfen: nebeneinander höchstens so hoch wie die Vorschau, das Formular scrollt, die Knöpfe bleiben sichtbar.
-   Zeile auf die Gridhöhe begrenzen, sonst wächst sie mit dem Formular und es scrollt die Seite statt der Spalte. In
-   niedrigen Fenstern wächst .main bis zur Mindesthöhe des Belegs (min-content), statt dass er unten herausragt und Kopf und
-   Leiste mit der Seite wegscrollen. Dieselben Grenzen wie bei .editor-grid; eingeklappt dieselben Regeln noch einmal, mit
-   :where(), damit sie nicht stärker sind als ausgeklappt */
+   Zeile auf die Gridhöhe begrenzen, sonst wächst sie mit dem Formular und es scrollt die Seite statt der Spalte. .main ist
+   mindestens so hoch wie das Fenster; der Beleg wächst nur mit dem Fenster (flex-basis 0), in niedrigen Fenstern wächst .main
+   bis zu seiner Mindesthöhe, statt dass er unten herausragt und Kopf und Leiste mit der Seite wegscrollen (height: 100dvh mit
+   min-height: min-content wirkt in Firefox nicht). Dieselben Grenzen wie bei .editor-grid; eingeklappt dieselben Regeln
+   noch einmal, mit :where(), damit sie nicht stärker sind als ausgeklappt */
 @media (min-width: 1201px) {
-  .main:has(> .doc-editor) { box-sizing: border-box; height: 100dvh; min-height: min-content; }
+  .main:has(> .doc-editor) { box-sizing: border-box; min-height: 100dvh; }
   .doc-editor { flex: 1 1 0; min-height: 520px; align-items: stretch; grid-template-rows: minmax(0, 1fr); }
   .doc-editor > .doc-preview, .doc-editor > .doc-image { position: static; height: 100%; max-height: none; min-height: 0; }
   .doc-editor > .stack { min-height: 0; overflow-y: auto; padding-right: 4px; }
@@ -945,7 +946,7 @@ html:has(.preview-dialog) body { padding-right: var(--page-scrollbar, 0px); }
   .doc-editor .doc-actions .more-actions-menu .split-menu { top: auto; bottom: calc(100% + 4px); }
 }
 @media (min-width: 1033px) {
-  [data-nav="collapsed"] .main:has(> .doc-editor) { box-sizing: border-box; height: 100dvh; min-height: min-content; }
+  [data-nav="collapsed"] .main:has(> .doc-editor) { box-sizing: border-box; min-height: 100dvh; }
   :where([data-nav="collapsed"]) .doc-editor { flex: 1 1 0; min-height: 520px; align-items: stretch; grid-template-rows: minmax(0, 1fr); }
   :where([data-nav="collapsed"]) .doc-editor > :is(.doc-preview, .doc-image) { position: static; height: 100%; max-height: none; min-height: 0; }
   :where([data-nav="collapsed"]) .doc-editor > .stack { min-height: 0; overflow-y: auto; padding-right: 4px; }
