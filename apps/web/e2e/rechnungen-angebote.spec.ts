@@ -740,6 +740,27 @@ test("Neues Angebot: Eingaben direkt nach dem Speichern bleiben erhalten (#1148)
   await eingabeNachDemSpeichern("angebote");
 });
 
+test("Speichern schlägt fehl: der Fokus steht danach wieder im Feld, aus dem gespeichert wurde (#1148)", async () => {
+  await go("/rechnungen/neu");
+  await kundeWaehlen(page);
+  const beschreibung = page.getByLabel("Beschreibung Position 1");
+  await beschreibung.fill("Beratung");
+  await page.getByLabel("Menge Position 1").fill("1");
+  await page.getByLabel(/Einzelpreis Position 1/).fill("100,00");
+  // Nur die Anfrage zum Speichern scheitert, die Vorschau nicht
+  const speichern = (url: URL) => url.pathname.startsWith("/_serverFn/");
+  await page.route(speichern, (route) =>
+    route.request().method() === "POST" && route.request().postData()?.includes('"draft"') ? route.abort() : route.fallback(),
+  );
+  // Enter im Feld speichert; während der Anfrage ist das Feld gesperrt und verliert den Fokus
+  await beschreibung.press("Enter");
+  await expect(page.getByRole("alert").filter({ hasText: /fetch|Netzwerk|network/i })).toBeVisible();
+  await expect(beschreibung).toBeEnabled();
+  await expect(beschreibung).toBeFocused();
+  await expect(page).toHaveURL(/\/rechnungen\/neu/);
+  await page.unroute(speichern);
+});
+
 test("Artikel-API: Rechte, Anlegen, Suchen und Ändern im Katalog (#297)", async ({ request }) => {
   await go("/einstellungen?bereich=ki");
   const access = page.getByLabel("Zugang für KI-Assistenten und API einschalten");
