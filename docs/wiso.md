@@ -71,14 +71,15 @@ Wähle für die gesamte Datei den **Übernahmestichtag 01.01.** des ersten Haben
 
 | WISO-Liste oder Anlagendetails | CSV für Haben |
 | --- | --- |
-| Nr. und Bezeichnung | **Bezeichnung**, etwa `Konferenzstuhl [WISO 142]`; die Nummer zusätzlich in **Notiz** aufbewahren |
+| Nr. | Als **Inventarnummer** in die CSV schreiben oder im Import **Notiz** zuordnen. Führende Nullen als Text erhalten. |
+| Bezeichnung | **Bezeichnung** wie in WISO |
 | Anschaffungsdatum | **Anschaffungsdatum**, nicht der Umzugstag |
 | Anschaffungskosten | **Anschaffungskosten** wie in WISO geführt; [Vorsteueranteil beachten](csv-import.md#anlagen), nicht nach heutigem Kleinunternehmerstatus umrechnen; Veränderungen gesondert prüfen |
 | ND | **Nutzungsdauer (Jahre)** bzw. Monate passend zum bisherigen Plan |
 | Abschreibungsplan | **Art** und **Abschreibung** ausdrücklich passend wählen |
 | RBW 31.12. des letzten WISO-Jahres | **Restbuchwert** |
 
-**Identische Anlagen:** Haben erkennt Dubletten an Bezeichnung, Anschaffungsdatum und Anschaffungskosten zusammen. Acht gleiche Stühle vom selben Tag brauchen deshalb unterscheidbare Bezeichnungen mit ihrer jeweiligen WISO-Nummer. Die Notiz allein verhindert keine Dublette.
+**Baugleiche Anlagen:** Haben vergleicht Bezeichnung, Anschaffungsdatum und Anschaffungskosten. Ist eine Inventarnummer oder Notiz eingetragen, zählt sie ebenfalls. Acht gleiche Stühle vom selben Tag kannst du mit ihrer jeweiligen WISO-Nummer einzeln übernehmen. Prüfe vor dem Speichern, ob alle acht Zeilen in der Vorschau als neu erscheinen. [Dubletten beim Anlagenimport](csv-import.md#anlagen)
 
 **Zugänge und Teilabgänge:** Übernimm die Spalte „Zugänge/Teilabgänge“ nicht pauschal als Zuschlag zu den Anschaffungskosten. Prüfe je Anlage Art und Zeitpunkt der Veränderung, die fortgeführten Kosten und den Buchwert anhand der Details. Unklare Fälle klärst du mit der Steuerberatung, statt den Plan passend zu rechnen.
 

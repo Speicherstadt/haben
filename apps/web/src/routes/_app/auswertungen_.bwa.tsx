@@ -21,9 +21,10 @@ import { Field } from "../../components/Field.tsx";
 import { JOURNAL_SOURCE, ZEITRAEUME } from "../../components/Ledger.tsx";
 import { ScrollTable } from "../../components/ScrollTable.tsx";
 import { formatDate } from "../../lib/format.ts";
+import { siehtSeite } from "../../lib/rollen.ts";
 import { ERSTES_JAHR, LETZTES_JAHR } from "../../lib/jahre.ts";
 import { getBwa, getBwaKonten, getBwaWarum, getBwaZeile } from "../../server/functions/bwa.ts";
-import type { BwaGruppe } from "../../server/modules/auswertungen/index.ts";
+import type { BwaGruppe, BwaVorgang } from "../../server/modules/auswertungen/index.ts";
 import styles from "../../styles/auswertungen.css?url";
 
 /*
@@ -153,7 +154,12 @@ function BwaPage() {
             </p>
           </BwaTabelle>
           {offeneZeile && details && (
-            <ZeileDetails titel={`${offeneZeile.label} · ${zeitraumText(zeitraum)}`} jahr={Number(zeitraum.von.slice(0, 4))} gruppen={details}>
+            <ZeileDetails
+              titel={`${offeneZeile.label} · ${zeitraumText(zeitraum)}`}
+              jahr={Number(zeitraum.von.slice(0, 4))}
+              gruppen={details}
+              rolle={user.role}
+            >
               {warum && bericht.vergleich && (
                 <BwaWarum warum={warum} zeitraum={zeitraumText(zeitraum, true)} vergleich={zeitraumText(bericht.vergleich, true)} rolle={user.role} />
               )}
@@ -253,7 +259,38 @@ function FreierZeitraum({ zeitraum, onChange }: { zeitraum: Zeitraum; onChange: 
   );
 }
 
-function ZeileDetails({ titel, jahr, gruppen, children }: { titel: string; jahr: number; gruppen: BwaGruppe[]; children?: ReactNode }) {
+/**
+ * Wohin ein Vorgang führt: zur Rechnung, zum Beleg, sonst (Lohn- und Umsatzsteuerzahlungen) zur Buchung im Kontenblatt, an
+ * ihrem Tag und dort markiert (#1635). Ohne Konto oder ohne Recht auf das Kontenblatt nur die Herkunft.
+ */
+function VorgangLink({ v, rolle }: { v: BwaVorgang; rolle: string }) {
+  if (v.rechnungId)
+    return (
+      <Link to="/rechnungen/$id" params={{ id: v.rechnungId }}>
+        Rechnung {v.text}
+      </Link>
+    );
+  if (v.belegId)
+    return (
+      <Link to="/belege/$id" params={{ id: v.belegId }}>
+        Beleg {v.text}
+      </Link>
+    );
+  const herkunft = JOURNAL_SOURCE[v.sourceType as keyof typeof JOURNAL_SOURCE] ?? v.sourceType;
+  if (!v.konto || !siehtSeite(rolle, `/konten/${v.konto}`)) return <>{herkunft}</>;
+  return (
+    <Link
+      to="/konten/$konto"
+      params={{ konto: v.konto }}
+      search={{ jahr: Number(v.buchungsdatum.slice(0, 4)), von: v.buchungsdatum, bis: v.buchungsdatum }}
+      hash={`buchung-${v.buchungId}`}
+    >
+      {`${herkunft} · Konto\u00a0${v.konto}`}
+    </Link>
+  );
+}
+
+function ZeileDetails({ titel, jahr, gruppen, rolle, children }: { titel: string; jahr: number; gruppen: BwaGruppe[]; rolle: string; children?: ReactNode }) {
   return (
     <section className="card bwa-details" id="details" aria-labelledby="details-titel">
       <h2 id="details-titel">{titel}</h2>
@@ -286,17 +323,7 @@ function ZeileDetails({ titel, jahr, gruppen, children }: { titel: string; jahr:
               <tr key={`${v.sourceId}-${i}`}>
                 <td>{formatDate(v.datum)}</td>
                 <td>
-                  {v.rechnungId ? (
-                    <Link to="/rechnungen/$id" params={{ id: v.rechnungId }}>
-                      Rechnung {v.text}
-                    </Link>
-                  ) : v.belegId ? (
-                    <Link to="/belege/$id" params={{ id: v.belegId }}>
-                      Beleg {v.text}
-                    </Link>
-                  ) : (
-                    (JOURNAL_SOURCE[v.sourceType as keyof typeof JOURNAL_SOURCE] ?? v.sourceType)
-                  )}
+                  <VorgangLink v={v} rolle={rolle} />
                 </td>
                 <td className="num">{formatEuro(v.betrag)}</td>
               </tr>

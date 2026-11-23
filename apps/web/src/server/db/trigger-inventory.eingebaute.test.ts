@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { builtinFindings } from "./catalog-objects.ts";
+import { type Eingebaute, eingebauteBefunde } from "@firsttris/gobd-kern/sperren";
+import { hinweisText, problem } from "./trigger-inventory.ts";
+
+/** Befunde des Kerns mit den Texten von Haben */
+function builtinFindings(soll: Eingebaute, ist: Eingebaute) {
+  const { befunde, hinweise } = eingebauteBefunde(soll, ist);
+  return { problems: befunde.map((befund) => problem(befund).befund), hints: hinweise.map(hinweisText) };
+}
 
 const sollbestand = {
   major: 18,

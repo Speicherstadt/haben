@@ -42,22 +42,43 @@ export const FINTS_ANLEITUNG = "https://github.com/Speicherstadt/haben/blob/main
 const kontoName = (a: { name: string; iban: string }) => (a.name.endsWith(a.iban.slice(-4)) ? a.name : `${a.name} …${a.iban.slice(-4)}`);
 
 /**
+ * Name einer Verbindung im Grund gesperrter Knöpfe. Heißt eine andere Bank genauso, etwa bei zwei Zugängen zur selben
+ * Bank, mit der Endung der IBAN ihres ersten Kontos, wie sie an der Zeile steht: „Testbank …2051“ (#1677)
+ */
+function nameImGrund(c: Verbindung, connections: readonly Verbindung[]): string {
+  const konto = c.accounts[0];
+  const gleich = connections.some((d) => d.id !== c.id && d.bankName === c.bankName);
+  return gleich && konto ? `${c.bankName} …${konto.iban.slice(-4)}` : c.bankName;
+}
+
+/**
  * Worauf die Knöpfe für FinTS warten, solange an der Zeile einer Verbindung ein Schritt der Bank offen ist oder ein Abruf
  * läuft: das Satzende nach „sobald“, sonst null. Die Zeile ausser zählt nicht mit; an ihr steht der Schritt direkt
  * darunter, und ihr Knopf zeigt „Rufe ab …“ (#1662)
  */
 export function wartetAuf(connections: readonly Verbindung[], { offen, busy }: Pick<FintsZustand, "offen" | "busy">, ausser?: string): string | null {
   const schritt = connections.find((c) => c.id === offen?.fuer && c.id !== ausser);
-  if (schritt) return `die Freigabe für ${schritt.bankName} gesendet oder abgebrochen ist`;
+  if (schritt) return `die Freigabe für ${nameImGrund(schritt, connections)} gesendet oder abgebrochen ist`;
   const abruf = connections.find((c) => c.id === busy && c.id !== ausser);
-  return abruf ? `der Abruf für ${abruf.bankName} fertig ist` : null;
+  return abruf ? `der Abruf für ${nameImGrund(abruf, connections)} fertig ist` : null;
 }
 
-/** Satz mit den gesperrten Knöpfen einer Zeile; „Zugang ändern“ hat nur eine Verbindung mit Fehler */
-function sperrSatz(c: Verbindung, trennen: boolean, sobald: string): string {
-  const knoepfe = [...(trennen ? ["Trennen"] : []), ...(c.status === "fehler" ? ["Zugang ändern"] : []), "Jetzt abrufen"];
-  const liste = new Intl.ListFormat("de").format(knoepfe.map((k) => `„${k}“`));
-  return `${liste} ${knoepfe.length > 1 ? "gehen" : "geht"} wieder, sobald ${sobald}.`;
+/**
+ * Satzende, solange „Trennen“ an einer anderen Zeile als ausser läuft (busy `x-<ID>`); ihr Knopf zeigt „Trenne …“. Nur die
+ * Zeilen warten darauf, „Über FinTS verbinden“ nicht (#1677)
+ */
+function trenntAndere(connections: readonly Verbindung[], busy: string | null, ausser: string): string | null {
+  const c = connections.find((d) => busy === `x-${d.id}` && d.id !== ausser);
+  return c ? `die Verbindung zu ${nameImGrund(c, connections)} getrennt ist` : null;
+}
+
+/** Gesperrte Knöpfe einer Zeile, „Trennen“ nur mit trennen; „Zugang ändern“ nur bei Fehler; ohne FINTS_PRODUKT_ID nur „Trennen“ */
+const knoepfe = (c: Verbindung, trennen: boolean, configured: boolean) =>
+  [...(trennen ? ["Trennen"] : []), ...(c.status === "fehler" ? ["Zugang ändern"] : []), "Jetzt abrufen"].filter((k) => configured || k === "Trennen");
+
+function sperrSatz(namen: string[], sobald: string): string {
+  const liste = new Intl.ListFormat("de").format(namen.map((k) => `„${k}“`));
+  return `${liste} ${namen.length > 1 ? "gehen" : "geht"} wieder, sobald ${sobald}.`;
 }
 
 /**
@@ -65,15 +86,19 @@ function sperrSatz(c: Verbindung, trennen: boolean, sobald: string): string {
  * verbinden“ offen ist, stünde ein Schritt der Bank an der Zeile sonst neben dem Formular, und dessen Schritt ersetzte ihn,
  * ohne dass Haben den Vorgang bei der Bank verwirft (#1660); „Trennen“ nur, solange die Bank beim Verbinden auf einen
  * Schritt wartet. Ebenso ersetzte ein Schritt an der Zeile den offenen an einer anderen oder den, mit dem die Bank auf
- * deren Abruf antwortet (#1662)
+ * deren Abruf antwortet (#1662). Während „Trennen“ an einer anderen Zeile sind alle Knöpfe kurz gesperrt (#1677); bei
+ * offenem Formular nennt ein zweiter Satz dann „Trennen“
  */
-function zeilenGrund(c: Verbindung, connections: readonly Verbindung[], z: Pick<FintsZustand, "verbinden" | "offen" | "busy">) {
+export function zeilenGrund(c: Verbindung, connections: readonly Verbindung[], z: Pick<FintsZustand, "verbinden" | "offen" | "busy">, configured = true) {
+  const getrennt = trenntAndere(connections, z.busy, c.id);
   if (z.verbinden) {
-    const trennen = z.offen?.fuer === "neu";
-    return { text: sperrSatz(c, trennen, "das Verbinden über FinTS oben fertig oder abgebrochen ist"), trennen };
+    const schritt = z.offen?.fuer === "neu";
+    const text = sperrSatz(knoepfe(c, schritt, configured), "das Verbinden über FinTS oben fertig oder abgebrochen ist");
+    if (getrennt && !schritt) return { text: `${text} ${sperrSatz(["Trennen"], getrennt)}`, trennen: true };
+    return { text, trennen: schritt };
   }
-  const sobald = wartetAuf(connections, z, c.id);
-  return sobald ? { text: sperrSatz(c, true, sobald), trennen: true } : null;
+  const sobald = wartetAuf(connections, z, c.id) ?? getrennt;
+  return sobald ? { text: sperrSatz(knoepfe(c, true, configured), sobald), trennen: true } : null;
 }
 
 const meldungenAus = (s: Extract<Schritt, { art: "fertig" }>): Meldung[] => [
@@ -241,7 +266,7 @@ export function FintsAbruf({
   const verwerfen = useServerFn(cancelFints);
   const [vorlage, setVorlage] = useState<Verbindung | null>(null);
   const grundId = useId();
-  const grundVon = (c: Verbindung) => zeilenGrund(c, fints.connections, { verbinden, offen, busy });
+  const grundVon = (c: Verbindung) => zeilenGrund(c, fints.connections, { verbinden, offen, busy }, fints.configured);
   // ID des Grundes an der Zeile für aria-describedby; mitTrennen für „Trennen“, das nicht jeder Grund nennt
   const grundZeile = (c: Verbindung, mitTrennen = false) => {
     const grund = grundVon(c);
@@ -322,7 +347,7 @@ export function FintsAbruf({
           <Angaben c={c} grund={grundVon(c)?.text} grundId={grundZeile(c)} />
           <div className="actions">
             <button type="button" className="btn btn-danger" disabled={gesperrt} aria-describedby={grundZeile(c, true)} onClick={() => setTrennt(c)}>
-              Trennen
+              {busy === `x-${c.id}` ? "Trenne …" : "Trennen"}
             </button>
             {c.status === "fehler" && fints.configured && (
               <button

@@ -12,6 +12,7 @@ import {
   docPageHints,
   grownOldFiles,
   growthHints,
+  heikelHint,
   hints,
   isBot,
   type Report,
@@ -121,6 +122,7 @@ const reports: Report[] = [
   ...docPageHints(docPages),
   ...functionLengthHints(functionChanges),
   ...reviewHint(pr, files),
+  ...heikelHint(files),
 ];
 
 if (lokal) {
