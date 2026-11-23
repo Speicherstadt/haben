@@ -40,6 +40,16 @@ class ListenImFliesstext(unittest.TestCase):
         )
         self.assertEqual(listen_im_fliesstext(self.site), [])
 
+    def test_plus_als_listenpunkt(self):
+        # Python-Markdown kennt -, * und + als Punkt einer Liste
+        self.seite("d.html", "<p>Text:\n+ plus eins\n+ plus zwei</p>")
+        self.assertEqual(listen_im_fliesstext(self.site), ["d.html: Text: + plus eins + plus zwei"])
+
+    def test_maskierter_punkt_am_anfang_des_absatzes_bleibt(self):
+        # 1\. Januar und \- in der Quelle: keine Liste, im HTML steht "1. " bzw. "- " am Anfang des <p>
+        self.seite("e.html", "<p>1. Januar 2027 gilt das.</p>\n<p>- kein Punkt</p>")
+        self.assertEqual(listen_im_fliesstext(self.site), [])
+
 
 if __name__ == "__main__":
     unittest.main()
