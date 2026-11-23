@@ -140,18 +140,55 @@ describe.skipIf(!testDatabaseUrl)("Standard-Textbaustein je Belegart (Postgres, 
     expect((await invoices.getInvoice(entwurf.id))?.invoice.intro).toBe("Vorgabe Rechnung");
   });
 
-  it("die Mahnung nimmt Kopf- und Fußtext ihres Standards für jede Stufe, ohne Standard die Texte der Stufe", async () => {
+  it("die Mahnung nimmt Kopf- und Fußtext des Standards ihrer Stufe, ohne Standard die Texte der Stufe (#1678)", async () => {
     const rechnung = await invoices.finalizeInvoice(
       actor,
       (await invoices.createDraft(actor, { ...(await invoices.newDraftDefaults("2026-10-01")), contactId, paymentTermDays: 14, lines })).id,
       kleinunternehmerStand,
     );
-    expect((await dunning.dunningDraft(rechnung.id, "2026-11-20"))?.texts).toEqual(DUNNING_TEXTS);
-    await baustein("kopf", "Unsere Rechnung ist noch offen.", "mahnung");
-    const texts = (await dunning.dunningDraft(rechnung.id, "2026-11-20"))!.texts;
-    expect([texts[1].intro, texts[3].intro]).toEqual(["Unsere Rechnung ist noch offen.", "Unsere Rechnung ist noch offen."]);
-    // Ohne Fußtext-Standard bleibt der Schlusstext der Stufe
-    expect(texts[3].closing).toBe(DUNNING_TEXTS[3].closing);
+    const texte = async () => (await dunning.dunningDraft(rechnung.id, "2026-11-20"))!.texts;
+    expect(await texte()).toEqual(DUNNING_TEXTS);
+    await baustein("kopf", "Unsere Rechnung ist noch offen.", "mahnstufe_1");
+    await baustein("fuss", "Bei Rückfragen rufen Sie mich gern an.", "mahnstufe_3");
+    expect(await texte()).toEqual({
+      1: { intro: "Unsere Rechnung ist noch offen.", closing: DUNNING_TEXTS[1].closing },
+      2: DUNNING_TEXTS[2],
+      3: { intro: DUNNING_TEXTS[3].intro, closing: "Bei Rückfragen rufen Sie mich gern an." },
+    });
+    // Ein neuer Standard löst nur den derselben Stufe und Art ab
+    await baustein("kopf", "Zweite Fassung der Erinnerung", "mahnstufe_1");
+    await baustein("kopf", "Wir mahnen die Rechnung an.", "mahnstufe_2");
+    expect(await sql`select text, standard_fuer from text_blocks where standard_fuer is not null order by standard_fuer, kind`).toEqual([
+      { text: "Zweite Fassung der Erinnerung", standard_fuer: "mahnstufe_1" },
+      { text: "Wir mahnen die Rechnung an.", standard_fuer: "mahnstufe_2" },
+      { text: "Bei Rückfragen rufen Sie mich gern an.", standard_fuer: "mahnstufe_3" },
+    ]);
+    expect((await texte())[1].intro).toBe("Zweite Fassung der Erinnerung");
+  });
+
+  it("ein Standard „Mahnung“ aus einer älteren Exportdatei gilt für jede Stufe, wie nach der Migration (#1678)", async () => {
+    const LANG = `${"a".repeat(178)}😀${"b".repeat(20)}`;
+    await withActor(actor, (tx) =>
+      stammdaten.textbausteineUebernehmen(tx, [
+        { name: "Offen", kind: "kopf", text: "Unsere Rechnung ist noch offen.", contactId: null, standardFuer: "mahnung", archivedAt: null },
+        { name: "Alt", kind: "fuss", text: "Archiviert", contactId: null, standardFuer: "mahnung", archivedAt: "2026-11-01T00:00:00.000Z" },
+        { name: LANG, kind: "fuss", text: "Bei Rückfragen rufen Sie mich gern an.", contactId: null, standardFuer: "mahnung", archivedAt: null },
+      ]),
+    );
+    // Der lange Name wird gekürzt, ohne das Emoji zu teilen, und bleibt bei 200 UTF-16-Einheiten wie im Formular
+    expect((await sql`select name from text_blocks where kind = 'fuss' and standard_fuer is not null order by standard_fuer`).map((r) => r.name)).toEqual([
+      `${"a".repeat(178)} (Zahlungserinnerung)`,
+      LANG,
+      `${"a".repeat(178)}😀bbb (Letzte Mahnung)`,
+    ]);
+    expect(
+      await sql`select name, kind, standard_fuer, archived_at is not null as archiviert from text_blocks where kind = 'kopf' or archived_at is not null order by name`,
+    ).toEqual([
+      { name: "Alt", kind: "fuss", standard_fuer: null, archiviert: true },
+      { name: "Offen", kind: "kopf", standard_fuer: "mahnstufe_2", archiviert: false },
+      { name: "Offen (Letzte Mahnung)", kind: "kopf", standard_fuer: "mahnstufe_3", archiviert: false },
+      { name: "Offen (Zahlungserinnerung)", kind: "kopf", standard_fuer: "mahnstufe_1", archiviert: false },
+    ]);
   });
 
   it("Auftragsbestätigung nimmt ihren Standard nur ohne eigenen Text des Angebots, der Lieferschein beim Erzeugen", async () => {

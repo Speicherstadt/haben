@@ -194,14 +194,14 @@ Unter **Standard für** machst du einen Baustein zum Standard einer Belegart. Er
 | Belegart | Kopftext | Fußtext |
 | --- | --- | --- |
 | Rechnung, Angebot | Einleitung des neuen Entwurfs | Hinweis des neuen Entwurfs |
-| Mahnung | Einleitung, für jede Stufe | Schluss, für jede Stufe |
+| Mahnung, je Stufe (Zahlungserinnerung, 1. Mahnung, letzte Mahnung) | Einleitung der Stufe | Schluss der Stufe |
 | Auftragsbestätigung | beim Erzeugen, wenn das Angebot keine Einleitung hat | beim Erzeugen, wenn das Angebot keinen Hinweis hat |
 | Lieferschein | – | Hinweis, beim Erzeugen |
 
-- Je Belegart und Art gibt es höchstens einen Standard. Machst du einen weiteren zum Standard, löst er den bisherigen ab. Ein archivierter Baustein ist kein Standard mehr, auch nicht nach dem Wiederherstellen.
+- Bei der Mahnung wählst du die Stufe, etwa **Mahnungen: Letzte Mahnung**; eine Stufe ohne Standard behält ihre Vorlage (siehe [Mahnwesen](rechnungen-zahlung.md#mahnwesen)). Ein Standard „Mahnungen“ aus einer älteren Version galt für jede Stufe: Beim Update bleibt er Standard der 1. Mahnung, Zahlungserinnerung und letzte Mahnung bekommen je eine Kopie mit dem Namen der Stufe in Klammern. Dasselbe gilt beim Übernehmen einer älteren Exportdatei; die Rückmeldung zählt dann die Bausteine der Datei, nicht die Kopien.
+- Je Belegart und Art gibt es höchstens einen Standard. Machst du einen weiteren zum Standard, löst er den bisherigen ab, bei der Mahnung den derselben Stufe. Ein archivierter Baustein ist kein Standard mehr, auch nicht nach dem Wiederherstellen.
 - Ein Standard gilt für alle Kunden; ein Baustein für einen bestimmten Kunden kann kein Standard sein. Der Lieferschein hat nur einen Hinweis, dort geht nur ein Fußtext.
 - Auftragsbestätigung und Lieferschein haben keinen Entwurf: Der Standard greift jedes Mal, wenn du sie erzeugst, auch für ein schon angenommenes Angebot; einen eigenen Text des Angebots ersetzt er nicht. Ohne Standard bleibt es bei den Texten des Angebots bzw. ohne Hinweis.
-- Bei der Mahnung ersetzt ein Standard die Vorlage der Stufe, und zwar für alle Stufen gleich; ohne Standard bleiben die Vorlagen je Stufe (siehe [Mahnwesen](rechnungen-zahlung.md#mahnwesen)).
 - [Platzhalter](#platzhalter-in-einleitung-und-hinweis) bleiben im Entwurf stehen und werden in Rechnung und Angebot bei Vorschau und Festschreiben eingesetzt, in der Auftragsbestätigung beim Erzeugen. In Mahnung und Lieferschein setzt Haben keine Platzhalter ein.
 - Die frühere **Standard-Einleitung** aus den Firmendaten hat Haben beim Update in je einen Kopftext-Baustein mit Standard für Rechnungen bzw. Angebote übernommen, ebenso beim Übernehmen der Einstellungen aus einer älteren Exportdatei.
 

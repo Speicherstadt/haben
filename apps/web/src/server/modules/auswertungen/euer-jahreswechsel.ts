@@ -150,12 +150,12 @@ export async function zehnTageKennzeichen(year: number, q: Db | Tx = db): Promis
   return { herein: [...herein].sort(), hinaus: [...hinaus].sort() };
 }
 
-/** Die Buchungen dazu; die hereingenommenen mit Datum 31.12. des Jahres */
+/** Die Buchungen dazu; die hereingenommenen mit Datum 31.12. des Jahres, ihr Tag im Journal bleibt in `buchungsdatum` */
 export async function verschobeneBuchungen(year: number, q: Db | Tx): Promise<{ herein: Buchung[]; hinaus: Buchung[] }> {
   const { herein, hinaus } = await euerVerschiebung(year, q);
   const e = schema.journalEntries;
   const laden = async (ids: Set<string>) => (ids.size === 0 ? [] : buchungen(q, and(eq(e.sourceType, "allocation"), inArray(e.sourceId, [...ids]))));
-  return { herein: (await laden(herein)).map((b) => ({ ...b, date: `${year}-12-31` })), hinaus: await laden(hinaus) };
+  return { herein: (await laden(herein)).map((b) => ({ ...b, date: `${year}-12-31`, buchungsdatum: b.date })), hinaus: await laden(hinaus) };
 }
 
 /** Buchungen des Jahres nach Datum (`jahr`), wie sie in der EÜR zählen: ohne die hinaus, mit den herein verschobenen */

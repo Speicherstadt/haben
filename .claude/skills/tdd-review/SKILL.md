@@ -1,6 +1,6 @@
 ---
 name: "tdd-review"
-description: "Unabhängiges Review eines Pull Requests in Haben: nur Fehler melden, die ein fehlschlagender Test belegt, Findings im PR posten, nach Red-Green fixen, bis CI grün ist; mergen nur als Maintainer oder Collaborator mit Zustimmung. Für jeden Pull Request mit Code vor dem Merge; Markdown prüft doku-pruefen, bei Code und Markdown parallel."
+description: "Unabhängiges Review eines Pull Requests in Haben, das nur Fehler mit fehlschlagendem Test meldet und bis grüner CI behebt. Für jeden Pull Request mit Code vor dem Merge; Markdown prüft doku-pruefen, bei beidem parallel."
 ---
 
 # TDD-Review
@@ -57,7 +57,7 @@ Unabhängig ist, wer den Code nicht selbst geschrieben hat. Gemeint ist der Agen
 ## 5. Grün prüfen
 
 - Die CI prüft die volle Suite; ohne grüne CI ist das Review nicht fertig. Auf Entwürfen läuft sie nicht: Dann ist der PR vor dem Merge auf „Ready for review“ zu setzen, nur auf Freigabe der Person.
-- Die CI-Checks des PR abwarten. Bei roten Checks die Ursache beheben und erneut pushen; keinen Test überspringen, keinen leeren Commit, um CI neu zu starten.
+- Die CI-Checks des PR abwarten. Bei roten Checks nach `docs/mitwirken.md`, Review, Punkt 5: Log des Jobs einmal lesen (`gh run view <id> --log-failed`), nur die fehlgeschlagenen Tests lokal wiederholen, beheben, einmal pushen. Keinen Test überspringen, keinen leeren Commit und keinen Neustart, um grün zu bekommen.
 - Abschlusskommentar im PR: welche Findings behoben sind, welche Tests neu sind, Stand der Checks.
 
 ## Wie viele Runden
@@ -72,10 +72,10 @@ Die Regel steht in `docs/mitwirken.md`, Review, „Runden“. Schritte 1 bis 5 s
 ## 6. Merge (Maintainer oder Collaborator mit Zustimmung)
 
 - Mergen darf, wer Maintainer von Haben ist und das ausdrücklich will, oder ein Collaborator mit Zustimmung des Maintainers. Wer sonst beiträgt, hört nach Schritt 5 auf.
-- Vor dem Merge prüfen: alle Findings behoben oder nach „Wie viele Runden“ notiert, bei Markdown im PR auch `doku-pruefen` abgeschlossen, alle Checks grün auf dem aktuellen Stand, kein Konflikt mit `main`, Titel und Beschreibung passen zum Stand (sie werden der Squash-Commit auf `main`).
+- Vor dem Merge prüfen: alle Findings behoben oder nach „Wie viele Runden“ notiert, bei Markdown im PR auch `doku-pruefen` abgeschlossen, alle Checks grün auf dem aktuellen Stand (Ausnahme wie unter „Nicht mergen“), kein Konflikt mit `main`, Titel und Beschreibung passen zum Stand (sie werden der Squash-Commit auf `main`).
 - Merge-Methode nach `docs/mitwirken.md`, „Review“, Schritt 6: immer **Squash** des Pull Requests selbst.
-- **Nicht mergen**, wenn ein zu behebendes Finding offen ist, Checks rot bleiben oder der Fix eine fachliche Entscheidung braucht – dann zurückmelden und fragen.
+- **Nicht mergen**, wenn ein zu behebendes Finding offen ist, Checks rot bleiben (außer einem Check, der auf `main` genauso rot ist, nach „Wer mergt was“ in `docs/mitwirken.md`) oder der Fix eine fachliche Entscheidung braucht – dann zurückmelden und fragen.
 
 ## Abschlussbericht
 
-Immer zurückmelden: PR-Link, Anzahl belegter Findings, was behoben wurde (Commits), Stand der Checks, ob gemergt wurde oder warum nicht.
+Immer zurückmelden: PR-Link, Anzahl belegter Findings, was behoben wurde (Commits), Stand der Checks, ob gemergt wurde oder warum nicht. Nach einem Merge in der Form aus `docs/mitwirken.md`, Review, Punkt 6.
