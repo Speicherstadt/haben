@@ -137,7 +137,7 @@ test("Rechnungskopf: Hinweise zu Leistungszeitraum, Format, Fremdwährung und Fe
   await go("/rechnungen/neu");
   for (const feld of ["Leistung von", "Leistung bis"]) {
     await expect(page.getByLabel(feld, { exact: true })).toHaveAccessibleDescription(
-      /^Tag oder Zeitraum der Leistung\. Beide leer: Auf der Rechnung steht das Rechnungsdatum, eine Zahlung davor behandelt Haben wie bisher\. Eingetragen, auch am Rechnungsdatum: Die Steuer auf eine Zahlung vor der Leistung entsteht im Monat der Zahlung\. Vorauszahlung auf normale Rechnungen$/,
+      /^Tag oder Zeitraum der Leistung\. Beide leer: Auf der Rechnung steht das Rechnungsdatum; eine Zahlung vor der Leistung erkennt Haben dann nicht als Vorauszahlung\. Eingetragen, auch am Rechnungsdatum: Die Steuer auf eine Zahlung vor der Leistung entsteht im Voranmeldungszeitraum der Zahlung\. Vorauszahlung auf normale Rechnungen$/,
     );
   }
   await expect(page.getByLabel("E-Rechnungsformat", { exact: true })).toHaveAccessibleDescription(
@@ -154,7 +154,7 @@ test("Rechnungskopf: Hinweise zu Leistungszeitraum, Format, Fremdwährung und Fe
   await expect(page.getByRole("link", { name: "Rechnungen in Fremdwährung" })).toHaveAttribute("href", /\/rechnungen\.html#rechnungen-in-fremdw/);
   // Das Vorauszahlungsverfahren gibt es nur für Euro; in Fremdwährung gilt der allgemeine Hinweis
   await expect(page.getByLabel("Leistung von", { exact: true })).toHaveAccessibleDescription(
-    /^Leistungszeitraum, wenn er vom Rechnungsdatum abweicht\. Beide leer: Auf der Rechnung steht das Rechnungsdatum\.$/,
+    /^Tag oder Zeitraum der Leistung, wenn er vom Rechnungsdatum abweicht\. Beide leer: Auf der Rechnung steht das Rechnungsdatum\.$/,
   );
 });
 

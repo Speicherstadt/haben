@@ -19,7 +19,7 @@ describe("Hinweise im Rechnungseditor (#1253)", () => {
   it("Leistungszeitraum: der Hinweis sagt, dass leer das Rechnungsdatum gilt, und das gilt tatsächlich", () => {
     const html = renderToStaticMarkup(createElement(ServiceHint, { state: "normal" }));
     expect(html).toContain(`id="${serviceHintIds("rechnung").von}"`);
-    expect(html).toContain("Beide leer: Auf der Rechnung steht das Rechnungsdatum, eine Zahlung davor behandelt Haben wie bisher.");
+    expect(html).toContain("Beide leer: Auf der Rechnung steht das Rechnungsdatum; eine Zahlung vor der Leistung erkennt Haben dann nicht als Vorauszahlung.");
     // advanceProcedure: Das Verfahren greift bei jedem eingetragenen Tag, auch am Rechnungsdatum
     expect(html).toContain("Eingetragen, auch am Rechnungsdatum:");
     expect(html).toContain(`href="${ADVANCE_DOCS}"`);
@@ -113,8 +113,8 @@ describe("Hinweis zu „Leistung von“ und „Leistung bis“ in jedem Zustand 
     // Der Verweis auf die Zahlung vor der Leistung steht nur dort, wo ein eingetragener Tag das Vorauszahlungsverfahren auslöst
     expect(von.includes("Zahlung vor der Leistung")).toBe(zustand === "normal");
     expect(bis.includes("Zahlung vor der Leistung")).toBe(zustand === "normal");
-    // Die Steuerfolge der Vorauszahlung (im Monat der Zahlung, bei Soll wie Ist) steht nur dort, ohne Soll und Ist zu unterscheiden
-    expect(/entsteht im Monat der Zahlung/.test(von)).toBe(zustand === "normal");
+    // Die Steuerfolge der Vorauszahlung (im Voranmeldungszeitraum der Zahlung, bei Soll wie Ist) steht nur dort, ohne Soll und Ist zu unterscheiden
+    expect(/entsteht im Voranmeldungszeitraum der Zahlung/.test(von)).toBe(zustand === "normal");
     expect(`${von} ${bis}`).not.toMatch(/Soll|Ist-/);
     // Ein eigener Hinweis je Feld nur, wenn die Texte sich unterscheiden
     const ids = serviceHintIds(state);
