@@ -15,7 +15,7 @@ import { usePruefungBeimSpeichern } from "./-zeitraum-pruefung.ts";
 import { Field } from "../../../components/Field.tsx";
 import type { PageData } from "./-zeitraum-quellen.tsx";
 import { type FieldKey, KennzahlenTabelle } from "./-zeitraum-kennzahlen.tsx";
-import { AbgabeSpalte, useVoranmeldungAktionen } from "./-zeitraum-abgabe.tsx";
+import { AbgabeSpalte, anmeldbar, useVoranmeldungAktionen } from "./-zeitraum-abgabe.tsx";
 
 export const Route = createFileRoute("/_app/umsatzsteuer/$zeitraum")({
   loader: ({ params }) => {
@@ -197,11 +197,8 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
   const [dirty, setDirty] = useState(!current);
 
   const parsed = Object.fromEntries(FIELDS.map((f) => [f, parseEuro(values[f])])) as Record<FieldKey, number | null>;
-  const manualValid = Object.values(parsed).every((v) => v !== null) && reason.trim().length >= 10;
   const manualFigures = Object.fromEntries(FIELDS.map((f) => [f, parsed[f] ?? 0])) as Record<FieldKey, number>;
-  // Ein Zeitraum, der nicht zum eingestellten Voranmeldungszeitraum passt, lässt sich nicht neu anmelden; berichtigen geht
-  const allowed = !data.periodProblem || Boolean(current?.berichtigt);
-  const valid = allowed && (mode === "berechnet" || manualValid);
+  const allowed = anmeldbar(data);
   const shown = locked ? computeUstva(current!) : mode === "manuell" ? computeUstva(manualFigures) : computed;
   // Gespeicherter berechneter Entwurf, dessen Werte sich inzwischen geändert haben
   const stale = !locked && current?.source === "berechnet" && !sameFigures(current, computed);
@@ -222,7 +219,7 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
 
   const { busy, onSave, onSubmit, onCorrect } = useVoranmeldungAktionen(data, { mode, manualFigures, reason, dirty, setDirty }, setNotice);
   // Prüfung beim Speichern statt gesperrtem Knopf (#1270)
-  const { pruefung, speichern } = usePruefungBeimSpeichern(parsed, reason, mode, onSave);
+  const { pruefung, check, speichern } = usePruefungBeimSpeichern(parsed, reason, mode, onSave);
 
   const editable = !locked && mode === "manuell";
 
@@ -294,6 +291,7 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
                   setReason(event.target.value);
                   setDirty(true);
                 }}
+                maxLength={1000}
                 placeholder="z. B. Zahlung vom 30.09. erst im Oktober zugeordnet"
               />
             )}
@@ -333,7 +331,7 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
         <NoticeBanner notice={notice} />
       </form>
 
-      <AbgabeSpalte data={data} locked={locked} valid={valid} busy={busy} shown={shown} dirty={dirty} stale={stale} onSubmit={onSubmit} setNotice={setNotice} />
+      <AbgabeSpalte data={data} locked={locked} check={check} busy={busy} shown={shown} dirty={dirty} stale={stale} onSubmit={onSubmit} setNotice={setNotice} />
     </div>
   );
 }
