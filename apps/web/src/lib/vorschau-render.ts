@@ -21,10 +21,11 @@ const PREVIEW_FAILED = "Die Vorschau ließ sich nicht erzeugen.";
 const NETWORK_ERROR = /^(Failed to fetch|NetworkError when attempting to fetch resource\.|Load failed)$/;
 /**
  * Fehlerseite des Reverse Proxys, solange Haben neu startet: TanStack Start wirft den Text einer Antwort ohne eigenes
- * Format (serverFnFetcher), also das HTML von nginx, „Invariant failed“ beim leeren 502 von Caddy oder den Statustext
- * von Traefik. Meldungen von Haben sind nie HTML.
+ * Format (serverFnFetcher), also das HTML von nginx, „Invariant failed“ beim leeren 502 von Caddy oder den Text von
+ * Traefik: den Statustext, ohne gesunden Container (Provider Docker, Kubernetes) das 404 von Go, mit allowEmptyServices
+ * „no available server“, beide mit Zeilenumbruch. Meldungen von Haben sind nie HTML.
  */
-const PROXY_PAGE = /^\s*<|^Invariant failed|^(Bad Gateway|Service Unavailable|Gateway Timeout)$/;
+const PROXY_PAGE = /^\s*<|^Invariant failed|^(Bad Gateway|Service Unavailable|Gateway Timeout|404 page not found|no available server)\s*$/;
 
 /**
  * Meldung, wenn das Blatt nicht gesetzt werden kann (#1147): immer zuerst der eigene Satz, damit sie sich von einer
