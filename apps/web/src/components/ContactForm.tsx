@@ -161,7 +161,6 @@ export function ContactForm({
 
       <section className="form-section" aria-labelledby="contact-invoices">
         <h2 id="contact-invoices">Rechnungen</h2>
-        <UnsereLieferantennummerField defaultValue={initial.unsereLieferantennummer ?? ""} />
         <div className="form-row cols-2">
           <Field label="Sprache von Rechnungen und Angeboten">
             {(control) => (
@@ -326,18 +325,6 @@ function ContactTax({
         </div>
       </div>
     </section>
-  );
-}
-
-/** Die Nummer, unter der uns der Kunde führt (#711); nicht die Lieferantennummer oben, die meint die Gegenrichtung */
-function UnsereLieferantennummerField({ defaultValue }: { defaultValue: string }) {
-  return (
-    <Field
-      label="Unsere Lieferantennummer bei diesem Kunden"
-      hint="Vom Kunden vergeben. Steht im Kopf der Rechnung und in der E-Rechnung als Verkäuferkennung (BT-29)."
-    >
-      {(control) => <input {...control} name="unsereLieferantennummer" defaultValue={defaultValue} placeholder="optional" />}
-    </Field>
   );
 }
 

@@ -14,7 +14,13 @@ const leer: KontaktWeitereWerte = {
   ownSkonto: false,
   skonto: [],
 };
-const initial = { leitwegId: "991-01234-44", unsereLieferantennummer: "70815", debitorNr: 10050, hourlyRateCents: 9500, defaultFormat: "xrechnung-cii" } as ContactInput;
+const initial = {
+  leitwegId: "991-01234-44",
+  unsereLieferantennummer: "70815",
+  debitorNr: 10050,
+  hourlyRateCents: 9500,
+  defaultFormat: "xrechnung-cii",
+} as ContactInput;
 
 function render(offen: boolean) {
   return renderToStaticMarkup(
@@ -65,7 +71,8 @@ describe("Weitere Angaben am Kontakt", () => {
     const zu = render(false);
     expect(zu).not.toMatch(/<details[^>]* open/);
     expect(zu).toContain("Leitweg-ID gesetzt");
-    for (const feld of ["debitorNr", "kreditorNr", "hourlyRateCents", "leitwegId", "unsereLieferantennummer", "defaultFormat"]) expect(zu, feld).toContain(`name="${feld}"`);
+    for (const feld of ["debitorNr", "kreditorNr", "hourlyRateCents", "leitwegId", "unsereLieferantennummer", "defaultFormat"])
+      expect(zu, feld).toContain(`name="${feld}"`);
     expect(zu).toContain('value="10050"');
     expect(zu).toContain('value="95,00"');
     expect(zu).toContain('value="991-01234-44"');
