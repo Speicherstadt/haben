@@ -138,7 +138,8 @@ export async function updateAccount(actor: string, input: z.infer<typeof account
     // Ein Zahlungsdienstleister bleibt einer (eigenes Verrechnungskonto, keine IBAN); dort ändert sich nur der Name
     const purpose = account.purpose === "zahlungsdienstleister" ? account.purpose : (input.purpose ?? account.purpose);
     let marketplace = account.marketplace;
-    if (input.marketplace !== undefined && account.provider === "amazon") {
+    // Nur eine echte Änderung prüfen: das Formular sendet den Marktplatz auch unverändert mit, das Umbenennen bleibt möglich
+    if (account.provider === "amazon" && input.marketplace !== undefined && input.marketplace !== account.marketplace) {
       if (!AMAZON_MARKETPLACES.includes(input.marketplace)) throw new BankError("Unbekannter Marktplatz.");
       const [belegt] = await tx
         .select({ id: schema.bankTransactions.id })

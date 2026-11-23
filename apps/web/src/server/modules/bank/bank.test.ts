@@ -1153,6 +1153,16 @@ describe.skipIf(!testDatabaseUrl)("Bankabgleich (Postgres)", () => {
     await expect(bank.updateAccount(actor, { id: amazon.id, name: "Amazon", marketplace: "Amazon.de" })).rejects.toThrow(/keine Umsätze/);
   }, 30_000);
 
+  it("Amazon: der Name lässt sich auch mit Umsätzen ändern, der Marktplatz bleibt", async () => {
+    const amazon = await bank.createProviderAccount(actor, { name: "Amazon", provider: "amazon", marketplace: "Amazon.de" });
+    await bank.importStatement(actor, { bytes: new TextEncoder().encode(amazonReport("Amazon.de")), filename: "amazon-settlement.txt" }, amazon.id);
+
+    await bank.updateAccount(actor, { id: amazon.id, name: "Amazon DE", marketplace: "Amazon.de" });
+    expect((await bank.listAccounts()).find((a) => a.id === amazon.id)).toMatchObject({ name: "Amazon DE", marketplace: "Amazon.de" });
+
+    await expect(bank.updateAccount(actor, { id: amazon.id, name: "Amazon DE", marketplace: "Amazon.fr" })).rejects.toThrow(/keine Umsätze/);
+  }, 30_000);
+
   it("Gebühren eines Monats der Sammelrechnung des Dienstleisters zuordnen", async () => {
     const stripe = await bank.createProviderAccount(actor, { name: "Stripe", provider: "stripe" });
     const csv = [
