@@ -42,7 +42,7 @@ Als Datei (im Scratchpad), auf Deutsch:
 
 - Mit Werkzeug: als **Entwurf** gegen `main` (`gh pr create --draft --base main --title … --body-file …`).
 - Nur git: den Link aus der Ausgabe von `git push` und den Pfad der Beschreibung an die Person geben.
-- „Ready for review“ nur auf Freigabe der Person; erst dann läuft die CI.
+- „Ready for review“ nur auf Freigabe der Person und erst, wenn der Stand fertig ist; erst dann läuft die CI. Danach Fixes sammeln und gemeinsam pushen, für größere Nacharbeit zurück auf Entwurf (`gh pr ready --undo`), weil jeder Push alle Runner neu belegt.
 
 ## 6. Danach
 
