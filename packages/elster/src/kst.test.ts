@@ -79,7 +79,7 @@ describe("Erklärungen der GmbH: Prüfungen vor dem XML", () => {
     gegenstand: "Software",
     betriebsstaette: { plz: "70173", ort: "Stuttgart" },
     gewinn: 100_000,
-    hinzurechnungen: { zinsen: 0, renten: 0, beweglich: 0, elektro: 0, unbeweglich: 0, rechte: 0 },
+    hinzurechnungen: { zinsen: 0, renten: 0, stilleGesellschafter: 0, beweglich: 0, elektro: 0, unbeweglich: 0, rechte: 0 },
     rechteBeschraenktStpfl: 0,
     verlustvortrag: 0,
   };
@@ -103,5 +103,18 @@ describe("Erklärungen der GmbH: Prüfungen vor dem XML", () => {
     const xml = buildGewStXml({ ...gewst, hinzurechnungen: { ...gewst.hinzurechnungen, zinsen: 300_000, renten: 120_000, beweglich: 50_000 } });
     expect(xml).toMatch(/<E4003202>3000<\/E4003202>\s*<E4003302>1200<\/E4003302>\s*<E4003502>500<\/E4003502>/);
     expect(buildGewStXml(gewst)).not.toContain("E4003302");
+  });
+
+  it.each([2024, 2025])("Gewerbesteuer %i: vorzeichenbehafteter Anteil stiller Gesellschafter in Zeile 52", (year) => {
+    for (const [betrag, volleEuro] of [
+      [120_099, 1200],
+      [-120_099, -1201],
+      [-99, -1],
+    ] as const) {
+      const hinzurechnungen = { ...gewst.hinzurechnungen, renten: 50_000, stilleGesellschafter: betrag, beweglich: 75_000 };
+      const xml = buildGewStXml({ ...gewst, year, hinzurechnungen });
+      expect(xml).toMatch(new RegExp(`<E4003302>500</E4003302>\\s*<E4003407>${volleEuro}</E4003407>\\s*<E4003502>750</E4003502>`));
+    }
+    expect(buildGewStXml({ ...gewst, year })).not.toContain("E4003407");
   });
 });

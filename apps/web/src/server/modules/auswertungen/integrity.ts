@@ -5,7 +5,9 @@ import { lastFileCheck, type FileCheck } from "./file-integrity.ts";
 import { db, schema } from "../../db/index.ts";
 import { loadCompany } from "../stammdaten/index.ts";
 import { today } from "../../today.ts";
-import { checkTriggerIntegrity } from "../../db/trigger-inventory.ts";
+import { checkTriggerIntegrity, checkTriggerInventory, type InventoryChecksum } from "../../db/trigger-inventory.ts";
+
+import { PRUEFUNG_ABGEBROCHEN } from "../../../lib/pruefbericht.ts";
 
 export { formatPruefwert, parsePruefwert } from "../../../lib/pruefwert.ts";
 
@@ -50,6 +52,8 @@ export interface IntegrityReport {
   accountCollisions: { kontenrahmen: Kontenrahmen; account: string; name: string }[];
   /** Zusätzliche Betreibertrigger sind Hinweise, keine Korruptionsbefunde. */
   triggerHints: string[];
+  /** Prüfsumme der Sperren: eigener Bestand und ausgelieferter Sollbestand (#1683) */
+  inventoryChecksum: InventoryChecksum;
   /** Letzte Vollprüfung der Dateien im Dokumentenspeicher (file-integrity.ts); null, solange keine lief */
   files: FileCheck | null;
 }
@@ -68,6 +72,36 @@ export async function chainHead(reader: Reader = db): Promise<ChainHead | null> 
 
 const MAX_ROWS = 100;
 
+type IntegrityRow = { art: IntegrityProblem["art"]; tabelle: string; zeile: string | null; seq: string | null; befund: string };
+
+/**
+ * Befunde von haben_integrity_problems. Bricht die Funktion ab, etwa weil sich der Standardwert einer Spalte, die ein
+ * älteres Siegel nicht abdeckt, nicht auswerten lässt, oder weil sie fehlt, wird das ein Befund (#1604): Ein Savepoint
+ * hält die Transaktion für die übrigen Prüfungen offen, und „Kette prüfen“ und die Prüfwert-Mail melden den Abbruch,
+ * statt mit einem Fehler zu enden. Über Kette und Siegel sagt der Bericht dann nichts aus.
+ */
+async function integrityRows(tx: Parameters<Parameters<typeof db.transaction>[0]>[0]): Promise<IntegrityRow[]> {
+  try {
+    return await tx.transaction((sp) => sp.execute<IntegrityRow>(sql`select art, tabelle, zeile, seq, befund from haben_integrity_problems(${MAX_ROWS})`));
+  } catch (error) {
+    return [
+      {
+        art: "sperre",
+        tabelle: "haben_integrity_problems",
+        zeile: null,
+        seq: null,
+        befund: `${PRUEFUNG_ABGEBROCHEN}: ${fehlerGrund(error)}`,
+      },
+    ];
+  }
+}
+
+/** Meldung eines Fehlers für Befunde; bei einer gescheiterten Abfrage die der Datenbank statt „Failed query: …“ */
+export function fehlerGrund(error: unknown): string {
+  if (error instanceof Error && error.cause instanceof Error) return error.cause.message;
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * Befunde, Kopf, Anzahlen und Abgleich aus einem Stand der Datenbank. Einzeln gelesen verschob ein Eintrag, der
  * dazwischen hinzukam, Anzahl und Kopf gegeneinander, und der Abgleich sah eine Buchung nebenher nur auf einer Seite.
@@ -78,10 +112,8 @@ function readSnapshot(now: string) {
     async (tx) => {
       // Vor haben_integrity_problems: Den Suchpfad liest die Prüfung so, wie die Prüffunktionen ihn vorfinden. Eine fremde
       // Funktion, die sie aufrufen, könnte ihn bis zum Ende der Transaktion ändern.
-      const triggers = await checkTriggerIntegrity(tx);
-      const rows = await tx.execute<{ art: IntegrityProblem["art"]; tabelle: string; zeile: string | null; seq: string | null; befund: string }>(
-        sql`select art, tabelle, zeile, seq, befund from haben_integrity_problems(${MAX_ROWS})`,
-      );
+      const triggers = await checkTriggerInventory(tx);
+      const rows = await integrityRows(tx);
       const head = await chainHead(tx);
       const [entries] = await tx.select({ n: count() }).from(schema.auditLog);
       const [seals] = await tx.select({ n: count() }).from(schema.seals);
@@ -93,7 +125,16 @@ function readSnapshot(now: string) {
         .from(schema.ownAccounts)
         .orderBy(schema.ownAccounts.kontenrahmen, schema.ownAccounts.account);
       const accountCollisions = ownAccounts.filter((account) => reservedAccountNumbers(account.kontenrahmen).has(account.account));
-      return { rows: [...rows, ...triggers.problems], triggerHints: triggers.hints, head, entries: entries!.n, seals: seals!.n, abgleich, accountCollisions };
+      return {
+        rows: [...rows, ...triggers.problems],
+        triggerHints: triggers.hints,
+        inventoryChecksum: triggers.checksum,
+        head,
+        entries: entries!.n,
+        seals: seals!.n,
+        abgleich,
+        accountCollisions,
+      };
     },
     { isolationLevel: "repeatable read", accessMode: "read only" },
   );
@@ -108,7 +149,7 @@ export async function checkIntegrity(now = today(), zusatz: () => Promise<Abglei
   // und geht in der Transaktion mit festem Stand nicht. Ohne Buchungen bleibt die Prüfung ohne jeden Schreibzugriff.
   const [booking] = await db.select({ id: schema.journalEntries.id }).from(schema.journalEntries).limit(1);
   if (booking) await loadCompany();
-  const { rows, triggerHints, head, entries, seals, abgleich, accountCollisions } = await readSnapshot(now);
+  const { rows, triggerHints, inventoryChecksum, head, entries, seals, abgleich, accountCollisions } = await readSnapshot(now);
   const weitere = await ohneUebernommeneZeilen(await zusatz());
   const files = await lastFileCheck();
   const problems = [...rows].map((r) => ({ ...r, seq: r.seq === null ? null : Number(r.seq) }));
@@ -123,6 +164,7 @@ export async function checkIntegrity(now = today(), zusatz: () => Promise<Abglei
     abgleich: { abweichungen: abweichungen([...abgleich.zeilen, ...weitere.zeilen]), hinweise: abgleich.hinweise },
     accountCollisions,
     triggerHints,
+    inventoryChecksum,
     files,
   };
 }
@@ -134,7 +176,8 @@ export type PruefwertResult =
   | { status: "beschaedigt"; seq: number; first: number; befund: string }
   /**
    * Hash stimmt und die Kette scheint lückenlos, aber Trigger, Funktionen oder andere Objekte der Datenbank weichen vom
-   * Sollbestand ab (checkTriggerIntegrity). Wer sie ändern kann, kann auch das Nachrechnen der Kette fälschen.
+   * Sollbestand ab (checkTriggerIntegrity), oder das Nachrechnen der Kette ist abgebrochen. Wer sie ändern kann, kann auch
+   * das Nachrechnen der Kette fälschen.
    */
   | { status: "unbestaetigt"; seq: number; befunde: string[] }
   /** Eintrag vorhanden, Hash anders: die Kette wurde bis zu diesem Eintrag neu berechnet */
@@ -156,11 +199,20 @@ export async function checkPruefwert(seq: number, hash: string): Promise<Pruefwe
       if (actual !== hash.toLowerCase()) return { status: "abweichend", seq, expected: hash.toLowerCase(), actual };
       // Zuerst der Katalog: Weicht er ab, ist auch das Nachrechnen der Kette nicht verlässlich
       const catalog = await checkTriggerIntegrity(tx);
-      const [broken] = await tx.execute<{ seq: string; befund: string }>(
-        sql`select seq, befund from haben_integrity_problems(1) where art = 'kette' and seq <= ${seq} order by seq limit 1`,
-      );
+      const befunde = catalog.problems.map((p) => `${p.tabelle}: ${p.befund}`);
+      // Im Savepoint wie in integrityRows: Bricht die Prüffunktion ab oder fehlt sie, ist der Prüfwert unbestätigt, nie „ok“ (#1716)
+      let broken: { seq: string; befund: string } | undefined;
+      try {
+        [broken] = await tx.transaction((sp) =>
+          sp.execute<{ seq: string; befund: string }>(
+            sql`select seq, befund from haben_integrity_problems(1) where art = 'kette' and seq <= ${seq} order by seq limit 1`,
+          ),
+        );
+      } catch (error) {
+        befunde.push(`haben_integrity_problems: ${PRUEFUNG_ABGEBROCHEN}: ${fehlerGrund(error)}`);
+      }
       if (broken) return { status: "beschaedigt", seq, first: Number(broken.seq), befund: broken.befund };
-      if (catalog.problems.length > 0) return { status: "unbestaetigt", seq, befunde: catalog.problems.map((p) => `${p.tabelle}: ${p.befund}`) };
+      if (befunde.length > 0) return { status: "unbestaetigt", seq, befunde };
       return { status: "ok", seq };
     },
     { isolationLevel: "repeatable read", accessMode: "read only" },

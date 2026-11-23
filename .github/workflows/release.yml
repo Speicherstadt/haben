@@ -79,9 +79,41 @@ jobs:
       contents: write
       packages: write
 
-  # Jedes Release eines Tags (auch ein Release Candidate) wird in Discord (#releases) angekündigt
-  discord:
+  # Jedes Release eines Tags (auch ein Release Candidate): Der Sollbestand der Sperren kommt als Datei an das Release, seine
+  # Prüfsumme in die Release Notes (#1683). „Kette prüfen“ zeigt dieselbe Prüfsumme für den eigenen Bestand
+  # (scripts/sollbestand/pruefsumme.ts). Ein erneuter Lauf ersetzt die Datei und schreibt die Zeile nicht doppelt.
+  sollbestand:
     needs: docker
+    if: ${{ !cancelled() && needs.docker.result == 'success' && startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - name: Sollbestand anhängen, Prüfsumme in die Release Notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          datei="$RUNNER_TEMP/haben-sollbestand-${TAG#v}.json"
+          cp apps/web/src/server/db/trigger-inventory.json "$datei"
+          summe="$(bun scripts/sollbestand/pruefsumme.ts "$datei")"
+          test "${#summe}" = 64
+          gh release upload "$TAG" "$datei" --clobber
+          gh release view "$TAG" --json body --jq .body > "$RUNNER_TEMP/notes.md"
+          # Erkannt am Dateinamen: „Prüfsumme der Sperren“ kann auch im Titel eines Pull Requests in den erzeugten Notizen stehen
+          if ! grep -qF "$(basename "$datei")" "$RUNNER_TEMP/notes.md"; then
+            printf '\n\nPrüfsumme der Sperren (`%s`, wie unter „Kette prüfen“): `%s`\n' "$(basename "$datei")" "$summe" >> "$RUNNER_TEMP/notes.md"
+            gh release edit "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+
+  # Jedes Release eines Tags (auch ein Release Candidate) wird in Discord (#releases) angekündigt, nach der Prüfsumme der
+  # Sperren in den Release Notes; ohne sie, falls dieser Job scheitert
+  discord:
+    needs: [docker, sollbestand]
     if: ${{ !cancelled() && needs.docker.result == 'success' && startsWith(github.ref, 'refs/tags/v') }}
     uses: ./.github/workflows/discord-release.yml
     with:

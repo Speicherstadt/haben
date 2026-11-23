@@ -59,3 +59,13 @@ export function pruefeAnweisung(datei: string, inhalt: string): Befund[] {
   if (zeichen <= ANWEISUNG_MAX) return [];
   return [{ skill: datei, message: `${zeichen} Zeichen, höchstens ${ANWEISUNG_MAX}: Schritte gehören in einen Skill, Regeln in docs/` }];
 }
+
+/**
+ * Andere Agenten als Claude (Codex und weitere) finden die Skills über AGENTS.md, nicht über die Beschreibung im Front
+ * Matter. Fehlt dort ein Skill, kennt ihn nur Claude.
+ */
+export function pruefeAgentsMd(inhalt: string, skills: string[]): Befund[] {
+  return skills
+    .filter((skill) => !inhalt.includes(`\`${skill}\``))
+    .map((skill) => ({ skill: "AGENTS.md", message: `nennt den Skill \`${skill}\` nicht; andere Agenten als Claude finden ihn sonst nicht` }));
+}

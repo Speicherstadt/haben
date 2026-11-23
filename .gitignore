@@ -24,3 +24,6 @@ __pycache__/
 
 # macOS
 .DS_Store
+
+# Abzug der E2E-Einrichtung (apps/web/e2e/abzug.ts)
+apps/web/.e2e-abzug/

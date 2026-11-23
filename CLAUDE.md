@@ -44,12 +44,13 @@ Modules, the audit hash chain and seals: `docs/architektur.md`, tables: `docs/ar
 - Store a secret outside a `ciphertext` column; run ERiC in the app process.
 - Point tests at a database with real data; skip, weaken or delete a test to get green; report a skipped
   test as passed.
-- Push to `main`, rewrite a contributor's commits, merge (only a maintainer, or a collaborator with the maintainer's approval), review your own code.
+- Push to `main` (only exception: repairing a red `main`, by or on instruction of the maintainer, `mitwirken.md`: Wer mergt was), rewrite a contributor's commits, merge (only a maintainer, or a collaborator with the maintainer's approval), review your own code.
 - Create or comment on issues and pull requests without being asked.
 - Stop the user's processes or touch their `haben-dev` compose project; work around `sudo`.
 
 ## With every change
 
+- Leave every file you touch cleaner than you found it (flaky test, long function, dead code), without changing behavior, and list it under „Aufgeräumt“ in the PR (`mitwirken.md`, Pfadfinder-Regel).
 - Tests for what changed: Vitest, Postgres tests next to the module, Playwright for what a user clicks; a bug
   fix starts with a failing test; SKR03 and SKR04, Ist and Soll for bookings and tax, each covered, not every
   combination against Postgres (`mitwirken.md`).
@@ -70,6 +71,7 @@ Modules, the audit hash chain and seals: `docs/architektur.md`, tables: `docs/ar
 - Functional, no classes (except the `UserError` subclasses); a file past ~400 lines and a function past ~80
   get split (`entwicklung.md`: Konventionen).
 - Writes go through `withActor`; a new table gets an audit trigger (nothing checks this automatically).
+- Uncommitted changes you did not make belong to someone else (often another agent): keep to your own scope (cleaning up committed code in files you touch is part of it); on a conflict with them, stop and ask.
 - Bun, not Node, npm or pnpm: `bun run test` runs Vitest, `bun test` would be Bun's own runner.
 - Server functions in `server/functions/` stay thin: `authMiddleware`, Zod, then a call into
   `server/modules/`; another module only through its `index.ts`.
