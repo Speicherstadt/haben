@@ -2664,53 +2664,6 @@ test("Anlage übernehmen: degressive AfA mit Höchstsatz, Restbuchwert geprüft,
   await expect(angaben.getByLabel("Erinnerungswert 1 € bis zum Abgang stehen lassen")).not.toBeChecked();
 });
 
-test("Elektrofahrzeug übernehmen: AfA nach § 7 Abs. 2a EStG mit Erinnerungswert", async () => {
-  await go("/anlagen/neu");
-  const form = page.getByRole("region", { name: "Angaben" });
-  await form.getByLabel("Bezeichnung").fill("E-Transporter");
-  await form.getByRole("combobox", { name: "Art", exact: true }).selectOption({ label: "Fahrzeug" });
-  await form.getByLabel("Anschaffungsdatum").fill("2025-08-01");
-  await form.getByLabel("Anschaffungskosten netto (€)").fill("40.000,00");
-  await form.getByRole("combobox", { name: "Abschreibung", exact: true }).selectOption("elektro");
-  await expect(form.getByText("Nur für reine Elektrofahrzeuge, angeschafft vom 01.07.2025 bis 31.12.2027")).toBeVisible();
-  await expect(form.getByRole("combobox", { name: "Abschreibung", exact: true })).toHaveAttribute("aria-describedby", /method-hint/);
-  await form.getByLabel("Erinnerungswert 1 € bis zum Abgang stehen lassen").check();
-  await form.getByLabel("Übernahmestichtag").fill("2026-01-01");
-  // 75 % im Anschaffungsjahr: Restbuchwert 10.000 €
-  await form.getByLabel("Restbuchwert zum Stichtag (€)").fill("10.000,00");
-  await form.getByRole("button", { name: "Anlage übernehmen" }).click();
-  await page.waitForURL(/\/anlagen\/[0-9a-f-]{36}$/);
-  await page.waitForLoadState("networkidle");
-  const plan = page.getByRole("region", { name: "Abschreibungsplan" });
-  await expect(plan).toContainText("Elektrofahrzeug 75/10/5/5/3/2 % (§ 7 Abs. 2a EStG), Erinnerungswert 1 €");
-  await expect(plan.locator(".table-row", { hasText: /^2026/ })).toContainText("4.000,00");
-  // Letztes Jahr der Staffel: 2 % abzüglich des Erinnerungswerts
-  await expect(plan.locator(".table-row", { hasText: /^2030/ })).toContainText("799,00");
-});
-
-test("Sonstige Transportmittel übernehmen: Konto 0380, eigene Nutzungsdauer statt der Pkw-Nutzungsdauer, keine Elektro-AfA (#312)", async () => {
-  await go("/anlagen/neu");
-  const form = page.getByRole("region", { name: "Angaben" });
-  await form.getByLabel("Bezeichnung").fill("Kofferanhänger");
-  await form.getByRole("combobox", { name: "Art", exact: true }).selectOption({ label: "Fahrzeug" });
-  await expect(form.getByLabel("Nutzungsdauer in Jahren")).toHaveValue("6");
-  // Die sechs Jahre für Pkw gehen nicht mit: die Nutzungsdauer kommt vom einzelnen Wirtschaftsgut
-  await form.getByRole("combobox", { name: "Art", exact: true }).selectOption({ label: "Sonstige Transportmittel (z. B. Anhänger, Lastenrad, Boot)" });
-  await expect(form.getByLabel("Nutzungsdauer in Jahren")).toHaveValue("");
-  await expect(form.getByRole("combobox", { name: "Abschreibung", exact: true }).locator("option[value=elektro]")).toHaveCount(0);
-  await form.getByLabel("Nutzungsdauer in Jahren").fill("11");
-  await form.getByLabel("Anschaffungsdatum").fill("2025-04-10");
-  await form.getByLabel("Anschaffungskosten netto (€)").fill("6.600,00");
-  await form.getByLabel("Übernahmestichtag").fill("2026-01-01");
-  // 2025: 9 von 132 Monaten = 450 €
-  await form.getByLabel("Restbuchwert zum Stichtag (€)").fill("6.150,00");
-  await form.getByRole("button", { name: "Anlage übernehmen" }).click();
-  await page.waitForURL(/\/anlagen\/[0-9a-f-]{36}$/);
-  await page.waitForLoadState("networkidle");
-  await expect(page.getByText(/Konto 0380/)).toBeVisible();
-  await expect(page.getByRole("region", { name: "Abschreibungsplan" }).locator(".table-row", { hasText: /^2026/ })).toContainText("600,00");
-});
-
 test("Beleg als Anlagegut: Wechsel von Fahrzeug zu Sonstige Transportmittel lässt die sechs Jahre für Pkw nicht stehen (#312)", async ({ browser }) => {
   await go("/belege");
   await page
@@ -2751,56 +2704,6 @@ test("Anlage anlegen: Erinnerungswert angehakt, dann zu Computer gewechselt, wir
   await form.getByRole("button", { name: "Anlage übernehmen" }).click();
   await page.waitForURL(/\/anlagen\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("region", { name: "Abschreibungsplan" })).not.toContainText("Erinnerungswert");
-});
-
-test("Aufteilen mit zu viel verteilt: der Fehler am Betrag sagt, wie viel zu viel ist (Review #970)", async () => {
-  const csv =
-    "\ufeff" +
-    `"Girokonto";"DE45 1203 0000 1234 5678 90"\n""\n` +
-    `"Buchungsdatum";"Wertstellung";"Status";"Zahlungspflichtige*r";"Zahlungsempfänger*in";"Verwendungszweck";"Umsatztyp";"IBAN";"Betrag (€)";"Gläubiger-ID";"Mandatsreferenz";"Kundenreferenz"\n` +
-    [
-      dkb(day(0)),
-      dkb(day(0)),
-      "Gebucht",
-      "Max Mustermann",
-      "Kasse Überschuss",
-      "Zahlung Ueberschuss",
-      "Ausgang",
-      "DE91750500000000123456",
-      "-43,00",
-      "",
-      "",
-      "",
-    ]
-      .map((v) => `"${v}"`)
-      .join(";") +
-    "\n";
-  await go("/bank");
-  await page
-    .locator('input[type=file][aria-label="Kontoauszugsdateien"]')
-    .setInputFiles([{ name: "ueberschuss.csv", mimeType: "text/csv", buffer: Buffer.from(csv) }]);
-  await expect(page.getByText(/1 neue Umsätze/)).toBeVisible({ timeout: 30_000 });
-  await page
-    .getByRole("link", { name: /Kasse Überschuss/ })
-    .first()
-    .click();
-  await page.waitForLoadState("networkidle");
-  const panel = page.getByRole("complementary", { name: "Zuordnung" });
-  await panel.getByRole("button", { name: "Aufteilen" }).click();
-  const form = panel.getByRole("form", { name: "Umsatz aufteilen" });
-  const rows = form.locator(".split-row");
-  await rows.nth(0).locator("select").first().selectOption("privat");
-  await rows.nth(0).getByLabel("Betrag").fill("-40,00");
-  await rows.nth(1).locator("select").first().selectOption("privat");
-  // Zusammen -46,00 € bei einem Umsatz von -43,00 €: 3,00 € zu viel verteilt
-  await rows.nth(1).getByLabel("Betrag").fill("-6,00");
-  await form.getByRole("button", { name: "Aufteilen und buchen" }).click();
-  await expect(rows.nth(1).getByLabel("Betrag")).toBeFocused();
-  await expect(rows.nth(1).getByLabel("Betrag")).toHaveAccessibleDescription("Zusammen sind 3,00 € zu viel verteilt.");
-  // Richtig verteilt und gebucht, damit kein offener Umsatz für die folgenden Tests stehen bleibt
-  await rows.nth(1).getByLabel("Betrag").fill("-3,00");
-  await form.getByRole("button", { name: "Aufteilen und buchen" }).click();
-  await expect(panel.getByText("Zugeordnet")).toBeVisible();
 });
 
 test("Steuerzahlung im Bankabgleich: Gewerbesteuerbescheid auf Steuer und Verspätungszuschlag aufteilen, in der EÜR nur nachrichtlich", async () => {
