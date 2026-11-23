@@ -2887,6 +2887,14 @@ test("Darlehen: anlegen, Auszahlung zuordnen, Rate in Tilgung und Zinsen aufteil
   await go("/darlehen");
   const neu = page.getByRole("form", { name: "Darlehen anlegen" });
   await neu.getByLabel("Name").fill("Hausbank Investitionskredit");
+  // Nicht lesbare Restschuld: Meldung am Feld, Fokus dort, nichts angelegt (#1270)
+  const restschuld = neu.getByLabel(/Restschuld bei Übernahme/);
+  await restschuld.fill("12€50");
+  await neu.getByRole("button", { name: "Darlehen anlegen" }).click();
+  await expect(neu.getByText("Trag die Restschuld ein, etwa 25.000,00, oder lass das Feld leer.")).toBeVisible();
+  await expect(restschuld).toBeFocused();
+  await expect(page.getByRole("row", { name: /Hausbank Investitionskredit/ })).toHaveCount(0);
+  await restschuld.fill("");
   await neu.getByRole("button", { name: "Darlehen anlegen" }).click();
   await expect(page.getByRole("row", { name: /Hausbank Investitionskredit/ })).toContainText("0630");
 
