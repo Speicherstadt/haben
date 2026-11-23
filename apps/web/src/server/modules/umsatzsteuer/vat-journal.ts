@@ -1,5 +1,6 @@
 import {
   bemessungAnZahlungen,
+  IST_NACH_LEISTUNG,
   JOURNAL_KENNZAHLEN,
   kennzahlenAusJournal,
   leereJournalKennzahlen,
@@ -18,19 +19,23 @@ import { belegAusAlterVersion } from "./alte-version.ts";
 import { belegeWieHeute } from "./beleg-alte-version.ts";
 import { zahlungenWieHeute } from "./zahlung-alte-version.ts";
 
+/** Kz 43 und 48 eines Teils der Buchungen */
+type SteuerfreiTeil = Record<(typeof IST_NACH_LEISTUNG)[number], Cents>;
+
 /*
  * Kennzahlen der Voranmeldung aus dem Journal (#542, #1116, docs/adr/journal-als-quelle.md): die Quelle der Voranmeldung,
  * wie bei DATEV aus Konto und Steuerschlüssel der Buchungen im Zeitraum (kennzahlenAusJournal). Ohne
  * Eröffnungen (vorgetragen, im Vorjahr angemeldet) und ohne die Buchungen des Anlagenverzeichnisses: Die Privatnutzung von
  * Fahrzeugen rechnet die Voranmeldung je Monat aus dem Anlagenverzeichnis, das Journal bucht sie erst mit der AfA.
- * Dazu der Teil von Kz 43 und 48, den Zahlungen tragen (bemessungAnZahlungen): Bei Ist meldet die Voranmeldung diese
- * Umsätze im Zeitraum der Leistung (#1312, umsaetze-nach-leistung.ts).
+ * Dazu zwei Teile von Kz 43 und 48, die die Voranmeldung im Zeitraum der Leistung anders zählt (#1312,
+ * umsaetze-nach-leistung.ts): `zahlungsanteil` trägt die Bemessungsgrundlage an Zahlungen (bemessungAnZahlungen), `anzahlungsanteil`
+ * die Buchungen steuerfreier Anzahlungen samt ihrem Steuerplan.
  */
 export async function kennzahlenAusDemJournal(
   period: VatPeriod,
   versteuerung: Versteuerung,
   q: Db | Tx,
-): Promise<{ kennzahlen: JournalKennzahlen; anZahlungen: { kz43: Cents; kz48: Cents } }> {
+): Promise<{ kennzahlen: JournalKennzahlen; zahlungsanteil: SteuerfreiTeil; anzahlungsanteil: SteuerfreiTeil }> {
   const { start, end } = periodRange(period);
   const e = schema.journalEntries;
   const l = schema.journalLines;
@@ -63,15 +68,25 @@ export async function kennzahlenAusDemJournal(
     .orderBy(asc(e.id));
   const buchungen = new Map<
     string,
-    { id: string; sourceType: string; sourceId: string; kontenrahmen: Kontenrahmen; versteuerung: Versteuerung; alt: boolean; zeilen: JournalZeile[] }
+    {
+      id: string;
+      sourceType: string;
+      sourceId: string;
+      kontenrahmen: Kontenrahmen;
+      versteuerung: Versteuerung;
+      alt: boolean;
+      /** Buchung einer steuerfreien Anzahlung (§ 4 UStG, Ausfuhr) samt Steuerplan, Storno, Korrektur und Ausbuchung */
+      steuerfreieAnzahlung: boolean;
+      zeilen: JournalZeile[];
+    }
   >();
   const taxes = invoiceTaxReader(q);
   for (const r of rows) {
     let b = buchungen.get(r.id);
     if (!b) {
       // Auch Storno und Korrektur folgen der ursprünglichen Rechnung.
-      const mode = r.invoiceDate
-        ? await taxes.postingMode({
+      const rechnung = r.invoiceDate
+        ? {
             issueDate: r.invoiceDate,
             correctsId: r.correctsId,
             advanceType: r.advanceType,
@@ -80,8 +95,10 @@ export async function kennzahlenAusDemJournal(
             serviceFrom: r.serviceFrom,
             serviceTo: r.serviceTo,
             taxTreatment: r.treatment ?? "regulaer",
-          })
-        : versteuerung;
+          }
+        : null;
+      const mode = rechnung ? await taxes.postingMode(rechnung) : versteuerung;
+      const steuerfrei = rechnung?.taxTreatment === "steuerfrei" || rechnung?.taxTreatment === "ausfuhr";
       b = {
         id: r.id,
         sourceType: r.sourceType,
@@ -89,6 +106,7 @@ export async function kennzahlenAusDemJournal(
         kontenrahmen: r.kontenrahmen as Kontenrahmen,
         versteuerung: mode,
         alt: r.alt === true,
+        steuerfreieAnzahlung: rechnung !== null && steuerfrei && (await taxes.original(rechnung)).advanceType === "anzahlung",
         zeilen: [],
       };
       buchungen.set(r.id, b);
@@ -99,17 +117,32 @@ export async function kennzahlenAusDemJournal(
   // Bemessungsgrundlage wie heute
   const gelesen = await belegeWieHeute(await zahlungenWieHeute([...buchungen.values()], q), q);
   const summe = leereJournalKennzahlen();
-  const anZahlungen = { kz43: 0, kz48: 0 };
+  const zahlungsanteil = { kz43: 0, kz48: 0 };
+  const anzahlungsanteil = { kz43: 0, kz48: 0 };
   // Ein Jahr hat einen Kontenrahmen; je Kontenrahmen gerechnet, falls ein Zeitraum doch beide sieht
   for (const kr of ["SKR03", "SKR04"] as const)
     for (const mode of ["ist", "soll"] as const) {
-      const eigene = gelesen.filter((b) => b.kontenrahmen === kr && b.versteuerung === mode).map((b) => b.zeilen);
+      const eigene = gelesen.filter((b) => b.kontenrahmen === kr && b.versteuerung === mode);
       if (eigene.length === 0) continue;
-      const k = kennzahlenAusJournal(kr, mode, eigene);
+      const k = kennzahlenAusJournal(
+        kr,
+        mode,
+        eigene.map((b) => b.zeilen),
+      );
       for (const feld of JOURNAL_KENNZAHLEN) summe[feld] += k[feld];
-      const z = bemessungAnZahlungen(kr, eigene);
-      anZahlungen.kz43 += z.kz43;
-      anZahlungen.kz48 += z.kz48;
+      const z = bemessungAnZahlungen(
+        kr,
+        eigene.map((b) => b.zeilen),
+      );
+      const a = kennzahlenAusJournal(
+        kr,
+        mode,
+        eigene.filter((b) => b.steuerfreieAnzahlung).map((b) => b.zeilen),
+      );
+      for (const feld of IST_NACH_LEISTUNG) {
+        zahlungsanteil[feld] += z[feld];
+        anzahlungsanteil[feld] += a[feld];
+      }
     }
-  return { kennzahlen: summe, anZahlungen };
+  return { kennzahlen: summe, zahlungsanteil, anzahlungsanteil };
 }

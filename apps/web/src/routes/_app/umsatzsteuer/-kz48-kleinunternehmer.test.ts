@@ -69,7 +69,7 @@ function seite(gesendet: ReturnType<typeof computeUstva>, figures: Record<string
       igErwerb: [],
       kleinunternehmerUmsaetze: [],
       kz48Kleinunternehmer: 0,
-      nachZahlungseingang: { kz43: 0, kz48: 0 },
+      bisher: { kz43: 0, kz48: 0 },
       ...figures,
     },
     filings: [],
@@ -111,13 +111,13 @@ describe("Gesendete Voranmeldung mit Kz 48 ohne die Umsätze als Kleinunternehme
 describe("Gesendete Voranmeldung mit Kz 43 und 48 nach Zahlungseingang", () => {
   it("keine Änderung, wenn nur die Zuordnung zum Zeitraum der Leistung dazugekommen ist", () => {
     const gesendet = computeUstva({ kz81: 0, kz86: 0, kz66: 0, kz48: 50_000, kz43: 20_000 });
-    const html = seite(gesendet, { ...computeUstva({ kz81: 0, kz86: 0, kz66: 0 }), nachZahlungseingang: { kz43: 20_000, kz48: 50_000 } });
+    const html = seite(gesendet, { ...computeUstva({ kz81: 0, kz86: 0, kz66: 0 }), bisher: { kz43: 20_000, kz48: 50_000 } });
     expect(html).not.toContain("Seit der Übermittlung haben sich die Buchungen dieses Monats geändert");
   });
 
   it("nur eine Kennzahl nach der früheren Zuordnung fällt auf", () => {
     const gesendet = computeUstva({ kz81: 0, kz86: 0, kz66: 0, kz48: 50_000, kz43: 0 });
-    const html = seite(gesendet, { ...computeUstva({ kz81: 0, kz86: 0, kz66: 0 }), nachZahlungseingang: { kz43: 20_000, kz48: 50_000 } });
+    const html = seite(gesendet, { ...computeUstva({ kz81: 0, kz86: 0, kz66: 0 }), bisher: { kz43: 20_000, kz48: 50_000 } });
     expect(html).toContain("Seit der Übermittlung haben sich die Buchungen dieses Monats geändert");
   });
 });

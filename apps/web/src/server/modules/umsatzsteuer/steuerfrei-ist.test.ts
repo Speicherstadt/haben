@@ -184,12 +184,9 @@ describe.skipIf(!testDatabaseUrl)("Kz 43 und 48 bei Ist im Zeitraum der Leistung
       const storno = await invoices.cancelInvoice(actor, inv.id, "2026-11-02");
       await zahlung(storno.id, "10.12.26", "-500,00");
       const DEZ = { year: 2026, month: 12 };
-      expect([
-        await kennzahl(behandlung, SEP),
-        await kennzahl(behandlung, OKT),
-        await kennzahl(behandlung, NOV),
-        await kennzahl(behandlung, DEZ),
-      ]).toEqual([50_000, 0, 0, -50_000]);
+      expect([await kennzahl(behandlung, SEP), await kennzahl(behandlung, OKT), await kennzahl(behandlung, NOV), await kennzahl(behandlung, DEZ)]).toEqual([
+        50_000, 0, 0, -50_000,
+      ]);
       await journalSauber([SEP, OKT, NOV, DEZ]);
     }, 60_000);
 

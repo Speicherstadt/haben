@@ -119,10 +119,11 @@ export interface VatFigures {
   kz48Kleinunternehmer: Cents;
   kleinunternehmerUmsaetze: RevenueSource[];
   /**
-   * Kz 43 und 48, wie Haben sie vor #1312 und #1268 gemeldet hat: bei Ist mit der Zahlung, ohne Umsätze als
-   * Kleinunternehmer. Damit erkennt der Abgleich eine früher gesendete Voranmeldung als unverändert (fruehereZuordnungen)
+   * Kz 43 und 48, wie Haben sie vor #1312 und #1268 gemeldet hat: aus dem Journal (bei Ist mit der Zahlung, Anzahlungen mit
+   * ihrer Zahlung), ohne Umsätze als Kleinunternehmer. Damit erkennt der Abgleich eine früher gesendete Voranmeldung als
+   * unverändert (fruehereZuordnungen)
    */
-  nachZahlungseingang: { kz43: Cents; kz48: Cents };
+  bisher: { kz43: Cents; kz48: Cents };
   /** Regulär besteuerte Umsätze zu 0 %, die in dieser Voranmeldung nicht gemeldet werden */
   steuerfrei: Cents;
   revenue: RevenueSource[];
