@@ -761,6 +761,25 @@ test("Speichern schlägt fehl: der Fokus steht danach wieder im Feld, aus dem ge
   await page.unroute(speichern);
 });
 
+test("Kopieren mit Fehler im Entwurf: der Fokus steht auf dem Feld mit Fehler, nicht auf dem Knopf (#1148)", async () => {
+  await go("/rechnungen/neu");
+  await kundeWaehlen(page);
+  await page.getByLabel("Beschreibung Position 1").fill("Beratung");
+  await page.getByLabel("Menge Position 1").fill("1");
+  await page.getByLabel(/Einzelpreis Position 1/).fill("100,00");
+  await page.getByRole("button", { name: "Entwurf speichern", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Entwurf löschen", exact: true })).toBeVisible();
+  const rabatt = page.getByLabel("Gesamtrabatt (optional)");
+  await rabatt.fill("2000");
+  // Kopieren prüft vorher die Angaben; während die Aktion läuft, sind die Felder gesperrt und nehmen keinen Fokus an
+  await page.getByRole("button", { name: "Kopieren", exact: true }).click();
+  await expect(page.getByText("Der Gesamtrabatt ist höher als die Summe der Positionen")).toBeVisible();
+  await expect(rabatt).toBeFocused();
+  await page.getByRole("button", { name: "Entwurf löschen", exact: true }).click();
+  await bestaetigen(page, "Entwurf löschen");
+  await expect(page).toHaveURL(/\/rechnungen(?:\?.*)?$/);
+});
+
 test("Artikel-API: Rechte, Anlegen, Suchen und Ändern im Katalog (#297)", async ({ request }) => {
   await go("/einstellungen?bereich=ki");
   const access = page.getByLabel("Zugang für KI-Assistenten und API einschalten");
