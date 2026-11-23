@@ -56,6 +56,11 @@ export const DURCHLAEUFE = {
   "belege-steuern-erklaerungen": 43,
   "belege-steuern-bank": 44,
   "belege-steuern-einstellungen": 45,
+  // Abschnitte von rechnungen, ebenso aus dem Abzug nach dessen Einrichtung
+  "rechnungen-kontakte": 46,
+  "rechnungen-artikel": 47,
+  "rechnungen-kasse": 48,
+  "rechnungen-angebote": 49,
 } as const;
 export type Durchlauf = keyof typeof DURCHLAEUFE;
 
@@ -69,6 +74,10 @@ export const ABZUG_AUS: Partial<Record<Durchlauf, Durchlauf>> = {
   "belege-steuern-erklaerungen": "belege-steuern",
   "belege-steuern-bank": "belege-steuern",
   "belege-steuern-einstellungen": "belege-steuern",
+  "rechnungen-kontakte": "rechnungen",
+  "rechnungen-artikel": "rechnungen",
+  "rechnungen-kasse": "rechnungen",
+  "rechnungen-angebote": "rechnungen",
 };
 
 /** Projekte in playwright.config.ts, die den Hauptserver auf PORT nutzen; „mit-daten“ in drei Gruppen (MIT_DATEN) */
@@ -80,15 +89,15 @@ export const MIT_DATEN = ["mit-daten", "mit-daten-2", "mit-daten-3"] as const sa
 
 /**
  * Feste Verteilung der Projekte auf die Teile der CI (Matrix in .github/workflows/ci.yml, E2E_TEIL), nach Dauer statt
- * nach Datei wie `--shard`. belege-steuern mit seinen parallelen Abschnitten (ABZUG_AUS) und die serielle Spec rechnungen
- * haben je einen Teil. Die Tests mit Daten (MIT_DATEN) lasten vier Worker voll aus und sind in drei Teile verteilt; jeder
+ * nach Datei wie `--shard`. belege-steuern und rechnungen mit ihren parallelen Abschnitten (ABZUG_AUS) haben je einen
+ * Teil. Die Tests mit Daten (MIT_DATEN) lasten vier Worker voll aus und sind in drei Teile verteilt; jeder
  * dieser Teile spielt „ablauf“ selbst durch (e2e/abzug.ts sichert und spielt im selben Job ein), daneben laufen auf den
  * freien Workern die kurzen Durchläufe. Nur „ablauf“ und „abzug“ stehen in mehreren Teilen, jedes andere Projekt in genau
  * einem (e2e-teile.test.ts); ein neuer Durchlauf kommt in den kürzesten Teil.
  */
 export const TEILE = {
   "belege-steuern": ["belege-steuern", "belege-steuern-belege", "belege-steuern-erklaerungen", "belege-steuern-bank", "belege-steuern-einstellungen"],
-  rechnungen: ["rechnungen"],
+  rechnungen: ["rechnungen", "rechnungen-kontakte", "rechnungen-artikel", "rechnungen-kasse", "rechnungen-angebote"],
   ablauf: ["ablauf", "abzug", "mit-daten", "fremdrechnung-kleinunternehmer", "fints-abruf", "etsy-abruf"],
   "ablauf-2": ["ablauf", "abzug", "mit-daten-2", "zahlung-gebuehr", "bank-dubletten", "bank-bestaetigen"],
   "ablauf-3": ["ablauf", "abzug", "mit-daten-3", "paypal-abruf", "stripe-abruf"],
