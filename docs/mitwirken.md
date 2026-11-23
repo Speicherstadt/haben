@@ -186,10 +186,10 @@ Jeder Pull Request mit Code bekommt vor dem Merge ein unabhängiges **TDD-Review
 | Änderung | Gemergt wird |
 | --- | --- |
 | Alles nach Review (und Doku-Prüfung) bei grüner CI auf dem aktuellen Stand | vom Maintainer oder, mit dessen Zustimmung, von einem Collaborator, selbst oder über einen Agenten, den sie dafür aufrufen (Skills `beitrag-pruefen`, `prs-abarbeiten`) |
-| Fachlich heikel: was gebucht, versteuert, an ELSTER oder die Sozialversicherung gemeldet oder festgeschrieben wird, dazu Migrationen auf bestehenden Daten | erst nach einem „OK“ des Maintainers auf eine kurze Zusammenfassung mit Quelle und Gegenrechnung ([Beiträge annehmen](#beiträge-annehmen)); „PR-Regeln“ weist bei den Pfaden in `HEIKEL` (`scripts/pr-regeln/regel.ts`) darauf hin, Buchungslogik anderswo erkennt die Prüfung selbst |
+| Fachlich heikel: was gebucht, versteuert, an ELSTER oder die Sozialversicherung gemeldet, ausgewertet oder festgeschrieben wird, dazu Migrationen auf bestehenden Daten | erst nach einem „OK“ des Maintainers auf eine kurze Zusammenfassung mit Quelle und Gegenrechnung ([Beiträge annehmen](#beiträge-annehmen)); „PR-Regeln“ weist bei den Pfaden in `HEIKEL` (`scripts/pr-regeln/regel.ts`) darauf hin, Buchungslogik anderswo erkennt die Prüfung selbst |
 | Ohne Issue, grundsätzliche Entscheidung, Ablehnen | entscheidet der Maintainer zuerst |
 | Release | nur nach ausdrücklichem „OK“ des Maintainers ([Veröffentlichen](entwicklung.md#veröffentlichen)) |
-| Rote CI, offener schwerer Befund nach vier Runden, Code ohne unabhängiges Review | nicht |
+| Rote CI, offener schwerer Befund nach vier Runden, Code ohne TDD-Review, Markdown ohne Doku-Prüfung | nicht |
 
 Haben steht unter der AGPL-3.0.
 
