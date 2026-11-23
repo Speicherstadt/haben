@@ -55,6 +55,15 @@ describe("Meldung, wenn das Blatt nicht gesetzt werden kann (#1147)", () => {
     }
   });
 
+  it("erkennt auch Traefik, solange Haben startet und noch nicht gesund ist", () => {
+    // Die Provider für Docker und Kubernetes lassen einen Container ohne Healthy oder einen Dienst ohne Endpunkte weg
+    // (traefik v3.6, pkg/provider/docker/config.go, pkg/provider/kubernetes/ingress/kubernetes.go): Dann antwortet Go mit
+    // http.NotFound, mit allowEmptyServices der Load Balancer (wrr.go) mit 503. http.Error hängt einen Zeilenumbruch an.
+    for (const text of ["404 page not found\n", "no available server\n"]) {
+      expect(previewFailure(new Error(text))).toBe("Die Vorschau ließ sich nicht erzeugen. Haben ist gerade nicht erreichbar.");
+    }
+  });
+
   it("hängt eine Meldung des Servers an den eigenen Satz", () => {
     expect(previewFailure(new Error("Das Layout „Eigenes“ braucht das Feld kunde.name."))).toBe(
       "Die Vorschau ließ sich nicht erzeugen. Das Layout „Eigenes“ braucht das Feld kunde.name.",
