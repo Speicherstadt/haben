@@ -352,7 +352,7 @@ Den Privatanteil gibt es nur im Einzelunternehmen; bei einer GmbH oder UG fehlt 
 1800 Privatentnahmen      9,52   an  1600 Verbindlichkeiten   47,60
 ```
 
-Ohne Vorsteuerabzug (etwa als Kleinunternehmer) gibt es keine Vorsteuer: Der betriebliche Teil wird samt Steuer Ausgabe, im Beispiel 38,08 €.
+[Ohne Vorsteuerabzug](#ohne-vorsteuerabzug) wird der betriebliche Teil samt Steuer Ausgabe, im Beispiel 38,08 €.
 
 Vorgaben je Kategorie stellst du in den [Einstellungen](einrichtung.md#privatanteile) ein (Telefon, Internet). Sie werden beim Wählen der Kategorie und beim Auslesen übernommen. Bei Anlagegütern gibt es keinen Privatanteil; für Firmenwagen gilt die [Listenpreismethode](anlagen.md#private-nutzung-von-firmenwagen).
 
