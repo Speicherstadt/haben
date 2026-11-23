@@ -9,8 +9,8 @@ const meldungsId = (key: number, feld: PositionsFeld) => `pos-fehler-${key}-${fe
 
 /**
  * aria-Attribute einer Zelle: Die Zellen stehen ohne `Field` (DESIGN.md, Felder), tragen bei ihrem Fehler also selbst
- * `aria-invalid` und zeigen per `aria-describedby` auf ihre Meldung. `markiert` färbt die Zelle schon vor der Meldung, im
- * Rechnungseditor, sobald die Position verlassen wurde.
+ * `aria-invalid` und zeigen per `aria-describedby` auf ihre Meldung (DESIGN.md, Gesperrte Knöpfe). `markiert` färbt die
+ * Zelle schon vor der Meldung, im Rechnungseditor, sobald die Position verlassen wurde.
  */
 export function zellenAttribute(meldung: PositionsMeldung, key: number, feld: PositionsFeld, markiert = false) {
   const text = meldung(feld);

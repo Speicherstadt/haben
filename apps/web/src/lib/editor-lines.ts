@@ -154,7 +154,7 @@ function rabattFehler(line: PositionsEingabe & { discount: string }): string | n
 
 /**
  * Je Feld der Position der Fehler, der nur dieses Feld nennt, mit den Grenzen des Servers (invoiceLineInputSchema,
- * discountSchema); null, wo die Angabe stimmt. Die Meldungen stehen untereinander unter der Zeile (DESIGN.md, Felder).
+ * discountSchema); null, wo die Angabe stimmt. Die Meldungen stehen untereinander unter der Zeile (DESIGN.md, Gesperrte Knöpfe).
  */
 export function positionsFehler(line: PositionsEingabe): Record<PositionsFeld, string | null> {
   return {
