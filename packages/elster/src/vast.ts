@@ -19,7 +19,8 @@ export const VAST_TESTMERKER = "370000001";
 
 /**
  * Namen der Belegarten: ERiC-Entwicklerhandbuch 44.3.6.0, Tabelle 9-26 „VaSt, Datenartnamen der Belege“ (Kap. 9.9.5).
- * VaSt_Pers3 fehlt dort; das Schema 2025 (VaSt-Belege/Schema/2025/VaSt_Pers3-1.xsd) enthält Steuer-ID und Steuernummer.
+ * VaSt_Pers3 (ab 2025, Steuer-ID und Steuernummer) fehlt dort; der Name steht in der Jahresdokumentation
+ * (VaSt-Belege/Zuordnungsinformationen/ESt_2025/Jahresdokumentation_VaSt_Pers3_1.ods, Datenart und Drucktext B 1).
  */
 export const VAST_BELEGART_LABEL: Record<string, string> = {
   VaSt_LStB: "Lohnsteuerbescheinigung",
@@ -29,7 +30,7 @@ export const VAST_BELEGART_LABEL: Record<string, string> = {
   VaSt_LErsL: "Bescheinigung über Lohnersatzleistungen",
   VaSt_Pers1: "Stammdaten des Steuerpflichtigen",
   VaSt_Pers2: "Stammdaten des Steuerpflichtigen (Religionszugehörigkeit)",
-  VaSt_Pers3: "Stammdaten des Steuerpflichtigen (Steuernummer)",
+  VaSt_Pers3: "Ergänzende Stammdaten",
   VaSt_RBM: "Rentenbezugsmitteilung",
   VaSt_VWL: "Vermögensbildungsbescheinigung",
   VaSt_FSA: "Freistellungsauftrag",

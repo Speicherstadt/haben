@@ -109,10 +109,12 @@ describe("Belegabruf-Antworten", () => {
 
   it("nennt jede Belegart der Schemas 2022 bis 2025 mit Namen und keine andere", () => {
     // ERiC 44.3.6.0, Dokumentation/Datenarten/ElsterDatenabholung/ElsterVaStDaten/VaSt-Belege/Schema/2022 bis 2025:
-    // je Belegart ein Schema, Wurzelelement wie das Attribut belegart der Belegliste; VaSt_Pers3 erst ab 2025
+    // je Belegart ein Schema, Wurzelelement wie das Attribut belegart der Belegliste; VaSt_Pers3 erst ab 2025.
+    // VAST_Vorberechnungen liegt im selben Ordner, ist aber keine Belegart (nicht in Tabelle 9-26 des Entwicklerhandbuchs).
     const schemas = ["LStB", "KRV", "RIE", "RUE", "LErsL", "Pers1", "Pers2", "Pers3", "RBM", "VWL", "FSA", "ZUS", "GDB"].map((b) => `VaSt_${b}`);
     expect(Object.keys(VAST_BELEGART_LABEL).sort()).toEqual([...schemas].sort());
     expect(vastBelegartLabel("VaSt_RIE")).toBe("Bescheinigung über Beiträge zur Riester-Rente");
-    expect(vastBelegartLabel("VaSt_Pers3")).toBe("Stammdaten des Steuerpflichtigen (Steuernummer)");
+    // nicht in Tabelle 9-26; Name wie in Zuordnungsinformationen/ESt_2025/Jahresdokumentation_VaSt_Pers3_1.ods (Drucktext B 1)
+    expect(vastBelegartLabel("VaSt_Pers3")).toBe("Ergänzende Stammdaten");
   });
 });
