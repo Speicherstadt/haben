@@ -171,22 +171,25 @@ async function berechne(year: number, angaben: KapgSteuerAngaben): Promise<KapgS
 /**
  * Angaben des Jahres. Ohne gespeicherte gelten die des Vorjahres fortgeschrieben: derselbe Hebesatz, mindestens der
  * Mindesthebesatz des Jahres (§ 16 Abs. 4 Satz 2 GewStG), die Verlustvorträge nach der Berechnung des Vorjahres. Ohne
- * beides fehlt der Hebesatz.
+ * beides fehlt der Hebesatz. `angehobenVon` nennt den Hebesatz des Vorjahres, wenn er unter dem Mindesthebesatz lag, damit
+ * der Hinweis zum Vorschlag die Anhebung zeigt (#1310).
  */
-async function angabenFor(year: number): Promise<{ angaben: KapgSteuerAngaben | null; gespeichert: boolean }> {
+async function angabenFor(year: number): Promise<{ angaben: KapgSteuerAngaben | null; gespeichert: boolean; angehobenVon: number | null }> {
   const stored = await storedAngaben(year);
-  if (stored) return { angaben: stored, gespeichert: true };
+  if (stored) return { angaben: stored, gespeichert: true, angehobenVon: null };
   const vorjahr = await storedAngaben(year - 1);
-  if (!vorjahr) return { angaben: null, gespeichert: false };
+  if (!vorjahr) return { angaben: null, gespeichert: false, angehobenVon: null };
   const s = await berechne(year - 1, vorjahr);
+  const mindest = mindestHebesatz(year);
   return {
     angaben: {
-      hebesatz: Math.max(vorjahr.hebesatz, mindestHebesatz(year)),
+      hebesatz: Math.max(vorjahr.hebesatz, mindest),
       verlustvortragKst: s?.verlustvortragKst ?? 0,
       verlustvortragGewst: s?.verlustvortragGewst ?? 0,
       verlustruecktrag: 0,
     },
     gespeichert: false,
+    angehobenVon: vorjahr.hebesatz < mindest ? vorjahr.hebesatz : null,
   };
 }
 
@@ -194,13 +197,14 @@ async function angabenFor(year: number): Promise<{ angaben: KapgSteuerAngaben | 
 export async function kapgSteuernJahr(year: number): Promise<{
   angaben: KapgSteuerAngaben | null;
   gespeichert: boolean;
+  angehobenVon: number | null;
   steuern: KapgSteuern | null;
   konten: ReturnType<typeof steuerKonten>;
 } | null> {
   const company = await loadCompany();
   if (!isKapitalgesellschaft(company.rechtsform)) return null;
-  const { angaben, gespeichert } = await angabenFor(year);
-  return { angaben, gespeichert, steuern: angaben ? await berechne(year, angaben) : null, konten: steuerKonten(company.kontenrahmen) };
+  const { angaben, gespeichert, angehobenVon } = await angabenFor(year);
+  return { angaben, gespeichert, angehobenVon, steuern: angaben ? await berechne(year, angaben) : null, konten: steuerKonten(company.kontenrahmen) };
 }
 
 /**

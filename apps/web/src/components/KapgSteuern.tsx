@@ -7,10 +7,13 @@ import { bookSteuerrueckstellungenFn, saveKapgAngabenFn } from "../server/functi
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { NoticeBanner } from "./NoticeBanner.tsx";
 import { Field } from "./Field.tsx";
+import { vorschlagHinweis } from "./kapg-vorschlag.ts";
 
 export interface KapgSteuernData {
   angaben: KapgSteuerAngaben | null;
   gespeichert: boolean;
+  /** Hebesatz des Vorjahres, wenn der Vorschlag ihn auf den Mindesthebesatz angehoben hat */
+  angehobenVon: number | null;
   steuern: Steuern | null;
 }
 
@@ -82,7 +85,7 @@ export function KapgSteuern({ year, data, closed }: { year: number; data: KapgSt
         </Field>
         {data.angaben && !data.gespeichert && (
           <p className="small muted" style={{ margin: 0 }}>
-            Vorgeschlagen aus {year - 1}: Hebesatz und die Verlustvorträge nach der Rechnung des Vorjahres. Bitte mit dem Bescheid abgleichen und speichern.
+            {vorschlagHinweis(year, data.angaben.hebesatz, data.angehobenVon)}
           </p>
         )}
         <div className="actions">
