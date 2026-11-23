@@ -1,3 +1,5 @@
+import { sql } from "drizzle-orm";
+import type { SevExportVoucher } from "@haben/import";
 import type { LegacySource } from "../../db/schema.ts";
 import type { ReconciliationCheck } from "./lexoffice.ts";
 
@@ -5,8 +7,8 @@ import type { ReconciliationCheck } from "./lexoffice.ts";
  * Abgleich je Jahr für Belege aus der Export-ZIP von sevDesk (#1106). Ein Exportbeleg steht in einem von drei Zuständen:
  *
  * - mit Datei: Beleglink und Belegbild im Export (oder aus einem späteren Upload nachgetragen);
- * - Datei fehlt: Beleglink da, die Datei fehlt im Export. Ein Fehler, wie ein Beleg aus der API ohne Datei;
- * - ohne Belegbild im Export: Belegdaten ohne Beleglink. Eigene Zahl, kein Fehler: Ein Bild gibt es in sevDesk nicht.
+ * - Datei fehlt: Eintrag in document.xml, aber keine Datei im Export. Ein Fehler, wie ein Beleg aus der API ohne Datei;
+ * - ohne Belegbild im Export: Kein Eintrag in document.xml, auch wenn ein Beleglink vorliegt.
  *
  * Der vierte Zustand, Buchungen ohne Beleg (Zahlung, Privat, Umbuchung), steht wie bei den anderen Quellen bei den
  * Buchungen des Stapels („ohne Belegnummer“, datevWithoutReceipt).
@@ -32,6 +34,18 @@ export const SEVDESK_EXPORT_IST_ISSUE =
 
 /** Belege mit Belegdaten, aber ohne Belegbild im Export: brauchen keine Datei */
 export const withoutExportImage = (v: ExportVoucherRow) => v.source === "sevdesk-export" && v.ohneBelegbild && Number(v.files) === 0;
+
+export const sevdeskExportNeedsFile = (v: SevExportVoucher) => v.document !== null || v.documentUnclear === true;
+
+export function ohneSevdeskExportBelegbildSql(alias: string) {
+  const v = sql.identifier(alias);
+  // Alte sevDesk-Exporte setzten dateiFehlt auch ohne XML-Eintrag. In diesem Fall ist fileName ausdrücklich JSON-null.
+  return sql<boolean>`coalesce(${v}.source = 'sevdesk-export' and (
+    ${v}.raw->'ohneBelegbild' = 'true'::jsonb
+    or (${v}.raw->'dateiFehlt' = 'true'::jsonb and ${v}.raw->'fileName' = 'null'::jsonb
+        and ${v}.raw->'documentUnclear' is distinct from 'true'::jsonb)
+  ), false)`;
+}
 
 /** Bei Ist in jedem Jahr mit Exportbelegen, auch im Mischjahr mit Belegen aus Lexoffice */
 export const SEVDESK_EXPORT_IST_CHECK: ReconciliationCheck = {

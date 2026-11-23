@@ -110,7 +110,7 @@ describe("Sonderfälle im Export von sevDesk", () => {
     const data = ok(read({ [STAPEL]: fixture("buchhaltung-2.0/extf-buchungsstapel.csv"), [AUSGANG]: ausgangDoc() }));
     expect(data.vouchers).toHaveLength(1);
     expect(data.vouchers[0]).toMatchObject({ guid: guid(2), direction: "eingang", directionFrom: "konten", document: null, amount: 100 });
-    expect(data.hints).toContain(`Beleg -BG-EUR-xx-xxxxx-xxxxxxx-xxxxx-xxxxx (GUID ${guid(2)}): keine Datei im Export.`);
+    expect(data.hints).toContain(`Beleg -BG-EUR-xx-xxxxx-xxxxxxx-xxxxx-xxxxx (GUID ${guid(2)}): ohne Belegbild im Export (kein Eintrag in document.xml).`);
   });
 
   it("meldet eine Datei, die document.xml nennt, die aber in der inneren ZIP fehlt", () => {

@@ -73,6 +73,16 @@ describe.skipIf(!testDatabaseUrl)("Belege per E-Mail (Postgres)", () => {
     await leeren(sql)`truncate inbox_messages, inbox_settings, document_amounts, documents cascade`;
   });
 
+  /** Lässt das Ablegen von „kaputt.pdf“ in der Datenbank scheitern, solange `run` läuft */
+  const kaputtAblehnen = async <T>(run: () => Promise<T>): Promise<T> => {
+    await sql`alter table documents add constraint test_kaputt check (filename <> 'kaputt.pdf')`;
+    try {
+      return await run();
+    } finally {
+      await sql`alter table documents drop constraint test_kaputt`;
+    }
+  };
+
   const settings = { host: "imap.example.com", port: 993, secure: true, username: "belege@mustermann.example", password: "geheim", folder: "Belege" };
 
   it("legt Anhänge als Belege ab, überspringt Signaturbilder und Fremdes, markiert gelesen", async () => {
@@ -136,7 +146,9 @@ describe.skipIf(!testDatabaseUrl)("Belege per E-Mail (Postgres)", () => {
       expect(await sql`select 1 from documents`).toHaveLength(1);
     });
 
-    it("löscht keine Mail, an der die Verarbeitung scheitert, keine mit übersprungenem Anhang und keine ohne Anhang", async () => {
+    // Fünf Mails in einem Abruf, dazu zwei DDL-Befehle mit exklusiver Sperre auf documents: ohne Last rund 0,2 s, auf
+    // einem überlasteten CI-Runner aber über den 5 s Standard (Lauf 45166566255: Nachbartests 1 bis 3 s statt 0,1 s)
+    it("löscht keine Mail, an der die Verarbeitung scheitert, keine mit übersprungenem Anhang und keine ohne Anhang", { timeout: 30_000 }, async () => {
       await inbox.saveInboxSettings(actor, { ...settings, afterFetch: "delete" });
       await deliver(
         rechnung("kaputt"),
@@ -152,12 +164,7 @@ describe.skipIf(!testDatabaseUrl)("Belege per E-Mail (Postgres)", () => {
         { subject: "Newsletter", messageId: "<news@funknetz.example>", text: "Ohne Anhang" },
       );
       box.get(3)!.tooLarge = true;
-      await sql`alter table documents add constraint test_kaputt check (filename <> 'kaputt.pdf')`;
-      try {
-        await inbox.fetchInbox(actor);
-      } finally {
-        await sql`alter table documents drop constraint test_kaputt`;
-      }
+      await kaputtAblehnen(() => inbox.fetchInbox(actor));
       // Übrig: kaputt, gemischt, riesig und der Newsletter ohne Anhang, jeweils als gelesen markiert; nur gut ist weg
       expect([...box.entries()].map(([uid, m]) => [uid, m.seen])).toEqual([
         [1, true],
@@ -220,12 +227,7 @@ describe.skipIf(!testDatabaseUrl)("Belege per E-Mail (Postgres)", () => {
     it("verschiebt abgelegte Mails in den Zielordner und lässt fehlgeschlagene im Eingang", async () => {
       await inbox.saveInboxSettings(actor, { ...settings, afterFetch: "move", archiveFolder: " Belege/Abgeholt " });
       await deliver(rechnung("kaputt"), rechnung("gut"));
-      await sql`alter table documents add constraint test_kaputt check (filename <> 'kaputt.pdf')`;
-      try {
-        await inbox.fetchInbox(actor);
-      } finally {
-        await sql`alter table documents drop constraint test_kaputt`;
-      }
+      await kaputtAblehnen(() => inbox.fetchInbox(actor));
       expect(moved).toEqual({ "<gut@funknetz.example>": "Belege/Abgeholt" });
       expect([...box.entries()].map(([uid, m]) => [uid, m.seen])).toEqual([[1, true]]);
       expect((await inbox.inboxSummary()).settings).toMatchObject({ afterFetch: "move", archiveFolder: "Belege/Abgeholt" });
@@ -347,12 +349,7 @@ describe.skipIf(!testDatabaseUrl)("Belege per E-Mail (Postgres)", () => {
       { subject: "Kaputt", messageId: "<kaputt@funknetz.example>", attachments: [{ filename: "kaputt.pdf", content: pdf("kaputt") }] },
       { subject: "Gut", messageId: "<gut@funknetz.example>", attachments: [{ filename: "gut.pdf", content: pdf("gut") }] },
     );
-    await sql`alter table documents add constraint test_kaputt check (filename <> 'kaputt.pdf')`;
-    try {
-      expect(await inbox.fetchInbox(actor)).toEqual({ messages: 2, documents: 1, duplicates: 0, skipped: 1, rejected: 0 });
-    } finally {
-      await sql`alter table documents drop constraint test_kaputt`;
-    }
+    expect(await kaputtAblehnen(() => inbox.fetchInbox(actor))).toEqual({ messages: 2, documents: 1, duplicates: 0, skipped: 1, rejected: 0 });
     expect([...box.values()].every((m) => m.seen)).toBe(true);
     expect((await sql`select filename from documents`).map((d) => d.filename)).toEqual(["gut.pdf"]);
     const [log] = await sql`select subject, skipped from inbox_messages where message_id = '<kaputt@funknetz.example>'`;
@@ -364,12 +361,7 @@ describe.skipIf(!testDatabaseUrl)("Belege per E-Mail (Postgres)", () => {
   it("holt eine fehlgeschlagene Mail nach, wenn sie im Postfach wieder als ungelesen markiert ist", async () => {
     await inbox.saveInboxSettings(actor, settings);
     await deliver({ subject: "Kaputt", messageId: "<nochmal@funknetz.example>", attachments: [{ filename: "kaputt.pdf", content: pdf("nochmal") }] });
-    await sql`alter table documents add constraint test_kaputt check (filename <> 'kaputt.pdf')`;
-    try {
-      expect(await inbox.fetchInbox(actor)).toEqual({ messages: 1, documents: 0, duplicates: 0, skipped: 1, rejected: 0 });
-    } finally {
-      await sql`alter table documents drop constraint test_kaputt`;
-    }
+    expect(await kaputtAblehnen(() => inbox.fetchInbox(actor))).toEqual({ messages: 1, documents: 0, duplicates: 0, skipped: 1, rejected: 0 });
     // Ursache behoben (z. B. Speicher wieder da), Mail im Postfach wieder auf ungelesen gesetzt
     box.get(1)!.seen = false;
     expect(await inbox.fetchInbox(actor)).toEqual({ messages: 1, documents: 1, duplicates: 0, skipped: 0, rejected: 0 });
@@ -389,15 +381,12 @@ describe.skipIf(!testDatabaseUrl)("Belege per E-Mail (Postgres)", () => {
   it("protokolliert jeden weiteren Fehlschlag und holt die Mail auch nach vielen Versuchen noch ab", async () => {
     await inbox.saveInboxSettings(actor, settings);
     await deliver({ subject: "Kaputt", messageId: "<oft@funknetz.example>", attachments: [{ filename: "kaputt.pdf", content: pdf("oft") }] });
-    await sql`alter table documents add constraint test_kaputt check (filename <> 'kaputt.pdf')`;
-    try {
+    await kaputtAblehnen(async () => {
       for (let attempt = 1; attempt <= 7; attempt++) {
         box.get(1)!.seen = false;
         expect(await inbox.fetchInbox(actor), `Versuch ${attempt}`).toEqual({ messages: 1, documents: 0, duplicates: 0, skipped: 1, rejected: 0 });
       }
-    } finally {
-      await sql`alter table documents drop constraint test_kaputt`;
-    }
+    });
     box.get(1)!.seen = false;
     expect(await inbox.fetchInbox(actor)).toEqual({ messages: 1, documents: 1, duplicates: 0, skipped: 0, rejected: 0 });
     // Jeder Versuch unter eigenem Schlüssel, keiner von onConflictDoNothing verschluckt
@@ -527,12 +516,7 @@ describe.skipIf(!testDatabaseUrl)("Belege per E-Mail (Postgres)", () => {
     });
     expect(await inbox.fetchInbox(actor)).toMatchObject({ messages: 0, rejected: 1 });
     await inbox.saveInboxSettings(actor, { ...settings, allowedSenders: ["fremd.example"] });
-    await sql`alter table documents add constraint test_kaputt check (filename <> 'kaputt.pdf')`;
-    try {
-      expect(await inbox.fetchInbox(actor)).toMatchObject({ messages: 1, documents: 0, skipped: 1, rejected: 0 });
-    } finally {
-      await sql`alter table documents drop constraint test_kaputt`;
-    }
+    expect(await kaputtAblehnen(() => inbox.fetchInbox(actor))).toMatchObject({ messages: 1, documents: 0, skipped: 1, rejected: 0 });
     const logs = await sql`select message_id, skipped from inbox_messages where message_id like '<fremd@fremd.example>%' order by created_at`;
     expect(logs.map((r) => [r.message_id, r.skipped[0].split(":")[0]])).toEqual([["<fremd@fremd.example>", "Verarbeitung fehlgeschlagen"]]);
     // Ursache behoben, wieder ungelesen: der zweite Versuch kommt unter einem eigenen Schlüssel ins Protokoll

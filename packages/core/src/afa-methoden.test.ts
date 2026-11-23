@@ -143,6 +143,21 @@ describe("Elektrofahrzeug nach § 7 Abs. 2a EStG", () => {
     expect(rows.at(-1)).toEqual({ year: 2026, opening: 1_500_000, addition: 0, depreciation: 300_000, disposal: 1_200_000, closing: 0 });
   });
 
+  it("Übernahme zum 01.01.2026 mit Erinnerungswert: 4.000 € im ersten Jahr, im letzten 2 % abzüglich 1 €", () => {
+    const transporter: ScheduleAsset = { ...tesla, acquisitionDate: "2025-08-01", cost: 4_000_000, memoValue: true };
+    const opening = { date: "2026-01-01", bookValue: 1_000_000 };
+    expect(assetIssues({ ...transporter, opening })).toEqual([]);
+    const rows = depreciationSchedule({ ...transporter, opening });
+    expect(rows.map((r) => [r.year, r.depreciation])).toEqual([
+      [2026, 400_000],
+      [2027, 200_000],
+      [2028, 200_000],
+      [2029, 120_000],
+      [2030, 79_900],
+    ]);
+    expect(rows.at(-1)!.closing).toBe(100);
+  });
+
   it("Übernahme zum 01.01.2027 mit 9.000 € Restbuchwert", () => {
     const rows = depreciationSchedule({ ...tesla, opening: { date: "2027-01-01", bookValue: 900_000 } });
     expect(rows.map((r) => r.depreciation)).toEqual([300_000, 300_000, 180_000, 120_000]);
