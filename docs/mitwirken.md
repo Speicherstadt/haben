@@ -190,7 +190,7 @@ Jeder Pull Request mit Code bekommt vor dem Merge ein unabhängiges **TDD-Review
 | Ohne Issue, grundsätzliche Entscheidung, Ablehnen | entscheidet der Maintainer zuerst |
 | Release | nur nach ausdrücklichem „OK“ des Maintainers ([Veröffentlichen](entwicklung.md#veröffentlichen)) |
 | Ein Check ist auf dem Pull Request rot und auf `main` genauso: derselbe Job mit demselben Fehler | trotzdem, wie oben, wenn der Pull Request die fehlschlagende Stelle nicht berührt und nicht fachlich heikel ist; der Merge-Kommentar verlinkt den roten Lauf auf `main` |
-| Reparatur eines roten `main` | direkt auf `main`, vom Maintainer oder auf seine Anweisung: nur was den Check wieder grün macht, nichts unter `HEIKEL`, kein Test abgeschwächt; die Commit-Nachricht verlinkt den roten Lauf. Danach prüft jemand anderes den Commit, Befunde kommen als Pull Request |
+| Reparatur eines roten `main` | direkt auf `main`, vom Maintainer oder auf seine Anweisung: nur was den Check wieder grün macht, nichts fachlich Heikles (sonst als Pull Request), kein Test abgeschwächt; die Commit-Nachricht verlinkt den roten Lauf. Danach prüft jemand anderes den Commit, Befunde kommen als Pull Request |
 | Rote CI, die der Pull Request verursacht oder die auf `main` nicht genauso rot ist, offener schwerer Befund nach vier Runden, Code ohne TDD-Review, Markdown ohne Doku-Prüfung | nicht |
 
 Haben steht unter der AGPL-3.0.
