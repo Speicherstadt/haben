@@ -12,7 +12,7 @@ import { kennzahlenAusDemJournal } from "./vat-journal.ts";
  * Ist-Versteuerung gibt es nicht (https://www.elster.de/eportal/helpGlobal?themaGlobal=help_ustva_2026#kz48). Das Journal
  * trägt diese Erlöse mit dem Steuerschlüssel „KU“, der in keine Kennzahl führt, bei Ist erst mit der Zahlung; die Summe
  * kommt deshalb aus den Rechnungen, bei Ist und Soll nach dem Leistungstag wie bei der Soll-Versteuerung: eingefroren beim
- * Festschreiben, sonst Leistung bis, Leistung von, Rechnungsdatum. Storno und Korrektur zählen im Monat ihres Datums
+ * Festschreiben, sonst (vor Version 0.9) das Rechnungsdatum. Storno und Korrektur zählen im Monat ihres Datums
  * (§ 17 UStG), ebenso Skonto und Forderungsausfall im Monat der Ausbuchung: Die Anleitung verlangt, Entgeltminderungen bei
  * den Bemessungsgrundlagen zu berücksichtigen. Bareinnahmen und direkt gebuchte Erlöse ohne Rechnung zählen am Tag der
  * Zahlung: Ohne Rechnung kennt Haben keinen anderen Tag (bareinnahme.ts, direkt-kategorie.ts in @haben/core).
@@ -25,9 +25,13 @@ import { kennzahlenAusDemJournal } from "./vat-journal.ts";
 const STEUERFREI_AB = "2025-01-01";
 
 type Rechnung = typeof schema.invoices.$inferSelect;
-type Daten = Pick<Rechnung, "issueDate"> & Partial<Pick<Rechnung, "kind" | "serviceDate" | "serviceTo" | "serviceFrom">>;
+type Daten = Pick<Rechnung, "issueDate"> & Partial<Pick<Rechnung, "kind" | "serviceDate">>;
 
-const leistungstag = (r: Daten) => (r.kind === "rechnung" ? (r.serviceDate ?? r.serviceTo ?? r.serviceFrom ?? r.issueDate) : r.issueDate);
+/**
+ * Der beim Festschreiben eingefrorene Leistungstag (#694); ohne ihn, also bei Rechnungen von vor Version 0.9, wie bei Soll
+ * das Rechnungsdatum (docs/umsatzsteuer.md, Leistungstag bei Soll-Versteuerung)
+ */
+const leistungstag = (r: Daten) => (r.kind === "rechnung" ? (r.serviceDate ?? r.issueDate) : r.issueDate);
 
 /**
  * Ob ein Beleg in Kz 48 zählt; entscheidend ist der Anfang der Kette: Anzahlungen zählen nicht, auch nicht ihr Storno, ihre
@@ -42,8 +46,7 @@ async function zaehlt(r: Rechnung, taxes: ReturnType<typeof invoiceTaxReader>): 
 export async function kleinunternehmerUmsaetze(period: VatPeriod, q: Db | Tx): Promise<RevenueSource[]> {
   const { start, end } = periodRange(period);
   const i = schema.invoices;
-  const imZeitraum = (spalte: typeof i.issueDate | typeof i.serviceDate | typeof i.serviceFrom | typeof i.serviceTo) =>
-    and(gte(spalte, start), lt(spalte, end));
+  const imZeitraum = (spalte: typeof i.issueDate | typeof i.serviceDate) => and(gte(spalte, start), lt(spalte, end));
   const kandidaten = await q
     .select()
     .from(i)
@@ -53,7 +56,7 @@ export async function kleinunternehmerUmsaetze(period: VatPeriod, q: Db | Tx): P
         eq(i.taxTreatment, "kleinunternehmer"),
         // aus Lexoffice übernommen: dort schon gemeldet
         isNull(i.lexofficeVoucherId),
-        or(imZeitraum(i.issueDate), imZeitraum(i.serviceDate), imZeitraum(i.serviceFrom), imZeitraum(i.serviceTo)),
+        or(imZeitraum(i.issueDate), imZeitraum(i.serviceDate)),
       ),
     );
   const rechnungen = kandidaten.filter((r) => leistungstag(r) >= start && leistungstag(r) < end);

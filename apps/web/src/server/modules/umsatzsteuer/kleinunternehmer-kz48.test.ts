@@ -140,6 +140,15 @@ describe.skipIf(!testDatabaseUrl)("Kleinunternehmer-Umsätze in Kz 48 (Postgres)
       ]);
     });
 
+  it("Rechnung von vor Version 0.9 ohne festgeschriebenen Leistungstag zählt wie bei Soll nach dem Rechnungsdatum", async () => {
+    // docs/umsatzsteuer.md, Leistungstag bei Soll-Versteuerung: ohne eingefrorenen Tag zählt das Rechnungsdatum
+    await firma("SKR03", "ist");
+    await direkt({ issue_date: "2026-11-04", service_from: "2026-10-01", service_to: "2026-10-31" }, 50_000);
+
+    expect((await vat.computeVatFigures(oktober)).kz48Kleinunternehmer).toBe(0);
+    expect((await vat.computeVatFigures(november)).kz48Kleinunternehmer).toBe(50_000);
+  });
+
   it("Storno zählt im Monat des Stornos, mit umgekehrtem Vorzeichen", async () => {
     await firma("SKR03", "ist");
     const original = await direkt({ issue_date: "2026-09-10", service_date: "2026-09-10" }, 50_000);
