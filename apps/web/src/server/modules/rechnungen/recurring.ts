@@ -1,14 +1,16 @@
 import { INTERNAL_ERROR, isUniqueViolation, UserError, userMessage } from "../../errors.ts";
 import {
-  addMonthsAnchored,
-  dueDates,
   fillPlaceholders,
   invoiceDueDate,
+  recurrenceDueDates,
+  invoiceServicePeriod,
+  nextRecurrenceDate,
   PAYMENT_METHODS,
   PRICE_MODES,
-  servicePeriodFor,
+  type Recurrence,
   TAX_TREATMENT_KEYS,
-  type RecurringInterval,
+  RECURRENCE_KEYS,
+  recurrenceParts,
   type ServicePeriodMode,
   type SkontoStufe,
   type UnitLabel,
@@ -53,7 +55,8 @@ export const recurringInputSchema = z.object({
   /** Einzelpreise netto oder brutto inkl. USt */
   priceMode: z.enum(PRICE_MODES).default("netto"),
   lines: z.array(draftLineSchema).min(1, "Mindestens eine Position").max(200),
-  intervalMonths: z.union([z.literal(1), z.literal(3), z.literal(6), z.literal(12)]),
+  /** Abstand als Dauer nach ISO 8601, etwa P1W oder P3M (#1691) */
+  recurrence: z.enum(RECURRENCE_KEYS, { error: "Intervall nicht unterstützt." }),
   nextDate: isoDate,
   endDate: isoDate.nullable(),
   servicePeriod: z.enum(["laufend", "vorher", "keiner"]),
@@ -127,7 +130,12 @@ export async function updateRecurring(actor: string, id: string, input: Recurrin
   return withActor(actor, async (tx) => {
     const row = values(input);
     const [previous] = await tx
-      .select({ contactId: schema.recurringInvoices.contactId, nextDate: schema.recurringInvoices.nextDate, anchorDay: schema.recurringInvoices.anchorDay })
+      .select({
+        contactId: schema.recurringInvoices.contactId,
+        nextDate: schema.recurringInvoices.nextDate,
+        anchorDay: schema.recurringInvoices.anchorDay,
+        recurrence: schema.recurringInvoices.recurrence,
+      })
       .from(schema.recurringInvoices)
       .where(eq(schema.recurringInvoices.id, id))
       .for("update");
@@ -135,7 +143,9 @@ export async function updateRecurring(actor: string, id: string, input: Recurrin
     // Nur ein neuer Kunde wird geprüft: ein Kontakt, der inzwischen kein Kunde mehr ist, bleibt an der Vorlage
     if (row.contactId !== previous.contactId) await checkCustomer(tx, row.contactId);
     // Unveränderter Termin: Ankertag behalten, sonst würde aus dem Monatsletzten nach dem Speichern am 30.11. der 30.
-    const anchorDay = row.nextDate === previous.nextDate ? previous.anchorDay : row.anchorDay;
+    // Nur bei Monaten: Wochenläufe schieben den Termin, nicht den Ankertag
+    const keepAnchor = row.nextDate === previous.nextDate && recurrenceParts(previous.recurrence).weeks === null;
+    const anchorDay = keepAnchor ? previous.anchorDay : row.anchorDay;
     const [updated] = await tx
       .update(schema.recurringInvoices)
       .set({ ...row, anchorDay, lastError: null })
@@ -149,11 +159,16 @@ export async function updateRecurring(actor: string, id: string, input: Recurrin
 export type ImportedRecurring = Pick<
   RecurringInput,
   "name" | "contactId" | "paymentTermDays" | "intro" | "note" | "taxTreatment" | "priceMode" | "lines" | "nextDate" | "endDate" | "servicePeriod"
-> & { intervalMonths: RecurringInterval; anchorDay: number };
+> & { recurrence: Recurrence; anchorDay: number };
 
 const importedSchema = recurringInputSchema
   .pick({ name: true, contactId: true, paymentTermDays: true, intro: true, note: true, taxTreatment: true, priceMode: true, lines: true })
-  .extend({ servicePeriod: recurringInputSchema.shape.servicePeriod, nextDate: isoDate, endDate: isoDate.nullable() });
+  .extend({
+    servicePeriod: recurringInputSchema.shape.servicePeriod,
+    recurrence: recurringInputSchema.shape.recurrence,
+    nextDate: isoDate,
+    endDate: isoDate.nullable(),
+  });
 
 /**
  * Vorlage aus einem Umzug (sevDesk, #472): kommt pausiert und als Entwurf an, damit Haben nichts erzeugt oder verschickt,
@@ -162,7 +177,6 @@ const importedSchema = recurringInputSchema
  */
 export async function importRecurringPaused(tx: Tx, input: ImportedRecurring): Promise<string> {
   const row = importedSchema.parse(input);
-  if (![1, 3, 6, 12].includes(input.intervalMonths)) throw new RecurringError("Intervall nicht unterstützt.");
   if (!Number.isInteger(input.anchorDay) || input.anchorDay < 1 || input.anchorDay > 31) throw new RecurringError("Ankertag ungültig.");
   await checkCustomer(tx, row.contactId);
   const [created] = await tx
@@ -170,7 +184,6 @@ export async function importRecurringPaused(tx: Tx, input: ImportedRecurring): P
     .values({
       ...row,
       exemptionReason: "",
-      intervalMonths: input.intervalMonths,
       anchorDay: input.anchorDay,
       active: false,
       mode: "entwurf",
@@ -201,7 +214,7 @@ export function invoiceForDate(
   skonto: SkontoStufe[] = [],
   sepaMandateId: string | null = null,
 ) {
-  const period = servicePeriodFor(date, recurring.intervalMonths as RecurringInterval, recurring.servicePeriod as ServicePeriodMode);
+  const period = invoiceServicePeriod(date, recurring.recurrence, recurring.servicePeriod as ServicePeriodMode);
   const reference = period ?? { from: date, to: date };
   return {
     contactId: recurring.contactId,
@@ -266,8 +279,7 @@ function describe(error: unknown): string {
 }
 
 async function runOne(recurring: RecurringInvoice, today: string, umsatzStand: UmsatzStand, result: RunResult): Promise<void> {
-  const interval = recurring.intervalMonths as RecurringInterval;
-  const dates = dueDates(recurring.nextDate, interval, recurring.anchorDay, today, recurring.endDate);
+  const dates = recurrenceDueDates(recurring.nextDate, recurring.recurrence, recurring.anchorDay, today, recurring.endDate);
   let lastError: string | null = null;
   // Sprache und Skonto aus dem Kontakt, wie beim Anlegen im Editor
   const [contact] = await db
@@ -321,7 +333,7 @@ async function runOne(recurring: RecurringInvoice, today: string, umsatzStand: U
     }
   }
   const last = dates.at(-1);
-  const nextDate = last ? addMonthsAnchored(last, interval, recurring.anchorDay) : recurring.nextDate;
+  const nextDate = last ? nextRecurrenceDate(last, recurring.recurrence, recurring.anchorDay) : recurring.nextDate;
   const ended = recurring.endDate !== null && nextDate > recurring.endDate;
   await withActor(RECURRING_ACTOR, (tx) =>
     tx

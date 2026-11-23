@@ -116,10 +116,10 @@ export interface Letterhead {
   layout?: { id: string; optionen?: Record<string, string> };
   /**
    * Eigenes Layout: bekommt die fertigen Daten der Vorlage und liefert das PDF, das statt der eingebauten Vorlage gilt.
-   * undefined = eingebaute Vorlage. Der Server nutzt das zweimal: einmal, um die Daten abzufangen, einmal mit dem PDF
-   * aus dem Render-Prozess (withCustomLayout in apps/web).
+   * Der Server nutzt das zweimal: einmal, um die Daten abzufangen (dort bricht pdfFrom mit einem Fehler ab), einmal mit
+   * dem PDF aus dem Render-Prozess (withCustomLayout in apps/web).
    */
-  pdfFrom?: (request: PdfRequest) => Uint8Array | undefined;
+  pdfFrom?: (request: PdfRequest) => Uint8Array;
   /**
    * Eigenes Layout, das look.legalPosition nicht kennt (kenntPflichtangabenFelder): Die Pflichtangaben
    * kommen nur über legal, ihre Platzhalter in der Fußzeile bleiben leer (#1651).

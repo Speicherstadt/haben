@@ -286,6 +286,43 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
     expect(xml).toContain("2026-034");
   }, 60_000);
 
+  it("setzt die eingebaute Vorlage nicht mit und erzeugt das XML nur einmal (#609)", async () => {
+    const beleg = await anlegen({ name: "Ein Lauf", art: "beleg", source: eigene("beleg") });
+    const mahnung = await anlegen({ name: "Ein Lauf Mahnung", art: "mahnung", source: eigene("mahnung", "EIGENE MAHNUNG") });
+    await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id: beleg.id });
+    await layouts.assignLayout(actor, "mahnung", { kind: "eigen", id: mahnung.id });
+    // Fertig wird buildEInvoice erst nach dem PDF und dem XML; ein zweites Fertig hieße eingebaute Vorlage und XML doppelt
+    let rechnungen = 0;
+    const { pdf, xml } = await layouts.withCustomLayout("rechnung", {}, async (lh) => {
+      const ergebnis = await buildEInvoice({ ...sampleDocument(), ...lh });
+      rechnungen++;
+      return ergebnis;
+    });
+    expect(rechnungen).toBe(1);
+    expect(pdfText(pdf)).toContain("EIGENES LAYOUT");
+    // Das XML hängt nicht am Layout: dasselbe wie mit der eingebauten Vorlage
+    expect(xml).toBe((await buildEInvoice(sampleDocument())).xml);
+    let mahnungen = 0;
+    const doc = {
+      level: 1 as const,
+      date: "2026-10-16",
+      dueDate: "2026-10-26",
+      seller: gmbhSeller,
+      buyer: sampleBuyer,
+      invoice: { number: "2026-034", issueDate: "2026-09-02", dueDate: "2026-09-16" },
+      intro: "leider ist die Rechnung offen.",
+      closing: "Danke.",
+      amounts: dunningAmounts({ open: 100_000, dueDate: "2026-09-16", date: "2026-10-16", fee: 0, flatFee: false, interestRate: 0 }),
+    };
+    const mahnPdf = await layouts.withCustomLayout("mahnung", {}, (lh) => {
+      const ergebnis = buildDunningPdf({ ...doc, ...lh } as Parameters<typeof buildDunningPdf>[0]);
+      mahnungen++;
+      return ergebnis;
+    });
+    expect(mahnungen).toBe(1);
+    expect(pdfText(mahnPdf)).toContain("EIGENE MAHNUNG");
+  }, 60_000);
+
   it("ordnet jedes eingebaute Layout aus dem Katalog zu, ein unbekanntes nicht", async () => {
     await layouts.assignLayout(actor, "rechnung", { kind: "eingebaut", id: "atelier" });
     await layouts.assignLayout(actor, "mahnung", { kind: "eingebaut", id: "elegant" });

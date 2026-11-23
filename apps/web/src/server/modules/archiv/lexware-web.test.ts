@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { fakeBrowser, runInConsole } from "./test-browser-skript.ts";
 
 /*
  * Der ganze Weg ohne Public API: Das echte Skript aus apps/web/public läuft gegen nachgebaute Endpunkte
@@ -88,37 +89,11 @@ function fakeLexware(options: { fail?: boolean; asked?: string[] } = {}) {
 
 /** Führt das Skript aus wie in der Konsole und gibt die heruntergeladenen ZIP-Teile zurück */
 async function runScript(fetchFn: ReturnType<typeof fakeLexware>) {
-  const blobs = new Map<string, Blob>();
-  const downloads: { name: string; bytes: Uint8Array }[] = [];
-  const document = {
-    body: { appendChild: () => {} },
-    createElement: () => ({
-      href: "",
-      download: "",
-      remove: () => {},
-      click() {
-        downloads.push({ name: this.download, bytes: new Uint8Array() });
-        void blobs
-          .get(this.href)!
-          .arrayBuffer()
-          .then((b) => (downloads.find((d) => d.name === this.download)!.bytes = new Uint8Array(b)));
-      },
-    }),
-  };
-  const url = {
-    createObjectURL: (blob: Blob) => {
-      const key = `blob:${blobs.size}`;
-      blobs.set(key, blob);
-      return key;
-    },
-    revokeObjectURL: () => {},
-  };
+  const browser = fakeBrowser();
   const body = SCRIPT.slice(SCRIPT.indexOf("(async () =>"));
-  const run = new Function("location", "fetch", "document", "URL", "console", "setTimeout", `return ${body}`) as (...args: unknown[]) => Promise<void>;
-  const quiet = { log: () => {} };
-  await run({ hostname: "app.lexware.de", origin: "https://app.lexware.de" }, fetchFn, document, url, quiet, (fn: () => void) => setImmediate(fn));
-  await new Promise((resolve) => setImmediate(resolve));
-  return downloads;
+  const location = { hostname: "app.lexware.de", origin: "https://app.lexware.de" };
+  await runInConsole(`return ${body}`, { ...browser.globals, location, fetch: fetchFn, console: { log: () => {} } });
+  return browser.downloads();
 }
 
 describe.skipIf(!testDatabaseUrl)("Umzug über die Web-Oberfläche (Postgres)", () => {

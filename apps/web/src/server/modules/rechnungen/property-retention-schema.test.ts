@@ -44,7 +44,7 @@ describe("Auswahl des Aufbewahrungshinweises für Grundstücksleistungen", () =>
       active: true,
       taxTreatment: "regulaer",
       exemptionReason: "",
-      intervalMonths: 1,
+      recurrence: "P1M" as const,
       nextDate: "2026-11-02",
       endDate: null,
       servicePeriod: "laufend",

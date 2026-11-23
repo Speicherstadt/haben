@@ -1,3 +1,4 @@
+import { DUNNING_LEVELS } from "@haben/core";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, type FormEvent } from "react";
@@ -20,13 +21,15 @@ type Data = Awaited<ReturnType<typeof getTextBlocks>>;
 type Block = Data["blocks"][number];
 
 const KIND_LABEL = { kopf: "Kopftext", fuss: "Fußtext" } as const;
-/** Belegarten für „Standard für“ (#1494), wie text_blocks.standard_fuer */
+/** Belegarten für „Standard für“ (#1494), die Mahnung je Stufe (#1678), wie text_blocks.standard_fuer */
 const STANDARD_LABEL = {
   rechnung: "Rechnungen",
   angebot: "Angebote",
   auftragsbestaetigung: "Auftragsbestätigungen",
   lieferschein: "Lieferscheine",
-  mahnung: "Mahnungen",
+  mahnstufe_1: `Mahnungen: ${DUNNING_LEVELS[1].label}`,
+  mahnstufe_2: `Mahnungen: ${DUNNING_LEVELS[2].label}`,
+  mahnstufe_3: `Mahnungen: ${DUNNING_LEVELS[3].label}`,
 } as const;
 const STANDARD_WERTE = Object.keys(STANDARD_LABEL) as (keyof typeof STANDARD_LABEL)[];
 
@@ -111,7 +114,7 @@ function TextBlockForm({ block, contacts, onDone }: { block: Block | null; conta
         </Field>
         <Field
           label="Standard für"
-          hint="Füllt neue Belege dieser Art vor: ein Kopftext die Einleitung, ein Fußtext den Hinweis (bei der Mahnung den Schlusstext, beim Lieferschein nur ein Fußtext). Ein neuer Standard löst den bisherigen derselben Art ab; ein Standard gilt für alle Kunden. Platzhalter wie {nummer} setzt Haben nur in Rechnung und Angebot ein, in Mahnung und Lieferschein stehen sie wörtlich."
+          hint="Füllt neue Belege dieser Art vor: ein Kopftext die Einleitung, ein Fußtext den Hinweis (bei der Mahnung den Schlusstext, je Stufe eigens; beim Lieferschein nur ein Fußtext). Ein neuer Standard löst den bisherigen derselben Art ab; ein Standard gilt für alle Kunden. Platzhalter wie {nummer} setzt Haben nur in Rechnung und Angebot ein, in Mahnung und Lieferschein stehen sie wörtlich."
           style={{ gridColumn: "1 / -1" }}
         >
           {(control) => (

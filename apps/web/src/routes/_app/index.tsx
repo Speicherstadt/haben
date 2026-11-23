@@ -5,7 +5,7 @@ import { InvoiceStatus } from "../../components/InvoiceStatus.tsx";
 import { EricHinweis } from "../../components/EricHinweis.tsx";
 import { KleinunternehmerHinweise } from "../../components/KleinunternehmerHinweise.tsx";
 import { UebersichtAufgaben, ZUERST, ordneAufgaben, type Todo } from "../../components/UebersichtAufgaben.tsx";
-import { UebersichtKennzahlen, ohneKennzahlen } from "../../components/UebersichtKennzahlen.tsx";
+import { UebersichtKennzahlen, ohneKennzahlen, type UebersichtDaten } from "../../components/UebersichtKennzahlen.tsx";
 import { getBackupStatus } from "../../server/functions/backup.ts";
 import { getInvoiceSummary } from "../../server/functions/invoices.ts";
 import { getOverview } from "../../server/functions/vat.ts";
@@ -30,6 +30,8 @@ const BESCHEID_LABEL: Record<string, string> = {
   DivaSonstigerVA: "Bescheid",
 };
 
+type Konto = UebersichtDaten["invoices"]["bank"][number];
+
 /** Vor der nächsten Leistung klären: Reverse Charge und die steuerfreie Lieferung brauchen eine gültige Nummer (#1489) */
 function ustIdAufgaben(ungueltig: { contactId: string; kontakt: string; nummer: string; meldung: string }[]): Todo[] {
   return ungueltig.map((u) => ({
@@ -43,14 +45,12 @@ function ustIdAufgaben(ungueltig: { contactId: string; kontakt: string; nummer: 
   }));
 }
 
-function OverviewPage() {
-  const data = Route.useLoaderData();
-  const key = periodKey(data.period);
-  const sent = data.current?.status === "sent";
-  const certificateDays = data.certificate?.validUntil ? daysUntil(data.certificate.validUntil) : null;
-  const vatRequired = !data.kleinunternehmer && !data.exempt;
-
-  const todos: Todo[] = [...einrichtungsAufgaben(Route.useRouteContext().einrichtung), ...ustIdAufgaben(data.ustIdUngueltig)];
+/** Umsatzsteuer: die Voranmeldung des Zeitraums, unbezahlte Voranmeldungen und ein zu knappes Steuerkonto */
+function umsatzsteuerAufgaben(
+  data: UebersichtDaten,
+  { sent, vatRequired, taxAccount, taxShortfall }: { sent: boolean; vatRequired: boolean; taxAccount: Konto | undefined; taxShortfall: number },
+): Todo[] {
+  const todos: Todo[] = [];
   if (!sent && vatRequired) {
     todos.push({
       title: `Voranmeldung ${periodLabel(data.period)} senden`,
@@ -61,16 +61,6 @@ function OverviewPage() {
       to: "/umsatzsteuer/$zeitraum",
     });
   }
-  // Steuerkonto: reicht der Stand für die Zahllast, die das Finanzamt per Lastschrift einzieht?
-  const zahllast = data.current?.status === "sent" ? data.current.kz83 : data.computedKz83;
-  const taxAccount = data.invoices.bank.find((a) => a.purpose === "steuer");
-  // Abgegebene Voranmeldungen: was je Posten noch offen ist; der Zeitraum ohne Abgabe nach den Buchungen, abzüglich
-  // schon eingezogener Lastschriften ohne Bezug (dann ist der Kontostand bereits um sie gesunken)
-  const periodOpen = data.vatOpen.filter((p) => p.year === data.period.year && p.month === data.period.month).reduce((sum, p) => sum + p.offen, 0);
-  // Bestehende Anmeldungen und ihre offenen Beträge bleiben auch ohne reguläre Abgabepflicht erreichbar.
-  const showVatPeriod = vatRequired || data.current !== null || periodOpen !== 0 || data.computedKz83 !== 0;
-  const postenOffen = data.vatOpen.filter((p) => p.offen > 0).reduce((sum, p) => sum + p.offen, 0);
-  const zahllastOffen = postenOffen + (sent ? 0 : Math.max(0, data.computedKz83 - data.vatPaid));
   for (const posten of data.vatOpen.filter((p) => p.offen > 0 && daysUntil(p.faellig) < 0)) {
     todos.push({
       id: `ustva-${posten.vatReturnId}`,
@@ -82,7 +72,6 @@ function OverviewPage() {
       to: "/bank",
     });
   }
-  const taxShortfall = taxAccount && taxAccount.balance !== null && zahllastOffen > 0 ? zahllastOffen - taxAccount.balance : 0;
   if (taxAccount && taxShortfall > 0 && vatRequired) {
     todos.push({
       title: `Steuerkonto ${taxAccount.name} deckt die Zahllast nicht`,
@@ -94,6 +83,12 @@ function OverviewPage() {
       to: "/bank",
     });
   }
+  return todos;
+}
+
+/** Was im Bankabgleich zu tun ist: Geldtransit und offene Umsätze */
+function bankAufgaben(data: UebersichtDaten): Todo[] {
+  const todos: Todo[] = [];
   if (data.transit !== 0) {
     todos.push({
       title: "Geldtransit nicht ausgeglichen",
@@ -126,6 +121,90 @@ function OverviewPage() {
       to: "/bank",
     });
   }
+  return todos;
+}
+
+/** Was in den Einstellungen fehlt: Firmendaten, ELSTER-Zertifikat und Backup */
+function einstellungsAufgaben(data: UebersichtDaten, backup: Awaited<ReturnType<typeof getBackupStatus>>): Todo[] {
+  const todos: Todo[] = [];
+  const certificateDays = data.certificate?.validUntil ? daysUntil(data.certificate.validUntil) : null;
+  if (data.companyIssues.length > 0 && !data.kleinunternehmer) {
+    const detail = data.companyIssues.join(" · ");
+    todos.push({ title: "Firmendaten vervollständigen", detail, action: "Ergänzen", tone: "warn", to: "/einstellungen", bereich: "firma" });
+  }
+  if (!data.certificate) {
+    if (!data.kleinunternehmer)
+      todos.push({
+        title: "ELSTER-Zertifikat hinterlegen",
+        detail: "Die .pfx-Datei aus Mein ELSTER wird zum Senden gebraucht",
+        action: "Hochladen",
+        tone: "neutral",
+        to: "/einstellungen",
+        bereich: "elster",
+      });
+  } else if (certificateDays !== null && certificateDays <= 30) {
+    todos.push({
+      title: certificateDays < 0 ? "ELSTER-Zertifikat abgelaufen" : "ELSTER-Zertifikat läuft bald ab",
+      detail: `Gültig bis ${formatDate(data.certificate.validUntil!)}`,
+      frist: data.certificate.validUntil!,
+      action: "Erneuern",
+      tone: "warn",
+      to: "/einstellungen",
+      bereich: "elster",
+    });
+  }
+
+  for (const { kind, run } of backup.failed) {
+    todos.push({
+      title: kind === "backup" ? "Backup fehlgeschlagen" : "Test-Restore fehlgeschlagen",
+      detail: `${formatDateTime(run.at)}${run.message ? ` · ${run.message}` : ""}`,
+      action: "Ansehen",
+      tone: "warn",
+      to: "/einstellungen",
+      bereich: "export",
+    });
+  }
+  if (backup.overdue) {
+    todos.push({
+      title: "Backup überfällig",
+      detail: backup.lastBackup ? `Letztes erfolgreiches Backup ${formatDateTime(backup.lastBackup.at)}` : "Noch kein erfolgreiches Backup",
+      action: "Ansehen",
+      tone: "warn",
+      to: "/einstellungen",
+      bereich: "export",
+    });
+  } else if (backup.state === "keins") {
+    todos.push({
+      title: "Backup einrichten",
+      detail: "Noch kein Backup eingetragen",
+      action: "Ansehen",
+      tone: "neutral",
+      to: "/einstellungen",
+      bereich: "export",
+    });
+  }
+  return todos;
+}
+
+function OverviewPage() {
+  const data = Route.useLoaderData();
+  const key = periodKey(data.period);
+  const sent = data.current?.status === "sent";
+  const vatRequired = !data.kleinunternehmer && !data.exempt;
+
+  const todos: Todo[] = [...einrichtungsAufgaben(Route.useRouteContext().einrichtung), ...ustIdAufgaben(data.ustIdUngueltig)];
+  // Steuerkonto: reicht der Stand für die Zahllast, die das Finanzamt per Lastschrift einzieht?
+  const zahllast = data.current?.status === "sent" ? data.current.kz83 : data.computedKz83;
+  const taxAccount = data.invoices.bank.find((a) => a.purpose === "steuer");
+  // Abgegebene Voranmeldungen: was je Posten noch offen ist; der Zeitraum ohne Abgabe nach den Buchungen, abzüglich
+  // schon eingezogener Lastschriften ohne Bezug (dann ist der Kontostand bereits um sie gesunken)
+  const periodOpen = data.vatOpen.filter((p) => p.year === data.period.year && p.month === data.period.month).reduce((sum, p) => sum + p.offen, 0);
+  // Bestehende Anmeldungen und ihre offenen Beträge bleiben auch ohne reguläre Abgabepflicht erreichbar.
+  const showVatPeriod = vatRequired || data.current !== null || periodOpen !== 0 || data.computedKz83 !== 0;
+  const postenOffen = data.vatOpen.filter((p) => p.offen > 0).reduce((sum, p) => sum + p.offen, 0);
+  const zahllastOffen = postenOffen + (sent ? 0 : Math.max(0, data.computedKz83 - data.vatPaid));
+  const taxShortfall = taxAccount && taxAccount.balance !== null && zahllastOffen > 0 ? zahllastOffen - taxAccount.balance : 0;
+  todos.push(...umsatzsteuerAufgaben(data, { sent, vatRequired, taxAccount, taxShortfall }), ...bankAufgaben(data));
   if (data.invoices.overdueCount > 0) {
     todos.push({
       title: `${data.invoices.overdueCount} ${data.invoices.overdueCount === 1 ? "Rechnung" : "Rechnungen"} überfällig`,
@@ -166,62 +245,7 @@ function OverviewPage() {
       to: "/rechnungen",
     });
   }
-  if (data.companyIssues.length > 0 && !data.kleinunternehmer) {
-    const detail = data.companyIssues.join(" · ");
-    todos.push({ title: "Firmendaten vervollständigen", detail, action: "Ergänzen", tone: "warn", to: "/einstellungen", bereich: "firma" });
-  }
-  if (!data.certificate) {
-    if (!data.kleinunternehmer)
-      todos.push({
-        title: "ELSTER-Zertifikat hinterlegen",
-        detail: "Die .pfx-Datei aus Mein ELSTER wird zum Senden gebraucht",
-        action: "Hochladen",
-        tone: "neutral",
-        to: "/einstellungen",
-        bereich: "elster",
-      });
-  } else if (certificateDays !== null && certificateDays <= 30) {
-    todos.push({
-      title: certificateDays < 0 ? "ELSTER-Zertifikat abgelaufen" : "ELSTER-Zertifikat läuft bald ab",
-      detail: `Gültig bis ${formatDate(data.certificate.validUntil!)}`,
-      frist: data.certificate.validUntil!,
-      action: "Erneuern",
-      tone: "warn",
-      to: "/einstellungen",
-      bereich: "elster",
-    });
-  }
-
-  const { backup } = data;
-  for (const { kind, run } of backup.failed) {
-    todos.push({
-      title: kind === "backup" ? "Backup fehlgeschlagen" : "Test-Restore fehlgeschlagen",
-      detail: `${formatDateTime(run.at)}${run.message ? ` · ${run.message}` : ""}`,
-      action: "Ansehen",
-      tone: "warn",
-      to: "/einstellungen",
-      bereich: "export",
-    });
-  }
-  if (backup.overdue) {
-    todos.push({
-      title: "Backup überfällig",
-      detail: backup.lastBackup ? `Letztes erfolgreiches Backup ${formatDateTime(backup.lastBackup.at)}` : "Noch kein erfolgreiches Backup",
-      action: "Ansehen",
-      tone: "warn",
-      to: "/einstellungen",
-      bereich: "export",
-    });
-  } else if (backup.state === "keins") {
-    todos.push({
-      title: "Backup einrichten",
-      detail: "Noch kein Backup eingetragen",
-      action: "Ansehen",
-      tone: "neutral",
-      to: "/einstellungen",
-      bereich: "export",
-    });
-  }
+  todos.push(...einstellungsAufgaben(data, data.backup));
 
   const geordnet = ordneAufgaben(todos);
   // Steht die Voranmeldung nicht unter den offenen Aufgaben (gesendet, keine Pflicht oder unter „Weitere“), bleibt der Weg hier

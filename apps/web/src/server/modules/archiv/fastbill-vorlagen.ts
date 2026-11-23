@@ -76,8 +76,7 @@ async function importOne(actor: string, importId: string, raw: FbRecurring, paym
       .onConflictDoNothing({ target: schema.fastbillRecurringTemplates.fastbillId })
       .returning({ id: schema.fastbillRecurringTemplates.id });
     if (!link) return false;
-    const { anchorDay, intervalMonths, ...template } = mapped.template;
-    const recurringId = await importRecurringPaused(tx, { ...template, paymentTermDays, contactId: contact.id, intervalMonths, anchorDay });
+    const recurringId = await importRecurringPaused(tx, { ...mapped.template, paymentTermDays, contactId: contact.id });
     await tx.update(schema.fastbillRecurringTemplates).set({ recurringId }).where(eq(schema.fastbillRecurringTemplates.id, link.id));
     return true;
   });

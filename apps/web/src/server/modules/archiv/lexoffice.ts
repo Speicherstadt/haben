@@ -1,13 +1,11 @@
 import { accountingTypeKinds, type AccountingTypeKinds, accountingTypeUnclear, taxTypeOf } from "../auswertungen/index.ts";
 import { INTERNAL_ERROR, isUniqueViolation, UserError, userMessage } from "../../errors.ts";
 import { truncatedNumberMatches } from "./datev-belegnummer.ts";
-import { bookingsCheckDetail, datevBookingCounts } from "./datev-abgleich.ts";
-import { SEVDESK_EXPORT_IST_CHECK, sevdeskExportIstIssue, sevdeskExportYear, voucherSourceChecks, withoutExportImage } from "./sevdesk-export-abgleich.ts";
+import { datevBookingCounts } from "./datev-abgleich.ts";
 import { effectivePayment, paymentHistoryIssue, unclearFrom, visiblePayment } from "../auswertungen/index.ts";
-import { accountingTypeChecks, accountingTypeDecidable, accountingTypeIssue, ACCOUNTING_TYPE_VAT_ISSUE, unclearAccountingTypes } from "./sevdesk-kontoart.ts";
+import { accountingTypeDecidable, accountingTypeIssue } from "./sevdesk-kontoart.ts";
 import { effectiveAmount, effectiveContactName, effectiveDirection, effectiveTaxes, effectiveType } from "../auswertungen/index.ts";
 import {
-  datevYearSums,
   LexofficeApiError,
   LexofficeClient,
   mapContact,
@@ -25,7 +23,7 @@ import {
   LEGACY_PAYMENT_TYPES,
   legacyNeutralKind,
   legacyNeutralSums,
-  legacyVatByMonth,
+  type Kontenrahmen,
   type LegacyNeutralKind,
   type LegacyNeutralSum,
   type Rechtsform,
@@ -43,22 +41,14 @@ import type { LegacyCategoryRow, LegacyFileState, LegacyPayment, LegacySource, L
 import { sniff } from "../../storage.ts";
 import { attachVoucherFiles, storeLegacyVoucher } from "./legacy-store.ts";
 import { latestFastbillImport } from "./fastbill.ts";
-import { fastbillPartlyCanceledByYear, fastbillPartlyCanceledChecks, fastbillWaitingChecks } from "./fastbill-abgleich.ts";
+import { fastbillPartlyCanceledByYear } from "./fastbill-abgleich.ts";
+import { abgleichJahr, legacyPayments } from "./lexoffice-abgleich.ts";
 import { fastbillWaitingByYear } from "./fastbill-belege.ts";
 import { latestSevdeskImport } from "./sevdesk.ts";
 import { legacyDunningsFor } from "./mahnungen-archiv.ts";
-import { customTaxSetId, legacyTaxSetFields, vatFieldsOf } from "./sevdesk-steuerarten.ts";
+import { customTaxSetId, legacyTaxSetFields } from "./sevdesk-steuerarten.ts";
 import { ohneBelegGrund, ohneDateiBestaetigbar } from "./ohne-datei.ts";
-import {
-  FILE_STATUS_LABELS,
-  fileCheck,
-  fileCounts,
-  fileStateHistory,
-  latestFileStateSql,
-  legacyFileStatus,
-  OPEN_FILE_STATUSES,
-  recordFileState,
-} from "./dateistand.ts";
+import { FILE_STATUS_LABELS, fileStateHistory, latestFileStateSql, legacyFileStatus, OPEN_FILE_STATUSES, recordFileState } from "./dateistand.ts";
 
 export class LexofficeError extends UserError {}
 
@@ -751,17 +741,6 @@ export async function legacyVoucherFile(fileId: string) {
   return file ?? null;
 }
 
-/**
- * Zahlungen, die bei Ist-Versteuerung als Entgelt zählen, mit dem Vorzeichen des Belegs (Gutschriften mindern die Umsätze).
- * Eine Zuordnung über 0 € ist keine Zahlung (#472).
- */
-function legacyPayments(v: { source: LegacySource; gross: number; status: string; payment: LegacyPayment | null }) {
-  if (paymentHistoryIssue(v)) return [];
-  return (v.payment?.items ?? [])
-    .filter((p) => LEGACY_PAYMENT_TYPES.has(p.type) && p.date && p.amount !== 0)
-    .map((p) => ({ date: p.date, amount: Math.sign(v.gross) * Math.abs(p.amount) }));
-}
-
 const TAX_TYPE = sql<string | null>`${taxTypeOf("lexoffice_vouchers")}`;
 const TAX_SUB_TYPE = sql<string | null>`lexoffice_vouchers.raw->'taxConditions'->>'taxSubType'`;
 
@@ -778,11 +757,8 @@ const ARCHIVE_ONLY_SOURCES = new Set<LegacySource>(["buchhaltungsbutler", "sevde
 
 export type ReconciliationCheck = { ok: boolean; label: string; detail: string };
 
-/** Abgleich je Geschäftsjahr: Was liegt vor, was fehlt noch vor der Kündigung? */
-export async function reconciliation() {
-  const company = await loadCompany();
-  const versteuerung: Versteuerung = company.versteuerung;
-
+/** Belege der Altsysteme mit allem, was der Abgleich braucht, eingeordnet als Einnahme, Ausgabe oder neutral */
+async function abgleichBelege(rechtsform: Rechtsform) {
   // Die geschätzten Kosten wachsen mit dem Quadrat der Belege; mit JIT dauerte schon das Kompilieren Sekunden (ohne-jit.ts)
   const voucherRows = await ohneJit((tx) =>
     tx
@@ -821,28 +797,20 @@ export async function reconciliation() {
   const known = await loadSevdeskAccountCategories();
   const classified = voucherRows.map((v) => {
     const categories = sevdeskCategories(v.categories, v.positionAccounts, known);
-    return { ...v, categories, neutral: neutralKindOf({ ...v, categories }, company.rechtsform) ?? (v.bbNeutral ? ("geldtransit" as const) : null) };
+    return { ...v, categories, neutral: neutralKindOf({ ...v, categories }, rechtsform) ?? (v.bbNeutral ? ("geldtransit" as const) : null) };
   });
   // BuchhaltungsButler-Belege nur als Archiv (Suche, PDF): Einnahme, Ausgabe oder neutral ließe sich aus den Konten nur
   // schätzen. Summen und Steuer kommen für diese Jahre aus dem DATEV-Buchungsstapel desselben Exports. Ebenso die Belege aus
   // der Export-ZIP von sevDesk: Darlehen, Privates, Steuern und Zinsen stehen dort als Beleg ohne Kategorie (#1105).
   const figures = classified.filter((v) => !ARCHIVE_ONLY_SOURCES.has(v.source));
   const businessRows = figures.filter((v) => !v.neutral);
-  // Ohne Einzelzahlungen können selbst bereits vollständig bezahlte sevDesk-Rechnungen mehrere Monate betreffen.
-  // Gesperrt ist jedes Jahr, in das eine solche Zahlung fallen kann: bis zum Ausgleich, ohne Ausgleichsdatum alle.
-  const paymentIssueOf = (year: number) => {
-    if (versteuerung !== "ist") return null;
-    if (businessRows.some((v) => v.direction === "einnahme" && unclearFrom(v, String(year)))) {
-      return "sevDesk-Zahlungshistorie unvollständig: Der Ist-Monatsabgleich ist bis zur Klärung der Einzelzahlungen gesperrt.";
-    }
-    return null;
-  };
-  const unclearAccountsIn = (year: number) => unclearAccountingTypes(businessRows, year, (v) => (versteuerung === "ist" ? legacyPayments(v) : []));
-  const exportIstIssueOf = (year: number) => sevdeskExportIstIssue(versteuerung, classified, year);
-  const vatIssueOf = (year: number) =>
-    [paymentIssueOf(year), unclearAccountsIn(year) ? ACCOUNTING_TYPE_VAT_ISSUE : null, exportIstIssueOf(year)].filter(Boolean).join(" ") || null;
+  return { voucherRows, classified, figures, businessRows };
+}
+export type AbgleichBelege = Awaited<ReturnType<typeof abgleichBelege>>;
 
-  const bookingRows = await datevBookingCounts(company.kontenrahmen);
+/** Was der Abgleich außer den Belegen braucht: DATEV-Stapel, Dateien, Protokolle, letzter Abruf, Steuerarten und die offenen Punkte aus FastBill */
+async function abgleichArchiv(kontenrahmen: Kontenrahmen) {
+  const bookingRows = await datevBookingCounts(kontenrahmen);
   const files = await db.select({ kind: schema.archiveFiles.kind, year: schema.archiveFiles.year }).from(schema.archiveFiles);
   // Protokolle der aus sevDesk übernommenen Voranmeldungen zählen wie abgelegte ELSTER-Protokolle (#472)
   const vatProtocols = await db
@@ -883,153 +851,26 @@ export async function reconciliation() {
   // Ausgaben aus FastBill, die noch auf ihren Beleg warten, liegen nicht in lexoffice_vouchers: sonst sähe ein Jahr vollständig aus
   const fastbillWaiting = await fastbillWaitingByYear();
   const fastbillPartlyCanceled = await fastbillPartlyCanceledByYear();
-  const years = new Set<number>(fastbillWaiting.keys());
-  for (const v of voucherRows) years.add(Number(v.date.slice(0, 4)));
-  for (const year of bookingRows.keys()) years.add(year);
-  for (const f of files) if (f.year) years.add(f.year);
+  return { bookingRows, files, vatProtocols, lastImport, taxSets, datevRows, bbFileIds, sevExportFileIds, fastbillWaiting, fastbillPartlyCanceled };
+}
+export type AbgleichArchiv = Awaited<ReturnType<typeof abgleichArchiv>>;
+
+/** Abgleich je Geschäftsjahr: Was liegt vor, was fehlt noch vor der Kündigung? */
+export async function reconciliation() {
+  const company = await loadCompany();
+  const versteuerung: Versteuerung = company.versteuerung;
+  const belege = await abgleichBelege(company.rechtsform);
+  const archiv = await abgleichArchiv(company.kontenrahmen);
+  const years = new Set<number>(archiv.fastbillWaiting.keys());
+  for (const v of belege.voucherRows) years.add(Number(v.date.slice(0, 4)));
+  for (const year of archiv.bookingRows.keys()) years.add(year);
+  for (const f of archiv.files) if (f.year) years.add(f.year);
   // Jahre mit aus sevDesk übernommenen Voranmeldungen, auch ohne Belege und ohne Protokoll (#472)
   for (const r of await db.selectDistinct({ year: schema.legacyVatReports.year }).from(schema.legacyVatReports)) years.add(r.year);
 
-  const result = [...years]
-    .sort((a, b) => b - a)
-    .map((year) => {
-      const vouchers = businessRows.filter((v) => v.date.startsWith(`${year}-`));
-      // Alle Belege des Jahres, auch neutrale: Auch ein Körperschaftsteuerbescheid braucht seine Datei
-      const yearRows = classified.filter((v) => v.date.startsWith(`${year}-`));
-      const withoutReceipt = voucherRows.filter((v) => v.ohneBeleg && v.date.startsWith(`${year}-`)).length;
-      const yearDatev = datevRows.filter((b) => b.date.startsWith(`${year}-`));
-      // Accountable legt in den Belegen nur Ausgaben ab; die Erlöse stehen ausschließlich im
-      // Buchungsstapel. Ohne diese Ausnahme blieben die Einnahmen bei 0, obwohl die Buchung da ist.
-      const yearEinnahmeBelege = vouchers.some((v) => v.direction === "einnahme" && v.date.startsWith(`${year}-`));
-      const fromDatev = (vouchers.length === 0 || !yearEinnahmeBelege) && yearDatev.length > 0 ? datevYearSums(yearDatev, company.kontenrahmen) : null;
-      // Mischjahr (Wechsel unter dem Jahr): Belege aus Lexoffice oder sevDesk, dazu der Teil aus dem Stapel von BuchhaltungsButler
-      // oder aus der Export-ZIP von sevDesk
-      const sevApiYear = yearRows.some((v) => v.source === "sevdesk");
-      const bbDatev = yearDatev.filter((b) => b.fileId !== null && (bbFileIds.has(b.fileId) || (!sevApiYear && sevExportFileIds.has(b.fileId))));
-      const bbPart = !fromDatev && bbDatev.length > 0 ? datevYearSums(bbDatev, company.kontenrahmen) : null;
-      const sum = (direction: "einnahme" | "ausgabe") => {
-        const pick = (sums: NonNullable<typeof fromDatev>) => (direction === "einnahme" ? sums.einnahmen : sums.ausgaben);
-        if (fromDatev) {
-          const { net, tax } = pick(fromDatev);
-          return { count: 0, net, tax, gross: net + tax };
-        }
-        const rows = vouchers.filter((v) => v.direction === direction);
-        const bb = bbPart ? pick(bbPart) : { net: 0, tax: 0 };
-        return {
-          count: rows.length,
-          net: rows.reduce((s, r) => s + r.net, 0) + bb.net,
-          tax: rows.reduce((s, r) => s + r.tax, 0) + bb.tax,
-          gross: rows.reduce((s, r) => s + r.gross, 0) + bb.net + bb.tax,
-        };
-      };
-      // Dateistand (#345): bestätigt dateilose Belege zählen getrennt und blockieren nicht. Ein Exportbeleg ohne Belegbild
-      // braucht keine Datei; er steht mit eigener Zahl im Abgleich (#1106)
-      const fileStatuses = yearRows.filter((v) => !withoutExportImage(v)).map((v) => legacyFileStatus(v.fileState, Number(v.files), v.ohneBeleg));
-      const withoutFile = fileStatuses.filter((f) => OPEN_FILE_STATUSES.has(f) && f !== "anhang_fehlt").length;
-      const sevdeskExport = sevdeskExportYear(yearRows);
-      const unchecked = vouchers.filter((v) => v.status === "unchecked").length;
-      const bookings = bookingRows.get(year);
-      const kinds = (kind: string) => files.filter((f) => f.year === year && f.kind === kind).length;
-      const elster = kinds("elster") + vatProtocols.filter((p) => p.year === year).length;
-      // Ist-Versteuerung: Zahlungen aus dem Zahlungsstatus; sonst Belegdatum
-      const vatIssue = vatIssueOf(year);
-      const vat = vatIssue
-        ? []
-        : legacyVatByMonth(
-            businessRows
-              .filter((v) => (versteuerung === "ist" ? true : v.date.startsWith(`${year}-`)))
-              .map((v) => ({
-                direction: v.direction,
-                date: v.date,
-                net: v.net,
-                tax: v.tax,
-                gross: v.gross,
-                taxes: v.taxes,
-                payments: legacyPayments(v),
-                taxType: v.taxType,
-                taxSubType: v.taxSubType,
-                vatFields: vatFieldsOf(v.taxSetId, taxSets, v.taxType),
-              })),
-            versteuerung,
-          ).filter((m) => m.month.startsWith(`${year}-`));
-      // Einnahmen je Steuerart, damit Sonderfälle (EU, Drittland, § 13b) beim Vergleich auffallen
-      const taxTypes = new Map<string, number>();
-      for (const v of vouchers) {
-        if (v.direction !== "einnahme") continue;
-        const key = [v.taxType ?? "net", v.taxSubType].filter(Boolean).join("/");
-        taxTypes.set(key, (taxTypes.get(key) ?? 0) + 1);
-      }
-      // Auch die Rechnungen aus BuchhaltungsButler: Der Nummernkreis läuft in Haben weiter (§ 14 Abs. 4 Satz 1 Nr. 4 UStG)
-      const invoices = [...vouchers, ...yearRows.filter((v) => v.source === "buchhaltungsbutler" && !v.bbNeutral)]
-        // Stornorechnung und Abschlagsrechnung von sevDesk belegen denselben Nummernkreis wie die Rechnungen (#472)
-        .filter(
-          (v) =>
-            v.number &&
-            (v.type === "invoice" ||
-              (v.source === "sevdesk" && (v.type === "downpaymentinvoice" || (v.type === "creditnote" && v.lexofficeId.startsWith("invoice/"))))),
-        )
-        .sort((a, b) => a.date.localeCompare(b.date) || a.number.localeCompare(b.number, "de", { numeric: true }));
-
-      // Accountable exportiert keinen IDEA-Export. Den trotzdem zu verlangen, macht "vollständig"
-      // strukturell unerreichbar — der Punkt entfällt bei dieser Herkunft.
-      const nurAccountable = voucherRows.length > 0 && voucherRows.every((v) => v.source === "accountable");
-      const checks: ReconciliationCheck[] = [
-        ...(paymentIssueOf(year) ? [{ ok: false, label: "Zahlungshistorie vollständig", detail: paymentIssueOf(year)! }] : []),
-        ...(exportIstIssueOf(year) ? [SEVDESK_EXPORT_IST_CHECK] : []),
-        ...accountingTypeChecks(unclearAccountsIn(year)),
-        ...fastbillWaitingChecks(fastbillWaiting.get(year)),
-        ...fastbillPartlyCanceledChecks(fastbillPartlyCanceled.get(year)),
-        ...voucherSourceChecks({ sevdeskExport, apiVouchers: vouchers.length, yearRows, withoutReceipt }),
-        fileCheck(fileStatuses),
-        {
-          ok: Boolean(bookings && bookings.total > 0),
-          label: "DATEV-Buchungsstapel übernommen",
-          detail: bookings ? `${bookings.total} Buchungen` : "fehlt",
-        },
-        {
-          ok: Boolean(bookings) && bookings!.unmatched === 0,
-          // Buchungen ohne Belegnummer (Umbuchungen, Privates) brauchen nicht immer einen Beleg; sie stehen nur im Hinweis.
-          // Ein Belegfeld ohne Ziffer ist keine Nummer, sondern etwa der Name eines Zahlungsdienstleisters (#1355).
-          label: "Jede Buchung mit Belegnummer findet ihren Beleg",
-          detail: bookings ? bookingsCheckDetail(bookings) : "–",
-        },
-        ...(nurAccountable ? [] : [{ ok: kinds("idea") > 0, label: "IDEA-Export archiviert", detail: kinds("idea") > 0 ? "liegt vor" : "fehlt" }]),
-        {
-          ok: elster > 0,
-          label: "ELSTER-Protokolle archiviert",
-          detail: elster > 0 ? `${elster} Dateien` : "fehlen",
-        },
-        {
-          ok: kinds("kontoauszug") > 0,
-          label: "Kontoauszüge archiviert",
-          detail: kinds("kontoauszug") > 0 ? `${kinds("kontoauszug")} Dateien` : "fehlen",
-        },
-      ];
-      return {
-        year,
-        einnahmen: sum("einnahme"),
-        ausgaben: sum("ausgabe"),
-        /** Weder Einnahme noch Ausgabe, je Art: zum Vergleich sichtbar statt still weggelassen */
-        neutral: legacyNeutralSums(
-          figures.flatMap((v) => (v.neutral && v.date.startsWith(`${year}-`) ? [{ kind: v.neutral, direction: v.direction, gross: v.gross }] : [])),
-        ),
-        /** "datev": keine Belege per API, die Summen stammen aus dem Buchungsstapel; "gemischt": Belege und BB-Stapel */
-        sumsFrom: fromDatev ? ("datev" as const) : bbPart ? ("gemischt" as const) : ("belege" as const),
-        /** Belege aus der Export-ZIP von sevDesk je Zustand; null ohne solche Belege */
-        sevdeskExport,
-        withoutFile,
-        files: fileCounts(fileStatuses),
-        unchecked,
-        bookings: bookings ? { total: bookings.total, unmatched: bookings.unmatched, withoutNumber: bookings.withoutNumber } : null,
-        vat,
-        vatIssue,
-        taxTypes: [...taxTypes].map(([taxType, count]) => ({ taxType, count })).sort((a, b) => b.count - a.count),
-        lastInvoiceNumber: invoices.at(-1)?.number ?? null,
-        checks,
-        ready: checks.every((c) => c.ok),
-      };
-    });
-  return { versteuerung, rechtsform: company.rechtsform, years: result, lastImport };
+  const daten = { ...belege, ...archiv, kontenrahmen: company.kontenrahmen, versteuerung };
+  const result = [...years].sort((a, b) => b - a).map((year) => abgleichJahr(year, daten));
+  return { versteuerung, rechtsform: company.rechtsform, years: result, lastImport: archiv.lastImport };
 }
 
 // ---------------------------------------------------------------------------------------------

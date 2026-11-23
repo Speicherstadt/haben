@@ -1,4 +1,4 @@
-import { formatEuro, type RecurringInterval } from "@haben/core";
+import { formatEuro } from "@haben/core";
 import { Link, createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -43,7 +43,7 @@ function DauerbelegDetailPage() {
     amounts: vorlage.amounts.map((a) => ({ ...a, taxRate: a.taxRate as 1900 | 700 | 0 })),
     taxShown: vorlage.taxShown,
     note: vorlage.note,
-    intervalMonths: vorlage.intervalMonths as RecurringInterval,
+    recurrence: vorlage.recurrence,
     nextDate: vorlage.nextDate,
     endDate: vorlage.endDate,
     dueDays: vorlage.dueDays,

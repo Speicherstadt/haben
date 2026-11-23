@@ -13,7 +13,7 @@ import {
 
 const monatlich = (nextDate: string, anchorDay = Number(nextDate.slice(8, 10)), endDate: string | null = null) => ({
   nextDate,
-  intervalMonths: 1 as const,
+  recurrence: "P1M" as const,
   anchorDay,
   endDate,
 });
@@ -25,14 +25,14 @@ describe("Dauerbelege: Termine", () => {
 
   it("Schaltjahr: 29. Februar 2028, im Folgejahr der 28., 2032 wieder der 29.", () => {
     expect(vorschauTermine(monatlich("2028-01-31"), 3)).toEqual(["2028-01-31", "2028-02-29", "2028-03-31"]);
-    const jaehrlich = { nextDate: "2028-02-29", intervalMonths: 12 as const, anchorDay: 29, endDate: null };
+    const jaehrlich = { nextDate: "2028-02-29", recurrence: "P1Y" as const, anchorDay: 29, endDate: null };
     expect(vorschauTermine(jaehrlich, 5)).toEqual(["2028-02-29", "2029-02-28", "2030-02-28", "2031-02-28", "2032-02-29"]);
   });
 
   it("vierteljährlich und halbjährlich vom Monatsende", () => {
-    const quartal = { nextDate: "2026-11-30", intervalMonths: 3 as const, anchorDay: 30, endDate: null };
+    const quartal = { nextDate: "2026-11-30", recurrence: "P3M" as const, anchorDay: 30, endDate: null };
     expect(vorschauTermine(quartal, 3)).toEqual(["2026-11-30", "2027-02-28", "2027-05-30"]);
-    const halbjahr = { nextDate: "2026-08-31", intervalMonths: 6 as const, anchorDay: 31, endDate: null };
+    const halbjahr = { nextDate: "2026-08-31", recurrence: "P6M" as const, anchorDay: 31, endDate: null };
     expect(vorschauTermine(halbjahr, 3)).toEqual(["2026-08-31", "2027-02-28", "2027-08-31"]);
   });
 
@@ -49,8 +49,8 @@ describe("Dauerbelege: Termine", () => {
   });
 
   it("Folgetermin über den Jahreswechsel", () => {
-    expect(folgeTermin("2026-12-31", { intervalMonths: 1, anchorDay: 31 })).toBe("2027-01-31");
-    expect(folgeTermin("2026-11-15", { intervalMonths: 12, anchorDay: 15 })).toBe("2027-11-15");
+    expect(folgeTermin("2026-12-31", { recurrence: "P1M", anchorDay: 31 })).toBe("2027-01-31");
+    expect(folgeTermin("2026-11-15", { recurrence: "P1Y", anchorDay: 15 })).toBe("2027-11-15");
   });
 
   it("nach einer Pause: erster Termin am oder nach dem Stichtag", () => {
@@ -61,8 +61,23 @@ describe("Dauerbelege: Termine", () => {
   });
 
   it("Periode ist der Monatserste, unabhängig vom Tag", () => {
-    expect(dauerbelegPeriode("2026-11-03")).toBe("2026-11-01");
-    expect(dauerbelegPeriode("2028-02-29")).toBe("2028-02-01");
+    expect(dauerbelegPeriode("2026-11-03", "P1M")).toBe("2026-11-01");
+    expect(dauerbelegPeriode("2028-02-29", "P1Y")).toBe("2028-02-01");
+  });
+
+  it("bei Wochen ist die Periode der Termin selbst, damit mehrere Belege im Monat entstehen (#1691)", () => {
+    expect(dauerbelegPeriode("2026-11-03", "P1W")).toBe("2026-11-03");
+    const woechentlich = { nextDate: "2026-11-23", recurrence: "P1W" as const, anchorDay: 23, endDate: null };
+    const termine = faelligeTermine(woechentlich, "2027-01-04");
+    expect(termine).toEqual(["2026-11-23", "2026-11-30", "2026-12-07", "2026-12-14", "2026-12-21", "2026-12-28", "2027-01-04"]);
+    expect(new Set(termine.map((t) => dauerbelegPeriode(t, "P1W"))).size).toBe(termine.length);
+    expect(folgeTermin("2026-12-28", { recurrence: "P2W", anchorDay: 28 })).toBe("2027-01-11");
+    expect(vorschauTermine({ nextDate: "2026-12-14", recurrence: "P4W", anchorDay: 14, endDate: null }, 3)).toEqual(["2026-12-14", "2027-01-11", "2027-02-08"]);
+    expect(terminAbStichtag({ nextDate: "2026-11-02", recurrence: "P2W", anchorDay: 2 }, "2026-11-20")).toBe("2026-11-30");
+  });
+
+  it("alle 2 Monate am Ankertag", () => {
+    expect(vorschauTermine({ nextDate: "2026-12-31", recurrence: "P2M", anchorDay: 31, endDate: null }, 3)).toEqual(["2026-12-31", "2027-02-28", "2027-04-30"]);
   });
 
   it("Fälligkeit: Termin plus Tage, über Monats- und Jahresgrenzen", () => {

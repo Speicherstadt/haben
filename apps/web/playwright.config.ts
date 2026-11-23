@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 import {
+  ABZUG_AUS,
   appDatabaseUrlFuer,
   DURCHLAEUFE,
   databaseUrlFuer,
@@ -12,7 +13,9 @@ import {
   habenFirmen,
   LAYOUT_PAKETE_PORT,
   PAYPAL_PORT,
+  type Projekt,
   portFuer,
+  projekteFuerTeil,
   SEVDESK_PORT,
   STRIPE_PORT,
 } from "./e2e/durchlaeufe.ts";
@@ -26,6 +29,12 @@ import {
  */
 const baseURL = `http://localhost:${portFuer()}`;
 const durchlaeufe = Object.keys(DURCHLAEUFE) as Durchlauf[];
+// Nur die Projekte und Server des CI-Teils aus E2E_TEIL (e2e/durchlaeufe.ts: TEILE); ohne Angabe alle
+const imTeil = projekteFuerTeil();
+const gewaehlt = (projekt: Projekt) => !imTeil || imTeil.includes(projekt);
+// Mit E2E_ABZUG=1 beginnt „mit-daten“ mit dem Abzug eines früheren Laufs, ohne „ablauf“ (e2e/abzug.ts)
+const ausAbzug = Boolean(process.env.E2E_ABZUG);
+const hauptserver = gewaehlt("ablauf") || gewaehlt("mit-daten") || gewaehlt("ohne-daten");
 
 const chromium = { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } };
 
@@ -61,17 +70,17 @@ function webServer(durchlauf?: Durchlauf) {
       ANTHROPIC_API_KEY: "",
       EXTRACTION_PROVIDER: "",
       EXTRACTION_BASE_URL: "",
-      // Nachgebaute API in belege-steuern.spec.ts; ohne gespeicherten Zugang fragt kein Server dort an
+      // Nachgebaute API in belege-steuern-einstellungen.spec.ts; ohne gespeicherten Zugang fragt kein Server dort an
       ENABLE_BANKING_API_URL: `http://127.0.0.1:${ENABLE_BANKING_PORT}`,
       ENABLE_BANKING_APP_ID: "",
       ENABLE_BANKING_KEY: "",
       ENABLE_BANKING_KEY_FILE: "",
       // Nachgebaute sevDesk-API in sevdesk-anlagen.spec.ts; ohne gespeicherten Token fragt kein Server dort an
       SEVDESK_API_URL: `http://127.0.0.1:${SEVDESK_PORT}/api/v1`,
-      // Bestätigung von USt-IdNrn. beim BZSt (#1385) nur im Durchlauf „belege-steuern“ gegen den nachgebauten Dienst; die
-      // anderen Server schalten sie ab, und keiner fragt das echte BZSt
+      // Bestätigung von USt-IdNrn. beim BZSt (#1385) nur in „belege-steuern“ und seinen Abschnitten gegen den nachgebauten
+      // Dienst; die anderen Server schalten sie ab, und keiner fragt das echte BZSt
       EVATR_API_URL: `http://127.0.0.1:${EVATR_PORT}/app/v1/abfrage`,
-      HABEN_EVATR: durchlauf === "belege-steuern" ? "" : "off",
+      HABEN_EVATR: durchlauf?.startsWith("belege-steuern") ? "" : "off",
       // Nachgebaute Paketquelle in layouts.spec.ts, nie Typst Universe aus dem Test
       LAYOUTS_PACKAGES_URL: `http://127.0.0.1:${LAYOUT_PAKETE_PORT}`,
       // Kontoabruf über FinTS (#654) nur im Durchlauf „fints-abruf“; sonst bleibt FinTS aus wie ohne Registrierungsnummer
@@ -124,9 +133,11 @@ export default defineConfig({
   projects: [
     // Der Betrieb in der leeren Datenbank, Schritt für Schritt (test.describe.configure serial in der Datei); legt
     // an, was „mit-daten“ liest
-    { name: "ablauf", testMatch: "app.spec.ts", use: chromium },
-    // Liest nur, was „ablauf“ angelegt hat, mit dessen Sitzung (e2e/daten.ts). Playwright startet „ablauf“ auch
-    // mit, wenn nur eine dieser Dateien laufen soll
+    ...(ausAbzug ? [] : [{ name: "ablauf", testMatch: "app.spec.ts", use: chromium }]),
+    // Sichert den Stand nach „ablauf“ und spielt ihn ein (e2e/abzug.ts); mit E2E_ABZUG=1 nur den eines früheren Laufs
+    { name: "abzug", testMatch: "abzug.setup.ts", dependencies: ausAbzug ? [] : ["ablauf"], use: chromium },
+    // Liest nur, was „ablauf“ angelegt hat, mit dessen Sitzung (e2e/daten.ts), aus dem Abzug. Playwright startet „abzug“
+    // (und ohne E2E_ABZUG „ablauf“) auch mit, wenn nur eine dieser Dateien laufen soll
     {
       name: "mit-daten",
       testMatch: [
@@ -145,6 +156,7 @@ export default defineConfig({
         "bwa.spec.ts",
         "datumsfelder.spec.ts",
         "einstellungen-export.spec.ts",
+        "liquiditaet.spec.ts",
         "kopfzeile.spec.ts",
         "knopfreihenfolge.spec.ts",
         "rechtsform.spec.ts",
@@ -155,7 +167,7 @@ export default defineConfig({
         "vorschau.spec.ts",
         "zz-doku-screenshots.spec.ts",
       ],
-      dependencies: ["ablauf"],
+      dependencies: ["abzug"],
       use: chromium,
     },
     // Durchläufe mit eigenem Server und eigener Datenbank, von Anfang an daneben: die GmbH, weil die Rechtsform ab der
@@ -163,6 +175,8 @@ export default defineConfig({
     ...durchlaeufe.map((durchlauf) => ({
       name: durchlauf,
       testMatch: `${durchlauf}.spec.ts`,
+      // Ein Abschnitt beginnt mit dem Abzug seines Durchlaufs (e2e/abzug.ts)
+      dependencies: ABZUG_AUS[durchlauf] ? [ABZUG_AUS[durchlauf]] : [],
       use: { ...chromium, baseURL: `http://localhost:${portFuer(durchlauf)}` },
     })),
     // Braucht keine Daten aus der App
@@ -181,6 +195,6 @@ export default defineConfig({
       ],
       use: chromium,
     },
-  ],
-  webServer: [webServer(), ...durchlaeufe.map(webServer)],
+  ].filter((projekt) => gewaehlt(projekt.name as Projekt)),
+  webServer: [...(hauptserver ? [webServer()] : []), ...durchlaeufe.filter(gewaehlt).map(webServer)],
 });

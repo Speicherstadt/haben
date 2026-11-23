@@ -46,7 +46,6 @@ export * from "./export/index.ts";
 export {
   mapSevRecurringInvoice,
   sevBilling,
-  sevIntervalMonths,
   sevPlaceholders,
   sevPlainText,
   type SevBilling,

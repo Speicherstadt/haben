@@ -1,4 +1,4 @@
-import { dauerbelegSummen, formatEuro, RECURRING_INTERVALS, type RecurringInterval } from "@haben/core";
+import { dauerbelegSummen, formatEuro, recurrenceLabel } from "@haben/core";
 import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { NoticeBanner } from "../../../components/NoticeBanner.tsx";
@@ -73,7 +73,7 @@ function DauerbelegePage() {
                   </div>
                 </div>
                 <div className="small">{categoryLabel.get(vorlage.category) ?? vorlage.category}</div>
-                <div className="small">{RECURRING_INTERVALS[vorlage.intervalMonths as RecurringInterval]}</div>
+                <div className="small">{recurrenceLabel(vorlage.recurrence)}</div>
                 <div className="small">{vorlage.status === "aktiv" ? formatDate(vorlage.nextDate) : "–"}</div>
                 <div className="num">{formatEuro(dauerbelegSummen(vorlage.amounts).gross)}</div>
               </Link>
