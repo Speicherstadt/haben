@@ -13,7 +13,8 @@ import { kennzahlenAusDemJournal } from "./vat-journal.ts";
  * trägt diese Erlöse mit dem Steuerschlüssel „KU“, der in keine Kennzahl führt, bei Ist erst mit der Zahlung; die Summe
  * kommt deshalb aus den Rechnungen, bei Ist und Soll nach dem Leistungstag wie bei der Soll-Versteuerung: eingefroren beim
  * Festschreiben, sonst Leistung bis, Leistung von, Rechnungsdatum. Storno und Korrektur zählen im Monat ihres Datums
- * (§ 17 UStG). Bareinnahmen und direkt gebuchte Erlöse ohne Rechnung zählen am Tag der Zahlung: Ohne Rechnung kennt Haben
+ * (§ 17 UStG), ebenso Skonto und Forderungsausfall im Monat der Ausbuchung: Die Anleitung verlangt, Entgeltminderungen bei
+ * den Bemessungsgrundlagen zu berücksichtigen. Bareinnahmen und direkt gebuchte Erlöse ohne Rechnung zählen am Tag der Zahlung: Ohne Rechnung kennt Haben
  * keinen anderen Tag (bareinnahme.ts, direkt-kategorie.ts in @haben/core).
  */
 
@@ -69,6 +70,44 @@ export async function kleinunternehmerUmsaetze(period: VatPeriod, q: Db | Tx): P
   }));
 }
 
+/** Skonto und Forderungsausfall auf Rechnungen als Kleinunternehmer im Zeitraum, samt Aufhebung (mit umgekehrtem Vorzeichen) */
+async function ausbuchungen(period: VatPeriod, q: Db | Tx): Promise<RevenueSource[]> {
+  const { start, end } = periodRange(period);
+  const w = schema.writeOffs;
+  const i = schema.invoices;
+  const rows = await q
+    .select({ date: w.date, amount: w.amount, rechnung: i })
+    .from(w)
+    .innerJoin(i, eq(i.id, w.invoiceId))
+    .where(
+      and(
+        inArray(w.kind, ["skonto", "forderungsausfall"]),
+        gte(w.date, start),
+        lt(w.date, end),
+        eq(i.taxTreatment, "kleinunternehmer"),
+        isNull(i.lexofficeVoucherId),
+      ),
+    );
+  const taxes = invoiceTaxReader(q);
+  const result: RevenueSource[] = [];
+  for (const { date, amount, rechnung } of rows) {
+    // wie oben: eine Anzahlung steht nicht in Kz 48, also mindert ihre Ausbuchung sie auch nicht
+    if ((await taxes.original(rechnung)).advanceType === "anzahlung") continue;
+    result.push({
+      type: "ausbuchung",
+      date,
+      invoiceId: rechnung.id,
+      number: rechnung.number ?? "",
+      customer: rechnung.buyer?.name ?? "",
+      treatment: "kleinunternehmer",
+      rate: 0,
+      base: -amount,
+      tax: 0,
+    });
+  }
+  return result;
+}
+
 /** Je Rechnung die Summe ihrer Abzugspositionen für Anzahlungen (negativ) */
 async function anzahlungsAbzuege(ids: string[], q: Db | Tx): Promise<Map<string, number>> {
   if (ids.length === 0) return new Map();
@@ -100,7 +139,7 @@ export async function kennzahlenDerVoranmeldung(
   kennzahlen.kz81 += entnahme.reduce((s, r) => s + r.base, 0);
   kennzahlen.tax81 += entnahme.reduce((s, r) => s + r.tax, 0);
   const ohneRechnung = revenue.filter((r) => (r.type === "kasse" || r.type === "direkt") && r.treatment === "kleinunternehmer");
-  const kleinunternehmer = [...ohneRechnung, ...(await kleinunternehmerUmsaetze(period, q))];
+  const kleinunternehmer = [...ohneRechnung, ...(await kleinunternehmerUmsaetze(period, q)), ...(await ausbuchungen(period, q))];
   const kz48Kleinunternehmer = kleinunternehmer.reduce((s, r) => s + r.base, 0);
   return { ...kennzahlen, kz48: kennzahlen.kz48 + kz48Kleinunternehmer, kz48Kleinunternehmer, kleinunternehmerUmsaetze: kleinunternehmer };
 }
