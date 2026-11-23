@@ -253,4 +253,64 @@ describe.skipIf(!testDatabaseUrl)("Kz 43 und 48 bei Ist im Zeitraum der Leistung
       });
       expect(await invoices.leistungsmonatHinweisFuer(anzahlung)).toBeNull();
     }, 60_000);
+  /** Ein Jahr nach Ist, danach Soll: erst eine Buchung im alten Jahr, dann der Wechsel (versteuerungForYear) */
+  async function wechselVonIstZuSoll(kontenrahmen: "SKR03" | "SKR04", behandlung: Behandlung) {
+    await firma(kontenrahmen, "ist");
+    const alt = await rechnung(behandlung, 10_000, { issueDate: "2025-11-03", serviceFrom: "2025-11-03" });
+    await zahlung(alt.id, "20.11.25", "100,00");
+    await sql`update company set versteuerung = 'soll'`;
+  }
+  const DEZ25 = { year: 2025, month: 12 };
+  const JAN26 = { year: 2026, month: 1 };
+  const FEB26 = { year: 2026, month: 2 };
+
+  for (const [kontenrahmen, behandlung] of [
+    ["SKR03", "steuerfrei"],
+    ["SKR04", "ausfuhr"],
+  ] as const)
+    it(`${kontenrahmen}: nach dem Wechsel von Ist zu Soll zählen Zahlung und Skonto einer Leistung des Ist-Jahres ${KZ[behandlung]} nicht noch einmal`, async () => {
+      // TDD-Review: Die Leistung im Dezember (Ist) steht im Dezember; die Zahlung im Soll-Jahr meldete sie ein zweites Mal
+      await wechselVonIstZuSoll(kontenrahmen, behandlung);
+      const inv = await rechnung(behandlung, 50_000, { issueDate: "2026-01-15", serviceFrom: "2025-12-01", serviceTo: "2025-12-20" });
+      await zahlung(inv.id, "10.02.26", "490,00");
+      await bank.writeOff(actor, { kind: "skonto", invoiceId: inv.id, date: "2026-02-10" });
+      const company = await import("../stammdaten/company.ts");
+      expect([await company.versteuerungForYear(2025), await company.versteuerungForYear(2026)]).toEqual(["ist", "soll"]);
+      expect([await kennzahl(behandlung, DEZ25), await kennzahl(behandlung, JAN26), await kennzahl(behandlung, FEB26)]).toEqual([50_000, 0, -1_000]);
+      await journalSauber([DEZ25, JAN26, FEB26]);
+    }, 60_000);
+
+  it("SKR04: Storno nach dem Wechsel von Ist zu Soll mindert Kz 48 einer bezahlten Leistung des Ist-Jahres erst mit der Rückzahlung", async () => {
+    await firma("SKR04", "ist");
+    const inv = await rechnung("steuerfrei", 50_000, { issueDate: "2025-12-05", serviceFrom: "2025-12-05" });
+    await zahlung(inv.id, "15.12.25", "500,00");
+    await sql`update company set versteuerung = 'soll'`;
+    const storno = await invoices.cancelInvoice(actor, inv.id, "2026-01-20");
+    await zahlung(storno.id, "10.02.26", "-500,00");
+    expect([await kennzahl("steuerfrei", DEZ25), await kennzahl("steuerfrei", JAN26), await kennzahl("steuerfrei", FEB26)]).toEqual([50_000, 0, -50_000]);
+    await journalSauber([DEZ25, JAN26, FEB26]);
+  }, 60_000);
+
+  for (const [kontenrahmen, versteuerung, behandlung] of [
+    ["SKR03", "soll", "steuerfrei"],
+    ["SKR04", "ist", "ausfuhr"],
+  ] as const)
+    it(`${kontenrahmen}/${versteuerung}: Hinweis an der Schlussrechnung nennt das Entgelt samt abgezogener Anzahlung, wie ${KZ[behandlung]}`, async () => {
+      // TDD-Review: Kz 43 und 48 enthalten die ganze Leistung; der Hinweis nannte nur den Rest der Schlussrechnung
+      await firma(kontenrahmen, versteuerung);
+      const entwurf = await vat.saveDraft(actor, OKT, { mode: "berechnet" });
+      await sql`update vat_returns set status = 'sent', sent_at = now() - interval '1 day' where id = ${entwurf.id}`;
+      const anzahlung = await rechnung(behandlung, 20_000, { issueDate: "2026-09-05", serviceFrom: null, variant: "abschlag", advanceType: "anzahlung" });
+      await zahlung(anzahlung.id, "10.09.26", "200,00");
+      const schluss = await rechnung(behandlung, 100_000, {
+        issueDate: "2026-11-02",
+        serviceFrom: "2026-10-01",
+        serviceTo: "2026-10-31",
+        variant: "schluss",
+        deducts: [anzahlung.id],
+        contactId: anzahlung.contactId,
+      });
+      expect(await kennzahl(behandlung, OKT)).toBe(100_000);
+      expect(await invoices.leistungsmonatHinweisFuer(schluss)).toMatch(/\(netto 1\.000,00\s€, Umsatzsteuer 0,00\s€\)/);
+    }, 60_000);
 });
