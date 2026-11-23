@@ -1,4 +1,4 @@
-import { computeUstva } from "@haben/core";
+import { computeUstva, formatEuro } from "@haben/core";
 import { createElement, type ComponentType, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -128,9 +128,11 @@ describe("Voranmeldung: Fristen und Zeitraum ändern eingeklappt (#1253, Punkt 3
     ];
     expect(fristen(seite({ frequency: { year: 2026, own: wechsel, frequency: "monatlich" } }))).toContain("2026: monatlich, ab Juli: vierteljährlich ·");
     const dauerfrist = { year: 2026, frequency: "monatlich", active: true, own: { year: 2026, active: true, sondervorauszahlung: 120_000 } };
-    expect(fristen(seite({ dauerfrist }))).toContain("Dauerfristverlängerung besteht, Sondervorauszahlung 1.200,00 €");
+    expect(fristen(seite({ dauerfrist }))).toContain(`Dauerfristverlängerung besteht, Sondervorauszahlung ${formatEuro(120_000)}`);
     expect(fristen(seite({ dauerfrist: { ...dauerfrist, own: null } }))).toContain("Dauerfristverlängerung besteht</span>");
-    const befreit = fristen(seite({ frequency: { year: 2026, own: [], frequency: "keine" }, dauerfrist: { ...dauerfrist, frequency: "keine", active: false } }));
+    const befreit = fristen(
+      seite({ frequency: { year: 2026, own: [], frequency: "keine" }, dauerfrist: { ...dauerfrist, frequency: "keine", active: false } }),
+    );
     expect(befreit).toContain('<span class="form-section-kurz">2026: keine Voranmeldung (befreit)</span>');
   });
 

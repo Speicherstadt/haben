@@ -4,8 +4,7 @@ import { useState } from "react";
 import { Icon } from "../../../components/Icon.tsx";
 import { EricHinweis } from "../../../components/EricHinweis.tsx";
 import { NoticeBanner } from "../../../components/NoticeBanner.tsx";
-import { VatFrequencyCard } from "../../../components/umsatzsteuer/VatFrequencyCard.tsx";
-import { DauerfristCard } from "../../../components/umsatzsteuer/DauerfristCard.tsx";
+import { FristenAbschnitt } from "../../../components/umsatzsteuer/FristenAbschnitt.tsx";
 import { VatStatus } from "../../../components/umsatzsteuer/VatStatus.tsx";
 import { JournalVergleich } from "../../../components/umsatzsteuer/JournalVergleich.tsx";
 import { formatLongDate } from "../../../lib/format.ts";
@@ -74,6 +73,8 @@ function VatPeriodPage() {
   const [periodNotice, setPeriodNotice] = useState<PeriodNotice | null>(null);
   const notice = periodNotice?.key === key ? periodNotice.notice : null;
   const setNotice = (next: Notice) => setPeriodNotice({ key, notice: next });
+  // Passt der Zeitraum nicht zur Voranmeldung, lässt es sich dort beheben: dann steht der Bereich offen
+  const [fristenOffen, setFristenOffen] = useState(Boolean(data.periodProblem));
   // Zeiträume nach dem eingestellten Voranmeldungszeitraum, dazu der angezeigte, falls er nicht dazugehört
   const options = [...data.periods];
   if (!options.some((option) => periodKey(option) === key)) options.push(data.period);
@@ -173,10 +174,7 @@ function VatPeriodPage() {
       {/* key: Formular bei Zeitraum- oder Anmeldungswechsel neu aufsetzen */}
       <VatReturnEditor key={`${key}-${data.current?.id ?? "neu"}-${data.current?.updatedAt ?? ""}`} data={data} notice={notice} setNotice={setNotice} />
       {/* Außerhalb des Editors: der baut sich nach jedem Speichern der Anmeldung neu auf und verwürfe sonst die Auswahl hier */}
-      <div className="grid-main" style={{ marginTop: 16 }}>
-        <VatFrequencyCard key={data.frequency.year} frequency={data.frequency} />
-        <DauerfristCard key={`dauerfrist-${data.dauerfrist.year}`} overview={data.dauerfrist} setup={data} />
-      </div>
+      <FristenAbschnitt frequency={data.frequency} dauerfrist={data.dauerfrist} setup={data} offen={fristenOffen} onOffen={setFristenOffen} />
     </>
   );
 }

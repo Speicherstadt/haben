@@ -38,7 +38,7 @@ Vor jedem Prüfen oder Senden speichert Haben den Entwurf, falls er neu oder ge�
 
 Der Voranmeldungszeitraum ist nach § 18 Abs. 2 UStG das Kalendervierteljahr. Monatlich gibst du ab, wenn die Steuer des Vorjahres mehr als 9.000 € betrug. Bei höchstens 2.000 € kann dich das Finanzamt von den Voranmeldungen befreien; dann gibst du nur die Jahreserklärung ab. Festgelegt wird der Zeitraum vom Finanzamt, meist mit der Steuernummer oder nach der Jahreserklärung. Haben übernimmt, was du einträgst, und schlägt nur vor.
 
-Auf der Seite **Umsatzsteuer** steht dafür der Bereich **Voranmeldungszeitraum &lt;Jahr&gt;** für das Jahr des angezeigten Zeitraums:
+Auf der Seite **Umsatzsteuer** klappst du dafür unten **Fristen und Zeitraum ändern** auf. Dahinter steht, was eingestellt ist, etwa „2026: monatlich · Dauerfristverlängerung besteht“. Der Bereich steht offen, wenn der angezeigte Zeitraum nicht zum eingestellten passt. Darin steht der Bereich **Voranmeldungszeitraum &lt;Jahr&gt;** für das Jahr des angezeigten Zeitraums:
 
 | Feld | Bedeutung |
 | --- | --- |
@@ -88,7 +88,7 @@ Mit der Dauerfristverlängerung gibst du jede Voranmeldung einen Monat später a
 | vierteljährlich | einmal, gilt bis zur Rücknahme oder zum Widerruf | keine |
 | befreit | nicht nötig | keine |
 
-Auf der Seite **Umsatzsteuer** steht dafür unter dem Voranmeldungszeitraum der Bereich **Dauerfristverlängerung &lt;Jahr&gt;**.
+Auf der Seite **Umsatzsteuer** steht dafür in **Fristen und Zeitraum ändern**, neben dem Voranmeldungszeitraum, der Bereich **Dauerfristverlängerung &lt;Jahr&gt;**.
 
 Ist die Sondervorauszahlung eines Jahres schon aus Haben übermittelt oder gezahlt (gebucht auf „Umsatzsteuer-Vorauszahlungen 1/11“), lässt sich die Verlängerung für dieses Jahr erst ab dem Folgejahr beenden; einen nur von Hand eingetragenen Stand nimmst du jederzeit zurück: Die Sondervorauszahlung wird in der letzten Voranmeldung angerechnet, für die die Verlängerung gilt (§ 48 Abs. 4 UStDV), und ein Ende im Lauf des Jahres bildet Haben nicht ab. Endet sie doch unterjährig, klärst du die Anrechnung mit dem Finanzamt.
 

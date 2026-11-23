@@ -11,6 +11,7 @@ import {
   faktenZeigen,
   dkb,
   durchlaufSeite,
+  fristenOeffnen,
   gehe,
   kundeWaehlen,
   neuenLieferantenOeffnen,
@@ -201,6 +202,7 @@ test("Voranmeldung vierteljährlich: Zeitraum einstellen, Quartal prüfen und te
   // Im Folgejahr, damit die übrigen Seiten und Bilder beim monatlichen Zeitraum bleiben
   const next = YEAR + 1;
   await go(`/umsatzsteuer/${next}-01`);
+  await fristenOeffnen(page);
   const card = page.getByRole("form", { name: `Voranmeldungszeitraum ${next}` });
   await expect(card).toContainText("monatlich");
   await card.getByRole("combobox", { name: "Zeitraum" }).selectOption("vierteljaehrlich");
@@ -231,6 +233,7 @@ test("Voranmeldung vierteljährlich: Zeitraum einstellen, Quartal prüfen und te
   await expect(history).toContainText(/Testübermittlung\s*OK/);
 
   // Zurück auf monatlich: Der Entwurf des Quartals bleibt mit seinem Verlauf, lässt sich aber nicht mehr senden
+  await fristenOeffnen(page);
   const frequency = page.getByRole("form", { name: `Voranmeldungszeitraum ${next}` });
   await frequency.getByRole("combobox", { name: "Zeitraum" }).selectOption("monatlich");
   await frequency.getByRole("button", { name: "Zeitraum speichern" }).click();
@@ -243,6 +246,7 @@ test("Dauerfristverlängerung: Sondervorauszahlung prüfen und testweise senden,
   // Im Folgejahr, damit die übrigen Seiten und Bilder ohne Dauerfristverlängerung bleiben
   const next = YEAR + 1;
   await go(`/umsatzsteuer/${next}-01`);
+  await fristenOeffnen(page);
   const card = page.getByRole("region", { name: `Dauerfristverlängerung ${next}` });
   await expect(card).toContainText("Nicht eingetragen");
   const amount = card.getByRole("textbox", { name: "Sondervorauszahlung (Kz 38, volle Euro)" });
@@ -272,6 +276,7 @@ test("Dauerfristverlängerung: Sondervorauszahlung prüfen und testweise senden,
 
   // Wieder beenden, damit Fristen und Bilder ohne Verlängerung bleiben
   await go(`/umsatzsteuer/${next}-01`);
+  await fristenOeffnen(page);
   const again = page.getByRole("region", { name: `Dauerfristverlängerung ${next}` }).getByRole("form", { name: "Außerhalb von Haben" });
   await again.getByRole("checkbox", { name: `Dauerfristverlängerung besteht für ${next}` }).uncheck();
   await again.getByRole("button", { name: "Stand speichern" }).click();

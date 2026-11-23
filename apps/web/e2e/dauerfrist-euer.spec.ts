@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import postgres from "postgres";
 import { databaseUrlFuer, portFuer } from "./durchlaeufe.ts";
-import { einrichten } from "./einrichtung.ts";
+import { einrichten, fristenOeffnen } from "./einrichtung.ts";
 
 /** #652: Hinweis nach dem Speichern; echte Bankzuordnung und übermittelte Jahreserklärung in eigener Datenbank. */
 test.describe.configure({ mode: "serial" });
@@ -62,6 +62,7 @@ test("nach Eintragen die betroffene übermittelte EÜR nennen, ohne Speichern zu
       await dauerfrist.saveDauerfrist("e2e-dauerfrist", { year: 2026, active: false, sondervorauszahlung: null });
       await page.setViewportSize(viewport);
       await page.goto("/umsatzsteuer/2026-12");
+      await fristenOeffnen(page);
       await page.evaluate((t) => {
         document.documentElement.dataset.mode = t;
       }, theme);
@@ -85,6 +86,7 @@ test("nach Eintragen die betroffene übermittelte EÜR nennen, ohne Speichern zu
 
 test("unveränderter Stand speichert ohne Berichtigungshinweis", async () => {
   await page.goto("/umsatzsteuer/2026-12");
+  await fristenOeffnen(page);
   const card = page.getByRole("region", { name: "Dauerfristverlängerung 2026", exact: true });
   await card.getByRole("button", { name: "Stand speichern", exact: true }).click();
   await expect(card.getByRole("status")).toContainText("für 2026 eingetragen");
@@ -94,6 +96,7 @@ test("unveränderter Stand speichert ohne Berichtigungshinweis", async () => {
 
 test("Kennzahl und Sondervorauszahlung stehen zuerst in Klartext, der Paragraf danach", async () => {
   await page.goto("/umsatzsteuer/2026-12");
+  await fristenOeffnen(page);
   await expect(page.getByText("Kz = Kennzahl, die Nummer des Felds im ELSTER-Formular.")).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 }); // am Handy fehlt der Spaltenkopf, der Satz bleibt
   await expect(page.getByText("Kz = Kennzahl, die Nummer des Felds im ELSTER-Formular.")).toBeVisible();
