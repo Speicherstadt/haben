@@ -242,7 +242,7 @@ Für den vollständigen Browserlauf mit getrennten App-Rollen braucht die eigene
 Die Tests sind auf Projekte in `apps/web/playwright.config.ts` verteilt; was eine Datei prüft, steht in ihrem Kopf:
 
 - **`app.spec.ts`** spielt den Betrieb in einer leeren Datenbank durch und legt an, was das Projekt `mit-daten` braucht.
-- **`mit-daten`** liest mit diesen Daten und dieser Sitzung, darunter `seiten.spec.ts` (jede Seite am Desktop und am Handy) und `barrierefreiheit.spec.ts` ([Barrierefreiheit und Tastatur](barrierefreiheit.md#wie-das-geprüft-wird)). Playwright startet `app.spec.ts` mit, auch wenn nur eine dieser Dateien laufen soll.
+- **`mit-daten`** liest mit diesen Daten und dieser Sitzung, darunter `seiten.spec.ts` (jede Seite am Desktop und am Handy) und `barrierefreiheit.spec.ts` ([Barrierefreiheit und Tastatur](barrierefreiheit.md#wie-das-geprüft-wird)). Dazwischen sichert das Projekt `abzug` den Stand als Vorlagendatenbank samt Belegen und Sitzung in `apps/web/.e2e-abzug/` und spielt ihn ein (`e2e/abzug.ts`). Playwright startet beide mit, auch wenn nur eine dieser Dateien laufen soll; `E2E_ABZUG=1 bun run e2e --project mit-daten` lässt `app.spec.ts` aus und spielt den Abzug eines früheren Laufs ein, solange Migrationen, Einrichtung und Datum gleich sind.
 - **Eigene Durchläufe** mit eigenem Server und eigener Datenbank für Themen, die eigene Daten brauchen, etwa eine GmbH oder eine festgeschriebene Erklärung; Ports und Datenbanken stehen in `e2e/durchlaeufe.ts`.
 - **`ohne-daten`** für Tests, die keine Daten brauchen.
 

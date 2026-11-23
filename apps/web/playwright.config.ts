@@ -31,6 +31,8 @@ const durchlaeufe = Object.keys(DURCHLAEUFE) as Durchlauf[];
 // Nur die Projekte und Server des CI-Teils aus E2E_TEIL (e2e/durchlaeufe.ts: TEILE); ohne Angabe alle
 const imTeil = projekteFuerTeil();
 const gewaehlt = (projekt: Projekt) => !imTeil || imTeil.includes(projekt);
+// Mit E2E_ABZUG=1 beginnt „mit-daten“ mit dem Abzug eines früheren Laufs, ohne „ablauf“ (e2e/abzug.ts)
+const ausAbzug = Boolean(process.env.E2E_ABZUG);
 const hauptserver = gewaehlt("ablauf") || gewaehlt("mit-daten") || gewaehlt("ohne-daten");
 
 const chromium = { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } };
@@ -130,9 +132,11 @@ export default defineConfig({
   projects: [
     // Der Betrieb in der leeren Datenbank, Schritt für Schritt (test.describe.configure serial in der Datei); legt
     // an, was „mit-daten“ liest
-    { name: "ablauf", testMatch: "app.spec.ts", use: chromium },
-    // Liest nur, was „ablauf“ angelegt hat, mit dessen Sitzung (e2e/daten.ts). Playwright startet „ablauf“ auch
-    // mit, wenn nur eine dieser Dateien laufen soll
+    ...(ausAbzug ? [] : [{ name: "ablauf", testMatch: "app.spec.ts", use: chromium }]),
+    // Sichert den Stand nach „ablauf“ und spielt ihn ein (e2e/abzug.ts); mit E2E_ABZUG=1 nur den eines früheren Laufs
+    { name: "abzug", testMatch: "abzug.setup.ts", dependencies: ausAbzug ? [] : ["ablauf"], use: chromium },
+    // Liest nur, was „ablauf“ angelegt hat, mit dessen Sitzung (e2e/daten.ts), aus dem Abzug. Playwright startet „abzug“
+    // (und ohne E2E_ABZUG „ablauf“) auch mit, wenn nur eine dieser Dateien laufen soll
     {
       name: "mit-daten",
       testMatch: [
@@ -162,7 +166,7 @@ export default defineConfig({
         "vorschau.spec.ts",
         "zz-doku-screenshots.spec.ts",
       ],
-      dependencies: ["ablauf"],
+      dependencies: ["abzug"],
       use: chromium,
     },
     // Durchläufe mit eigenem Server und eigener Datenbank, von Anfang an daneben: die GmbH, weil die Rechtsform ab der

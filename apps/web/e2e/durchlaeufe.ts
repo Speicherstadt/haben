@@ -55,19 +55,19 @@ export const DURCHLAEUFE = {
 export type Durchlauf = keyof typeof DURCHLAEUFE;
 
 /** Projekte in playwright.config.ts, die den Hauptserver auf PORT nutzen */
-export const HAUPTPROJEKTE = ["ablauf", "mit-daten", "ohne-daten"] as const;
+export const HAUPTPROJEKTE = ["ablauf", "abzug", "mit-daten", "ohne-daten"] as const;
 export type Projekt = (typeof HAUPTPROJEKTE)[number] | Durchlauf;
 
 /**
  * Feste Verteilung der Projekte auf die Teile der CI (Matrix in .github/workflows/ci.yml, E2E_TEIL), nach Dauer statt
- * nach Datei wie `--shard`. Die seriellen Specs belege-steuern und rechnungen haben je einen Teil; „mit-daten“ hängt
- * von „ablauf“ ab und steht mit ihm in einem Teil, damit „ablauf“ nur einmal läuft. Ein neuer Durchlauf kommt in den
+ * nach Datei wie `--shard`. Die seriellen Specs belege-steuern und rechnungen haben je einen Teil; „mit-daten“ beginnt
+ * mit dem Abzug nach „ablauf“ (e2e/abzug.ts) und steht mit ihm in einem Teil, damit „ablauf“ nur einmal läuft. Ein neuer Durchlauf kommt in den
  * kürzesten Teil; e2e-teile.test.ts prüft, dass jedes Projekt genau einmal vorkommt.
  */
 export const TEILE = {
   "belege-steuern": ["belege-steuern"],
   rechnungen: ["rechnungen"],
-  ablauf: ["ablauf", "mit-daten"],
+  ablauf: ["ablauf", "abzug", "mit-daten"],
   gmbh: ["gmbh", "rueckfragen", "belegimport", "bb-import", "beleg-storno", "dauerfrist-euer", "verrechnung", "firmen", "passwort", "fastbill-import"],
   importe: [
     "wiso-import",

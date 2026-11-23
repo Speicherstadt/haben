@@ -11,9 +11,10 @@ describe("TEILE", () => {
     expect([...zugeordnet].sort()).toEqual(alle.sort());
   });
 
-  it("legt „mit-daten“ in den Teil von „ablauf“, von dem es abhängt", () => {
+  it("legt „mit-daten“ in den Teil von „ablauf“ und „abzug“, von denen es abhängt", () => {
     const teil = Object.values(TEILE).find((projekte) => (projekte as readonly string[]).includes("mit-daten"));
     expect(teil).toContain("ablauf");
+    expect(teil).toContain("abzug");
   });
 
   it("deckt sich mit der Matrix in ci.yml", () => {
