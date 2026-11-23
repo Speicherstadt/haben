@@ -2136,6 +2136,14 @@ test("Auswertungen, Umsatzsteuer und Jahreserklärung laden", async () => {
   ).toBeVisible();
   await go("/finanzamt");
   await expect(page.getByRole("heading", { name: "Finanzamt", level: 1 })).toBeVisible();
+  // Nicht lesbare Vorauszahlung: die Meldung steht sofort am Feld, es gibt keinen eigenen Knopf (#1270)
+  const vorauszahlung = page.getByRole("region", { name: /^Einkommensteuer-Vorauszahlungen \d{4}$/ });
+  const bisher = vorauszahlung.getByLabel("Bisherige Vorauszahlung je Quartal (€)");
+  await bisher.fill("12€50");
+  await expect(vorauszahlung.getByText("Trag die Vorauszahlung je Quartal ein, etwa 1.500,00, oder lass das Feld leer.")).toBeVisible();
+  await expect(bisher).toHaveAttribute("aria-invalid", "true");
+  await bisher.fill("1.500,00");
+  await expect(vorauszahlung.getByText("Trag die Vorauszahlung je Quartal ein")).toHaveCount(0);
 });
 
 test("Umsatzsteuer öffnet ohne Abgabe in Haben den zuletzt abgelaufenen Zeitraum, nie den laufenden (#1102)", async () => {
