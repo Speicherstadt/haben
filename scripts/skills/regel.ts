@@ -47,3 +47,15 @@ export function pruefeSkill({ ordner, inhalt, dateien }: Skill): Befund[] {
   for (const datei of referenzen) if (!genannt.includes(datei)) befunde.push(`${datei} nennt SKILL.md nicht, kein Agent lädt sie`);
   return befunde.map((message) => ({ skill: ordner, message }));
 }
+
+/**
+ * Zeichen in CLAUDE.md und AGENTS.md: Beide liest jede Session ganz. OpenClaw hält seine AGENTS.md unter 20.000
+ * Zeichen; unsere lag bei der Einführung unter 7.000, die Grenze lässt Platz, ohne dass sie unbemerkt wächst.
+ */
+export const ANWEISUNG_MAX = 10000;
+
+export function pruefeAnweisung(datei: string, inhalt: string): Befund[] {
+  const zeichen = [...inhalt].length;
+  if (zeichen <= ANWEISUNG_MAX) return [];
+  return [{ skill: datei, message: `${zeichen} Zeichen, höchstens ${ANWEISUNG_MAX}: Schritte gehören in einen Skill, Regeln in docs/` }];
+}

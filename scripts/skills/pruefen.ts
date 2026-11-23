@@ -1,11 +1,12 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { pruefeSkill } from "./regel.ts";
+import { pruefeAnweisung, pruefeSkill } from "./regel.ts";
 
-/* Prüft die Skills in .claude/skills/ nach regel.ts. Läuft mit `bun run lint`. */
+/* Prüft die Skills in .claude/skills/, CLAUDE.md und AGENTS.md nach regel.ts. Läuft mit `bun run lint`. */
 
-const wurzel = fileURLToPath(new URL("../../.claude/skills", import.meta.url));
+const repo = fileURLToPath(new URL("../..", import.meta.url));
+const wurzel = join(repo, ".claude/skills");
 
 function alleDateien(ordner: string): string[] {
   return readdirSync(ordner, { withFileTypes: true }).flatMap((eintrag) => {
@@ -14,7 +15,7 @@ function alleDateien(ordner: string): string[] {
   });
 }
 
-const befunde = readdirSync(wurzel, { withFileTypes: true })
+const skills = readdirSync(wurzel, { withFileTypes: true })
   .filter((eintrag) => eintrag.isDirectory())
   .flatMap(({ name }) => {
     const ordner = join(wurzel, name);
@@ -25,5 +26,8 @@ const befunde = readdirSync(wurzel, { withFileTypes: true })
     });
   });
 
-for (const { skill, message } of befunde) console.error(`.claude/skills/${skill}: ${message}`);
+const anweisungen = ["CLAUDE.md", "AGENTS.md"].flatMap((datei) => pruefeAnweisung(datei, readFileSync(join(repo, datei), "utf8")));
+for (const { skill, message } of skills) console.error(`.claude/skills/${skill}: ${message}`);
+for (const { skill, message } of anweisungen) console.error(`${skill}: ${message}`);
+const befunde = [...skills, ...anweisungen];
 if (befunde.length > 0) process.exit(1);

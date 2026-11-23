@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BESCHREIBUNG_MAX, HAUPTTEIL_MAX, pruefeSkill, verweise } from "./regel.ts";
+import { ANWEISUNG_MAX, BESCHREIBUNG_MAX, HAUPTTEIL_MAX, pruefeAnweisung, pruefeSkill, verweise } from "./regel.ts";
 
 const skill = (beschreibung: string, rumpf = "Ablauf.", name = "beispiel") => `---\nname: "${name}"\ndescription: "${beschreibung}"\n---\n\n${rumpf}\n`;
 
@@ -35,5 +35,12 @@ describe("pruefeSkill", () => {
 describe("verweise", () => {
   it("findet Pfade in Backticks und Links, ohne fremde Pfade", () => {
     expect(verweise("`references/a.md`, [b](references/b.md), docs/references/c.md")).toEqual(["references/a.md", "references/b.md"]);
+  });
+});
+
+describe("pruefeAnweisung", () => {
+  it("zählt Zeichen, nicht Bytes", () => {
+    expect(pruefeAnweisung("CLAUDE.md", "ü".repeat(ANWEISUNG_MAX))).toEqual([]);
+    expect(pruefeAnweisung("CLAUDE.md", "x".repeat(ANWEISUNG_MAX + 1))[0].message).toContain("höchstens");
   });
 });
