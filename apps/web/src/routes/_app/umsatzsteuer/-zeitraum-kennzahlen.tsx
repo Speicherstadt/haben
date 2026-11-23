@@ -1,5 +1,5 @@
-import { type computeUstva, formatEuro, parseEuro } from "@haben/core";
-import { KzFehler, kzFeld } from "./-zeitraum-feldfehler.tsx";
+import { type computeUstva, formatEuro } from "@haben/core";
+import { KzFehler, kzFeld, kzOffen } from "./-zeitraum-feldfehler.tsx";
 import { type PageData, SourcesTable, SourcesToggle } from "./-zeitraum-quellen.tsx";
 
 export type FieldKey =
@@ -300,8 +300,6 @@ function BezugsZeilen({ data, zeilen, shown, eingabe }: TeilProps) {
 function WeitereZeilen({ zeilen, shown, computed, eingabe }: TeilProps) {
   const { rcRows, igeRows } = zeilen;
   const { editable, values, update } = eingabe;
-  // Ein nicht lesbarer Betrag zählt in `shown` als 0: Die Zeile bleibt, damit das Feld samt Meldung zu sehen ist (#1270)
-  const offen = (field: "kz62" | "kz39") => editable && parseEuro(values[field]) === null;
   return (
     <>
       {(rcRows.length > 0 || shown.kz67 !== 0) && (
@@ -350,7 +348,7 @@ function WeitereZeilen({ zeilen, shown, computed, eingabe }: TeilProps) {
           <KzFehler eingabe={eingabe} field="kz61" id="kz-61" />
         </div>
       )}
-      {(shown.kz62 !== 0 || computed.kz62 !== 0 || offen("kz62")) && (
+      {(shown.kz62 !== 0 || computed.kz62 !== 0 || kzOffen(eingabe, "kz62")) && (
         <div className="kz-row">
           <div className="kz-num">62</div>
           <div className="kz-label">
@@ -373,7 +371,7 @@ function WeitereZeilen({ zeilen, shown, computed, eingabe }: TeilProps) {
           <KzFehler eingabe={eingabe} field="kz62" id="kz-62" />
         </div>
       )}
-      {(shown.kz39 !== 0 || computed.kz39 !== 0 || offen("kz39")) && (
+      {(shown.kz39 !== 0 || computed.kz39 !== 0 || kzOffen(eingabe, "kz39")) && (
         <div className="kz-row">
           <div className="kz-num">39</div>
           <div className="kz-label">
