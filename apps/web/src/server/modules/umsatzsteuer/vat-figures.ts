@@ -114,7 +114,7 @@ export interface VatFigures {
   kz62: Cents;
   /**
    * Darin in Kz 48: Umsätze als Kleinunternehmer (§ 19 Abs. 1 UStG) im Monat der Leistung (#1268), aus den Rechnungen,
-   * nicht aus dem Journal; je Rechnung in `kleinunternehmerUmsaetze`
+   * Bareinnahmen und direkt gebuchten Erlösen, nicht aus dem Journal; je Quelle in `kleinunternehmerUmsaetze`
    */
   kz48Kleinunternehmer: Cents;
   kleinunternehmerUmsaetze: RevenueSource[];

@@ -10,9 +10,11 @@ import { kennzahlenAusDemJournal } from "./vat-journal.ts";
  * Abs. 1 UStG (seit 2025 steuerfrei) und ordnet den Gesamtbetrag einschließlich Anzahlung und Restzahlung dem
  * Voranmeldungszeitraum der Leistungsausführung zu; Anzahlungen selbst meldet man nicht, eine Ausnahme für die
  * Ist-Versteuerung gibt es nicht (https://www.elster.de/eportal/helpGlobal?themaGlobal=help_ustva_2026#kz48). Das Journal
- * trägt diese Erlöse ohne Steuerschlüssel; die Summe kommt deshalb aus den Rechnungen, bei Ist und Soll nach dem
- * Leistungstag wie bei der Soll-Versteuerung: eingefroren beim Festschreiben, sonst Leistung bis, Leistung von,
- * Rechnungsdatum. Storno und Korrektur zählen im Monat ihres Datums (§ 17 UStG).
+ * trägt diese Erlöse mit dem Steuerschlüssel „KU“, der in keine Kennzahl führt, bei Ist erst mit der Zahlung; die Summe
+ * kommt deshalb aus den Rechnungen, bei Ist und Soll nach dem Leistungstag wie bei der Soll-Versteuerung: eingefroren beim
+ * Festschreiben, sonst Leistung bis, Leistung von, Rechnungsdatum. Storno und Korrektur zählen im Monat ihres Datums
+ * (§ 17 UStG). Bareinnahmen und direkt gebuchte Erlöse ohne Rechnung zählen am Tag der Zahlung: Ohne Rechnung kennt Haben
+ * keinen anderen Tag (bareinnahme.ts, direkt-kategorie.ts in @haben/core).
  */
 
 type Rechnung = typeof schema.invoices.$inferSelect;
@@ -93,7 +95,7 @@ async function anzahlungsAbzuege(ids: string[], q: Db | Tx): Promise<Map<string,
 /**
  * Die Kennzahlen der Voranmeldung: aus dem Journal (#542, #1116), wie bei DATEV aus Konto und Steuerschlüssel; dazu die
  * Privatnutzung von Fahrzeugen je Monat aus dem Anlagenverzeichnis (das Journal bucht sie erst mit der AfA) und die Umsätze
- * als Kleinunternehmer in Kz 48, die das Journal ohne Steuerschlüssel trägt (#1268)
+ * als Kleinunternehmer in Kz 48, die das Journal ohne Kennzahl trägt (#1268)
  */
 export async function kennzahlenDerVoranmeldung(
   period: VatPeriod,
@@ -105,7 +107,8 @@ export async function kennzahlenDerVoranmeldung(
   const entnahme = revenue.filter((r) => r.type === "entnahme");
   kennzahlen.kz81 += entnahme.reduce((s, r) => s + r.base, 0);
   kennzahlen.tax81 += entnahme.reduce((s, r) => s + r.tax, 0);
-  const kleinunternehmer = await kleinunternehmerUmsaetze(period, q);
+  const ohneRechnung = revenue.filter((r) => (r.type === "kasse" || r.type === "direkt") && r.treatment === "kleinunternehmer");
+  const kleinunternehmer = [...ohneRechnung, ...(await kleinunternehmerUmsaetze(period, q))];
   const kz48Kleinunternehmer = kleinunternehmer.reduce((s, r) => s + r.base, 0);
   return { ...kennzahlen, kz48: kennzahlen.kz48 + kz48Kleinunternehmer, kz48Kleinunternehmer, kleinunternehmerUmsaetze: kleinunternehmer };
 }
