@@ -572,10 +572,11 @@ test("Beleg am Laptop: Netto, Vorsteuer und Brutto sind neben der Vorschau ganz 
 
 /**
  * Klassische Scrollleiste (Windows, Linux, macOS mit „Rollbalken immer anzeigen“, #1152): Playwright blendet Scrollleisten
- * sonst aus. Ein eigener Browser, weil sich das je Test nicht umstellen lässt (wie in vorschau.spec.ts).
+ * sonst aus. Ein eigener Browser, weil sich das je Test nicht umstellen lässt (wie in vorschau.spec.ts); mit den
+ * launchOptions der Konfiguration, damit PLAYWRIGHT_CHROMIUM_EXECUTABLE auch hier gilt.
  */
 async function mitScrollleiste(baseURL: string | undefined, viewport: { width: number; height: number }) {
-  const browser = await chromium.launch({ ignoreDefaultArgs: ["--hide-scrollbars"] });
+  const browser = await chromium.launch({ ...test.info().project.use.launchOptions, ignoreDefaultArgs: ["--hide-scrollbars"] });
   const context = await browser.newContext({ baseURL, viewport, storageState: await page.context().storageState() });
   const seite = await context.newPage();
   return {
