@@ -78,6 +78,8 @@ Das Skript ändert nichts in Lexware Office. Es ruft nur die Adressen auf, die d
 
 Belege, die das Skript nicht laden konnte, stehen in der ZIP-Datei und nach dem Hochladen in Schritt 2 unter den offenen Punkten beim Abruf. Lässt du das Skript später noch einmal laufen und lädst die neue Sicherung hoch, überspringt Haben alles, was schon da ist, und holt die fehlenden nach — auch das Original-PDF einer Rechnung und jeden einzelnen fehlenden Anhang eines Belegs.
 
+Der Fortschritt unter **Dateien** zählt alle in diesem Lauf neu gespeicherten Dateien. Dazu gehören auch Dateien, die Haben an bereits archivierte Belege anhängt.
+
 Buchungen, Bankumsätze, Voranmeldungen und Anlagen holst du wie beim Abruf über die API aus den Exporten (Schritt 4).
 
 ### Darf ich das?
@@ -253,7 +255,8 @@ Die Zahlung muss in Haben ankommen: Ruft Haben die Bank erst ab einem späteren 
 | Betrag nicht positiv | Gutschriften werden nicht übernommen |
 | keine Datei aus Lexoffice | Erst die Datei in Lexware Office anhängen und erneut abrufen |
 | XML der E-Rechnung fehlt | Erneut abrufen; bei der Sicherung das Skript noch einmal laufen lassen und die neue Sicherung hochladen |
-| Datei erwartet, Abruf aus Lexoffice fehlgeschlagen | Ebenso |
+| Datei fehlt in der Sicherung | Eine neue Sicherung mit der fehlenden Datei importieren |
+| Datei erwartet, Abruf aus Lexware Office fehlgeschlagen | Im Umzug **Erneut abrufen** wählen |
 
 Warum eine Teilzahlung vor dem Stichtag sperrt: Die Rechnung in Haben trägt den Betrag des Original-PDFs, und offen ist in Haben, was keine Zahlung im Bankabgleich deckt. Für die Zahlung vor dem Stichtag gibt es in Haben keinen Bankumsatz. Sie als Ausbuchung zu erfassen, minderte die Umsatzsteuer wie eine Änderung der Bemessungsgrundlage (§ 17 Abs. 1 UStG), obwohl das Entgelt gezahlt ist. Eine Teilzahlung nach dem Stichtag sperrt nicht: Am Stichtag war der ganze Betrag offen, und die Zahlung kommt in Haben an.
 

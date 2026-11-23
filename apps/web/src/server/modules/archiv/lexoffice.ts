@@ -49,7 +49,15 @@ import { latestSevdeskImport } from "./sevdesk.ts";
 import { legacyDunningsFor } from "./mahnungen-archiv.ts";
 import { customTaxSetId, legacyTaxSetFields } from "./sevdesk-steuerarten.ts";
 import { ohneBelegGrund, ohneDateiBestaetigbar } from "./ohne-datei.ts";
-import { FILE_STATUS_LABELS, fileStateHistory, latestFileStateSql, legacyFileStatus, OPEN_FILE_STATUSES, recordFileState } from "./dateistand.ts";
+import {
+  FILE_STATUS_LABELS,
+  fileStateHistory,
+  latestFileStateSql,
+  legacyFileStatus,
+  OPEN_FILE_STATUSES,
+  recordFileState,
+  takeoverFileIssue,
+} from "./dateistand.ts";
 
 export class LexofficeError extends UserError {}
 
@@ -311,7 +319,7 @@ async function runImport(actor: string, importId: string, client: LexofficeSourc
         continue;
       }
       try {
-        if (await nachladenDateien(actor, importId, client, item, offen)) progress.nachgeladen = (progress.nachgeladen ?? 0) + 1;
+        if (await nachladenDateien(actor, importId, client, item, offen, progress)) progress.nachgeladen = (progress.nachgeladen ?? 0) + 1;
       } catch (error) {
         if (error instanceof LexofficeApiError && (error.status === 401 || error.status === 403)) throw error;
         if (signal.aborted || (error instanceof Error && error.name === "AbortError")) throw error;
@@ -384,6 +392,7 @@ async function nachladenDateien(
   client: LexofficeSource,
   item: { id: string; type: string },
   offen: OffeneDatei[],
+  progress: LexofficeImportProgress,
 ): Promise<boolean> {
   // Das PDF und ein XML der Rechnung hängen nicht an einer Kennung; sie kommen über den Beleg selbst
   const salesType = isSalesType(item.type) ? item.type : null;
@@ -406,25 +415,24 @@ async function nachladenDateien(
   if (files.length === 0 && ohneAnhang.length === 0) return false;
   const voucherId = offen[0]!.voucherId;
   const number = offen[0]!.number || item.id;
-  await withActor(actor, async (tx) => {
-    if (files.length > 0)
-      await attachVoucherFiles(
-        tx,
-        voucherId,
-        files.map((entry) => ({
-          role: entry.role,
-          sourceFileId: entry.lexofficeFileId,
-          filename: entry.file.filename ?? fallbackName({ number, lexofficeId: item.id }, entry.role, entry.file.bytes),
-          mimeType: entry.file.mimeType,
-          bytes: entry.file.bytes,
-        })),
-      );
+  const angehaengt = await withActor(actor, async (tx) => {
+    const count = await attachVoucherFiles(
+      tx,
+      voucherId,
+      files.map((entry) => ({
+        role: entry.role,
+        sourceFileId: entry.lexofficeFileId,
+        filename: entry.file.filename ?? fallbackName({ number, lexofficeId: item.id }, entry.role, entry.file.bytes),
+        mimeType: entry.file.mimeType,
+        bytes: entry.file.bytes,
+      })),
+    );
     // Ein Stand je Datei mit Rolle und Kennung: er löst genau diese Datei und trägt den Zeitpunkt für „(nachgeladen)“ (#1624)
     for (const entry of files)
       await recordFileState(
         tx,
         voucherId,
-        { state: "nachgeladen", role: entry.role, sourceFileId: entry.lexofficeFileId, message: "Datei aus einer späteren Sicherung nachgeladen." },
+        { state: "nachgeladen", role: entry.role, sourceFileId: entry.lexofficeFileId, message: "Datei bei einem späteren Import nachgeladen." },
         { actor, importId },
       );
     // Die Quelle nennt ohne Fehler kein XML: nichts mehr offen, auch wenn nichts ankam. Sonst bliebe die Rechnung für
@@ -436,7 +444,9 @@ async function nachladenDateien(
         { state: "kein_anhang", role: "xml", sourceFileId: null, message: "Die Quelle nennt keine E-Rechnung." },
         { actor, importId },
       );
+    return count;
   });
+  progress.files += angehaengt;
   // Was weiterhin fehlt, wird danach in einem eigenen Schritt vermerkt: mit dem jüngeren Zeitstempel bleibt der Beleg
   // offen, auch wenn eine der Dateien ankam (#1624)
   if (weiterhin.length > 0) await withActor(actor, (tx) => vermerkeFehlendeDateien(tx, voucherId, weiterhin, { actor, importId }));
@@ -675,6 +685,7 @@ export async function legacyVoucherDetail(id: string) {
       accountingType: accountingTypeKinds("lexoffice_vouchers"),
       ohneBeleg: WITHOUT_RECEIPT,
       rawGuid: sql<string | null>`${schema.lexofficeVouchers.raw}->>'guid'`,
+      rawQuelle: sql<string | null>`${schema.lexofficeVouchers.raw}->>'quelle'`,
       rawDocumentPresent: sql<boolean | null>`(${schema.lexofficeVouchers.raw}->>'documentPresent')::boolean`,
       positionAccounts: sevdeskPositionAccounts("lexoffice_vouchers"),
     })
@@ -704,7 +715,7 @@ export async function legacyVoucherDetail(id: string) {
     (fileStatus === "ohne_datei_offen" || fileStatus === "ohne_beleg") &&
     files.length === 0 &&
     ohneDateiBestaetigbar({ ...voucher, guid: voucher.rawGuid, documentPresent: voucher.rawDocumentPresent, ohneBeleg: voucher.ohneBeleg });
-  const { positionAccounts, ...shown } = voucher;
+  const { positionAccounts, rawQuelle, ...shown } = voucher;
   const categories = positionAccounts ? sevdeskCategories(voucher.categories, positionAccounts, await loadSevdeskAccountCategories()) : voucher.categories;
   // Frühere WISO-Importe setzten das Zahlungsdatum als Leistung, obwohl die Quelle sie nicht belegt (#565).
   // Nur lesend korrigieren; die unveränderliche Archivzeile bleibt erhalten. Quelle: https://github.com/Speicherstadt/haben/issues/565
@@ -729,6 +740,7 @@ export async function legacyVoucherDetail(id: string) {
     dunnings,
     fileState: {
       status: fileStatus,
+      reloadIssue: fileStatus === "abruf_fehlgeschlagen" || fileStatus === "anhang_fehlt" ? takeoverFileIssue(fileStatus, voucher.source, rawQuelle) : null,
       label: FILE_STATUS_LABELS[fileStatus],
       history: fileStates,
       canConfirmWithoutFile,
