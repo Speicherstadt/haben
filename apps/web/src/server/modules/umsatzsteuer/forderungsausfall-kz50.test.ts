@@ -116,6 +116,29 @@ describe.skipIf(!testDatabaseUrl)("Forderungsausfall in Kz 50 (Postgres)", () =>
     expect((await vat.computedValues(oktober)).kz50).toBe(150_000);
   });
 
+  // Der Wiedereingang (§ 17 Abs. 2 Nr. 1 Satz 2 UStG) erhöht Kz 81/86; Kz 50 nennt nur Minderungen nach Satz 1
+  it("Soll: Aufhebung eines Forderungsausfalls aus dem Vormonat mindert einen neuen Forderungsausfall in Kz 50 nicht", async () => {
+    await firma("SKR03", "soll");
+    const alt = await rechnung();
+    const neu = await rechnung();
+    await bank.writeOff(actor, { kind: "forderungsausfall", invoiceId: alt.id, date: "2026-10-05" });
+    await bank.writeOff(actor, { kind: "forderungsausfall", invoiceId: neu.id, date: "2026-11-10" });
+    const [w] = await bank.listWriteOffs({ invoiceId: alt.id });
+    await bank.reverseWriteOff(actor, w!.id, "2026-11-12");
+
+    expect(await vat.computedValues({ year: 2026, month: 11 })).toMatchObject({ kz81: 0, kz86: 0, kz50: 150_000 });
+  });
+
+  it("Soll: Forderungsausfall und Aufhebung im selben Monat heben sich auch in Kz 50 auf", async () => {
+    await firma("SKR04", "soll");
+    const inv = await rechnung();
+    await bank.writeOff(actor, { kind: "forderungsausfall", invoiceId: inv.id, date: "2026-10-05" });
+    const [w] = await bank.listWriteOffs({ invoiceId: inv.id });
+    await bank.reverseWriteOff(actor, w!.id, "2026-10-20");
+
+    expect(await vat.computedValues(oktober)).toMatchObject({ kz81: 0, kz86: 0, kz50: 0 });
+  });
+
   it("Gesendete Voranmeldung von vor Kz 50 meldet im Abgleich keine Abweichung", async () => {
     await firma("SKR03", "soll");
     const inv = await rechnung();
