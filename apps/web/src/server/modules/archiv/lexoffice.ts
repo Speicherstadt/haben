@@ -912,6 +912,7 @@ export async function legacyVouchersForPeriod(filter: {
   search: string;
   withPayments: boolean;
   limit: number;
+  offset?: number;
 }): Promise<{ total: number; vouchers: LegacyVoucherForVat[]; neutral: LegacyNeutralSum[] }> {
   if (filter.withPayments) {
     // Ausdrücke über alle sevDesk-Belege: mit JIT dauerte schon das Kompilieren Sekunden (ohne-jit.ts)
@@ -985,7 +986,7 @@ export async function legacyVouchersForPeriod(filter: {
       and v.source not in ('buchhaltungsbutler', 'sevdesk-export')
       ${filter.direction === "alle" ? sql`` : sql`and ${effectiveDirection("v")} = ${filter.direction}`}
       ${term ? sql`and (v.number ilike ${term} or ${effectiveContactName("v")} ilike ${term} or v.remark ilike ${term})` : sql``}
-    order by v.date, v.number`),
+    order by v.date, v.number, v.id`),
   );
   // Was weder Einnahme noch Ausgabe ist, geht nicht in die Umsatzsteuer ein, wie im Abgleich; es steht summiert daneben
   const { rechtsform } = await loadCompany();
@@ -1017,7 +1018,8 @@ export async function legacyVouchersForPeriod(filter: {
       accountingTypeIssue: accountingTypeIssue(r.accounting_type),
       files: Number(r.files),
     }));
-  return { total: all.length, vouchers: all.slice(0, filter.limit), neutral };
+  const offset = filter.offset ?? 0;
+  return { total: all.length, vouchers: all.slice(offset, offset + filter.limit), neutral };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

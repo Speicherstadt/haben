@@ -135,6 +135,8 @@ Caddy signiert Zertifikate für lokale Namen wie `haben.lan` mit seiner eigenen 
 | `lexoffice_konten` | Soll, Haben und Saldo je Konto aus dem archivierten DATEV-Buchungsstapel für ein Jahr oder einen Monat, mit Summen der Erträge und Aufwendungen |
 | `lexoffice_buchungen` | einzelne DATEV-Buchungen eines Jahres oder Monats, filterbar nach Konto oder nach Buchungen ohne passenden Beleg |
 
+Listen kommen in Seiten: `offene_posten`, `rechnungen`, `belege`, `bankumsaetze_ohne_zuordnung`, `archiv_auftragsdokumente`, `lexoffice_belege` und `lexoffice_buchungen` nehmen `limit` (Standard 50, höchstens 200) und `offset` wie die [REST-API](api.md) und nennen mit `total` die Zahl aller Treffer, damit der Assistent weiterblättern kann. Bei `offene_posten` und `bankumsaetze_ohne_zuordnung` gilt der `offset` für jede Teilliste (Forderungen und Verbindlichkeiten, jedes Konto), `total` steht je Teilliste.
+
 ### Voranmeldungen aus Lexware Office vergleichen
 
 Die `lexoffice_`-Werkzeuge helfen beim [Umzug aus Lexoffice](lexoffice.md). Was der Assistent damit prüfen kann:
