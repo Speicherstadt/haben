@@ -107,14 +107,29 @@ describe("Belegabruf-Antworten", () => {
     expect(vastBelegartLabel("VaSt_XYZ")).toBe("XYZ");
   });
 
-  it("nennt jede Belegart der Schemas 2022 bis 2025 mit Namen und keine andere", () => {
-    // ERiC 44.3.6.0, Dokumentation/Datenarten/ElsterDatenabholung/ElsterVaStDaten/VaSt-Belege/Schema/2022 bis 2025:
-    // je Belegart ein Schema, Wurzelelement wie das Attribut belegart der Belegliste; VaSt_Pers3 erst ab 2025.
-    // VAST_Vorberechnungen liegt im selben Ordner, ist aber keine Belegart (nicht in Tabelle 9-26 des Entwicklerhandbuchs).
-    const schemas = ["LStB", "KRV", "RIE", "RUE", "LErsL", "Pers1", "Pers2", "Pers3", "RBM", "VWL", "FSA", "ZUS", "GDB"].map((b) => `VaSt_${b}`);
-    expect(Object.keys(VAST_BELEGART_LABEL).sort()).toEqual([...schemas].sort());
-    expect(vastBelegartLabel("VaSt_RIE")).toBe("Bescheinigung über Beiträge zur Riester-Rente");
-    // nicht in Tabelle 9-26; Name wie in Zuordnungsinformationen/ESt_2025/Jahresdokumentation_VaSt_Pers3_1.ods (Drucktext B 1)
-    expect(vastBelegartLabel("VaSt_Pers3")).toBe("Ergänzende Stammdaten");
+  it("nennt jede Belegart der Schemas 2022 bis 2025 mit dem Namen aus der Quelle und keine andere", () => {
+    // Schlüssel: ERiC 44.3.6.0, Dokumentation/Datenarten/ElsterDatenabholung/ElsterVaStDaten/VaSt-Belege/Schema/2022 bis 2025,
+    // je Belegart ein Schema, Wurzelelement wie das Attribut belegart der Belegliste; die Zahl im Dateinamen ist die Version
+    // (VaSt_Pers3-1.xsd → VaSt_Pers3). VaSt_Pers3 erst ab 2025. VAST_Vorberechnungen liegt im selben Ordner, ist aber keine
+    // Belegart (nicht in Tabelle 9-26).
+    // Namen: ERiC-Entwicklerhandbuch 44.3.6.0, Tabelle 9-26 „VaSt, Datenartnamen der Belege“ (S. 328), wörtlich, bei LStB ohne
+    // das Kürzel in Klammern. VaSt_Pers3 fehlt dort; Name wie in Zuordnungsinformationen/ESt_2025/Jahresdokumentation_VaSt_Pers3_1.ods
+    // (Drucktext B 1).
+    expect(VAST_BELEGART_LABEL).toEqual({
+      VaSt_LStB: "Lohnsteuerbescheinigung",
+      VaSt_KRV: "Bescheinigung zur Basiskrankenversicherung und gesetzlichen Pflegeversicherung",
+      VaSt_RIE: "Bescheinigung über Beiträge zur Riester-Rente",
+      VaSt_RUE: "Bescheinigung über Beiträge zur Basisversorgung (Rürup-Rente)",
+      VaSt_LErsL: "Bescheinigung über Lohnersatzleistungen",
+      VaSt_Pers1: "Stammdaten des Steuerpflichtigen",
+      VaSt_Pers2: "Stammdaten des Steuerpflichtigen (Religionszugehörigkeit)",
+      VaSt_Pers3: "Ergänzende Stammdaten",
+      VaSt_RBM: "Rentenbezugsmitteilung",
+      VaSt_VWL: "Vermögensbildungsbescheinigung",
+      VaSt_FSA: "Freistellungsauftrag",
+      VaSt_ZUS: "Zuschüsse nach § 10 Absatz 4b EStG",
+      VaSt_GDB: "Bescheinigung über den Grad der Behinderung",
+    });
+    for (const [belegart, name] of Object.entries(VAST_BELEGART_LABEL)) expect(vastBelegartLabel(belegart)).toBe(name);
   });
 });
