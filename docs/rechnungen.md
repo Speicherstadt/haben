@@ -276,7 +276,7 @@ Alte Befreiungstexte werden nicht automatisch einer Vorschrift zugeordnet. Ihr g
 | XRechnung 3.0 (CII) | XRechnung als CII-XML; das PDF ist eine Sichtkopie. |
 | XRechnung 3.0 (UBL) | XRechnung als UBL-XML; das PDF ist eine Sichtkopie. |
 
-Die Reihenfolge, nach der Haben das Format vorschlägt: Standardformat des Kontakts, sonst XRechnung (CII) bei vorhandener Leitweg-ID, sonst das Standardformat aus den Einstellungen. Du kannst es im Entwurf jederzeit ändern. Nimm ZUGFeRD, es passt für die meisten Kunden. XRechnung brauchst du, wenn der Kunde sie verlangt, etwa Behörden mit Leitweg-ID; CII und UBL sind zwei Schreibweisen davon, nimm ohne Wunsch CII.
+Die Reihenfolge, nach der Haben das Format vorschlägt: Standardformat des Kontakts, sonst XRechnung (CII) bei vorhandener Leitweg-ID, sonst das Standardformat aus den Einstellungen. Du kannst es im Entwurf jederzeit ändern. Im Zweifel ZUGFeRD; XRechnung nur auf Wunsch des Kunden, etwa einer Behörde mit Leitweg-ID, dann CII.
 
 ### Was vor dem Festschreiben geprüft wird
 

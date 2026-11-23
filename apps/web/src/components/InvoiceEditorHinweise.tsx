@@ -19,7 +19,7 @@ export const FINALIZE_HINT_ID = "invoice-finalize-hint";
 export type ServiceHintState = "angebot" | "teilleistung" | "normal" | "rechnung";
 
 /**
- * Welcher Hinweis zu „Leistung von“ und „Leistung bis“ passt: Im Angebot erscheint ohne Angabe keine Zeile (`quote.ts`); bei einer Abschlagsrechnung mit erbrachter
+ * Welcher Hinweis zu „Leistung von“ und „Leistung bis“ passt: Im Angebot erscheint ohne Angabe keine Zeile (`packages/einvoice/src/quote.ts`); bei einer Abschlagsrechnung mit erbrachter
  * Teilleistung ist das Feld Pflicht (`finalizeIssues` in `invoice-finalize.ts`); an einer normalen Rechnung (kein Abschlag, EUR, regulär) löst ein eingetragener
  * Tag das Vorauszahlungsverfahren aus, leer nicht (`advanceProcedure` in `advance-procedure.ts`); sonst, auch bei Schlussrechnung, Storno und Korrektur,
  * gilt leer das Rechnungsdatum wie in PDF und XML (`servicePeriod`, `leistungsdatum`). Dauerbelege haben ihr eigenes Formular (`RecurringForm`).

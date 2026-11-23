@@ -31,7 +31,7 @@ describe("Hinweise im Rechnungseditor (#1253)", () => {
     expect(html).toContain('id="invoice-currency-hint"');
     expect(html).toContain("<strong>Kurs 1,0812 (09/2026). </strong>");
     expect(html).toContain("Beträge in USD, die Umsatzsteuer zusätzlich in Euro.");
-    // Server (`resolveExchangeRate` in exchange-rates.ts): Ein leerer Kurs ist der Umsatzsteuer-Umrechnungskurs des Leistungsmonats nur, sobald er
+    // Server (`resolveExchangeRate` in `stammdaten/exchange-rates.ts`): Ein leerer Kurs ist der Umsatzsteuer-Umrechnungskurs des Leistungsmonats nur, sobald er
     // veröffentlicht ist; sonst bleibt der Entwurf ohne Kurs und lässt sich nicht festschreiben
     expect(html).toContain("Gebucht wird in Euro; leerer Kurs = Umsatzsteuer-Umrechnungskurs des Leistungsmonats, sobald veröffentlicht.");
     expect(html).toContain("Kein GiroCode, keine Abschlags- oder Schlussrechnung, keine Mahnung aus Haben.");
@@ -54,11 +54,11 @@ describe("Hinweise im Rechnungseditor (#1253)", () => {
 
 /**
  * Jeder Zustand des Editors, in dem „Leistung von“ und „Leistung bis“ stehen, und ob jedes der beiden Felder leer bleiben darf. Gegen den
- * Server gelesen: Nur eine Abschlagsrechnung mit erbrachter Teilleistung verlangt „Leistung von“ (`finalizeIssues` in `invoices.ts`, „Leistungsdatum
+ * Server gelesen: Nur eine Abschlagsrechnung mit erbrachter Teilleistung verlangt „Leistung von“ (`finalizeIssues` in `invoice-finalize.ts`, „Leistungsdatum
  * der erbrachten Teilleistung fehlt“), „Leistung bis“ ist nie Pflicht. Die Schlussrechnung nimmt ohne Angabe ihr Rechnungsdatum (`leistungsdatum`),
- * ebenso Storno und Korrektur, die das Leistungsdatum des Originals übernehmen (`invoices.ts`, `stornoOf` und Korrektur); das Angebot speichert
- * `null` (`quotes.ts`) und zeigt dann keine Zeile. Nur an einer normalen Rechnung (kein Abschlag, EUR, regulär) löst ein eingetragener Tag das
- * Vorauszahlungsverfahren aus (`advanceProcedure`): Der Hinweis verweist dort auf die Vorauszahlungen, ohne die Steuerfolge zu nennen.
+ * ebenso Storno und Korrektur, die das Leistungsdatum des Originals übernehmen (`stornoOf` in `invoice-cancellation.ts`, auch für die Korrektur); das Angebot speichert
+ * `null` (`quotes.ts`, `serviceFrom` nullable) und zeigt dann keine Zeile. Nur an einer normalen Rechnung (kein Abschlag, EUR, regulär) löst ein eingetragener Tag das
+ * Vorauszahlungsverfahren aus (`advanceProcedure` in `advance-procedure.ts`): Der Hinweis verweist dort auf die Vorauszahlungen, ohne die Steuerfolge zu nennen.
  */
 const EUR = { currency: "EUR", taxTreatment: "regulaer" };
 const ZUSTAENDE = [
@@ -130,10 +130,11 @@ describe("Rückfrage beim Festschreiben einer Rechnung (#1253)", () => {
 });
 
 describe("Ein Feld leer, das andere gefüllt (#1253)", () => {
-  it("Der Server rechnet bis ?? von ?? Rechnungsdatum; der Hinweis an jedem Feld sagt deshalb „beide leer“", () => {
+  it("Ein einzelner Tag gilt als Leistungsdatum, nur ohne beide gilt das Rechnungsdatum; der Hinweis an jedem Feld sagt deshalb „Beide leer“", () => {
     const belegdatum = "2026-11-19";
-    expect(leistungsdatum({ belegdatum, leistungVon: "2026-11-01", leistungBis: null })).not.toBe(belegdatum);
-    expect(leistungsdatum({ belegdatum, leistungVon: null, leistungBis: "2026-11-30" })).not.toBe(belegdatum);
+    expect(leistungsdatum({ belegdatum, leistungVon: "2026-11-01", leistungBis: null })).toBe("2026-11-01");
+    expect(leistungsdatum({ belegdatum, leistungVon: null, leistungBis: "2026-11-30" })).toBe("2026-11-30");
+    expect(leistungsdatum({ belegdatum, leistungVon: null, leistungBis: null })).toBe(belegdatum);
     for (const state of ["normal", "rechnung"] as const) {
       expect(SERVICE_HINT_TEXT[state].bis).toMatch(/Beide leer: /);
       expect(SERVICE_HINT_TEXT[state].von).toMatch(/Beide leer: /);
