@@ -143,6 +143,7 @@ describe.skipIf(!testDatabaseUrl)("Ausschüttungen (Postgres)", () => {
       await angaben([person("Anna", 1_000_000, 3334), person("Ben", 1_000_000, 3333), person("Cem", 1_000_000, 3333)]);
       const gleich = await a.ausschuettungVorschlag({ geschaeftsjahr: 2025, beschluss: "2026-06-15", brutto: 9_000_000 });
       expect(gleich.issues).toEqual([]);
+      expect(gleich.hinweise).toEqual([]);
       expect(gleich.empfaenger.map((e) => [e.name, e.anteil, e.brutto, e.ausEinlagekonto])).toEqual([
         ["Anna", 3334, 3_000_000, 0],
         ["Ben", 3333, 3_000_000, 0],
@@ -175,6 +176,43 @@ describe.skipIf(!testDatabaseUrl)("Ausschüttungen (Postgres)", () => {
       // Spätere Änderungen der Beteiligung rechnen eine gebuchte Ausschüttung nicht neu
       await angaben([person("Anna", 1_000_000, 3334), person("Ben", 1_000_000, 3333), person("Cem", 1_000_000, 3333)]);
       expect((await a.dividendsOfYear(2026))[0]!.empfaenger).toEqual(gebucht!.empfaenger);
+    }, 30_000);
+
+    it("Anteil in Prozent passt nicht zur Beteiligung in Euro: der Vorschlag warnt, gebucht wird nach der Beteiligung", async () => {
+      await setup(kontenrahmen, kontenrahmen === "SKR03" ? "soll" : "ist", k);
+      // Je 25.000 € Beteiligung, eingetragen 60 / 40 %: bisher 6.000 / 4.000 €, jetzt je 5.000 €
+      await kst.saveKapgErklaerungAngaben(actor, 2026, {
+        anteilseigner: [
+          { ...erika, beteiligung: 2_500_000, anteil: 6000 },
+          { ...max, beteiligung: 2_500_000, anteil: 4000 },
+        ],
+      });
+      const input = { geschaeftsjahr: 2025, beschluss: "2026-06-15", brutto: 1_000_000 };
+      const v = await a.ausschuettungVorschlag(input);
+      expect(v.issues).toEqual([]);
+      expect(v.hinweise).toEqual([
+        "Für 2026 passt der Anteil in Prozent nicht zur Beteiligung in Euro: Erika 60\u00a0% (nach der Beteiligung 50\u00a0%), Max 40\u00a0% (nach der Beteiligung 50\u00a0%). " +
+          "Haben verteilt nach der Beteiligung in Euro (§ 29 Abs. 3 Satz 1 GmbHG); stimmt sie nicht, korrigiere sie vor dem Buchen (Jahreserklärung › Angaben zu den Erklärungen).",
+      ]);
+
+      // Die Warnung hält nicht an: Buchung wie sonst, Beträge nach der Beteiligung
+      const id = await a.createAusschuettung(actor, input, today);
+      const [gebucht] = await a.dividendsOfYear(2026);
+      expect(gebucht!.id).toBe(id);
+      expect(gebucht!.empfaenger.map((e) => [e.name, e.anteil, e.brutto])).toEqual([
+        ["Erika", 6000, 500_000],
+        ["Max", 4000, 500_000],
+      ]);
+      const netto = gebucht!.empfaenger.reduce((s, e) => s + e.netto, 0);
+      const lines = await sql`select l.account, l.debit, l.credit from journal_lines l join journal_entries e on e.id = l.entry_id
+        where e.source_type = 'ausschuettung'`;
+      expect(lines.map((l) => [l.account, Number(l.debit), Number(l.credit)]).sort()).toEqual(
+        [
+          [k.vortrag, 1_000_000, 0],
+          [k.gesellschafter, 0, netto],
+          [k.einbehalt, 0, 1_000_000 - netto],
+        ].sort(),
+      );
     }, 30_000);
 
     it("Anteilseigner ohne Beteiligung (0 €): kein Vorschlag zum Buchen, der Grund steht dabei", async () => {

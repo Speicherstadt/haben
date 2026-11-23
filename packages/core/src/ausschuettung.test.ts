@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ausEinlagekonto, ausschuettungAnteil, ausschuettungPosting, kapestFrist, nachBeteiligung, steuerabzug } from "./ausschuettung.ts";
+import { abweichendeAnteile, ausEinlagekonto, ausschuettungAnteil, ausschuettungPosting, kapestFrist, nachBeteiligung, steuerabzug } from "./ausschuettung.ts";
 import { directBookingsFor, directPosting } from "./posting.ts";
 
 describe("Steuerabzug auf Gewinnausschüttungen", () => {
@@ -74,6 +74,46 @@ describe("Verteilung nach den Nennbeträgen der Geschäftsanteile (§ 29 Abs. 3 
   it("ohne Beteiligung lässt sich nicht verteilen", () => {
     expect(() => nachBeteiligung(10_000, [0, 0])).toThrow(RangeError);
     expect(() => nachBeteiligung(10_000, [])).toThrow(RangeError);
+  });
+});
+
+describe("Anteil in Prozent, der nicht zur Beteiligung in Euro passt", () => {
+  const eigner = (...paare: [beteiligung: number, anteil: number][]) => paare.map(([beteiligung, anteil]) => ({ beteiligung, anteil }));
+
+  it("je 25.000 €, aber 60 / 40 %: beide weichen ab, nach der Beteiligung wären es je 50 %", () => {
+    expect(abweichendeAnteile(eigner([2_500_000, 6000], [2_500_000, 4000]))).toEqual([
+      { index: 0, nachBeteiligung: 5000 },
+      { index: 1, nachBeteiligung: 5000 },
+    ]);
+  });
+
+  it.each([
+    // Auf 100 % gerundet: 33,34 % liegt 0,0067 Prozentpunkte über einem Drittel, noch in der Rundung
+    ["je 10.000 €, 33,34 / 33,33 / 33,33 %", eigner([1_000_000, 3334], [1_000_000, 3333], [1_000_000, 3333])],
+    ["12.500 / 8.333 / 4.167 €, 50 / 33,33 / 16,67 %", eigner([1_250_000, 5000], [833_300, 3333], [416_700, 1667])],
+    // Genau 0,01 Prozentpunkte daneben: 1 € von 10.000 € sind 0,01 %, eingetragen 0,02 %
+    ["genau eine Rundungsstufe daneben", eigner([100, 2], [999_900, 9998])],
+    ["ein Gesellschafter mit 100 %", eigner([2_500_000, 10_000])],
+    // Fehlende Beteiligungen meldet der Vorschlag selbst; hier gibt es kein Verhältnis
+    ["ohne Beteiligungen", eigner([0, 5000], [0, 5000])],
+  ])("passt: %s", (_, anteilseigner) => {
+    expect(abweichendeAnteile(anteilseigner)).toEqual([]);
+  });
+
+  it("mehr als 0,01 Prozentpunkte daneben: 33,35 und 33,32 % bei je einem Drittel; nach der Beteiligung gerundet 33,33 %", () => {
+    expect(abweichendeAnteile(eigner([1_000_000, 3335], [1_000_000, 3333], [1_000_000, 3332]))).toEqual([
+      { index: 0, nachBeteiligung: 3333 },
+      { index: 2, nachBeteiligung: 3333 },
+    ]);
+  });
+
+  it("große Beteiligungen: Anteil mal Summe liegt über Number.MAX_SAFE_INTEGER", () => {
+    // 5.000 Hundertstel mal 180 Mrd. € in Cent; 1 Cent mehr bei Ben verschiebt nichts
+    expect(abweichendeAnteile(eigner([9_000_000_000_000, 5000], [9_000_000_000_001, 5000]))).toEqual([]);
+    expect(abweichendeAnteile(eigner([9_000_000_000_000, 5002], [9_000_000_000_000, 4998]))).toEqual([
+      { index: 0, nachBeteiligung: 5000 },
+      { index: 1, nachBeteiligung: 5000 },
+    ]);
   });
 });
 
