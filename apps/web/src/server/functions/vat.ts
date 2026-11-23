@@ -12,6 +12,7 @@ import {
   VAT_FREQUENCIES,
   type VatPeriod,
   inCents,
+  KENNZAHL_GRENZE,
 } from "@haben/core";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -61,7 +62,7 @@ import { loadActiveCertificate } from "../modules/elster/index.ts";
 import { transitBalance } from "../modules/buchhaltung/index.ts";
 
 // Negativ möglich, etwa wenn Gutschriften im Monat überwiegen
-const centsSchema = inCents(z.number().int().min(-1_000_000_000_00).max(1_000_000_000_00));
+const centsSchema = inCents(z.number().int().min(-KENNZAHL_GRENZE).max(KENNZAHL_GRENZE));
 
 function certificateSummary(certificate: Awaited<ReturnType<typeof loadActiveCertificate>>) {
   return certificate ? { filename: certificate.filename, validUntil: certificate.validUntil } : null;
