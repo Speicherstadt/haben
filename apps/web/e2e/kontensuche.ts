@@ -16,7 +16,8 @@ export async function kontensuchePruefen(page: Page) {
   await kapital.click();
   await expect(konto).toHaveValue("2900");
 
-  await konto.fill("kapital");
+  // „kapital“ träfe zuerst 7630 Kapitalertragsteuer (SKR04): Enter übernimmt den ersten Treffer
+  await konto.fill("gezeichnet");
   await konto.press("Enter");
   await expect(konto).toHaveValue("2900");
   await konto.fill("Unbekanntes Konto");
@@ -26,6 +27,8 @@ export async function kontensuchePruefen(page: Page) {
 
   // Leeren entfernt auch das zuvor gewählte Konto und die Meldung zur Namenseingabe.
   await konto.fill("");
+  // Das leere Feld zeigt alle Konten; die offene Liste läge über „Buchen“
+  await konto.press("Escape");
   await form.getByRole("button", { name: "Buchen", exact: true }).click();
   await expect(konto).not.toHaveAccessibleDescription(/Konto nicht gefunden/);
   await expect(konto).toHaveAccessibleDescription(/Zeile 1: Konto hat vier Ziffern/);
