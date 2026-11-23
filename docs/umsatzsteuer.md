@@ -309,7 +309,7 @@ Unter jeder Kennzahl steht, wie viele Zahlungseingänge, Rechnungen oder Belege 
 
 Mit **Manuell überschreiben** gibst du Kz 81, 86, 21, 41, 43, 45, 48, 50, 89, 93, 66, 61, 46/47, 84/85 und 67 selbst ein, Kz 62 und 39, wenn sie einen Wert haben. Dann ist eine **Begründung der Abweichung** Pflicht (mindestens 10 Zeichen). Darunter stehen die berechneten Werte zum Vergleich. Gespeichert werden die eingegebenen Werte, die Begründung und die berechneten Werte zum Zeitpunkt des Speicherns. Nach dem Senden zeigt die Seite „Manuell überschrieben: …“ mit der Begründung.
 
-Manuelle Werte dürfen auch negativ sein, etwa wenn im Monat Gutschriften überwiegen. Mit **Aus Buchungen berechnet** kehrst du zu den berechneten Werten zurück.
+Manuelle Werte außer Kz 50 dürfen auch negativ sein, etwa wenn im Monat Gutschriften überwiegen. Mit **Aus Buchungen berechnet** kehrst du zu den berechneten Werten zurück.
 
 ## Veralteter Entwurf
 
