@@ -9,10 +9,11 @@ import { useAction } from "../../lib/use-action.ts";
 import { useSubmitCheck } from "../../lib/use-submit-check.ts";
 import { addBankAccount, addProviderAccount, importStatements, updateBankAccount } from "../../server/functions/bank.ts";
 import { ExcludeAccountButton } from "../../components/BankKontoAusschliessen.tsx";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Field } from "../../components/Field.tsx";
 import { UploadButton } from "../../components/UploadButton.tsx";
 import { ImportMeldungen, importMessages, type ImportMessage } from "../../components/BankImportMeldungen.tsx";
-import type { Data } from "./-bank-daten.ts";
+import { hatMarktplatzKonto, type Data } from "./-bank-daten.ts";
 
 /** Name und Zweck des gewählten Kontos, etwa „Geschäftskonto“ und „Steuerkonto“ bei derselben Bank */
 export function AccountSettings({
@@ -192,6 +193,8 @@ export function ImportControls({ data }: { data: Data }) {
   const [showAccount, setShowAccount] = useState(false);
   const [targetAccount, setTargetAccount] = useState("");
   const [messages, setMessages] = useState<ImportMessage[]>([]);
+  /** Das Anlegen eines zweiten Kontos für denselben Marktplatz wartet auf die Rückfrage */
+  const [pending, setPending] = useState<{ name: string; provider: string; marketplace?: string } | null>(null);
 
   async function onFiles(files: File[]) {
     if (files.length === 0) return;
@@ -211,30 +214,44 @@ export function ImportControls({ data }: { data: Data }) {
     }
   }
 
-  async function onAddAccount(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
+  /** Konto anlegen (Bank oder Zahlungsdienstleister) und die Seite darauf umstellen */
+  async function anlegen(p: { name: string; provider: string; marketplace?: string } | { name: string; iban: string }) {
+    const { id } =
+      "iban" in p
+        ? await addAccount({ data: { name: p.name, iban: p.iban } })
+        : await addProvider({ data: { name: p.name, provider: p.provider as "amazon", marketplace: p.marketplace } });
+    setShowAccount(false);
+    setTargetAccount(id);
+    await router.invalidate();
+    setMessages([{ tone: "ok", text: "Konto angelegt. Jetzt die Umsätze importieren." }]);
+  }
+
+  async function mitBusy(fn: () => Promise<void>) {
     setBusy(true);
     try {
-      const { id, warnung } =
-        accountType === "provider"
-          ? await addProvider({
-              data: {
-                name: String(form.get("name")),
-                provider: provider as "amazon",
-                marketplace: provider === "amazon" ? String(form.get("marketplace")) : undefined,
-              },
-            })
-          : { ...(await addAccount({ data: { name: String(form.get("name")), iban: String(form.get("iban")) } })), warnung: null as string | null };
-      setShowAccount(false);
-      setTargetAccount(id);
-      await router.invalidate();
-      setMessages([{ tone: "ok", text: "Konto angelegt. Jetzt die Umsätze importieren." }, ...(warnung ? [{ tone: "info" as const, text: warnung }] : [])]);
+      await fn();
     } catch (error) {
       setMessages([{ tone: "danger", text: errorMessage(error) }]);
     } finally {
       setBusy(false);
     }
+  }
+
+  function onAddAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get("name"));
+    if (accountType === "bank") {
+      void mitBusy(() => anlegen({ name, iban: String(form.get("iban")) }));
+      return;
+    }
+    const marketplaceWahl = provider === "amazon" ? String(form.get("marketplace")) : undefined;
+    // Für denselben Marktplatz gibt es schon ein Konto: erst fragen, dann anlegen (die Marktplatzprüfung sieht beide als passend an)
+    if (hatMarktplatzKonto(data.accounts, provider, marketplaceWahl)) {
+      setPending({ name, provider, marketplace: marketplaceWahl });
+      return;
+    }
+    void mitBusy(() => anlegen({ name, provider, marketplace: marketplaceWahl }));
   }
 
   return (
@@ -307,11 +324,6 @@ export function ImportControls({ data }: { data: Data }) {
                   )}
                 </Field>
               )}
-              {provider === "amazon" && marketplace && data.accounts.some((a) => a.provider === "amazon" && a.marketplace === marketplace) && (
-                <span className="small muted">
-                  Für {marketplace} gibt es schon ein Konto. Ein zweites ist möglich; achte beim Import darauf, das richtige Konto zu wählen.
-                </span>
-              )}
             </>
           )}
           <Field label="Name">
@@ -330,6 +342,22 @@ export function ImportControls({ data }: { data: Data }) {
           </button>
         </form>
       )}
+      <ConfirmDialog
+        open={pending !== null}
+        title={pending ? `Noch ein Konto für ${pending.marketplace} anlegen?` : ""}
+        confirmLabel="Konto trotzdem anlegen"
+        onConfirm={() => {
+          const daten = pending;
+          setPending(null);
+          if (daten) void mitBusy(() => anlegen(daten));
+        }}
+        onClose={() => setPending(null)}
+      >
+        <p>
+          Für {pending?.marketplace} gibt es schon ein Konto. Ein zweites ist möglich, etwa für ein zweites Verkäuferkonto am selben Marktplatz. Die
+          Marktplatzprüfung sieht dann beide als passend an — beim Import wählst du selbst das richtige Konto.
+        </p>
+      </ConfirmDialog>
       <ImportMeldungen
         messages={messages}
         accounts={data.accounts.filter((a) => a.purpose !== "zahlungsdienstleister")}

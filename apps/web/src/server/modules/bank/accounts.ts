@@ -191,31 +191,6 @@ export async function createProviderAccount(actor: string, input: z.input<typeof
   });
 }
 
-/**
- * Hinweis, wenn es für Anbieter und Marktplatz schon ein Konto gibt. Nur eine Warnung: Haben legt das zweite Konto an
- * (zwei Verkäuferkonten am selben Marktplatz sind möglich), weist aber darauf hin — die Marktplatzprüfung sieht beide
- * Konten als passend an, der Import muss also selbst wählen.
- */
-export async function providerDuplicateWarning(
-  provider: z.infer<typeof providerAccountSchema>["provider"],
-  marketplace: string | null,
-): Promise<string | null> {
-  if (!marketplace) return null;
-  const [existing] = await db
-    .select({ name: schema.bankAccounts.name })
-    .from(schema.bankAccounts)
-    .where(and(eq(schema.bankAccounts.provider, provider), eq(schema.bankAccounts.marketplace, marketplace), isNull(schema.bankAccounts.excludedAt)))
-    .limit(1);
-  return existing ? `Für den Marktplatz ${marketplace} gibt es schon das Konto „${existing.name}".` : null;
-}
-
-/** Wie createProviderAccount, gibt zusätzlich den Hinweis auf ein schon vorhandenes Konto desselben Marktplatzes zurück (nur eine Warnung) */
-export async function createProviderAccountChecked(actor: string, input: z.input<typeof providerAccountSchema>) {
-  const data = providerAccountSchema.parse(input);
-  const warnung = await providerDuplicateWarning(data.provider, data.marketplace ?? null);
-  return { account: await createProviderAccount(actor, data), warnung };
-}
-
 /** Konto zur IBAN; fehlt es, wird es angelegt */
 export async function accountForIban(tx: Tx, iban: string, name?: string) {
   const normalized = normalizeIban(iban);
