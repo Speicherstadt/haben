@@ -225,14 +225,14 @@ Ist die Rechnung schon festgeschrieben, antworten Ändern und Löschen mit `409`
   "name": "Monatlicher Service",
   "contactId": "00000000-0000-4000-8000-000000000000",
   "nextDate": "2027-01-31",
-  "intervalMonths": 1,
+  "recurrence": "P1M",
   "lines": [
     { "description": "Servicepauschale", "quantity": 1000, "unit": "Stk.", "unitPrice": 5000, "taxRate": 1900 }
   ]
 }
 ```
 
-`intervalMonths` erlaubt 1, 3, 6 oder 12 Monate. Die Antwort `201 Created` enthält die ID und unter `url` den Link zur Vorlage. Öffne die pausierte Vorlage in Haben, prüfe die Daten und aktiviere sie dort. Nach der Aktivierung legt Haben zu jedem Termin einen Rechnungsentwurf an. Pro erfolgreichem Aufruf entsteht eine Vorlage.
+`recurrence` ist das Intervall als Dauer nach ISO 8601: `P1W`, `P2W` oder `P4W` für jede, jede zweite oder vierte Woche, `P1M`, `P2M`, `P3M` oder `P6M` für Monate und `P1Y` für jährlich. Die Antwort `201 Created` enthält die ID und unter `url` den Link zur Vorlage. Öffne die pausierte Vorlage in Haben, prüfe die Daten und aktiviere sie dort. Nach der Aktivierung legt Haben zu jedem Termin einen Rechnungsentwurf an. Pro erfolgreichem Aufruf entsteht eine Vorlage.
 
 ## Angebote
 

@@ -79,7 +79,7 @@ describe.skipIf(!testDatabaseUrl)("REST-API /api/v1 (Postgres)", () => {
       name: "Monatlicher Service",
       contactId,
       nextDate: `${year}-01-31`,
-      intervalMonths: 1,
+      recurrence: "P1M",
       lines: draft().lines,
     });
 
