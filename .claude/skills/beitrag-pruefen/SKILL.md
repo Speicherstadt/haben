@@ -87,5 +87,7 @@ Nur Maintainer-Prüfung: nach `references/maintainer.md`. Die Berichtsvorlagen s
 
 Selbstprüfung: PR-Link, Link zum Kommentar, was nachgebessert wurde (Commits), offene Fragen an den Maintainer.
 
-Maintainer-Prüfung: PR-Link, Urteil, ob eine Selbstprüfung genutzt wurde, was gepostet und selbst ergänzt wurde (Commits), Stand von TDD-Review und Checks, gemergt oder woran es hängt.
+Maintainer-Prüfung ohne Merge: PR-Link, Urteil, ob eine Selbstprüfung genutzt wurde, was gepostet und ergänzt wurde (Commits), Stand von TDD-Review und Checks, woran es hängt.
+
+Nach dem Merge in zwei bis fünf kurzen Absätzen statt einer Liste: das Problem, die Ursache, was sich geändert hat und warum, womit es geprüft wurde (Befunde, rote Läufe und Wiederholungen), PR-Link und Stand, sinnvolle Folge-Issues.
 

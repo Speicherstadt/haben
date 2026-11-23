@@ -70,6 +70,7 @@ Modules, the audit hash chain and seals: `docs/architektur.md`, tables: `docs/ar
 - Functional, no classes (except the `UserError` subclasses); a file past ~400 lines and a function past ~80
   get split (`entwicklung.md`: Konventionen).
 - Writes go through `withActor`; a new table gets an audit trigger (nothing checks this automatically).
+- Changes you did not make belong to someone else (often another agent): keep to your own scope; on a conflict with them, stop and ask.
 - Bun, not Node, npm or pnpm: `bun run test` runs Vitest, `bun test` would be Bun's own runner.
 - Server functions in `server/functions/` stay thin: `authMiddleware`, Zod, then a call into
   `server/modules/`; another module only through its `index.ts`.
