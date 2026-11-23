@@ -10,7 +10,10 @@ const gates = vi.hoisted(() => {
     });
     return { promise, resolve };
   }
-  return { ready: deferred(), release: deferred() };
+  return {
+    wiso: { ready: deferred(), release: deferred() },
+    butler: { ready: deferred(), release: deferred() },
+  };
 });
 vi.mock("./archive.ts", async (original) => {
   const actual = await original<typeof import("./archive.ts")>();
@@ -18,8 +21,16 @@ vi.mock("./archive.ts", async (original) => {
     ...actual,
     async addArchiveFile(...args: Parameters<typeof actual.addArchiveFile>) {
       if (args[1].filename === "wiso-test.csv") {
-        gates.ready.resolve();
-        await gates.release.promise;
+        gates.wiso.ready.resolve();
+        await gates.wiso.release.promise;
+      }
+      if (args[1].filename === "BB_test.csv") {
+        gates.butler.ready.resolve();
+        await gates.butler.release.promise;
+        return { id: "bb-test-original", bookings: 0, warnings: [] };
+      }
+      if (args[1].filename === "EXTF_test_Buchungsstapel.csv" || args[1].filename === "Belege.zip") {
+        return { id: "bb-test-datev", bookings: 0, warnings: [] };
       }
       return actual.addArchiveFile(...args);
     },
@@ -57,12 +68,12 @@ describe.skipIf(!testDatabaseUrl)("Abrufsperre beim Umzug (Postgres)", () => {
     await sql?.end();
   });
   it("ein langsamer WISO-Import wird vom BuchhaltungsButler-Start nicht abgebrochen", async () => {
-    const { startWisoImport } = await import("./wiso.ts");
+    const { latestWisoImport, startWisoImport } = await import("./wiso.ts");
     const { startBuchhaltungsbutlerImport } = await import("./buchhaltungsbutler.ts");
     const running = startWisoImport("wiso-test", data, "wiso-test.csv");
     try {
       await Promise.race([
-        gates.ready.promise,
+        gates.wiso.ready.promise,
         running.then(() => {
           throw new Error("Der WISO-Import erreichte die Archivsperre nicht.");
         }),
@@ -72,9 +83,38 @@ describe.skipIf(!testDatabaseUrl)("Abrufsperre beim Umzug (Postgres)", () => {
         cause: { code: "23505", constraint_name: "lexoffice_imports_one_running" },
       });
       expect((await sql`select status from lexoffice_imports where source = 'wiso'`)[0]?.status).toBe("laeuft");
+      expect(await latestWisoImport()).toMatchObject({ status: "laeuft", error: null });
     } finally {
-      gates.release.resolve();
+      gates.wiso.release.resolve();
       await running;
     }
+  }, 15_000);
+
+  it("eine Statusabfrage lässt einen langsamen BuchhaltungsButler-Upload weiterlaufen", async () => {
+    const { latestBuchhaltungsbutlerImport, startBuchhaltungsbutlerImport } = await import("./buchhaltungsbutler.ts");
+    const parts = ["EXTF_test_Buchungsstapel.csv", "BB_test.csv", "Belege.zip"].map((name, index) => ({ name, bytes: Uint8Array.of(index) }));
+    const running = startBuchhaltungsbutlerImport("bb-test", parts);
+    try {
+      await Promise.race([
+        gates.butler.ready.promise,
+        running.then(() => {
+          throw new Error("Der BuchhaltungsButler-Import erreichte den Archivschritt nicht.");
+        }),
+      ]);
+      await sql`update lexoffice_imports set updated_at = now() - interval '4 minutes' where source = 'buchhaltungsbutler'`;
+      expect(await latestBuchhaltungsbutlerImport()).toMatchObject({ status: "laeuft", error: null });
+    } finally {
+      gates.butler.release.resolve();
+      await running;
+    }
+  }, 15_000);
+
+  it("ein neuer WISO-Import beendet einen verwaisten Lauf einer anderen Quelle", async () => {
+    const { startWisoImport } = await import("./wiso.ts");
+    const [stale] = await sql`insert into lexoffice_imports (source, updated_at, progress)
+      values ('buchhaltungsbutler', now() - interval '4 minutes', '{"phase":"belege"}'::jsonb) returning id`;
+    const result = await startWisoImport("wiso-test", data, "wiso-retry.csv");
+    expect((await sql`select status from lexoffice_imports where id = ${stale!.id}`)[0]?.status).toBe("abgebrochen");
+    expect((await sql`select status from lexoffice_imports where id = ${result.id}`)[0]?.status).toBe("fertig");
   }, 15_000);
 });
