@@ -22,6 +22,18 @@ import { zahlungenWieHeute } from "./zahlung-alte-version.ts";
 /** Kz 43 und 48 eines Teils der Buchungen */
 type SteuerfreiTeil = Record<(typeof IST_NACH_LEISTUNG)[number], Cents>;
 
+interface Buchung {
+  id: string;
+  sourceType: string;
+  sourceId: string;
+  kontenrahmen: Kontenrahmen;
+  versteuerung: Versteuerung;
+  alt: boolean;
+  /** Buchung einer steuerfreien Anzahlung (§ 4 UStG, Ausfuhr) samt Steuerplan, Storno, Korrektur und Ausbuchung */
+  steuerfreieAnzahlung: boolean;
+  zeilen: JournalZeile[];
+}
+
 /*
  * Kennzahlen der Voranmeldung aus dem Journal (#542, #1116, docs/adr/journal-als-quelle.md): die Quelle der Voranmeldung,
  * wie bei DATEV aus Konto und Steuerschlüssel der Buchungen im Zeitraum (kennzahlenAusJournal). Ohne
@@ -66,20 +78,7 @@ export async function kennzahlenAusDemJournal(
     .leftJoin(schema.invoices, or(eq(schema.invoices.id, schema.writeOffs.invoiceId), and(eq(e.sourceType, "invoice"), eq(e.sourceId, schema.invoices.id))))
     .where(and(gte(e.date, start), lt(e.date, end), notInArray(e.sourceType, ["eroeffnung", "asset"])))
     .orderBy(asc(e.id));
-  const buchungen = new Map<
-    string,
-    {
-      id: string;
-      sourceType: string;
-      sourceId: string;
-      kontenrahmen: Kontenrahmen;
-      versteuerung: Versteuerung;
-      alt: boolean;
-      /** Buchung einer steuerfreien Anzahlung (§ 4 UStG, Ausfuhr) samt Steuerplan, Storno, Korrektur und Ausbuchung */
-      steuerfreieAnzahlung: boolean;
-      zeilen: JournalZeile[];
-    }
-  >();
+  const buchungen = new Map<string, Buchung>();
   const taxes = invoiceTaxReader(q);
   for (const r of rows) {
     let b = buchungen.get(r.id);
@@ -115,8 +114,12 @@ export async function kennzahlenAusDemJournal(
   }
   // Belege mit § 13b oder Erwerb von vor #551 (#1396) und Zahlungen bei Ist von vor #552 (#1502) mit der
   // Bemessungsgrundlage wie heute
-  const gelesen = await belegeWieHeute(await zahlungenWieHeute([...buchungen.values()], q), q);
-  const summe = leereJournalKennzahlen();
+  return summieren(await belegeWieHeute(await zahlungenWieHeute([...buchungen.values()], q), q));
+}
+
+/** Kennzahlen und die Teile von Kz 43 und 48 über die Buchungen, je Kontenrahmen und Verfahren der Buchung */
+function summieren(gelesen: readonly Buchung[]) {
+  const kennzahlen = leereJournalKennzahlen();
   const zahlungsanteil = { kz43: 0, kz48: 0 };
   const anzahlungsanteil = { kz43: 0, kz48: 0 };
   // Ein Jahr hat einen Kontenrahmen; je Kontenrahmen gerechnet, falls ein Zeitraum doch beide sieht
@@ -124,16 +127,10 @@ export async function kennzahlenAusDemJournal(
     for (const mode of ["ist", "soll"] as const) {
       const eigene = gelesen.filter((b) => b.kontenrahmen === kr && b.versteuerung === mode);
       if (eigene.length === 0) continue;
-      const k = kennzahlenAusJournal(
-        kr,
-        mode,
-        eigene.map((b) => b.zeilen),
-      );
-      for (const feld of JOURNAL_KENNZAHLEN) summe[feld] += k[feld];
-      const z = bemessungAnZahlungen(
-        kr,
-        eigene.map((b) => b.zeilen),
-      );
+      const zeilen = eigene.map((b) => b.zeilen);
+      const k = kennzahlenAusJournal(kr, mode, zeilen);
+      for (const feld of JOURNAL_KENNZAHLEN) kennzahlen[feld] += k[feld];
+      const z = bemessungAnZahlungen(kr, zeilen);
       const a = kennzahlenAusJournal(
         kr,
         mode,
@@ -144,5 +141,5 @@ export async function kennzahlenAusDemJournal(
         anzahlungsanteil[feld] += a[feld];
       }
     }
-  return { kennzahlen: summe, zahlungsanteil, anzahlungsanteil };
+  return { kennzahlen, zahlungsanteil, anzahlungsanteil };
 }
