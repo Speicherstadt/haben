@@ -57,7 +57,7 @@ Unabhängig ist, wer den Code nicht selbst geschrieben hat. Gemeint ist der Agen
 ## 5. Grün prüfen
 
 - Die CI prüft die volle Suite; ohne grüne CI ist das Review nicht fertig. Auf Entwürfen läuft sie nicht: Dann ist der PR vor dem Merge auf „Ready for review“ zu setzen, nur auf Freigabe der Person.
-- Die CI-Checks des PR abwarten. Bei roten Checks die Ursache beheben und erneut pushen; keinen Test überspringen, keinen leeren Commit, um CI neu zu starten.
+- Die CI-Checks des PR abwarten. Bei roten Checks nach `docs/mitwirken.md`, Review, Punkt 5: Log des Jobs einmal lesen (`gh run view <id> --log-failed`), nur die fehlgeschlagenen Tests lokal wiederholen, beheben, einmal pushen. Keinen Test überspringen, keinen leeren Commit und keinen Neustart, um grün zu bekommen.
 - Abschlusskommentar im PR: welche Findings behoben sind, welche Tests neu sind, Stand der Checks.
 
 ## Wie viele Runden
