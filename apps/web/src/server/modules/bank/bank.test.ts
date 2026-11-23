@@ -848,6 +848,25 @@ describe.skipIf(!testDatabaseUrl)("Bankabgleich (Postgres)", () => {
       await bank.reverseAllocation(actor, allocation!.id);
     }
     expect((await auswertungen.openPositions("2026-10-05")).payables.map((p) => p.open)).toEqual([11_006, 11_006]);
+
+    const [originalBeleg, originalRest] = await sql<{ id: string; kind: string; date: string }[]>`
+      select a.id, a.kind, r.date::text from allocations a join allocations r on r.reverses_id = a.id
+      where a.transaction_id = ${first!.id} order by a.kind`;
+    expect([originalBeleg?.kind, originalRest?.kind]).toEqual(["document", "kursdifferenz"]);
+    const wiederzuordnung = {
+      transactionId: first!.id,
+      target: { kind: "document" as const, documentId: more },
+      rest: "kursdifferenz" as const,
+      reassignsId: originalBeleg!.id,
+      restReassignsId: originalRest!.id,
+    };
+    await bank.allocateWithRest(actor, wiederzuordnung);
+    expect(await sql`
+      select a.kind, a.date::text, a.reassigns_id, j.date::text as journal from allocations a
+      join journal_entries j on j.source_type = 'allocation' and j.source_id = a.id
+      where a.transaction_id = ${first!.id} and a.reassigns_id is not null order by a.kind`).toEqual(
+      [originalBeleg!, originalRest!].map(({ id, kind, date }) => ({ kind, date, journal: date, reassigns_id: id })),
+    );
   }, 30_000);
 
   it("Zahlungsdienstleister: PayPal-Export ins eigene Verrechnungskonto, Auszahlung als Geldtransit zur Bank", async () => {
