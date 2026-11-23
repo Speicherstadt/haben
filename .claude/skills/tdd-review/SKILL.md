@@ -78,4 +78,4 @@ Die Regel steht in `docs/mitwirken.md`, Review, „Runden“. Schritte 1 bis 5 s
 
 ## Abschlussbericht
 
-Immer zurückmelden: PR-Link, Anzahl belegter Findings, was behoben wurde (Commits), Stand der Checks, ob gemergt wurde oder warum nicht.
+Immer zurückmelden: PR-Link, Anzahl belegter Findings, was behoben wurde (Commits), Stand der Checks, ob gemergt wurde oder warum nicht. Nach einem Merge in der Form aus `docs/mitwirken.md`, Review, Punkt 6.

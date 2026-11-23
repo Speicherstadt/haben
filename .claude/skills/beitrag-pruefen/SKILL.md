@@ -89,5 +89,5 @@ Selbstprüfung: PR-Link, Link zum Kommentar, was nachgebessert wurde (Commits), 
 
 Maintainer-Prüfung ohne Merge: PR-Link, Urteil, ob eine Selbstprüfung genutzt wurde, was gepostet und ergänzt wurde (Commits), Stand von TDD-Review und Checks, woran es hängt.
 
-Nach dem Merge in zwei bis fünf kurzen Absätzen statt einer Liste: das Problem, die Ursache, was sich geändert hat und warum, womit es geprüft wurde (Befunde, rote Läufe und Wiederholungen), PR-Link und Stand, sinnvolle Folge-Issues.
+Nach dem Merge: wie in `docs/mitwirken.md`, Review, Punkt 6, dazu rote Läufe und Wiederholungen und sinnvolle Folge-Issues.
 
