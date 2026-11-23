@@ -66,9 +66,9 @@ export function serverRueckmeldungen(serverResponseXml: string): ServerRueckmeld
  */
 const HINWEISE: Record<number, string> = {
   601015001:
-    "ELSTER nimmt den Testabruf im Postfach nicht an (601015001): Mit Testmerker landet die Anfrage in der Test-Datenbank, " +
-    "und dort ist die Kombination aus PostfachAnfrage und Testmerker für das Testzertifikat nicht zugelassen. " +
-    "Schalte „Nur Testübermittlung“ aus und rufe das Postfach echt ab.",
+    "ELSTER lehnt die Anfrage mit 601015001 ab: Diese Kombination ist für das verwendete Zertifikat nicht zugelassen. " +
+    "Beim Postfach heißt das meist, dass „Nur Testübermittlung“ gesetzt ist und die Anfrage mit Testmerker beim " +
+    "Testzertifikat landet. Schalte den Haken aus und rufe das Postfach echt ab.",
 };
 
 /** Die Meldung von ERiC, ergänzt um Code und Text des Servers; unverändert, wenn der Server nichts meldet */
