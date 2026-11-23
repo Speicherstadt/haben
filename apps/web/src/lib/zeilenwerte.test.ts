@@ -42,7 +42,7 @@ describe("erklärte Zeilen (#997)", () => {
 
     // Die Anlage steht am Feld, damit die Aufstellung sie ohne zweite Tabelle zeigen kann
     expect(new Set(zeilen.map((z) => z.gruppe))).toEqual(
-      new Set(["Anlage N", "Anlage S", "Anlage Vorsorgeaufwand", "Sonderausgaben", "Anlage KAP", "Progressionsvorbehalt", "Berechnung"]),
+      new Set(["Anlage N", "Anlage G", "Anlage S", "Anlage Vorsorgeaufwand", "Sonderausgaben", "Anlage KAP", "Progressionsvorbehalt", "Berechnung"]),
     );
     // Reihenfolge wie im Vordruck: erst die Anlagen, dann die Berechnung
     expect(zeilen[0]?.gruppe).toBe("Anlage N");
@@ -56,6 +56,31 @@ describe("erklärte Zeilen (#997)", () => {
     // Beide Erklärungen sind ein Vordruck ohne Anlagen, dort gibt es keine Gruppenzeile
     expect(ERKLAERTE_ZEILEN.ust.every((z) => !("gruppe" in z))).toBe(true);
     expect(ERKLAERTE_ZEILEN.euer.every((z) => !("gruppe" in z))).toBe(true);
+  });
+
+  it("führt Gewerbegewinn und Gewerbesteuer in Anlage G vor Anlage S (#1214)", () => {
+    const zeilen = ERKLAERTE_ZEILEN.est;
+    const gewerbe = zeilen.filter((z) => z.gruppe === "Anlage G");
+    expect(gewerbe).toEqual([
+      { field: "einkuenfteGewerbeLaufend", text: "Laufende Gewinne aus Gewerbebetrieb", gruppe: "Anlage G" },
+      { field: "einkuenfteGewerbe", text: "Einkünfte aus Gewerbebetrieb", gruppe: "Anlage G" },
+      { field: "gewerbesteuerMessbetrag", text: "Gewerbesteuer-Messbetrag (§ 35 EStG)", gruppe: "Anlage G" },
+      { field: "gewerbesteuerTatsaechlich", text: "Tatsächlich zu zahlende Gewerbesteuer (§ 35 EStG)", gruppe: "Anlage G" },
+    ]);
+    const felder = zeilenFelder("est");
+    expect(felder.indexOf("gewerbesteuerTatsaechlich") + 1).toBe(felder.indexOf("einkuenfteSelbstaendigLaufend"));
+    expect(new Set(felder).size).toBe(felder.length);
+  });
+
+  it("führt die erklärte Gewerbesteuerermäßigung in der Berechnung vor der Einkommensteuer (#1214)", () => {
+    const zeilen = ERKLAERTE_ZEILEN.est;
+    expect(zeilen.find((z) => z.field === "steuerermaessigungGewerbesteuer")).toEqual({
+      field: "steuerermaessigungGewerbesteuer",
+      text: "Steuerermäßigung bei Einkünften aus Gewerbebetrieb (§ 35 EStG) laut Steuerprogramm",
+      gruppe: "Berechnung",
+    });
+    const felder = zeilenFelder("est");
+    expect(felder.indexOf("steuerermaessigungGewerbesteuer") + 1).toBe(felder.indexOf("festgesetzteSteuer"));
   });
 
   // Der Vordruck druckt die Schlusszeile ohne Richtung, die Vermerke führen Erstattungen negativ (#1072, #1076)

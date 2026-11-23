@@ -19,7 +19,11 @@ type Settings = { encoding: "auto" | "utf-8" | "windows-1252"; delimiter: "auto"
 
 export const Route = createFileRoute("/_app/csv-import")({
   // quelle=fastbill: Artikel aus dem Umzug aus FastBill statt aus einer Datei (docs/fastbill.md#artikel)
-  validateSearch: z.object({ art: z.optional(z.enum(["kontakte", "artikel", "anlagen"])), quelle: z.optional(z.enum(["fastbill"])) }),
+  validateSearch: z.object({
+    art: z.optional(z.enum(["kontakte", "artikel", "anlagen"])),
+    quelle: z.optional(z.enum(["fastbill"])),
+    stichtag: z.optional(z.iso.date()),
+  }),
   head: () => ({ meta: [{ title: "CSV-Import · Haben" }], links: [{ rel: "stylesheet", href: styles }] }),
   component: CsvImportPage,
 });
@@ -49,9 +53,10 @@ const STATUS: Record<Preview["rows"][number]["status"], StatusLook> = {
 const SHOWN_ROWS = 200;
 
 function CsvImportPage() {
-  const { art, quelle } = Route.useSearch();
+  const { art, quelle, stichtag } = Route.useSearch();
   const kind: Kind = art ?? "kontakte";
   const meta = KINDS.find((k) => k.kind === kind)!;
+  const initialCutoff = kind === "anlagen" ? stichtag : undefined;
   return (
     <>
       <div className="page-head">
@@ -79,19 +84,19 @@ function CsvImportPage() {
         {INTRO[kind]}
       </p>
       {/* Neu aufbauen beim Wechsel der Art: Zuordnung und Vorschau gehören zur Art */}
-      <CsvImport key={kind} kind={kind} fastbill={kind === "artikel" && quelle === "fastbill"} />
+      <CsvImport key={`${kind}:${initialCutoff ?? ""}`} kind={kind} fastbill={kind === "artikel" && quelle === "fastbill"} initialCutoff={initialCutoff} />
     </>
   );
 }
 
-function CsvImport({ kind, fastbill }: { kind: Kind; fastbill: boolean }) {
+function CsvImport({ kind, fastbill, initialCutoff }: { kind: Kind; fastbill: boolean; initialCutoff: string | undefined }) {
   const meta = KINDS.find((k) => k.kind === kind)!;
   const previewFn = useServerFn(previewCsvImportFn);
   const importFn = useServerFn(runCsvImportFn);
   const fastbillFn = useServerFn(getFastbillArticlesCsv);
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [settings, setSettings] = useState<Settings>({ encoding: "auto", delimiter: "auto", stichtag: `${currentYear()}-01-01` });
+  const [settings, setSettings] = useState<Settings>({ encoding: "auto", delimiter: "auto", stichtag: initialCutoff ?? `${currentYear()}-01-01` });
   const [preview, setPreview] = useState<Preview | null>(null);
   // DATEV-Stammdaten: Zeilen, deren Vorschlag an einen vorhandenen Kontakt bestätigt ist
   const [confirm, setConfirm] = useState<ReadonlySet<number>>(new Set());

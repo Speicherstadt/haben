@@ -139,8 +139,11 @@ Gib Claude Code oder einem anderen Coding-Agenten dieses Repository und SSH-Zuga
 
 ```bash
 mkdir haben && cd haben
-curl -O https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy/compose.yml
-curl -o .env https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy/compose.env.example
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)
+TAG=${RELEASE##*/}
+RAW=https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy
+curl -fLO "$RAW/compose.yml"
+curl -fLo .env "$RAW/compose.env.example"
 chmod 600 .env
 ```
 

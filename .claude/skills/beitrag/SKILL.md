@@ -26,6 +26,7 @@ Als Datei (im Scratchpad), auf Deutsch:
 - Titel `Bereich: was sich ändert (#Issue)`; den Rest prüft der Workflow „PR-Regeln“.
 - Was und warum, `Umgesetzt #…` wenn der Pull Request das Issue fertig macht, bei einem Teil `Refs #…`, bei einem Bezug ohne Arbeit daran nur `#…` (nie `Closes` oder `Fixes`, siehe „Branches, Titel und Commits“), wie geprüft, **was übersprungen wurde** (Skill `checks`).
 - Bei Änderungen am Aussehen die Bilder nach Skill `pr-screenshots`.
+- Aufgeräumtes nach der Pfadfinder-Regel: Abschnitt `## Aufgeräumt` („Branches, Titel und Commits“).
 - Muss jemand beim Update etwas wissen oder tun: Abschnitt `## Für das Release` („Branches, Titel und Commits“).
 - Die Beschreibung wird die Nachricht des Squash-Commits auf `main` (`docs/mitwirken.md`, „Branches, Titel und Commits“): Sie nennt alles, was der Pull Request ändert, und beschreibt das Ergebnis, nicht den Weg dorthin.
 - Letzte Zeile „🤖 Generated with <Werkzeug>“.
@@ -41,7 +42,7 @@ Als Datei (im Scratchpad), auf Deutsch:
 
 - Mit Werkzeug: als **Entwurf** gegen `main` (`gh pr create --draft --base main --title … --body-file …`).
 - Nur git: den Link aus der Ausgabe von `git push` und den Pfad der Beschreibung an die Person geben.
-- „Ready for review“ nur auf Freigabe der Person; erst dann läuft die CI.
+- „Ready for review“ nur auf Freigabe der Person und erst, wenn der Stand fertig ist; erst dann läuft die CI. Danach Fixes sammeln und gemeinsam pushen, für größere Nacharbeit zurück auf Entwurf (`gh pr ready --undo`), weil jeder Push alle Runner neu belegt.
 
 ## 6. Danach
 

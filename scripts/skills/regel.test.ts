@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ANWEISUNG_MAX, BESCHREIBUNG_MAX, HAUPTTEIL_MAX, pruefeAnweisung, pruefeSkill, verweise } from "./regel.ts";
+import { ANWEISUNG_MAX, pruefeAgentsMd, BESCHREIBUNG_MAX, HAUPTTEIL_MAX, pruefeAnweisung, pruefeSkill, verweise } from "./regel.ts";
 
 const skill = (beschreibung: string, rumpf = "Ablauf.", name = "beispiel") => `---\nname: "${name}"\ndescription: "${beschreibung}"\n---\n\n${rumpf}\n`;
 
@@ -42,5 +42,17 @@ describe("pruefeAnweisung", () => {
   it("zählt Zeichen, nicht Bytes", () => {
     expect(pruefeAnweisung("CLAUDE.md", "ü".repeat(ANWEISUNG_MAX))).toEqual([]);
     expect(pruefeAnweisung("CLAUDE.md", "x".repeat(ANWEISUNG_MAX + 1))[0].message).toContain("höchstens");
+  });
+});
+
+describe("pruefeAgentsMd", () => {
+  it("meldet Skills, die AGENTS.md nicht nennt", () => {
+    const inhalt = "Skills: `checks` (Prüfungen), `beitrag`.";
+    expect(pruefeAgentsMd(inhalt, ["checks", "beitrag"])).toEqual([]);
+    expect(pruefeAgentsMd(inhalt, ["checks", "release"]).map((b) => b.message)).toEqual([expect.stringContaining("`release`")]);
+  });
+
+  it("zählt einen Namen nur in Backticks, nicht als Teil eines längeren", () => {
+    expect(pruefeAgentsMd("`beitrag-pruefen`", ["beitrag"])).toHaveLength(1);
   });
 });

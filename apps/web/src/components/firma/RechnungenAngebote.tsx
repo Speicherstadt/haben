@@ -34,7 +34,7 @@ export function RechnungenAngebote({ company, skontoRows, onSkonto }: { company:
       />
       <p className="field-hint">
         Standard-Texte für neue Rechnungen, Angebote und Mahnungen sowie für Auftragsbestätigung und Lieferschein legst du unter{" "}
-        <Link to="/textbausteine">Textbausteine</Link> fest: ein Baustein je Belegart, als „Standard für“ markiert.
+        <Link to="/textbausteine">Textbausteine</Link> fest: ein Baustein je Belegart, bei Mahnungen je Stufe, als „Standard für“ markiert.
       </p>
     </section>
   );

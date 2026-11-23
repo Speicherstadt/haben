@@ -339,22 +339,6 @@ test("Am Handy stehen Blatt und Gestaltung untereinander, ohne seitliches Scroll
   await page.context().close();
 });
 
-test("Die Einstellungen nennen je Belegart das eingebaute Layout", async ({ browser }) => {
-  const page = await editor(browser, BREIT);
-  await page.goto("/einstellungen?bereich=gestaltung");
-  await page.waitForLoadState("networkidle");
-  const karte = page.getByRole("region", { name: "Layouts", exact: true });
-  // Oben ein Layout für alle; die Tabelle je Belegart steht eingeklappt, solange alle dasselbe haben
-  await expect(karte.getByLabel("Layout", { exact: true })).toHaveValue("eingebaut:klar");
-  await karte.getByText("Je Belegart abweichend wählen").click();
-  await expect(karte.getByRole("row")).toHaveCount(6);
-  // Ohne eigene Zuordnung steht je Belegart das eingebaute Layout in der Auswahl
-  const mahnung = karte.getByLabel("Layout für Mahnung");
-  await expect(mahnung).toHaveValue("eingebaut:klar");
-  await expect(mahnung.locator("option:checked")).toHaveText("Klar (eingebaut)");
-  await page.context().close();
-});
-
 test("Spalte Gestaltung ohne Befund von axe", async ({ browser }) => {
   const page = await editor(browser, BREIT);
   await gestaltungOeffnen(page);

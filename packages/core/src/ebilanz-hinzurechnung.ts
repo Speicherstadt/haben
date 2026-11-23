@@ -1,3 +1,4 @@
+import type { EbilanzZiel } from "./ebilanz.ts";
 import type { Kontenrahmen } from "./posting.ts";
 
 /*
@@ -26,7 +27,10 @@ const ZINSEN = `${FIN}.regularInterest.other`;
 const GESELLSCHAFTERDARLEHEN = `${FIN}.regularInterest.PartnersLoans`;
 const FREMDLEISTUNGEN = "is.netIncome.regular.operatingTC.grossTradingProfit.materialServices.services.unknownVAT";
 
-const POSITIONEN: Record<Kontenrahmen, readonly [konten: string, position: string][]> = {
+// Kerntaxonomien 6.9/6.10 (de-gaap-ci, label-de): abgeführter Gewinn im Soll, übernommener Verlust im Haben.
+const STILLE_BETEILIGUNG = ["is.netIncome.incomeSharing.gain.silentTypical", "is.netIncome.incomeSharing.loss.typPart"] as const;
+
+const POSITIONEN: Record<Kontenrahmen, readonly [konten: string, ...position: EbilanzZiel][]> = {
   SKR03: [
     ["4575 4810 4965", `${OC}.leasingAll.moveable.other`],
     ["4960 4961 4963", `${OC}.leaseMoveable.other`],
@@ -39,6 +43,7 @@ const POSITIONEN: Record<Kontenrahmen, readonly [konten: string, position: strin
     ["2114", `${GESELLSCHAFTERDARLEHEN}.other`],
     ["2117", `${GESELLSCHAFTERDARLEHEN}.participationOver25pt`],
     ["2127", `${FIN}.annuities`],
+    ["2493", ...STILLE_BETEILIGUNG],
     ["3170 3175 3180", FREMDLEISTUNGEN],
   ],
   SKR04: [
@@ -53,11 +58,12 @@ const POSITIONEN: Record<Kontenrahmen, readonly [konten: string, position: strin
     ["7316", `${GESELLSCHAFTERDARLEHEN}.other`],
     ["7317", `${GESELLSCHAFTERDARLEHEN}.participationOver25pt`],
     ["7327", `${FIN}.annuities`],
+    ["7399", ...STILLE_BETEILIGUNG],
     ["5970 5975 5980", FREMDLEISTUNGEN],
   ],
 };
 
-/** Konto und Position (bei Soll- wie Haben-Saldo) je Kontenrahmen */
-export function hinzurechnungPositionen(kontenrahmen: Kontenrahmen): [konto: string, position: string][] {
-  return POSITIONEN[kontenrahmen].flatMap(([konten, position]) => konten.split(" ").map((konto): [string, string] => [konto, position]));
+/** Konto mit der Position im Soll und gegebenenfalls einer abweichenden Position im Haben */
+export function hinzurechnungPositionen(kontenrahmen: Kontenrahmen): [konto: string, position: EbilanzZiel][] {
+  return POSITIONEN[kontenrahmen].flatMap(([konten, ...position]) => konten.split(" ").map((konto): [string, EbilanzZiel] => [konto, position]));
 }
