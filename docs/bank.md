@@ -193,6 +193,8 @@ Ab zwei Konten zeigt der erste Reiter, **Alle Konten**, die Umsätze aller Konte
 
 Die Filter **Alle**, **Offen** (mit Anzahl), **Zugeordnet** (auch verrechnete Umsätze) und **Vorschlag** schränken die Liste ein. **Vorschlag** zeigt nur Umsätze mit dem gleichnamigen Status. Das Suchfeld findet dieselben Umsätze wie die [Schnellsuche](suche.md#was-sie-findet), dazu Beträge, deren Zahl die Eingabe enthält: `19.9` findet 19,90 €. Angezeigt werden höchstens 500 Treffer.
 
+Über der Liste steht, wie viele Umsätze noch offen sind: dieselbe Zahl wie am Filter **Offen**, für das gewählte Konto bzw. alle Konten, unabhängig von Suche und Filter. Teilweise zugeordnete Umsätze zählen mit, [gekennzeichnete private](#privates-konto-umsätze-ohne-buchungsart) nicht, bei einem Zahlungsdienstleister Zahlung und Gebühr zusammen einmal. **Nächsten offenen** wählt den nächsten offenen Umsatz der Liste, am Ende wieder von vorn; steht kein weiterer in der Liste, öffnet es den Filter **Offen**. Ist alles zugeordnet, steht dort „Alles zugeordnet.“ mit den Links **Belege prüfen** und, außer bei Kleinunternehmern, **Voranmeldung prüfen**.
+
 Die Spaltenköpfe Datum, Gegenpartei · Verwendungszweck, Betrag und Status sortieren die Liste. Der erste Klick sortiert absteigend, ein zweiter Klick auf denselben Kopf dreht die Richtung; der aktive Kopf zeigt einen Pfeil. Ohne Auswahl steht der neueste Umsatz oben. Am Handy sind Datum und Status ausgeblendet, dort sortieren Gegenpartei und Betrag.
 
 Nach Datum, Gegenpartei und Betrag sortiert Haben alle Umsätze des Kontos bzw. aller Konten, die zu Filter und Suche passen, und zeigt davon die ersten 500: „Betrag absteigend“ zeigt also die größten Beträge, auch wenn sie Jahre zurückliegen. Umsätze ohne Gegenpartei stehen beim Sortieren nach Gegenpartei unten. Den Status bestimmt Haben erst beim Anzeigen; nach Status sortiert es deshalb die neuesten 500 Umsätze. Absteigend steht oben, was zu tun ist, in der Reihenfolge „Beleg fehlt“, „Vorschlag“, „Offen“, „Teilweise“, „Zugeordnet“, „Verrechnet“, zuletzt „Privat“.
@@ -307,7 +309,7 @@ Die Rechnung ist wieder offen und steht unter **Lastschriften** zum erneuten Ein
 1. Umsatz links anklicken. Ohne Auswahl ist der erste offene Umsatz gewählt.
 2. Rechts den **besten Treffer** prüfen, oder mit **Andere Rechnung** einen anderen offenen Posten aus der Auswahl **Rechnung, Beleg oder Voranmeldung** nehmen.
 3. **Betrag** prüfen. Vorbelegt ist der kleinere Wert aus offenem Umsatz und offenem Posten.
-4. **Zuordnen** klicken. Ist der Umsatz damit ganz zugeordnet, springt die Auswahl zum nächsten offenen Umsatz, am Ende der Liste wieder von vorn.
+4. **Zuordnen** klicken. Ist der Umsatz damit ganz zugeordnet, springt die Auswahl zum nächsten offenen Umsatz, am Ende der Liste wieder von vorn; dasselbe tut **Nächsten offenen** über der Liste.
 
 Tastatur: **Enter** ordnet zu, solange der Fokus nicht in einem Eingabefeld, auf einem Knopf oder Link liegt. **J** springt zum nächsten, **K** zum vorigen Umsatz.
 

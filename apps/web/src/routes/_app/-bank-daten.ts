@@ -154,3 +154,23 @@ export function restAngebot(target: Posten | undefined, tx: Detail["transaction"
       : 0;
   return { feeRest, rest, restKinds, exchangeDifference, korrektur };
 }
+
+/** Die Konten, deren Umsätze die Seite zeigt: alle („Alle Konten“) oder das gewählte */
+export function gezeigteKonten(data: Pick<Data, "allAccounts" | "accounts" | "accountId">) {
+  return data.allAccounts ? data.accounts : data.accounts.filter((a) => a.id === data.accountId);
+}
+
+/** Zähler über der Umsatzliste (#1253); die Zahl ist die am Filter „Offen“ */
+export function offenText(anzahl: number): string {
+  return `${anzahl} ${anzahl === 1 ? "Umsatz" : "Umsätze"} noch offen`;
+}
+
+/** Nächster offener Umsatz nach dem gewählten, am Ende der Liste wieder von vorn; als privat gekennzeichnete zählen wie im Filter „Offen“ nicht */
+export function nextOpenAfter(
+  transactions: readonly Pick<Data["transactions"][number], "id" | "open" | "privat">[],
+  id: string | undefined,
+): string | undefined {
+  const index = transactions.findIndex((t) => t.id === id);
+  const after = [...transactions.slice(index + 1), ...transactions.slice(0, Math.max(index, 0))];
+  return after.find((t) => t.open !== 0 && !t.privat && t.id !== id)?.id;
+}
