@@ -407,6 +407,7 @@ test("Dauerbeleg: Pausieren, Fortsetzen und Beenden fragen bei ungespeicherten �
   await page
     .locator("input[type=file]")
     .setInputFiles([{ name: "lagervertrag.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n% Lagervertrag Rückfrage\n%%EOF\n") }]);
+  await page.getByLabel(/^Das Dokument weist die Umsatzsteuer gesondert aus/).check();
   await page.getByLabel("Netto 1").fill("80,00");
   await page.getByRole("button", { name: "Dauerbeleg anlegen" }).click();
   await page.waitForURL(/\/dauerbelege\/[0-9a-f-]{36}$/);
@@ -414,11 +415,18 @@ test("Dauerbeleg: Pausieren, Fortsetzen und Beenden fragen bei ungespeicherten �
   const dialog = page.getByRole("dialog");
   const aktiv = page.getByText(/^Aktiv: Haben legt/);
   const pausiert = page.getByText(/^Pausiert: Bis zum Fortsetzen/);
+  const brutto = page.getByLabel("Brutto 1", { exact: true });
+  const steuer = page.getByLabel("Umsatzsteuer 1", { exact: true });
 
-  // Ohne Änderungen wie bisher: kein Dialog
+  // Ohne Änderungen wie bisher: kein Dialog, auch nicht nach Zurücktippen. Danach gilt das Brutto als zuletzt eingegeben
+  // und die Steuer als von Hand geändert; gespeichert würde trotzdem dasselbe
+  await brutto.fill("95,21");
+  await brutto.fill("95,20");
   await page.getByRole("button", { name: "Pausieren", exact: true }).click();
   await expect(pausiert).toBeVisible();
   await expect(dialog).toHaveCount(0);
+  await steuer.fill("15,21");
+  await steuer.fill("15,20");
   await page.getByRole("button", { name: "Fortsetzen", exact: true }).click();
   await expect(aktiv).toBeVisible();
   await expect(dialog).toHaveCount(0);

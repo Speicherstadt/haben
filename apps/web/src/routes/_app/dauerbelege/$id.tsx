@@ -73,7 +73,8 @@ function DauerbelegDetailPage() {
           </section>
         ) : (
           <DauerbelegForm
-            key={String(vorlage.updatedAt)}
+            // Mit Millisekunden: String(Date) endet bei der Sekunde, zwei Aktionen in derselben Sekunde ließen das Formular stehen
+            key={vorlage.updatedAt.toISOString()}
             initial={initial}
             suppliers={suppliers}
             categories={categories}

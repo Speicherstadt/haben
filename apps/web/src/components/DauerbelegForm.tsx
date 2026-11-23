@@ -79,7 +79,9 @@ export function DauerbelegForm({
   const { form, error, check } = useSubmitCheck(dauerbelegErrors(v, amounts, taxShown, parsed, sums.gross, isNew && !hasFile));
   // Nach einem Fehler beim Speichern steht der Fokus wieder im gesperrten Feld
   useFokusNachSperre(busy);
-  useAenderungenMelden({ v, taxShown, amounts: amounts.map(({ key: _key, ...a }) => a) }, hasFile, onDirtyChange);
+  // Ob die Steuer von Hand kam und welcher Betrag zuletzt eingegeben wurde, speichert Haben nicht: Zurückgetippt ist nichts offen
+  const betraege = amounts.map(({ key: _key, taxTouched: _taxTouched, basis: _basis, ...a }) => a);
+  useAenderungenMelden({ v, taxShown, betraege }, hasFile, onDirtyChange);
 
   // Selbst geschuldete Steuer (§ 13b) gibt es am Dauerbeleg nicht
   function updateAmount(key: number, patch: Partial<Omit<Betragszeile, "key">>) {
