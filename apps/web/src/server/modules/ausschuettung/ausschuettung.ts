@@ -133,10 +133,12 @@ export async function ausschuettungVorschlag(input: AusschuettungInput, q: Db | 
   const { angaben } = await kapgErklaerungAngaben(year);
   const anteilseigner = angaben.anteilseigner;
   const aus = ausEinlagekonto(data.brutto, g.ausschuettbarerGewinn, g.einlagekonto);
-  // Nach den Nennbeträgen (§ 29 Abs. 3 Satz 1 GmbHG); der Anteil in Prozent gilt nur für die Körperschaftsteuererklärung
+  // Nach den Nennbeträgen (§ 29 Abs. 3 Satz 1 GmbHG); der Anteil in Prozent gilt nur für die Körperschaftsteuererklärung.
+  // Jeder Geschäftsanteil lautet auf volle Euro (§ 5 Abs. 2 GmbHG): 0 € ist eine fehlende Angabe, keine Beteiligung ohne Anspruch
   const beteiligungen = anteilseigner.map((a) => a.beteiligung);
-  const ohneBeteiligung = beteiligungen.every((b) => b === 0);
-  const verteilen = (betrag: Cents) => (ohneBeteiligung ? beteiligungen.map(() => 0) : nachBeteiligung(betrag, beteiligungen));
+  const ohneBeteiligung = anteilseigner.filter((a) => a.beteiligung === 0).map((a) => a.name);
+  const teilbar = anteilseigner.length > 0 && ohneBeteiligung.length === 0;
+  const verteilen = (betrag: Cents) => (teilbar ? nachBeteiligung(betrag, beteiligungen) : beteiligungen.map(() => 0));
   const brutto = verteilen(data.brutto);
   const einlage = verteilen(aus);
   const empfaenger: AusschuettungEmpfaenger[] = anteilseigner.map((a, i) => {
@@ -157,9 +159,9 @@ export async function ausschuettungVorschlag(input: AusschuettungInput, q: Db | 
   });
   const issues: string[] = [];
   if (anteilseigner.length === 0) issues.push(`Für ${year} sind keine Anteilseigner eingetragen (Jahreserklärung › Angaben zu den Erklärungen).`);
-  else if (ohneBeteiligung) {
+  else if (ohneBeteiligung.length > 0) {
     issues.push(
-      `Die Beteiligungen der Anteilseigner für ${year} ergeben zusammen 0 €; nach ihnen wird die Ausschüttung verteilt (Jahreserklärung › Angaben zu den Erklärungen).`,
+      `Für ${year} fehlt die Beteiligung in Euro von ${ohneBeteiligung.join(", ")}; nach ihr wird die Ausschüttung verteilt (Jahreserklärung › Angaben zu den Erklärungen).`,
     );
   }
   if (data.brutto > g.gewinnvortrag) {
