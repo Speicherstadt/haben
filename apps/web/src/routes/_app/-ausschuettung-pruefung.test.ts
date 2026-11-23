@@ -4,18 +4,31 @@ import { ausschuettungFehler } from "./-ausschuettung-pruefung.ts";
 
 // #1277: statt „Datum des Beschlusses, Geschäftsjahr und Betrag eingeben.“ je Feld eine Meldung
 describe("Prüfung einer neuen Ausschüttung", () => {
-  const gut = { beschluss: "2026-03-15", geschaeftsjahr: "2025", betrag: "30.000,00" };
+  const gut = { beschluss: "2026-03-15", auszahlungstag: "", geschaeftsjahr: "2025", betrag: "30.000,00" };
 
   it("nimmt gültige Angaben an", () => {
-    expect(ausschuettungFehler(gut)).toEqual({ beschluss: null, geschaeftsjahr: null, betrag: null });
+    expect(ausschuettungFehler(gut)).toEqual({ beschluss: null, auszahlungstag: null, geschaeftsjahr: null, betrag: null });
   });
 
   it("meldet jedes Feld für sich", () => {
-    expect(ausschuettungFehler({ beschluss: "", geschaeftsjahr: "", betrag: "" })).toEqual({
+    expect(ausschuettungFehler({ beschluss: "", auszahlungstag: "", geschaeftsjahr: "", betrag: "" })).toEqual({
       beschluss: "Wähle das Datum des Beschlusses.",
+      auszahlungstag: null,
       geschaeftsjahr: "Trag das Geschäftsjahr vierstellig ein, etwa 2025.",
       betrag: amountError("einen Betrag über 0", 3_000_000),
     });
+  });
+
+  // Der Server nimmt beides an, sperrt dann aber „Beschluss buchen“ mit einem Hinweis (ausschuettungVorschlag); der Grund liegt im Formular
+  it("Auszahlungstag nicht vor dem Beschluss", () => {
+    expect(ausschuettungFehler({ ...gut, auszahlungstag: "2026-03-14" }).auszahlungstag).toBe("Wähle einen Tag ab dem Beschluss.");
+    for (const auszahlungstag of ["", "2026-03-15", "2026-04-01"]) expect(ausschuettungFehler({ ...gut, auszahlungstag }).auszahlungstag, auszahlungstag).toBeNull();
+  });
+
+  it("Geschäftsjahr nicht nach dem Jahr des Beschlusses", () => {
+    expect(ausschuettungFehler({ ...gut, geschaeftsjahr: "2027" }).geschaeftsjahr).toBe("Trag ein Geschäftsjahr bis 2026 ein, etwa 2025.");
+    expect(ausschuettungFehler({ ...gut, geschaeftsjahr: "2026" }).geschaeftsjahr).toBeNull();
+    expect(ausschuettungFehler({ ...gut, beschluss: "", geschaeftsjahr: "2027" }).geschaeftsjahr).toBeNull();
   });
 
   it("Betrag: nicht lesbar, 0, negativ und über dem Höchstbetrag des Servers", () => {
