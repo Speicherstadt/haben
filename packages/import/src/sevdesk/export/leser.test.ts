@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { strToU8 } from "fflate";
 import { readSevdeskExport } from "./leser.ts";
 import { fixture, innerZip, pdfBytes, unmaskedStack10, zip } from "./testzip.ts";
 import type { SevExport } from "./types.ts";
@@ -19,6 +20,34 @@ function read(entries: Parameters<typeof zip>[0]): SevExport {
 
 const byGuid = (data: SevExport, guid: string) => data.vouchers.find((v) => v.guid === guid);
 const guid = (n: number) => `00000000-0000-4000-8000-00000000000${n}`;
+
+describe("Dateilisten für Beleglinks", () => {
+  const stack = fixture("buchhaltung-2.0/extf-buchungsstapel-beleglink.csv");
+
+  it.each([
+    "<anderes/>",
+    "<archive><content></archive>",
+    "<archive><content><unrelated/></content></archive>",
+    '<archive generatingSystem="sevDesk"><content>true</content></archive>',
+  ])("lehnt eine ungültige Dateiliste ab: %s", (xml) => {
+    const bytes = zip({ "EXTF_Buchungsstapel_2026.csv": stack, "DATEV_Rechnungsausgang_2026.zip": innerZip(strToU8(xml)) });
+    expect(readSevdeskExport(bytes, { kontenrahmen: "SKR03" })).toMatchObject({ ok: false, reason: expect.stringContaining("document.xml") });
+  });
+
+  it("lässt offene Beleglinks bei einem Buchungsdaten-Export ohne Belegordner ungeklärt", () => {
+    const result = read({ "EXTF_Buchungsstapel_2026.csv": stack, "EXTF_GP_Stamm_2026.csv": fixture("buchhaltung-1.0/extf-gp-stamm.csv") });
+    expect(byGuid(result, "00000000-0000-0000-0000-000000000009")).toMatchObject({ document: null, documentUnclear: true });
+  });
+
+  it("akzeptiert eine gültige leere Dateiliste", () => {
+    const result = read({
+      "EXTF_Buchungsstapel_2026.csv": stack,
+      "DATEV_Rechnungsausgang_2026.zip": innerZip(strToU8('<archive generatingSystem="sevDesk"/>')),
+    });
+    expect(result.documents).toHaveLength(0);
+    expect(result.vouchers.some((voucher) => voucher.documentUnclear)).toBe(false);
+  });
+});
 
 describe("Export aus Buchhaltungsversion 1.0", () => {
   const gp = fixture("buchhaltung-1.0/extf-gp-stamm.csv");

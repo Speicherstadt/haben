@@ -13,6 +13,7 @@ const bericht = (aenderung: Partial<IntegrityReport> = {}): IntegrityReport => (
   abgleich: { abweichungen: [], hinweise: [] },
   accountCollisions: [],
   triggerHints: [],
+  inventoryChecksum: { own: "a".repeat(64), shipped: "a".repeat(64) },
   files: null,
   ...aenderung,
 });
@@ -64,6 +65,24 @@ describe("Prüfbericht", () => {
     expect(
       pruefwertNotice({ status: "unbestaetigt", seq: 46, befunde: [befund, "vat_returns: Zeilensicherheit auf vat_returns eingeschaltet"] }).text,
     ).toContain("(2 Befunde, etwa");
+  });
+
+  // Nur das Nachrechnen ist abgebrochen, der Sollbestand stimmt (#1716)
+  it("sagt bei einem Abbruch des Nachrechnens nicht, der Sollbestand weiche ab", () => {
+    const befund = "haben_integrity_problems: Prüfung von Kette und Siegeln abgebrochen: Integritätsprüfung kennt x im Siegel von y nicht";
+    const { text } = pruefwertNotice({ status: "unbestaetigt", seq: 46, befunde: [befund] });
+    expect(text).toContain("Das Nachrechnen der Kette ist abgebrochen (ein Befund, etwa");
+    expect(text).not.toContain("Sollbestand");
+  });
+
+  // Den Namen eines fremden Objekts wählt, wer die Datenbank ändert; er macht aus einer Abweichung keinen Abbruch (#1716)
+  it("nennt den Sollbestand, wenn nur ein Objektname im Befund wie ein Abbruch klingt oder ein Abbruch dazukommt", () => {
+    const fremd = "Datenbank: Zusätzliche Relation Prüfung von Kette und Siegeln abgebrochen im Systemschema pg_catalog";
+    const abbruch = "haben_integrity_problems: Prüfung von Kette und Siegeln abgebrochen: function haben_integrity_problems(integer) does not exist";
+    expect(pruefwertNotice({ status: "unbestaetigt", seq: 46, befunde: [fremd] }).text).toContain("Die Datenbank weicht vom Sollbestand ab (ein Befund");
+    expect(pruefwertNotice({ status: "unbestaetigt", seq: 46, befunde: [fremd, abbruch] }).text).toContain(
+      "Die Datenbank weicht vom Sollbestand ab (2 Befunde",
+    );
   });
 
   it("meldet die übrigen Ergebnisse des Prüfwert-Vergleichs wie bisher", () => {

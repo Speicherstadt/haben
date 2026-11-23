@@ -113,7 +113,7 @@ test("Einstellungen am Handy: der Link aus dem Mahnwesen öffnet die Firma", asy
   await expect(page.getByLabel("Basiszinssatz in %")).toBeVisible();
 });
 
-// Das Angebot prüft rechnungen.spec.ts: seit #381 legt app.spec.ts keine Angebote mehr an
+// Das Angebot prüft rechnungen-angebote.spec.ts: seit #381 legt app.spec.ts keine Angebote mehr an
 test("Rechnung am Handy: Status bleibt neben dem Titel sichtbar", async ({ page }) => {
   const rechnung = await firstLink(page, "/rechnungen", /^\/rechnungen\/[0-9a-f-]{36}$/);
   expect(rechnung).not.toBeNull();

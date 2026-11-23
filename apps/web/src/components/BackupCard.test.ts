@@ -40,3 +40,50 @@ describe("BackupCard: Speicherort (#1331)", () => {
     expect(render({ ...ok, state: "keins", lastBackup: null })).not.toContain("Speicherort");
   });
 });
+
+/*
+ * #1513, kleinere Stufe: die Seite erklärt die rclone-Konfiguration des Backup-Containers und sagt, ob das Ziel aus
+ * dieser Datei kommt. Abschnitt und Wege selbst prüft backup-ziel.test.ts gegen deploy/backup/rclone-ziel.sh; hier
+ * steht, was in der Karte ankommt.
+ */
+describe("BackupCard: rclone-Konfiguration (#1513)", () => {
+  it("nennt beide Wege zur Konfiguration und das Format des Ziels", () => {
+    const html = render(ok);
+    expect(html).toContain('<span class="mono">RCLONE_CONFIG</span>');
+    expect(html).toContain('<span class="mono">/var/lib/haben-backup/rclone.conf</span>');
+    expect(html).toContain('<span class="mono">rclone:onedrive:haben</span>');
+    expect(html).toContain("hier erscheint keine davon");
+  });
+
+  it("Herkunft des Ziels aus einem Abschnitt der Datei", () => {
+    const html = render({ ...ok, target: { repository: "rclone:onedrive:haben", local: false } });
+    expect(html).toContain("Herkunft des Ziels");
+    expect(html).toContain("Aus der rclone-Konfiguration, Abschnitt onedrive");
+  });
+
+  it("Abschnitt mit Leerzeichen wird genannt", () => {
+    expect(render({ ...ok, target: { repository: "rclone:mein backup:haben", local: false } })).toContain(
+      "Aus der rclone-Konfiguration, Abschnitt mein backup",
+    );
+  });
+
+  it("Verbindungszeichenkette im Ziel braucht keine Datei", () => {
+    expect(render({ ...ok, target: { repository: "rclone::webdav:haben", local: false } })).toContain(
+      "Nicht aus einer Datei, die Verbindungszeichenkette bringt das Ziel selbst mit",
+    );
+  });
+
+  it("Verzeichnis im Backup-Container ist keine Datei", () => {
+    expect(render({ ...ok, target: { repository: "/backups", local: true } })).toContain("Nicht aus einer Datei, ein Verzeichnis im Backup-Container");
+  });
+
+  it("Ziel ohne rclone steht direkt im Backup-Container", () => {
+    expect(render({ ...ok, target: { repository: "sftp:backup.example:/srv/restic/haben", local: false } })).toContain(
+      "Nicht aus einer Datei, das Ziel steht als RESTIC_REPOSITORY im Backup-Container",
+    );
+  });
+
+  it("Ziel unbekannt, solange kein Lauf eines eingetragen hat", () => {
+    expect(render(ok)).toContain("Unbekannt bis zum nächsten Lauf mit aktuellem Backup-Image");
+  });
+});

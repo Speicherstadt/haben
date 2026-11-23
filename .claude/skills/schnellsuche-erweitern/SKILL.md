@@ -1,6 +1,6 @@
 ---
 name: "schnellsuche-erweitern"
-description: "Die Schnellsuche (Befehlspalette, Strg+K) von Haben um eine neue Gruppe erweitern oder eine Gruppe ändern, wenn ein neues Objekt oder Feld dazukommt: Suche im Modul, Eintrag in search-query.ts und search-plan.ts, Rechte der Steuerberatung, Index mit haben_unaccent, Betrag und Datum, Treffer mit Kontext und Status-Komponente, „Alle anzeigen“, Tests und docs/suche.md."
+description: "Die Schnellsuche (Befehlspalette, Strg+K) von Haben um eine Gruppe erweitern oder eine ändern, wenn ein neues Objekt oder Feld durchsuchbar werden soll."
 ---
 
 # Schnellsuche erweitern
