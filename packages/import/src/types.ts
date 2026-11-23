@@ -32,6 +32,8 @@ export type StatementFormat =
   | "stripe-api"
   | "shopify-payments-csv"
   | "ebay-csv"
+  /** Abrechnung (Settlement Report) eines Amazon-Marktplatzes, Tab-getrennt (Seller Central › Berichte › Zahlungen) */
+  | "amazon-settlement"
   | "etsy-csv"
   /** Zahlungsverlauf von Etsy Payments über die Open API v3 (kein Dateiimport) */
   | "etsy-ledger"
@@ -50,6 +52,7 @@ export const PSP_FORMATS: StatementFormat[] = [
   "stripe-api",
   "shopify-payments-csv",
   "ebay-csv",
+  "amazon-settlement",
   "etsy-csv",
   "etsy-ledger",
   "googleplay-earnings",
