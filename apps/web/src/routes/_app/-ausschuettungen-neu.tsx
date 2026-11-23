@@ -75,6 +75,27 @@ export function EmpfaengerTabelle({ empfaenger }: { empfaenger: Vorschlag["empfa
   );
 }
 
+/**
+ * Über „Beschluss buchen“: Gründe (issues) sperren den Knopf und stehen im Ton Warnung, Hinweise sperren nicht und
+ * stehen als banner-info, damit man sieht, welcher Banner den Knopf sperrt (DESIGN.md, Gesperrte Knöpfe)
+ */
+export function VorschlagMeldungen({ issues, hinweise }: Pick<Vorschlag, "issues" | "hinweise">) {
+  return (
+    <>
+      {issues.map((text) => (
+        <div key={text} className="banner" role="status">
+          {text}
+        </div>
+      ))}
+      {hinweise.map((text) => (
+        <div key={text} className="banner banner-info" role="status">
+          {text}
+        </div>
+      ))}
+    </>
+  );
+}
+
 /** Eingaben für Vorschau und Anlegen, null solange Beschluss, Geschäftsjahr oder Betrag fehlen */
 function eingabe(beschluss: string, auszahlungstag: string, geschaeftsjahr: string, betrag: string) {
   const brutto = parseEuro(betrag);
@@ -187,12 +208,7 @@ export function NeueAusschuettung() {
             {vorschlag.ausEinlagekonto > 0 ? `; ${formatEuro(vorschlag.ausEinlagekonto)} gehen ohne Steuerabzug aus dem Einlagekonto` : ""}.
           </p>
           <EmpfaengerTabelle empfaenger={vorschlag.empfaenger} />
-          {/* Hinweise sperren das Buchen nicht, issues schon */}
-          {[...vorschlag.issues, ...vorschlag.hinweise].map((text) => (
-            <div key={text} className="banner" role="status">
-              {text}
-            </div>
-          ))}
+          <VorschlagMeldungen issues={vorschlag.issues} hinweise={vorschlag.hinweise} />
           <div className="actions">
             <button
               type="button"
