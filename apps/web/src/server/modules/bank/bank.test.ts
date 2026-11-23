@@ -1140,6 +1140,11 @@ describe.skipIf(!testDatabaseUrl)("Bankabgleich (Postgres)", () => {
     // Ein Amazon-Report gehört nicht in ein anderes Zahlungsdienstleister-Konto.
     const paypal = await bank.createProviderAccount(actor, { name: "PayPal", provider: "paypal" });
     await expect(bank.importStatement(actor, file("Amazon.de"), paypal.id)).rejects.toThrow(/kein Amazon-Konto/);
+
+    // Auch ohne Marktplatzangabe in der Datei (nur Sonderzeilen) bleibt es eine Amazon-Abrechnung: in das Amazon-Konto
+    // geht sie (die Umsätze sind schon da, added 0), in ein fremdes nicht.
+    await expect(bank.importStatement(actor, file(""), paypal.id)).rejects.toThrow(/Amazon-Abrechnung/);
+    await expect(bank.importStatement(actor, file(""), amazon.id)).resolves.toMatchObject({ added: 0 });
   }, 30_000);
 
   it("Amazon: der Marktplatz lässt sich nur ändern, solange das Konto leer ist", async () => {
