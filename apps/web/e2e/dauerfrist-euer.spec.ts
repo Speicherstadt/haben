@@ -105,3 +105,20 @@ test("Kennzahl und Sondervorauszahlung stehen zuerst in Klartext, der Paragraf d
   expect(text.indexOf("Einen Monat mehr Zeit")).toBeGreaterThanOrEqual(0);
   expect(text.indexOf("Einen Monat mehr Zeit")).toBeLessThan(text.indexOf("§ 47, 48 UStDV"));
 });
+
+test("Fristen und Zeitraum stehen offen, wenn der Wechsel auf einen Zeitraum führt, der nicht zur Einstellung passt", async () => {
+  // Ab Oktober vierteljährlich, der gesendete Dezember bleibt monatlich und passt nicht mehr dazu
+  await sql`insert into vat_frequencies (year, from_month, frequency) values (2026, 10, 'vierteljaehrlich')`;
+  try {
+    await page.goto("/umsatzsteuer/2026-Q4");
+    await page.waitForLoadState("networkidle");
+    const bereich = page.locator('section[aria-labelledby="ust-fristen"] > details');
+    await expect(bereich).toHaveJSProperty("open", false);
+    // Im Verlauf führt der Link ohne neuen Seitenaufruf zum Dezember: Der Zustand der Seite bleibt, der Bereich muss trotzdem aufgehen
+    await page.getByRole("link", { name: "Dezember 2026" }).click();
+    await expect(page.getByText("Für Dezember 2026 passt die Voranmeldung nicht zum eingestellten Zeitraum (vierteljährlich).")).toBeVisible();
+    await expect(bereich).toHaveJSProperty("open", true);
+  } finally {
+    await sql`delete from vat_frequencies where year = 2026 and from_month = 10`;
+  }
+});
