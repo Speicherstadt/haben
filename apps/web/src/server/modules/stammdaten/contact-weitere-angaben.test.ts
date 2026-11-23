@@ -51,6 +51,12 @@ describe.skipIf(!testDatabaseUrl)("Weitere Angaben am Kontakt: Fehler des Server
     expect(weitereAngabenFeld(fehler)).toBe("leitwegId");
   });
 
+  it("Unsere Lieferantennummer über 40 Zeichen", () => {
+    const fehler = serverFehler({ unsereLieferantennummer: "7".repeat(41) });
+    expect(fehler.message).toBe("Unsere Lieferantennummer: höchstens 40 Zeichen");
+    expect(weitereAngabenFeld(fehler)).toBe("unsereLieferantennummer");
+  });
+
   it("Stundensatz über 100.000 €, den der Browser durchlässt, und negativer Stundensatz", () => {
     const zuHoch = serverFehler({ hourlyRateCents: 100_000_01 });
     expect(zuHoch.message).toBe("Stundensatz: höchstens 100.000 €");
