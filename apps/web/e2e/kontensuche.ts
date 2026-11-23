@@ -36,4 +36,15 @@ export async function kontensuchePruefen(page: Page) {
   await expect(form.getByRole("option").filter({ hasText: "Gezeichnetes Kapital" })).toHaveCount(1);
   await konto.press("Escape");
   await expect(konto).toHaveValue("2900");
+
+  // Am Handy schneidet kein Scrollbereich der Tabelle die Trefferliste ab: Der Treffer steht ganz im Bild
+  const viewport = page.viewportSize();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await konto.fill("verbindlichkeiten");
+  await konto.evaluate((feld) => feld.scrollIntoView({ block: "start" }));
+  const treffer = form.getByRole("option").first();
+  await expect(treffer).toContainText(/^\d{4} · Verbindlichkeiten/);
+  await expect(treffer).toBeInViewport({ ratio: 1 });
+  await konto.press("Escape");
+  if (viewport) await page.setViewportSize(viewport);
 }

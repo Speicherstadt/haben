@@ -167,9 +167,10 @@ function ManualEntryForm({ data }: { data: Data }) {
           </Field>
         </div>
 
-        {/* Am Handy scrollt die Tabelle für sich (styles.css); relativ, damit die unsichtbaren Spaltennamen (visually-hidden,
-            absolut) im Scrollbereich bleiben und die Seite nicht verbreitern */}
-        <table className="report-table" style={{ position: "relative" }}>
+        {/* Am Handy steht jede Zeile als Karte (stack-table): In einer seitlich scrollenden Tabelle schnitte der Scrollbereich
+            die Trefferliste der Kontosuche ab. Relativ, damit die unsichtbaren Spaltennamen (visually-hidden, absolut) in der
+            Tabelle bleiben und die Seite nicht verbreitern */}
+        <table className="report-table stack-table" style={{ position: "relative" }}>
           <caption className="visually-hidden">Buchungszeilen</caption>
           <thead>
             <tr>
@@ -208,8 +209,12 @@ function ManualEntryForm({ data }: { data: Data }) {
               <th scope="row" colSpan={2}>
                 Summe{difference !== 0 && ` · Differenz ${formatEuro(Math.abs(difference))}`}
               </th>
-              <td className="num">{formatEuro(sum("debit"))}</td>
-              <td className="num">{formatEuro(sum("credit"))}</td>
+              <td className="num" data-label="Soll">
+                {formatEuro(sum("debit"))}
+              </td>
+              <td className="num" data-label="Haben">
+                {formatEuro(sum("credit"))}
+              </td>
               {mitSchluesseln && <td />}
               <td />
             </tr>
@@ -281,7 +286,7 @@ function BuchungsZeile({
 }) {
   return (
     <tr>
-      <td>
+      <td data-label="Konto">
         {/* Die Auswahl trägt Nummer und Namenseingabe zusammen; ein freier Zahlentext ohne Treffer zählt als Kontonummer */}
         <AccountCombobox
           index={index}
@@ -294,8 +299,10 @@ function BuchungsZeile({
         />
       </td>
       {/* Der Name steht schon in der Kontenzeile hinter der Nummer; die Spalte bleibt für Zeilen ohne Auswahl leer */}
-      <td className="small muted">{r.account ? (accounts[r.account] ?? "") : ""}</td>
-      <td className="num">
+      <td className="small muted" data-label="Bezeichnung">
+        {r.account ? (accounts[r.account] ?? "") : ""}
+      </td>
+      <td className="num" data-label="Soll">
         <input
           aria-label={`Soll Zeile ${index + 1}`}
           inputMode="decimal"
@@ -304,7 +311,7 @@ function BuchungsZeile({
           onChange={(e) => update(r.key, { debit: e.target.value })}
         />
       </td>
-      <td className="num">
+      <td className="num" data-label="Haben">
         <input
           aria-label={`Haben Zeile ${index + 1}`}
           inputMode="decimal"
@@ -314,7 +321,7 @@ function BuchungsZeile({
         />
       </td>
       {mitSchluesseln && (
-        <td>
+        <td data-label="Steuerschlüssel">
           {/* biome-ignore lint/plugin: Zelle der Buchungstabelle: der Spaltenkopf und aria-label benennen sie, eine Hülle `.field` je Zelle sprengte die Zeile */}
           <select
             aria-label={`Steuerschlüssel Zeile ${index + 1}`}
