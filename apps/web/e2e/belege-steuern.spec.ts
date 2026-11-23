@@ -4187,6 +4187,15 @@ test("Zeilenwerte aus dem Übermittlungsprotokoll ersetzen Habens Rechnung (#997
   await expect(erfassen).toBeVisible({ timeout: 15_000 });
   await erfassen.locator("summary").first().click();
   await erfassen.getByLabel("Steuerpflichtiger Gewinn / Verlust (gewinn)").fill("1.234,56");
+  // Ein nicht lesbarer Wert: Meldung am Feld, Fokus dort, nichts gespeichert, die Eingaben bleiben (#1270)
+  const ausgaben = erfassen.getByLabel("Summe der Betriebsausgaben (ausgaben)");
+  await ausgaben.fill("12€50");
+  await erfassen.getByRole("button", { name: "Zeilenwerte speichern" }).click();
+  await expect(erfassen.getByText("Trag den Betrag der Zeile ein, etwa 1.234,56, oder lass das Feld leer.")).toBeVisible();
+  await expect(ausgaben).toBeFocused();
+  await expect(erfassen.getByLabel("Steuerpflichtiger Gewinn / Verlust (gewinn)")).toHaveValue("1.234,56");
+  await expect(page.getByText("Diese Zahlen stammen aus dem Übermittlungsprotokoll", { exact: false })).toHaveCount(0);
+  await ausgaben.fill("");
   await erfassen.getByRole("button", { name: "Zeilenwerte speichern" }).click();
 
   // Die erklärten Werte ersetzen Habens Rechnung und nennen ihre Herkunft
