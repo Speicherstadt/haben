@@ -20,7 +20,7 @@ function MitarbeiterPage() {
   const m = Route.useLoaderData();
   const router = useRouter();
   const save = useServerFn(saveMitarbeiterFn);
-  const { busy, notice, setNotice, run } = useAction();
+  const { busy, notice, run } = useAction();
   const gesellschaft = isKapitalgesellschaft(Route.useRouteContext().rechtsform);
   const jahr = currentYear();
   return (
@@ -54,7 +54,6 @@ function MitarbeiterPage() {
           arten={beschaeftigungsartenFor(gesellschaft, m.art)}
           submitLabel="Speichern"
           busy={busy}
-          onError={(text) => setNotice({ tone: "danger", text })}
           onSubmit={(werte) =>
             void run(async () => {
               await save({ data: { id: m.id, data: werte } });

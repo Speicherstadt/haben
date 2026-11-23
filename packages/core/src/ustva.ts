@@ -14,6 +14,12 @@ import { taxOf, type Cents } from "./money.ts";
  * Kz 83 wird gerechnet. Alle Werte dürfen negativ
  * sein, etwa wenn Gutschriften im Monat überwiegen.
  */
+/**
+ * Größter Betrag je Kennzahl, den Haben beim Speichern einer Voranmeldung von Hand annimmt, in beide Richtungen
+ * (`saveVatDraft`); die Prüfung im Browser meldet dieselbe Grenze am Feld (#1270)
+ */
+export const KENNZAHL_GRENZE: Cents = 1_000_000_000_00;
+
 export interface UstvaValues {
   kz81: Cents;
   kz86: Cents;

@@ -1,5 +1,5 @@
-import { discountedLineAmount, formatEuro, ITEM_NUMBER_MAX, LINE_DETAIL_MAX, parseEuro, parseQuantity } from "@haben/core";
-import { emptyLine, type LineState, sameText } from "../lib/editor-lines.ts";
+import { discountedLineAmount, formatEuro, ITEM_NUMBER_MAX, LINE_DETAIL_MAX } from "@haben/core";
+import { emptyLine, type LineState, type PositionsFeld, positionsFehler, positionsSchluessel, sameText } from "../lib/editor-lines.ts";
 import { unitOptions } from "../lib/units.ts";
 import { ArbeitskostenField, LineArbeitskosten } from "./ArbeitskostenField.tsx";
 import { ArticleCombobox, CatalogCombobox } from "./ArticleCombobox.tsx";
@@ -8,6 +8,7 @@ import { FormattedTextarea } from "./FormattedTextarea.tsx";
 import { Icon } from "./Icon.tsx";
 import { LineAmount, LineCell } from "./LineCell.tsx";
 import { LineKind } from "./LineKind.tsx";
+import { PositionsMeldungen, zellenAttribute } from "./PositionsFehler.tsx";
 import { PropertyRetentionField } from "./PropertyRetentionField.tsx";
 import { TextBlockField } from "./TextBlockField.tsx";
 import type { InvoiceEditorModel } from "./use-invoice-editor.ts";
@@ -124,14 +125,20 @@ export function InvoiceEditorLines({ editor }: { editor: InvoiceEditorModel }) {
 /** Am Feld selbst, damit Screenreader ihn mit Einleitung und Hinweis vorlesen; die Liste steht unter den Positionen */
 const PLATZHALTER_HINWEIS = "Platzhalter wie {nummer}, {betrag} oder {iban} setzt Haben in der Vorschau und beim Festschreiben ein; Liste unten.";
 
+/** aria-Attribute einer Zelle der Position; rot schon vor der Meldung, sobald die Position verlassen wurde */
+function zellenFehler(editor: InvoiceEditorModel, line: LineState) {
+  const fehler = positionsFehler(line);
+  const meldung = (feld: PositionsFeld) => editor.error(positionsSchluessel(line.key, feld));
+  return { meldung, zelle: (feld: PositionsFeld) => zellenAttribute(meldung, line.key, feld, editor.showError(line.key) && fehler[feld] !== null) };
+}
+
 function EditorLineRow({ editor, line, index }: { editor: InvoiceEditorModel; line: LineState; index: number }) {
-  const { amountLabel, error, markTouched, parsed, showError, special, units, updateLine } = editor;
+  const { amountLabel, markTouched, parsed, special, units, updateLine } = editor;
   const p = parsed[index]!;
-  const posFehler = error(`pos-${line.key}`);
-  const posFehlerId = posFehler ? `pos-fehler-${line.key}` : undefined;
+  const { meldung, zelle } = zellenFehler(editor, line);
   return (
     <div className="line-row with-discount">
-      <LineTitle editor={editor} line={line} index={index} posFehlerId={posFehlerId} />
+      <LineTitle editor={editor} line={line} index={index} beschreibung={zelle("beschreibung")} />
       <FormattedTextarea
         className="line-detail"
         rows={line.detail ? Math.min(6, line.detail.split("\n").length) : 1}
@@ -149,8 +156,7 @@ function EditorLineRow({ editor, line, index }: { editor: InvoiceEditorModel; li
           value={line.quantity}
           onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
           onBlur={() => markTouched(line.key)}
-          aria-invalid={showError(line.key) && !((parseQuantity(line.quantity) ?? 0) > 0)}
-          aria-describedby={posFehlerId}
+          {...zelle("menge")}
         />
       </LineCell>
       <LineCell label="Einheit">
@@ -170,8 +176,7 @@ function EditorLineRow({ editor, line, index }: { editor: InvoiceEditorModel; li
           placeholder="0,00"
           onChange={(e) => updateLine(line.key, { unitPrice: e.target.value })}
           onBlur={() => markTouched(line.key)}
-          aria-invalid={showError(line.key) && parseEuro(line.unitPrice) === null}
-          aria-describedby={posFehlerId}
+          {...zelle("einzelpreis")}
         />
       </LineCell>
       <LineCell label="Rabatt">
@@ -181,8 +186,7 @@ function EditorLineRow({ editor, line, index }: { editor: InvoiceEditorModel; li
           placeholder="–"
           autoComplete="off"
           aria-label={`Rabatt Position ${index + 1}, Prozent oder Betrag`}
-          aria-invalid={showError(line.key) && p.discountError}
-          aria-describedby={posFehlerId}
+          {...zelle("rabatt")}
           onChange={(e) => updateLine(line.key, { discount: e.target.value })}
           onBlur={() => markTouched(line.key)}
         />
@@ -202,18 +206,24 @@ function EditorLineRow({ editor, line, index }: { editor: InvoiceEditorModel; li
       </LineCell>
       <LineAmount label={amountLabel}>{p.valid ? formatEuro(discountedLineAmount(p)) : "–"}</LineAmount>
       <LineActions editor={editor} line={line} index={index} p={p} />
-      {posFehler && (
-        <span id={posFehlerId} className="field-error" style={{ gridColumn: "1 / -1" }}>
-          {posFehler}
-        </span>
-      )}
+      <PositionsMeldungen meldung={meldung} lineKey={line.key} />
     </div>
   );
 }
 
 /** Artikelnummer, Beschreibung mit Artikelsuche und im Angebot die Art der Position */
-function LineTitle({ editor, line, index, posFehlerId }: { editor: InvoiceEditorModel; line: LineState; index: number; posFehlerId: string | undefined }) {
-  const { arbeitskostenAusweisen, articles, markTouched, openNewArticle, pickArticle, quote, showError, updateLine } = editor;
+function LineTitle({
+  editor,
+  line,
+  index,
+  beschreibung,
+}: {
+  editor: InvoiceEditorModel;
+  line: LineState;
+  index: number;
+  beschreibung: ReturnType<typeof zellenAttribute>;
+}) {
+  const { arbeitskostenAusweisen, articles, markTouched, openNewArticle, pickArticle, quote, updateLine } = editor;
   const selects = [quote && "with-kind", arbeitskostenAusweisen && (quote ? "with-art" : "with-kind")].filter(Boolean).join(" ");
   return (
     <div className={selects ? `line-title ${selects}` : "line-title"}>
@@ -231,8 +241,8 @@ function LineTitle({ editor, line, index, posFehlerId }: { editor: InvoiceEditor
         placeholder={`Beschreibung Position ${index + 1}`}
         value={line.description}
         articles={articles}
-        invalid={showError(line.key) && line.description.trim() === ""}
-        describedBy={posFehlerId}
+        invalid={beschreibung["aria-invalid"] === true}
+        describedBy={beschreibung["aria-describedby"]}
         onInput={(description) => updateLine(line.key, { description })}
         onPick={(article) => pickArticle(line.key, article)}
         onCreate={(description) => openNewArticle(line, description)}

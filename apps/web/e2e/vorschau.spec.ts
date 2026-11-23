@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { readFileSync } from "node:fs";
-import { type Browser, chromium, expect, type Page, test } from "@playwright/test";
+import { type Browser, chromium, expect, type Page, type Route, test } from "@playwright/test";
 import { SESSION } from "./daten.ts";
 import { HANDY, kopfUnterkante, LAPTOP, sichtbar, ziehen, zumEnde } from "./kopfzeile.ts";
 import { abgearbeitet, bilder } from "./warten.ts";
@@ -14,13 +14,15 @@ const WCAG = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-prac
 const GROSS = { width: 1920, height: 1080 };
 
 /** Die Sitzung ohne gespeicherte Wahl: app.spec.ts heftet für seine Prüfungen an (vorschauAnheften in daten.ts) */
-async function editor(browser: Browser, viewport: { width: number; height: number }, path = "/rechnungen/neu"): Promise<Page> {
+async function editor(browser: Browser, viewport: { width: number; height: number }, path = "/rechnungen/neu", modus?: "dunkel"): Promise<Page> {
   const state = JSON.parse(readFileSync(SESSION, "utf8")) as {
     cookies: [];
     origins: { origin: string; localStorage: { name: string; value: string }[] }[];
   };
   const origins = state.origins.map((o) => ({ ...o, localStorage: o.localStorage.filter((item) => item.name !== "haben-vorschau") }));
-  const page = await (await browser.newContext({ viewport, storageState: { ...state, origins } })).newPage();
+  const context = await browser.newContext({ viewport, storageState: { ...state, origins } });
+  if (modus) await context.addInitScript((m) => localStorage.setItem("haben-modus", m), modus);
+  const page = await context.newPage();
   await page.goto(path);
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -322,6 +324,41 @@ test("Angebot: dieselbe Vorschau", async ({ browser }) => {
   await expect(seitenansicht(page).getByLabel("Vorschau des Angebots")).toBeVisible();
   await page.context().close();
 });
+
+/** Fehlerseite von nginx, wenn Haben dahinter gerade neu startet */
+const NGINX_502 = "<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n</body>\r\n</html>";
+
+for (const fall of [
+  { name: "Abgebrochene Anfrage, Laptop, hell", viewport: LAPTOP, modus: undefined, antwort: (route: Route) => route.abort("internetdisconnected") },
+  {
+    name: "Fehlerseite des Proxys, Handy, dunkel",
+    viewport: HANDY,
+    modus: "dunkel" as const,
+    antwort: (route: Route) => route.fulfill({ status: 502, contentType: "text/html", body: NGINX_502 }),
+  },
+]) {
+  test(`${fall.name}: deutsche Meldung als Status, „Erneut versuchen“ setzt das Blatt (#1147)`, async ({ browser }) => {
+    const page = await editor(browser, fall.viewport, "/rechnungen/neu", fall.modus);
+    // Nur die Anfrage der Vorschau (Stand des Formulars mit Positionen) scheitert, wie bei einem Server, der nicht antwortet
+    await page.route(
+      (url) => url.pathname.startsWith("/_serverFn/"),
+      (route) => (route.request().method() === "POST" && route.request().postData()?.includes("lines") ? fall.antwort(route) : route.fallback()),
+    );
+    await page.getByRole("button", { name: "Vorschau", exact: true }).click();
+    const blatt = dialog(page).getByLabel("Vorschau der Rechnung");
+    const meldung = blatt.getByRole("status").filter({ hasText: "Die Vorschau ließ sich nicht erzeugen." });
+    await expect(meldung).toHaveText(/^Die Vorschau ließ sich nicht erzeugen\. Haben ist gerade nicht erreichbar\.\s*Erneut versuchen$/);
+    // Sie entsteht beim Tippen: kein alert, der eine Meldung zum Speichern übertönt (DESIGN.md)
+    await expect(blatt.getByRole("alert")).toHaveCount(0);
+    expect(await axe(page), "Meldung der Vorschau").toEqual([]);
+
+    await page.unrouteAll({ behavior: "wait" });
+    await meldung.getByRole("button", { name: "Erneut versuchen" }).click();
+    await expect(meldung).toHaveCount(0);
+    await expect(blatt.getByRole("img", { name: /^Seite 1 von/ })).toBeVisible();
+    await page.context().close();
+  });
+}
 
 test("Gesperrter Speicher: Der Editor öffnet, Anheften gilt bis zum Neuladen", async ({ browser }) => {
   // Chrome mit gesperrten Websitedaten wirft schon beim Zugriff auf window.localStorage, nicht erst bei getItem

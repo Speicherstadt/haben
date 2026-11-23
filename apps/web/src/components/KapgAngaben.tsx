@@ -4,10 +4,12 @@ import { useServerFn } from "@tanstack/react-start";
 import { type FormEvent, useState } from "react";
 import { anteilText, parseAnteil } from "../lib/anteil.ts";
 import { useAction } from "../lib/use-action.ts";
+import { useSubmitCheck } from "../lib/use-submit-check.ts";
 import { type getAnnualReturns, saveKapgErklaerung } from "../server/functions/annual.ts";
 import { KapgAnteilseigner, type Person } from "./KapgAnteilseigner.tsx";
 import { Field } from "./Field.tsx";
 import { NoticeBanner } from "./NoticeBanner.tsx";
+import { type AngabenFormular, HOECHSTZAHL, kapgAngabenFehler, type Vertrag } from "./kapg-angaben-pruefung.ts";
 
 /*
  * Angaben, die nur die Körperschaft- und Gewerbesteuererklärung brauchen (Gründung, Einlagekonto, Anteilseigner,
@@ -16,10 +18,8 @@ import { NoticeBanner } from "./NoticeBanner.tsx";
 
 type Data = Awaited<ReturnType<typeof getAnnualReturns>>;
 type Angaben = NonNullable<Data["kapg"]>["angaben"];
-type Vertrag = { art: string; datum: string; partner: string; verguetung: string };
 
 const euro = (cents: number) => formatEuro(cents).replace(/\s*€$/, "");
-const ANGABEN_FEHLER = "Beträge als Euro (z. B. 25.000,00) und Anteile über 0 bis 100 % mit höchstens zwei Nachkommastellen (z. B. 50 oder 33,33) eingeben.";
 
 const personAusAngabe = (p: Angaben["anteilseigner"][number]): Person => ({
   name: p.name,
@@ -48,10 +48,8 @@ const anteilseignerAusFormular = (p: Person) => ({
   ...(p.kirchensteuer > 0 ? { religionsschluessel: p.religionsschluessel.trim(), religionsgemeinschaft: p.religionsgemeinschaft.trim() } : {}),
 });
 
-type Formular = { gruendung: string; einlagekonto: string; rechte: string; personen: Person[]; vertraege: Vertrag[] };
-
-/** Die Angaben aus dem Formular, oder null, wenn ein Betrag oder Anteil nicht lesbar ist */
-function angabenAusFormular(f: Formular): Angaben | null {
+/** Die Angaben aus dem Formular, oder null, wenn ein Betrag oder Anteil nicht lesbar ist; Fehler je Feld meldet kapgAngabenFehler */
+function angabenAusFormular(f: AngabenFormular): Angaben | null {
   const anteilseigner = f.personen.map(anteilseignerAusFormular);
   const vertraege = f.vertraege.map((v) => ({ art: v.art, datum: v.datum, partner: v.partner, verguetung: betrag(v.verguetung) }));
   const einlagekonto = betrag(f.einlagekonto);
@@ -73,18 +71,36 @@ function angabenAusFormular(f: Formular): Angaben | null {
   };
 }
 
-function VertragFelder({ v, i, set, remove }: { v: Vertrag; i: number; set: (patch: Partial<Vertrag>) => void; remove: () => void }) {
+type VertragZeile = {
+  v: Vertrag;
+  i: number;
+  set: (patch: Partial<Vertrag>) => void;
+  remove: () => void;
+  fehler: (feld: keyof Vertrag) => string | undefined;
+};
+
+function VertragFelder({ v, i, set, remove, fehler }: VertragZeile) {
   return (
     <div className="stack sub-group" style={{ gap: 12 }} role="group" aria-label={`Vertrag ${i + 1}`}>
-      <div className="form-row cols-2 align-end">
+      <div className="form-row cols-2">
         <Field
           label={
             <>
               Vertragsart<span className="visually-hidden"> Vertrag {i + 1}</span>
             </>
           }
+          error={fehler("art")}
         >
-          {(control) => <input {...control} value={v.art} onChange={(e) => set({ art: e.target.value })} placeholder="z. B. Geschäftsführervertrag" required />}
+          {(control) => (
+            <input
+              {...control}
+              value={v.art}
+              onChange={(e) => set({ art: e.target.value })}
+              placeholder="z. B. Geschäftsführervertrag"
+              required
+              maxLength={200}
+            />
+          )}
         </Field>
         <Field
           label={
@@ -92,6 +108,7 @@ function VertragFelder({ v, i, set, remove }: { v: Vertrag; i: number; set: (pat
               Abschluss oder letzte Änderung<span className="visually-hidden"> Vertrag {i + 1}</span>
             </>
           }
+          error={fehler("datum")}
         >
           {(control) => <input {...control} type="date" value={v.datum} onChange={(e) => set({ datum: e.target.value })} required />}
         </Field>
@@ -101,8 +118,9 @@ function VertragFelder({ v, i, set, remove }: { v: Vertrag; i: number; set: (pat
               Vertragspartner<span className="visually-hidden"> Vertrag {i + 1}</span>
             </>
           }
+          error={fehler("partner")}
         >
-          {(control) => <input {...control} value={v.partner} onChange={(e) => set({ partner: e.target.value })} required />}
+          {(control) => <input {...control} value={v.partner} onChange={(e) => set({ partner: e.target.value })} required maxLength={200} />}
         </Field>
         <Field
           label={
@@ -110,6 +128,7 @@ function VertragFelder({ v, i, set, remove }: { v: Vertrag; i: number; set: (pat
               Vergütung im Jahr<span className="visually-hidden"> Vertrag {i + 1}</span>
             </>
           }
+          error={fehler("verguetung")}
         >
           {(control) => <input {...control} inputMode="decimal" value={v.verguetung} onChange={(e) => set({ verguetung: e.target.value })} required />}
         </Field>
@@ -123,19 +142,39 @@ function VertragFelder({ v, i, set, remove }: { v: Vertrag; i: number; set: (pat
   );
 }
 
-function KapgVertraege({ vertraege, setVertraege }: { vertraege: Vertrag[]; setVertraege: (v: Vertrag[]) => void }) {
+function KapgVertraege({
+  vertraege,
+  setVertraege,
+  error,
+}: {
+  vertraege: Vertrag[];
+  setVertraege: (v: Vertrag[]) => void;
+  error: (key: string) => string | undefined;
+}) {
   const setVertrag = (i: number, patch: Partial<Vertrag>) => setVertraege(vertraege.map((v, j) => (j === i ? { ...v, ...patch } : v)));
   return (
     <fieldset className="stack fieldset-plain" style={{ gap: 16 }}>
       <legend>Verträge mit Anteilseignern und nahestehenden Personen (Anlage WA)</legend>
       {vertraege.map((v, i) => (
-        <VertragFelder key={i} v={v} i={i} set={(patch) => setVertrag(i, patch)} remove={() => setVertraege(vertraege.filter((_, j) => j !== i))} />
+        <VertragFelder
+          key={i}
+          v={v}
+          i={i}
+          set={(patch) => setVertrag(i, patch)}
+          fehler={(feld) => error(`vertrag.${i}.${feld}`)}
+          remove={() => setVertraege(vertraege.filter((_, j) => j !== i))}
+        />
       ))}
-      <div>
-        <button type="button" className="btn btn-dashed" onClick={() => setVertraege([...vertraege, { art: "", datum: "", partner: "", verguetung: "" }])}>
-          Vertrag hinzufügen
-        </button>
-      </div>
+      {/* Mehr nimmt der Server nicht an (kapgErklaerungSchema) */}
+      {vertraege.length < HOECHSTZAHL ? (
+        <div>
+          <button type="button" className="btn btn-dashed" onClick={() => setVertraege([...vertraege, { art: "", datum: "", partner: "", verguetung: "" }])}>
+            Vertrag hinzufügen
+          </button>
+        </div>
+      ) : (
+        <p className="small muted">Höchstens {HOECHSTZAHL} Verträge.</p>
+      )}
     </fieldset>
   );
 }
@@ -143,21 +182,21 @@ function KapgVertraege({ vertraege, setVertraege }: { vertraege: Vertrag[]; setV
 export function KapgAngaben({ data }: { data: Data }) {
   const router = useRouter();
   const save = useServerFn(saveKapgErklaerung);
-  const { busy, notice, setNotice, run } = useAction();
+  const { busy, notice, run } = useAction();
   const a: Angaben = data.kapg!.angaben;
   const [gruendung, setGruendung] = useState(a.gruendung ?? "");
   const [einlagekonto, setEinlagekonto] = useState(euro(a.einlagekonto));
   const [rechte, setRechte] = useState(euro(a.rechteBeschraenktStpfl));
   const [personen, setPersonen] = useState<Person[]>(a.anteilseigner.map(personAusAngabe));
   const [vertraege, setVertraege] = useState<Vertrag[]>(a.vertraege.map((v) => ({ ...v, verguetung: euro(v.verguetung) })));
+  const formular: AngabenFormular = { year: data.year, gruendung, einlagekonto, rechte, personen, vertraege };
+  // Je Feld und Zeile eine Meldung statt eines Satzes für alle (#1277, DESIGN.md, Gesperrte Knöpfe)
+  const pruefung = useSubmitCheck(kapgAngabenFehler(formular));
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    const angaben = angabenAusFormular({ gruendung, einlagekonto, rechte, personen, vertraege });
-    if (!angaben) {
-      setNotice({ tone: "danger", text: ANGABEN_FEHLER });
-      return;
-    }
+    const angaben = angabenAusFormular(formular);
+    if (!pruefung.check() || !angaben) return;
     void run(async () => {
       await save({ data: { year: data.year, angaben } });
       await router.invalidate();
@@ -170,20 +209,36 @@ export function KapgAngaben({ data }: { data: Data }) {
         Angaben zu den Erklärungen {data.year}
       </h2>
       {!data.kapg!.gespeichert && a.anteilseigner.length > 0 && <p className="small muted">Aus {data.year - 1} übernommen; bitte prüfen und speichern.</p>}
-      <form onSubmit={submit} aria-label="Angaben zur Körperschaft- und Gewerbesteuererklärung" className="stack" style={{ gap: 16 }}>
+      <form
+        ref={pruefung.form}
+        noValidate
+        onSubmit={submit}
+        aria-label="Angaben zur Körperschaft- und Gewerbesteuererklärung"
+        className="stack"
+        style={{ gap: 16 }}
+      >
         <div className="form-row cols-3">
-          <Field label="Gegründet am (nur im Gründungsjahr)">
-            {(control) => <input {...control} type="date" value={gruendung} onChange={(e) => setGruendung(e.target.value)} />}
+          <Field label="Gegründet am (nur im Gründungsjahr)" error={pruefung.error("gruendung")}>
+            {(control) => (
+              <input
+                {...control}
+                type="date"
+                min={`${data.year}-01-01`}
+                max={`${data.year}-12-31`}
+                value={gruendung}
+                onChange={(e) => setGruendung(e.target.value)}
+              />
+            )}
           </Field>
-          <Field label={<>Steuerliches Einlagekonto zum 31.12.{data.year - 1}</>}>
+          <Field label={<>Steuerliches Einlagekonto zum 31.12.{data.year - 1}</>} error={pruefung.error("einlagekonto")}>
             {(control) => <input {...control} inputMode="decimal" value={einlagekonto} onChange={(e) => setEinlagekonto(e.target.value)} />}
           </Field>
-          <Field label="Lizenzen an beschränkt Steuerpflichtige (§ 50a EStG)">
+          <Field label="Lizenzen an beschränkt Steuerpflichtige (§ 50a EStG)" error={pruefung.error("rechte")}>
             {(control) => <input {...control} inputMode="decimal" value={rechte} onChange={(e) => setRechte(e.target.value)} />}
           </Field>
         </div>
-        <KapgAnteilseigner personen={personen} setPersonen={setPersonen} />
-        <KapgVertraege vertraege={vertraege} setVertraege={setVertraege} />
+        <KapgAnteilseigner personen={personen} setPersonen={setPersonen} error={pruefung.error} />
+        <KapgVertraege vertraege={vertraege} setVertraege={setVertraege} error={pruefung.error} />
         <NoticeBanner notice={notice} />
         <div className="actions">
           <button type="submit" className="btn btn-primary" disabled={busy}>

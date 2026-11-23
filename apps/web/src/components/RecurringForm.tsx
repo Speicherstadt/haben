@@ -11,7 +11,7 @@ import {
   lineAmount,
 } from "@haben/core";
 import { type FormEvent, useState } from "react";
-import { positionsFehler } from "../lib/editor-lines.ts";
+import { positionenFehler } from "../lib/editor-lines.ts";
 import type { InvoiceFormat } from "../lib/invoice.ts";
 import { useSubmitCheck } from "../lib/use-submit-check.ts";
 import type { ContactChoice } from "./ContactCombobox.tsx";
@@ -186,7 +186,7 @@ function formState({ lines: _lines, ...values }: RecurringValues): FormState {
 function recurringErrors(v: FormState, lines: LineState[], taxIssues: string[], taxNote: string): Record<string, string | null> {
   const term = Number(v.paymentTermDays);
   return {
-    ...Object.fromEntries(lines.map((l) => [`pos-${l.key}`, positionsFehler(l)])),
+    ...positionenFehler(lines),
     name: v.name.trim() === "" ? "Trag eine Bezeichnung ein, etwa Wartungsvertrag Nordwerk." : null,
     contact: v.contactId === "" ? "Wähle den Kunden." : null,
     nextDate: v.nextDate ? null : "Wähle den Tag der nächsten Rechnung.",
