@@ -1,4 +1,4 @@
-import { computeUstva, formatDecimal, formatEuro, parseEuro, parsePeriodKey, periodKey, periodLabel, quarterOfMonth } from "@haben/core";
+import { computeUstva, formatDecimal, fruehereZuordnungen, formatEuro, parseEuro, parsePeriodKey, periodKey, periodLabel, quarterOfMonth } from "@haben/core";
 import { Link, createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Icon } from "../../../components/Icon.tsx";
@@ -206,11 +206,11 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
   // Gespeicherter berechneter Entwurf, dessen Werte sich inzwischen geändert haben
   const stale = !locked && current?.source === "berechnet" && !sameFigures(current, computed);
 
-  // Gesendete Anmeldung, deren Buchungen sich danach geändert haben (z. B. Zuordnung aufgehoben). Kz 48 gilt auch ohne die
-  // Umsätze als Kleinunternehmer als gleich, so hat Haben sie vor #1268 gemeldet (wie gesendet-pruefen.ts)
+  // Gesendete Anmeldung, deren Buchungen sich danach geändert haben (z. B. Zuordnung aufgehoben). Kz 43 und 48 gelten auch
+  // nach früheren Zuordnungen als gleich, so hat Haben sie vor #1268 und #1312 gemeldet (wie gesendet-pruefen.ts)
   const sentBasis = locked ? (current!.source === "berechnet" ? current! : current!.computed) : null;
-  const computedVor1268 = computeUstva({ ...data.figures, kz48: data.figures.kz48 - data.figures.kz48Kleinunternehmer, kz39: data.kz39 });
-  const drift = sentBasis !== null && sentBasis !== undefined && !sameFigures(sentBasis, computed) && !sameFigures(sentBasis, computedVor1268);
+  const frueher = fruehereZuordnungen(data.figures).map((z) => computeUstva({ ...data.figures, ...z, kz39: data.kz39 }));
+  const drift = sentBasis !== null && sentBasis !== undefined && ![computed, ...frueher].some((c) => sameFigures(sentBasis, c));
 
   function update(field: FieldKey, value: string) {
     setValues((prev) => ({ ...prev, [field]: value }));

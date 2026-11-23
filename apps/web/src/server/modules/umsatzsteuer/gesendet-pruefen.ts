@@ -8,7 +8,8 @@ import { berechnet } from "./vat.ts";
  * Haben den Zeitraum heute anders, hat eine Buchung oder eine Codeänderung ein angemeldetes Jahr still verändert. Je
  * Zeitraum zählt die zuletzt gesendete Anmeldung (auch eine Berichtigung). Bei von Hand überschriebenen Kennzahlen
  * (source „manuell“) wird mit den beim Speichern berechneten Werten verglichen (`computed`), nicht mit den gesendeten.
- * Kz 48 gilt auch ohne die Umsätze als Kleinunternehmer als gleich: So hat Haben sie vor #1268 gemeldet.
+ * Kz 43 und 48 gelten auch nach früheren Zuordnungen als gleich (fruehereZuordnungen in @haben/core): vor #1268 ohne die
+ * Umsätze als Kleinunternehmer, vor #1312 bei Ist mit der Zahlung statt im Zeitraum der Leistung.
  */
 
 /** Die gespeicherten Kennzahlen einer Anmeldung, wie computedValues sie liefert */
@@ -56,12 +57,13 @@ export async function gesendeteAbweichungen(years: readonly number[], q: Db | Tx
   const result: GesendetAbweichung[] = [];
   for (const row of latest.values()) {
     const period = { year: row.year, month: row.month };
-    const { werte: heute, kz48OhneKleinunternehmer } = await berechnet(period, q);
+    const { werte: heute, frueher } = await berechnet(period, q);
     const gespeichert: Partial<Record<(typeof FELDER)[number], number>> = row.source === "manuell" ? (row.computed ?? {}) : row;
+    // Eine frühere Zuordnung gilt nur ganz: Kz 43 und 48 der Anmeldung stammen aus derselben Version
+    const vergleich = [heute, ...frueher].find((w) => w.kz43 === (gespeichert.kz43 ?? 0) && w.kz48 === (gespeichert.kz48 ?? 0)) ?? heute;
     for (const feld of FELDER) {
       const gesendet = gespeichert[feld] ?? 0;
-      if (feld === "kz48" && gesendet === kz48OhneKleinunternehmer) continue;
-      if (gesendet !== heute[feld]) result.push({ period, feld: `Kz ${feld.slice(2)}`, gesendet, journal: heute[feld] });
+      if (gesendet !== vergleich[feld]) result.push({ period, feld: `Kz ${feld.slice(2)}`, gesendet, journal: heute[feld] });
     }
   }
   return result;

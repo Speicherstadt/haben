@@ -37,48 +37,57 @@ vi.mock("../../../server/functions/vat.ts", () =>
 vi.mock("../../../components/umsatzsteuer/VatFrequencyCard.tsx", () => ({ VatFrequencyCard: () => null }));
 vi.mock("../../../components/umsatzsteuer/DauerfristCard.tsx", () => ({ DauerfristCard: () => null }));
 
+function seite(gesendet: ReturnType<typeof computeUstva>, figures: Record<string, unknown>) {
+  const current = {
+    ...gesendet,
+    id: "alte-anmeldung",
+    source: "berechnet",
+    computed: gesendet,
+    status: "sent",
+    berichtigt: false,
+    sentAt: new Date("2026-10-10T12:00:00Z"),
+    updatedAt: new Date("2026-10-10T12:00:00Z"),
+  };
+  const data = {
+    period: { year: 2026, month: 9 },
+    current,
+    returns: [current],
+    periods: [{ year: 2026, month: 9 }],
+    frequency: { year: 2026 },
+    dauerfrist: { year: 2026 },
+    mode: "eric",
+    herstellerIdConfigured: true,
+    companyIssues: [],
+    preflight: [],
+    periodProblem: null,
+    kleinunternehmer: true,
+    kz39: 0,
+    figures: {
+      revenue: [],
+      inputTax: [],
+      reverseCharge: [],
+      igErwerb: [],
+      kleinunternehmerUmsaetze: [],
+      kz48Kleinunternehmer: 0,
+      nachZahlungseingang: { kz43: 0, kz48: 0 },
+      ...figures,
+    },
+    filings: [],
+    submissions: [],
+    recent: [],
+    posten: [],
+    dueDate: "2026-10-12",
+    today: "2026-11-23",
+  };
+  vi.spyOn(Route, "useLoaderData").mockImplementation(() => data as unknown as ReturnType<typeof Route.useLoaderData>);
+  const html = renderToStaticMarkup(createElement(Route.options.component as ComponentType));
+  vi.restoreAllMocks();
+  return html;
+}
+
 // #1268: Gesendete Voranmeldungen eines Kleinunternehmers von vor der Änderung haben Kz 48 ohne seine Umsätze. Wie der Abgleich
 // gesendeter Voranmeldungen (gesendet-pruefen.ts) meldet die Seite dafür keine Änderung seit der Übermittlung.
 describe("Gesendete Voranmeldung mit Kz 48 ohne die Umsätze als Kleinunternehmer", () => {
-  function seite(gesendet: ReturnType<typeof computeUstva>, figures: Record<string, unknown>) {
-    const current = {
-      ...gesendet,
-      id: "alte-anmeldung",
-      source: "berechnet",
-      computed: gesendet,
-      status: "sent",
-      berichtigt: false,
-      sentAt: new Date("2026-10-10T12:00:00Z"),
-      updatedAt: new Date("2026-10-10T12:00:00Z"),
-    };
-    const data = {
-      period: { year: 2026, month: 9 },
-      current,
-      returns: [current],
-      periods: [{ year: 2026, month: 9 }],
-      frequency: { year: 2026 },
-      dauerfrist: { year: 2026 },
-      mode: "eric",
-      herstellerIdConfigured: true,
-      companyIssues: [],
-      preflight: [],
-      periodProblem: null,
-      kleinunternehmer: true,
-      kz39: 0,
-      figures: { revenue: [], inputTax: [], reverseCharge: [], igErwerb: [], kleinunternehmerUmsaetze: [], ...figures },
-      filings: [],
-      submissions: [],
-      recent: [],
-      posten: [],
-      dueDate: "2026-10-12",
-      today: "2026-11-23",
-    };
-    vi.spyOn(Route, "useLoaderData").mockImplementation(() => data as unknown as ReturnType<typeof Route.useLoaderData>);
-    const html = renderToStaticMarkup(createElement(Route.options.component as ComponentType));
-    vi.restoreAllMocks();
-    return html;
-  }
-
   it("keine Änderung, wenn nur die Umsätze als Kleinunternehmer dazugekommen sind", () => {
     const gesendet = computeUstva({ kz81: 0, kz86: 0, kz66: 0, kz46: 10_000, kz47: 1_900, kz67: 1_900 });
     const html = seite(gesendet, {
@@ -94,6 +103,21 @@ describe("Gesendete Voranmeldung mit Kz 48 ohne die Umsätze als Kleinunternehme
       ...computeUstva({ kz81: 0, kz86: 0, kz66: 0, kz46: 12_000, kz47: 2_280, kz67: 2_280, kz48: 80_000 }),
       kz48Kleinunternehmer: 80_000,
     });
+    expect(html).toContain("Seit der Übermittlung haben sich die Buchungen dieses Monats geändert");
+  });
+});
+
+// #1312: Vorher meldete Haben Kz 43 und 48 bei Ist mit der Zahlung. Eine so gesendete Voranmeldung zeigt keine Änderung.
+describe("Gesendete Voranmeldung mit Kz 43 und 48 nach Zahlungseingang", () => {
+  it("keine Änderung, wenn nur die Zuordnung zum Zeitraum der Leistung dazugekommen ist", () => {
+    const gesendet = computeUstva({ kz81: 0, kz86: 0, kz66: 0, kz48: 50_000, kz43: 20_000 });
+    const html = seite(gesendet, { ...computeUstva({ kz81: 0, kz86: 0, kz66: 0 }), nachZahlungseingang: { kz43: 20_000, kz48: 50_000 } });
+    expect(html).not.toContain("Seit der Übermittlung haben sich die Buchungen dieses Monats geändert");
+  });
+
+  it("nur eine Kennzahl nach der früheren Zuordnung fällt auf", () => {
+    const gesendet = computeUstva({ kz81: 0, kz86: 0, kz66: 0, kz48: 50_000, kz43: 0 });
+    const html = seite(gesendet, { ...computeUstva({ kz81: 0, kz86: 0, kz66: 0 }), nachZahlungseingang: { kz43: 20_000, kz48: 50_000 } });
     expect(html).toContain("Seit der Übermittlung haben sich die Buchungen dieses Monats geändert");
   });
 });

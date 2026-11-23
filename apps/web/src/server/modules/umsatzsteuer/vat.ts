@@ -1,5 +1,13 @@
 import { UserError } from "../../errors.ts";
-import { computeUstva, toElsterSteuernummer, toWholeEuros, type Cents, type VatPeriod, vatReturnCorrectionProblem, vatReturnSendProblem } from "@haben/core";
+import {
+  computeUstva,
+  fruehereZuordnungen,
+  toElsterSteuernummer,
+  type Cents,
+  type VatPeriod,
+  vatReturnCorrectionProblem,
+  vatReturnSendProblem,
+} from "@haben/core";
 import { buildUstvaXml, type ElsterClient, type ElsterResult } from "@haben/elster";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { companyIssues, loadCompany } from "../stammdaten/index.ts";
@@ -100,12 +108,15 @@ export async function computedValues(period: VatPeriod, q: Db | Tx = db) {
 }
 
 /**
- * Wie computedValues, dazu Kz 48 ohne die Umsätze als Kleinunternehmer, wie Haben sie vor #1268 gemeldet hat: Damit
- * erkennt der Abgleich gesendeter Voranmeldungen eine ältere Anmeldung als unverändert.
+ * Wie computedValues, dazu dieselben Werte mit Kz 43 und 48 nach früheren Zuordnungen (vor #1268 und #1312,
+ * fruehereZuordnungen): Damit erkennt der Abgleich gesendeter Voranmeldungen eine ältere Anmeldung als unverändert.
  */
 export async function berechnet(period: VatPeriod, q: Db | Tx = db) {
   const [figures, kz39] = await Promise.all([computeVatFigures(period, q), kz39For(period, q)]);
-  return { werte: stored(computeUstva({ ...figures, kz39 })), kz48OhneKleinunternehmer: toWholeEuros(figures.kz48 - figures.kz48Kleinunternehmer) };
+  return {
+    werte: stored(computeUstva({ ...figures, kz39 })),
+    frueher: fruehereZuordnungen(figures).map((z) => stored(computeUstva({ ...figures, ...z, kz39 }))),
+  };
 }
 
 /** Legt den Entwurf des Zeitraums an oder aktualisiert ihn. */

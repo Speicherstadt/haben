@@ -1,8 +1,10 @@
 import {
+  bemessungAnZahlungen,
   JOURNAL_KENNZAHLEN,
   kennzahlenAusJournal,
   leereJournalKennzahlen,
   periodRange,
+  type Cents,
   type JournalKennzahlen,
   type JournalZeile,
   type Kontenrahmen,
@@ -21,8 +23,14 @@ import { zahlungenWieHeute } from "./zahlung-alte-version.ts";
  * wie bei DATEV aus Konto und Steuerschlüssel der Buchungen im Zeitraum (kennzahlenAusJournal). Ohne
  * Eröffnungen (vorgetragen, im Vorjahr angemeldet) und ohne die Buchungen des Anlagenverzeichnisses: Die Privatnutzung von
  * Fahrzeugen rechnet die Voranmeldung je Monat aus dem Anlagenverzeichnis, das Journal bucht sie erst mit der AfA.
+ * Dazu der Teil von Kz 43 und 48, den Zahlungen tragen (bemessungAnZahlungen): Bei Ist meldet die Voranmeldung diese
+ * Umsätze im Zeitraum der Leistung (#1312, umsaetze-nach-leistung.ts).
  */
-export async function kennzahlenAusDemJournal(period: VatPeriod, versteuerung: Versteuerung, q: Db | Tx): Promise<JournalKennzahlen> {
+export async function kennzahlenAusDemJournal(
+  period: VatPeriod,
+  versteuerung: Versteuerung,
+  q: Db | Tx,
+): Promise<{ kennzahlen: JournalKennzahlen; anZahlungen: { kz43: Cents; kz48: Cents } }> {
   const { start, end } = periodRange(period);
   const e = schema.journalEntries;
   const l = schema.journalLines;
@@ -91,6 +99,7 @@ export async function kennzahlenAusDemJournal(period: VatPeriod, versteuerung: V
   // Bemessungsgrundlage wie heute
   const gelesen = await belegeWieHeute(await zahlungenWieHeute([...buchungen.values()], q), q);
   const summe = leereJournalKennzahlen();
+  const anZahlungen = { kz43: 0, kz48: 0 };
   // Ein Jahr hat einen Kontenrahmen; je Kontenrahmen gerechnet, falls ein Zeitraum doch beide sieht
   for (const kr of ["SKR03", "SKR04"] as const)
     for (const mode of ["ist", "soll"] as const) {
@@ -98,6 +107,9 @@ export async function kennzahlenAusDemJournal(period: VatPeriod, versteuerung: V
       if (eigene.length === 0) continue;
       const k = kennzahlenAusJournal(kr, mode, eigene);
       for (const feld of JOURNAL_KENNZAHLEN) summe[feld] += k[feld];
+      const z = bemessungAnZahlungen(kr, eigene);
+      anZahlungen.kz43 += z.kz43;
+      anZahlungen.kz48 += z.kz48;
     }
-  return summe;
+  return { kennzahlen: summe, anZahlungen };
 }
