@@ -3,20 +3,21 @@ import { expect, type Locator, type Page } from "@playwright/test";
 /*
  * Formulare, die sich nach einer Aktion mit dem gespeicherten Stand neu aufbauen, sperren ihre Felder, bis das Neuladen
  * fertig ist (DESIGN.md, Gesperrte Knöpfe; #1148, #1793). Geprüft für wiederkehrende Rechnung, Anlage und Dauerbeleg.
+ * Der `key` dieser Formulare und des Rechnungseditors ist `updatedAt` in Millisekunden; so bauen sie sich auch nach zwei
+ * Speichervorgängen in derselben Sekunde neu auf (#1804).
  */
 
 const serverFunktion = (url: URL) => url.pathname.startsWith("/_serverFn/");
 
 /**
  * Eingabe gleich nach der Aktion: Das Feld ist gesperrt, und was man danach tippt, steht im neu aufgebauten Formular.
- * Alle Server-Funktionen sind verzögert: das Neuladen, damit die Lücke sicher entsteht, und die Aktion selbst, damit sie
- * in eine andere Sekunde fällt als die Änderung davor. Der `key` der Formulare ist `updatedAt` als Text ohne
- * Millisekunden; in derselben Sekunde baute die Seite nichts neu auf. `neuGeladen` erscheint erst mit den neu geladenen
- * Daten, etwa der neue Titel der Seite; erst danach ist sicher, dass der Neuaufbau vorbei ist.
+ * Alle Server-Funktionen sind verzögert, damit die Sperre zu sehen ist und das Neuladen sicher erst nach der Eingabe
+ * fertig wird. `neuGeladen` erscheint erst mit den neu geladenen Daten, etwa der neue Titel der Seite; erst danach ist
+ * sicher, dass der Neuaufbau vorbei ist.
  */
 export async function eingabeNachAktion(page: Page, { aktion, feld, text, neuGeladen }: { aktion: Locator; feld: Locator; text: string; neuGeladen: Locator }) {
   await page.route(serverFunktion, async (route) => {
-    await new Promise((fertig) => setTimeout(fertig, 1500));
+    await new Promise((fertig) => setTimeout(fertig, 500));
     await route.fallback();
   });
   await aktion.click();
