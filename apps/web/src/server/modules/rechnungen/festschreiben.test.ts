@@ -60,7 +60,7 @@ describe.skipIf(!testDatabaseUrl)("Festschreiben: PDF und XML vor der Sperre der
   beforeEach(async () => {
     rendering.hook = null;
     await leeren(sql)`truncate quote_lines, quotes, quote_number_counters, journal_lines, journal_entries, invoice_lines, invoices,
-      invoice_number_counters, contact_versions, contacts, company cascade`;
+      invoice_number_counters, contact_versions, contacts, company, beleg_layouts, letterhead_profiles cascade`;
     await sql`insert into company (id, name, strasse, plz, ort, email, steuernummer, ust_id, bundesland, iban, bic, bank)
       values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '198/113/10010', 'DE123456789', 'BY',
               'DE89370400440532013000', 'COBADEFFXXX', 'Commerzbank')`;
@@ -226,6 +226,22 @@ describe.skipIf(!testDatabaseUrl)("Festschreiben: PDF und XML vor der Sperre der
     expect(counter).toBeUndefined();
     expect((await invoices.finalizeInvoice(actor, first.id, kleinunternehmerStand)).number).toBe(`${year}-001`);
   }, 30_000);
+
+  it("ein eigenes Layout setzt in der Transaktion; scheitert es, bleibt der Entwurf und keine Nummer ist verbraucht (#609)", async () => {
+    const { startvorlage } = await import("@haben/einvoice");
+    const layouts = await import("../stammdaten/layouts.ts");
+    const created = await layouts.createLayout(actor, { name: "Bricht", art: "beleg", source: startvorlage("beleg") });
+    if (!("id" in created)) throw new Error("Rückfrage statt Anlegen");
+    await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id: created.id });
+    // Wie ein Layout, das nach einem Update von Typst nicht mehr setzt
+    await sql`update beleg_layouts set source = '#nichtda' where id = ${created.id}`;
+    const entwurf = await invoices.createDraft(actor, draft());
+    await expect(invoices.finalizeInvoice(actor, entwurf.id, kleinunternehmerStand)).rejects.toThrow(/Layout „Bricht“ ließ sich nicht setzen/);
+    expect(await sql`select status, number, pdf from invoices where id = ${entwurf.id}`).toEqual([{ status: "draft", number: null, pdf: null }]);
+    expect(await sql`select last from invoice_number_counters where year = ${year}`).toEqual([]);
+    await sql`update beleg_layouts set source = ${startvorlage("beleg")} where id = ${created.id}`;
+    expect((await invoices.finalizeInvoice(actor, entwurf.id, kleinunternehmerStand)).number).toBe(`${year}-001`);
+  }, 60_000);
 
   it("die nächste Nummer festzulegen wartet auf ein laufendes Festschreiben und sieht danach dessen Nummer", async () => {
     const created = await invoices.createDraft(actor, draft());

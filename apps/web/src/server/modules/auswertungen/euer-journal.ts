@@ -1,19 +1,5 @@
 import { kleinunternehmerForMonth } from "../stammdaten/index.ts";
-import {
-  ACCOUNTS,
-  euerAusZeilen,
-  isExternalSettlementPayment,
-  invoicePosting,
-  kleinunternehmerKonten,
-  leereEuerAusJournal,
-  recordedTaxShares,
-  totalsFromTaxes,
-  zahlungsAnteil,
-  type EuerAusJournal,
-  type EuerHerkunft,
-  type InvoiceTotals,
-  type Kontenrahmen,
-} from "@haben/core";
+import { leereEuerAusJournal, type EuerAusJournal, type InvoiceTotals, type Kontenrahmen } from "@haben/core";
 import { and, asc, eq, gte, inArray, lt, lte, ne } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import { invoiceTotalsById } from "../rechnungen/index.ts";
@@ -21,19 +7,16 @@ import { imEuerJahr } from "./euer-jahreswechsel.ts";
 import {
   ausgleichsBuchungenJe,
   bloecke,
-  type Buchung,
   buchungen,
   type EuerBeitraege,
   buchungenJe,
   melden,
   meldenVerrechnung,
-  offenerPosten,
   verrechnungenJeRechnung,
-  type Zeile,
 } from "./euer-journal-buchungen.ts";
-import { belegNebenbuecher, belegTeilzahlung, uebernommeneZeilen, type BelegNebenbuch } from "./euer-journal-nebenbuch.ts";
-import { offenerSaldo as offen, rechnungsAnteile } from "./euer-journal-anteile.ts";
+import { belegNebenbuecher } from "./euer-journal-nebenbuch.ts";
 import { importAnteile } from "./euer-import.ts";
+import { dazu, type EuerLauf, type Verrechnung, wirkung, wirkungVerrechnung, type Ziel } from "./euer-journal-wirkung.ts";
 
 /*
  * EÜR aus dem Journal (#542, Schritt 5b), als Schattenrechnung neben euerForYear. Eine Buchung ohne Forderungen und
@@ -42,33 +25,6 @@ import { importAnteile } from "./euer-import.ts";
  * Zeilen der Buchung verteilt, die sie ausgleicht (zahlungsAnteil). Welche das ist, sagt die Zuordnung im Nebenbuch.
  * Skonto und Forderungsausfall wirken nicht, die EÜR zählt nur, was gezahlt wird.
  */
-
-const ausbuchungOhneZahlung = (b: Buchung) => {
-  const a = ACCOUNTS[b.kontenrahmen];
-  return b.zeilen.some((z) => z.account === a.skontiGewaehrt || z.account === a.skontiErhalten || z.account === a.forderungsverluste);
-};
-
-interface Ziel {
-  invoiceId: string | null;
-  documentId: string | null;
-  loanId?: string | null;
-  zahlung?: Pick<typeof schema.allocations.$inferSelect, "amount" | "taxShares" | "taxSharesInvoiceId">;
-}
-
-/**
- * Herkunft einer Buchung in der EÜR: Pauschale, Anlage (auch ein Beleg der Kategorie Anlage ohne offenen Posten, etwa privat
- * bezahlt; sein GWG-Konto ist Anlagevermögen, #1397), Zahlung auf ein Darlehen für Anlagevermögen oder sonst
- */
-const herkunftVon = (b: Buchung, ziel: Ziel | undefined, anlageDarlehen: ReadonlySet<string>, anlagen: ReadonlySet<string>): EuerHerkunft =>
-  b.sourceType === "pauschale"
-    ? "pauschale"
-    : b.sourceType === "asset"
-      ? "asset"
-      : b.sourceType === "document" && anlagen.has(b.sourceId)
-        ? "anlage"
-        : ziel?.loanId && anlageDarlehen.has(ziel.loanId)
-          ? "darlehenAnlagevermoegen"
-          : "sonst";
 
 /** Rechnung bzw. Beleg, den eine Zahlung, Ausbuchung oder Bareinnahme ausgleicht, je Herkunft der Buchung */
 async function ziele(q: Db | Tx, ids: string[]): Promise<Map<string, Ziel>> {
@@ -96,19 +52,6 @@ async function ziele(q: Db | Tx, ids: string[]): Promise<Map<string, Ziel>> {
       result.set(id, { invoiceId, documentId, zahlung });
   }
   return result;
-}
-
-/**
- * Verrechnung zweier Belege (#274): Gutschrift und Rechnung gleichen sich gegenseitig, ohne dass Geld fließt. In der EÜR
- * wirkt sie wie eine Zahlung auf jeden der beiden Belege, am Tag der Aufrechnung; gebucht wird sie nicht (Verbindlichkeiten
- * an Verbindlichkeiten), deshalb steht sie nur in `document_settlements`.
- */
-interface Verrechnung {
-  id: string;
-  dokumentId: string;
-  date: string;
-  /** Betrag wie gespeichert: negativ beim Beleg, positiv bei der Gutschrift; ausgeglichen ist `-betrag` */
-  betrag: number;
 }
 
 /** Verrechnungen des Jahres, älteste zuerst: je Zeile gleicht eine den Beleg aus, eine Gegenzeile hebt sie auf */
@@ -139,41 +82,6 @@ export interface EuerJournal {
   ungeklaerteImporte: number;
   /** Wirkung je Monat (Index 0 = Januar), für die Grafik nach Monaten */
   monate: EuerAusJournal[];
-}
-
-interface Ursprung {
-  uebernommen: boolean;
-  /** Kontenrahmen der ausgeglichenen Buchung; er kann zum Jahreswechsel gewechselt haben */
-  kontenrahmen: Kontenrahmen;
-  zeilen: Zeile[];
-  gesamt: number;
-  herkunft: EuerHerkunft;
-  /** Rechnung: Anteil jeder ausgleichenden Buchung an den Zeilen, wie gespeichert (settlementTaxShares) */
-  anteile?: Map<string, number[]>;
-  beleg?: BelegNebenbuch;
-}
-
-const alsZeilen = (zeilen: Zeile[], anteil: number[]): Zeile[] =>
-  zeilen.map((z, i) => ({ ...z, debit: Math.max(anteil[i]!, 0), credit: Math.max(-anteil[i]!, 0) }));
-
-/** Summiert die Wirkung `von` in `nach`, bei einer aufgehobenen Zuordnung mit umgekehrtem Vorzeichen */
-function dazu(nach: EuerAusJournal, von: EuerAusJournal, vorzeichen: 1 | -1 = 1) {
-  for (const [key, betrag] of Object.entries(von.zeilen) as [keyof EuerAusJournal["zeilen"], number][])
-    nach.zeilen[key] = (nach.zeilen[key] ?? 0) + vorzeichen * betrag;
-  nach.bewirtungNichtAbziehbar += vorzeichen * von.bewirtungNichtAbziehbar;
-  nach.gewerbesteuerNichtAbziehbar += vorzeichen * von.gewerbesteuerNichtAbziehbar;
-}
-
-/**
- * Das Zwischenkonto der noch nicht abziehbaren Vorsteuer (SKR03 1548, SKR04 1434; #693, #786) zählt wie die Vorsteuer: In
- * der EÜR ist gezahlte Vorsteuer Betriebsausgabe im Jahr der Zahlung (§ 11 Abs. 2 EStG), gleich, ob sie bis zur Ausführung
- * geparkt ist. Die Umbuchung vom Zwischenkonto auf die Vorsteuer (Freigabe, Zahlung vor der Ausführung) hebt sich so auf;
- * eine Zahlung zieht ihren Anteil an der geparkten Steuer, gerundet wie die Steuer der Nebenbücher (zahlungsStand).
- * Liefert die Zeilen ohne Forderungen und Verbindlichkeiten (offenerPosten).
- */
-function zwischenkontoAlsVorsteuer(kr: Kontenrahmen, zeilen: readonly Zeile[]): Zeile[] {
-  const a = ACCOUNTS[kr];
-  return zeilen.filter((z) => !offenerPosten(kr, z)).map((z) => (z.account === a.vorsteuerNochNichtAbziehbar ? { ...z, account: a.vorsteuer[1900] } : z));
 }
 
 /** Buchungen des Jahres bzw. bis `umsatzBis`, ohne Eröffnungen und, wenn verlangt, ohne manuelle Buchungen */
@@ -249,152 +157,39 @@ export async function euerAusJournal(year: number, q: Db | Tx = db, umsatzBis?: 
       .from(schema.documents)
       .where(and(inArray(schema.documents.id, block), eq(schema.documents.category, "anlage"))))
       anlagen.add(r.id);
-
-  const summe = leereEuerAusJournal();
-  const kleinunternehmerUmsatz = { netto: 0, steuerfrei: false };
-  let uebernommen = 0;
-  let ungeklaerteImporte = 0;
-  const ursprung = new Map<string, Ursprung>();
-  const ursprungVon = async (typ: "invoice" | "document", id: string, kr: Kontenrahmen): Promise<Ursprung> => {
-    const key = `${typ}|${id}`;
-    const vorhanden = ursprung.get(key);
-    if (vorhanden) return vorhanden;
-    const gebucht = gebuchtVon[typ].get(id) ?? [];
-    const kontenrahmen = gebucht[0]?.kontenrahmen ?? kr;
-    const alle = gebucht.flatMap((b) => b.zeilen);
-    const istUebernommen = gebucht.length === 0 || alle.some((z) => z.account === ACCOUNTS[kontenrahmen].saldenvortrag);
-    // Aus Lexoffice übernommen: verteilt wird auf die Zeilen, die Haben gebucht hätte
-    const ersatz = istUebernommen ? await uebernommeneZeilen(q, typ, id, kontenrahmen) : null;
-    const zeilen = ersatz?.zeilen ?? zwischenkontoAlsVorsteuer(kontenrahmen, alle);
-    const gesamt = ersatz ? ersatz.gesamt : alle.filter((z) => offenerPosten(kontenrahmen, z)).reduce((s, z) => s + z.debit - z.credit, 0);
-    const herkunft: EuerHerkunft = typ === "document" && anlagen.has(id) ? "anlage" : "sonst";
-    const u: Ursprung = {
-      uebernommen: istUebernommen,
-      kontenrahmen,
-      zeilen,
-      gesamt,
-      herkunft,
-      ...(typ === "invoice" && gesamt !== 0
-        ? { anteile: rechnungsAnteile(kontenrahmen, zeilen, gesamt, ausgleicheVon.get(id) ?? [], verrechnungenVon.get(id) ?? []) }
-        : {}),
-      ...(typ === "document" ? { beleg: nebenbuchVon.get(id) } : {}),
-    };
-    ursprung.set(key, u);
-    return u;
+  const lauf: EuerLauf = {
+    year,
+    q,
+    umsatzBis,
+    kuMonate,
+    importiert,
+    zielVon,
+    anlageDarlehen,
+    bilanzRechnungen,
+    bilanzSummen,
+    gebuchtVon,
+    ausgleicheVon,
+    verrechnungenVon,
+    nebenbuchVon,
+    anlagen,
+    kleinunternehmerUmsatz: { netto: 0, steuerfrei: false },
+    zaehler: { uebernommen: 0, ungeklaerteImporte: 0 },
+    ursprung: new Map(),
   };
-
+  const summe = leereEuerAusJournal();
   const monate = Array.from({ length: 12 }, () => leereEuerAusJournal());
   for (const b of jahr) {
-    const beitrag = melden(beitraege, b, zielVon.get(b.sourceId), await wirkung(b));
+    const beitrag = melden(beitraege, b, zielVon.get(b.sourceId), await wirkung(lauf, b));
     dazu(summe, beitrag);
     dazu(monate[Number(b.date.slice(5, 7)) - 1]!, beitrag);
   }
   // Verrechnungen (#274) wie eine Zahlung im Monat der Aufrechnung; der Rahmen dient nur einem Beleg ganz ohne Buchung
   const belegKontenrahmen = verrechnet.length > 0 ? await firmenKontenrahmen(q) : "SKR03";
   for (const v of verrechnet) {
-    const beitrag = meldenVerrechnung(beitraege, v, belegKontenrahmen, await wirkungVerrechnung(v));
+    const beitrag = meldenVerrechnung(beitraege, v, belegKontenrahmen, await wirkungVerrechnung(lauf, v, belegKontenrahmen));
     dazu(summe, beitrag);
     dazu(monate[Number(v.date.slice(5, 7)) - 1]!, beitrag);
   }
-  return { summe, kleinunternehmerUmsatz, uebernommen, ungeklaerteImporte, monate };
-
-  function erfasseUmsatz(kr: Kontenrahmen, zeilen: readonly Zeile[], herkunft: EuerHerkunft) {
-    if (!umsatzBis || herkunft === "anlage" || herkunft === "asset") return;
-    const beitrag = kleinunternehmerKonten(kr, zeilen);
-    kleinunternehmerUmsatz.netto += beitrag.netto;
-    kleinunternehmerUmsatz.steuerfrei ||= beitrag.steuerfrei;
-  }
-
-  function erfasse(kr: Kontenrahmen, zeilen: Zeile[], herkunft: EuerHerkunft, summe: EuerAusJournal, kleinunternehmer?: boolean) {
-    erfasseUmsatz(kr, zeilen, herkunft);
-    euerAusZeilen(kr, zeilen, herkunft, summe, kleinunternehmer);
-  }
-
-  /** Was eine Verrechnung zweier Belege bewirkt: wie eine Zahlung von `-betrag` auf den Beleg, ohne eigene Buchung */
-  async function wirkungVerrechnung(v: Verrechnung): Promise<EuerAusJournal> {
-    const summe = leereEuerAusJournal();
-    const u = await ursprungVon("document", v.dokumentId, belegKontenrahmen);
-    if (u.uebernommen) uebernommen++;
-    if (u.gesamt === 0) return summe;
-    // betrag trägt das Vorzeichen des offenen Postens wie eine Buchung, ausgeglichen ist das Umgekehrte
-    if (u.beleg && (u.beleg.effects?.has(v.id) || v.betrag !== u.gesamt)) belegTeilzahlung(year, u.beleg, -v.betrag, summe, v.id);
-    else erfasse(u.kontenrahmen, zahlungsAnteil(u.kontenrahmen, u.zeilen, u.gesamt, v.betrag), u.herkunft, summe, kuMonate[Number(v.date.slice(5, 7)) - 1]);
-    return summe;
-  }
-
-  /** Was eine Buchung in der EÜR bewirkt */
-  async function wirkung(b: Buchung): Promise<EuerAusJournal> {
-    const summe = leereEuerAusJournal();
-    // Freigabe zum Leistungsdatum (#693): nur eine Umbuchung vom Zwischenkonto auf die Vorsteuer, kein Abfluss
-    if (b.sourceType === "freigabe") return summe;
-    const kr = b.kontenrahmen;
-    const kleinunternehmer = kuMonate[Number(b.date.slice(5, 7)) - 1];
-    const ziel = zielVon.get(b.sourceId);
-    const herkunft = herkunftVon(b, ziel, anlageDarlehen, anlagen);
-    const ausgeglichen = offen(b);
-    const hatOffenenPosten = b.zeilen.some((z) => offenerPosten(kr, z));
-    const importAnteil = importiert.get(b.id);
-    if (b.sourceType === "import" && !importAnteil && isExternalSettlementPayment(kr, b.zeilen)) ungeklaerteImporte++;
-    // Rechnung bzw. Beleg auf Ziel: wirkt erst mit der Zahlung
-    if (
-      hatOffenenPosten &&
-      (b.sourceType === "invoice" || b.sourceType === "document" || b.sourceType === "asset" || (b.sourceType === "import" && !importAnteil))
-    )
-      return summe;
-    if (ausbuchungOhneZahlung(b)) return summe;
-    // Eigene Zeilen der Buchung (Kursdifferenz, Umbuchung der Umsatzsteuer, die sich aufhebt) nach ihren Konten
-    const eigene = zwischenkontoAlsVorsteuer(kr, b.zeilen);
-    if (b.sourceType !== "invoice" || !bilanzRechnungen.has(b.sourceId)) erfasseUmsatz(kr, eigene, herkunft);
-    const umkehr = b.sourceType === "allocation" && b.reversesId !== null;
-    // Rücknahme in derselben EÜR-Zeile: Eine aufgehobene Zahlung ist keine echte Finanzamtserstattung und umgekehrt.
-    // Amtliche Anleitung EÜR 2025, Zeilen 18 und 58: https://www.elster.de/eportal/helpGlobal?themaGlobal=help_euer_ufa_77_2025
-    dazu(
-      summe,
-      euerAusZeilen(
-        kr,
-        umkehr
-          ? alsZeilen(
-              eigene,
-              eigene.map((z) => z.credit - z.debit),
-            )
-          : eigene,
-        herkunft,
-        undefined,
-        kleinunternehmer,
-      ),
-      umkehr ? -1 : 1,
-    );
-    if (importAnteil) {
-      erfasse(importAnteil.kontenrahmen, alsZeilen(importAnteil.zeilen, importAnteil.anteil), "sonst", summe, kleinunternehmer);
-      return summe;
-    }
-    if (!hatOffenenPosten || ausgeglichen === 0) return summe;
-    const typ = ziel?.invoiceId ? "invoice" : ziel?.documentId ? "document" : null;
-    const zielId = ziel?.invoiceId ?? ziel?.documentId;
-    if (!typ || !zielId) return summe;
-    const bilanzSteuer = typ === "invoice" ? bilanzRechnungen.get(zielId) : undefined;
-    const bilanzSumme = bilanzSummen.get(zielId);
-    if (bilanzSteuer && bilanzSumme && ziel?.zahlung) {
-      // UStAE 19.2 Abs. 1 Satz 2: Anzahlungen zählen am Zahlungstag. Die Bilanzumbuchungen bei Leistung sind kein Zufluss.
-      // https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Umsatzsteuer/Umsatzsteuer-Anwendungserlass/2025-03-18-sonderregelung-kleinunternehmer.pdf?__blob=publicationFile&v=3
-      const { amount, taxShares, taxSharesInvoiceId } = ziel.zahlung;
-      const anteile = recordedTaxShares(bilanzSumme, amount, taxSharesInvoiceId === zielId ? taxShares : null);
-      erfasseUmsatz(kr, invoicePosting(totalsFromTaxes(anteile), kr, "ist", bilanzSteuer), herkunft);
-    }
-    const u = await ursprungVon(typ, zielId, kr);
-    if (u.uebernommen) uebernommen++;
-    // Storniert: nichts mehr offen, Zahlung und Gegenbuchung heben sich auf
-    if (u.gesamt === 0) return summe;
-    const anteil = u.anteile?.get(b.id);
-    // Teilzahlung auf einen Beleg mit Privatanteil oder ohne Vorsteuerabzug: gerundet wie computeEuer
-    if (!anteil && u.beleg && (u.beleg.effects?.has(b.sourceId) || -ausgeglichen !== u.gesamt)) {
-      belegTeilzahlung(year, u.beleg, ausgeglichen, summe, b.sourceId);
-      return summe;
-    }
-    // Beleg: jede Zahlung für sich (paidTaxShares)
-    const zeilen = anteil ? alsZeilen(u.zeilen, anteil) : zahlungsAnteil(u.kontenrahmen, u.zeilen, u.gesamt, -ausgeglichen);
-    if (!bilanzSteuer) erfasseUmsatz(u.kontenrahmen, zeilen, u.herkunft);
-    euerAusZeilen(u.kontenrahmen, zeilen, u.herkunft, summe, kleinunternehmer);
-    return summe;
-  }
+  const { kleinunternehmerUmsatz, zaehler } = lauf;
+  return { summe, kleinunternehmerUmsatz, uebernommen: zaehler.uebernommen, ungeklaerteImporte: zaehler.ungeklaerteImporte, monate };
 }

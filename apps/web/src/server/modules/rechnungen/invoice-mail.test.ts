@@ -398,7 +398,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres
       taxTreatment: "regulaer" as const,
       exemptionReason: "",
       lines: [{ description: "Wartung", quantity: 1000, unit: "Psch." as const, unitPrice: 10_000, taxRate: 1900 as const }],
-      intervalMonths: 1 as const,
+      recurrence: "P1M" as const,
       nextDate: "2026-10-01",
       endDate: null,
       servicePeriod: "laufend" as const,

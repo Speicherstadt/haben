@@ -1,0 +1,241 @@
+import { germanDay } from "@haben/core";
+import { createElement, type ComponentType, type ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { formatDate, formatDateTime, formatLongDate } from "../../lib/format.ts";
+
+// Die Aufgaben der Übersicht im Einzelnen: Text, Ziel samt Bereich der Einstellungen und Reihenfolge der Seite
+const state = vi.hoisted(() => ({ data: {} as Record<string, unknown> }));
+vi.mock("../../server/functions/backup.ts", () => ({}));
+vi.mock("../../server/functions/invoices.ts", () => ({}));
+vi.mock("../../server/functions/vat.ts", () => ({}));
+vi.mock("@tanstack/react-router", () => ({
+  createFileRoute: () => (options: unknown) => ({
+    options,
+    useLoaderData: () => state.data,
+    useRouteContext: () => ({ einrichtung: null }),
+  }),
+  // Der Bereich der Einstellungen hängt am Ziel, damit ein Test ihn sieht
+  Link: ({ children, to, search, className }: { children: ReactNode; to: string; search?: { bereich?: string }; className?: string }) =>
+    createElement("a", { href: search?.bereich ? `${to}?bereich=${search.bereich}` : to, className }, children),
+}));
+import { Route } from "./index.tsx";
+
+const inTagen = (n: number) => {
+  const tag = new Date(`${germanDay()}T12:00:00Z`);
+  tag.setUTCDate(tag.getUTCDate() + n);
+  return tag.toISOString().slice(0, 10);
+};
+
+const konto = (felder: Record<string, unknown>) => ({
+  id: "k",
+  name: "Konto",
+  purpose: "geschaeft",
+  balance: null,
+  balanceDate: null,
+  openCount: 0,
+  staleOpenCount: 0,
+  ...felder,
+});
+
+function fixture() {
+  return {
+    period: { year: 2026, month: 10 },
+    previousMonth: { year: 2026, month: 10 },
+    computedKz83: 0,
+    transit: 0,
+    vatPaid: 0,
+    vatOpen: [] as unknown[],
+    dueDate: inTagen(30),
+    exempt: false,
+    kleinunternehmer: false,
+    afaPending: [] as unknown[],
+    appeals: [] as unknown[],
+    current: null,
+    recent: [],
+    certificate: { filename: "elster.pfx", validUntil: inTagen(365) } as { filename: string; validUntil: string | null } | null,
+    companyIssues: [] as string[],
+    companyName: "Musterfirma",
+    mode: "echt",
+    ustIdUngueltig: [] as unknown[],
+    invoices: {
+      openTotal: 0,
+      openCount: 0,
+      overdueCount: 0,
+      drafts: 0,
+      recent: [],
+      bank: [] as unknown[],
+      payables: { total: 0, count: 0, overdueCount: 0, nextDue: null },
+      revenuePreviousMonth: 0,
+    },
+    backup: { failed: [] as unknown[], overdue: false, state: "ok", lastBackup: null as { at: string } | null },
+  };
+}
+
+let data = fixture();
+const render = () => renderToStaticMarkup(createElement(Route.options.component as ComponentType));
+const titel = (html: string) => [...html.matchAll(/<span class="todo-title">([^<]*)<\/span>/g)].map((m) => m[1]);
+/** Ziel und Text einer Aufgabe, gefunden über ihren Titel */
+const aufgabe = (html: string, title: string) => {
+  const m = html.match(
+    new RegExp(`<a href="([^"]*)" class="todo">(?:(?!</a>).)*?<span class="todo-title">${title}</span><span class="small muted">([^<]*)</span>`),
+  );
+  return m ? { href: m[1], detail: m[2] } : null;
+};
+
+beforeEach(() => {
+  data = fixture();
+  state.data = data;
+});
+
+describe("Übersicht: Reihenfolge der Aufgaben", () => {
+  // Bei gleicher Dringlichkeit bleibt die Reihenfolge der Seite (ordneAufgaben); sie hält dieser Test fest
+  it("alle Arten zugleich: nahe Frist, dann Warnungen, Hinweise und Anstehendes je in der Reihenfolge der Seite", () => {
+    data.vatOpen = [{ vatReturnId: "v9", year: 2026, month: 9, offen: 1900, faellig: inTagen(-5), berichtigt: false }];
+    data.computedKz83 = 100000;
+    data.ustIdUngueltig = [{ contactId: "c1", kontakt: "Donaublick GmbH", nummer: "ATU12345678", meldung: "Nicht gültig" }];
+    data.invoices.bank = [
+      konto({ id: "s1", name: "Rücklage", purpose: "steuer", balance: 20000 }),
+      konto({ id: "p1", name: "Stripe", purpose: "zahlungsdienst", openCount: 1, staleOpenCount: 1 }),
+      konto({ id: "g1", name: "Girokonto", balance: 100, openCount: 2 }),
+    ];
+    data.transit = 50000;
+    data.invoices.overdueCount = 2;
+    data.appeals = [{ id: "b1", veranlagungszeitraum: 2025, datenart: "DivaBescheidESt", fristende: inTagen(30) }];
+    data.afaPending = [{ year: 2025, count: 1 }];
+    data.invoices.drafts = 1;
+    data.companyIssues = ["Steuernummer fehlt"];
+    data.certificate = null;
+    data.backup = {
+      failed: [
+        { kind: "backup", run: { at: "2026-11-20T03:00:00Z", message: "" } },
+        { kind: "check", run: { at: "2026-11-21T03:00:00Z", message: "" } },
+      ],
+      overdue: true,
+      state: "fehler",
+      lastBackup: null,
+    };
+    expect(titel(render())).toEqual([
+      "Umsatzsteuer September 2026 nicht bezahlt",
+      "USt-IdNr. von Donaublick GmbH laut BZSt nicht gültig",
+      "Steuerkonto Rücklage deckt die Zahllast nicht",
+      "Geldtransit nicht ausgeglichen",
+      "2 Rechnungen überfällig",
+      "Firmendaten vervollständigen",
+      "Backup fehlgeschlagen",
+      "Test-Restore fehlgeschlagen",
+      "Backup überfällig",
+      "Voranmeldung Oktober 2026 senden",
+      "Stripe: 1 Umsatz seit über zwei Wochen offen",
+      "3 Bankumsätze ohne Zuordnung",
+      "Bescheid 2025 prüfen",
+      "Abschreibung (AfA) 2025 buchen",
+      "1 Rechnungsentwurf",
+      "ELSTER-Zertifikat hinterlegen",
+    ]);
+  });
+
+  it("ohne Anlass: „Alles erledigt.“", () => {
+    data.exempt = true;
+    expect(titel(render())).toEqual([]);
+    expect(render()).toContain("Alles erledigt.");
+  });
+});
+
+describe("Übersicht: Aufgaben zur Bank", () => {
+  it("Steuerkonto, Zahlungsdienstleister und offene Umsätze nennen Konto, Zahl und Betrag", () => {
+    data.computedKz83 = 100000;
+    data.invoices.bank = [
+      konto({ id: "s1", name: "Rücklage", purpose: "steuer", balance: 20000 }),
+      konto({ id: "p1", name: "PayPal", purpose: "zahlungsdienst", openCount: 3, staleOpenCount: 2 }),
+    ];
+    const html = render();
+    expect(aufgabe(html, "Steuerkonto Rücklage deckt die Zahllast nicht")).toEqual({
+      href: "/bank",
+      detail: `Es fehlen 800,00\u00a0€ für Oktober 2026, fällig ${formatLongDate(data.dueDate)}`,
+    });
+    expect(aufgabe(html, "PayPal: 2 Umsätze seit über zwei Wochen offen")).toEqual({
+      href: "/bank",
+      detail: "Zahlungen, Gebühren oder Auszahlungen beim Zahlungsdienstleister noch nicht zugeordnet",
+    });
+    expect(aufgabe(html, "3 Bankumsätze ohne Zuordnung")).toEqual({ href: "/bank", detail: "PayPal" });
+  });
+
+  it("ein offener Umsatz in der Einzahl; ein gedecktes Steuerkonto meldet nichts", () => {
+    data.computedKz83 = 100000;
+    data.invoices.bank = [konto({ id: "s1", name: "Rücklage", purpose: "steuer", balance: 100000, openCount: 1 })];
+    const html = render();
+    expect(aufgabe(html, "1 Bankumsatz ohne Zuordnung")).toEqual({ href: "/bank", detail: "Rücklage" });
+    expect(html).not.toContain("deckt die Zahllast nicht");
+  });
+
+  it("beim Kleinunternehmer meldet das Steuerkonto keine fehlende Zahllast", () => {
+    data.kleinunternehmer = true;
+    data.computedKz83 = 100000;
+    data.invoices.bank = [konto({ id: "s1", name: "Rücklage", purpose: "steuer", balance: 0 })];
+    expect(render()).not.toContain("deckt die Zahllast nicht");
+  });
+});
+
+describe("Übersicht: Aufgaben zu den Einstellungen", () => {
+  it("Firmendaten, Zertifikat und Backup führen in ihren Bereich", () => {
+    data.companyIssues = ["Steuernummer fehlt", "Anschrift fehlt"];
+    data.certificate = null;
+    data.backup = {
+      failed: [{ kind: "backup", run: { at: "2026-11-20T03:00:00Z", message: "Repository nicht erreichbar" } }],
+      overdue: false,
+      state: "fehler",
+      lastBackup: null,
+    };
+    const html = render();
+    expect(aufgabe(html, "Firmendaten vervollständigen")).toEqual({ href: "/einstellungen?bereich=firma", detail: "Steuernummer fehlt · Anschrift fehlt" });
+    expect(aufgabe(html, "ELSTER-Zertifikat hinterlegen")).toEqual({
+      href: "/einstellungen?bereich=elster",
+      detail: "Die .pfx-Datei aus Mein ELSTER wird zum Senden gebraucht",
+    });
+    expect(aufgabe(html, "Backup fehlgeschlagen")).toEqual({
+      href: "/einstellungen?bereich=export",
+      detail: `${formatDateTime("2026-11-20T03:00:00Z")} · Repository nicht erreichbar`,
+    });
+  });
+
+  it.each([
+    [10, "ELSTER-Zertifikat läuft bald ab"],
+    [-1, "ELSTER-Zertifikat abgelaufen"],
+  ])("Zertifikat gültig bis in %i Tagen: %s", (tage, title) => {
+    data.certificate = { filename: "elster.pfx", validUntil: inTagen(tage) };
+    expect(aufgabe(render(), title)).toEqual({ href: "/einstellungen?bereich=elster", detail: `Gültig bis ${formatDate(inTagen(tage))}` });
+  });
+
+  it("Zertifikat mit mehr als 30 Tagen oder ohne Ablaufdatum meldet nichts", () => {
+    data.certificate = { filename: "elster.pfx", validUntil: inTagen(31) };
+    expect(render()).not.toContain("ELSTER-Zertifikat läuft");
+    data.certificate = { filename: "elster.pfx", validUntil: null };
+    expect(titel(render())).toEqual(["Voranmeldung Oktober 2026 senden"]);
+  });
+
+  it("Kleinunternehmer: kein Hinweis auf Firmendaten und Zertifikat", () => {
+    data.kleinunternehmer = true;
+    data.companyIssues = ["Steuernummer fehlt"];
+    data.certificate = null;
+    expect(titel(render())).toEqual([]);
+  });
+
+  it("Backup überfällig nennt das letzte erfolgreiche, sonst dass es keins gibt", () => {
+    data.backup = { failed: [], overdue: true, state: "veraltet", lastBackup: { at: "2026-11-01T03:00:00Z" } };
+    expect(aufgabe(render(), "Backup überfällig")).toEqual({
+      href: "/einstellungen?bereich=export",
+      detail: `Letztes erfolgreiches Backup ${formatDateTime("2026-11-01T03:00:00Z")}`,
+    });
+    data.backup = { failed: [{ kind: "check", run: { at: "2026-11-21T03:00:00Z", message: "" } }], overdue: true, state: "fehler", lastBackup: null };
+    const html = render();
+    expect(aufgabe(html, "Test-Restore fehlgeschlagen")?.detail).toBe(formatDateTime("2026-11-21T03:00:00Z"));
+    expect(aufgabe(html, "Backup überfällig")?.detail).toBe("Noch kein erfolgreiches Backup");
+    expect(html).not.toContain("Backup einrichten");
+  });
+
+  it("ohne Backup: „Backup einrichten“", () => {
+    data.backup = { failed: [], overdue: false, state: "keins", lastBackup: null };
+    expect(aufgabe(render(), "Backup einrichten")).toEqual({ href: "/einstellungen?bereich=export", detail: "Noch kein Backup eingetragen" });
+  });
+});

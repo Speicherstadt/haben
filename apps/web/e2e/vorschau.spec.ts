@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { type Browser, chromium, expect, type Page, test } from "@playwright/test";
 import { SESSION } from "./daten.ts";
 import { HANDY, kopfUnterkante, LAPTOP, sichtbar, ziehen, zumEnde } from "./kopfzeile.ts";
+import { abgearbeitet, bilder } from "./warten.ts";
 
 /**
  * Vorschau der Belegeditoren (#357): Split-Button „Vorschau“ im Seitenkopf, Überblendung als <dialog>, Anheften neben
@@ -214,7 +215,8 @@ test("Laptop: angeheftete Vorschau fährt auf Zuruf herein und hinaus, beim Lade
   await page.reload();
   await page.waitForLoadState("networkidle");
   await expect(seitenansicht(page)).toBeVisible();
-  await page.waitForTimeout(100);
+  // Eine Fahrt meldete ihren Start im Bild nach dem Setzen der Klasse
+  await bilder(page);
   expect(await fahrten(page)).toBe(0);
 
   // Hinaus: Der Fokus geht sofort zurück, erst nach der Fahrt bekommt das Formular wieder die volle Breite
@@ -353,7 +355,8 @@ test("Überblendung: Das Mausrad bewegt die Seite dahinter nicht", async ({ brow
   await lageNachDerFahrt(page);
   await page.mouse.move(4, 400);
   await page.mouse.wheel(0, 600);
-  await page.waitForTimeout(300);
+  // Ein Bildlauf begänne in den Bildern nach dem Rad (auch der weiche)
+  await bilder(page, 3);
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
   await page.context().close();
 });
@@ -367,8 +370,9 @@ test("Überblendung: Eine Textauswahl, die neben dem Blatt endet, schließt sie 
   await page.mouse.down();
   await page.mouse.move(4, 400, { steps: 5 });
   await page.mouse.up();
-  await page.waitForTimeout(700);
-  await expect(dialog(page)).toBeVisible();
+  // Der Klick schlösse den Dialog sofort (close()), auch wenn er danach noch hinausfährt
+  await abgearbeitet(page);
+  expect(await page.locator("dialog.preview-dialog").evaluate((el: HTMLDialogElement) => el.open)).toBe(true);
   await page.context().close();
 });
 
@@ -423,7 +427,9 @@ test("Überblendung: Ein Fokus, den man während der Fahrt hinaus setzt, bleibt"
   const feld = page.getByLabel("Beschreibung Position 1");
   await feld.focus();
   await expect(dialog(page)).toHaveCount(0);
-  await page.waitForTimeout(600);
+  // Nach der Fahrt ist der Dialog aus dem DOM; dann darf der Fokus nicht zurückspringen
+  await expect(page.locator("dialog.preview-dialog")).toHaveCount(0);
+  await abgearbeitet(page);
   await expect(feld).toBeFocused();
   await page.context().close();
 });

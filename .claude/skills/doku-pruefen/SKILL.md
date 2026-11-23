@@ -1,6 +1,6 @@
 ---
 name: "doku-pruefen"
-description: "Unabhängige Prüfung der Markdown-Dateien eines Pull Requests in Haben (Doku, Skills, CLAUDE.md, AGENTS.md, DESIGN.md): stimmt der Text mit Code und Quelle, ist er kurz und ohne Füllsätze, steht jede Regel einmal am richtigen Ort (Doku für Menschen, Skills für Agenten), ist nichts Erzeugtes von Hand geändert und keine Never-Regel aufgeweicht? Befunde mit Zitat und Beleg im PR, selbst beheben, bei grüner CI mergen. Statt tdd-review, wenn kein Code geändert ist; bei Code und Markdown parallel zu tdd-review, nur für die Markdown-Dateien."
+description: "Unabhängige Prüfung der Markdown-Dateien eines Pull Requests in Haben (Doku, Skills, CLAUDE.md, AGENTS.md, DESIGN.md). Statt tdd-review, wenn nur Markdown geändert ist; bei Code und Markdown parallel dazu."
 ---
 
 # Doku prüfen
@@ -56,7 +56,7 @@ Nicht streichen: Fakten, Zahlen, Konten, Paragraphen, Links, Befehle, Front Matt
 
 ## 6. Skills, CLAUDE.md und AGENTS.md
 
-- Den Diff gegen „Never“ in `CLAUDE.md` lesen. Erlaubt ein Satz, auch nebenbei, etwas, das dort verboten ist (auf `main` pushen, ohne Maintainer mergen, Tests überspringen, Sperren lockern, ungefragt auf GitHub schreiben), ist das ein Befund.
+- Den Diff gegen „Never“ in `CLAUDE.md` lesen. Erlaubt ein Satz, auch nebenbei, etwas, das dort verboten ist (auf `main` pushen außer zur Reparatur nach „Wer mergt was“, ohne Maintainer mergen, Tests überspringen, Sperren lockern, ungefragt auf GitHub schreiben), ist das ein Befund.
 - Neue oder geänderte `description:` mit allen anderen vergleichen (`grep -h '^description:' .claude/skills/*/SKILL.md`): Sagt sie, wann der Skill dran ist, ohne sich mit einem anderen zu überschneiden?
 - Ein neuer Skill steht in der Liste in `AGENTS.md` und, wenn er zu einem Thema gehört, in der Tabelle „Where to look“ in `CLAUDE.md`.
 
@@ -70,4 +70,4 @@ Nicht streichen: Fakten, Zahlen, Konten, Paragraphen, Links, Befehle, Front Matt
 
 ## Abschlussbericht
 
-PR-Link, Befunde und Commits, Stand der CI, gemergt oder woran es hängt.
+PR-Link, Befunde und Commits, Stand der CI, gemergt oder woran es hängt. Nach einem Merge in der Form aus `docs/mitwirken.md`, Review, Punkt 6.

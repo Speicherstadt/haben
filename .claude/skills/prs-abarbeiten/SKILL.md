@@ -1,6 +1,6 @@
 ---
 name: "prs-abarbeiten"
-description: "Die offenen Pull Requests an Haben als Maintainer der Reihe nach abarbeiten: immer zuerst alle, die nicht Draft sind, als Rangliste von „am einfachsten zu mergen“ bis „wartet auf den Autor“ an den Maintainer, dann gleich von oben nach unten je Pull Request beitrag-pruefen in einem frischen Agenten, Fixes auf den Branch, Befunde posten, bei grüner CI mergen und danach wieder von vorn. Bei Steuer, Buchung, ELSTER und GoBD erst nach OK des Maintainers. Wenn der Maintainer sagt „arbeite die Pull Requests ab“; auf eine Frage wie „was können wir mergen?“ nur die Rangliste."
+description: "Die offenen Pull Requests an Haben als Maintainer nacheinander abarbeiten, vom einfachsten Merge an. Wenn der Maintainer sagt „arbeite die Pull Requests ab“; auf „was können wir mergen?“ nur die Rangliste."
 ---
 
 # Pull Requests abarbeiten
@@ -18,17 +18,19 @@ Der Skill ordnet und verteilt nur. Die Prüfung eines Pull Requests macht `beitr
 - Heikel, also Steuer, Buchung, ELSTER, GoBD oder Migration auf bestehenden Daten?
 - Prüfungen des Autors (nur bei Pull Requests von jemandem ohne Schreibrecht): Selbstprüfung nach `beitrag-pruefen` und unabhängiges Review (`tdd-review` für Code, `doku-pruefen` für Markdown) als Kommentare, die seinen letzten Commit nennen oder per Nachtrag bis zu ihm reichen?
 
-Ist auf `main` ein Check rot, kommt das vor allem anderen: Sonst ist er in jedem Pull Request rot. Einen Fix legt der Maintainer an oder lässt ihn anlegen.
+Ist auf `main` ein Check rot, kommt das vor allem anderen: Sonst ist er in jedem Pull Request rot. Den Fix legt der Maintainer direkt auf `main` an oder lässt ihn auf seine Anweisung anlegen, in den Grenzen von „Wer mergt was“ in `docs/mitwirken.md`; ein fachlich heikler Fix geht als Pull Request.
 
 Pull Requests, die der Maintainer anderen überlassen hat (eigene Pull Requests eines Collaborators, Pull Requests, die ein Collaborator betreut), fasst der Skill nicht an. Steht dazu nichts im Verlauf, fragt er einmal, zusammen mit der Rangliste.
 
 ## 2. Rangliste
 
+`bun scripts/prs/rangliste.ts` (mit `gh`) schlägt die Plätze 2 bis 7 vor, aus CI, Konflikt, unseren Kommentaren, Selbstprüfung, heiklen Pfaden, Migrationen und Größe. Platz 1 setzt der Agent nach dem Lesen, ebenso ob ein roter Check auf `main` genauso rot ist; im Zweifel gilt die Liste hier.
+
 Von oben nach unten, wie einfach der Merge ist:
 
 1. **Fertig:** Prüfung durch, Befunde behoben, CI grün, Beschreibung stimmt. Nur noch Nachprüfung der letzten Commits und Merge.
 2. **Klein und neu:** wenige Dateien, keine Migration, nicht heikel, CI grün
-3. **Neu und heikel oder groß:** braucht eine volle Prüfung und das OK des Maintainers
+3. **Neu und heikel oder groß** (heikel nach `beitrag-pruefen`, Schritt 2; Hinweis „Fachlich heikel“ im Kommentar von „PR-Regeln“): braucht eine volle Prüfung und das OK des Maintainers
 4. **Autor hat nachgeliefert:** nur die neuen Commits gegen die offenen Befunde prüfen
 5. **Konflikt oder rote CI**, die der Pull Request selbst verursacht
 6. **Wartet auf den Autor:** Befunde stehen schon im Pull Request, seitdem nichts Neues. Nichts tun.
@@ -62,7 +64,7 @@ Jeder Pull Request bekommt einen Kommentar mit dem Ergebnis. Bei heiklen Pull Re
 
 ## 4. Merge
 
-Nach `beitrag-pruefen`, Schritt 7: nur bei grüner CI auf dem Head, heikel erst nach OK des Maintainers. Ist ein Check auch auf `main` rot, wartet der Pull Request auf den Fix von `main` (Schritt 1). Dazu:
+Nach `beitrag-pruefen`, Schritt 7: nur bei grüner CI auf dem Head, heikel erst nach OK des Maintainers. Ist ein Check auf `main` genauso rot (derselbe Job, derselbe Fehler), darf der Pull Request trotzdem gemergt werden, wenn er die Stelle nicht berührt und nicht heikel ist; der Merge-Kommentar verlinkt den roten Lauf auf `main`. Sonst wartet er auf den Fix von `main` (Schritt 1). Dazu:
 
 - Squash mit dem vollen Head-SHA als erwartetem Head
 - Worktree, lokale Branches und Test-Datenbank aufräumen
