@@ -69,6 +69,7 @@ test("Vorschläge markieren (Klick, Leertaste) und gemeinsam bestätigen", async
   await expect(page.locator(".tx-row.selected")).toContainText("Etwas anderes");
   await page.getByRole("link", { name: "Nächsten offenen" }).click();
   await expect(page.locator(".tx-row.selected")).toContainText("Reparatur vier");
+  await expect(page.locator(".tx-row.selected")).toBeFocused();
 
   // Suche mit nur einem Treffer im Filter „Offen“: Der Zähler gilt für alle, also führt der Knopf zurück zu allen offenen
   await gehe(page, "/bank?suche=Unbekannt");

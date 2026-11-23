@@ -174,3 +174,29 @@ export function nextOpenAfter(
   const after = [...transactions.slice(index + 1), ...transactions.slice(0, Math.max(index, 0))];
   return after.find((t) => t.open !== 0 && !t.privat && t.id !== id)?.id;
 }
+
+/**
+ * Wohin „Nächsten offenen“ führt: zum nächsten offenen Umsatz der Liste. Steht keiner in der Liste (Filter, Suche), zu allen
+ * offenen ohne Suche, wo der erste gewählt wird; null, wenn die Liste schon alle offenen zeigt, der Knopf also nichts täte.
+ */
+export function naechstenOffenenZiel(naechsteId: string | undefined, filter: string | undefined, suche: string | undefined) {
+  if (naechsteId) return { umsatz: naechsteId };
+  if ((filter ?? "offen") === "offen" && !suche) return null;
+  return { filter: "offen" as const, suche: undefined, umsatz: undefined };
+}
+
+/** Zähler solange etwas offen ist; „Alles zugeordnet.“ mit nächsten Schritten nur, wenn ein Import da ist (sonst gibt es nichts zuzuordnen) */
+export function fortschrittArt(offen: number, hatImport: boolean): "offen" | "fertig" | "keine" {
+  return offen > 0 ? "offen" : hatImport ? "fertig" : "keine";
+}
+
+/** Links nach „Alles zugeordnet.“; Kleinunternehmer geben in der Regel keine Voranmeldung ab */
+export function naechsteSchritte(kleinunternehmer: boolean): ("belege" | "voranmeldung")[] {
+  return kleinunternehmer ? ["belege"] : ["belege", "voranmeldung"];
+}
+
+/** Text der leeren Liste; im Filter „Offen“ steht „Alles zugeordnet.“ schon im Fortschritt */
+export function leereListeText(filter: string, anzahl: number, offen: number, hatImport: boolean): string | null {
+  if (anzahl > 0 || (filter === "offen" && fortschrittArt(offen, hatImport) === "fertig")) return null;
+  return filter === "vorschlag" ? "Keine Umsätze mit Vorschlag." : "Keine Umsätze.";
+}
