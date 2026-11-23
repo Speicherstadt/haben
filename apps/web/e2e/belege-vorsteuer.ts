@@ -2,14 +2,14 @@ import { waehleKategorie } from "./kategorie.ts";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import postgres from "postgres";
 import { currentDay } from "./daten.ts";
-import { databaseUrlFuer } from "./durchlaeufe.ts";
+import { type Durchlauf, databaseUrlFuer } from "./durchlaeufe.ts";
 import { bestaetigen } from "./einrichtung.ts";
 
-/** Im serialisierten Durchlauf belege-steuern registriert; die globale Firmenvorgabe bleibt dadurch isoliert. */
-export function vorsteuerPruefen(getPage: () => Page) {
+/** In einem seriellen Abschnitt von belege-steuern registriert; die globale Firmenvorgabe bleibt dadurch isoliert. */
+export function vorsteuerPruefen(getPage: () => Page, durchlauf: Durchlauf) {
   test("Vorsteueranteile je Beleg und Satz speichern, vorrechnen und beim Buchen festhalten (#433)", async ({ browser }) => {
     const page = getPage();
-    const sql = postgres(databaseUrlFuer("belege-steuern"), { max: 1 });
+    const sql = postgres(databaseUrlFuer(durchlauf), { max: 1 });
     const [company] = await sql`select ohne_vorsteuerabzug from company`;
     try {
       const route = await belegAnlegen(page, browser);
@@ -84,7 +84,7 @@ export function vorsteuerPruefen(getPage: () => Page) {
     }
   });
   steuerspaltePruefen(getPage);
-  einfuhrumsatzsteuerPruefen(getPage);
+  einfuhrumsatzsteuerPruefen(getPage, durchlauf);
   privatanteilVorschauPruefen(getPage);
 }
 
@@ -110,7 +110,7 @@ function privatanteilVorschauPruefen(getPage: () => Page) {
   });
 }
 
-function einfuhrumsatzsteuerPruefen(getPage: () => Page) {
+function einfuhrumsatzsteuerPruefen(getPage: () => Page, durchlauf: Durchlauf) {
   test("Einfuhrumsatzsteuer: Zollbetrag ist Vorsteuer ohne Aufwand, kein Teilabzug (#433)", async ({ browser }) => {
     const page = getPage();
     const route = await belegAnlegen(page, browser);
@@ -135,7 +135,7 @@ function einfuhrumsatzsteuerPruefen(getPage: () => Page) {
       await bestaetigen(page, "Beleg löschen");
       // Weitere offene Belege führen zum nächsten Beleg, sonst zur Liste; die eigene Fixture muss in beiden Fällen weg sein.
       await page.waitForURL((url) => url.pathname !== route && /^\/belege(?:\/[0-9a-f-]{36})?$/.test(url.pathname));
-      const sql = postgres(databaseUrlFuer("belege-steuern"), { max: 1 });
+      const sql = postgres(databaseUrlFuer(durchlauf), { max: 1 });
       try {
         const id = route.split("/").at(-1)!;
         await expect.poll(async () => (await sql`select id from documents where id=${id}`).length).toBe(0);

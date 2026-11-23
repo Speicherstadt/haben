@@ -1,5 +1,8 @@
 import { UserError } from "../../errors.ts";
 import {
+  arbeitskostenJeSatz,
+  arbeitskostenTeil,
+  discountFromColumns,
   orderRateAmounts,
   planProblem,
   planProgress,
@@ -14,7 +17,7 @@ import { texts } from "@haben/einvoice";
 import { and, eq, sql } from "drizzle-orm";
 import { schema, type Tx } from "../../db/index.ts";
 import { listInvoices, type Invoice } from "./invoices.ts";
-import { getQuote, orderCalculation, quoteToInvoice, type AbschlagPlanLines, type Quote, type QuoteLine } from "./quotes.ts";
+import { calcLines, getQuote, orderCalculation, orderLines, quoteToInvoice, type AbschlagPlanLines, type Quote, type QuoteLine } from "./quotes.ts";
 
 /*
  * Abschläge aus dem Zahlungsplan eines Angebots: je Zeile eine Abschlagsrechnung mit Kunde, Preismodus und
@@ -67,17 +70,32 @@ function planLinesFor(row: number) {
     const existing = await rowInvoice(tx, quote.id, row);
     if (existing) throw new PlanError(`Zu Zeile ${row + 1} gibt es schon ${existing.number ? `die Abschlagsrechnung ${existing.number}` : "einen Entwurf"}.`);
     const description = abschlagText(quote, plan, row);
+    const anteile = arbeitskostenImAuftrag(quote, lines, choices);
+    const t = texts(quote.language);
     return {
       row,
-      lines: schedule.rows[row]!.rates.filter((r) => r.amount !== 0).map((r) => ({
-        description,
-        quantity: 1000,
-        unit: "Psch." as UnitLabel,
-        unitPrice: r.amount,
-        taxRate: r.rate as 1900 | 700 | 0,
-      })),
+      lines: schedule.rows[row]!.rates.filter((r) => r.amount !== 0).flatMap((r) => {
+        const position = { quantity: 1000, unit: "Psch." as UnitLabel, taxRate: r.rate as 1900 | 700 | 0 };
+        if (!anteile) return [{ ...position, description, unitPrice: r.amount }];
+        const arbeit = arbeitskostenTeil(r.amount, anteile.get(r.rate) ?? { anteil: 0, summe: 0 });
+        return [
+          { ...position, description: t.planAbschlagTeil(description, true), unitPrice: arbeit, arbeitskosten: true },
+          { ...position, description: t.planAbschlagTeil(description, false), unitPrice: r.amount - arbeit },
+        ].filter((line) => line.unitPrice !== 0);
+      }),
     };
   };
+}
+
+/**
+ * Anteil der Arbeits-, Maschinen- und Fahrtkosten je Steuersatz im Auftrag nach der Auswahl, mit den Rabatten des Angebots;
+ * null, wenn keine gewählte Position gekennzeichnet ist. Ein Abschlag aus dem Plan teilt seinen Betrag je Satz in diesem
+ * Verhältnis auf zwei Positionen auf (#1667)
+ */
+function arbeitskostenImAuftrag(quote: Quote, lines: QuoteLine[], choices: number[]) {
+  const auftrag = orderLines(lines, choices);
+  if (!auftrag.some((line) => line.arbeitskosten)) return null;
+  return arbeitskostenJeSatz(calcLines(auftrag), discountFromColumns(quote.discountPercent, quote.discountAmount));
 }
 
 /** Abschlagsrechnung zu einer Zeile des Zahlungsplans; mit `choices` hält sie vorher die Auswahl des Kunden fest */

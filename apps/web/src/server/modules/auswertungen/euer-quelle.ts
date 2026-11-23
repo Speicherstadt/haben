@@ -19,7 +19,7 @@ const AUSGABEN_IM_MONAT = (key: EuerLineKey) =>
   ["personal", "kursverluste", "steuerNebenleistungen", "schuldzinsen", "schuldzinsenAnlage"].includes(key);
 
 export async function euerAusDemJournal(year: number, q: Db | Tx, { ohneManuelle = false } = {}): Promise<EuerResult> {
-  const { summe, monate } = await euerAusJournal(year, q, undefined, ohneManuelle);
+  const { summe, monate } = await euerAusJournal(year, q, ohneManuelle);
   // Ohne Zeilen, die sich aufheben (Zahlung und Aufhebung): computeEuer verrechnet sie vorher, die Zeile entsteht dort nicht
   const summen = new Map((Object.entries(summe.zeilen) as [EuerLineKey, Cents][]).filter(([, betrag]) => betrag !== 0));
   // Noch nicht gebucht: AfA und Privatnutzung aus dem Anlagenverzeichnis, die schon gebuchten Anlagen nicht doppelt

@@ -26,7 +26,7 @@ Ein Lauf
 2. erzeugt mit `pg_dump` über das Netz einen SQL-Dump der Datenbank, packt ihn mit gzip und prüft ihn: Das Archiv muss sich entpacken lassen und mit der Abschlusszeile von `pg_dump` enden, sonst bricht das Backup mit Fehler ab,
 3. sichert den Dump und die Belegdateien (Volume `belege` bzw. `haben-belege`, nur lesend eingehängt) verschlüsselt mit `restic backup --tag haben`,
 4. räumt alte Stände auf: 14 tägliche, 24 monatliche und 11 jährliche Snapshots bleiben (`restic forget --prune`). Die Jahresstände decken die längste Aufbewahrungsfrist ab, 10 Jahre für Bücher und Aufzeichnungen (§ 147 Abs. 3 AO),
-5. trägt das Ergebnis mit dem Repository ohne Nutzer und Passwort in die Datenbank ein; die App zeigt beides unter Einstellungen › Export, als Speicherort „Lokal“ (Verzeichnis im Backup-Container) oder „Extern“, nennt das Repository in der [Verfahrensdokumentation](verfahrensdokumentation.md) und warnt in der Übersicht, wenn ein Lauf fehlschlug oder seit zwei Tagen kein Backup durchlief,
+5. trägt das Ergebnis mit dem Repository ohne Nutzer und Passwort in die Datenbank ein; die App zeigt beides unter Einstellungen › Export, als Speicherort „Lokal“ (Verzeichnis im Backup-Container) oder „Extern“, sagt unter **Herkunft des Ziels**, ob das Ziel aus einem Abschnitt der rclone-Konfiguration stammt und wie dieser Abschnitt heißt, oder ob der Container das Ziel selbst mitbringt, nennt das Repository in der [Verfahrensdokumentation](verfahrensdokumentation.md) und warnt in der Übersicht, wenn ein Lauf fehlschlug oder seit zwei Tagen kein Backup durchlief,
 6. spielt alle `RESTORE_CHECK_DAYS` Tage (Standard 7) das neue Backup probeweise ein (siehe [Test-Restore](#test-restore)).
 
 Die Volumes `caddy`, `eric` und `eric-log` und die Schlüssel sind nicht dabei. Mit Compose zeigt `docker compose ps` den Dienst `backup` als `unhealthy`, wenn der letzte Lauf fehlschlug oder seit zwei Tagen keiner durchlief.
@@ -43,7 +43,7 @@ Ohne `RESTIC_REPOSITORY` liegt das Backup im Volume `backups` bzw. `haben-backup
 | SFTP | `sftp:backup@example.de:/srv/restic/haben` | SSH-Schlüssel einhängen: in `compose.override.yml` bei `backup` und `restore` `~/.ssh:/root/.ssh:ro` unter `volumes` eintragen ([SFTP Schritt für Schritt](#sftp-schritt-für-schritt)) bzw. `Volume=%h/.ssh:/root/.ssh:ro` in `haben-backup.container`. Der Host muss in `known_hosts` stehen |
 | S3 (AWS, Hetzner, Backblaze …) | `s3:https://fsn1.your-objectstorage.com/bucket/haben` | `AWS_ACCESS_KEY_ID` und `AWS_SECRET_ACCESS_KEY` |
 | restic REST-Server | `rest:https://nutzer:passwort@backup.example.de/haben` | Im Passwort außer `A–Z`, `a–z`, `0–9` und `-._~!&'()*+,;=:@` jedes Zeichen prozentkodiert, etwa `/` als `%2F`, `#` als `%23`, `%` als `%25`, `$` als `%24` (Compose liest `$` in `.env` als Variable), Leerzeichen als `%20`, `ä` als `%C3%A4`; sonst liest restic die Adresse nicht oder falsch |
-| rclone (WebDAV, OneDrive, SMB und weitere) | `rclone:<abschnitt>:<pfad>` | rclone-Konfiguration als Datei einhängen ([Ziel über rclone](#ziel-über-rclone-für-webdav-onedrive-und-smb)) |
+| rclone (WebDAV, OneDrive, SMB und weitere) | `rclone:<abschnitt>:<pfad>` | rclone-Konfiguration als Datei einhängen ([Ziel über rclone](#ziel-über-rclone-für-webdav-onedrive-und-smb)); ohne Datei geht auch `rclone::<typ>,<parameter>:<pfad>`, dann stehen die Zugangsdaten aber im Klartext in der `.env` |
 
 Das Protokoll des Backup-Containers und Haben nennen Ziel und Fehlermeldungen ohne Nutzer und Passwort.
 
@@ -111,7 +111,7 @@ restic kennt nur wenige Ziele selbst. Für alles andere ruft es `rclone` auf, un
 
     Quadlets: `Volume=%h/haben/rclone.conf:/var/lib/haben-backup/rclone.conf:ro` (`%h` ist das Heimverzeichnis), für ein Ziel mit Anmeldung `Volume=%h/haben/rclone:/var/lib/haben-backup/rclone`. Danach `systemctl --user daemon-reload`; ohne ihn kennt der Dienst den neuen `Volume=`-Eintrag nicht. Unraid: dieselbe Datei als zusätzlichen Pfad `/var/lib/haben-backup/rclone.conf` mit Zugriffsart „Nur lesen“ abbilden. Helm: `backup.extraVolumes` und `backup.extraVolumeMounts` in `values.yaml`, für WebDAV und SMB aus einem Secret mit `subPath: rclone.conf`; für ein Ziel mit Anmeldung ein PVC, weil rclone die Datei im Betrieb neu schreibt und ein Secret das nicht hergibt. Der Pfad ist im Image als `RCLONE_CONFIG` hinterlegt, weitere Einstellungen braucht es nicht; liegt die Datei woanders, `RCLONE_CONFIG` in der `.env` auf diesen Pfad setzen.
 
-3. **Ziel eintragen:** `RESTIC_REPOSITORY=rclone:<abschnitt>:<pfad>`. Der Abschnitt ist der Name in eckigen Klammern der Konfiguration, der Pfad der Ordner im Ziel, den Haben anlegt, etwa `rclone:onedrive:haben`.
+3. **Ziel eintragen:** `RESTIC_REPOSITORY=rclone:<abschnitt>:<pfad>`. Der Abschnitt ist der Name in eckigen Klammern der Konfiguration, der Pfad der Ordner im Ziel, den Haben anlegt, etwa `rclone:onedrive:haben`. Ohne Konfigurationsdatei geht es auch mit einer Verbindungszeichenkette: `rclone::webdav,url='https://dav.example/haben':haben` bringt Typ und Parameter selbst mit (rclone-Doku, Abschnitt „Connection strings“), der Abschnitt bleibt dann leer. Die Zugangsdaten stehen dabei im Klartext in der `.env` und im Prozess, deshalb ist die Datei der bessere Weg; Haben lässt sie vor dem Eintrag in `backup_status` und in der App weg.
 
 4. **Starten** mit `docker compose up -d` bzw. `systemctl --user daemon-reload && systemctl --user start haben-backup.timer`, für einen Lauf sofort `systemctl --user start haben-backup`. Beim Start des Containers und bei jedem Aufruf von Hand prüft er vier Dinge: rclone ist da, die Konfiguration ist lesbar, der Abschnitt steht darin (über `rclone listremotes`), und die Rechte sind nicht zu offen; bei einer für Gruppe oder andere lesbaren Datei gibt es einen Hinweis, keinen Abbruch. Die Prüfung steckt im Einstiegspunkt und in `backup.sh`, `restore.sh` und `restore-check.sh`, gilt also auch für `docker compose exec backup backup.sh` und fürs Wiederherstellen.
 
@@ -207,13 +207,16 @@ Nur das alte Image ohne das alte Backup reicht nicht: Die alte Version startet d
 Bisher lief das Backup der Quadlets als `~/.config/haben/backup.sh` mit restic auf dem Host. Der Container ersetzt es, restic auf dem Host brauchst du danach nicht mehr. Das bestehende Repository und seine Stände bleiben nutzbar.
 
 ```sh
-RAW=https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)
+TAG=${RELEASE##*/}
+RAW=https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy
 # Passwort des bisherigen Repositorys als Secret, ohne den Zeilenumbruch am Ende der Datei: restic nimmt
 # RESTIC_PASSWORD wörtlich, nur RESTIC_PASSWORD_FILE schneidet ihn ab
 tr -d '\n' < ~/.config/haben/restic-password | podman secret create haben-restic-password -
-# Neue Units, die alte Service-Unit und die Skripte entfallen
-for f in haben-backup.container haben-backups.volume; do curl -o ~/.config/containers/systemd/$f "$RAW/quadlet/$f"; done
-rm ~/.config/systemd/user/haben-backup.service ~/.config/haben/backup.sh ~/.config/haben/restore.sh
+# Alte Service-Unit und Skripte erst nach erfolgreichen Downloads entfernen
+curl -fLo ~/.config/containers/systemd/haben-backup.container "$RAW/quadlet/haben-backup.container" &&
+  curl -fLo ~/.config/containers/systemd/haben-backups.volume "$RAW/quadlet/haben-backups.volume" &&
+  rm ~/.config/systemd/user/haben-backup.service ~/.config/haben/backup.sh ~/.config/haben/restore.sh
 ```
 
 Dann `~/.config/haben/backup.env` anpassen:
@@ -248,20 +251,20 @@ podman pull docker.io/tristanteu/haben-backup:latest
 
 `podman auto-update` erfasst nur laufende Container. Das Backup läuft bloß kurz, sein Image holst du deshalb mit `podman pull`.
 
-`haben-app.container` und `haben-db.container` tragen `AutoUpdate=registry`; mit `systemctl --user enable --now podman-auto-update.timer` prüft Podman täglich selbst auf neue Images. Willst du Updates von Hand steuern, setze im Quadlet eine feste Version (`Image=docker.io/tristanteu/haben:x.y`) und ändere sie bewusst. Bei einem selbst gebauten Image: `git pull`, `podman build -t haben -f Containerfile .` und `systemctl --user restart haben-app`.
+`haben-app.container` und `haben-db.container` tragen `AutoUpdate=registry`; mit `systemctl --user enable --now podman-auto-update.timer` prüft Podman täglich selbst auf neue Images. Für einen festen Stand lade die Quadlet-Vorlagen mit `TAG=vx.y.z` und setze `Image=` in `haben-app.container`, `haben-db.container` und `haben-backup.container` jeweils auf den Image-Tag `x.y.z`. Bei einem selbst gebauten Image: `git pull`, `podman build -t haben -f Containerfile .` und `systemctl --user restart haben-app`.
 
 `podman auto-update` tauscht nur das Image. Lädst du neue Quadlet-Dateien wie `haben-app.container`, hole auch die `.volume`-Dateien, auf die sie verweisen (etwa `haben-eric-log.volume`), und führe danach `systemctl --user daemon-reload` aus.
 
 ### PostgreSQL-Update
 
-Die Datenbank läuft im Image `tristanteu/haben-db` (aus `deploy/db`): das offizielle `postgres:18` plus die Programme der älteren Versionen ab 16. Findet der Container beim Start im Volume noch einen Datenbestand einer älteren Version, hebt er ihn mit `pg_upgrade` an und startet danach normal. Ein Update auf ein neues Postgres ist damit ein normales Update wie oben, mit Backup vorher. Das Upgrade dauert bei einer Buchhaltung meist unter einer Minute; im Log steht es so:
+Die Datenbank läuft im Image `tristanteu/haben-db` (aus `deploy/db`): das offizielle `postgres:19` plus die Programme der älteren Versionen ab 16. Findet der Container beim Start im Volume noch einen Datenbestand einer älteren Version, hebt er ihn mit `pg_upgrade` an und startet danach normal. Ein Update auf ein neues Postgres ist damit ein normales Update wie oben, mit Backup vorher. Das Upgrade dauert bei einer Buchhaltung meist unter einer Minute; im Log steht es so:
 
 ```text
-haben-db: Aktualisiere die Datenbank von PostgreSQL 16 (/var/lib/postgresql/data) auf 18 (/var/lib/postgresql/data/18/docker) …
-haben-db: Upgrade auf PostgreSQL 18 fertig. Der alte Bestand liegt unverändert in /var/lib/postgresql/data/16/docker;
+haben-db: Aktualisiere die Datenbank von PostgreSQL 16 (/var/lib/postgresql/data) auf 19 (/var/lib/postgresql/data/19/docker) …
+haben-db: Upgrade auf PostgreSQL 19 fertig. Der alte Bestand liegt unverändert in /var/lib/postgresql/data/16/docker;
 ```
 
-Im Volume liegt danach je Version ein Verzeichnis, `16/docker` mit dem alten und `18/docker` mit dem neuen Bestand. `pg_upgrade` kopiert, der alte Bestand bleibt also unverändert erhalten und braucht noch einmal so viel Platz wie die Datenbank. Läuft Haben einwandfrei, kann er weg:
+Im Volume liegt danach je Version ein Verzeichnis, `16/docker` mit dem alten und `19/docker` mit dem neuen Bestand. `pg_upgrade` kopiert, der alte Bestand bleibt also unverändert erhalten und braucht noch einmal so viel Platz wie die Datenbank. Läuft Haben einwandfrei, kann er weg:
 
 ```sh
 docker compose exec db rm -rf /var/lib/postgresql/data/16   # Compose
@@ -273,21 +276,26 @@ Schlägt das Upgrade fehl, bricht der Container mit der Meldung von `pg_upgrade`
 **Einmalig für Installationen mit Postgres 16.** Bis Haben 0.2 lief die Datenbank im offiziellen Image `docker.io/library/postgres:16`. Das steht in deiner `compose.yml` bzw. in `haben-db.container` und ändert sich durch ein Update der Images nicht: Die Datenbank bleibt auf 16, bis du die Datei einmal neu holst. Das muss nicht sofort sein, das Backup-Image kommt mit beiden Versionen zurecht. Für den Umstieg:
 
 ```sh
-docker compose exec backup backup.sh   # Stand vor dem Update sichern
-curl -O https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy/compose.yml
-docker compose pull && docker compose up -d
-docker compose logs db                 # „Upgrade auf PostgreSQL 18 fertig“
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)
+TAG=${RELEASE##*/}
+RAW=https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy
+curl -fLo compose.yml.neu "$RAW/compose.yml" &&
+  docker compose exec backup backup.sh && mv compose.yml.neu compose.yml &&
+  docker compose pull && docker compose up -d
+docker compose logs db                 # „Upgrade auf PostgreSQL 19 fertig“
 ```
 
 Hast du `compose.yml` angepasst statt eine `compose.override.yml` zu nutzen, ändere nur die Zeile `image: postgres:16` des Dienstes `db` in `image: tristanteu/haben-db:latest`. Mit den Quadlets:
 
 ```sh
-systemctl --user start haben-backup    # Stand vor dem Update sichern
-curl -o ~/.config/containers/systemd/haben-db.container \
-  https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy/quadlet/haben-db.container
-systemctl --user daemon-reload
-systemctl --user restart haben-db haben-app
-journalctl --user -u haben-db -n 20    # „Upgrade auf PostgreSQL 18 fertig“
+RELEASE=$(curl -fsSL -o /dev/null -w '%{url_effective}' https://github.com/Speicherstadt/haben/releases/latest)
+TAG=${RELEASE##*/}
+RAW=https://raw.githubusercontent.com/Speicherstadt/haben/$TAG/deploy
+UNIT=~/.config/containers/systemd/haben-db.container
+curl -fLo "$UNIT.neu" "$RAW/quadlet/haben-db.container" &&
+  systemctl --user start haben-backup && mv "$UNIT.neu" "$UNIT" &&
+  systemctl --user daemon-reload && systemctl --user restart haben-db haben-app
+journalctl --user -u haben-db -n 20    # „Upgrade auf PostgreSQL 19 fertig“
 ```
 
 Beim Start führt `deploy/entrypoint.sh` zuerst `src/server/db/migrate.ts` aus und wendet alle ausstehenden Migrationen an, dann einmalig die Prüfung beim [Update auf das Journal](einrichtung.md#update-auf-das-journal); erst danach startet der Server. Schlägt eine Migration oder die Prüfung fehl, startet die App nicht, und der Grund steht im Log.

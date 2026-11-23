@@ -24,6 +24,17 @@ export interface AssetFormValues {
 }
 
 /**
+ * Felder nach der Wahl der Art: Methode und Nutzungsdauer laut AfA-Tabelle. Ohne Vorschlag (sonstige Ausstattung,
+ * sonstige Transportmittel) bleibt keine Nutzungsdauer der vorigen Art stehen, etwa die sechs Jahre für Pkw; sie kommt
+ * aus der AfA-Tabelle des einzelnen Wirtschaftsguts (#312)
+ */
+export function kindPatch(kind: AssetKind): Partial<AssetState> {
+  const suggested = ASSET_KINDS[kind];
+  const years = suggested.method === "linear" ? { years: suggested.usefulLifeYears ? String(suggested.usefulLifeYears) : "" } : {};
+  return { kind, method: suggested.method, ...years };
+}
+
+/**
  * Formular für eine Anlage. `locked` sperrt die Berechnungsgrundlagen (gebucht oder aus einem Beleg),
  * `lifeEditable` erlaubt trotzdem Nutzungsdauer, Abschreibung und ihre Angaben (Beleg-Anlage vor der ersten AfA),
  * `switchEditable` den Wechsel von der degressiven zur linearen AfA (auch nach der ersten Buchung).
@@ -62,12 +73,7 @@ export function AssetForm({
   const { form, error, check } = useSubmitCheck(errors);
 
   function chooseKind(kind: AssetKind) {
-    // Vorschlag laut AfA-Tabelle
-    const suggested = ASSET_KINDS[kind];
-    // Ohne Vorschlag (sonstige Ausstattung, sonstige Transportmittel) bleibt keine Nutzungsdauer der vorigen Art stehen,
-    // etwa die sechs Jahre für Pkw; sie kommt aus der AfA-Tabelle des einzelnen Wirtschaftsguts (#312)
-    const years = suggested.method === "linear" ? { years: suggested.usefulLifeYears ? String(suggested.usefulLifeYears) : "" } : {};
-    set({ kind, method: suggested.method, ...years });
+    set(kindPatch(kind));
   }
 
   function submit(event: FormEvent) {

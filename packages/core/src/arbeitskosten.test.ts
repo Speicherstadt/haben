@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arbeitskostenAnteil, type ArbeitskostenLine } from "./arbeitskosten.ts";
+import { arbeitskostenAnteil, arbeitskostenJeSatz, arbeitskostenTeil, type ArbeitskostenLine } from "./arbeitskosten.ts";
 import { computeInvoice } from "./invoice.ts";
 
 // Beispiel aus #712: 3 Rauchwarnmelder je 31,00 € (Material), Montage 3 × 8,00 €, Anfahrt 35,00 € → Arbeit und Fahrt 59,00 €
@@ -52,5 +52,47 @@ describe("arbeitskostenAnteil (§ 35a EStG)", () => {
   it("Storno: negierte Positionen ergeben den negierten Anteil", () => {
     const storno = melder(1900).map((l) => ({ ...l, unitPrice: -l.unitPrice }));
     expect(arbeitskostenAnteil(storno, "netto")).toBe(-(5900 + 1121));
+  });
+});
+
+describe("Anteil je Steuersatz und Teil eines Abschlags (#1667)", () => {
+  // Zu 19 %: Fliesen 4.000 € und Verlegen 6.000 € (Arbeit); zu 7 %: Material 1.000 € und Arbeit 1.000 €
+  const auftrag: ArbeitskostenLine[] = [
+    { quantity: 1000, unitPrice: 400_000, taxRate: 1900 },
+    { quantity: 1000, unitPrice: 600_000, taxRate: 1900, arbeitskosten: true },
+    { quantity: 1000, unitPrice: 100_000, taxRate: 700 },
+    { quantity: 1000, unitPrice: 100_000, taxRate: 700, arbeitskosten: true },
+  ];
+
+  it("je Satz Anteil und Summe nach Gesamtrabatt, im Preismodus der Positionen", () => {
+    expect(arbeitskostenJeSatz(auftrag)).toEqual(
+      new Map([
+        [1900, { anteil: 600_000, summe: 1_000_000 }],
+        [700, { anteil: 100_000, summe: 200_000 }],
+      ]),
+    );
+    expect(arbeitskostenJeSatz(auftrag, { kind: "prozent", value: 1000 })).toEqual(
+      new Map([
+        [1900, { anteil: 540_000, summe: 900_000 }],
+        [700, { anteil: 90_000, summe: 180_000 }],
+      ]),
+    );
+  });
+
+  it("Satz ohne gekennzeichnete Position mit Anteil 0", () => {
+    expect(arbeitskostenJeSatz([{ quantity: 1000, unitPrice: 5000, taxRate: 700 }]).get(700)).toEqual({ anteil: 0, summe: 5000 });
+  });
+
+  it("Teil eines Abschlags im Verhältnis des Satzes, kaufmännisch gerundet", () => {
+    expect(arbeitskostenTeil(270_000, { anteil: 540_000, summe: 900_000 })).toBe(162_000);
+    // 1.000,01 € × 1 / 3 = 333,336… → 333,34 €
+    expect(arbeitskostenTeil(100_001, { anteil: 1, summe: 3 })).toBe(33_334);
+    expect(arbeitskostenTeil(-270_000, { anteil: 540_000, summe: 900_000 })).toBe(-162_000);
+  });
+
+  it("ganz Arbeit, ganz Material oder ohne Summe", () => {
+    expect(arbeitskostenTeil(12_345, { anteil: 500, summe: 500 })).toBe(12_345);
+    expect(arbeitskostenTeil(12_345, { anteil: 0, summe: 500 })).toBe(0);
+    expect(arbeitskostenTeil(12_345, { anteil: 0, summe: 0 })).toBe(0);
   });
 });

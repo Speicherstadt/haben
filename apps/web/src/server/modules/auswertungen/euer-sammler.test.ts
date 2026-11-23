@@ -144,7 +144,7 @@ describe.skipIf(!testDatabaseUrl)("Sammler der BWA in euerAusJournal (Postgres, 
 
       const ohne = await euerJournal.euerAusJournal(2026);
       const gemeldet: Parameters<EuerBeitraege>[0][] = [];
-      const mit = await euerJournal.euerAusJournal(2026, undefined, undefined, false, (b) => gemeldet.push(b));
+      const mit = await euerJournal.euerAusJournal(2026, undefined, false, (b) => gemeldet.push(b));
       expect(mit).toEqual(ohne);
       expect(Object.keys(ohne.summe.zeilen).length).toBeGreaterThan(3);
 

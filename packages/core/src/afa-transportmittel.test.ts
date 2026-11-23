@@ -44,4 +44,11 @@ describe("Sonstige Transportmittel", () => {
     // 9 Monate von 132: 450 €
     expect(plan[0]).toMatchObject({ year: 2026, depreciation: 450_00 });
   });
+
+  it("Übernahme zum 01.01. mit dem Restbuchwert nach 9 von 132 Monaten: 600 € im Jahr", () => {
+    const anhaenger = { acquisitionDate: "2025-04-10", cost: 6_600_00, method: "linear" as const, usefulLifeMonths: 132, kind: "transport" as const };
+    const opening = { date: "2026-01-01", bookValue: 6_150_00 };
+    expect(assetIssues({ ...anhaenger, opening })).toEqual([]);
+    expect(depreciationSchedule({ ...anhaenger, opening })[0]).toMatchObject({ year: 2026, opening: 6_150_00, depreciation: 600_00 });
+  });
 });
