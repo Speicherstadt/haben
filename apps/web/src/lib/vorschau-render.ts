@@ -15,3 +15,19 @@ export function afterRender(renderedKey: string, currentKey: string, ms: number)
   if (renderedKey === currentKey) return "fertig";
   return rendersOnDemand(ms) ? "knopf" : "neu";
 }
+
+const PREVIEW_FAILED = "Die Vorschau ließ sich nicht erzeugen.";
+/** Texte, mit denen fetch einen Netzfehler meldet: Chromium, Firefox, Safari */
+const NETWORK_ERROR = /^(Failed to fetch|NetworkError when attempting to fetch resource\.|Load failed)$/;
+
+/**
+ * Meldung, wenn das Blatt nicht gesetzt werden kann (#1147): immer zuerst der eigene Satz, damit sie sich von einer
+ * Meldung zum Speichern unterscheidet. Eine Meldung des Servers (Fachfehler oder „Interner Fehler“) steht dahinter,
+ * statt des englischen Netzfehlers des Browsers ein deutscher Satz.
+ */
+export function previewFailure(error: unknown): string {
+  if (error instanceof TypeError && NETWORK_ERROR.test(error.message)) return `${PREVIEW_FAILED} Haben ist gerade nicht erreichbar.`;
+  if (!(error instanceof Error) || !error.message) return PREVIEW_FAILED;
+  // renderPreview beginnt seine Meldung schon mit dem Satz
+  return error.message.startsWith(PREVIEW_FAILED) ? error.message : `${PREVIEW_FAILED} ${error.message}`;
+}

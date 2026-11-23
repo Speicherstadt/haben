@@ -323,6 +323,28 @@ test("Angebot: dieselbe Vorschau", async ({ browser }) => {
   await page.context().close();
 });
 
+test("Abgebrochene Anfrage: deutsche Meldung als Status, „Erneut versuchen“ setzt das Blatt (#1147)", async ({ browser }) => {
+  const page = await editor(browser, LAPTOP);
+  // Nur die Anfrage der Vorschau (Stand des Formulars mit Positionen) bricht ab, wie bei einem Server, der nicht antwortet
+  await page.route(
+    (url) => url.pathname.startsWith("/_serverFn/"),
+    (route) => (route.request().method() === "POST" && route.request().postData()?.includes("lines") ? route.abort("internetdisconnected") : route.fallback()),
+  );
+  await vorschauKnopf(page).click();
+  const blatt = dialog(page).getByLabel("Vorschau der Rechnung");
+  const meldung = blatt.getByRole("status").filter({ hasText: "Die Vorschau ließ sich nicht erzeugen." });
+  await expect(meldung).toContainText("Die Vorschau ließ sich nicht erzeugen. Haben ist gerade nicht erreichbar.");
+  await expect(meldung).not.toContainText("Failed to fetch");
+  // Sie entsteht beim Tippen: kein alert, der eine Meldung zum Speichern übertönt (DESIGN.md)
+  await expect(blatt.getByRole("alert")).toHaveCount(0);
+
+  await page.unrouteAll({ behavior: "wait" });
+  await meldung.getByRole("button", { name: "Erneut versuchen" }).click();
+  await expect(meldung).toHaveCount(0);
+  await expect(blatt.getByRole("img", { name: /^Seite 1 von/ })).toBeVisible();
+  await page.context().close();
+});
+
 test("Gesperrter Speicher: Der Editor öffnet, Anheften gilt bis zum Neuladen", async ({ browser }) => {
   // Chrome mit gesperrten Websitedaten wirft schon beim Zugriff auf window.localStorage, nicht erst bei getItem
   const state = JSON.parse(readFileSync(SESSION, "utf8")) as { cookies: [] };
