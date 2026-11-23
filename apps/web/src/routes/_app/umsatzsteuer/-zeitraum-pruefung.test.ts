@@ -25,6 +25,18 @@ describe("Prüfung der Voranmeldung von Hand", () => {
     });
   });
 
+  // #1267: saveVatDraft lehnt eine negative Kz 50 ab (im ERiC-Schema GanzzahlNichtNeg), das Feld meldet es vorher
+  it("meldet eine negative Kz 50 am Feld, andere Kennzahlen dürfen negativ sein", () => {
+    expect(manuellFehler({ kz50: -1, kz81: -1, kz86: 0 }, begruendung)).toEqual({
+      kz50: "Trag einen Betrag von 0,00 bis 1.000.000.000,00 ein, etwa 1.234,56.",
+      kz81: null,
+      kz86: null,
+      reason: null,
+    });
+    expect(manuellFehler({ kz50: 0 }, begruendung).kz50).toBeNull();
+    expect(manuellFehler({ kz50: 1_000_000_000_01 }, begruendung).kz50).toBe("Trag einen Betrag von 0,00 bis 1.000.000.000,00 ein, etwa 1.234,56.");
+  });
+
   it("verlangt eine Begründung mit mindestens 10 Zeichen", () => {
     expect(manuellFehler({ kz81: 100 }, "zu kurz").reason).toBe(
       "Begründe die Abweichung mit mindestens 10 Zeichen, etwa „Zahlung vom 30.09. erst im Oktober zugeordnet“.",
