@@ -135,7 +135,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        teil: [belege-steuern, rechnungen, ablauf, gmbh, importe, abruf, sso]
+        teil: [belege-steuern, rechnungen, ablauf, ablauf-2, ablauf-3, gmbh, importe, sso]
     services:
       postgres:
         image: postgres:19
