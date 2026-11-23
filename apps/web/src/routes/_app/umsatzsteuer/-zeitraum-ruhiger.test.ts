@@ -203,7 +203,7 @@ describe("Voranmeldung: weniger Hinweise über den Zahlen (#1253, Punkt 32)", ()
     const oben = hinweise(seite({ herstellerIdConfigured: false }));
     expect(oben).toContain("Ohne eigene Hersteller-ID gibst du in Mein ELSTER ab:");
     expect(oben).toContain("XML für Mein ELSTER");
-    expect(oben).toContain("XML-Import");
+    expect(oben).toContain("im Formular Umsatzsteuer-Voranmeldung unter Datenübernahme › XML-Import");
     expect(oben).toContain('href="https://haben.app/elster-abgabe.html"');
     expect(oben).not.toContain("Prüfen und absenden machst du in Mein ELSTER");
   });

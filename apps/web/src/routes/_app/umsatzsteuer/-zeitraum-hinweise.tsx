@@ -52,8 +52,8 @@ export function ZeitraumHinweise({ data }: { data: PageData }) {
         <div className="banner banner-info" role="status">
           <Icon name="info" />
           <span>
-            Ohne eigene Hersteller-ID gibst du in Mein ELSTER ab: Entwurf speichern, „XML für Mein ELSTER“ herunterladen und dort unter Datenübernahme ›
-            XML-Import hochladen.{" "}
+            Ohne eigene Hersteller-ID gibst du in Mein ELSTER ab: Entwurf speichern, „XML für Mein ELSTER“ herunterladen und dort im Formular
+            Umsatzsteuer-Voranmeldung unter Datenübernahme › XML-Import hochladen.{" "}
             <a href={ELSTER_ABGABE_DOCS} target="_blank" rel="noreferrer">
               Abgabe in Mein ELSTER
             </a>
