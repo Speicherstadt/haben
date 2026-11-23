@@ -8,13 +8,7 @@ import { invoicePostingMode, invoiceVatDate } from "./invoice-tax.ts";
 import type { Invoice } from "./invoices.ts";
 
 /** Die Rechnung dokumentiert dieselbe Leistung. Nur die bereits gebuchten Zeilen ihres Papierstornos ausgleichen. */
-async function restorePaperCancellation(
-  tx: Tx,
-  books: Awaited<ReturnType<typeof openBooks>>,
-  replacementId: string,
-  replacedId: string,
-  description: string,
-) {
+async function restorePaperCancellation(tx: Tx, books: Awaited<ReturnType<typeof openBooks>>, replacementId: string, replacedId: string, description: string) {
   const { invoices, journalEntries, journalLines } = schema;
   const entries = await tx
     .select({ entry: journalEntries })
