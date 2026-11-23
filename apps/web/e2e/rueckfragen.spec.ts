@@ -694,3 +694,34 @@ test("Umzug: Die Frage eines inzwischen beendeten Abrufs kommt beim nächsten Ab
 
   await expect(rueckfrage("Abruf abbrechen?")).toHaveCount(0);
 });
+
+test("Bank: ein zweites Konto für denselben Marktplatz fragt vorher nach (#1779)", async () => {
+  await go("/bank");
+  const form = page.locator("form", { has: page.getByRole("button", { name: "Konto anlegen" }) });
+  const anlegen = async (name: string) => {
+    await page.getByRole("button", { name: "Konto hinzufügen" }).click();
+    await form.getByLabel("Art", { exact: true }).selectOption("provider");
+    await form.getByLabel("Dienstleister", { exact: true }).selectOption("amazon");
+    await form.getByLabel("Marktplatz", { exact: true }).selectOption("Amazon.de");
+    await form.getByLabel("Name", { exact: true }).fill(name);
+    await form.getByRole("button", { name: "Konto anlegen" }).click();
+  };
+  const konten = page.getByRole("navigation", { name: "Konten" }).getByRole("link");
+  const zweites = konten.filter({ hasText: "Amazon DE 2" });
+
+  await anlegen("Amazon DE");
+  await expect(page.getByText("Konto angelegt.")).toBeVisible();
+
+  // Zweites Konto für denselben Marktplatz: erst fragen; Abbrechen legt nichts an
+  await anlegen("Amazon DE 2");
+  const titel = "Noch ein Konto für Amazon.de anlegen?";
+  await expect(rueckfrage(titel)).toContainText("gibt es schon ein Konto");
+  await abbrechen(titel);
+  await expect(zweites).toHaveCount(0);
+
+  // Erneut abschicken, jetzt bestätigen: das zweite Konto entsteht
+  await form.getByRole("button", { name: "Konto anlegen" }).click();
+  await expect(rueckfrage(titel)).toBeVisible();
+  await bestaetigen(page, "Konto trotzdem anlegen");
+  await expect(zweites).toHaveCount(1);
+});
