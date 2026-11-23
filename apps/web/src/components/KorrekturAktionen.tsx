@@ -10,7 +10,7 @@ export function KorrekturAktionen({ busy, onCancel, onCorrect }: { busy: boolean
           Stornieren
         </button>
         <p id="amend-cancel-hint" className="field-hint">
-          Hebt die Rechnung ganz auf: Stornorechnung mit neuer Nummer, sofort gebucht; festgeschriebene Korrekturen werden mit storniert.
+          Hebt die Rechnung ganz auf: Es entsteht eine Stornorechnung mit neuer Nummer, sofort gebucht. Festgeschriebene Korrekturen werden mit storniert.
         </p>
       </div>
       <div className="korrektur-aktion">
