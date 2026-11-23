@@ -11,6 +11,9 @@ export function parsePrivatanteil(text: string): Prozent | null {
   return anteil !== null && anteil <= 100 ? anteil : null;
 }
 
+/** Was am Privatanteil nur mit dem betrieblichen Teil zählt (#1261): ohne Vorsteuerabzug gibt es keine Vorsteuer, nur die Ausgabe */
+export const betrieblicherTeil = (abzug: boolean): string => (abzug ? "Ausgabe und Vorsteuer" : "Ausgabe");
+
 /** Vorgabe für den Privatanteil einer Kategorie als Text für das Feld am Beleg; ohne Vorgabe leer */
 export const privatanteilVorgabe = (shares: Partial<Record<string, number>>, kategorie: string): string => (shares[kategorie] ? String(shares[kategorie]) : "");
 

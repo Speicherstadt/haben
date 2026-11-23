@@ -137,8 +137,9 @@ Die Vorsteuer zählt in der Voranmeldung für den Monat des Belegdatums, bei Ist
 
 - **Ändern** gilt nur für künftige Belege. Angelegte Belege behalten ihre Felder, Beträge und ihre Datei; gebuchte sind ohnehin gesperrt. Eine neue Datei (Nachtrag, neue Dauerrechnung nach einer Mieterhöhung) lädst du unter **Neuer Vertrag oder Nachtrag** hoch; die alte bleibt an den bisherigen Belegen. Lässt du **Nächster Beleg am** unverändert, bleibt auch der Tag im Monat: Ein Dauerbeleg zum 31. bleibt beim Monatsende, auch wenn du ihn änderst, während der nächste Termin auf den 28. Februar fällt. Zwischen Wochen und Monaten wechselst du nur, solange noch kein Beleg entstanden ist; danach beendest du den Dauerbeleg und legst einen neuen an.
 - Aus sevDesk übernommene Dauerbelege kommen angehalten an ([Umzug aus sevDesk](sevdesk.md#vorlagen-für-wiederkehrende-belege)); einer ohne Datei lässt sich erst fortsetzen, wenn du den Vertrag hochgeladen hast.
-- **Pausieren** hält den Dauerbeleg an. **Fortsetzen** macht beim ersten Termin ab heute weiter: Termine, die in die Pause fielen, legt Haben nicht an. Willst du sie doch, setzt du vor dem Speichern **Nächster Beleg am** zurück.
+- **Pausieren** hält den Dauerbeleg an. **Fortsetzen** macht beim ersten Termin ab heute weiter: Termine, die in die Pause fielen, legt Haben nicht an. Willst du sie doch, setzt du danach **Nächster Beleg am** zurück und speicherst.
 - **Beenden** ist endgültig: Es entstehen keine Belege mehr, und die Vorlage lässt sich nicht mehr ändern. Die angelegten Belege bleiben.
+- Ungespeicherte Änderungen im Formular gehen beim Pausieren, Fortsetzen und Beenden verloren. Gibt es welche, fragen **Pausieren** und **Fortsetzen** erst nach; die Rückfrage von **Beenden** nennt sie.
 - **Löschen** geht nur, solange kein Beleg aus der Vorlage entstanden ist; sonst beendest du sie. Jede Änderung an der Vorlage steht im Änderungsprotokoll, die Belege eines Laufs mit dem Akteur `system:dauerbelege`.
 
 ## Beleg duplizieren
@@ -351,6 +352,8 @@ Den Privatanteil gibt es nur im Einzelunternehmen; bei einer GmbH oder UG fehlt 
 1576 Vorsteuer 19 %       6,08
 1800 Privatentnahmen      9,52   an  1600 Verbindlichkeiten   47,60
 ```
+
+[Ohne Vorsteuerabzug](#ohne-vorsteuerabzug) wird der betriebliche Teil samt Steuer Ausgabe, im Beispiel 38,08 €.
 
 Vorgaben je Kategorie stellst du in den [Einstellungen](einrichtung.md#privatanteile) ein (Telefon, Internet). Sie werden beim Wählen der Kategorie und beim Auslesen übernommen. Bei Anlagegütern gibt es keinen Privatanteil; für Firmenwagen gilt die [Listenpreismethode](anlagen.md#private-nutzung-von-firmenwagen).
 
