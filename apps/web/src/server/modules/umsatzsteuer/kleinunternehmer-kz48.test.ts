@@ -185,6 +185,25 @@ describe.skipIf(!testDatabaseUrl)("Kleinunternehmer-Umsätze in Kz 48 (Postgres)
     expect((await vat.computeVatFigures(oktober)).kz48).toBe(70_000);
   });
 
+  for (const [kontenrahmen, versteuerung] of [
+    ["SKR04", "ist"],
+    ["SKR03", "soll"],
+  ] as const)
+    it(`${kontenrahmen}/${versteuerung}: Skonto mindert die Umsätze als Kleinunternehmer im Monat der Ausbuchung`, async () => {
+      // Anleitung zur UStVA 2026, Allgemein: „Bitte berücksichtigen Sie Entgelterhöhungen und Entgeltminderungen bei den
+      // Bemessungsgrundlagen.“ Wie Storno und Korrektur (§ 17 UStG) im Monat der Minderung
+      await firma(kontenrahmen, versteuerung);
+      const inv = await rechnung();
+      const csv = `"Girokonto";"DE89370400440532013000"\n\n"Buchungsdatum";"Wertstellung";"Status";"Zahlungspflichtige*r";"Zahlungsempfänger*in";"Verwendungszweck";"Umsatztyp";"IBAN";"Betrag (€)";"Gläubiger-ID";"Mandatsreferenz";"Kundenreferenz"\n"05.11.26";"05.11.26";"Gebucht";"Nordwerk";"Testfirma";"${inv.number}";"Eingang";"DE02100100100006820101";"784,00";"";"";""\n`;
+      await bank.importStatement(actor, { bytes: new TextEncoder().encode(csv), filename: `${inv.number}.csv` }, null);
+      const [tx] = await sql`select id from bank_transactions where purpose = ${inv.number}`;
+      await bank.allocate(actor, { kind: "invoice", transactionId: tx!.id, invoiceId: inv.id, amount: 78_400 });
+      await bank.writeOff(actor, { kind: "skonto", invoiceId: inv.id, date: "2026-11-05" });
+
+      expect((await vat.computeVatFigures(september)).kz48).toBe(80_000);
+      expect(await vat.computeVatFigures(november)).toMatchObject({ kz48: -1_600, kz48Kleinunternehmer: -1_600 });
+    });
+
   it("Gesendete Voranmeldung von vor #1268 meldet keine Abweichung, ein anderer Wert schon", async () => {
     await firma("SKR03", "soll");
     await rechnung();
