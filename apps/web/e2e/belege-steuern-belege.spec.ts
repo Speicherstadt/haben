@@ -19,6 +19,7 @@ import { abzugEinspielen } from "./abzug.ts";
 import { receiptJpeg } from "./belegbild.ts";
 import { vorsteuerPruefen } from "./belege-vorsteuer.ts";
 import { serverAufrufe } from "./warten.ts";
+import { eingabeNachAktion, fokusNachFehlschlag } from "./felder-sperre.ts";
 
 /**
  * Abschnitt von belege-steuern (#1742) mit eigenem Server und eigener Datenbank, parallel zu den anderen Abschnitten:
@@ -352,6 +353,47 @@ test("Dauerbeleg: Ein geleertes Kategoriefeld verlangt beim Anlegen per Enter wi
   await vorlageKategorie.press("Enter");
   await expect(vorlageKategorie).toHaveAccessibleDescription("Wähle die Kategorie.");
   await expect(page).toHaveURL(/\/dauerbelege\/neu$/);
+});
+
+test("Dauerbeleg: Eingaben direkt nach dem Speichern und nach Pausieren bleiben erhalten (#1793)", async () => {
+  await go("/dauerbelege/neu");
+  const bezeichnung = page.getByLabel("Bezeichnung");
+  await bezeichnung.fill("Lagerraum Sperre");
+  await page.getByLabel("Lieferant", { exact: true }).fill("Hafen Immobilien GmbH");
+  await waehleKategorie(page.getByLabel("Kategorie"), "miete");
+  await page.getByLabel("Erster Beleg am").fill(day(30));
+  await page
+    .locator("input[type=file]")
+    .setInputFiles([{ name: "lagervertrag.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n% Lagervertrag\n%%EOF\n") }]);
+  await page.getByLabel("Netto 1").fill("80,00");
+  await page.getByRole("button", { name: "Dauerbeleg anlegen" }).click();
+  await page.waitForURL(/\/dauerbelege\/[0-9a-f-]{36}$/);
+  // Das Formular der neuen Seite, nicht mehr das von „neu“
+  await expect(page.getByRole("heading", { name: "Lagerraum Sperre", level: 1 })).toBeVisible();
+
+  await bezeichnung.fill("Lagerraum gespeichert");
+  await eingabeNachAktion(page, {
+    aktion: page.getByRole("button", { name: "Speichern", exact: true }),
+    feld: bezeichnung,
+    text: "Gleich danach getippt",
+    neuGeladen: page.getByRole("heading", { name: "Lagerraum gespeichert", level: 1 }),
+  });
+  // Pausieren baut das Formular ebenso neu auf
+  await eingabeNachAktion(page, {
+    aktion: page.getByRole("button", { name: "Pausieren", exact: true }),
+    feld: bezeichnung,
+    text: "Nach dem Pausieren getippt",
+    neuGeladen: page.getByText(/Pausiert: Bis zum Fortsetzen/),
+  });
+});
+
+test("Dauerbeleg: Speichern schlägt fehl, der Fokus steht danach wieder im Feld (#1793)", async () => {
+  // Der Dauerbeleg aus dem Test davor
+  await fokusNachFehlschlag(page, page.getByLabel("Bezeichnung"));
+  // Der Dauerbeleg gehört nur diesen beiden Tests
+  await page.getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(page, "Vorlage löschen");
+  await expect(page).toHaveURL(/\/dauerbelege(?:\?.*)?$/);
 });
 
 test("Beleg mit § 13b: Steuer selbst berechnet, gezahlt wird netto", async ({ browser }) => {

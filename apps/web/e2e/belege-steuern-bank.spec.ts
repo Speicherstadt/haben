@@ -9,6 +9,7 @@ import { bestaetigen, dkb, durchlaufSeite, gehe, lieferantWaehlen, neuenLieferan
 import { LAPTOP } from "./kopfzeile.ts";
 import { abzugEinspielen } from "./abzug.ts";
 import { receiptJpeg } from "./belegbild.ts";
+import { eingabeNachAktion, fokusNachFehlschlag } from "./felder-sperre.ts";
 
 /**
  * Abschnitt von belege-steuern (#1742) mit eigenem Server und eigener Datenbank, parallel zu den anderen Abschnitten:
@@ -277,6 +278,40 @@ test("Anlage anlegen: Erinnerungswert angehakt, dann zu Computer gewechselt, wir
   await form.getByRole("button", { name: "Anlage übernehmen" }).click();
   await page.waitForURL(/\/anlagen\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("region", { name: "Abschreibungsplan" })).not.toContainText("Erinnerungswert");
+});
+
+test("Anlage: Eingaben direkt nach dem Speichern bleiben erhalten (#1793)", async () => {
+  await go("/anlagen/neu");
+  const form = page.getByRole("region", { name: "Angaben" });
+  const bezeichnung = form.getByLabel("Bezeichnung");
+  await bezeichnung.fill("Werkbank Sperre");
+  await form.getByRole("combobox", { name: "Art", exact: true }).selectOption({ label: "Sonstige Betriebs- und Geschäftsausstattung" });
+  await form.getByLabel("Nutzungsdauer in Jahren").fill("10");
+  await form.getByLabel("Anschaffungsdatum").fill("2025-03-01");
+  await form.getByLabel("Anschaffungskosten netto (€)").fill("2.400,00");
+  await form.getByLabel("Übernahmestichtag").fill("2026-01-01");
+  await form.getByLabel("Restbuchwert zum Stichtag (€)").fill("2.200,00");
+  await form.getByRole("button", { name: "Anlage übernehmen" }).click();
+  await page.waitForURL(/\/anlagen\/[0-9a-f-]{36}$/);
+  // Das Formular der neuen Seite, nicht mehr das von „neu“
+  await expect(page.getByRole("heading", { name: "Werkbank Sperre", level: 1 })).toBeVisible();
+
+  await bezeichnung.fill("Werkbank gespeichert");
+  await eingabeNachAktion(page, {
+    aktion: form.getByRole("button", { name: "Speichern", exact: true }),
+    feld: bezeichnung,
+    text: "Gleich danach getippt",
+    neuGeladen: page.getByRole("heading", { name: "Werkbank gespeichert", level: 1 }),
+  });
+});
+
+test("Anlage: Speichern schlägt fehl, der Fokus steht danach wieder im Feld (#1793)", async () => {
+  // Die Anlage aus dem Test davor
+  await fokusNachFehlschlag(page, page.getByRole("region", { name: "Angaben" }).getByLabel("Bezeichnung"));
+  // Die Anlage gehört nur diesen beiden Tests: die folgenden rechnen ohne sie
+  await page.locator(".page-head").getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(page, "Anlage löschen");
+  await expect(page).toHaveURL(/\/anlagen(?:\?.*)?$/);
 });
 
 test("Aufteilen mit zu viel verteilt: der Fehler am Betrag sagt, wie viel zu viel ist (Review #970)", async () => {
