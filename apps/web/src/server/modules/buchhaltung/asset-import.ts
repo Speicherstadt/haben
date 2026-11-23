@@ -48,18 +48,22 @@ export async function planAssetImport(
   mapping: ColumnMapping,
   stichtag: string,
 ): Promise<PlannedRow<z.output<typeof assetInputSchema>>[]> {
-  return planAssetCandidates(q, assetCandidates(table, mapping, stichtag));
+  const candidates = assetCandidates(table, mapping, stichtag);
+  // Die Inventarnummer hat bei gleichen Anlagen Vorrang. Die Vorschau zeigt weiter die Reihenfolge der Datei.
+  candidates.sort((a, b) => Number(Boolean(b.value?.note)) - Number(Boolean(a.value?.note)));
+  return (await planAssetCandidates(q, candidates)).sort((a, b) => a.line - b.line);
 }
 
 /**
  * Plan einer Übernahme aus Zeilen, wie sie der CSV-Import oder der Umzug aus sevDesk liest: dieselben Prüfungen wie
  * „Anlage übernehmen“, Dubletten gegen den Bestand. `stockKeys` liest die Merkmale des Bestands, etwa die Kennung aus
- * sevDesk in der Notiz; ohne sie Bezeichnung, Anschaffung und Kosten.
+ * sevDesk in der Notiz. Beim CSV-Import zählen Bezeichnung, Anschaffung und Kosten, ergänzt um die Notiz.
  */
 export async function planAssetCandidates(
   q: Db | Tx,
   rows: readonly RowCandidate<AssetRow>[],
-  stockKeys: (stock: readonly StockAsset[]) => DuplicateKey[] = (stock) => stock.flatMap(assetKeys),
+  stockKeys: (stock: readonly StockAsset[]) => DuplicateKey[] = (stock) =>
+    stock.flatMap((a) => (a.note.trim() ? [...assetKeys(a), ...assetKeys(a, a.note)] : assetKeys(a))),
 ): Promise<PlannedRow<z.output<typeof assetInputSchema>>[]> {
   const { rechtsform } = await loadCompany(q);
   const candidates = rows.map((row) => {

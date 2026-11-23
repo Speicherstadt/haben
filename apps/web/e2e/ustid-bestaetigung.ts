@@ -6,6 +6,7 @@ import { day, YEAR } from "./daten.ts";
 import { databaseUrlFuer, EVATR_PORT } from "./durchlaeufe.ts";
 import { bestaetigen, gehe, kontrasteInThemes, kundeWaehlen, lieferantWaehlen, ohneAxeVerstoesse } from "./einrichtung.ts";
 import { waehleKategorie } from "./kategorie.ts";
+import { serverAufrufe } from "./warten.ts";
 
 /*
  * Bestätigung der USt-IdNr. beim BZSt am Kontakt (#1385), gegen einen nachgebauten eVatR-Dienst auf EVATR_PORT; nur der
@@ -152,13 +153,15 @@ export function ustIdBestaetigungPruefen(getPage: () => Page) {
       await page.getByLabel("Ort").fill("Klagenfurt");
       await page.getByLabel("Land (z. B. DE)").fill("AT");
       await page.getByLabel("USt-IdNr.").fill("ATU33445566");
+      const aufrufe = serverAufrufe(page);
       await page.getByRole("button", { name: "Kontakt anlegen" }).click();
       await expect.poll(() => dienst.anfragen.length).toBe(1);
       await page.getByRole("link", { name: "Rechnung schreiben" }).click();
       await expect(page).toHaveURL(/\/rechnungen\/neu\?kunde=[0-9a-f-]{36}$/);
       // Die Abfrage läuft auf dem Server zu Ende, die Seite bleibt
       await expect.poll(() => dienst.anfragen.length).toBe(2);
-      await page.waitForTimeout(2_000);
+      // Erst wenn auch die Antwort an die Seite zurück ist, zeigt sich, ob sie die Seite wechselt
+      await aufrufe.fertig();
       await expect(page).toHaveURL(/\/rechnungen\/neu\?kunde=[0-9a-f-]{36}$/);
     } finally {
       // Nicht in den Zahlen der folgenden Tests

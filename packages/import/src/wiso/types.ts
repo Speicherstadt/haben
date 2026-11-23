@@ -46,6 +46,8 @@ export interface WisoPreview {
   dateTo: string;
   bookings: number;
   rows: number;
+  debitTotal: Cents;
+  creditTotal: Cents;
   vouchers: WisoVoucher[];
   warnings: string[];
 }
