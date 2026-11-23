@@ -71,8 +71,10 @@ function VatPeriodPage() {
   const [periodNotice, setPeriodNotice] = useState<PeriodNotice | null>(null);
   const notice = periodNotice?.key === key ? periodNotice.notice : null;
   const setNotice = (next: Notice) => setPeriodNotice({ key, notice: next });
-  // Passt der Zeitraum nicht zur Voranmeldung, lässt es sich dort beheben: dann steht der Bereich offen
-  const [fristenOffen, setFristenOffen] = useState(Boolean(data.periodProblem));
+  // Passt der Zeitraum nicht zur Voranmeldung, lässt es sich dort beheben: dann steht der Bereich offen. Wie die Meldung gilt
+  // die Wahl nur für den Zeitraum, in dem sie entstand; der Zustand der Seite bleibt beim Wechsel des Zeitraums erhalten
+  const [fristen, setFristen] = useState<{ key: string; offen: boolean } | null>(null);
+  const fristenOffen = fristen?.key === key ? fristen.offen : Boolean(data.periodProblem);
   // Zeiträume nach dem eingestellten Voranmeldungszeitraum, dazu der angezeigte, falls er nicht dazugehört
   const options = [...data.periods];
   if (!options.some((option) => periodKey(option) === key)) options.push(data.period);
@@ -105,7 +107,13 @@ function VatPeriodPage() {
       {/* key: Formular bei Zeitraum- oder Anmeldungswechsel neu aufsetzen */}
       <VatReturnEditor key={`${key}-${data.current?.id ?? "neu"}-${data.current?.updatedAt ?? ""}`} data={data} notice={notice} setNotice={setNotice} />
       {/* Außerhalb des Editors: der baut sich nach jedem Speichern der Anmeldung neu auf und verwürfe sonst die Auswahl hier */}
-      <FristenAbschnitt frequency={data.frequency} dauerfrist={data.dauerfrist} setup={data} offen={fristenOffen} onOffen={setFristenOffen} />
+      <FristenAbschnitt
+        frequency={data.frequency}
+        dauerfrist={data.dauerfrist}
+        setup={data}
+        offen={fristenOffen}
+        onOffen={(offen) => setFristen({ key, offen })}
+      />
     </>
   );
 }

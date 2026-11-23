@@ -38,7 +38,7 @@ Vor jedem Prüfen oder Senden speichert Haben den Entwurf, falls er neu oder ge�
 
 Der Voranmeldungszeitraum ist nach § 18 Abs. 2 UStG das Kalendervierteljahr. Monatlich gibst du ab, wenn die Steuer des Vorjahres mehr als 9.000 € betrug. Bei höchstens 2.000 € kann dich das Finanzamt von den Voranmeldungen befreien; dann gibst du nur die Jahreserklärung ab. Festgelegt wird der Zeitraum vom Finanzamt, meist mit der Steuernummer oder nach der Jahreserklärung. Haben übernimmt, was du einträgst, und schlägt nur vor.
 
-Auf der Seite **Umsatzsteuer** klappst du dafür unten **Fristen und Zeitraum ändern** auf. Dahinter steht, was eingestellt ist, etwa „2026: monatlich · Dauerfristverlängerung besteht“. Der Bereich steht offen, wenn der angezeigte Zeitraum nicht zum eingestellten passt. Darin steht der Bereich **Voranmeldungszeitraum &lt;Jahr&gt;** für das Jahr des angezeigten Zeitraums:
+Auf der Seite **Umsatzsteuer** klappst du dafür unten **Fristen und Zeitraum ändern** auf. Dahinter steht, was eingestellt ist, etwa „2026: monatlich · Dauerfristverlängerung besteht“. Der Bereich ist beim Aufruf eines Zeitraums zu; passt der Zeitraum nicht zur Einstellung, steht er offen. Aufklappen oder Zuklappen gilt nur für den angezeigten Zeitraum. Darin steht der Bereich **Voranmeldungszeitraum &lt;Jahr&gt;** für das Jahr des angezeigten Zeitraums:
 
 | Feld | Bedeutung |
 | --- | --- |
