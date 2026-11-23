@@ -73,6 +73,46 @@ describe.skipIf(!testDatabaseUrl)("REST-API /api/v1 (Postgres)", () => {
     ...extra,
   });
 
+  describe("Wiederkehrende Rechnungen", () => {
+    const path = "/rechnungen/wiederkehrend";
+    const vorlage = (contactId: unknown) => ({
+      name: "Monatlicher Service",
+      contactId,
+      nextDate: `${year}-01-31`,
+      recurrence: "P1M",
+      lines: draft().lines,
+    });
+
+    it("legt eine Vorlage pausiert an und liefert einen Link zur Prüfung", async () => {
+      const t = await token(["kontakte:schreiben", "rechnungen:vorlagen-anlegen"]);
+      const contact = await call(t, "POST", "/kontakte", kunde);
+      const response = await call(t, "POST", path, vorlage(contact.json!.id));
+      expect(response.status).toBe(201);
+      const id = response.json!.id as string;
+      const url = `http://localhost:3000/rechnungen/wiederkehrend/${id}`;
+      expect(response.json).toEqual({ id, active: false, url });
+      expect(response.headers.get("location")).toBe(url);
+      const saved = await rechnungen.getRecurring(id);
+      expect(saved?.recurring).toMatchObject({
+        ...vorlage(contact.json!.id),
+        active: false,
+        mode: "entwurf",
+        sendByMail: false,
+        anchorDay: 31,
+      });
+      expect(saved?.invoices).toEqual([]);
+    });
+
+    it("verlangt das Vorlagenrecht und lehnt die Aktivierung per API ab", async () => {
+      const draftToken = await token(["rechnungen:entwuerfe"]);
+      const write = await token(["rechnungen:vorlagen-anlegen"]);
+      const body = vorlage("00000000-0000-4000-8000-000000000000");
+      expect((await call(draftToken, "POST", path, body)).status).toBe(403);
+      expect((await call(write, "POST", path, { ...body, active: true })).status).toBe(400);
+      expect((await call(write, "POST", path, body)).status).toBe(422);
+    });
+  });
+
   describe("Anmeldung und Rechte", () => {
     it("lehnt fehlende, falsche, widerrufene Tokens und ausgeschalteten Zugang mit 401 im JSON-Format ab", async () => {
       const t = await token(["kontakte:lesen"]);
@@ -330,6 +370,24 @@ describe.skipIf(!testDatabaseUrl)("REST-API /api/v1 (Postgres)", () => {
       expect(patched.lines).toEqual([expect.objectContaining({ itemNumber: "ET-1042" })]);
       const plain = schemas.invoiceSchema.parse((await call(t, "POST", "/rechnungen", draft())).json);
       expect(plain.lines).toEqual([expect.objectContaining({ itemNumber: "" })]);
+    });
+
+    it("liest und schreibt das Kennzeichen Arbeits-, Maschinen- und Fahrtkosten je Position und am Artikel (#712)", async () => {
+      const t = await token(["rechnungen:entwuerfe", "artikel:schreiben"]);
+      const material = { description: "Rauchwarnmelder", quantity: 1000, unit: "Stk.", unitPrice: 3_100, taxRate: 1900 };
+      const montage = { ...material, description: "Montage", unitPrice: 800, arbeitskosten: true };
+      const created = await call(t, "POST", "/rechnungen", draft({ lines: [material, montage] }));
+      expect(created.status).toBe(201);
+      const invoice = schemas.invoiceSchema.parse(created.json);
+      expect(invoice.lines.map((l) => l.arbeitskosten)).toEqual([false, true]);
+      const patched = schemas.invoiceSchema.parse((await call(t, "PATCH", `/rechnungen/${invoice.id}`, { note: "Danke" })).json);
+      expect(patched.lines.map((l) => l.arbeitskosten)).toEqual([false, true]);
+      const artikel = await call(t, "POST", "/artikel", { description: "Montage", unit: "Stk.", unitPrice: 800, taxRate: 1900, arbeitskosten: true });
+      expect(artikel.status).toBe(201);
+      expect(artikel.json).toMatchObject({ arbeitskosten: true });
+      expect((await call(t, "PATCH", `/artikel/${(artikel.json as { id: string }).id}`, { arbeitskosten: false })).json).toMatchObject({
+        arbeitskosten: false,
+      });
     });
 
     it("nimmt Format und Sprache ohne Angabe vom Kontakt wie der Rechnungseditor", async () => {
@@ -634,9 +692,11 @@ describe.skipIf(!testDatabaseUrl)("REST-API /api/v1 (Postgres)", () => {
         "/leistungen",
         "/leistungen/{id}",
         "/rechnungen",
+        "/rechnungen/wiederkehrend",
         "/rechnungen/{id}",
       ]);
       expect(doc.paths["/rechnungen"]!.post!.security).toEqual([{ token: ["rechnungen:entwuerfe"] }]);
+      expect(doc.paths["/rechnungen/wiederkehrend"]!.post!.security).toEqual([{ token: ["rechnungen:vorlagen-anlegen"] }]);
       expect(doc.paths["/leistungen"]!.post!.security).toEqual([{ token: ["leistungen:schreiben"] }]);
       expect(doc.paths["/angebote"]!.get!.security).toEqual([{ token: ["angebote:lesen"] }]);
       expect(doc.paths["/bankimporte"]!.post!.security).toEqual([{ token: ["bank:importieren"] }]);

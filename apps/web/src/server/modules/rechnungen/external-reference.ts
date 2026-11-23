@@ -119,6 +119,7 @@ export function draftInputOf(invoice: Invoice, lines: InvoiceLine[]): DraftInput
         unitPrice: line.unitPrice,
         taxRate: line.taxRate as 1900 | 700 | 0,
         discount: discountFromColumns(line.discountPercent, line.discountAmount),
+        arbeitskosten: line.arbeitskosten,
       })),
   };
 }

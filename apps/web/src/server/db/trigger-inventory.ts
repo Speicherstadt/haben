@@ -1,36 +1,14 @@
-import { createHash } from "node:crypto";
-import { sql } from "drizzle-orm";
-import {
-  type Builtins,
-  builtinFindings,
-  type CatalogObjects,
-  catalogFindings,
-  type Extensions,
-  extensionMembers,
-  readBuiltinFunctions,
-  readCatalogObjects,
-} from "./catalog-objects.ts";
-import { type ColumnDefault, columnDefaults, sealedTables } from "./column-defaults.ts";
+import { type Abfrage, type Befund, type Hinweis, type Leser, leseMomentaufnahme, type Sollbestand, vergleiche } from "@firsttris/gobd-kern/sperren";
+import { type SQL, sql } from "drizzle-orm";
 import type { Db } from "./index.ts";
+import { sealedTables } from "./sealed-tables.ts";
 import expected from "./trigger-inventory.json";
-import { type RowSecurity, readRowSecurity, rowSecurityFindings } from "./row-security.ts";
-import { replicationDefaults } from "./trigger-defaults.ts";
 
 type Connection = Pick<Db, "execute">;
 type Reader = { transaction<T>(read: (tx: Connection) => Promise<T>, config?: { isolationLevel: "repeatable read"; accessMode: "read only" }): Promise<T> };
 
-export interface TriggerInventory {
-  triggers: { table: string; name: string; enabled: string; definition: string; function: string }[];
-  functions: { name: string; sourceHash: string; definitionHash: string; config: string[]; language: string; securityDefiner: boolean }[];
-  /** Tabellen, die in ein Siegel eingehen, samt Kindtabellen (#1580) */
-  sealedTables: string[];
-  /** Standardwerte ihrer Spalten; eine Spalte ohne Standardwert steht nicht darin */
-  defaults: ColumnDefault[];
-  /** Eingebaute Funktionen von PostgreSQL, die nicht fest eingebaut sind (catalog-objects.ts) */
-  builtins: Builtins;
-  /** Mitglieder der Erweiterungen einer frischen Installation (catalog-objects.ts) */
-  extensions: Extensions;
-}
+/** Sollbestand von Haben: Trigger, Funktionen `haben_…`, Standardwerte versiegelter Tabellen (@firsttris/gobd-kern/sperren) */
+export type TriggerInventory = Sollbestand;
 
 export interface TriggerProblem {
   art: "sperre";
@@ -40,156 +18,130 @@ export interface TriggerProblem {
   befund: string;
 }
 
-const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
+const optionen = { schema: "public", praefix: "haben" };
 
-/**
- * pg_get_triggerdef enthält WHEN, UPDATE OF, Constraintaufschub und Argumente, keine instanzabhängigen OIDs.
- * Ein fester search_path macht darin auch Funktions- und Typnamen eindeutig; die Einstellung gilt nur lokal
- * und wird vor Verlassen der Transaktion zurückgesetzt. Qualifizierte Kataloge verhindern den Vorrang von pg_temp.
- * Auch die Pfadeinstellung selbst darf kein Betreiberobjekt auflösen. Keines der gelesenen Datenbankobjekte wird verändert.
- * https://www.postgresql.org/docs/18/runtime-config-client.html#GUC-SEARCH-PATH
- * https://www.postgresql.org/docs/18/catalog-pg-trigger.html
- * https://www.postgresql.org/docs/18/functions-info.html#FUNCTIONS-INFO-CATALOG-TABLE
- * https://github.com/Speicherstadt/haben/issues/764#issuecomment-6837874131
- *
- * `sealed` nennt die Tabellen, deren Standardwerte gelesen werden. Ohne die Angabe bestimmt sie die Datenbank selbst;
- * das ist dem Generator auf einer frisch migrierten Datenbank vorbehalten.
- */
-async function readSnapshot(
-  reader: Reader,
-  sealed?: string[],
-): Promise<{
-  inventory: TriggerInventory;
-  replication: string[];
-  schemas: string[];
-  temp: string | null;
-  catalog: CatalogObjects;
-  rowSecurity: RowSecurity;
-}> {
-  return reader.transaction(
-    async (tx) => {
-      // current_schemas vor dem Umstellen: der Suchpfad, mit dem die Verbindung die Prüffunktionen aufruft
-      const [setting] = await tx.execute<{ path: string; schemas: string[]; temp: string | null }>(
-        sql`select pg_catalog.current_setting('search_path') as path, pg_catalog.current_schemas(true)::text[] as schemas,
-          (select n.nspname::text from pg_catalog.pg_namespace n where n.oid = pg_catalog.pg_my_temp_schema()) as temp`,
-      );
-      try {
-        let tables = sealed;
-        if (!tables) {
-          await tx.execute(sql`select pg_catalog.set_config('search_path', 'public', true)`);
-          tables = await sealedTables(tx);
-        }
-        await tx.execute(sql`select pg_catalog.set_config('search_path', 'pg_catalog', true)`);
-        const catalog = await readCatalogObjects(tx);
-        const triggers = await tx.execute<TriggerInventory["triggers"][number]>(sql`
-        select format('%I.%I', n.nspname, c.relname) as "table", t.tgname as name, t.tgenabled as enabled,
-          pg_get_triggerdef(t.oid, false) as definition,
-          format('%I.%I(%s)', pn.nspname, p.proname, pg_get_function_identity_arguments(p.oid)) as function
-        from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid = t.tgrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-        join pg_catalog.pg_proc p on p.oid = t.tgfoid join pg_catalog.pg_namespace pn on pn.oid = p.pronamespace
-        where n.nspname = 'public' and not t.tgisinternal order by n.nspname, c.relname, t.tgname`);
-        // prosrc ist bei SQL-Standardrümpfen leer; der zusätzliche Definitionshash deckt auch diese ab.
-        // proconfig, Sprache und SECURITY DEFINER können die Wirkung ohne Änderung von prosrc verändern.
-        // https://www.postgresql.org/docs/18/catalog-pg-proc.html
-        const functions = await tx.execute<{
-          name: string;
-          source: string;
-          definition: string;
-          config: string[];
-          language: string;
-          securityDefiner: boolean;
-        }>(sql`
-        select format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid)) as name,
-          p.prosrc as source, pg_get_functiondef(p.oid) as definition, coalesce(p.proconfig, '{}'::text[]) as config,
-          l.lanname as language, p.prosecdef as "securityDefiner"
-        from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace join pg_catalog.pg_language l on l.oid = p.prolang
-        where (n.nspname = 'public' and left(p.proname, 6) = 'haben_')
-          or p.oid in (select t.tgfoid from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid = t.tgrelid
-            join pg_catalog.pg_namespace tn on tn.oid = c.relnamespace where tn.nspname = 'public' and not t.tgisinternal)
-        order by n.nspname, p.proname, pg_get_function_identity_arguments(p.oid)`);
-        const inventory = {
-          triggers: [...triggers],
-          functions: functions.map(({ source, definition, ...fn }) => ({
-            ...fn,
-            config: [...fn.config].sort(),
-            sourceHash: sha256(source),
-            definitionHash: sha256(definition),
-          })),
-          sealedTables: tables,
-          defaults: await columnDefaults(tx, tables),
-          builtins: await readBuiltinFunctions(tx),
-          extensions: extensionMembers(catalog),
-        };
-        return {
-          inventory,
-          replication: await replicationDefaults(tx),
-          schemas: setting!.schemas,
-          temp: setting!.temp,
-          catalog,
-          rowSecurity: await readRowSecurity(tx),
-        };
-      } finally {
-        await tx.execute(sql`select pg_catalog.set_config('search_path', ${setting!.path}, true)`);
-      }
-    },
-    { isolationLevel: "repeatable read", accessMode: "read only" },
-  );
+/** Text mit Platzhaltern $1, $2, … als drizzle-SQL mit Parametern */
+function mitWerten(text: string, werte: unknown[]): SQL {
+  const teile = text.split(/\$(\d+)/);
+  return sql.join(teile.map((teil, i) => (i % 2 === 0 ? sql.raw(teil) : sql`${werte[Number(teil) - 1]}`)));
+}
+
+/** Lesende Transaktion für den Kern, über drizzle */
+function leser(reader: Reader): Leser {
+  return {
+    transaktion: (lesen) =>
+      reader.transaction(
+        (tx) => {
+          const abfrage: Abfrage = async <T>(text: string, werte: unknown[] = []) => [...(await tx.execute(mitWerten(text, werte)))] as T[];
+          return lesen(abfrage);
+        },
+        { isolationLevel: "repeatable read", accessMode: "read only" },
+      ),
+  };
 }
 
 /** Der Generator behält sein Format; Laufzeitvorgaben gehören nicht zum ausgelieferten Sollbestand. */
 export async function readTriggerInventory(reader: Reader): Promise<TriggerInventory> {
-  return (await readSnapshot(reader)).inventory;
+  return (await leseMomentaufnahme(leser(reader), { ...optionen, tabellen: sealedTables })).bestand;
+}
+
+const ohneSchema = (table: string) => table.replace(/^public\./, "");
+
+function vorgabeText({ vorgabe }: Extract<Befund, { art: "replica" }>): string {
+  const scope =
+    vorgabe.bereich === "verbindung"
+      ? "Vorgabe der Verbindung"
+      : vorgabe.bereich === "datenbank"
+        ? `Datenbank ${vorgabe.datenbank}`
+        : `Rolle ${vorgabe.rolle}${vorgabe.datenbank === null ? " (alle Datenbanken)" : ` in Datenbank ${vorgabe.datenbank}`}`;
+  return `Dauerhafte Voreinstellung session_replication_role = replica (${scope}); normale Trigger werden nicht ausgeführt`;
+}
+
+const zusaetzlich = { funktion: "Zusätzliche Funktion", operator: "Zusätzlicher Operator", relation: "Zusätzliche Relation" } as const;
+
+/** Tabelle und Text eines Befunds des Kerns, wie „Kette prüfen“, Mail und Startlog sie zeigen */
+export function problem(befund: Befund): { tabelle: string; befund: string } {
+  const datenbank = (text: string) => ({ tabelle: "Datenbank", befund: text });
+  switch (befund.art) {
+    case "replica":
+      return datenbank(vorgabeText(befund));
+    case "trigger-fehlt":
+    case "trigger-aus":
+    case "trigger-veraendert": {
+      const zustand =
+        befund.art === "trigger-aus"
+          ? `ist ${befund.zustand === "D" ? "abgeschaltet" : "nur im Replikat aktiv"}`
+          : befund.art === "trigger-fehlt"
+            ? "fehlt"
+            : "wurde verändert";
+      return { tabelle: ohneSchema(befund.tabelle), befund: `Trigger ${befund.tabelle}.${befund.trigger} ${zustand}` };
+    }
+    case "funktion-fehlt":
+    case "funktion-veraendert":
+      return {
+        tabelle: befund.tabelle === null ? "Funktionen" : ohneSchema(befund.tabelle),
+        befund: `Funktion ${befund.funktion} ${befund.art === "funktion-fehlt" ? "fehlt" : "wurde verändert"}`,
+      };
+    case "standardwert-fehlt":
+    case "standardwert-veraendert":
+    case "standardwert-zusaetzlich": {
+      const spalte = `${ohneSchema(befund.tabelle)}.${befund.spalte}`;
+      const text =
+        befund.art === "standardwert-fehlt"
+          ? `Standardwert von ${spalte} fehlt`
+          : befund.art === "standardwert-veraendert"
+            ? `Standardwert von ${spalte} wurde verändert`
+            : `Zusätzlicher Standardwert von ${spalte}`;
+      return { tabelle: ohneSchema(befund.tabelle), befund: text };
+    }
+    case "zeilensicherheit-eingeschaltet":
+      return { tabelle: befund.tabelle, befund: `Zeilensicherheit auf ${befund.tabelle} eingeschaltet` };
+    case "zeilensicherheit-erzwungen":
+      return { tabelle: befund.tabelle, befund: `Zeilensicherheit auf ${befund.tabelle} erzwungen` };
+    case "policy":
+      return { tabelle: befund.tabelle, befund: `Policy ${befund.policy} auf ${befund.tabelle} angelegt` };
+    case "objekt-im-systemschema":
+      return datenbank(`${zusaetzlich[befund.objektart]} ${befund.name} im Systemschema pg_catalog`);
+    case "objekt-ueberdeckt":
+      if (befund.objektart === "relation") return datenbank(`Relation ${befund.name} überdeckt eine gleichnamige Tabelle`);
+      return datenbank(
+        `${zusaetzlich[befund.objektart]} ${befund.name} überdeckt ${befund.objektart === "funktion" ? "eine gleichnamige Funktion" : "einen gleichnamigen Operator"}`,
+      );
+    case "cast":
+      return datenbank(`Zusätzlicher Cast ${befund.name}`);
+    case "schema-im-suchpfad":
+      return datenbank(`Schema ${befund.schema} im Suchpfad der Verbindung`);
+    case "pg-catalog-nicht-vorn":
+      return datenbank("pg_catalog steht im Suchpfad der Verbindung nicht vorn");
+    case "eingebaute-fehlt":
+      return datenbank(`Eingebaute Funktion ${befund.funktion} fehlt oder wurde verändert`);
+    case "eingebaute-veraendert":
+      return datenbank(`Eingebaute Funktion ${befund.funktion} wurde verändert`);
+    case "eingebaute-ersetzt":
+      return datenbank(`Eingebaute Funktion ${befund.funktion} durch eigenen Code ersetzt`);
+  }
+}
+
+/** Text eines Hinweises des Kerns */
+export function hinweisText(hinweis: Hinweis): string {
+  switch (hinweis.art) {
+    case "trigger-zusaetzlich":
+      return `Zusätzlicher Trigger ${hinweis.tabelle}.${hinweis.trigger}`;
+    case "objekt-zusaetzlich":
+      return `${zusaetzlich[hinweis.objektart]} ${hinweis.name}`;
+    case "eingebaute-nicht-geprueft":
+      return `Eingebaute Funktionen nicht geprüft: Der Sollbestand gilt für PostgreSQL ${hinweis.soll}, der Server hat ${hinweis.ist}`;
+  }
 }
 
 /** Der ausgelieferte Sollbestand stammt aus frischen Testmigrationen, niemals aus der geprüften Instanz. */
 export async function checkTriggerIntegrity(reader: Reader): Promise<{ problems: TriggerProblem[]; hints: string[] }> {
-  const { inventory: actual, replication, schemas, temp, catalog, rowSecurity } = await readSnapshot(reader, expected.sealedTables);
-  const problems: TriggerProblem[] = [];
-  const hints: string[] = [];
-  const problem = (table: string, befund: string) => problems.push({ art: "sperre", tabelle: table.replace(/^public\./, ""), zeile: null, seq: null, befund });
-  for (const message of replication) problem("Datenbank", message);
-  const key = (trigger: TriggerInventory["triggers"][number]) => `${trigger.table}.${trigger.name}`;
-  const triggers = new Map(actual.triggers.map((trigger) => [key(trigger), trigger]));
-  const functions = new Map(actual.functions.map((fn) => [fn.name, fn]));
-  for (const trigger of expected.triggers) {
-    const name = key(trigger);
-    const found = triggers.get(name);
-    if (!found) {
-      problem(trigger.table, `Trigger ${name} fehlt`);
-      continue;
-    }
-    // O feuert im normalen Betrieb, A immer; D ist aus, R feuert nur im Replikat.
-    // https://www.postgresql.org/docs/18/catalog-pg-trigger.html
-    if (found.enabled !== "O" && found.enabled !== "A")
-      problem(trigger.table, `Trigger ${name} ist ${found.enabled === "D" ? "abgeschaltet" : "nur im Replikat aktiv"}`);
-    if (found.definition !== trigger.definition || found.function !== trigger.function) problem(trigger.table, `Trigger ${name} wurde verändert`);
-    triggers.delete(name);
-  }
-  for (const fn of expected.functions) {
-    const found = functions.get(fn.name);
-    const table = expected.triggers.find((trigger) => trigger.function === fn.name)?.table ?? "Funktionen";
-    if (!found) problem(table, `Funktion ${fn.name} fehlt`);
-    else if (JSON.stringify(found) !== JSON.stringify(fn)) problem(table, `Funktion ${fn.name} wurde verändert`);
-  }
-  // Auch ein zusätzlicher Standardwert ist ein Befund: Wo der Sollbestand keinen nennt, erwartet die Prüfung der Siegel NULL.
-  const column = (entry: ColumnDefault) => `${entry.table.replace(/^public\./, "")}.${entry.column}`;
-  const defaults = new Map(actual.defaults.map((entry) => [column(entry), entry]));
-  for (const entry of expected.defaults) {
-    const found = defaults.get(column(entry));
-    if (!found) problem(entry.table, `Standardwert von ${column(entry)} fehlt`);
-    else if (found.expression !== entry.expression) problem(entry.table, `Standardwert von ${column(entry)} wurde verändert`);
-    defaults.delete(column(entry));
-  }
-  for (const entry of defaults.values()) problem(entry.table, `Zusätzlicher Standardwert von ${column(entry)}`);
-  for (const finding of rowSecurityFindings(rowSecurity)) problem(finding.table, finding.befund);
-  // Fremde Objekte, die Aufrufe der Prüffunktionen übernehmen können (catalog-objects.ts)
-  const foreign = catalogFindings(catalog, { schemas, temp, functions: expected.functions.map((fn) => fn.name), extensions: expected.extensions });
-  const builtin = builtinFindings(expected.builtins, actual.builtins);
-  for (const message of [...foreign.problems, ...builtin.problems]) problem("Datenbank", message);
-  // Eigene Betreibertrigger gehören nicht zum Sollbestand und beweisen keine beschädigte Sperre, auch wenn sie aus sind.
-  for (const trigger of triggers.values()) hints.push(`Zusätzlicher Trigger ${key(trigger)}`);
-  hints.push(...foreign.hints, ...builtin.hints);
-  return { problems, hints };
+  const ist = await leseMomentaufnahme(leser(reader), { ...optionen, tabellen: expected.sealedTables });
+  const { befunde, hinweise } = vergleiche(expected, ist, optionen.schema);
+  return {
+    problems: befunde.map((befund) => ({ art: "sperre", ...problem(befund), zeile: null, seq: null })),
+    hints: hinweise.map(hinweisText),
+  };
 }
 
 /** Eine Zeile beim Start; Befunde verhindern den Betrieb nicht und werden niemals automatisch repariert. */

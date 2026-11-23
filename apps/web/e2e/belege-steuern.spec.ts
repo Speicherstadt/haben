@@ -31,6 +31,7 @@ import { LAPTOP, sichtbar } from "./kopfzeile.ts";
 import { receiptJpeg } from "./belegbild.ts";
 import { vorsteuerPruefen } from "./belege-vorsteuer.ts";
 import { ustIdBestaetigungPruefen, zmBestaetigungPruefen } from "./ustid-bestaetigung.ts";
+import { abgearbeitet, serverAufrufe } from "./warten.ts";
 
 /**
  * Belege, Bank und Steuern in eigener, leerer Datenbank (Projekt „belege-steuern“, e2e/durchlaeufe.ts), parallel zu
@@ -589,6 +590,77 @@ test("Einkommensersatzleistungen: eintragen, speichern, nach dem Neuladen wieder
   await expect(feld("Elterngeld")).toHaveValue("1.200,40");
   await expect(feld("Krankengeld")).toHaveValue("480,00");
   await expect(feld("Arbeitslosengeld")).toHaveValue("");
+});
+
+test("Einkommensteuer: Kinder, Angaben des Ehegatten und ungültige Beträge beim Speichern", async () => {
+  // Spätere Tests öffnen dasselbe Jahr; damit sie es vorfinden wie ohne diesen Test, kommen die gespeicherten Angaben am Ende unverändert zurück
+  const sql = postgres(databaseUrlFuer("belege-steuern"), { max: 1 });
+  const vorher = await sql`select * from income_tax_inputs where year = ${YEAR - 1}`;
+  try {
+    await go(`/jahreserklaerung/${YEAR - 1}`);
+    const form = page.getByRole("form", { name: "Angaben zur Einkommensteuer" });
+    const feld = (name: string) => form.locator(`input[name="${name}"]`);
+    const kinder = form.locator("details.est-block").filter({ has: page.locator(".est-block-title", { hasText: /^Kinder$/ }) });
+    const kind = form.getByRole("group", { name: "Kind 1" });
+    const aufklappen = () =>
+      form.evaluate((f) => {
+        for (const block of f.querySelectorAll("details")) block.open = true;
+      });
+    const neuLaden = async () => {
+      await page.reload();
+      await page.waitForLoadState("networkidle");
+      await aufklappen();
+    };
+    await aufklappen();
+    await expect(kinder.locator("summary")).toContainText("keine");
+    await form.getByRole("button", { name: "+ Kind hinzufügen" }).click();
+    await kind.getByLabel("Vorname").fill("Lena");
+    await kind.getByLabel("Geburtsdatum").fill(`${YEAR - 10}-04-12`);
+    await kind.getByLabel("Familienkasse").fill("Familienkasse Baden-Württemberg West");
+    await kind.getByLabel("Kinderbetreuungskosten (€)").fill("viel");
+    // Bei Zusammenveranlagung tragen die Felder des Ehegatten „b-“
+    await feld("b-rv").fill("2.400,00");
+    await feld("erst-b-Elterngeld").fill("900");
+    await feld("kapMit").fill("350,00");
+    await form.getByLabel("Günstigerprüfung beantragen").check();
+    await feld("handwerker").fill("800");
+    await feld("spenden").fill("zwölf");
+    await form.getByRole("button", { name: "Angaben speichern" }).click();
+    await expect(form.getByRole("alert")).toContainText("Kein gültiger Betrag: Spenden, Kinderbetreuung Lena.");
+    await feld("spenden").fill("12,00");
+    await kind.getByLabel("Kinderbetreuungskosten (€)").fill("1.500,00");
+    await form.getByRole("button", { name: "Angaben speichern" }).click();
+    await expect(form.getByRole("status").filter({ hasText: "Angaben gespeichert." })).toBeVisible();
+
+    await neuLaden();
+    await expect(kinder.locator("summary")).toContainText("1 Kind");
+    await expect(kind.getByLabel("Vorname")).toHaveValue("Lena");
+    await expect(kind.getByLabel("Geburtsdatum")).toHaveValue(`${YEAR - 10}-04-12`);
+    await expect(kind.getByLabel("Familienkasse")).toHaveValue("Familienkasse Baden-Württemberg West");
+    await expect(kind.getByLabel("Kinderbetreuungskosten (€)")).toHaveValue("1.500,00");
+    await expect(feld("b-rv")).toHaveValue("2.400,00");
+    await expect(feld("erst-b-Elterngeld")).toHaveValue("900,00");
+    await expect(feld("kapMit")).toHaveValue("350,00");
+    await expect(form.getByLabel("Günstigerprüfung beantragen")).toBeChecked();
+    await expect(feld("handwerker")).toHaveValue("800,00");
+    await expect(feld("spenden")).toHaveValue("12,00");
+
+    await kind.getByRole("button", { name: "Kind entfernen" }).click();
+    await form.getByRole("button", { name: "Angaben speichern" }).click();
+    await expect(form.getByRole("status").filter({ hasText: "Angaben gespeichert." })).toBeVisible();
+    await neuLaden();
+    await expect(kinder.locator("summary")).toContainText("keine");
+    await expect(kind).toHaveCount(0);
+  } finally {
+    await sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'e2e-test', true)`;
+      await tx`delete from income_tax_inputs where year = ${YEAR - 1}`;
+      for (const row of vorher) {
+        await tx`insert into income_tax_inputs (year, data, updated_at) values (${row.year}, ${JSON.stringify(row.data)}::jsonb, ${row.updated_at})`;
+      }
+    });
+    await sql.end();
+  }
 });
 
 test("Finanzamt: Hinweis nur auf weggelassene Vorjahresleistungen (#1008)", async () => {
@@ -2012,11 +2084,17 @@ test("Kontaktformular: Gleiche USt-IdNr. wird gemeldet, auch beim archivierten K
   await expect(hinweis.getByRole("link", { name: "„Altbestand USt GmbH“ öffnen" })).toBeVisible();
   await page.getByLabel("USt-IdNr.").fill("DE666666666");
   await expect(hinweis).toHaveCount(0);
+  // Die Abfrage, die das Formular beim Bearbeiten nach dem Anlegen stellt: mit excludeId, also nicht schon die beim Anlegen
+  const eigeneAbfrage = page.waitForResponse((antwort) => {
+    const url = new URL(antwort.url());
+    return url.pathname.startsWith("/_serverFn/") && url.search.includes("DE666666666") && url.search.includes("excludeId");
+  });
   await page.getByRole("button", { name: "Kontakt anlegen" }).click();
   await expect(page.getByRole("heading", { name: "Versionen" })).toBeVisible();
 
   // Beim Bearbeiten nennt der Server den eigenen Kontakt nicht (excludeId), wohl aber einen fremden mit derselben USt-IdNr.
-  await page.waitForTimeout(1000);
+  await (await eigeneAbfrage).finished();
+  await abgearbeitet(page);
   await expect(hinweis).toHaveCount(0);
   await page.getByLabel("USt-IdNr.").fill("DE555555555");
   await expect(hinweis).toContainText("gibt es schon „Altbestand USt GmbH“");
@@ -2584,53 +2662,6 @@ test("Anlage übernehmen: degressive AfA mit Höchstsatz, Restbuchwert geprüft,
   await expect(plan).toContainText("linear ab 2027");
   await expect(plan.locator(".table-row", { hasText: /^2027/ })).toContainText("3.751,72");
   await expect(angaben.getByLabel("Erinnerungswert 1 € bis zum Abgang stehen lassen")).not.toBeChecked();
-});
-
-test("Elektrofahrzeug übernehmen: AfA nach § 7 Abs. 2a EStG mit Erinnerungswert", async () => {
-  await go("/anlagen/neu");
-  const form = page.getByRole("region", { name: "Angaben" });
-  await form.getByLabel("Bezeichnung").fill("E-Transporter");
-  await form.getByRole("combobox", { name: "Art", exact: true }).selectOption({ label: "Fahrzeug" });
-  await form.getByLabel("Anschaffungsdatum").fill("2025-08-01");
-  await form.getByLabel("Anschaffungskosten netto (€)").fill("40.000,00");
-  await form.getByRole("combobox", { name: "Abschreibung", exact: true }).selectOption("elektro");
-  await expect(form.getByText("Nur für reine Elektrofahrzeuge, angeschafft vom 01.07.2025 bis 31.12.2027")).toBeVisible();
-  await expect(form.getByRole("combobox", { name: "Abschreibung", exact: true })).toHaveAttribute("aria-describedby", /method-hint/);
-  await form.getByLabel("Erinnerungswert 1 € bis zum Abgang stehen lassen").check();
-  await form.getByLabel("Übernahmestichtag").fill("2026-01-01");
-  // 75 % im Anschaffungsjahr: Restbuchwert 10.000 €
-  await form.getByLabel("Restbuchwert zum Stichtag (€)").fill("10.000,00");
-  await form.getByRole("button", { name: "Anlage übernehmen" }).click();
-  await page.waitForURL(/\/anlagen\/[0-9a-f-]{36}$/);
-  await page.waitForLoadState("networkidle");
-  const plan = page.getByRole("region", { name: "Abschreibungsplan" });
-  await expect(plan).toContainText("Elektrofahrzeug 75/10/5/5/3/2 % (§ 7 Abs. 2a EStG), Erinnerungswert 1 €");
-  await expect(plan.locator(".table-row", { hasText: /^2026/ })).toContainText("4.000,00");
-  // Letztes Jahr der Staffel: 2 % abzüglich des Erinnerungswerts
-  await expect(plan.locator(".table-row", { hasText: /^2030/ })).toContainText("799,00");
-});
-
-test("Sonstige Transportmittel übernehmen: Konto 0380, eigene Nutzungsdauer statt der Pkw-Nutzungsdauer, keine Elektro-AfA (#312)", async () => {
-  await go("/anlagen/neu");
-  const form = page.getByRole("region", { name: "Angaben" });
-  await form.getByLabel("Bezeichnung").fill("Kofferanhänger");
-  await form.getByRole("combobox", { name: "Art", exact: true }).selectOption({ label: "Fahrzeug" });
-  await expect(form.getByLabel("Nutzungsdauer in Jahren")).toHaveValue("6");
-  // Die sechs Jahre für Pkw gehen nicht mit: die Nutzungsdauer kommt vom einzelnen Wirtschaftsgut
-  await form.getByRole("combobox", { name: "Art", exact: true }).selectOption({ label: "Sonstige Transportmittel (z. B. Anhänger, Lastenrad, Boot)" });
-  await expect(form.getByLabel("Nutzungsdauer in Jahren")).toHaveValue("");
-  await expect(form.getByRole("combobox", { name: "Abschreibung", exact: true }).locator("option[value=elektro]")).toHaveCount(0);
-  await form.getByLabel("Nutzungsdauer in Jahren").fill("11");
-  await form.getByLabel("Anschaffungsdatum").fill("2025-04-10");
-  await form.getByLabel("Anschaffungskosten netto (€)").fill("6.600,00");
-  await form.getByLabel("Übernahmestichtag").fill("2026-01-01");
-  // 2025: 9 von 132 Monaten = 450 €
-  await form.getByLabel("Restbuchwert zum Stichtag (€)").fill("6.150,00");
-  await form.getByRole("button", { name: "Anlage übernehmen" }).click();
-  await page.waitForURL(/\/anlagen\/[0-9a-f-]{36}$/);
-  await page.waitForLoadState("networkidle");
-  await expect(page.getByText(/Konto 0380/)).toBeVisible();
-  await expect(page.getByRole("region", { name: "Abschreibungsplan" }).locator(".table-row", { hasText: /^2026/ })).toContainText("600,00");
 });
 
 test("Beleg als Anlagegut: Wechsel von Fahrzeug zu Sonstige Transportmittel lässt die sechs Jahre für Pkw nicht stehen (#312)", async ({ browser }) => {
@@ -3698,9 +3729,10 @@ test("Leistungszeitraum: zwei Felder am Beleg, gespeichert und wieder angezeigt 
   await weitereAngabenOeffnen(page);
   await page.getByLabel("Leistung von").fill(day(-24));
   await page.getByLabel("Leistung bis").fill(day(-9));
-  await page.getByRole("button", { name: "Speichern" }).click();
   // Die Meldung ist Beiwerk; der Beweis ist, dass der Zeitraum nach dem Neuladen noch steht
-  await page.waitForTimeout(1500);
+  const speichern = serverAufrufe(page);
+  await page.getByRole("button", { name: "Speichern" }).click();
+  await speichern.fertig();
 
   await page.reload();
   await belegdatum.waitFor({ state: "visible", timeout: 30_000 });

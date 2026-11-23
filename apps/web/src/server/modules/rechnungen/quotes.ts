@@ -171,6 +171,7 @@ function lineRows(quoteId: string, input: QuoteDraftInput) {
     net: lineNets[index]!,
     ...discountColumns(line.discount),
     kind: line.kind ?? null,
+    arbeitskosten: line.arbeitskosten ?? false,
   }));
 }
 
@@ -424,6 +425,7 @@ export function quoteDocumentFor(
         net: calc.lineNets[i]!,
         ...lineDiscountOf(line),
         ...(line.kind ? { kind: line.kind } : {}),
+        ...(line.arbeitskosten ? { arbeitskosten: true } : {}),
         ...(line.kind === "alternative" ? { alternativeTo: alternativeMain(lines, line.position) ?? 0 } : {}),
       }),
     ),
@@ -637,6 +639,7 @@ export async function quoteToInvoice(
                 unitPrice: line.unitPrice,
                 taxRate: line.taxRate as 1900 | 700 | 0,
                 ...lineDiscountOf(line),
+                arbeitskosten: line.arbeitskosten,
               })),
       },
       planned ? { paymentPlanRow: planned.row } : {},
@@ -686,6 +689,7 @@ export async function copyQuote(actor: string, id: string, today: string): Promi
       taxRate: line.taxRate as 1900 | 700 | 0,
       kind: line.kind,
       ...lineDiscountOf(line),
+      arbeitskosten: line.arbeitskosten,
     })),
   };
   const parsed = quoteDraftSchema.parse(input);

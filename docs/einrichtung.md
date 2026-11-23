@@ -465,7 +465,7 @@ OpenRouter vermittelt viele Modelle verschiedener Anbieter über eine OpenAI-kom
 
 3. `docker compose up -d`, dann unter **Einstellungen › KI-Assistenten und API** prüfen, dass „Eigener Dienst (OpenAI-kompatibel)“ mit dem Modell und beim Schlüssel „gesetzt“ angezeigt wird.
 
-Der Beleg geht dann an OpenRouter und an den Anbieter des Modells. Wie lange sie Daten aufbewahren und ob sie damit trainieren, stellst du in deinem OpenRouter-Konto ein. Genauso funktionieren andere Dienste mit OpenAI-kompatibler API, etwa OpenAI selbst mit `https://api.openai.com/v1`.
+Der Beleg geht dann an OpenRouter und an den Anbieter des Modells. Wie lange sie Daten aufbewahren und ob sie damit trainieren, stellst du in deinem OpenRouter-Konto ein. Haben [ordnet Anfragen an OpenRouter öffentlich dem Projekt zu](https://openrouter.ai/docs/app-attribution); dabei sendet es `https://haben.app` als Projektadresse, nicht die Adresse deiner Instanz. Genauso funktionieren andere Dienste mit OpenAI-kompatibler API, etwa OpenAI selbst mit `https://api.openai.com/v1`.
 
 ## Bankkonten
 

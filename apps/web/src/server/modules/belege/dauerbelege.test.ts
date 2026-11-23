@@ -60,7 +60,7 @@ describe.skipIf(!testDatabaseUrl)("Dauerbelege (Postgres)", () => {
     amounts: [{ taxRate: 1900 as const, net: 100_000, tax: 19_000 }],
     taxShown: true,
     note: "",
-    intervalMonths: 1 as const,
+    recurrence: "P1M" as const,
     nextDate: "2026-08-31",
     endDate: null,
     dueDays: 3,
@@ -248,7 +248,7 @@ describe.skipIf(!testDatabaseUrl)("Dauerbelege (Postgres)", () => {
     await expect(dauer.createDauerbeleg(actor, miete({ taxShown: false }), vertrag())).rejects.toThrow(/gesondert ausweist/);
     const versicherung = await dauer.createDauerbeleg(
       actor,
-      miete({ name: "Betriebshaftpflicht", category: "versicherung", taxShown: false, intervalMonths: 12, amounts: [{ taxRate: 0, net: 45_000, tax: 0 }] }),
+      miete({ name: "Betriebshaftpflicht", category: "versicherung", taxShown: false, recurrence: "P1Y", amounts: [{ taxRate: 0, net: 45_000, tax: 0 }] }),
       vertrag("Police"),
     );
     await lauf.runDueDauerbelege("2026-09-01");

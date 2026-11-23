@@ -1,5 +1,5 @@
 {
-  "id": "602a6ff8-1edd-40e5-9179-f463d19a44ef",
+  "id": "bbb62345-0422-4cff-8414-40ebf3b17fcd",
   "prevId": "9d940c79-fcbc-4478-8deb-b347a9bed8dd",
   "version": "7",
   "dialect": "postgresql",
@@ -1206,6 +1206,13 @@
         },
         "price_includes_tax": {
           "name": "price_includes_tax",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "arbeitskosten": {
+          "name": "arbeitskosten",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
@@ -9002,6 +9009,13 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": false
+        },
+        "arbeitskosten": {
+          "name": "arbeitskosten",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         }
       },
       "indexes": {
@@ -15151,6 +15165,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "arbeitskosten": {
+          "name": "arbeitskosten",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         }
       },
       "indexes": {},
@@ -18741,7 +18762,7 @@
         },
         "text_blocks_standard_fuer": {
           "name": "text_blocks_standard_fuer",
-          "value": "\"text_blocks\".\"standard_fuer\" is null or \"text_blocks\".\"standard_fuer\" in ('rechnung', 'angebot', 'auftragsbestaetigung', 'lieferschein', 'mahnstufe_1', 'mahnstufe_2', 'mahnstufe_3')"
+          "value": "\"text_blocks\".\"standard_fuer\" is null or \"text_blocks\".\"standard_fuer\" in ('rechnung', 'angebot', 'auftragsbestaetigung', 'lieferschein', 'mahnung')"
         },
         "text_blocks_standard_passt": {
           "name": "text_blocks_standard_passt",

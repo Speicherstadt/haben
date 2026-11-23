@@ -1,6 +1,6 @@
 ---
 name: "fork-pushen"
-description: "Eigene Commits (Fixes aus Review oder Beitragsprüfung, Ergänzungen) auf den Branch eines Pull Requests an Haben pushen, der aus dem Fork einer anderen Person kommt. In einer Cloud-Session (claude.ai/code) geht das nur über eine neue Session mit dem Fork als Quelle; nicht erst git push oder add_repo probieren. Vor jedem Push auf einen fremden Fork laden."
+description: "Eigene Commits auf den Branch eines Pull Requests an Haben pushen, der aus dem Fork einer anderen Person kommt. Vor jedem Push auf einen fremden Fork laden, in einer Cloud-Session vor dem ersten Versuch mit git push oder add_repo."
 ---
 
 # Auf einen fremden Fork pushen

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAction } from "../lib/use-action.ts";
 import type { UmsatzgrenzeBestaetigung } from "../lib/kleinunternehmer.ts";
 import { type LineState, toLineState } from "../lib/editor-lines.ts";
+import { useArbeitskostenSchalter } from "./ArbeitskostenField.tsx";
 import type { ArticlePrefill } from "./ArticleForm.tsx";
 import { orderReferenceValues } from "./OrderReferenceFields.tsx";
 import { toPlanRows } from "./PaymentPlanFields.tsx";
@@ -55,6 +56,13 @@ export function useInvoiceEditorState(props: InvoiceEditorProps) {
     setDirty(true);
   }
 
+  // § 35a EStG (#712), dieselbe Regel wie in der wiederkehrenden Rechnung
+  const [arbeitskostenAusweisen, schalteArbeitskosten] = useArbeitskostenSchalter(zahlung.lines, setLines);
+  function setArbeitskostenAusweisen(on: boolean) {
+    schalteArbeitskosten(on);
+    setDirty(true);
+  }
+
   return {
     ...editorProps(props),
     ...kopf,
@@ -84,6 +92,8 @@ export function useInvoiceEditorState(props: InvoiceEditorProps) {
     setNeuerEntwurf,
     touch,
     updateLine,
+    arbeitskostenAusweisen,
+    setArbeitskostenAusweisen,
   };
 }
 

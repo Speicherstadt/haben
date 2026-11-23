@@ -160,7 +160,7 @@ describe.skipIf(!testDatabaseUrl)("Artikelnummer in Positionen (Postgres)", () =
       taxTreatment: "regulaer",
       exemptionReason: "",
       lines,
-      intervalMonths: 1,
+      recurrence: "P1M" as const,
       nextDate: "2026-09-30",
       endDate: "2026-09-30",
       servicePeriod: "laufend",

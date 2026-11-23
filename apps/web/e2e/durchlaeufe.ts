@@ -54,6 +54,54 @@ export const DURCHLAEUFE = {
 } as const;
 export type Durchlauf = keyof typeof DURCHLAEUFE;
 
+/** Projekte in playwright.config.ts, die den Hauptserver auf PORT nutzen */
+export const HAUPTPROJEKTE = ["ablauf", "mit-daten", "ohne-daten"] as const;
+export type Projekt = (typeof HAUPTPROJEKTE)[number] | Durchlauf;
+
+/**
+ * Feste Verteilung der Projekte auf die Teile der CI (Matrix in .github/workflows/ci.yml, E2E_TEIL), nach Dauer statt
+ * nach Datei wie `--shard`. Die seriellen Specs belege-steuern und rechnungen haben je einen Teil; „mit-daten“ hängt
+ * von „ablauf“ ab und steht mit ihm in einem Teil, damit „ablauf“ nur einmal läuft. Ein neuer Durchlauf kommt in den
+ * kürzesten Teil; e2e-teile.test.ts prüft, dass jedes Projekt genau einmal vorkommt.
+ */
+export const TEILE = {
+  "belege-steuern": ["belege-steuern"],
+  rechnungen: ["rechnungen"],
+  ablauf: ["ablauf", "mit-daten"],
+  gmbh: ["gmbh", "rueckfragen", "belegimport", "bb-import", "beleg-storno", "dauerfrist-euer", "verrechnung", "firmen", "passwort", "fastbill-import"],
+  importe: [
+    "wiso-import",
+    "sevdesk-export",
+    "sevdesk-anlagen",
+    "vorjahre",
+    "steuerbefreiung",
+    "ablage",
+    "einrichtung",
+    "umstellung",
+    "accountable-ohne-beleg",
+    "fremdrechnung",
+  ],
+  abruf: [
+    "fremdrechnung-kleinunternehmer",
+    "fints-abruf",
+    "etsy-abruf",
+    "zahlung-gebuehr",
+    "bank-dubletten",
+    "bank-bestaetigen",
+    "paypal-abruf",
+    "stripe-abruf",
+    "ohne-daten",
+  ],
+} as const satisfies Record<string, readonly Projekt[]>;
+export type Teil = keyof typeof TEILE;
+
+/** Projekte des Teils aus E2E_TEIL; ohne Angabe alle (undefined), ein unbekannter Name bricht ab */
+export function projekteFuerTeil(teil = process.env.E2E_TEIL): readonly Projekt[] | undefined {
+  if (!teil) return undefined;
+  if (!(teil in TEILE)) throw new Error(`E2E_TEIL „${teil}“ unbekannt, erlaubt: ${Object.keys(TEILE).join(", ")}`);
+  return TEILE[teil as Teil];
+}
+
 /** Die nachgebaute Enable-Banking-API in belege-steuern.spec.ts; + 7 und + 8 belegen langsame-anfrage und beenden */
 export const ENABLE_BANKING_PORT = PORT + 9;
 

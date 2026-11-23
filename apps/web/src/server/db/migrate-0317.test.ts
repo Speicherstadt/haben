@@ -9,11 +9,11 @@ import { testDatabaseUrl } from "../test-db.ts";
 const MIGRATIONS = fileURLToPath(new URL("../../../drizzle", import.meta.url));
 
 /*
- * Migration 0314 (#1678): Der Standard „Mahnung“ aus 0313 galt für jede Stufe. Er wird Standard der Stufe „1. Mahnung“,
+ * Migration 0317 (#1678): Der Standard „Mahnung“ aus 0313 galt für jede Stufe. Er wird Standard der Stufe „1. Mahnung“,
  * für Zahlungserinnerung und letzte Mahnung kommt je eine Kopie dazu, damit jede Stufe denselben Text behält. Andere
  * Bausteine bleiben, wie sie sind; das Änderungsprotokoll nennt die Migration als Urheber und die Hash-Kette hält.
  */
-describe.skipIf(!testDatabaseUrl)("Migration 0314: Standard je Mahnstufe (Postgres, #1678)", () => {
+describe.skipIf(!testDatabaseUrl)("Migration 0317: Standard je Mahnstufe (Postgres, #1678)", () => {
   let sql: postgres.Sql;
 
   beforeAll(async () => {
@@ -25,7 +25,7 @@ describe.skipIf(!testDatabaseUrl)("Migration 0314: Standard je Mahnstufe (Postgr
     const previous = mkdtempSync(join(tmpdir(), "haben-migrationen-"));
     cpSync(MIGRATIONS, previous, { recursive: true });
     const full = JSON.parse(readFileSync(join(MIGRATIONS, "meta", "_journal.json"), "utf8"));
-    const idx = full.entries.findIndex((e: { tag: string }) => e.tag === "0314_standard_je_mahnstufe");
+    const idx = full.entries.findIndex((e: { tag: string }) => e.tag === "0317_standard_je_mahnstufe");
     writeFileSync(join(previous, "meta", "_journal.json"), JSON.stringify({ ...full, entries: full.entries.slice(0, idx) }));
     sql = postgres(testDatabaseUrl!, { max: 1, onnotice: () => {} });
     const { drizzle } = await import("drizzle-orm/postgres-js");

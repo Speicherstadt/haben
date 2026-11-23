@@ -158,11 +158,11 @@ export async function textbausteineUebernehmen(tx: Tx, blocks: readonly unknown[
 }
 
 /**
- * Ein Standard „Mahnung“ aus einer Exportdatei der Version 2 (#1494) galt für jede Stufe. Wie in Migration 0314 wird er
+ * Ein Standard „Mahnung“ aus einer Exportdatei der Version 2 (#1494) galt für jede Stufe. Wie in Migration 0317 wird er
  * Standard der 1. Mahnung, Zahlungserinnerung und letzte Mahnung bekommen je eine Kopie (#1678); archiviert ist er keiner
  */
 /**
- * Höchstens `max` UTF-16-Einheiten wie textBlockInputSchema, ohne ein Emoji zu teilen; dieselbe Regel wie Migration 0314:
+ * Höchstens `max` UTF-16-Einheiten wie textBlockInputSchema, ohne ein Emoji zu teilen; dieselbe Regel wie Migration 0317:
  * je Zeichen außerhalb der BMP ein Zeichen weniger
  */
 function kuerzen(text: string, max: number): string {

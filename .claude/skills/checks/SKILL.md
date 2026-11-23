@@ -12,7 +12,7 @@ Welche Prüfungen gelten, steht in `docs/mitwirken.md`; die Befehle im Container
 - `bun --version` gibt die Version aus `packageManager` in `package.json`: Prüfungen direkt mit Bun.
 - Kein Bun oder eine andere Version: **Dev-Container aus `compose.yml`**, keine eigenen Ad-hoc-Container mit `oven/bun` o. Ä.
 - Weder Bun noch Docker/Podman: der Person sagen, was fehlt, und nicht weiter raten.
-- Kein PostgreSQL 18, aber ein anderes installiert: Das geht für die Tests (`initdb` in den Scratchpad, `pg_ctl … -o '-p 5433'`).
+- Kein PostgreSQL 19, aber ein anderes installiert: Das geht für die Tests (`initdb` in den Scratchpad, `pg_ctl … -o '-p 5433'`).
 
 ## 2. Eigene Compose-Instanz
 

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import postgres from "postgres";
+import { serverAufrufe } from "./warten.ts";
 import { currentDay, day, firstLink, USER, YEAR } from "./daten.ts";
 import { databaseUrlFuer } from "./durchlaeufe.ts";
 import { HANDY, LAPTOP, sichtbar, statusBleibtSichtbar, zumEnde } from "./kopfzeile.ts";
@@ -92,6 +93,53 @@ test("Grundstücksleistung: fester Aufbewahrungshinweis, Entwurf speichern und e
   await expect(haken).toHaveAccessibleDescription(/zweijährigen Aufbewahrung/);
   await go("/angebote/neu");
   await expect(haken).toHaveCount(0);
+});
+
+test("§ 35a EStG: Artikel mit Arbeitskosten setzt den Haken, die Vorschau nennt den Anteil, Ausschalten nimmt das Kennzeichen (#712)", async () => {
+  await go("/artikel");
+  await page.getByRole("button", { name: "Neuer Artikel" }).click();
+  const form = page.getByRole("form", { name: "Neuer Artikel" });
+  await form.getByLabel("Bezeichnung").fill("Montage Rauchwarnmelder");
+  await form.getByLabel("Preis (€)").fill("8,00");
+  await form.getByLabel("Kosten für § 35a EStG").selectOption("ja");
+  await form.getByRole("button", { name: "Anlegen" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Artikel angelegt." })).toBeVisible();
+
+  await go("/rechnungen/neu");
+  await kundeWaehlen(page);
+  await page.getByLabel("Beschreibung Position 1").fill("Rauchwarnmelder");
+  await page.getByLabel(/Einzelpreis Position 1/).fill("31,00");
+  const haken = page.getByRole("checkbox", { name: "Anteil der Arbeits-, Maschinen- und Fahrtkosten ausweisen (§ 35a EStG)" });
+  const kosten = (position: number) => page.getByLabel(`Kosten der Position ${position} für § 35a EStG`);
+  const vorschau = page.getByLabel("Vorschau der Rechnung");
+  await expect(haken).not.toBeChecked();
+  await expect(kosten(1)).toHaveCount(0);
+  await expect(vorschau).not.toContainText("Fahrtkosten");
+
+  // Der Artikel bringt das Kennzeichen mit; der Haken geht damit an, jede Position zeigt ihre Auswahl
+  await page.getByRole("button", { name: "Position hinzufügen" }).click();
+  await artikelInPosition(page, 2, "Montage Rauchwarnmelder");
+  await expect(haken).toBeChecked();
+  await expect(kosten(1)).toHaveValue("nein");
+  await expect(kosten(2)).toHaveValue("ja");
+  await expect(vorschau).toContainText("Fahrtkosten");
+  await page.getByRole("button", { name: "Entwurf speichern", exact: true }).click();
+  await expect(page).toHaveURL(/\/rechnungen\/[0-9a-f-]{36}$/);
+  await page.reload({ waitUntil: "networkidle" });
+  await expect(haken).toBeChecked();
+  await expect(kosten(2)).toHaveValue("ja");
+
+  // Ausschalten nimmt allen Positionen das Kennzeichen
+  await haken.uncheck();
+  await expect(kosten(2)).toHaveCount(0);
+  await expect(vorschau).not.toContainText("Fahrtkosten");
+  await page.getByRole("button", { name: "Entwurf speichern", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Entwurf gespeichert." })).toBeVisible();
+  await page.reload({ waitUntil: "networkidle" });
+  await expect(haken).not.toBeChecked();
+  await page.getByRole("button", { name: "Entwurf löschen", exact: true }).click();
+  await bestaetigen(page, "Entwurf löschen");
+  await expect(page).toHaveURL(/\/rechnungen(?:\?.*)?$/);
 });
 
 test("Abschlag: Anzahlung ist Vorgabe, erbrachte Teilleistung braucht ein Leistungsdatum (#622)", async () => {
@@ -283,14 +331,15 @@ test("Kontakt bearbeiten: Die Meldung „Gespeichert.“ bleibt nach dem Speiche
   await expect(page.getByRole("heading", { name: "Versionen" })).toBeVisible();
 
   await page.getByLabel("Ort").fill("Hamburg");
+  const speichern = serverAufrufe(page);
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
   // Nach dem Speichern lädt die Seite die neue Version und baut das Formular neu auf; die Meldung darf dabei nicht verschwinden
   await expect(page.getByText("Version 2")).toBeVisible();
   const meldung = page.getByRole("form", { name: "Kontakt" }).getByText("Gespeichert. Die vorige Fassung bleibt als Version erhalten.");
   await expect(meldung).toBeVisible();
   await expect(page.getByLabel("Ort")).toHaveValue("Hamburg");
-  // Auch nach kurzer Zeit noch da, nicht nur für einen Augenblick
-  await page.waitForTimeout(1000);
+  // Auch wenn Speichern und Neuladen ganz durch sind, nicht nur für einen Augenblick
+  await speichern.fertig();
   await expect(meldung).toBeVisible();
   // Archivieren: Die folgenden Tests rechnen nicht mit diesem Kunden
   await page.getByRole("button", { name: "Archivieren" }).click();
@@ -2222,11 +2271,13 @@ test("CSV-Import: Kontakte, Artikel und Anlagen mit Vorschau, Zuordnung und Dubl
   await go("/artikel");
   await expect(page.getByRole("region", { name: "Artikelliste" })).toContainText("Datenmigration");
 
-  // Anlage mit Restbuchwert zum Stichtag; eine Anschaffung nach dem Stichtag gehört als Beleg gebucht
+  // Zwei baugleiche Anlagen mit eigener Inventarnummer, eine wiederholte Nummer und eine Anschaffung nach dem Stichtag
   const anlagen = [
-    "Bezeichnung;Art;Anschaffungsdatum;Anschaffungskosten;Nutzungsdauer;Restbuchwert",
-    `Lastenrad;Fahrzeug;01.04.${YEAR - 2};4.800,00;6;3.600,00`,
-    `Neuer Monitor;Computer;02.01.${YEAR};900,00;;900,00`,
+    "Bezeichnung;Art;Anschaffungsdatum;Anschaffungskosten;Nutzungsdauer;Restbuchwert;Inventarnummer",
+    `Lastenrad;Fahrzeug;01.04.${YEAR - 2};4.800,00;6;3.600,00;RAD-1`,
+    `Lastenrad;Fahrzeug;01.04.${YEAR - 2};4.800,00;6;3.600,00;RAD-2`,
+    `Lastenrad;Fahrzeug;01.04.${YEAR - 2};4.800,00;6;3.600,00;RAD-1`,
+    `Neuer Monitor;Computer;02.01.${YEAR};900,00;;900,00;`,
   ].join("\n");
   await go("/anlagen");
   await page.getByRole("link", { name: "CSV importieren" }).click();
@@ -2237,11 +2288,11 @@ test("CSV-Import: Kontakte, Artikel und Anlagen mit Vorschau, Zuordnung und Dubl
   await expect(page.getByRole("region", { name: "Vorschau" })).toContainText("als Beleg mit der Kategorie Anlagegut buchen");
   // Ein anderer Stichtag nach der Vorschau gilt nicht ungesehen: Der Import übernähme sonst andere Werte als gezeigt
   await page.getByLabel("Übernahmestichtag").fill(`${YEAR - 1}-01-01`);
-  await expect(page.getByRole("button", { name: "1 Anlage übernehmen" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "2 Anlagen übernehmen" })).toHaveCount(0);
   await page.getByLabel("Übernahmestichtag").fill(`${YEAR}-01-01`);
   await page.getByRole("button", { name: "Vorschau" }).click();
-  await page.getByRole("button", { name: "1 Anlage übernehmen" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "übernommen" })).toHaveText("1 Anlage übernommen, 1 fehlerhafte Zeile übersprungen.");
+  await page.getByRole("button", { name: "2 Anlagen übernehmen" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "übernommen" })).toHaveText("2 Anlagen übernommen, 1 Dublette und 1 fehlerhafte Zeile übersprungen.");
   await go(`/anlagen?jahr=${YEAR}`);
   await expect(page.getByText("Lastenrad").first()).toBeVisible();
 });

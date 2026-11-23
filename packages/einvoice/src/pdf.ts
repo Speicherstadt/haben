@@ -1,4 +1,5 @@
 import { bildFormat } from "@haben/core";
+import { mitArbeitskostenHinweis } from "./arbeitskosten-hinweis.ts";
 import { join } from "node:path";
 import type { RenderJob } from "./render-protocol.ts";
 import { compileWith, getCompiler, PACKAGE_DIR } from "./typst-compiler.ts";
@@ -142,7 +143,7 @@ export function documentPdfData(
     totalRows: [...documentDiscountRows(doc, gross, t), ...(gross ? [] : [{ label: t.totalNet, value: t.money(doc.totals.net) }, ...taxRows])],
     included: gross ? { label: t.included, rows: includedRows } : null,
     grossLabel: (label: string) => (gross ? t.inclVat(label) : label),
-    taxNote: t.note(treatment, doc.exemptionReason),
+    taxNote: mitArbeitskostenHinweis(t.note(treatment, doc.exemptionReason), doc, t),
     intro: doc.intro?.trim() ? doc.intro.trim() : null,
     hideVatColumn: !showsVatColumn(doc.options?.vatColumn ?? true, treatment === "regulaer" ? distinctVatRates(doc.lines) : doc.totals.taxes.length),
     note: doc.note?.trim() ? doc.note.trim() : null,
@@ -374,8 +375,7 @@ export function renderJob(art: "beleg" | "mahnung", data: object, letterhead: Le
 
 function compilePdf(template: string, data: object, date: string, label: string, letterhead: Letterhead): Uint8Array {
   if (letterhead.pdfFrom && (template === TEMPLATE || template === DUNNING_TEMPLATE)) {
-    const pdf = letterhead.pdfFrom({ template: template === TEMPLATE ? "rechnung.typ" : "mahnung.typ", data: templateInputs(data, letterhead), date });
-    if (pdf) return pdf;
+    return letterhead.pdfFrom({ template: template === TEMPLATE ? "rechnung.typ" : "mahnung.typ", data: templateInputs(data, letterhead), date });
   }
   // Eingebautes Layout der Belegart statt der bisherigen Vorlage
   const vorlage =

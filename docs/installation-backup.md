@@ -254,14 +254,14 @@ podman pull docker.io/tristanteu/haben-backup:latest
 
 ### PostgreSQL-Update
 
-Die Datenbank läuft im Image `tristanteu/haben-db` (aus `deploy/db`): das offizielle `postgres:18` plus die Programme der älteren Versionen ab 16. Findet der Container beim Start im Volume noch einen Datenbestand einer älteren Version, hebt er ihn mit `pg_upgrade` an und startet danach normal. Ein Update auf ein neues Postgres ist damit ein normales Update wie oben, mit Backup vorher. Das Upgrade dauert bei einer Buchhaltung meist unter einer Minute; im Log steht es so:
+Die Datenbank läuft im Image `tristanteu/haben-db` (aus `deploy/db`): das offizielle `postgres:19` plus die Programme der älteren Versionen ab 16. Findet der Container beim Start im Volume noch einen Datenbestand einer älteren Version, hebt er ihn mit `pg_upgrade` an und startet danach normal. Ein Update auf ein neues Postgres ist damit ein normales Update wie oben, mit Backup vorher. Das Upgrade dauert bei einer Buchhaltung meist unter einer Minute; im Log steht es so:
 
 ```text
-haben-db: Aktualisiere die Datenbank von PostgreSQL 16 (/var/lib/postgresql/data) auf 18 (/var/lib/postgresql/data/18/docker) …
-haben-db: Upgrade auf PostgreSQL 18 fertig. Der alte Bestand liegt unverändert in /var/lib/postgresql/data/16/docker;
+haben-db: Aktualisiere die Datenbank von PostgreSQL 16 (/var/lib/postgresql/data) auf 19 (/var/lib/postgresql/data/19/docker) …
+haben-db: Upgrade auf PostgreSQL 19 fertig. Der alte Bestand liegt unverändert in /var/lib/postgresql/data/16/docker;
 ```
 
-Im Volume liegt danach je Version ein Verzeichnis, `16/docker` mit dem alten und `18/docker` mit dem neuen Bestand. `pg_upgrade` kopiert, der alte Bestand bleibt also unverändert erhalten und braucht noch einmal so viel Platz wie die Datenbank. Läuft Haben einwandfrei, kann er weg:
+Im Volume liegt danach je Version ein Verzeichnis, `16/docker` mit dem alten und `19/docker` mit dem neuen Bestand. `pg_upgrade` kopiert, der alte Bestand bleibt also unverändert erhalten und braucht noch einmal so viel Platz wie die Datenbank. Läuft Haben einwandfrei, kann er weg:
 
 ```sh
 docker compose exec db rm -rf /var/lib/postgresql/data/16   # Compose
@@ -276,7 +276,7 @@ Schlägt das Upgrade fehl, bricht der Container mit der Meldung von `pg_upgrade`
 docker compose exec backup backup.sh   # Stand vor dem Update sichern
 curl -O https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy/compose.yml
 docker compose pull && docker compose up -d
-docker compose logs db                 # „Upgrade auf PostgreSQL 18 fertig“
+docker compose logs db                 # „Upgrade auf PostgreSQL 19 fertig“
 ```
 
 Hast du `compose.yml` angepasst statt eine `compose.override.yml` zu nutzen, ändere nur die Zeile `image: postgres:16` des Dienstes `db` in `image: tristanteu/haben-db:latest`. Mit den Quadlets:
@@ -287,7 +287,7 @@ curl -o ~/.config/containers/systemd/haben-db.container \
   https://raw.githubusercontent.com/Speicherstadt/haben/main/deploy/quadlet/haben-db.container
 systemctl --user daemon-reload
 systemctl --user restart haben-db haben-app
-journalctl --user -u haben-db -n 20    # „Upgrade auf PostgreSQL 18 fertig“
+journalctl --user -u haben-db -n 20    # „Upgrade auf PostgreSQL 19 fertig“
 ```
 
 Beim Start führt `deploy/entrypoint.sh` zuerst `src/server/db/migrate.ts` aus und wendet alle ausstehenden Migrationen an, dann einmalig die Prüfung beim [Update auf das Journal](einrichtung.md#update-auf-das-journal); erst danach startet der Server. Schlägt eine Migration oder die Prüfung fehl, startet die App nicht, und der Grund steht im Log.
