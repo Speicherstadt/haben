@@ -8,7 +8,8 @@ import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
  * Leistung (#1312). Anleitung zur UStVA 2026 (https://www.elster.de/eportal/helpGlobal?themaGlobal=help_ustva_2026), in
  * beiden Abschnitten gleich: „Anzahlungen zu steuerfreien Umsätzen tragen Sie bitte nicht ein. Den Gesamtbetrag
  * (Anzahlungen und Restzahlung) geben Sie bitte im Voranmeldungszeitraum der Leistungsausführung an.“ Eine Ausnahme für
- * die Ist-Versteuerung nennt sie nicht. Soll bleibt, wie es ist.
+ * die Ist-Versteuerung nennt sie nicht; Anzahlungen zählen deshalb auch bei Soll nicht. Storno und Korrektur nach Zahlung
+ * mindern bei Ist wie bei Soll erst mit der Rückzahlung (#1228, UStAE 17.1 Abs. 2 Satz 3).
  */
 
 function dkbCsv(rows: string[][]) {
@@ -137,10 +138,10 @@ describe.skipIf(!testDatabaseUrl)("Kz 43 und 48 bei Ist im Zeitraum der Leistung
     ["SKR03", "steuerfrei"],
     ["SKR04", "ausfuhr"],
   ] as const)
-    it(`${kontenrahmen}/soll: ${KZ[behandlung]} mit Anzahlung bleibt wie bisher`, async () => {
+    it(`${kontenrahmen}/soll: ${KZ[behandlung]} mit Anzahlung ebenso im Monat der Leistung, die Anzahlung nicht`, async () => {
       await firma(kontenrahmen, "soll");
       await anzahlungUndSchluss(behandlung);
-      expect([await kennzahl(behandlung, SEP), await kennzahl(behandlung, OKT), await kennzahl(behandlung, NOV)]).toEqual([20_000, 80_000, 0]);
+      expect([await kennzahl(behandlung, SEP), await kennzahl(behandlung, OKT), await kennzahl(behandlung, NOV)]).toEqual([0, 100_000, 0]);
       await journalSauber([SEP, OKT, NOV]);
     }, 60_000);
 
@@ -168,6 +169,30 @@ describe.skipIf(!testDatabaseUrl)("Kz 43 und 48 bei Ist im Zeitraum der Leistung
       expect([await kennzahl(behandlung, SEP), await kennzahl(behandlung, OKT), await kennzahl(behandlung, NOV)]).toEqual([50_000, 0, -50_000]);
     }, 60_000);
 
+  for (const [kontenrahmen, versteuerung, behandlung] of [
+    ["SKR03", "ist", "steuerfrei"],
+    ["SKR04", "ist", "ausfuhr"],
+    ["SKR04", "soll", "steuerfrei"],
+    ["SKR03", "soll", "ausfuhr"],
+  ] as const)
+    it(`${kontenrahmen}/${versteuerung}: Storno einer bezahlten Rechnung mindert ${KZ[behandlung]} erst mit der Rückzahlung`, async () => {
+      // #1228 bei Ist wie bei Soll: UStAE 17.1 Abs. 2 Satz 3; die Anleitung zur UStVA 2026 („in dem Voranmeldungszeitraum …, in
+      // dem die Änderung der Bemessungsgrundlage eingetreten ist“) sagt nichts anderes
+      await firma(kontenrahmen, versteuerung);
+      const inv = await rechnung(behandlung, 50_000, { issueDate: "2026-09-10", serviceFrom: "2026-09-10" });
+      await zahlung(inv.id, "05.10.26", "500,00");
+      const storno = await invoices.cancelInvoice(actor, inv.id, "2026-11-02");
+      await zahlung(storno.id, "10.12.26", "-500,00");
+      const DEZ = { year: 2026, month: 12 };
+      expect([
+        await kennzahl(behandlung, SEP),
+        await kennzahl(behandlung, OKT),
+        await kennzahl(behandlung, NOV),
+        await kennzahl(behandlung, DEZ),
+      ]).toEqual([50_000, 0, 0, -50_000]);
+      await journalSauber([SEP, OKT, NOV, DEZ]);
+    }, 60_000);
+
   for (const kontenrahmen of ["SKR03", "SKR04"] as const)
     it(`${kontenrahmen}/ist: Skonto mindert Kz 48 im Monat der Ausbuchung, die Aufhebung gegenläufig`, async () => {
       // Anleitung zur UStVA 2026, Allgemein: „Bitte berücksichtigen Sie Entgelterhöhungen und Entgeltminderungen bei den Bemessungsgrundlagen.“
@@ -186,6 +211,16 @@ describe.skipIf(!testDatabaseUrl)("Kz 43 und 48 bei Ist im Zeitraum der Leistung
     const inv = await rechnung("steuerfrei", 30_000, { issueDate: "2026-09-20", serviceFrom: "2026-09-20" });
     await bank.createCashInvoiceEntry(actor, { invoiceId: inv.id, date: "2026-10-14", amount: 30_000 }, "2026-11-23");
     expect([await kennzahl("steuerfrei", SEP), await kennzahl("steuerfrei", OKT)]).toEqual([30_000, 20_000]);
+  }, 60_000);
+
+  it("Gesendete Soll-Voranmeldung mit der Anzahlung in Kz 48 meldet keine Abweichung", async () => {
+    await firma("SKR03", "soll");
+    await anzahlungUndSchluss("steuerfrei");
+    const entwurf = await vat.saveDraft(actor, SEP, { mode: "berechnet" });
+    expect(entwurf.kz48).toBe(0);
+    // So steht eine früher gesendete Anmeldung da: die Anzahlung im Monat ihrer Zahlung
+    await sql`update vat_returns set kz48 = 20000, status = 'sent', sent_at = now() where id = ${entwurf.id}`;
+    expect(await vat.gesendeteAbweichungen([2026])).toEqual([]);
   }, 60_000);
 
   it("Gesendete Voranmeldung mit Kz 48 nach Zahlungseingang meldet keine Abweichung, ein anderer Wert schon", async () => {
