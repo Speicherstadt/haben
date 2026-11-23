@@ -29,6 +29,20 @@ export async function eingabeNachAktion(page: Page, { aktion, feld, text, neuGel
 }
 
 /**
+ * Mehrmals kurz nacheinander speichern, ohne Verzögerung: Jedes Mal baut sich das Formular mit dem gespeicherten Stand
+ * neu auf, auch wenn zwei Speichervorgänge in dieselbe Sekunde fallen (#1804). Zu sehen am Feld: Die Formulare schneiden
+ * Leerzeichen am Ende ab, und nur ein neu aufgebautes Formular zeigt den Text ohne sie. Drei Durchgänge, damit praktisch
+ * immer zwei Speichervorgänge in dieselbe Sekunde fallen; das nächste `fill` wartet, bis das Feld wieder frei ist.
+ */
+export async function kurzNacheinanderSpeichern({ feld, speichern, texte }: { feld: Locator; speichern: Locator; texte: string[] }) {
+  for (const text of texte) {
+    await feld.fill(`${text}  `);
+    await speichern.click();
+    await expect(feld).toHaveValue(text);
+  }
+}
+
+/**
  * Speichern per Enter im Feld schlägt fehl: Solange die Anfrage läuft, ist das Feld gesperrt und verliert den Fokus;
  * danach steht er wieder darin (useFokusNachSperre). Die Anfrage scheitert erst nach einer Pause, damit die Sperre zu
  * sehen ist; gespeichert wird nichts.
