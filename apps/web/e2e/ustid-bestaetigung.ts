@@ -3,13 +3,15 @@ import { expect, test, type Page } from "@playwright/test";
 import postgres from "postgres";
 import { receiptJpeg } from "./belegbild.ts";
 import { day, YEAR } from "./daten.ts";
-import { databaseUrlFuer, EVATR_PORT } from "./durchlaeufe.ts";
+import { type Durchlauf, databaseUrlFuer, EVATR_PORT } from "./durchlaeufe.ts";
 import { bestaetigen, gehe, kontrasteInThemes, kundeWaehlen, lieferantWaehlen, ohneAxeVerstoesse } from "./einrichtung.ts";
 import { waehleKategorie } from "./kategorie.ts";
+import { serverAufrufe } from "./warten.ts";
 
 /*
- * Bestätigung der USt-IdNr. beim BZSt am Kontakt (#1385), gegen einen nachgebauten eVatR-Dienst auf EVATR_PORT; nur der
- * Server des Durchlaufs „belege-steuern“ hat die Abfrage eingeschaltet (playwright.config.ts). Die Antworten haben die
+ * Bestätigung der USt-IdNr. beim BZSt am Kontakt (#1385), gegen einen nachgebauten eVatR-Dienst auf EVATR_PORT; nur die
+ * Server von „belege-steuern“ und seinen Abschnitten haben die Abfrage eingeschaltet (playwright.config.ts). Beide Gruppen
+ * stehen im Abschnitt „belege-steuern-erklaerungen“: Die Attrappe belegt einen festen Port. Die Antworten haben die
  * Form der Testabfrage vom 2026-11-18 mit den Beispielwerten der OpenAPI-Beschreibung.
  */
 
@@ -44,8 +46,8 @@ async function evatrAttrappe(): Promise<Dienst> {
   return dienst;
 }
 
-/** Im serialisierten Durchlauf belege-steuern registriert, nach den Kontakten mit gleicher USt-IdNr. */
-export function ustIdBestaetigungPruefen(getPage: () => Page) {
+/** Im seriellen Abschnitt belege-steuern-erklaerungen registriert, nach den Kontakten mit gleicher USt-IdNr. */
+export function ustIdBestaetigungPruefen(getPage: () => Page, durchlauf: Durchlauf) {
   test("Kontakt: USt-IdNr. beim BZSt bestätigen, nach dem Anlegen, auf Knopfdruck und nach dem Speichern (#1385)", async () => {
     const page = getPage();
     const dienst = await evatrAttrappe();
@@ -118,7 +120,7 @@ export function ustIdBestaetigungPruefen(getPage: () => Page) {
   test("Kontakt: Wechsel zu einem anderen Kontakt und Verlassen der Seite lösen nichts aus (#1385)", async () => {
     const page = getPage();
     const dienst = await evatrAttrappe();
-    const sql = postgres(databaseUrlFuer("belege-steuern"), { max: 1 });
+    const sql = postgres(databaseUrlFuer(durchlauf), { max: 1 });
     const namen = ["Talblick GmbH", "Inland Werkstatt GmbH", "Seeblick GmbH"];
     try {
       // Nie bestätigt, wie aus einem Import: ohne Kontaktseite angelegt
@@ -152,13 +154,15 @@ export function ustIdBestaetigungPruefen(getPage: () => Page) {
       await page.getByLabel("Ort").fill("Klagenfurt");
       await page.getByLabel("Land (z. B. DE)").fill("AT");
       await page.getByLabel("USt-IdNr.").fill("ATU33445566");
+      const aufrufe = serverAufrufe(page);
       await page.getByRole("button", { name: "Kontakt anlegen" }).click();
       await expect.poll(() => dienst.anfragen.length).toBe(1);
       await page.getByRole("link", { name: "Rechnung schreiben" }).click();
       await expect(page).toHaveURL(/\/rechnungen\/neu\?kunde=[0-9a-f-]{36}$/);
       // Die Abfrage läuft auf dem Server zu Ende, die Seite bleibt
       await expect.poll(() => dienst.anfragen.length).toBe(2);
-      await page.waitForTimeout(2_000);
+      // Erst wenn auch die Antwort an die Seite zurück ist, zeigt sich, ob sie die Seite wechselt
+      await aufrufe.fertig();
       await expect(page).toHaveURL(/\/rechnungen\/neu\?kunde=[0-9a-f-]{36}$/);
     } finally {
       // Nicht in den Zahlen der folgenden Tests
@@ -174,7 +178,7 @@ export function ustIdBestaetigungPruefen(getPage: () => Page) {
   test("Festschreiben: Hinweis bei ungültiger USt-IdNr., keiner nach gültiger Antwort, und frisch keine Abfrage (#1385)", async () => {
     const page = getPage();
     const dienst = await evatrAttrappe();
-    const sql = postgres(databaseUrlFuer("belege-steuern"), { max: 1 });
+    const sql = postgres(databaseUrlFuer(durchlauf), { max: 1 });
     try {
       await sql.begin(async (tx) => {
         await tx`select set_config('haben.actor', 'e2e', true)`;
@@ -231,7 +235,7 @@ export function ustIdBestaetigungPruefen(getPage: () => Page) {
   test("Beleg: USt-IdNr. des Lieferanten vor dem Buchen bestätigen, bei § 1a und § 13b EU, nicht aus dem Drittland (#1490)", async ({ browser }) => {
     const page = getPage();
     const dienst = await evatrAttrappe();
-    const sql = postgres(databaseUrlFuer("belege-steuern"), { max: 1 });
+    const sql = postgres(databaseUrlFuer(durchlauf), { max: 1 });
     try {
       await sql.begin(async (tx) => {
         await tx`select set_config('haben.actor', 'e2e', true)`;

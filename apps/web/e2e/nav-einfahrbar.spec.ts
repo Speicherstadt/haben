@@ -1,6 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
 import { SESSION } from "./daten.ts";
+import { SCHLIESSEN_NACH } from "../src/lib/flyout-zeiten.ts";
 import { axeVerstoesse } from "./einrichtung.ts";
+import { abgearbeitet } from "./warten.ts";
 
 /**
  * Einfahrbare Seitenleiste am Desktop: prüft Einklappen auf 64 px, Beibehalten beim Neuladen ohne Sprung,
@@ -187,6 +189,7 @@ test("eingeklappt liefert schon der Server die schmale Leiste, damit beim Laden 
 
 test("eingeklappt: von Gruppe zu Gruppe bleibt das neue Flyout offen, das Schließen der alten trifft es nicht", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
+  await page.clock.install();
   await page.goto("/", { waitUntil: "networkidle" });
   await nav(page).getByRole("button", { name: "Seitenleiste einklappen" }).click();
   const verkauf = nav(page).getByRole("button", { name: "Verkauf" });
@@ -196,7 +199,8 @@ test("eingeklappt: von Gruppe zu Gruppe bleibt das neue Flyout offen, das Schlie
   // Senkrecht nach unten aufs nächste Symbol, dann stehen bleiben: länger als der Verzug beim Schließen der alten Gruppe
   await ausgaben.hover();
   await expect(ausgaben).toHaveAttribute("aria-expanded", "true");
-  await page.waitForTimeout(600);
+  await page.clock.runFor(SCHLIESSEN_NACH + 1);
+  await abgearbeitet(page);
   await expect(ausgaben).toHaveAttribute("aria-expanded", "true");
   await expect(verkauf).toHaveAttribute("aria-expanded", "false");
 });
@@ -246,6 +250,7 @@ test("eingeklappt zeigt die Marke beim Überfahren „Haben“ und die Firma, in
 
 test("eingeklappt: ein Klick heftet das überfahrene Flyout an, Esc hält den Hinweis aus, solange der Zeiger auf dem Symbol bleibt", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
+  await page.clock.install();
   await page.goto("/", { waitUntil: "networkidle" });
   await nav(page).getByRole("button", { name: "Seitenleiste einklappen" }).click();
 
@@ -254,7 +259,9 @@ test("eingeklappt: ein Klick heftet das überfahrene Flyout an, Esc hält den Hi
   await expect(geld).toHaveAttribute("aria-expanded", "true");
   await geld.click();
   await page.mouse.move(900, 600);
-  await page.waitForTimeout(600);
+  // Länger als der Verzug, nach dem Verlassen ein überfahrenes Flyout schließt
+  await page.clock.runFor(SCHLIESSEN_NACH + 1);
+  await abgearbeitet(page);
   await expect(geld).toHaveAttribute("aria-expanded", "true");
   await page.keyboard.press("Escape");
   await expect(geld).toHaveAttribute("aria-expanded", "false");
@@ -268,7 +275,8 @@ test("eingeklappt: ein Klick heftet das überfahrene Flyout an, Esc hält den Hi
   await page.keyboard.press("Escape");
   await expect(hinweis).toBeHidden();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 });
-  await page.waitForTimeout(100);
+  // Die Zuhörer laufen beim Ereignis; danach muss der Hinweis noch aus sein
+  await abgearbeitet(page);
   await expect(hinweis).toBeHidden();
 });
 
@@ -289,7 +297,8 @@ test("eingeklappt: ein per Fokus gezeigter und mit Esc ausgeblendeter Hinweis bl
   // Von Element zu Element auf der Seite, weit weg vom Symbol
   await page.mouse.move(400, 150, { steps: 10 });
   await page.mouse.move(1100, 700, { steps: 10 });
-  await page.waitForTimeout(100);
+  // Die Zuhörer laufen beim Ereignis; danach muss der Hinweis noch aus sein
+  await abgearbeitet(page);
   await expect(hinweis).toBeHidden();
 });
 
@@ -360,6 +369,7 @@ test("eingeklappt: Pfeiltasten wandern durch Leiste und Flyout, → öffnet, ←
 
 test("eingeklappt: → in ein überfahrenes Flyout heftet es an, die Maus schließt es danach nicht", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
+  await page.clock.install();
   await page.goto("/", { waitUntil: "networkidle" });
   await nav(page).getByRole("button", { name: "Seitenleiste einklappen" }).click();
 
@@ -372,7 +382,8 @@ test("eingeklappt: → in ein überfahrenes Flyout heftet es an, die Maus schlie
   await expect(angebote).toBeFocused();
   await page.mouse.move(900, 600, { steps: 5 });
   // Länger als der Verzug, nach dem Verlassen ein überfahrenes Flyout schließt
-  await page.waitForTimeout(600);
+  await page.clock.runFor(SCHLIESSEN_NACH + 1);
+  await abgearbeitet(page);
   await expect(verkauf).toHaveAttribute("aria-expanded", "true");
   await expect(angebote).toBeFocused();
 });

@@ -219,7 +219,7 @@ describe.skipIf(!testDatabaseUrl)("Bruttopreise und gespeicherte Steuerzeilen (P
       exemptionReason: "",
       priceMode: "brutto",
       lines: [{ description: "Abo {monat}", quantity: 1000, unit: "Monat", unitPrice: 2_990, taxRate: 1900 }],
-      intervalMonths: 1,
+      recurrence: "P1M" as const,
       nextDate: "2026-10-01",
       endDate: null,
       servicePeriod: "laufend",

@@ -25,7 +25,7 @@ describe.skipIf(!testDatabaseUrl)("sevDesk: Vorlagen wiederkehrender Belege als 
 
   const dauerbelege = async () =>
     (await sql`select sevdesk_id as "sevdeskId", status, name, supplier_contact_id as "contactId", next_date as "nextDate", end_date as "endDate",
-      interval_months as "intervalMonths", category, amounts, filename from recurring_documents order by sevdesk_id`) as unknown as Record<string, unknown>[];
+      recurrence, category, amounts, filename from recurring_documents order by sevdesk_id`) as unknown as Record<string, unknown>[];
 
   beforeAll(async () => {
     sql = await setupTestDb();
@@ -83,14 +83,14 @@ describe.skipIf(!testDatabaseUrl)("sevDesk: Vorlagen wiederkehrender Belege als 
         },
       },
       mitEnde!,
-      { ...mitTermin!, voucher: { ...mitTermin!.voucher, id: "ID_50", description: "WOCHE", recurringInterval: "P0Y0M1W" } },
+      { ...mitTermin!, voucher: { ...mitTermin!.voucher, id: "ID_50", description: "DREI WOCHEN", recurringInterval: "P0Y0M3W" } },
     ];
     await sevdesk.startSevdeskImport("test-user", { wait: true });
     const latest = (await sevdesk.latestSevdeskImport())!;
     expect(latest.status).toBe("fertig");
     expect(latest.progress.recurring).toBe(3);
     expect(latest.progress.failed).toEqual([
-      { lexofficeId: "recurring/ID_50", number: "WOCHE", message: expect.stringMatching(/^Nicht als Dauerbeleg übernommen: Intervall P0Y0M1W/) },
+      { lexofficeId: "recurring/ID_50", number: "DREI WOCHEN", message: expect.stringMatching(/^Nicht als Dauerbeleg übernommen: Intervall P0Y0M3W/) },
     ]);
     const [kontakt] = await sql`select id from contacts where sevdesk_id = 'ID_9'`;
     expect(await dauerbelege()).toEqual([
@@ -101,11 +101,11 @@ describe.skipIf(!testDatabaseUrl)("sevDesk: Vorlagen wiederkehrender Belege als 
         name: "Hausverwaltung Beispiel",
         contactId: kontakt!.id,
         nextDate: "2026-12-01",
-        intervalMonths: 1,
+        recurrence: "P1M",
         amounts: [{ taxRate: 0, net: 10000, tax: 0 }],
         filename: "mietvertrag.pdf",
       }),
-      expect.objectContaining({ sevdeskId: "ID_43", status: "beendet", endDate: "2024-01-15", intervalMonths: 3 }),
+      expect.objectContaining({ sevdeskId: "ID_43", status: "beendet", endDate: "2024-01-15", recurrence: "P3M" }),
     ]);
     // keine Belege angelegt, auch nicht beim Lauf der Dauerbelege
     await belege.runDueDauerbelege("2027-06-01");

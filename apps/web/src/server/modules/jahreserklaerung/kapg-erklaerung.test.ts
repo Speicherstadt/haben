@@ -121,6 +121,32 @@ describe.skipIf(!testDatabaseUrl)("Erklärungen der GmbH (Postgres)", () => {
       expect(row!.request_xml).toContain(`<E4003407>${betrag / 100}</E4003407>`);
     });
 
+    it("weist gewinnmindernd gebuchte Umsatzsteuerzinsen bei den Entgelten für Schulden aus", async () => {
+      await setup(kontenrahmen, "soll");
+      const { withActor } = await import("../../db/actor.ts");
+      const { steuerbuchung } = await import("../bank/steuerzahlung.ts");
+      const datum = "2025-07-01";
+      const zinsteil = await withActor(actor, (tx) =>
+        steuerbuchung(
+          tx,
+          { kontenrahmen, rechtsform: "gmbh" },
+          { bookingDate: datum, counterpartyName: "Finanzamt", purpose: null },
+          { art: "ust", jahr: 2024, posten: "zinsen233a" },
+          -80_000,
+        ),
+      );
+      await book(
+        datum,
+        zinsteil.lines.map(({ account, debit, credit }) => [account, debit, credit]),
+      );
+      await kst.saveKapgAngaben(actor, 2025, { hebesatz: 400, verlustvortragKst: 0, verlustvortragGewst: 0 });
+
+      const client = new EricGeprueftClient();
+      expect((await erklaerung.submitKapg(actor, "gewst", 2025, client, { kind: "validate", today })).ok).toBe(true);
+      const [submission] = await sql`select request_xml from annual_submissions where form = 'gewst'`;
+      expect(submission?.request_xml).toContain("<E4003202>800</E4003202>");
+    });
+
     it.each(["ist", "soll"] as const)(
       "%s: Körperschaft- und Gewerbesteuererklärung prüfen, echt erst nach dem Abschluss",
       async (versteuerung) => {

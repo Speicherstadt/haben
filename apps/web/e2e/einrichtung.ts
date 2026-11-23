@@ -51,10 +51,10 @@ const WCAG = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-prac
 
 /**
  * Die eine Seite, mit der ein Durchlauf nacheinander arbeitet, und die Fehler, die der Browser dabei meldet. Ein eigener
- * Kontext statt browser.newPage(), sonst lehnt axe die Seite ab.
+ * Kontext statt browser.newPage(), sonst lehnt axe die Seite ab. `storageState`: die Sitzung aus einem Abzug (e2e/abzug.ts).
  */
-export async function durchlaufSeite(browser: Browser): Promise<{ page: Page; pageErrors: string[] }> {
-  const context = await browser.newContext();
+export async function durchlaufSeite(browser: Browser, storageState?: string): Promise<{ page: Page; pageErrors: string[] }> {
+  const context = await browser.newContext(storageState ? { storageState } : {});
   await vorschauAnheften(context);
   const page = await context.newPage();
   const pageErrors: string[] = [];

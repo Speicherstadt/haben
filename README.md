@@ -289,7 +289,7 @@ Alles im Detail, mit Suche: **https://haben.app/**. Jede Funktion oben verlinkt 
 [![Vite](https://img.shields.io/badge/Vite-646cff?logo=vite&logoColor=white)](https://vite.dev)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Drizzle-4169e1?logo=postgresql&logoColor=white)](https://orm.drizzle.team)
 
-Voraussetzungen: Bun in der Version aus `packageManager` in `package.json`, Git und PostgreSQL 18. Bun ist Laufzeit und Paketmanager zugleich.
+Voraussetzungen: Bun in der Version aus `packageManager` in `package.json`, Git und PostgreSQL 19. Bun ist Laufzeit und Paketmanager zugleich.
 
 ```sh
 bun install

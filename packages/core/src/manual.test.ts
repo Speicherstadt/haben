@@ -78,6 +78,22 @@ describe("manuelle Buchung", () => {
   });
 
   it.each([
+    ["SKR03", "1200"],
+    ["SKR04", "1800"],
+  ] as const)("%s: erklärt im Einzelunternehmen den Bank-Anfangsbestand", (kr, bank) => {
+    const lines = [line("9000", 100, 0), line(bank, 0, 100)];
+    const bisher = [`Zeile 1: Konto 9000 ist ein Vortrags- oder statistisches Konto`, `Zeile 2: Konto ${bank} führt das Nebenbuch Bank`];
+    const hinweis =
+      "Im Einzelunternehmen braucht der Bank-Anfangsbestand keine Buchung. Die EÜR erfasst Betriebseinnahmen und Betriebsausgaben. Enthält der letzte Import oder Abruf einen Endsaldo, siehst du ihn unter Bank";
+    expect(manualPostingIssues(lines, kr, "einzelunternehmen")).toEqual([...bisher, hinweis]);
+    expect(manualPostingIssues(lines, kr, "gmbh")).toEqual(bisher);
+    expect(manualPostingIssues(lines, kr, "ug")).toEqual(bisher);
+    expect(manualPostingIssues([line("9009", 100, 0), line("4900", 0, 100)], kr, "einzelunternehmen")).toContain(hinweis);
+    expect(manualPostingIssues([line(bank, 100, 0), line("4900", 0, 100)], kr, "einzelunternehmen")).toContain(hinweis);
+    expect(manualPostingIssues([line("9100", 100, 0), line("4900", 0, 100)], kr, "einzelunternehmen")).not.toContain(hinweis);
+  });
+
+  it.each([
     ["SKR03", "1800", "1890"],
     ["SKR04", "2100", "2180"],
   ] as const)("%s: Privatkonten nur im Einzelunternehmen", (kr, entnahme, einlage) => {
