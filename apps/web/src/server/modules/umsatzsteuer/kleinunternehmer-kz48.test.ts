@@ -302,6 +302,37 @@ describe.skipIf(!testDatabaseUrl)("Kleinunternehmer-Umsätze in Kz 48 (Postgres)
     expect(await vat.computeVatFigures({ year: 2025, month: 1 })).toMatchObject({ kz48: 40_000, kz48Kleinunternehmer: 40_000 });
   });
 
+  it("SKR04/ist: Storno samt Korrektur einer bezahlten Rechnung über den Jahreswechsel, Rückzahlung im Folgejahr", async () => {
+    await firma("SKR04", "ist");
+    const inv = await rechnung();
+    await zahlung(inv.id, "2026-10-20", 80_000);
+    await korrektur(inv.id, "2026-12-10", 10_000);
+    const storno = await invoices.cancelInvoice(actor, inv.id, "2027-01-05");
+
+    expect((await vat.computeVatFigures({ year: 2026, month: 12 })).kz48).toBe(0);
+    expect((await vat.computeVatFigures({ year: 2027, month: 1 })).kz48).toBe(0);
+    await zahlung(storno.id, "2027-02-03", -80_000);
+    expect((await vat.computeVatFigures({ year: 2027, month: 2 })).kz48).toBe(-80_000);
+    expect((await vat.computeVatFigures({ year: 2027, month: 41 })).kz48).toBe(-80_000);
+  });
+
+  it("GmbH: Storno einer bezahlten Schlussrechnung (Verfahren deferred, #750) hält das Bezahlte wie bei Einzelunternehmen", async () => {
+    await firma("SKR04", "soll");
+    await sql`update company set rechtsform = 'gmbh' where id = 1`;
+    const anzahlung = await direkt({ variant: "abschlag", advance_type: "anzahlung", advance_accounting: "deferred", issue_date: "2026-09-05" }, 30_000);
+    const schluss = await direkt({ variant: "schluss", advance_accounting: "deferred", issue_date: "2026-11-04", service_date: "2026-10-31" }, 70_000, [
+      { von: anzahlung, net: -30_000 },
+    ]);
+    await zahlung(schluss, "2026-11-06", 70_000);
+    // Storno der Schlussrechnung im November; die 700 € darauf sind nicht zurückgezahlt
+    await direkt({ kind: "storno", corrects_id: schluss, advance_accounting: "deferred", issue_date: "2026-11-20" }, -70_000, [
+      { von: anzahlung, net: 30_000 },
+    ]);
+
+    // Unbezahlt ist nur die Anzahlung (300 €): Nur sie mindert sofort, die 700 € erst mit der Rückzahlung
+    expect((await vat.computeVatFigures(november)).kz48).toBe(-30_000);
+  });
+
   it("Gesendete Voranmeldung von vor #1268 meldet keine Abweichung, ein anderer Wert schon", async () => {
     await firma("SKR03", "soll");
     await rechnung();
