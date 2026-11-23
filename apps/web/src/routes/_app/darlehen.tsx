@@ -96,7 +96,8 @@ function NeuesDarlehen({ data }: { data: Data }) {
   const action = useAction();
   const [name, setName] = useState("");
   const [restschuld, setRestschuld] = useState("");
-  const pruefung = useSubmitCheck(darlehenFehler({ name, restschuld }));
+  const [stichtag, setStichtag] = useState("");
+  const pruefung = useSubmitCheck(darlehenFehler({ name, restschuld, stichtag }));
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -112,12 +113,13 @@ function NeuesDarlehen({ data }: { data: Data }) {
           term: values.get("term") as DarlehenLaufzeit,
           purpose: values.get("purpose") as DarlehenZweck,
           openingBalance,
-          openingDate: openingBalance > 0 ? String(values.get("openingDate") ?? "") || null : null,
+          openingDate: openingBalance > 0 ? stichtag : null,
         },
       });
       form.reset();
       setName("");
       setRestschuld("");
+      setStichtag("");
       await router.invalidate();
     }, "Darlehen angelegt.");
   }
@@ -180,8 +182,8 @@ function NeuesDarlehen({ data }: { data: Data }) {
           <Field label="Restschuld bei Übernahme (€, leer bei einem neuen Darlehen)" error={pruefung.error("restschuld")}>
             {(control) => <input {...control} className="mono" inputMode="decimal" value={restschuld} onChange={(e) => setRestschuld(e.target.value)} />}
           </Field>
-          <Field label="Stichtag der Restschuld">
-            {(control) => <input {...control} name="openingDate" type="date" disabled={restschuld.trim() === ""} />}
+          <Field label="Stichtag der Restschuld" error={pruefung.error("stichtag")}>
+            {(control) => <input {...control} type="date" disabled={restschuld.trim() === ""} value={stichtag} onChange={(e) => setStichtag(e.target.value)} />}
           </Field>
         </div>
         <p className="small muted" style={{ margin: 0 }}>
