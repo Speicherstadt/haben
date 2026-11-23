@@ -61,6 +61,12 @@ describe("BackupCard: rclone-Konfiguration (#1513)", () => {
     expect(html).toContain("Aus der rclone-Konfiguration, Abschnitt onedrive");
   });
 
+  it("Abschnitt ohne sicheren Namen: nur der Weg, kein Name", () => {
+    const html = render({ ...ok, target: { repository: "rclone:name heim:pfad", local: false } });
+    expect(html).toContain("Aus der rclone-Konfiguration");
+    expect(html).not.toContain("Abschnitt name heim");
+  });
+
   it("Verbindungszeichenkette im Ziel braucht keine Datei", () => {
     expect(render({ ...ok, target: { repository: "rclone::webdav:haben", local: false } })).toContain(
       "Nicht aus einer Datei, die Verbindungszeichenkette bringt das Ziel selbst mit",

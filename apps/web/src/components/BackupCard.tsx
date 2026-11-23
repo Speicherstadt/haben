@@ -15,7 +15,7 @@ function herkunftText(target: Status["target"]): string {
   const herkunft = zielHerkunft(target);
   switch (herkunft.art) {
     case "datei":
-      return `Aus der rclone-Konfiguration, Abschnitt ${herkunft.abschnitt}`;
+      return herkunft.abschnitt ? `Aus der rclone-Konfiguration, Abschnitt ${herkunft.abschnitt}` : "Aus der rclone-Konfiguration";
     case "verbindungszeichenkette":
       return "Nicht aus einer Datei, die Verbindungszeichenkette bringt das Ziel selbst mit";
     case "verzeichnis":
@@ -29,9 +29,10 @@ function herkunftText(target: Status["target"]): string {
 function RcloneKonfiguration() {
   return (
     <p className="small muted" style={{ margin: 0 }}>
-      Ziele, die restic nicht selbst anspricht, etwa WebDAV, OneDrive oder SMB, gehen über rclone. Der Backup-Container sucht dessen Konfiguration zuerst in{" "}
-      <span className="mono">{RCLONE_CONFIG.variable}</span>, wenn die Variable gesetzt ist, sonst in <span className="mono">{RCLONE_CONFIG.datei}</span>. Ein
-      Ziel nennt einen Abschnitt daraus, etwa <span className="mono">rclone:onedrive:haben</span>. In der Datei stehen Zugangsdaten; hier erscheint keine davon.
+      Ziele, die restic nicht selbst anspricht, etwa WebDAV, OneDrive oder SMB, gehen über rclone. Im Image zeigt{" "}
+      <span className="mono">{RCLONE_CONFIG.variable}</span> schon auf <span className="mono">{RCLONE_CONFIG.datei}</span>; liegt die Datei woanders, setzt du
+      die Variable auf diesen Pfad. Ein Ziel nennt einen Abschnitt daraus, etwa <span className="mono">rclone:onedrive:haben</span>. In der Datei stehen
+      Zugangsdaten; hier erscheint keine davon.
     </p>
   );
 }

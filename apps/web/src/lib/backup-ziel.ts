@@ -23,7 +23,12 @@ export type ZielHerkunft = { art: "datei"; abschnitt: string } | { art: "verbind
 
 export function zielHerkunft(ziel: BackupTarget): ZielHerkunft {
   const abschnitt = rcloneAbschnitt(ziel.repository);
-  if (abschnitt) return { art: "datei", abschnitt };
+  /*
+   * Enthält der gelesene Abschnitt Leerraum, ist er nicht sicher: Der Filter vor der Anzeige endet bei Leerraum,
+   * ein Passwort mit Leerzeichen (rclone:name,pass=ge heim:pfad) hinterlässt also Reste im Namen. Dann bleibt der
+   * Name weg, statt einen Abschnitt zu behaupten, den die Konfiguration nicht hat.
+   */
+  if (abschnitt) return { art: "datei", abschnitt: /\s/.test(abschnitt) ? "" : abschnitt };
   if (abschnitt === "") return { art: "verbindungszeichenkette" };
   return { art: ziel.local ? "verzeichnis" : "eingetragen" };
 }

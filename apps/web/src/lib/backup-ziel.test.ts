@@ -1,6 +1,32 @@
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { RCLONE_CONFIG, rcloneAbschnitt, zielHerkunft } from "./backup-ziel.ts";
+
+const DIR = fileURLToPath(new URL(".", import.meta.url));
+const BACKUP = join(DIR, "../../../../deploy/backup");
+
+/** rclone_ziel_abschnitt aus restic-ziel.sh, wie entrypoint.sh und backup.sh sie aufrufen; liest RESTIC_REPOSITORY aus der Umgebung */
+function abschnittAusSkript(repository: string): string {
+  const r = spawnSync("bash", ["-c", `source "${join(BACKUP, "restic-ziel.sh")}" && rclone_ziel_abschnitt`], {
+    env: { ...process.env, RESTIC_REPOSITORY: repository },
+    encoding: "utf8",
+  });
+  expect(r.stderr).toBe("");
+  // cut setzt am Ende einen Zeilenumbruch, printf davor nicht
+  return r.stdout.replace(/\n$/, "");
+}
+
+/** rclone_config_file aus rclone-ziel.sh, mit und ohne gesetztes RCLONE_CONFIG */
+function konfigurationsdateiAusSkript(wert: string | undefined): string {
+  const env: Record<string, string | undefined> = { ...process.env, RESTIC_REPOSITORY: "rclone:onedrive:haben" };
+  if (wert === undefined) delete env.RCLONE_CONFIG;
+  else env.RCLONE_CONFIG = wert;
+  const r = spawnSync("bash", ["-c", `source "${join(BACKUP, "rclone-ziel.sh")}" && rclone_config_file`], { env, encoding: "utf8" });
+  expect(r.stderr).toBe("");
+  return r.stdout.replace(/\n$/, "");
+}
 
 describe("rcloneAbschnitt", () => {
   it("liest den Abschnitt vor Pfad und Parametern", () => {
@@ -18,11 +44,19 @@ describe("rcloneAbschnitt", () => {
       expect(rcloneAbschnitt(repository), repository).toBeNull();
   });
 
-  // Derselbe Weg wie im Container: erst nach dem Doppelpunkt, dann vor dem Komma abschneiden
-  it("spiegelt rclone_ziel_abschnitt in deploy/backup/restic-ziel.sh", () => {
-    const skript = readFileSync(new URL("../../../../deploy/backup/restic-ziel.sh", import.meta.url), "utf8");
-    expect(skript).toContain("rclone::*) printf ''");
-    expect(skript).toContain("cut -d: -f1 | cut -d, -f1");
+  // Verhalten statt Quelltext: dieselbe Funktion aus dem Container, an denselben Adressen wie oben
+  it("liefert denselben Abschnitt wie rclone_ziel_abschnitt im Container", () => {
+    for (const repository of [
+      "rclone:onedrive:haben",
+      "rclone:fern,pass=GEHEIM:haben",
+      "rclone:webdav,vendor=nextcloud:haben",
+      "rclone::webdav:haben",
+      "rclone::sftp,host=backup.example:haben",
+      "rclone:",
+      "/backups",
+      "sftp:backup.example:/srv/restic",
+    ])
+      expect(abschnittAusSkript(repository), repository).toBe(rcloneAbschnitt(repository) ?? "");
   });
 });
 
@@ -39,18 +73,22 @@ describe("zielHerkunft", () => {
     expect(zielHerkunft({ repository: "/backups", local: true })).toEqual({ art: "verzeichnis" });
   });
 
+  // Der Filter vor der Anzeige endet bei Leerraum; aus rclone:name,pass=ge heim:pfad wird rclone:name heim:pfad
+  it("Abschnitt mit Leerraum wird nicht als Name behauptet", () => {
+    expect(zielHerkunft({ repository: "rclone:name heim:pfad", local: false })).toEqual({ art: "datei", abschnitt: "" });
+  });
+
   it("Ziel von außen als RESTIC_REPOSITORY", () => {
     expect(zielHerkunft({ repository: "sftp:backup.example:/srv/restic/haben", local: false })).toEqual({ art: "eingetragen" });
   });
 });
 
 describe("RCLONE_CONFIG", () => {
-  // Die Wege sind die des Containers (rclone_config_file in deploy/backup/rclone-ziel.sh), nicht neu erfunden
+  // Gefragt wird der Container selbst, nicht sein Quelltext: gesetzte Variable, keine Variable, leer gesetzt
   it("sucht die Datei wie der Backup-Container", () => {
-    const skript = readFileSync(new URL("../../../../deploy/backup/rclone-ziel.sh", import.meta.url), "utf8");
-    expect(skript).toContain(`\${RCLONE_CONFIG:-${RCLONE_CONFIG.datei}}`);
-    expect(skript).toContain("/var/lib/haben-backup/rclone.conf");
-    expect(skript).toContain("rclone:<abschnitt>:<pfad>");
+    expect(konfigurationsdateiAusSkript("/sonst/wo/rclone.conf")).toBe("/sonst/wo/rclone.conf");
+    expect(konfigurationsdateiAusSkript(undefined)).toBe(RCLONE_CONFIG.datei);
+    expect(konfigurationsdateiAusSkript("")).toBe(RCLONE_CONFIG.datei);
     expect(RCLONE_CONFIG).toEqual({ variable: "RCLONE_CONFIG", datei: "/var/lib/haben-backup/rclone.conf" });
   });
 });
