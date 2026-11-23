@@ -49,7 +49,7 @@ function NewRecurringPage() {
           exemptionReason: "",
           priceMode: "netto",
           lines: [{ description: "", detail: "", quantity: 1000, unit: "Psch.", unitPrice: 0, taxRate: defaults.kleinunternehmer ? 0 : 1900 }],
-          intervalMonths: 1,
+          recurrence: "P1M",
           nextDate: nextMonthStart(today),
           endDate: null,
           servicePeriod: "laufend",

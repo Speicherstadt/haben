@@ -45,13 +45,21 @@ describe("Gestaltung der Belege", () => {
 });
 
 describe("Schrift und Briefpapier in der Gestaltung", () => {
-  it("nimmt ab Werk die bisherige Schrift und legt Briefpapier nur auf die erste Seite", () => {
-    expect(DEFAULT_DESIGN.font).toBe("plex-sans");
-    expect(DEFAULT_DESIGN.backgroundPages).toBe("erste");
+  it("nimmt ab Werk Schrift und Akzentfarbe des Layouts, das Standardlayout Klar und Briefpapier nur auf der ersten Seite", () => {
+    expect(DEFAULT_DESIGN).toMatchObject({ font: "layout", accentFromLayout: true, backgroundPages: "erste", layoutOptions: {} });
+    expect(DEFAULT_DESIGN.layouts.rechnung).toEqual({ kind: "eingebaut", id: "klar" });
   });
 
-  it("ergänzt beides bei gespeicherten Profilen von früher", () => {
-    expect(designWithDefaults({ accent: "#123456" })).toMatchObject({ font: "plex-sans", backgroundPages: "erste" });
+  it("ergänzt fehlende Einstellungen bei gespeicherten Profilen; was dort steht, bleibt", () => {
+    // Bestehende Installationen bekommen Schrift, Akzentfarbe und Klar in der Fassung „Klassisch“ per Migration fest eingetragen (0312)
+    expect(designWithDefaults({ accent: "#123456" })).toMatchObject({ accent: "#123456", font: "layout", backgroundPages: "erste" });
+    expect(designWithDefaults({ font: "plex-sans", accentFromLayout: false })).toMatchObject({ font: "plex-sans", accentFromLayout: false });
+  });
+
+  it("nimmt „layout“ als Schrift und Optionen je Layout an", () => {
+    expect(letterheadDesignInputSchema.safeParse({ font: "layout", accentFromLayout: false, layoutOptions: { atelier: { fuss: "rechts" } } }).success).toBe(
+      true,
+    );
   });
 
   it("nimmt nur Schriften aus der Auswahl an", () => {
@@ -63,6 +71,19 @@ describe("Schrift und Briefpapier in der Gestaltung", () => {
     expect(DEFAULT_DESIGN.footerHidden).toBe(false);
     expect(designWithDefaults({ accent: "#123456" }).footerHidden).toBe(false);
     expect(letterheadDesignInputSchema.safeParse({ footerHidden: true }).success).toBe(true);
+  });
+
+  it("eigene Fußzeile: ohne gespeicherte Angabe an, wenn Spalten gespeichert sind (#1651)", () => {
+    expect(designWithDefaults({ accent: "#123456" }).footerCustom).toBe(false);
+    expect(designWithDefaults({ footerColumns: ["{firma}", "{ustid}"] }).footerCustom).toBe(true);
+    expect(designWithDefaults({ footerColumns: ["{firma}", "{ustid}"], footerCustom: false }).footerCustom).toBe(false);
+    expect(letterheadDesignInputSchema.safeParse({ footerCustom: false }).success).toBe(true);
+  });
+
+  it("Pflichtangaben ab Werk wie im Layout, sonst als Spalte oder Zeile", () => {
+    expect(DEFAULT_DESIGN.legalPosition).toBe("layout");
+    expect(letterheadDesignInputSchema.safeParse({ legalPosition: "zeile" }).success).toBe(true);
+    expect(letterheadDesignInputSchema.safeParse({ legalPosition: "rand" }).success).toBe(false);
   });
 
   it("kennt nur erste Seite oder alle Seiten", () => {

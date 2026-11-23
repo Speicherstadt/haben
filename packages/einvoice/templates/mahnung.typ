@@ -3,7 +3,8 @@
 
 #let d = json(bytes(sys.inputs.data))
 #import "entwurf.typ": entwurf-vermerk, girocode-feld
-// Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) unter den Spalten des Fußes; ohne sie bleibt der Fuß wie bisher
+// Pflichtangaben einer GmbH oder UG (§ 35a GmbHG); ohne sie bleibt der Fuß wie bisher. Hier ab Werk als Zeile unter den
+// Spalten, mit look.legalPosition „spalte“ als eigene Spalte daneben, je Angabe eine Zeile
 #let legal = d.at("legal", default: none)
 
 // Grautöne für Text, Beschriftungen und Linien, aus der Akzentfarbe abgeleitet (accentPalette in packages/core)
@@ -31,7 +32,9 @@
 }
 // Spaltenbreite im Fuß. Nur Wörter, die nicht hineinpassen, bekommen Umbruchstellen; Typst bricht sonst nicht innerhalb eines
 // Worts, es liefe in die Nachbarspalte. Alle anderen bleiben beim Kopieren und Suchen unverändert.
-#let foot-breite = (165mm - 6mm * calc.max(d.footer.len() - 1, 0)) / calc.max(d.footer.len(), 1)
+#let legal-spalte = legal != none and d.at("look", default: (:)).at("legalPosition", default: "layout") == "spalte"
+#let fuss-spalten-zahl = d.footer.len() + if legal-spalte { 1 } else { 0 }
+#let foot-breite = (165mm - 6mm * calc.max(fuss-spalten-zahl - 1, 0)) / calc.max(fuss-spalten-zahl, 1)
 #let umbruchstellen(wort) = if wort == "" { "" } else { wort.clusters().join("\u{200B}") }
 #let umbrechbar(inhalt, breite) = inhalt.split(" ").map(wort => if measure(text(wort)).width > breite { umbruchstellen(wort) } else { wort }).join(" ")
 #let formatted(runs) = {
@@ -82,8 +85,23 @@
   context lines.map(footer-zeile).join(linebreak())
 }
 
-// Pflichtangaben über die ganze Breite unter den Spalten des Fußes
-#let legal-foot = if legal == none { none } else { pad(top: 2mm, footer-col((legal,), breite: 165mm)) }
+// Pflichtangaben als eine Zeile: Jede Angabe, die in die Breite passt, hält zusammen; umbrochen wird dann nur an einem
+// Trenner, und der bleibt am Ende der Zeile
+#let legal-text(breite) = {
+  set text(size: 7pt, fill: muted)
+  set par(leading: 0.45em)
+  context legal.split(" · ").map(teil => if measure(text(teil)).width <= breite { teil.replace(" ", "\u{00A0}") } else { umbrechbar(teil, breite) }).join("\u{00A0}· ")
+}
+
+// Pflichtangaben als Zeile über die ganze Breite unter den Spalten, durch eine feine Linie abgesetzt. Umbrochen wird erst,
+// wenn sie nicht in die Breite passt (legal-text).
+#let legal-foot = if legal == none or legal-spalte { none } else {
+  set block(spacing: 0pt)
+  v(2.4mm)
+  line(length: 100%, stroke: 0.25pt + rule)
+  v(1.8mm)
+  legal-text(165mm)
+}
 
 // Leer, wenn das Briefpapier selbst den Fuß trägt
 #let foot-spalten = if d.footer.len() == 0 { none } else {
@@ -91,9 +109,10 @@
   line(length: 100%, stroke: 0.4pt + rule)
   v(3mm)
   grid(
-    columns: d.footer.map(_ => 1fr),
+    columns: range(fuss-spalten-zahl).map(_ => 1fr),
     column-gutter: 6mm,
     ..if d.at("footerFormatted", default: none) != none { d.footerFormatted.map(footer-col-formatted) } else { d.footer.map(footer-col) },
+    ..if legal-spalte { (footer-col(legal.split(" · ")),) },
   )
   if legal-foot != none { legal-foot }
 }
@@ -151,27 +170,42 @@
   })
 }
 
-// Anschriftfeld: 20 mm von links, 45 mm von oben, 85 × 45 mm
-#place(top + left, dx: 20mm - 25mm, dy: 45mm - 20mm, box(width: 85mm, height: 45mm, {
+// Anschriftfeld 45 mm von oben, 85 × 45 mm ab 20 mm von links (DIN 5008 Form B); der Text steht wie Betreff und Tabelle
+// auf der Fluchtlinie 25 mm, im Fenster bleibt links 5 mm Luft
+#place(top + left, dx: 0mm, dy: 45mm - 20mm, box(width: 80mm, height: 45mm, {
   set block(spacing: 0pt)
   box(height: 17.7mm, align(bottom, pad(bottom: 2mm, text(size: 7pt, fill: muted, d.senderLine))))
   set par(leading: 0.5em)
   d.recipient.join(linebreak())
 }))
 
-// Informationsblock: ab 125 mm von links, 50 mm von oben
-#place(top + left, dx: 125mm - 25mm, dy: 50mm - 20mm, box(width: 75mm, {
-  set text(size: 8.5pt)
-  grid(
-    columns: (auto, 1fr),
-    column-gutter: 4mm,
-    row-gutter: 2.2mm,
-    ..d.meta.map(m => (text(fill: muted, m.label), align(right, m.value))).flatten()
-  )
-}))
+// Informationsblock: ab 125 mm von links, 58 mm von oben wie in den übrigen Layouts (DIN 5008 nennt 50 mm), rechtsbündig
+// mit Tabelle und Fuß (bis 190 mm). Passt er nicht bis vor den Betreff, stehen die Bezüge (Auftrag, Lieferschein,
+// Leitweg-ID …) zweispaltig vor dem Betreff
+#let info-grid(zeilen) = grid(
+  columns: (auto, 1fr),
+  column-gutter: 4mm,
+  row-gutter: 2.2mm,
+  ..zeilen.map(m => (text(fill: muted, m.label), align(right, m.value))).flatten()
+)
+#let ist-referenz(m) = m.at("group", default: none) == "referenz"
+#let info-passt() = measure(box(width: 65mm, { set text(size: 8.5pt); info-grid(d.meta) })).height <= 98.46mm - 58mm - 6mm
+#context {
+  let zeilen = if info-passt() { d.meta } else { d.meta.filter(m => not ist-referenz(m)) }
+  place(top + left, dx: 125mm - 25mm, dy: 58mm - 20mm, box(width: 65mm, { set text(size: 8.5pt); info-grid(zeilen) }))
+}
 
-// Betreffzeile bei 98,46 mm von oben
+// Betreffzeile bei 98,46 mm von oben; davor die Bezüge, wenn der Infoblock zu lang wäre
 #v(98.46mm - 20mm)
+#context if not info-passt() {
+  let rest = d.meta.filter(ist-referenz)
+  if rest.len() > 0 {
+    set text(size: 8.5pt)
+    let haelfte = calc.ceil(rest.len() / 2)
+    grid(columns: (1fr, 1fr), column-gutter: 10mm, info-grid(rest.slice(0, haelfte)), info-grid(rest.slice(haelfte)))
+    v(5mm)
+  }
+}
 
 #semibold(text(size: 16pt, d.title))
 #if d.reference != none {

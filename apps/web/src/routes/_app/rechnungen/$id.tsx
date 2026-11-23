@@ -126,6 +126,7 @@ function draftInitial(data: Detail, invoice: Detail["invoice"]): InvoiceEditorPr
         unitPrice: line.unitPrice,
         taxRate: line.taxRate as 1900 | 700 | 0,
         discount: discountFromColumns(line.discountPercent, line.discountAmount),
+        arbeitskosten: line.arbeitskosten,
       })),
   };
 }

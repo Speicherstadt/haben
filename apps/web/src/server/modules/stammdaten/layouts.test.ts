@@ -1,14 +1,28 @@
+import { EINGEBAUTE_LAYOUTS, LAYOUT_DOCUMENT_TYPES, layoutVarianten } from "@haben/core";
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dunningAmounts } from "@haben/core";
-import { buildDeliveryNotePdf, buildDunningPdf, buildEInvoice, LAYOUT_PFLICHTFELDER, startvorlage } from "@haben/einvoice";
+import { buildDeliveryNotePdf, buildDunningPdf, buildEInvoice, eingebautesLayoutAlsDatei, LAYOUT_PFLICHTFELDER, startvorlage } from "@haben/einvoice";
 import type postgres from "postgres";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { gmbhSeller, sampleBuyer, sampleDocument, sampleSeller } from "../../../../../../packages/einvoice/src/samples.ts";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 import { fakeUniverse, paketArchiv, tarEintrag } from "./test-paket.ts";
+
+// Ein Fehler beim Aufräumen des Paket-Caches, unabhängig von Dateirechten (als root wirkte chmod nicht)
+const aufraeumen = vi.hoisted(() => ({ scheitert: false }));
+vi.mock("./layout-pakete.ts", async (importOriginal) => {
+  const echt = await importOriginal<typeof import("./layout-pakete.ts")>();
+  return {
+    ...echt,
+    clearPackages: async (id: string) => {
+      if (aufraeumen.scheitert) throw Object.assign(new Error("EACCES: permission denied, rm"), { code: "EACCES" });
+      return echt.clearPackages(id);
+    },
+  };
+});
 
 const hasPoppler = spawnSync("pdftotext", ["-v"]).status === 0;
 
@@ -237,6 +251,24 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
     expect(await sql`select 1 from beleg_layouts`).toHaveLength(0);
   });
 
+  // Jede Variante, die die Gestaltung anbieten kann; dass sie dasselbe setzt wie das eingebaute, prüft layout-startvorlage.test.ts
+  const varianten = EINGEBAUTE_LAYOUTS.flatMap((layout) =>
+    layoutVarianten(layout).map((optionen) => [`${layout.name} ${JSON.stringify(optionen)}`, layout, optionen] as const),
+  );
+
+  it.each(varianten)(
+    "ein heruntergeladenes eingebautes Layout besteht die Prüfung beim Hochladen und setzt Beleg und Mahnung: %s",
+    async (_name, layout, optionen) => {
+      for (const art of ["beleg", "mahnung"] as const) {
+        const { dateiname, inhalt } = eingebautesLayoutAlsDatei(layout, optionen, art);
+        const { id } = await anlegen({ name: dateiname, art, source: inhalt });
+        const [row] = await sql`select source from beleg_layouts where id = ${id}`;
+        expect(row?.source).toBe(inhalt);
+      }
+    },
+    120_000,
+  );
+
   it("verlangt eindeutige Namen", async () => {
     await anlegen({ name: "Doppelt", art: "mahnung", source: eigene("mahnung") });
     await expect(anlegen({ name: " Doppelt ", art: "mahnung", source: eigene("mahnung") })).rejects.toThrow(/schon ein Layout/);
@@ -246,12 +278,69 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
     const { id } = await anlegen({ name: "Rechnungslayout", art: "beleg", source: eigene("beleg") });
     await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id });
     expect((await letterhead.loadDesign()).layouts.rechnung).toEqual({ kind: "eigen", id });
-    expect((await letterhead.loadDesign()).layouts.angebot).toEqual({ kind: "eingebaut", id: "klassisch" });
+    expect((await letterhead.loadDesign()).layouts.angebot).toEqual({ kind: "eingebaut", id: "klar" });
     const { pdf, xml } = await layouts.withCustomLayout("rechnung", {}, (lh) => buildEInvoice({ ...sampleDocument(), ...lh }));
     expect(pdfText(pdf)).toContain("EIGENES LAYOUT");
     // Das XML hängt Haben weiter an, auch an ein eigenes Layout
     expect(Buffer.from(pdf).toString("latin1")).toContain("factur-x.xml");
     expect(xml).toContain("2026-034");
+  }, 60_000);
+
+  it("setzt die eingebaute Vorlage nicht mit und erzeugt das XML nur einmal (#609)", async () => {
+    const beleg = await anlegen({ name: "Ein Lauf", art: "beleg", source: eigene("beleg") });
+    const mahnung = await anlegen({ name: "Ein Lauf Mahnung", art: "mahnung", source: eigene("mahnung", "EIGENE MAHNUNG") });
+    await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id: beleg.id });
+    await layouts.assignLayout(actor, "mahnung", { kind: "eigen", id: mahnung.id });
+    // Fertig wird buildEInvoice erst nach dem PDF und dem XML; ein zweites Fertig hieße eingebaute Vorlage und XML doppelt
+    let rechnungen = 0;
+    const { pdf, xml } = await layouts.withCustomLayout("rechnung", {}, async (lh) => {
+      const ergebnis = await buildEInvoice({ ...sampleDocument(), ...lh });
+      rechnungen++;
+      return ergebnis;
+    });
+    expect(rechnungen).toBe(1);
+    expect(pdfText(pdf)).toContain("EIGENES LAYOUT");
+    // Das XML hängt nicht am Layout: dasselbe wie mit der eingebauten Vorlage
+    expect(xml).toBe((await buildEInvoice(sampleDocument())).xml);
+    let mahnungen = 0;
+    const doc = {
+      level: 1 as const,
+      date: "2026-10-16",
+      dueDate: "2026-10-26",
+      seller: gmbhSeller,
+      buyer: sampleBuyer,
+      invoice: { number: "2026-034", issueDate: "2026-09-02", dueDate: "2026-09-16" },
+      intro: "leider ist die Rechnung offen.",
+      closing: "Danke.",
+      amounts: dunningAmounts({ open: 100_000, dueDate: "2026-09-16", date: "2026-10-16", fee: 0, flatFee: false, interestRate: 0 }),
+    };
+    const mahnPdf = await layouts.withCustomLayout("mahnung", {}, (lh) => {
+      const ergebnis = buildDunningPdf({ ...doc, ...lh } as Parameters<typeof buildDunningPdf>[0]);
+      mahnungen++;
+      return ergebnis;
+    });
+    expect(mahnungen).toBe(1);
+    expect(pdfText(mahnPdf)).toContain("EIGENE MAHNUNG");
+  }, 60_000);
+
+  it("ordnet jedes eingebaute Layout aus dem Katalog zu, ein unbekanntes nicht", async () => {
+    await layouts.assignLayout(actor, "rechnung", { kind: "eingebaut", id: "atelier" });
+    await layouts.assignLayout(actor, "mahnung", { kind: "eingebaut", id: "elegant" });
+    const design = await letterhead.loadDesign();
+    expect(design.layouts.rechnung).toEqual({ kind: "eingebaut", id: "atelier" });
+    expect(design.layouts.mahnung).toEqual({ kind: "eingebaut", id: "elegant" });
+    await expect(layouts.assignLayout(actor, "angebot", { kind: "eingebaut", id: "gibtsnicht" })).rejects.toThrow(/gibt es nicht/);
+  }, 60_000);
+
+  it("ordnet ein Layout allen passenden Belegarten auf einmal zu; ein eigenes für Belege lässt die Mahnung", async () => {
+    expect(await layouts.assignLayoutToAll(actor, { kind: "eingebaut", id: "modern" })).toEqual(LAYOUT_DOCUMENT_TYPES);
+    expect(Object.values((await letterhead.loadDesign()).layouts)).toEqual(LAYOUT_DOCUMENT_TYPES.map(() => ({ kind: "eingebaut", id: "modern" })));
+    const { id } = await anlegen({ name: "Für alle", art: "beleg", source: eigene("beleg") });
+    expect(await layouts.assignLayoutToAll(actor, { kind: "eigen", id })).toEqual(["rechnung", "angebot", "auftragsbestaetigung", "lieferschein"]);
+    const design = await letterhead.loadDesign();
+    expect(design.layouts.angebot).toEqual({ kind: "eigen", id });
+    expect(design.layouts.mahnung).toEqual({ kind: "eingebaut", id: "modern" });
+    await layouts.assignLayoutToAll(actor, { kind: "eingebaut", id: "klar" });
   }, 60_000);
 
   it("passt die Art nicht, wird nichts zugeordnet", async () => {
@@ -263,7 +352,7 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
     const { id } = await anlegen({ name: "Weg", art: "beleg", source: eigene("beleg") });
     await layouts.assignLayout(actor, "angebot", { kind: "eigen", id });
     await layouts.deleteLayout(actor, id);
-    expect((await letterhead.loadDesign()).layouts.angebot).toEqual({ kind: "eingebaut", id: "klassisch" });
+    expect((await letterhead.loadDesign()).layouts.angebot).toEqual({ kind: "eingebaut", id: "klar" });
   }, 60_000);
 
   it("Löschen und gleichzeitiges Speichern der Gestaltung verhaken sich nicht", async () => {
@@ -279,7 +368,7 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
       await t`update letterhead_profiles set updated_at = now() where is_default`;
     });
     await loeschen;
-    expect((await letterhead.loadDesign()).layouts.angebot).toEqual({ kind: "eingebaut", id: "klassisch" });
+    expect((await letterhead.loadDesign()).layouts.angebot).toEqual({ kind: "eingebaut", id: "klar" });
   }, 60_000);
 
   it("fällt beim Setzen nicht still auf das eingebaute zurück", async () => {
@@ -315,6 +404,83 @@ describe.skipIf(!testDatabaseUrl || !hasPoppler)("Eigene Belegvorlagen (Postgres
     expect((await liste.listLayouts()).find((l) => l.id === id)?.packagesMissing).toBe(false);
     const { pdf } = await layouts.withCustomLayout("rechnung", {}, (lh) => buildEInvoice({ ...sampleDocument(), ...lh }));
     expect(pdfText(pdf)).toMatch(/FASSUNG [AB]/);
+  }, 60_000);
+
+  it("Löschen eines eigenen Layouts, das die Pflichtangaben zur fünften Spalte machte, wird abgelehnt (#1651)", async () => {
+    await sql`insert into company (id, name, rechtsform) values (1, 'Testfirma GmbH', 'gmbh') on conflict (id) do update set rechtsform = 'gmbh'`;
+    await layouts.assignLayoutToAll(actor, { kind: "eingebaut", id: "elegant" });
+    await letterhead.saveDesign(actor, { layoutOptions: { elegant: { fuss: "rechts" } }, footerColumns: ["{firma}", "{iban}", "{steuernummer}", "{email}"] });
+    const { id } = await anlegen({ name: "Eigenes", art: "beleg", source: eigene("beleg") });
+    await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id });
+    // Ohne das eigene Layout fiele die Rechnung auf Klar zurück, mit den Pflichtangaben als fünfter Spalte
+    await expect(layouts.deleteLayout(actor, id)).rejects.toThrow("Kürze auf 3 Spalten");
+    expect((await letterhead.loadDesign()).layouts.rechnung).toEqual({ kind: "eigen", id });
+    expect((await liste.listLayouts()).some((l) => l.id === id)).toBe(true);
+  });
+
+  it("eine Löschung, die nach einer gleichzeitigen Änderung der Fußzeile abgelehnt wird, lässt die Pakete stehen (#1651)", async () => {
+    await sql`insert into company (id, name, rechtsform) values (1, 'Testfirma GmbH', 'gmbh') on conflict (id) do update set rechtsform = 'gmbh'`;
+    await layouts.assignLayoutToAll(actor, { kind: "eingebaut", id: "elegant" });
+    await letterhead.saveDesign(actor, { layoutOptions: { elegant: { fuss: "rechts" } }, footerColumns: ["{firma}", "{iban}", "{steuernummer}"] });
+    const { id } = await anlegen({ name: "Mit Paket", art: "beleg", source: mitPaket, approve: ["@preview/demo:0.1.0"] }, { fetch: universum() });
+    await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id });
+    // Eine andere Änderung hält die Sperre der Fußzeile und speichert eine vierte Spalte, während gelöscht wird
+    let freigeben!: () => void;
+    const offen = new Promise<void>((resolve) => {
+      freigeben = resolve;
+    });
+    const andere = sql.begin(async (t) => {
+      await t`select set_config('haben.actor', ${actor}, true)`;
+      await t`select pg_advisory_xact_lock(hashtext('haben.fusszeile'))`;
+      await t`update letterhead_profiles set settings = jsonb_set(settings, '{footerColumns}', ${JSON.stringify(["{firma}", "{iban}", "{steuernummer}", "{email}"])}::jsonb) where is_default`;
+      await offen;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const loeschen = layouts.deleteLayout(actor, id);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    freigeben();
+    await andere;
+    await expect(loeschen).rejects.toThrow("Kürze auf 3 Spalten");
+    expect((await liste.listLayouts()).find((l) => l.id === id)?.packagesMissing).toBe(false);
+  }, 60_000);
+
+  it("ein Fehler beim Aufräumen nach dem Löschen meldet das Löschen nicht als gescheitert (#1651)", async () => {
+    const { id } = await anlegen({ name: "Mit Paket", art: "beleg", source: mitPaket, approve: ["@preview/demo:0.1.0"] }, { fetch: universum() });
+    await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id });
+    const warnung = vi.spyOn(console, "warn").mockImplementation(() => {});
+    aufraeumen.scheitert = true;
+    try {
+      await layouts.deleteLayout(actor, id);
+    } finally {
+      aufraeumen.scheitert = false;
+    }
+    const meldungen = warnung.mock.calls.map(([text]) => String(text));
+    warnung.mockRestore();
+    expect((await letterhead.loadDesign()).layouts.rechnung).toEqual({ kind: "eingebaut", id: "klar" });
+    expect(meldungen.some((text) => text.includes("Paket-Cache nicht entfernt"))).toBe(true);
+  }, 60_000);
+
+  it("Pflichtangaben der GmbH: ein Layout ohne die neuen Felder bekommt sie einmal über legal, eines mit über die Platzhalter (#1651)", async () => {
+    const fuss = [
+      "{firma}\n{strasse}\n{plz} {ort}",
+      "{steuernummer}\nSitzplatz {sitz}\n{registergericht} {registernummer}\n{geschaeftsfuehrung}",
+      "{rechtsform}\n{aufsichtsratsvorsitz}",
+    ];
+    await letterhead.saveDesign(actor, { footerColumns: fuss });
+    const head = await letterhead.loadLetterhead();
+    const setzen = async (source: string, name: string) => {
+      const { id } = await anlegen({ name, art: "beleg", source });
+      await layouts.assignLayout(actor, "rechnung", { kind: "eigen", id });
+      const { pdf } = await layouts.withCustomLayout("rechnung", head, (lh) => buildEInvoice({ ...sampleDocument(), seller: gmbhSeller, ...lh }));
+      return pdfText(pdf);
+    };
+    // Vor #1651 geschrieben: kennt look.legalPosition nicht
+    const alt = await setzen(eigene("beleg").replaceAll("legalPosition", "altePosition"), "Altes Layout");
+    expect(alt).toContain("Registergericht: Amtsgericht Charlottenburg");
+    expect(alt).not.toContain("Sitzplatz");
+    const neu = await setzen(eigene("beleg"), "Neues Layout");
+    expect(neu).toContain("Sitzplatz Berlin");
+    expect(neu).not.toContain("Registergericht:");
   }, 60_000);
 
   it("setzt Lieferschein und Mahnung mit dem eigenen Layout", async () => {

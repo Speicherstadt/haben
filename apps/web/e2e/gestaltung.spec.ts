@@ -4,6 +4,7 @@ import { deflateSync } from "node:zlib";
 import { type Browser, expect, type Page, test } from "@playwright/test";
 import { SESSION } from "./daten.ts";
 import { HANDY, ziehen } from "./kopfzeile.ts";
+import { serverAufrufe } from "./warten.ts";
 
 /**
  * Gestaltung der Belege (#113): Zahnrad in der Vorschau, Spalte neben dem Blatt, Speichern für alle künftigen Belege.
@@ -99,11 +100,11 @@ test("Die Spalte Gestaltung zeigt Änderungen sofort und verwirft sie", async ({
 
   await panel(page).getByRole("button", { name: "Blau" }).click();
   await expect.poll(() => brand(page)).toBe("#1D4E89");
-  await expect(panel(page).getByRole("button", { name: "Für alle Belege speichern" })).toBeEnabled();
+  await expect(panel(page).getByRole("button", { name: "Gestaltung speichern" })).toBeEnabled();
 
   await panel(page).getByRole("button", { name: "Verwerfen" }).click();
   await expect.poll(() => brand(page)).toBe(vorher);
-  await expect(panel(page).getByRole("button", { name: "Für alle Belege speichern" })).toBeDisabled();
+  await expect(panel(page).getByRole("button", { name: "Gestaltung speichern" })).toBeDisabled();
   await page.context().close();
 });
 
@@ -115,7 +116,9 @@ test("Die Farbkreise stehen nebeneinander, auch mit den Stilen der Auswertungen"
   const gruen = await panel(page).getByRole("button", { name: "Grün" }).boundingBox();
   expect(blau!.width).toBeGreaterThan(40);
   expect(blau!.x).toBeGreaterThanOrEqual(gruen!.x + gruen!.width);
-  // Sieben Punkte in einer Zeile: Der Regenbogen rutscht nicht um
+  // Sieben Punkte in einer Zeile: Der Regenbogen rutscht nicht um, Schwarz am Ende auch nicht
+  const schwarz = await panel(page).getByRole("button", { name: "Schwarz" }).boundingBox();
+  expect(schwarz!.y).toBeCloseTo(gruen!.y, 0);
   const regenbogen = await panel(page).getByLabel("Eigene Farbe wählen").boundingBox();
   expect(regenbogen!.y).toBeCloseTo(gruen!.y, 0);
   await page.context().close();
@@ -126,9 +129,36 @@ test("Der Regenbogen-Punkt setzt eine eigene Farbe und zeigt sie an", async ({ b
   await gestaltungOeffnen(page);
   await panel(page).getByLabel("Eigene Farbe wählen").fill("#123456");
   await expect.poll(() => brand(page)).toBe("#123456");
-  await expect(panel(page)).toContainText("#123456");
+  // Die eigene Farbe steht im Feld Hex-Wert, der Regenbogen-Punkt ist gewählt (#1674)
+  await expect(panel(page).getByLabel("Hex-Wert")).toHaveValue("#123456");
+  await expect(panel(page).locator(".color-swatch-custom")).toHaveAttribute("data-active", "true");
   await panel(page).getByRole("button", { name: "Grün" }).click();
-  await expect(panel(page)).not.toContainText("Eigene Farbe #");
+  await expect(panel(page).getByLabel("Hex-Wert")).toHaveValue("#1F6F5C");
+  await expect(panel(page).locator(".color-swatch-custom")).not.toHaveAttribute("data-active");
+  await page.context().close();
+});
+
+test("Schwarz und ein getippter Hex-Wert setzen die Farbe, ein halber Wert noch nicht (#1674)", async ({ browser }) => {
+  const page = await editor(browser, BREIT);
+  await gestaltungOeffnen(page);
+  // Mit Schwarz hat das Blatt keine Farbe mehr: Auch die kräftigste ist ein neutrales Grau (R = G = B)
+  const neutral = async () => {
+    const hex = await brand(page);
+    return hex.slice(1, 3) === hex.slice(3, 5) && hex.slice(3, 5) === hex.slice(5, 7);
+  };
+  await panel(page).getByRole("button", { name: "Schwarz" }).click();
+  await expect.poll(neutral).toBe(true);
+  await expect(panel(page).getByLabel("Hex-Wert")).toHaveValue("#000000");
+
+  const hex = panel(page).getByLabel("Hex-Wert");
+  await hex.fill("1d4e");
+  await expect(hex).toHaveAttribute("aria-invalid", "true");
+  await expect.poll(neutral).toBe(true);
+  await hex.fill("1d4e89");
+  await expect.poll(() => brand(page)).toBe("#1D4E89");
+  await expect(panel(page).getByRole("button", { name: "Blau" })).toHaveAttribute("aria-pressed", "true");
+
+  await panel(page).getByRole("button", { name: "Verwerfen" }).click();
   await page.context().close();
 });
 
@@ -213,7 +243,7 @@ test("Speichern gilt nach dem Neuladen und lässt das Formular stehen", async ({
   const vorher = await brand(page);
 
   await panel(page).getByRole("button", { name: "Violett" }).click();
-  await panel(page).getByRole("button", { name: "Für alle Belege speichern" }).click();
+  await panel(page).getByRole("button", { name: "Gestaltung speichern" }).click();
   await expect(panel(page).getByRole("status")).toContainText("Gespeichert");
   await dialog(page).getByRole("button", { name: "Schließen" }).click();
   await expect(page.getByLabel("Beschreibung Position 1")).toHaveValue("Eingabe bleibt");
@@ -246,13 +276,13 @@ test("Änderungen, die während des Speicherns entstehen, bleiben als ungespeich
   });
 
   await panel(page).getByRole("button", { name: "Violett" }).click();
-  await panel(page).getByRole("button", { name: "Für alle Belege speichern" }).click();
+  await panel(page).getByRole("button", { name: "Gestaltung speichern" }).click();
   await panel(page).getByRole("button", { name: "Blau" }).click();
   weiter();
   await expect(panel(page).getByRole("status")).toContainText("Gespeichert");
 
   await expect.poll(() => brand(page)).toBe("#1D4E89");
-  await expect(panel(page).getByRole("button", { name: "Für alle Belege speichern" })).toBeEnabled();
+  await expect(panel(page).getByRole("button", { name: "Gestaltung speichern" })).toBeEnabled();
 
   await page.goto("/einstellungen?bereich=gestaltung");
   await page.waitForLoadState("networkidle");
@@ -314,11 +344,14 @@ test("Die Einstellungen nennen je Belegart das eingebaute Layout", async ({ brow
   await page.goto("/einstellungen?bereich=gestaltung");
   await page.waitForLoadState("networkidle");
   const karte = page.getByRole("region", { name: "Layouts", exact: true });
+  // Oben ein Layout für alle; die Tabelle je Belegart steht eingeklappt, solange alle dasselbe haben
+  await expect(karte.getByLabel("Layout", { exact: true })).toHaveValue("eingebaut:klar");
+  await karte.getByText("Je Belegart abweichend wählen").click();
   await expect(karte.getByRole("row")).toHaveCount(6);
   // Ohne eigene Zuordnung steht je Belegart das eingebaute Layout in der Auswahl
   const mahnung = karte.getByLabel("Layout für Mahnung");
-  await expect(mahnung).toHaveValue("eingebaut:klassisch");
-  await expect(mahnung.locator("option:checked")).toHaveText("Klassisch (eingebaut)");
+  await expect(mahnung).toHaveValue("eingebaut:klar");
+  await expect(mahnung.locator("option:checked")).toHaveText("Klar (eingebaut)");
   await page.context().close();
 });
 
@@ -473,6 +506,9 @@ test("Eigene Fußzeile: Platzhalter, Prüfung und Übernahme aufs Blatt", async 
   await page.waitForLoadState("networkidle");
   const karte = page.getByRole("region", { name: "Fußzeile" });
   await karte.getByLabel("Eigene Fußzeile").check();
+  // Einzelunternehmen: keine Registerangaben, weder Einstellung noch Platzhalter (#1651)
+  await expect(karte.getByRole("group", { name: "Stelle der Registerangaben" })).toHaveCount(0);
+  await expect(karte.getByRole("button", { name: "{sitz}" })).toHaveCount(0);
   await karte.getByRole("button", { name: "4", exact: true }).click();
 
   await karte.getByLabel("Spalte 3").fill("");
@@ -721,13 +757,18 @@ test("Vorschau: Das Briefpapier bleibt auf einem langen Blatt so groß wie im PD
   await karte.getByLabel("Datei für das Briefpapier").setInputFiles({ name: "bogen.png", mimeType: "image/png", buffer: briefbogenPng() });
   await expect(karte.getByRole("img", { name: "Aktuelles Briefpapier" })).toBeVisible();
   try {
+    // Ohne Fahrt steht der Dialog gleich an seinem Platz; gemessen wird erst, wenn alle Seiten des Blatts geladen sind
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/rechnungen/neu");
     await page.waitForLoadState("networkidle");
     await page.getByLabel("Hinweis auf der Rechnung (optional)").fill(Array.from({ length: 90 }, (_, i) => `Hinweiszeile ${i + 1}`).join("\n"));
     await vorschauKnopf(page).click();
     await expect.poll(() => svg(page)).toContain("<image");
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(600);
+    const seiten = blatt(page).locator(".sheet-page img");
+    await expect
+      .poll(() => seiten.evaluateAll((bilder) => bilder.every((bild) => (bild as HTMLImageElement).complete && (bild as HTMLImageElement).naturalWidth > 0)))
+      .toBe(true);
     const { width, height } = (await blatt(page).boundingBox())!;
     const a4Hoehe = (width * 297) / 210;
     // Sonst prüft der Test nichts: Das Blatt muss deutlich länger sein als eine A4-Seite
@@ -780,10 +821,11 @@ test("Die Meldung „Fußzeile gespeichert“ bleibt stehen, wenn sich die Spalt
   const karte = page.getByRole("region", { name: "Fußzeile" });
   await karte.getByLabel("Eigene Fußzeile").check();
   await karte.getByLabel("Spalte 1").fill("Sprechzeiten Mo bis Fr");
+  const speichern = serverAufrufe(page);
   await karte.getByRole("button", { name: "Fußzeile speichern" }).click();
   await expect(karte.getByRole("status").last()).toContainText("Fußzeile gespeichert");
-  await page.waitForLoadState("networkidle");
-  await page.waitForTimeout(1000);
+  // Speichern und Neuladen ganz durch, dann muss die Meldung noch stehen
+  await speichern.fertig();
   try {
     await expect(karte.getByRole("status").last()).toContainText("Fußzeile gespeichert", { timeout: 1000 });
   } finally {

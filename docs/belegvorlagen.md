@@ -7,11 +7,11 @@ description: >-
 
 # Eigene Belegvorlagen
 
-Haben setzt Belege mit Typst aus einer Vorlage. Neben dem eingebauten Layout kannst du eigene hochladen und je Belegart zuordnen. Die Vorlage bekommt die Daten des Belegs fertig formatiert, sie rechnet nichts; das PDF/A-3 und die eingebettete E-Rechnung erzeugt Haben selbst.
+Haben setzt Belege mit Typst aus einer Vorlage. Neben den eingebauten Layouts kannst du eigene hochladen und zuordnen. Die Vorlage bekommt die Daten des Belegs fertig formatiert, sie rechnet nichts; das PDF/A-3 und die eingebettete E-Rechnung erzeugt Haben selbst.
 
 ## Mit einem KI-Agenten
 
-Die Anleitung für Agenten gibt es als Skill, der ohne das Repository von Haben auskommt: alle Felder, Schriften, Pflichtangaben und Prüfungen stehen darin. Haben bietet ihn unter **Einstellungen › Beleggestaltung › Layouts** als „Anleitung für KI-Agenten“ zum Herunterladen an, dazu die eingebauten Layouts als Grundlage (eine Datei je Art, ohne Importe), Beispieldaten und den Feldvertrag als JSON Schema. Im Repository liegt er unter `.claude/skills/belegvorlage/SKILL.md`.
+Die Anleitung für Agenten gibt es als Skill, der ohne das Repository von Haben auskommt: alle Felder, Schriften, Pflichtangaben und Prüfungen stehen darin. Haben bietet ihn unter **Einstellungen › Beleggestaltung › Layouts** als „Anleitung für KI-Agenten“ zum Herunterladen an, dazu jedes [eingebaute Layout](beleggestaltung.md#layouts) als Grundlage, Beispieldaten und den Feldvertrag als JSON Schema. Im Repository liegt er unter `.claude/skills/belegvorlage/SKILL.md`.
 
 ## Hochladen und zuordnen
 
@@ -21,10 +21,10 @@ Unter **Einstellungen › Beleggestaltung › Layouts**:
 
 - **Hochladen:** Name, Art (Belege oder Mahnung) und die `.typ`-Datei, bis 256 KB. Zuerst sucht Haben im Quelltext jedes Pflichtfeld (Spalte „Pflicht im Layout“ in den [Feldern](#felder)), etwa `taxNote` für den Hinweis bei Reverse Charge, auch wenn kein Beispiel es füllt. Dann setzt das Layout mit jedem Beispiel seiner Art, darunter Entwurf, Bruttopreise mit 40 Positionen, ein Infoblock mit 15 Zeilen, Fremdwährung, Kleinunternehmer, Storno und Lieferschein, und liest das PDF. Fehlt eine Pflichtangabe (Absender mit vollständiger Anschrift, Empfänger, Bezeichnung des Belegs, bei Storno der Bezug auf die Rechnung, Nummer und Daten, Positionen, Summen mit Umsatzsteuer und Steuersatz, Hinweis ohne Steuerausweis, Hinweis auf Skonto, auf Rechnungen Steuernummer oder USt-IdNr., bei GmbH und UG die Angaben nach § 35a GmbHG) oder auf einer Seite der Vermerk „ENTWURF“, oder braucht ein Lauf länger als 5 Sekunden, wird nichts gespeichert und die Meldung nennt den Grund.
 - **Grenzen des Betreibers:** Mit `LAYOUTS_MAX_COUNT` (Anzahl) und `LAYOUTS_MAX_MB` (Speicher samt Paketen) begrenzt der Betreiber die eigenen Layouts, ohne Angabe gilt keine Grenze ([Umgebungsvariablen](installation-konfiguration.md#umgebungsvariablen)). Ist sie erreicht, lehnt Haben das Hochladen mit dem Grund ab.
-- **Zuordnen:** Je Belegart wählst du das eingebaute oder ein eigenes Layout. Storno und Korrektur folgen der Rechnung, Mahnungen brauchen ein Layout der Art Mahnung. Das gilt für alles, was ab dann erzeugt wird, auch für Entwürfe und die Vorschau; festgeschriebene Belege behalten ihr PDF.
+- **Zuordnen:** wie unter [Layouts](beleggestaltung.md#layouts). Storno und Korrektur folgen der Rechnung, Mahnungen brauchen ein Layout der Art Mahnung. Das gilt für alles, was ab dann erzeugt wird, auch für Entwürfe und die Vorschau; festgeschriebene Belege behalten ihr PDF.
 - **Einstellungen, die das Layout nicht verwendet:** Unter Logo und Blatt, Briefpapier und Akzentfarbe ist eine Einstellung aus, wenn kein Layout, das sie zeigen könnte, ihr Feld nennt, etwa der GiroCode, wenn die Layouts für Rechnung und Mahnung `qr` nicht verwenden. Der Hinweis darunter nennt Layout und Feld. Zeigt ein anderes Layout die Einstellung noch, bleibt sie an, und der Hinweis nennt die Belegarten, auf die sie nicht wirkt. Welche Einstellung an welchem Feld hängt, steht unter [Einstellungen der Gestaltung](#einstellungen-der-gestaltung). Auch das ist nur ein Blick in den Quelltext, keine Gewähr.
-- **Ersetzen, umbenennen, löschen:** Ersetzen prüft wie das Hochladen. Nach dem Löschen gilt dort, wo das Layout zugeordnet war, wieder das eingebaute.
-- **Fehler beim Erzeugen:** Lässt sich ein zugeordnetes Layout nicht setzen, etwa nach einem Update von Typst, meldet Haben das mit dem Namen des Layouts. Es fällt nicht still auf das eingebaute zurück; wähle dann ein anderes Layout.
+- **Ersetzen, umbenennen, löschen:** Ersetzen prüft wie das Hochladen. Nach dem Löschen gilt dort, wo das Layout zugeordnet war, das eingebaute Layout Klar; machte das die [Pflichtangaben einer GmbH](beleggestaltung.md#pflichtangaben-einer-gmbh-oder-ug) zur fünften Spalte, lehnt Haben das Löschen ab.
+- **Fehler beim Erzeugen:** Lässt sich ein zugeordnetes Layout nicht setzen, etwa nach einem Update von Typst, meldet Haben das mit dem Namen des Layouts. Es fällt nicht still auf ein eingebautes zurück; wähle dann ein anderes Layout.
 
 ### Pakete
 
@@ -99,7 +99,7 @@ Feldvertrag Version 1. Ein Feld mit „Immer da: nein“ kann fehlen; in Typst m
 | `footerFormatted[][][].bold` | `boolean` | ja |  | fett |
 | `footerFormatted[][][].italic` | `boolean` | ja |  | kursiv |
 | `footerFormatted[][][].underline` | `boolean` | ja |  | unterstrichen |
-| `legal` | `null \| string` | ja | ja | Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile; null ohne |
+| `legal` | `null \| string` | ja | ja | Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile, Angaben getrennt durch „ · “; null ohne und wenn sie über ihre Platzhalter schon in der eigenen Fußzeile (footer) stehen |
 | `accent` | `string` | ja |  | Akzentfarbe #RRGGBB |
 | `palette` | `object` | ja |  | Grautöne #RRGGBB, aus der Akzentfarbe abgeleitet |
 | `palette.ink` | `string` | ja |  | Text |
@@ -112,6 +112,7 @@ Feldvertrag Version 1. Ein Feld mit „Immer da: nein“ kann fehlen; in Typst m
 | `look.logoPosition` | `"links" \| "mitte" \| "rechts"` | ja |  | Stelle des Logos im Briefkopf |
 | `look.foldMarks` | `boolean` | ja |  | Falz- und Lochmarken drucken |
 | `look.backgroundPages` | `"erste" \| "alle"` | ja |  | Briefpapier nur auf der ersten oder auf allen Seiten |
+| `look.legalPosition` | `"layout" \| "spalte" \| "zeile"` | nein |  | Stelle von legal im Fuß: „spalte“ als eigene Spalte neben footer, je Angabe eine Zeile; „zeile“ als Zeile unter den Spalten; „layout“, wie es das Layout vorsieht. Eingebaute Layouts bekommen die Stelle aufgelöst, außer mit Randspalte (Elegant, Atelier): Die setzt legal immer selbst und bekommt die Wahl, wie sie ist |
 | `look.options` | `object` | nein |  | Optionen eines eingebauten Layouts, schon aufgelöst, etwa { fuss: „rechts“ }; leer bei eigenen Layouts |
 | `font` | `object` | ja |  | Gewählte Schrift; Familien, wie Typst sie nennt |
 | `font.regular` | `string` | ja |  | Familie für normalen Text |
@@ -166,7 +167,7 @@ Feldvertrag Version 1. Ein Feld mit „Immer da: nein“ kann fehlen; in Typst m
 | `totals.euroTax.rows` | `object[]` | ja |  | Umsatzsteuer in Euro je Satz, bei mehreren Sätzen auch gesamt |
 | `totals.euroTax.rows[].label` | `string` | ja |  | Bezeichnung, links |
 | `totals.euroTax.rows[].value` | `string` | ja |  | Wert, rechts |
-| `taxNote` | `null \| string` | ja | ja | Feste Pflichthinweise unter den Summen: ohne Steuerausweis (etwa Kleinunternehmer, Reverse Charge) und zur Aufbewahrung privater Grundstücksleistungen; null ohne |
+| `taxNote` | `null \| string` | ja | ja | Feste Hinweise unter den Summen: ohne Steuerausweis (etwa Kleinunternehmer, Reverse Charge), zur Aufbewahrung privater Grundstücksleistungen und zum Anteil der Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG); null ohne |
 | `intro` | `null \| string` | nein |  | Einleitung über den Positionen ohne Auszeichnungszeichen; null ohne, fehlt auf dem Lieferschein |
 | `introFormatted` | `null \| object[]` | nein |  | Einleitung mit Auszeichnungen; null ohne, fehlt auf dem Lieferschein |
 | `introFormatted[].text` | `string` | ja |  | Text des Abschnitts |
@@ -218,7 +219,7 @@ Feldvertrag Version 1. Ein Feld mit „Immer da: nein“ kann fehlen; in Typst m
 | `footerFormatted[][][].bold` | `boolean` | ja |  | fett |
 | `footerFormatted[][][].italic` | `boolean` | ja |  | kursiv |
 | `footerFormatted[][][].underline` | `boolean` | ja |  | unterstrichen |
-| `legal` | `null \| string` | ja | ja | Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile; null ohne |
+| `legal` | `null \| string` | ja | ja | Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile, Angaben getrennt durch „ · “; null ohne und wenn sie über ihre Platzhalter schon in der eigenen Fußzeile (footer) stehen |
 | `accent` | `string` | ja |  | Akzentfarbe #RRGGBB |
 | `palette` | `object` | ja |  | Grautöne #RRGGBB, aus der Akzentfarbe abgeleitet |
 | `palette.ink` | `string` | ja |  | Text |
@@ -231,6 +232,7 @@ Feldvertrag Version 1. Ein Feld mit „Immer da: nein“ kann fehlen; in Typst m
 | `look.logoPosition` | `"links" \| "mitte" \| "rechts"` | ja |  | Stelle des Logos im Briefkopf |
 | `look.foldMarks` | `boolean` | ja |  | Falz- und Lochmarken drucken |
 | `look.backgroundPages` | `"erste" \| "alle"` | ja |  | Briefpapier nur auf der ersten oder auf allen Seiten |
+| `look.legalPosition` | `"layout" \| "spalte" \| "zeile"` | nein |  | Stelle von legal im Fuß: „spalte“ als eigene Spalte neben footer, je Angabe eine Zeile; „zeile“ als Zeile unter den Spalten; „layout“, wie es das Layout vorsieht. Eingebaute Layouts bekommen die Stelle aufgelöst, außer mit Randspalte (Elegant, Atelier): Die setzt legal immer selbst und bekommt die Wahl, wie sie ist |
 | `look.options` | `object` | nein |  | Optionen eines eingebauten Layouts, schon aufgelöst, etwa { fuss: „rechts“ }; leer bei eigenen Layouts |
 | `font` | `object` | ja |  | Gewählte Schrift; Familien, wie Typst sie nennt |
 | `font.regular` | `string` | ja |  | Familie für normalen Text |
@@ -309,5 +311,6 @@ Diese Einstellungen unter Einstellungen › Beleggestaltung kommen nur über ihr
 | Spalte USt je Position | `hideVatColumn` | Rechnung, Storno und Korrektur; Angebot; Auftragsbestätigung |
 | Briefpapier | `background` | alle |
 | Seiten mit Briefpapier | `look.backgroundPages` | alle |
+| Registerangaben | `look.legalPosition` | alle |
 
 <!-- feldvertrag:ende -->

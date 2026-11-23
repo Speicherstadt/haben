@@ -68,6 +68,7 @@ import {
   type KirchensteuerSatz,
   type Millis,
   type Prozent,
+  RECURRENCE_KEYS,
 } from "@haben/core";
 import type { LstbWerte } from "@haben/core";
 
@@ -144,9 +145,6 @@ export const company = pgTable(
     /** Vorgabe für das Skonto neuer Rechnungen, je Stufe Frist in Tagen und Satz in Basispunkten; leer = kein Skonto */
     skonto: jsonb("skonto").$type<SkontoStufe[]>().notNull().default([]),
     defaultFormat: invoiceFormatEnum("default_format").notNull().default("zugferd"),
-    /** Vorgabe für die Einleitung über den Positionen neuer Rechnungen bzw. Angebote; im Beleg änderbar */
-    invoiceIntro: text("invoice_intro").notNull().default(""),
-    quoteIntro: text("quote_intro").notNull().default(""),
     /** Vorlagen für den Zahlungsplan im Angebot, z. B. „30/40/30“ und „50/50“ */
     paymentPlanTemplates: jsonb("payment_plan_templates").$type<PlanTemplate[]>().notNull().default(DEFAULT_PLAN_TEMPLATES),
     /** Kleinunternehmer nach § 19 UStG: Rechnungen ohne Umsatzsteuer, keine Voranmeldung, kein Vorsteuerabzug */
@@ -1574,6 +1572,8 @@ export const invoiceLines = pgTable(
     /** Positionsrabatt wie eingegeben: Prozent oder fester Betrag im Preismodus; net ist nach Rabatt */
     discountPercent: integer("discount_percent").$type<BasisPoints>(),
     discountAmount: integer("discount_amount").$type<Cents>(),
+    /** Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG, BMF vom 09.11.2016 Rz. 39); ihr Anteil steht unter den Summen (#712) */
+    arbeitskosten: boolean("arbeitskosten").notNull().default(false),
   },
   (t) => [
     index("invoice_lines_invoice").on(t.invoiceId),
@@ -1751,6 +1751,8 @@ export const quoteLines = pgTable(
     discountAmount: integer("discount_amount").$type<Cents>(),
     /** Optionale Position oder Alternative zur Hauptposition davor; beide zählen nicht zur Angebotssumme. null = normal */
     kind: text("kind", { enum: QUOTE_LINE_KINDS }),
+    /** Arbeits-, Maschinen- und Fahrtkosten wie bei der Rechnung; geht in die Rechnung aus dem Angebot über (#712) */
+    arbeitskosten: boolean("arbeitskosten").notNull().default(false),
   },
   (t) => [
     check("quote_lines_discount", sql`${t.discountPercent} is null or ${t.discountAmount} is null`),
@@ -1925,6 +1927,8 @@ export const articles = pgTable(
     taxRate: smallint("tax_rate").$type<BasisPoints>().notNull(),
     /** Preis enthält die Umsatzsteuer; passt das nicht zur Rechnung, wird beim Einfügen umgerechnet */
     priceIncludesTax: boolean("price_includes_tax").notNull().default(false),
+    /** Vorgabe für die Position: Arbeits-, Maschinen- und Fahrtkosten nach § 35a EStG (#712) */
+    arbeitskosten: boolean("arbeitskosten").notNull().default(false),
     /** Interne Notiz, erscheint nicht auf Belegen */
     note: text("note").notNull().default(""),
     /** Herkunft aus dem sevDesk-Abruf (GET /Part); ein neuer Abruf legt den Artikel nicht noch einmal an */
@@ -1941,6 +1945,9 @@ export const articles = pgTable(
 
 export const textBlockKinds = ["kopf", "fuss"] as const;
 export type TextBlockKind = (typeof textBlockKinds)[number];
+/** Belegarten, für die ein Textbaustein Standard sein kann (#1494) */
+export const textBlockStandards = ["rechnung", "angebot", "auftragsbestaetigung", "lieferschein", "mahnung"] as const;
+export type TextBlockStandard = (typeof textBlockStandards)[number];
 
 /**
  * Textbausteine zum Einfügen in Rechnungen, Angebote und wiederkehrende Rechnungen: Kopftext (Einleitung über den
@@ -1957,6 +1964,11 @@ export const textBlocks = pgTable(
     text: text("text").notNull(),
     /** Optional einem Kunden zugeordnet: steht bei dessen Belegen oben in der Auswahl */
     contactId: uuid("contact_id").references(() => contacts.id),
+    /**
+     * Standard für diese Belegart (#1494): füllt neue Belege vor, Kopftext die Einleitung, Fußtext den Hinweis bzw.
+     * Schlusstext. Höchstens ein aktiver Baustein je Belegart und Art; null = kein Standard
+     */
+    standardFuer: text("standard_fuer", { enum: textBlockStandards }),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -1964,6 +1976,16 @@ export const textBlocks = pgTable(
   (t) => [
     index("text_blocks_contact").on(t.contactId),
     check("text_blocks_kind", sql`${t.kind} in ('kopf', 'fuss')`),
+    check(
+      "text_blocks_standard_fuer",
+      sql`${t.standardFuer} is null or ${t.standardFuer} in ('rechnung', 'angebot', 'auftragsbestaetigung', 'lieferschein', 'mahnung')`,
+    ),
+    // Der Lieferschein hat nur einen Hinweis; ein Standard gilt für alle Kunden
+    check(
+      "text_blocks_standard_passt",
+      sql`${t.standardFuer} is null or (${t.contactId} is null and not (${t.standardFuer} = 'lieferschein' and ${t.kind} = 'kopf'))`,
+    ),
+    uniqueIndex("text_blocks_standard").on(t.standardFuer, t.kind).where(sql`${t.standardFuer} is not null and ${t.archivedAt} is null`),
     index("text_blocks_name_trgm_idx").using("gin", sql`haben_unaccent(${t.name}) gin_trgm_ops`),
     index("text_blocks_text_trgm_idx").using("gin", sql`haben_unaccent(${t.text}) gin_trgm_ops`),
   ],
@@ -2092,9 +2114,9 @@ export const recurringDocuments = pgTable(
     /** Das Dokument weist die Umsatzsteuer gesondert aus (Dauerrechnung, Vertrag mit Steuerbetrag); sonst keine Vorsteuer */
     taxShown: boolean("tax_shown").notNull().default(false),
     note: text("note").notNull().default(""),
-    /** Monate zwischen zwei Belegen: 1, 3, 6 oder 12 */
-    intervalMonths: smallint("interval_months").notNull(),
-    /** Tag im Monat, auf den die Termine fallen (31 = Monatsende) */
+    /** Abstand zweier Belege als Dauer nach ISO 8601 wie bei wiederkehrenden Rechnungen: P1W … P1Y (#1691) */
+    recurrence: text("recurrence", { enum: RECURRENCE_KEYS }).notNull(),
+    /** Tag im Monat, auf den die Termine fallen (31 = Monatsende); bei Wochen ohne Wirkung */
     anchorDay: smallint("anchor_day").notNull(),
     /** Erster Termin beim Anlegen, nur zur Anzeige */
     startDate: date("start_date", { mode: "string" }).notNull(),
@@ -2120,7 +2142,7 @@ export const recurringDocuments = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    check("recurring_documents_interval", sql`${t.intervalMonths} in (1, 3, 6, 12)`),
+    check("recurring_documents_recurrence", sql`${t.recurrence} in ('P1W', 'P2W', 'P4W', 'P1M', 'P2M', 'P3M', 'P6M', 'P1Y')`),
     check("recurring_documents_anchor_day", sql`${t.anchorDay} between 1 and 31`),
     check("recurring_documents_private_share", sql`${t.privateShare} between 0 and 100`),
     check("recurring_documents_due_days", sql`${t.dueDays} between 0 and 120`),
@@ -2223,7 +2245,7 @@ export const documents = pgTable(
      */
     replacesDocumentId: uuid("replaces_document_id"),
     /**
-     * Aus einem Dauerbeleg angelegt: die Vorlage und die Periode (Monatserster des Termins). Je Vorlage und Periode
+     * Aus einem Dauerbeleg angelegt: die Vorlage und die Periode (Monatserster des Termins, bei Wochen der Termin). Je Vorlage und Periode
      * höchstens ein Beleg, auch bei gleichzeitigen Läufen. Die Datei ist der Vertrag der Vorlage, also dieselbe für
      * alle Belege der Vorlage. Nur beim Anlegen gesetzt, ab dem Buchen mit dem Beleg gesperrt und versiegelt.
      */
@@ -3475,6 +3497,14 @@ export type LexofficeImportProgress = {
   skipped: number;
   files: number;
   failed: { lexofficeId: string; number: string; message: string }[];
+  /**
+   * Entwürfe, die gar nicht erst in die Belegliste kommen (#1504), weil sie keine Belege sind. Vorgänge ohne Belegart
+   * zählt Haben nicht: die API liefert sie ohnehin nicht, und die Sicherung aus der Web-Oberfläche lässt sie schon beim
+   * Packen draußen (#183).
+   */
+  ignored?: { drafts: number };
+  /** Belege aus früheren Läufen, deren fehlende Datei in diesem Lauf doch noch ankam (#1504) */
+  nachgeladen?: number;
   /** sevDesk: Vorlagen wiederkehrender Belege, in diesem Lauf als Dauerbelege übernommen */
   recurring?: number;
   /** BuchhaltungsButler: Archivdateien mit dem DATEV-Stapel des Exports, auch wenn sie schon vorher im Archiv lagen */
@@ -4007,11 +4037,23 @@ export const recurringInvoices = pgTable(
     priceMode: text("price_mode", { enum: PRICE_MODES }).notNull().default("netto"),
     /** detail: Beschreibung unter der Bezeichnung; fehlt bei Vorlagen von vor dem Feld */
     lines: jsonb("lines")
-      .$type<{ description: string; detail?: string; itemNumber?: string; quantity: Millis; unit: string; unitPrice: Cents; taxRate: BasisPoints }[]>()
+      .$type<
+        {
+          description: string;
+          detail?: string;
+          itemNumber?: string;
+          quantity: Millis;
+          unit: string;
+          unitPrice: Cents;
+          taxRate: BasisPoints;
+          /** § 35a EStG (#712); fehlt bei Vorlagen von vor dem Feld */
+          arbeitskosten?: boolean;
+        }[]
+      >()
       .notNull(),
-    /** Monate zwischen zwei Rechnungen: 1, 3, 6 oder 12 */
-    intervalMonths: smallint("interval_months").notNull(),
-    /** Tag im Monat, auf den die Termine fallen (31 = Monatsende) */
+    /** Abstand zweier Rechnungen als Dauer nach ISO 8601: P1W, P2W, P4W, P1M, P2M, P3M, P6M oder P1Y (#1691) */
+    recurrence: text("recurrence", { enum: RECURRENCE_KEYS }).notNull(),
+    /** Tag im Monat, auf den die Termine fallen (31 = Monatsende); bei Wochen ohne Wirkung */
     anchorDay: smallint("anchor_day").notNull(),
     nextDate: date("next_date", { mode: "string" }).notNull(),
     endDate: date("end_date", { mode: "string" }),
@@ -4032,7 +4074,7 @@ export const recurringInvoices = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    check("recurring_interval", sql`${t.intervalMonths} in (1, 3, 6, 12)`),
+    check("recurring_recurrence", sql`${t.recurrence} in ('P1W', 'P2W', 'P4W', 'P1M', 'P2M', 'P3M', 'P6M', 'P1Y')`),
     check("recurring_anchor_day", sql`${t.anchorDay} between 1 and 31`),
     index("recurring_invoices_name_trgm_idx").using("gin", sql`haben_unaccent(${t.name}) gin_trgm_ops`),
   ],

@@ -52,7 +52,9 @@ const common = {
   qr: text("GiroCode als SVG; null oder fehlt, wenn keiner gedruckt wird").nullable().optional(),
   footer: z.array(z.array(z.string())).describe("Spalten der Fußzeile, je Spalte die Zeilen als Text"),
   footerFormatted: z.array(z.array(runs)).nullable().describe("Eigene Fußzeile mit Auszeichnungen, je Spalte und Zeile; null bei der automatischen Fußzeile"),
-  legal: text("Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile; null ohne").nullable(),
+  legal: text(
+    "Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile, Angaben getrennt durch „ · “; null ohne und wenn sie über ihre Platzhalter schon in der eigenen Fußzeile (footer) stehen",
+  ).nullable(),
   // Aus dem Briefkopf (templateInputs)
   accent: text("Akzentfarbe #RRGGBB"),
   palette: z
@@ -66,6 +68,12 @@ const common = {
       logoPosition: z.enum(["links", "mitte", "rechts"]).describe("Stelle des Logos im Briefkopf"),
       foldMarks: flag("Falz- und Lochmarken drucken"),
       backgroundPages: z.enum(["erste", "alle"]).describe("Briefpapier nur auf der ersten oder auf allen Seiten"),
+      legalPosition: z
+        .enum(["layout", "spalte", "zeile"])
+        .optional()
+        .describe(
+          "Stelle von legal im Fuß: „spalte“ als eigene Spalte neben footer, je Angabe eine Zeile; „zeile“ als Zeile unter den Spalten; „layout“, wie es das Layout vorsieht. Eingebaute Layouts bekommen die Stelle aufgelöst, außer mit Randspalte (Elegant, Atelier): Die setzt legal immer selbst und bekommt die Wahl, wie sie ist",
+        ),
       options: z
         .record(z.string(), z.string())
         .optional()
@@ -137,7 +145,7 @@ export const belegDatenSchema = z
     lines: z.array(line).describe("Positionen"),
     totals: totalsBlock.nullable().describe("Summenblock; null auf dem Lieferschein"),
     taxNote: text(
-      "Feste Pflichthinweise unter den Summen: ohne Steuerausweis (etwa Kleinunternehmer, Reverse Charge) und zur Aufbewahrung privater Grundstücksleistungen; null ohne",
+      "Feste Hinweise unter den Summen: ohne Steuerausweis (etwa Kleinunternehmer, Reverse Charge), zur Aufbewahrung privater Grundstücksleistungen und zum Anteil der Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG); null ohne",
     ).nullable(),
     intro: text("Einleitung über den Positionen ohne Auszeichnungszeichen; null ohne, fehlt auf dem Lieferschein").nullable().optional(),
     introFormatted: runs.nullable().optional().describe("Einleitung mit Auszeichnungen; null ohne, fehlt auf dem Lieferschein"),
@@ -303,6 +311,7 @@ export const LAYOUT_GESTALTUNG = {
   vatColumn: { label: "Spalte USt je Position", felder: "hideVatColumn", belege: ["rechnung", "angebot", "auftragsbestaetigung"] },
   background: { label: "Briefpapier", felder: "background", belege: ALLE_BELEGE },
   backgroundPages: { label: "Seiten mit Briefpapier", felder: "look.backgroundPages", belege: ALLE_BELEGE },
+  legalPosition: { label: "Registerangaben", felder: "look.legalPosition", belege: ALLE_BELEGE },
 } as const satisfies Record<string, { label: string; felder: string; belege: readonly LayoutDocumentType[] }>;
 
 export type LayoutGestaltung = keyof typeof LAYOUT_GESTALTUNG;

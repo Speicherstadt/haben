@@ -163,13 +163,29 @@ describe("Kostenart der BWA (DATEV-Kontenrahmen 2026)", () => {
     ["8990", "4820", "eigenleistungen"],
     ["2890", "6980", "kalkulatorisch"],
     ["4990", "6970", "sonstigeKosten"],
-    // Betriebliche Erträge und Verwahrentgelt bleiben, wo sie sind
+    // Betriebliche Erträge und Verwahrentgelt bleiben, wo sie sind; „Sonstige betriebliche Erträge“ und „Sonstige Erträge
+    // betrieblich und regelmäßig“ stehen im SKR03 in Klasse 8 (S. 27), im SKR04 bei 4830 bis 4841 (S. 17)
     ["8590", "4940", "sonstigeErloese"],
+    ["8603", "4830", "sonstigeErloese"],
+    ["8605", "4835", "sonstigeErloese"],
+    ["8609", "4841", "sonstigeErloese"],
+    // Gleich benannt: SKR03 S. 27, SKR04 S. 17
+    ["8649", "4834", "sonstigeErloese"], // „Sonstige Erträge betrieblich und regelmäßig 16 % USt“
+    ["8640", "4836", "sonstigeErloese"], // „Sonstige Erträge betrieblich und regelmäßig 19 % USt“
+    ["8606", "4832", "sonstigeErloese"], // „Sonstige betriebliche Erträge von verbundenen Unternehmen“
+    ["8604", "4838", "sonstigeErloese"], // „Erstattete Vorsteuer anderer Länder“
+    ["8625", "4842", "sonstigeErloese"], // „Sonstige betriebliche Erträge, steuerfrei z. B. § 4 Nr. 2 bis 7 UStG“
     ["4971", "6879", "sonstigeKosten"],
   ];
   it.each(PAARE)("SKR03 %s und SKR04 %s → %s", (skr03, skr04, erwartet) => {
     expect(kostenartOf("SKR03", skr03)).toBe(erwartet);
     expect(kostenartOf("SKR04", skr04)).toBe(erwartet);
+  });
+
+  // SKR03 2700 „Andere betriebs- und/oder periodenfremde (neutrale) sonstige Erträge“ (S. 17) hat im SKR04 kein gleich
+  // benanntes Konto; SKR04 4830 und 4835 entsprechen SKR03 8603 und 8605 (oben)
+  it("SKR03 2700 ist neutral", () => {
+    expect(kostenartOf("SKR03", "2700")).toBe("neutralErtrag");
   });
 
   const BILANZ: [Kontenrahmen, string][] = [

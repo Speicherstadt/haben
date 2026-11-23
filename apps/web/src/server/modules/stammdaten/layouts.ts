@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { readdir, rename, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { DEFAULT_LAYOUT, type LayoutDocumentType, type LayoutRef } from "@haben/core";
-import { createRenderClient, LAYOUT_SCHEMA_VERSION, type Letterhead, type PdfRequest } from "@haben/einvoice";
+import { eingebautesLayout, LAYOUT_DOCUMENT_TYPES, type LayoutDocumentType, type LayoutRef } from "@haben/core";
+import { createRenderClient, kenntPflichtangabenFelder, LAYOUT_SCHEMA_VERSION, type Letterhead, type PdfRequest } from "@haben/einvoice";
 import { eq, sql } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { env } from "../../env.ts";
@@ -19,7 +19,8 @@ import {
   writePackages,
 } from "./paket-download.ts";
 import { customLayoutJob, dataForVersion, layoutRenderer } from "./layout-renderer.ts";
-import { loadDesign } from "./letterhead.ts";
+import { removeLayout } from "./layout-loeschen.ts";
+import { checkLayoutSwitch, loadDesign, lockFooter } from "./letterhead.ts";
 
 /*
  * Eigene Belegvorlagen (#113): hochladen, benennen, löschen und je Belegart zuordnen. Ein Layout gilt für alles, was ab
@@ -268,46 +269,52 @@ export function deleteLayout(actor: string, id: string): Promise<void> {
   return oneAtATime(id, () => removeLayout(actor, id));
 }
 
-async function removeLayout(actor: string, id: string): Promise<void> {
-  await dropRenderer(id);
-  await clearPackages(id);
-  await withActor(actor, async (tx) => {
-    // Erst das Profil, dann das Layout: Jede Änderung nimmt im Audit-Trigger die Sperre der Hash-Kette. Käme das Löschen
-    // zuerst, hielte es diese Sperre, während es auf die Zeile des Profils wartet, und verhakte sich mit saveDesign, das
-    // die Zeile hält und auf die Sperre wartet.
-    const fallback = JSON.stringify(DEFAULT_LAYOUT);
-    await tx.execute(sql`
-      update letterhead_profiles set settings = jsonb_set(settings, '{layouts}', (
-        select coalesce(jsonb_object_agg(key, case when value->>'kind' = 'eigen' and value->>'id' = ${id} then ${fallback}::jsonb else value end), '{}'::jsonb)
-        from jsonb_each(coalesce(settings->'layouts', '{}'::jsonb))
-      )), updated_at = now()
-      where settings->'layouts' is not null`);
-    await tx.delete(schema.belegLayouts).where(eq(schema.belegLayouts.id, id));
-  });
+/** Art eines eigenen Layouts (Mahnung oder Beleg); null = eingebaut. Ein unbekanntes eingebautes oder gelöschtes eigenes wirft */
+async function layoutArt(ref: LayoutRef): Promise<"beleg" | "mahnung" | null> {
+  if (ref.kind === "eingebaut") {
+    if (!eingebautesLayout(ref.id)) throw new LayoutError("Dieses eingebaute Layout gibt es nicht.");
+    return null;
+  }
+  const [row] = await db.select({ art: schema.belegLayouts.art }).from(schema.belegLayouts).where(eq(schema.belegLayouts.id, ref.id));
+  if (!row) throw new LayoutError("Das Layout gibt es nicht mehr.");
+  return row.art;
 }
 
 /** Ordnet einer Belegart ein Layout zu; ein eigenes muss zur Art passen (Mahnung oder Beleg) */
 export async function assignLayout(actor: string, type: LayoutDocumentType, ref: LayoutRef): Promise<void> {
-  if (ref.kind === "eingebaut" && ref.id !== DEFAULT_LAYOUT.id) throw new LayoutError("Dieses eingebaute Layout gibt es nicht.");
-  if (ref.kind === "eigen") {
-    const [row] = await db.select({ art: schema.belegLayouts.art }).from(schema.belegLayouts).where(eq(schema.belegLayouts.id, ref.id));
-    if (!row) throw new LayoutError("Das Layout gibt es nicht mehr.");
-    if (row.art !== artFor(type))
-      throw new LayoutError(row.art === "mahnung" ? "Ein Layout für Mahnungen passt nur zu Mahnungen." : "Mahnungen brauchen ein Layout für Mahnungen.");
-  }
-  const value = JSON.stringify({ [type]: { kind: ref.kind, id: ref.id } });
+  const art = await layoutArt(ref);
+  if (art && art !== artFor(type))
+    throw new LayoutError(art === "mahnung" ? "Ein Layout für Mahnungen passt nur zu Mahnungen." : "Mahnungen brauchen ein Layout für Mahnungen.");
+  await zuordnen(actor, [type], ref);
+}
+
+/**
+ * Ein Layout für alle Belegarten, zu denen es passt: ein eingebautes für alle, ein eigenes für Belege oder nur für die
+ * Mahnung. Die übrigen behalten ihr Layout. Gibt die Belegarten zurück, die es bekommen haben.
+ */
+export async function assignLayoutToAll(actor: string, ref: LayoutRef): Promise<LayoutDocumentType[]> {
+  const art = await layoutArt(ref);
+  const types = LAYOUT_DOCUMENT_TYPES.filter((type) => !art || art === artFor(type));
+  await zuordnen(actor, types, ref);
+  return types;
+}
+
+async function zuordnen(actor: string, types: readonly LayoutDocumentType[], ref: LayoutRef): Promise<void> {
+  const neu = Object.fromEntries(types.map((type) => [type, { kind: ref.kind, id: ref.id }]));
   await withActor(actor, async (tx) => {
+    await lockFooter(tx);
     const current = await loadDesign(tx);
+    await checkLayoutSwitch(tx, current, { ...current, layouts: { ...current.layouts, ...neu } });
     const profiles = schema.letterheadProfiles;
     // In der Datenbank zusammenführen, wie saveDesign: Zwei gleichzeitige Zuordnungen überschreiben sich nicht
     await tx
       .insert(profiles)
-      .values({ name: "Standard", isDefault: true, settings: { ...current, layouts: { ...current.layouts, [type]: ref } } })
+      .values({ name: "Standard", isDefault: true, settings: { ...current, layouts: { ...current.layouts, ...neu } } })
       .onConflictDoUpdate({
         target: profiles.isDefault,
         targetWhere: sql`${profiles.isDefault}`,
         set: {
-          settings: sql`jsonb_set(letterhead_profiles.settings, '{layouts}', coalesce(letterhead_profiles.settings->'layouts', '{}'::jsonb) || ${value}::jsonb)`,
+          settings: sql`jsonb_set(letterhead_profiles.settings, '{layouts}', coalesce(letterhead_profiles.settings->'layouts', '{}'::jsonb) || ${JSON.stringify(neu)}::jsonb)`,
           updatedAt: new Date(),
         },
       });
@@ -326,30 +333,53 @@ export async function customLayoutFor(type: LayoutDocumentType) {
 }
 
 /**
- * Erzeugt ein PDF mit dem Layout der Belegart. build ist der Aufruf aus @haben/einvoice (etwa buildEInvoice); er läuft
- * bei einem eigenen Layout zweimal: erst fängt pdfFrom die fertigen Daten ab, dann liefert es das PDF aus dem Render-Prozess.
+ * Briefkopf mit dem eingebauten Layout der Belegart und seinen Optionen (layout-katalog.ts in packages/core); bei einem
+ * eigenen Layout unverändert. Die Vorlage, Vorgaben für Schrift und Farbe und die Stelle des Logos folgen daraus.
+ */
+export async function mitEingebautemLayout(
+  type: LayoutDocumentType,
+  letterhead: Letterhead,
+  /** Ungespeicherte Wahl aus der Vorschau, vor der gespeicherten */
+  entwurf?: Record<string, Record<string, string>>,
+): Promise<Letterhead> {
+  const design = await loadDesign();
+  const ref = design.layouts[type];
+  if (ref.kind !== "eingebaut") return letterhead;
+  return { ...letterhead, layout: { id: ref.id, optionen: entwurf?.[ref.id] ?? design.layoutOptions[ref.id] ?? {} } };
+}
+
+/**
+ * Erzeugt ein PDF mit dem Layout der Belegart. build ist der Aufruf aus @haben/einvoice (etwa buildEInvoice); bei einem
+ * eigenen Layout ruft es ihn zweimal: Im ersten Aufruf fängt pdfFrom die fertigen Daten der Vorlage ab und bricht ab,
+ * bevor eine Vorlage gesetzt oder das XML erzeugt ist (#609); der zweite bekommt das PDF aus dem Render-Prozess.
  */
 export async function withCustomLayout<T>(type: LayoutDocumentType, letterhead: Letterhead, build: (letterhead: Letterhead) => T): Promise<T> {
   const layout = await customLayoutFor(type);
-  if (!layout) return build(letterhead);
+  if (!layout) return build(await mitEingebautemLayout(type, letterhead));
+  // Kennt das Layout die Stelle der Pflichtangaben nicht, bekommt es sie nur über legal (#1651)
+  const eigener = { ...letterhead, legalFieldOnly: !kenntPflichtangabenFelder(layout.source) };
   let request: PdfRequest | undefined;
-  // Ganz durchlaufen lassen: buildEInvoice setzt das PDF erst nach einem await
-  await build({
-    ...letterhead,
-    pdfFrom: (captured) => {
-      request = captured;
-      return undefined;
-    },
-  });
-  if (!request) return build(letterhead);
+  const abgefangen = new Error("Daten für das eigene Layout abgefangen");
+  try {
+    // Ohne Aufruf von pdfFrom setzt build keine Belegvorlage; dann gilt sein Ergebnis
+    return await build({
+      ...eigener,
+      pdfFrom: (captured) => {
+        request = captured;
+        throw abgefangen;
+      },
+    });
+  } catch (error) {
+    if (error !== abgefangen || !request) throw error;
+  }
   let pdf: Uint8Array;
   try {
     const renderer = await rendererFor(layout);
-    pdf = await renderer.renderPdf(await customLayoutJob(layout, dataForVersion(layout.schemaVersion, request.data), letterhead), request.date);
+    pdf = await renderer.renderPdf(await customLayoutJob(layout, dataForVersion(layout.schemaVersion, request.data), eigener), request.date);
   } catch (error) {
     throw new LayoutRenderError(
       `Das Layout „${layout.name}“ ließ sich nicht setzen: ${typstMeldung(error)}. Bitte unter Einstellungen › Beleggestaltung ein anderes wählen.`,
     );
   }
-  return build({ ...letterhead, pdfFrom: () => pdf });
+  return build({ ...eigener, pdfFrom: () => pdf });
 }

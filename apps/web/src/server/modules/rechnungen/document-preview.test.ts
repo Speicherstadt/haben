@@ -73,12 +73,36 @@ describe.skipIf(!testDatabaseUrl)("Vorschau aus dem Formular (Postgres)", () => 
     expect(text((await preview.documentPreview(input())).text)).not.toMatch(/§\s*14b/);
   });
 
+  it("zeigt den Anteil der Arbeits-, Maschinen- und Fahrtkosten nur mit gekennzeichneter Position (#712)", async () => {
+    const lines = [
+      { description: "Rauchwarnmelder", itemNumber: "", quantity: 1000, unit: "Stk.", unitPrice: 3100, taxRate: 1900 },
+      { description: "Montage", itemNumber: "", quantity: 1000, unit: "Stk.", unitPrice: 800, taxRate: 1900, arbeitskosten: true },
+    ];
+    // 8,00 € netto + 19 % = 9,52 €
+    expect(text((await preview.documentPreview(input({ lines }))).text).replace(/\s+/g, " ")).toContain("Fahrtkosten von 9,52 € inkl. USt");
+    expect(text((await preview.documentPreview(input())).text)).not.toMatch(/§\s*35a/);
+  });
+
   it("zeigt ungespeicherte Gestaltung, ohne etwas zu speichern", async () => {
     const standard = await preview.documentPreview(input());
     const farbig = await preview.documentPreview(input({ design: { accent: "#9B1C1C" } }));
     expect(gesetzt(farbig.svg)).not.toBe(gesetzt(standard.svg));
     const danach = await preview.documentPreview(input());
     expect(gesetzt(danach.svg)).toBe(gesetzt(standard.svg));
+  });
+
+  it("setzt ungespeicherte Optionen des eingebauten Layouts, ohne sie zu speichern", async () => {
+    const { assignLayout } = await import("../stammdaten/layouts.ts");
+    const { loadDesign } = await import("../stammdaten/letterhead.ts");
+    await assignLayout("test", "rechnung", { kind: "eingebaut", id: "atelier" });
+    try {
+      const unten = await preview.documentPreview(input());
+      const rechts = await preview.documentPreview(input({ design: { layoutOptions: { atelier: { fuss: "rechts" } } } }));
+      expect(gesetzt(rechts.svg)).not.toBe(gesetzt(unten.svg));
+      expect((await loadDesign()).layoutOptions).toEqual({});
+    } finally {
+      await assignLayout("test", "rechnung", { kind: "eingebaut", id: "klar" });
+    }
   });
 
   it("setzt Angebote mit optionalen Positionen und Zahlungsplan", async () => {

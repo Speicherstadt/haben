@@ -566,7 +566,7 @@ jobs:
           bun ../apps/web/src/server/db/migrate.ts
           docker compose exec -T db psql -U haben_app -d haben -X -q < tests/rollen-db.sql
           docker compose exec -T db psql -U haben -d haben -qc "CREATE TABLE t (x text); INSERT INTO t VALUES ('vorher')"
-          # Das Backup-Image mit pg_dump 18 sichert die Datenbank 16 mit pg_dump 16; sonst scheitert der
+          # Das Backup-Image mit pg_dump 19 sichert die Datenbank 16 mit pg_dump 16; sonst scheitert der
           # Test-Restore am Einspielen in die Datenbank 16
           docker compose exec -T backup backup.sh
           test "$(docker compose exec -T db psql -U haben -d haben -Atc "SELECT string_agg(kind || '=' || ok, ',' ORDER BY id) FROM backup_status")" \
@@ -591,6 +591,25 @@ jobs:
           docker compose exec -T backup restore-check.sh
           test "$(docker compose exec -T db psql -U haben -d haben -Atc "SELECT string_agg(kind || '=' || ok, ',' ORDER BY id) FROM backup_status")" \
             = "backup=true,restore_check=true,backup=true,restore_check=true"
+      # Eine eigene Datenbank kann neuer sein als haben-db (etwa im Kubernetes-Cluster): pg_dump 18 bricht an
+      # einem Server 19 ab, das Backup-Image bringt deshalb auch das pg_dump dieser Version mit
+      - name: Backup einer Datenbank 19
+        env:
+          HABEN_TEST_DB_IMAGE: postgres:19
+        run: |
+          set -x
+          docker compose down -v
+          # postgres ab 18 legt die Daten unter /var/lib/postgresql/<Version>/docker ab, compose.yml hängt das Volume
+          # für haben-db aber unter /var/lib/postgresql/data ein
+          printf 'services:\n  db:\n    environment:\n      PGDATA: /var/lib/postgresql/data/19\n' > neu.yml
+          docker compose -f compose.yml -f tests/rollen-db-compose.yml -f neu.yml up -d --wait db
+          docker compose -f compose.yml -f tests/rollen-db-compose.yml -f neu.yml up -d backup
+          test "$(docker compose exec -T db psql -U haben -d haben -Atc "SELECT current_setting('server_version_num')::int / 10000")" = 19
+          printf 'ci_app\nci_app\n' | docker compose exec -T db createuser -U haben --login --no-superuser --no-createdb --no-createrole --pwprompt haben_app
+          bun ../apps/web/src/server/db/migrate.ts
+          docker compose exec -T backup backup.sh
+          test "$(docker compose exec -T db psql -U haben -d haben -Atc "SELECT string_agg(kind || '=' || ok, ',' ORDER BY id) FROM backup_status")" \
+            = "backup=true,restore_check=true"
       - if: failure()
         run: docker compose logs
 

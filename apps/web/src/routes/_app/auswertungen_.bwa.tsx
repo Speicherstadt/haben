@@ -14,6 +14,7 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { z } from "zod/mini";
 import { BwaKonten, Form01Hinweis } from "../../components/BwaForm01.tsx";
+import { BwaKennzahlen } from "../../components/BwaKennzahlen.tsx";
 import { BwaTabelle, zeitraumText } from "../../components/BwaTabelle.tsx";
 import { BwaWarum } from "../../components/BwaWarum.tsx";
 import { Field } from "../../components/Field.tsx";
@@ -27,9 +28,9 @@ import styles from "../../styles/auswertungen.css?url";
 
 /*
  * BWA (#1380): Einnahmen-Ausgaben-BWA (Form 43) nach Zufluss und Abfluss für Einzelunternehmen, Kurzfristige
- * Erfolgsrechnung (Form 01) periodengerecht für GmbH und UG. Zeitraum, Vergleich und die aufgeklappte Zeile stehen in der
- * Adresse, damit eine Auswertung als Link weitergegeben werden kann. Zeiträume wie im Kontenblatt (jahr, q1–q4, m1–m12),
- * dazu „frei“ mit von und bis.
+ * Erfolgsrechnung (Form 01) periodengerecht für GmbH und UG. Zeitraum, Vergleich, „Leere Zeilen anzeigen“ (#1635) und die
+ * aufgeklappte Zeile stehen in der Adresse, damit eine Auswertung als Link weitergegeben werden kann. Zeiträume wie im
+ * Kontenblatt (jahr, q1–q4, m1–m12), dazu „frei“ mit von und bis.
  */
 
 const datum = z.string().check(z.regex(/^\d{4}-\d{2}-\d{2}$/));
@@ -40,6 +41,7 @@ const search = z.object({
   bis: z.optional(datum),
   vergleich: z.optional(z.enum(["vorjahr", "vorperiode", "keiner"])),
   zeile: z.optional(z.enum([...new Set([...FORM43_ZEILEN, ...FORM01_ZEILEN])] as [string, ...string[]])),
+  leer: z.optional(z.literal(1)),
 });
 type Suche = z.infer<typeof search>;
 
@@ -56,7 +58,8 @@ function auswahl(s: Suche): { jahr: number; art: string; zeitraum: Zeitraum; ver
 
 export const Route = createFileRoute("/_app/auswertungen_/bwa")({
   validateSearch: search,
-  loaderDeps: ({ search }) => search,
+  // „leer“ filtert nur die Anzeige: kein neuer Aufruf beim Umschalten
+  loaderDeps: ({ search: { leer: _leer, ...deps } }) => deps,
   loader: async ({ deps, context }) => {
     const { zeitraum, vergleich } = auswahl(deps);
     // GmbH und UG: Form 01, eine Zeile öffnet ihre Konten; sonst Form 43 mit Vorgängen und „Warum?“
@@ -88,7 +91,7 @@ function BwaPage() {
   const navigate = useNavigate({ from: Route.fullPath });
   const { jahr, art, zeitraum, vergleich } = auswahl(suche);
   const neu = (s: Partial<Suche>) =>
-    navigate({ search: { jahr, zeitraum: art, vergleich, ...(art === "frei" ? { von: zeitraum.von, bis: zeitraum.bis } : {}), ...s } });
+    navigate({ search: { jahr, zeitraum: art, vergleich, leer: suche.leer, ...(art === "frei" ? { von: zeitraum.von, bis: zeitraum.bis } : {}), ...s } });
   const offeneZeile = suche.zeile ? bericht.zeilen.find((z) => z.key === suche.zeile) : undefined;
 
   return (
@@ -119,16 +122,31 @@ function BwaPage() {
             : ", Restbuchwerte und die Privatnutzung von Fahrzeugen; die EÜR rechnet sie schon aus dem Anlagenverzeichnis, ihr Gewinn weicht deshalb ab."}
         </div>
       )}
+      <BwaKennzahlen bericht={bericht} />
       {bericht.kapitalgesellschaft ? (
         <>
-          <BwaTabelle bericht={bericht} zeitraum={zeitraum} offen={suche.zeile} titel="Kurzfristige Erfolgsrechnung" aufklappbar={FORM01_ZEILEN}>
+          <BwaTabelle
+            bericht={bericht}
+            zeitraum={zeitraum}
+            offen={suche.zeile}
+            leer={suche.leer === 1}
+            titel="Kurzfristige Erfolgsrechnung"
+            aufklappbar={FORM01_ZEILEN}
+          >
             <Form01Hinweis />
           </BwaTabelle>
           {offeneZeile && konten && <BwaKonten titel={`${offeneZeile.label} · ${zeitraumText(zeitraum)}`} zeitraum={zeitraum} konten={konten} />}
         </>
       ) : (
         <>
-          <BwaTabelle bericht={bericht} zeitraum={zeitraum} offen={suche.zeile} titel="Einnahmen-Ausgaben-BWA" aufklappbar={FORM43_ZEILEN}>
+          <BwaTabelle
+            bericht={bericht}
+            zeitraum={zeitraum}
+            offen={suche.zeile}
+            leer={suche.leer === 1}
+            titel="Einnahmen-Ausgaben-BWA"
+            aufklappbar={FORM43_ZEILEN}
+          >
             <p className="small muted">
               Eigene Auswertung von Haben nach dem Aufbau der DATEV-Form 43, keine Auswertung von DATEV. Nach Zahlungsdatum wie die EÜR (§ 4 Abs. 3, § 11 EStG),
               Einnahmen mit Umsatzsteuer, Ausgaben mit Vorsteuer. Eine Zeile öffnet, was darin steht.

@@ -90,6 +90,8 @@ export interface InvoiceDocumentLine {
   discount?: Discount;
   /** Schlussrechnung: Abzug einer Abschlagsrechnung; zählt nicht zur Grundlage des Gesamtrabatts */
   deductionOf?: string;
+  /** Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG, #712); ihr Anteil steht unter den Summen, fehlt = nein */
+  arbeitskosten?: boolean;
 }
 
 /** Firmenlogo für den Briefkopf; PNG oder JPEG */
@@ -108,11 +110,21 @@ export interface Letterhead {
   /** Logo, Marken und Schalter aus dem Profil; fehlt = Vorgaben (DEFAULT_OPTIONS) */
   options?: LetterheadOptions;
   /**
-   * Eigenes Layout: bekommt die fertigen Daten der Vorlage und liefert das PDF, das statt der eingebauten Vorlage gilt.
-   * undefined = eingebaute Vorlage. Der Server nutzt das zweimal: einmal, um die Daten abzufangen, einmal mit dem PDF
-   * aus dem Render-Prozess (withCustomLayout in apps/web).
+   * Eingebautes Layout der Belegart (layout-katalog.ts in packages/core) mit den gewählten Optionen; fehlt = Klar in der Fassung „Klassisch“, das bisherige Layout.
+   * Es bestimmt Vorlage, Vorgaben für Schrift und Akzentfarbe und die erlaubten Stellen für das Logo.
    */
-  pdfFrom?: (request: PdfRequest) => Uint8Array | undefined;
+  layout?: { id: string; optionen?: Record<string, string> };
+  /**
+   * Eigenes Layout: bekommt die fertigen Daten der Vorlage und liefert das PDF, das statt der eingebauten Vorlage gilt.
+   * Der Server nutzt das zweimal: einmal, um die Daten abzufangen (dort bricht pdfFrom mit einem Fehler ab), einmal mit
+   * dem PDF aus dem Render-Prozess (withCustomLayout in apps/web).
+   */
+  pdfFrom?: (request: PdfRequest) => Uint8Array;
+  /**
+   * Eigenes Layout, das look.legalPosition nicht kennt (kenntPflichtangabenFelder): Die Pflichtangaben
+   * kommen nur über legal, ihre Platzhalter in der Fußzeile bleiben leer (#1651).
+   */
+  legalFieldOnly?: boolean;
 }
 
 /** Was eine Vorlage zum Setzen bekommt; data ist schon mit dem Briefkopf ergänzt (templateInputs) */

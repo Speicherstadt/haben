@@ -1,17 +1,21 @@
 import { bildFormat } from "@haben/core";
+import { mitArbeitskostenHinweis } from "./arbeitskosten-hinweis.ts";
 import { join } from "node:path";
 import type { RenderJob } from "./render-protocol.ts";
 import { compileWith, getCompiler, PACKAGE_DIR } from "./typst-compiler.ts";
 import { accountHolder, collectedByDirectDebit, countryName, formatIban, paidInvoicePayment, paymentSentence, referenceMeta } from "./format.ts";
 import { texts, TEXTS, type Texts } from "./i18n.ts";
-import { templateInputs } from "./vorlage-eingaben.ts";
+import { layoutTemplate, templateInputs } from "./vorlage-eingaben.ts";
 
-export { templateInputs };
+export { layoutTemplate, templateInputs };
 import { girocodeSvg } from "./qr.ts";
 import {
   needsSellerVatId,
   type TaxTreatment,
+  activeFooterColumns,
   customFooterRuns,
+  legalFooterValues,
+  legalInFooter,
   parseTextFormatting,
   footerValues,
   discountedLineAmount,
@@ -139,7 +143,7 @@ export function documentPdfData(
     totalRows: [...documentDiscountRows(doc, gross, t), ...(gross ? [] : [{ label: t.totalNet, value: t.money(doc.totals.net) }, ...taxRows])],
     included: gross ? { label: t.included, rows: includedRows } : null,
     grossLabel: (label: string) => (gross ? t.inclVat(label) : label),
-    taxNote: t.note(treatment, doc.exemptionReason),
+    taxNote: mitArbeitskostenHinweis(t.note(treatment, doc.exemptionReason), doc, t),
     intro: doc.intro?.trim() ? doc.intro.trim() : null,
     hideVatColumn: !showsVatColumn(doc.options?.vatColumn ?? true, treatment === "regulaer" ? distinctVatRates(doc.lines) : doc.totals.taxes.length),
     note: doc.note?.trim() ? doc.note.trim() : null,
@@ -160,10 +164,10 @@ export function pdfData(doc: InvoiceDocument) {
     { label: t.invoiceDate, value: t.date(doc.issueDate) },
   ];
   if (doc.serviceFrom && doc.serviceTo && doc.serviceFrom !== doc.serviceTo) {
-    meta.push({ label: t.servicePeriod, value: `${t.date(doc.serviceFrom)} – ${t.date(doc.serviceTo)}` });
+    meta.push({ label: t.servicePeriod, value: t.period(doc.serviceFrom, doc.serviceTo) });
   } else {
-    const date = doc.serviceFrom ?? doc.serviceTo;
-    meta.push({ label: t.serviceDate, value: date ? t.date(date) : t.serviceDateDefault });
+    // Ohne eigenes Leistungsdatum gilt das Rechnungsdatum, wie im XML; ausgeschrieben, damit es auf dem Blatt steht
+    meta.push({ label: t.serviceDate, value: t.date(doc.serviceFrom ?? doc.serviceTo ?? doc.issueDate) });
   }
   if (showsCustomerNumber(doc)) meta.push({ label: t.customerNumber, value: buyer.kundennummer! });
   if (buyer.unsereLieferantennummer) meta.push({ label: t.supplierNumber, value: buyer.unsereLieferantennummer });
@@ -324,19 +328,27 @@ export function legalLine(info: LegalInfo | undefined, t: Texts = TEXTS.de): str
   return lines.length > 0 ? lines.join(" · ") : null;
 }
 
-/** Fuß für die Vorlagen: drei Spalten und die Pflichtangaben der Gesellschaft */
+/**
+ * Fuß für die Vorlagen: Spalten und die Pflichtangaben der Gesellschaft (legal). Stehen deren Platzhalter in der eigenen
+ * Fußzeile, ist legal null; ein eigenes Layout, das das nicht kennt (legalFieldOnly), bekommt die Platzhalter leer (#1651).
+ */
 export function footerData(seller: InvoiceDocument["seller"], t: Texts = TEXTS.de, letterhead: Letterhead = {}, treatment: TaxTreatment = "regulaer") {
   const { options } = letterhead;
   // Nur mit Briefpapier: Ohne stünden die Pflichtangaben nirgends
   if (letterhead.background && options?.footerHidden) return { footer: [], footerFormatted: null, legal: null };
-  const legal = legalLine(seller.legalInfo, t);
-  if (!options?.footerColumns) return { footer: footerColumns(seller, t), footerFormatted: null, legal };
-  const runs = customFooterRuns(
-    options.footerColumns,
-    { ...footerValues(seller), iban: seller.iban ? formatIban(seller.iban) : "" },
-    { labels: { taxNumber: t.taxNumber, vatId: t.vatId }, needsVatId: needsSellerVatId(treatment) },
-  );
-  return { footer: runs.map((column) => column.map((line) => line.map((run) => run.text).join(""))), footerFormatted: runs, legal };
+  const columns = options ? activeFooterColumns(options) : null;
+  if (!columns) return { footer: footerColumns(seller, t), footerFormatted: null, legal: legalLine(seller.legalInfo, t) };
+  const inFooter = !letterhead.legalFieldOnly && legalInFooter(columns);
+  const values = { ...footerValues(seller), iban: seller.iban ? formatIban(seller.iban) : "" };
+  const runs = customFooterRuns(columns, letterhead.legalFieldOnly ? { ...values, ...legalFooterValues(undefined) } : values, {
+    labels: { taxNumber: t.taxNumber, vatId: t.vatId },
+    needsVatId: needsSellerVatId(treatment),
+  });
+  return {
+    footer: runs.map((column) => column.map((line) => line.map((run) => run.text).join(""))),
+    footerFormatted: runs,
+    legal: inFooter ? null : legalLine(seller.legalInfo, t),
+  };
 }
 
 /** Erkennt PNG und JPEG an den ersten Bytes (bildFormat in @haben/core); anderes lehnt Haben als Logo ab */
@@ -349,7 +361,8 @@ export const showsCustomerNumber = (doc: Letterhead & { buyer: { kundennummer?: 
   Boolean(doc.buyer.kundennummer) && doc.options?.customerNumber !== false;
 
 /** Auftrag für den Render-Prozess: gleiche Vorlage und Daten wie beim PDF, Logo und Briefpapier als Dateien neben der Vorlage */
-export function renderJob(template: "rechnung.typ" | "mahnung.typ", data: object, letterhead: Letterhead): RenderJob {
+export function renderJob(art: "beleg" | "mahnung", data: object, letterhead: Letterhead): RenderJob {
+  const template = layoutTemplate(art, letterhead);
   const workspace = join(PACKAGE_DIR, "templates");
   const files = [
     ...(letterhead.logo ? [{ name: `logo.${letterhead.logo.format}`, base64: Buffer.from(letterhead.logo.data).toString("base64") }] : []),
@@ -362,9 +375,13 @@ export function renderJob(template: "rechnung.typ" | "mahnung.typ", data: object
 
 function compilePdf(template: string, data: object, date: string, label: string, letterhead: Letterhead): Uint8Array {
   if (letterhead.pdfFrom && (template === TEMPLATE || template === DUNNING_TEMPLATE)) {
-    const pdf = letterhead.pdfFrom({ template: template === TEMPLATE ? "rechnung.typ" : "mahnung.typ", data: templateInputs(data, letterhead), date });
-    if (pdf) return pdf;
+    return letterhead.pdfFrom({ template: template === TEMPLATE ? "rechnung.typ" : "mahnung.typ", data: templateInputs(data, letterhead), date });
   }
+  // Eingebautes Layout der Belegart statt der bisherigen Vorlage
+  const vorlage =
+    template === TEMPLATE || template === DUNNING_TEMPLATE
+      ? join(PACKAGE_DIR, "templates", layoutTemplate(template === TEMPLATE ? "beleg" : "mahnung", letterhead))
+      : template;
   const typst = getCompiler();
   // Logo und Briefpapier liegen nur für diesen Lauf als Dateien neben der Vorlage
   const shadows = [
@@ -373,7 +390,7 @@ function compilePdf(template: string, data: object, date: string, label: string,
   ].map(([file, bytes]) => [join(PACKAGE_DIR, "templates", file), bytes] as const);
   for (const [path, bytes] of shadows) typst.mapShadow(path, Buffer.from(bytes));
   try {
-    return compileWith(typst, template, templateInputs(data, letterhead), date, label);
+    return compileWith(typst, vorlage, templateInputs(data, letterhead), date, label);
   } finally {
     for (const [path] of shadows) typst.unmapShadow(path);
   }

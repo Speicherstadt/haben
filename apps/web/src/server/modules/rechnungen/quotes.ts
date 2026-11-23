@@ -39,7 +39,7 @@ import { buildQuotePdf, texts, type QuoteDocument, type QuoteDocumentLine } from
 import { and, asc, desc, eq, or, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { ansprechpartnerSnapshot, contactPersonProblem, contactRoleProblem, loadCompany, sellerIssues } from "../stammdaten/index.ts";
+import { ansprechpartnerSnapshot, contactPersonProblem, contactRoleProblem, loadCompany, sellerIssues, standardTexte } from "../stammdaten/index.ts";
 import { withActor } from "../../db/actor.ts";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import { loadLetterhead, withCustomLayout } from "../stammdaten/index.ts";
@@ -171,6 +171,7 @@ function lineRows(quoteId: string, input: QuoteDraftInput) {
     net: lineNets[index]!,
     ...discountColumns(line.discount),
     kind: line.kind ?? null,
+    arbeitskosten: line.arbeitskosten ?? false,
   }));
 }
 
@@ -266,15 +267,16 @@ export async function deleteQuoteDraft(actor: string, id: string): Promise<void>
 
 /** Neues Angebot mit den Vorgaben aus den Firmendaten */
 export async function newQuoteDefaults(today: string) {
-  const company = await loadCompany();
+  // Standard-Textbausteine für Angebote (#1494): Kopftext als Einleitung, Fußtext als Hinweis
+  const [company, standard] = await Promise.all([loadCompany(), standardTexte("angebot")]);
   return {
     contactId: null,
     issueDate: today,
     validUntil: addDays(today, QUOTE_VALID_DAYS),
     serviceFrom: null,
     serviceTo: null,
-    intro: company.quoteIntro,
-    note: "",
+    intro: standard.kopf,
+    note: standard.fuss,
     taxTreatment: (company.kleinunternehmer ? "kleinunternehmer" : "regulaer") as TaxTreatment,
     exemptionReason: "",
     priceMode: "netto" as PriceMode,
@@ -423,6 +425,7 @@ export function quoteDocumentFor(
         net: calc.lineNets[i]!,
         ...lineDiscountOf(line),
         ...(line.kind ? { kind: line.kind } : {}),
+        ...(line.arbeitskosten ? { arbeitskosten: true } : {}),
         ...(line.kind === "alternative" ? { alternativeTo: alternativeMain(lines, line.position) ?? 0 } : {}),
       }),
     ),
@@ -636,6 +639,7 @@ export async function quoteToInvoice(
                 unitPrice: line.unitPrice,
                 taxRate: line.taxRate as 1900 | 700 | 0,
                 ...lineDiscountOf(line),
+                arbeitskosten: line.arbeitskosten,
               })),
       },
       planned ? { paymentPlanRow: planned.row } : {},
@@ -685,6 +689,7 @@ export async function copyQuote(actor: string, id: string, today: string): Promi
       taxRate: line.taxRate as 1900 | 700 | 0,
       kind: line.kind,
       ...lineDiscountOf(line),
+      arbeitskosten: line.arbeitskosten,
     })),
   };
   const parsed = quoteDraftSchema.parse(input);

@@ -6,6 +6,8 @@ import { readFileSync } from "node:fs";
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { SETTINGS_EXPORT_VERSION } from "./format.ts";
+import { withChecksum } from "./integritaet.ts";
 
 const KUNDE = "0b6a1c1e-5d7e-4f0a-9a43-1f2d3c4b5a60";
 const LIEFERANT = "5a2b8c4d-1e3f-4a5b-8c6d-7e8f9a0b1c2d";
@@ -121,8 +123,9 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     await sql`insert into own_accounts(kontenrahmen, account, name, parent_category, created_by) values ('SKR04', '6999', 'Software-Abos', 'software', 'test-user')`;
     await sql`insert into beleg_layouts(id, name, art, source, sha256, schema_version, packages)
       values (${LAYOUT}, 'Mein Layout', 'beleg', ${startvorlage("beleg")}, 'x', 1, '[]'::jsonb)`;
+    // Wie ein Profil seit Migration 0312 (#113), mit accentFromLayout; ohne gilt es als Datei von davor
     await sql`insert into letterhead_profiles(name, is_default, settings)
-      values ('Standard', true, ${JSON.stringify({ accent: "#1F6FEB", font: "plex-sans", layouts: { rechnung: { kind: "eigen", id: LAYOUT } } })}::jsonb)`;
+      values ('Standard', true, ${JSON.stringify({ accent: "#1F6FEB", font: "plex-sans", accentFromLayout: false, layouts: { rechnung: { kind: "eigen", id: LAYOUT } } })}::jsonb)`;
     await sql`insert into company_logo(id, logo, format, sha256) values (1, ${Buffer.from(PNG)}, 'png', 'x')`;
     const sha256 = await storage.storeFile(PDF);
     await sql`insert into quote_default_attachments(filename, mime_type, sha256, size) values ('AGB.pdf', 'application/pdf', ${sha256}, ${PDF.length})`;
@@ -231,6 +234,31 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     expect(nachher.ownAccounts).toEqual([expect.objectContaining({ kontenrahmen, account: konto })]);
   });
 
+  it("wartet auf eine gleichzeitige Änderung der Fußzeile, damit zusammengeführt keine fünfte Spalte entsteht (#1651)", async () => {
+    await testinstanz();
+    const zip = await exportierenUndNeu();
+    await mailEinrichten();
+    let freigeben!: () => void;
+    const offen = new Promise<void>((resolve) => {
+      freigeben = resolve;
+    });
+    const andere = sql.begin(async (t) => {
+      await t`select pg_advisory_xact_lock(hashtext('haben.fusszeile'))`;
+      await offen;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    let fertig = false;
+    const uebernahme = instanzwechsel.importSettings(actor, zip, HEUTE).then(() => {
+      fertig = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(fertig).toBe(false);
+    freigeben();
+    await andere;
+    await uebernahme;
+    expect(fertig).toBe(true);
+  });
+
   it("übernimmt Logo, Layout samt Zuordnung, Standardanhang und E-Mail-Vorlagen, ohne den Zugang zu ändern", async () => {
     await testinstanz();
     const text = await exportierenUndNeu();
@@ -253,6 +281,46 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
       username: "versand@example.org",
       from_name: "Muster Design",
       templates: { "rechnung:de": { subject: "Rechnung {nummer}", body: "Hallo" } },
+    });
+  });
+
+  it("übernimmt jedes eingebaute Layout aus dem Katalog samt Optionen (#113)", async () => {
+    await testinstanz();
+    const settings = {
+      accent: "#1F6FEB",
+      font: "layout",
+      accentFromLayout: true,
+      layouts: { rechnung: { kind: "eingebaut", id: "modern" } },
+      layoutOptions: { modern: { akzent: "sparsam" } },
+    };
+    await sql`update letterhead_profiles set settings = ${JSON.stringify(settings)}::jsonb`;
+
+    await instanzwechsel.importSettings(actor, await exportierenUndNeu(), HEUTE);
+
+    const [profil] = await sql`select settings from letterhead_profiles where is_default`;
+    expect(profil!.settings).toMatchObject({ ...settings, layouts: { rechnung: { kind: "eingebaut", id: "modern" } } });
+  });
+
+  it("liest eine Datei von vor Migration 0312 wie die Migration: bisheriges Layout, bisherige Schrift, eigene Farbe (#113)", async () => {
+    await testinstanz();
+    // So stand das Profil vor 0312 in der Datenbank: eingebaut hieß „klassisch“, Schrift und accentFromLayout fehlen
+    const alt = {
+      accent: "#1F6FEB",
+      logoSize: "l",
+      layouts: { rechnung: { kind: "eingebaut", id: "klassisch" }, mahnung: { kind: "eingebaut", id: "klassisch" } },
+    };
+    await sql`update letterhead_profiles set settings = ${JSON.stringify(alt)}::jsonb`;
+
+    await instanzwechsel.importSettings(actor, await exportierenUndNeu(), HEUTE);
+
+    const [profil] = await sql`select settings from letterhead_profiles where is_default`;
+    expect(profil!.settings).toMatchObject({
+      accent: "#1F6FEB",
+      logoSize: "l",
+      font: "plex-sans",
+      accentFromLayout: false,
+      layouts: { rechnung: { kind: "eingebaut", id: "klar" }, mahnung: { kind: "eingebaut", id: "klar" } },
+      layoutOptions: { klar: { fassung: "klassisch" } },
     });
   });
 
@@ -453,6 +521,29 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
       expect(await sql`select 1 from ${sql(tabelle)}`, tabelle).toEqual([]);
   });
 
+  it("liest eine Datei der Version 1: die Standard-Einleitungen der Firmendaten werden Standard-Bausteine (#1494)", async () => {
+    await testinstanz();
+    const zip = await exportierenUndNeu();
+    const { sha256: _, ...inhalt } = einstellungen(zip);
+    const alt = withChecksum({ ...inhalt, version: 1, company: { ...inhalt.company, invoiceIntro: "Für meine Leistungen berechne ich:", quoteIntro: "" } });
+    await instanzwechsel.importSettings(actor, neuGepackt(unzipSync(zip), { "einstellungen.json": strToU8(JSON.stringify(alt)) }), HEUTE);
+    expect(await sql`select kind, text, standard_fuer from text_blocks where standard_fuer is not null`).toEqual([
+      { kind: "kopf", text: "Für meine Leistungen berechne ich:", standard_fuer: "rechnung" },
+    ]);
+  });
+
+  it("liest eine Datei der Version 2: Artikel ohne Kennzeichen für § 35a EStG bekommen „Material und Sonstiges“ (#712)", async () => {
+    await testinstanz();
+    await sql`update articles set arbeitskosten = true`;
+    const zip = await exportierenUndNeu();
+    const { sha256: _, ...inhalt } = einstellungen(zip);
+    expect(inhalt.articles).toEqual([expect.objectContaining({ arbeitskosten: true })]);
+    const artikel = inhalt.articles.map(({ arbeitskosten: _a, ...rest }: Record<string, unknown>) => rest);
+    const alt = withChecksum({ ...inhalt, version: 2, articles: artikel });
+    await instanzwechsel.importSettings(actor, neuGepackt(unzipSync(zip), { "einstellungen.json": strToU8(JSON.stringify(alt)) }), HEUTE);
+    expect(await sql`select description, arbeitskosten from articles`).toEqual([{ description: "Jahreslizenz", arbeitskosten: false }]);
+  });
+
   it("lehnt ein verändertes oder beschädigtes ZIP ab, bevor es etwas schreibt", async () => {
     await testinstanz();
     const zip = await exportierenUndNeu();
@@ -539,7 +630,7 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     await expect(instanzwechsel.importSettings(actor, zipSync({ "kontakte.csv": strToU8("Name\n") }), HEUTE)).rejects.toThrow(
       "Das ist keine Einstellungsdatei von Haben: Im ZIP fehlt einstellungen.json.",
     );
-    const neuer = zipSync({ "einstellungen.json": strToU8(JSON.stringify({ format: "haben-einstellungen", version: 2 })) });
+    const neuer = zipSync({ "einstellungen.json": strToU8(JSON.stringify({ format: "haben-einstellungen", version: SETTINGS_EXPORT_VERSION + 1 })) });
     await expect(instanzwechsel.importSettings(actor, neuer, HEUTE)).rejects.toThrow(/neueren Version von Haben/);
   });
 });

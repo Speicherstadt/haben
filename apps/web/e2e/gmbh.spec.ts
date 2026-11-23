@@ -3,6 +3,7 @@ import { filePickerPruefen } from "./dateiauswahl.ts";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
+import { FORM01 } from "@haben/core";
 import { bestaetigen, fragenUeberspringen, faktenZeigen, kundeWaehlen } from "./einrichtung.ts";
 import { currentDay, currentYear, vorschauAnheften } from "./daten.ts";
 import { anzahlungsbilanzPruefen } from "./anzahlung-bilanz.ts";
@@ -100,6 +101,21 @@ test("Eröffnung nicht am 1. Januar: der Fehler steht am Datum und der Fokus dor
   await form.getByRole("button", { name: "Buchen" }).click();
   await expect(form.getByLabel("Datum")).toBeFocused();
   await expect(form.getByLabel("Datum")).toHaveAccessibleDescription(/1\. Januar/);
+});
+
+test("Eröffnung nach geleertem Datum: „Wähle das Datum.“ steht am Feld, nicht als Meldung des Servers (Review #1608)", async () => {
+  await go("/buchungen/neu");
+  const form = page.getByRole("form", { name: "Manuelle Buchung" });
+  await form.getByLabel("Datum").fill("");
+  await form.getByLabel("Eröffnungsbuchung").check();
+  await form.getByLabel("Buchungstext").fill("Eröffnung ohne Datum");
+  await form.getByLabel("Konto Zeile 1").fill("1800");
+  await form.getByLabel("Soll Zeile 1").fill("100,00");
+  await form.getByLabel("Konto Zeile 2").fill("9000");
+  await form.getByLabel("Haben Zeile 2").fill("100,00");
+  await form.getByRole("button", { name: "Buchen" }).click();
+  await expect(form.getByLabel("Datum")).toBeFocused();
+  await expect(form.getByLabel("Datum")).toHaveAccessibleDescription(/Wähle das Datum/);
 });
 
 test("Manuelle Buchung: Stammkapital erfassen, prüfen, stornieren", async () => {
@@ -618,6 +634,60 @@ test("Geschäftsbrief (§ 35a GmbHG): Geschäftsführer in den Firmendaten, Pfli
   expect(xml).toMatch(/<ram:SpecifiedLegalOrganization>\s*<ram:ID>HRB 12345 HB<\/ram:ID>/);
   const pdf = await (await page.request.get(`/api/rechnung/${id}/pdf`)).body();
   expect(pdf.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+});
+
+test("Fußzeile der GmbH (#1651): Pflichtangaben in der Vorschau, Platzhalter alle oder keiner, Stelle wählbar, eigene Spalten bleiben", async () => {
+  await go("/einstellungen?bereich=gestaltung");
+  const karte = page.getByRole("region", { name: "Fußzeile" });
+  const vorschau = karte.locator(".footer-preview");
+  const stelle = karte.getByRole("group", { name: "Stelle der Registerangaben" });
+  const speichern = karte.getByRole("button", { name: "Fußzeile speichern" });
+  // Auch ohne eigene Fußzeile: Klar setzt die Angaben als vierte Spalte
+  await expect(vorschau).toContainText("Registergericht: Amtsgericht Bremen, HRB 12345 HB");
+  await expect(vorschau.locator(".footer-columns > div")).toHaveCount(4);
+
+  await karte.getByLabel("Eigene Fußzeile").check();
+  await karte.getByRole("button", { name: "4", exact: true }).click();
+  await karte.getByLabel("Spalte 4").fill("{telefon}");
+  await expect(karte.getByRole("alert")).toContainText("Kürze auf 3 Spalten");
+  await expect(speichern).toBeDisabled();
+  await stelle.getByRole("button", { name: "Als Zeile darunter" }).click();
+  await expect(karte.getByRole("alert")).toHaveCount(0);
+  await expect(vorschau.locator(".footer-columns > div")).toHaveCount(4);
+  await expect(vorschau.locator(".footer-preview-legal")).toContainText("Geschäftsführung: Erika Gesellschafter");
+
+  await karte.getByLabel("Spalte 4").fill("Sitz {sitz}");
+  await expect(karte.getByRole("alert")).toContainText(
+    "es fehlen {rechtsform}, {registergericht}, {registernummer}, {geschaeftsfuehrung} und {aufsichtsratsvorsitz}",
+  );
+  await expect(speichern).toBeDisabled();
+  await karte.getByLabel("Spalte 4").fill("{rechtsform} Sitz {sitz}\n{registergericht} {registernummer}\nGF {geschaeftsfuehrung}\n{aufsichtsratsvorsitz}");
+  await expect(karte.getByRole("alert")).toHaveCount(0);
+  await expect(stelle.getByRole("button", { name: "Als Spalte" })).toBeDisabled();
+  // Das Feld wächst mit, keine umbrochene Zeile ist weggescrollt
+  await expect.poll(() => karte.getByLabel("Spalte 4").evaluate((feld: HTMLTextAreaElement) => feld.scrollHeight - feld.clientHeight)).toBeLessThanOrEqual(1);
+  await expect(karte.getByText("Steht in deiner Fußzeile")).toBeVisible();
+  await expect(vorschau).toContainText("GF Erika Gesellschafter");
+  await expect(vorschau).not.toContainText("Registergericht:");
+  expect(await axe(), "/einstellungen Fußzeile der GmbH").toEqual([]);
+  await speichern.click();
+  await expect(karte.getByRole("status").last()).toContainText("Fußzeile gespeichert");
+
+  // Aus und wieder an: Der Text ist noch da. Erst neu laden, sonst überholt der neue Stand vom Server den Klick
+  await go("/einstellungen?bereich=gestaltung");
+  await karte.getByLabel("Eigene Fußzeile").uncheck();
+  await speichern.click();
+  await expect(karte.getByRole("status").last()).toContainText("Fußzeile gespeichert");
+  await page.waitForLoadState("networkidle");
+  await go("/einstellungen?bereich=gestaltung");
+  await expect(vorschau).toContainText("Registergericht: Amtsgericht Bremen");
+  await karte.getByLabel("Eigene Fußzeile").check();
+  await expect(karte.getByLabel("Spalte 4")).toHaveValue(/GF \{geschaeftsfuehrung\}/);
+
+  await karte.getByLabel("Eigene Fußzeile").uncheck();
+  await stelle.getByRole("button", { name: "Wie im Layout" }).click();
+  await speichern.click();
+  await expect(karte.getByRole("status").last()).toContainText("Fußzeile gespeichert");
 });
 
 test("Restlaufzeiten und Vermerke: Gesellschafter-Verrechnungskonto, vorschlagen und bestätigen", async () => {
@@ -1214,6 +1284,27 @@ test("BWA der GmbH nach DATEV-Form 01: Forderungsverlust neutral, Zeile bis zum 
   await expect(tabelle.getByRole("rowheader", { name: "Betriebsergebnis" })).toBeVisible();
   await expect(tabelle.getByRole("rowheader", { name: "Vorläufiges Ergebnis" })).toBeVisible();
   await expect(tabelle.getByRole("rowheader", { name: "Gewinn laut EÜR" })).toHaveCount(0);
+
+  // Anteil (#1635): Kostenarten in % der Gesamtkosten, Ergebnisse ohne; Kennzahlen in % der Gesamtleistung
+  await expect(tabelle.locator("thead th").nth(2)).toHaveText("Anteil");
+  const anteil = (zeile: string) =>
+    tabelle
+      .locator("tbody tr")
+      .filter({ has: page.getByRole("rowheader", { name: zeile, exact: true }) })
+      .locator("td")
+      .nth(1);
+  await expect(anteil("Gesamtkosten")).toHaveText("100,0\u00a0%");
+  await expect(anteil("Vorläufiges Ergebnis")).toHaveText("–");
+  const kennzahlen = page.getByRole("region", { name: "Kennzahlen" });
+  await expect(kennzahlen.getByText("Rohertragsquote", { exact: true })).toBeVisible();
+  await expect(kennzahlen.getByText("Vorläufiges Ergebnis in % der Gesamtleistung")).toBeVisible();
+
+  // Leere Zeilen anzeigen: alle Zeilen der Form 01, Summen und Ergebnis stehen ohnehin
+  const zeilen = tabelle.locator("tbody tr");
+  await expect(zeilen).not.toHaveCount(FORM01.length);
+  await page.getByRole("checkbox", { name: "Leere Zeilen anzeigen" }).check();
+  await expect(page).toHaveURL(/[?&]leer=1/);
+  await expect(zeilen).toHaveCount(FORM01.length);
 
   // Die Zeile öffnet ihre Konten; „Warum?“ gibt es nur in Form 43
   await tabelle.getByRole("link", { name: "Sonstiger neutraler Aufwand" }).click();

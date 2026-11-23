@@ -1,4 +1,5 @@
 import { documentAllowances, lineAmount, netOf, plainFormattedText, TAX_TREATMENTS, treatmentNote, type Cents } from "@haben/core";
+import { arbeitskostenHinweis } from "./arbeitskosten-hinweis.ts";
 import { unitCodeOf } from "./einheit-code.ts";
 import { isCreditNote, paidInvoicePayment, presentReferences } from "./format.ts";
 import { texts } from "./i18n.ts";
@@ -142,7 +143,13 @@ export function toEInvoiceData(doc: InvoiceDocument): Invoice {
   // Fester Aufbewahrungshinweis (§ 14 Abs. 4 Nr. 9 UStG) zusätzlich zu den Nutzereingaben als BT-22.
   // KoSIT XRechnung 3.0.2, Abschnitt 11.17 (BT-22), nennt diesen Hinweis ausdrücklich:
   // https://xeinkauf.de/app/uploads/2024/07/XRechnung-v3.0.2.pdf#page=61
-  const notes = [doc.intro, doc.propertyRetention ? texts(doc.language).propertyRetention : null, doc.note]
+  // Der Anteil nach § 35a EStG (#712) steht im XML wie auf dem Blatt, sonst wäre er in der E-Rechnung nicht zu ermitteln
+  const notes = [
+    doc.intro,
+    doc.propertyRetention ? texts(doc.language).propertyRetention : null,
+    arbeitskostenHinweis(doc, texts(doc.language, doc.currency)),
+    doc.note,
+  ]
     .map((n) => plainFormattedText(n?.trim() ?? ""))
     .filter(Boolean);
   if (notes.length > 0) invoice["cbc:Note"] = notes;

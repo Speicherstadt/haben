@@ -31,6 +31,7 @@ import { LAPTOP, sichtbar } from "./kopfzeile.ts";
 import { receiptJpeg } from "./belegbild.ts";
 import { vorsteuerPruefen } from "./belege-vorsteuer.ts";
 import { ustIdBestaetigungPruefen, zmBestaetigungPruefen } from "./ustid-bestaetigung.ts";
+import { abgearbeitet, serverAufrufe } from "./warten.ts";
 
 /**
  * Belege, Bank und Steuern in eigener, leerer Datenbank (Projekt „belege-steuern“, e2e/durchlaeufe.ts), parallel zu
@@ -111,6 +112,85 @@ test("Beleg prüfen: Ein Fehler beim Speichern steht nicht hinter den stehenden 
   await bestaetigen(page, "Beleg löschen");
   await page.waitForURL(/\/belege$/);
   if (vorher) await page.setViewportSize(vorher);
+});
+
+test("Beleg wechseln: J/K, Pfeiltasten und Wischen springen zum Nachbarn, ungespeicherte Änderungen fragen erst nach", async ({ browser }) => {
+  await go("/belege");
+  // Verschiedene Bilder, sonst legt Haben den zweiten Beleg nicht doppelt ab
+  for (const [name, titel] of [
+    ["wechsel-1.jpg", "Funknetz Mobil GmbH"],
+    ["wechsel-2.jpg", "Bürobedarf Nord GmbH"],
+  ] as const) {
+    await page.locator("input[type=file][multiple]").setInputFiles([{ name, mimeType: "image/jpeg", buffer: await receiptJpeg(browser, titel) }]);
+    await expect(page.getByText(`${name}: abgelegt.`)).toBeVisible();
+  }
+  // Ohne Belegdatum steht der zuletzt hochgeladene oben in der Liste
+  await page
+    .getByRole("link", { name: /wechsel-2\.jpg/ })
+    .first()
+    .click();
+  await page.waitForURL(/belege\/[0-9a-f-]{36}$/);
+  await page.waitForLoadState("networkidle");
+  const datei = page.locator(".page-head .eyebrow");
+  const position = page.getByRole("group", { name: "Zwischen Belegen wechseln" }).locator(".small");
+  const ueberschrift = page.locator(".page-head h1");
+  await expect(datei).toContainText("wechsel-2.jpg");
+  await expect(position).toHaveText(/^1 von /);
+  for (const [taste, ziel] of [
+    ["j", "wechsel-1.jpg"],
+    ["k", "wechsel-2.jpg"],
+    ["ArrowRight", "wechsel-1.jpg"],
+    ["ArrowLeft", "wechsel-2.jpg"],
+  ] as const) {
+    await ueberschrift.click();
+    await page.keyboard.press(taste);
+    await expect(datei).toContainText(ziel);
+  }
+  await expect(position).toHaveText(/^1 von /);
+
+  // Am Handy: nach links wischen zum nächsten, nach rechts zum vorigen Beleg
+  const wischen = (dx: number) =>
+    ueberschrift.evaluate((el, dx) => {
+      const punkt = (x: number) => new Touch({ identifier: 1, target: el, clientX: x, clientY: 200 });
+      el.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, touches: [punkt(200)] }));
+      el.dispatchEvent(new TouchEvent("touchend", { bubbles: true, changedTouches: [punkt(200 + dx)] }));
+    }, dx);
+  await wischen(-120);
+  await expect(datei).toContainText("wechsel-1.jpg");
+  await expect(position).toHaveText(/^2 von /);
+  await wischen(120);
+  await expect(datei).toContainText("wechsel-2.jpg");
+
+  // Im Eingabefeld bleibt „j“ ein Buchstabe; danach fragt der Wechsel erst nach
+  const nummer = page.getByLabel("Rechnungsnummer");
+  await nummer.press("j");
+  await expect(nummer).toHaveValue("j");
+  await expect(datei).toContainText("wechsel-2.jpg");
+  await ueberschrift.click();
+  await page.keyboard.press("j");
+  const rueckfrage = page.getByRole("dialog", { name: "Ohne Speichern wechseln?" });
+  await expect(rueckfrage).toBeVisible();
+  await rueckfrage.getByRole("button", { name: "Abbrechen" }).click();
+  await expect(rueckfrage).toBeHidden();
+  await expect(datei).toContainText("wechsel-2.jpg");
+  await expect(nummer).toHaveValue("j");
+  // Esc führt zur Liste, ebenfalls erst nach der Rückfrage
+  await ueberschrift.click();
+  await page.keyboard.press("Escape");
+  await bestaetigen(page, "Ohne Speichern wechseln");
+  await page.waitForURL(/\/belege$/);
+
+  // Die Belege gehören nur diesem Test: die folgenden zählen die offenen Belege. Nach dem Löschen geht es zum nächsten offenen
+  await page
+    .getByRole("link", { name: /wechsel-2\.jpg/ })
+    .first()
+    .click();
+  for (const ziel of ["wechsel-2.jpg", "wechsel-1.jpg"]) {
+    await expect(datei).toContainText(ziel);
+    await page.locator(".doc-actions").getByRole("button", { name: "Löschen" }).click();
+    await bestaetigen(page, "Beleg löschen");
+  }
+  await page.waitForURL(/\/belege$/);
 });
 
 test("Beleg prüfen: Kategorie per Suche wählen, auch ohne Umlaute, mit Tastatur und ohne Treffer", async ({ browser }) => {
@@ -510,6 +590,77 @@ test("Einkommensersatzleistungen: eintragen, speichern, nach dem Neuladen wieder
   await expect(feld("Elterngeld")).toHaveValue("1.200,40");
   await expect(feld("Krankengeld")).toHaveValue("480,00");
   await expect(feld("Arbeitslosengeld")).toHaveValue("");
+});
+
+test("Einkommensteuer: Kinder, Angaben des Ehegatten und ungültige Beträge beim Speichern", async () => {
+  // Spätere Tests öffnen dasselbe Jahr; damit sie es vorfinden wie ohne diesen Test, kommen die gespeicherten Angaben am Ende unverändert zurück
+  const sql = postgres(databaseUrlFuer("belege-steuern"), { max: 1 });
+  const vorher = await sql`select * from income_tax_inputs where year = ${YEAR - 1}`;
+  try {
+    await go(`/jahreserklaerung/${YEAR - 1}`);
+    const form = page.getByRole("form", { name: "Angaben zur Einkommensteuer" });
+    const feld = (name: string) => form.locator(`input[name="${name}"]`);
+    const kinder = form.locator("details.est-block").filter({ has: page.locator(".est-block-title", { hasText: /^Kinder$/ }) });
+    const kind = form.getByRole("group", { name: "Kind 1" });
+    const aufklappen = () =>
+      form.evaluate((f) => {
+        for (const block of f.querySelectorAll("details")) block.open = true;
+      });
+    const neuLaden = async () => {
+      await page.reload();
+      await page.waitForLoadState("networkidle");
+      await aufklappen();
+    };
+    await aufklappen();
+    await expect(kinder.locator("summary")).toContainText("keine");
+    await form.getByRole("button", { name: "+ Kind hinzufügen" }).click();
+    await kind.getByLabel("Vorname").fill("Lena");
+    await kind.getByLabel("Geburtsdatum").fill(`${YEAR - 10}-04-12`);
+    await kind.getByLabel("Familienkasse").fill("Familienkasse Baden-Württemberg West");
+    await kind.getByLabel("Kinderbetreuungskosten (€)").fill("viel");
+    // Bei Zusammenveranlagung tragen die Felder des Ehegatten „b-“
+    await feld("b-rv").fill("2.400,00");
+    await feld("erst-b-Elterngeld").fill("900");
+    await feld("kapMit").fill("350,00");
+    await form.getByLabel("Günstigerprüfung beantragen").check();
+    await feld("handwerker").fill("800");
+    await feld("spenden").fill("zwölf");
+    await form.getByRole("button", { name: "Angaben speichern" }).click();
+    await expect(form.getByRole("alert")).toContainText("Kein gültiger Betrag: Spenden, Kinderbetreuung Lena.");
+    await feld("spenden").fill("12,00");
+    await kind.getByLabel("Kinderbetreuungskosten (€)").fill("1.500,00");
+    await form.getByRole("button", { name: "Angaben speichern" }).click();
+    await expect(form.getByRole("status").filter({ hasText: "Angaben gespeichert." })).toBeVisible();
+
+    await neuLaden();
+    await expect(kinder.locator("summary")).toContainText("1 Kind");
+    await expect(kind.getByLabel("Vorname")).toHaveValue("Lena");
+    await expect(kind.getByLabel("Geburtsdatum")).toHaveValue(`${YEAR - 10}-04-12`);
+    await expect(kind.getByLabel("Familienkasse")).toHaveValue("Familienkasse Baden-Württemberg West");
+    await expect(kind.getByLabel("Kinderbetreuungskosten (€)")).toHaveValue("1.500,00");
+    await expect(feld("b-rv")).toHaveValue("2.400,00");
+    await expect(feld("erst-b-Elterngeld")).toHaveValue("900,00");
+    await expect(feld("kapMit")).toHaveValue("350,00");
+    await expect(form.getByLabel("Günstigerprüfung beantragen")).toBeChecked();
+    await expect(feld("handwerker")).toHaveValue("800,00");
+    await expect(feld("spenden")).toHaveValue("12,00");
+
+    await kind.getByRole("button", { name: "Kind entfernen" }).click();
+    await form.getByRole("button", { name: "Angaben speichern" }).click();
+    await expect(form.getByRole("status").filter({ hasText: "Angaben gespeichert." })).toBeVisible();
+    await neuLaden();
+    await expect(kinder.locator("summary")).toContainText("keine");
+    await expect(kind).toHaveCount(0);
+  } finally {
+    await sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'e2e-test', true)`;
+      await tx`delete from income_tax_inputs where year = ${YEAR - 1}`;
+      for (const row of vorher) {
+        await tx`insert into income_tax_inputs (year, data, updated_at) values (${row.year}, ${JSON.stringify(row.data)}::jsonb, ${row.updated_at})`;
+      }
+    });
+    await sql.end();
+  }
 });
 
 test("Finanzamt: Hinweis nur auf weggelassene Vorjahresleistungen (#1008)", async () => {
@@ -1933,11 +2084,17 @@ test("Kontaktformular: Gleiche USt-IdNr. wird gemeldet, auch beim archivierten K
   await expect(hinweis.getByRole("link", { name: "„Altbestand USt GmbH“ öffnen" })).toBeVisible();
   await page.getByLabel("USt-IdNr.").fill("DE666666666");
   await expect(hinweis).toHaveCount(0);
+  // Die Abfrage, die das Formular beim Bearbeiten nach dem Anlegen stellt: mit excludeId, also nicht schon die beim Anlegen
+  const eigeneAbfrage = page.waitForResponse((antwort) => {
+    const url = new URL(antwort.url());
+    return url.pathname.startsWith("/_serverFn/") && url.search.includes("DE666666666") && url.search.includes("excludeId");
+  });
   await page.getByRole("button", { name: "Kontakt anlegen" }).click();
   await expect(page.getByRole("heading", { name: "Versionen" })).toBeVisible();
 
   // Beim Bearbeiten nennt der Server den eigenen Kontakt nicht (excludeId), wohl aber einen fremden mit derselben USt-IdNr.
-  await page.waitForTimeout(1000);
+  await (await eigeneAbfrage).finished();
+  await abgearbeitet(page);
   await expect(hinweis).toHaveCount(0);
   await page.getByLabel("USt-IdNr.").fill("DE555555555");
   await expect(hinweis).toContainText("gibt es schon „Altbestand USt GmbH“");
@@ -3619,9 +3776,10 @@ test("Leistungszeitraum: zwei Felder am Beleg, gespeichert und wieder angezeigt 
   await weitereAngabenOeffnen(page);
   await page.getByLabel("Leistung von").fill(day(-24));
   await page.getByLabel("Leistung bis").fill(day(-9));
-  await page.getByRole("button", { name: "Speichern" }).click();
   // Die Meldung ist Beiwerk; der Beweis ist, dass der Zeitraum nach dem Neuladen noch steht
-  await page.waitForTimeout(1500);
+  const speichern = serverAufrufe(page);
+  await page.getByRole("button", { name: "Speichern" }).click();
+  await speichern.fertig();
 
   await page.reload();
   await belegdatum.waitFor({ state: "visible", timeout: 30_000 });

@@ -25,12 +25,12 @@ Bevor du die erste Rechnung festschreibst, brauchst du:
 2. **Kunde** wählen: Das Feld sucht beim Tippen nach Name, Kundennummer und Ort (Serienrechnungen haben dieselbe Auswahl; bei Textbausteinen bedeutet ein leeres Feld „für alle Kunden“); Pfeiltasten und Enter wählen einen Treffer, Escape schließt die Liste. Ohne Auswahl bleibt der bisherige Kunde, ein geleertes Feld nimmt ihn weg. Hat der Kontakt ein Standardformat, wird es übernommen; hat er eine Leitweg-ID und kein Standardformat, stellt Haben auf XRechnung 3.0 (CII) um. Fehlt der Kunde noch, legst du ihn über den letzten Eintrag der Trefferliste an: **Neuen Kontakt anlegen**, oder nach dem Tippen **„…“ als neuen Kunden anlegen** mit dem getippten Namen. Beides geht, ohne den Entwurf zu verlassen: Im Dialog ist die Rolle **Kunde** angehakt, nach dem Speichern ist er gewählt, und die Eingaben im Entwurf bleiben stehen, auch wenn du abbrichst. Gibt es schon einen Kontakt mit derselben USt-IdNr., weist der Dialog darauf hin: Ist er ein Kunde und nicht archiviert, kannst du ihn wählen, statt eine Dublette anzulegen; sonst verweist der Hinweis auf den Kontakt, um dort die Rolle zu ergänzen oder ihn wiederherzustellen. Das gilt ebenso im Angebot.
 3. **Rechnungsdatum** und **Zahlungsziel in Tagen** (0 bis 120) eintragen. Darunter steht das errechnete Fälligkeitsdatum (siehe [Fälligkeit](rechnungen-zahlung.md#fälligkeit)). Vorgabe für das Zahlungsziel ist der Wert aus den Firmendaten.
    Optional **Skonto**: je Stufe Satz und Frist in Tagen, vorbelegt vom Kunden oder aus den Firmendaten (siehe [Skonto](rechnungen-zahlung.md#skonto)).
-4. Optional **Leistung von** und **Leistung bis**. Ohne Angabe gilt das Rechnungsdatum als Leistungsdatum; ist nur ein Tag angegeben oder sind beide gleich, erscheint auf der Rechnung „Leistungsdatum“, sonst „Leistungszeitraum“. Bei einem Zeitraum übernimmt Haben im XML die Kundenanschrift als Lieferanschrift mit Lieferland. Eine abweichende Lieferanschrift kennt Haben nicht.
+4. Optional **Leistung von** und **Leistung bis**. Ohne Angabe gilt das Rechnungsdatum als Leistungsdatum und steht als solches auf der Rechnung; ist nur ein Tag angegeben oder sind beide gleich, erscheint auf der Rechnung „Leistungsdatum“, sonst „Leistungszeitraum“. Bei einem Zeitraum übernimmt Haben im XML die Kundenanschrift als Lieferanschrift mit Lieferland. Eine abweichende Lieferanschrift kennt Haben nicht.
    Optional **Bestellnummer**, **Eigene Auftragsnummer** und **Lieferscheinnummer** (siehe [Bestellnummer, Auftrag und Lieferschein](#bestellnummer-auftrag-und-lieferschein)).
 5. **E-Rechnungsformat** prüfen.
 6. Unter **Umsatzsteuer** die steuerliche Behandlung wählen, im Normalfall „Regulär“ (siehe [Umsatzsteuer auf der Rechnung](#umsatzsteuer-auf-der-rechnung)).
 7. Unter **Preise** wählen, ob die Einzelpreise netto oder brutto inklusive Umsatzsteuer gelten (siehe [Netto- oder Bruttopreise](#nettopreise-oder-bruttopreise)). Vorgabe ist netto.
-8. Optional eine **Einleitung über den Positionen** eintragen (Kopftext, bis 2000 Zeichen), etwa Rahmenvertrag oder Anrede; Bestell-, Auftrags- und Lieferscheinnummer haben eigene Felder. Vorbelegt ist sie mit der Standard-Einleitung für Rechnungen aus den [Firmendaten](einrichtung.md). **Textbaustein einfügen** übernimmt einen gespeicherten Kopftext (siehe [Textbausteine](#textbausteine)).
+8. Optional eine **Einleitung über den Positionen** eintragen (Kopftext, bis 2000 Zeichen), etwa Rahmenvertrag oder Anrede; Bestell-, Auftrags- und Lieferscheinnummer haben eigene Felder. Vorbelegt ist sie mit dem [Standard-Kopftext für Rechnungen](#standard-je-belegart), der Hinweis mit dem Standard-Fußtext, wenn es sie gibt. **Textbaustein einfügen** übernimmt einen gespeicherten Kopftext (siehe [Textbausteine](#textbausteine)).
 9. **Positionen** erfassen: Beschreibung, Menge, Einheit, Einzelpreis und Steuersatz. Mit **+ Position hinzufügen** kommt eine weitere Zeile dazu; sie übernimmt Einheit und Steuersatz der letzten Zeile.
 10. Optional einen **Hinweis auf der Rechnung** eintragen (Fußtext unter den Summen, bis 2000 Zeichen), auch aus einem Textbaustein. Für private Grundstücksleistungen darunter den [Aufbewahrungshinweis](#aufbewahrungshinweis-bei-grundstücksleistungen) einschalten.
 11. **Entwurf speichern** oder direkt **Festschreiben**. Das Festschreiben fragt in einem Dialog nach und nennt Nummer, Kunde und Betrag; erst **Festschreiben** dort führt es aus. Liegt das Rechnungsdatum vor dem der zuletzt festgeschriebenen Rechnung im Nummernkreis, weist der Dialog darauf hin; festschreiben lässt sich trotzdem.
@@ -52,7 +52,7 @@ Ist das Fenster breit genug für Formular und Vorschau nebeneinander, öffnet de
 
 Haben merkt sich die Wahl in diesem Browser, für Rechnungen, Angebote und Mahnungen gemeinsam; auf einem anderen Gerät gilt sie nicht. Ohne Wahl ist die Vorschau auf einem großen Bildschirm angeheftet, auf dem Laptop fährt sie über das Formular. Am Handy und in schmalen Fenstern fährt sie immer über das Formular; eine angeheftete Vorschau kommt zurück, sobald das Fenster wieder breit genug ist. Auf dem Laptop reicht oft schon das Einklappen der Seitenleiste (`Strg+B`, am Mac `⌘+B`).
 
-**Gestaltung** (Zahnrad) öffnet neben dem Blatt eine Spalte mit Farbe, Schrift, Logo samt Größe und Stelle, Falz- und Lochmarken, GiroCode, Kundennummer, Artikelnummer und der Spalte USt. Am Handy steht sie unter dem Blatt. Das Blatt zeigt jede Änderung sofort, gespeichert wird sie erst mit **Für alle Belege speichern**; nur das Logo wird beim Hochladen sofort gespeichert. Sie gilt dann für alles, was ab jetzt erzeugt wird, auch für offene Entwürfe; festgeschriebene PDFs bleiben unverändert. Schließt du die Vorschau vorher, gehen die Änderungen verloren. Dasselbe stellst du unter [Einstellungen › Beleggestaltung](einrichtung.md#logo-und-blatt) ein. Ein eigenes Layout zeigt nur die Einstellungen, deren Felder es verwendet ([Eigene Belegvorlagen](belegvorlagen.md#einstellungen-der-gestaltung)).
+**Gestaltung** (Zahnrad) öffnet neben dem Blatt eine Spalte mit dem Layout der Belegart und seinen Optionen, Farbe, Schrift, Logo samt Größe und Stelle, Falz- und Lochmarken, GiroCode, Kundennummer, Artikelnummer und der Spalte USt. Am Handy steht sie unter dem Blatt. Das Blatt zeigt jede Änderung sofort, gespeichert wird sie erst mit **Gestaltung speichern**; nur das Logo wird beim Hochladen sofort gespeichert. Sie gilt dann für alles, was ab jetzt erzeugt wird, auch für offene Entwürfe; festgeschriebene PDFs bleiben unverändert. Schließt du die Vorschau vorher, gehen die Änderungen verloren. Dasselbe stellst du unter [Einstellungen › Beleggestaltung](beleggestaltung.md#logo-und-blatt) ein. Ein eigenes Layout zeigt nur die Einstellungen, deren Felder es verwendet ([Eigene Belegvorlagen](belegvorlagen.md#einstellungen-der-gestaltung)).
 
 ### Entwurf als PDF
 
@@ -92,12 +92,13 @@ Viele Auftraggeber verlangen ihre Bestellnummer auf jeder Rechnung und weisen Re
 | --- | --- |
 | Beschreibung | Bezeichnung der Position, eine Zeile, z. B. `Beratung Softwarearchitektur`. Pflicht. Steht im XML als Artikelname (BT-153). |
 | Text zu Position | Optional, mehrzeilig, bis 2000 Zeichen, z. B. Leistungsumfang oder Bestellbezug. Steht im PDF in kleinerer Schrift unter der Bezeichnung, die dann halbfett ist, und im XML als Artikelbeschreibung (BT-154). Storno und Rechnungskorrektur übernehmen ihn, ebenso Rechnungen aus einem Angebot oder einer Vorlage und der Lieferschein. Angebote und wiederkehrende Rechnungen haben dasselbe Feld. |
-| Art.-Nr. | Optional, bis 50 Zeichen, z. B. `ET-1042`. Kommt beim Einfügen aus dem [Artikelkatalog](#artikelkatalog) mit und lässt sich in der Position ändern. Im PDF als Spalte „Art.-Nr.“ hinter der Position, nur wenn mindestens eine Position eine Nummer hat. Der Schalter **Artikelnummer** unter [Gestaltung](einrichtung.md#logo-und-blatt) blendet die Spalte aus, im XML bleibt die Nummer. Im XML als Artikelnummer des Verkäufers (BT-155: UBL `cac:SellersItemIdentification`, CII `ram:SellerAssignedID`), im ZUGFeRD (Profil EN 16931) ebenso. Storno, Rechnungskorrektur, Rechnung aus einem Angebot, Serienrechnung und Lieferschein übernehmen sie. Die Position merkt sich die Nummer, nicht den Artikel: Ändert sich die Nummer im Katalog, bleibt die Rechnung, wie sie ist. Angebote und wiederkehrende Rechnungen haben dasselbe Feld. |
+| Art.-Nr. | Optional, bis 50 Zeichen, z. B. `ET-1042`. Kommt beim Einfügen aus dem [Artikelkatalog](#artikelkatalog) mit und lässt sich in der Position ändern. Im PDF als Spalte „Art.-Nr.“ hinter der Position, nur wenn mindestens eine Position eine Nummer hat. Der Schalter **Artikelnummer** unter [Gestaltung](beleggestaltung.md#logo-und-blatt) blendet die Spalte aus, im XML bleibt die Nummer. Im XML als Artikelnummer des Verkäufers (BT-155: UBL `cac:SellersItemIdentification`, CII `ram:SellerAssignedID`), im ZUGFeRD (Profil EN 16931) ebenso. Storno, Rechnungskorrektur, Rechnung aus einem Angebot, Serienrechnung und Lieferschein übernehmen sie. Die Position merkt sich die Nummer, nicht den Artikel: Ändert sich die Nummer im Katalog, bleibt die Rechnung, wie sie ist. Angebote und wiederkehrende Rechnungen haben dasselbe Feld. |
 | Menge | Bis zu drei Nachkommastellen, z. B. `0,5` oder `152`. Muss größer als null sein. |
 | Einheit | `Std.`, `Tag`, `Monat`, `Stk.`, `Psch.`, `km` und die [eigenen Einheiten](#eigene-einheiten) |
 | Einzelpreis | In Euro, z. B. `95,00`. Negative Preise sind möglich, für einen Nachlass aber besser der [Rabatt](#rabatte). |
 | Rabatt | Optional, als Prozent (`10 %`) oder Betrag (`50,00`), siehe [Rabatte](#rabatte). |
 | Steuersatz | 19 %, 7 % oder 0 % |
+| Kosten für § 35a EStG | Nur mit dem Haken **Anteil der Arbeits-, Maschinen- und Fahrtkosten ausweisen**: **Material und Sonstiges** oder **Arbeit, Maschinen, Fahrt**, hinter der Bezeichnung. Siehe [Arbeits-, Maschinen- und Fahrtkosten](#arbeits--maschinen--und-fahrtkosten--35a-estg). |
 
 Der Zeilenbetrag ist Menge mal Einzelpreis, kaufmännisch auf Cent gerundet. Bei Nettopreisen rechnet Haben die Umsatzsteuer nach EN 16931 je Steuersatz auf die Summe der Zeilennetto, nicht als Summe der Steuer je Zeile. Bei mehreren Steuersätzen weist das PDF die Steuer je Satz mit ihrer Bemessungsgrundlage aus.
 
@@ -138,7 +139,7 @@ Der Gesamtbetrag stimmt damit auf den Cent mit den Endpreisen überein. Weil die
 
 Unter **Artikel** (Seitenleiste, Bereich Verkauf) legst du Positionen an, die du oft brauchst: Stundensatz, Tagessatz, Wartungspauschale.
 
-- Jeder Artikel hat eine Bezeichnung (eine Zeile), eine Einheit, einen Preis und einen Steuersatz, dazu optional einen **Text zur Position** (mehrzeilig, bis 2000 Zeichen), eine Artikelnummer und eine interne Notiz. Unter **Preis ist** legst du fest, ob der Preis netto oder brutto inklusive Umsatzsteuer gilt; in der Liste steht bei Bruttopreisen „brutto“.
+- Jeder Artikel hat eine Bezeichnung (eine Zeile), eine Einheit, einen Preis und einen Steuersatz, dazu optional einen **Text zur Position** (mehrzeilig, bis 2000 Zeichen), eine Artikelnummer, die Vorgabe **Kosten für § 35a EStG** ([Arbeits-, Maschinen- und Fahrtkosten](#arbeits--maschinen--und-fahrtkosten--35a-estg)) und eine interne Notiz. Unter **Preis ist** legst du fest, ob der Preis netto oder brutto inklusive Umsatzsteuer gilt; in der Liste steht bei Bruttopreisen „brutto“.
 - Passt der Preis nicht zum Preismodus der Rechnung, rechnet Haben ihn beim Einfügen um, kaufmännisch auf Cent gerundet: Ein Artikel zu 9,80 € brutto steht in einer Netto-Rechnung mit 8,24 €, ein Artikel zu 100,00 € netto in einer Brutto-Rechnung mit 119,00 €. Ohne Steuerausweis übernimmt Haben den Preis unverändert.
 - Im Editor für Rechnungen und Angebote sucht **Aus dem Katalog einfügen** nach Bezeichnung und Artikelnummer und fügt den Artikel als Position mit Menge 1 ein, mit Bezeichnung, Text und Artikelnummer. Ist die einzige Zeile noch leer, ersetzt er sie.
 - Ein Klick in die Beschreibung einer Position zeigt den Katalog, beim Tippen passende Artikel, jeweils mit Nummer, Preis (netto oder brutto) und Einheit; gesucht wird nach Bezeichnung und Artikelnummer, die Liste zeigt höchstens 50 Treffer. Wählst du einen Treffer mit Tastatur oder Maus, übernimmt die Position dessen Text, Artikelnummer, Einheit, Preis und Steuersatz; die Menge bleibt, bei einem Artikel ohne Text auch ein schon eingegebener Text der Position. Danach kannst du alles von Hand ändern.
@@ -163,7 +164,7 @@ In der Einleitung, im mehrzeiligen Text zu einer Position und im Hinweis stehen 
 | `__Text__` | unterstrichen |
 | `___Text___` | kursiv und unterstrichen |
 
-Du musst die Zeichen nicht tippen: Sobald du Text markierst, erscheinen direkt darüber die Knöpfe **F**, **K** und **U**, am Handy rechts über dem Feld. Oder nimm <kbd>Strg</kbd>/<kbd>⌘</kbd>+<kbd>B</kbd>, <kbd>I</kbd> oder <kbd>U</kbd>; ohne Markierung gilt das Kürzel für das Wort unter dem Cursor. Ein zweiter Klick nimmt die Auszeichnung zurück. Die Knöpfe zeichnen immer ganze Wörter aus, auch wenn nur ein Teil markiert ist. <kbd>Esc</kbd> blendet die Knöpfe aus. Du findest sie auch bei Artikeln, Textbausteinen, den Standard-Einleitungen und in Einleitung und Schluss einer [Mahnung](rechnungen-zahlung.md#mahnwesen).
+Du musst die Zeichen nicht tippen: Sobald du Text markierst, erscheinen direkt darüber die Knöpfe **F**, **K** und **U**, am Handy rechts über dem Feld. Oder nimm <kbd>Strg</kbd>/<kbd>⌘</kbd>+<kbd>B</kbd>, <kbd>I</kbd> oder <kbd>U</kbd>; ohne Markierung gilt das Kürzel für das Wort unter dem Cursor. Ein zweiter Klick nimmt die Auszeichnung zurück. Die Knöpfe zeichnen immer ganze Wörter aus, auch wenn nur ein Teil markiert ist. <kbd>Esc</kbd> blendet die Knöpfe aus. Du findest sie auch bei Artikeln, Textbausteinen und in Einleitung und Schluss einer [Mahnung](rechnungen-zahlung.md#mahnwesen).
 
 Die Vorschau und das PDF zeigen dieselbe Formatierung. Kombinationen wie `*_fett und kursiv_*` sind möglich.
 Leerzeilen bleiben Absätze. Die Zeichen müssen den Text direkt umschließen; `* Text *` bleibt wörtlich.
@@ -185,6 +186,24 @@ Unter **Textbausteine** (Seitenleiste, Bereich Verkauf) legst du Kopf- und Fußt
 - In wiederkehrenden Rechnungen gelten in der Einleitung dieselben Platzhalter wie in Beschreibung und Hinweis.
 - Aus einem Angebot übernimmt die Rechnung die Einleitung des Angebots.
 - Nicht mehr gebrauchte Bausteine archivierst du; sie lassen sich wiederherstellen. Jede Änderung steht im Änderungsprotokoll.
+
+#### Standard je Belegart
+
+Unter **Standard für** machst du einen Baustein zum Standard einer Belegart. Er füllt dann neue Belege dieser Art von selbst vor, bei Rechnungen auch über die [REST-API](api.md) und **Leistungen abrechnen**. Rechnungen aus einem Angebot, aus einer wiederkehrenden Rechnung und Abrechnungen eines Shops oder App-Stores behalten ihre eigenen Texte; im Entwurf änderst oder leerst du den Text wie jeden anderen, und Belege, die es schon gibt, ändern sich nicht. In der Liste steht „Standard für …“ am Baustein.
+
+| Belegart | Kopftext | Fußtext |
+| --- | --- | --- |
+| Rechnung, Angebot | Einleitung des neuen Entwurfs | Hinweis des neuen Entwurfs |
+| Mahnung | Einleitung, für jede Stufe | Schluss, für jede Stufe |
+| Auftragsbestätigung | beim Erzeugen, wenn das Angebot keine Einleitung hat | beim Erzeugen, wenn das Angebot keinen Hinweis hat |
+| Lieferschein | – | Hinweis, beim Erzeugen |
+
+- Je Belegart und Art gibt es höchstens einen Standard. Machst du einen weiteren zum Standard, löst er den bisherigen ab. Ein archivierter Baustein ist kein Standard mehr, auch nicht nach dem Wiederherstellen.
+- Ein Standard gilt für alle Kunden; ein Baustein für einen bestimmten Kunden kann kein Standard sein. Der Lieferschein hat nur einen Hinweis, dort geht nur ein Fußtext.
+- Auftragsbestätigung und Lieferschein haben keinen Entwurf: Der Standard greift jedes Mal, wenn du sie erzeugst, auch für ein schon angenommenes Angebot; einen eigenen Text des Angebots ersetzt er nicht. Ohne Standard bleibt es bei den Texten des Angebots bzw. ohne Hinweis.
+- Bei der Mahnung ersetzt ein Standard die Vorlage der Stufe, und zwar für alle Stufen gleich; ohne Standard bleiben die Vorlagen je Stufe (siehe [Mahnwesen](rechnungen-zahlung.md#mahnwesen)).
+- [Platzhalter](#platzhalter-in-einleitung-und-hinweis) bleiben im Entwurf stehen und werden in Rechnung und Angebot bei Vorschau und Festschreiben eingesetzt, in der Auftragsbestätigung beim Erzeugen. In Mahnung und Lieferschein setzt Haben keine Platzhalter ein.
+- Die frühere **Standard-Einleitung** aus den Firmendaten hat Haben beim Update in je einen Kopftext-Baustein mit Standard für Rechnungen bzw. Angebote übernommen, ebenso beim Übernehmen der Einstellungen aus einer älteren Exportdatei.
 
 #### Platzhalter in Einleitung und Hinweis
 
@@ -293,6 +312,18 @@ Bei steuerpflichtigen Werklieferungen oder sonstigen Leistungen im Zusammenhang 
 - Nach dem Festschreiben ist die Auswahl gesperrt. Storno und Rechnungskorrektur übernehmen sie unveränderlich aus der ursprünglichen Rechnung. Bestehende Belegdateien ändern sich nicht.
 - Für Kleinunternehmer bleibt die Auswahl freiwillig verfügbar. [§ 34a UStDV](https://www.gesetze-im-internet.de/ustdv_1980/__34a.html) nennt den Hinweis nicht unter den Mindestangaben einer Kleinunternehmerrechnung; Haben setzt ihn dort nicht automatisch.
 
+## Arbeits-, Maschinen- und Fahrtkosten (§ 35a EStG)
+
+Privatkunden können für Handwerkerleistungen und haushaltsnahe Dienstleistungen einen Teil der Kosten von ihrer Einkommensteuer abziehen. Das gilt nur für die Arbeitskosten ([§ 35a Abs. 5 Satz 2 EStG](https://www.gesetze-im-internet.de/estg/__35a.html)), dazu zählen auch die in Rechnung gestellten Maschinen- und Fahrtkosten, Material aber nicht; Verbrauchsmittel bleiben nicht außer Ansatz, kennzeichne sie als **Arbeit, Maschinen, Fahrt** (BMF-Schreiben vom 09.11.2016, BStBl I S. 1213, geändert am 01.09.2021, BStBl I S. 1494, Rz. 39). Arbeit außerhalb des Haushalts ist nicht begünstigt; führe sie als eigene Position mit **Material und Sonstiges** und nenne in der Bezeichnung, dass sie außerhalb des Haushalts erbracht wurde (Rz. 39). Der Anteil muss sich aus der Rechnung ermitteln lassen, ein eigener Ausweis der Umsatzsteuer darauf ist nicht nötig (Rz. 40). Beispiel: 3 Rauchwarnmelder je 31,00 €, Montage 3 × 8,00 € und Anfahrt 35,00 € ergeben 59,00 € Arbeits- und Fahrtkosten.
+
+- Im Editor von Rechnung, Angebot und wiederkehrender Rechnung **Anteil der Arbeits-, Maschinen- und Fahrtkosten ausweisen (§ 35a EStG)** anhaken. Hinter der Bezeichnung jeder Position steht dann die Auswahl **Material und Sonstiges** oder **Arbeit, Maschinen, Fahrt**. Haben erkennt Privatkunden nicht selbst; ohne Haken erscheint kein Satz.
+- Unter den Summen steht dann „Darin sind Arbeits-, Maschinen- und Fahrtkosten von 59,00 € enthalten (§ 35a EStG).“, bei regulärer Besteuerung mit „inkl. USt“. Der Betrag ist die Summe der gekennzeichneten Positionen nach ihrem Rabatt, um ihren Anteil am Gesamtrabatt gemindert, bei Nettopreisen mit der Umsatzsteuer ihres Satzes. Der Satz nennt den Anteil vor Skonto; zieht der Kunde Skonto ab, sind seine Aufwendungen entsprechend kleiner. Der Satz steht im PDF, auch in eigenen Layouts über das Pflichtfeld `taxNote`, und als BT-22 in ZUGFeRD und XRechnung, auf Englisch auch englisch.
+- Im Angebot zählen optionale und alternative Positionen nicht mit, wie bei der Summe. Die Rechnung aus dem Angebot, Kopien, Storno, Rechnungskorrektur und wiederkehrende Rechnungen übernehmen die Auswahl je Position. Das Storno nennt den Anteil mit Minus.
+- In der Schlussrechnung nennt der Satz den Anteil der ganzen Leistung vor Abzug der Abschlagsrechnungen; Abschlagsrechnungen nennen ihren eigenen Anteil, wenn ihre Positionen gekennzeichnet sind.
+- Im [Artikelkatalog](#artikelkatalog) legt **Kosten für § 35a EStG** die Vorgabe fest, die beim Einfügen in die Position geht. Fügst du einen solchen Artikel ein, ist der Haken gesetzt; nimmst du ihn heraus, verlieren alle Positionen das Kennzeichen.
+- In der REST-API heißt das Feld `arbeitskosten`, je Position und am Artikel ([API](api.md#beispiele)).
+- Haben prüft nicht, ob die Leistung im Haushalt des Kunden erbracht wurde und ob er unbar zahlt; beides ist Voraussetzung für den Abzug (§ 35a Abs. 4 und Abs. 5 Satz 3 EStG).
+
 ## Was beim Festschreiben passiert
 
 Alles läuft in einer einzigen Datenbanktransaktion. Schlägt ein Schritt fehl, bleibt der Entwurf ohne Nummer zurück und im Nummernkreis entsteht keine Lücke. PDF und XML entstehen, bevor Haben etwas speichert; andere Vorgänge, etwa ein gleichzeitig gebuchter Beleg, warten so nicht auf das Erzeugen der Dateien.
@@ -311,7 +342,7 @@ Auf allen Geschäftsbriefen einer GmbH oder UG an einen bestimmten Empfänger, g
 
 Haben nimmt die Angaben aus den [Firmendaten](einrichtung.md#firmendaten) und setzt sie
 
-- als eigene Zeile unter die drei Spalten des Fußes von Rechnung, Storno, Korrektur, Angebot, Auftragsbestätigung, Lieferschein, Mahnung und Steuerbescheinigung, auch in der Vorschau im Editor: „Sitz der Gesellschaft: Bremen · Registergericht: Amtsgericht Bremen, HRB 12345 HB · Geschäftsführung: Erika Mustermann“. Die Rechtsform steht davor („Rechtsform: GmbH“) nur, wenn der Firmenname sie nicht schon nennt, etwa „GmbH“ oder „UG (haftungsbeschränkt)“ (§ 4, § 5a Abs. 1 GmbHG). Auf englischen Belegen sind die Beschriftungen englisch („Registered office“, „Register court“, „Managing directors“).
+- in den Fuß von Rechnung, Storno, Korrektur, Angebot, Auftragsbestätigung, Lieferschein, Mahnung und Steuerbescheinigung, auch in der Vorschau im Editor: je nach Layout und Einstellung als eigene Spalte neben den übrigen, als Zeile darunter oder in der Randspalte unter den übrigen Angaben, „Sitz der Gesellschaft: Bremen · Registergericht: Amtsgericht Bremen, HRB 12345 HB · Geschäftsführung: Erika Mustermann“. Mit Platzhaltern stehen sie dort in deiner eigenen Fußzeile, wo du sie hinschreibst ([Pflichtangaben in der Fußzeile](beleggestaltung.md#pflichtangaben-einer-gmbh-oder-ug)). Die Rechtsform steht davor („Rechtsform: GmbH“) nur, wenn der Firmenname sie nicht schon nennt, etwa „GmbH“ oder „UG (haftungsbeschränkt)“ (§ 4, § 5a Abs. 1 GmbHG). Auf englischen Belegen sind die Beschriftungen englisch („Registered office“, „Register court“, „Managing directors“).
 - in die E-Rechnung: die Registernummer als Kennung aus einem amtlichen Register (BT-30, in CII `SpecifiedLegalOrganization/ID`, in UBL `PartyLegalEntity/CompanyID`) und die ganze Zeile als „Seller additional legal information“ (BT-33, in CII `Description` des Verkäufers, in UBL `CompanyLegalForm`) nach dem semantischen Modell der EN 16931-1 (Gruppe BG-4).
 - als Signatur unter E-Mails mit Rechnung, Angebot oder Mahnung, siehe [Per E-Mail versenden](#per-e-mail-versenden).
 
@@ -449,18 +480,18 @@ Stornorechnung und Rechnungskorrektur übernehmen die Sprache der ursprüngliche
 
 ## Wiederkehrende Rechnungen
 
-Für Monatspauschalen, Wartungsverträge oder Hosting legst du unter **Rechnungen › Wiederkehrend › Neue Vorlage** eine Vorlage an. Haben erzeugt daraus zu jedem Termin eine Rechnung.
+Für Wochen- und Monatspauschalen, Wartungsverträge oder Hosting legst du unter **Rechnungen › Wiederkehrend › Neue Vorlage** eine Vorlage an. Haben erzeugt daraus zu jedem Termin eine Rechnung.
 
 | Feld | Bedeutung |
 |---|---|
 | Bezeichnung | Name der Vorlage für die Liste, Pflicht |
-| Intervall | monatlich, vierteljährlich, halbjährlich oder jährlich |
-| Nächste Rechnung am | Rechnungsdatum des nächsten Termins. Die folgenden Termine liegen am selben Tag im Monat; der 31. wird in kürzeren Monaten zum Monatsende und springt danach zurück. |
+| Intervall | wöchentlich, alle 2 oder 4 Wochen, monatlich, alle 2 Monate, vierteljährlich, halbjährlich oder jährlich |
+| Nächste Rechnung am | Rechnungsdatum des nächsten Termins. Bei Monaten liegen die folgenden Termine am selben Tag im Monat; der 31. wird in kürzeren Monaten zum Monatsende und springt danach zurück. Bei Wochen liegen sie 7, 14 bzw. 28 Tage später, am selben Wochentag. |
 | Endet nach dem | optional. Danach wird die Vorlage inaktiv. |
-| Leistungszeitraum | **Laufend:** die Monate ab dem Rechnungsmonat (Vorauszahlung). **Vergangen:** die Monate davor (Abrechnung). **Keiner:** ohne Leistungszeitraum, dann gilt das Rechnungsdatum. |
+| Leistungszeitraum | **Laufend:** die Monate ab dem Rechnungsmonat (Vorauszahlung), bei Wochen die 7, 14 bzw. 28 Tage ab dem Rechnungsdatum. **Vergangen:** die Monate davor (Abrechnung), bei Wochen ebenso viele Tage bis zum Vortag. **Keiner:** ohne Leistungszeitraum, dann gilt das Rechnungsdatum. |
 | Was am Termin passiert | **Entwurf anlegen:** du prüfst und schreibst selbst fest. **Direkt festschreiben:** Nummer, PDF, XML und Buchung wie beim Festschreiben von Hand; auf Wunsch **und per E-Mail an den Kunden schicken** (Vorlage und Adresse wie beim [Versand von Hand](#per-e-mail-versenden)). |
 | Aktiv | Ohne Häkchen erzeugt die Vorlage keine Rechnungen. |
-| Kunde, Einleitung, Positionen mit Text zur Position, Zahlungsziel, Format, Umsatzsteuer, Preise (netto oder brutto), Hinweis, Aufbewahrungshinweis | wie im Rechnungseditor |
+| Kunde, Einleitung, Positionen mit Text zur Position, Zahlungsziel, Format, Umsatzsteuer, Preise (netto oder brutto), Hinweis, Aufbewahrungshinweis, Anteil der Arbeits-, Maschinen- und Fahrtkosten | wie im Rechnungseditor |
 | Zahlungsart | Überweisung oder SEPA-Lastschrift; bei Lastschrift wählt jeder Lauf das Mandat selbst, siehe [Lastschrift](rechnungen-zahlung.md#lastschrift) |
 
 In Einleitung, Beschreibungen, Texten zur Position und Hinweis ersetzt Haben Platzhalter:
@@ -470,7 +501,7 @@ In Einleitung, Beschreibungen, Texten zur Position und Hinweis ersetzt Haben Pla
 | `{monat}` | November |
 | `{jahr}` | 2026 |
 | `{quartal}` | Q4 |
-| `{zeitraum}` | November 2026, bei mehreren Monaten Oktober – Dezember 2026 |
+| `{zeitraum}` | November 2026, bei mehreren Monaten Oktober – Dezember 2026, bei Wochen 23.11.2026 – 29.11.2026 |
 
 Bezug ist der Leistungszeitraum, ohne Leistungszeitraum das Rechnungsdatum. „Wartung {monat} {jahr}“ wird so zu „Wartung November 2026“. Die Vorschau unter dem Formular zeigt die nächste Rechnung.
 

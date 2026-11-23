@@ -18,6 +18,12 @@ describe.skipIf(!testDatabaseUrl)("sevDesk-Vorlagen wiederkehrender Rechnungen (
   let rechnungen: typeof import("../rechnungen/index.ts");
   const calls: string[] = [];
   const fixtures = fixture("rechnungsvorlage-wkr.json") as Template[];
+  // Wochenvorlage aus Buchhaltungsversion 2.0 (#1691)
+  const v2 = (
+    JSON.parse(
+      readFileSync(new URL("../../../../../../packages/import/test-fixtures/sevdesk/buchhaltung-2.0/rechnungsvorlage-wkr.json", import.meta.url), "utf8"),
+    ) as { vorlage: Template["invoice"]; positions: unknown[] }[]
+  ).find((t) => t.vorlage.id === "ID_35")!;
   // ID_26 rechnet laut den erzeugten Rechnungen nachfällig ab; der nächste Termin liegt hier am Monatsende
   const templates: Template[] = [
     ...fixtures.map((t) =>
@@ -42,6 +48,7 @@ describe.skipIf(!testDatabaseUrl)("sevDesk-Vorlagen wiederkehrender Rechnungen (
       },
       positions: fixtures[1]!.positions,
     },
+    { invoice: v2.vorlage, positions: v2.positions },
   ];
   const generated = (fixture("rechnungen-aus-vorlage.json") as Record<string, unknown>[]).map((r, i) => ({
     ...r,
@@ -55,7 +62,7 @@ describe.skipIf(!testDatabaseUrl)("sevDesk-Vorlagen wiederkehrender Rechnungen (
     paidAmount: r.status === "1000" ? 119 : 0,
     payDate: r.status === "1000" ? r.invoiceDate : null,
   }));
-  const contacts = ["ID_16", "ID_21", "ID_27"].map((id) => ({
+  const contacts = ["ID_16", "ID_18", "ID_21", "ID_27"].map((id) => ({
     id,
     objectName: "Contact",
     name: `Kunde ${id}`,
@@ -116,26 +123,30 @@ describe.skipIf(!testDatabaseUrl)("sevDesk-Vorlagen wiederkehrender Rechnungen (
   it("ruft die Vorlagen mit dem Filter WKR ab und übernimmt sie pausiert als Entwurf", async () => {
     expect(calls).toContain("/Invoice?invoiceType=WKR");
     const rows = await sql`
-      select s.sevdesk_id, s.status, s.billing, s.billing_evidence, r.active, r.mode, r.send_by_mail, r.interval_months, r.anchor_day,
+      select s.sevdesk_id, s.status, s.billing, s.billing_evidence, r.active, r.mode, r.send_by_mail, r.recurrence, r.anchor_day,
         r.next_date, r.end_date, r.service_period, r.price_mode, r.note, c.name as contact
       from sevdesk_recurring_templates s join recurring_invoices r on r.id = s.recurring_id join contacts c on c.id = r.contact_id
       order by s.sevdesk_id`;
-    expect(rows.map((r) => r.sevdesk_id)).toEqual(["ID_20", "ID_26", "ID_40"]);
+    expect(rows.map((r) => r.sevdesk_id)).toEqual(["ID_15", "ID_20", "ID_26", "ID_35", "ID_40"]);
     for (const r of rows)
       expect(r).toMatchObject({
         active: false,
         mode: "entwurf",
         send_by_mail: false,
-        interval_months: 1,
       });
-    expect(rows[0]).toMatchObject({
+    const byId = (id: string) => rows.find((r) => r.sevdesk_id === id);
+    // Wochenvorlagen aus 1.0 und 2.0 (#1691), ohne erzeugte Rechnung: Leistungszeitraum offen
+    for (const id of ["ID_15", "ID_35"]) expect(byId(id)).toMatchObject({ recurrence: "P1W", billing: "unklar", service_period: "keiner" });
+    expect(byId("ID_35")).toMatchObject({ next_date: "2022-08-01", contact: "Kunde ID_18" });
+    for (const id of ["ID_20", "ID_26", "ID_40"]) expect(byId(id)).toMatchObject({ recurrence: "P1M" });
+    expect(byId("ID_20")).toMatchObject({
       status: "100",
       billing: "vorschuessig",
       billing_evidence: 1,
       service_period: "laufend",
       contact: "Kunde ID_21",
     });
-    expect(rows[1]).toMatchObject({
+    expect(byId("ID_26")).toMatchObject({
       billing: "nachfaellig",
       billing_evidence: 2,
       next_date: "2026-11-30",
@@ -143,7 +154,7 @@ describe.skipIf(!testDatabaseUrl)("sevDesk-Vorlagen wiederkehrender Rechnungen (
       service_period: "laufend",
       note: "<anon> [%ZAHLUNGSZIEL%] [%KONTAKTPERSON%]",
     });
-    expect(rows[2]).toMatchObject({
+    expect(byId("ID_40")).toMatchObject({
       status: "1000",
       end_date: "2023-12-31",
       next_date: "2024-01-15",
@@ -152,17 +163,11 @@ describe.skipIf(!testDatabaseUrl)("sevDesk-Vorlagen wiederkehrender Rechnungen (
     });
   });
 
-  it("nennt die Wochenvorlage als offenen Punkt und listet die Platzhalter", async () => {
+  it("übernimmt auch die Wochenvorlagen und listet die Platzhalter", async () => {
     const [run] = await sql`select progress from lexoffice_imports where source = 'sevdesk' order by started_at desc limit 1`;
-    expect(run!.progress.failed).toEqual([
-      {
-        lexofficeId: "wkr/ID_15",
-        number: "<anon> [%Rechnungsnummer%]",
-        message: expect.stringContaining("P0Y0M1W"),
-      },
-    ]);
+    expect(run!.progress.failed ?? []).toEqual([]);
     expect(run!.progress.sevdeskRecurring).toEqual({
-      imported: 3,
+      imported: 5,
       known: 0,
       placeholders: ["[%KONTAKTPERSON%]", "[%Rechnungsnummer%]", "[%ZAHLUNGSZIEL%]"],
     });
@@ -176,24 +181,26 @@ describe.skipIf(!testDatabaseUrl)("sevDesk-Vorlagen wiederkehrender Rechnungen (
 
   it("protokolliert die Übernahme im Audit-Log", async () => {
     const audit = await sql`select count(*) as n from audit_log where table_name = 'sevdesk_recurring_templates'`;
-    expect(Number(audit[0]!.n)).toBeGreaterThanOrEqual(3);
+    expect(Number(audit[0]!.n)).toBeGreaterThanOrEqual(5);
   });
 
   it("übernimmt beim erneuten Abruf nichts doppelt, auch nicht nach dem Löschen in Haben", async () => {
     const [ended] = await sql`select recurring_id from sevdesk_recurring_templates where sevdesk_id = 'ID_40'`;
     await rechnungen.deleteRecurring("test-user", ended!.recurring_id);
     await sevdesk.startSevdeskImport("test-user", { wait: true });
-    expect(Number((await sql`select count(*) as n from recurring_invoices`)[0]!.n)).toBe(2);
+    expect(Number((await sql`select count(*) as n from recurring_invoices`)[0]!.n)).toBe(4);
     const links = await sql`select sevdesk_id, recurring_id from sevdesk_recurring_templates order by sevdesk_id`;
     expect(links.map((l) => [l.sevdesk_id, l.recurring_id === null])).toEqual([
+      ["ID_15", false],
       ["ID_20", false],
       ["ID_26", false],
+      ["ID_35", false],
       ["ID_40", true],
     ]);
     const [run] = await sql`select progress from lexoffice_imports where source = 'sevdesk' order by started_at desc limit 1`;
     expect(run!.progress.sevdeskRecurring).toMatchObject({
       imported: 0,
-      known: 3,
+      known: 5,
     });
   });
 
@@ -215,7 +222,7 @@ describe.skipIf(!testDatabaseUrl)("sevDesk-Vorlagen wiederkehrender Rechnungen (
       exemptionReason: r.exemptionReason,
       priceMode: r.priceMode as "netto",
       lines: r.lines as never,
-      intervalMonths: r.intervalMonths as 1,
+      recurrence: r.recurrence,
       nextDate: r.nextDate,
       endDate: r.endDate,
       servicePeriod: r.servicePeriod as "laufend",

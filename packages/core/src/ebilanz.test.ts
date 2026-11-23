@@ -117,6 +117,7 @@ describe("ebilanzPosition: Miete, Pacht, Leasing und Zinsen", () => {
   const MIETE_UNBEWEGLICH = `${OC}.leaseFix.other`;
   const ZINSEN = "is.netIncome.regular.fin.netInterest.expenses.regularInterest.other";
   const RENTEN = "is.netIncome.regular.fin.netInterest.expenses.annuities";
+  const FIN = "is.netIncome.regular.fin.netInterest.expenses";
 
   it.each([
     ["SKR03", ["4570", "4575", "4810", "4965"], LEASING_BEWEGLICH],
@@ -127,6 +128,12 @@ describe("ebilanzPosition: Miete, Pacht, Leasing und Zinsen", () => {
     ["SKR04", ["6316"], LEASING_UNBEWEGLICH],
     ["SKR03", ["4211", "4220", "4550"], MIETE_UNBEWEGLICH],
     ["SKR04", ["6315", "6317", "6550"], MIETE_UNBEWEGLICH],
+    ["SKR03", ["2107"], `${FIN}.regularInterest.AO233a.deductible`],
+    ["SKR04", ["7305"], `${FIN}.regularInterest.AO233a.deductible`],
+    ["SKR03", ["2111"], `${FIN}.regularInterest.AO234to237.deductible`],
+    ["SKR04", ["7311"], `${FIN}.regularInterest.AO234to237.deductible`],
+    ["SKR03", ["2123", "2124"], `${FIN}.amortDiscount`],
+    ["SKR04", ["7323", "7324"], `${FIN}.amortDiscount`],
     ["SKR03", ["2100", "2109", "2118", "2119", "2125", "2129"], ZINSEN],
     ["SKR04", ["7300", "7309", "7318", "7319", "7325", "7329"], ZINSEN],
     ["SKR03", ["2127"], RENTEN],
