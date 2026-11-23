@@ -52,16 +52,16 @@ Die Kürzel wirken nicht, solange der Fokus in einem Eingabefeld steht; nur `Str
 
 ## Wie das geprüft wird
 
-`apps/web/e2e/barrierefreiheit.spec.ts` läuft in der CI nach dem Durchlauf in `app.spec.ts`, also mit Kunden, Rechnungen, Belegen und Bankumsätzen in der Datenbank. Seiten, deren Daten `rechnungen.spec.ts` und die Abschnitte `belege-steuern-*.spec.ts` anlegen (Angebote, Kasse, Anlagen, Darlehen, Zusammenfassende Meldung …), prüfen diese Dateien am Ende selbst mit axe, am Desktop und am Handy; die ELSTER-Einstellungen mit Zertifikat dazu in allen Themes auf Farbkontraste. Die Seiten sind auf mehrere Tests verteilt, die parallel laufen:
+`apps/web/e2e/barrierefreiheit.spec.ts` läuft in der CI nach dem Durchlauf in `app.spec.ts`, also mit Kunden, Rechnungen, Belegen und Bankumsätzen in der Datenbank. Seiten, deren Daten `rechnungen.spec.ts` und die Abschnitte `belege-steuern-*.spec.ts` anlegen (Angebote, Kasse, Anlagen, Darlehen, Zusammenfassende Meldung …), prüfen diese Dateien am Ende selbst mit axe, am Desktop und am Handy; die ELSTER-Einstellungen mit Zertifikat dazu hell und dunkel. Die Seiten sind auf mehrere Tests verteilt, die parallel laufen:
 
-1. **axe-core** prüft jede Seite gegen WCAG 2.0, 2.1 und 2.2 (A und AA) und die Best Practices von axe, am Desktop und am Handy (320 px, die Breite aus WCAG 1.4.10), dazu die Anmeldeseite und das offene Handy-Menü.
-2. Die **Farbkontraste** prüft axe zusätzlich in allen übrigen Themes.
+1. **axe-core** prüft jede Seite gegen WCAG 2.0, 2.1 und 2.2 (A und AA) und die Best Practices von axe, am Desktop und am Handy (320 px, die Breite aus WCAG 1.4.10), dazu die Anmeldeseite und das offene Handy-Menü. axe läuft nur im Standard-Theme Wald.
+2. Die **Farbkontraste** prüft axe zusätzlich im dunklen Wald. Die übrigen Farben unterscheiden sich nur in den Variablen in `styles.css`; `apps/web/src/lib/theme-kontrast.test.ts` rechnet für jede Farbe hell und dunkel nach der Formel aus WCAG nach, dass Schrift, Links, Hinweise und Navigation auf ihren Flächen 4,5 : 1 erreichen.
 3. **Anmelden nur mit der Tastatur:** Tab, Enter und Tippen, ohne Mausklick.
 4. **Sprunglink und Seitenwechsel:** Der erste Tab trifft den Sprunglink, Enter setzt den Fokus auf den Inhalt; ein Seitenwechsel über die Navigation oder über einen Link im Inhalt ebenso.
 5. **Sichtbarer Fokus:** Der Test tabbt durch die wichtigsten Seiten. Jedes Element, das den Fokus bekommt, muss einen mindestens 2 px breiten Rahmen haben.
 6. **Handy-Menü:** öffnet mit Enter, Tab führt hinein, Esc schließt es und gibt den Fokus an den Menüknopf zurück.
 7. **Aktueller Bereich:** Im Archiv tragen nur der gewählte Bereich und die gewählten Filter `aria-current`.
-8. **Befehlspalette (`Strg+K`):** öffnet mit `Strg+K`, lässt sich per `Pfeil hoch`/`runter` und `Home`/`End` navigieren, schließt mit `Esc` unter Rückgabe des Fokus und besteht axe in allen Themes sowie am Handy; Öffnen per Knopf **Suche** auf Desktop und Handy, Sperre über einem offenen Dialog und `Enter`-Auswahl prüft ergänzend `apps/web/e2e/befehlspalette.spec.ts`.
+8. **Befehlspalette (`Strg+K`):** öffnet mit `Strg+K`, lässt sich per `Pfeil hoch`/`runter` und `Home`/`End` navigieren, schließt mit `Esc` unter Rückgabe des Fokus und besteht axe hell, dunkel und am Handy; Öffnen per Knopf **Suche** auf Desktop und Handy, Sperre über einem offenen Dialog und `Enter`-Auswahl prüft ergänzend `apps/web/e2e/befehlspalette.spec.ts`.
 
 Findet axe einen Verstoß, nennt der Testbericht Regel, Element und Grund. Wie du die Tests lokal startest, steht unter [Entwicklung](entwicklung.md#ende-zu-ende-tests-mit-playwright).
 

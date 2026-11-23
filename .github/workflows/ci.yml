@@ -180,6 +180,7 @@ jobs:
       # pdftotext prüft beim Hochladen eines eigenen Layouts die Pflichtangaben (wie im Image)
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends poppler-utils
       - run: bun run build
+      - run: echo "E2E_START=$(date +%s)" >> "$GITHUB_ENV"
       # Vier Worker (playwright.config.ts), so viele Kerne hat der Runner
       - name: Ende-zu-Ende-Tests, Teil ${{ matrix.teil }}
         if: matrix.teil != 'sso'
@@ -197,6 +198,13 @@ jobs:
           E2E_DATABASE_URL: postgres://haben:haben@localhost:5432/haben_sso_e2e
           E2E_APP_DATABASE_URL: postgres://haben_e2e_app:erfundenes-e2e-passwort@localhost:5432/haben_sso_e2e
           E2E_SERVER_COMMAND: bun .output/server/index.mjs
+      # Budget je Teil 5 Minuten (docs/entwicklung.md, Tests): ab 4:30 eine Warnung, kein Fehlschlag
+      - name: Dauer des Teils
+        if: always() && env.E2E_START != ''
+        run: |
+          dauer=$(( $(date +%s) - E2E_START ))
+          echo "E2E-Teil ${{ matrix.teil }}: $((dauer / 60)):$(printf %02d $((dauer % 60))) min" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$dauer" -gt 270 ]; then echo "::warning::E2E-Teil ${{ matrix.teil }} brauchte ${dauer} s, Budget 300 s"; fi
       - if: always()
         uses: actions/upload-artifact@v7
         with:
