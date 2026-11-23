@@ -9,6 +9,7 @@ import { useSubmitCheck } from "../../lib/use-submit-check.ts";
 import { ausschuettungFehler } from "./-ausschuettung-pruefung.ts";
 import { createAusschuettungFn, previewAusschuettung } from "../../server/functions/ausschuettung.ts";
 import { Field } from "../../components/Field.tsx";
+import { Icon } from "../../components/Icon.tsx";
 
 export type Vorschlag = Awaited<ReturnType<typeof previewAusschuettung>>;
 
@@ -76,20 +77,23 @@ export function EmpfaengerTabelle({ empfaenger }: { empfaenger: Vorschlag["empfa
 }
 
 /**
- * Über „Beschluss buchen“: Gründe (issues) sperren den Knopf und stehen im Ton Warnung, Hinweise sperren nicht und
- * stehen als banner-info, damit man sieht, welcher Banner den Knopf sperrt (DESIGN.md, Gesperrte Knöpfe)
+ * Über „Beschluss buchen“: Gründe (issues) sperren den Knopf und stehen im Ton Warnung mit Symbol alert, Hinweise
+ * sperren nicht und stehen als banner-info mit info, damit man sieht, welcher Banner den Knopf sperrt, auch ohne
+ * Farbe (DESIGN.md, Gesperrte Knöpfe)
  */
 export function VorschlagMeldungen({ issues, hinweise }: Pick<Vorschlag, "issues" | "hinweise">) {
   return (
     <>
       {issues.map((text) => (
         <div key={text} className="banner" role="status">
-          {text}
+          <Icon name="alert" />
+          <span>{text}</span>
         </div>
       ))}
       {hinweise.map((text) => (
         <div key={text} className="banner banner-info" role="status">
-          {text}
+          <Icon name="info" />
+          <span>{text}</span>
         </div>
       ))}
     </>

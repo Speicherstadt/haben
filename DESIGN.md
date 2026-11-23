@@ -69,7 +69,7 @@ Gesperrt sein darf ein Knopf, wenn der Grund nicht im Formular liegt oder direkt
 - Ein anderer Vorgang im selben Bereich muss erst fertig werden, etwa ein offener Schritt an einer Zeile darunter oder ein offenes Formular darüber: Der Hinweis nennt ihn, ohne Link.
 - Es gibt nichts zu tun (nichts geändert, nichts ausgewählt): Der Zähler steht daneben, etwa „2 ausgewählt“, auch in `.actions`.
 
-Der Hinweis steht über der Knopfzeile, bei Knöpfen im Kopf eines Bereichs neben der Überschrift direkt unter dem Kopf, bei Knöpfen rechts an einer Zeile (`.history-row`) als letzte Zeile ihrer Angaben, nie als loser Text in `.actions`. Geht die Aktion gerade grundsätzlich nicht, fehlt der Knopf. Steht dort neben dem Grund ein Hinweis, der nicht sperrt, trägt der Grund den Ton Warnung (`.banner`) und der Hinweis `banner-info`, damit man sieht, welcher Banner sperrt (Ausschüttung, Jahreserklärung einer GmbH).
+Der Hinweis steht über der Knopfzeile, bei Knöpfen im Kopf eines Bereichs neben der Überschrift direkt unter dem Kopf, bei Knöpfen rechts an einer Zeile (`.history-row`) als letzte Zeile ihrer Angaben, nie als loser Text in `.actions`. Geht die Aktion gerade grundsätzlich nicht, fehlt der Knopf. Steht dort neben dem Grund ein Hinweis, der nicht sperrt, trägt der Grund den Ton Warnung (`.banner`) mit dem Symbol `alert` und der Hinweis `banner-info` mit `info`, damit man auch ohne Farbe sieht, welcher Banner sperrt (Ausschüttung, Jahreserklärung einer GmbH).
 
 ### Reihenfolge der Knöpfe
 
