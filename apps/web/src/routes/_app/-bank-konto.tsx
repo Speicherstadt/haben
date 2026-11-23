@@ -1,5 +1,6 @@
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { AMAZON_MARKETPLACES } from "@haben/core";
 import { useEffect, useState, type FormEvent } from "react";
 import { NoticeBanner } from "../../components/NoticeBanner.tsx";
 import { errorMessage } from "../../lib/format.ts";
@@ -31,6 +32,7 @@ export function AccountSettings({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(account.name);
   const [purpose, setPurpose] = useState(account.purpose);
+  const [marketplace, setMarketplace] = useState(account.marketplace ?? "");
   const { busy, notice, run } = useAction();
   const { form, error, check } = useSubmitCheck({ name: name.trim() === "" ? "Trag einen Namen ein." : null });
 
@@ -53,7 +55,14 @@ export function AccountSettings({
     event.preventDefault();
     if (!check()) return;
     void run(async () => {
-      await updateFn({ data: { id: account.id, name, purpose: purpose === "zahlungsdienstleister" ? undefined : purpose } });
+      await updateFn({
+        data: {
+          id: account.id,
+          name,
+          purpose: purpose === "zahlungsdienstleister" ? undefined : purpose,
+          marketplace: account.provider === "amazon" ? marketplace : undefined,
+        },
+      });
       // Konto fest in die Adresse: ohne „konto“ zeigt die Seite das alphabetisch erste, nach dem Umbenennen ein anderes
       await navigate({ search: (prev) => ({ ...prev, konto: account.id }), replace: true });
       await router.invalidate();
@@ -86,6 +95,32 @@ export function AccountSettings({
           )}
         </Field>
       )}
+      {account.provider === "amazon" && (
+        <Field label="Marktplatz">
+          {(control) => (
+            <select
+              {...control}
+              value={marketplace}
+              onChange={(e) => setMarketplace(e.target.value)}
+              disabled={account.hasTransactions}
+              aria-describedby="marktplatz-hinweis"
+            >
+              {AMAZON_MARKETPLACES.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+      )}
+      {account.provider === "amazon" && (
+        <span className="small muted" id="marktplatz-hinweis">
+          {account.hasTransactions
+            ? "Der Marktplatz lässt sich nach dem ersten Import nicht mehr ändern, damit kein Report in das falsche Konto läuft."
+            : "Jede Amazon-Abrechnung gehört zu ihrem Marktplatz; ein Report für einen anderen Marktplatz wird abgelehnt."}
+        </span>
+      )}
       <span className="small muted">
         Der Name ist nur Anzeige; Umsätze und Import über die IBAN bleiben, wie sie sind. Der Zweck steuert Vorschläge im Bankabgleich (Geldtransit zwischen
         eigenen Konten, Umsatzsteuer auf dem Steuerkonto, Privat beim Privatkonto), die IBAN für „Bankverbindung ändern“ beim Finanzamt und die Deckung der
@@ -99,6 +134,7 @@ export function AccountSettings({
           onClick={() => {
             setName(account.name);
             setPurpose(account.purpose);
+            setMarketplace(account.marketplace ?? "");
             setEditing(false);
           }}
           disabled={busy}
@@ -150,6 +186,7 @@ export function ImportControls({ data }: { data: Data }) {
   const addAccount = useServerFn(addBankAccount);
   const addProvider = useServerFn(addProviderAccount);
   const [accountType, setAccountType] = useState<"bank" | "provider">("bank");
+  const [provider, setProvider] = useState("paypal");
   const [busy, setBusy] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
   const [targetAccount, setTargetAccount] = useState("");
@@ -180,7 +217,13 @@ export function ImportControls({ data }: { data: Data }) {
     try {
       const { id } =
         accountType === "provider"
-          ? await addProvider({ data: { name: String(form.get("name")), provider: String(form.get("provider")) as "paypal" } })
+          ? await addProvider({
+              data: {
+                name: String(form.get("name")),
+                provider: provider as "amazon",
+                marketplace: provider === "amazon" ? String(form.get("marketplace")) : undefined,
+              },
+            })
           : await addAccount({ data: { name: String(form.get("name")), iban: String(form.get("iban")) } });
       setShowAccount(false);
       setTargetAccount(id);
@@ -235,17 +278,35 @@ export function ImportControls({ data }: { data: Data }) {
             )}
           </Field>
           {accountType === "provider" && (
-            <Field label="Dienstleister">
-              {(control) => (
-                <select {...control} name="provider" defaultValue="paypal">
-                  {data.providers.map((p) => (
-                    <option key={p.value} value={p.value}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
+            <>
+              <Field label="Dienstleister">
+                {(control) => (
+                  <select {...control} name="provider" value={provider} onChange={(e) => setProvider(e.target.value)}>
+                    {data.providers.map((p) => (
+                      <option key={p.value} value={p.value}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </Field>
+              {provider === "amazon" && (
+                <Field label="Marktplatz">
+                  {(control) => (
+                    <select {...control} name="marketplace" required defaultValue="">
+                      <option value="" disabled>
+                        Marktplatz wählen
+                      </option>
+                      {AMAZON_MARKETPLACES.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </Field>
               )}
-            </Field>
+            </>
           )}
           <Field label="Name">
             {(control) => <input {...control} name="name" required placeholder={accountType === "provider" ? "PayPal Geschäftskonto" : "N26 Business"} />}

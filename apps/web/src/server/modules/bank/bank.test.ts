@@ -1053,41 +1053,48 @@ describe.skipIf(!testDatabaseUrl)("Bankabgleich (Postgres)", () => {
     { kontenrahmen: "SKR04", versteuerung: "soll", accounts: { bank: "1800", ust: "3806", fee: "6855", revenue: "4400" } },
   ] as const;
 
+  /** Eine Position des Settlement Reports; der Marktplatz steht in der Spalte marketplace-name */
+  const amazonLine = (marketplace: string, type: string, order: string, amountType: string, description: string, amount: string) => {
+    const c = Array(24).fill("");
+    c[0] = "28165578252";
+    c[6] = type;
+    c[7] = order;
+    c[8] = order;
+    c[11] = marketplace;
+    c[12] = amountType;
+    c[13] = description;
+    c[14] = amount;
+    c[15] = "AFN";
+    c[16] = "03.10.2026";
+    c[17] = "03.10.2026 12:00:00 UTC";
+    return c.join("\t");
+  };
+  const amazonSummary = (total: string) => {
+    const c = Array(24).fill("");
+    c[0] = "28165578252";
+    c[1] = "01.10.2026 00:00:00 UTC";
+    c[2] = "15.10.2026 00:00:00 UTC";
+    c[3] = "17.10.2026 00:00:00 UTC";
+    c[4] = total;
+    c[5] = "EUR";
+    return c.join("\t");
+  };
+  /** Kleiner Settlement Report (eine Bestellung, Erlös 119,00, Gebühr 14,27, Auszahlung 104,73) für einen Marktplatz */
+  const amazonReport = (marketplace: string) =>
+    [
+      AMAZON_HEADER,
+      amazonSummary("104,73"),
+      amazonLine(marketplace, "Order", "1-11111-11111", "ItemPrice", "Principal", "119,00"),
+      amazonLine(marketplace, "Order", "1-11111-11111", "ItemFees", "Commission", "-14,27"),
+    ].join("\n");
+
   it.each(AMAZON_CASES)(
     "Amazon ($kontenrahmen, $versteuerung): Bestellung brutto zur Rechnung, Gebühren als Aufwand, Auszahlung als Geldtransit",
     async ({ kontenrahmen, versteuerung, accounts }) => {
       await sql`update company set kontenrahmen = ${kontenrahmen}, versteuerung = ${versteuerung}`;
       const { invoice } = await finalInvoice(10_000);
-      const amazon = await bank.createProviderAccount(actor, { name: "Amazon", provider: "amazon" });
-      const line = (type: string, order: string, amountType: string, description: string, amount: string) => {
-        const c = Array(24).fill("");
-        c[0] = "28165578252";
-        c[6] = type;
-        c[7] = order;
-        c[8] = order;
-        c[11] = "Amazon.de";
-        c[12] = amountType;
-        c[13] = description;
-        c[14] = amount;
-        c[15] = "AFN";
-        c[16] = "03.10.2026";
-        c[17] = "03.10.2026 12:00:00 UTC";
-        return c.join("\t");
-      };
-      const head = Array(24).fill("");
-      head[0] = "28165578252";
-      head[1] = "01.10.2026 00:00:00 UTC";
-      head[2] = "15.10.2026 00:00:00 UTC";
-      head[3] = "17.10.2026 00:00:00 UTC";
-      head[4] = "104,73";
-      head[5] = "EUR";
-      const report = [
-        AMAZON_HEADER,
-        head.join("\t"),
-        line("Order", "1-11111-11111", "ItemPrice", "Principal", "119,00"),
-        line("Order", "1-11111-11111", "ItemFees", "Commission", "-14,27"),
-      ].join("\n");
-      const file = { bytes: new TextEncoder().encode(report), filename: "amazon-settlement.txt" };
+      const amazon = await bank.createProviderAccount(actor, { name: "Amazon.de", provider: "amazon", marketplace: "Amazon.de" });
+      const file = { bytes: new TextEncoder().encode(amazonReport("Amazon.de")), filename: "amazon-settlement.txt" };
       expect(await bank.importStatement(actor, file, amazon.id)).toMatchObject({ added: 3 });
       expect(await bank.importStatement(actor, file, amazon.id)).toMatchObject({ added: 0 });
       await bank.importStatement(
@@ -1119,6 +1126,32 @@ describe.skipIf(!testDatabaseUrl)("Bankabgleich (Postgres)", () => {
     },
     30_000,
   );
+
+  it("Amazon: Marktplatz ist Pflicht und der Import prüft ihn", async () => {
+    await expect(bank.createProviderAccount(actor, { name: "Amazon", provider: "amazon" })).rejects.toThrow(/Marktplatz/);
+    await expect(bank.createProviderAccount(actor, { name: "Amazon", provider: "amazon", marketplace: "Amazon.xx" })).rejects.toThrow(/Marktplatz/);
+    const amazon = await bank.createProviderAccount(actor, { name: "Amazon.de", provider: "amazon", marketplace: "Amazon.de" });
+    const file = (marketplace: string) => ({ bytes: new TextEncoder().encode(amazonReport(marketplace)), filename: "amazon-settlement.txt" });
+
+    // Falscher Marktplatz: nichts wird importiert.
+    await expect(bank.importStatement(actor, file("Amazon.fr"), amazon.id)).rejects.toThrow(/gehört zu Amazon\.fr.*für Amazon\.de/);
+    expect(await bank.importStatement(actor, file("Amazon.de"), amazon.id)).toMatchObject({ added: 3 });
+
+    // Ein Amazon-Report gehört nicht in ein anderes Zahlungsdienstleister-Konto.
+    const paypal = await bank.createProviderAccount(actor, { name: "PayPal", provider: "paypal" });
+    await expect(bank.importStatement(actor, file("Amazon.de"), paypal.id)).rejects.toThrow(/kein Amazon-Konto/);
+  }, 30_000);
+
+  it("Amazon: der Marktplatz lässt sich nur ändern, solange das Konto leer ist", async () => {
+    const amazon = await bank.createProviderAccount(actor, { name: "Amazon", provider: "amazon", marketplace: "Amazon.de" });
+    await bank.updateAccount(actor, { id: amazon.id, name: "Amazon", marketplace: "Amazon.fr" });
+    expect((await bank.listAccounts()).find((a) => a.id === amazon.id)).toMatchObject({ marketplace: "Amazon.fr", hasTransactions: false });
+    await expect(bank.updateAccount(actor, { id: amazon.id, name: "Amazon", marketplace: "Amazon.xx" })).rejects.toThrow(/Unbekannter Marktplatz/);
+
+    await bank.importStatement(actor, { bytes: new TextEncoder().encode(amazonReport("Amazon.fr")), filename: "amazon-settlement.txt" }, amazon.id);
+    expect((await bank.listAccounts()).find((a) => a.id === amazon.id)).toMatchObject({ hasTransactions: true });
+    await expect(bank.updateAccount(actor, { id: amazon.id, name: "Amazon", marketplace: "Amazon.de" })).rejects.toThrow(/keine Umsätze/);
+  }, 30_000);
 
   it("Gebühren eines Monats der Sammelrechnung des Dienstleisters zuordnen", async () => {
     const stripe = await bank.createProviderAccount(actor, { name: "Stripe", provider: "stripe" });
