@@ -333,6 +333,68 @@ describe.skipIf(!testDatabaseUrl)("Kleinunternehmer-Umsätze in Kz 48 (Postgres)
     expect((await vat.computeVatFigures(november)).kz48).toBe(-30_000);
   });
 
+  /*
+   * Die Schlussrechnung zählt mit der abgezogenen Anzahlung, ihr Storno ebenso. Die bezahlte Anzahlung hält Kz 48 bis zur
+   * Rückzahlung oder bis zum Leistungsmonat einer neuen Schlussrechnung, die sie wieder abzieht (Entscheidung in #1745)
+   */
+  for (const [kontenrahmen, versteuerung] of [
+    ["SKR04", "ist"],
+    ["SKR03", "soll"],
+  ] as const) {
+    it(`${kontenrahmen}/${versteuerung}: Storno einer Schlussrechnung mit bezahlter Anzahlung mindert Kz 48 erst mit der Rückzahlung`, async () => {
+      await firma(kontenrahmen, versteuerung);
+      const anzahlung = await direkt({ variant: "abschlag", advance_type: "anzahlung", issue_date: "2026-09-05" }, 30_000);
+      await zahlung(anzahlung, "2026-09-10", 30_000);
+      const schluss = await direkt({ variant: "schluss", issue_date: "2026-11-04", service_date: "2026-10-31" }, 70_000, [{ von: anzahlung, net: -30_000 }]);
+      await zahlung(schluss, "2026-11-06", 70_000);
+      await direkt({ kind: "storno", corrects_id: schluss, issue_date: "2026-11-20" }, -70_000, [{ von: anzahlung, net: 30_000 }]);
+
+      expect((await vat.computeVatFigures(oktober)).kz48).toBe(100_000);
+      // 1.000 € bezahlt (300 € Anzahlung, 700 € Rest), nichts zurückgezahlt
+      expect((await vat.computeVatFigures(november)).kz48).toBe(0);
+      // Zurückgezahlt wird eine Anzahlung über ihr Storno
+      const anzahlungStorno = await direkt({ kind: "storno", corrects_id: anzahlung, issue_date: "2026-12-02" }, -30_000);
+      await zahlung(anzahlungStorno, "2026-12-03", -30_000);
+      expect((await vat.computeVatFigures({ year: 2026, month: 12 })).kz48).toBe(-30_000);
+      expect((await vat.computeVatFigures(november)).kz48).toBe(0);
+    });
+
+    it(`${kontenrahmen}/${versteuerung}: Neue Schlussrechnung mit derselben Anzahlung beendet das Festhalten im Monat ihrer Leistung`, async () => {
+      await firma(kontenrahmen, versteuerung);
+      const monat = (year: number, month: number) => vat.computeVatFigures({ year, month }).then((f) => f.kz48);
+      const anzahlung = await direkt({ variant: "abschlag", advance_type: "anzahlung", issue_date: "2026-09-05" }, 30_000);
+      await zahlung(anzahlung, "2026-09-10", 30_000);
+      const alt = await direkt({ variant: "schluss", issue_date: "2026-11-04", service_date: "2026-10-31" }, 70_000, [{ von: anzahlung, net: -30_000 }]);
+      await zahlung(alt, "2026-11-06", 70_000);
+      const altStorno = await direkt({ kind: "storno", corrects_id: alt, issue_date: "2026-11-20" }, -70_000, [{ von: anzahlung, net: 30_000 }]);
+      const neu = await direkt({ variant: "schluss", issue_date: "2026-12-10", service_date: "2026-12-08" }, 70_000, [{ von: anzahlung, net: -30_000 }]);
+
+      expect(await monat(2026, 11)).toBe(0);
+      // Neue Schlussrechnung 1.000 €; die festgehaltenen 300 € Anzahlung enden in ihrem Leistungsmonat
+      expect(await monat(2026, 12)).toBe(70_000);
+      // Der Auftrag fällt ganz weg: Jetzt hält das Storno der neuen Schlussrechnung die Anzahlung, nicht das alte
+      await direkt({ kind: "storno", corrects_id: neu, issue_date: "2027-01-15" }, -70_000, [{ von: anzahlung, net: 30_000 }]);
+      expect(await monat(2027, 1)).toBe(-70_000);
+      const anzahlungStorno = await direkt({ kind: "storno", corrects_id: anzahlung, issue_date: "2027-02-02" }, -30_000);
+      await zahlung(anzahlungStorno, "2027-02-05", -30_000);
+      expect(await monat(2027, 2)).toBe(-30_000);
+      await zahlung(altStorno, "2027-03-04", -70_000);
+      expect(await monat(2027, 3)).toBe(-70_000);
+      // Alles zurückgezahlt: über alle Monate nichts doppelt
+      let summe = 0;
+      for (const [year, month] of [
+        [2026, 10],
+        [2026, 11],
+        [2026, 12],
+        [2027, 1],
+        [2027, 2],
+        [2027, 3],
+      ] as const)
+        summe += await monat(year, month);
+      expect(summe).toBe(0);
+    });
+  }
+
   it("Gesendete Voranmeldung von vor #1268 meldet keine Abweichung, ein anderer Wert schon", async () => {
     await firma("SKR03", "soll");
     await rechnung();
