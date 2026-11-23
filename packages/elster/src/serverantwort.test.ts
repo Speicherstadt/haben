@@ -99,6 +99,19 @@ describe("mitServerMeldung", () => {
     expect(mitServerMeldung(eric, antwort(ok))).toBe(eric);
   });
 
+  it("erklärt 601015001, statt den Text zum Zertifikat zu wiederholen", () => {
+    const xml = antwort(
+      fehler(
+        601015001,
+        "Es ist ein Fehler bei der Verfahrenspruefung aufgetreten - Die Kombination ... ist fuer ihr Client-Zertifikat mit CN: extern-eric nicht zugelassen.",
+      ),
+    );
+    const meldung = mitServerMeldung("M", xml);
+    expect(meldung).toContain("601015001");
+    expect(meldung).toContain("Nur Testübermittlung");
+    expect(meldung).not.toContain("extern-eric");
+  });
+
   it("nennt auch einen Code ohne Text", () => {
     expect(mitServerMeldung("M", antwort(fehler(7, "")))).toBe("M Antwort des ELSTER-Servers: Transferheader 7");
   });

@@ -57,10 +57,27 @@ export function serverRueckmeldungen(serverResponseXml: string): ServerRueckmeld
   ];
 }
 
+/**
+ * Codes, bei denen der Text des Annahmeservers mehr verwirrt als erklärt, mit einer Erklärung statt der Serverantwort.
+ *
+ * 601015001: Der Testabruf im Postfach geht mit Testmerker in die Test-Datenbank, und dort ist die Kombination aus
+ * ElsterDatenabholung, PostfachAnfrage und send-Auth für das Testzertifikat nicht zugelassen. Der Servertext nennt
+ * dabei das Zertifikat des Aufrufers, obwohl das gar nicht gemeint ist (#1791).
+ */
+const HINWEISE: Record<number, string> = {
+  601015001:
+    "ELSTER nimmt den Testabruf im Postfach nicht an (601015001): Mit Testmerker landet die Anfrage in der Test-Datenbank, " +
+    "und dort ist die Kombination aus PostfachAnfrage und Testmerker für das Testzertifikat nicht zugelassen. " +
+    "Schalte „Nur Testübermittlung“ aus und rufe das Postfach echt ab.",
+};
+
 /** Die Meldung von ERiC, ergänzt um Code und Text des Servers; unverändert, wenn der Server nichts meldet */
 export function mitServerMeldung(message: string, serverResponseXml: string): string {
   const meldungen = serverRueckmeldungen(serverResponseXml);
   if (meldungen.length === 0) return message;
-  const zeilen = meldungen.map((m) => `${m.quelle} ${m.code}${m.text ? ` – ${m.text}` : ""}`);
+  const zeilen = meldungen.map((m) => {
+    const text = HINWEISE[m.code] ?? m.text;
+    return `${m.quelle} ${m.code}${text ? ` – ${text}` : ""}`;
+  });
   return `${message} Antwort des ELSTER-Servers: ${zeilen.join("; ")}`;
 }
