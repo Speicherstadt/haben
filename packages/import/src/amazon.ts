@@ -65,6 +65,7 @@ export function parseAmazonSettlement(rows: string[][], headerRow: number): Pars
   const amountType = c.getter("amounttype");
   const description = c.getter("amountdescription");
   const amount = c.getter("amount");
+  const marketplaceName = c.getter("marketplacename");
   const posted = c.getter("posteddate");
 
   const day = (raw: string, where: string) => pspDate(raw.trim().replace(/\s+\d{1,2}:\d{2}(?::\d{2})?.*$/, ""), where);
@@ -89,6 +90,7 @@ export function parseAmazonSettlement(rows: string[][], headerRow: number): Pars
   const payoutDate = (deposit(head.row) ? day(deposit(head.row), "Kopfline") : periodTo) ?? periodTo;
 
   const orders = new Map<string, OrderTotal>();
+  const marketplaces = new Set<string>();
   const list: Tx[] = [];
   let positionSum = 0;
   for (const { row, line } of data) {
@@ -100,6 +102,7 @@ export function parseAmazonSettlement(rows: string[][], headerRow: number): Pars
     positionSum += cents;
     const kind = type(row);
     const orderId = order(row);
+    if (marketplaceName(row)) marketplaces.add(marketplaceName(row));
     if ((kind === "Order" || kind === "Refund") && orderId) {
       const key = `${kind}|${orderId}`;
       const entry = orders.get(key) ?? { refund: kind === "Refund", date: day(posted(row), where), revenue: 0, fee: 0 };
@@ -167,7 +170,11 @@ export function parseAmazonSettlement(rows: string[][], headerRow: number): Pars
   if (payoutTotal !== null && positionSum !== payoutTotal) {
     warnings.push(`Die Summe der Positionen (${euros(positionSum)}) weicht vom Auszahlungsbetrag (${euros(payoutTotal)}) ab; bitte den Report prüfen.`);
   }
+  const marketplace = marketplaces.size === 1 ? [...marketplaces][0] : undefined;
+  if (marketplaces.size > 1) {
+    warnings.push(`Die Abrechnung nennt mehrere Marktplätze (${[...marketplaces].join(", ")}); der Marktplatz wird nicht geprüft.`);
+  }
 
   list.sort((a, b) => a.bookingDate.localeCompare(b.bookingDate));
-  return finish({ format: "amazon-settlement", currency: "EUR", periodFrom, periodTo, transactions: indexed(list), warnings });
+  return finish({ format: "amazon-settlement", currency: "EUR", marketplace, periodFrom, periodTo, transactions: indexed(list), warnings });
 }

@@ -97,6 +97,7 @@ describe("Amazon-Settlement-Report", () => {
     const s = parseStatement(f, "amazon-settlement.txt");
     expect(s.format).toBe("amazon-settlement");
     expect(s.currency).toBe("EUR");
+    expect(s.marketplace).toBe("Amazon.de");
     expect([s.periodFrom, s.periodTo]).toEqual(["2026-11-03", "2026-11-17"]);
     // 15 Bestellungen zu je Erlös und Gebühr, 6 Sonderzeilen, die Auszahlung
     expect(s.transactions).toHaveLength(37);
@@ -170,6 +171,32 @@ describe("Amazon-Settlement-Report", () => {
       ["2026-11-09", -4641, "Gebühr", "Gebühr · Subscription Fee"],
       ["2026-11-17", 94, "Erstattung", "Erstattung · FBA Inventory Reimbursement · WAREHOUSE_LOST"],
     ]);
+  });
+
+  it("gibt den Marktplatz der Abrechnung mit", () => {
+    const s = parseStatement(
+      file(
+        [{ type: "Order", order: "1-1", marketplace: "Amazon.fr", amountType: "ItemPrice", description: "Principal", amount: "10,00", date: "05.11.2026" }],
+        {
+          total: "10,00",
+        },
+      ),
+    );
+    expect(s.marketplace).toBe("Amazon.fr");
+  });
+
+  it("nennt die Abrechnung mehrere Marktplätze, wird der Marktplatz nicht geprüft", () => {
+    const s = parseStatement(
+      file(
+        [
+          { type: "Order", order: "1-1", marketplace: "Amazon.de", amountType: "ItemPrice", description: "Principal", amount: "10,00", date: "05.11.2026" },
+          { type: "Order", order: "2-2", marketplace: "Amazon.fr", amountType: "ItemPrice", description: "Principal", amount: "5,00", date: "05.11.2026" },
+        ],
+        { total: "15,00" },
+      ),
+    );
+    expect(s.marketplace).toBeUndefined();
+    expect(s.warnings).toEqual(["Die Abrechnung nennt mehrere Marktplätze (Amazon.de, Amazon.fr); der Marktplatz wird nicht geprüft."]);
   });
 
   it("lehnt eine Abrechnung in fremder Währung ab (nur die EUR-Marktplätze)", () => {

@@ -98,6 +98,8 @@ export interface ParsedStatement {
   currency: string;
   periodFrom?: string;
   periodTo?: string;
+  /** Marktplatz der Datei, falls sie einen nennt (Amazon: `marketplace-name`, z. B. „Amazon.de“); dient dem Abgleich mit dem Konto */
+  marketplace?: string;
   /** Saldo vor dem ersten bzw. nach dem letzten Umsatz, falls die Datei ihn nennt */
   openingBalance?: Cents;
   closingBalance?: Cents;
