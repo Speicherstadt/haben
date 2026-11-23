@@ -72,9 +72,9 @@ Die Regel steht in `docs/mitwirken.md`, Review, „Runden“. Schritte 1 bis 5 s
 ## 6. Merge (Maintainer oder Collaborator mit Zustimmung)
 
 - Mergen darf, wer Maintainer von Haben ist und das ausdrücklich will, oder ein Collaborator mit Zustimmung des Maintainers. Wer sonst beiträgt, hört nach Schritt 5 auf.
-- Vor dem Merge prüfen: alle Findings behoben oder nach „Wie viele Runden“ notiert, bei Markdown im PR auch `doku-pruefen` abgeschlossen, alle Checks grün auf dem aktuellen Stand, kein Konflikt mit `main`, Titel und Beschreibung passen zum Stand (sie werden der Squash-Commit auf `main`).
+- Vor dem Merge prüfen: alle Findings behoben oder nach „Wie viele Runden“ notiert, bei Markdown im PR auch `doku-pruefen` abgeschlossen, alle Checks grün auf dem aktuellen Stand (Ausnahme wie unter „Nicht mergen“), kein Konflikt mit `main`, Titel und Beschreibung passen zum Stand (sie werden der Squash-Commit auf `main`).
 - Merge-Methode nach `docs/mitwirken.md`, „Review“, Schritt 6: immer **Squash** des Pull Requests selbst.
-- **Nicht mergen**, wenn ein zu behebendes Finding offen ist, Checks rot bleiben oder der Fix eine fachliche Entscheidung braucht – dann zurückmelden und fragen.
+- **Nicht mergen**, wenn ein zu behebendes Finding offen ist, Checks rot bleiben (außer einem Check, der auf `main` genauso rot ist, nach „Wer mergt was“ in `docs/mitwirken.md`) oder der Fix eine fachliche Entscheidung braucht – dann zurückmelden und fragen.
 
 ## Abschlussbericht
 

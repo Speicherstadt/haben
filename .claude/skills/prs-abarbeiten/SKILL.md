@@ -18,7 +18,7 @@ Der Skill ordnet und verteilt nur. Die Prüfung eines Pull Requests macht `beitr
 - Heikel, also Steuer, Buchung, ELSTER, GoBD oder Migration auf bestehenden Daten?
 - Prüfungen des Autors (nur bei Pull Requests von jemandem ohne Schreibrecht): Selbstprüfung nach `beitrag-pruefen` und unabhängiges Review (`tdd-review` für Code, `doku-pruefen` für Markdown) als Kommentare, die seinen letzten Commit nennen oder per Nachtrag bis zu ihm reichen?
 
-Ist auf `main` ein Check rot, kommt das vor allem anderen: Sonst ist er in jedem Pull Request rot. Einen Fix legt der Maintainer an oder lässt ihn anlegen.
+Ist auf `main` ein Check rot, kommt das vor allem anderen: Sonst ist er in jedem Pull Request rot. Den Fix legt der Maintainer direkt auf `main` an oder lässt ihn auf seine Anweisung anlegen, in den Grenzen von „Wer mergt was“ in `docs/mitwirken.md`; ein fachlich heikler Fix geht als Pull Request.
 
 Pull Requests, die der Maintainer anderen überlassen hat (eigene Pull Requests eines Collaborators, Pull Requests, die ein Collaborator betreut), fasst der Skill nicht an. Steht dazu nichts im Verlauf, fragt er einmal, zusammen mit der Rangliste.
 
@@ -62,7 +62,7 @@ Jeder Pull Request bekommt einen Kommentar mit dem Ergebnis. Bei heiklen Pull Re
 
 ## 4. Merge
 
-Nach `beitrag-pruefen`, Schritt 7: nur bei grüner CI auf dem Head, heikel erst nach OK des Maintainers. Ist ein Check auch auf `main` rot, wartet der Pull Request auf den Fix von `main` (Schritt 1). Dazu:
+Nach `beitrag-pruefen`, Schritt 7: nur bei grüner CI auf dem Head, heikel erst nach OK des Maintainers. Ist ein Check auf `main` genauso rot (derselbe Job, derselbe Fehler), darf der Pull Request trotzdem gemergt werden, wenn er die Stelle nicht berührt und nicht heikel ist; der Merge-Kommentar verlinkt den roten Lauf auf `main`. Sonst wartet er auf den Fix von `main` (Schritt 1). Dazu:
 
 - Squash mit dem vollen Head-SHA als erwartetem Head
 - Worktree, lokale Branches und Test-Datenbank aufräumen
