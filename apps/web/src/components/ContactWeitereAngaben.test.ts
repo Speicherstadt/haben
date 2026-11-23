@@ -38,7 +38,7 @@ function render(offen: boolean) {
 
 describe("Weitere Angaben am Kontakt", () => {
   it("nennt in der Überschrift, was gesetzt ist, sonst was im Bereich steht", () => {
-    expect(kontaktWeitereKurz(leer)).toBe("optional: DATEV-Konten, Skonto, Stundensatz, Leitweg-ID, Lieferantennummer, Rechnungsformat");
+    expect(kontaktWeitereKurz(leer)).toBe("optional: DATEV-Konten, Skonto, Stundensatz, Leitweg-ID, Unsere Lieferantennummer, Rechnungsformat");
     expect(kontaktWeitereKurz({ ...leer, leitwegId: "991-01234-44", ownSkonto: true, skonto: [{ days: 10, percent: 200 }] })).toBe(
       "Leitweg-ID gesetzt · Skonto 2 % in 10 Tagen",
     );
@@ -48,8 +48,10 @@ describe("Weitere Angaben am Kontakt", () => {
   });
 
   it("nennt die Lieferantennummer beim Kunden (BT-29) in der Überschrift, wenn sie gesetzt ist", () => {
-    expect(kontaktWeitereKurz({ ...leer, unsereLieferantennummer: " 4711 " })).toBe("Lieferantennummer 4711");
-    expect(kontaktWeitereKurz({ ...leer, leitwegId: "991-01234-44", unsereLieferantennummer: "70815" })).toBe("Leitweg-ID gesetzt · Lieferantennummer 70815");
+    expect(kontaktWeitereKurz({ ...leer, unsereLieferantennummer: " 4711 " })).toBe("Unsere Lieferantennummer 4711");
+    expect(kontaktWeitereKurz({ ...leer, leitwegId: "991-01234-44", unsereLieferantennummer: "70815" })).toBe(
+      "Leitweg-ID gesetzt · Unsere Lieferantennummer 70815",
+    );
     expect(kontaktWeitereKurz({ ...leer, unsereLieferantennummer: "  " })).toContain("optional:");
   });
 
@@ -77,7 +79,7 @@ describe("Weitere Angaben am Kontakt", () => {
     expect(zu).toContain('value="95,00"');
     expect(zu).toContain('value="991-01234-44"');
     expect(zu).toContain('value="70815"');
-    expect(zu).toContain("Lieferantennummer 70815");
+    expect(zu).toContain("Unsere Lieferantennummer 70815");
     expect(render(true)).toMatch(/<details[^>]* open/);
   });
 

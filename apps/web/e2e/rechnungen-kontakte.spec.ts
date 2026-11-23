@@ -305,7 +305,7 @@ test("Unsere Lieferantennummer beim Kunden steht im Kopf der Rechnung (#711)", a
   await expect(bereich).toHaveJSProperty("open", false);
   await page.getByRole("button", { name: "Kontakt anlegen" }).click();
   await expect(page.getByRole("heading", { name: "Versionen" })).toBeVisible();
-  await expect(bereich.locator("summary")).toContainText("Lieferantennummer 70815");
+  await expect(bereich.locator("summary")).toContainText("Unsere Lieferantennummer 70815");
   await weitereAngabenOeffnen(page);
   await expect(page.getByLabel("Unsere Lieferantennummer bei diesem Kunden")).toHaveValue("70815");
   // Die eigene Lieferantennummer (Gegenrichtung) bleibt leer

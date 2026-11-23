@@ -31,13 +31,13 @@ export function kontaktWeitereKurz(werte: KontaktWeitereWerte): string {
     werte.kreditorNr.trim() && `DATEV-Kreditor ${werte.kreditorNr.trim()}`,
     werte.hourlyRate.trim() && `Stundensatz ${werte.hourlyRate.trim()} €`,
     werte.leitwegId.trim() && "Leitweg-ID gesetzt",
-    werte.unsereLieferantennummer.trim() && `Lieferantennummer ${werte.unsereLieferantennummer.trim()}`,
+    werte.unsereLieferantennummer.trim() && `Unsere Lieferantennummer ${werte.unsereLieferantennummer.trim()}`,
     werte.defaultFormat && `Format ${FORMAT_LABEL[werte.defaultFormat].split(" · ")[0]}`,
     skonto,
   ]
     .filter(Boolean)
     .join(" · ");
-  return gesetzt || "optional: DATEV-Konten, Skonto, Stundensatz, Leitweg-ID, Lieferantennummer, Rechnungsformat";
+  return gesetzt || "optional: DATEV-Konten, Skonto, Stundensatz, Leitweg-ID, Unsere Lieferantennummer, Rechnungsformat";
 }
 
 /** Die Felder im Bereich, benannt wie im Formular und in `contactSchema`; ein Fehler nennt sie in `felder` (UserError, Pfad der Zod-Prüfung) */
