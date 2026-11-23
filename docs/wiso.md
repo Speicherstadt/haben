@@ -62,6 +62,10 @@ Bereite für Kontakte, Anlagen und gegebenenfalls Artikel je eine eigene CSV mit
 
 ### Kontakte
 
+Unter **Archiv › Umzug › Umzug aus WISO** kannst du die Liste **Kunden / Interessenten** als PDF mit Textebene prüfen (höchstens 20 MB und 100 Seiten). Haben liest Nummer, Name und erste Anschrift lokal auf dem Server aus. Die Vorschau speichert keine Kontakte. Bei einem unbekannten Layout oder einer nicht eindeutig lesbaren Anschrift erstelle die CSV von Hand.
+
+Lade den CSV-Entwurf herunter und prüfe die erkannten Namen und Anschriften am PDF. Die WISO-Liste unterscheidet Kunden und Interessenten nicht je Zeile. Ergänze in der CSV die **Rolle** der zu übernehmenden Kontakte und entferne die übrigen Zeilen. Bei fünfstelliger PLZ schlägt Haben Deutschland vor. Der Hinweis **Land prüfen** zeigt eine PLZ, für die du Land und PLZ in der CSV selbst eintragen musst. Anschließend prüft der normale Kontaktimport die CSV und zeigt Dubletten vor dem Speichern.
+
 - Übernimm die WISO-Kundennummer als **Kundennummer**, nicht ungeprüft als DATEV-Debitor. Bewahre führende Nullen bei der Vorbereitung als Text.
 - Führe umgebrochene Namen zusammen. Trenne Firma, Vor- und Nachname nur, wenn die Zuordnung eindeutig ist. Ein Ansprechpartner unter der Anschrift ist kein weiterer Kunde.
 - Lasse fehlende Angaben wie „k.A.“ leer. Prüfe die Rolle **Kunde**, **Lieferant** oder beide; Haben kennt keine eigene Interessentenrolle.

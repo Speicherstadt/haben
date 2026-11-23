@@ -15,6 +15,7 @@ import { BuchhaltungsButlerImport } from "./BuchhaltungsButlerImport.tsx";
 import { SevdeskAssets } from "./SevdeskAssets.tsx";
 import { WisoImport } from "./WisoImport.tsx";
 import { WisoAssets } from "./WisoAssets.tsx";
+import { WisoContacts } from "./WisoContacts.tsx";
 import { SevdeskExportImport } from "./SevdeskExportImport.tsx";
 import { FastbillReceipts } from "./FastbillReceipts.tsx";
 import { fastbillUsageText, FastbillArticles, FastbillLoginFields } from "./FastbillTeile.tsx";
@@ -120,6 +121,7 @@ export function Migration({ data }: { data: MigrationData }) {
         <>
           <WisoImport initial={data.wisoImport} />
           <WisoAssets />
+          <WisoContacts />
         </>
       ) : source === "accountable" ? (
         <ImportCard key={`accountable-${lastImport?.id ?? "neu"}`} source="accountable" connected initial={lastImport} />
