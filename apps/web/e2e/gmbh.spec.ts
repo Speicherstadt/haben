@@ -1,3 +1,4 @@
+import { kontensuchePruefen } from "./kontensuche.ts";
 import { waehleKategorie } from "./kategorie.ts";
 import { filePickerPruefen } from "./dateiauswahl.ts";
 import AxeBuilder from "@axe-core/playwright";
@@ -88,9 +89,15 @@ test("Einrichtung als GmbH mit SKR04", async () => {
   await expect(page.getByRole("heading", { name: /Einkommensteuererklärung/ })).toHaveCount(0);
 });
 
+test("Manuelle Buchung: Konten nach Namen suchen, auswählen und leeren", async () => {
+  await go("/buchungen/neu");
+  await kontensuchePruefen(page);
+});
+
 test("Eröffnung nicht am 1. Januar: der Fehler steht am Datum und der Fokus dort (Review #971)", async () => {
   await go("/buchungen/neu");
   const form = page.getByRole("form", { name: "Manuelle Buchung" });
+  await expect(form).not.toContainText("Der Bank-Anfangsbestand braucht keine Buchung.");
   await form.getByLabel("Eröffnungsbuchung").check();
   await form.getByLabel("Datum").fill(`${currentYear() - 1}-06-30`);
   await form.getByLabel("Buchungstext").fill("Eröffnung am falschen Tag");

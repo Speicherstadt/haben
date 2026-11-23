@@ -70,4 +70,4 @@ Nicht streichen: Fakten, Zahlen, Konten, Paragraphen, Links, Befehle, Front Matt
 
 ## Abschlussbericht
 
-PR-Link, Befunde und Commits, Stand der CI, gemergt oder woran es hängt.
+PR-Link, Befunde und Commits, Stand der CI, gemergt oder woran es hängt. Nach einem Merge in der Form aus `docs/mitwirken.md`, Review, Punkt 6.

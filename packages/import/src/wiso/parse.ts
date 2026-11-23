@@ -35,7 +35,7 @@ const COLUMN_ALIASES: Partial<Record<ColumnName, readonly string[]>> = {
   Steuerschluesselbezeichnung: ["steuerschlüsselbezeichnung"],
 };
 
-const SALDOVORTRAG_ACCOUNTS = new Set(["9000", "9008", "9009"]);
+export const SALDOVORTRAG_ACCOUNTS = new Set(["9000", "9008", "9009"]);
 const MAX_REPORTED_ROW_ERRORS = 20;
 
 function buildColumnMap(header: string[]): Map<ColumnName, number> {

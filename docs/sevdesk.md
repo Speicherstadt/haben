@@ -60,10 +60,12 @@ Doppelt angelegt wird nichts:
 Statt „Belege und Rechnungen per API abgerufen“ zeigt der Abgleich „Belege aus dem sevDesk-Export übernommen“, mit Zahlen für die Zustände eines Belegs:
 
 - **mit Datei:** Beleglink und Belegbild im Export;
-- **Datei fehlt im Export:** Die Buchung hat einen Beleglink, die Datei fehlt in der ZIP-Datei. Das hält „Jeder Beleg hat eine Datei“ offen;
-- **ohne Belegbild im Export:** Belegdaten ohne Beleglink. Kein Fehler, denn auch sevDesk hat dazu kein Bild.
+- **Datei fehlt im Export:** Die in `document.xml` genannte Datei fehlt in der ZIP. Hier zählen auch offene Beleglinks, wenn Dateilisten fehlen oder Einträge daraus unlesbar sind. Die Vorschau nennt den Grund. Das hält „Jeder Beleg hat eine Datei“ offen. Ist eine ganze `document.xml` ungültig, weist Haben den Export ab.
+- **ohne Belegbild im Export:** Der Beleg hat keinen Beleglink oder der Link steht in keiner der vollständig gelesenen Dateilisten (`document.xml`). Letzteres kommt in Buchhaltungsversion 2.0 auch bei Belegen ohne Bild vor.
 
-In Buchhaltungsversion 2.0 hat auch ein Beleg ohne Bild einen Beleglink; seine Kennung steht dann in keiner `document.xml`. Haben zählt ihn heute noch als „Datei fehlt im Export“ ([#1374](https://github.com/Speicherstadt/haben/issues/1374)). Prüfe solche Belege in sevDesk, bevor du den Punkt als Fehler behandelst.
+Die Vorschau zählt „ohne Belegbild im Export“ und „Datei fehlt im Export“ getrennt. Der Link **Belege mit fehlender Datei ansehen** blendet Exportbelege ohne erwartetes Bild aus. In der vollständigen Archivliste bleiben sie sichtbar.
+
+Für ältere Importe nutzt Haben den damals gespeicherten Dateinamen. Fehlende Dateilisten aus dem ursprünglichen Export lassen sich daraus nicht rekonstruieren.
 
 Bei „Jede Buchung mit Belegnummer findet ihren Beleg“ findet eine Buchung mit Beleglink ihren Beleg nur über dessen Kennung, auch die weiteren Zeilen desselben Belegs. Zwei Belege mit derselben Nummer zählen so getrennt; Zahlungen ohne Beleglink finden ihren Beleg weiter über die Nummer.
 

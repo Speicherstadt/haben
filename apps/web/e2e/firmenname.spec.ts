@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
-import { THEMES } from "../src/lib/theme.ts";
+import { DEFAULT_THEME } from "../src/lib/theme.ts";
 import { SESSION } from "./daten.ts";
 import { axeVerstoesse } from "./einrichtung.ts";
 import { abgearbeitet } from "./warten.ts";
@@ -116,10 +116,10 @@ test("„Haben“ bleibt, wie es ist, der Name steht kleiner darunter", async ({
   }
 });
 
-// axe misst den Kontrast sonst nur im Standard-Theme; die Navigation hat in jedem Theme eigene Farben
-test("Name und „Haben“ sind in jeder Farbe hell und dunkel kontrastreich genug", async ({ page }) => {
+// Im Standard-Theme hell und dunkel; die Farben der Navigation in den übrigen Themes prüft src/lib/theme-kontrast.test.ts
+test("Name und „Haben“ sind hell und dunkel kontrastreich genug", async ({ page }) => {
   const verstoesse: string[] = [];
-  for (const { id } of THEMES) {
+  for (const id of [DEFAULT_THEME]) {
     for (const [modus, mode] of [
       ["hell", "light"],
       ["dunkel", "dark"],

@@ -24,6 +24,8 @@ Pull Requests, die der Maintainer anderen überlassen hat (eigene Pull Requests 
 
 ## 2. Rangliste
 
+`bun scripts/prs/rangliste.ts` (mit `gh`) schlägt die Plätze 2 bis 7 vor, aus CI, Konflikt, unseren Kommentaren, Selbstprüfung, heiklen Pfaden, Migrationen und Größe. Platz 1 setzt der Agent nach dem Lesen, ebenso ob ein roter Check auf `main` genauso rot ist; im Zweifel gilt die Liste hier.
+
 Von oben nach unten, wie einfach der Merge ist:
 
 1. **Fertig:** Prüfung durch, Befunde behoben, CI grün, Beschreibung stimmt. Nur noch Nachprüfung der letzten Commits und Merge.

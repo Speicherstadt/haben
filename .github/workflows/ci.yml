@@ -19,23 +19,26 @@ on:
 permissions:
   contents: read
 
-# Ein neuer Push in einen Pull Request bricht dessen veralteten Lauf ab; Läufe auf main und Tags laufen zu Ende
+# Ein neuer Push bricht den veralteten Lauf desselben Pull Requests oder von main ab: Der neue Stand enthält den alten.
+# Das Release (workflow_call) hat eine eigene Gruppe und läuft immer zu Ende
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
 jobs:
   # Stellt fest, ob ein Pull Request nur Markdown, docs/ oder LICENSE ändert. Ein Job, der per if übersprungen wird,
   # zählt für die Regeln auf main als Erfolg, auch wenn er nur wegen eines fehlgeschlagenen needs-Jobs ausfällt. Darum
   # steht in jedem Job !cancelled() und der Vergleich mit 'false': Läuft changes nicht (push, Release, Entwurf) oder
   # schlägt fehl, ist die Ausgabe leer und die Prüfungen laufen
+  # Auf main vergleicht er mit dem Stand vor dem Push; dort laufen container und dev-compose immer (Ausgabe leer)
   changes:
-    if: ${{ github.event_name == 'pull_request' && !github.event.pull_request.draft }}
+    if: ${{ (github.event_name == 'pull_request' && !github.event.pull_request.draft) || github.event_name == 'push' }}
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.filter.outputs.code }}
       einvoice: ${{ steps.filter.outputs.einvoice }}
       deploy: ${{ steps.filter.outputs.deploy }}
+      bild: ${{ steps.filter.outputs.bild }}
     steps:
       # Der Merge-Commit des Pull Requests und sein erster Elternteil, die Basis
       - uses: actions/checkout@v7
@@ -45,12 +48,24 @@ jobs:
       - id: filter
         run: |
           set -euo pipefail
+          # Pull Request: Merge-Commit gegen seine Basis; Push auf main: gegen den Stand vor dem Push
+          if [ "${EREIGNIS:-}" = push ]; then
+            before="${VORHER:-}"
+            if [ -z "$before" ] || [ "$before" = 0000000000000000000000000000000000000000 ] || ! git fetch -q --depth=1 origin "$before"; then
+              # Ohne Vergleichsstand läuft alles
+              { echo code=true; echo einvoice=true; echo deploy=true; } >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            base="$before"
+          else
+            base=HEAD^1
+          fi
           # --no-renames: Eine umbenannte Datei zählt mit altem und neuem Pfad, Code wird nicht durch Verschieben zu Doku
-          changed="$(git -c core.quotePath=false diff --no-renames --name-only HEAD^1 HEAD)"
+          changed="$(git -c core.quotePath=false diff --no-renames --name-only "$base" HEAD)"
           printf '%s\n' "$changed"
           other="$(grep -Ev '\.md$|^docs/|^LICENSE$' <<< "$changed" || true)"
           # Gelöscht oder verschoben zählt als Code: normen.test.ts verlangt die Seiten aus scripts/jahreswerte/normen.json
-          deleted="$(git diff --no-renames --diff-filter=D --name-only HEAD^1 HEAD)"
+          deleted="$(git diff --no-renames --diff-filter=D --name-only "$base" HEAD)"
           if [ -n "$changed" ] && [ -z "$other" ] && [ -z "$deleted" ]; then code=false; else code=true; fi
           echo "code=$code" >> "$GITHUB_OUTPUT"
           # Ob etwas die E-Rechnung (Jobs kosit, zugferd) oder die Images und Migrationen der Nutzer (backup, db-upgrade)
@@ -60,6 +75,16 @@ jobs:
           if grep -Eq "^deploy/|^apps/web/drizzle/|$always" <<< "$changed"; then deploy=true; else deploy=false; fi
           echo "einvoice=$einvoice" >> "$GITHUB_OUTPUT"
           echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
+          # container und dev-compose im Pull Request nur, wenn Image, Compose oder Abhängigkeiten sich ändern; auf main
+          # immer (Ausgabe leer), dort fällt ein Build-Fehler aus dem App-Code spätestens auf
+          if [ "${EREIGNIS:-}" != push ]; then
+            if grep -Eq "Containerfile$|(^|/)compose[^/]*\.ya?ml$|^deploy/|$always" <<< "$changed"; then bild=true; else bild=false; fi
+            echo "bild=$bild" >> "$GITHUB_OUTPUT"
+          fi
+        # Als Umgebung statt ${{ }} im Skript, damit scripts/ci/doku-filter.test.ts den Block unverändert ausführen kann
+        env:
+          EREIGNIS: ${{ github.event_name }}
+          VORHER: ${{ github.event.before }}
 
   # Lint und Typecheck brauchen keine Datenbank; gebaut wird in den Jobs e2e-teil
   check:
@@ -117,25 +142,85 @@ jobs:
         env:
           TEST_DATABASE_URL: postgres://haben:haben@localhost:5432/haben_test
 
+  # Die Prüfsumme der Sperren (#1683) muss auf jeder Unterversion von PostgreSQL 19 dieselbe sein wie in den Release Notes.
+  # test-teil prüft sie auf der neuesten (postgres:19, wie das Image tristanteu/haben-db), dieser Job auf der ältesten.
+  sollbestand-postgres:
+    needs: changes
+    if: ${{ !cancelled() && !github.event.pull_request.draft && needs.changes.outputs.code != 'false' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:19.0
+        env:
+          POSTGRES_USER: haben
+          POSTGRES_PASSWORD: haben
+          POSTGRES_DB: haben_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U haben -d haben_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - name: Prüfsumme der Sperren auf PostgreSQL 19.0
+        run: bun --bun vitest run apps/web/src/server/db/trigger-inventory.pruefsumme.test.ts
+        env:
+          TEST_DATABASE_URL: postgres://haben:haben@localhost:5432/haben_test
+
   # Ein Ergebnis für die Regeln auf main (geforderter Check „test“), egal in wie viele Teile die Tests zerfallen
   test:
     if: ${{ always() && !github.event.pull_request.draft && needs.changes.outputs.code != 'false' }}
-    needs: [changes, test-teil]
+    needs: [changes, test-teil, sollbestand-postgres]
     runs-on: ubuntu-latest
     steps:
       - run: test "${{ needs.test-teil.result }}" = success
+      - run: test "${{ needs.sollbestand-postgres.result }}" = success
+
+  # Tag des CI-Images für die E2E-Jobs (.github/ci-image, gebaut von ci-image.yml) und ob es ihn auf ghcr.io schon
+  # gibt. Ändert ein Pull Request Containerfile, Playwright- oder Bun-Version, fehlt das Image bis zum Bau auf main;
+  # dann laufen die E2E-Jobs ohne Container und holen Browser und Pakete selbst (#1742)
+  ci-image:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.pruefen.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - id: pruefen
+        run: |
+          set -euo pipefail
+          image="ghcr.io/speicherstadt/haben-ci:$(.github/ci-image/tag.sh | sed -n 's/^tag=//p')"
+          # Ohne Anmeldung, wie der Job im Container: ein privates Paket zählt als fehlend
+          if docker manifest inspect "$image" >/dev/null 2>&1; then
+            echo "image=$image" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$image fehlt, E2E ohne CI-Image"
+          fi
 
   # Feste Teile parallel: welche Projekte in welchem Teil laufen, steht in apps/web/e2e/durchlaeufe.ts (TEILE);
   # jeder Teil startet nur seine Server. Dazu SSO als eigener Teil. Gebaut wird in jedem Teil, das läuft parallel
   # und braucht kein Artefakt dazwischen
   e2e-teil:
-    needs: changes
+    needs: [changes, ci-image]
     if: ${{ !cancelled() && !github.event.pull_request.draft && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
+    # Leer heißt ohne Container, direkt auf dem Runner
+    container: ${{ needs.ci-image.outputs.image }}
+    env:
+      # Im Container erreicht man den Service über seinen Namen, auf dem Runner über den weitergeleiteten Port
+      DB_HOST: ${{ needs.ci-image.outputs.image != '' && 'postgres' || 'localhost' }}
+      CI_IMAGE: ${{ needs.ci-image.outputs.image }}
     strategy:
       fail-fast: false
       matrix:
-        teil: [belege-steuern, rechnungen, ablauf, gmbh, importe, abruf, sso]
+        teil: [belege-steuern, rechnungen, ablauf, ablauf-2, ablauf-3, gmbh, importe, sso]
     services:
       postgres:
         image: postgres:19
@@ -154,49 +239,66 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
+      # Ab hier bis zu poppler-utils nur ohne CI-Image: Bun, Chromium, Systembibliotheken und pdftotext bringt es mit
+      - if: env.CI_IMAGE == ''
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
       # Ubuntu-Mirror fallen auf den Runnern zeitweise aus („Could not wait for server fd“): apt versucht es mehrmals
-      - run: printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/80-wiederholen >/dev/null
+      - if: env.CI_IMAGE == ''
+        run: printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/80-wiederholen >/dev/null
       # Chromium aus dem Cache, je Playwright-Version; die Systembibliotheken kommen bei jedem Lauf
       - id: playwright
+        if: env.CI_IMAGE == ''
         working-directory: apps/web
         run: echo "version=$(bun --bun playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
       - id: browsers
+        if: env.CI_IMAGE == ''
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium
-      - if: steps.browsers.outputs.cache-hit != 'true'
+      - if: env.CI_IMAGE == '' && steps.browsers.outputs.cache-hit != 'true'
         working-directory: apps/web
         run: bun --bun playwright install --with-deps chromium
-      - if: steps.browsers.outputs.cache-hit == 'true'
+      - if: env.CI_IMAGE == '' && steps.browsers.outputs.cache-hit == 'true'
         working-directory: apps/web
         run: bun --bun playwright install-deps chromium
+      # psql aus dem CI-Image, auf dem Runner das im Service-Container
       - name: PostgreSQL ohne fsync
-        run: docker exec ${{ job.services.postgres.id }} psql -U haben -d haben_e2e -qc "ALTER SYSTEM SET fsync = off" -c "ALTER SYSTEM SET synchronous_commit = off" -c "ALTER SYSTEM SET full_page_writes = off" -c "SELECT pg_reload_conf()"
+        env:
+          PGPASSWORD: haben
+        run: ${{ env.CI_IMAGE == '' && format('docker exec {0}', job.services.postgres.id) || '' }} psql -h "$DB_HOST" -U haben -d haben_e2e -qc "ALTER SYSTEM SET fsync = off" -c "ALTER SYSTEM SET synchronous_commit = off" -c "ALTER SYSTEM SET full_page_writes = off" -c "SELECT pg_reload_conf()"
       # pdftotext prüft beim Hochladen eines eigenen Layouts die Pflichtangaben (wie im Image)
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends poppler-utils
+      - if: env.CI_IMAGE == ''
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends poppler-utils
       - run: bun run build
+      - run: echo "E2E_START=$(date +%s)" >> "$GITHUB_ENV"
       # Vier Worker (playwright.config.ts), so viele Kerne hat der Runner
       - name: Ende-zu-Ende-Tests, Teil ${{ matrix.teil }}
         if: matrix.teil != 'sso'
         run: bun run e2e
         env:
           E2E_TEIL: ${{ matrix.teil }}
-          E2E_DATABASE_URL: postgres://haben:haben@localhost:5432/haben_e2e
-          E2E_APP_DATABASE_URL: postgres://haben_e2e_app:erfundenes-e2e-passwort@localhost:5432/haben_e2e
+          E2E_DATABASE_URL: postgres://haben:haben@${{ env.DB_HOST }}:5432/haben_e2e
+          E2E_APP_DATABASE_URL: postgres://haben_e2e_app:erfundenes-e2e-passwort@${{ env.DB_HOST }}:5432/haben_e2e
           # Der gebaute Server statt des Entwicklungsservers
           E2E_SERVER_COMMAND: bun .output/server/index.mjs
       - name: SSO-Ende-zu-Ende mit Produktionsbuild und TLS
         if: matrix.teil == 'sso'
         run: bun run e2e --config playwright.sso-only.config.ts
         env:
-          E2E_DATABASE_URL: postgres://haben:haben@localhost:5432/haben_sso_e2e
-          E2E_APP_DATABASE_URL: postgres://haben_e2e_app:erfundenes-e2e-passwort@localhost:5432/haben_sso_e2e
+          E2E_DATABASE_URL: postgres://haben:haben@${{ env.DB_HOST }}:5432/haben_sso_e2e
+          E2E_APP_DATABASE_URL: postgres://haben_e2e_app:erfundenes-e2e-passwort@${{ env.DB_HOST }}:5432/haben_sso_e2e
           E2E_SERVER_COMMAND: bun .output/server/index.mjs
+      # Budget je Teil 5 Minuten (docs/entwicklung.md, Tests): ab 4:30 eine Warnung, kein Fehlschlag
+      - name: Dauer des Teils
+        if: always() && env.E2E_START != ''
+        run: |
+          dauer=$(( $(date +%s) - E2E_START ))
+          echo "E2E-Teil ${{ matrix.teil }}: $((dauer / 60)):$(printf %02d $((dauer % 60))) min" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$dauer" -gt 270 ]; then echo "::warning::E2E-Teil ${{ matrix.teil }} brauchte ${dauer} s, Budget 300 s"; fi
       - if: always()
         uses: actions/upload-artifact@v7
         with:
@@ -300,7 +402,7 @@ jobs:
 
   container:
     needs: changes
-    if: ${{ !cancelled() && !github.event.pull_request.draft && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && !github.event.pull_request.draft && needs.changes.outputs.code != 'false' && needs.changes.outputs.bild != 'false' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -410,7 +512,7 @@ jobs:
   # Die Entwicklungsumgebung aus compose.yml im Hauptordner: startet sie, läuft der Dev-Server mit Datenbank
   dev-compose:
     needs: changes
-    if: ${{ !cancelled() && !github.event.pull_request.draft && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && !github.event.pull_request.draft && needs.changes.outputs.code != 'false' && needs.changes.outputs.bild != 'false' }}
     runs-on: ubuntu-latest
     env:
       COMPOSE_PROJECT_NAME: haben-ci-dev-rollen
