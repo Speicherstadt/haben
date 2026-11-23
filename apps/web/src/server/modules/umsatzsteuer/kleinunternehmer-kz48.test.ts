@@ -204,6 +204,19 @@ describe.skipIf(!testDatabaseUrl)("Kleinunternehmer-Umsätze in Kz 48 (Postgres)
       expect(await vat.computeVatFigures(november)).toMatchObject({ kz48: -1_600, kz48Kleinunternehmer: -1_600 });
     });
 
+  it("Vor 2025 stehen die Umsätze als Kleinunternehmer nicht in Kz 48", async () => {
+    // Erst seit 2025 sind sie steuerfrei: Kz 48 der UStVA 2024 nennt nur § 4 Nr. 8 bis 29, die der UStVA 2025 auch § 19
+    // Abs. 1 (ERiC 44.3.6.0, UStVA-2024.xsd und UStVA-2025.xsd, Element Kz48)
+    await firma("SKR03", "soll");
+    const vorjahr = await direkt({ issue_date: "2024-12-10", service_date: "2024-12-10" }, 50_000);
+    await direkt({ issue_date: "2025-01-10", service_date: "2025-01-10" }, 40_000);
+    // Das Storno im Januar 2025 mindert einen Umsatz von 2024, der nicht in Kz 48 stand
+    await direkt({ kind: "storno", corrects_id: vorjahr, issue_date: "2025-01-20" }, -50_000);
+
+    expect(await vat.computeVatFigures({ year: 2024, month: 12 })).toMatchObject({ kz48: 0, kz48Kleinunternehmer: 0, kleinunternehmerUmsaetze: [] });
+    expect(await vat.computeVatFigures({ year: 2025, month: 1 })).toMatchObject({ kz48: 40_000, kz48Kleinunternehmer: 40_000 });
+  });
+
   it("Gesendete Voranmeldung von vor #1268 meldet keine Abweichung, ein anderer Wert schon", async () => {
     await firma("SKR03", "soll");
     await rechnung();
