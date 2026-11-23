@@ -258,6 +258,17 @@ function WeitereWege({ z }: { z: Zuordnung }) {
   const { sammelrechnung } = z.detail;
   return (
     <>
+      {rest.quellen.rest.amount !== 0 && z.detail.reassignment.length > 0 && (
+        <div className="stack" ref={rest.quellen.form}>
+          <ReassignmentField detail={z.detail} label="Aufgehobene Zuordnung für den Posten" gesellschaft={z.gesellschaft} {...rest.quellen.payment} />
+          <ReassignmentField
+            detail={z.detail}
+            label={rest.angebot.feeRest ? "Aufgehobene Zuordnung für die Gebühr" : "Aufgehobene Zuordnung für die Kursdifferenz"}
+            gesellschaft={z.gesellschaft}
+            {...rest.quellen.rest}
+          />
+        </div>
+      )}
       <RestAktionen
         target={rest.target}
         tx={tx}

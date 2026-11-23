@@ -23,6 +23,8 @@ export const restSchema = z.object({
   ]),
   rest: z.enum(["skonto", "forderungsausfall", "skontoErhalten", "kursdifferenz"]),
   reassignsId: z.uuid().nullish(),
+  /** Bei einem aufgeteilten Umsatz kann der Teil für die Kursdifferenz einen anderen Beleg haben. */
+  restReassignsId: z.uuid().nullish(),
   /** Nur mit Skonto auf eine Rechnung: offene Korrekturen, die der Kunde vor dem Skonto abgezogen hat (#1398) */
   korrekturen: z.array(z.uuid()).min(1).max(19).optional(),
 });
@@ -38,7 +40,7 @@ export async function allocateWithRest(actor: string, input: z.infer<typeof rest
     const bank = await lockTransaction(tx, input.transactionId);
     if (bank.open === 0) throw new BankError("Der Umsatz ist schon ganz zugeordnet.");
     if (input.rest === "kursdifferenz") {
-      await allocateWithExchangeDifference(tx, company, bank, input.target, input.reassignsId);
+      await allocateWithExchangeDifference(tx, company, bank, input.target, input.reassignsId, input.restReassignsId);
       return;
     }
     if (input.korrekturen) {
@@ -131,6 +133,7 @@ async function allocateWithExchangeDifference(
   bank: LockedTransaction,
   target: z.infer<typeof restSchema>["target"],
   reassignsId?: string | null,
+  restReassignsId?: string | null,
 ) {
   let open: number;
   if (target.kind === "invoice") {
@@ -161,6 +164,6 @@ async function allocateWithExchangeDifference(
     // Wird die Aufteilung aufgehoben, dann ganz (reverseAllocation)
     const splitId = randomUUID();
     await bookPart(tx, company, bank, { ...toTarget(open), reassignsId }, splitId);
-    await bookPart(tx, company, bank, { kind: "kursdifferenz", amount: bank.open - open, reassignsId }, splitId);
+    await bookPart(tx, company, bank, { kind: "kursdifferenz", amount: bank.open - open, reassignsId: restReassignsId }, splitId);
   }
 }

@@ -158,20 +158,62 @@ function useEnterOrdnetZu(open: number, primaryButton: RefObject<HTMLButtonEleme
   }, [open, primaryButton]);
 }
 
+/** Zwei Zahlteile brauchen je ihren eigenen Bezug. Weder Betrag noch Auswahl aus dem Hauptknopf übernehmen. */
+function useRestQuellen(detail: Detail, payment: number, rest: number) {
+  const [paymentChoice, setPaymentChoice] = useState<string>();
+  const [restChoice, setRestChoice] = useState<string>();
+  const sources = detail.reassignment;
+  const validation = useSubmitCheck({
+    payment: reassignmentError(sources, payment, paymentChoice),
+    rest: reassignmentError(sources, rest, restChoice),
+  });
+  function auswahl() {
+    if (!validation.check()) return null;
+    return {
+      reassignsId: reassignmentId(paymentChoice, sources, payment),
+      restReassignsId: reassignmentId(restChoice, sources, rest),
+    };
+  }
+  return {
+    form: validation.form,
+    payment: { amount: payment, value: paymentChoice, error: validation.error("payment"), onChange: setPaymentChoice },
+    rest: { amount: rest, value: restChoice, error: validation.error("rest"), onChange: setRestChoice },
+    auswahl,
+  };
+}
+
 /** Ausbuchen dessen, was nach der Zuordnung an den Posten übrig bliebe */
-function restBuchungen(wahl: Wahl, tx: Detail["transaction"], aufrufe: Aufrufe, run: (work: () => Promise<unknown>) => unknown, reassignsId?: string | null) {
+function useRestBuchungen(wahl: Wahl, detail: Detail, aufrufe: Aufrufe, run: (work: () => Promise<unknown>) => unknown, reassignsId?: string | null) {
+  const tx = detail.transaction;
   // Posten, der gerade zugeordnet würde; ist er höher als der Umsatz, bietet sich „Rest als Gebühr“ an
   const target = wahl.mode === "best" && wahl.best ? wahl.best.item : wahl.mode === "other" ? wahl.selectedCandidate : undefined;
   const angebot = restAngebot(target, tx);
+  const open = target?.open ?? 0;
+  const splitFx = angebot.exchangeDifference !== 0 && Math.abs(tx.open) > Math.abs(open);
+  const quellen = useRestQuellen(detail, open, splitFx ? angebot.exchangeDifference : angebot.feeRest);
   function bookRest(kind: RestArt | "kursdifferenz") {
     if (!target) return;
+    const refs = kind === "kursdifferenz" && splitFx ? quellen.auswahl() : { reassignsId };
+    if (!refs) return;
     const t = target.type === "invoice" ? { kind: "invoice" as const, invoiceId: target.id } : { kind: "document" as const, documentId: target.id };
-    return run(() => aufrufe.restFn({ data: { transactionId: tx.id, target: t, rest: kind, reassignsId } }));
+    return run(() => aufrufe.restFn({ data: { transactionId: tx.id, target: t, rest: kind, ...refs } }));
   }
   function bookRestAsFee() {
     if (!target || angebot.feeRest === 0) return;
+    const refs = quellen.auswahl();
+    if (!refs) return;
     const first = itemTarget(target.type, target.id, target.open);
-    return run(() => aufrufe.splitFn({ data: { transactionId: tx.id, parts: [first, { kind: "gebuehren", amount: angebot.feeRest }] } }));
+    return run(() =>
+      aufrufe.splitFn({
+        data: {
+          transactionId: tx.id,
+          parts: [
+            { ...first, reassignsId: refs.reassignsId },
+            { kind: "gebuehren", amount: angebot.feeRest, reassignsId: refs.restReassignsId },
+          ],
+        },
+      }),
+    );
   }
   // Rechnung mit Korrekturen und Skonto auf den geminderten Betrag (#1398), wenn nicht schon der Hauptknopf das bucht
   function bookKorrekturSkonto() {
@@ -179,7 +221,7 @@ function restBuchungen(wahl: Wahl, tx: Detail["transaction"], aufrufe: Aufrufe, 
     const work = korrekturBuchung(tx, target, angebot.korrektur, aufrufe, reassignsId);
     return run(work);
   }
-  return { target, angebot, bookRest, bookRestAsFee, bookKorrekturSkonto };
+  return { target, angebot, quellen, bookRest, bookRestAsFee, bookKorrekturSkonto };
 }
 
 /**
@@ -239,7 +281,7 @@ export function useZuordnung(detail: Detail, optionen: Optionen, nextOpenId: str
       ? best.skonto
       : 0;
   useEnterOrdnetZu(tx.open, primaryButton);
-  const rest = restBuchungen(wahl, tx, aufrufe, ausfuehren.run, reassignsId);
+  const rest = useRestBuchungen(wahl, detail, aufrufe, ausfuehren.run, reassignsId);
   // Zahlung mit der Gebühr ihrer Bewegung: ganze Zahlung auf eine Rechnung oder einen Beleg, die Gebühr gleich mit
   // Beim Treffer mit Korrektur bucht Zuordnen die Aufteilung; eine Gebühr der Bewegung käme dort nicht mit (#1398)
   const gebuehrWahl = useGebuehrWahl(

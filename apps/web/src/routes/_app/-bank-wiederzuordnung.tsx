@@ -26,6 +26,7 @@ export function reassignmentId(value: string | undefined, sources: Sources, amou
 
 export function ReassignmentField({
   detail,
+  label = "Aufgehobene Zuordnung",
   amount,
   value,
   error,
@@ -33,6 +34,7 @@ export function ReassignmentField({
   onChange,
 }: {
   detail: Pick<Detail, "transaction" | "reassignment" | "allocations">;
+  label?: string;
   amount: number | null;
   value: string | undefined;
   error: string | undefined;
@@ -44,7 +46,7 @@ export function ReassignmentField({
   const fresh = detail.transaction.open - detail.reassignment.reduce((sum, source) => sum + source.remaining, 0);
   const allowFresh = fresh !== 0 && (amount === null || Math.sign(fresh) === Math.sign(amount));
   return (
-    <Field label="Aufgehobene Zuordnung" error={error}>
+    <Field label={label} error={error}>
       {(control) => (
         <select {...control} value={value || (candidates.length === 1 ? candidates[0]?.id : "")} onChange={(event) => onChange(event.target.value)}>
           <option value="">Bitte wählen</option>

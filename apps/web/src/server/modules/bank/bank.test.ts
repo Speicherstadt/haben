@@ -861,12 +861,12 @@ describe.skipIf(!testDatabaseUrl)("Bankabgleich (Postgres)", () => {
       restReassignsId: originalRest!.id,
     };
     await bank.allocateWithRest(actor, wiederzuordnung);
-    expect(await sql`
+    expect(
+      await sql`
       select a.kind, a.date::text, a.reassigns_id, j.date::text as journal from allocations a
       join journal_entries j on j.source_type = 'allocation' and j.source_id = a.id
-      where a.transaction_id = ${first!.id} and a.reassigns_id is not null order by a.kind`).toEqual(
-      [originalBeleg!, originalRest!].map(({ id, kind, date }) => ({ kind, date, journal: date, reassigns_id: id })),
-    );
+      where a.transaction_id = ${first!.id} and a.reassigns_id is not null order by a.kind`,
+    ).toEqual([originalBeleg!, originalRest!].map(({ id, kind, date }) => ({ kind, date, journal: date, reassigns_id: id })));
   }, 30_000);
 
   it("Zahlungsdienstleister: PayPal-Export ins eigene Verrechnungskonto, Auszahlung als Geldtransit zur Bank", async () => {
