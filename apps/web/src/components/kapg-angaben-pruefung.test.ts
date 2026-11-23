@@ -46,18 +46,22 @@ describe("Prüfung der Angaben zu den Erklärungen der GmbH", () => {
   });
 
   it("Anteil: über 0 bis 100 % mit höchstens zwei Nachkommastellen", () => {
-    for (const anteil of ["33,333", "0", "100,01", "-5", "abc"]) expect(fehler({ personen: [{ ...person, anteil }] }), anteil).toHaveProperty(["anteilseigner.0.anteil"]);
+    for (const anteil of ["33,333", "0", "100,01", "-5", "abc"])
+      expect(fehler({ personen: [{ ...person, anteil }] }), anteil).toHaveProperty(["anteilseigner.0.anteil"]);
     for (const anteil of ["0,01", "33,33", "100", "50 %"]) expect(fehler({ personen: [{ ...person, anteil }] }), anteil).toEqual({});
   });
 
   it("Nummer: 11 Ziffern als Identifikationsnummer oder 13 als Steuernummer, Trennzeichen zählen nicht", () => {
-    for (const nummer of ["8609574271", "860957427190", "12345678901234"]) expect(fehler({ personen: [{ ...person, nummer }] }), nummer).toHaveProperty(["anteilseigner.0.nummer"]);
+    for (const nummer of ["8609574271", "860957427190", "12345678901234"])
+      expect(fehler({ personen: [{ ...person, nummer }] }), nummer).toHaveProperty(["anteilseigner.0.nummer"]);
     for (const nummer of ["86 095 742 719", "2181/508/150678", "2181508150678"]) expect(fehler({ personen: [{ ...person, nummer }] }), nummer).toEqual({});
   });
 
   it("Religionsschlüssel mit sechs Ziffern nur bei Kirchensteuer", () => {
     const mit = { ...person, kirchensteuer: 9 as const };
-    expect(fehler({ personen: [{ ...mit, religionsschluessel: "" }] })).toEqual({ "anteilseigner.0.religionsschluessel": "Trag den Religionsschlüssel mit sechs Ziffern ein, etwa 010100." });
+    expect(fehler({ personen: [{ ...mit, religionsschluessel: "" }] })).toEqual({
+      "anteilseigner.0.religionsschluessel": "Trag den Religionsschlüssel mit sechs Ziffern ein, etwa 010100.",
+    });
     expect(fehler({ personen: [{ ...mit, religionsschluessel: "01010" }] })).toHaveProperty(["anteilseigner.0.religionsschluessel"]);
     expect(fehler({ personen: [{ ...mit, religionsschluessel: " 010100 " }] })).toEqual({});
     expect(fehler({ personen: [{ ...person, religionsschluessel: "x" }] })).toEqual({});
