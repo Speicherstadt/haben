@@ -142,3 +142,69 @@ describe("Voranmeldung: Fristen und Zeitraum ändern eingeklappt (#1253, Punkt 3
     expect(fristen(seite())).not.toMatch(/<details open/);
   });
 });
+
+/** Alles zwischen Seitenkopf und Kennzahlen: die Hinweise über den Zahlen */
+const hinweise = (html: string) => html.slice(0, html.indexOf('<div class="grid-main">'));
+const banner = (text: string) => [...text.matchAll(/<div class="banner[^"]*"/g)].length;
+
+const ausgaben = { tone: "warn", text: "1 Ausgabe im Zeitraum ohne Beleg oder Zuordnung. Ohne Beleg wird keine Vorsteuer angesetzt.", link: "/bank" };
+const eingaenge = { tone: "info", text: "2 Zahlungseingänge im Zeitraum noch nicht zugeordnet.", link: "/bank" };
+const entwuerfe = { tone: "info", text: "1 Rechnungsentwurf mit Datum im Zeitraum.", link: "/rechnungen" };
+const mitIgLieferung = { ...zero, kz41: 50_000, versteuerung: "ist", revenue: [], inputTax: [], reverseCharge: [], igErwerb: [] };
+
+describe("Voranmeldung: weniger Hinweise über den Zahlen (#1253, Punkt 32)", () => {
+  it("lässt Blockierendes je als eigenen Hinweis und bündelt die übrigen Hinweise mit Link in einem", () => {
+    const html = seite({
+      mode: "simuliert",
+      herstellerIdConfigured: false,
+      preflight: [ausgaben, eingaenge, entwuerfe],
+      figures: mitIgLieferung,
+    });
+    const oben = hinweise(html);
+    // ERiC, Hersteller-ID, die Warnung zu den Ausgaben und ein gebündelter Hinweis; vorher je einer für die fünf weiteren
+    expect(banner(oben)).toBe(4);
+    const gebuendelt = oben.match(/<div class="banner banner-info"[^>]*>(?:(?!<div class="banner)[\s\S])*?banner-list[\s\S]*?<\/ul>/)?.[0] ?? "";
+    for (const text of ["Zahlungseingänge im Zeitraum", "Rechnungsentwurf mit Datum", "Zur Zusammenfassenden Meldung", "Zur Bank", "Zu den Rechnungen"]) {
+      expect(gebuendelt, text).toContain(text);
+    }
+    expect(gebuendelt.match(/<li>/g)).toHaveLength(3);
+    // Die Warnung bleibt einzeln, mit Link, und steht nicht in der Liste
+    expect(oben).toMatch(/<div class="banner" role="status">[\s\S]*?Ausgabe im Zeitraum ohne Beleg[\s\S]*?Zur Bank/);
+    expect(gebuendelt).not.toContain("Ausgabe im Zeitraum");
+  });
+
+  it("zeigt einen einzelnen Hinweis ohne Liste", () => {
+    const oben = hinweise(seite({ preflight: [entwuerfe] }));
+    expect(banner(oben)).toBe(1);
+    expect(oben).toContain("Rechnungsentwurf mit Datum im Zeitraum.");
+    expect(oben).not.toContain("banner-list");
+  });
+
+  it("behält Zeitraum und Firmendaten als eigene Hinweise, solange sie das Senden hindern", () => {
+    const oben = hinweise(
+      seite({ periodProblem: "Für Oktober 2026 passt die Voranmeldung nicht zum eingestellten Zeitraum (vierteljährlich).", companyIssues: ["Steuernummer"] }),
+    );
+    expect(banner(oben)).toBe(2);
+    expect(oben).toMatch(
+      /<div class="banner" role="status">[\s\S]*?passt die Voranmeldung nicht[\s\S]*?<div class="banner" role="status">[\s\S]*?Firmendaten unvollständig: Steuernummer[\s\S]*?In den Einstellungen ergänzen/,
+    );
+  });
+
+  it("fragt nach einer gesendeten Anmeldung nicht mehr nach offenen Posten, verweist aber weiter auf die Zusammenfassende Meldung", () => {
+    const gesendet = { ...entwurfVonHand, status: "sent", source: "berechnet" };
+    const oben = hinweise(seite({ current: gesendet, preflight: [ausgaben, entwuerfe], figures: mitIgLieferung }));
+    expect(oben).not.toContain("Rechnungsentwurf");
+    expect(oben).not.toContain("Ausgabe im Zeitraum");
+    expect(oben).toContain("Zur Zusammenfassenden Meldung");
+    expect(banner(oben)).toBe(1);
+  });
+
+  it("nennt ohne eigene Hersteller-ID in einem Satz den Weg über Mein ELSTER, mit dem Link auf die Anleitung", () => {
+    const oben = hinweise(seite({ herstellerIdConfigured: false }));
+    expect(oben).toContain("Ohne eigene Hersteller-ID gibst du in Mein ELSTER ab:");
+    expect(oben).toContain("XML für Mein ELSTER");
+    expect(oben).toContain("XML-Import");
+    expect(oben).toContain('href="https://haben.app/elster-abgabe.html"');
+    expect(oben).not.toContain("Prüfen und absenden machst du in Mein ELSTER");
+  });
+});
