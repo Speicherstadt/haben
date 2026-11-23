@@ -97,9 +97,12 @@ describe.skipIf(!testDatabaseUrl)("Sondergebiete: Rechnungen, Angebote und Meldu
       const [transaction] = await sql`select id from bank_transactions where purpose = ${invoice.number}`;
       await bank.allocate(actor, { kind: "invoice", transactionId: transaction!.id, invoiceId: invoice.id, amount: 10_000 });
     }
+    const madrid = { ...actual, foreignPlace: { country: "ES", postalCode: "28001", noForeignVat: true } };
+    const mainland = await customer("ES", "28001", "ESB12345678");
+    await final(mainland.id, "ig_lieferung", 11_000);
+    // Rechnungsanschrift auf Teneriffa, empfangende Betriebsstätte in Madrid.
     const canary = await customer("ES", "38001", "ESB12345678");
-    await final(canary.id, "ig_lieferung", 11_000);
-    await final(canary.id, "reverse_charge", 12_000);
+    await final(canary.id, "reverse_charge", 12_000, madrid);
     const berlin = await customer("DE", "10115");
     const foreign = await final(berlin.id, "drittland", 13_000, actual);
     expect(foreign.taxDetails).toEqual(actual);
@@ -110,7 +113,6 @@ describe.skipIf(!testDatabaseUrl)("Sondergebiete: Rechnungen, Angebote und Meldu
       { ustId: "ESB12345678", art: "S", betrag: 12_000 },
     ]);
     // Die Käufer-PLZ ersetzt keinen ausdrücklich abweichenden tatsächlichen Leistungsort.
-    const madrid = { ...actual, foreignPlace: { country: "ES", postalCode: "28001", noForeignVat: true } };
     const wrong = await invoices.createDraft(actor, input(canary.id, "drittland", 10_000, madrid));
     expect((await invoices.finalizeIssues(wrong.id)).join(" ")).toContain("Leistungsort");
   });

@@ -136,13 +136,13 @@ export function treatmentIssues(
   const issues: string[] = [];
   if (input.rates.some((rate) => rate !== 0)) issues.push("Bei der gewählten Umsatzsteuer müssen alle Positionen 0 % haben");
   const country = input.buyerCountry?.toUpperCase();
-  // Eine PLZ öffnet den Drittlandweg, sperrt aber keine ausdrücklich gewählte andere Behandlung.
+  // Die Sondergebiets-PLZ öffnet den Drittlandweg. Für EU-Behandlungen gelten die bisherigen Länderprüfungen.
   // Der unverbindliche Hinweis steht getrennt von diesen Pflichtprüfungen im Kontakt und im Entwurf.
   const territory = vatTerritory(country, input.buyerPostalCode);
   if (treatment === "reverse_charge") {
     if (!input.sellerUstId?.trim()) issues.push("Reverse Charge braucht deine USt-IdNr. in den Firmendaten");
     if (!input.buyerUstId?.trim()) issues.push("Reverse Charge braucht die USt-IdNr. des Kunden");
-    if (country === "DE" && !territory) issues.push("Reverse Charge gilt nur für Kunden im EU-Ausland");
+    if (country === "DE") issues.push("Reverse Charge gilt nur für Kunden im EU-Ausland");
   }
   if (treatment === "ig_lieferung") {
     // § 14a Abs. 3 UStG: auf der Rechnung die USt-IdNr. von Lieferer und Abnehmer; § 6a Abs. 1 Satz 1 Nr. 4: der Abnehmer
@@ -158,7 +158,7 @@ export function treatmentIssues(
     }
     // Nordirland gehört für Waren weiter zum Gemeinschaftsgebiet (XI-Nummer bei Ländercode GB)
     const nordirland = country === "GB" && buyerUstId.startsWith("XI");
-    if (country && !territory && (country === "DE" || !(inEuVatArea(country) || nordirland))) {
+    if (country && (country === "DE" || !(inEuVatArea(country) || nordirland))) {
       issues.push("Innergemeinschaftliche Lieferung nur an Kunden in einem anderen EU-Mitgliedstaat");
     }
   }
