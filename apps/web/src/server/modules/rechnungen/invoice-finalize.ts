@@ -18,7 +18,7 @@ import { applyRateToDraft, serviceDate } from "./draft-rate.ts";
 import { buyerFrom, buyerIssues, documentFor, invoiceTitle, numberedBuyer, sellerFrom } from "./invoice-document.ts";
 import { lockDraft } from "./invoice-drafts.ts";
 import { InvoiceError } from "./invoice-error.ts";
-import { invoicePostingMode, invoiceVatDate } from "./invoice-tax.ts";
+import { exemptRule, invoicePostingMode, invoiceVatDate } from "./invoice-tax.ts";
 import { invoiceDocumentTotals, invoiceTotalsById } from "./invoice-taxes.ts";
 import { getInvoice, type Invoice, type InvoiceLine } from "./invoices.ts";
 import { directDebitFor, directDebitIssues } from "./lastschrift.ts";
@@ -175,7 +175,8 @@ export async function finalizeInvoice(actor: string, id: string, umsatzStand: Um
 
 /**
  * Verfahrensspalten beim Festschreiben. Ab #853 mindern Storno und Korrektur bereits Vereinnahmtes erst mit der
- * Rückzahlung; der Trigger invoices_reduction_rule verlangt das Kennzeichen.
+ * Rückzahlung; der Trigger invoices_reduction_rule verlangt das Kennzeichen. Ab #1312 zählen Rechnungen über § 4 und
+ * Ausfuhr in Kz 48 bzw. 43 im Zeitraum der Leistung (Trigger invoices_exempt_rule).
  */
 function procedureColumns(invoice: Invoice) {
   return {
@@ -183,6 +184,7 @@ function procedureColumns(invoice: Invoice) {
     advanceAccounting: invoice.advanceAccounting,
     replacesInvoiceId: invoice.replacesInvoiceId,
     reductionRule: invoice.kind === "rechnung" ? null : ("rueckgewaehr" as const),
+    exemptRule: exemptRule(invoice),
   };
 }
 
