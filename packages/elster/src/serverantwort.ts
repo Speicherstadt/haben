@@ -69,9 +69,9 @@ const VERFAHRENSPRUEFUNG = 601015001;
  * derselbe Code andere Gründe, dort wäre der Rat falsch (#1791).
  */
 const POSTFACH_HINWEIS =
-  "Zum Einordnen: Der Testmerker schickt die Anfrage in die Test-Datenbank, dort ist diese Kombination nicht " +
-  "zugelassen; der genannte CN ist das Übertragungszertifikat von ERiC, nicht das eigene. Echt abrufen geht mit " +
-  "eigener Hersteller-ID und ausgeschaltetem „Nur Testübermittlung“.";
+  "Zum Einordnen: Der genannte CN ist das Übertragungszertifikat von ERiC, nicht das eigene. Kommt dieser Code beim " +
+  "Abruf aus der Test-Datenbank, hilft der eigene Testmerker der PostfachAnfrage; echt abrufen geht mit eigener " +
+  "Hersteller-ID und ausgeschaltetem „Nur Testübermittlung“.";
 
 /**
  * Die Meldung von ERiC, ergänzt um Code und Text des Servers; unverändert, wenn der Server nichts meldet.

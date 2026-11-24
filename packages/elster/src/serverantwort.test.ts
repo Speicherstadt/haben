@@ -117,6 +117,9 @@ describe("mitServerMeldung", () => {
     expect(meldung).toContain("Übertragungszertifikat von ERiC");
     expect(meldung).toContain("Nur Testübermittlung");
     expect(meldung).toContain("extern-eric");
+    // Der Hinweis darf nicht behaupten, die Kombination sei generell nicht zugelassen: mit dem eigenen Testmerker
+    // gelingt der Testabruf (#1791)
+    expect(meldung).not.toContain("diese Kombination nicht");
   });
 
   it("rät beim echten Abruf nicht, den Haken auszuschalten", () => {
