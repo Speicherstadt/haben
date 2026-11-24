@@ -434,7 +434,7 @@ describe.skipIf(helm.status !== 0)("deploy/helm", () => {
     test("fragt /api/metrics am Service der App mit dem Token aus dem Secret der App ab", () => {
       const alle = manifeste({
         ...mitToken,
-        metrics: { serviceMonitor: { enabled: true, interval: "2m", labels: { release: "kube-prometheus-stack" } } },
+        metrics: { serviceMonitor: { enabled: true, interval: "2m", scrapeTimeout: "30s", labels: { release: "kube-prometheus-stack" } } },
       });
       const sm = monitor(alle);
       const service = finde(alle, "Service", "haben");
@@ -446,6 +446,7 @@ describe.skipIf(helm.status !== 0)("deploy/helm", () => {
           port: "http",
           path: "/api/metrics",
           interval: "2m",
+          scrapeTimeout: "30s",
           authorization: { type: "Bearer", credentials: { name: "haben-app", key: "HABEN_METRICS_TOKEN" } },
         },
       ]);
