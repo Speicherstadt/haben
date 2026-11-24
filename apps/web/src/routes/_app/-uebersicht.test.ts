@@ -232,6 +232,16 @@ describe("Übersicht: Aufbau", () => {
     expect(html).toContain("Voranmeldung Oktober 2026 · abgegeben</a>");
   });
 
+  it("vierteljährlich gesendet: das Quartal trägt den Zusatz, ein Entwurf nicht (#1857)", () => {
+    state.data.period = { year: 2026, month: 43 };
+    state.data.current = { status: "sent", kz83: 1900, sentAt: "2026-10-09T12:00:00Z" };
+    expect(render()).toContain("Voranmeldung 3. Quartal 2026 · abgegeben</a>");
+    state.data.current = { status: "draft", kz83: 1900, sentAt: null };
+    const html = render();
+    expect(html).toContain("Voranmeldung 3. Quartal 2026</a>");
+    expect(html).not.toContain("abgegeben");
+  });
+
   it("leere Instanz: Knopf „Erste Rechnung schreiben“, keine Karten mit 0,00 €", () => {
     const html = render();
     expect(html).toContain("Erste Rechnung schreiben");
