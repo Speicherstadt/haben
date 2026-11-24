@@ -256,11 +256,7 @@ describe.skipIf(!testDatabaseUrl)("Jahreswechsel 2026/2027: Rechnungen, Zahlunge
         // Ist: der Dezember trägt nur die falsche Zuordnung auf A (107.000 von 119.000, anteilig 89.916 + 17.084 USt),
         // der Januar die Gegenzeile zu A, die Zuordnung auf B und die Zahlung auf A (100.000 + 19.000)
         expect(await va(DEZ)).toEqual(
-          dez(
-            versteuerung === "soll"
-              ? { kz81: 100_000, tax81: 19_000, kz86: 100_000, tax86: 7_000 }
-              : { kz81: 89_916, tax81: 17_084 },
-          ),
+          dez(versteuerung === "soll" ? { kz81: 100_000, tax81: 19_000, kz86: 100_000, tax86: 7_000 } : { kz81: 89_916, tax81: 17_084 }),
         );
         expect(await va(JAN)).toEqual(jan(versteuerung === "ist" ? { kz81: 10_084, tax81: 1_916, kz86: 100_000, tax86: 7_000 } : {}));
         // EÜR nach Zufluss (§ 11 EStG): 2026 kamen 1.070,00 € an, nicht zweimal

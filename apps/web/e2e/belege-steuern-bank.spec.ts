@@ -1109,7 +1109,7 @@ test("Wiederzuordnung: je Teil die aufgehobene Zuordnung wählen (#1454)", async
       .join(";"),
   ].join("\n");
   await go("/bank");
-  await page.getByLabel("Kontoauszugsdateien").setInputFiles({ name: "wiederzuordnung.csv", mimeType: "text/csv", buffer: Buffer.from("\ufeff" + csv) });
+  await page.getByLabel("Kontoauszugsdateien").setInputFiles({ name: "wiederzuordnung.csv", mimeType: "text/csv", buffer: Buffer.from(`\ufeff${csv}`) });
   await expect(page.getByText(/wiederzuordnung\.csv: 1 neue Umsätze/)).toBeVisible();
   const sql = postgres(databaseUrlFuer(DURCHLAUF), { max: 1 });
   try {
