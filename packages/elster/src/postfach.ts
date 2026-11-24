@@ -22,9 +22,8 @@ export const POSTFACH_TESTMERKER = "700000001";
  * Ob eine Anfrage in die Test-Datenbank geht: nur dann gehört der Rat zum Testmerker in die Meldung, denn außerhalb
  * des Postfachs und beim echten Abruf nennt derselbe Code andere Gründe (#1791).
  */
-export function postfachArt(op: string, xml: string): "test" | "echt" | false {
-  if (op !== "postfach") return false;
-  return hasTestmerker(xml) ? "test" : "echt";
+export function testabruf(op: string, xml: string): boolean {
+  return op === "postfach" && hasTestmerker(xml);
 }
 
 /** Was die Anfrage abholt: Bescheide (DIVA), Steuerbescheid-Daten (ESB) und Postfach-Mitteilungen */

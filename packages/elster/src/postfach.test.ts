@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { checkXml } from "./fake-client.ts";
-import { buildPostfachAnfrageXml, buildPostfachBestaetigungXml, parsePostfachAntwort, postfachArt, postfachDateiname } from "./postfach.ts";
+import { buildPostfachAnfrageXml, buildPostfachBestaetigungXml, parsePostfachAntwort, testabruf, postfachDateiname } from "./postfach.ts";
 import { datenartVersionFromXml, hasTestmerker } from "./xml.ts";
 
 const base = { datenlieferant: "Max Muster", herstellerId: "74931", produktVersion: "0.1.0", test: true };
@@ -34,9 +34,9 @@ describe("Postfach-XML", () => {
   });
 
   it("ordnet nur PostfachAnfragen mit Testmerker als Testabruf ein", () => {
-    expect(postfachArt("postfach", buildPostfachAnfrageXml(base))).toBe("test");
-    expect(postfachArt("postfach", buildPostfachAnfrageXml({ ...base, test: false }))).toBe("echt");
-    expect(postfachArt("ustva", buildPostfachAnfrageXml(base))).toBe(false);
+    expect(testabruf("postfach", buildPostfachAnfrageXml(base))).toBe(true);
+    expect(testabruf("postfach", buildPostfachAnfrageXml({ ...base, test: false }))).toBe(false);
+    expect(testabruf("ustva", buildPostfachAnfrageXml(base))).toBe(false);
   });
 });
 

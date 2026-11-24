@@ -75,14 +75,14 @@ const POSTFACH_HINWEIS =
 
 /**
  * Die Meldung von ERiC, ergänzt um Code und Text des Servers; unverändert, wenn der Server nichts meldet.
- * `postfach: "test"` heißt: Antwort auf eine PostfachAnfrage mit Testmerker; nur dort steht der Rat zum Haken
+ * `testmerker: true` heißt: Antwort auf eine PostfachAnfrage mit Testmerker; nur dort steht der Rat zum Haken
  * „Nur Testübermittlung“. Beim echten Abruf und außerhalb des Postfachs bleibt der Text des Servers stehen.
  */
-export function mitServerMeldung(message: string, serverResponseXml: string, postfach: "test" | "echt" | false = false): string {
+export function mitServerMeldung(message: string, serverResponseXml: string, testmerker = false): string {
   const meldungen = serverRueckmeldungen(serverResponseXml);
   if (meldungen.length === 0) return message;
   const zeilen = meldungen.map((m) => {
-    const rat = postfach === "test" && m.code === VERFAHRENSPRUEFUNG ? POSTFACH_HINWEIS : "";
+    const rat = testmerker && m.code === VERFAHRENSPRUEFUNG ? POSTFACH_HINWEIS : "";
     const teile = [m.text, rat].filter((teil) => teil !== "");
     return `${m.quelle} ${m.code}${teile.length > 0 ? ` – ${teile.join(" ")}` : ""}`;
   });

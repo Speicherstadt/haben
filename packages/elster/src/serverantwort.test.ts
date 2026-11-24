@@ -112,7 +112,7 @@ describe("mitServerMeldung", () => {
 
   it("ergänzt im Postfach mit Testmerker die Einordnung", () => {
     const xml = antwort(fehler(601015001, zertifikatssatz));
-    const meldung = mitServerMeldung("M", xml, "test");
+    const meldung = mitServerMeldung("M", xml, true);
     expect(meldung).toContain("Test-Datenbank");
     expect(meldung).toContain("Übertragungszertifikat von ERiC");
     expect(meldung).toContain("Nur Testübermittlung");
@@ -124,9 +124,9 @@ describe("mitServerMeldung", () => {
 
   it("rät beim echten Abruf nicht, den Haken auszuschalten", () => {
     const xml = antwort(fehler(601015001, zertifikatssatz));
-    expect(mitServerMeldung("M", xml, "echt")).not.toContain("Test-Datenbank");
+    expect(mitServerMeldung("M", xml)).not.toContain("Test-Datenbank");
     expect(mitServerMeldung("M", xml, false)).not.toContain("Test-Datenbank");
-    expect(mitServerMeldung("M", antwort(fehler(610101210, "Anderer Text.")), "test")).not.toContain("Test-Datenbank");
+    expect(mitServerMeldung("M", antwort(fehler(610101210, "Anderer Text.")), true)).not.toContain("Test-Datenbank");
   });
 
   it("lässt den Text stehen, wenn 601015001 einen anderen Grund nennt", () => {
