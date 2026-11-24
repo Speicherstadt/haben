@@ -100,7 +100,7 @@ describe("Voranmeldung: Werte von Hand ändern (#1253, Punkt 30)", () => {
     const html = seite();
     expect(html).toContain('<output id="kz-81"');
     expect(html).not.toContain('<input id="kz-81"');
-    expect(html).toMatch(/<button type="button" class="link-button"[^>]*>Werte von Hand ändern \(nur wenn das Finanzamt es verlangt\)<\/button>/);
+    expect(html).toMatch(/<button type="button" class="link-button"[^>]*>Werte von Hand ändern \(nur in Ausnahmen\)<\/button>/);
     expect(html).not.toContain("Manuell überschreiben");
     expect(html).not.toContain('class="mode-switch"');
     // Unter der Tabelle, nicht davor

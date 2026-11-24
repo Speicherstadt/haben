@@ -213,7 +213,7 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
         {!locked && (
           <p className="small" style={{ margin: 0 }}>
             <button type="button" className="link-button" onClick={() => switchMode(editable ? "berechnet" : "manuell")}>
-              {editable ? "Zurück zu den berechneten Werten" : "Werte von Hand ändern (nur wenn das Finanzamt es verlangt)"}
+              {editable ? "Zurück zu den berechneten Werten" : "Werte von Hand ändern (nur in Ausnahmen)"}
             </button>
           </p>
         )}
