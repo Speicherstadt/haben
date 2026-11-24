@@ -4,7 +4,7 @@ import { withActor } from "../../db/actor.ts";
 import { db, schema, type Tx } from "../../db/index.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
 import { sha256Of, storeFile } from "../../storage.ts";
-import { progressMessage } from "./lexoffice.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 
 /*
  * Mahnungen aus sevDesk ins Archiv (#472). Je Stufe eine Zeile in legacy_dunnings mit PDF, verbunden mit der gemahnten

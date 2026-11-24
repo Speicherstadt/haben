@@ -18,9 +18,12 @@ import { formatPercent, parsePercent } from "./skonto.ts";
 /** Rabatt in Prozent (Basispunkte, 1000 = 10 %) oder als fester Betrag in Cent */
 export type Discount = { kind: "prozent"; value: BasisPoints } | { kind: "betrag"; value: Cents };
 
+/** Höchster Rabatt als Betrag, positiv wie negativ (Storno) */
+export const DISCOUNT_AMOUNT_MAX: Cents = 100_000_000_00;
+
 export const discountSchema = z.union([
   z.object({ kind: z.literal("prozent"), value: inBasisPoints(z.int().check(z.minimum(1), z.maximum(10_000))) }),
-  z.object({ kind: z.literal("betrag"), value: inCents(z.int().check(z.minimum(-100_000_000_00), z.maximum(100_000_000_00))) }),
+  z.object({ kind: z.literal("betrag"), value: inCents(z.int().check(z.minimum(-DISCOUNT_AMOUNT_MAX), z.maximum(DISCOUNT_AMOUNT_MAX))) }),
 ]);
 
 /**

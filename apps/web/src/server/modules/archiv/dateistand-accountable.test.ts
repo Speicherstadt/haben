@@ -13,7 +13,7 @@ type DbModul = typeof import("../../db/index.ts");
 
 let dateistand: Dateistand;
 let dbm: DbModul;
-let lexoffice: typeof import("./lexoffice.ts");
+let lexoffice: typeof import("./umzug-belege.ts");
 let importId: string;
 
 async function beleg(lexofficeId: string, type: string, ohneBeleg: boolean, guid: string | null = null, extra: Record<string, unknown> = {}): Promise<string> {
@@ -51,7 +51,7 @@ describe.skipIf(!testDatabaseUrl)("Accountable-Beleg ohne Datei bestätigen", ()
     await setupTestDb();
     dbm = await import("../../db/index.ts");
     dateistand = await import("./dateistand.ts");
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = await import("./umzug-belege.ts");
     const { sql } = await import("drizzle-orm");
     const lauf = await dbm.db.execute<{ id: string }>(
       sql`insert into lexoffice_imports (status, source, progress) values ('fertig', 'accountable', '{}'::jsonb) returning id`,

@@ -1,3 +1,4 @@
+import { LEGACY_SOURCE } from "../../../lib/altbestand.ts";
 import { legacyTakeoverCutoff, TakeoverError } from "../auswertungen/index.ts";
 import {
   addDays,
@@ -30,16 +31,9 @@ const SALES = new Set(["invoice"]);
 const PURCHASES = new Set(["purchaseinvoice"]);
 const OPEN_ITEM_TYPES = new Set([...SALES, ...PURCHASES]);
 
-const SOURCE_LABEL = {
-  lexoffice: "Lexoffice",
-  sevdesk: "sevDesk",
-  buchhaltungsbutler: "BuchhaltungsButler",
-  accountable: "Accountable",
-  wiso: "WISO",
-  import: "JSON-Import",
-  fastbill: "FastBill",
-  "sevdesk-export": "sevDesk",
-} as const;
+function sourceLabel(source: LegacyVoucher["source"]): string {
+  return source === "sevdesk-export" ? LEGACY_SOURCE[source].product : LEGACY_SOURCE[source].name;
+}
 
 export interface OpenLegacyItem {
   id: string;
@@ -71,19 +65,18 @@ function blockerFor(voucher: LegacyVoucher, state: LegacyOpenAt, cutoff: string,
     return "Umsatzsteuer an das Finanzamt – kein Beleg in Haben; die Zahlung im Bankabgleich als „Umsatzsteuer an das Finanzamt“ zuordnen";
   if (voucher.currency !== "EUR") return "Fremdwährung";
   if (voucher.date > cutoff) return "nach dem Stichtag ausgestellt – gehört in die Bücher von Haben; dort als Rechnung bzw. Beleg erfassen";
-  if (state.issue) return `Stand am Stichtag unklar (${state.issue}) – in ${SOURCE_LABEL[voucher.source]} prüfen und von Hand erfassen`;
+  if (state.issue) return `Stand am Stichtag unklar (${state.issue}) – in ${sourceLabel(voucher.source)} prüfen und von Hand erfassen`;
   // Die Rechnung in Haben trägt den Betrag des Original-PDFs; offen ist dort, was keine Zahlung im Bankabgleich deckt.
   // Eine Zahlung vor dem Stichtag hat keinen Bankumsatz in Haben, eine Ausbuchung änderte die Steuer (§ 17 Abs. 1 UStG).
   if (state.open !== Math.abs(voucher.gross))
-    return `bis zum Stichtag teilweise bezahlt – Restbetrag erst in ${SOURCE_LABEL[voucher.source]} ausgleichen oder in Haben direkt buchen`;
+    return `bis zum Stichtag teilweise bezahlt – Restbetrag erst in ${sourceLabel(voucher.source)} ausgleichen oder in Haben direkt buchen`;
   if (voucher.taxes.some((t) => ![1900, 700, 0].includes(t.rate))) return "Steuersatz, den Haben nicht kennt";
   if (voucher.gross <= 0) return "Betrag nicht positiv";
   // Dateistand (#345): ein fehlendes XML neben dem PDF blockiert ebenso, das XML einer E-Rechnung ist das Original
-  if (fileState === "anhang_fehlt") return `XML der E-Rechnung fehlt – „Erneut abrufen“ versucht es noch einmal`;
-  // Ein fehlgeschlagener Abruf blockiert auch neben einer anderen Datei, etwa einem weiteren Anhang aus Lexoffice oder einer
+  // Ein fehlender Anhang oder ein fehlgeschlagener Abruf blockiert auch neben einer anderen Datei, etwa einem weiteren Anhang aus Lexoffice oder einer
   // später in sevDesk genannten Datei (#472): Unvollständig Abgerufenes übernimmt Haben nicht ohne Rückfrage (Konventionen, „Umzüge“)
-  if (fileState === "abruf_fehlgeschlagen") return takeoverFileIssue(fileState, SOURCE_LABEL[voucher.source]);
-  if (!hasPdf) return takeoverFileIssue(fileState, SOURCE_LABEL[voucher.source]) ?? `keine Datei aus ${SOURCE_LABEL[voucher.source]}`;
+  if (fileState === "anhang_fehlt" || fileState === "abruf_fehlgeschlagen" || !hasPdf)
+    return takeoverFileIssue(fileState, voucher.source, voucher.raw.quelle) ?? `keine Datei aus ${sourceLabel(voucher.source)}`;
   return null;
 }
 
@@ -362,12 +355,12 @@ async function takeOverInvoice(
   const taxes = voucher.taxes.filter((t) => t.net !== 0);
   const rebuilt = rebuildInvoiceLines(
     taxes,
-    (rate, mehrere) => `Rechnung ${voucher.number} aus ${SOURCE_LABEL[voucher.source]}${mehrere ? ` (${rate / 100} %)` : ""}`,
+    (rate, mehrere) => `Rechnung ${voucher.number} aus ${sourceLabel(voucher.source)}${mehrere ? ` (${rate / 100} %)` : ""}`,
     (totals) => totals.gross === voucher.gross && totals.tax === voucher.tax,
   );
   if (!rebuilt.ok) {
     throw new TakeoverError(
-      `Die Steuer lässt sich nicht centgenau nachbilden (${SOURCE_LABEL[voucher.source]} ${voucher.tax / 100} €, Haben ${rebuilt.netTax / 100} €).`,
+      `Die Steuer lässt sich nicht centgenau nachbilden (${sourceLabel(voucher.source)} ${voucher.tax / 100} €, Haben ${rebuilt.netTax / 100} €).`,
     );
   }
   const { priceMode, totals, lines } = rebuilt;
@@ -417,7 +410,7 @@ async function takeOverInvoice(
         serviceFrom: voucher.serviceFrom,
         serviceTo: voucher.serviceTo,
         taxTreatment,
-        note: `Aus ${SOURCE_LABEL[voucher.source]} übernommen; das PDF ist das Original.`,
+        note: `Aus ${sourceLabel(voucher.source)} übernommen; das PDF ist das Original.`,
         priceMode,
         totals,
         lines,
@@ -432,7 +425,7 @@ async function takeOverInvoice(
     if (!covering)
       await post(tx, company, {
         date: cutoff.bookingDate,
-        description: `Offene Rechnung ${voucher.number} aus ${SOURCE_LABEL[voucher.source]} · ${contact!.name}`,
+        description: `Offene Rechnung ${voucher.number} aus ${sourceLabel(voucher.source)} · ${contact!.name}`,
         sourceType: "invoice",
         sourceId: id,
         lines: openingInvoicePosting(totals, company.kontenrahmen, company.versteuerung),
@@ -475,7 +468,7 @@ async function takeOverDocument(
         dueDate: voucher.dueDate,
         category,
         payment: "bank",
-        note: `Aus ${SOURCE_LABEL[voucher.source]} übernommen; die Vorsteuer ist dort schon angemeldet.`,
+        note: `Aus ${sourceLabel(voucher.source)} übernommen; die Vorsteuer ist dort schon angemeldet.`,
         net: voucher.net,
         tax: voucher.tax,
         gross: voucher.gross,
@@ -487,7 +480,7 @@ async function takeOverDocument(
     if (!covering)
       await post(tx, company, {
         date: cutoff.bookingDate,
-        description: `Offener Beleg ${voucher.number || file.filename} aus ${SOURCE_LABEL[voucher.source]} · ${voucher.contactName}`,
+        description: `Offener Beleg ${voucher.number || file.filename} aus ${sourceLabel(voucher.source)} · ${voucher.contactName}`,
         sourceType: "document",
         sourceId: id,
         lines: openingDocumentPosting(voucher.gross, company.kontenrahmen),

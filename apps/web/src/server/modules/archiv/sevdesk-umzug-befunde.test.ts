@@ -57,7 +57,7 @@ const stack = (rows: string[]) => {
 const INTERNAL_ID = "1f2e3d4c-5b6a-4789-8abc-0123456789ab";
 
 describe.skipIf(!testDatabaseUrl)("sevDesk-Umzug: Befunde aus #472 (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-abgleich.ts") & typeof import("./umzug-belege.ts");
   let legacy: typeof import("./legacy-open.ts");
   let archive: typeof import("./archive.ts");
   let sql: postgres.Sql;
@@ -65,7 +65,7 @@ describe.skipIf(!testDatabaseUrl)("sevDesk-Umzug: Befunde aus #472 (Postgres)", 
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-belege.ts")) };
     legacy = await import("./legacy-open.ts");
     archive = await import("./archive.ts");
   }, 30_000);

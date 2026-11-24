@@ -40,7 +40,7 @@ test("Berichtigung in einem übernommenen Jahr beginnt mit den gesendeten Werten
   await expect(page.getByText("Berichtigte Anmeldung angelegt.")).toBeVisible();
   const formular = page.getByRole("form", { name: "Kennzahlen" });
 
-  await expect(formular.getByRole("button", { name: "Manuell überschreiben" })).toHaveAttribute("aria-pressed", "true");
+  await expect(formular.getByRole("button", { name: "Zurück zu den berechneten Werten" })).toBeVisible();
   await expect(formular.getByLabel("Begründung der Abweichung (Pflicht)")).toHaveValue(/2026 beim Update auf das Journal übernommen/);
   const vergleich = formular.getByRole("table", { name: "Gesendet und Journal je Kennzahl" });
   await expect(vergleich.getByRole("row", { name: /^81/ })).toHaveText(/1\.000,00\s€.*0,00\s€.*[−-]1\.000,00\s€/);

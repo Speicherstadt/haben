@@ -1,5 +1,7 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { privatanteilFehler, privatanteilTexte, privatanteilWerte } from "./PrivatanteilVorgaben.tsx";
+import { PrivatanteilVorgaben, privatanteilFehler, privatanteilTexte, privatanteilWerte } from "./PrivatanteilVorgaben.tsx";
 
 describe("Vorgaben für den Privatanteil (#1221)", () => {
   it("liest ganze Prozent von 0 bis 100, auch mit „%“; leer und 0 heißen kein Anteil", () => {
@@ -22,5 +24,18 @@ describe("Vorgaben für den Privatanteil (#1221)", () => {
 
   it("zeigt gespeicherte Vorgaben als Text", () => {
     expect(privatanteilTexte({ telefon: 20 })).toEqual({ telefon: "20", internet: "" });
+  });
+});
+
+describe("Hinweis unter den Vorgaben (#1261)", () => {
+  const hinweis = (abzug: boolean) =>
+    renderToStaticMarkup(
+      createElement(PrivatanteilVorgaben, { texte: { telefon: "", internet: "" }, abzug, onChange() {}, error: () => undefined, offen: true, onOffen() {} }),
+    );
+
+  it("nennt die Vorsteuer nur mit Vorsteuerabzug", () => {
+    expect(hinweis(true)).toContain("Nur der betriebliche Teil wird Ausgabe und Vorsteuer, der private Teil ist eine Entnahme.");
+    expect(hinweis(false)).toContain("Nur der betriebliche Teil wird Ausgabe, der private Teil ist eine Entnahme.");
+    expect(hinweis(false)).not.toContain("Vorsteuer");
   });
 });

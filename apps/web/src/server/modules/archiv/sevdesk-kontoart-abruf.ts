@@ -4,7 +4,7 @@ import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import { ohneJit } from "../../db/ohne-jit.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
-import { progressMessage } from "./lexoffice.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 import { sevdeskPositionAccount, sevdeskPositions } from "./sevdesk-kategorie.ts";
 
 /*

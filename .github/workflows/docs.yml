@@ -20,6 +20,7 @@ on:
       - 'scripts/doku-aenderungsdatum/**'
       - 'scripts/doku-hinweise/**'
       - 'scripts/doku-kurzlinks/**'
+      - 'scripts/doku-listen/**'
       - 'scripts/doku-startseite/**'
       - '.github/workflows/docs.yml'
   pull_request:
@@ -32,6 +33,7 @@ on:
       - 'scripts/doku-aenderungsdatum/**'
       - 'scripts/doku-hinweise/**'
       - 'scripts/doku-kurzlinks/**'
+      - 'scripts/doku-listen/**'
       - 'scripts/doku-startseite/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
@@ -65,12 +67,15 @@ jobs:
       - run: python -m unittest discover -s scripts/doku-aenderungsdatum
       - run: python -m unittest discover -s scripts/doku-hinweise
       - run: python -m unittest discover -s scripts/doku-kurzlinks
+      - run: python -m unittest discover -s scripts/doku-listen
       - run: python -m unittest discover -s scripts/doku-startseite
       - uses: actions/configure-pages@v6
         if: github.event_name != 'pull_request'
         with:
           enablement: true
       - run: zensical build --strict
+      # Liste ohne Leerzeile davor: Punkte im Fließtext eines Absatzes, das meldet der Build nicht (scripts/doku-listen)
+      - run: python scripts/doku-listen/haben_doku_listen.py site
       # Adressen mit Schrägstrich: haben.app/api/ führt auf api.html, statt 404 (scripts/doku-kurzlinks)
       - run: python scripts/doku-kurzlinks/haben_doku_kurzlinks.py site
       - run: grep -q 'url=../api.html' site/api/index.html
@@ -96,7 +101,7 @@ jobs:
       # Datenschutz: Schriften kommen von haben.app selbst (privacy-Plugin), nicht von Google Fonts;
       # Impressum und Datenschutzerklärung stehen im Fuß jeder Seite (copyright in mkdocs.yml)
       - run: "! grep -rlE '//fonts\\.(googleapis|gstatic)\\.com' site --include='*.html'"
-      - run: test -z "$(grep -L 'speicherstadt.app/datenschutz/' site/*.html site/adr/*.html)"
+      - run: test -z "$(grep -L 'speicherstadt.org/datenschutz/' site/*.html site/adr/*.html)"
       - run: test -z "$(grep -L 'teufel-it.de/de/impressum/' site/*.html site/adr/*.html)"
       - uses: actions/upload-pages-artifact@v5
         if: github.event_name != 'pull_request'

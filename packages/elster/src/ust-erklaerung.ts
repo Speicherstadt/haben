@@ -43,6 +43,14 @@ export interface UstErklaerungFigures {
   kz21?: Cents;
   /** Nicht steuerbare Umsätze Drittland (Kz 45, E3105801) */
   kz45?: Cents;
+  /**
+   * Minderung der Bemessungsgrundlage für uneinbringliche Forderungsentgelte (§ 17 Abs. 1 Satz 1 i. V. m. Abs. 2 Nr. 1
+   * Satz 1 UStG, E3106101, Kz 650): die Summe der Kz 50 der Voranmeldungen, zusätzlich zu den schon geminderten
+   * Bemessungsgrundlagen der Umsätze zu 19 und 7 %, nie negativ, volle Euro. Quelle: Jahresdokumentation E50 2025 im
+   * ERiC-Paket 44.3.6.0 (Zeile 78, „in Abschnitt B enthalten“, GeldBetragOhneCent ohne Vorzeichen) und Anleitung zur
+   * Umsatzsteuererklärung 2026, Zeile 84 („bitte zusätzlich in Zeile 84“, BMF-Schreiben vom 29.12.2025).
+   */
+  kz50?: Cents;
   /** Steuerfreie Umsätze ohne Vorsteuerabzug, Zeile 46: Vermietung nach § 4 Nr. 12 UStG (E3104401) */
   kz48Zeile46?: Cents;
   /** Steuerfreie Umsätze ohne Vorsteuerabzug, Zeile 47: übrige nicht zum Gesamtumsatz gehörende (E3104502) */
@@ -90,6 +98,7 @@ export function ustErklaerungLeer(f: UstErklaerungFigures): boolean {
     f.kz85,
     f.kz21,
     f.kz45,
+    f.kz50,
     f.kz48Zeile46,
     f.kz48Zeile47,
     f.kz61,
@@ -155,7 +164,9 @@ function ust2aStfrei(f: UstErklaerungFigures, year: number): XmlNode | false {
  * Steuer zu 7 % aufheben (Vordruck USt 2 A, Zeilen 22 bis 37), negative Rechnungsvorsteuer die Einfuhrumsatzsteuer
  * (Zeilen 79 bis 87). Steht ein Abschnitt da, steht seine Summe auch mit 0,00 da und wird in die Berechnung übertragen.
  */
-const hatUmsatzZeilen = (f: UstErklaerungFigures) => f.base19 !== 0 || f.base7 !== 0;
+// Eine Minderung bei Uneinbringlichkeit verlangt eine Zeile in Abschnitt B (ERiC-Regel USt_2021_30940), auch wenn sich
+// Rechnung und Ausfall im Jahr aufheben; dann steht die Zeile zu 19 % mit 0 da
+const hatUmsatzZeilen = (f: UstErklaerungFigures) => f.base19 !== 0 || f.base7 !== 0 || kz(f.kz50) !== 0;
 const hatIgErwerbZeilen = (f: UstErklaerungFigures) => kz(f.kz89) !== 0 || kz(f.kz93) !== 0;
 const hat13bZeilen = (f: UstErklaerungFigures) => kz(f.kz46) !== 0 || kz(f.kz84) !== 0 || kz(f.kz47) !== 0 || kz(f.kz85) !== 0;
 const hatVorsteuerZeilen = (f: UstErklaerungFigures) => f.vorsteuer !== 0 || kz(f.kz61) !== 0 || kz(f.kz62) !== 0 || kz(f.kz67) !== 0;
@@ -207,10 +218,10 @@ function ust2a13b(f: UstErklaerungFigures, s13bSteuer: Cents): XmlNode | false {
   );
 }
 
-/** Ergänzende Angaben zu den Umsätzen: Leistungsort EU-Ausland (Kz 21) oder Drittland (Kz 45) */
+/** Ergänzende Angaben zu den Umsätzen: Leistungsort EU-Ausland (Kz 21), Drittland (Kz 45), Minderung bei Uneinbringlichkeit (Kz 650) */
 function ust2aErgAng(f: UstErklaerungFigures): XmlNode | false {
   return (
-    (kz(f.kz21) !== 0 || kz(f.kz45) !== 0) && [
+    (kz(f.kz21) !== 0 || kz(f.kz45) !== 0 || kz(f.kz50) !== 0) && [
       "Erg_Ang_Ums",
       [
         [
@@ -218,6 +229,7 @@ function ust2aErgAng(f: UstErklaerungFigures): XmlNode | false {
           [
             ["E3105702", f.kz21 ? wholeEuros(f.kz21) : undefined],
             ["E3105801", f.kz45 ? wholeEuros(f.kz45) : undefined],
+            ["E3106101", f.kz50 ? wholeEuros(f.kz50) : undefined],
           ],
         ],
       ],
@@ -328,7 +340,7 @@ export function buildUstErklaerungXml(input: UstErklaerungXmlInput): string {
           [
             "Tabelle",
             [
-              f.base19 !== 0 && [
+              (f.base19 !== 0 || f.base7 === 0) && [
                 "Ums_allg",
                 [
                   ["E3003303", wholeEuros(f.base19)],

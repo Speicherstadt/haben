@@ -1,47 +1,34 @@
-import { type Kontenrahmen, LEGACY_PAYMENT_TYPES, legacyNeutralSums, legacyVatByMonth, type Versteuerung } from "@haben/core";
+import { legacyNeutralSums, legacyVatByMonth } from "@haben/core";
 import { datevYearSums } from "@haben/import";
-import { paymentHistoryIssue, unclearFrom } from "../auswertungen/index.ts";
-import type { LegacyPayment, LegacySource } from "../../db/schema.ts";
+import { unclearFrom } from "../auswertungen/index.ts";
 import { fileCheck, fileCounts, legacyFileStatus, OPEN_FILE_STATUSES } from "./dateistand.ts";
 import { bookingsCheckDetail } from "./datev-abgleich.ts";
 import { fastbillPartlyCanceledChecks, fastbillWaitingChecks } from "./fastbill-abgleich.ts";
-import type { AbgleichArchiv, AbgleichBelege, ReconciliationCheck } from "./lexoffice.ts";
+import type { ReconciliationCheck, ReconciliationData } from "./umzug-abgleich.ts";
+import { legacyPayments } from "./umzug-umsatzsteuer.ts";
 import { SEVDESK_EXPORT_IST_CHECK, sevdeskExportIstIssue, sevdeskExportYear, voucherSourceChecks, withoutExportImage } from "./sevdesk-export-abgleich.ts";
 import { accountingTypeChecks, ACCOUNTING_TYPE_VAT_ISSUE, unclearAccountingTypes } from "./sevdesk-kontoart.ts";
 import { vatFieldsOf } from "./sevdesk-steuerarten.ts";
 
-/** Was der Abgleich eines Jahres braucht: die eingeordneten Belege, was sonst im Archiv liegt, Kontenrahmen und Versteuerung */
-export type AbgleichDaten = AbgleichBelege & AbgleichArchiv & { kontenrahmen: Kontenrahmen; versteuerung: Versteuerung };
-type Beleg = AbgleichBelege["classified"][number];
-
-/**
- * Zahlungen, die bei Ist-Versteuerung als Entgelt zählen, mit dem Vorzeichen des Belegs (Gutschriften mindern die Umsätze).
- * Eine Zuordnung über 0 € ist keine Zahlung (#472).
- */
-export function legacyPayments(v: { source: LegacySource; gross: number; status: string; payment: LegacyPayment | null }) {
-  if (paymentHistoryIssue(v)) return [];
-  return (v.payment?.items ?? [])
-    .filter((p) => LEGACY_PAYMENT_TYPES.has(p.type) && p.date && p.amount !== 0)
-    .map((p) => ({ date: p.date, amount: Math.sign(v.gross) * Math.abs(p.amount) }));
-}
+type Beleg = ReconciliationData["classified"][number];
 
 // Ohne Einzelzahlungen können selbst bereits vollständig bezahlte sevDesk-Rechnungen mehrere Monate betreffen.
 // Gesperrt ist jedes Jahr, in das eine solche Zahlung fallen kann: bis zum Ausgleich, ohne Ausgleichsdatum alle.
-function paymentIssueOf(year: number, { versteuerung, businessRows }: AbgleichDaten) {
+function paymentIssueOf(year: number, { versteuerung, businessRows }: ReconciliationData) {
   if (versteuerung !== "ist") return null;
   if (businessRows.some((v) => v.direction === "einnahme" && unclearFrom(v, String(year)))) {
     return "sevDesk-Zahlungshistorie unvollständig: Der Ist-Monatsabgleich ist bis zur Klärung der Einzelzahlungen gesperrt.";
   }
   return null;
 }
-const unclearAccountsIn = (year: number, { versteuerung, businessRows }: AbgleichDaten) =>
+const unclearAccountsIn = (year: number, { versteuerung, businessRows }: ReconciliationData) =>
   unclearAccountingTypes(businessRows, year, (v) => (versteuerung === "ist" ? legacyPayments(v) : []));
-const exportIstIssueOf = (year: number, { versteuerung, classified }: AbgleichDaten) => sevdeskExportIstIssue(versteuerung, classified, year);
-const vatIssueOf = (year: number, d: AbgleichDaten) =>
+const exportIstIssueOf = (year: number, { versteuerung, classified }: ReconciliationData) => sevdeskExportIstIssue(versteuerung, classified, year);
+const vatIssueOf = (year: number, d: ReconciliationData) =>
   [paymentIssueOf(year, d), unclearAccountsIn(year, d) ? ACCOUNTING_TYPE_VAT_ISSUE : null, exportIstIssueOf(year, d)].filter(Boolean).join(" ") || null;
 
 /** Ein Geschäftsjahr im Abgleich: Summen, Umsatzsteuer je Monat, Dateistand und was bis zur Kündigung fehlt */
-export function abgleichJahr(year: number, d: AbgleichDaten) {
+export function abgleichJahr(year: number, d: ReconciliationData) {
   const vouchers = d.businessRows.filter((v) => v.date.startsWith(`${year}-`));
   // Alle Belege des Jahres, auch neutrale: Auch ein Körperschaftsteuerbescheid braucht seine Datei
   const yearRows = d.classified.filter((v) => v.date.startsWith(`${year}-`));
@@ -82,7 +69,7 @@ export function abgleichJahr(year: number, d: AbgleichDaten) {
 }
 
 /** Einnahmen und Ausgaben des Jahres: aus den Belegen, ohne Belege per API aus dem Buchungsstapel, im Mischjahr aus beidem */
-function jahresSummen(year: number, d: AbgleichDaten, vouchers: Beleg[], yearRows: Beleg[]) {
+function jahresSummen(year: number, d: ReconciliationData, vouchers: Beleg[], yearRows: Beleg[]) {
   const yearDatev = d.datevRows.filter((b) => b.date.startsWith(`${year}-`));
   // Accountable legt in den Belegen nur Ausgaben ab; die Erlöse stehen ausschließlich im
   // Buchungsstapel. Ohne diese Ausnahme blieben die Einnahmen bei 0, obwohl die Buchung da ist.
@@ -120,7 +107,7 @@ function jahresSummen(year: number, d: AbgleichDaten, vouchers: Beleg[], yearRow
  * Beleg aus einem anderen Jahr gehören; Einnahmen zählen nach den Zahlungen aus dem Zahlungsstatus, Vorsteuer und
  * Sonderfälle wie § 13b nach Belegdatum (siehe `legacyVatByMonth`). Sonst zählen die Belege des Jahres nach Belegdatum.
  */
-function jahresUmsatzsteuer(year: number, { businessRows, versteuerung, taxSets }: AbgleichDaten) {
+function jahresUmsatzsteuer(year: number, { businessRows, versteuerung, taxSets }: ReconciliationData) {
   return legacyVatByMonth(
     businessRows
       .filter((v) => (versteuerung === "ist" ? true : v.date.startsWith(`${year}-`)))
@@ -169,7 +156,7 @@ function letzteRechnungsnummer(vouchers: Beleg[], yearRows: Beleg[]) {
 /** Was für das Jahr vor der Kündigung des alten Programms vorliegen muss */
 function jahresPruefungen(
   year: number,
-  d: AbgleichDaten,
+  d: ReconciliationData,
   {
     vouchers,
     yearRows,

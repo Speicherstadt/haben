@@ -106,6 +106,9 @@ describe.skipIf(!testDatabaseUrl)("Anzahlungsbilanzierung bei GmbH und UG (Postg
       await sql`update company set rechtsform = ${form}, kontenrahmen = ${frame}, versteuerung = ${vatMode}`;
       const invoice = await advance();
       await bank.createCashInvoiceEntry(actor, { invoiceId: invoice.id, date: "2026-12-12", amount: 11_900 }, "2026-12-12");
+      expect(await sql`select description from journal_entries where source_type = 'invoice' and source_id = ${invoice.id}`).toContainEqual({
+        description: `Bilanzierung Anzahlung ${invoice.number}`,
+      });
       expect(await revenue(2026, ACCOUNTS[frame].erhalteneAnzahlungen)).toBe(10_000);
       expect(await revenue(2026, ACCOUNTS[frame].erloese[1900])).toBe(0);
       expect((await bank.cashBook(2026)).entries).toHaveLength(1);

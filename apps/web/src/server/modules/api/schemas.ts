@@ -146,7 +146,7 @@ const draftFields = draftSchema.shape;
 // Rabatte bleiben der Oberfläche vorbehalten, wie Abschlags- und Schlussrechnung
 const { discount: _discount, ...lineFields } = draftFields.lines.element.shape;
 
-const lineInputSchema = z
+export const lineInputSchema = z
   .object({
     ...lineFields,
     // Die Felder kommen aus @haben/core (zod/mini) und kennen kein .describe; z.describe als Prüfung gibt es für beide
@@ -204,7 +204,8 @@ const referenceFields = {
   externalId: externalReferenceSchema.shape.externalId.describe("Bestellnummer auf der Plattform; mit externalSource eindeutig"),
 };
 
-const optional = <T extends Record<string, z.ZodType>>(shape: T) =>
+/** Jedes Feld optional: Anlegen nimmt Vorgaben, Ändern lässt Ungenanntes stehen */
+export const optional = <T extends Record<string, z.ZodType>>(shape: T) =>
   Object.fromEntries(Object.entries(shape).map(([key, value]) => [key, value.optional()])) as { [K in keyof T]: z.ZodOptional<T[K]> };
 
 export const draftCreateSchema = z
