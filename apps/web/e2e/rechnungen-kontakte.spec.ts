@@ -585,7 +585,7 @@ test("Kontakt: Wechsel ohne Neuladen zu einem Kontakt mit gleicher Version zeigt
     await kreis.getByRole("button", { name: "Übernehmen" }).click();
     await expect(kreis.getByRole("status")).toContainText("Nummernkreis gespeichert.");
 
-    // Über die Schnellsuche zum anderen Kunden: Die Seite bleibt stehen, Formular und Karten gehören jetzt ihm
+    // Über die Schnellsuche zum anderen Kunden, ohne Neuladen: Formular und Karten gehören jetzt ihm
     await ueberSchnellsuche(page, "Wechselkunde Süd", /Wechselkunde Süd/);
     await expect(page.getByRole("heading", { level: 1, name: "Wechselkunde Süd" })).toBeVisible();
     const formular = page.getByRole("form", { name: "Kontakt" });

@@ -63,6 +63,8 @@ Ein gesperrter Knopf ist per Tab nicht erreichbar und sagt nicht, was fehlt. Die
 
 Baut eine Aktion das Formular danach mit dem gespeicherten Stand neu auf, etwa „Entwurf speichern“ im Rechnungseditor (Neuladen oder Wechsel auf die Adresse des neuen Entwurfs), sind auch die Felder gesperrt, solange sie läuft: `<fieldset className="fieldset-plain" disabled={busy}>` um den Inhalt des Formulars; hat es schon eigene Fieldsets, etwa die Karten in „Beleg prüfen“ (`fieldsDisabled`), tragen diese das `disabled`. Sonst ersetzte der Neuaufbau, was man in der Zwischenzeit tippt (#1148). Das gesperrte Feld verliert den Fokus; `useFokusNachSperre(busy)` setzt ihn zurück, wenn das Formular danach stehen bleibt, etwa weil die Aktion fehlschlug. Geprüft wird vor dem Sperren (`check` vor `run`), sonst findet der Fokus das Feld mit Fehler nicht.
 
+Wechselt die Adresse zu einem anderen Eintrag derselben Seite, etwa über die Schnellsuche, entsteht die ganze Seite neu, samt Meldungen und offenen Rückfragen (`defaultRemountDeps` in `router.tsx`, je Pfad-Parameter, nicht je Suchparameter); ein `key` am Formular braucht deshalb nur den gespeicherten Stand (`updatedAt`, Version), nicht die ID.
+
 Gesperrt sein darf ein Knopf, wenn der Grund nicht im Formular liegt oder direkt daneben zu sehen ist:
 
 - Es fehlt etwas außerhalb (Zertifikat, Firmendaten, Fehler im Jahr): Der Hinweis mit dem Grund verlinkt dorthin, wo er sich beheben lässt.

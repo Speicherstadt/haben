@@ -74,7 +74,6 @@ function seitGesendetGeaendert(gesendet: Figures, computed: Figures, data: PageD
   const vor1268 = computeUstva({ ...data.figures, kz48: data.figures.kz48 - data.figures.kz48Kleinunternehmer, kz39: data.kz39 });
   return !sameFigures(gesendet, computed, GESENDET_VERGLEICHEN) && !sameFigures(gesendet, vor1268, GESENDET_VERGLEICHEN);
 }
-type PeriodNotice = { key: string; notice: Notice };
 
 /** „Kz 81 1.000,00 €, Kz 86 0,00 € und Kz 66 12,00 €“; Kz 21/45/48 nur, wenn belegt */
 function describe(figures: Record<FieldKey, number>): string {
@@ -86,11 +85,8 @@ function VatPeriodPage() {
   const data = Route.useLoaderData();
   const navigate = useNavigate();
   const key = periodKey(data.period);
-  // Meldungen überleben das Neuaufsetzen des Formulars nach dem Speichern
-  // und gelten nur für den Zeitraum, in dem sie entstanden sind.
-  const [periodNotice, setPeriodNotice] = useState<PeriodNotice | null>(null);
-  const notice = periodNotice?.key === key ? periodNotice.notice : null;
-  const setNotice = (next: Notice) => setPeriodNotice({ key, notice: next });
+  // Meldungen überleben das Neuaufsetzen des Formulars nach dem Speichern; die Seite entsteht je Zeitraum neu
+  const [notice, setNotice] = useState<Notice>(null);
   // Zeiträume nach dem eingestellten Voranmeldungszeitraum, dazu der angezeigte, falls er nicht dazugehört
   const options = [...data.periods];
   if (!options.some((option) => periodKey(option) === key)) options.push(data.period);
@@ -187,8 +183,8 @@ function VatPeriodPage() {
         </div>
       )}
 
-      {/* key: Formular bei Zeitraum- oder Anmeldungswechsel neu aufsetzen */}
-      <VatReturnEditor key={`${key}-${data.current?.id ?? "neu"}-${data.current?.updatedAt ?? ""}`} data={data} notice={notice} setNotice={setNotice} />
+      {/* key: Formular bei Wechsel der Anmeldung (Berichtigung) und nach dem Speichern neu aufsetzen */}
+      <VatReturnEditor key={`${data.current?.id ?? "neu"}-${data.current?.updatedAt ?? ""}`} data={data} notice={notice} setNotice={setNotice} />
       {/* Außerhalb des Editors: der baut sich nach jedem Speichern der Anmeldung neu auf und verwürfe sonst die Auswahl hier */}
       <div className="grid-main" style={{ marginTop: 16 }}>
         <VatFrequencyCard key={data.frequency.year} frequency={data.frequency} />
