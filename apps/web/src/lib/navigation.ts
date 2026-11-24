@@ -67,7 +67,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: "Verkauf",
     icon: "store",
-    hinweis: "Was du verkaufst: Angebote, Rechnungen, Kunden und Artikel",
+    hinweis: "Was du anbietest und in Rechnung stellst, samt allem, was du dafür brauchst",
     links: [
       { to: "/angebote", icon: "quote", label: "Angebote" },
       { to: "/rechnungen", icon: "invoice", label: "Rechnungen" },
@@ -81,7 +81,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: "Ausgaben",
     icon: "cart",
-    hinweis: "Was du einkaufst: Belege, Überweisungen, Anlagen",
+    hinweis: "Was du ausgibst, belegst und überweist",
     links: [
       { to: "/belege", icon: "receipt", label: "Belege" },
       { to: "/dauerbelege", icon: "repeat", label: "Dauerbelege" },
@@ -94,7 +94,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: "Geld",
     icon: "wallet",
-    hinweis: "Wo dein Geld liegt: Bank, Kasse, Darlehen",
+    hinweis: "Wo dein Geld liegt, auf der Bank, in der Kasse und im Darlehen",
     links: [
       { to: "/bank", icon: "bank", label: "Bank" },
       { to: "/kasse", icon: "cash", label: "Kasse" },
@@ -104,7 +104,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: "Personal",
     icon: "badge",
-    hinweis: "Wer für dich arbeitet: Lohn und Meldungen an die Sozialversicherung",
+    hinweis: "Was deine Mitarbeiter bekommen und was du dafür der Sozialversicherung meldest",
     links: [
       { to: "/lohn", icon: "payroll", label: "Lohn" },
       // Lohn bleibt immer sichtbar, dort entsteht der erste Mitarbeiter
@@ -114,7 +114,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: "Steuern",
     icon: "calculator",
-    hinweis: "Was du mit dem Finanzamt klärst: Umsatzsteuer, Jahreserklärung, Fristen und Bescheide",
+    hinweis: "Was du dem Finanzamt meldest, was es dir schickt und bis wann",
     links: [
       { to: "/umsatzsteuer", icon: "vat", label: "Umsatzsteuer" },
       { to: "/jahreserklaerung", icon: "annual", label: "Jahreserklärung" },
@@ -127,7 +127,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: "Buchhaltung",
     icon: "book",
-    hinweis: "Wie alles verbucht ist: Auswertungen, Buchungen, Konten, Archiv",
+    hinweis: "Wie deine Zahlen gebucht, ausgewertet, abgeschlossen und aufbewahrt werden",
     links: [
       { to: "/auswertungen", icon: "reports", label: "Auswertungen" },
       { to: "/buchungen", icon: "journal", label: "Buchungen" },
@@ -144,7 +144,7 @@ export const STEUERBERATUNG_NAV: readonly NavGroup[] = [
   {
     label: "Steuerberatung",
     icon: "briefcase",
-    hinweis: "Zum Nachlesen: Auswertungen, Buchungen, Konten, Belege, Rechnungen",
+    hinweis: "Zum Nachlesen da sind Auswertungen, Buchungen, Konten, Belege und Rechnungen",
     links: [
       { to: "/auswertungen", icon: "reports", label: "Auswertungen" },
       { to: "/buchungen", icon: "journal", label: "Buchungen" },
