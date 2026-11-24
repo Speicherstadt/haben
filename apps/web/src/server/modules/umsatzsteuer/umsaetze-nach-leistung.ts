@@ -1,6 +1,7 @@
 import { periodRange, type Cents, type JournalKennzahlen, type VatPeriod, type Versteuerung } from "@haben/core";
-import type { Db, Tx } from "../../db/index.ts";
-import { leistungstag } from "../rechnungen/index.ts";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { schema, type Db, type Tx } from "../../db/index.ts";
+import { invoiceTaxReader, kleinunternehmerBisZurRueckzahlung, leistungstag } from "../rechnungen/index.ts";
 import { ausbuchungenNachLeistung, rechnungenNachLeistung, summe, type Zaehlt } from "./leistung-belege.ts";
 import { steuerfreiNachLeistung } from "./steuerfrei-nach-leistung.ts";
 import type { RevenueSource } from "./vat-figures.ts";
@@ -12,9 +13,11 @@ import { kennzahlenAusDemJournal } from "./vat-journal.ts";
  * tragen Sie bitte nicht ein. Den Gesamtbetrag (Anzahlungen und Restzahlung) geben Sie bitte im Voranmeldungszeitraum der
  * Leistungsausführung an.“ Eine Ausnahme für die Ist-Versteuerung nennt sie nicht
  * (https://www.elster.de/eportal/helpGlobal?themaGlobal=help_ustva_2026#kz48 und #kz43). Rechnungen zählen nach dem
- * Leistungstag; Anzahlungen nicht, die Schlussrechnung mit den abgezogenen Anzahlungen. Storno und Korrektur zählen im
- * Monat ihres Datums (§ 17 UStG), ebenso Skonto und Forderungsausfall im Monat der Ausbuchung bzw. ihrer Aufhebung: Die
- * Anleitung verlangt unter „Allgemein“, Entgeltminderungen bei den Bemessungsgrundlagen zu berücksichtigen. Bareinnahmen und
+ * Leistungstag; Anzahlungen nicht, die Schlussrechnung mit den abgezogenen Anzahlungen. Die Anleitung verlangt unter
+ * „Allgemein“, Entgeltminderungen bei den Bemessungsgrundlagen zu berücksichtigen (§ 17 UStG): Storno und Korrektur zählen
+ * im Monat ihres Datums, schon bezahltes Entgelt mindern sie aber erst mit der Rückzahlung, wie in Kz 81 und 86 (#1228,
+ * UStAE 17.1 Abs. 2 Satz 3); Skonto und Forderungsausfall buchen nur Unbezahltes aus und zählen im Monat der Ausbuchung
+ * bzw. ihrer Aufhebung. Bareinnahmen und
  * direkt gebuchte Erlöse ohne Rechnung zählen am Tag der Zahlung: Ohne Rechnung kennt Haben keinen anderen Tag
  * (bareinnahme.ts, direkt-kategorie.ts in @haben/core).
  *
@@ -38,7 +41,56 @@ const kleinunternehmerZaehlt: Zaehlt = async (r, taxes) => {
   return anfang.advanceType !== "anzahlung" && leistungstag(anfang) >= STEUERFREI_AB;
 };
 
-/** Die Umsätze als Kleinunternehmer im Zeitraum: Rechnungen, Ausbuchungen, Bareinnahmen und Direktbuchungen */
+/**
+ * Bis zur Rückzahlung gehaltene Minderungen schon bezahlter Rechnungen als Kleinunternehmer (kleinunternehmerBisZurRueckzahlung):
+ * im Monat von Storno oder Korrektur als Gegenbetrag, mit der Rückzahlung als Minderung. Nur Ketten mit einem Storno oder
+ * einer Korrektur vor dem Ende des Zeitraums, vorher hält nichts.
+ */
+async function bisZurRueckzahlung(period: VatPeriod, q: Db | Tx): Promise<RevenueSource[]> {
+  const { start, end } = periodRange(period);
+  const anfaenge = await q.execute<{ id: string }>(sql`with recursive up(id, parent) as (
+    select id, corrects_id from invoices
+      where reduction_rule is not null and status = 'final' and tax_treatment = 'kleinunternehmer' and issue_date < ${end}
+    union select i.id, i.corrects_id from up join invoices i on i.id = up.parent
+  ) select distinct id from up where parent is null`);
+  if (anfaenge.length === 0) return [];
+  const i = schema.invoices;
+  const rechnungen = await q
+    .select()
+    .from(i)
+    .where(
+      and(
+        inArray(
+          i.id,
+          [...anfaenge].map((r) => r.id),
+        ),
+        eq(i.status, "final"),
+        eq(i.taxTreatment, "kleinunternehmer"),
+        isNull(i.lexofficeVoucherId),
+      ),
+    );
+  const taxes = invoiceTaxReader(q);
+  const result: RevenueSource[] = [];
+  for (const r of rechnungen) {
+    if (!(await kleinunternehmerZaehlt(r, taxes))) continue;
+    for (const { date, shares } of await kleinunternehmerBisZurRueckzahlung(r, q))
+      if (date >= start && date < end)
+        result.push({
+          type: "invoice",
+          date,
+          invoiceId: r.id,
+          number: r.number ?? "",
+          customer: r.buyer?.name ?? "",
+          treatment: "kleinunternehmer",
+          rate: 0,
+          base: shares.reduce((s, x) => s + x.base, 0),
+          tax: 0,
+        });
+  }
+  return result;
+}
+
+/** Die Umsätze als Kleinunternehmer im Zeitraum: Rechnungen, Ausbuchungen, gehaltene Minderungen, Bareinnahmen und Direktbuchungen */
 async function kleinunternehmerUmsaetze(period: VatPeriod, revenue: readonly RevenueSource[], q: Db | Tx): Promise<RevenueSource[]> {
   if (periodRange(period).start < STEUERFREI_AB) return [];
   const ohneRechnung = revenue.filter((r) => (r.type === "kasse" || r.type === "direkt") && r.treatment === "kleinunternehmer");
@@ -46,6 +98,7 @@ async function kleinunternehmerUmsaetze(period: VatPeriod, revenue: readonly Rev
     ...ohneRechnung,
     ...(await rechnungenNachLeistung(period, ["kleinunternehmer"], kleinunternehmerZaehlt, q)),
     ...(await ausbuchungenNachLeistung(period, ["kleinunternehmer"], kleinunternehmerZaehlt, q)),
+    ...(await bisZurRueckzahlung(period, q)),
   ];
 }
 

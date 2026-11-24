@@ -115,6 +115,39 @@ describe.each(KONTENRAHMEN)("Kennzahlen aus dem Journal (%s)", (kr) => {
     expect(kennzahlen(kr, invoiceWriteOffPosting("skonto", t, 2_380, kr, "soll"))).toEqual({ kz81: -2_000, tax81: -380 });
   });
 
+  // #1267: Anleitung zur UStVA 2026, Kz 50; § 17 Abs. 2 Nr. 1 Satz 1 UStG
+  it("Soll: Forderungsausfall mindert Kz 81 und 86 und meldet die Minderung zusätzlich in Kz 50", () => {
+    const t = totals({ rate: 1900, base: 100_000 }, { rate: 700, base: 50_000 });
+    expect(kennzahlen(kr, invoiceWriteOffPosting("forderungsausfall", t, t.gross, kr, "soll"))).toEqual({
+      kz81: -100_000,
+      tax81: -19_000,
+      kz86: -50_000,
+      tax86: -3_500,
+      kz50: 150_000,
+    });
+  });
+
+  it("Soll: aufgehobener Forderungsausfall (Gegenbuchung) nimmt Kz 50 wieder zurück", () => {
+    const t = totals({ rate: 1900, base: 100_000 });
+    const ausfall = invoiceWriteOffPosting("forderungsausfall", t, t.gross, kr, "soll");
+    const gegen = ausfall.map((z) => ({ ...z, debit: z.credit, credit: z.debit }));
+    expect(kennzahlen(kr, ausfall, "soll", gegen)).toEqual({});
+  });
+
+  it("Ist: Forderungsausfall meldet nichts, auch kein Kz 50; Skonto gewährt nie Kz 50", () => {
+    const t = totals({ rate: 1900, base: 100_000 });
+    expect(kennzahlen(kr, invoiceWriteOffPosting("forderungsausfall", t, t.gross, kr, "ist"), "ist")).toEqual({});
+    expect(kennzahlen(kr, invoiceWriteOffPosting("skonto", t, 2_380, kr, "soll"))).not.toHaveProperty("kz50");
+  });
+
+  it.each(["reverse_charge", "ig_lieferung", "drittland", "ausfuhr", "steuerfrei"] as const)(
+    "Soll: Forderungsausfall einer Rechnung ohne Steuer (%s) meldet kein Kz 50",
+    (treatment) => {
+      const t = totals({ rate: 0, base: 100_000 });
+      expect(kennzahlen(kr, invoiceWriteOffPosting("forderungsausfall", t, t.gross, kr, "soll", treatment))).not.toHaveProperty("kz50");
+    },
+  );
+
   it("Ist: Direkt auf eine Einnahmekategorie gebuchter Bankumsatz zählt sofort", () => {
     const lines = kategoriePosting({ kategorie: "erloese", steuersatz: 1900 }, 11_900, kr);
     expect(kennzahlen(kr, lines, "ist")).toEqual({ kz81: 10_000, tax81: 1_900 });

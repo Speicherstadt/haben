@@ -26,6 +26,8 @@ interface Buchung {
   id: string;
   sourceType: string;
   sourceId: string;
+  /** Bei einer Gegenbuchung (Storno, Aufhebung): die gegengebuchte Buchung */
+  reversesId: string | null;
   kontenrahmen: Kontenrahmen;
   versteuerung: Versteuerung;
   alt: boolean;
@@ -56,6 +58,7 @@ export async function kennzahlenAusDemJournal(
       id: e.id,
       sourceType: e.sourceType,
       sourceId: e.sourceId,
+      reversesId: e.reversesId,
       kontenrahmen: e.kontenrahmen,
       alt: belegAusAlterVersion,
       account: l.account,
@@ -102,6 +105,7 @@ export async function kennzahlenAusDemJournal(
         id: r.id,
         sourceType: r.sourceType,
         sourceId: r.sourceId,
+        reversesId: r.reversesId,
         kontenrahmen: r.kontenrahmen as Kontenrahmen,
         versteuerung: mode,
         alt: r.alt === true,
@@ -114,21 +118,27 @@ export async function kennzahlenAusDemJournal(
   }
   // Belege mit § 13b oder Erwerb von vor #551 (#1396) und Zahlungen bei Ist von vor #552 (#1502) mit der
   // Bemessungsgrundlage wie heute
-  return summieren(await belegeWieHeute(await zahlungenWieHeute([...buchungen.values()], q), q));
+  return summeDerBuchungen(await belegeWieHeute(await zahlungenWieHeute([...buchungen.values()], q), q));
 }
 
-/** Kennzahlen und die Teile von Kz 43 und 48 über die Buchungen, je Kontenrahmen und Verfahren der Buchung */
-function summieren(gelesen: readonly Buchung[]) {
+/** Kennzahlen und die Teile von Kz 43 und 48 über die Buchungen eines Zeitraums, je Kontenrahmen und Verfahren der Buchung */
+function summeDerBuchungen(buchungen: readonly Buchung[]) {
+  const imZeitraum = new Set(buchungen.map((b) => b.id));
   const kennzahlen = leereJournalKennzahlen();
   const zahlungsanteil = { kz43: 0, kz48: 0 };
   const anzahlungsanteil = { kz43: 0, kz48: 0 };
   // Ein Jahr hat einen Kontenrahmen; je Kontenrahmen gerechnet, falls ein Zeitraum doch beide sieht
   for (const kr of ["SKR03", "SKR04"] as const)
     for (const mode of ["ist", "soll"] as const) {
-      const eigene = gelesen.filter((b) => b.kontenrahmen === kr && b.versteuerung === mode);
+      const eigene = buchungen.filter((b) => b.kontenrahmen === kr && b.versteuerung === mode);
       if (eigene.length === 0) continue;
       const zeilen = eigene.map((b) => b.zeilen);
       const k = kennzahlenAusJournal(kr, mode, zeilen);
+      // Kz 50 nennt nur Minderungen nach § 17 Abs. 2 Nr. 1 Satz 1 UStG (Anleitung zur UStVA 2026, Kz 50). Die Gegenbuchung
+      // einer Buchung aus einem früheren Zeitraum, etwa der Wiedereingang nach einem Forderungsausfall (Satz 2), erhöht
+      // Kz 81/86, mindert Kz 50 aber nicht; im selben Zeitraum heben sich beide auf.
+      const frueher = eigene.filter((b) => b.reversesId !== null && !imZeitraum.has(b.reversesId)).map((b) => b.zeilen);
+      if (frueher.length > 0) k.kz50 -= kennzahlenAusJournal(kr, mode, frueher).kz50;
       for (const feld of JOURNAL_KENNZAHLEN) kennzahlen[feld] += k[feld];
       const z = bemessungAnZahlungen(kr, zeilen);
       const a = kennzahlenAusJournal(

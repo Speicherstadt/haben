@@ -11,7 +11,7 @@ import {
   type AdvanceVatChange,
   type TaxShare,
 } from "@haben/core";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import { invoiceTotalsById } from "./invoice-taxes.ts";
 import { invoiceTaxReader } from "./invoice-tax.ts";
@@ -146,34 +146,109 @@ export interface ManagedAdvancePlan {
 export const refundOnly = (original: Pick<Invoice, "advanceType" | "advanceAccounting" | "variant">) =>
   original.advanceType !== "anzahlung" && (original.advanceAccounting === null || original.variant === "schluss");
 
-/** Bis zur Rückzahlung gehaltene Steuer der Kette; Papierstornos einer Schlusskette (#750) buchen nichts und mindern deshalb auch nichts */
-async function heldSchedule(
-  original: Invoice,
-  invoices: Invoice[],
-  totals: Map<string, { taxes: TaxShare[] }>,
-  events: AdvanceVatEvent[],
-  taxes: ReturnType<typeof invoiceTaxReader>,
-): Promise<AdvanceVatChange[]> {
-  if (original.status !== "final" || !advanceUsesPayments(original.taxTreatment)) return [];
-  const posted: Invoice[] = [];
-  for (const invoice of invoices) if (await taxes.invoicePostingAllowed(invoice)) posted.push(invoice);
-  return advanceVatSchedule(totals.get(original.id)!.taxes, [...events, ...correctionEvents(original, posted, totals)], "held");
-}
+/** Bis zur Rückzahlung gehaltener Teil der Minderungen (advanceVatSchedule, „held“) */
+const heldUntilRefund = (original: Invoice, invoices: Invoice[], totals: Map<string, { taxes: TaxShare[] }>, events: AdvanceBalanceEvent[]) =>
+  advanceVatSchedule(totals.get(original.id)!.taxes, [...events, ...correctionEvents(original, invoices, totals)], "held");
 
 /**
- * Die bis zur Rückzahlung gehaltene Bemessungsgrundlage einer Rechnung mit normalen Buchungen, unabhängig von der
- * Versteuerung. Bei Ist bucht Haben sie nicht (dort mindert die Rückzahlung); die Voranmeldung braucht sie für Kz 43 und 48,
- * die auch bei Ist im Zeitraum der Leistung zählen (#1312, umsatzsteuer/umsaetze-nach-leistung.ts).
+ * Dieselbe Regel für Kz 48 als Kleinunternehmer (#1268): Storno und Korrektur mindern schon bezahltes Entgelt erst mit der
+ * Rückzahlung, bei Ist und Soll, weil Kz 48 nach dem Leistungstag zählt. Gebucht wird nichts, der Steuerschlüssel „KU“
+ * führt in keine Kennzahl. Alle Belege der Kette, auch Papierstornos einer Schlusskette (#750): Kz 48 zählt sie mit.
+ * Kz 48 zählt eine Schlussrechnung samt abgezogener Anzahlungen (umsatzsteuer/umsaetze-nach-leistung.ts), deshalb rechnen deren
+ * Beträge und Zahlungen hier mit (anzahlungenDerKette).
  */
-export async function heldUntilRefund(reference: Pick<Invoice, "id">, q: Db | Tx = db, taxes = invoiceTaxReader(q)): Promise<AdvanceVatChange[]> {
-  const [original] = await q.select().from(schema.invoices).where(eq(schema.invoices.id, reference.id));
-  if (!original || !refundOnly(original)) return [];
+export async function kleinunternehmerBisZurRueckzahlung(original: Invoice, q: Db | Tx): Promise<AdvanceVatChange[]> {
   const invoices = await family(original.id, q);
   const totals = await invoiceTotalsById(
     invoices.map((i) => i.id),
     q,
   );
-  return heldSchedule(original, invoices, totals, await paymentEvents(invoices, q), taxes);
+  const anzahlungen = await anzahlungenDerKette(original, invoices, q);
+  const mitAbzuegen = new Map([...totals].map(([id, t]) => [id, { taxes: [...t.taxes, ...(anzahlungen.abzuege.get(id) ?? [])] }]));
+  // Der Ersatz einer Bilanz-Schlussrechnung (#750) übernimmt deren Zahlungen, das Papierstorno erstattet nichts
+  // (docs/rechnungen.md): Das Bezahlte zählt ab dem Leistungstag des Ersatzes dort.
+  const [ersatz] = await q
+    .select({ serviceDate: schema.invoices.serviceDate, issueDate: schema.invoices.issueDate })
+    .from(schema.invoices)
+    .where(and(eq(schema.invoices.replacesInvoiceId, original.id), eq(schema.invoices.status, "final")));
+  const eigene = bisZumEnde(await paymentEvents(invoices, q), ersatz ? (ersatz.serviceDate ?? ersatz.issueDate) : null);
+  return heldUntilRefund(original, invoices, mitAbzuegen, [...eigene, ...anzahlungen.zahlungen]);
+}
+
+/**
+ * Die bis zur Rückzahlung gehaltene Bemessungsgrundlage einer Rechnung mit normalen Buchungen, unabhängig von der
+ * Versteuerung; Papierstornos einer Schlusskette (#750) buchen nichts und mindern deshalb auch nichts. Bei Ist bucht Haben
+ * sie nicht (dort mindert die Rückzahlung); die Voranmeldung braucht sie für Kz 43 und 48, die auch bei Ist im Zeitraum der
+ * Leistung zählen (#1312, umsatzsteuer/steuerfrei-nach-leistung.ts).
+ */
+export async function steuerfreiBisZurRueckzahlung(reference: Pick<Invoice, "id">, q: Db | Tx = db, taxes = invoiceTaxReader(q)): Promise<AdvanceVatChange[]> {
+  const [original] = await q.select().from(schema.invoices).where(eq(schema.invoices.id, reference.id));
+  if (!original || !refundOnly(original) || original.status !== "final" || !advanceUsesPayments(original.taxTreatment)) return [];
+  const invoices = await family(original.id, q);
+  const totals = await invoiceTotalsById(
+    invoices.map((i) => i.id),
+    q,
+  );
+  const posted: Invoice[] = [];
+  for (const invoice of invoices) if (await taxes.invoicePostingAllowed(invoice)) posted.push(invoice);
+  return heldUntilRefund(original, posted, totals, await paymentEvents(invoices, q));
+}
+
+/** Zahlungen bis vor `ende`, dort mit umgekehrtem Vorzeichen zurückgenommen; spätere zählen nicht */
+function bisZumEnde(events: AdvanceBalanceEvent[], ende: string | null): AdvanceBalanceEvent[] {
+  if (!ende) return events;
+  const vorher = events.flatMap((e) => (e.paid && e.date >= ende ? [] : [e]));
+  const bezahlt = vorher.flatMap((e) => e.paid ?? []);
+  return bezahlt.length ? [...vorher, { date: ende, paid: negate(bezahlt) }] : vorher;
+}
+
+/**
+ * Die von der Kette abgezogenen Anzahlungen (Teilleistungen nicht, wie in Kz 48): je Beleg die Abzüge mit umgekehrtem
+ * Vorzeichen, dazu die Zahlungen der Anzahlungen samt Rückzahlung auf ihr Storno. Das Storno der Schlussrechnung hält so
+ * auch die bezahlte Anzahlung bis zur Rückzahlung. Zieht eine später festgeschriebene Schlussrechnung dieselbe Anzahlung
+ * wieder ab, zählt Kz 48 sie dort im Leistungsmonat; an deren Leistungstag endet das Festhalten hier, spätere Zahlungen
+ * der Anzahlung gehören zur neuen Schlussrechnung (Entscheidung in #1745).
+ */
+async function anzahlungenDerKette(original: Invoice, invoices: Invoice[], q: Db | Tx) {
+  const l = schema.invoiceLines;
+  const i = schema.invoices;
+  const rows = await q
+    .select({ invoiceId: l.invoiceId, rate: l.taxRate, net: l.net, anzahlung: i })
+    .from(l)
+    .innerJoin(i, eq(i.id, l.deductionOf))
+    .where(
+      and(
+        inArray(
+          l.invoiceId,
+          invoices.map((x) => x.id),
+        ),
+        ne(i.advanceType, "teilleistung"),
+      ),
+    );
+  const abzuege = new Map<string, TaxShare[]>();
+  for (const r of rows) abzuege.set(r.invoiceId, [...(abzuege.get(r.invoiceId) ?? []), { rate: r.rate, base: -r.net, tax: 0 }]);
+  const zahlungen: AdvanceBalanceEvent[] = [];
+  for (const anzahlung of new Map(rows.map((r) => [r.anzahlung.id, r.anzahlung])).values()) {
+    const [neu] = await q
+      .select({ serviceDate: i.serviceDate, issueDate: i.issueDate })
+      .from(l)
+      .innerJoin(i, eq(i.id, l.invoiceId))
+      .where(
+        and(
+          eq(l.deductionOf, anzahlung.id),
+          eq(i.kind, "rechnung"),
+          eq(i.status, "final"),
+          sql`${i.lockedAt} > (select locked_at from invoices where id = ${original.id})`,
+        ),
+      )
+      .orderBy(asc(i.lockedAt))
+      .limit(1);
+    // Leistungstag wie in Kz 48 (umsatzsteuer/umsaetze-nach-leistung.ts)
+    const ende = neu ? (neu.serviceDate ?? neu.issueDate) : null;
+    const bezahlt = (await paymentEvents(await family(anzahlung.id, q), q)).flatMap((e) => (e.paid ? [{ date: e.date, paid: e.paid }] : []));
+    zahlungen.push(...bisZumEnde(bezahlt, ende));
+  }
+  return { abzuege, zahlungen };
 }
 
 /** Gegenprobe aus den Nebenbüchern, ausdrücklich ohne Journalzeilen zu lesen. */
@@ -190,7 +265,13 @@ export async function loadAdvanceVatPlan(reference: Pick<Invoice, "id">, q: Db |
   const total = totals.get(original.id)!.taxes;
   if (refundOnly(original)) {
     // Nur Soll braucht die Ergänzung: Bei Ist bucht schon die Rückzahlung die Steuer zurück (§ 13 Abs. 1 Nr. 1 b UStG).
-    const held = (await taxes.companyMode(original)) === "soll" ? await heldSchedule(original, invoices, totals, events, taxes) : [];
+    // Papierstornos einer Schlusskette (#750) buchen nichts und mindern deshalb auch nichts.
+    const posted: Invoice[] = [];
+    for (const invoice of invoices) if (await taxes.invoicePostingAllowed(invoice)) posted.push(invoice);
+    const held =
+      original.status === "final" && advanceUsesPayments(original.taxTreatment) && (await taxes.companyMode(original)) === "soll"
+        ? heldUntilRefund(original, posted, totals, events)
+        : [];
     return { original, kind: "refund", invoiceIds: new Set(), changes: held, postingChanges: held, balanceChanges: [] };
   }
   const normal = original.variant === null && original.advanceAccounting === "deferred";

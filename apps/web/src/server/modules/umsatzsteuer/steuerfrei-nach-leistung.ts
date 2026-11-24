@@ -1,7 +1,7 @@
 import { periodRange, type Cents, type TaxTreatment, type VatPeriod, type Versteuerung } from "@haben/core";
 import { and, eq, gte, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
-import { anzahlungsAbzuege, heldUntilRefund, invoiceTaxReader } from "../rechnungen/index.ts";
+import { anzahlungsAbzuege, steuerfreiBisZurRueckzahlung, invoiceTaxReader } from "../rechnungen/index.ts";
 import { ausbuchungenNachLeistung, rechnungenNachLeistung, summe, type Zaehlt } from "./leistung-belege.ts";
 import type { RevenueSource } from "./vat-figures.ts";
 
@@ -17,7 +17,7 @@ import type { RevenueSource } from "./vat-figures.ts";
  *   Anzahlungen, an ihrem Tag.
  * - Ist: Kz 43 und 48 ohne die Bemessungsgrundlage an Zahlungen (bemessungAnZahlungen); dafür die Rechnungen nach dem
  *   Leistungstag (leistung-belege.ts). Storno und Korrektur einer bezahlten Rechnung mindern wie bei Soll erst mit der
- *   Rückzahlung (#1228, heldUntilRefund): UStAE 17.1 Abs. 2 Satz 3, „mindert sich die Bemessungsgrundlage nur, soweit das
+ *   Rückzahlung (#1228, steuerfreiBisZurRueckzahlung): UStAE 17.1 Abs. 2 Satz 3, „mindert sich die Bemessungsgrundlage nur, soweit das
  *   Entgelt tatsächlich zurückgezahlt wird, und zwar in dem Besteuerungszeitraum, in dem die Rückgewähr erfolgt“; die
  *   Anleitung sagt nur, die Berichtigung gehöre „in dem Voranmeldungszeitraum vor, in dem die Änderung der
  *   Bemessungsgrundlage eingetreten ist“ (§ 17 Abs. 1 Satz 8 UStG), also nichts anderes. Aus Lexoffice übernommene
@@ -67,7 +67,7 @@ async function gehaltenBeiIst(period: VatPeriod, q: Db | Tx): Promise<RevenueSou
     .where(inArray(i.id, [...ids]));
   const result: RevenueSource[] = [];
   for (const o of originale)
-    for (const change of await heldUntilRefund(o, q, taxes)) {
+    for (const change of await steuerfreiBisZurRueckzahlung(o, q, taxes)) {
       if (change.date < start || change.date >= end) continue;
       for (const share of change.shares)
         result.push({

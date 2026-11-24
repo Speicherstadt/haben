@@ -10,6 +10,8 @@ import { berechnet } from "./vat.ts";
  * (source „manuell“) wird mit den beim Speichern berechneten Werten verglichen (`computed`), nicht mit den gesendeten.
  * Kz 43 und 48 gelten auch nach früheren Zuordnungen als gleich (fruehereZuordnungen in @haben/core): vor #1268 ohne die
  * Umsätze als Kleinunternehmer, vor #1312 bei Ist mit der Zahlung statt im Zeitraum der Leistung.
+ * Kz 50 (#1267) fehlt im Vergleich: Sie wiederholt nur, was Kz 81/86 schon mindern, ändert keine Steuer, und vor
+ * #1267 gesendete Anmeldungen haben sie nicht.
  */
 
 /** Die gespeicherten Kennzahlen einer Anmeldung, wie computedValues sie liefert */

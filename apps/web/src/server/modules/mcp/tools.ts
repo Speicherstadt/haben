@@ -468,6 +468,7 @@ export const MCP_TOOLS: McpTool[] = [
           kz21: euro(figures.kz21),
           kz45: euro(figures.kz45),
           kz48: euro(figures.kz48),
+          kz50MinderungForderungsausfall: euro(figures.kz50),
           kz66Vorsteuer: euro(figures.kz66),
           kz46: euro(figures.kz46),
           kz47: euro(figures.kz47),

@@ -5,8 +5,11 @@ import { copyInvoiceAsDraft } from "../server/functions/invoices.ts";
 
 type ActionState = Pick<ReturnType<typeof useAction>, "busy" | "run">;
 type CopySource = { id: string; kind: string; variant: string | null };
-/** Im Editor: Angaben prüfen und Ungespeichertes erst speichern; gibt die Id zum Kopieren zurück, null bricht ab */
-type Prepare = () => Promise<string | null>;
+/**
+ * Im Editor: `pruefe` prüft die Angaben vor `run`, solange die Felder frei sind; während die Aktion läuft, sind sie gesperrt,
+ * und der Fokus fände das Feld mit Fehler nicht (#1148). `speichern` speichert Ungespeichertes und gibt die Id zum Kopieren zurück
+ */
+type Prepare = { pruefe: () => boolean; speichern: () => Promise<string | null> };
 
 /**
  * Nächste ähnliche Rechnung: neuer Entwurf mit Kunde und Positionen, aus einer festgeschriebenen Rechnung oder einem
@@ -17,13 +20,15 @@ export function useInvoiceCopy(invoice: CopySource | null, action: ActionState, 
   const copy = useServerFn(copyInvoiceAsDraft);
   const navigate = useNavigate();
   if (invoice?.kind !== "rechnung" || invoice.variant !== null) return null;
-  return () =>
+  return () => {
+    if (prepare && !prepare.pruefe()) return;
     void action.run(async () => {
-      const sourceId = prepare ? await prepare() : invoice.id;
+      const sourceId = prepare ? await prepare.speichern() : invoice.id;
       if (!sourceId) return;
       const draft = await copy({ data: sourceId });
       await navigate({ to: "/rechnungen/$id", params: { id: draft.id } });
     });
+  };
 }
 
 export function InvoiceCopyButton({ invoice, action, prepare }: { invoice: CopySource | null; action: ActionState; prepare?: Prepare }) {

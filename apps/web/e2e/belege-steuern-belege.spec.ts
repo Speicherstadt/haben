@@ -1,6 +1,6 @@
 import { kategorieName, waehleKategorie } from "./kategorie.ts";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, type Route, test } from "@playwright/test";
+import { chromium, expect, type Page, type Route, test } from "@playwright/test";
 import postgres from "postgres";
 import { day, YEAR } from "./daten.ts";
 import { type Durchlauf, databaseUrlFuer } from "./durchlaeufe.ts";
@@ -19,6 +19,7 @@ import { abzugEinspielen } from "./abzug.ts";
 import { receiptJpeg } from "./belegbild.ts";
 import { vorsteuerPruefen } from "./belege-vorsteuer.ts";
 import { serverAufrufe } from "./warten.ts";
+import { eingabeNachAktion, fokusNachFehlschlag } from "./felder-sperre.ts";
 
 /**
  * Abschnitt von belege-steuern (#1742) mit eigenem Server und eigener Datenbank, parallel zu den anderen Abschnitten:
@@ -354,6 +355,125 @@ test("Dauerbeleg: Ein geleertes Kategoriefeld verlangt beim Anlegen per Enter wi
   await expect(page).toHaveURL(/\/dauerbelege\/neu$/);
 });
 
+test("Dauerbeleg: Eingaben direkt nach dem Speichern und nach Pausieren bleiben erhalten (#1793)", async () => {
+  await go("/dauerbelege/neu");
+  const bezeichnung = page.getByLabel("Bezeichnung");
+  await bezeichnung.fill("Lagerraum Sperre");
+  await page.getByLabel("Lieferant", { exact: true }).fill("Hafen Immobilien GmbH");
+  await waehleKategorie(page.getByLabel("Kategorie"), "miete");
+  await page.getByLabel("Erster Beleg am").fill(day(30));
+  await page
+    .locator("input[type=file]")
+    .setInputFiles([{ name: "lagervertrag.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n% Lagervertrag\n%%EOF\n") }]);
+  await page.getByLabel("Netto 1").fill("80,00");
+  await page.getByRole("button", { name: "Dauerbeleg anlegen" }).click();
+  await page.waitForURL(/\/dauerbelege\/[0-9a-f-]{36}$/);
+  // Das Formular der neuen Seite, nicht mehr das von „neu“
+  await expect(page.getByRole("heading", { name: "Lagerraum Sperre", level: 1 })).toBeVisible();
+
+  await bezeichnung.fill("Lagerraum gespeichert");
+  await eingabeNachAktion(page, {
+    aktion: page.getByRole("button", { name: "Speichern", exact: true }),
+    feld: bezeichnung,
+    text: "Gleich danach getippt",
+    neuGeladen: page.getByRole("heading", { name: "Lagerraum gespeichert", level: 1 }),
+  });
+  // Pausieren baut das Formular ebenso neu auf. Die Eingabe davor ist ungespeichert, deshalb erst die Rückfrage (#1805)
+  await page.getByRole("button", { name: "Pausieren", exact: true }).click();
+  await eingabeNachAktion(page, {
+    aktion: page.getByRole("dialog").getByRole("button", { name: "Trotzdem pausieren", exact: true }),
+    feld: bezeichnung,
+    text: "Nach dem Pausieren getippt",
+    neuGeladen: page.getByText(/Pausiert: Bis zum Fortsetzen/),
+  });
+});
+
+test("Dauerbeleg: Speichern schlägt fehl, der Fokus steht danach wieder im Feld (#1793)", async () => {
+  // Der Dauerbeleg aus dem Test davor
+  await fokusNachFehlschlag(page, page.getByLabel("Bezeichnung"));
+  // Der Dauerbeleg gehört nur diesen beiden Tests
+  await page.getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(page, "Vorlage löschen");
+  await expect(page).toHaveURL(/\/dauerbelege(?:\?.*)?$/);
+});
+
+test("Dauerbeleg: Pausieren, Fortsetzen und Beenden fragen bei ungespeicherten Änderungen nach (#1805)", async () => {
+  await go("/dauerbelege/neu");
+  const bezeichnung = page.getByLabel("Bezeichnung");
+  await bezeichnung.fill("Lagerraum Rückfrage");
+  await page.getByLabel("Lieferant", { exact: true }).fill("Hafen Immobilien GmbH");
+  await waehleKategorie(page.getByLabel("Kategorie"), "miete");
+  await page.getByLabel("Erster Beleg am").fill(day(30));
+  await page
+    .locator("input[type=file]")
+    .setInputFiles([{ name: "lagervertrag.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n% Lagervertrag Rückfrage\n%%EOF\n") }]);
+  await page.getByLabel(/^Das Dokument weist die Umsatzsteuer gesondert aus/).check();
+  await page.getByLabel("Netto 1").fill("80,00");
+  await page.getByRole("button", { name: "Dauerbeleg anlegen" }).click();
+  await page.waitForURL(/\/dauerbelege\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("heading", { name: "Lagerraum Rückfrage", level: 1 })).toBeVisible();
+  const dialog = page.getByRole("dialog");
+  const aktiv = page.getByText(/^Aktiv: Haben legt/);
+  const pausiert = page.getByText(/^Pausiert: Bis zum Fortsetzen/);
+  const brutto = page.getByLabel("Brutto 1", { exact: true });
+  const steuer = page.getByLabel("Umsatzsteuer 1", { exact: true });
+
+  // Ohne Änderungen wie bisher: kein Dialog, auch nicht nach Zurücktippen. Danach gilt das Brutto als zuletzt eingegeben
+  // und die Steuer als von Hand geändert; gespeichert würde trotzdem dasselbe
+  await brutto.fill("95,21");
+  await brutto.fill("95,20");
+  await page.getByRole("button", { name: "Pausieren", exact: true }).click();
+  await expect(pausiert).toBeVisible();
+  await expect(dialog).toHaveCount(0);
+  await steuer.fill("15,21");
+  await steuer.fill("15,20");
+  await page.getByRole("button", { name: "Fortsetzen", exact: true }).click();
+  await expect(aktiv).toBeVisible();
+  await expect(dialog).toHaveCount(0);
+
+  // Mit Änderung: Abbrechen lässt Status und Eingabe stehen
+  await bezeichnung.fill("Lagerraum ungespeichert");
+  await page.getByRole("button", { name: "Pausieren", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Lagerraum Rückfrage pausieren?" })).toContainText(
+    "Das Formular hat ungespeicherte Änderungen. Beim Pausieren gehen sie verloren.",
+  );
+  await dialog.getByRole("button", { name: "Abbrechen" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(bezeichnung).toHaveValue("Lagerraum ungespeichert");
+  await expect(aktiv).toBeVisible();
+  // Bestätigt: pausiert, die Änderung ist verworfen
+  await page.getByRole("button", { name: "Pausieren", exact: true }).click();
+  await bestaetigen(page, "Trotzdem pausieren");
+  await expect(pausiert).toBeVisible();
+  await expect(bezeichnung).toHaveValue("Lagerraum Rückfrage");
+
+  // Fortsetzen ebenso
+  await bezeichnung.fill("Lagerraum ungespeichert");
+  await page.getByRole("button", { name: "Fortsetzen", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Lagerraum Rückfrage fortsetzen?" })).toContainText("Beim Fortsetzen gehen sie verloren.");
+  await bestaetigen(page, "Trotzdem fortsetzen");
+  await expect(aktiv).toBeVisible();
+  await expect(bezeichnung).toHaveValue("Lagerraum Rückfrage");
+
+  // Beenden fragt ohnehin nach; mit Änderung nennt dieselbe Rückfrage den Verlust
+  const beenden = page.getByRole("dialog", { name: "Lagerraum Rückfrage beenden?" });
+  await page.getByRole("button", { name: "Beenden", exact: true }).click();
+  await expect(beenden).toContainText("Beenden ist endgültig");
+  await expect(beenden).not.toContainText("ungespeicherte Änderungen");
+  await beenden.getByRole("button", { name: "Abbrechen" }).click();
+  await bezeichnung.fill("Lagerraum ungespeichert");
+  await page.getByRole("button", { name: "Beenden", exact: true }).click();
+  await expect(beenden).toContainText("Das Formular hat ungespeicherte Änderungen. Beim Beenden gehen sie verloren.");
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await bestaetigen(page, "Beenden");
+  await expect(page.getByText(/^Beendet: Es entstehen keine Belege mehr/)).toBeVisible();
+
+  // Löschen fragt ohne Formular wie bisher; der Dauerbeleg gehört nur diesem Test
+  await page.getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(page, "Vorlage löschen");
+  await expect(page).toHaveURL(/\/dauerbelege(?:\?.*)?$/);
+});
+
 test("Beleg mit § 13b: Steuer selbst berechnet, gezahlt wird netto", async ({ browser }) => {
   await go("/belege");
   await page
@@ -568,6 +688,128 @@ test("Beleg am Laptop: Netto, Vorsteuer und Brutto sind neben der Vorschau ganz 
   await bestaetigen(laptop, "Beleg löschen");
   await laptop.waitForURL(/\/belege$/);
   await context.close();
+});
+
+/**
+ * Klassische Scrollleiste (Windows, Linux, macOS mit „Rollbalken immer anzeigen“, #1152): Playwright blendet Scrollleisten
+ * sonst aus. Ein eigener Browser, weil sich das je Test nicht umstellen lässt (wie in vorschau.spec.ts); mit den
+ * launchOptions der Konfiguration, damit PLAYWRIGHT_CHROMIUM_EXECUTABLE auch hier gilt.
+ */
+async function mitScrollleiste(baseURL: string | undefined, viewport: { width: number; height: number }) {
+  const browser = await chromium.launch({ ...test.info().project.use.launchOptions, ignoreDefaultArgs: ["--hide-scrollbars"] });
+  const context = await browser.newContext({ baseURL, viewport, storageState: await page.context().storageState() });
+  const seite = await context.newPage();
+  return {
+    seite,
+    breite: (width: number, height = viewport.height) => seite.setViewportSize({ width, height }),
+    /** Spalten von .editor-grid: 1 untereinander, 2 nebeneinander */
+    spalten: () => seite.locator(".editor-grid").evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.split(" ").length),
+    scrollleiste: () => seite.evaluate(() => window.innerWidth - document.documentElement.clientWidth),
+    einklappen: async (zu: "einklappen" | "ausklappen") => {
+      await seite
+        .getByRole("navigation", { name: "Hauptnavigation" })
+        .getByRole("button", { name: `Seitenleiste ${zu}` })
+        .click();
+      if (zu === "einklappen") await expect(seite.locator("html")).toHaveAttribute("data-nav", "collapsed");
+      else await expect(seite.locator("html")).not.toHaveAttribute("data-nav", "collapsed");
+    },
+    schliessen: () => browser.close(),
+  };
+}
+
+test("Klassische Scrollleiste: Dauerbeleg steht ab 1201 px neben dem Vertrag, eingeklappt ab 1033 px, auch wenn die Seite scrollt (#1152)", async ({
+  baseURL,
+}) => {
+  await go("/dauerbelege/neu");
+  await page.getByLabel("Bezeichnung").fill("Lagerraum Scrollleiste");
+  await page.getByLabel("Lieferant", { exact: true }).fill("Hafen Immobilien GmbH");
+  await page.getByLabel("Erster Beleg am").fill(day(30));
+  await page
+    .locator("input[type=file]")
+    .setInputFiles([{ name: "lagervertrag.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n% Lagervertrag\n%%EOF\n") }]);
+  await page.getByLabel("Netto 1").fill("80,00");
+  await waehleKategorie(page.getByLabel("Kategorie"), "miete");
+  await page.getByRole("button", { name: "Dauerbeleg anlegen" }).click();
+  await page.waitForURL(/\/dauerbelege\/[0-9a-f-]{36}$/);
+
+  const { seite, breite, spalten, scrollleiste, einklappen, schliessen } = await mitScrollleiste(baseURL, { width: 1200, height: 800 });
+  await seite.goto(new URL(page.url()).pathname);
+  await seite.waitForLoadState("networkidle");
+  // Die Seite scrollt in beiden Anordnungen; die Scrollleiste nimmt ihr Platz weg, die Grenze bleibt dieselbe wie ohne sie
+  expect(await spalten()).toBe(1);
+  expect(await scrollleiste()).toBeGreaterThan(0);
+  await breite(1201);
+  await expect.poll(spalten).toBe(2);
+  expect(await scrollleiste()).toBeGreaterThan(0);
+  await einklappen("einklappen");
+  await breite(1032);
+  await expect.poll(spalten).toBe(1);
+  await breite(1033);
+  await expect.poll(spalten).toBe(2);
+  expect(await scrollleiste()).toBeGreaterThan(0);
+  await einklappen("ausklappen");
+  await expect.poll(spalten).toBe(1);
+  await schliessen();
+
+  await page.getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(page, "Vorlage löschen");
+  await page.waitForURL(/\/dauerbelege$/);
+});
+
+test("Klassische Scrollleiste: Beleg prüfen steht ab 1201 px nebeneinander, eingeklappt ab 1033 px, nichts ragt über die Seite (#1152)", async ({
+  browser,
+  baseURL,
+}) => {
+  const { seite, breite, spalten, scrollleiste, einklappen, schliessen } = await mitScrollleiste(baseURL, { width: 1200, height: 800 });
+  await seite.goto("/belege");
+  await seite.waitForLoadState("networkidle");
+  await seite
+    .locator("input[type=file][multiple]")
+    .setInputFiles([{ name: "scrollleiste.jpg", mimeType: "image/jpeg", buffer: await receiptJpeg(browser, "Bürohaus Nord GmbH") }]);
+  await expect(seite.getByText("scrollleiste.jpg: abgelegt.")).toBeVisible();
+  await seite
+    .getByRole("link", { name: /scrollleiste\.jpg/ })
+    .first()
+    .click();
+  await seite.waitForURL(/belege\/[0-9a-f-]{36}$/);
+  await seite.waitForLoadState("networkidle");
+  const main = seite.locator(".main");
+  /** Nichts ragt unten aus .main heraus: Sonst scrollen Seitenkopf und Leiste mit der Seite weg */
+  const ueberstand = () => main.evaluate((m) => m.scrollHeight - m.clientHeight);
+
+  // Untereinander scrollt die Seite mit Scrollleiste; ab 1201 px stehen beide nebeneinander, so hoch wie das Fenster
+  expect(await spalten()).toBe(1);
+  expect(await scrollleiste()).toBeGreaterThan(0);
+  await breite(1201);
+  await expect.poll(spalten).toBe(2);
+  expect(await ueberstand()).toBeLessThanOrEqual(0);
+  await einklappen("einklappen");
+  await breite(1032);
+  await expect.poll(spalten).toBe(1);
+  await breite(1033);
+  await expect.poll(spalten).toBe(2);
+  expect(await ueberstand()).toBeLessThanOrEqual(0);
+
+  // Niedriges Fenster: Der Beleg behält seine 520 px, die Seite scrollt ein Stück; .main wächst mit, Kopf und Leiste bleiben stehen
+  const niedrig = async (width: number) => {
+    await breite(width, 560);
+    await expect.poll(spalten).toBe(2);
+    expect(await scrollleiste()).toBeGreaterThan(0);
+    expect(await ueberstand()).toBeLessThanOrEqual(0);
+    await seite.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    expect(await seite.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    await expect(seite.locator(".main > .page-head")).toBeInViewport({ ratio: 1 });
+    expect((await seite.getByRole("navigation", { name: "Hauptnavigation" }).boundingBox())!.y).toBeGreaterThanOrEqual(0);
+    await seite.evaluate(() => window.scrollTo(0, 0));
+  };
+  await niedrig(1040);
+  await einklappen("ausklappen");
+  await niedrig(1210);
+
+  await seite.getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(seite, "Beleg löschen");
+  await seite.waitForURL(/\/belege$/);
+  await schliessen();
 });
 
 test("Dauerbeleg mit Bruttobetrag: Netto und Umsatzsteuer vorgerechnet, ohne ausgewiesene Steuer kein Brutto (#1059, #1100)", async () => {

@@ -1,6 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { buildVastAbholungXml, buildVastAnfrageXml, parseVastBeleg, parseVastBelegListe, parseVastDatenpakete, vastBelegartLabel } from "./vast.ts";
+import {
+  buildVastAbholungXml,
+  buildVastAnfrageXml,
+  parseVastBeleg,
+  parseVastBelegListe,
+  parseVastDatenpakete,
+  VAST_BELEGART_LABEL,
+  vastBelegartLabel,
+} from "./vast.ts";
 import { datenartVersionFromXml, hasTestmerker } from "./xml.ts";
 
 const input = { idnr: "02293417683", veranlagungsjahr: 2025, datenlieferant: "Erika Muster", herstellerId: "74931", test: true };
@@ -97,5 +105,31 @@ describe("Belegabruf-Antworten", () => {
   it("benennt Belegarten", () => {
     expect(vastBelegartLabel("VaSt_RBM")).toBe("Rentenbezugsmitteilung");
     expect(vastBelegartLabel("VaSt_XYZ")).toBe("XYZ");
+  });
+
+  it("nennt jede Belegart der Schemas 2022 bis 2025 mit dem Namen aus der Quelle und keine andere", () => {
+    // Schlüssel: ERiC 44.3.6.0, Dokumentation/Datenarten/ElsterDatenabholung/ElsterVaStDaten/VaSt-Belege/Schema/2022 bis 2025,
+    // je Belegart ein Schema, Wurzelelement wie das Attribut belegart der Belegliste; die Zahl im Dateinamen ist die Version
+    // (VaSt_Pers3-1.xsd → VaSt_Pers3). VaSt_Pers3 erst ab 2025. VAST_Vorberechnungen liegt im selben Ordner, ist aber keine
+    // Belegart (nicht in Tabelle 9-26).
+    // Namen: ERiC-Entwicklerhandbuch 44.3.6.0, Tabelle 9-26 „VaSt, Datenartnamen der Belege“ (S. 328), wörtlich, bei LStB ohne
+    // das Kürzel in Klammern. VaSt_Pers3 fehlt dort; Name wie in Zuordnungsinformationen/ESt_2025/Jahresdokumentation_VaSt_Pers3_1.ods
+    // (Drucktext B 1).
+    expect(VAST_BELEGART_LABEL).toEqual({
+      VaSt_LStB: "Lohnsteuerbescheinigung",
+      VaSt_KRV: "Bescheinigung zur Basiskrankenversicherung und gesetzlichen Pflegeversicherung",
+      VaSt_RIE: "Bescheinigung über Beiträge zur Riester-Rente",
+      VaSt_RUE: "Bescheinigung über Beiträge zur Basisversorgung (Rürup-Rente)",
+      VaSt_LErsL: "Bescheinigung über Lohnersatzleistungen",
+      VaSt_Pers1: "Stammdaten des Steuerpflichtigen",
+      VaSt_Pers2: "Stammdaten des Steuerpflichtigen (Religionszugehörigkeit)",
+      VaSt_Pers3: "Ergänzende Stammdaten",
+      VaSt_RBM: "Rentenbezugsmitteilung",
+      VaSt_VWL: "Vermögensbildungsbescheinigung",
+      VaSt_FSA: "Freistellungsauftrag",
+      VaSt_ZUS: "Zuschüsse nach § 10 Absatz 4b EStG",
+      VaSt_GDB: "Bescheinigung über den Grad der Behinderung",
+    });
+    for (const [belegart, name] of Object.entries(VAST_BELEGART_LABEL)) expect(vastBelegartLabel(belegart)).toBe(name);
   });
 });

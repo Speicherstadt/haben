@@ -96,7 +96,7 @@ function RecurringDetailPage() {
           onSubmit={(values) =>
             run(async () => {
               await save({ data: { id: recurring.id, recurring: values } });
-              await router.invalidate();
+              await router.invalidate({ sync: true });
             }, "Gespeichert.")
           }
         />
