@@ -19,6 +19,7 @@ import {
   monthsOfPeriod,
   periodKey,
   STEUER_KONTEN,
+  type JournalKennzahl,
   type Kontenrahmen,
   type VatFrequencySetting,
 } from "@haben/core";
@@ -113,9 +114,7 @@ export function lastFilingPeriodKey(settings: readonly VatFrequencySetting[], ye
 /** Zahlen der Umsatzsteuererklärung: Summe der zwölf Monate aus den Buchungen, Vorauszahlungen aus den gesendeten Voranmeldungen */
 export async function ustYear(year: number): Promise<UstYear> {
   const months = await Promise.all(Array.from({ length: 12 }, (_, i) => computeVatFigures({ year, month: i + 1 })));
-  const total = (
-    key: "kz81" | "kz86" | "kz21" | "kz45" | "kz66" | "kz46" | "kz47" | "kz84" | "kz85" | "kz41" | "kz43" | "kz89" | "kz93" | "kz61" | "kz62" | "kz67",
-  ) => months.reduce((s, m) => s + m[key], 0);
+  const total = (key: JournalKennzahl) => months.reduce((s, m) => s + m[key], 0);
   // Wie in der Voranmeldung: Bemessungsgrundlage in vollen Euro, Steuer daraus
   const base19 = toWholeEuros(total("kz81"));
   const base7 = toWholeEuros(total("kz86"));
@@ -141,6 +140,8 @@ export async function ustYear(year: number): Promise<UstYear> {
     // Auch hier Bemessungsgrundlagen in vollen Euro; die Steuerbeträge bleiben centgenau
     kz21: toWholeEuros(total("kz21")),
     kz45: toWholeEuros(total("kz45")),
+    // Kz 650 (E3106101): die Kz 50 der Monate aus denselben Journalzeilen, in Kz 81/86 schon enthalten, nie negativ
+    kz50: Math.max(0, toWholeEuros(total("kz50"))),
     kz41: toWholeEuros(total("kz41")),
     kz43: toWholeEuros(total("kz43")),
     kz89: base89,

@@ -82,6 +82,14 @@ export function UstTabelle({ data }: { data: Data }) {
             )}
             {(f.kz21 ?? 0) !== 0 && <Row label="Nicht steuerbare Leistungen, Ort im EU-Ausland" kz="21" extra={formatEuro(f.kz21!)} value="–" />}
             {(f.kz45 ?? 0) !== 0 && <Row label="Nicht steuerbare Umsätze (Drittland)" kz="45" extra={formatEuro(f.kz45!)} value="–" />}
+            {(f.kz50 ?? 0) !== 0 && (
+              <Row
+                label="Minderung der Bemessungsgrundlage bei Forderungsausfall (in den Umsätzen zu 19 und 7 % enthalten)"
+                kz="650"
+                extra={formatEuro(f.kz50!)}
+                value="–"
+              />
+            )}
             {(f.kz48Zeile46 ?? 0) !== 0 && (
               <Row label="Steuerfreie Umsätze ohne Vorsteuerabzug (Vermietung, § 4 Nr. 12)" kz="46" extra={formatEuro(f.kz48Zeile46!)} value="–" />
             )}
