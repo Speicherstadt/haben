@@ -697,6 +697,9 @@ textarea.autogrow { field-sizing: content; min-height: 8lh; max-height: 70vh; }
 
 .todo { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 12px; border-radius: 8px; color: var(--ink); text-decoration: none; }
 .todo:hover { background: var(--ground); color: var(--ink); }
+.todo-zeile { display: flex; align-items: center; gap: 4px; }
+.todo-zeile .todo { flex-grow: 1; min-width: 0; }
+.todo-zeile .btn { flex-shrink: 0; }
 .todo-dot { width: 8px; height: 8px; border-radius: 4px; flex-shrink: 0; background: var(--muted); }
 .todo-body { display: flex; flex-direction: column; gap: 2px; flex-grow: 1; }
 .todo-title { font-weight: 500; }

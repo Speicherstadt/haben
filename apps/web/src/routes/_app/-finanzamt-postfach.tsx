@@ -5,7 +5,7 @@ import { CertificateStatus, TestOnlyToggle } from "../../components/ElsterSubmit
 import { NoticeBanner } from "../../components/NoticeBanner.tsx";
 import { formatDate, formatDateTime } from "../../lib/format.ts";
 import { useAction } from "../../lib/use-action.ts";
-import { disablePostfachAutoFetch, enablePostfachAutoFetch, fetchFinanzamtPostfach } from "../../server/functions/finanzamt.ts";
+import { disablePostfachAutoFetch, enablePostfachAutoFetch, fetchFinanzamtPostfach, markPostfachDocument } from "../../server/functions/finanzamt.ts";
 import { ScrollTable } from "../../components/ScrollTable.tsx";
 import { Field } from "../../components/Field.tsx";
 import { useSubmitCheck } from "../../lib/use-submit-check.ts";
@@ -64,6 +64,7 @@ export function Postfach({ data }: { data: Data }) {
                 <th scope="col">Dokument</th>
                 <th scope="col">Jahr</th>
                 <th scope="col">Einspruch bis</th>
+                <th scope="col">Geprüft</th>
                 <th scope="col">Abgeholt</th>
               </tr>
             </thead>
@@ -88,6 +89,7 @@ export function Postfach({ data }: { data: Data }) {
                       "–"
                     )}
                   </td>
+                  <td className="small">{d.frist ? <ErledigtKnopf dokument={d} /> : "–"}</td>
                   <td className="small">{formatDateTime(d.fetchedAt)}</td>
                 </tr>
               ))}
@@ -198,5 +200,38 @@ export function History({ data }: { data: Data }) {
         ))
       )}
     </section>
+  );
+}
+
+/** Bescheid als geprüft abhaken oder wieder öffnen (#1819): Der Vermerk nimmt ihn aus „Zu erledigen“, ohne dass sich am Bescheid etwas ändert. */
+function ErledigtKnopf({ dokument }: { dokument: Data["documents"][number] }) {
+  const router = useRouter();
+  const mark = useServerFn(markPostfachDocument);
+  const [busy, setBusy] = useState(false);
+  const geprueft = dokument.erledigt?.art === "geprueft";
+  const tag = dokument.erledigt ? new Date(dokument.erledigt.at) : null;
+  async function umschalten() {
+    setBusy(true);
+    try {
+      await mark({ data: { id: dokument.id, art: geprueft ? "wieder_offen" : "geprueft" } });
+      await router.invalidate();
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!geprueft) {
+    return (
+      <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void umschalten()}>
+        {busy ? "…" : "Als geprüft markieren"}
+      </button>
+    );
+  }
+  return (
+    <>
+      <span className="muted">Geprüft{tag ? ` am ${formatDate(tag.toISOString().slice(0, 10))}` : ""}</span>{" "}
+      <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void umschalten()}>
+        {busy ? "…" : "Wieder offen"}
+      </button>
+    </>
   );
 }

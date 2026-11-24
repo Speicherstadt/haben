@@ -6,6 +6,7 @@ import { encrypt } from "../../crypto.ts";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import { FinanzamtError } from "./finanzamt.ts";
+import { erledigtStand } from "./postfach-erledigt.ts";
 import { sniff, storeFile } from "../../storage.ts";
 import { ABRUF, isSimulated, loadActiveCertificate, PRODUKT_VERSION, signatur, zugang } from "../elster/index.ts";
 
@@ -58,12 +59,15 @@ export async function listPostfachDocuments(limit = 200) {
       .orderBy(desc(schema.postfachDocuments.fetchedAt))
       .limit(limit),
   ]);
+  const erledigt = await erledigtStand(rows.map((row) => row.id));
   return rows.map((row) => {
     const datum = parseBescheiddatum(row.bescheiddatum);
     return {
       ...row,
       bescheiddatumIso: datum,
       frist: datum && isBescheid(row.datenart) ? einspruchsfrist(datum, company.bundesland as Bundesland | null) : null,
+      /** „geprüft“ nimmt den Bescheid aus den Aufgaben, bis jemand ihn wieder öffnet (#1819) */
+      erledigt: erledigt.get(row.id) ?? null,
     };
   });
 }
@@ -118,7 +122,9 @@ export async function openAppealDeadlines(today: string) {
     // der Parser JJJJMMTT, JJJJ-MM-TT und TT.MM.JJJJ kennt und gemischt sonst die falsche Zeile gewinnt.
     if (!bisher || bescheid.bescheiddatumIso > bisher.bescheiddatumIso) juengster.set(schluessel, bescheid);
   }
-  return [...juengster.values()].sort((a, b) => a.frist.fristende.localeCompare(b.frist.fristende));
+  // Erst nach der Gruppierung filtern: Anhänge desselben Bescheids teilen sich die Aufgabe. Ist der jüngste geprüft,
+  // ist der Bescheid erledigt; ein älterer Anhang darf die Frist nicht wieder aufleben lassen (#1819).
+  return [...juengster.values()].filter((bescheid) => bescheid.erledigt?.art !== "geprueft").sort((a, b) => a.frist.fristende.localeCompare(b.frist.fristende));
 }
 
 export async function postfachDocumentFile(id: string) {

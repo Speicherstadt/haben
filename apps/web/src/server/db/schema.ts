@@ -706,6 +706,26 @@ export const postfachDocuments = pgTable(
   ],
 );
 
+/**
+ * Erledigt-Vermerke zu Bescheiden aus dem Postfach (#1819). Wer einen Bescheid geprüft hat, soll nicht bis zum Ablauf der
+ * Einspruchsfrist auf die Aufgabe warten. `postfach_documents` ist append-only, deshalb steht der Vermerk als eigenes
+ * Ereignis daneben; „wieder offen" ist ein zweites Ereignis, kein Löschen. Wer wann abgehakt hat, steht im Audit-Log.
+ */
+export const postfachErledigt = pgTable(
+  "postfach_erledigt",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => postfachDocuments.id, { onDelete: "restrict" }),
+    art: text("art", { enum: ["geprueft", "wieder_offen"] }).notNull(),
+    /** Freitext, etwa „Rückfrage an die Steuerberatung" */
+    notiz: text("notiz"),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("postfach_erledigt_document").on(t.documentId, t.at), check("postfach_erledigt_art", sql`${t.art} in ('geprueft', 'wieder_offen')`)],
+);
+
 /** Belegabrufe für die vorausgefüllte Steuererklärung (VaSt): Anfrage der Liste und Abholung der Belege */
 export const vastRequests = pgTable("vast_requests", {
   id: uuid("id").primaryKey().defaultRandom(),
