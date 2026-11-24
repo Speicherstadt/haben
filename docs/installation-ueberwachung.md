@@ -1,11 +1,11 @@
 ---
-title: "Überwachung mit Prometheus"
+title: "Überwachung"
 description: >-
-  Metriken für Prometheus und ähnliche Systeme: Health, Hintergrundjobs wie Kontoabruf und Belegpostfach, ELSTER, mit
-  Scrape-Konfiguration und Alarmregeln.
+  Metriken für Prometheus, VictoriaMetrics und andere Systeme: Health, Hintergrundjobs wie Kontoabruf und Belegpostfach,
+  ELSTER, Scrape-Konfiguration, Alarmregeln.
 ---
 
-# Überwachung mit Prometheus
+# Überwachung
 
 Ob Haben antwortet, meldet [`/api/health`](installation.md#image). Ob der Kontoabruf oder der Abruf des Belegpostfachs seit Tagen scheitert, zeigen die Metriken.
 
