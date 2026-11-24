@@ -1,4 +1,4 @@
-import { computeUstva, formatDecimal, fruehereZuordnungen, formatEuro, parseEuro, parsePeriodKey, periodKey, periodLabel, quarterOfMonth } from "@haben/core";
+import { computeUstva, formatDecimal, formatEuro, parseEuro, parsePeriodKey, periodKey, periodLabel, quarterOfMonth } from "@haben/core";
 import { Link, createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Icon } from "../../../components/Icon.tsx";
@@ -67,12 +67,12 @@ function sameFigures(a: Figures, b: Figures, fields: readonly FieldKey[] = FIELD
 }
 
 /**
- * Weicht die heutige Rechnung von der gesendeten Anmeldung ab? Kz 43 und 48 gelten auch nach früheren Zuordnungen als
- * gleich, so hat Haben sie vor #1268 und #1312 gemeldet (wie gesendet-pruefen.ts)
+ * Weicht die heutige Rechnung von der gesendeten Anmeldung ab? Kz 48 gilt auch ohne die Umsätze als Kleinunternehmer als
+ * gleich, so hat Haben sie vor #1268 gemeldet (wie gesendet-pruefen.ts)
  */
 function seitGesendetGeaendert(gesendet: Figures, computed: Figures, data: PageData): boolean {
-  const frueher = fruehereZuordnungen(data.figures).map((z) => computeUstva({ ...data.figures, ...z, kz39: data.kz39 }));
-  return ![computed, ...frueher].some((c) => sameFigures(gesendet, c, GESENDET_VERGLEICHEN));
+  const vor1268 = computeUstva({ ...data.figures, kz48: data.figures.kz48 - data.figures.kz48Kleinunternehmer, kz39: data.kz39 });
+  return !sameFigures(gesendet, computed, GESENDET_VERGLEICHEN) && !sameFigures(gesendet, vor1268, GESENDET_VERGLEICHEN);
 }
 type PeriodNotice = { key: string; notice: Notice };
 

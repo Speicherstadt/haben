@@ -73,7 +73,8 @@ export {
 export { gemeldeterZeitraum, leistungsmonatHinweis, zeitraumLabel } from "./leistungsmonat.ts";
 export { leistungsmonatHinweisFuer } from "./leistungsmonat-hinweis.ts";
 export { lockInvoice, withAdvanceVatChange } from "./advance-vat.ts";
-export { advanceVatPlans, kleinunternehmerBisZurRueckzahlung, steuerfreiBisZurRueckzahlung } from "./advance-vat-plan.ts";
+export { advanceVatPlans } from "./advance-vat-plan.ts";
+export { anzahlungenBisZurRueckzahlung, nachLeistungBisZurRueckzahlung } from "./rueckzahlung-nach-leistung.ts";
 export { invoicePaymentGroup, invoicePaymentGroups, paperCancellationIds } from "./advance-payment-group.ts";
 export { invoiceLastSettledOn, invoiceLosses, invoicePayments, invoiceWrittenOff, paidByTarget } from "./zahlungsstand.ts";
 export { advanceReceivablesAt } from "./advance-receivables.ts";

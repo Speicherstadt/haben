@@ -27,20 +27,21 @@ export async function leistungsmonatHinweisFuer(invoice: typeof schema.invoices.
   return leistungsmonatHinweis(tag, gesendet, { net: await entgelt(invoice, q), tax: invoice.tax }, invoice.lockedAt);
 }
 
-const steuerfrei = (invoice: typeof schema.invoices.$inferSelect) => invoice.taxTreatment === "steuerfrei" || invoice.taxTreatment === "ausfuhr";
-
-/** Kz 43 und 48 zählen die Schlussrechnung samt abgezogener Anzahlungen (umsatzsteuer/umsaetze-nach-leistung.ts), sonst der Nettobetrag */
+/**
+ * Kz 43 und 48 zählen die Schlussrechnung samt abgezogener Anzahlungen mit Kennzeichen (anzahlungsAbzuege,
+ * umsatzsteuer/leistung-belege.ts), sonst der Nettobetrag
+ */
 async function entgelt(invoice: typeof schema.invoices.$inferSelect, q: Db | Tx): Promise<number> {
-  if (!steuerfrei(invoice) || invoice.lexofficeVoucherId !== null) return invoice.net;
+  if (invoice.exemptRule !== "leistung") return invoice.net;
   return invoice.net - ((await anzahlungsAbzuege([invoice.id], q)).get(invoice.id) ?? 0);
 }
 
 /**
- * Tag, nach dem die Voranmeldung die Rechnung meldet. § 4 UStG und Ausfuhr auch bei Ist nach dem Leistungstag, Anzahlungen
- * gar nicht (der Tag ist dann das Rechnungsdatum, also kein Hinweis) (umsatzsteuer/umsaetze-nach-leistung.ts, Anleitung zur UStVA 2026 unter Kz 43 und 48)
+ * Tag, nach dem die Voranmeldung die Rechnung meldet. § 4 UStG und Ausfuhr mit Kennzeichen (#1312) auch bei Ist nach dem
+ * Leistungstag, Anzahlungen gar nicht (der Tag ist dann das Rechnungsdatum, also kein Hinweis)
+ * (umsatzsteuer/steuerfrei-nach-leistung.ts, Anleitung zur UStVA 2026 unter Kz 43 und 48)
  */
 async function meldetag(invoice: typeof schema.invoices.$inferSelect, q: Db | Tx): Promise<string> {
-  if (!steuerfrei(invoice) || invoice.lexofficeVoucherId !== null || (await invoiceTaxReader(q).companyMode(invoice)) !== "ist")
-    return invoiceVatDate(invoice, q);
+  if (invoice.exemptRule !== "leistung" || (await invoiceTaxReader(q).companyMode(invoice)) !== "ist") return invoiceVatDate(invoice, q);
   return invoice.advanceType === "anzahlung" ? invoice.issueDate : leistungstag(invoice);
 }

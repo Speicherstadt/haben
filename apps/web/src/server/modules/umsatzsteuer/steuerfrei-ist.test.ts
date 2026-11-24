@@ -116,7 +116,11 @@ describe.skipIf(!testDatabaseUrl)("Kz 43 und 48 bei Ist im Zeitraum der Leistung
 
   it("SKR04/ist: Bareinnahme ohne Rechnung zählt am Tag der Zahlung, eine Bareinnahme auf eine Rechnung nicht", async () => {
     await firma("SKR04", "ist");
-    await m.bank.createCashIncome(actor, { date: "2026-10-12", amount: 20_000, text: "Kurs", steuer: { behandlung: "steuerfrei", steuersatz: 0 } }, "2026-11-23");
+    await m.bank.createCashIncome(
+      actor,
+      { date: "2026-10-12", amount: 20_000, text: "Kurs", steuer: { behandlung: "steuerfrei", steuersatz: 0 } },
+      "2026-11-23",
+    );
     const inv = await rechnung("steuerfrei", 30_000, { issueDate: "2026-09-20", serviceFrom: "2026-09-20" });
     await m.bank.createCashInvoiceEntry(actor, { invoiceId: inv.id, date: "2026-10-14", amount: 30_000 }, "2026-11-23");
     expect([await kennzahl("steuerfrei", SEP), await kennzahl("steuerfrei", OKT)]).toEqual([30_000, 20_000]);

@@ -121,12 +121,6 @@ export interface VatFigures {
    */
   kz48Kleinunternehmer: Cents;
   kleinunternehmerUmsaetze: RevenueSource[];
-  /**
-   * Kz 43 und 48, wie Haben sie vor #1312 und #1268 gemeldet hat: aus dem Journal (bei Ist mit der Zahlung, Anzahlungen mit
-   * ihrer Zahlung), ohne Umsätze als Kleinunternehmer. Damit erkennt der Abgleich eine früher gesendete Voranmeldung als
-   * unverändert (fruehereZuordnungen)
-   */
-  bisher: { kz43: Cents; kz48: Cents };
   /** Minderung der Bemessungsgrundlage bei Uneinbringlichkeit (Forderungsausfall bei Soll), in Kz 81/86 schon enthalten */
   kz50: Cents;
   /** Regulär besteuerte Umsätze zu 0 %, die in dieser Voranmeldung nicht gemeldet werden */

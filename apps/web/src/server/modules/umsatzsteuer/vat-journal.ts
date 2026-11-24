@@ -12,7 +12,7 @@ import {
   type VatPeriod,
   type Versteuerung,
 } from "@haben/core";
-import { and, asc, eq, gte, lt, notInArray, or } from "drizzle-orm";
+import { and, asc, eq, gte, lt, notInArray, or, sql } from "drizzle-orm";
 import { invoiceTaxReader } from "../rechnungen/index.ts";
 import { schema, type Db, type Tx } from "../../db/index.ts";
 import { belegAusAlterVersion } from "./alte-version.ts";
@@ -31,7 +31,9 @@ interface Buchung {
   kontenrahmen: Kontenrahmen;
   versteuerung: Versteuerung;
   alt: boolean;
-  /** Buchung einer steuerfreien Anzahlung (§ 4 UStG, Ausfuhr) samt Steuerplan, Storno, Korrektur und Ausbuchung */
+  /** Buchung einer Kette über § 4 UStG oder Ausfuhr, die nach dem Leistungstag zählt (exempt_rule, #1312): Rechnung, Zahlung, Ausbuchung */
+  nachLeistung: boolean;
+  /** Darunter die Buchung einer Anzahlung samt Steuerplan, Storno, Korrektur und Ausbuchung */
   steuerfreieAnzahlung: boolean;
   zeilen: JournalZeile[];
 }
@@ -42,8 +44,9 @@ interface Buchung {
  * Eröffnungen (vorgetragen, im Vorjahr angemeldet) und ohne die Buchungen des Anlagenverzeichnisses: Die Privatnutzung von
  * Fahrzeugen rechnet die Voranmeldung je Monat aus dem Anlagenverzeichnis, das Journal bucht sie erst mit der AfA.
  * Dazu zwei Teile von Kz 43 und 48, die die Voranmeldung im Zeitraum der Leistung anders zählt (#1312,
- * umsaetze-nach-leistung.ts): `zahlungsanteil` trägt die Bemessungsgrundlage an Zahlungen (bemessungAnZahlungen), `anzahlungsanteil`
- * die Buchungen steuerfreier Anzahlungen samt ihrem Steuerplan.
+ * steuerfrei-nach-leistung.ts), nur aus Ketten mit dem Kennzeichen exempt_rule: `zahlungsanteil` trägt die
+ * Bemessungsgrundlage an Zahlungen (bemessungAnZahlungen), `anzahlungsanteil` die Buchungen steuerfreier Anzahlungen samt
+ * ihrem Steuerplan. Vorher festgeschriebene Ketten zählen wie gebucht.
  */
 export async function kennzahlenAusDemJournal(
   period: VatPeriod,
@@ -74,15 +77,20 @@ export async function kennzahlenAusDemJournal(
       serviceFrom: schema.invoices.serviceFrom,
       serviceTo: schema.invoices.serviceTo,
       treatment: schema.invoices.taxTreatment,
+      // Zahlung oder Bareinnahme auf eine Rechnung
+      zahlungFuer: sql<string | null>`coalesce(${schema.allocations.invoiceId}, ${schema.cashEntries.invoiceId})`,
     })
     .from(l)
     .innerJoin(e, eq(e.id, l.entryId))
     .leftJoin(schema.writeOffs, and(eq(e.sourceType, "ausbuchung"), eq(e.sourceId, schema.writeOffs.id)))
+    .leftJoin(schema.allocations, and(eq(e.sourceType, "allocation"), eq(e.sourceId, schema.allocations.id)))
+    .leftJoin(schema.cashEntries, and(eq(e.sourceType, "kasse"), eq(e.sourceId, schema.cashEntries.id)))
     .leftJoin(schema.invoices, or(eq(schema.invoices.id, schema.writeOffs.invoiceId), and(eq(e.sourceType, "invoice"), eq(e.sourceId, schema.invoices.id))))
     .where(and(gte(e.date, start), lt(e.date, end), notInArray(e.sourceType, ["eroeffnung", "asset"])))
     .orderBy(asc(e.id));
   const buchungen = new Map<string, Buchung>();
   const taxes = invoiceTaxReader(q);
+  const kette = kettenLeser(taxes, q);
   for (const r of rows) {
     let b = buchungen.get(r.id);
     if (!b) {
@@ -100,7 +108,8 @@ export async function kennzahlenAusDemJournal(
           }
         : null;
       const mode = rechnung ? await taxes.postingMode(rechnung) : versteuerung;
-      const steuerfrei = rechnung?.taxTreatment === "steuerfrei" || rechnung?.taxTreatment === "ausfuhr";
+      const anfang = rechnung ? await taxes.original(rechnung) : r.zahlungFuer ? await kette(r.zahlungFuer) : null;
+      const steuerfrei = anfang?.taxTreatment === "steuerfrei" || anfang?.taxTreatment === "ausfuhr";
       b = {
         id: r.id,
         sourceType: r.sourceType,
@@ -109,7 +118,8 @@ export async function kennzahlenAusDemJournal(
         kontenrahmen: r.kontenrahmen as Kontenrahmen,
         versteuerung: mode,
         alt: r.alt === true,
-        steuerfreieAnzahlung: rechnung !== null && steuerfrei && (await taxes.original(rechnung)).advanceType === "anzahlung",
+        nachLeistung: steuerfrei && anfang.exemptRule === "leistung",
+        steuerfreieAnzahlung: rechnung !== null && steuerfrei && anfang.advanceType === "anzahlung",
         zeilen: [],
       };
       buchungen.set(r.id, b);
@@ -140,11 +150,15 @@ function summeDerBuchungen(buchungen: readonly Buchung[]) {
       const frueher = eigene.filter((b) => b.reversesId !== null && !imZeitraum.has(b.reversesId)).map((b) => b.zeilen);
       if (frueher.length > 0) k.kz50 -= kennzahlenAusJournal(kr, mode, frueher).kz50;
       for (const feld of JOURNAL_KENNZAHLEN) kennzahlen[feld] += k[feld];
-      const z = bemessungAnZahlungen(kr, zeilen);
+      const nachLeistung = eigene.filter((b) => b.nachLeistung);
+      const z = bemessungAnZahlungen(
+        kr,
+        nachLeistung.map((b) => b.zeilen),
+      );
       const a = kennzahlenAusJournal(
         kr,
         mode,
-        eigene.filter((b) => b.steuerfreieAnzahlung).map((b) => b.zeilen),
+        nachLeistung.filter((b) => b.steuerfreieAnzahlung).map((b) => b.zeilen),
       );
       for (const feld of IST_NACH_LEISTUNG) {
         zahlungsanteil[feld] += z[feld];
@@ -152,4 +166,21 @@ function summeDerBuchungen(buchungen: readonly Buchung[]) {
       }
     }
   return { kennzahlen, zahlungsanteil, anzahlungsanteil };
+}
+
+/** Anfang der Kette einer Rechnung, an der eine Zahlung hängt, je Leser einmal geladen */
+function kettenLeser(taxes: ReturnType<typeof invoiceTaxReader>, q: Db | Tx) {
+  const geladen = new Map<string, ReturnType<typeof taxes.original>>();
+  return (id: string) => {
+    let anfang = geladen.get(id);
+    if (!anfang) {
+      anfang = q
+        .select({ id: schema.invoices.id, issueDate: schema.invoices.issueDate, correctsId: schema.invoices.correctsId })
+        .from(schema.invoices)
+        .where(eq(schema.invoices.id, id))
+        .then(([rechnung]) => taxes.original(rechnung!));
+      geladen.set(id, anfang);
+    }
+    return anfang;
+  };
 }

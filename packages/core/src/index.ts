@@ -10,7 +10,6 @@ export * from "./zm.ts";
 export * from "./evatr.ts";
 export * from "./steuernummer.ts";
 export * from "./ustva.ts";
-export * from "./ustva-frueher.ts";
 export * from "./invoice.ts";
 export * from "./rabatt.ts";
 export * from "./arbeitskosten.ts";

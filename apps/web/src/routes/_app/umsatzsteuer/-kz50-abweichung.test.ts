@@ -80,7 +80,6 @@ describe("Gesendete Voranmeldung von vor Kz 50 (#1267)", () => {
         reverseCharge: [],
         igErwerb: [],
         kleinunternehmerUmsaetze: [],
-        bisher: { kz43: 0, kz48: 0 },
       },
       filings: [],
       submissions: [],
