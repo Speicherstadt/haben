@@ -1,5 +1,12 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { readWisoContactList } from "./kontaktliste.ts";
+
+// Anonymisierter WISO-Export (Datei 09, pdftotext -layout), Seiten wie in pdfPageTexts am Seitenvorschub getrennt:
+// https://github.com/Speicherstadt/haben/issues/565#issuecomment-6770106423
+const beispielSeiten = readFileSync(new URL("../../test-fixtures/wiso/kontaktliste-pdftotext.txt", import.meta.url), "utf8")
+  .split("\f")
+  .filter((seite) => seite.trim());
 
 const page = (rows: string[], number = 1) =>
   [
@@ -20,6 +27,25 @@ const kontakt = (number: string, name: string, postalLine = "12345 Musterstadt")
 ];
 
 describe("WISO-Kunden-/Interessentenliste", () => {
+  it("liest alle zwölf Kontakte des anonymisierten WISO-Exports von drei Seiten", () => {
+    const { contacts, warnings } = readWisoContactList(beispielSeiten);
+    expect(contacts.map((c) => [c.number, c.page])).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3].map((seite, i) => [String(i + 1).padStart(4, "0"), seite]));
+    expect(contacts.find((c) => c.number === "0003")).toMatchObject({
+      name: "FM Fiktivholz Holzbaustatik GmbH & Co. KG",
+      street: "Industriestraße 27",
+      postalCode: "54321",
+      city: "Beispieldorf",
+      country: "DE",
+    });
+    expect(contacts.find((c) => c.number === "0008")).toMatchObject({ name: "XYZ Gewerbepark Beispiel-Süd GmbH & Co. KG", street: "Teststraße 15" });
+    expect(contacts.filter((c) => c.country === null).map((c) => [c.number, c.postalCode, c.city])).toEqual([
+      ["0007", "L - 1234", "Luxembourg"],
+      ["0011", "L - 1821", "Luxembourg"],
+    ]);
+    // Ansprechpartner bei 0003 und 0008; Umsatz, Saldo und umbrochene Werte rechts lösen keinen Hinweis aus
+    expect(warnings.filter((w) => w.includes("Zusatzangaben"))).toEqual([expect.stringMatching(/0003/), expect.stringMatching(/0008/)]);
+  });
+
   it("liest Kontaktnummern und vollständige Namen über Seiten hinweg", () => {
     const [row, ...rest] = kontakt("0001", "Muster Beispiel");
     const result = readWisoContactList([page([row!, "mit langem Namen GmbH", ...rest]), page(kontakt("0002", "Andere Firma", "L - 1821 Luxembourg"), 2)]);
