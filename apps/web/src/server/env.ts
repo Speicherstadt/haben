@@ -33,6 +33,8 @@ const envSchema = z
     ERIC_HOME: z.string().optional(),
     /** Commit, aus dem das Image gebaut ist; setzt das Containerfile aus dem gleichnamigen Build-Argument */
     HABEN_COMMIT: z.string().optional(),
+    /** Bearer-Token für GET /api/metrics (#1858); ohne ihn gibt es den Endpunkt nicht. Getrimmt wie credentials_file in Prometheus, etwa für ein Secret mit Zeilenumbruch */
+    HABEN_METRICS_TOKEN: z.string().trim().min(32, "mindestens 32 Zeichen, z. B. openssl rand -hex 32").optional(),
     ERIC_LOG_DIR: z.string().optional(),
     ERIC_WORKER_PATH: z.string().optional(),
     /** Befehl für den ERiC-Worker statt der eigenen Laufzeit, z. B. ein Skript, das ihn unter QEMU als x86_64 startet (arm64) */

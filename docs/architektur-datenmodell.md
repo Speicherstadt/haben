@@ -102,6 +102,7 @@ Alle Tabellen stehen in `apps/web/src/server/db/schema.ts`. Beträge sind ganze 
 | `elster_messages` | Nachrichten an das Finanzamt (Sonstige Nachricht, Änderung der Bankverbindung) mit Text, Werten und XML | nur anhängen, Audit ohne XML |
 | `postfach_requests` | Abrufe des ELSTER-Postfachs und Bestätigungen der Abholung mit XML | nur anhängen, Audit ohne XML |
 | `postfach_documents` | Abgeholte Bescheide und Mitteilungen, Datei im Dokumentenspeicher | nur anhängen, Audit |
+| `postfach_erledigt` | Erledigt-Vermerke zu Bescheiden: geprüft oder wieder offen, je Ereignis mit Zeitpunkt im Audit-Log; hält die Aufgabe aus Übersicht, Fristen und Kalender, ohne den Bescheid zu ändern (#1819) | nur anhängen, Audit, TRUNCATE gesperrt |
 | `vast_requests` | Belegabrufe (Liste und Abholung) mit XML, je Person und Jahr | nur anhängen, Audit ohne XML |
 | `fints_connections` | Verbindungen für den Kontoabruf über FinTS: Bank, Bankleitzahl, FinTS-Adresse, Anmeldename, gewähltes TAN-Verfahren, Status (aktiv, TAN nötig, Fehler), Konten mit Abrufstand; PIN mit BPD, UPD und Kundensystem-ID der Bank verschlüsselt, damit sie nicht bei jedem Abruf im Audit-Log stehen | Audit ohne Chiffrat |
 | `enable_banking_settings` | Zugang zu Enable Banking (eine Zeile): Application ID, privater Schlüssel verschlüsselt; geht vor den Umgebungsvariablen | Audit ohne Schlüssel |
@@ -153,9 +154,9 @@ Alle Tabellen stehen in `apps/web/src/server/db/schema.ts`. Beträge sind ganze 
 | `fastbill_connection` | Login-E-Mail und API-Schlüssel für FastBill, der Schlüssel verschlüsselt, mit Stundengrenze des Tarifs; eine Zeile | Audit ohne Chiffrat |
 | `fastbill_receipts` | Ausgaben, deren Beleg FastBill nur im Browser herausgibt, bis zum Archivieren: wartend, mit Datei aus dem Browser-Skript oder „ohne Beleg“ | kein Audit (Zwischenlager, Download-Links mit eigenem Schlüssel) |
 | `fastbill_recurring_templates` | Aus FastBill übernommene Vorlagen wiederkehrender Rechnungen: Antwort der API ohne Bankdaten, Hinweise zum Prüfen und die pausierte Vorlage in `recurring_invoices`; eindeutig je FastBill-Vorlage | Audit, TRUNCATE gesperrt |
-| `lexoffice_imports` | Läufe aller Umzugsquellen (`source`: Lexoffice, sevDesk, FastBill, BuchhaltungsButler, Accountable, lokale Paketübernahme) mit Fortschritt; höchstens ein Lauf zugleich | Audit beim Anlegen |
+| `lexoffice_imports` | Läufe der Archivumzüge mit Fortschritt. Unter den in dieser Tabelle geführten Läufen kann höchstens einer den Status `laeuft` haben. Der JSON-Import steht getrennt in `external_imports`. | Audit beim Anlegen |
 | `lexoffice_vouchers` | Rechnungen und Belege aller Umzugsquellen (`source`) mit vollständiger Quellantwort beziehungsweise Originalpaket | nur anhängen |
-| `lexoffice_voucher_files` | Dateien zu einem Lexoffice-Beleg | nur anhängen |
+| `lexoffice_voucher_files` | Dateiverweise zu archivierten Belegen aller Umzugsquellen | nur anhängen |
 | `legacy_voucher_payments` | Belegte Einzelzahlungen aus sevDesk oder lokalen Paketen mit Datum, Betrag, Konto und Herkunft; eindeutig je Zuordnung | nur anhängen, Audit |
 | `sevdesk_accounting_types` | Kontostamm der Buchungskonten aus sevDesk (`GET /AccountingType/{id}`), unverändert; eindeutig je Konto und Stand | nur anhängen, Audit, TRUNCATE gesperrt |
 | `sevdesk_accounting_type_decisions` | Kontoart einer sevDesk-Gutschrift auf ein Buchungskonto, von Hand festgelegt (Erlös- oder Aufwandskonto); die jüngste gilt | nur anhängen, Audit, TRUNCATE gesperrt |

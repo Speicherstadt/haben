@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { InvoiceTotals } from "./invoice.ts";
-import { JOURNAL_KENNZAHLEN, kennzahlenAusJournal, kennzahlenDerZeile, type JournalKennzahlen } from "./journal-kennzahlen.ts";
+import { bemessungAnZahlungen, JOURNAL_KENNZAHLEN, kennzahlenAusJournal, kennzahlenDerZeile, type JournalKennzahlen } from "./journal-kennzahlen.ts";
 import { kategoriePosting } from "./direkt-kategorie.ts";
 import {
   ACCOUNTS,
@@ -115,6 +115,39 @@ describe.each(KONTENRAHMEN)("Kennzahlen aus dem Journal (%s)", (kr) => {
     expect(kennzahlen(kr, invoiceWriteOffPosting("skonto", t, 2_380, kr, "soll"))).toEqual({ kz81: -2_000, tax81: -380 });
   });
 
+  // #1267: Anleitung zur UStVA 2026, Kz 50; § 17 Abs. 2 Nr. 1 Satz 1 UStG
+  it("Soll: Forderungsausfall mindert Kz 81 und 86 und meldet die Minderung zusätzlich in Kz 50", () => {
+    const t = totals({ rate: 1900, base: 100_000 }, { rate: 700, base: 50_000 });
+    expect(kennzahlen(kr, invoiceWriteOffPosting("forderungsausfall", t, t.gross, kr, "soll"))).toEqual({
+      kz81: -100_000,
+      tax81: -19_000,
+      kz86: -50_000,
+      tax86: -3_500,
+      kz50: 150_000,
+    });
+  });
+
+  it("Soll: aufgehobener Forderungsausfall (Gegenbuchung) nimmt Kz 50 wieder zurück", () => {
+    const t = totals({ rate: 1900, base: 100_000 });
+    const ausfall = invoiceWriteOffPosting("forderungsausfall", t, t.gross, kr, "soll");
+    const gegen = ausfall.map((z) => ({ ...z, debit: z.credit, credit: z.debit }));
+    expect(kennzahlen(kr, ausfall, "soll", gegen)).toEqual({});
+  });
+
+  it("Ist: Forderungsausfall meldet nichts, auch kein Kz 50; Skonto gewährt nie Kz 50", () => {
+    const t = totals({ rate: 1900, base: 100_000 });
+    expect(kennzahlen(kr, invoiceWriteOffPosting("forderungsausfall", t, t.gross, kr, "ist"), "ist")).toEqual({});
+    expect(kennzahlen(kr, invoiceWriteOffPosting("skonto", t, 2_380, kr, "soll"))).not.toHaveProperty("kz50");
+  });
+
+  it.each(["reverse_charge", "ig_lieferung", "drittland", "ausfuhr", "steuerfrei"] as const)(
+    "Soll: Forderungsausfall einer Rechnung ohne Steuer (%s) meldet kein Kz 50",
+    (treatment) => {
+      const t = totals({ rate: 0, base: 100_000 });
+      expect(kennzahlen(kr, invoiceWriteOffPosting("forderungsausfall", t, t.gross, kr, "soll", treatment))).not.toHaveProperty("kz50");
+    },
+  );
+
   it("Ist: Direkt auf eine Einnahmekategorie gebuchter Bankumsatz zählt sofort", () => {
     const lines = kategoriePosting({ kategorie: "erloese", steuersatz: 1900 }, 11_900, kr);
     expect(kennzahlen(kr, lines, "ist")).toEqual({ kz81: 10_000, tax81: 1_900 });
@@ -223,6 +256,25 @@ describe("Ist, Anteil mit Bemessungsgrundlage, aber ohne Steuer", () => {
       expect(kennzahlenAusJournal(kr, "ist", [lines]).kz81).toBe(-1);
     });
   }
+});
+
+// #1312: Bei Ist rechnet die Voranmeldung den Teil von Kz 43 und 48 heraus, den Zahlungen tragen
+describe.each(KONTENRAHMEN)("Kz 43 und 48 an Zahlungen (%s)", (kr) => {
+  const frei = totals({ rate: 0, base: 50_000 });
+  it("Zahlung, Bareinnahme und Rücklastschrift auf steuerfreie und Ausfuhr-Rechnungen, nicht die Rechnung selbst", () => {
+    const buchungen = [
+      invoicePosting(frei, kr, "ist", "steuerfrei"),
+      invoicePaymentPosting(frei, 50_000, kr, "ist", undefined, "steuerfrei"),
+      invoiceCashPaymentPosting(frei, 20_000, kr, "ist", undefined, "ausfuhr"),
+      invoicePaymentPosting(frei, -5_000, kr, "ist", undefined, "ausfuhr"),
+    ];
+    expect(bemessungAnZahlungen(kr, buchungen)).toEqual({ kz43: 15_000, kz48: 50_000 });
+    expect(kennzahlenAusJournal(kr, "ist", buchungen)).toMatchObject({ kz43: 15_000, kz48: 50_000 });
+  });
+  it("Kz 81 an der Zahlung zählt nicht mit", () => {
+    const t = totals({ rate: 1900, base: 10_000 });
+    expect(bemessungAnZahlungen(kr, [invoicePaymentPosting(t, t.gross, kr, "ist")])).toEqual({ kz43: 0, kz48: 0 });
+  });
 });
 
 /*

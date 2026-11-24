@@ -1,6 +1,7 @@
-import { type computeUstva, formatEuro } from "@haben/core";
+import { formatEuro } from "@haben/core";
 import { KzFehler, kzFeld, kzOffen } from "./-zeitraum-feldfehler.tsx";
 import { type PageData, SourcesTable, SourcesToggle } from "./-zeitraum-quellen.tsx";
+import { kennzahlZeilen, type Ustva } from "./-zeitraum-zeilen.ts";
 
 export type FieldKey =
   | "kz81"
@@ -8,6 +9,7 @@ export type FieldKey =
   | "kz21"
   | "kz45"
   | "kz48"
+  | "kz50"
   | "kz66"
   | "kz46"
   | "kz47"
@@ -22,8 +24,6 @@ export type FieldKey =
   | "kz61"
   | "kz62";
 
-type Ustva = ReturnType<typeof computeUstva>;
-
 /** Was jede Zeile der Tabelle zum Eintragen und zum Aufklappen der Buchungen braucht */
 type KzEingabe = {
   locked: boolean;
@@ -35,77 +35,6 @@ type KzEingabe = {
   openSources: string | null;
   toggleSources: (kz: string) => void;
 };
-
-/** Zeilen der Umsätze, des § 13b und des innergemeinschaftlichen Erwerbs, je mit den Buchungen dahinter */
-function kennzahlZeilen(data: PageData, shown: Ustva, computed: Ustva, editable: boolean) {
-  const revenue = (rate: number) => data.figures.revenue.filter((r) => r.treatment === "regulaer" && r.rate === rate);
-  const treated = (treatment: string) => data.figures.revenue.filter((r) => r.treatment === treatment);
-  const rows = [
-    { kz: "81", field: "kz81" as const, label: "Steuerpflichtige Umsätze 19 %", base: shown.kz81, tax: shown.tax81 as number | null, sources: revenue(1900) },
-    { kz: "86", field: "kz86" as const, label: "Steuerpflichtige Umsätze 7 %", base: shown.kz86, tax: shown.tax86 as number | null, sources: revenue(700) },
-    {
-      kz: "21",
-      field: "kz21" as const,
-      label: "Nicht steuerbare sonstige Leistungen im EU-Ausland (Reverse Charge)",
-      base: shown.kz21,
-      tax: null,
-      sources: treated("reverse_charge"),
-    },
-    {
-      kz: "45",
-      field: "kz45" as const,
-      label: "Übrige nicht steuerbare Umsätze (Leistungsort nicht im Inland)",
-      base: shown.kz45,
-      tax: null,
-      sources: treated("drittland"),
-    },
-    { kz: "48", field: "kz48" as const, label: "Steuerfreie Umsätze ohne Vorsteuerabzug", base: shown.kz48, tax: null, sources: treated("steuerfrei") },
-    {
-      kz: "41",
-      field: "kz41" as const,
-      label: "Steuerfreie innergemeinschaftliche Lieferungen an Abnehmer mit USt-IdNr.",
-      base: shown.kz41,
-      tax: null,
-      sources: treated("ig_lieferung"),
-    },
-    {
-      kz: "43",
-      field: "kz43" as const,
-      label: "Weitere steuerfreie Umsätze mit Vorsteuerabzug (Ausfuhrlieferungen)",
-      base: shown.kz43,
-      tax: null,
-      sources: treated("ausfuhr"),
-    },
-    // Kz 21, 45, 48, 41 und 43 nur zeigen, wenn es dort etwas gibt oder von Hand eingetragen wird
-  ].filter((row) => ["81", "86"].includes(row.kz) || editable || row.base !== 0 || computed[row.field] !== 0);
-  // § 13b als Leistungsempfänger: Bemessungsgrundlage und Steuer, nur wenn belegt oder von Hand
-  const rcSources = (kind: "eu" | "drittland") => data.figures.reverseCharge.filter((r) => r.reverseCharge === kind);
-  const rcRows = [
-    {
-      kz: "46",
-      taxKz: "47",
-      base: "kz46" as const,
-      tax: "kz47" as const,
-      label: "Sonstige Leistungen eines Unternehmers aus dem EU-Ausland (§ 13b Abs. 1 UStG)",
-      sources: rcSources("eu"),
-    },
-    {
-      kz: "84",
-      taxKz: "85",
-      base: "kz84" as const,
-      tax: "kz85" as const,
-      label: "Andere Leistungen, für die du die Steuer schuldest (§ 13b Abs. 2 UStG)",
-      sources: rcSources("drittland"),
-    },
-  ].filter((row) => editable || shown[row.base] !== 0 || shown[row.tax] !== 0 || computed[row.base] !== 0 || computed[row.tax] !== 0);
-  // Innergemeinschaftlicher Erwerb: Bemessungsgrundlage 89/93, die Steuer rechnet das Formular daraus; Vorsteuer in Kz 61
-  const igeSources = (rate: number) => data.figures.igErwerb.filter((r) => r.rate === rate);
-  const igeRows = [
-    { kz: "89", field: "kz89" as const, label: "Steuerpflichtige innergemeinschaftliche Erwerbe 19 %", tax: shown.tax89, sources: igeSources(1900) },
-    { kz: "93", field: "kz93" as const, label: "Steuerpflichtige innergemeinschaftliche Erwerbe 7 %", tax: shown.tax93, sources: igeSources(700) },
-  ].filter((row) => editable || shown[row.field] !== 0 || computed[row.field] !== 0);
-  return { rows, rcRows, igeRows };
-}
 
 /** Was die Teile der Tabelle unter den Umsätzen brauchen */
 type TeilProps = { data: PageData; zeilen: ReturnType<typeof kennzahlZeilen>; shown: Ustva; computed: Ustva; eingabe: KzEingabe };

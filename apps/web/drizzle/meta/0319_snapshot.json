@@ -1,5 +1,5 @@
 {
-  "id": "c0b84427-8d27-4fa9-8dde-c1148df3e7cb",
+  "id": "3702605f-b9da-40b2-85c2-2a56503a40e6",
   "prevId": "af2f731b-b93f-4e6e-a9c9-b81322a52f5d",
   "version": "7",
   "dialect": "postgresql",
@@ -209,12 +209,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "reassigns_id": {
-          "name": "reassigns_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "tax_shares": {
           "name": "tax_shares",
           "type": "jsonb",
@@ -394,21 +388,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "allocations_reassigns": {
-          "name": "allocations_reassigns",
-          "columns": [
-            {
-              "expression": "reassigns_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -490,19 +469,6 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "allocations_reassigns_fk": {
-          "name": "allocations_reassigns_fk",
-          "tableFrom": "allocations",
-          "tableTo": "allocations",
-          "columnsFrom": [
-            "reassigns_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
         "allocations_reverses_fk": {
           "name": "allocations_reverses_fk",
           "tableFrom": "allocations",
@@ -544,10 +510,6 @@
         "allocations_loan": {
           "name": "allocations_loan",
           "value": "case when \"allocations\".\"kind\"::text = 'darlehen' then \"allocations\".\"loan_id\" is not null and \"allocations\".\"loan_part\" is not null else \"allocations\".\"loan_id\" is null and \"allocations\".\"loan_part\" is null end"
-        },
-        "allocations_reassignment": {
-          "name": "allocations_reassignment",
-          "value": "\"allocations\".\"reassigns_id\" is null or (\"allocations\".\"reverses_id\" is null and \"allocations\".\"date\" is not null and \"allocations\".\"reassigns_id\" <> \"allocations\".\"id\")"
         }
       },
       "isRLSEnabled": false
@@ -20097,6 +20059,13 @@
         },
         "kz62": {
           "name": "kz62",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "kz50": {
+          "name": "kz50",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,

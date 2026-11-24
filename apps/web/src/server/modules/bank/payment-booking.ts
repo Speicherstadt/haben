@@ -114,7 +114,7 @@ export async function invoiceBooking(
   if (invoice.kind === "storno") {
     if (!invoice.correctsId) throw new BankError("Rechnung nicht zuordenbar.");
     if ((await paperCancellationIds([invoice.id], tx)).has(invoice.id)) {
-      throw new BankError("Die Schlussleistung besteht weiter; eine Erstattung lässt sich diesem Storno nicht zuordnen.");
+      throw new BankError("Die Leistung besteht weiter; eine Erstattung lässt sich diesem Storno nicht zuordnen.");
     }
     open = invoiceOpen({ ...invoice, paid: await paidOn(invoice.id), paidOnOriginal: await paidOn(invoice.correctsId), cancelled: false });
   } else {

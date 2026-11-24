@@ -16,14 +16,14 @@ const header = (skr: "03" | "04", system = "Lexoffice Export") =>
   `"EXTF";700;21;"Buchungsstapel";13;20240102120000000;;"LO";"";"";1001;12345;20230101;4;20230101;20231231;"${system}";"";1;0;0;"EUR";;"";;;"${skr}";;;"";""`;
 
 describe.skipIf(!testDatabaseUrl)("Abgleich der DATEV-Buchungen nach Kontenrahmen (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-abgleich.ts");
   let archive: typeof import("./archive.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")) };
     archive = await import("./archive.ts");
   }, 30_000);
 

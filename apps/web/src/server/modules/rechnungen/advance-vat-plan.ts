@@ -20,10 +20,11 @@ import { UserError } from "../../errors.ts";
 type Invoice = typeof schema.invoices.$inferSelect;
 
 /** Festgeschriebene Korrektur- und Stornokette, ohne irgendeinen alten Beleg zu verändern. */
-async function family(originalId: string, q: Db | Tx): Promise<Invoice[]> {
+export async function family(originalId: string, q: Db | Tx): Promise<Invoice[]> {
   const ids = await q.execute<{ id: string }>(sql`with recursive chain as (
     select id from invoices where id = ${originalId}
-    union select i.id from invoices i join chain c on i.corrects_id = c.id where i.status = 'final'
+    union select i.id from invoices i join chain c on i.corrects_id = c.id or (i.variant is null and i.replaces_invoice_id = c.id)
+      where i.status = 'final'
   ) select id from chain`);
   return q
     .select()
@@ -36,12 +37,12 @@ async function family(originalId: string, q: Db | Tx): Promise<Invoice[]> {
     );
 }
 
-const negate = (shares: readonly TaxShare[]) => shares.map((share) => ({ ...share, base: -share.base, tax: -share.tax }));
+export const negate = (shares: readonly TaxShare[]) => shares.map((share) => ({ ...share, base: -share.base, tax: -share.tax }));
 
 /** Korrektur ohne Kennzeichen (vor #853 festgeschrieben): ihre Minderung wirkte schon mit dem Beleg. */
 const legacy = (invoice: Invoice) => invoice.kind !== "rechnung" && invoice.reductionRule === null;
 
-async function paymentEvents(invoices: Invoice[], q: Db | Tx): Promise<AdvanceBalanceEvent[]> {
+export async function paymentEvents(invoices: Invoice[], q: Db | Tx): Promise<AdvanceBalanceEvent[]> {
   const ids = invoices.map((i) => i.id);
   const byId = new Map(invoices.map((i) => [i.id, i]));
   const totals = await invoiceTotalsById(ids, q);
@@ -72,10 +73,10 @@ async function paymentEvents(invoices: Invoice[], q: Db | Tx): Promise<AdvanceBa
  * Storno und Korrektur der Kette. Gekennzeichnete halten bereits vereinnahmte Steuer bis zur Rückzahlung; ein Storno
  * einer Korrektur ohne Kennzeichen nimmt nur deren Anspruch zurück, nicht die Minderung anderer Korrekturen.
  */
-function correctionEvents(original: Invoice, invoices: Invoice[], totals: Map<string, { taxes: TaxShare[] }>): AdvanceVatEvent[] {
+export function correctionEvents(original: Invoice, invoices: Invoice[], totals: Map<string, { taxes: TaxShare[] }>): AdvanceVatEvent[] {
   const byId = new Map(invoices.map((i) => [i.id, i]));
   return invoices
-    .filter((invoice) => invoice.id !== original.id)
+    .filter((invoice) => invoice.kind !== "rechnung")
     .map((invoice) => {
       const taxes = totals.get(invoice.id)!.taxes;
       const target = invoice.correctsId === original.id ? undefined : byId.get(invoice.correctsId!);
@@ -146,12 +147,18 @@ export interface ManagedAdvancePlan {
 export const refundOnly = (original: Pick<Invoice, "advanceType" | "advanceAccounting" | "variant">) =>
   original.advanceType !== "anzahlung" && (original.advanceAccounting === null || original.variant === "schluss");
 
+/** Bis zur Rückzahlung gehaltener Teil der Minderungen (advanceVatSchedule, „held“) */
+export const heldUntilRefund = (original: Invoice, invoices: Invoice[], totals: Map<string, { taxes: TaxShare[] }>, events: AdvanceBalanceEvent[]) =>
+  advanceVatSchedule(totals.get(original.id)!.taxes, [...events, ...correctionEvents(original, invoices, totals)], "held");
+
 /** Gegenprobe aus den Nebenbüchern, ausdrücklich ohne Journalzeilen zu lesen. */
 export async function loadAdvanceVatPlan(reference: Pick<Invoice, "id">, q: Db | Tx = db, taxes = invoiceTaxReader(q)): Promise<ManagedAdvancePlan> {
   // Die Festschreibung kann den Verfahrensmarker gerade erst gesetzt haben; der Vorher-Lader hält noch den Entwurf.
   const [original] = await q.select().from(schema.invoices).where(eq(schema.invoices.id, reference.id));
   if (!original) throw new UserError("Die ursprüngliche Anzahlungsrechnung fehlt.");
   const invoices = await family(original.id, q);
+  const replaced = new Set(invoices.flatMap((invoice) => (invoice.variant === null && invoice.replacesInvoiceId ? [invoice.replacesInvoiceId] : [])));
+  const corrections = invoices.filter((invoice) => !(invoice.kind === "storno" && invoice.correctsId && replaced.has(invoice.correctsId)));
   const totals = await invoiceTotalsById(
     invoices.map((i) => i.id),
     q,
@@ -162,15 +169,18 @@ export async function loadAdvanceVatPlan(reference: Pick<Invoice, "id">, q: Db |
     // Nur Soll braucht die Ergänzung: Bei Ist bucht schon die Rückzahlung die Steuer zurück (§ 13 Abs. 1 Nr. 1 b UStG).
     // Papierstornos einer Schlusskette (#750) buchen nichts und mindern deshalb auch nichts.
     const posted: Invoice[] = [];
-    for (const invoice of invoices) if (await taxes.invoicePostingAllowed(invoice)) posted.push(invoice);
+    for (const invoice of corrections) if (await taxes.invoicePostingAllowed(invoice)) posted.push(invoice);
     const held =
       original.status === "final" && advanceUsesPayments(original.taxTreatment) && (await taxes.companyMode(original)) === "soll"
-        ? advanceVatSchedule(total, [...events, ...correctionEvents(original, posted, totals)], "held")
+        ? heldUntilRefund(original, posted, totals, events)
         : [];
     return { original, kind: "refund", invoiceIds: new Set(), changes: held, postingChanges: held, balanceChanges: [] };
   }
   const normal = original.variant === null && original.advanceAccounting === "deferred";
-  const cancellation = normal ? invoices.find((invoice) => invoice.kind === "storno" && invoice.correctsId === original.id) : undefined;
+  const originalAndReplacements = new Set(invoices.filter((invoice) => invoice.kind === "rechnung").map((invoice) => invoice.id));
+  const cancellation = normal
+    ? corrections.find((invoice) => invoice.kind === "storno" && invoice.correctsId && originalAndReplacements.has(invoice.correctsId))
+    : undefined;
   // Ein Storno vor der Leistung hebt auch die bereits vordatierte Realisierung durch neue Gegenbuchungen auf.
   // Nach Leistung bleiben echte Entgeltkorrekturen datiert; erhaltene Zahlungen bleiben bis zur Rückzahlung besteuert
   // (advanceVatSchedule). Die Papier-Schlusskette aus #750 behält ihren eigenen bestätigten Ablauf.
@@ -187,7 +197,7 @@ export async function loadAdvanceVatPlan(reference: Pick<Invoice, "id">, q: Db |
         balance: performed,
       }
     : await performanceEvents(original, q, taxes);
-  events.push(...correctionEvents(original, invoices, totals));
+  events.push(...correctionEvents(original, corrections, totals));
   const [company] = await q
     .select({ kontenrahmen: schema.company.kontenrahmen, rechtsform: schema.company.rechtsform })
     .from(schema.company)
@@ -224,16 +234,17 @@ export async function advanceVatPlans(q: Db | Tx, year: number, taxes = invoiceT
   // Rechnungen mit normalen Buchungen nur, wenn ein Storno oder eine Korrektur das Kennzeichen „rueckgewaehr“ trägt.
   const candidates = await q.execute<{ id: string }>(sql`with recursive up(id, parent) as (
     select id, corrects_id from invoices where reduction_rule is not null and status = 'final'
-    union select i.id, i.corrects_id from up join invoices i on i.id = up.parent
+    union select i.id, coalesce(i.corrects_id, case when i.variant is null then i.replaces_invoice_id end) from up join invoices i on i.id = up.parent
   ), family(root_id, id) as (
     select id, id from invoices where status = 'final' and (
       (advance_type = 'anzahlung' and (tax_treatment in ('regulaer', 'steuerfrei', 'ausfuhr')
         or (advance_accounting = 'deferred' and tax_treatment in ('reverse_charge', 'ig_lieferung', 'drittland'))))
-      or (variant is null and corrects_id is null and advance_accounting = 'deferred')
+      or (variant is null and corrects_id is null and replaces_invoice_id is null and advance_accounting = 'deferred')
       or (id in (select id from up where parent is null) and advance_type is distinct from 'anzahlung'
         and (advance_accounting is null or variant = 'schluss') and tax_treatment in ('regulaer', 'steuerfrei', 'ausfuhr'))
     )
-    union all select f.root_id, i.id from family f join invoices i on i.corrects_id = f.id where i.status = 'final'
+    union all select f.root_id, i.id from family f join invoices i on i.corrects_id = f.id or (i.variant is null and i.replaces_invoice_id = f.id)
+      where i.status = 'final'
   ), relevant as (
     select f.root_id from family f join invoices i on i.id = f.id
       where (i.issue_date >= ${start} and i.issue_date < ${end}) or (i.service_date >= ${start} and i.service_date < ${end})

@@ -25,22 +25,10 @@ export { toReadableStream } from "./export-zip.ts";
 export { openItemsOverview, openLegacyItems, takeOverAll, takeOverLegacyItem } from "./legacy-open.ts";
 export { legacyVouchersForContact } from "./kontakt-altbestand.ts";
 export { externalImportOverview, storeLegacyVoucher, storeLegacyOrder, type LegacyOriginalFile, type LegacyKnownPayment } from "./legacy-store.ts";
-export {
-  cancelImport,
-  connectionStatus,
-  findLegacyVouchers,
-  latestImport,
-  legacyVouchersForPeriod,
-  legacyVoucherDetail,
-  legacyVoucherFile,
-  listLegacyVouchers,
-  reconciliation,
-  removeApiKey,
-  saveApiKey,
-  startImport,
-  startWebImport,
-  type LegacyVoucherForVat,
-} from "./lexoffice.ts";
+export { cancelImport, connectionStatus, latestImport, removeApiKey, saveApiKey, startImport, startWebImport } from "./lexoffice.ts";
+export { findLegacyVouchers, legacyVoucherDetail, legacyVoucherFile, listLegacyVouchers } from "./umzug-belege.ts";
+export { legacyVouchersForPeriod, type LegacyVoucherForVat } from "./umzug-umsatzsteuer.ts";
+export { reconciliation } from "./umzug-abgleich.ts";
 export {
   cancelSevdeskImport,
   latestSevdeskImport,
@@ -101,3 +89,4 @@ export { attachOrderPdf, listOrderDocuments, orderArchiveOverview, orderDocument
 export { contactHistory, type ContactHistoryRow, type ContactHistorySection } from "./kontakt-historie.ts";
 export { confirmWithoutFile, revokeFileConfirmation, FileStateError } from "./dateistand.ts";
 export { previewWisoAssets } from "./wiso-assets.ts";
+export { previewWisoContacts } from "./wiso-contacts.ts";

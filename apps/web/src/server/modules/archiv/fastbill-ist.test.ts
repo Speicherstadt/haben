@@ -65,13 +65,13 @@ const EXPENSE = mapFbExpense({
 
 describe.skipIf(!testDatabaseUrl)("FastBill-Altbestand bei Ist und Soll (Postgres)", () => {
   let sql: postgres.Sql;
-  let archive: typeof import("./lexoffice.ts");
+  let archive: typeof import("./umzug-abgleich.ts");
   let legacy: typeof import("./legacy-open.ts");
   const ids = new Map<string, string>();
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    archive = await import("./lexoffice.ts");
+    archive = await import("./umzug-abgleich.ts");
     legacy = await import("./legacy-open.ts");
     await sql`insert into company (id, name, strasse, plz, ort, email, telefon, steuernummer, ust_id, bundesland, iban, versteuerung, kontenrahmen)
       values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '+49 941 1', '198/113/10010',

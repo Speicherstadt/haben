@@ -121,7 +121,7 @@ Vor dem Festschreiben passt du den Entwurf an, etwa die tatsächlich geleisteten
 
 Jedes Angebot lässt sich nur einmal abrechnen. Löschst du den Rechnungsentwurf, kannst du das Angebot wieder abrechnen. Ein abgelehntes Angebot rechnet Haben nicht ab; mit **Antwort zurücknehmen** setzt du es wieder auf offen.
 
-Eine Auftragsverwaltung oder ein eigenes Skript liest Angebote samt Antwort des Kunden und Rechnung über die [REST-API](api.md#angebote), angemeldet mit einem API-Token, das das Recht „Angebote und Entwürfe lesen“ (`angebote:lesen`) hat. Ändern kann sie dort nichts.
+Eine Auftragsverwaltung oder ein eigenes Skript liest Angebote samt Antwort des Kunden und Rechnung über die [REST-API](api.md#angebote), angemeldet mit einem API-Token, das das Recht „Angebote und Entwürfe lesen“ (`angebote:lesen`) hat. Mit dem Recht „Angebote lesen, Entwürfe anlegen, ändern und löschen“ (`angebote:entwuerfe`) legt sie auch [Entwürfe](api.md#angebotsentwürfe) an; festgeschrieben und versendet wird in Haben.
 
 ### In Abschlägen abrechnen
 
