@@ -1,5 +1,5 @@
 import { XMLParser } from "fast-xml-parser";
-import { ElsterEingabeError, elsterXml, escapeXml } from "./xml.ts";
+import { ElsterEingabeError, elsterXml, escapeXml, hasTestmerker } from "./xml.ts";
 import { findDeep, int, text } from "./xml-lesen.ts";
 
 /**
@@ -17,6 +17,15 @@ import { findDeep, int, text } from "./xml-lesen.ts";
  * Werte (Tabelle 9-4 und 9-5), nicht den allgemeinen 700000004; der wird an dieser Stelle vom Server abgelehnt.
  */
 export const POSTFACH_TESTMERKER = "700000001";
+
+/**
+ * Ob eine Anfrage in die Test-Datenbank geht: nur dann gehört der Rat zum Testmerker in die Meldung, denn außerhalb
+ * des Postfachs und beim echten Abruf nennt derselbe Code andere Gründe (#1791).
+ */
+export function postfachArt(op: string, xml: string): "test" | "echt" | false {
+  if (op !== "postfach") return false;
+  return hasTestmerker(xml) ? "test" : "echt";
+}
 
 /** Was die Anfrage abholt: Bescheide (DIVA), Steuerbescheid-Daten (ESB) und Postfach-Mitteilungen */
 export const POSTFACH_DATENARTEN = [

@@ -9,10 +9,9 @@ import { existsSync } from "node:fs";
  * EricBearbeiteVorgang() kein Transferhandle mehr (ERiC-Releasenotes 45.1, Kap. 6.2.6, ERIC-36021);
  * welche Signatur gilt, sagt EricVersion() der geladenen Bibliothek.
  */
-import { parsePostfachAntwort, type PostfachBereitstellung } from "./postfach.ts";
+import { parsePostfachAntwort, postfachArt, type PostfachBereitstellung } from "./postfach.ts";
 import { mitServerMeldung } from "./serverantwort.ts";
 import { parseTransferTicket } from "./ticket.ts";
-import { hasTestmerker } from "./xml.ts";
 import { buildVastAbholungXml, parseVastBelegListe, parseVastDatenpakete, VAST_DATENART_VERSION, type VastBelegRef, type VastXmlInput } from "./vast.ts";
 
 const ERIC_OK = 0;
@@ -187,15 +186,6 @@ async function loadEric(libraryPath: string): Promise<EricApi> {
   };
 }
 
-/**
- * Ob der Postfach-Fall einen Rat zum Testmerker bekommt: nur in einer PostfachAnfrage, die einen Testmerker trägt.
- * Außerhalb des Postfachs und beim echten Abruf nennt derselbe Code andere Gründe (#1791).
- */
-function postfachArt(request: EricRequest): "test" | "echt" | false {
-  if (request.op !== "postfach") return false;
-  return hasTestmerker(request.xml) ? "test" : "echt";
-}
-
 /** Ein kompletter Durchlauf: initialisieren, einen Vorgang bearbeiten, beenden. */
 export async function runEric(config: EricConfig, request: EricRequest): Promise<EricRawResult> {
   const eric = await loadEric(ericLibraryPath(config.ericHome));
@@ -261,7 +251,7 @@ export async function runEric(config: EricConfig, request: EricRequest): Promise
         return {
           code,
           // Bei einem Fehler nennt ERiC nur den allgemeinen Text; was der Server bemängelt, steht in seiner Antwort (#525)
-          message: code === ERIC_OK ? message : mitServerMeldung(message, serverResponseXml, postfachArt(request)),
+          message: code === ERIC_OK ? message : mitServerMeldung(message, serverResponseXml, postfachArt(request.op, request.xml)),
           responseXml: eric.EricRueckgabepufferInhalt(rueckgabe) ?? "",
           serverResponseXml,
         };
