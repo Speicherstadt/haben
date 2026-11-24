@@ -32,7 +32,7 @@ const jpeg = (marker: number) => new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0
 
 describe.skipIf(!testDatabaseUrl)("REST-API /api/v1/belege (Postgres)", () => {
   let api: typeof import("./index.ts");
-  let schemas: typeof import("./schemas.ts");
+  let schemas: typeof import("./belege-schemas.ts");
   let mcp: typeof import("../mcp/index.ts");
   let mcpServer: typeof import("../mcp/server.ts");
   let belege: typeof import("../belege/index.ts");
@@ -43,7 +43,7 @@ describe.skipIf(!testDatabaseUrl)("REST-API /api/v1/belege (Postgres)", () => {
     sql = await setupTestDb();
     await sql`insert into "user"(id,name,email,role) values (${actor}, 'Testinhaber', 'inhaber@example.de', 'inhaber')`;
     api = await import("./index.ts");
-    schemas = await import("./schemas.ts");
+    schemas = await import("./belege-schemas.ts");
     mcp = await import("../mcp/index.ts");
     mcpServer = await import("../mcp/server.ts");
     belege = await import("../belege/index.ts");
