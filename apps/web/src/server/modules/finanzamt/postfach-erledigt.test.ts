@@ -88,6 +88,21 @@ describe.skipIf(!testDatabaseUrl)("Postfach: Erledigt-Vermerke (Postgres)", () =
     expect(await postfach.openAppealDeadlines("2025-07-10")).toEqual([]);
   });
 
+  it("holt die Aufgabe zurück, wenn bei gleichem Bescheiddatum ein Anhang wieder geöffnet wird", async () => {
+    // Abhaken und Wiederöffnen sind symmetrisch: Unter den Anhängen mit dem Bescheiddatum des jüngsten Bescheids
+    // entscheidet das jüngste Ereignis, nicht „einer von ihnen ist geprüft“ (#1856). Zurück kommt der Anhang, dessen
+    // Vermerk den Ausschlag gibt; sonst stünde die Aufgabe mit dem Knopf eines schon abgehakten Anhangs da.
+    const erster = await bescheid({ datum: "2025-06-30", bezeichnung: "Bescheid ESt" });
+    const zweiter = await bescheid({ datum: "2025-06-30", bezeichnung: "Bescheid ESt, Anlage N" });
+    await erledigt.erledigtVermerken(erster, "geprueft", actor);
+    await erledigt.erledigtVermerken(zweiter, "geprueft", actor);
+    expect(await postfach.openAppealDeadlines("2025-07-10")).toEqual([]);
+    await erledigt.erledigtVermerken(zweiter, "wieder_offen", actor);
+    expect((await postfach.openAppealDeadlines("2025-07-10")).map((d) => d.id)).toEqual([zweiter]);
+    await erledigt.erledigtVermerken(zweiter, "geprueft", actor);
+    expect(await postfach.openAppealDeadlines("2025-07-10")).toEqual([]);
+  });
+
   it("schreibt den Akteur ins Audit-Log und lässt den Vermerk nicht ändern", async () => {
     const id = await bescheid();
     await erledigt.erledigtVermerken(id, "geprueft", actor);

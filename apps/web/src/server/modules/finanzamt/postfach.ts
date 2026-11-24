@@ -6,7 +6,7 @@ import { encrypt } from "../../crypto.ts";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import { FinanzamtError } from "./finanzamt.ts";
-import { erledigtStand } from "./postfach-erledigt.ts";
+import { type ErledigtStand, erledigtStand } from "./postfach-erledigt.ts";
 import { sniff, storeFile } from "../../storage.ts";
 import { ABRUF, isSimulated, loadActiveCertificate, PRODUKT_VERSION, signatur, zugang } from "../elster/index.ts";
 
@@ -123,15 +123,19 @@ export async function openAppealDeadlines(today: string) {
     gruppen.set(schluessel, liste);
   }
   // Erst nach der Gruppierung filtern: Anhänge desselben Bescheids teilen sich die Aufgabe (#1819). Maßgeblich ist das
-  // gelesene Datum, nicht die rohe Spalte, weil der Parser JJJJMMTT, JJJJ-MM-TT und TT.MM.JJJJ kennt. Trägt bei
-  // gleichem Bescheiddatum jeder Anhang dieselbe Aufgabe, gilt der Bescheid als geprüft, sobald einer von ihnen geprüft
-  // ist: sonst bliebe die Aufgabe stehen, obwohl in der abgehakten Zeile „Geprüft" steht. Ein älterer Bescheid derselben
-  // Gruppe lässt die Frist dagegen nicht wieder aufleben.
+  // gelesene Datum, nicht die rohe Spalte, weil der Parser JJJJMMTT, JJJJ-MM-TT und TT.MM.JJJJ kennt. Tragen mehrere
+  // Anhänge dasselbe Bescheiddatum, entscheidet unter ihnen das jüngste Ereignis und nicht eines von ihnen allein: sonst
+  // bliebe „Wieder offen“ folgenlos, solange ein anderer Anhang geprüft ist (#1856). Ein älterer Bescheid derselben
+  // Gruppe lässt die Frist dagegen nicht wieder aufleben. Ohne Ereignis gilt der Bescheid als offen; bei gleichem
+  // Zeitstempel bleibt die erste Zeile, weil die Liste fest sortiert ist.
+  type MitEreignis = (typeof offen)[number] & { erledigt: ErledigtStand };
   const offenBleibend: typeof offen = [];
   for (const liste of gruppen.values()) {
     const juengster = liste.reduce((a, b) => (b.bescheiddatumIso > a.bescheiddatumIso ? b : a));
-    const erledigt = liste.some((d) => d.bescheiddatumIso === juengster.bescheiddatumIso && d.erledigt?.art === "geprueft");
-    if (!erledigt) offenBleibend.push(juengster);
+    const amJuengsten = liste.filter((d): d is MitEreignis => d.bescheiddatumIso === juengster.bescheiddatumIso && d.erledigt !== null);
+    const letztes = amJuengsten.reduce<MitEreignis | null>((a, b) => (a === null || b.erledigt.at > a.erledigt.at ? b : a), null);
+    // Zurück kommt der Anhang, dessen Vermerk den Ausschlag gibt: an ihm hängt der Knopf der Aufgabe.
+    if (letztes?.erledigt.art !== "geprueft") offenBleibend.push(letztes ?? juengster);
   }
   return offenBleibend.sort((a, b) => a.frist.fristende.localeCompare(b.frist.fristende));
 }
