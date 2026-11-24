@@ -1,4 +1,4 @@
-import { formatEuro, periodKey, periodLabel } from "@haben/core";
+import { formatEuro, lastMonthOfPeriod, periodKey, periodLabel } from "@haben/core";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { daysUntil, formatDate, formatDateTime, formatLongDate } from "../../lib/format.ts";
 import { InvoiceStatus } from "../../components/InvoiceStatus.tsx";
@@ -51,7 +51,8 @@ function umsatzsteuerAufgaben(
   { sent, vatRequired, taxAccount, taxShortfall }: { sent: boolean; vatRequired: boolean; taxAccount: Konto | undefined; taxShortfall: number },
 ): Todo[] {
   const todos: Todo[] = [];
-  if (!sent && vatRequired) {
+  const vorStart = periodKey(lastMonthOfPeriod(data.period)) < data.ersterBuchungsmonat;
+  if (!sent && vatRequired && !vorStart) {
     todos.push({
       title: `Voranmeldung ${periodLabel(data.period)} senden`,
       detail: `Fällig ${formatLongDate(data.dueDate)}`,
