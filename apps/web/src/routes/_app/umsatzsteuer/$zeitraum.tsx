@@ -120,13 +120,7 @@ function VatPeriodPage() {
       {/* key: Formular bei Wechsel der Anmeldung (Berichtigung) und nach dem Speichern neu aufsetzen */}
       <VatReturnEditor key={`${data.current?.id ?? "neu"}-${data.current?.updatedAt ?? ""}`} data={data} notice={notice} setNotice={setNotice} />
       {/* Außerhalb des Editors: der baut sich nach jedem Speichern der Anmeldung neu auf und verwürfe sonst die Auswahl hier */}
-      <FristenAbschnitt
-        frequency={data.frequency}
-        dauerfrist={data.dauerfrist}
-        setup={data}
-        offen={fristenOffen}
-        onOffen={setFristen}
-      />
+      <FristenAbschnitt frequency={data.frequency} dauerfrist={data.dauerfrist} setup={data} offen={fristenOffen} onOffen={setFristen} />
     </>
   );
 }
