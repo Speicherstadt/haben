@@ -76,7 +76,7 @@ Deine eigenen Daten holst du für den Umzug über die Web-Oberfläche: Ein Skrip
 
 Das Skript ändert nichts in Lexware Office. Es ruft nur die Adressen auf, die die Web-Oberfläche beim Anzeigen selbst abfragt, mit kurzen Pausen dazwischen, und schickt nichts an Haben oder sonst wohin: Die Daten landen nur als Download in deinem Browser.
 
-Schritt 2 zeigt unter „Die Sicherung lässt … aus“, wie viele Entwürfe, Angebote, Auftragsbestätigungen, Lieferscheine und sonstige Vorgänge das Skript beim Packen ausgelassen hat. Entwürfe zählen dabei nur als Entwürfe. Das aktuelle Skript schreibt dieselben Gesamtzahlen in jeden seiner ZIP-Teile. Sicherungen ohne diese Angaben, etwa aus einer älteren Skriptversion, lassen sich weiterhin importieren. Der Hinweis entfällt bei solchen ZIP-Dateien.
+Schritt 2 zeigt unter „Die Sicherung lässt … aus“, wie viele Entwürfe, Angebote, Auftragsbestätigungen, Lieferscheine und sonstige Vorgänge das Skript ausgelassen hat, gezählt über die ganze Sicherung, nicht je ZIP-Teil. Ein Entwurf zählt dabei nur als Entwurf. Sicherungen aus einer älteren Skriptversion enthalten diese Zahlen nicht; Haben übernimmt sie trotzdem, nur ohne den Hinweis.
 
 Belege, die das Skript nicht laden konnte, stehen in der ZIP-Datei und nach dem Hochladen in Schritt 2 unter den offenen Punkten beim Abruf. Lässt du das Skript später noch einmal laufen und lädst die neue Sicherung hoch, überspringt Haben alles, was schon da ist, und holt die fehlenden nach — auch das Original-PDF einer Rechnung und jeden einzelnen fehlenden Anhang eines Belegs.
 
@@ -115,7 +115,6 @@ Unterschiede zur Public API:
 - **Steuer je Position:** Die Belegansicht nennt je Position nur Betrag und Steuersatz. Haben rechnet die Steuer daraus (aus dem Bruttobetrag herausgerechnet bzw. auf den Nettobetrag aufgeschlagen, kaufmännisch gerundet). Bei mehreren Positionen kann das im Cent von Lexware Office abweichen; maßgeblich bleibt der Bruttobetrag des Belegs.
 - **Schlussrechnungen:** Haben nimmt den geforderten Betrag (`claimed…`), in dem die Abschläge schon abgezogen sind.
 - **Zahlungsarten:** „Sonstige Zahlung“ (`partPaymentOther`) zählt wie `manualPayment` der Public API als Entgelt.
-- **Angebote, Aufträge, Lieferscheine und Entwürfe** lädt das Skript nicht.
 - **Buchungen ohne Beleg** kommen nur über das Skript, siehe unten.
 - Die Originalantworten liegen im übernommenen Beleg unter `web`, zum Nachweis.
 
