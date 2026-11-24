@@ -78,11 +78,8 @@ export function InvoiceDatePaymentFields({ editor }: { editor: InvoiceEditorMode
   const {
     alreadyPaid,
     attempted,
-    bankverbindungen,
-    bankverbindungId,
     contactId,
     dueDate,
-    editable,
     error,
     initial,
     issueDate,
@@ -95,7 +92,6 @@ export function InvoiceDatePaymentFields({ editor }: { editor: InvoiceEditorMode
     paymentTermDays,
     previewGross,
     quote,
-    setBankverbindungId,
     setIssueDate,
     setMandateId,
     setPaidOn,
@@ -108,7 +104,6 @@ export function InvoiceDatePaymentFields({ editor }: { editor: InvoiceEditorMode
     skontoAllowed,
     skontoIssue,
     skontoRows,
-    standardIban,
     termValid,
     touch,
     validUntil,
@@ -155,20 +150,7 @@ export function InvoiceDatePaymentFields({ editor }: { editor: InvoiceEditorMode
           }}
         />
       )}
-      {(quote || (kind === "rechnung" && paymentMethod === "ueberweisung")) && (
-        <BankverbindungField
-          bankverbindungen={bankverbindungen}
-          standardIban={standardIban}
-          value={bankverbindungId}
-          disabled={!editable}
-          hint={
-            quote
-              ? "Steht im Angebot und geht in die Rechnung aus dem Angebot über."
-              : "Steht auf der Rechnung, im GiroCode und in der E-Rechnung (BT-84). Vorgabe ist die Bankverbindung des Kunden."
-          }
-          onChange={touch(setBankverbindungId)}
-        />
-      )}
+      <InvoiceBankverbindungField editor={editor} />
       {skontoAllowed && (
         <SkontoFields
           id="invoice-skonto"
@@ -182,6 +164,29 @@ export function InvoiceDatePaymentFields({ editor }: { editor: InvoiceEditorMode
         />
       )}
     </>
+  );
+}
+
+/**
+ * Weitere Bankverbindung (#1887) im Angebot und in der Rechnung mit Überweisung; bei Lastschrift gilt das Gläubigerkonto
+ * aus den Firmendaten. Ohne weitere Bankverbindungen steht das Feld nicht da (BankverbindungField).
+ */
+function InvoiceBankverbindungField({ editor }: { editor: InvoiceEditorModel }) {
+  const { bankverbindungen, bankverbindungId, editable, kind, paymentMethod, quote, setBankverbindungId, standardIban, touch } = editor;
+  if (!quote && !(kind === "rechnung" && paymentMethod === "ueberweisung")) return null;
+  return (
+    <BankverbindungField
+      bankverbindungen={bankverbindungen}
+      standardIban={standardIban}
+      value={bankverbindungId}
+      disabled={!editable}
+      hint={
+        quote
+          ? "Steht im Angebot und geht in die Rechnung aus dem Angebot über."
+          : "Steht auf der Rechnung, im GiroCode und in der E-Rechnung (BT-84). Vorgabe ist die Bankverbindung des Kunden."
+      }
+      onChange={touch(setBankverbindungId)}
+    />
   );
 }
 

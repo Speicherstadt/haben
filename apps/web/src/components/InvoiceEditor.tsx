@@ -1,6 +1,5 @@
-import { distinctVatRates, CURRENCY_CODE, formatEuro } from "@haben/core";
+import { distinctVatRates, CURRENCY_CODE } from "@haben/core";
 import { type ComponentProps, useRef } from "react";
-import { formatDate } from "../lib/format.ts";
 import { useLoadedState } from "../lib/use-loaded-state.ts";
 import { ActionBar } from "./ActionBar.tsx";
 import { DesignPanel, useDesignDraft } from "./DesignPanel.tsx";
@@ -11,6 +10,7 @@ import { useInvoiceCopy } from "./InvoiceCopyButton.tsx";
 import { MoreActionsMenu } from "./MoreActionsMenu.tsx";
 import { PaymentPlanFields } from "./PaymentPlanFields.tsx";
 import { InvoiceEditorDetails } from "./InvoiceEditorDetails.tsx";
+import { InvoiceDeductsCard } from "./InvoiceDeductsCard.tsx";
 import { InvoiceEditorDialogs } from "./InvoiceEditorDialogs.tsx";
 import { InvoiceEditorHead } from "./InvoiceEditorHead.tsx";
 import { InvoiceEditorLines } from "./InvoiceEditorLines.tsx";
@@ -42,9 +42,7 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
     contactPersonId,
     corrects,
     currencyCode,
-    customerAbschlaege,
     deductionPreview,
-    deducts,
     dirty,
     discount,
     discountIssue,
@@ -92,7 +90,6 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
     taxTreatment,
     term,
     termValid,
-    toggleDeduct,
     touch,
     validUntil,
     variant,
@@ -163,33 +160,7 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
           <fieldset className="stack fieldset-plain" disabled={busy}>
             <InvoiceEditorDetails editor={editor} />
 
-            {schluss && (
-              <section className="card" aria-labelledby="deducts-heading">
-                <h2 id="deducts-heading">Abschlagsrechnungen abziehen</h2>
-                {!contactId ? (
-                  <p className="small muted" style={{ margin: 0 }}>
-                    Erst den Kunden wählen.
-                  </p>
-                ) : customerAbschlaege.length === 0 ? (
-                  <p className="small muted" style={{ margin: 0 }}>
-                    Für diesen Kunden gibt es keine offenen festgeschriebenen Abschlagsrechnungen.
-                  </p>
-                ) : (
-                  customerAbschlaege.map((a) => (
-                    <label key={a.id} className="checkbox">
-                      <input type="checkbox" checked={deducts.includes(a.id)} onChange={(e) => toggleDeduct(a.id, e.target.checked)} />
-                      <span>
-                        Abschlagsrechnung {a.number} vom {formatDate(a.issueDate)} · {formatEuro(a.gross)}
-                      </span>
-                    </label>
-                  ))
-                )}
-                <p className="small muted" style={{ margin: 0 }}>
-                  Unter Positionen steht die gesamte Leistung. Die Abzüge erscheinen auf der Rechnung als eigene Positionen mit Netto und Umsatzsteuer der
-                  Abschlagsrechnung (§ 14 Abs. 5 UStG).
-                </p>
-              </section>
-            )}
+            {schluss && <InvoiceDeductsCard editor={editor} />}
 
             <InvoiceEditorLines editor={editor} />
 
