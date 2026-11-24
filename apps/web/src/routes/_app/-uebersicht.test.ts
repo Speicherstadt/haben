@@ -101,6 +101,8 @@ describe("Übersicht: relevante Voranmeldungshinweise (#691)", () => {
     expect(html).toContain("19,00");
     expect(html).not.toContain("Voranmeldung Oktober 2026 senden");
     expect(html).not.toContain("Voranmeldung fällig");
+    // Weg 2 aus #1857: Der Zeitraum bleibt, wie er ist, die Übersicht sagt aber, dass er abgegeben ist
+    expect(html).toContain("Voranmeldung Oktober 2026 · abgegeben");
   });
 
   it("offene Zahllast einer älteren Anmeldung bleibt sichtbar, ohne eine neue Aufgabe zu erfinden", () => {
@@ -226,7 +228,8 @@ describe("Übersicht: Aufbau", () => {
     state.data.current = { status: "sent", kz83: 1900, sentAt: "2026-11-09T12:00:00Z" };
     const html = render();
     expect(html).toContain('class="btn btn-ghost"');
-    expect(html).toContain("Voranmeldung Oktober 2026</a>");
+    // #1857 Weg 2: Der Zeitraum bleibt, die Übersicht sagt aber, dass er abgegeben ist
+    expect(html).toContain("Voranmeldung Oktober 2026 · abgegeben</a>");
   });
 
   it("leere Instanz: Knopf „Erste Rechnung schreiben“, keine Karten mit 0,00 €", () => {
