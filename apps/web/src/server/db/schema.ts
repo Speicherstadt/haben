@@ -3766,6 +3766,7 @@ export const legacyOrderPdfAttempts = pgTable(
 /**
  * Rechnungen, Gutschriften und Belege aus Lexoffice, sevDesk, FastBill, BuchhaltungsButler und den anderen Umzugsquellen mit unveränderten Quelldaten. Nur anhängen.
  * Beträge in Cent, Gutschriften negativ. Bei sevDesk steht in lexoffice_id "<art>/<id>", z. B. "invoice/123".
+ * Der historische Tabellenname bleibt für Audit und Exporte erhalten.
  */
 export const lexofficeVouchers = pgTable(
   "lexoffice_vouchers",

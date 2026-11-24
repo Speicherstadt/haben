@@ -1,4 +1,5 @@
 import { asc, between, eq, getTableColumns, inArray } from "drizzle-orm";
+import { LEGACY_SOURCE } from "../../../lib/altbestand.ts";
 import { db, schema } from "../../db/index.ts";
 import { ohneJit } from "../../db/ohne-jit.ts";
 import { loadFile } from "../../storage.ts";
@@ -13,17 +14,6 @@ import { yearEnd, yearStart } from "./jahr.ts";
 // Altbestand im Jahresarchiv: übernommene Belege, Zahlungen, DATEV-Buchungen, Originalexporte und Auftragskopien
 
 const encoder = new TextEncoder();
-
-const LEGACY_SOURCE_LABELS = {
-  lexoffice: "Lexoffice",
-  sevdesk: "sevDesk",
-  buchhaltungsbutler: "BuchhaltungsButler",
-  accountable: "Accountable",
-  wiso: "WISO",
-  import: "JSON-Import",
-  fastbill: "FastBill",
-  "sevdesk-export": "sevDesk-Export",
-} as const;
 
 const LEGACY_TYPE_LABELS: Record<string, string> = {
   invoice: "Rechnung",
@@ -170,7 +160,7 @@ async function* voucherArchiveFiles(year: number, problems: string[], usedPaths:
         paths.push(path.slice("lexoffice/".length));
       } catch (error) {
         problems.push(
-          `${LEGACY_SOURCE_LABELS[voucher.source]}-Beleg ${voucher.number || voucher.id}: Datei ${file.filename} nicht lesbar – ${error instanceof Error ? error.message : String(error)}`,
+          `${LEGACY_SOURCE[voucher.source].name}-Beleg ${voucher.number || voucher.id}: Datei ${file.filename} nicht lesbar – ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }
@@ -235,7 +225,7 @@ function voucherRow(
     paths.join(" | "),
     voucherFiles.map((f) => f.sha256).join(" | "),
     voucher.lexofficeId,
-    LEGACY_SOURCE_LABELS[voucher.source],
+    LEGACY_SOURCE[voucher.source].name,
     FILE_STATUS_LABELS[legacyFileStatus(fileState, voucherFiles.length, voucher.raw.ohneBeleg === true)],
   ];
 }
@@ -286,7 +276,7 @@ async function paymentsFile(year: number): Promise<ArchiveFile | null> {
         p.transactionId ?? "",
         p.externalId,
         voucher,
-        LEGACY_SOURCE_LABELS[p.source],
+        LEGACY_SOURCE[p.source].name,
         p.createdAt.toISOString(),
       ]),
     ),
