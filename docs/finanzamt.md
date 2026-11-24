@@ -22,6 +22,8 @@ Der Abruf läuft in drei Schritten, wie bei viking:
 3. **PostfachBestaetigung** meldet ELSTER die Abholung. Bestätigt wird nur, was vollständig gespeichert ist.
 
 ELSTER erwartet die Bestätigung innerhalb von 24 Stunden, sonst droht die Sperre der Hersteller-ID. Scheitert sie, zeigt die Seite einen Hinweis; der nächste Abruf holt die Bestätigung nach. Abgeholte Dokumente legt Haben nicht doppelt ab. Jeder Abruf und jede Bestätigung wird mit dem XML gespeichert, ebenso wie die Dokumente unveränderlich.
+Mit Testmerker liest ein Abruf nur die Test-Datenbank. Für die PostfachAnfrage gilt dort ein eigener Testmerker (700000001 laut ERiC-Entwicklerhandbuch); mit dem allgemeinen Wert lehnt ELSTER die Anfrage mit 601015001 ab. Echt abrufen braucht ohnehin die eingetragene Hersteller-ID und den ausgeschalteten Haken „Nur Testübermittlung“, ohne Hersteller-ID ist der Haken gesperrt. Ein Abruf ist auch nicht folgenlos: Haben bestätigt die Abholung anschließend mit `PostfachBestaetigung`, und ELSTER erwartet das binnen 24 Stunden. Ohne ERiC bleibt der Haken sinnvoll, dann liefert Haben einen erfundenen Testbescheid, damit du die Seite ausprobieren kannst.
+
 
 ### Automatisch abrufen
 
@@ -34,8 +36,6 @@ Die PIN liegt wie das Zertifikat mit AES-256-GCM verschlüsselt in der Datenbank
 Zu jedem Bescheid zeigt Haben unter „Einspruch bis“, bis wann du Einspruch einlegen kannst (§ 355 AO): ein Monat ab Bekanntgabe. Die Bekanntgabe gilt am vierten Tag nach dem Bescheiddatum, für Bescheide bis 2024 am dritten. Fällt die Bekanntgabe oder das Fristende auf ein Wochenende oder einen Feiertag im Bundesland, gilt der nächste Werktag. Solange die Frist läuft, steht der Bescheid in der Übersicht unter den Aufgaben, in der letzten Woche hervorgehoben. Mitteilungen haben keine Frist.
 
 Bei Bescheiden, die nur im Postfach zum Abruf bereitgestellt werden, gilt der Bescheid am vierten Tag nach der Bereitstellung als bekannt gegeben ([§ 122a Abs. 4 Satz 1 AO](https://www.gesetze-im-internet.de/ao_1977/__122a.html)). Haben rechnet mit dem Bescheiddatum statt dem Tag der Bereitstellung; meist ist es derselbe Tag. Im Zweifel muss das Finanzamt den Zeitpunkt der Bereitstellung nachweisen (Satz 2).
-
-Für das Postfach lehnt ELSTER einen Abruf mit Testmerker ab: Die Kombination aus PostfachAnfrage und Testmerker ist für das Testzertifikat nicht zugelassen, die Antwort ist 601015001. Echt abrufen geht nur mit eingetragener Hersteller-ID und ausgeschaltetem Haken „Nur Testübermittlung“; ohne Hersteller-ID ist der Haken gesperrt. Ein Abruf ist auch nicht folgenlos: Haben bestätigt die Abholung anschließend mit `PostfachBestaetigung`, und ELSTER erwartet das binnen 24 Stunden (siehe oben). Ohne ERiC bleibt der Haken sinnvoll, dann liefert Haben einen erfundenen Testbescheid, damit du die Seite ausprobieren kannst.
 
 ## Vorauszahlungen herabsetzen
 

@@ -102,21 +102,28 @@ describe("mitServerMeldung", () => {
   const zertifikatssatz =
     "Es ist ein Fehler bei der Verfahrenspruefung aufgetreten - Die Kombination ... ist fuer ihr Client-Zertifikat mit CN: extern-eric nicht zugelassen.";
 
-  it("erklärt 601015001 mit dem Zertifikatssatz, statt den Satz zum Zertifikat zu wiederholen", () => {
+  it("lässt den Servertext stehen, damit der Hinweis zur Ursache führt", () => {
+    // Der Text nennt Testmerker und CN; beides braucht man, um die Ursache zu finden (#1791)
     const meldung = mitServerMeldung("M", antwort(fehler(601015001, zertifikatssatz)));
     expect(meldung).toContain("601015001");
-    expect(meldung).toContain("Diese Kombination aus Verfahren, Datenart und Vorgang ist nicht zugelassen");
-    expect(meldung).not.toContain("extern-eric");
-    // Der Rat zum Testmerker gehört zum Postfachweg (eric.ts), nicht in die gemeinsame Funktion (#1791)
+    expect(meldung).toContain("extern-eric");
     expect(meldung).not.toContain("Nur Testübermittlung");
   });
 
-  it("nennt den Postfach-Rat nur, wenn der Aufrufer den Postfachweg meldet", () => {
+  it("ergänzt im Postfach mit Testmerker die Einordnung", () => {
     const xml = antwort(fehler(601015001, zertifikatssatz));
-    const meldung = mitServerMeldung("M", xml, true);
-    expect(meldung).toContain("Beim Postfach tritt 601015001 auf");
+    const meldung = mitServerMeldung("M", xml, "test");
+    expect(meldung).toContain("Test-Datenbank");
+    expect(meldung).toContain("Übertragungszertifikat von ERiC");
     expect(meldung).toContain("Nur Testübermittlung");
-    expect(mitServerMeldung("M", antwort(fehler(610101210, "Anderer Text.")), true)).not.toContain("Beim Postfach");
+    expect(meldung).toContain("extern-eric");
+  });
+
+  it("rät beim echten Abruf nicht, den Haken auszuschalten", () => {
+    const xml = antwort(fehler(601015001, zertifikatssatz));
+    expect(mitServerMeldung("M", xml, "echt")).not.toContain("Test-Datenbank");
+    expect(mitServerMeldung("M", xml, false)).not.toContain("Test-Datenbank");
+    expect(mitServerMeldung("M", antwort(fehler(610101210, "Anderer Text.")), "test")).not.toContain("Test-Datenbank");
   });
 
   it("lässt den Text stehen, wenn 601015001 einen anderen Grund nennt", () => {
