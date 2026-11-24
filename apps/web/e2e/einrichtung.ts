@@ -175,6 +175,15 @@ export async function weitereAngabenOeffnen(page: Page): Promise<void> {
   await expect(bereich).toHaveJSProperty("open", true);
 }
 
+/** Über die Schnellsuche (Strg+K) zum Treffer, ohne Neuladen: Beim Wechsel zwischen zwei Einträgen derselben Art bleibt die Seite stehen */
+export async function ueberSchnellsuche(page: Page, suche: string, treffer: RegExp): Promise<void> {
+  await page.keyboard.press("Control+k");
+  const palette = page.getByRole("dialog", { name: "Befehlspalette" });
+  await palette.getByRole("combobox").fill(suche);
+  await palette.getByRole("option", { name: treffer }).click();
+  await expect(palette).toBeHidden();
+}
+
 /** Artikel aus der Trefferliste einer Position übernehmen */
 export async function artikelInPosition(page: Page, position: number, bezeichnung: string): Promise<void> {
   await page.getByLabel(`Beschreibung Position ${position}`).fill(bezeichnung);

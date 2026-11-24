@@ -50,8 +50,17 @@ export const Route = createFileRoute("/_app/kontakte/$id")({
       { rel: "stylesheet", href: styles },
     ],
   }),
-  component: ContactPage,
+  component: ContactRoute,
 });
+
+/**
+ * Beim Wechsel zu einem anderen Kontakt bleibt die Seite stehen; sie entsteht je Kontakt neu, sonst blieben Formular (dessen
+ * Version kann bei beiden gleich sein), Karten mit Angefangenem und Meldungen des vorigen (#1834, #1839)
+ */
+function ContactRoute() {
+  const { contact } = Route.useLoaderData();
+  return <ContactPage key={contact.id} />;
+}
 
 function ContactPage() {
   const { contact, history, service } = Route.useLoaderData();
@@ -60,17 +69,16 @@ function ContactPage() {
   const navigate = useNavigate({ from: Route.fullPath });
   const archive = useServerFn(archiveContact);
   const { busy, notice, run } = useAction();
-  // Kontakt, der gerade gespeichert wurde; das Formular entsteht danach mit der neuen Version neu (key) und zeigt die Meldung von hier
-  const [savedId, setSavedId] = useState<string | null>(null);
-  // Kontakt, für den nach dem Anlegen (Suchparameter) oder Speichern einmal beim BZSt nachgefragt wird; eine ID wie savedId,
-  // denn beim Wechsel zu einem anderen Kontakt bleibt die Seite stehen
-  const [pruefenFuer, setPruefenFuer] = useState<string | null>(null);
+  // Gerade gespeichert; das Formular entsteht danach mit der neuen Version neu (key) und zeigt die Meldung von hier
+  const [saved, setSaved] = useState(false);
+  // Nach dem Anlegen (Suchparameter) oder Speichern einmal beim BZSt nachfragen
+  const [pruefen, setPruefen] = useState(false);
   // Den Suchparameter gleich nehmen, solange die Seite den Kontakt zeigt; später träfe die Navigation die Seite, auf der man dann ist
   useEffect(() => {
     if (!bestaetigen) return;
-    setPruefenFuer(contact.id);
+    setPruefen(true);
     void navigate({ search: (s) => ({ ...s, bestaetigen: undefined }), replace: true });
-  }, [bestaetigen, contact.id, navigate]);
+  }, [bestaetigen, navigate]);
   return (
     <>
       <div className="page-head">
@@ -108,21 +116,15 @@ function ContactPage() {
       <NoticeBanner notice={notice} />
       <div className="grid-main">
         <ContactForm
-          // Beim Wechsel zu einem anderen Kontakt bleibt die Seite stehen; die Version allein kann bei beiden gleich sein (#1834)
-          key={`${contact.id}-${contact.version}`}
+          key={contact.version}
           contact={contact}
-          saved={savedId === contact.id}
+          saved={saved}
           onUpdated={() => {
-            setSavedId(contact.id);
-            setPruefenFuer(contact.id);
+            setSaved(true);
+            setPruefen(true);
           }}
         />
-        {/* Die Karten entstehen je Kontakt neu: Angefangenes (Ansprechpartner, Mandat, nächste Nummer) gehört zum vorigen (#1834) */}
-        <ContactCards
-          key={contact.id}
-          nachSpeichern={pruefenFuer === contact.id}
-          onNachSpeichernErledigt={() => setPruefenFuer((id) => (id === contact.id ? null : id))}
-        />
+        <ContactCards nachSpeichern={pruefen} onNachSpeichernErledigt={() => setPruefen(false)} />
       </div>
       <ContactHistory contactId={contact.id} isCustomer={contact.isCustomer} isSupplier={contact.isSupplier} history={history} />
     </>

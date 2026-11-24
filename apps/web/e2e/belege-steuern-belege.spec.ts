@@ -13,6 +13,7 @@ import {
   weitereAngabenOeffnen,
   ohneAxeVerstoesse,
   trefferliste,
+  ueberSchnellsuche,
 } from "./einrichtung.ts";
 import { LAPTOP, sichtbar } from "./kopfzeile.ts";
 import { abzugEinspielen } from "./abzug.ts";
@@ -481,6 +482,46 @@ test("Dauerbeleg: Pausieren, Fortsetzen und Beenden fragen bei ungespeicherten �
   await page.getByRole("button", { name: "Löschen", exact: true }).click();
   await bestaetigen(page, "Vorlage löschen");
   await expect(page).toHaveURL(/\/dauerbelege(?:\?.*)?$/);
+});
+
+test("Dauerbeleg: Wechsel ohne Neuladen zu einem mit gleichem Zeitstempel zeigt dessen Angaben, die Meldung des vorigen geht (#1839)", async () => {
+  const sql = postgres(databaseUrlFuer(DURCHLAUF), { max: 1 });
+  const termin = day(30);
+  const betrag = (net: number) => JSON.stringify([{ taxRate: 1900, net, tax: Math.round(net * 0.19) }]);
+  const bezeichnung = page.getByLabel("Bezeichnung");
+  const lieferant = page.getByLabel("Lieferant", { exact: true });
+  const gespeichert = page.getByRole("status").filter({ hasText: "Gespeichert." });
+  try {
+    // Zwei pausierte Vorlagen ohne Datei in einer Anweisung, also mit demselben updated_at
+    await sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'e2e', true)`;
+      await tx`insert into recurring_documents (name, status, supplier_name, category, amounts, recurrence, anchor_day, start_date, next_date)
+        values ('Stellplatz Wechsel Nord', 'pausiert', 'Parkhaus Nord GmbH', 'miete', ${betrag(5000)}::jsonb, 'P1M', ${Number(termin.slice(8))}, ${termin}, ${termin}),
+          ('Stellplatz Wechsel Süd', 'pausiert', 'Parkhaus Süd GmbH', 'miete', ${betrag(7000)}::jsonb, 'P1M', ${Number(termin.slice(8))}, ${termin}, ${termin})`;
+    });
+    await go("/dauerbelege");
+    await ueberSchnellsuche(page, "Stellplatz Wechsel Nord", /Stellplatz Wechsel Nord/);
+    await expect(page.getByRole("heading", { level: 1, name: "Stellplatz Wechsel Nord" })).toBeVisible();
+    await expect(lieferant).toHaveValue("Parkhaus Nord GmbH");
+    await ueberSchnellsuche(page, "Stellplatz Wechsel Süd", /Stellplatz Wechsel Süd/);
+    await expect(page.getByRole("heading", { level: 1, name: "Stellplatz Wechsel Süd" })).toBeVisible();
+    await expect(bezeichnung).toHaveValue("Stellplatz Wechsel Süd");
+    await expect(lieferant).toHaveValue("Parkhaus Süd GmbH");
+    await expect(page.getByLabel("Netto 1")).toHaveValue("70,00");
+
+    // Gespeichert, dann zurück: Die Meldung gehört zur anderen Vorlage
+    await page.getByRole("button", { name: "Speichern", exact: true }).click();
+    await expect(gespeichert).toBeVisible();
+    await ueberSchnellsuche(page, "Stellplatz Wechsel Nord", /Stellplatz Wechsel Nord/);
+    await expect(bezeichnung).toHaveValue("Stellplatz Wechsel Nord");
+    await expect(gespeichert).toHaveCount(0);
+  } finally {
+    await sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'e2e', true)`;
+      await tx`delete from recurring_documents where name like 'Stellplatz Wechsel %'`;
+    });
+    await sql.end();
+  }
 });
 
 test("Beleg mit § 13b: Steuer selbst berechnet, gezahlt wird netto", async ({ browser }) => {

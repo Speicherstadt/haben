@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, type Route, test } from "@playwright/test";
 import postgres from "postgres";
 import { serverAufrufe } from "./warten.ts";
 import { USER, YEAR } from "./daten.ts";
@@ -19,6 +19,7 @@ import {
   rechnungFestschreiben,
   trefferliste,
   randImDialog,
+  ueberSchnellsuche,
   weitereAngabenOeffnen,
 } from "./einrichtung.ts";
 import { receiptJpeg } from "./belegbild.ts";
@@ -48,6 +49,13 @@ test.afterAll(async () => {
 });
 
 const go = (path: string) => gehe(page, path);
+
+/** Daten von außen in einer Transaktion, als Akteur „e2e“ für die Audit-Trigger */
+const alsE2e = (sql: postgres.Sql, arbeit: (tx: postgres.TransactionSql) => Promise<unknown>) =>
+  sql.begin(async (tx) => {
+    await tx`select set_config('haben.actor', 'e2e', true)`;
+    await arbeit(tx);
+  });
 
 test("Grundstücksleistung: fester Aufbewahrungshinweis, Entwurf speichern und erneut laden (#718)", async () => {
   await go("/rechnungen/neu");
@@ -485,14 +493,9 @@ test("Kontakt: Schnellanlage und Bearbeiten speichern auch zugeklappte Weitere A
 test("Kontakt: Wechsel ohne Neuladen zu einem Kontakt mit gleicher Version zeigt dessen Angaben, offene Formulare der Karten gehen zu (#1834)", async () => {
   const sql = postgres(databaseUrlFuer(DURCHLAUF), { max: 1 });
   const format = (await sql<{ format: string }[]>`select quote_number_format as format from company where id = 1`)[0]!.format;
-  const alsE2e = (arbeit: (tx: postgres.TransactionSql) => Promise<unknown>) =>
-    sql.begin(async (tx) => {
-      await tx`select set_config('haben.actor', 'e2e', true)`;
-      await arbeit(tx);
-    });
   try {
     // Zwei Kunden in Version 1, mit eigenem Angebotskreis, damit auch dessen Karte am Rand steht (#1426)
-    await alsE2e(async (tx) => {
+    await alsE2e(sql, async (tx) => {
       await tx`update company set quote_counter_per_customer = true, quote_number_format = 'AN-{JJJJ}-{KUNDENNR}-{NNN}' where id = 1`;
       await tx`insert into contacts (name, ort, land, kundennummer, hourly_rate_cents, is_customer, is_supplier)
         values ('Wechselkunde Nord', 'Kiel', 'DE', 'WN-1834', 9550, true, false), ('Wechselkunde Süd', 'München', 'DE', 'WS-1834', 12000, true, false)`;
@@ -512,11 +515,7 @@ test("Kontakt: Wechsel ohne Neuladen zu einem Kontakt mit gleicher Version zeigt
     await expect(kreis.getByRole("status")).toContainText("Nummernkreis gespeichert.");
 
     // Über die Schnellsuche zum anderen Kunden: Die Seite bleibt stehen, Formular und Karten gehören jetzt ihm
-    await page.keyboard.press("Control+k");
-    const palette = page.getByRole("dialog", { name: "Befehlspalette" });
-    await palette.getByRole("combobox").fill("Wechselkunde Süd");
-    await expect(palette.getByRole("option", { name: /Wechselkunde Süd/ })).toBeVisible();
-    await page.keyboard.press("Enter");
+    await ueberSchnellsuche(page, "Wechselkunde Süd", /Wechselkunde Süd/);
     await expect(page.getByRole("heading", { level: 1, name: "Wechselkunde Süd" })).toBeVisible();
     const formular = page.getByRole("form", { name: "Kontakt" });
     await expect(formular.getByLabel("Name oder Firma")).toHaveValue("Wechselkunde Süd");
@@ -531,10 +530,49 @@ test("Kontakt: Wechsel ohne Neuladen zu einem Kontakt mit gleicher Version zeigt
     await expect(kreis.getByRole("status")).toHaveCount(0);
   } finally {
     // Nicht in den Zahlen der folgenden Tests, Angebotsnummern wieder ohne Kreis je Kunde
-    await alsE2e(async (tx) => {
+    await alsE2e(sql, async (tx) => {
       await tx`update contacts set archived_at = now() where kundennummer in ('WN-1834', 'WS-1834')`;
       await tx`update company set quote_counter_per_customer = false, quote_number_format = ${format} where id = 1`;
     });
+    await sql.end();
+  }
+});
+
+test("Kontakt: Beim Wechsel ohne Neuladen bleiben „Gespeichert.“ und ein Fehler des vorigen Kontakts nicht stehen (#1839)", async () => {
+  const sql = postgres(databaseUrlFuer(DURCHLAUF), { max: 1 });
+  const ost = page.getByRole("heading", { level: 1, name: "Meldekunde Ost" });
+  const gespeichert = page.getByRole("form", { name: "Kontakt" }).getByRole("status").filter({ hasText: "Gespeichert." });
+  const fehler = page.getByRole("alert");
+  try {
+    await alsE2e(
+      sql,
+      (tx) => tx`insert into contacts (name, ort, land, kundennummer, is_customer, is_supplier)
+        values ('Meldekunde Ost', 'Rostock', 'DE', 'MO-1839', true, false), ('Meldekunde West', 'Aachen', 'DE', 'MW-1839', true, false)`,
+    );
+    await go("/kontakte");
+    await ueberSchnellsuche(page, "Meldekunde Ost", /Meldekunde Ost/);
+    await expect(ost).toBeVisible();
+    await page.getByRole("button", { name: "Speichern", exact: true }).click();
+    await expect(gespeichert).toBeVisible();
+
+    // Beim anderen Kontakt scheitert das Archivieren: Die Meldung steht über der Seite
+    await ueberSchnellsuche(page, "Meldekunde West", /Meldekunde West/);
+    await expect(page.getByRole("heading", { level: 1, name: "Meldekunde West" })).toBeVisible();
+    await expect(gespeichert).toHaveCount(0);
+    const abbrechen = (route: Route) => (route.request().method() === "POST" ? route.abort() : route.continue());
+    await page.route(/_serverFn/, abbrechen);
+    await page.getByRole("button", { name: "Archivieren" }).click();
+    await expect(fehler).toBeVisible();
+    await page.unroute(/_serverFn/, abbrechen);
+
+    // Zurück zum ersten: weder dessen „Gespeichert.“ von vorhin noch der Fehler des anderen
+    await ueberSchnellsuche(page, "Meldekunde Ost", /Meldekunde Ost/);
+    await expect(ost).toBeVisible();
+    await expect(fehler).toHaveCount(0);
+    await expect(gespeichert).toHaveCount(0);
+  } finally {
+    // Nicht in den Zahlen der folgenden Tests
+    await alsE2e(sql, (tx) => tx`update contacts set archived_at = now() where kundennummer in ('MO-1839', 'MW-1839')`);
     await sql.end();
   }
 });
@@ -622,6 +660,42 @@ test("Wiederkehrende Rechnung: Kunde suchen, ohne Kunde nicht speicherbar, neuen
   await page.getByRole("link", { name: /Vorlagenkunde GmbH/ }).click();
   await page.getByRole("button", { name: "Archivieren" }).click();
   await expect(page.getByRole("button", { name: "Wiederherstellen" })).toBeVisible();
+});
+
+test("Wiederkehrende Rechnung: Wechsel ohne Neuladen zu einer Vorlage mit gleichem Zeitstempel zeigt deren Angaben, die Meldung der vorigen geht (#1839)", async () => {
+  const sql = postgres(databaseUrlFuer(DURCHLAUF), { max: 1 });
+  const zeile = (description: string, unitPrice: number) => JSON.stringify([{ description, quantity: 1000, unit: "Monat", unitPrice, taxRate: 1900 }]);
+  const bezeichnung = page.getByLabel("Bezeichnung");
+  const position = page.getByLabel("Beschreibung Position 1");
+  const gespeichert = page.getByRole("status").filter({ hasText: "Gespeichert." });
+  try {
+    // Zwei pausierte Vorlagen in einer Anweisung, also mit demselben updated_at
+    await alsE2e(
+      sql,
+      (tx) => tx`insert into recurring_invoices (name, active, contact_id, lines, recurrence, anchor_day, next_date)
+        select v.name, false, c.id, v.lines::jsonb, 'P1M', 1, ${`${YEAR + 1}-01-01`}::date
+        from (values ('Wartung Wechsel Nord', ${zeile("Wartung Nord", 50000)}), ('Wartung Wechsel Süd', ${zeile("Wartung Süd", 70000)})) as v(name, lines),
+          (select id from contacts where name = 'Nordwerk Software GmbH' and archived_at is null limit 1) as c`,
+    );
+    await go("/rechnungen/wiederkehrend");
+    await ueberSchnellsuche(page, "Wartung Wechsel Nord", /Wartung Wechsel Nord/);
+    await expect(page.getByRole("heading", { level: 1, name: "Wartung Wechsel Nord" })).toBeVisible();
+    await expect(position).toHaveValue("Wartung Nord");
+    await ueberSchnellsuche(page, "Wartung Wechsel Süd", /Wartung Wechsel Süd/);
+    await expect(page.getByRole("heading", { level: 1, name: "Wartung Wechsel Süd" })).toBeVisible();
+    await expect(bezeichnung).toHaveValue("Wartung Wechsel Süd");
+    await expect(position).toHaveValue("Wartung Süd");
+
+    // Gespeichert, dann zurück: Die Meldung gehört zur anderen Vorlage
+    await page.getByRole("button", { name: "Speichern", exact: true }).click();
+    await expect(gespeichert).toBeVisible();
+    await ueberSchnellsuche(page, "Wartung Wechsel Nord", /Wartung Wechsel Nord/);
+    await expect(bezeichnung).toHaveValue("Wartung Wechsel Nord");
+    await expect(gespeichert).toHaveCount(0);
+  } finally {
+    await alsE2e(sql, (tx) => tx`delete from recurring_invoices where name like 'Wartung Wechsel %'`);
+    await sql.end();
+  }
 });
 
 test("REST-API: Token mit Rechten anlegen, Rechnungsentwurf mit Bestellnummer und Beleg über die API", async ({ browser }) => {
@@ -913,6 +987,26 @@ test("CSV-Import: Kontakte, Artikel und Anlagen mit Vorschau, Zuordnung und Dubl
   await expect(page.getByRole("status").filter({ hasText: "übernommen" })).toHaveText("2 Anlagen übernommen, 1 Dublette und 1 fehlerhafte Zeile übersprungen.");
   await go(`/anlagen?jahr=${YEAR}`);
   await expect(page.getByText("Lastenrad").first()).toBeVisible();
+});
+
+test("Anlage: Wechsel ohne Neuladen zwischen den baugleichen Anlagen aus dem Import zeigt die Angaben der zweiten, die Meldung der ersten geht (#1839)", async () => {
+  // Die Lastenräder aus dem Test davor: in einer Transaktion angelegt, also mit demselben updated_at
+  const angaben = page.getByRole("region", { name: "Angaben" });
+  const notiz = angaben.getByRole("textbox", { name: "Notiz" });
+  const gespeichert = page.getByRole("status").filter({ hasText: "Gespeichert." });
+  await go("/anlagen");
+  await ueberSchnellsuche(page, "RAD-1", /Lastenrad/);
+  await expect(page.getByRole("heading", { level: 1, name: "Lastenrad" })).toBeVisible();
+  await expect(notiz).toHaveValue("RAD-1");
+  await ueberSchnellsuche(page, "RAD-2", /Lastenrad/);
+  await expect(notiz).toHaveValue("RAD-2");
+
+  // Gespeichert, dann zurück: Die Meldung gehört zur anderen Anlage
+  await angaben.getByRole("button", { name: "Speichern" }).click();
+  await expect(gespeichert).toBeVisible();
+  await ueberSchnellsuche(page, "RAD-1", /Lastenrad/);
+  await expect(notiz).toHaveValue("RAD-1");
+  await expect(gespeichert).toHaveCount(0);
 });
 
 test("CSV-Import: Debitoren und Kreditoren aus DATEV-Stammdaten, Vorschlag nur mit Bestätigung (#472)", async ({ browser }) => {
