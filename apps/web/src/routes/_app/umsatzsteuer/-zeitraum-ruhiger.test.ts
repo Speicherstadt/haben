@@ -57,8 +57,18 @@ function seite(overrides: Record<string, unknown> = {}) {
     preflight: [],
     periodProblem: null,
     kleinunternehmer: false,
+    uebernommen: false,
     kz39: 0,
-    figures: { ...zero, versteuerung: "ist", revenue: [], inputTax: [], reverseCharge: [], igErwerb: [] },
+    figures: {
+      ...zero,
+      versteuerung: "ist",
+      revenue: [],
+      inputTax: [],
+      reverseCharge: [],
+      igErwerb: [],
+      kleinunternehmerUmsaetze: [],
+      kz48Kleinunternehmer: 0,
+    },
     filings: [],
     submissions: [],
     recent: [],
@@ -150,7 +160,17 @@ const banner = (text: string) => [...text.matchAll(/<div class="banner[^"]*"/g)]
 const ausgaben = { tone: "warn", text: "1 Ausgabe im Zeitraum ohne Beleg oder Zuordnung. Ohne Beleg wird keine Vorsteuer angesetzt.", link: "/bank" };
 const eingaenge = { tone: "info", text: "2 Zahlungseingänge im Zeitraum noch nicht zugeordnet.", link: "/bank" };
 const entwuerfe = { tone: "info", text: "1 Rechnungsentwurf mit Datum im Zeitraum.", link: "/rechnungen" };
-const mitIgLieferung = { ...zero, kz41: 50_000, versteuerung: "ist", revenue: [], inputTax: [], reverseCharge: [], igErwerb: [] };
+const mitIgLieferung = {
+  ...zero,
+  kz41: 50_000,
+  versteuerung: "ist",
+  revenue: [],
+  inputTax: [],
+  reverseCharge: [],
+  igErwerb: [],
+  kleinunternehmerUmsaetze: [],
+  kz48Kleinunternehmer: 0,
+};
 
 describe("Voranmeldung: weniger Hinweise über den Zahlen (#1253, Punkt 32)", () => {
   it("lässt Blockierendes je als eigenen Hinweis und bündelt die übrigen Hinweise mit Link in einem", () => {
