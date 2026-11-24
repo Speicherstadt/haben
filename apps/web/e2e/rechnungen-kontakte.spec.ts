@@ -469,6 +469,52 @@ test("Kunden im Rechnungsentwurf anlegen, ohne die Eingaben zu verlieren (#330)"
   await expect(page.getByRole("button", { name: "Wiederherstellen" })).toBeVisible();
 });
 
+test("Rechnungsentwurf: Kunden im Dialog anlegen speichert den Entwurf nicht mit (#1835)", async () => {
+  // Gespeichert, danach eine Änderung: Ein Absenden des Entwurfs würde wirklich speichern
+  await go("/rechnungen/neu");
+  await kundeWaehlen(page);
+  await page.getByLabel("Beschreibung Position 1").fill("Beratung");
+  await page.getByLabel("Menge Position 1").fill("1");
+  await page.getByLabel(/Einzelpreis Position 1/).fill("500");
+  const speichern = page.getByRole("button", { name: "Entwurf speichern", exact: true });
+  await speichern.click();
+  await page.waitForURL(/\/rechnungen\/[0-9a-f-]{36}$/);
+  await expect(speichern).toBeDisabled();
+  const id = page.url().split("/").pop()!;
+  await page.getByLabel("Beschreibung Position 1").fill("Beratung geändert");
+  await expect(speichern).toBeEnabled();
+
+  const sql = postgres(databaseUrlFuer(DURCHLAUF), { max: 1 });
+  try {
+    const stand = async () => (await sql`select contact_id, updated_at from invoices where id = ${id}`)[0];
+    const vorher = await stand();
+    const dialog = page.getByRole("dialog", { name: "Neuen Kunden anlegen" });
+    await neuenKontaktOeffnen(page);
+    await dialog.getByLabel("Name oder Firma").fill("Dialogkunde Süd GmbH");
+    await dialog.getByLabel("Ort").fill("Passau");
+    const aufrufe = serverAufrufe(page);
+    await dialog.getByRole("button", { name: "Kontakt anlegen" }).click();
+    await expect(dialog).toBeHidden();
+    await aufrufe.fertig();
+    // Der neue Kunde steht im Feld, die Änderung bleibt ungespeichert
+    await expect(page.getByRole("combobox", { name: "Kunde", exact: true })).toHaveValue("Dialogkunde Süd GmbH · Passau");
+    await expect(page.getByLabel("Beschreibung Position 1")).toHaveValue("Beratung geändert");
+    await expect(speichern).toBeEnabled();
+    expect(await stand()).toEqual(vorher);
+  } finally {
+    await sql.end();
+  }
+
+  // Den Entwurf löschen und den Kunden archivieren, damit die folgenden Tests mit den bisherigen Kunden rechnen
+  await page.getByRole("button", { name: "Entwurf löschen", exact: true }).click();
+  await bestaetigen(page, "Entwurf löschen");
+  await expect(page).toHaveURL(/\/rechnungen(?:\?.*)?$/);
+  await go("/kontakte");
+  await page.getByRole("link", { name: /Dialogkunde Süd GmbH/ }).click();
+  await page.getByRole("button", { name: "Archivieren" }).click();
+  await expect(page.getByRole("button", { name: "Wiederherstellen" })).toBeVisible();
+});
+
 test("Kontakt: Schnellanlage und Bearbeiten speichern auch zugeklappte Weitere Angaben, ungeänderte bleiben (#1253)", async () => {
   await go("/rechnungen/neu");
   const dialog = page.getByRole("dialog", { name: "Neuen Kunden anlegen" });

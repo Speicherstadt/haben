@@ -1142,6 +1142,62 @@ test("Lieferant im Kontaktverzeichnis und im Beleg auswählen", async ({ browser
   }
 });
 
+test("Beleg prüfen: Lieferant im Dialog anlegen speichert den Beleg nicht mit (#1835)", async ({ browser }) => {
+  await go("/belege");
+  await page
+    .locator("input[type=file][multiple]")
+    .setInputFiles([{ name: "kopierwerk.jpg", mimeType: "image/jpeg", buffer: await receiptJpeg(browser, "Kopierwerk Nord GmbH") }]);
+  await expect(page.getByText("kopierwerk.jpg: abgelegt.")).toBeVisible();
+  await page
+    .getByRole("link", { name: /kopierwerk\.jpg/ })
+    .first()
+    .click();
+  await page.waitForURL(/belege\/[0-9a-f-]{36}$/);
+  await page.waitForLoadState("networkidle");
+  const id = page.url().split("/").pop()!;
+  // Vollständig und gespeichert, danach eine Änderung: Ein Absenden des Belegs würde wirklich speichern
+  await page.getByLabel("Lieferant", { exact: true }).fill("Kopierwerk Nord GmbH");
+  await page.getByLabel("Rechnungsnummer").fill("KN-1");
+  await page.getByLabel("Belegdatum").fill(day(-4));
+  await waehleKategorie(page.getByLabel("Kategorie"), "telefon");
+  await page.getByRole("group", { name: "Beträge je Steuersatz" }).getByLabel("Brutto", { exact: true }).fill("119,00");
+  const speichern = page.getByRole("button", { name: "Speichern", exact: true });
+  await speichern.click();
+  await expect(speichern).toBeDisabled();
+  await page.getByLabel("Rechnungsnummer").fill("KN-2");
+  await expect(speichern).toBeEnabled();
+
+  const sql = postgres(databaseUrlFuer(DURCHLAUF), { max: 1 });
+  try {
+    const stand = async () => (await sql`select invoice_number, updated_at from documents where id = ${id}`)[0];
+    const vorher = await stand();
+    expect(vorher?.invoice_number).toBe("KN-1");
+    const dialog = page.getByRole("dialog", { name: "Neuen Lieferanten anlegen" });
+    await neuenLieferantenOeffnen(page);
+    await expect(dialog.getByLabel("Name oder Firma")).toHaveValue("Kopierwerk Nord GmbH");
+    const aufrufe = serverAufrufe(page);
+    await dialog.getByRole("button", { name: "Kontakt anlegen" }).click();
+    await expect(dialog).toBeHidden();
+    await aufrufe.fertig();
+    // Der neue Kontakt steht im Feld, die Änderung bleibt ungespeichert: Das Absenden im Dialog erreicht das Belegformular nicht
+    await expect(page.getByLabel("Lieferant", { exact: true })).toHaveAccessibleDescription("Aus den Kontakten gewählt.");
+    await expect(page.getByLabel("Rechnungsnummer")).toHaveValue("KN-2");
+    await expect(speichern).toBeEnabled();
+    expect(await stand()).toEqual(vorher);
+  } finally {
+    await sql.end();
+  }
+
+  // Nicht buchen: Beleg löschen und den Lieferanten archivieren, damit die folgenden Tests unverändert rechnen
+  await page.getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(page, "Beleg löschen");
+  await page.waitForURL(/\/belege$/);
+  await go("/kontakte?rolle=lieferant");
+  await page.getByRole("link", { name: /Kopierwerk Nord GmbH/ }).click();
+  await page.getByRole("button", { name: "Archivieren" }).click();
+  await expect(page.getByRole("button", { name: "Wiederherstellen" })).toBeVisible();
+});
+
 test("Dauerbeleg: Lieferanten suchen und direkt anlegen, ohne die Eingaben zu verlieren", async () => {
   await go("/kontakte/neu");
   await page.getByLabel("Name oder Firma").fill("Suchfirma Nord GmbH");
