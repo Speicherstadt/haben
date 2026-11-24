@@ -175,6 +175,16 @@ export async function weitereAngabenOeffnen(page: Page): Promise<void> {
   await expect(bereich).toHaveJSProperty("open", true);
 }
 
+/** Klappt „Fristen und Zeitraum ändern“ auf der Voranmeldung (Voranmeldungszeitraum, Dauerfristverlängerung) auf, wenn sie zu sind */
+export async function fristenOeffnen(page: Page): Promise<void> {
+  // Erst nach der Hydration klicken, sonst klappt React den Bereich danach wieder zu
+  await page.waitForLoadState("networkidle");
+  const bereich = page.locator('section[aria-labelledby="ust-fristen"] > details');
+  if (await bereich.evaluate((el) => (el as HTMLDetailsElement).open)) return;
+  await bereich.locator("summary").click();
+  await expect(bereich).toHaveJSProperty("open", true);
+}
+
 /** Über die Schnellsuche (Strg+K) zum Treffer, ohne Neuladen: der Wechsel zwischen zwei Einträgen derselben Art, ohne dass der Browser die Seite neu lädt */
 export async function ueberSchnellsuche(page: Page, suche: string, treffer: RegExp): Promise<void> {
   await page.keyboard.press("Control+k");

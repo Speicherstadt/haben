@@ -607,6 +607,8 @@ textarea.autogrow { field-sizing: content; min-height: 8lh; max-height: 70vh; }
 .form-section-zu > details[open] > summary::before { transform: rotate(90deg); }
 .form-section-zu > details > summary > h3 { margin: 0; font-size: 13px; font-weight: 500; color: var(--muted); }
 .form-section-kurz { font-size: 13px; color: var(--ink); }
+/* Einklappabschnitt unmittelbar auf der Seite (Voranmeldung, #1253): bündig mit den Karten, ohne Einzug des Formulars */
+.main > .form-section-zu > details > summary, .main > .form-section-zu .form-section-inhalt { padding-left: 0; padding-right: 0; }
 .form-section-inhalt { display: flex; flex-direction: column; gap: 16px; padding: 0 24px 20px; }
 @media (max-width: 640px) {
   .form-section-zu > details > summary { padding-left: 16px; padding-right: 16px; }

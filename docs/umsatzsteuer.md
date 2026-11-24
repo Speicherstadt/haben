@@ -38,7 +38,7 @@ Vor jedem Prüfen oder Senden speichert Haben den Entwurf, falls er neu oder ge�
 
 Der Voranmeldungszeitraum ist nach § 18 Abs. 2 UStG das Kalendervierteljahr. Monatlich gibst du ab, wenn die Steuer des Vorjahres mehr als 9.000 € betrug. Bei höchstens 2.000 € kann dich das Finanzamt von den Voranmeldungen befreien; dann gibst du nur die Jahreserklärung ab. Festgelegt wird der Zeitraum vom Finanzamt, meist mit der Steuernummer oder nach der Jahreserklärung. Haben übernimmt, was du einträgst, und schlägt nur vor.
 
-Auf der Seite **Umsatzsteuer** steht dafür der Bereich **Voranmeldungszeitraum &lt;Jahr&gt;** für das Jahr des angezeigten Zeitraums:
+Auf der Seite **Umsatzsteuer** klappst du dafür unten **Fristen und Zeitraum ändern** auf. Dahinter steht in Kurzform der Stand, etwa „2026: monatlich · Dauerfristverlängerung besteht“. Der Bereich ist beim Aufruf eines Zeitraums zu; passt der Zeitraum nicht zur Einstellung, steht er offen. Darin steht der Bereich **Voranmeldungszeitraum &lt;Jahr&gt;** für das Jahr des angezeigten Zeitraums:
 
 | Feld | Bedeutung |
 | --- | --- |
@@ -88,7 +88,7 @@ Mit der Dauerfristverlängerung gibst du jede Voranmeldung einen Monat später a
 | vierteljährlich | einmal, gilt bis zur Rücknahme oder zum Widerruf | keine |
 | befreit | nicht nötig | keine |
 
-Auf der Seite **Umsatzsteuer** steht dafür unter dem Voranmeldungszeitraum der Bereich **Dauerfristverlängerung &lt;Jahr&gt;**.
+Auf der Seite **Umsatzsteuer** steht dafür in **Fristen und Zeitraum ändern**, neben dem Voranmeldungszeitraum, der Bereich **Dauerfristverlängerung &lt;Jahr&gt;**.
 
 Ist die Sondervorauszahlung eines Jahres schon aus Haben übermittelt oder gezahlt (gebucht auf „Umsatzsteuer-Vorauszahlungen 1/11“), lässt sich die Verlängerung für dieses Jahr erst ab dem Folgejahr beenden; einen nur von Hand eingetragenen Stand nimmst du jederzeit zurück: Die Sondervorauszahlung wird in der letzten Voranmeldung angerechnet, für die die Verlängerung gilt (§ 48 Abs. 4 UStDV), und ein Ende im Lauf des Jahres bildet Haben nicht ab. Endet sie doch unterjährig, klärst du die Anrechnung mit dem Finanzamt.
 
@@ -312,11 +312,11 @@ Beispiel: Zahlungseingänge zu 19 % mit 2.345,67 € netto ergeben Kz 81 = 2.345
 
 Unter jeder Kennzahl steht, wie viele Zahlungseingänge, Rechnungen oder Belege dahinterstehen. Ein Klick klappt die Liste auf: Datum, Rechnungs- oder Belegnummer mit Kunde bzw. Lieferant, Netto und Steuer, jeweils mit Link zur Rechnung oder zum Beleg; direkt gebuchte Bankumsätze (Direktbuchungen) verlinken auf den Umsatz im Bankabgleich. Die Beträge dort sind centgenau, also vor dem Abschneiden. [Freie Buchungen](buchhaltung.md#manuelle-und-freie-buchungen) stehen nicht in den Quellen, denn sie haben kein Nebenbuch; sie zählen trotzdem in den Kennzahlen und stehen im Journal unter der Herkunft „Manuell“.
 
-## Manuell überschreiben
+## Werte von Hand ändern
 
-Mit **Manuell überschreiben** gibst du Kz 81, 86, 21, 41, 43, 45, 48, 50, 89, 93, 66, 61, 46/47, 84/85 und 67 selbst ein, Kz 62 und 39, wenn sie einen Wert haben. Dann ist eine **Begründung der Abweichung** Pflicht (mindestens 10 Zeichen). Darunter stehen die berechneten Werte zum Vergleich. Gespeichert werden die eingegebenen Werte, die Begründung und die berechneten Werte zum Zeitpunkt des Speicherns. Nach dem Senden zeigt die Seite „Manuell überschrieben: …“ mit der Begründung.
+Unter der Tabelle steht der kleine Link **Werte von Hand ändern (nur in Ausnahmen)**. Mit ihm gibst du Kz 81, 86, 21, 41, 43, 45, 48, 50, 89, 93, 66, 61, 46/47, 84/85 und 67 selbst ein, Kz 62 und 39, wenn sie einen Wert haben. Dann ist eine **Begründung der Abweichung** Pflicht (mindestens 10 Zeichen). Darunter stehen die berechneten Werte zum Vergleich. Gespeichert werden die eingegebenen Werte, die Begründung und die berechneten Werte zum Zeitpunkt des Speicherns. Nach dem Senden zeigt die Seite „Manuell überschrieben: …“ mit der Begründung.
 
-Manuelle Werte außer Kz 50 dürfen auch negativ sein, etwa wenn im Monat Gutschriften überwiegen. Mit **Aus Buchungen berechnet** kehrst du zu den berechneten Werten zurück.
+Manuelle Werte außer Kz 50 dürfen auch negativ sein, etwa wenn im Monat Gutschriften überwiegen. Mit **Zurück zu den berechneten Werten** kehrst du an derselben Stelle zu den berechneten Werten zurück. Ein von Hand überschriebener Entwurf öffnet mit den Eingabefeldern.
 
 ## Veralteter Entwurf
 
@@ -324,7 +324,7 @@ Ein gespeicherter berechneter Entwurf friert die Zahlen nicht ein. Ändern sich 
 
 ## Vorprüfung
 
-Solange die Anmeldung nicht gesendet ist, prüft Haben, was im Monat noch fehlt und die Zahlen verfälschen könnte. Jeder Hinweis verlinkt auf die passende Seite.
+Solange die Anmeldung nicht gesendet ist, prüft Haben, was im Monat noch fehlt und die Zahlen verfälschen könnte. Jeder Hinweis verlinkt auf die passende Seite. Eine Warnung steht als eigener Hinweis über den Kennzahlen; die Hinweise ohne Warnung stehen zusammen mit dem Verweis auf die [Zusammenfassende Meldung](#zusammenfassende-meldung) in einem Hinweis als Liste.
 
 | Hinweis | Gewicht | Prüfung |
 | --- | --- | --- |
@@ -439,7 +439,7 @@ Eine Zuordnung mit Bezug geht nur zu einer abgegebenen Voranmeldung; das prüft 
 
 Eine gesendete Anmeldung ist gesperrt. Stellst du danach einen Fehler fest, legst du mit **Berichtigte Anmeldung anlegen** einen neuen Entwurf an. Er übernimmt die Werte der zuletzt gesendeten Anmeldung und trägt im XML Kz 10 = 1. War die ursprüngliche Anmeldung aus den Buchungen berechnet, rechnet Haben die berichtigte vor dem Senden neu; korrigierst du also erst die Buchungen, landen die richtigen Werte automatisch darin. Status und Verlauf zeigen „berichtigte Anmeldung“ bzw. „(berichtigt)“.
 
-In einem Jahr, dessen Abweichungen beim [Update auf das Journal](einrichtung.md#update-auf-das-journal) übernommen wurden, beginnt die Berichtigung dagegen mit den gesendeten Werten unter **Manuell überschreiben**, mit vorbelegter, änderbarer Begründung. Aus den Buchungen gerechnet würde sie sonst die übernommene Abweichung still mitberichtigen. Darüber zeigt Haben je Kennzahl den gesendeten Wert, den aus dem Journal und die Differenz. Stammt die Differenz aus der Übernahme, bleibt der gesendete Wert; zeigt sie, dass der gesendete Wert falsch war, gehört die Korrektur in die Berichtigung ([§ 153 Abs. 1 Satz 1 Nr. 1 AO](https://www.gesetze-im-internet.de/ao_1977/__153.html)).
+In einem Jahr, dessen Abweichungen beim [Update auf das Journal](einrichtung.md#update-auf-das-journal) übernommen wurden, beginnt die Berichtigung dagegen mit den gesendeten Werten in den Eingabefeldern (**Werte von Hand ändern**), mit vorbelegter, änderbarer Begründung. Aus den Buchungen gerechnet würde sie sonst die übernommene Abweichung still mitberichtigen. Darüber zeigt Haben je Kennzahl den gesendeten Wert, den aus dem Journal und die Differenz. Stammt die Differenz aus der Übernahme, bleibt der gesendete Wert; zeigt sie, dass der gesendete Wert falsch war, gehört die Korrektur in die Berichtigung ([§ 153 Abs. 1 Satz 1 Nr. 1 AO](https://www.gesetze-im-internet.de/ao_1977/__153.html)).
 
 ## Zertifikat
 
