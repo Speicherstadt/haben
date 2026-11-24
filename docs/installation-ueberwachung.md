@@ -39,8 +39,10 @@ scrape_configs:
 Alarmregeln stehen in [`deploy/helm/files/prometheus-regeln.yml`](https://github.com/Speicherstadt/haben/blob/main/deploy/helm/files/prometheus-regeln.yml), zum Laden mit `rule_files` in `prometheus.yml`:
 
 - `HabenNichtBereit`: `haben_up` seit 5 Minuten `0`.
-- `HabenJobOhneErfolg`: ein Job seit über 24 Stunden ohne Erfolg, etwa weil er bei jedem Lauf wirft. Das setzt einen Erfolg seit dem Start des Servers voraus; einen Job, der seit dem Start nur scheitert, meldet `HabenJobGescheitert`.
+- `HabenJobOhneErfolg`: ein Job seit über 24 Stunden ohne Erfolg, etwa weil er bei jedem Lauf wirft, auch wenn er seit einem Neustart nie gelang.
 - `HabenJobGescheitert`: ein gescheiterter Lauf in den letzten 24 Stunden, auch von Jobs, die danach bis zu ihrem nächsten Termin als erfolgreich gelten. Eine abgelaufene Bankverbindung meldet nur diese Regel, und nur einen Tag lang.
+
+Ob Prometheus Haben überhaupt erreicht, meldet sein eigenes `up` (in kube-prometheus-stack der Alarm `TargetDown`); dafür gibt es keine eigene Regel. Die Regeln brauchen einen Scrape-Abstand von höchstens 2 Minuten, weil Prometheus einen Wert nur 5 Minuten lang sieht.
 
 In Kubernetes legt das Helm-Chart daraus eine `PrometheusRule` an, siehe [Kubernetes › Metriken](kubernetes.md#metriken).
 

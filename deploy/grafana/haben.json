@@ -69,9 +69,11 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "haben_up{instance=~\"$instance\"}",
+          "expr": "haben_up{instance=~\"$instance\"} or on() vector(-1)",
           "legendFormat": "{{instance}}",
-          "refId": "A"
+          "refId": "A",
+          "instant": true,
+          "range": false
         }
       ],
       "options": {
@@ -87,6 +89,10 @@
             {
               "type": "value",
               "options": {
+                "-1": {
+                  "text": "keine Werte",
+                  "color": "red"
+                },
                 "0": {
                   "text": "nicht bereit",
                   "color": "red"
@@ -201,7 +207,9 @@
           },
           "expr": "sum(increase(haben_job_failures_total{instance=~\"$instance\"}[1d]))",
           "legendFormat": "Fehler",
-          "refId": "A"
+          "refId": "A",
+          "instant": true,
+          "range": false
         }
       ],
       "options": {
