@@ -9,6 +9,9 @@ The rules live once, in `docs/entwicklung.md` (building), `docs/mitwirken.md` (c
 have the steps. This file says where to look and what must never happen. Read the sections that touch
 the change before starting.
 
+In a fork of Haben (such as `haben-at`), `FORK.md` in the repository root says what differs there and takes
+precedence over this file; read it first. Haben itself has no `FORK.md`.
+
 ## Where to look
 
 | Topic | Section in `docs/` | Skill |

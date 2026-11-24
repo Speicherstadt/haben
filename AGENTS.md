@@ -4,6 +4,9 @@ The rules for this repository are in [`docs/entwicklung.md`](docs/entwicklung.md
 agents alike. [`CLAUDE.md`](CLAUDE.md) is the short entry point: where to look and what must never happen. Both
 apply to every agent, not only Claude.
 
+In a fork of Haben (such as `haben-at`), `FORK.md` in the repository root says what differs there, names the fork's
+own skills and takes precedence over this file and `CLAUDE.md`.
+
 The steps for recurring tasks are the skills in [`.claude/skills`](.claude/skills); other agents follow the same
 files: `checks` (checks with and without Bun), `beitrag` (branch, commits, draft pull request,
 then self-check and independent review), `beitrag-pruefen` (wanted, sources, simplest solution, rules: contributors

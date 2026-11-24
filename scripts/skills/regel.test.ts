@@ -55,4 +55,9 @@ describe("pruefeAgentsMd", () => {
   it("zählt einen Namen nur in Backticks, nicht als Teil eines längeren", () => {
     expect(pruefeAgentsMd("`beitrag-pruefen`", ["beitrag"])).toHaveLength(1);
   });
+
+  it("nimmt im Fork auch die Skills, die FORK.md nennt", () => {
+    expect(pruefeAgentsMd("Skills: `checks`.", ["checks", "nahtstelle"], "Eigene Skills: `nahtstelle`.")).toEqual([]);
+    expect(pruefeAgentsMd("Skills: `checks`.", ["checks", "nahtstelle"], "")).toHaveLength(1);
+  });
 });

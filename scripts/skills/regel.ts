@@ -62,10 +62,14 @@ export function pruefeAnweisung(datei: string, inhalt: string): Befund[] {
 
 /**
  * Andere Agenten als Claude (Codex und weitere) finden die Skills über AGENTS.md, nicht über die Beschreibung im Front
- * Matter. Fehlt dort ein Skill, kennt ihn nur Claude.
+ * Matter. Fehlt dort ein Skill, kennt ihn nur Claude. Ein Fork von Haben nennt seine eigenen Skills in FORK.md, damit
+ * er AGENTS.md nicht ändern muss und Merges von Haben ohne Konflikt bleiben.
  */
-export function pruefeAgentsMd(inhalt: string, skills: string[]): Befund[] {
+export function pruefeAgentsMd(inhalt: string, skills: string[], fork = ""): Befund[] {
   return skills
-    .filter((skill) => !inhalt.includes(`\`${skill}\``))
-    .map((skill) => ({ skill: "AGENTS.md", message: `nennt den Skill \`${skill}\` nicht; andere Agenten als Claude finden ihn sonst nicht` }));
+    .filter((skill) => !inhalt.includes(`\`${skill}\``) && !fork.includes(`\`${skill}\``))
+    .map((skill) => ({
+      skill: "AGENTS.md",
+      message: `nennt den Skill \`${skill}\` nicht (im Fork: FORK.md); andere Agenten als Claude finden ihn sonst nicht`,
+    }));
 }
