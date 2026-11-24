@@ -217,6 +217,22 @@ describe("Übersicht: Kennzahl „USt-Zahllast“ vor dem ersten Buchungsmonat",
     expect(titel(render())).toEqual([]);
   });
 
+  it("die Steuerkonto-Karte schreibt vor dem Start nicht „bezahlt“, sondern „keine Zahllast offen“", () => {
+    mitZahlen("2026-11");
+    data.computedKz83 = 50000;
+    data.invoices.bank = [konto({ id: "s1", name: "Rücklage", purpose: "steuer", balance: 0 })];
+    const html = render();
+    expect(html).toContain("keine Zahllast offen");
+    expect(html).not.toContain("bezahlt");
+  });
+
+  it("ab dem Startmonat nennt die Steuerkonto-Karte, was fehlt", () => {
+    mitZahlen("2026-09");
+    data.computedKz83 = 50000;
+    data.invoices.bank = [konto({ id: "s1", name: "Rücklage", purpose: "steuer", balance: 0 })];
+    expect(render()).toContain("es fehlen 500,00");
+  });
+
   it("ab dem Startmonat bleibt die Karte wie bisher", () => {
     mitZahlen("2026-09");
     expect(render()).toContain(`Voranmeldung fällig ${formatDate("2026-10-12")}`);
