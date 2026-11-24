@@ -81,7 +81,7 @@ Das `Containerfile` baut die App in zwei Stufen: gebaut wird auf `oven/bun` (Deb
 
 Das Image läuft als Nutzer `bun` (ID 1000) und setzt diese Werte schon selbst: `NODE_ENV=production`, `PORT=3000`, `DOCUMENTS_DIR=/var/lib/haben/belege`, `ERIC_LOG_DIR=/var/lib/haben/eric-log`, `ERIC_DIR=/var/lib/haben/eric`, `ERIC_WORKER_PATH`, `HABEN_EINVOICE_DIR`, `HABEN_COMMIT` (aus dem Build-Argument) und `XDG_CACHE_HOME=/tmp/.cache` (Cache der Schriften für `pdftoppm`).
 
-Für Uptime-Monitore und Load-Balancer meldet `GET /api/health` ohne Anmeldung `200` mit `{"status":"pass"}`, sobald die Datenbank erreichbar und alle Migrationen angewendet sind, sonst `503` mit `{"status":"fail","reason":"database"}` oder `"reason":"migrations"`. `status` folgt dem Entwurf [Health Check Response Format](https://datatracker.ietf.org/doc/draft-inadarei-api-health-check/), `reason` mit festen Werten ergänzt Haben; `warn` mit `200` kann später für Hinweise wie eine überfällige Sicherung dazukommen. Der `HEALTHCHECK` im `Containerfile` fragt denselben Endpunkt ab. Version, ERiC, letzte Sicherung und Speicher meldet `haben status`, siehe [Backup und Wiederherstellen](installation-backup.md#backup-und-wiederherstellen).
+Für Uptime-Monitore und Load-Balancer meldet `GET /api/health` ohne Anmeldung `200` mit `{"status":"pass"}`, sobald die Datenbank erreichbar und alle Migrationen angewendet sind, sonst `503` mit `{"status":"fail","reason":"database"}` oder `"reason":"migrations"`. `status` folgt dem Entwurf [Health Check Response Format](https://datatracker.ietf.org/doc/draft-inadarei-api-health-check/), `reason` mit festen Werten ergänzt Haben; `warn` mit `200` kann später für Hinweise wie eine überfällige Sicherung dazukommen. Der `HEALTHCHECK` im `Containerfile` fragt denselben Endpunkt ab. Version, ERiC, letzte Sicherung und Speicher meldet `haben status`, siehe [Backup und Wiederherstellen](installation-backup.md#backup-und-wiederherstellen); Hintergrundjobs für Prometheus unter [Metriken für Prometheus](#metriken-für-prometheus).
 
 Hinter PgBouncer braucht Haben `pool_mode = session`, bei anderen Poolern den entsprechenden Sitzungsmodus. Im Transaktionsmodus gehört eine Serververbindung dem Client nur für eine Transaktion: Die Sitzungssperren der Migration und des laufenden Servers hängen dann an Verbindungen, die der Pooler an andere Clients weitergibt, und steht [`max_prepared_statements`](https://www.pgbouncer.org/config.html#max_prepared_statements) auf 0, wie vor PgBouncer 1.24 voreingestellt, scheitern die Prepared Statements von postgres.js.
 
@@ -706,6 +706,46 @@ Betreibst du Haben nicht nur für dich, sondern für andere, etwa als gehostete 
 - **Nur Software, keine Steuerberatung.** Bucht der Kunde selbst, stellst du nur Software und Server bereit. Buchst du für ihn, erstellst seine Voranmeldung oder berätst ihn, ist das Hilfeleistung in Steuersachen, die das Steuerberatungsgesetz nur bestimmten Personen erlaubt (§§ 2 bis 6 StBerG).
 
 Eine offizielle Aussage der Finanzverwaltung zum Betrieb freier Software für andere gibt es nicht. Wer es genau wissen will, fragt beim Bayerischen Landesamt für Steuern nach (siehe [Open Source und die Hersteller-ID](einrichtung-elster.md#open-source-und-die-hersteller-id)).
+
+## Metriken für Prometheus
+
+Mit gesetztem `HABEN_METRICS_TOKEN` ([Konfiguration](installation-konfiguration.md)) liefert `GET /api/metrics` Metriken im Textformat von [Prometheus](https://prometheus.io/docs/instrumenting/exposition_formats/). Ohne die Variable antwortet der Endpunkt mit `404`, ohne oder mit falschem Token mit `401`. Sitzungen und API-Tokens aus der Oberfläche gelten hier nicht, der Scraper bekommt so keinen Zugriff auf die Buchhaltung. Die Metriken zeigen nur, ob Haben läuft: keine Beträge, Namen, IBANs oder IDs.
+
+| Metrik | Inhalt |
+| --- | --- |
+| `haben_info{version,commit}` | immer `1`, Version und Commit des Images |
+| `haben_up` | `1`, wenn `/api/health` `pass` meldet, sonst `0` |
+| `haben_job_last_run_timestamp_seconds{task}` | letzter Lauf eines Hintergrundjobs |
+| `haben_job_last_success_timestamp_seconds{task}` | letzter erfolgreicher Lauf eines Hintergrundjobs |
+| `haben_job_failures_total{task}` | gescheiterte Läufe, auch solche, die nur Fehler gemeldet haben, etwa eine abgelaufene Bankverbindung |
+| `haben_elster_submissions_total{kind,result}` | Antworten von ERiC auf `validate` (Prüfen), `test` und `send`, nach `ok` oder `error` |
+| `haben_backup_last_success_timestamp_seconds{kind}` | letztes gelungenes `backup` und letzter gelungener `restore_check` aus dem [Backup-Container](installation-backup.md) |
+
+`task` ist einer von `recurring_invoices`, `archive_delivery`, `recurring_receipts`, `bank_duplicate_check`, `bank_sync`, `fints_sync`, `store_reports`, `etsy_sync`, `paypal_sync`, `stripe_sync`, `elster_mailbox`, `exchange_rates`, `base_rate`, `receipt_inbox`, `vat_id_check`, `deadline_mails`, `file_check` und `audit_checksum_mail`. Das Label heißt nicht `job`, weil Prometheus `job` schon für das Scrape-Ziel setzt. Jobs und ELSTER zählt Haben seit dem Start des Servers; nach einem Neustart fangen sie bei null an, die Zeitpunkte fehlen bis zum ersten Lauf (30 Sekunden nach dem Start, danach stündlich). Ein Job, der nichts zu tun hat, etwa ohne eingerichtetes Belegpostfach, gilt als erfolgreich.
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: haben
+    scheme: https
+    authorization:
+      credentials_file: /etc/prometheus/haben-metrics-token
+    static_configs:
+      - targets: ["haben.example.de"]
+```
+
+Eine Alarmregel für Jobs, die seit 24 Stunden nicht durchlaufen; die zweite fängt den Fall nach einem Neustart, in dem ein Job seitdem nie gelang:
+
+```yaml
+groups:
+  - name: haben
+    rules:
+      - alert: HabenJobOhneErfolg
+        expr: time() - haben_job_last_success_timestamp_seconds > 86400
+      - alert: HabenJobOhneErfolg
+        expr: haben_job_failures_total > 0 unless haben_job_last_success_timestamp_seconds
+        for: 24h
+```
 
 ## Als App installieren (PWA)
 
