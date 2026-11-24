@@ -168,11 +168,22 @@ describe("Übersicht: Voranmeldung vor dem ersten Buchungsmonat", () => {
     expect(titel(render())).toEqual(["Voranmeldung 3. Quartal 2026 senden"]);
   });
 
-  it("Steuerkonto und unbezahlte Voranmeldungen früherer Zeiträume bleiben davon unberührt", () => {
+  it("eine unbezahlte Voranmeldung eines früheren Zeitraums bleibt davon unberührt", () => {
     data.period = quartal3;
     data.ersterBuchungsmonat = "2026-11";
     data.vatOpen = [{ vatReturnId: "v2", year: 2026, month: 42, offen: 1900, faellig: inTagen(-5), berichtigt: false }];
     expect(titel(render())).toEqual(["Umsatzsteuer 2. Quartal 2026 nicht bezahlt"]);
+  });
+
+  it.each([
+    ["Monatszeitraum, Start im Monat danach", { year: 2026, month: 10 }, "2026-11", false],
+    ["Monatszeitraum, Start im Monat selbst", { year: 2026, month: 10 }, "2026-10", true],
+    ["4. Quartal 2025, Start im Januar 2026", { year: 2025, month: 44 }, "2026-01", false],
+    ["4. Quartal 2025, Start im Dezember 2025", { year: 2025, month: 44 }, "2025-12", true],
+  ])("%s: Aufgabe da = %s", (_name, period, start, da) => {
+    data.period = period;
+    data.ersterBuchungsmonat = start;
+    expect(titel(render()).some((t) => t?.startsWith("Voranmeldung "))).toBe(da);
   });
 });
 
