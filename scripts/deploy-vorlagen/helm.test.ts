@@ -453,6 +453,18 @@ describe.skipIf(helm.status !== 0)("deploy/helm", () => {
       expect(finde(alle, "Secret", "haben-app").stringData?.HABEN_METRICS_TOKEN).toBe(token);
     });
 
+    test("legt die PrometheusRule nur mit Schalter an, mit den Regeln aus files/prometheus-regeln.yml", () => {
+      expect(manifeste(mitToken).some((m) => m.kind === "PrometheusRule")).toBe(false);
+      const regel = finde(
+        manifeste({ ...basis, metrics: { prometheusRule: { enabled: true, labels: { release: "kube-prometheus-stack" } } } }),
+        "PrometheusRule",
+        "haben",
+      );
+      const datei = Bun.YAML.parse(readFileSync(join(root, "deploy/helm/files/prometheus-regeln.yml"), "utf8")) as { groups: unknown[] };
+      expect((regel.spec as unknown as { groups: unknown[] }).groups).toEqual(datei.groups);
+      expect(regel.metadata.labels?.release).toBe("kube-prometheus-stack");
+    });
+
     test("nimmt mit app.existingSecret das Token von dort", () => {
       const werte = { ...basis, app: { existingSecret: "haben-geheim" }, postgresql: { enabled: false }, backup: extern.backup };
       const sm = monitor(manifeste({ ...werte, metrics: { serviceMonitor: { enabled: true } } }));

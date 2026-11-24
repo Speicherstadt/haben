@@ -142,6 +142,12 @@ metrics:
     # Labels, nach denen der Prometheus ServiceMonitore auswählt (serviceMonitorSelector), etwa
     # release: kube-prometheus-stack
     labels: {}
+  prometheusRule:
+    # Alarmregeln aus files/prometheus-regeln.yml als PrometheusRule; bei mehreren Installationen im Cluster nur bei
+    # einer einschalten, die Regeln gelten für alle
+    enabled: false
+    # Labels, nach denen der Prometheus Regeln auswählt (ruleSelector), etwa release: kube-prometheus-stack
+    labels: {}
 
 # Wie das eigene Netz in Compose: An die App kommen nur die Pods aus ingressFrom (und metricsFrom), an die mitgelieferte
 # Datenbank nur App und Wiederherstellen; eine eigene Datenbank braucht eine eigene Richtlinie. Braucht ein

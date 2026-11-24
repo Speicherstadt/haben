@@ -102,6 +102,8 @@ jobs:
       - run: bun run typecheck
       # Ausgabe von /api/metrics mit dem Parser von Prometheus selbst (#1858)
       - run: bun scripts/metriken/beispiel.ts | docker run --rm -i --entrypoint promtool prom/prometheus:v3.5.0 check metrics
+      # Alarmregeln für dieselben Metriken mit ihren Unit-Tests (#1871)
+      - run: docker run --rm -v "$PWD:/w:ro" -w /w --entrypoint promtool prom/prometheus:v3.5.0 test rules scripts/metriken/regeln.test.yml
 
   # Vier Teile parallel (Vitest --shard); jeder migriert seine eigene Vorlage
   test-teil:

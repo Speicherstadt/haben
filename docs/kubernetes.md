@@ -271,6 +271,10 @@ Mit `networkPolicy.enabled` lässt `metricsFrom` Prometheus zusätzlich zu `ingr
 der Ingress-Controller die ganze App an Port 3000 und könnte `X-Forwarded-For` setzen, deshalb dort nur die Pods von
 Prometheus angeben, nicht den ganzen Namespace.
 
+`metrics.prometheusRule.enabled: true` legt die [Alarmregeln](installation-ueberwachung.md) als `PrometheusRule` an, mit
+`metrics.prometheusRule.labels` für den `ruleSelector`. Die Regeln gelten für alle Reihen mit diesen Namen; bei mehreren
+Installationen im Cluster schaltet man sie deshalb nur bei einer ein.
+
 ## ELSTER
 
 ERiC gibt es nur für Linux x86_64. In einem Cluster mit beiden Architekturen setzt `nodeSelector` mit
