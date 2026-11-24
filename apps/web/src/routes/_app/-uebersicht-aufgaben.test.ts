@@ -233,6 +233,23 @@ describe("Übersicht: Kennzahl „USt-Zahllast“ vor dem ersten Buchungsmonat",
     expect(render()).toContain("es fehlen 500,00");
   });
 
+  it("die Steuerkonto-Aufgabe nennt vor dem Start weder den Zeitraum noch dessen Frist, sondern die offenen Voranmeldungen", () => {
+    mitZahlen("2026-11");
+    data.period = { year: 2026, month: 10 };
+    data.vatOpen = [{ vatReturnId: "v9", year: 2026, month: 9, offen: 1900, faellig: inTagen(-5), berichtigt: false }];
+    data.invoices.bank = [konto({ id: "s1", name: "Rücklage", purpose: "steuer", balance: 0 })];
+    expect(aufgabe(render(), "Steuerkonto Rücklage deckt die Zahllast nicht")?.detail).toBe("Es fehlen 19,00\u00a0€ für offene Voranmeldungen");
+  });
+
+  it("allein eine Zahllast vor dem Start hält die Kennzahlenreihe nicht", () => {
+    data.period = { year: 2026, month: 43 };
+    data.ersterBuchungsmonat = "2026-11";
+    data.computedKz83 = 7600;
+    expect(render()).not.toContain("grid-4");
+    data.ersterBuchungsmonat = "2026-09";
+    expect(render()).toContain("USt-Zahllast");
+  });
+
   it("ab dem Startmonat bleibt die Karte wie bisher", () => {
     mitZahlen("2026-09");
     expect(render()).toContain(`Voranmeldung fällig ${formatDate("2026-10-12")}`);
