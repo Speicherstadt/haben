@@ -48,10 +48,15 @@ function ustIdAufgaben(ungueltig: { contactId: string; kontakt: string; nummer: 
 /** Umsatzsteuer: die Voranmeldung des Zeitraums, unbezahlte Voranmeldungen und ein zu knappes Steuerkonto */
 function umsatzsteuerAufgaben(
   data: UebersichtDaten,
-  { sent, vatRequired, taxAccount, taxShortfall }: { sent: boolean; vatRequired: boolean; taxAccount: Konto | undefined; taxShortfall: number },
+  {
+    sent,
+    vatRequired,
+    vorStart,
+    taxAccount,
+    taxShortfall,
+  }: { sent: boolean; vatRequired: boolean; vorStart: boolean; taxAccount: Konto | undefined; taxShortfall: number },
 ): Todo[] {
   const todos: Todo[] = [];
-  const vorStart = periodKey(lastMonthOfPeriod(data.period)) < data.ersterBuchungsmonat;
   if (!sent && vatRequired && !vorStart) {
     todos.push({
       title: `Voranmeldung ${periodLabel(data.period)} senden`,
@@ -192,6 +197,8 @@ function OverviewPage() {
   const key = periodKey(data.period);
   const sent = data.current?.status === "sent";
   const vatRequired = !data.kleinunternehmer && !data.exempt;
+  // Vor dem ersten Buchungsmonat ist nichts fällig (wie bei den Fristen); ein gespeicherter Entwurf zeigt, dass es dennoch bearbeitet wird
+  const vorStart = data.current === null && periodKey(lastMonthOfPeriod(data.period)) < data.ersterBuchungsmonat;
 
   const todos: Todo[] = [...einrichtungsAufgaben(Route.useRouteContext().einrichtung), ...ustIdAufgaben(data.ustIdUngueltig)];
   // Steuerkonto: reicht der Stand für die Zahllast, die das Finanzamt per Lastschrift einzieht?
@@ -201,11 +208,11 @@ function OverviewPage() {
   // schon eingezogener Lastschriften ohne Bezug (dann ist der Kontostand bereits um sie gesunken)
   const periodOpen = data.vatOpen.filter((p) => p.year === data.period.year && p.month === data.period.month).reduce((sum, p) => sum + p.offen, 0);
   // Bestehende Anmeldungen und ihre offenen Beträge bleiben auch ohne reguläre Abgabepflicht erreichbar.
-  const showVatPeriod = vatRequired || data.current !== null || periodOpen !== 0 || data.computedKz83 !== 0;
+  const showVatPeriod = (vatRequired && !vorStart) || data.current !== null || periodOpen !== 0 || data.computedKz83 !== 0;
   const postenOffen = data.vatOpen.filter((p) => p.offen > 0).reduce((sum, p) => sum + p.offen, 0);
   const zahllastOffen = postenOffen + (sent ? 0 : Math.max(0, data.computedKz83 - data.vatPaid));
   const taxShortfall = taxAccount && taxAccount.balance !== null && zahllastOffen > 0 ? zahllastOffen - taxAccount.balance : 0;
-  todos.push(...umsatzsteuerAufgaben(data, { sent, vatRequired, taxAccount, taxShortfall }), ...bankAufgaben(data));
+  todos.push(...umsatzsteuerAufgaben(data, { sent, vatRequired, vorStart, taxAccount, taxShortfall }), ...bankAufgaben(data));
   if (data.invoices.overdueCount > 0) {
     todos.push({
       title: `${data.invoices.overdueCount} ${data.invoices.overdueCount === 1 ? "Rechnung" : "Rechnungen"} überfällig`,
