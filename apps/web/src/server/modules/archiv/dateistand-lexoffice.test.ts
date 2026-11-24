@@ -14,7 +14,7 @@ import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
  */
 
 type Dateistand = typeof import("./dateistand.ts");
-type Archiv = typeof import("./lexoffice.ts");
+type Archiv = typeof import("./index.ts");
 type Exporter = typeof import("./export.ts");
 type DbModul = typeof import("../../db/index.ts");
 
@@ -42,7 +42,7 @@ async function beleg(lexofficeId: string, options: { type?: string; ohneBeleg?: 
       gross: 0,
       taxes: [],
       categories: [],
-      raw: { ohneBeleg: options.ohneBeleg ?? false, remark: "Buchung ohne Beleg: Beispiel" },
+      raw: { quelle: "lexware-web", ohneBeleg: options.ohneBeleg ?? false, remark: "Buchung ohne Beleg: Beispiel" },
     })
     .returning({ id: dbm.schema.lexofficeVouchers.id });
   return row!.id;
@@ -73,7 +73,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice-Sicherung: Buchung ohne Beleg best�
     await setupTestDb();
     dbm = await import("../../db/index.ts");
     dateistand = await import("./dateistand.ts");
-    archiv = await import("./lexoffice.ts");
+    archiv = await import("./index.ts");
     exporter = await import("./export.ts");
     const { sql } = await import("drizzle-orm");
     const lauf = await dbm.db.execute<{ id: string }>(
@@ -123,6 +123,14 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice-Sicherung: Buchung ohne Beleg best�
     expect(await staende(voucher)).toHaveLength(0);
     // In der Ansicht erscheint dafür kein Knopf
     expect((await archiv.legacyVoucherDetail(voucher))!.fileState.canConfirmWithoutFile).toBe(false);
+  });
+
+  it.each([
+    ["lexoffice", "lexware-web", "Eine neue Sicherung mit der fehlenden Datei importieren."],
+    ["lexoffice", null, "Im Umzug „Erneut abrufen“ wählen."],
+    ["sevdesk", null, "Im Umzug „Erneut abrufen“ wählen."],
+  ] as const)("nennt für fehlendes XML bei %s (%s) den passenden Importweg", (source, quelle, action) => {
+    expect(dateistand.takeoverFileIssue("anhang_fehlt", source, quelle)).toBe(`Das XML der E-Rechnung fehlt. ${action}`);
   });
 
   it("hält Rechnung und Gutschrift aus der Sicherung gesperrt, auch als Buchung ohne Beleg", async () => {

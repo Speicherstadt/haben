@@ -5,7 +5,7 @@ import { db, schema, type Tx } from "../../db/index.ts";
 import type { LegacyFileState, LexofficeImportProgress } from "../../db/schema.ts";
 import { sha256Of, sniff, storeFile } from "../../storage.ts";
 import { legacyFileStatus, recordFileState } from "./dateistand.ts";
-import { progressMessage } from "./lexoffice.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 
 /*
  * Dateien der Belege aus sevDesk und ihr Dateistand (#345). Beim Übernehmen hält der Abruf fest, was fehlt: ein Beleg ohne

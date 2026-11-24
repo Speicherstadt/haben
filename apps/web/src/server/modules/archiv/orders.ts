@@ -106,7 +106,7 @@ export async function listOrderDocuments(filter: { year: number; search: string;
         term ? or(ilike(schema.legacyOrderDocuments.number, `%${term}%`), ilike(schema.legacyOrderDocuments.contactName, `%${term}%`)) : undefined,
       ),
     )
-    .orderBy(desc(schema.legacyOrderDocuments.date), desc(schema.legacyOrderDocuments.number));
+    .orderBy(desc(schema.legacyOrderDocuments.date), desc(schema.legacyOrderDocuments.number), desc(schema.legacyOrderDocuments.id));
 }
 
 export async function orderDocumentDetail(id: string) {

@@ -9,7 +9,7 @@ import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
  */
 
 type Dateistand = typeof import("./dateistand.ts");
-type Lexoffice = typeof import("./lexoffice.ts");
+type Lexoffice = typeof import("./index.ts");
 type ExportModul = typeof import("./export.ts");
 type DbModul = typeof import("../../db/index.ts");
 
@@ -80,7 +80,7 @@ describe.skipIf(!testDatabaseUrl)("Bestätigung „ohne Datei“ zurücknehmen",
     await setupTestDb();
     dbm = await import("../../db/index.ts");
     dateistand = await import("./dateistand.ts");
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = await import("./index.ts");
     exporter = await import("./export.ts");
     const { sql } = await import("drizzle-orm");
     const lauf = await dbm.db.execute<{ id: string }>(

@@ -28,7 +28,7 @@ const ohneDatei = (id: string, origin: string, create = "2024-04-15T12:00:00+02:
 describe.skipIf(!testDatabaseUrl)("sevDesk: Datei der Vorlage an wiederkehrenden Belegen (Postgres)", () => {
   let sql: postgres.Sql;
   let sevdesk: typeof import("./sevdesk.ts");
-  let archiv: typeof import("./lexoffice.ts");
+  let archiv: typeof import("./umzug-belege.ts");
   let importPkg: typeof import("@haben/import");
   const calls: { method: string; path: string }[] = [];
   const answers = new Map<string, () => Response | Promise<Response>>();
@@ -51,7 +51,7 @@ describe.skipIf(!testDatabaseUrl)("sevDesk: Datei der Vorlage an wiederkehrenden
   beforeAll(async () => {
     sql = await setupTestDb();
     sevdesk = await import("./sevdesk.ts");
-    archiv = await import("./lexoffice.ts");
+    archiv = await import("./umzug-belege.ts");
     importPkg = await import("@haben/import");
     await sql`insert into company (id, name, strasse, plz, ort, email, steuernummer, bundesland, kontenrahmen, versteuerung, rechtsform)
       values (1, 'Nordlicht', 'Hafenallee 3', '28217', 'Bremen', 'rechnung@example.com', '60/145/12345', 'HB', 'SKR03', 'ist', 'einzelunternehmen')`;

@@ -193,6 +193,27 @@ function part(options: { manifest?: object; entries?: Record<string, unknown>; f
 }
 
 describe("Sicherung lesen", () => {
+  const omitted = { drafts: 2, quotations: 3, orderConfirmations: 1, deliveryNotes: 4, other: 0 };
+
+  it("liest die Gesamtzahlen der Sicherung einmal, auch wenn beide Teile sie enthalten", () => {
+    const first = { name: "teil-01.zip", bytes: part({ manifest: { omitted } }) };
+    const second = { name: "teil-02.zip", bytes: part({ manifest: { part: 2, omitted } }) };
+    expect(readWebExport([second]).omitted).toEqual(omitted);
+    expect(readWebExport([first, second]).omitted).toEqual(omitted);
+  });
+
+  it("zeigt bei einer älteren Sicherung keine erfundenen Gesamtzahlen", () => {
+    const first = { name: "neu.zip", bytes: part({ manifest: { omitted } }) };
+    const older = { name: "alt.zip", bytes: part({ manifest: { createdAt: "2026-11-01T10:00:00.000Z" } }) };
+    expect(readWebExport([older]).omitted).toBeUndefined();
+    expect(readWebExport([first, older]).omitted).toBeUndefined();
+  });
+
+  it("meldet einen ungültigen Zähler im Manifest", () => {
+    const bytes = part({ manifest: { omitted: { ...omitted, drafts: -1 } } });
+    expect(() => readWebExport([{ name: "teil-01.zip", bytes }])).toThrow(/manifest.json hat ein unerwartetes Format/);
+  });
+
   const salesWithPdf = {
     ...(raw("sales-invoice.json") as object),
     files: [{ path: `dateien/${SALES.list.entityId}/1-RE0042.pdf`, role: "pdf", mimeType: "application/pdf", filename: "Rechnung_RE0042.pdf" }],

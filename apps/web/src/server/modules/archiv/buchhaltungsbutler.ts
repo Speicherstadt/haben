@@ -7,18 +7,20 @@ import {
   type BuchhaltungsbutlerVoucher,
   type ExportPart,
 } from "@haben/import";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { db, schema, type Tx } from "../../db/index.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
-import { UserError } from "../../errors.ts";
+import { isUniqueViolation, UserError } from "../../errors.ts";
 import { sha256Of, storeFile } from "../../storage.ts";
 import { loadCompany } from "../stammdaten/index.ts";
 import { addArchiveFile, BB_ORIGINAL_NOTE, MAX_ARCHIVE_SIZE } from "./archive.ts";
-import { finish, progressMessage, STALE_MS } from "./lexoffice.ts";
+import { finish, latestImportFor, refreshImportRuns, runningUploadsFor } from "./umzug-lauf.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 
 export const MAX_BB_EXPORT_SIZE = 500 * 1024 * 1024;
 const SOURCE = "buchhaltungsbutler" as const;
+const running = runningUploadsFor(SOURCE);
 
 export class BuchhaltungsbutlerImportError extends UserError {}
 
@@ -32,27 +34,11 @@ export async function previewBbExport(parts: ExportPart[]) {
   }
 }
 
-export async function latestBuchhaltungsbutlerImport() {
-  const [row] = await db
-    .select()
-    .from(schema.lexofficeImports)
-    .where(eq(schema.lexofficeImports.source, SOURCE))
-    .orderBy(desc(schema.lexofficeImports.startedAt))
-    .limit(1);
-  if (!row) return null;
-  if (row.status === "laeuft" && Date.now() - row.updatedAt.getTime() > STALE_MS) {
-    const [updated] = await db
-      .update(schema.lexofficeImports)
-      .set({ status: "abgebrochen", error: "Der Import wurde unterbrochen. Ein neuer Import setzt dort fort.", finishedAt: new Date() })
-      .where(and(eq(schema.lexofficeImports.id, row.id), eq(schema.lexofficeImports.status, "laeuft")))
-      .returning();
-    return updated ?? row;
-  }
-  return row;
-}
+export const latestBuchhaltungsbutlerImport = () => latestImportFor("buchhaltungsbutler");
 
 export async function startBuchhaltungsbutlerImport(actor: string, parts: ExportPart[]) {
   if ((await latestBuchhaltungsbutlerImport())?.status === "laeuft") throw new BuchhaltungsbutlerImportError("Ein BuchhaltungsButler-Import läuft bereits.");
+  await refreshImportRuns();
   const preview = await previewBbExport(parts);
   const progress: LexofficeImportProgress = {
     phase: "belege",
@@ -66,8 +52,12 @@ export async function startBuchhaltungsbutlerImport(actor: string, parts: Export
   };
   const [run] = await withActor(actor, (tx) =>
     tx.insert(schema.lexofficeImports).values({ source: SOURCE, progress }).returning({ id: schema.lexofficeImports.id }),
-  );
+  ).catch((error: unknown) => {
+    if (isUniqueViolation(error, "lexoffice_imports_one_running")) throw new BuchhaltungsbutlerImportError("Ein Abruf läuft bereits.");
+    throw error;
+  });
   const importId = run!.id;
+  running.add(importId);
   try {
     progress.datevFileIds = await archiveOriginals(actor, parts, preview.year);
     const linkedContacts = new Set<string>();
@@ -87,6 +77,8 @@ export async function startBuchhaltungsbutlerImport(actor: string, parts: Export
     const message = progressMessage(error);
     await finish(importId, progress, "fehler", message);
     throw error;
+  } finally {
+    running.delete(importId);
   }
 }
 

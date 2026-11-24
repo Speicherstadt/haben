@@ -9,6 +9,7 @@ import {
   type Prozent,
   type SelfAssessedTax,
 } from "@haben/core";
+import { betrieblicherTeil } from "../lib/anteil.ts";
 import { Field } from "./Field.tsx";
 
 /** Abziehbarer Anteil in Basispunkten über parsePercent, höchstens 100 %; null, wenn ungültig. Leer übernimmt die Vorgabe. */
@@ -44,8 +45,16 @@ export function zeilenAnteil({ value, company, booked, storedDeduction }: Beleg,
 export function steuerSpalte(reverseCharge: SelfAssessedTax | null, beleg: Beleg, saetze: { vorsteuerAnteil: string }[]): string {
   if (reverseCharge === "ig_erwerb") return "Erwerbsteuer";
   if (reverseCharge) return "Steuer § 13b";
-  return saetze.length > 0 && saetze.every((satz) => zeilenAnteil(beleg, satz.vorsteuerAnteil) === 0) ? "Umsatzsteuer" : "Vorsteuer";
+  return ohneAbzug(beleg, saetze) ? "Umsatzsteuer" : "Vorsteuer";
 }
+
+/** Von keinem Steuersatz ist etwas abziehbar: als Kleinunternehmer, nach der Firmenvorgabe oder mit 0 % */
+const ohneAbzug = (beleg: Beleg, saetze: { vorsteuerAnteil: string }[]): boolean =>
+  saetze.length > 0 && saetze.every((satz) => zeilenAnteil(beleg, satz.vorsteuerAnteil) === 0);
+
+/** Hinweis am Privatanteil (#1261): Vorsteuer nennt er wie die Steuerspalte nur, wenn es einen Abzug gibt */
+export const privatanteilHinweis = (beleg: Beleg, saetze: { vorsteuerAnteil: string }[]): string =>
+  `Z. B. beim Handyvertrag: nur der betriebliche Teil wird ${betrieblicherTeil(!ohneAbzug(beleg, saetze))}.`;
 
 interface VorsteuerRow {
   key: number;

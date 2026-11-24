@@ -42,7 +42,8 @@ export function useBelegAktionen(f: DocumentFormState, data: Detail) {
         await navigate({ to: "/belege/$id", params: { id: navigation.nextOpenId } });
         return;
       }
-      await router.invalidate();
+      // Bis zum Ende neu laden: Die Felder bleiben bis zum Neuaufbau als gebuchter Beleg gesperrt (#1824)
+      await router.invalidate({ sync: true });
       // Keiner mehr offen: Meldung mit Link zur Liste
       if (continueAfterBooking) await navigate({ to: "/belege/$id", params: { id: doc.id }, search: { geprueft: true }, replace: true });
     });
@@ -74,7 +75,8 @@ export function useBelegAktionen(f: DocumentFormState, data: Detail) {
   const onReextract = () =>
     run(async () => {
       await reextract({ data: doc.id });
-      await router.invalidate();
+      // Ebenso: gesperrt, bis die Seite mit „KI liest aus“ steht
+      await router.invalidate({ sync: true });
     });
 
   return { confirming, setConfirming, confirmingDelete, setConfirmingDelete, continueAfterBooking, bookNow, deleteNow, onReextract };

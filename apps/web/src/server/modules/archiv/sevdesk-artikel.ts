@@ -4,7 +4,7 @@ import { withActor } from "../../db/actor.ts";
 import { db, schema, type Tx } from "../../db/index.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
 import { insertArticle, listUnits } from "../stammdaten/index.ts";
-import { progressMessage } from "./lexoffice.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 
 /*
  * Artikel aus sevDesk (GET /Part) in den Artikelkatalog (#472). Angelegt wird wie beim CSV-Import über insertArticle,

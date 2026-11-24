@@ -1,10 +1,11 @@
 import { expect, type Page, test } from "@playwright/test";
+import postgres from "postgres";
 import { currentDay, day, firstLink, YEAR } from "./daten.ts";
-import type { Durchlauf } from "./durchlaeufe.ts";
+import { type Durchlauf, databaseUrlFuer } from "./durchlaeufe.ts";
 import { statusBleibtSichtbar } from "./kopfzeile.ts";
-import { axeVerstoesse, bestaetigen, durchlaufSeite, gehe, kundeWaehlen, ohneAxeVerstoesse, rechnungFestschreiben } from "./einrichtung.ts";
+import { axeVerstoesse, bestaetigen, durchlaufSeite, gehe, kundeWaehlen, ohneAxeVerstoesse, rechnungFestschreiben, ueberSchnellsuche } from "./einrichtung.ts";
 import { abzugEinspielen } from "./abzug.ts";
-import { eingabeNachAktion, fokusNachFehlschlag } from "./felder-sperre.ts";
+import { eingabeNachAktion, fokusNachFehlschlag, kurzNacheinanderSpeichern } from "./felder-sperre.ts";
 
 /**
  * Abschnitt von rechnungen (#1742) mit eigenem Server und eigener Datenbank, parallel zu den anderen Abschnitten:
@@ -741,6 +742,101 @@ test("Neues Angebot: Eingaben direkt nach dem Speichern bleiben erhalten (#1148)
   await eingabeNachDemSpeichern("angebote");
 });
 
+/** Kurz nacheinander gespeichert, baut sich der Editor jedes Mal mit dem gespeicherten Stand neu auf (#1804) */
+async function kurzNacheinanderImEntwurf(bereich: "rechnungen" | "angebote") {
+  await go(`/${bereich}/neu`);
+  await kundeWaehlen(page);
+  const beschreibung = page.getByLabel("Beschreibung Position 1");
+  await beschreibung.fill("Erster Stand");
+  await page.getByLabel("Menge Position 1").fill("1");
+  await page.getByLabel(/Einzelpreis Position 1/).fill("100,00");
+  const speichern = page.getByRole("button", { name: "Entwurf speichern", exact: true });
+  await speichern.click();
+  // „Entwurf löschen“ gibt es erst im Editor des gespeicherten Entwurfs
+  const loeschen = page.getByRole("button", { name: "Entwurf löschen", exact: true });
+  await expect(loeschen).toBeVisible();
+
+  await kurzNacheinanderSpeichern({ feld: beschreibung, speichern, texte: ["Stand eins", "Stand zwei", "Stand drei"] });
+
+  // Nicht festschreiben: die Nummern der übrigen Tests bleiben, wie sie sind
+  await loeschen.click();
+  await bestaetigen(page, "Entwurf löschen");
+  await expect(page).toHaveURL(new RegExp(`/${bereich}(?:\\?.*)?$`));
+}
+
+test("Rechnungsentwurf: Kurz nacheinander gespeichert, baut sich der Editor jedes Mal neu auf (#1804)", async () => {
+  await kurzNacheinanderImEntwurf("rechnungen");
+});
+
+test("Angebotsentwurf: Kurz nacheinander gespeichert, baut sich der Editor jedes Mal neu auf (#1804)", async () => {
+  await kurzNacheinanderImEntwurf("angebote");
+});
+
+/**
+ * Zwei Entwürfe für zwei neue Kunden; am zweiten bleibt „Entwurf gespeichert.“ nach dem Speichern stehen, nach dem Wechsel
+ * ohne Neuladen über die Schnellsuche zum ersten nicht mehr (#1843). Danach beide Entwürfe wieder gelöscht.
+ */
+async function meldungBeimWechsel(bereich: "rechnungen" | "angebote") {
+  const art = bereich === "rechnungen" ? "Rechnungsentwurf" : "Angebotsentwurf";
+  const kunden = [`Meldekunde ${art} Ost · Rostock`, `Meldekunde ${art} West · Aachen`] as const;
+  const name = (kunde: string) => kunde.split(" · ")[0]!;
+  // Der Entwurf, nicht der Kontakt mit demselben Namen
+  const treffer = (kunde: string) => new RegExp(`${art}\\s*${name(kunde)}`);
+  const speichern = page.getByRole("button", { name: "Entwurf speichern", exact: true });
+  const loeschen = page.getByRole("button", { name: "Entwurf löschen", exact: true });
+  const gespeichert = page.getByRole("status").filter({ hasText: "Entwurf gespeichert." });
+  const sql = postgres(databaseUrlFuer(DURCHLAUF), { max: 1 });
+  try {
+    await sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'e2e', true)`;
+      await tx`insert into contacts (name, ort, land, is_customer, is_supplier)
+        values (${name(kunden[0])}, 'Rostock', 'DE', true, false), (${name(kunden[1])}, 'Aachen', 'DE', true, false)`;
+    });
+    for (const kunde of kunden) {
+      await go(`/${bereich}/neu`);
+      await kundeWaehlen(page, kunde);
+      await page.getByLabel("Beschreibung Position 1").fill("Beratung");
+      await page.getByLabel("Menge Position 1").fill("1");
+      await page.getByLabel(/Einzelpreis Position 1/).fill("100,00");
+      await speichern.click();
+      // „Entwurf löschen“ gibt es erst im Editor des gespeicherten Entwurfs
+      await expect(loeschen).toBeVisible();
+    }
+    // Derselbe Entwurf geändert und gespeichert: Die Meldung bleibt, auch über den Neuaufbau des Editors
+    await page.getByLabel("Beschreibung Position 1").fill("Beratung, zweiter Stand");
+    await speichern.click();
+    await expect(gespeichert).toBeVisible();
+
+    await ueberSchnellsuche(page, name(kunden[0]), treffer(kunden[0]));
+    await expect(page.getByRole("combobox", { name: "Kunde", exact: true })).toHaveValue(kunden[0]);
+    await expect(gespeichert).toHaveCount(0);
+
+    // Nicht festschreiben: die Nummern der übrigen Tests bleiben, wie sie sind
+    await loeschen.click();
+    await bestaetigen(page, "Entwurf löschen");
+    await expect(page).toHaveURL(new RegExp(`/${bereich}(?:\\?.*)?$`));
+    await ueberSchnellsuche(page, name(kunden[1]), treffer(kunden[1]));
+    await loeschen.click();
+    await bestaetigen(page, "Entwurf löschen");
+    await expect(page).toHaveURL(new RegExp(`/${bereich}(?:\\?.*)?$`));
+  } finally {
+    // Nicht in den Zahlen der folgenden Tests
+    await sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'e2e', true)`;
+      await tx`update contacts set archived_at = now() where name in ${sql([name(kunden[0]), name(kunden[1])])}`;
+    });
+    await sql.end();
+  }
+}
+
+test("Rechnungsentwurf: Beim Wechsel ohne Neuladen bleibt die Meldung des vorigen Entwurfs nicht stehen (#1843)", async () => {
+  await meldungBeimWechsel("rechnungen");
+});
+
+test("Angebotsentwurf: Beim Wechsel ohne Neuladen bleibt die Meldung des vorigen Entwurfs nicht stehen (#1843)", async () => {
+  await meldungBeimWechsel("angebote");
+});
+
 test("Speichern schlägt fehl: der Fokus steht danach wieder im Feld, aus dem gespeichert wurde (#1148)", async () => {
   await go("/rechnungen/neu");
   await kundeWaehlen(page);
@@ -802,10 +898,19 @@ test("Wiederkehrende Rechnung: Eingaben direkt nach dem Speichern bleiben erhalt
   });
 });
 
-test("Wiederkehrende Rechnung: Speichern schlägt fehl, der Fokus steht danach wieder im Feld (#1793)", async () => {
+test("Wiederkehrende Rechnung: Kurz nacheinander gespeichert, baut sich das Formular jedes Mal neu auf (#1804)", async () => {
   // Die Vorlage aus dem Test davor
+  await kurzNacheinanderSpeichern({
+    feld: page.getByLabel("Bezeichnung"),
+    speichern: page.getByRole("button", { name: "Speichern", exact: true }),
+    texte: ["Wartung eins", "Wartung zwei", "Wartung drei"],
+  });
+});
+
+test("Wiederkehrende Rechnung: Speichern schlägt fehl, der Fokus steht danach wieder im Feld (#1793)", async () => {
+  // Die Vorlage aus den Tests davor
   await fokusNachFehlschlag(page, page.getByLabel("Bezeichnung"));
-  // Die Vorlage gehört nur diesen beiden Tests
+  // Die Vorlage gehört nur diesen drei Tests
   await page.getByRole("button", { name: "Löschen", exact: true }).click();
   await bestaetigen(page, "Vorlage löschen");
   await expect(page).toHaveURL(/\/rechnungen\/wiederkehrend(?:\?.*)?$/);

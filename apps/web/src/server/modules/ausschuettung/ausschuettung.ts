@@ -4,6 +4,7 @@ import {
   ausschuettungPosting,
   ebilanzPosition,
   isKapitalgesellschaft,
+  nachBeteiligung,
   toElsterSteuernummer,
   VORTRAG_ACCOUNTS,
   type Cents,
@@ -16,6 +17,7 @@ import { withActor } from "../../db/actor.ts";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import type { AusschuettungEmpfaenger } from "../../db/schema.ts";
 import { UserError } from "../../errors.ts";
+import { anteilHinweis } from "./anteil-hinweis.ts";
 import { ledgerRange, openBooks, post, saldenliste } from "../buchhaltung/index.ts";
 import { PRODUKT_VERSION, uebermitteln } from "../elster/index.ts";
 import { kapgErklaerungAngaben } from "../koerperschaft/index.ts";
@@ -23,8 +25,8 @@ import { companyIssues, loadCompany, type Company } from "../stammdaten/index.ts
 
 /*
  * Gewinnausschüttungen einer GmbH oder UG: Gewinnverwendungsbeschluss buchen, Steuerabzug je Gesellschafter
- * (ausschuettung.ts in @haben/core), Kapitalertragsteuer-Anmeldung prüfen und senden. Die Gesellschafter mit Anteil
- * und Kirchensteuerabzugsmerkmal kommen aus den Angaben zur Körperschaftsteuererklärung des Jahres.
+ * (ausschuettung.ts in @haben/core), Kapitalertragsteuer-Anmeldung prüfen und senden. Die Gesellschafter mit
+ * Beteiligung in Euro und Kirchensteuerabzugsmerkmal kommen aus den Angaben zur Körperschaftsteuererklärung des Jahres.
  */
 
 export class AusschuettungError extends UserError {}
@@ -48,20 +50,6 @@ export type AusschuettungInput = z.input<typeof ausschuettungSchema>;
 
 const EIGENKAPITAL = "bs.eqLiab.equity.";
 const GEZEICHNET = "bs.eqLiab.equity.subscribed.";
-
-/** Die Bruttoausschüttung nach Anteilen; Rundungsreste gehen an die größten Anteile, damit die Summe stimmt */
-export function nachAnteilen(betrag: Cents, anteile: readonly number[]): Cents[] {
-  const roh = anteile.map((a) => (betrag * a) / 10_000);
-  const result = roh.map(Math.floor);
-  let rest = betrag - result.reduce((s, x) => s + x, 0);
-  const order = roh.map((x, i) => [x - Math.floor(x), i] as const).sort((a, b) => b[0] - a[0]);
-  for (const [, i] of order) {
-    if (rest <= 0) break;
-    result[i]! += 1;
-    rest -= 1;
-  }
-  return result;
-}
 
 /** Summe der nicht stornierten Ausschüttungen mit Beschluss nach dem Tag */
 async function spaetereAusschuettungen(beschluss: string, q: Db | Tx): Promise<Cents> {
@@ -146,14 +134,14 @@ export async function ausschuettungVorschlag(input: AusschuettungInput, q: Db | 
   const { angaben } = await kapgErklaerungAngaben(year);
   const anteilseigner = angaben.anteilseigner;
   const aus = ausEinlagekonto(data.brutto, g.ausschuettbarerGewinn, g.einlagekonto);
-  const brutto = nachAnteilen(
-    data.brutto,
-    anteilseigner.map((a) => a.anteil),
-  );
-  const einlage = nachAnteilen(
-    aus,
-    anteilseigner.map((a) => a.anteil),
-  );
+  // Nach den Nennbeträgen (§ 29 Abs. 3 Satz 1 GmbHG); der Anteil in Prozent gilt nur für die Körperschaftsteuererklärung.
+  // Jeder Geschäftsanteil lautet auf volle Euro (§ 5 Abs. 2 GmbHG): 0 € ist eine fehlende Angabe, keine Beteiligung ohne Anspruch
+  const beteiligungen = anteilseigner.map((a) => a.beteiligung);
+  const ohneBeteiligung = anteilseigner.filter((a) => a.beteiligung === 0).map((a) => a.name);
+  const teilbar = anteilseigner.length > 0 && ohneBeteiligung.length === 0;
+  const verteilen = (betrag: Cents) => (teilbar ? nachBeteiligung(betrag, beteiligungen) : beteiligungen.map(() => 0));
+  const brutto = verteilen(data.brutto);
+  const einlage = verteilen(aus);
   const empfaenger: AusschuettungEmpfaenger[] = anteilseigner.map((a, i) => {
     const r = ausschuettungAnteil({ brutto: brutto[i]!, ausEinlagekonto: einlage[i]!, kirchensteuer: a.kirchensteuer });
     return {
@@ -172,6 +160,11 @@ export async function ausschuettungVorschlag(input: AusschuettungInput, q: Db | 
   });
   const issues: string[] = [];
   if (anteilseigner.length === 0) issues.push(`Für ${year} sind keine Anteilseigner eingetragen (Jahreserklärung › Angaben zu den Erklärungen).`);
+  else if (ohneBeteiligung.length > 0) {
+    issues.push(
+      `Für ${year} fehlt die Beteiligung in Euro von ${ohneBeteiligung.join(", ")}; nach ihr wird die Ausschüttung verteilt (Jahreserklärung › Angaben zu den Erklärungen).`,
+    );
+  }
   if (data.brutto > g.gewinnvortrag) {
     issues.push(
       `Der Gewinnvortrag zum Beschluss beträgt ${(g.gewinnvortrag / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}; mehr lässt sich nicht ausschütten.`,
@@ -179,7 +172,9 @@ export async function ausschuettungVorschlag(input: AusschuettungInput, q: Db | 
   }
   if (data.auszahlungstag && data.auszahlungstag < data.beschluss) issues.push("Der Auszahlungstag liegt vor dem Beschluss.");
   if (data.geschaeftsjahr > year) issues.push(`Das Geschäftsjahr ${data.geschaeftsjahr} liegt nach dem Jahr des Beschlusses.`);
-  return { ...data, zufluss, company: g.company, ausschuettbarerGewinn: g.ausschuettbarerGewinn, ausEinlagekonto: aus, empfaenger, issues };
+  // Hinweise halten die Buchung nicht an, anders als issues
+  const hinweise = teilbar ? anteilHinweis(year, anteilseigner) : [];
+  return { ...data, zufluss, company: g.company, ausschuettbarerGewinn: g.ausschuettbarerGewinn, ausEinlagekonto: aus, empfaenger, issues, hinweise };
 }
 
 /** Bucht den Gewinnverwendungsbeschluss und hält den Steuerabzug je Gesellschafter fest */

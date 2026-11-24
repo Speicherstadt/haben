@@ -51,13 +51,13 @@ Nach einem Update von Haben lädst du das neue ZIP, entpackst es in denselben Or
 2. Auf das Symbol der Erweiterung (das grüne „H“) klicken, die Werte einfügen und **Werte übernehmen**.
 3. In Mein ELSTER das Formular für denselben Zeitraum öffnen (Formulare und Leistungen › Formular › Jahr), „Ohne Datenübernahme fortfahren“, bei Jahreserklärungen die Anlagen wählen.
 4. Seite für Seite durchgehen. Auf jeder Seite trägt die Erweiterung ein, was dorthin gehört, und rahmt die Felder grün. Unten rechts steht eine Leiste mit:
-   - **eingetragen**: was die Erweiterung gerade gesetzt hat;
-   - **vorbereitet**: In der Anlage EÜR (und in der Anlage S der Einkommensteuer) sind Summenfelder gesperrt; Mein ELSTER rechnet sie aus Einzelposten. Die Erweiterung füllt die freie Zeile darüber (Bezeichnung „Laut Haben“, Betrag aus Haben) und rahmt den Knopf **Eintrag übernehmen**. Den klickst du;
-   - **rechnet Mein ELSTER**: gesperrte Felder wie die Steuer zu Kz 81 und Kz 83 der Voranmeldung füllt Mein ELSTER selbst. Sobald dort ein Wert steht, vergleicht die Erweiterung ihn mit Haben und meldet eine Abweichung;
-   - **abweichend**: Felder, in denen schon ein anderer Wert stand, etwa aus dem Vorjahr übernommen. Die Erweiterung überschreibt sie nicht von selbst. Prüfe, welcher stimmt; mit **Abweichende mit Haben überschreiben** trägt sie die Werte aus Haben ein;
-   - **von Hand**: Mehrfachzeilen wie Anlagegüter, Kinder oder Beiträge je Person. Diese Zeilen legst du in Mein ELSTER an („Weitere Daten hinzufügen“) und trägst die angezeigten Werte ein; im Editor einer Zeile trägt die Erweiterung einzelne Werte auch selbst ein;
-   - **gehört zur Anlage einer anderen Person**: siehe unten;
-   - **noch auf keiner besuchten Seite gefunden**: Werte, deren Feld du noch nicht geöffnet hast. Darunter stehen auch Angaben, die Mein ELSTER aus deinem Profil nimmt (Name, Steuernummer).
+    - **eingetragen**: was die Erweiterung gerade gesetzt hat;
+    - **vorbereitet**: In der Anlage EÜR (und in der Anlage S der Einkommensteuer) sind Summenfelder gesperrt; Mein ELSTER rechnet sie aus Einzelposten. Die Erweiterung füllt die freie Zeile darüber (Bezeichnung „Laut Haben“, Betrag aus Haben) und rahmt den Knopf **Eintrag übernehmen**. Den klickst du;
+    - **rechnet Mein ELSTER**: gesperrte Felder wie die Steuer zu Kz 81 und Kz 83 der Voranmeldung füllt Mein ELSTER selbst. Sobald dort ein Wert steht, vergleicht die Erweiterung ihn mit Haben und meldet eine Abweichung;
+    - **abweichend**: Felder, in denen schon ein anderer Wert stand, etwa aus dem Vorjahr übernommen. Die Erweiterung überschreibt sie nicht von selbst. Prüfe, welcher stimmt; mit **Abweichende mit Haben überschreiben** trägt sie die Werte aus Haben ein;
+    - **von Hand**: Mehrfachzeilen wie Anlagegüter, Kinder oder Beiträge je Person. Diese Zeilen legst du in Mein ELSTER an („Weitere Daten hinzufügen“) und trägst die angezeigten Werte ein; im Editor einer Zeile trägt die Erweiterung einzelne Werte auch selbst ein;
+    - **gehört zur Anlage einer anderen Person**: siehe unten;
+    - **noch auf keiner besuchten Seite gefunden**: Werte, deren Feld du noch nicht geöffnet hast. Darunter stehen auch Angaben, die Mein ELSTER aus deinem Profil nimmt (Name, Steuernummer).
 5. Nach der letzten Seite in Mein ELSTER **Prüfen**, Fehler und Hinweise mit Haben abgleichen und selbst **Absenden**.
 6. Das Übermittlungsprotokoll herunterladen. Bei der Voranmeldung vermerkst du die Abgabe danach in Haben unter **Außerhalb von Haben abgegeben** ([Abgabe vermerken](umsatzsteuer.md#abgabe-außerhalb-von-haben-vermerken)); eine Jahreserklärung bleibt in Haben ungesendet.
 
