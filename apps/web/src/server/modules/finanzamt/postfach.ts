@@ -125,7 +125,7 @@ export async function openAppealDeadlines(today: string) {
   // Erst nach der Gruppierung filtern: Anhänge desselben Bescheids teilen sich die Aufgabe (#1819). Maßgeblich ist das
   // gelesene Datum, nicht die rohe Spalte, weil der Parser JJJJMMTT, JJJJ-MM-TT und TT.MM.JJJJ kennt. Tragen mehrere
   // Anhänge dasselbe Bescheiddatum, entscheidet unter ihnen das jüngste Ereignis und nicht eines von ihnen allein: sonst
-  // bliebe „Wieder offen“ folgenlos, solange ein anderer Anhang geprüft ist (#1856). Ein älterer Bescheid derselben
+  // bliebe „Wieder offen“ folgenlos, solange ein anderer Anhang geprüft ist (#1819). Ein älterer Bescheid derselben
   // Gruppe lässt die Frist dagegen nicht wieder aufleben. Ohne Ereignis gilt der Bescheid als offen; bei gleichem
   // Zeitstempel bleibt die erste Zeile, weil die Liste fest sortiert ist.
   type MitEreignis = (typeof offen)[number] & { erledigt: ErledigtStand };

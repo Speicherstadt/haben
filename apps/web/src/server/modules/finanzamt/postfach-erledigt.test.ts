@@ -90,7 +90,7 @@ describe.skipIf(!testDatabaseUrl)("Postfach: Erledigt-Vermerke (Postgres)", () =
 
   it("holt die Aufgabe zurück, wenn bei gleichem Bescheiddatum ein Anhang wieder geöffnet wird", async () => {
     // Abhaken und Wiederöffnen sind symmetrisch: Unter den Anhängen mit dem Bescheiddatum des jüngsten Bescheids
-    // entscheidet das jüngste Ereignis, nicht „einer von ihnen ist geprüft“ (#1856). Zurück kommt der Anhang, dessen
+    // entscheidet das jüngste Ereignis, nicht „einer von ihnen ist geprüft“ (#1819). Zurück kommt der Anhang, dessen
     // Vermerk den Ausschlag gibt; sonst stünde die Aufgabe mit dem Knopf eines schon abgehakten Anhangs da.
     const erster = await bescheid({ datum: "2025-06-30", bezeichnung: "Bescheid ESt" });
     const zweiter = await bescheid({ datum: "2025-06-30", bezeichnung: "Bescheid ESt, Anlage N" });
