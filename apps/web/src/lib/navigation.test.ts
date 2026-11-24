@@ -192,12 +192,20 @@ describe("Symbole der Arbeitsbereiche", () => {
 // Gruppen nach Aufgabe (#1253): Der Satz unter dem Namen trennt „Ausgaben“ von „Geld“ und „Steuern“ von „Buchhaltung“,
 // eingeklappt im Flyout und in der Schnellsuche
 describe("Hinweise der Arbeitsbereiche", () => {
-  it("hat jede Gruppe mit einem eigenen Satz in Klartext, eine Zeile ohne Klammern", () => {
+  // Ohne eigenen Doppelpunkt, denn die Schnellsuche setzt „Gruppe: Satz“ davor
+  it("hat jede Gruppe mit einem eigenen Satz in Klartext, eine Zeile ohne Klammern und Doppelpunkt", () => {
     for (const gruppen of [NAV_GROUPS, STEUERBERATUNG_NAV]) {
-      for (const gruppe of gruppen) expect(gruppe.hinweis, gruppe.label).toMatch(/^[^()\n]{10,}$/);
+      for (const gruppe of gruppen) expect(gruppe.hinweis, gruppe.label).toMatch(/^[^():\n]{10,}$/);
       const saetze = gruppen.map((gruppe) => gruppe.hinweis);
       expect(new Set(saetze).size).toBe(saetze.length);
     }
+  });
+
+  it("nennt der Satz einer Gruppe keine Seite einer anderen Gruppe", () => {
+    for (const gruppe of NAV_GROUPS)
+      for (const fremd of NAV_GROUPS.filter((andere) => andere !== gruppe).flatMap((andere) => andere.links))
+        if (!gruppe.links.some((link) => link.label === fremd.label))
+          expect(gruppe.hinweis, `${gruppe.label} nennt ${fremd.label}`).not.toMatch(new RegExp(`(^|[^\\p{L}])${fremd.label}([^\\p{L}]|$)`, "iu"));
   });
 
   it("trägt jede Seite der Schnellsuche den Satz ihrer Gruppe, Übersicht und Einstellungen keinen", () => {
