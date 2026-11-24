@@ -26,14 +26,14 @@ Zahlt der Kunde in der Frist den Betrag abzüglich Skonto, erkennt der [Bankabgl
 
 ## Bankverbindung
 
-Auf der Rechnung steht die Bankverbindung aus den [Firmendaten](einrichtung.md). Für Zahlungen auf ein anderes Konto, etwa je Objekt, Auftraggeber oder für Rücklagen, legst du unter **Einstellungen › Firma › Weitere Bankverbindungen** beliebig viele an: Bezeichnung (nur für die Auswahl), IBAN, Kontoinhaber, Bank und BIC. Die aus den Firmendaten bleibt der **Standard**.
+Auf der Rechnung steht die Bankverbindung aus den [Firmendaten](einrichtung.md#firmendaten). Für Zahlungen auf ein anderes Konto, etwa je Objekt, Auftraggeber oder für Rücklagen, legst du unter **Einstellungen › Firma › Weitere Bankverbindungen** beliebig viele an: Bezeichnung (nur für die Auswahl), IBAN, Kontoinhaber, Bank und BIC. Die aus den Firmendaten bleibt der **Standard**.
 
-Sobald es eine weitere gibt, steht in Rechnungen mit Überweisung, in Angeboten und am [Kontakt](kontakte.md) unter **Weitere Angaben** die Auswahl **Bankverbindung**. Ohne weitere Bankverbindung ändert sich nichts.
+Sobald es eine aktive weitere gibt, steht in Rechnungen mit Überweisung, in Angeboten und am [Kontakt](kontakte.md) (unter **Weitere Angaben**) die Auswahl **Bankverbindung**.
 
-- **Vorgabe:** Ein neuer Entwurf nimmt die Bankverbindung des Kunden, sonst den Standard; wählst du im Editor einen anderen Kunden, wechselt sie mit. Das gilt auch für wiederkehrende Rechnungen, Rechnungen aus Zeiteinträgen und Entwürfe aus der [REST-API](api.md) ohne eigene Angabe. Die Rechnung aus einem Angebot und eine Kopie übernehmen die des Originals, Storno und Korrektur die der Rechnung.
+- **Vorgabe:** Ein neuer Entwurf nimmt die Bankverbindung des Kunden, sonst den Standard; wählst du im Editor einen anderen Kunden, wechselt sie mit. Das gilt auch für wiederkehrende Rechnungen, Rechnungen aus Zeiteinträgen und Entwürfe aus der [REST-API](api.md); dort setzt nur Haben die Bankverbindung. Die Rechnung aus einem Angebot und eine Kopie übernehmen die des Originals, Storno und Korrektur die der Rechnung.
 - **Auf dem Beleg:** IBAN, BIC, Bank und Kontoinhaber der gewählten Bankverbindung stehen in Fußzeile, Zahlungsaufforderung, [GiroCode](#girocode), den Platzhaltern `{iban}` und `{bic}` und in der E-Rechnung als Zahlungskonto (BT-84 bis BT-86). Mit dem Festschreiben sind sie Teil der Rechnung; spätere Änderungen an der Bankverbindung berühren sie nicht, Mahnungen nennen weiter das Konto der Rechnung.
 - **Lastschrift:** Haben zieht immer auf das Konto aus den Firmendaten ein; bei [Lastschrift](#lastschrift) gibt es deshalb keine Auswahl.
-- **Archivieren statt löschen:** Belege und Kontakte verweisen auf die Bankverbindung. Archiviert lässt sie sich nicht mehr neu wählen; wo sie schon gewählt ist, bleibt sie.
+- **Archivieren statt löschen:** Belege und Kontakte verweisen auf die Bankverbindung. Archiviert lässt sie sich nicht mehr neu wählen; im Entwurf und am Kontakt, wo sie schon gewählt ist, bleibt sie. Neue Entwürfe, Kopien und die Rechnung aus einem Angebot nehmen dann die Vorgabe des Kunden bzw. den Standard.
 - **Bankabgleich:** Geht eine Zahlung auf das Konto, dessen IBAN auf der Rechnung steht, zählt das für diese Rechnung ([Vorschläge](bank.md#vorschläge)).
 
 ## GiroCode

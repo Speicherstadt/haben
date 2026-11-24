@@ -1,5 +1,5 @@
 import { compactIban, isValidBic, isValidIban } from "@haben/core";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { withActor } from "../../db/actor.ts";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
@@ -101,10 +101,14 @@ export async function assertBankverbindungWaehlbar(tx: Tx, id: string | null | u
   if (problem) throw new BankverbindungError(problem, { felder: ["bankverbindungId"] });
 }
 
-/** Vorgabe am Kontakt für neue Rechnungen und Angebote; null = Standard */
+/** Vorgabe am Kontakt für neue Rechnungen und Angebote; null = Standard, auch wenn die Vorgabe inzwischen archiviert ist */
 export async function kontaktBankverbindung(q: Db | Tx, contactId: string | null | undefined): Promise<string | null> {
   if (!contactId) return null;
-  const [row] = await q.select({ id: schema.contacts.bankverbindungId }).from(schema.contacts).where(eq(schema.contacts.id, contactId));
+  const [row] = await q
+    .select({ id: schema.bankverbindungen.id })
+    .from(schema.contacts)
+    .innerJoin(schema.bankverbindungen, eq(schema.bankverbindungen.id, schema.contacts.bankverbindungId))
+    .where(and(eq(schema.contacts.id, contactId), isNull(schema.bankverbindungen.archivedAt)));
   return row?.id ?? null;
 }
 

@@ -104,6 +104,11 @@ describe.skipIf(!testDatabaseUrl)("Weitere Bankverbindungen an Rechnung, Angebot
     expect((await stammdaten.listBankverbindungen())[0]?.archivedAt).not.toBeNull();
     // Als Vorgabe am Kontakt nur eine aktive
     await expect(stammdaten.createContact(actor, { ...kunde, name: "Rheinpixel GmbH", bankverbindungId: nordId })).rejects.toThrow("archiviert");
+    // Eine Vorgabe, die inzwischen archiviert ist, bringt ein neuer Entwurf ohne Wahl nicht mit: dann gilt der Standard
+    await stammdaten.setBankverbindungArchived(actor, nordId, false);
+    await stammdaten.updateContact(actor, contactId, { ...kunde, bankverbindungId: nordId });
+    await stammdaten.setBankverbindungArchived(actor, nordId, true);
+    expect((await invoices.createDraft(actor, draftInput())).bankverbindungId).toBeNull();
   });
 
   it("Vorgabe am Kontakt: neuer Entwurf ohne Wahl bekommt sie; festgeschrieben stehen IBAN, BIC und Inhaber im Verkäufer und in der XML", async () => {

@@ -246,7 +246,7 @@ Jeder Posten bekommt Punkte:
 | Überweisung aus Haben (Referenz), nur bei Belegen | 60 |
 | IBAN bekannt vom Kontakt bzw. bei Belegen IBAN des Lieferanten | 30 |
 | Name passt | 15 |
-| Auf das Konto der Rechnung, nur mit [weiteren Bankverbindungen](rechnungen-zahlung.md#bankverbindung): die Zahlung steht auf dem Konto, dessen IBAN die Rechnung nennt | 10 |
+| Auf das Konto der Rechnung, nur wenn eine offene Rechnung eine [weitere Bankverbindung](rechnungen-zahlung.md#bankverbindung) nennt | 10 |
 | Datum passt (± 5 Tage), nur bei Belegen, gemessen an Beleg- oder Fälligkeitsdatum | 10 |
 | Teilbetrag des offenen Betrags | 5 |
 

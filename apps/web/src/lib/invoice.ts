@@ -54,6 +54,8 @@ export function customerDraft<S extends { days: number }, L, D extends { format:
   contactId: string | null | undefined,
   companySkonto: readonly S[],
   persons: readonly DraftPerson[] = [],
+  /** Weitere Bankverbindungen (#1887): eine archivierte Vorgabe des Kunden zählt nicht */
+  bankverbindungen: readonly { id: string; archivedAt: unknown }[] = [],
 ):
   | (Omit<D, "contactId" | "language" | "format" | "skonto"> & {
       contactId: string;
@@ -73,6 +75,6 @@ export function customerDraft<S extends { days: number }, L, D extends { format:
     format: contact.defaultFormat ?? (contact.leitwegId ? ("xrechnung-cii" as const) : draft.format),
     skonto: (contact.skonto ?? companySkonto).filter((s) => s.days <= draft.paymentTermDays),
     contactPersonId: einzigerAnsprechpartner(persons, contact.id),
-    bankverbindungId: contact.bankverbindungId ?? null,
+    bankverbindungId: bankverbindungen.some((b) => b.id === contact.bankverbindungId && !b.archivedAt) ? contact.bankverbindungId! : null,
   };
 }
