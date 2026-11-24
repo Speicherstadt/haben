@@ -208,9 +208,9 @@ function OverviewPage() {
   // schon eingezogener Lastschriften ohne Bezug (dann ist der Kontostand bereits um sie gesunken)
   const periodOpen = data.vatOpen.filter((p) => p.year === data.period.year && p.month === data.period.month).reduce((sum, p) => sum + p.offen, 0);
   // Bestehende Anmeldungen und ihre offenen Beträge bleiben auch ohne reguläre Abgabepflicht erreichbar.
-  const showVatPeriod = (vatRequired && !vorStart) || data.current !== null || periodOpen !== 0 || data.computedKz83 !== 0;
+  const showVatPeriod = data.current !== null || periodOpen !== 0 || (!vorStart && (vatRequired || data.computedKz83 !== 0));
   const postenOffen = data.vatOpen.filter((p) => p.offen > 0).reduce((sum, p) => sum + p.offen, 0);
-  const zahllastOffen = postenOffen + (sent ? 0 : Math.max(0, data.computedKz83 - data.vatPaid));
+  const zahllastOffen = postenOffen + (sent || vorStart ? 0 : Math.max(0, data.computedKz83 - data.vatPaid));
   const taxShortfall = taxAccount && taxAccount.balance !== null && zahllastOffen > 0 ? zahllastOffen - taxAccount.balance : 0;
   todos.push(...umsatzsteuerAufgaben(data, { sent, vatRequired, vorStart, taxAccount, taxShortfall }), ...bankAufgaben(data));
   if (data.invoices.overdueCount > 0) {
