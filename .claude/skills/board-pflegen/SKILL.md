@@ -27,7 +27,7 @@ gh issue list --repo Speicherstadt/haben --state open --limit 500 --json number,
 ```
 
 Daraus ermitteln:
-- offene Issues ohne Karte (weiter mit Schritt 2);
+- offene Issues ohne Karte (weiter mit Schritt 2); wieder geöffnete können eine archivierte Karte haben, dann zurückholen statt neu anlegen (`references/umsetzen.md`, „Archivieren“);
 - offene Issues, die eine Karte, aber noch keinen Kommentar des Maintainers zur Einordnung haben: Der Workflow „Board“ legt Karten selbst an, wenn ein Pull Request mit `Refs` oder `Umgesetzt` kommt, oft am selben Tag wie das Issue (`jq '.[]|select([.comments[].author.login]|index("firsttris")|not)' issues.json`, Bots wie Renovate ausgenommen). Kommentar wie in Schritt 5, bei gemergtem Pull Request mit der Vorlage „Erledigt“ und Hinweis aufs nächste Release;
 - Karten ohne Aufwand oder Bereich, etwa vom Workflow angelegte: Felder nachtragen;
 - offene Issues ohne Typ-Label (`jq '.[]|select([.labels[].name]|any(. as $l|["fehler","wunsch","steuer","umzug","frage","technik","doku"]|index($l))|not)' issues.json`), auch solche, die schon eine Karte haben;
@@ -91,4 +91,4 @@ Vollständig ist der Lauf erst, wenn die Funde aus Schritt 1 erneut abgefragt le
 - Kommentare nur die aus Schritt 5 und nur nach OK; zuweisen nur nach OK; Issues schließen oder anlegen nur auf Auftrag, außer den Folge-Issues aus Schritt 5; Labels nur nach OK.
 - Die Spalten nicht umbenennen: `scripts/board/regel.ts` und der Workflow „Board“ hängen an den Namen.
 - Keine Karte zurückschieben, die der Workflow nach vorn gesetzt hat, außer der Maintainer will es.
-- Nach einem Release: prüfen, dass der Job `issues-schliessen` lief und die Karten in „Erledigt“ stehen; das Release selbst ist Skill `release`.
+- Nach einem Release: prüfen, dass der Job `issues-schliessen` lief und die Karten in „Erledigt“ stehen; das Release selbst ist Skill `release`. Danach nach OK die Karten in „Erledigt“ archivieren, deren Issue vor diesem Release geschlossen wurde (`references/umsetzen.md`, „Archivieren“).
