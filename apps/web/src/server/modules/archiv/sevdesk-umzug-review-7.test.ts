@@ -10,13 +10,13 @@ import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 const BALANCED = { status: "balanced", openAmount: 0, paidDate: null, items: [] };
 
 describe.skipIf(!testDatabaseUrl)("sevDesk-Stornopaar mit Zahlungstag (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-abgleich.ts") & typeof import("./umzug-belege.ts");
   let legacy: typeof import("./legacy-open.ts");
   let sql: postgres.Sql;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-belege.ts")) };
     legacy = await import("./legacy-open.ts");
   }, 30_000);
 

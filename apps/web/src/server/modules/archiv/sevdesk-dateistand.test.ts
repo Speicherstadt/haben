@@ -41,7 +41,7 @@ describe.skipIf(!testDatabaseUrl).each([
 ] as const)("sevDesk: Dateistand der Belege, %s und %s (Postgres)", (kontenrahmen, versteuerung) => {
   let sql: postgres.Sql;
   let sevdesk: typeof import("./sevdesk.ts");
-  let archiv: typeof import("./lexoffice.ts");
+  let archiv: typeof import("./umzug-abgleich.ts") & typeof import("./umzug-belege.ts");
   let dateistand: typeof import("./dateistand.ts");
   let exporter: typeof import("./export.ts");
   /** Abrufe, die gerade scheitern; ein zweiter Lauf leert die Menge */
@@ -63,7 +63,7 @@ describe.skipIf(!testDatabaseUrl).each([
   beforeAll(async () => {
     sql = await setupTestDb();
     sevdesk = await import("./sevdesk.ts");
-    archiv = await import("./lexoffice.ts");
+    archiv = { ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-belege.ts")) };
     dateistand = await import("./dateistand.ts");
     exporter = await import("./export.ts");
     const importPkg = await import("@haben/import");

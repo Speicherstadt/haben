@@ -26,13 +26,13 @@ function backup(withAttachment: boolean) {
 
 describe.skipIf(!testDatabaseUrl)("Lexware-Sicherung mit fehlender Datei (Postgres)", () => {
   let sql: postgres.Sql;
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-abgleich.ts") & typeof import("./umzug-belege.ts");
   let legacy: typeof import("./legacy-open.ts");
   let dateistand: typeof import("./dateistand.ts");
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-belege.ts")) };
     legacy = await import("./legacy-open.ts");
     dateistand = await import("./dateistand.ts");
   }, 30_000);

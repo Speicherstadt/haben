@@ -14,7 +14,7 @@ import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
  */
 
 type Dateistand = typeof import("./dateistand.ts");
-type Archiv = typeof import("./lexoffice.ts");
+type Archiv = typeof import("./index.ts");
 type Exporter = typeof import("./export.ts");
 type DbModul = typeof import("../../db/index.ts");
 
@@ -73,7 +73,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice-Sicherung: Buchung ohne Beleg best√
     await setupTestDb();
     dbm = await import("../../db/index.ts");
     dateistand = await import("./dateistand.ts");
-    archiv = await import("./lexoffice.ts");
+    archiv = await import("./index.ts");
     exporter = await import("./export.ts");
     const { sql } = await import("drizzle-orm");
     const lauf = await dbm.db.execute<{ id: string }>(

@@ -1,15 +1,14 @@
+import { latestImportFor, refreshImportRuns, runningUploadsFor } from "./umzug-lauf.ts";
 import { readSevdeskExport, type SevExport } from "@haben/import";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import type { LexofficeImportProgress, SevdeskExportProgress } from "../../db/schema.ts";
 import { isUniqueViolation, UserError } from "../../errors.ts";
 import { sha256Of } from "../../storage.ts";
 import { loadCompany } from "../stammdaten/index.ts";
-import { latestAccountableImport } from "./accountable.ts";
-import { latestFastbillImport } from "./fastbill.ts";
-import { finish, latestImport, progressMessage, STALE_MS } from "./lexoffice.ts";
-import { latestSevdeskImport } from "./sevdesk.ts";
+import { finish } from "./umzug-lauf.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 import { sevdeskExportNeedsFile } from "./sevdesk-export-abgleich.ts";
 import { runSevdeskExportImport } from "./sevdesk-export-lauf.ts";
 
@@ -42,7 +41,7 @@ let staged: StagedSevdeskExport | null = null;
 export const stagedSevdeskExport = () => staged;
 
 /** Läufe, die gerade im Prozess laufen; nach einem Neustart des Servers gelten sie als abgebrochen */
-const running = new Set<string>();
+const running = runningUploadsFor("sevdesk-export");
 const cancelledSevdeskExport = new Set<string>();
 
 /** Jahre mit Belegen aus der API von sevDesk */
@@ -137,22 +136,8 @@ const runOf = (row: typeof schema.lexofficeImports.$inferSelect): SevdeskExportR
 
 /** Letzter Lauf mit der Export-ZIP; ein hängengebliebener (Server neu gestartet) gilt als abgebrochen. */
 export async function latestSevdeskExportImport(): Promise<SevdeskExportRun | null> {
-  const [row] = await db
-    .select()
-    .from(schema.lexofficeImports)
-    .where(eq(schema.lexofficeImports.source, SOURCE))
-    .orderBy(desc(schema.lexofficeImports.startedAt))
-    .limit(1);
-  if (!row) return null;
-  if (row.status === "laeuft" && !running.has(row.id) && Date.now() - row.updatedAt.getTime() > STALE_MS) {
-    const [updated] = await db
-      .update(schema.lexofficeImports)
-      .set({ status: "abgebrochen", error: "Der Lauf wurde unterbrochen. Lade den Export erneut hoch.", finishedAt: new Date() })
-      .where(and(eq(schema.lexofficeImports.id, row.id), eq(schema.lexofficeImports.status, "laeuft")))
-      .returning();
-    return runOf(updated ?? row);
-  }
-  return runOf(row);
+  const row = await latestImportFor("sevdesk-export");
+  return row ? runOf(row) : null;
 }
 
 export async function sevdeskExportImportStatus(id: string): Promise<SevdeskExportRun | null> {
@@ -167,12 +152,7 @@ export async function sevdeskExportImportStatus(id: string): Promise<SevdeskExpo
 export async function startSevdeskExportImport(actor: string, options: { wait?: boolean } = {}): Promise<string> {
   const upload = staged;
   if (!upload) throw new SevdeskExportError("Zuerst den Export hochladen.");
-  // Der eindeutige Index gilt über alle Quellen: verwaiste Läufe anderer Quellen als abgebrochen markieren
-  await latestImport();
-  await latestSevdeskImport();
-  await latestFastbillImport();
-  await latestAccountableImport();
-  await latestSevdeskExportImport();
+  await refreshImportRuns();
   const progress: LexofficeImportProgress = {
     phase: "belege",
     contacts: 0,
