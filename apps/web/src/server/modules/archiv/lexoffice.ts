@@ -218,7 +218,7 @@ export async function finish(id: string, progress: LexofficeImportProgress, stat
 /**
  * Belegliste des Laufs. Entwürfe sind keine Belege; der Abruf übergeht sie und zählt ihre Zahl, damit sie nicht still
  * verschwindet (#1504). Vorgänge ohne Belegart kommen über die API gar nicht erst in die Liste — die Sicherung aus der
- * Web-Oberfläche lässt sie schon beim Packen draußen (#183), deshalb gibt es dafür keinen Zähler.
+ * Web-Oberfläche lässt sie schon beim Packen draußen (#183) und zählt sie dort; ihre Zahlen stehen in `webOmitted` (#1640).
  */
 async function sammleBelegliste(
   client: LexofficeSource,
