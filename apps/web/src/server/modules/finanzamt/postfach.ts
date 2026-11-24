@@ -87,7 +87,9 @@ const vergleichsform = (bezeichnung: string) => bezeichnung.trim().replace(/\s+/
  * Finanzamts („Umsatzsteuer-Vorauszahlungsbescheid Januar 2025“) wird deshalb so, wie sie kommt, Teil des Schlüssels;
  * Monatsnamen aus dem Freitext zu lesen wäre geraten (Quartale, „Januar bis März“, abweichende Schreibweisen) und könnte
  * zwei Zeiträume zusammenwerfen und damit eine offene Frist verschlucken. Anhänge desselben Bescheids tragen verschiedene
- * Bezeichnungen; zusammengehalten werden sie über ihre Bereitstellung.
+ * Bezeichnungen; zusammengehalten werden sie über ihre Bereitstellung. Fehlt der Veranlagungszeitraum, ist der Zeitraum
+ * nicht bestimmt, und sonstige Verwaltungsakte sind eigenständig: Dort bleibt jedes Dokument für sich, damit keine
+ * offene Frist verschwindet.
  */
 export async function openAppealDeadlines(today: string) {
   const offen = (await listPostfachDocuments()).filter(
@@ -103,7 +105,13 @@ export async function openAppealDeadlines(today: string) {
   const juengster = new Map<string, (typeof offen)[number]>();
   for (const bescheid of offen) {
     const zeitraum = [...(bezeichnungen.get(bescheid.bereitstellungId) ?? [])].sort().join("\u0001");
-    const schluessel = [bescheid.datenart, bescheid.veranlagungszeitraum, bescheid.steuernummer, zeitraum].join("\u0000");
+    // Ohne Veranlagungszeitraum ist der Zeitraum nicht bestimmt: Gleich benannte Bescheide verschiedener Jahre dürfen
+    // dann nicht zusammenfallen, sonst verschwindet eine offene Frist. Dasselbe gilt für sonstige Verwaltungsakte, die
+    // eigenständig sind und deren Bezeichnung nichts unterscheidet, etwa zwei Verspätungszuschläge desselben Jahres.
+    const einzeln = bescheid.veranlagungszeitraum === "" || bescheid.datenart === "DivaSonstigerVA";
+    const schluessel = einzeln
+      ? `einzeln\u0000${bescheid.id}`
+      : [bescheid.datenart, bescheid.veranlagungszeitraum, bescheid.steuernummer, zeitraum].join("\u0000");
     const bisher = juengster.get(schluessel);
     // Jüngster Bescheid je Steuerfall und Zeitraum; verglichen wird das gelesene Datum, nicht die rohe Spalte, weil
     // der Parser JJJJMMTT, JJJJ-MM-TT und TT.MM.JJJJ kennt und gemischt sonst die falsche Zeile gewinnt.

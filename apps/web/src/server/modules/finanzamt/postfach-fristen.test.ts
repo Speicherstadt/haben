@@ -145,6 +145,22 @@ describe.skipIf(!testDatabaseUrl)("Offene Einspruchsfristen (Postgres)", () => {
     expect(await postfach.openAppealDeadlines("2026-11-23")).toHaveLength(2);
   });
 
+  it("legt Bescheide ohne Veranlagungszeitraum nicht zusammen", async () => {
+    // Ohne Zeitraum ist nicht bestimmt, ob der zweite den ersten ersetzt; lieber zwei Aufgaben als eine Frist zu wenig
+    await bescheid({ nummer: 1, veranlagungszeitraum: "", bescheiddatum: "20261109" });
+    await bescheid({ nummer: 2, veranlagungszeitraum: "", bescheiddatum: "20261119" });
+
+    expect(await postfach.openAppealDeadlines("2026-11-23")).toHaveLength(2);
+  });
+
+  it("hält gleich benannte sonstige Verwaltungsakte getrennt", async () => {
+    // Zwei Verspätungszuschläge desselben Jahres heißen gleich und sind trotzdem zwei Fristen
+    await bescheid({ nummer: 1, datenart: "DivaSonstigerVA", bescheiddatum: "20261109", bezeichnung: "Verspätungszuschlag" });
+    await bescheid({ nummer: 2, datenart: "DivaSonstigerVA", bescheiddatum: "20261119", bezeichnung: "Verspätungszuschlag" });
+
+    expect(await postfach.openAppealDeadlines("2026-11-23")).toHaveLength(2);
+  });
+
   it("vergleicht Bescheiddaten in gemischter Schreibweise als Datum", async () => {
     await bescheid({ nummer: 1, bescheiddatum: "20261109" });
     await bescheid({ nummer: 2, bescheiddatum: "19.11.2026" });
