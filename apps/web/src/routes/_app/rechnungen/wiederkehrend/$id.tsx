@@ -64,7 +64,8 @@ function RecurringDetailPage() {
       <NoticeBanner notice={notice} />
       <div className="editor-grid">
         <RecurringForm
-          key={String(recurring.updatedAt)}
+          // Mit Millisekunden: String(Date) endet bei der Sekunde, zwei Aktionen in derselben Sekunde ließen das Formular stehen
+          key={recurring.updatedAt.toISOString()}
           initial={{
             name: recurring.name,
             active: recurring.active,

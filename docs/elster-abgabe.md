@@ -28,9 +28,9 @@ Diese Seite behandelt die vier Formulare der Tabelle. Weitere Verfahren sendet H
 
 - **Du hast eine eigene Hersteller-ID:** direkt aus Haben senden. Die Voranmeldung wird festgeschrieben und die Frist erledigt, und Bescheide, Postfach und Belege von ELSTER gibt es dazu. Ohne Hersteller-ID erledigt bei der Voranmeldung der [Vermerk der Abgabe](#über-mein-elster) dasselbe; die Jahreserklärungen bleiben dann in Haben offen.
 - **Du hast keine Hersteller-ID** (die Beantragung dauert oft Wochen, siehe [Hersteller-ID](einrichtung-elster.md#hersteller-id-wer-ist-hersteller)):
-  - **Voranmeldung:** XML-Import. Eine Datei hochladen, Mein ELSTER füllt das Formular.
-  - **Jahreserklärungen:** die Erweiterung. Sie trägt Seite für Seite ein, was Haben gerechnet hat.
-  - Der **KI-Assistent** ist für das, was beide nicht abdecken, oder wenn du die Erweiterung nicht installieren willst.
+    - **Voranmeldung:** XML-Import. Eine Datei hochladen, Mein ELSTER füllt das Formular.
+    - **Jahreserklärungen:** die Erweiterung. Sie trägt Seite für Seite ein, was Haben gerechnet hat.
+    - Der **KI-Assistent** ist für das, was beide nicht abdecken, oder wenn du die Erweiterung nicht installieren willst.
 
 ## Direkt aus Haben
 

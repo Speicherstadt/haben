@@ -42,19 +42,22 @@ Das kostet Zeit: Auf einem Jetson AGX Orin dauerte ein ERiC-Aufruf emuliert rund
 
 1. **QEMU besorgen:** ein statisch gebautes `qemu-x86_64` (User-Mode) ab Version 9; mit 8.2 stürzt Bun schon beim Start ab. Debian ab 13 hat es im Paket `qemu-user` (`/usr/bin/qemu-x86_64`), ältere Systeme wie Ubuntu 24.04 nur 8.2 in `qemu-user-static`. Das Programm aus dem Debian-Paket läuft auch dort, z. B. mit `apt-get download qemu-user` in einem Container mit `debian:trixie` und `dpkg-deb -x`.
 2. **Laufzeit anlegen:** auf dem Host als root, mit derselben Version wie das App-Image. Das Skript kommt vom Tag dieser Version, damit Skript und App zusammenpassen:
-   ```sh
-   VERSION=x.y.z   # Version deines App-Images
-   curl -O https://raw.githubusercontent.com/Speicherstadt/haben/v$VERSION/deploy/eric-x86_64/einrichten.sh
-   sudo QEMU=/pfad/zu/qemu-x86_64 sh einrichten.sh $VERSION /opt/haben-x86_64
-   ```
-   Das Skript lädt das amd64-Image von Haben, entpackt es nach `/opt/haben-x86_64/root` (rund 730 MB), kopiert QEMU daneben und legt `worker.sh` an, den Befehl für `ERIC_WORKER_COMMAND`. Den lokalen Tag des Images setzt es danach zurück: Lag das Image der App schon auf dem Rechner, zeigt der Tag wieder darauf, sonst wird er entfernt. So startet die App beim nächsten Mal nicht das amd64-Image.
+
+    ```sh
+    VERSION=x.y.z   # Version deines App-Images
+    curl -O https://raw.githubusercontent.com/Speicherstadt/haben/v$VERSION/deploy/eric-x86_64/einrichten.sh
+    sudo QEMU=/pfad/zu/qemu-x86_64 sh einrichten.sh $VERSION /opt/haben-x86_64
+    ```
+
+    Das Skript lädt das amd64-Image von Haben, entpackt es nach `/opt/haben-x86_64/root` (rund 730 MB), kopiert QEMU daneben und legt `worker.sh` an, den Befehl für `ERIC_WORKER_COMMAND`. Den lokalen Tag des Images setzt es danach zurück: Lag das Image der App schon auf dem Rechner, zeigt der Tag wieder darauf, sonst wird er entfernt. So startet die App beim nächsten Mal nicht das amd64-Image.
+
 3. **In der App einbinden** und neu starten:
 
-   | | Compose | Quadlet |
-   | --- | --- | --- |
-   | Verzeichnis mounten | in `compose.override.yml` beim Dienst `app` unter `volumes` `- /opt/haben-x86_64:/opt/haben-x86_64:ro` eintragen (Beispiel in der [Beispiel-Override-Datei](installation.md#beispiel-override-datei); der [Compose-Generator](compose-generator.md) erzeugt Mount und Variable) | in `haben-app.container` die Zeile `Volume=/opt/haben-x86_64:/opt/haben-x86_64:ro` einkommentieren |
-   | Variable | `ERIC_WORKER_COMMAND=/opt/haben-x86_64/worker.sh` in `.env` | `ERIC_WORKER_COMMAND=/opt/haben-x86_64/worker.sh` in `haben.env` einkommentieren |
-   | Neu starten | `docker compose up -d` | `systemctl --user daemon-reload && systemctl --user restart haben-app` |
+    | | Compose | Quadlet |
+    | --- | --- | --- |
+    | Verzeichnis mounten | in `compose.override.yml` beim Dienst `app` unter `volumes` `- /opt/haben-x86_64:/opt/haben-x86_64:ro` eintragen (Beispiel in der [Beispiel-Override-Datei](installation.md#beispiel-override-datei); der [Compose-Generator](compose-generator.md) erzeugt Mount und Variable) | in `haben-app.container` die Zeile `Volume=/opt/haben-x86_64:/opt/haben-x86_64:ro` einkommentieren |
+    | Variable | `ERIC_WORKER_COMMAND=/opt/haben-x86_64/worker.sh` in `.env` | `ERIC_WORKER_COMMAND=/opt/haben-x86_64/worker.sh` in `haben.env` einkommentieren |
+    | Neu starten | `docker compose up -d` | `systemctl --user daemon-reload && systemctl --user restart haben-app` |
 
 4. **ERiC laden** wie oben unter [ERiC einbinden](#eric-einbinden); mit `ERIC_WORKER_COMMAND` bietet Haben den Download auch auf arm64 an.
 

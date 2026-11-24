@@ -157,13 +157,13 @@ Braucht ein Modul etwas von einem Modul über sich, gehört der Code woanders hi
 1. Die Seite ruft die Server Function `finalizeInvoiceDraft` auf. `authMiddleware` prüft die Sitzung.
 2. `finalizeInvoice` in `server/modules/rechnungen/invoice-finalize.ts` öffnet eine Transaktion mit `withActor`.
 3. In dieser Transaktion:
-   - Entwurf mit `SELECT … FOR UPDATE` sperren,
-   - Firmendaten, Kunde, Positionen, Beträge, die umsatzsteuerliche Behandlung und die Pflichtfelder des gewählten E-Rechnungsformats prüfen (`finalizeIssues`, dieselbe Prüfung wie in der Oberfläche, hier mit der Transaktion),
-   - den Nummernkreis sperren und die nächste Nummer nur lesen (`peekNumber` in `server/modules/rechnungen/number-counter.ts`, Advisory Lock je Kreis); ein Kreis ist das Jahr des Rechnungsdatums oder, bei durchlaufendem Zähler, `0` (`counterCircle`), beim Zähler je Kunde je Kontakt ein eigener (`contact_id` der Zählertabellen, `number_contact_id` der Belege; NULL bleibt der gemeinsame Kreis, #1426), so steht er auch in den Zählertabellen und in `number_year`,
-   - PDF und XML aus Positionen und den gespeicherten Steuerzeilen (`invoice_taxes`) erzeugen (siehe unten); bis hierhin hat die Transaktion nichts mit Audit-Eintrag geschrieben, die Hash-Kette ist also frei (außer wenn ein Entwurf in Fremdwährung den Kurs übernimmt, siehe unten),
-   - den Zähler auf diese Nummer setzen (`takeNumber`; ab hier ist die Kette gesperrt),
-   - Rechnung auf `final` setzen, mit Verkäufer- und Käuferdaten, Summen, PDF, XML, SHA-256 und `locked_at`,
-   - über `ledger.post` buchen und festschreiben; der Trigger prüft Soll = Haben.
+    - Entwurf mit `SELECT … FOR UPDATE` sperren,
+    - Firmendaten, Kunde, Positionen, Beträge, die umsatzsteuerliche Behandlung und die Pflichtfelder des gewählten E-Rechnungsformats prüfen (`finalizeIssues`, dieselbe Prüfung wie in der Oberfläche, hier mit der Transaktion),
+    - den Nummernkreis sperren und die nächste Nummer nur lesen (`peekNumber` in `server/modules/rechnungen/number-counter.ts`, Advisory Lock je Kreis); ein Kreis ist das Jahr des Rechnungsdatums oder, bei durchlaufendem Zähler, `0` (`counterCircle`), beim Zähler je Kunde je Kontakt ein eigener (`contact_id` der Zählertabellen, `number_contact_id` der Belege; NULL bleibt der gemeinsame Kreis, #1426), so steht er auch in den Zählertabellen und in `number_year`,
+    - PDF und XML aus Positionen und den gespeicherten Steuerzeilen (`invoice_taxes`) erzeugen (siehe unten); bis hierhin hat die Transaktion nichts mit Audit-Eintrag geschrieben, die Hash-Kette ist also frei (außer wenn ein Entwurf in Fremdwährung den Kurs übernimmt, siehe unten),
+    - den Zähler auf diese Nummer setzen (`takeNumber`; ab hier ist die Kette gesperrt),
+    - Rechnung auf `final` setzen, mit Verkäufer- und Käuferdaten, Summen, PDF, XML, SHA-256 und `locked_at`,
+    - über `ledger.post` buchen und festschreiben; der Trigger prüft Soll = Haben.
 4. Schlägt ein Schritt fehl, wird alles zurückgerollt. Die Nummer ist dann nicht verbraucht; der Nummernkreis bleibt lückenlos.
 
 Ein eigenes Layout setzt `withCustomLayout` über den Render-Prozess ebenfalls in der Transaktion, wie beim Anlegen einer Mahnung. Außerhalb gesetzt, gäbe es entweder eine festgeschriebene Rechnung ohne PDF oder ein PDF, dessen Nummer und Daten beim Speichern erneut geprüft werden müssten. Solange es setzt, hält die Transaktion beim Festschreiben die Sperre des Nummernkreises und die Zeilensperren, bei der Mahnung nur die Sperre der Rechnung; die Hash-Kette nur, wenn sie vorher schon etwas mit Audit-Eintrag geschrieben hat: beim Storno (siehe unten) und wenn ein Entwurf in Fremdwährung erst den Umrechnungskurs übernimmt (`applyRateToDraft`). Das Zeitlimit des Render-Prozesses (5 Sekunden) gilt je Auftrag; Aufträge davor in seiner Warteschlange, etwa Vorschauen, kommen dazu.
@@ -232,9 +232,10 @@ Beim Festschreiben entsteht die Rechnung in zwei Stufen:
 
 1. **Sichtbares PDF:** Typst setzt die Vorlage des Layouts der Belegart (`templates/layout-*.typ` auf `layout-basis.typ`, Klar in der Fassung „Klassisch“ `rechnung.typ`) mit der gewählten Schrift als PDF/A-3b. Der Compiler läuft im Prozess (`@myriaddreamin/typst-ts-node-compiler`). Die Vorschau der Editoren setzt dieselbe Vorlage aus dem Stand des Formulars als SVG, in einem eigenen Prozess (`render-worker.ts`).
 2. **E-Rechnung:** `toEInvoiceData` in `daten.ts` baut aus denselben Daten das Rechnungsmodell nach EN 16931 (`modell.ts`, Felder in UBL-Namen). Daraus schreibt Haben das XML selbst:
-   - **CII** (`cii.ts`, D16B) für XRechnung CII und **ZUGFeRD** (Profil EN 16931). Bei ZUGFeRD hängt `zugferd.ts` das CII als `factur-x.xml` mit `pdf-lib` an das PDF/A-3 aus Typst (AFRelationship „Alternative“) und ergänzt dessen XMP um die Factur-X-Angaben; die übrigen Metadaten und Zeitstempel bleiben die aus Typst, dieselbe Rechnung ergibt also dasselbe PDF. Das CII speichert Haben zusätzlich neben dem PDF.
-   - **UBL** (`ubl.ts`, UBL 2.1) für XRechnung UBL, als `Invoice` oder bei Storno und Korrektur als `CreditNote`; das Typst-PDF bleibt als Sichtfassung dabei.
-   Die Reihenfolge der Elemente folgt jeweils dem Schema. Länder- und Währungscodes prüft `validateForFormat` gegen die Codelisten der EN 16931 (`codelisten.ts`). Das XML jeder Beispielrechnung aus `beispielrechnungen.ts` liegt in `test-fixtures/e-rechnung/`; `e-rechnung-vergleich.test.ts` meldet jede Abweichung. Die Tests in `referenzen.test.ts` suchen jede gesetzte Referenz im erzeugten XML, weil der KoSIT-Validator ein fehlendes optionales Feld nicht meldet.
+    - **CII** (`cii.ts`, D16B) für XRechnung CII und **ZUGFeRD** (Profil EN 16931). Bei ZUGFeRD hängt `zugferd.ts` das CII als `factur-x.xml` mit `pdf-lib` an das PDF/A-3 aus Typst (AFRelationship „Alternative“) und ergänzt dessen XMP um die Factur-X-Angaben; die übrigen Metadaten und Zeitstempel bleiben die aus Typst, dieselbe Rechnung ergibt also dasselbe PDF. Das CII speichert Haben zusätzlich neben dem PDF.
+    - **UBL** (`ubl.ts`, UBL 2.1) für XRechnung UBL, als `Invoice` oder bei Storno und Korrektur als `CreditNote`; das Typst-PDF bleibt als Sichtfassung dabei.
+
+    Die Reihenfolge der Elemente folgt jeweils dem Schema. Länder- und Währungscodes prüft `validateForFormat` gegen die Codelisten der EN 16931 (`codelisten.ts`). Das XML jeder Beispielrechnung aus `beispielrechnungen.ts` liegt in `test-fixtures/e-rechnung/`; `e-rechnung-vergleich.test.ts` meldet jede Abweichung. Die Tests in `referenzen.test.ts` suchen jede gesetzte Referenz im erzeugten XML, weil der KoSIT-Validator ein fehlendes optionales Feld nicht meldet.
 
 Eingehende E-Rechnungen liest `packages/einvoice` direkt: das eingebettete XML aus ZUGFeRD-PDFs oder reines XML (CII, UBL). Die Felder des Belegs werden daraus vorbefüllt, ohne KI.
 

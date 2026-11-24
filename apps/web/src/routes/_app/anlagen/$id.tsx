@@ -118,7 +118,8 @@ function AssetPage() {
             </p>
           )}
           <AssetForm
-            key={String(asset.updatedAt)}
+            // Mit Millisekunden: String(Date) endet bei der Sekunde, zwei Aktionen in derselben Sekunde ließen das Formular stehen
+            key={asset.updatedAt.toISOString()}
             initial={{
               name: asset.name,
               kind: asset.kind,
