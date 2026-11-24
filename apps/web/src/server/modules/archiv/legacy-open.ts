@@ -79,11 +79,10 @@ function blockerFor(voucher: LegacyVoucher, state: LegacyOpenAt, cutoff: string,
   if (voucher.taxes.some((t) => ![1900, 700, 0].includes(t.rate))) return "Steuersatz, den Haben nicht kennt";
   if (voucher.gross <= 0) return "Betrag nicht positiv";
   // Dateistand (#345): ein fehlendes XML neben dem PDF blockiert ebenso, das XML einer E-Rechnung ist das Original
-  if (fileState === "anhang_fehlt") return `XML der E-Rechnung fehlt – „Erneut abrufen“ versucht es noch einmal`;
-  // Ein fehlgeschlagener Abruf blockiert auch neben einer anderen Datei, etwa einem weiteren Anhang aus Lexoffice oder einer
+  // Ein fehlender Anhang oder ein fehlgeschlagener Abruf blockiert auch neben einer anderen Datei, etwa einem weiteren Anhang aus Lexoffice oder einer
   // später in sevDesk genannten Datei (#472): Unvollständig Abgerufenes übernimmt Haben nicht ohne Rückfrage (Konventionen, „Umzüge“)
-  if (fileState === "abruf_fehlgeschlagen") return takeoverFileIssue(fileState, SOURCE_LABEL[voucher.source]);
-  if (!hasPdf) return takeoverFileIssue(fileState, SOURCE_LABEL[voucher.source]) ?? `keine Datei aus ${SOURCE_LABEL[voucher.source]}`;
+  if (fileState === "anhang_fehlt" || fileState === "abruf_fehlgeschlagen" || !hasPdf)
+    return takeoverFileIssue(fileState, voucher.source, voucher.raw.quelle) ?? `keine Datei aus ${SOURCE_LABEL[voucher.source]}`;
   return null;
 }
 

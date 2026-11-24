@@ -1,54 +1,24 @@
 import { formatDecimal, parseEuro } from "@haben/core";
-import { Fragment } from "react";
-import type { EstArbeitnehmer, EstLohnsteuerbescheinigung } from "@haben/elster";
+import { Fragment, useContext } from "react";
+import type { EstArbeitnehmer } from "@haben/elster";
 import { Field } from "./Field.tsx";
+import {
+  type ArbeitnehmerDraft,
+  anSchluessel,
+  BETRAEGE,
+  type BescheinigungDraft,
+  type BetragKey,
+  HOECHSTENS_BESCHEINIGUNGEN,
+  WK_BETRAEGE,
+  type WkKey,
+} from "./jahreserklaerung/anlage-n-pruefung.ts";
+import { EstFehler } from "./jahreserklaerung/EstAngaben.tsx";
 
 /**
  * Eingabe der Anlage N einer Person: Lohnsteuerbescheinigungen (Nummern wie auf der Bescheinigung)
- * und Werbungskosten. Der Zustand liegt beim Formular der Einkommensteuer, hier nur Felder und Umwandlung.
+ * und Werbungskosten. Der Zustand liegt beim Formular der Einkommensteuer, hier nur Felder und Umwandlung; gelesen und
+ * geprüft wird in `jahreserklaerung/anlage-n-pruefung.ts`.
  */
-
-const BETRAEGE = [
-  ["brutto", "Nr. 3 Bruttoarbeitslohn"],
-  ["lohnsteuer", "Nr. 4 Lohnsteuer"],
-  ["soli", "Nr. 5 Solidaritätszuschlag"],
-  ["kirchensteuer", "Nr. 6 Kirchensteuer"],
-  ["kirchensteuerEhegatte", "Nr. 7 Kirchensteuer Ehegatte"],
-  ["rvArbeitgeber", "Nr. 22a Rentenversicherung Arbeitgeber"],
-  ["rvArbeitnehmer", "Nr. 23a Rentenversicherung Arbeitnehmer"],
-  ["kvArbeitnehmer", "Nr. 25 Krankenversicherung"],
-  ["pvArbeitnehmer", "Nr. 26 Pflegeversicherung"],
-  ["avArbeitnehmer", "Nr. 27 Arbeitslosenversicherung"],
-] as const;
-
-type BetragKey = (typeof BETRAEGE)[number][0];
-
-export type BescheinigungDraft = { key: number; steuerklasse: string } & Record<BetragKey, string>;
-
-const WK_BETRAEGE = [
-  ["arbeitsmittel", "Arbeitsmittel", "z. B. Laptop, Fachliteratur, Arbeitskleidung"],
-  ["fortbildung", "Fortbildung", undefined],
-  ["gewerkschaft", "Gewerkschaft", "ab 2026 zusätzlich zum Pauschbetrag"],
-  ["berufsverbaende", "Berufsverbände", undefined],
-  ["arbeitszimmer", "Häusliches Arbeitszimmer", "nur als Mittelpunkt der gesamten Tätigkeit: Kosten oder Pauschale 1.260 €, je Monat ohne 105 € weniger"],
-  ["sonstige", "Weitere Werbungskosten", "z. B. Kontoführung pauschal 16 €, Bewerbungen"],
-] as const;
-
-type WkKey = (typeof WK_BETRAEGE)[number][0];
-
-export type ArbeitnehmerDraft = {
-  aktiv: boolean;
-  bescheinigungen: BescheinigungDraft[];
-  tage: string;
-  km: string;
-  adresse: string;
-  arbeitstageJeWoche: string;
-  urlaubstage: string;
-  homeofficeTage: string;
-  keinAndererArbeitsplatz: boolean;
-  /** Monate, in denen das Arbeitszimmer wenigstens zeitweise der Mittelpunkt der gesamten Tätigkeit war */
-  arbeitszimmerMonate: string;
-} & Record<WkKey, string>;
 
 const centsText = (cents: number | undefined) => (cents ? formatDecimal(cents) : "");
 const numberText = (n: number | undefined) => (n ? String(n).replace(".", ",") : "");
@@ -81,63 +51,20 @@ export function toArbeitnehmerDraft(an: EstArbeitnehmer | undefined): Arbeitnehm
   };
 }
 
-/** Wandelt den Entwurf um; ungültige Felder landen in `bad` */
-export function parseArbeitnehmer(d: ArbeitnehmerDraft, wer: string, bad: string[]): EstArbeitnehmer | undefined {
-  if (!d.aktiv) return undefined;
-  const amount = (text: string, label: string) => {
-    if (!text.trim()) return undefined;
-    const cents = parseEuro(text);
-    if (cents === null || cents < 0) {
-      bad.push(`${label} (${wer})`);
-      return undefined;
-    }
-    return cents || undefined;
-  };
-  // `null0`: eine 0 heißt „nichts“ und wird nicht gespeichert; bei den Monaten des Arbeitszimmers zählt sie
-  const whole = (text: string, label: string, max: number, null0 = true) => {
-    if (!text.trim()) return undefined;
-    const n = Number(text.replace(",", "."));
-    if (!Number.isFinite(n) || n < 0 || n > max) {
-      bad.push(`${label} (${wer})`);
-      return undefined;
-    }
-    return n || (null0 ? undefined : 0);
-  };
-  const bescheinigungen = d.bescheinigungen.map((b, i): EstLohnsteuerbescheinigung => {
-    const values = Object.fromEntries(BETRAEGE.map(([k, label]) => [k, amount(b[k], `Bescheinigung ${i + 1}: ${label}`)])) as Partial<
-      Record<BetragKey, number>
-    >;
-    if (!values.brutto) bad.push(`Bescheinigung ${i + 1}: Bruttoarbeitslohn (${wer})`);
-    return { ...values, steuerklasse: Number(b.steuerklasse) as EstLohnsteuerbescheinigung["steuerklasse"], brutto: values.brutto ?? 0 };
-  });
-  const tage = whole(d.tage, "Arbeitstage an der Tätigkeitsstätte", 366);
-  const km = whole(d.km, "Entfernung", 9999);
-  if ((tage || km) && !(tage && km && d.adresse.trim())) bad.push(`Wege zur Arbeit: Tage, Entfernung und Anschrift (${wer})`);
-  const arbeitstageJeWoche = whole(d.arbeitstageJeWoche, "Arbeitstage je Woche", 7);
-  const urlaubstage = whole(d.urlaubstage, "Urlaubs- und Krankheitstage", 366);
-  return {
-    bescheinigungen,
-    werbungskosten: {
-      ...(tage && km
-        ? {
-            wege: {
-              tage: Math.floor(tage),
-              km,
-              adresse: d.adresse.trim(),
-              ...(arbeitstageJeWoche ? { arbeitstageJeWoche: Math.floor(arbeitstageJeWoche) } : {}),
-              ...(urlaubstage ? { urlaubstage: Math.floor(urlaubstage) } : {}),
-            },
-          }
-        : {}),
-      homeofficeTage: whole(d.homeofficeTage, "Homeoffice-Tage", 366),
-      keinAndererArbeitsplatz: d.keinAndererArbeitsplatz || undefined,
-      ...(Object.fromEntries(WK_BETRAEGE.map(([k, label]) => [k, amount(d[k], label)])) as Partial<Record<WkKey, number>>),
-      arbeitszimmerMonate: whole(d.arbeitszimmerMonate, "Monate als Mittelpunkt", 12, false),
-    },
-  };
-}
-
-export function AnlageNFields({ wer, draft, onChange }: { wer: string; draft: ArbeitnehmerDraft; onChange: (draft: ArbeitnehmerDraft) => void }) {
+export function AnlageNFields({
+  p,
+  wer,
+  draft,
+  onChange,
+}: {
+  p: "a" | "b";
+  wer: string;
+  draft: ArbeitnehmerDraft;
+  onChange: (draft: ArbeitnehmerDraft) => void;
+}) {
+  // Fehler aus useSubmitCheck der Einkommensteuer, je Person und Feld, bei Bescheinigungen auch je Bescheinigung (#1277)
+  const fehler = useContext(EstFehler);
+  const error = (feld: string, bescheinigung?: number) => fehler(anSchluessel(p, feld, bescheinigung));
   const set = (patch: Partial<ArbeitnehmerDraft>) => onChange({ ...draft, ...patch });
   const setB = (key: number, patch: Partial<BescheinigungDraft>) =>
     set({ bescheinigungen: draft.bescheinigungen.map((b) => (b.key === key ? { ...b, ...patch } : b)) });
@@ -198,7 +125,7 @@ export function AnlageNFields({ wer, draft, onChange }: { wer: string; draft: Ar
                     )}
                   </Field>
                   {BETRAEGE.map(([k, label]) => (
-                    <Field label={label} key={k}>
+                    <Field label={label} key={k} error={error(k, b.key)}>
                       {(control) => (
                         <input
                           {...control}
@@ -225,11 +152,18 @@ export function AnlageNFields({ wer, draft, onChange }: { wer: string; draft: Ar
                 </div>
               </details>
             ))}
-            <div>
-              <button type="button" className="btn" onClick={() => set({ bescheinigungen: [...draft.bescheinigungen, emptyBescheinigung()] })}>
-                + Weitere Lohnsteuerbescheinigung
-              </button>
-            </div>
+            {/* Mehr nimmt der Server nicht an; ohne Platz fehlt der Knopf (DESIGN.md, Gesperrte Knöpfe) */}
+            {draft.bescheinigungen.length < HOECHSTENS_BESCHEINIGUNGEN ? (
+              <div>
+                <button type="button" className="btn" onClick={() => set({ bescheinigungen: [...draft.bescheinigungen, emptyBescheinigung()] })}>
+                  + Weitere Lohnsteuerbescheinigung
+                </button>
+              </div>
+            ) : (
+              <p className="small muted" style={{ margin: 0 }}>
+                Haben nimmt höchstens {HOECHSTENS_BESCHEINIGUNGEN} Lohnsteuerbescheinigungen je Person auf.
+              </p>
+            )}
 
             <details className="est-block">
               <summary>
@@ -241,24 +175,24 @@ export function AnlageNFields({ wer, draft, onChange }: { wer: string; draft: Ar
                 </span>
               </summary>
               <div className="form-row cols-2" style={{ marginTop: 8 }} role="group" aria-label={`Werbungskosten · ${wer}`}>
-                <Field label="Erste Tätigkeitsstätte (PLZ, Ort, Straße)" style={{ gridColumn: "1 / -1" }}>
+                <Field label="Erste Tätigkeitsstätte (PLZ, Ort, Straße)" style={{ gridColumn: "1 / -1" }} error={error("adresse")}>
                   {(control) => <input {...control} value={draft.adresse} onChange={(e) => set({ adresse: e.target.value })} maxLength={200} />}
                 </Field>
-                <Field label="Tage dort">
+                <Field label="Tage dort" error={error("tage")}>
                   {(control) => <input {...control} inputMode="numeric" value={draft.tage} onChange={(e) => set({ tage: e.target.value })} />}
                 </Field>
-                <Field label="Einfache Entfernung in km">
+                <Field label="Einfache Entfernung in km" error={error("km")}>
                   {(control) => <input {...control} inputMode="decimal" value={draft.km} onChange={(e) => set({ km: e.target.value })} />}
                 </Field>
-                <Field label="Arbeitstage je Woche">
+                <Field label="Arbeitstage je Woche" error={error("arbeitstageJeWoche")}>
                   {(control) => (
                     <input {...control} inputMode="numeric" value={draft.arbeitstageJeWoche} onChange={(e) => set({ arbeitstageJeWoche: e.target.value })} />
                   )}
                 </Field>
-                <Field label="Urlaubs- und Krankheitstage">
+                <Field label="Urlaubs- und Krankheitstage" error={error("urlaubstage")}>
                   {(control) => <input {...control} inputMode="numeric" value={draft.urlaubstage} onChange={(e) => set({ urlaubstage: e.target.value })} />}
                 </Field>
-                <Field label="Homeoffice-Tage" hint="ohne Fahrt zur Tätigkeitsstätte; 6 € je Tag, höchstens 210 Tage">
+                <Field label="Homeoffice-Tage" hint="ohne Fahrt zur Tätigkeitsstätte; 6 € je Tag, höchstens 210 Tage" error={error("homeofficeTage")}>
                   {(control) => (
                     <input {...control} inputMode="numeric" value={draft.homeofficeTage} onChange={(e) => set({ homeofficeTage: e.target.value })} />
                   )}
@@ -269,7 +203,7 @@ export function AnlageNFields({ wer, draft, onChange }: { wer: string; draft: Ar
                 </label>
                 {WK_BETRAEGE.map(([k, label, hint]) => (
                   <Fragment key={k}>
-                    <Field label={label} hint={hint && hint} key={k}>
+                    <Field label={label} hint={hint && hint} key={k} error={error(k)}>
                       {(control) => (
                         <input {...control} inputMode="decimal" value={draft[k]} onChange={(e) => set({ [k]: e.target.value })} placeholder="0,00" />
                       )}
@@ -278,6 +212,7 @@ export function AnlageNFields({ wer, draft, onChange }: { wer: string; draft: Ar
                       <Field
                         label="Monate als Mittelpunkt"
                         hint="Monate, in denen das Zimmer wenigstens zeitweise der Mittelpunkt war; je vollem Monat ohne 105 € weniger als 1.260 €"
+                        error={error("arbeitszimmerMonate")}
                       >
                         {(control) => (
                           <input

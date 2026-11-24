@@ -11,10 +11,11 @@ import { JournalVergleich } from "../../../components/umsatzsteuer/JournalVergle
 import { formatLongDate } from "../../../lib/format.ts";
 import { getVatPeriod } from "../../../server/functions/vat.ts";
 import type { Notice } from "../../../lib/use-action.ts";
+import { usePruefungBeimSpeichern } from "./-zeitraum-pruefung.ts";
 import { Field } from "../../../components/Field.tsx";
 import type { PageData } from "./-zeitraum-quellen.tsx";
 import { type FieldKey, KennzahlenTabelle } from "./-zeitraum-kennzahlen.tsx";
-import { AbgabeSpalte, useVoranmeldungAktionen } from "./-zeitraum-abgabe.tsx";
+import { AbgabeSpalte, anmeldbar, useVoranmeldungAktionen } from "./-zeitraum-abgabe.tsx";
 
 export const Route = createFileRoute("/_app/umsatzsteuer/$zeitraum")({
   loader: ({ params }) => {
@@ -41,6 +42,7 @@ const FIELDS: FieldKey[] = [
   "kz46",
   "kz47",
   "kz48",
+  "kz50",
   "kz61",
   "kz62",
   "kz66",
@@ -53,9 +55,24 @@ const FIELDS: FieldKey[] = [
 
 type Figures = Pick<Record<FieldKey, number>, "kz81" | "kz86" | "kz66"> & Partial<Record<FieldKey, number>>;
 
+/**
+ * Kennzahlen für den Vergleich mit einer gesendeten Anmeldung: ohne Kz 50 wie der Abgleich in gesendet-pruefen.ts (#1267).
+ * Sie ändert keine Steuer, und vor #1267 gesendete Anmeldungen haben sie nicht.
+ */
+const GESENDET_VERGLEICHEN = FIELDS.filter((field) => field !== "kz50");
+
 /** Gleiche Kennzahlen? Fehlende Kz 21/45/48 (ältere Anmeldungen) zählen als 0 */
-function sameFigures(a: Figures, b: Figures): boolean {
-  return FIELDS.every((field) => (a[field] ?? 0) === (b[field] ?? 0));
+function sameFigures(a: Figures, b: Figures, fields: readonly FieldKey[] = FIELDS): boolean {
+  return fields.every((field) => (a[field] ?? 0) === (b[field] ?? 0));
+}
+
+/**
+ * Weicht die heutige Rechnung von der gesendeten Anmeldung ab? Kz 48 gilt auch ohne die Umsätze als Kleinunternehmer als
+ * gleich, so hat Haben sie vor #1268 gemeldet (wie gesendet-pruefen.ts)
+ */
+function seitGesendetGeaendert(gesendet: Figures, computed: Figures, data: PageData): boolean {
+  const vor1268 = computeUstva({ ...data.figures, kz48: data.figures.kz48 - data.figures.kz48Kleinunternehmer, kz39: data.kz39 });
+  return !sameFigures(gesendet, computed, GESENDET_VERGLEICHEN) && !sameFigures(gesendet, vor1268, GESENDET_VERGLEICHEN);
 }
 type PeriodNotice = { key: string; notice: Notice };
 
@@ -196,19 +213,15 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
   const [dirty, setDirty] = useState(!current);
 
   const parsed = Object.fromEntries(FIELDS.map((f) => [f, parseEuro(values[f])])) as Record<FieldKey, number | null>;
-  // Negative Werte sind erlaubt, etwa wenn Gutschriften im Monat überwiegen
-  const manualValid = Object.values(parsed).every((v) => v !== null) && reason.trim().length >= 10;
   const manualFigures = Object.fromEntries(FIELDS.map((f) => [f, parsed[f] ?? 0])) as Record<FieldKey, number>;
-  // Ein Zeitraum, der nicht zum eingestellten Voranmeldungszeitraum passt, lässt sich nicht neu anmelden; berichtigen geht
-  const allowed = !data.periodProblem || Boolean(current?.berichtigt);
-  const valid = allowed && (mode === "berechnet" || manualValid);
+  const allowed = anmeldbar(data);
   const shown = locked ? computeUstva(current!) : mode === "manuell" ? computeUstva(manualFigures) : computed;
   // Gespeicherter berechneter Entwurf, dessen Werte sich inzwischen geändert haben
   const stale = !locked && current?.source === "berechnet" && !sameFigures(current, computed);
 
   // Gesendete Anmeldung, deren Buchungen sich danach geändert haben (z. B. Zuordnung aufgehoben)
   const sentBasis = locked ? (current!.source === "berechnet" ? current! : current!.computed) : null;
-  const drift = sentBasis !== null && sentBasis !== undefined && !sameFigures(sentBasis, computed);
+  const drift = sentBasis !== null && sentBasis !== undefined && seitGesendetGeaendert(sentBasis, computed, data);
 
   function update(field: FieldKey, value: string) {
     setValues((prev) => ({ ...prev, [field]: value }));
@@ -221,12 +234,14 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
   }
 
   const { busy, onSave, onSubmit, onCorrect } = useVoranmeldungAktionen(data, { mode, manualFigures, reason, dirty, setDirty }, setNotice);
+  // Prüfung beim Speichern statt gesperrtem Knopf (#1270)
+  const { pruefung, check, speichern } = usePruefungBeimSpeichern(parsed, reason, mode, onSave);
 
   const editable = !locked && mode === "manuell";
 
   return (
     <div className="grid-main">
-      <form className="card" onSubmit={onSave} aria-labelledby="kz-heading">
+      <form ref={pruefung.form} noValidate className="card" onSubmit={speichern} aria-labelledby="kz-heading">
         <h2 id="kz-heading">Kennzahlen</h2>
         {data.kleinunternehmer && (
           <div className="banner banner-info" role="status">
@@ -272,9 +287,18 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
         <p className="small muted" style={{ margin: 0 }}>
           Kz = Kennzahl, die Nummer des Felds im ELSTER-Formular.
         </p>
-        <KennzahlenTabelle data={data} shown={shown} computed={computed} eingabe={{ locked, editable, values, parsed, update, openSources, toggleSources }} />
+        <KennzahlenTabelle
+          data={data}
+          shown={shown}
+          computed={computed}
+          eingabe={{ locked, editable, values, fehler: (f) => pruefung.error(f), update, openSources, toggleSources }}
+        />
         {editable && (
-          <Field label="Begründung der Abweichung (Pflicht)" hint={<>Berechnet wären {describe(computed)}.</>}>
+          <Field
+            label="Begründung der Abweichung (Pflicht)"
+            hint={<>Mindestens 10 Zeichen. Berechnet wären {describe(computed)}.</>}
+            error={pruefung.error("reason")}
+          >
             {(control) => (
               <textarea
                 {...control}
@@ -283,7 +307,7 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
                   setReason(event.target.value);
                   setDirty(true);
                 }}
-                aria-invalid={reason.trim().length < 10}
+                maxLength={1000}
                 placeholder="z. B. Zahlung vom 30.09. erst im Oktober zugeordnet"
               />
             )}
@@ -303,7 +327,7 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
         </p>
         {!locked && (
           <div className="actions">
-            <button type="submit" className="btn" disabled={busy || !valid || (!dirty && Boolean(current) && !stale)}>
+            <button type="submit" className="btn" disabled={busy || !allowed || (!dirty && Boolean(current) && !stale)}>
               Entwurf speichern
             </button>
             {current && !dirty && !stale && data.companyIssues.length === 0 && (
@@ -323,7 +347,7 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
         <NoticeBanner notice={notice} />
       </form>
 
-      <AbgabeSpalte data={data} locked={locked} valid={valid} busy={busy} shown={shown} dirty={dirty} stale={stale} onSubmit={onSubmit} setNotice={setNotice} />
+      <AbgabeSpalte data={data} locked={locked} check={check} busy={busy} shown={shown} dirty={dirty} stale={stale} onSubmit={onSubmit} setNotice={setNotice} />
     </div>
   );
 }

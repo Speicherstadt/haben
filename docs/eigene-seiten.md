@@ -16,8 +16,8 @@ Haben speichert nur Name, Adresse und wie sich die Seite öffnet. Was die Seite 
 1. **Einstellungen → Eigene Seiten** öffnen.
 2. Einen **Namen im Menü** vergeben (z. B. „Bestellungen“, höchstens 40 Zeichen) und die **Adresse** der Seite eintragen, mit `https://` oder `http://`. Benutzername und Passwort in der Adresse (`https://nutzer:passwort@…`) lehnt Haben ab, weil sie sonst im Menü und im Änderungsprotokoll stünden.
 3. Unter **Öffnen** wählen, wie der Menüeintrag die Seite zeigt:
-   - **In Haben, neben dem Menü**: im Rahmen, ohne Haben zu verlassen. Die Seite muss das Einbetten erlauben (siehe unten).
-   - **In neuem Tab**: als eigener Tab des Browsers, ohne Rahmen. Das geht mit jeder Seite, auch mit solchen, die das Einbetten verbieten, etwa [Paperless-ngx](https://docs.paperless-ngx.com).
+    - **In Haben, neben dem Menü**: im Rahmen, ohne Haben zu verlassen. Die Seite muss das Einbetten erlauben (siehe unten).
+    - **In neuem Tab**: als eigener Tab des Browsers, ohne Rahmen. Das geht mit jeder Seite, auch mit solchen, die das Einbetten verbieten, etwa [Paperless-ngx](https://docs.paperless-ngx.com).
 4. **Seite hinzufügen.** Die Seite steht jetzt im Menü unter **Eigene Seiten**. Das Symbol davor zeigt, wie sie sich öffnet: ein Fenster mit Seitenleiste für **In Haben**, ein Pfeil aus dem Kasten für **In neuem Tab**.
 
 Ist **In Haben** gewählt, ruft Haben die Adresse nach der Eingabe einmal auf und prüft, ob die Seite das Einbetten verbietet. Dann erscheint ein Hinweis mit dem Header, der es verbietet, und dem Rat, **In neuem Tab** zu wählen. Der Hinweis hält nichts auf: Haben sieht die Seite vom Server aus, nicht aus deinem Browser. Erreicht der Server sie nicht, etwa weil sie nur in deinem Netz läuft oder ein Proxy davor erst die Anmeldung zeigt, sagt Haben das, und du siehst nach dem Speichern im Menü, ob sie erscheint.
@@ -31,11 +31,12 @@ Ist **In Haben** gewählt, ruft Haben die Adresse nach der Eingabe einmal auf un
 - **Eine eigene Adresse.** Die Seite muss unter einer anderen Herkunft laufen als Haben, also auf einer anderen Subdomain (`n8n.example.de` neben `haben.example.de`) oder einem anderen Port (`http://192.168.1.20:5678`). Die Adresse von Haben selbst lehnt Haben ab: Eine Seite derselben Herkunft hätte im Rahmen die volle Sitzung und könnte Rechnungen festschreiben oder an ELSTER senden.
 - **Einbetten erlauben** (nur für **In Haben**). Viele Seiten verbieten, dass eine andere Seite sie im Rahmen zeigt (`X-Frame-Options: DENY` oder `SAMEORIGIN`, oder `Content-Security-Policy: frame-ancestors` ohne die Adresse von Haben). Dann bleibt der Rahmen leer oder der Browser meldet, dass die Verbindung abgelehnt wurde. Abhilfe: die Seite mit diesem Header ausliefern, mit der Adresse deiner Haben-Instanz:
 
-  ```
-  Content-Security-Policy: frame-ancestors https://haben.example.de
-  ```
+    ```
+    Content-Security-Policy: frame-ancestors https://haben.example.de
+    ```
 
-  Liefert ein Workflow in n8n die Seite über den Knoten **Respond to Webhook**, setzt du den Header dort unter den Response-Headers. Lässt sich die Seite nicht ändern, wähle **In neuem Tab**.
+    Liefert ein Workflow in n8n die Seite über den Knoten **Respond to Webhook**, setzt du den Header dort unter den Response-Headers. Lässt sich die Seite nicht ändern, wähle **In neuem Tab**.
+
 - **Gleiches Protokoll** (nur für **In Haben**). Läuft Haben unter `https://`, zeigt der Browser im Rahmen keine Seite mit `http://` an (gemischte Inhalte). Läuft Haben im Heimnetz unter `http://`, geht beides.
 
 ## Anmeldung und Zugriff auf Haben

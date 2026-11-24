@@ -106,9 +106,13 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: fehlende Belegdatei (#1504)", () =
 
     // Ansicht: offener Punkt, kein Knopf zum Bestätigen — das Merkmal ohne Beleg trägt der Beleg nicht
     const detail = await lexoffice.legacyVoucherDetail(String(voucher!.id));
-    expect(detail!.fileState).toMatchObject({ status: "abruf_fehlgeschlagen", canConfirmWithoutFile: false });
+    expect(detail!.fileState).toMatchObject({
+      status: "abruf_fehlgeschlagen",
+      canConfirmWithoutFile: false,
+      reloadIssue: "Datei erwartet, Abruf aus Lexware Office fehlgeschlagen. Im Umzug „Erneut abrufen“ wählen.",
+    });
     const { confirmWithoutFile } = await import("./dateistand.ts");
-    await expect(confirmWithoutFile(actor, String(voucher!.id), "probe")).rejects.toThrow();
+    await expect(confirmWithoutFile(actor, String(voucher!.id), "probe")).rejects.toThrow(/Abruf aus Lexware Office fehlgeschlagen/);
 
     // Abgleich: „Jeder Beleg hat eine Datei“ bleibt offen und beziffert den fehlenden Beleg
     const jahr = (await lexoffice.reconciliation()).years.find((y) => y.year === 2023)!;
@@ -121,7 +125,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: fehlende Belegdatei (#1504)", () =
     dateiKlappt = true;
     await lexoffice.startImport(actor, { wait: true });
     const run = await lexoffice.latestImport();
-    expect(run!.progress).toMatchObject({ nachgeladen: 1, failed: [] });
+    expect(run!.progress).toMatchObject({ nachgeladen: 1, files: 1, failed: [] });
 
     const [datei] =
       await sql`select role, mime_type from lexoffice_voucher_files f join lexoffice_vouchers v on v.id = f.voucher_id where v.number = '2023-4711'`;
@@ -270,7 +274,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: was ein späterer Lauf nachholt (#
     pdfKlappt = true;
     await lexoffice.startImport(actor, { wait: true });
     const run = await lexoffice.latestImport();
-    expect(run!.progress).toMatchObject({ nachgeladen: 2, failed: [] });
+    expect(run!.progress).toMatchObject({ nachgeladen: 2, files: 2, failed: [] });
 
     // Beide Anhänge hängen am Beleg, jeder mit eigener Kennung und eigenem Stand
     const anhaenge = await sql`select role, mime_type, lexoffice_file_id from lexoffice_voucher_files where voucher_id = ${belegId} order by lexoffice_file_id`;
