@@ -2238,8 +2238,36 @@
     {
       "idx": 319,
       "version": "7",
-      "when": 1795461426065,
-      "tag": "0319_rechnungsaustausch",
+      "when": 1795439734056,
+      "tag": "0319_voranmeldung_kz50",
+      "breakpoints": true
+    },
+    {
+      "idx": 320,
+      "version": "7",
+      "when": 1795505537754,
+      "tag": "0320_steuerfrei_nach_leistung",
+      "breakpoints": true
+    },
+    {
+      "idx": 321,
+      "version": "7",
+      "when": 1795505539555,
+      "tag": "0321_steuerfrei_nach_leistung_trigger",
+      "breakpoints": true
+    },
+    {
+      "idx": 322,
+      "version": "7",
+      "when": 1795543455771,
+      "tag": "0322_add_amazon_marktplatz",
+      "breakpoints": true
+    },
+    {
+      "idx": 323,
+      "version": "7",
+      "when": 1795544923442,
+      "tag": "0323_rechnungsaustausch",
       "breakpoints": true
     }
   ]

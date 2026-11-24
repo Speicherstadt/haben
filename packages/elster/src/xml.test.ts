@@ -125,6 +125,13 @@ describe("buildUstvaXml", () => {
     expect(order).toEqual([9, 61, 62, 66, 83]);
   });
 
+  it("schreibt die Minderung bei Uneinbringlichkeit (50 in Euro) nach Kz 48 und vor Kz 61 (#1267)", () => {
+    const xml = buildUstvaXml({ ...base, figures: { kz81: -100_000, kz86: 0, kz66: 0, kz48: 20_000, kz50: 100_000, kz61: 500, kz83: -19_500 } });
+    expect(tag(xml, "Kz50")).toBe("1000");
+    const order = [...xml.matchAll(/<Kz(\d+)>/g)].map((m) => Number(m[1]));
+    expect(order).toEqual([9, 48, 50, 61, 81, 83]);
+  });
+
   it("lässt Nullwerte weg, Kz83 aber nie", () => {
     const xml = buildUstvaXml({ ...base, figures: { kz81: 0, kz86: 0, kz66: 0, kz83: 0 } });
     expect(xml).not.toContain("<Kz81>");

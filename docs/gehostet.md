@@ -15,7 +15,7 @@ Wer Einrichtung oder Betrieb für seine Firma abgeben will, fragt dort nach eine
 ## Partnerprogramm
 
 IT-Dienstleister, Hoster und Steuerberatungen, die Haben für ihre Kunden einrichten und betreuen wollen, werden Partner
-über das [Partnerprogramm](https://speicherstadt.app/partner/).
+über das [Partnerprogramm](https://speicherstadt.org/partner/).
 
 ## Fragen
 

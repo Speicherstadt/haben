@@ -1,7 +1,7 @@
 import { FB_PARTLY_CANCELED } from "@haben/import";
 import { and, eq, sql } from "drizzle-orm";
 import { db, schema } from "../../db/index.ts";
-import type { ReconciliationCheck } from "./lexoffice.ts";
+import type { ReconciliationCheck } from "./umzug-abgleich.ts";
 
 /*
  * FastBill im Abgleich je Jahr (reconciliation in lexoffice.ts): Steuerart aus VAT_CASE und die offenen Punkte für Ausgaben,

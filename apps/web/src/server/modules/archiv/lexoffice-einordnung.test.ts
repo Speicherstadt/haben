@@ -8,12 +8,12 @@ import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
  * unverändert; eingeordnet wird beim Lesen.
  */
 describe.skipIf(!testDatabaseUrl)("Einordnung privater und neutraler Kategorien (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-abgleich.ts") & typeof import("./umzug-umsatzsteuer.ts");
   let sql: postgres.Sql;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-umsatzsteuer.ts")) };
   }, 30_000);
 
   afterAll(async () => {

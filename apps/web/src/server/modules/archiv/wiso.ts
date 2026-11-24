@@ -1,17 +1,19 @@
 import { previewWisoExport, WisoParseError, type WisoPreview } from "@haben/import";
-import { and, desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import type { LegacyPayment, LexofficeImportProgress } from "../../db/schema.ts";
-import { UserError } from "../../errors.ts";
+import { isUniqueViolation, UserError } from "../../errors.ts";
 import { sha256Of } from "../../storage.ts";
 import { loadCompany } from "../stammdaten/index.ts";
 import { addArchiveFile, MAX_ARCHIVE_SIZE } from "./archive.ts";
-import { finish, progressMessage, STALE_MS } from "./lexoffice.ts";
+import { finish, latestImportFor, refreshImportRuns, runningUploadsFor } from "./umzug-lauf.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 
 export const MAX_WISO_CSV_SIZE = MAX_ARCHIVE_SIZE;
 export const WISO_ORIGINAL_NOTE = "WISO-Originalexport (Buchungen CSV)";
 const SOURCE = "wiso" as const;
+const running = runningUploadsFor(SOURCE);
 
 export class WisoImportError extends UserError {}
 
@@ -38,24 +40,7 @@ export function wisoSummary(preview: WisoPreview) {
   };
 }
 
-export async function latestWisoImport() {
-  const [row] = await db
-    .select()
-    .from(schema.lexofficeImports)
-    .where(eq(schema.lexofficeImports.source, SOURCE))
-    .orderBy(desc(schema.lexofficeImports.startedAt))
-    .limit(1);
-  if (!row) return null;
-  if (row.status === "laeuft" && Date.now() - row.updatedAt.getTime() > STALE_MS) {
-    const [updated] = await db
-      .update(schema.lexofficeImports)
-      .set({ status: "abgebrochen", error: "Der Import wurde unterbrochen. Ein neuer Import setzt dort fort.", finishedAt: new Date() })
-      .where(and(eq(schema.lexofficeImports.id, row.id), eq(schema.lexofficeImports.status, "laeuft")))
-      .returning();
-    return updated ?? row;
-  }
-  return row;
-}
+export const latestWisoImport = () => latestImportFor("wiso");
 
 /**
  * WISO EÜR bucht nach Zahlung: „Zahlungsdatum“ ist der Tag des Zu- oder Abflusses. Als Zahlung festgehalten, zählt die
@@ -80,6 +65,7 @@ export async function startWisoImport(actor: string, bytes: Uint8Array, filename
   if ((await latestWisoImport())?.status === "laeuft") {
     throw new WisoImportError("Ein WISO-Import läuft bereits.");
   }
+  await refreshImportRuns();
   const preview = await previewWisoCsv(bytes);
   const progress: LexofficeImportProgress = {
     phase: "belege",
@@ -93,8 +79,12 @@ export async function startWisoImport(actor: string, bytes: Uint8Array, filename
   };
   const [run] = await withActor(actor, (tx) =>
     tx.insert(schema.lexofficeImports).values({ source: SOURCE, progress }).returning({ id: schema.lexofficeImports.id }),
-  );
+  ).catch((error: unknown) => {
+    if (isUniqueViolation(error, "lexoffice_imports_one_running")) throw new WisoImportError("Ein Abruf läuft bereits.");
+    throw error;
+  });
   const importId = run!.id;
+  running.add(importId);
   try {
     await archiveOriginalCsv(actor, bytes, filename, preview.years[0]!);
     for (const item of preview.vouchers) {
@@ -143,5 +133,7 @@ export async function startWisoImport(actor: string, bytes: Uint8Array, filename
     const message = progressMessage(error);
     await finish(importId, progress, "fehler", message);
     throw error;
+  } finally {
+    running.delete(importId);
   }
 }

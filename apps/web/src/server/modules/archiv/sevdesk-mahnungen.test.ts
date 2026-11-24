@@ -82,7 +82,10 @@ function fakeApi(dunnings: unknown[], ohnePdf: string[] = []) {
 // Je Test mehrere ganze Abrufe
 describe.skipIf(!testDatabaseUrl)("Mahnungen aus sevDesk (Postgres)", { timeout: 30_000 }, () => {
   let sevdesk: typeof import("./sevdesk.ts");
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") &
+    typeof import("./umzug-abgleich.ts") &
+    typeof import("./umzug-belege.ts") &
+    typeof import("./umzug-umsatzsteuer.ts");
   let legacy: typeof import("./legacy-open.ts");
   let reports: typeof import("../auswertungen/reports.ts");
   let dunning: typeof import("../rechnungen/dunning.ts");
@@ -93,7 +96,12 @@ describe.skipIf(!testDatabaseUrl)("Mahnungen aus sevDesk (Postgres)", { timeout:
   beforeAll(async () => {
     sql = await setupTestDb();
     sevdesk = await import("./sevdesk.ts");
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = {
+      ...(await import("./lexoffice.ts")),
+      ...(await import("./umzug-abgleich.ts")),
+      ...(await import("./umzug-belege.ts")),
+      ...(await import("./umzug-umsatzsteuer.ts")),
+    };
     legacy = await import("./legacy-open.ts");
     reports = await import("../auswertungen/reports.ts");
     dunning = await import("../rechnungen/dunning.ts");

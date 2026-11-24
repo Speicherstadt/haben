@@ -1,5 +1,5 @@
 {
-  "id": "f1e752a3-26a6-434b-a074-48c5f8b087ef",
+  "id": "3702605f-b9da-40b2-85c2-2a56503a40e6",
   "prevId": "af2f731b-b93f-4e6e-a9c9-b81322a52f5d",
   "version": "7",
   "dialect": "postgresql",
@@ -10238,9 +10238,9 @@
           "name": "invoices_reduction_rule",
           "value": "\"invoices\".\"reduction_rule\" is null or (\"invoices\".\"reduction_rule\" = 'rueckgewaehr' and \"invoices\".\"kind\" <> 'rechnung')"
         },
-        "invoices_replaces_invoice": {
-          "name": "invoices_replaces_invoice",
-          "value": "\"invoices\".\"replaces_invoice_id\" is null or (\"invoices\".\"replaces_invoice_id\" <> \"invoices\".\"id\" and \"invoices\".\"kind\" = 'rechnung' and \"invoices\".\"corrects_id\" is null and\n        (\"invoices\".\"variant\" is null or (\"invoices\".\"variant\" is not distinct from 'schluss' and \"invoices\".\"advance_accounting\" is not distinct from 'deferred')))"
+        "invoices_replaces_schluss": {
+          "name": "invoices_replaces_schluss",
+          "value": "\"invoices\".\"replaces_invoice_id\" is null or (\"invoices\".\"replaces_invoice_id\" <> \"invoices\".\"id\" and \"invoices\".\"kind\" = 'rechnung' and \"invoices\".\"variant\" is not distinct from 'schluss' and \"invoices\".\"advance_accounting\" is not distinct from 'deferred' and \"invoices\".\"corrects_id\" is null)"
         },
         "invoices_quote_kind": {
           "name": "invoices_quote_kind",
@@ -20059,6 +20059,13 @@
         },
         "kz62": {
           "name": "kz62",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "kz50": {
+          "name": "kz50",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,

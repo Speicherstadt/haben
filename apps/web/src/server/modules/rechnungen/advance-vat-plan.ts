@@ -20,7 +20,7 @@ import { UserError } from "../../errors.ts";
 type Invoice = typeof schema.invoices.$inferSelect;
 
 /** Festgeschriebene Korrektur- und Stornokette, ohne irgendeinen alten Beleg zu verändern. */
-async function family(originalId: string, q: Db | Tx): Promise<Invoice[]> {
+export async function family(originalId: string, q: Db | Tx): Promise<Invoice[]> {
   const ids = await q.execute<{ id: string }>(sql`with recursive chain as (
     select id from invoices where id = ${originalId}
     union select i.id from invoices i join chain c on i.corrects_id = c.id or (i.variant is null and i.replaces_invoice_id = c.id)
@@ -37,12 +37,12 @@ async function family(originalId: string, q: Db | Tx): Promise<Invoice[]> {
     );
 }
 
-const negate = (shares: readonly TaxShare[]) => shares.map((share) => ({ ...share, base: -share.base, tax: -share.tax }));
+export const negate = (shares: readonly TaxShare[]) => shares.map((share) => ({ ...share, base: -share.base, tax: -share.tax }));
 
 /** Korrektur ohne Kennzeichen (vor #853 festgeschrieben): ihre Minderung wirkte schon mit dem Beleg. */
 const legacy = (invoice: Invoice) => invoice.kind !== "rechnung" && invoice.reductionRule === null;
 
-async function paymentEvents(invoices: Invoice[], q: Db | Tx): Promise<AdvanceBalanceEvent[]> {
+export async function paymentEvents(invoices: Invoice[], q: Db | Tx): Promise<AdvanceBalanceEvent[]> {
   const ids = invoices.map((i) => i.id);
   const byId = new Map(invoices.map((i) => [i.id, i]));
   const totals = await invoiceTotalsById(ids, q);
@@ -73,7 +73,7 @@ async function paymentEvents(invoices: Invoice[], q: Db | Tx): Promise<AdvanceBa
  * Storno und Korrektur der Kette. Gekennzeichnete halten bereits vereinnahmte Steuer bis zur Rückzahlung; ein Storno
  * einer Korrektur ohne Kennzeichen nimmt nur deren Anspruch zurück, nicht die Minderung anderer Korrekturen.
  */
-function correctionEvents(original: Invoice, invoices: Invoice[], totals: Map<string, { taxes: TaxShare[] }>): AdvanceVatEvent[] {
+export function correctionEvents(original: Invoice, invoices: Invoice[], totals: Map<string, { taxes: TaxShare[] }>): AdvanceVatEvent[] {
   const byId = new Map(invoices.map((i) => [i.id, i]));
   return invoices
     .filter((invoice) => invoice.kind !== "rechnung")
@@ -147,6 +147,10 @@ export interface ManagedAdvancePlan {
 export const refundOnly = (original: Pick<Invoice, "advanceType" | "advanceAccounting" | "variant">) =>
   original.advanceType !== "anzahlung" && (original.advanceAccounting === null || original.variant === "schluss");
 
+/** Bis zur Rückzahlung gehaltener Teil der Minderungen (advanceVatSchedule, „held“) */
+export const heldUntilRefund = (original: Invoice, invoices: Invoice[], totals: Map<string, { taxes: TaxShare[] }>, events: AdvanceBalanceEvent[]) =>
+  advanceVatSchedule(totals.get(original.id)!.taxes, [...events, ...correctionEvents(original, invoices, totals)], "held");
+
 /** Gegenprobe aus den Nebenbüchern, ausdrücklich ohne Journalzeilen zu lesen. */
 export async function loadAdvanceVatPlan(reference: Pick<Invoice, "id">, q: Db | Tx = db, taxes = invoiceTaxReader(q)): Promise<ManagedAdvancePlan> {
   // Die Festschreibung kann den Verfahrensmarker gerade erst gesetzt haben; der Vorher-Lader hält noch den Entwurf.
@@ -168,7 +172,7 @@ export async function loadAdvanceVatPlan(reference: Pick<Invoice, "id">, q: Db |
     for (const invoice of corrections) if (await taxes.invoicePostingAllowed(invoice)) posted.push(invoice);
     const held =
       original.status === "final" && advanceUsesPayments(original.taxTreatment) && (await taxes.companyMode(original)) === "soll"
-        ? advanceVatSchedule(total, [...events, ...correctionEvents(original, posted, totals)], "held")
+        ? heldUntilRefund(original, posted, totals, events)
         : [];
     return { original, kind: "refund", invoiceIds: new Set(), changes: held, postingChanges: held, balanceChanges: [] };
   }

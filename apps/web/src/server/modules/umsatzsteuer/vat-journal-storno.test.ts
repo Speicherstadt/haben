@@ -257,6 +257,7 @@ describe.skipIf(!testDatabaseUrl)("Stornos im Folgejahr von Buchungen im alten F
       const inv = await invoice("2025-11-10", [{ unitPrice: 10_000, taxRate: 1900 }]);
       await bank.writeOff(actor, { kind: "forderungsausfall", invoiceId: inv.id, date: "2025-12-20" } as never);
       await bank.reverseWriteOff(actor, (await sql`select id from write_offs`)[0]!.id, "2026-02-10");
+      // Der Wiedereingang erhöht Kz 81, mindert Kz 50 aber nicht (#1267)
       await gleich({ year: 2026, month: 2 }, { kz81: 10_000, tax81: 1_900 });
     }, 60_000);
 

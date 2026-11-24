@@ -67,6 +67,7 @@ function fakeApi() {
 
 describe.skipIf(!testDatabaseUrl)("Lexoffice: fehlende Belegdatei (#1504)", () => {
   let lexoffice: typeof import("./lexoffice.ts");
+  let archive: typeof import("./index.ts");
   const actor = "test-user";
   let sql: postgres.Sql;
   let voucherId = "";
@@ -74,6 +75,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: fehlende Belegdatei (#1504)", () =
   beforeAll(async () => {
     sql = await setupTestDb();
     lexoffice = await import("./lexoffice.ts");
+    archive = await import("./index.ts");
     const importPkg = await import("@haben/import");
     lexoffice.setLexofficeClientFactory(
       (o) => new importPkg.LexofficeClient({ ...o, fetch: fakeApi(), minIntervalMs: 0, maxRetries: 0, sleep: async () => {} }),
@@ -105,13 +107,17 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: fehlende Belegdatei (#1504)", () =
     expect(stand!.source_file_id).toBeTruthy();
 
     // Ansicht: offener Punkt, kein Knopf zum Bestätigen — das Merkmal ohne Beleg trägt der Beleg nicht
-    const detail = await lexoffice.legacyVoucherDetail(String(voucher!.id));
-    expect(detail!.fileState).toMatchObject({ status: "abruf_fehlgeschlagen", canConfirmWithoutFile: false });
+    const detail = await archive.legacyVoucherDetail(String(voucher!.id));
+    expect(detail!.fileState).toMatchObject({
+      status: "abruf_fehlgeschlagen",
+      canConfirmWithoutFile: false,
+      reloadIssue: "Datei erwartet, Abruf aus Lexware Office fehlgeschlagen. Im Umzug „Erneut abrufen“ wählen.",
+    });
     const { confirmWithoutFile } = await import("./dateistand.ts");
-    await expect(confirmWithoutFile(actor, String(voucher!.id), "probe")).rejects.toThrow();
+    await expect(confirmWithoutFile(actor, String(voucher!.id), "probe")).rejects.toThrow(/Abruf aus Lexware Office fehlgeschlagen/);
 
     // Abgleich: „Jeder Beleg hat eine Datei“ bleibt offen und beziffert den fehlenden Beleg
-    const jahr = (await lexoffice.reconciliation()).years.find((y) => y.year === 2023)!;
+    const jahr = (await archive.reconciliation()).years.find((y) => y.year === 2023)!;
     const check = jahr.checks.find((c) => c.label === "Jeder Beleg hat eine Datei")!;
     expect(check).toMatchObject({ ok: false, detail: "1 Abruf fehlgeschlagen" });
   });
@@ -121,7 +127,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: fehlende Belegdatei (#1504)", () =
     dateiKlappt = true;
     await lexoffice.startImport(actor, { wait: true });
     const run = await lexoffice.latestImport();
-    expect(run!.progress).toMatchObject({ nachgeladen: 1, failed: [] });
+    expect(run!.progress).toMatchObject({ nachgeladen: 1, files: 1, failed: [] });
 
     const [datei] =
       await sql`select role, mime_type from lexoffice_voucher_files f join lexoffice_vouchers v on v.id = f.voucher_id where v.number = '2023-4711'`;
@@ -130,7 +136,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: fehlende Belegdatei (#1504)", () =
     // Der Stand am Beleg ist aufgelöst, der Abgleich wieder grün
     const [stand] = await sql`select state from legacy_file_states where voucher_id = ${voucherId} order by created_at desc, id desc limit 1`;
     expect(stand!.state).toBe("nachgeladen");
-    const jahr = (await lexoffice.reconciliation()).years.find((y) => y.year === 2023)!;
+    const jahr = (await archive.reconciliation()).years.find((y) => y.year === 2023)!;
     expect(jahr.checks.find((c) => c.label === "Jeder Beleg hat eine Datei")).toMatchObject({ ok: true, detail: "alle mit Datei" });
   });
 
@@ -204,6 +210,7 @@ function fakeApiMitRechnung() {
 
 describe.skipIf(!testDatabaseUrl)("Lexoffice: was ein späterer Lauf nachholt (#1624)", () => {
   let lexoffice: typeof import("./lexoffice.ts");
+  let archive: typeof import("./index.ts");
   const actor = "test-user";
   let sql: postgres.Sql;
   let belegId = "";
@@ -212,6 +219,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: was ein späterer Lauf nachholt (#
   beforeAll(async () => {
     sql = await setupTestDb();
     lexoffice = await import("./lexoffice.ts");
+    archive = await import("./index.ts");
     const importPkg = await import("@haben/import");
     lexoffice.setLexofficeClientFactory(
       (o) => new importPkg.LexofficeClient({ ...o, fetch: fakeApiMitRechnung(), minIntervalMs: 0, maxRetries: 0, sleep: async () => {} }),
@@ -237,7 +245,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: was ein späterer Lauf nachholt (#
       ["abruf_fehlgeschlagen", "anhang", ANHANG_B],
     ]);
     // Der Beleg gilt vor dem zweiten Lauf nicht als vollständig
-    const belegDetail = await lexoffice.legacyVoucherDetail(belegId);
+    const belegDetail = await archive.legacyVoucherDetail(belegId);
     expect(belegDetail!.fileState.status).toBe("abruf_fehlgeschlagen");
 
     // Die Rechnung führt ihr PDF ohne Kennung in der Quelle; der Stand nennt trotzdem die Rolle
@@ -245,7 +253,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: was ein späterer Lauf nachholt (#
     rechnungId = String(rechnung!.id);
     const [pdfStand] = await sql`select state, role, source_file_id from legacy_file_states where voucher_id = ${rechnung!.id}`;
     expect(pdfStand).toMatchObject({ state: "abruf_fehlgeschlagen", role: "pdf", source_file_id: null });
-    const rechnungDetail = await lexoffice.legacyVoucherDetail(rechnungId);
+    const rechnungDetail = await archive.legacyVoucherDetail(rechnungId);
     expect(rechnungDetail!.fileState).toMatchObject({ status: "abruf_fehlgeschlagen", canConfirmWithoutFile: false });
   });
 
@@ -258,10 +266,10 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: was ein späterer Lauf nachholt (#
 
     const anhaenge = await sql`select lexoffice_file_id from lexoffice_voucher_files where voucher_id = ${belegId}`;
     expect(anhaenge.map((f) => f.lexoffice_file_id)).toEqual([ANHANG_A]);
-    const belegDetail = await lexoffice.legacyVoucherDetail(belegId);
+    const belegDetail = await archive.legacyVoucherDetail(belegId);
     expect(belegDetail!.fileState.status).toBe("abruf_fehlgeschlagen");
     // Der fehlende Anhang und das PDF der Rechnung bleiben offen; der angekommene zählt nicht mehr
-    const jahr = (await lexoffice.reconciliation()).years.find((y) => y.year === 2023)!;
+    const jahr = (await archive.reconciliation()).years.find((y) => y.year === 2023)!;
     expect(jahr.checks.find((c) => c.label === "Jeder Beleg hat eine Datei")).toMatchObject({ ok: false, detail: "2 Abruf fehlgeschlagen" });
   });
 
@@ -270,7 +278,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: was ein späterer Lauf nachholt (#
     pdfKlappt = true;
     await lexoffice.startImport(actor, { wait: true });
     const run = await lexoffice.latestImport();
-    expect(run!.progress).toMatchObject({ nachgeladen: 2, failed: [] });
+    expect(run!.progress).toMatchObject({ nachgeladen: 2, files: 2, failed: [] });
 
     // Beide Anhänge hängen am Beleg, jeder mit eigener Kennung und eigenem Stand
     const anhaenge = await sql`select role, mime_type, lexoffice_file_id from lexoffice_voucher_files where voucher_id = ${belegId} order by lexoffice_file_id`;
@@ -284,7 +292,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: was ein späterer Lauf nachholt (#
       ["anhang", ANHANG_A],
       ["anhang", ANHANG_B],
     ]);
-    const belegDetail = await lexoffice.legacyVoucherDetail(belegId);
+    const belegDetail = await archive.legacyVoucherDetail(belegId);
     expect(belegDetail!.fileState.status).toBe("vollstaendig");
     // „(nachgeladen)“ in der Belegansicht: der Stand trägt Rolle und Kennung (#1624)
     expect(belegDetail!.files.map((f) => [f.role, f.reloadedAt !== null])).toEqual([
@@ -295,12 +303,12 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: was ein späterer Lauf nachholt (#
     // Das PDF der Rechnung kommt ohne Kennung, aber mit Rolle und Zeitpunkt
     const pdf = await sql`select role, mime_type from lexoffice_voucher_files where voucher_id = ${rechnungId}`;
     expect(pdf).toEqual([{ role: "pdf", mime_type: "application/pdf" }]);
-    const rechnungDetail = await lexoffice.legacyVoucherDetail(rechnungId);
+    const rechnungDetail = await archive.legacyVoucherDetail(rechnungId);
     expect(rechnungDetail!.files.map((f) => [f.role, f.reloadedAt !== null])).toEqual([["pdf", true]]);
     expect(rechnungDetail!.fileState.status).toBe("vollstaendig");
 
     // Abgleich: nichts bleibt offen
-    const jahr = (await lexoffice.reconciliation()).years.find((y) => y.year === 2023)!;
+    const jahr = (await archive.reconciliation()).years.find((y) => y.year === 2023)!;
     expect(jahr.checks.find((c) => c.label === "Jeder Beleg hat eine Datei")).toMatchObject({ ok: true, detail: "alle mit Datei" });
   });
 });

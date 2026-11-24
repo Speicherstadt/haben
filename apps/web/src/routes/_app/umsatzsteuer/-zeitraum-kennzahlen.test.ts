@@ -28,7 +28,7 @@ const FELDER: FieldKey[] = [
   "kz62",
 ];
 const leer = computeUstva({ kz81: 0, kz86: 0, kz66: 0 });
-const data = { figures: { revenue: [], inputTax: [], reverseCharge: [], igErwerb: [] } } as unknown as PageData;
+const data = { figures: { revenue: [], kleinunternehmerUmsaetze: [], inputTax: [], reverseCharge: [], igErwerb: [] } } as unknown as PageData;
 
 function tabelle(feld: FieldKey, wert: string) {
   const values = { ...(Object.fromEntries(FELDER.map((f) => [f, "0,00"])) as Record<FieldKey, string>), [feld]: wert };

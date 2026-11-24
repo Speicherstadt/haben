@@ -54,6 +54,7 @@ export * from "./legacy-vat.ts";
 export * from "./legacy-takeover.ts";
 export * from "./legacy-einordnung.ts";
 export * from "./treatment.ts";
+export * from "./vat-territories.ts";
 export * from "./gesamtumsatz.ts";
 export * from "./outgoing-tax.ts";
 export * from "./outgoing-tax-policy.ts";

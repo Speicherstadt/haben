@@ -34,6 +34,11 @@ export const JOURNAL_KENNZAHLEN = [
   "tax93",
   "kz61",
   "kz62",
+  /**
+   * Minderung der Bemessungsgrundlage, weil das Entgelt uneinbringlich ist (§ 17 Abs. 2 Nr. 1 Satz 1 UStG), zusätzlich zur
+   * Minderung von Kz 81 bzw. 86: der Forderungsausfall auf steuerpflichtige Umsätze (Anleitung zur UStVA 2026, Kz 50)
+   */
+  "kz50",
   /** Regulär besteuerte Umsätze zu 0 %: gebucht, aber in keiner Kennzahl gemeldet */
   "steuerfrei",
 ] as const;
@@ -130,7 +135,11 @@ export function kennzahlenDerZeile(kontenrahmen: Kontenrahmen, zeile: JournalZei
   }
   const bemessung = zeile.taxCode === null ? undefined : BEMESSUNG[zeile.taxCode];
   if (!bemessung) return [];
-  return [{ feld: bemessung.feld, betrag: zeile.basis ?? betrag(bemessung.seite) }];
+  const treffer = [{ feld: bemessung.feld, betrag: zeile.basis ?? betrag(bemessung.seite) }];
+  // Forderungsausfall auf einen steuerpflichtigen Umsatz (Kz 81, 86): zusätzlich Kz 50, mit umgekehrtem Vorzeichen
+  if (zeile.account === ACCOUNTS[kontenrahmen].forderungsverluste && (bemessung.feld === "kz81" || bemessung.feld === "kz86"))
+    treffer.push({ feld: "kz50", betrag: -treffer[0]!.betrag });
+  return treffer;
 }
 
 export function leereJournalKennzahlen(): JournalKennzahlen {
@@ -138,11 +147,38 @@ export function leereJournalKennzahlen(): JournalKennzahlen {
 }
 
 /**
- * Bemessungsgrundlagen, die bei Ist-Versteuerung erst mit der Zahlung gemeldet werden: steuerpflichtige und steuerfreie
- * inländische Umsätze (Kz 81, 86, 43, 48, 0 %). Reverse Charge, innergemeinschaftliche Lieferung und Drittland zählen
- * auch bei Ist mit der Rechnung (DATEV-Dok. 1080673; NACH_RECHNUNGSDATUM in vat-figures.ts).
+ * Bemessungsgrundlagen, die das Journal bei Ist-Versteuerung erst mit der Zahlung bucht: steuerpflichtige und steuerfreie
+ * inländische Umsätze (Kz 81, 86, 43, 48, 0 %), dazu Kz 50: Ein ausgefallener Rest war bei Ist nie gemeldet. Reverse
+ * Charge, innergemeinschaftliche Lieferung und Drittland zählen auch bei Ist mit der Rechnung (DATEV-Dok. 1080673;
+ * NACH_RECHNUNGSDATUM in vat-figures.ts). Kz 43 und 48 meldet die Voranmeldung trotzdem im Zeitraum der Leistung
+ * (IST_NACH_LEISTUNG).
  */
-export const IST_NACH_ZAHLUNG: ReadonlySet<JournalKennzahl> = new Set(["kz81", "kz86", "kz43", "kz48", "steuerfrei"]);
+export const IST_NACH_ZAHLUNG: ReadonlySet<JournalKennzahl> = new Set(["kz81", "kz86", "kz43", "kz48", "kz50", "steuerfrei"]);
+
+/**
+ * Steuerfreie Umsätze, die die Voranmeldung auch bei Ist-Versteuerung im Zeitraum der Leistung meldet, nicht mit der
+ * Zahlung (#1312). Anleitung zur UStVA 2026 unter Kz 43 und Kz 48: „Anzahlungen zu steuerfreien Umsätzen tragen Sie bitte
+ * nicht ein. Den Gesamtbetrag (Anzahlungen und Restzahlung) geben Sie bitte im Voranmeldungszeitraum der
+ * Leistungsausführung an.“ (https://www.elster.de/eportal/helpGlobal?themaGlobal=help_ustva_2026)
+ */
+export const IST_NACH_LEISTUNG = ["kz43", "kz48"] as const satisfies readonly JournalKennzahl[];
+
+/**
+ * Der Teil von Kz 43 und 48, den Zahlungen tragen: je Kennzahl die Bemessungsgrundlage der Zeilen mit `basis` (Zahlung
+ * und Bareinnahme auf eine Rechnung, deren Aufhebung, Kursdifferenz, Steuerplan einer Anzahlung). Bei Ist rechnet die
+ * Voranmeldung ihn heraus und nimmt die Rechnungen nach dem Leistungstag.
+ */
+export function bemessungAnZahlungen(
+  kontenrahmen: Kontenrahmen,
+  buchungen: readonly (readonly JournalZeile[])[],
+): Record<(typeof IST_NACH_LEISTUNG)[number], Cents> {
+  const summe = { kz43: 0, kz48: 0 };
+  for (const zeile of buchungen.flat()) {
+    if (zeile.basis == null) continue;
+    for (const { feld, betrag } of kennzahlenDerZeile(kontenrahmen, zeile)) if (feld === "kz43" || feld === "kz48") summe[feld] += betrag;
+  }
+  return summe;
+}
 
 /**
  * Summe der Kennzahlen über die Buchungen eines Zeitraums, je Buchung ihre Zeilen. Bei Ist-Versteuerung zählt wie bei

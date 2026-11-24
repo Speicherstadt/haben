@@ -1,14 +1,14 @@
 ---
 title: "REST-API für Kontakte, Artikel, Rechnungsentwürfe, Angebote und Bankumsätze"
 description: >-
-  Kontakte, Katalogartikel und Rechnungsentwürfe aus eigenen Werkzeugen über die REST-API in Haben pflegen, Angebote lesen
-  und Bankumsätze aus eigenen Diensten liefern.
+  Kontakte, Artikel, Rechnungs- und Angebotsentwürfe aus eigenen Werkzeugen über die REST-API in Haben pflegen
+  und Bankumsätze liefern.
   Mit OpenAPI-Beschreibung.
 ---
 
 # REST-API
 
-Über die REST-API legen eigene Werkzeuge und Automationen Kontakte und Rechnungsentwürfe in Haben an, etwa eine Automation, die Bestellungen aus Etsy oder eBay holt. Haben bekommt dafür keine eigene Bestellverwaltung: Die Bestellung bleibt auf der Plattform, Haben schreibt die Rechnung dazu. Ebenso liefern eigene Werkzeuge, Dokumentenarchive und Skripte Eingangsbelege an Haben, die dort unter **Belege** als „Zu prüfen“ landen.
+Über die REST-API legen eigene Werkzeuge und Automationen Kontakte, Rechnungs- und Angebotsentwürfe in Haben an, etwa eine Automation, die Bestellungen aus Etsy oder eBay holt. Haben bekommt dafür keine eigene Bestellverwaltung: Die Bestellung bleibt auf der Plattform, Haben schreibt die Rechnung dazu. Ebenso liefern eigene Werkzeuge, Dokumentenarchive und Skripte Eingangsbelege an Haben, die dort unter **Belege** als „Zu prüfen“ landen.
 
 Die Oberfläche einer solchen Automation kannst du als [eigene Seite](eigene-seiten.md) ins Menü von Haben hängen.
 
@@ -19,7 +19,7 @@ Die API **bucht nichts, schreibt nichts fest und versendet nichts**. Ein Entwurf
 | Kontakte | auflisten und suchen, lesen, anlegen, ändern (nicht löschen: Kontakte sind versioniert) |
 | Rechnungen | alle lesen, auch festgeschriebene; Entwürfe anlegen, ändern und löschen, solange sie Entwurf sind |
 | Wiederkehrende Rechnungen | [Vorlagen anlegen](#wiederkehrende-rechnungen) |
-| Angebote | alle lesen, auch festgeschriebene, mit der Antwort des Kunden und der Rechnung daraus |
+| Angebote | alle lesen, auch festgeschriebene, mit der Antwort des Kunden und der Rechnung daraus; [Entwürfe](#angebotsentwürfe) anlegen, ändern und löschen, solange sie Entwurf sind |
 | Belege | hochladen (landen als „Zu prüfen“), auflisten und lesen, ob sie schon geprüft und gebucht sind; nicht ändern oder löschen |
 | Artikel | Katalogartikel auflisten, suchen, lesen, anlegen und ändern |
 | Leistungen | Zeiteinträge je Kunde auflisten, lesen, anlegen (mit Kennung wiederholbar) und löschen, etwa aus Kimai |
@@ -43,6 +43,7 @@ Es sind dieselben Tokens wie für die [KI-Assistenten](ki-assistenten.md); was e
 | `rechnungen:entwuerfe` | dazu `POST /rechnungen`, `PATCH /rechnungen/{id}`, `DELETE /rechnungen/{id}` |
 | `rechnungen:vorlagen-anlegen` | `POST /rechnungen/wiederkehrend` |
 | `angebote:lesen` | `GET /angebote`, `GET /angebote/{id}` |
+| `angebote:entwuerfe` | dazu `POST /angebote`, `PATCH /angebote/{id}`, `DELETE /angebote/{id}` |
 | `belege:lesen` | `GET /belege`, `GET /belege/{id}` |
 | `belege:anlegen` | dazu `POST /belege` |
 | `artikel:lesen` | `GET /artikel`, `GET /artikel/{id}` |
@@ -85,7 +86,7 @@ Jeder Fehler hat dieselbe Form, mit einer deutschen Meldung und bei ungültigen 
 | 403 | `forbidden` | Dem Token fehlt das Recht; die Meldung nennt es |
 | 404 | `not_found` | Unbekannter Pfad oder Datensatz |
 | 405 | `method_not_allowed` | Methode gibt es hier nicht; `Allow` nennt die erlaubten |
-| 409 | `conflict` | Die Rechnung ist festgeschrieben, oder ein Entwurf, den nur Haben selbst bearbeitet (Storno, Korrektur, Abschlag, Schlussrechnung, aus einem Angebot); bei Belegen: dieselbe Datei liegt mit einer anderen oder ohne Referenz schon vor, `existingId` nennt den Beleg |
+| 409 | `conflict` | Die Rechnung oder das Angebot ist festgeschrieben, Gesamtrabatt oder Zahlungsplan eines Angebotsentwurfs passen nicht zu den neuen Positionen, oder ein Entwurf, den nur Haben selbst bearbeitet (Storno, Korrektur, Abschlag, Schlussrechnung, aus einem Angebot); bei Belegen: dieselbe Datei liegt mit einer anderen oder ohne Referenz schon vor, `existingId` nennt den Beleg |
 | 413, 415 | `payload_too_large`, `unsupported_media_type` | Body größer als 1 MB (Beleg: Datei größer als 20 MB) oder nicht als JSON (Beleg: nicht als `multipart/form-data`, oder die Datei ist kein PDF, Bild oder E-Rechnungs-XML) |
 | 422 | `unprocessable` | Fachlich abgelehnt, etwa ein unbekannter Kontakt |
 | 429 | `rate_limited` | Zu viele Anfragen |
@@ -121,7 +122,7 @@ Ein Rechnungsentwurf nimmt `buyerOrderReference` (Bestellnummer des Kunden, BT-1
 
 - `exemption`: Vorschrift mit `number` und gegebenenfalls `letter`, etwa `{ "number": "14", "letter": "a" }`. Für eine zugeordnete Vorschrift entsteht der Befreiungshinweis daraus; ein alter Freitext wird nicht als Vorschrift ausgewertet.
 - `ancillary`: `true` oder `false` für einen Hilfsumsatz, `null` für ungeklärt. Das betrifft die Zählung bestimmter Befreiungen im [Gesamtumsatz nach § 19 UStG](auswertungen.md#gesamtumsatz-nach--19-ustg).
-- `foreignPlace`: `null` oder der tatsächliche Leistungsort mit Ländercode und bestätigter Behandlung, etwa `{ "country": "AT", "noForeignVat": true }`. Die Kundenanschrift ersetzt diese Prüfung nicht. `eu_sonstige` setzt einen anderen EU-Leistungsort ohne auszuweisende ausländische Umsatzsteuer voraus; ausländische Steuersätze, OSS und § 19a sind nicht enthalten.
+- `foreignPlace`: `null` oder der tatsächliche Leistungsort mit Ländercode und bestätigter Behandlung, etwa `{ "country": "AT", "noForeignVat": true }`. Für ein [umsatzsteuerliches Sondergebiet](umsatzsteuer-sondergebiete.md) ist `postalCode` optional, etwa `{ "country": "DE", "postalCode": "27498", "noForeignVat": true }` für Helgoland. Die Kundenanschrift ersetzt diese ausdrückliche Prüfung nicht; änderst du den Ort, bestätigst du die Behandlung neu. `eu_sonstige` setzt einen anderen EU-Leistungsort ohne auszuweisende ausländische Umsatzsteuer voraus; ausländische Steuersätze, OSS und § 19a sind nicht enthalten.
 - `assetDisposal`: `true` beim Verkauf eines Wirtschaftsguts des Anlagevermögens, sonst `false`.
 
 Ohne `taxDetails` wird beim Anlegen `null` gespeichert; ein `PATCH` ohne Feld behält die gespeicherte Zuordnung, `null` hebt sie auf. Fehlende Angaben bleiben in der Gesamtumsatz-Auswertung ungeklärt. Beim Festschreiben gelten dieselben Prüfungen wie im Editor, einschließlich der Kleinunternehmer-Sperren.
@@ -246,6 +247,12 @@ Ist die Rechnung schon festgeschrieben, antworten Ändern und Löschen mit `409`
 
 Die Antwort des Kunden und die Rechnung aus dem Angebot bleiben ein Klick in [Angebote](angebote.md); `url` führt zur Seite des Angebots.
 
+### Angebotsentwürfe
+
+Mit `angebote:entwuerfe` legt `POST /angebote` einen Entwurf an, etwa aus einer Kalkulation oder einer Notiz, die ein KI-Assistent ausgelesen hat. Pflicht sind nur die Positionen (`lines`), aufgebaut wie bei der Rechnung. `kind` (`optional` oder `alternative`) macht eine Position zur [Wahlmöglichkeit](angebote.md#optionale-und-alternative-positionen); ohne `kind` zählt sie zur Summe. Was fehlt, nimmt die Vorgaben eines neuen Angebots in Haben: `issueDate` heute, `validUntil` 30 Tage nach dem Angebotsdatum, Einleitung und Hinweis aus den [Standard-Textbausteinen](rechnungen.md#standard-je-belegart) für Angebote, die Steuer aus den Firmendaten, die Sprache des Kunden und die [Standardanhänge](angebote.md#anhänge). `contactId` muss ein Kunde sein. Jeder Aufruf legt einen Entwurf an; eine externe Referenz wie bei Rechnungen gibt es hier nicht.
+
+`PATCH /angebote/{id}` ändert nur die genannten Felder, `lines` ersetzt alle Positionen. Rabatte, Zahlungsplan und Ansprechpartner setzt nur Haben: Ein Gesamtrabatt und ein Zahlungsplan bleiben bei einem `PATCH` stehen, Positionsrabatte gehen mit den alten Positionen, und wechselt der Kunde, entfällt der Ansprechpartner. Passen Gesamtrabatt oder Zahlungsplan nicht zu den neuen Positionen, etwa ein fester Rabatt über der neuen Summe, antwortet die API mit `409`, und der Entwurf bleibt, bis du sie in Haben anpasst. `DELETE /angebote/{id}` löscht den Entwurf mit seinen Anhängen. Ein festgeschriebenes Angebot lässt sich über die API weder ändern noch löschen (`409`).
+
 ## Artikelkatalog
 
 `GET /artikel` listet aktive Artikel, sortiert nach Nummer und Bezeichnung. Mit `q` suchst du nach einem Teil der Nummer oder Bezeichnung. Mit `archived=true` enthält die Liste auch archivierte Artikel. `GET /artikel/{id}` liefert den Artikel zur ID.
@@ -357,7 +364,9 @@ Paperless-ngx schickt neue Dokumente mit einem Workflow ohne eigenen Code an Hab
 - **Aktion „Webhook“:** URL `https://<haben>/api/v1/belege`, Header `Authorization: Bearer <Token>` (Token mit `belege:anlegen`), Parameter statt JSON-Body, „Dokument anhängen“ an.
 - **Parameter:** `externalSource` = `paperless`, `externalId` = `{{ doc_id }}`, `note` = `Paperless: {{ doc_title }} ({{ correspondent }}) {{ doc_url }}`. Die Platzhalter rendert Paperless mit Jinja, also in doppelten geschweiften Klammern.
 
-Über `externalSource` und `externalId` legt ein doppelt ausgelöster Workflow nichts doppelt an (siehe oben). Die Platzhalter im Header ersetzt Paperless nicht; das Token steht dort im Klartext, also nur ein Token mit `belege:anlegen`.
+Ein endgültig fehlgeschlagener Webhook wird später nicht automatisch nachgeholt. Bei einem abgelaufenen oder widerrufenen Token antwortet Haben mit `401`. Ein Token gilt höchstens ein Jahr; trage vor dem Datum, das unter **API-Tokens** bei „gültig bis“ steht, ein neues in den Header des Workflows ein. Behebe die Ursache und sende die Dokumente erneut, etwa über den Auslöser „Dokument aktualisiert“ mit einem Tag als Filter für die betroffenen Dokumente. [Workflow-Auslöser in Paperless-ngx](https://github.com/paperless-ngx/paperless-ngx/blob/v3.4.2/docs/usage.md#workflow-trigger-types)
+
+Verwende beim Nachversand dieselben Werte für `externalSource` und `externalId`. So erkennt Haben einen bereits angelegten Beleg (siehe oben). Die Platzhalter im Header ersetzt Paperless nicht; das Token steht dort im Klartext, also nur ein Token mit `belege:anlegen`.
 
 ## Bankumsätze
 

@@ -77,6 +77,7 @@ function fakeApiGleicherInhalt() {
 
 describe.skipIf(!testDatabaseUrl)("Lexoffice: gleicher Inhalt beim Nachladen (#1624)", () => {
   let lexoffice: typeof import("./lexoffice.ts");
+  let archive: typeof import("./index.ts");
   const actor = "test-user";
   let sql: postgres.Sql;
   let belegId = "";
@@ -84,6 +85,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: gleicher Inhalt beim Nachladen (#1
   beforeAll(async () => {
     sql = await setupTestDb();
     lexoffice = await import("./lexoffice.ts");
+    archive = await import("./index.ts");
     const importPkg = await import("@haben/import");
     lexoffice.setLexofficeClientFactory(
       (o) => new importPkg.LexofficeClient({ ...o, fetch: fakeApiGleicherInhalt(), minIntervalMs: 0, maxRetries: 0, sleep: async () => {} }),
@@ -111,7 +113,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: gleicher Inhalt beim Nachladen (#1
     await lexoffice.startImport(actor, { wait: true });
     const run = await lexoffice.latestImport();
     // Ohne den Fix bricht der zweite Lauf am Unique-Index (voucher_id, sha256) ab: „failed“ statt „nachgeladen“
-    expect(run!.progress).toMatchObject({ nachgeladen: 1, failed: [] });
+    expect(run!.progress).toMatchObject({ nachgeladen: 1, files: 0, failed: [] });
 
     // Derselbe Inhalt hängt je Beleg weiterhin nur einmal
     const dateien = await sql`select role, sha256 from lexoffice_voucher_files where voucher_id = ${belegId}`;
@@ -122,7 +124,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: gleicher Inhalt beim Nachladen (#1
     const [stand] =
       await sql`select state, role, source_file_id from legacy_file_states where voucher_id = ${belegId} order by created_at desc, id desc limit 1`;
     expect(stand).toMatchObject({ state: "nachgeladen", role: "anhang", source_file_id: ANHANG_B });
-    const detail = await lexoffice.legacyVoucherDetail(belegId);
+    const detail = await archive.legacyVoucherDetail(belegId);
     expect(detail!.fileState.status).toBe("vollstaendig");
   });
 });
@@ -159,6 +161,7 @@ function fakeApiErechnung() {
 
 describe.skipIf(!testDatabaseUrl)("Lexoffice: fehlendes XML einer E-Rechnung (#1624)", () => {
   let lexoffice: typeof import("./lexoffice.ts");
+  let archive: typeof import("./index.ts");
   let legacy: typeof import("./legacy-open.ts");
   const actor = "test-user";
   let sql: postgres.Sql;
@@ -167,6 +170,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: fehlendes XML einer E-Rechnung (#1
   beforeAll(async () => {
     sql = await setupTestDb();
     lexoffice = await import("./lexoffice.ts");
+    archive = await import("./index.ts");
     legacy = await import("./legacy-open.ts");
     const importPkg = await import("@haben/import");
     lexoffice.setLexofficeClientFactory(
@@ -192,7 +196,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: fehlendes XML einer E-Rechnung (#1
     expect(stand).toMatchObject({ state: "anhang_fehlt", role: "xml", source_file_id: null });
     expect(String(stand!.message)).toContain("XML");
 
-    const detail = await lexoffice.legacyVoucherDetail(rechnungId);
+    const detail = await archive.legacyVoucherDetail(rechnungId);
     expect(detail!.fileState.status).toBe("anhang_fehlt");
 
     // Die Rechnung lässt sich so nicht als offener Posten übernehmen, obwohl das PDF da ist
@@ -214,7 +218,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: fehlendes XML einer E-Rechnung (#1
     const [stand] = await sql`select state, role from legacy_file_states where voucher_id = ${rechnungId} order by created_at desc, id desc limit 1`;
     expect(stand).toMatchObject({ state: "nachgeladen", role: "xml" });
 
-    const detail = await lexoffice.legacyVoucherDetail(rechnungId);
+    const detail = await archive.legacyVoucherDetail(rechnungId);
     expect(detail!.fileState.status).toBe("vollstaendig");
     const items = await legacy.openLegacyItems("2023-12-31");
     expect(items.map((i) => [i.number, i.blocker])).toEqual([["RE1019", null]]);
@@ -258,6 +262,7 @@ function fakeApiOhneErechnung() {
  */
 describe.skipIf(!testDatabaseUrl)("Lexoffice: keine E-Rechnung, kein offener Punkt (#1624)", () => {
   let lexoffice: typeof import("./lexoffice.ts");
+  let archive: typeof import("./index.ts");
   const actor = "test-user";
   let sql: postgres.Sql;
   let rechnungId = "";
@@ -265,6 +270,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: keine E-Rechnung, kein offener Pun
   beforeAll(async () => {
     sql = await setupTestDb();
     lexoffice = await import("./lexoffice.ts");
+    archive = await import("./index.ts");
     const importPkg = await import("@haben/import");
     lexoffice.setLexofficeClientFactory(
       (o) => new importPkg.LexofficeClient({ ...o, fetch: fakeApiOhneErechnung(), minIntervalMs: 0, maxRetries: 0, sleep: async () => {} }),
@@ -282,7 +288,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: keine E-Rechnung, kein offener Pun
     rechnungId = String(rechnung!.id);
     const [stand] = await sql`select state, role from legacy_file_states where voucher_id = ${rechnung!.id}`;
     expect(stand).toMatchObject({ state: "anhang_fehlt", role: "xml" });
-    const detail = await lexoffice.legacyVoucherDetail(rechnungId);
+    const detail = await archive.legacyVoucherDetail(rechnungId);
     expect(detail!.fileState.status).toBe("anhang_fehlt");
   });
 
@@ -298,7 +304,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: keine E-Rechnung, kein offener Pun
     expect(stand).toMatchObject({ state: "kein_anhang", role: "xml" });
 
     // N1b: Belegstand und Stand der XML-Datei sagen dasselbe
-    const detail = await lexoffice.legacyVoucherDetail(rechnungId);
+    const detail = await archive.legacyVoucherDetail(rechnungId);
     expect(detail!.fileState.status).toBe("vollstaendig");
     expect(detail!.fileState.status).not.toBe("anhang_fehlt");
 
@@ -353,6 +359,7 @@ function fakeApiOhnePdf() {
  */
 describe.skipIf(!testDatabaseUrl)("Lexoffice: nur das PDF kommt nach, das XML nennt die Quelle nicht (#1624)", () => {
   let lexoffice: typeof import("./lexoffice.ts");
+  let archive: typeof import("./index.ts");
   const actor = "test-user";
   let sql: postgres.Sql;
   let rechnungId = "";
@@ -360,6 +367,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: nur das PDF kommt nach, das XML ne
   beforeAll(async () => {
     sql = await setupTestDb();
     lexoffice = await import("./lexoffice.ts");
+    archive = await import("./index.ts");
     const importPkg = await import("@haben/import");
     lexoffice.setLexofficeClientFactory(
       (o) => new importPkg.LexofficeClient({ ...o, fetch: fakeApiOhnePdf(), minIntervalMs: 0, maxRetries: 0, sleep: async () => {} }),
@@ -385,7 +393,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: nur das PDF kommt nach, das XML ne
       ["pdf", "abruf_fehlgeschlagen"],
       ["xml", "anhang_fehlt"],
     ]);
-    const detail = await lexoffice.legacyVoucherDetail(rechnungId);
+    const detail = await archive.legacyVoucherDetail(rechnungId);
     // Beide Stände sind offen; welcher als jüngster gilt, entscheidet bei gleichem Zeitstempel die id, deshalb nur „offen“
     expect(["anhang_fehlt", "abruf_fehlgeschlagen"]).toContain(detail!.fileState.status);
   });
@@ -401,7 +409,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: nur das PDF kommt nach, das XML ne
     expect(pdf).toMatchObject({ state: "nachgeladen" });
     const [xml] = await sql`select state from legacy_file_states where voucher_id = ${rechnungId} and role = 'xml' order by created_at desc, id desc limit 1`;
     expect(xml).toMatchObject({ state: "kein_anhang" });
-    const detail = await lexoffice.legacyVoucherDetail(rechnungId);
+    const detail = await archive.legacyVoucherDetail(rechnungId);
     expect(detail!.fileState.status).toBe("vollstaendig");
 
     // Und ein dritter Lauf fragt keine Datei dieses Belegs mehr an: der Stand ist zu

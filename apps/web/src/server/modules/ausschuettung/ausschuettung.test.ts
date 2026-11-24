@@ -28,7 +28,12 @@ describe.skipIf(!testDatabaseUrl)("Ausschüttungen (Postgres)", () => {
     await sql?.end();
   });
 
-  async function setup(kontenrahmen: "SKR03" | "SKR04", versteuerung: "ist" | "soll", k: { bank: string; kapital: string; vortrag: string }) {
+  async function setup(
+    kontenrahmen: "SKR03" | "SKR04",
+    versteuerung: "ist" | "soll",
+    k: { bank: string; kapital: string; vortrag: string },
+    gewinnvortrag = 2_500_000,
+  ) {
     await leeren(sql)`truncate journal_lines, journal_entries, document_amounts, documents, asset_depreciations, assets, corporate_tax_inputs,
       elster_certificates, company cascade`;
     await sql.begin(async (tx) => {
@@ -41,7 +46,7 @@ describe.skipIf(!testDatabaseUrl)("Ausschüttungen (Postgres)", () => {
     await sql`insert into company (id, name, strasse, plz, ort, email, telefon, steuernummer, bundesland, kontenrahmen, versteuerung, rechtsform)
       values (1, 'Nordlicht GmbH', 'Hafenallee 3', '93047', 'Regensburg', 'rechnung@example.com', '0941 12345', '198/113/10010', 'BY',
               ${kontenrahmen}, ${versteuerung}, 'gmbh')`;
-    // Eröffnung: Bank 50.000 €, Stammkapital 25.000 €, Gewinnvortrag 25.000 €
+    // Eröffnung: Stammkapital 25.000 €, Gewinnvortrag (ohne Angabe 25.000 €), beides auf der Bank
     await manual.createManualEntry(
       actor,
       {
@@ -49,9 +54,9 @@ describe.skipIf(!testDatabaseUrl)("Ausschüttungen (Postgres)", () => {
         date: "2026-01-01",
         description: "Eröffnungsbilanz",
         lines: [
-          { account: k.bank, debit: 5_000_000, credit: 0 },
+          { account: k.bank, debit: 2_500_000 + gewinnvortrag, credit: 0 },
           { account: k.kapital, debit: 0, credit: 2_500_000 },
-          { account: k.vortrag, debit: 0, credit: 2_500_000 },
+          { account: k.vortrag, debit: 0, credit: gewinnvortrag },
         ],
       },
       today,
@@ -127,6 +132,114 @@ describe.skipIf(!testDatabaseUrl)("Ausschüttungen (Postgres)", () => {
       },
       60_000,
     );
+
+    it("nach der Beteiligung in Euro, nicht nach dem Anteil in Prozent (§ 29 Abs. 3 Satz 1 GmbHG); gebuchte bleiben, wie sie sind", async () => {
+      // Gewinnvortrag 100.000 €; ausschüttbarer Gewinn 125.000 € − 25.000 € Stammkapital − 1.000,01 € Einlagekonto
+      await setup(kontenrahmen, kontenrahmen === "SKR03" ? "ist" : "soll", k, 10_000_000);
+      const person = (name: string, beteiligung: number, anteil: number) => ({ ...max, name, beteiligung, anteil });
+      const angaben = (anteilseigner: ReturnType<typeof person>[]) => kst.saveKapgErklaerungAngaben(actor, 2026, { einlagekonto: 100_001, anteilseigner });
+
+      // Je 10.000 €, in Prozent auf 100 gerundet: 90.000 € ergeben je 30.000 € (nach den Anteilen 30.006 / 29.997 / 29.997 €)
+      await angaben([person("Anna", 1_000_000, 3334), person("Ben", 1_000_000, 3333), person("Cem", 1_000_000, 3333)]);
+      const gleich = await a.ausschuettungVorschlag({ geschaeftsjahr: 2025, beschluss: "2026-06-15", brutto: 9_000_000 });
+      expect(gleich.issues).toEqual([]);
+      expect(gleich.hinweise).toEqual([]);
+      expect(gleich.empfaenger.map((e) => [e.name, e.anteil, e.brutto, e.ausEinlagekonto])).toEqual([
+        ["Anna", 3334, 3_000_000, 0],
+        ["Ben", 3333, 3_000_000, 0],
+        ["Cem", 3333, 3_000_000, 0],
+      ]);
+
+      // 12.500 / 8.333 / 4.167 €: 100.000 € ergeben 50.000 / 33.332 / 16.668 € (nach 50 / 33,33 / 16,67 % wären es 33.330 und 16.670 €).
+      // 1.000,01 € kommen aus dem Einlagekonto: 50.000,5 / 33.332,33 / 16.668,17 Cent, der Rundungsrest geht an den ersten
+      await angaben([person("Anna", 1_250_000, 5000), person("Ben", 833_300, 3333), person("Cem", 416_700, 1667)]);
+      const id = await a.createAusschuettung(actor, { geschaeftsjahr: 2025, beschluss: "2026-06-15", brutto: 10_000_000 }, today);
+      const [gebucht] = await a.dividendsOfYear(2026);
+      expect(gebucht!.id).toBe(id);
+      expect(gebucht!.empfaenger.map((e) => [e.name, e.anteil, e.brutto, e.ausEinlagekonto])).toEqual([
+        ["Anna", 5000, 5_000_000, 50_001],
+        ["Ben", 3333, 3_333_200, 33_332],
+        ["Cem", 1667, 1_666_800, 16_668],
+      ]);
+      // Buchung wie bisher: Gewinnvortrag an Gesellschafter (netto) und Einbehaltungen
+      const netto = gebucht!.empfaenger.reduce((s, e) => s + e.netto, 0);
+      const lines = await sql`select l.account, l.debit, l.credit from journal_lines l join journal_entries e on e.id = l.entry_id
+        where e.source_type = 'ausschuettung'`;
+      expect(lines.map((l) => [l.account, Number(l.debit), Number(l.credit)]).sort()).toEqual(
+        [
+          [k.vortrag, 10_000_000, 0],
+          [k.gesellschafter, 0, netto],
+          [k.einbehalt, 0, 10_000_000 - netto],
+        ].sort(),
+      );
+
+      // Spätere Änderungen der Beteiligung rechnen eine gebuchte Ausschüttung nicht neu
+      await angaben([person("Anna", 1_000_000, 3334), person("Ben", 1_000_000, 3333), person("Cem", 1_000_000, 3333)]);
+      expect((await a.dividendsOfYear(2026))[0]!.empfaenger).toEqual(gebucht!.empfaenger);
+    }, 30_000);
+
+    it("Anteil in Prozent passt nicht zur Beteiligung in Euro: der Vorschlag warnt, gebucht wird nach der Beteiligung", async () => {
+      await setup(kontenrahmen, kontenrahmen === "SKR03" ? "soll" : "ist", k);
+      // Je 25.000 € Beteiligung, eingetragen 60 / 40 %: bisher 6.000 / 4.000 €, jetzt je 5.000 €
+      await kst.saveKapgErklaerungAngaben(actor, 2026, {
+        anteilseigner: [
+          { ...erika, beteiligung: 2_500_000, anteil: 6000 },
+          { ...max, beteiligung: 2_500_000, anteil: 4000 },
+        ],
+      });
+      const input = { geschaeftsjahr: 2025, beschluss: "2026-06-15", brutto: 1_000_000 };
+      const v = await a.ausschuettungVorschlag(input);
+      expect(v.issues).toEqual([]);
+      expect(v.hinweise).toEqual([
+        "Für 2026 passt der Anteil in Prozent nicht zur Beteiligung in Euro: Erika 60\u00a0% (nach der Beteiligung 50\u00a0%), Max 40\u00a0% (nach der Beteiligung 50\u00a0%). " +
+          "Haben verteilt nach der Beteiligung in Euro (§ 29 Abs. 3 Satz 1 GmbHG); stimmt sie nicht, korrigiere sie vor dem Buchen (Jahreserklärung › Angaben zu den Erklärungen).",
+      ]);
+
+      // Die Warnung hält nicht an: Buchung wie sonst, Beträge nach der Beteiligung
+      const id = await a.createAusschuettung(actor, input, today);
+      const [gebucht] = await a.dividendsOfYear(2026);
+      expect(gebucht!.id).toBe(id);
+      expect(gebucht!.empfaenger.map((e) => [e.name, e.anteil, e.brutto])).toEqual([
+        ["Erika", 6000, 500_000],
+        ["Max", 4000, 500_000],
+      ]);
+      const netto = gebucht!.empfaenger.reduce((s, e) => s + e.netto, 0);
+      const lines = await sql`select l.account, l.debit, l.credit from journal_lines l join journal_entries e on e.id = l.entry_id
+        where e.source_type = 'ausschuettung'`;
+      expect(lines.map((l) => [l.account, Number(l.debit), Number(l.credit)]).sort()).toEqual(
+        [
+          [k.vortrag, 1_000_000, 0],
+          [k.gesellschafter, 0, netto],
+          [k.einbehalt, 0, 1_000_000 - netto],
+        ].sort(),
+      );
+    }, 30_000);
+
+    it("Anteilseigner ohne Beteiligung (0 €): kein Vorschlag zum Buchen, der Grund steht dabei", async () => {
+      // Jeder Geschäftsanteil hat einen Nennbetrag in vollen Euro (§ 5 Abs. 2 GmbHG); 0 € neben einem Anteil in Prozent ist
+      // eine fehlende Angabe, nach ihr bekäme der Gesellschafter still nichts
+      await setup(kontenrahmen, kontenrahmen === "SKR03" ? "soll" : "ist", k);
+      const input = { geschaeftsjahr: 2025, beschluss: "2026-03-01", brutto: 1_000_000 };
+      for (const [beteiligungen, namen] of [
+        [[0, 1_000_000], "Erika"],
+        [[0, 0], "Erika, Max"],
+      ] as const) {
+        await kst.saveKapgErklaerungAngaben(actor, 2026, {
+          anteilseigner: [
+            { ...erika, beteiligung: beteiligungen[0], anteil: 5000 },
+            { ...max, beteiligung: beteiligungen[1], anteil: 5000 },
+          ],
+        });
+        const grund = `Für 2026 fehlt die Beteiligung in Euro von ${namen}`;
+        expect((await a.ausschuettungVorschlag(input)).issues).toEqual([expect.stringContaining(grund)]);
+        const create = a.createAusschuettung(actor, input, today);
+        await expect(create).rejects.toThrow(grund);
+        await expect(create).rejects.toBeInstanceOf(a.AusschuettungError);
+      }
+      expect(await a.dividendsOfYear(2026)).toEqual([]);
+      const gebucht = await sql`select count(*)::int as n from journal_entries where source_type = 'ausschuettung'`;
+      expect(gebucht[0]!.n).toBe(0);
+    }, 30_000);
 
     it("Storno vor der Anmeldung; Leistung über dem ausschüttbaren Gewinn aus dem Einlagekonto", async () => {
       await setup(kontenrahmen, "ist", k);

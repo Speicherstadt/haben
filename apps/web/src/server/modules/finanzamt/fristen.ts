@@ -19,7 +19,7 @@ import {
 export type FristArt = "ustva" | "zm" | "kapest" | "lsta" | "lstb" | "erklaerung" | "vorauszahlung" | "einspruch" | "zertifikat" | "sv";
 
 export interface Frist {
-  /** stabil, auch als UID im Kalender */
+  /** stabil je Dokument (Bereitstellung), nicht je Steuerfall; dient auch als UID im Kalender */
   id: string;
   art: FristArt;
   /** JJJJ-MM-TT */

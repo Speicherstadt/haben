@@ -5,7 +5,7 @@ import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
 import { importRecurringPaused } from "../rechnungen/index.ts";
-import { progressMessage } from "./lexoffice.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 
 /*
  * Vorlagen wiederkehrender Rechnungen aus sevDesk (invoiceType WKR, #472). Jede kommt pausiert als wiederkehrende

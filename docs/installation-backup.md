@@ -139,6 +139,7 @@ Am Beispiel Docker Compose; die Befehle laufen als der Benutzer, der `docker com
     ```
 
     Zeigt `~` auf dem Server nicht auf das richtige Verzeichnis, etwa auf einem NAS, den vollen Pfad nehmen, zum Beispiel `/share/homes/<benutzer>/.ssh:/root/.ssh:ro`.
+
 4. **In `.env`:** `RESTIC_REPOSITORY=sftp:<benutzer>@<host>:/pfad/zum/backup`. Heißt der Schlüssel nicht `id_ed25519` oder `id_rsa`, eine `~/.ssh/config` mit `Host <host>` und `IdentityFile ~/.ssh/<name>` anlegen.
 5. **Übernehmen und testen:** `docker compose up -d`, damit der Container mit Einhängung und neuer Variable startet, dann einmal `docker compose exec backup backup.sh`. Beim ersten Lauf legt es das Repository an.
 
