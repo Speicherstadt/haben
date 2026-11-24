@@ -202,7 +202,7 @@ function OverviewPage() {
 
   const todos: Todo[] = [...einrichtungsAufgaben(Route.useRouteContext().einrichtung), ...ustIdAufgaben(data.ustIdUngueltig)];
   // Steuerkonto: reicht der Stand für die Zahllast, die das Finanzamt per Lastschrift einzieht?
-  const zahllast = data.current?.status === "sent" ? data.current.kz83 : data.computedKz83;
+  const zahllast = data.current?.status === "sent" ? data.current.kz83 : vorStart ? 0 : data.computedKz83;
   const taxAccount = data.invoices.bank.find((a) => a.purpose === "steuer");
   // Abgegebene Voranmeldungen: was je Posten noch offen ist; der Zeitraum ohne Abgabe nach den Buchungen, abzüglich
   // schon eingezogener Lastschriften ohne Bezug (dann ist der Kontostand bereits um sie gesunken)
