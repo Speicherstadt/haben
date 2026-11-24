@@ -135,3 +135,4 @@ export * from "./paragraph4.ts";
 export * from "./firmen.ts";
 export * from "./bildformat.ts";
 export * from "./zahlung-gebuehr.ts";
+export * from "./metriken.ts";
