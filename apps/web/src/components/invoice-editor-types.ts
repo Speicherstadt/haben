@@ -27,6 +27,7 @@ export interface ContactOption {
   ort: string;
   strasse: string;
   plz: string;
+  land: string;
   kundennummer: string | null;
   defaultFormat: DraftInput["format"] | null;
   leitwegId: string;
