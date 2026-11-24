@@ -242,7 +242,7 @@ Für ihn gehört meist ein `ipBlock` mit den Adressen der Knoten in `ingressFrom
 
 ## Metriken
 
-`GET /api/metrics` gibt es nur mit `HABEN_METRICS_TOKEN` (mindestens 32 Zeichen, `openssl rand -hex 32`) unter
+`GET /api/metrics` gibt es nur mit `HABEN_METRICS_TOKEN` ([Konfiguration](installation-konfiguration.md)) unter
 `app.secretEnv` oder im `app.existingSecret`; was der Endpunkt meldet und Alarmregeln stehen unter
 [Überwachung](installation-ueberwachung.md). Mit dem Prometheus Operator, etwa aus kube-prometheus-stack, legt
 `metrics.serviceMonitor.enabled: true` einen `ServiceMonitor` an, der das Token aus dem Secret der App nimmt. Die
@@ -267,9 +267,9 @@ networkPolicy:
           app.kubernetes.io/name: prometheus
 ```
 
-Mit `networkPolicy.enabled` dürfen sonst nur die Pods aus `ingressFrom` an die App; `metricsFrom` lässt Prometheus dazu.
-Er erreicht dann wie der Ingress-Controller die ganze App an Port 3000 und könnte `X-Forwarded-For` setzen, deshalb
-dort nur die Pods von Prometheus angeben, nicht den ganzen Namespace.
+Mit `networkPolicy.enabled` lässt `metricsFrom` Prometheus zusätzlich zu `ingressFrom` an die App. Er erreicht dann wie
+der Ingress-Controller die ganze App an Port 3000 und könnte `X-Forwarded-For` setzen, deshalb dort nur die Pods von
+Prometheus angeben, nicht den ganzen Namespace.
 
 ## ELSTER
 

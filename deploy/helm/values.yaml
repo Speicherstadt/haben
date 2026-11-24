@@ -135,16 +135,17 @@ metrics:
   serviceMonitor:
     # ServiceMonitor für den Prometheus Operator, etwa aus kube-prometheus-stack; braucht dessen CRDs
     enabled: false
-    # Leer: Vorgabe des Prometheus. Die Werte der Jobs ändern sich höchstens stündlich
+    # Leer: Vorgabe des Prometheus. Höchstens "2m": Prometheus sieht einen Wert nur 5 Minuten lang, danach greifen
+    # Alarmregeln und Dashboard nicht mehr
     interval: ""
     scrapeTimeout: ""
     # Labels, nach denen der Prometheus ServiceMonitore auswählt (serviceMonitorSelector), etwa
     # release: kube-prometheus-stack
     labels: {}
 
-# Wie das eigene Netz in Compose: An die App kommen nur die Pods aus ingressFrom (und metricsFrom), an die mitgelieferte Datenbank nur
-# App und Wiederherstellen; eine eigene Datenbank braucht eine eigene Richtlinie. Braucht ein Netzwerk-Plugin, das
-# NetworkPolicy umsetzt (in k3s eingebaut).
+# Wie das eigene Netz in Compose: An die App kommen nur die Pods aus ingressFrom (und metricsFrom), an die mitgelieferte
+# Datenbank nur App und Wiederherstellen; eine eigene Datenbank braucht eine eigene Richtlinie. Braucht ein
+# Netzwerk-Plugin, das NetworkPolicy umsetzt (in k3s eingebaut).
 networkPolicy:
   enabled: false
   # Pods des Ingress-Controllers oder Gateways, als Einträge für from einer NetworkPolicy. In k3s mit Traefik:
