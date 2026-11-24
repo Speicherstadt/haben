@@ -89,6 +89,8 @@ const alleKennzahlen: Omit<UstvaXmlInput["figures"], "kz83"> = {
   kz61: 12_800,
   // Entstandene Einfuhrumsatzsteuer (Bescheid des Zolls)
   kz62: 38_000,
+  // Minderung bei Uneinbringlichkeit, in Kz 81 enthalten (#1267)
+  kz50: 200_000,
 };
 
 // ---------------------------------------------------------------------------
@@ -362,6 +364,7 @@ const faelle: [string, () => string][] = [
   ],
   ["UStVA Erstattung", ustva(2026, { kz81: 0, kz86: 0, kz66: 1_200 })],
   ["UStVA Einfuhrumsatzsteuer", ustva(2026, { kz81: 100_000, kz86: 0, kz66: 1_900, kz62: 38_000 })],
+  ["UStVA Forderungsausfall (Kz 50, #1267)", ustva(2026, { kz81: -100_000, kz86: -50_000, kz66: 0, kz50: 150_000 })],
   ["UStVA Nullmeldung", ustva(2026, { kz81: 0, kz86: 0, kz66: 0 })],
   ["UStVA berichtigt", ustva(2026, { kz81: 100_000, kz86: 0, kz66: 1_745 }, { berichtigt: true })],
   ["UStVA Dezember", ustva(2026, { kz81: 100_000, kz86: 0, kz66: 0 }, { period: { year: 2026, month: 12 } })],

@@ -9,6 +9,8 @@ import { berechnet } from "./vat.ts";
  * Zeitraum zählt die zuletzt gesendete Anmeldung (auch eine Berichtigung). Bei von Hand überschriebenen Kennzahlen
  * (source „manuell“) wird mit den beim Speichern berechneten Werten verglichen (`computed`), nicht mit den gesendeten.
  * Kz 48 gilt auch ohne die Umsätze als Kleinunternehmer als gleich: So hat Haben sie vor #1268 gemeldet.
+ * Kz 50 (#1267) fehlt im Vergleich: Sie wiederholt nur, was Kz 81/86 schon mindern, ändert keine Steuer, und vor
+ * #1267 gesendete Anmeldungen haben sie nicht.
  */
 
 /** Die gespeicherten Kennzahlen einer Anmeldung, wie computedValues sie liefert */
