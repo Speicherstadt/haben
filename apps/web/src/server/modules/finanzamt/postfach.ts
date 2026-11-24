@@ -68,23 +68,46 @@ export async function listPostfachDocuments(limit = 200) {
   });
 }
 
+type PostfachDokument = Awaited<ReturnType<typeof listPostfachDocuments>>[number];
+
+/** Vergleichsform einer Dateibezeichnung: einfacher Leerraum, Groß- und Kleinschreibung egal */
+const vergleichsform = (bezeichnung: string) => bezeichnung.trim().replace(/\s+/g, " ").toLowerCase();
+
 /**
- * Echte Bescheide, deren Einspruchsfrist heute noch läuft; je Steuerfall einer.
+ * Echte Bescheide, deren Einspruchsfrist heute noch läuft; je Steuerfall und Zeitraum einer.
  *
  * Ein Änderungsbescheid ändert den Bescheid, den er ändert (§ 172 Abs. 1 AO); der geänderte wird insoweit
  * gegenstandslos (§ 124 Abs. 2 AO), und die Frist läuft nur noch für den neuen (§ 355 Abs. 1 AO). Deshalb zählt je
- * Datenart, Veranlagungszeitraum und Steuerkonto nur das jüngste Bescheiddatum, sonst steht die erledigte Frist
- * gleichrangig daneben (#1817). Anhänge desselben Bescheids fallen dabei zusammen, weil sie dasselbe Datum tragen.
+ * Datenart, Veranlagungszeitraum, Steuernummer und Zeitraum nur das jüngste Bescheiddatum; sonst steht die erledigte
+ * Frist gleichrangig daneben (#1817).
+ *
+ * Den Zeitraum führt nur die Dateibezeichnung des Finanzamts („Umsatzsteuer-Vorauszahlungsbescheid Januar 2025“), ein
+ * eigenes Feld speichert Haben nicht. Sie wird deshalb so, wie sie kommt, Teil des Schlüssels; Monatsnamen aus dem
+ * Freitext zu lesen wäre geraten (Quartale, „Januar bis März“, abweichende Schreibweisen) und könnte zwei Zeiträume
+ * zusammenwerfen und damit eine offene Frist verschlucken. Anhänge desselben Bescheids tragen verschiedene
+ * Bezeichnungen; zusammengehalten werden sie über ihre Bereitstellung.
  */
 export async function openAppealDeadlines(today: string) {
-  const juengster = new Map<string, Awaited<ReturnType<typeof listPostfachDocuments>>[number]>();
-  for (const bescheid of await listPostfachDocuments()) {
-    if (bescheid.test || !bescheid.frist || bescheid.frist.fristende < today) continue;
-    const schluessel = [bescheid.datenart, bescheid.veranlagungszeitraum, bescheid.steuernummer].join("\u0000");
-    const bisher = juengster.get(schluessel);
-    if (!bisher || bescheid.bescheiddatum > bisher.bescheiddatum) juengster.set(schluessel, bescheid);
+  const offen = (await listPostfachDocuments()).filter(
+    (d): d is PostfachDokument & { bescheiddatumIso: string; frist: NonNullable<PostfachDokument["frist"]> } =>
+      !d.test && d.frist !== null && d.frist.fristende >= today && d.bescheiddatumIso !== null,
+  );
+  const bezeichnungen = new Map<string, Set<string>>();
+  for (const dokument of offen) {
+    const menge = bezeichnungen.get(dokument.bereitstellungId) ?? new Set<string>();
+    menge.add(vergleichsform(dokument.dateibezeichnung));
+    bezeichnungen.set(dokument.bereitstellungId, menge);
   }
-  return [...juengster.values()].sort((a, b) => a.frist!.fristende.localeCompare(b.frist!.fristende));
+  const juengster = new Map<string, (typeof offen)[number]>();
+  for (const bescheid of offen) {
+    const zeitraum = [...(bezeichnungen.get(bescheid.bereitstellungId) ?? [])].sort().join("\u0001");
+    const schluessel = [bescheid.datenart, bescheid.veranlagungszeitraum, bescheid.steuernummer, zeitraum].join("\u0000");
+    const bisher = juengster.get(schluessel);
+    // Jüngster Bescheid je Steuerfall und Zeitraum; verglichen wird das gelesene Datum, nicht die rohe Spalte, weil
+    // der Parser JJJJMMTT, JJJJ-MM-TT und TT.MM.JJJJ kennt und gemischt sonst die falsche Zeile gewinnt.
+    if (!bisher || bescheid.bescheiddatumIso > bisher.bescheiddatumIso) juengster.set(schluessel, bescheid);
+  }
+  return [...juengster.values()].sort((a, b) => a.frist.fristende.localeCompare(b.frist.fristende));
 }
 
 export async function postfachDocumentFile(id: string) {

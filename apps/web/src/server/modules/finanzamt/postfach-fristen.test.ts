@@ -3,8 +3,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
 /*
- * Offene Einspruchsfristen je Steuerfall: Ein Änderungsbescheid ersetzt den Bescheid, den er ändert, und damit dessen
- * Frist. Die Fälle hier kommen ohne ELSTER aus, sie schreiben die Dokumente direkt in die Datenbank (#1817).
+ * Offene Einspruchsfristen je Steuerfall und Zeitraum: Ein Änderungsbescheid ersetzt den Bescheid, den er ändert, und
+ * damit dessen Frist. Die Fälle hier kommen ohne ELSTER aus, sie schreiben die Dokumente direkt in die Datenbank
+ * (#1817).
  */
 describe.skipIf(!testDatabaseUrl)("Offene Einspruchsfristen (Postgres)", () => {
   let postfach: typeof import("./postfach.ts");
@@ -32,6 +33,7 @@ describe.skipIf(!testDatabaseUrl)("Offene Einspruchsfristen (Postgres)", () => {
     steuernummer?: string;
     bescheiddatum: string;
     bereitstellungId?: string;
+    bezeichnung?: string;
     test?: boolean;
   }
 
@@ -46,8 +48,8 @@ describe.skipIf(!testDatabaseUrl)("Offene Einspruchsfristen (Postgres)", () => {
         steuernummer, bescheiddatum, dateibezeichnung, mime_type, filename, sha256, size, test, request_id)
       values (${`ref-${d.nummer}`}, ${d.bereitstellungId ?? `bereitstellung-${d.nummer}`},
         ${d.datenart ?? "DivaBescheidESt"}, ${d.veranlagungszeitraum ?? "2025"},
-        ${d.steuernummer ?? "000/000/00000"}, ${d.bescheiddatum}, 'Einkommensteuerbescheid', 'application/pdf',
-        ${`Bescheid_${d.nummer}.pdf`}, ${`hash-${d.nummer}`}, 1000, ${d.test ?? false}, ${request!.id})`;
+        ${d.steuernummer ?? "000/000/00000"}, ${d.bescheiddatum}, ${d.bezeichnung ?? "Einkommensteuerbescheid"},
+        'application/pdf', ${`Bescheid_${d.nummer}.pdf`}, ${`hash-${d.nummer}`}, 1000, ${d.test ?? false}, ${request!.id})`;
   }
 
   it("lässt den ersetzten Bescheid fallen und behält die Frist des Änderungsbescheids", async () => {
@@ -61,14 +63,14 @@ describe.skipIf(!testDatabaseUrl)("Offene Einspruchsfristen (Postgres)", () => {
     expect(offen[0]!.frist?.fristende).toBe("2026-12-23");
   });
 
-  it("zählt Anhänge desselben Bescheids als eine Frist", async () => {
-    await bescheid({ nummer: 1, bescheiddatum: "20261119" });
-    await bescheid({ nummer: 2, bescheiddatum: "20261119" });
+  it("zählt Anhänge desselben Bescheids als eine Frist, auch bei verschiedenen Bezeichnungen", async () => {
+    await bescheid({ nummer: 1, bescheiddatum: "20261119", bereitstellungId: "b-1", bezeichnung: "Einkommensteuerbescheid 2025" });
+    await bescheid({ nummer: 2, bescheiddatum: "20261119", bereitstellungId: "b-1", bezeichnung: "Erläuterungen" });
 
     expect(await postfach.openAppealDeadlines("2026-11-23")).toHaveLength(1);
   });
 
-  it("hält zwei Steuerkonten auseinander", async () => {
+  it("hält zwei Steuernummern auseinander", async () => {
     await bescheid({ nummer: 1, bescheiddatum: "20261109", steuernummer: "000/000/00001" });
     await bescheid({ nummer: 2, bescheiddatum: "20261119", steuernummer: "000/000/00002" });
 
@@ -83,6 +85,74 @@ describe.skipIf(!testDatabaseUrl)("Offene Einspruchsfristen (Postgres)", () => {
     await bescheid({ nummer: 3, datenart: "DivaBescheidESt", veranlagungszeitraum: "2024", bescheiddatum: "20261119" });
 
     expect(await postfach.openAppealDeadlines("2026-11-23")).toHaveLength(3);
+  });
+
+  it("ersetzt den Bescheid desselben Zeitraums, auch bei anderer Schreibweise", async () => {
+    await bescheid({
+      nummer: 1,
+      datenart: "DivaBescheidUSt",
+      bescheiddatum: "20261109",
+      bezeichnung: "Umsatzsteuer-Vorauszahlungsbescheid Januar 2025",
+    });
+    await bescheid({
+      nummer: 2,
+      datenart: "DivaBescheidUSt",
+      bescheiddatum: "20261119",
+      bezeichnung: "Umsatzsteuer-Vorauszahlungsbescheid Januar 2025".toUpperCase(),
+    });
+
+    const offen = await postfach.openAppealDeadlines("2026-11-23");
+
+    expect(offen).toHaveLength(1);
+    expect(offen[0]!.frist?.fristende).toBe("2026-12-23");
+  });
+
+  it("hält zwei Zeiträume desselben Steuerfalls auseinander", async () => {
+    // Zwei eigenständige Bescheide für 2025, gleiche Steuernummer: der Februar-Bescheid ersetzt den Januar nicht
+    await bescheid({
+      nummer: 1,
+      datenart: "DivaBescheidUSt",
+      bescheiddatum: "20261109",
+      bezeichnung: "Umsatzsteuer-Vorauszahlungsbescheid Januar 2025",
+    });
+    await bescheid({
+      nummer: 2,
+      datenart: "DivaBescheidUSt",
+      bescheiddatum: "20261119",
+      bezeichnung: "Umsatzsteuer-Vorauszahlungsbescheid Februar 2025",
+    });
+
+    const offen = await postfach.openAppealDeadlines("2026-11-23");
+
+    expect(offen.map((d) => d.frist?.fristende)).toEqual(["2026-12-14", "2026-12-23"]);
+  });
+
+  it("hält sonstige Bescheide eines Jahres mit abweichender Bezeichnung getrennt", async () => {
+    // DivaSonstigerVA sammelt beliebige Bescheide eines Jahres; gleicher Schlüssel heißt dort nicht Ersatz
+    await bescheid({
+      nummer: 1,
+      datenart: "DivaSonstigerVA",
+      bescheiddatum: "20261109",
+      bezeichnung: "Nachforderung Umsatzsteuer Januar 2025",
+    });
+    await bescheid({
+      nummer: 2,
+      datenart: "DivaSonstigerVA",
+      bescheiddatum: "20261119",
+      bezeichnung: "Ablehnung Stundungsantrag Februar 2025",
+    });
+
+    expect(await postfach.openAppealDeadlines("2026-11-23")).toHaveLength(2);
+  });
+
+  it("vergleicht Bescheiddaten in gemischter Schreibweise als Datum", async () => {
+    await bescheid({ nummer: 1, bescheiddatum: "20261109" });
+    await bescheid({ nummer: 2, bescheiddatum: "19.11.2026" });
+
+    const offen = await postfach.openAppealDeadlines("2026-11-23");
+
+    expect(offen).toHaveLength(1);
+    expect(offen[0]!.frist?.fristende).toBe("2026-12-23");
   });
 
   it("übergeht Testbescheide und abgelaufene Fristen", async () => {
