@@ -1,6 +1,5 @@
 import { formatEuro, periodKey, periodLabel } from "@haben/core";
-import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { daysUntil, formatDate, formatDateTime, formatLongDate } from "../../lib/format.ts";
 import { InvoiceStatus } from "../../components/InvoiceStatus.tsx";
 import { EricHinweis } from "../../components/EricHinweis.tsx";
@@ -10,7 +9,7 @@ import { UebersichtKennzahlen, ohneKennzahlen, type UebersichtDaten } from "../.
 import { getBackupStatus } from "../../server/functions/backup.ts";
 import { getInvoiceSummary } from "../../server/functions/invoices.ts";
 import { getOverview } from "../../server/functions/vat.ts";
-import { markPostfachDocument } from "../../server/functions/finanzamt.ts";
+import { useBescheidAbhaken } from "./-uebersicht-abhaken.ts";
 import { einrichtungsAufgaben } from "../../lib/einrichtung.ts";
 
 export const Route = createFileRoute("/_app/")({
@@ -190,8 +189,7 @@ function einstellungsAufgaben(data: UebersichtDaten, backup: Awaited<ReturnType<
 
 function OverviewPage() {
   const data = Route.useLoaderData();
-  const router = useRouter();
-  const markGeprueft = useServerFn(markPostfachDocument);
+  const abhaken = useBescheidAbhaken();
   const key = periodKey(data.period);
   const sent = data.current?.status === "sent";
   const vatRequired = !data.kleinunternehmer && !data.exempt;
@@ -279,14 +277,7 @@ function OverviewPage() {
 
       {data.kleinunternehmerStand && <KleinunternehmerHinweise stand={data.kleinunternehmerStand} />}
 
-      <UebersichtAufgaben
-        geordnet={geordnet}
-        zeitraum={key}
-        onErledigen={async (id) => {
-          await markGeprueft({ data: { id, art: "geprueft" } });
-          await router.invalidate();
-        }}
-      />
+      <UebersichtAufgaben geordnet={geordnet} zeitraum={key} onErledigen={abhaken} />
 
       {!ohneKennzahlen(data) && (
         <UebersichtKennzahlen
