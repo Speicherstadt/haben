@@ -126,6 +126,17 @@ describe.skipIf(!testDatabaseUrl)("MCP-Listen mit offset weiterblättern (Postgr
     });
   });
 
+  it("offene_posten: die Verbindlichkeiten bleiben in fester Reihenfolge, auch wenn Postgres die Zeilen anders liefert", async () => {
+    // openPayables fragt ohne ORDER BY; bei gleicher Fälligkeit und Nummer entschied bisher die Lage der Zeilen in der
+    // Tabelle. CLUSTER legt sie zwischen zwei Seiten neu ab, wie es nach Änderungen und VACUUM auch von selbst geschieht.
+    type Posten = { verbindlichkeiten: { posten: Antwort[] } };
+    const lesen = async (offset: number) => ((await run("offene_posten", { limit: 50, offset })) as Posten).verbindlichkeiten.posten;
+    const erste = await lesen(0);
+    await sql`cluster documents using documents_pkey`;
+    const rest = [...(await lesen(50)), ...(await lesen(100))];
+    expect(new Set([...erste, ...rest].map((p) => p.brutto)).size).toBe(120);
+  });
+
   it("bankumsaetze_ohne_zuordnung: ein offset für alle Konten, total je Konto", async () => {
     type Konto = { konto: string; anzahl: number; total: number; limit: number; offset: number; umsaetze: Antwort[] };
     await blaettern(
