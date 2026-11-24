@@ -204,6 +204,19 @@ describe("Übersicht: Kennzahl „USt-Zahllast“ vor dem ersten Buchungsmonat",
     expect(html).not.toContain("USt-Zahllast");
   });
 
+  it("eine Zahllast aus Kz 39 (Sondervorauszahlung) vor dem Start macht den Zeitraum nicht fällig", () => {
+    mitZahlen("2026-11");
+    data.computedKz83 = -100000;
+    expect(render()).not.toContain("Voranmeldung fällig");
+  });
+
+  it("eine Zahllast vor dem Start meldet kein zu knappes Steuerkonto", () => {
+    mitZahlen("2026-11");
+    data.computedKz83 = 50000;
+    data.invoices.bank = [konto({ id: "s1", name: "Rücklage", purpose: "steuer", balance: 0 })];
+    expect(titel(render())).toEqual([]);
+  });
+
   it("ab dem Startmonat bleibt die Karte wie bisher", () => {
     mitZahlen("2026-09");
     expect(render()).toContain(`Voranmeldung fällig ${formatDate("2026-10-12")}`);
