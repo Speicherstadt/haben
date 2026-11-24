@@ -9,8 +9,9 @@ const TITLE = { kunde: "Neuen Kunden anlegen", lieferant: "Neuen Lieferanten anl
 /**
  * Neuen Kontakt anlegen, wo er gebraucht wird (Rechnungsentwurf, wiederkehrende Rechnung, Beleg, Dauerbeleg, #330): Kunde
  * oder Lieferant ist nur die Vorbelegung der Rolle, im Formular gehen beide. Abbrechen und Fehler lassen die Eingaben
- * draußen stehen. Gehört neben das Formular, nicht hinein: Das Formular im Dialog schickte sonst auch das äußere ab.
- * Gibt es die USt-IdNr. schon, weist das Formular darauf hin (UstIdHinweis).
+ * draußen stehen. Darf im Formular der Seite stehen (Beleg prüfen): FormDialog hängt am body, und Redact reicht das Absenden
+ * wie der Browser nur im DOM weiter. React DOM gäbe es über das Portal an das äußere Formular weiter, und das speicherte mit
+ * (e2e zu #1835). Gibt es die USt-IdNr. schon, weist das Formular darauf hin (UstIdHinweis).
  */
 export function NewContactDialog({
   rolle,

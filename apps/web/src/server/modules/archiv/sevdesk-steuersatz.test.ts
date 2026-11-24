@@ -10,14 +10,14 @@ import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 const PDF = new TextEncoder().encode("%PDF-1.4\n% Rechnung ohne Positionen\n%%EOF\n");
 
 describe.skipIf(!testDatabaseUrl)("sevDesk-Rechnung ohne Positionen (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-abgleich.ts") & typeof import("./umzug-belege.ts");
   let legacy: typeof import("./legacy-open.ts");
   let storage: typeof import("../../storage.ts");
   let sql: postgres.Sql;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-belege.ts")) };
     legacy = await import("./legacy-open.ts");
     storage = await import("../../storage.ts");
   }, 30_000);

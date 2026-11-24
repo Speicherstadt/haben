@@ -16,13 +16,13 @@ const belegfeld = (fields: string[]) =>
   ].join("\r\n");
 
 describe.skipIf(!testDatabaseUrl)("Belegnummern aus dem DATEV-Export von sevDesk (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-abgleich.ts") & typeof import("./umzug-belege.ts");
   let archive: typeof import("./archive.ts");
   let sql: postgres.Sql;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-belege.ts")) };
     archive = await import("./archive.ts");
   }, 30_000);
 
