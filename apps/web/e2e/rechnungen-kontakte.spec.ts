@@ -482,6 +482,63 @@ test("Kontakt: Schnellanlage und Bearbeiten speichern auch zugeklappte Weitere A
   await expect(page.getByRole("button", { name: "Wiederherstellen" })).toBeVisible();
 });
 
+test("Kontakt: Wechsel ohne Neuladen zu einem Kontakt mit gleicher Version zeigt dessen Angaben, offene Formulare der Karten gehen zu (#1834)", async () => {
+  const sql = postgres(databaseUrlFuer(DURCHLAUF), { max: 1 });
+  const format = (await sql<{ format: string }[]>`select quote_number_format as format from company where id = 1`)[0]!.format;
+  const alsE2e = (arbeit: (tx: postgres.TransactionSql) => Promise<unknown>) =>
+    sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'e2e', true)`;
+      await arbeit(tx);
+    });
+  try {
+    // Zwei Kunden in Version 1, mit eigenem Angebotskreis, damit auch dessen Karte am Rand steht (#1426)
+    await alsE2e(async (tx) => {
+      await tx`update company set quote_counter_per_customer = true, quote_number_format = 'AN-{JJJJ}-{KUNDENNR}-{NNN}' where id = 1`;
+      await tx`insert into contacts (name, ort, land, kundennummer, hourly_rate_cents, is_customer, is_supplier)
+        values ('Wechselkunde Nord', 'Kiel', 'DE', 'WN-1834', 9550, true, false), ('Wechselkunde Süd', 'München', 'DE', 'WS-1834', 12000, true, false)`;
+    });
+    await go("/kontakte");
+    await page.getByRole("link", { name: /Wechselkunde Nord/ }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Wechselkunde Nord" })).toBeVisible();
+    await expect(page.getByLabel("Ort")).toHaveValue("Kiel");
+    // Angefangenes in den Karten: Ansprechpartner, Mandat und nächste Angebotsnummer
+    await page.getByRole("button", { name: "Ansprechpartner hinzufügen" }).click();
+    await page.getByRole("form", { name: "Neuer Ansprechpartner" }).getByLabel("Name").fill("Frau Nord");
+    await page.getByRole("button", { name: "Mandat anlegen" }).click();
+    await expect(page.getByRole("form", { name: "Neues Mandat" }).getByLabel("Kontoinhaber")).toHaveValue("Wechselkunde Nord");
+    const kreis = page.getByRole("form", { name: /^Angebotsnummern dieses Kunden/ });
+    await kreis.getByLabel("Nächste laufende Nummer").fill("7");
+    await kreis.getByRole("button", { name: "Übernehmen" }).click();
+    await expect(kreis.getByRole("status")).toContainText("Nummernkreis gespeichert.");
+
+    // Über die Schnellsuche zum anderen Kunden: Die Seite bleibt stehen, Formular und Karten gehören jetzt ihm
+    await page.keyboard.press("Control+k");
+    const palette = page.getByRole("dialog", { name: "Befehlspalette" });
+    await palette.getByRole("combobox").fill("Wechselkunde Süd");
+    await expect(palette.getByRole("option", { name: /Wechselkunde Süd/ })).toBeVisible();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("heading", { level: 1, name: "Wechselkunde Süd" })).toBeVisible();
+    const formular = page.getByRole("form", { name: "Kontakt" });
+    await expect(formular.getByLabel("Name oder Firma")).toHaveValue("Wechselkunde Süd");
+    await expect(formular.getByLabel("Ort")).toHaveValue("München");
+    await expect(formular.getByLabel("Kundennummer")).toHaveValue("WS-1834");
+    await weitereAngabenOeffnen(page);
+    await expect(formular.getByLabel("Stundensatz (€, optional)")).toHaveValue("120,00");
+    await expect(page.getByRole("form", { name: "Neuer Ansprechpartner" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Ansprechpartner hinzufügen" })).toBeVisible();
+    await expect(page.getByRole("form", { name: "Neues Mandat" })).toHaveCount(0);
+    await expect(kreis.getByLabel("Nächste laufende Nummer")).toHaveValue("1");
+    await expect(kreis.getByRole("status")).toHaveCount(0);
+  } finally {
+    // Nicht in den Zahlen der folgenden Tests, Angebotsnummern wieder ohne Kreis je Kunde
+    await alsE2e(async (tx) => {
+      await tx`update contacts set archived_at = now() where kundennummer in ('WN-1834', 'WS-1834')`;
+      await tx`update company set quote_counter_per_customer = false, quote_number_format = ${format} where id = 1`;
+    });
+    await sql.end();
+  }
+});
+
 test("Teilleistung ohne Leistungsdatum: Entwurf speichern nennt das Feld (Review #974)", async () => {
   await go("/rechnungen/neu");
   await kundeWaehlen(page);

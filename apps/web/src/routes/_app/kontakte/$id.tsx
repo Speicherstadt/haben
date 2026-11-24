@@ -54,7 +54,7 @@ export const Route = createFileRoute("/_app/kontakte/$id")({
 });
 
 function ContactPage() {
-  const { contact, versions, mandates, persons, today, history, ustid, kreise, service } = Route.useLoaderData();
+  const { contact, history, service } = Route.useLoaderData();
   const { bestaetigen } = Route.useSearch();
   const router = useRouter();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -108,7 +108,8 @@ function ContactPage() {
       <NoticeBanner notice={notice} />
       <div className="grid-main">
         <ContactForm
-          key={contact.version}
+          // Beim Wechsel zu einem anderen Kontakt bleibt die Seite stehen; die Version allein kann bei beiden gleich sein (#1834)
+          key={`${contact.id}-${contact.version}`}
           contact={contact}
           saved={savedId === contact.id}
           onUpdated={() => {
@@ -116,46 +117,58 @@ function ContactPage() {
             setPruefenFuer(contact.id);
           }}
         />
-        <div className="stack">
-          {/* Abgeschaltet wie vor #1385: ohne Karte, außer es gibt schon Antworten */}
-          {(ustid.bestaetigungen.length > 0 || ustid.zustand.art === "bereit" || ustid.zustand.art === "ohne-eigene") && (
-            <UstIdBestaetigungCard
-              key={contact.id}
-              contactId={contact.id}
-              ustId={contact.ustId}
-              bestaetigungen={ustid.bestaetigungen}
-              zustand={ustid.zustand}
-              nachSpeichern={pruefenFuer === contact.id}
-              onNachSpeichernErledigt={() => setPruefenFuer((id) => (id === contact.id ? null : id))}
-            />
-          )}
-          <ContactPersonsCard contactId={contact.id} persons={persons} />
-          <MandateCard
-            contactId={contact.id}
-            contactName={contact.name}
-            contactIban={contact.iban}
-            isCustomer={contact.isCustomer}
-            mandates={mandates}
-            today={today}
-          />
-          {/* Zähler je Kunde (#1426): die Karte einer Art steht nur, wenn deren Kreis läuft und der Kontakt eine Kundennummer trägt */}
-          {contact.kundennummer && kreise.invoice && <NumberingCard numbering={kreise.invoice} contactId={contact.id} />}
-          {contact.kundennummer && kreise.quote && <NumberingCard numbering={kreise.quote} contactId={contact.id} />}
-          <section className="card" aria-labelledby="versions-heading">
-            <h2 id="versions-heading">Versionen</h2>
-            <p className="small muted" style={{ margin: 0 }}>
-              Änderungen überschreiben nichts. Festgeschriebene Rechnungen behalten die Anschrift, die beim Festschreiben galt.
-            </p>
-            {versions.map((v) => (
-              <div key={v.version} className="history-row">
-                <span>Version {v.version}</span>
-                <span className="small muted">{formatDateTime(v.createdAt)}</span>
-              </div>
-            ))}
-          </section>
-        </div>
+        {/* Die Karten entstehen je Kontakt neu: Angefangenes (Ansprechpartner, Mandat, nächste Nummer) gehört zum vorigen (#1834) */}
+        <ContactCards
+          key={contact.id}
+          nachSpeichern={pruefenFuer === contact.id}
+          onNachSpeichernErledigt={() => setPruefenFuer((id) => (id === contact.id ? null : id))}
+        />
       </div>
       <ContactHistory contactId={contact.id} isCustomer={contact.isCustomer} isSupplier={contact.isSupplier} history={history} />
     </>
+  );
+}
+
+/** Karten neben dem Formular; nachSpeichern: nach dem Anlegen oder Speichern einmal beim BZSt nachfragen (#1385) */
+function ContactCards({ nachSpeichern, onNachSpeichernErledigt }: { nachSpeichern: boolean; onNachSpeichernErledigt: () => void }) {
+  const { contact, versions, mandates, persons, today, ustid, kreise } = Route.useLoaderData();
+  return (
+    <div className="stack">
+      {/* Abgeschaltet wie vor #1385: ohne Karte, außer es gibt schon Antworten */}
+      {(ustid.bestaetigungen.length > 0 || ustid.zustand.art === "bereit" || ustid.zustand.art === "ohne-eigene") && (
+        <UstIdBestaetigungCard
+          contactId={contact.id}
+          ustId={contact.ustId}
+          bestaetigungen={ustid.bestaetigungen}
+          zustand={ustid.zustand}
+          nachSpeichern={nachSpeichern}
+          onNachSpeichernErledigt={onNachSpeichernErledigt}
+        />
+      )}
+      <ContactPersonsCard contactId={contact.id} persons={persons} />
+      <MandateCard
+        contactId={contact.id}
+        contactName={contact.name}
+        contactIban={contact.iban}
+        isCustomer={contact.isCustomer}
+        mandates={mandates}
+        today={today}
+      />
+      {/* Zähler je Kunde (#1426): die Karte einer Art steht nur, wenn deren Kreis läuft und der Kontakt eine Kundennummer trägt */}
+      {contact.kundennummer && kreise.invoice && <NumberingCard numbering={kreise.invoice} contactId={contact.id} />}
+      {contact.kundennummer && kreise.quote && <NumberingCard numbering={kreise.quote} contactId={contact.id} />}
+      <section className="card" aria-labelledby="versions-heading">
+        <h2 id="versions-heading">Versionen</h2>
+        <p className="small muted" style={{ margin: 0 }}>
+          Änderungen überschreiben nichts. Festgeschriebene Rechnungen behalten die Anschrift, die beim Festschreiben galt.
+        </p>
+        {versions.map((v) => (
+          <div key={v.version} className="history-row">
+            <span>Version {v.version}</span>
+            <span className="small muted">{formatDateTime(v.createdAt)}</span>
+          </div>
+        ))}
+      </section>
+    </div>
   );
 }
