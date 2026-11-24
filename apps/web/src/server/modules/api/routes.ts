@@ -12,7 +12,8 @@ import { serviceEntryQuerySchema } from "./leistungen-schemas.ts";
 import { createQuoteHandler, deleteQuoteHandler, getQuoteHandler, listQuotesHandler, updateQuoteHandler } from "./quotes.ts";
 import { quoteQuerySchema } from "./quotes-schemas.ts";
 import { createRecurringInvoiceHandler } from "./recurring-invoices.ts";
-import { contactQuerySchema, documentQuerySchema, invoiceQuerySchema } from "./schemas.ts";
+import { documentQuerySchema } from "./belege-schemas.ts";
+import { contactQuerySchema, invoiceQuerySchema } from "./schemas.ts";
 
 /*
  * Alle Endpunkte von /api/v1 an einer Stelle: Pfad, Recht, Handler und was die OpenAPI-Beschreibung über sie sagt.

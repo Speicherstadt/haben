@@ -1,5 +1,5 @@
 {
-  "id": "ded1e209-2f18-4ec8-8c5d-d4bce20a841c",
+  "id": "00444922-fb6d-4080-98e7-1ffbc0d5f486",
   "prevId": "6c24d338-098c-4f70-a9e6-797f379339ac",
   "version": "7",
   "dialect": "postgresql",
@@ -10254,9 +10254,9 @@
           "name": "invoices_exempt_rule",
           "value": "\"invoices\".\"exempt_rule\" is null or (\"invoices\".\"exempt_rule\" = 'leistung' and \"invoices\".\"kind\" = 'rechnung' and \"invoices\".\"tax_treatment\" in ('steuerfrei', 'ausfuhr'))"
         },
-        "invoices_replaces_schluss": {
-          "name": "invoices_replaces_schluss",
-          "value": "\"invoices\".\"replaces_invoice_id\" is null or (\"invoices\".\"replaces_invoice_id\" <> \"invoices\".\"id\" and \"invoices\".\"kind\" = 'rechnung' and \"invoices\".\"variant\" is not distinct from 'schluss' and \"invoices\".\"advance_accounting\" is not distinct from 'deferred' and \"invoices\".\"corrects_id\" is null)"
+        "invoices_replaces_invoice": {
+          "name": "invoices_replaces_invoice",
+          "value": "\"invoices\".\"replaces_invoice_id\" is null or (\"invoices\".\"replaces_invoice_id\" <> \"invoices\".\"id\" and \"invoices\".\"kind\" = 'rechnung' and \"invoices\".\"corrects_id\" is null and\n        (\"invoices\".\"variant\" is null or (\"invoices\".\"variant\" is not distinct from 'schluss' and \"invoices\".\"advance_accounting\" is not distinct from 'deferred')))"
         },
         "invoices_quote_kind": {
           "name": "invoices_quote_kind",
@@ -14690,86 +14690,6 @@
       },
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.postfach_erledigt": {
-      "name": "postfach_erledigt",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "document_id": {
-          "name": "document_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "art": {
-          "name": "art",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "at": {
-          "name": "at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "postfach_erledigt_document": {
-          "name": "postfach_erledigt_document",
-          "columns": [
-            {
-              "expression": "document_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "postfach_erledigt_document_id_postfach_documents_id_fk": {
-          "name": "postfach_erledigt_document_id_postfach_documents_id_fk",
-          "tableFrom": "postfach_erledigt",
-          "tableTo": "postfach_documents",
-          "columnsFrom": [
-            "document_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "postfach_erledigt_art": {
-          "name": "postfach_erledigt_art",
-          "value": "\"postfach_erledigt\".\"art\" in ('geprueft', 'wieder_offen')"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.postfach_requests": {

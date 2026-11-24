@@ -1063,6 +1063,61 @@ test("Kontaktseite: Zeiteinträge des Kunden erfassen und ansehen, Rechnung mit 
   await expect(page.getByText("Eintrag gelöscht.")).toBeVisible();
 });
 
+test("Stornierte Rechnung als Ersatz erneut ausstellen, Leistungszeitraum und Bezug bleiben erhalten (#1454)", async () => {
+  await go("/rechnungen/neu");
+  await kundeWaehlen(page, "Nordwerk Software GmbH · Hamburg");
+  await page.getByLabel("Rechnungsdatum").fill(currentDay());
+  await page.getByLabel("Leistung von").fill(day(-24));
+  await page.getByLabel("Leistung bis").fill(day(-23));
+  await page.getByLabel("Beschreibung Position 1").fill("Beratung zur Website");
+  await page.getByLabel("Menge Position 1").fill("1");
+  await page.getByLabel(/Einzelpreis Position 1/).fill("100,00");
+  await page.getByRole("button", { name: "Entwurf speichern" }).click();
+  await page.waitForURL(/rechnungen\/[0-9a-f-]{36}$/);
+  await page.getByRole("button", { name: "Festschreiben", exact: true }).click();
+  await bestaetigen(page, "Festschreiben");
+  await expect(page.getByText(/Festgeschrieben/).first()).toBeVisible({ timeout: 30_000 });
+  const original = new URL(page.url()).pathname;
+  const originalTitel = (await page.getByRole("heading", { level: 1 }).textContent())?.trim() ?? "";
+  const ersatzAktion = page.getByRole("button", { name: "Ersatzrechnung erstellen", exact: true });
+  await expect(ersatzAktion).toHaveCount(0);
+  await page.getByRole("button", { name: "Stornieren", exact: true }).click();
+  await bestaetigen(page, "Stornieren");
+  await expect(page.getByRole("heading", { level: 1, name: /^Stornorechnung/ })).toBeVisible();
+  await go(original);
+  const viewport = page.viewportSize();
+  await page.setViewportSize({ width: 375, height: 812 });
+  await expect(ersatzAktion).toBeInViewport({ ratio: 1 });
+  if (viewport) await page.setViewportSize(viewport);
+
+  // Eine normale Kopie bleibt eine neue Rechnung ohne alten Leistungszeitraum und ohne Austauschbezug.
+  await page.getByRole("button", { name: "Kopieren", exact: true }).click();
+  await page.waitForURL((url) => url.pathname !== original && /^\/rechnungen\/[0-9a-f-]{36}$/.test(url.pathname));
+  await expect(page.getByLabel("Leistung von")).toHaveValue("");
+  const originalLink = page.getByRole("link", { name: originalTitel, exact: true });
+  await expect(originalLink).toHaveCount(0);
+  await go(original);
+
+  await ersatzAktion.click();
+  await page.waitForURL((url) => url.pathname !== original && /^\/rechnungen\/[0-9a-f-]{36}$/.test(url.pathname));
+  const ersatz = new URL(page.url()).pathname;
+  await expect(originalLink).toHaveAttribute("href", original);
+  await expect(page.getByLabel("Leistung von")).toHaveValue(day(-24));
+  await expect(page.getByLabel("Leistung bis")).toHaveValue(day(-23));
+  await page.getByLabel("Beschreibung Position 1").fill("Beratung zur Website, ergänzte Beschreibung");
+  await page.getByRole("button", { name: "Entwurf speichern" }).click();
+  await expect(page.getByText("Entwurf gespeichert.", { exact: true })).toBeVisible();
+  await expect(originalLink).toHaveAttribute("href", original);
+  await page.getByRole("button", { name: "Festschreiben", exact: true }).click();
+  await bestaetigen(page, "Festschreiben");
+  await expect(page.getByText(/Festgeschrieben/).first()).toBeVisible({ timeout: 30_000 });
+  await expect(originalLink).toHaveAttribute("href", original);
+  const ersatzTitel = (await page.getByRole("heading", { level: 1 }).textContent())?.trim() ?? "";
+  await go(original);
+  await expect(page.getByRole("link", { name: ersatzTitel, exact: true })).toHaveAttribute("href", ersatz);
+  await expect(ersatzAktion).toHaveCount(0);
+});
+
 test("Seiten mit den Daten dieses Abschnitts ohne axe-Verstöße", async () => {
   await ohneAxeVerstoesse(page, ["/angebote", "/einstellungen?bereich=email", "/rechnungen"]);
 });

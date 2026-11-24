@@ -53,6 +53,7 @@ function invoiceOut(row: ListRow, invoice: Invoice, lines: InvoiceLine[], baseUr
   return {
     ...summaryOut(row, baseUrl),
     correctsId: invoice.correctsId,
+    replacesInvoiceId: invoice.replacesInvoiceId,
     serviceFrom: invoice.serviceFrom,
     serviceTo: invoice.serviceTo,
     paymentTermDays: invoice.paymentTermDays,
@@ -178,7 +179,7 @@ export async function updateInvoiceHandler(request: ApiRequest): Promise<ApiResu
   if (!found) return notFound(INVOICE_NOT_FOUND);
   const { invoice, lines } = found;
   if (invoice.status !== "draft") return fail("conflict", LOCKED);
-  if (invoice.kind !== "rechnung" || invoice.variant || invoice.quoteId) {
+  if (invoice.kind !== "rechnung" || invoice.variant || (invoice.quoteId && !invoice.replacesInvoiceId)) {
     return fail("conflict", "Storno, Korrektur, Abschlags- und Schlussrechnung sowie Rechnungen zu einem Angebot bitte in Haben bearbeiten.");
   }
   const body = request.body as Record<string, unknown>;
