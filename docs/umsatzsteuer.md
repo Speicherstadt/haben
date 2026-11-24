@@ -132,10 +132,6 @@ Die Zahlung der Sondervorauszahlung ordnest du im [Bankabgleich](bank.md) als **
 
 In der EÜR zählt sie wie jede Umsatzsteuer-Vorauszahlung als gezahlte Umsatzsteuer, im Jahr der Zahlung. Mit der Voranmeldung für Dezember sinkt die Zahlung an das Finanzamt um die Sondervorauszahlung; einen Ausgleich zwischen 1781 und 1780 (SKR04 3830 und 3820) bucht Haben nicht gesondert, beide zählen zu den Umsatzsteuerkonten.
 
-## Umsatzsteuerliche Sondergebiete
-
-Die [Sondergebiete](umsatzsteuer-sondergebiete.md) erklären, welche Anschriften Haben erkennt und wie du die Behandlung auf der Rechnung prüfst.
-
 ## Zusammenfassende Meldung
 
 Leistungen an Unternehmer im EU-Ausland mit Reverse Charge (Kz 21) und innergemeinschaftliche Lieferungen (Kz 41) meldest du zusätzlich dem Bundeszentralamt für Steuern (BZSt), je USt-IdNr. des Kunden und Umsatzart die Summe der Bemessungsgrundlagen eines Kalendervierteljahres, bis zum 25. Tag nach Quartalsende (§ 18a Abs. 1, 2 und 7 UStG). Eine Dauerfristverlängerung gilt dafür nicht. Kleinunternehmer melden nichts (§ 18a Abs. 4 UStG).
