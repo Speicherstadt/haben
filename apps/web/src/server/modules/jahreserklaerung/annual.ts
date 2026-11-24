@@ -16,6 +16,7 @@ import {
   formatEuro,
   homeofficeSatz,
   isKapitalgesellschaft,
+  isQuarter,
   monthsOfPeriod,
   periodKey,
   STEUER_KONTEN,
@@ -58,7 +59,7 @@ import {
   zehnTageKennzeichen,
   type ZehnTageKennzeichen,
 } from "../auswertungen/index.ts";
-import { computeVatFigures, loadFrequencies } from "../umsatzsteuer/index.ts";
+import { computeVatFigures, loadFrequencies, type VatFigures } from "../umsatzsteuer/index.ts";
 import { kz48Einordnen, type Kz48Gesperrt } from "./kz48.ts";
 import { PRODUKT_VERSION, uebermitteln } from "../elster/index.ts";
 
@@ -111,6 +112,20 @@ export function lastFilingPeriodKey(settings: readonly VatFrequencySetting[], ye
   return last ? periodKey(last) : null;
 }
 
+/**
+ * Kz 650 (E3106101) in Cent: die Summe der Kz 50 der Voranmeldungszeiträume des Jahres (#1809), je Zeitraum nie negativ.
+ * Anders als die übrigen Kennzahlen lässt sich Kz 50 nicht über Monate summieren: Ein Wiedereingang hebt einen
+ * Forderungsausfall nur im selben Zeitraum auf (vat-journal.ts), bei vierteljährlicher Abgabe also auch einen aus einem
+ * anderen Monat des Quartals. Monate ohne Voranmeldung (befreit) zählen je Monat.
+ */
+async function kz50DerVoranmeldungen(year: number, months: readonly VatFigures[], frequencies: readonly VatFrequencySetting[]) {
+  const quartale = filingPeriodsOfYear(frequencies, year).filter(isQuarter);
+  const imQuartal = new Set(quartale.flatMap((q) => monthsOfPeriod(q).map((m) => m.month)));
+  const monatlich = months.filter((_, i) => !imQuartal.has(i + 1)).map((m) => m.kz50);
+  const vierteljaehrlich = (await Promise.all(quartale.map((q) => computeVatFigures(q)))).map((q) => q.kz50);
+  return [...monatlich, ...vierteljaehrlich].reduce((s, kz50) => s + Math.max(0, kz50), 0);
+}
+
 /** Zahlen der Umsatzsteuererklärung: Summe der zwölf Monate aus den Buchungen, Vorauszahlungen aus den gesendeten Voranmeldungen */
 export async function ustYear(year: number): Promise<UstYear> {
   const months = await Promise.all(Array.from({ length: 12 }, (_, i) => computeVatFigures({ year, month: i + 1 })));
@@ -140,8 +155,8 @@ export async function ustYear(year: number): Promise<UstYear> {
     // Auch hier Bemessungsgrundlagen in vollen Euro; die Steuerbeträge bleiben centgenau
     kz21: toWholeEuros(total("kz21")),
     kz45: toWholeEuros(total("kz45")),
-    // Kz 650 (E3106101): die Kz 50 der Monate aus denselben Journalzeilen, in Kz 81/86 schon enthalten, nie negativ
-    kz50: Math.max(0, toWholeEuros(total("kz50"))),
+    // Kz 650 (E3106101): die Kz 50 der Voranmeldungen aus denselben Journalzeilen, in Kz 81/86 schon enthalten
+    kz50: toWholeEuros(await kz50DerVoranmeldungen(year, months, frequencies)),
     kz41: toWholeEuros(total("kz41")),
     kz43: toWholeEuros(total("kz43")),
     kz89: base89,
