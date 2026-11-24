@@ -78,6 +78,16 @@ describe.skipIf(!testDatabaseUrl)("Postfach: Erledigt-Vermerke (Postgres)", () =
     expect(await postfach.openAppealDeadlines("2025-07-10")).toEqual([]);
   });
 
+  it("wertet den Bescheid als geprüft, wenn bei gleichem Bescheiddatum der andere Anhang abgehakt wird", async () => {
+    // Zwei Anhänge derselben Bereitstellung mit gleichem Bescheiddatum tragen dieselbe Aufgabe; welcher davon abgehakt
+    // wird, darf für das Verschwinden der Frist keinen Unterschied machen (#1819).
+    const erster = await bescheid({ datum: "2025-06-30", bezeichnung: "Bescheid ESt" });
+    await bescheid({ datum: "2025-06-30", bezeichnung: "Bescheid ESt, Anlage N" });
+    expect(await postfach.openAppealDeadlines("2025-07-10")).toHaveLength(1);
+    await erledigt.erledigtVermerken(erster, "geprueft", actor);
+    expect(await postfach.openAppealDeadlines("2025-07-10")).toEqual([]);
+  });
+
   it("schreibt den Akteur ins Audit-Log und lässt den Vermerk nicht ändern", async () => {
     const id = await bescheid();
     await erledigt.erledigtVermerken(id, "geprueft", actor);

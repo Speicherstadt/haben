@@ -232,7 +232,7 @@ function ErledigtKnopf({ dokument }: { dokument: Data["documents"][number] }) {
   }
   return (
     <>
-      <span className="muted">Geprüft{tag ? ` am ${formatDate(tag.toISOString().slice(0, 10))}` : ""}</span>{" "}
+      <span className="muted">Geprüft{tag ? ` am ${formatDate(tag)}` : ""}</span>{" "}
       <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void umschalten()}>
         {busy ? "…" : "Wieder offen"}
       </button>

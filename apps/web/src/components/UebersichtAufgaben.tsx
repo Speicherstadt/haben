@@ -82,7 +82,14 @@ function Eintrag({ todo, zeitraum, onErledigen }: { todo: Todo; zeitraum: string
           {notice.text}
         </span>
       ) : (
-        <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void abhaken()} title="Bescheid als geprüft abhaken">
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          disabled={busy}
+          onClick={() => void abhaken()}
+          title="Bescheid als geprüft abhaken"
+          aria-label={`${todo.title} als geprüft abhaken`}
+        >
           {busy ? "…" : "Geprüft"}
         </button>
       )}

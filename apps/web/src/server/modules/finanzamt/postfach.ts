@@ -56,7 +56,8 @@ export async function listPostfachDocuments(limit = 200) {
         fetchedAt: schema.postfachDocuments.fetchedAt,
       })
       .from(schema.postfachDocuments)
-      .orderBy(desc(schema.postfachDocuments.fetchedAt))
+      // Fester zweiter Schlüssel: Anhänge einer Bereitstellung kommen im selben Takt, sonst entscheidet der Zufall
+      .orderBy(desc(schema.postfachDocuments.fetchedAt), desc(schema.postfachDocuments.id))
       .limit(limit),
   ]);
   const erledigt = await erledigtStand(rows.map((row) => row.id));
@@ -106,7 +107,7 @@ export async function openAppealDeadlines(today: string) {
     menge.add(vergleichsform(dokument.dateibezeichnung));
     bezeichnungen.set(dokument.bereitstellungId, menge);
   }
-  const juengster = new Map<string, (typeof offen)[number]>();
+  const gruppen = new Map<string, (typeof offen)[number][]>();
   for (const bescheid of offen) {
     const zeitraum = [...(bezeichnungen.get(bescheid.bereitstellungId) ?? [])].sort().join("\u0001");
     // Ohne Veranlagungszeitraum ist der Zeitraum nicht bestimmt: Gleich benannte Bescheide verschiedener Jahre dürfen
@@ -117,14 +118,22 @@ export async function openAppealDeadlines(today: string) {
     const schluessel = einzeln
       ? `einzeln\u0000${bescheid.bereitstellungId}`
       : [bescheid.datenart, bescheid.veranlagungszeitraum, bescheid.steuernummer, zeitraum].join("\u0000");
-    const bisher = juengster.get(schluessel);
-    // Jüngster Bescheid je Steuerfall und Zeitraum; verglichen wird das gelesene Datum, nicht die rohe Spalte, weil
-    // der Parser JJJJMMTT, JJJJ-MM-TT und TT.MM.JJJJ kennt und gemischt sonst die falsche Zeile gewinnt.
-    if (!bisher || bescheid.bescheiddatumIso > bisher.bescheiddatumIso) juengster.set(schluessel, bescheid);
+    const liste = gruppen.get(schluessel) ?? [];
+    liste.push(bescheid);
+    gruppen.set(schluessel, liste);
   }
-  // Erst nach der Gruppierung filtern: Anhänge desselben Bescheids teilen sich die Aufgabe. Ist der jüngste geprüft,
-  // ist der Bescheid erledigt; ein älterer Anhang darf die Frist nicht wieder aufleben lassen (#1819).
-  return [...juengster.values()].filter((bescheid) => bescheid.erledigt?.art !== "geprueft").sort((a, b) => a.frist.fristende.localeCompare(b.frist.fristende));
+  // Erst nach der Gruppierung filtern: Anhänge desselben Bescheids teilen sich die Aufgabe (#1819). Maßgeblich ist das
+  // gelesene Datum, nicht die rohe Spalte, weil der Parser JJJJMMTT, JJJJ-MM-TT und TT.MM.JJJJ kennt. Trägt bei
+  // gleichem Bescheiddatum jeder Anhang dieselbe Aufgabe, gilt der Bescheid als geprüft, sobald einer von ihnen geprüft
+  // ist: sonst bliebe die Aufgabe stehen, obwohl in der abgehakten Zeile „Geprüft" steht. Ein älterer Bescheid derselben
+  // Gruppe lässt die Frist dagegen nicht wieder aufleben.
+  const offenBleibend: typeof offen = [];
+  for (const liste of gruppen.values()) {
+    const juengster = liste.reduce((a, b) => (b.bescheiddatumIso > a.bescheiddatumIso ? b : a));
+    const erledigt = liste.some((d) => d.bescheiddatumIso === juengster.bescheiddatumIso && d.erledigt?.art === "geprueft");
+    if (!erledigt) offenBleibend.push(juengster);
+  }
+  return offenBleibend.sort((a, b) => a.frist.fristende.localeCompare(b.frist.fristende));
 }
 
 export async function postfachDocumentFile(id: string) {
