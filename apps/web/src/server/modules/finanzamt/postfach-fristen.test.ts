@@ -161,6 +161,17 @@ describe.skipIf(!testDatabaseUrl)("Offene Einspruchsfristen (Postgres)", () => {
     expect(await postfach.openAppealDeadlines("2026-11-23")).toHaveLength(2);
   });
 
+  it.each([
+    { fall: "sonstiger Verwaltungsakt", datenart: "DivaSonstigerVA", veranlagungszeitraum: "2025" },
+    { fall: "ohne Veranlagungszeitraum", datenart: "DivaBescheidESt", veranlagungszeitraum: "" },
+  ])("zählt Anhänge desselben Bescheids auch ohne Zusammenlegen als eine Frist ($fall)", async (d) => {
+    // Was nicht zusammengelegt wird, bleibt je Bereitstellung eine Aufgabe, nicht je Datei
+    await bescheid({ ...d, nummer: 1, bescheiddatum: "20261119", bereitstellungId: "b-1", bezeichnung: "Verspätungszuschlag" });
+    await bescheid({ ...d, nummer: 2, bescheiddatum: "20261119", bereitstellungId: "b-1", bezeichnung: "Erläuterungen" });
+
+    expect(await postfach.openAppealDeadlines("2026-11-23")).toHaveLength(1);
+  });
+
   it("vergleicht Bescheiddaten in gemischter Schreibweise als Datum", async () => {
     await bescheid({ nummer: 1, bescheiddatum: "20261109" });
     await bescheid({ nummer: 2, bescheiddatum: "19.11.2026" });

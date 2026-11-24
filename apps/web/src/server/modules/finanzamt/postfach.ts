@@ -88,7 +88,7 @@ const vergleichsform = (bezeichnung: string) => bezeichnung.trim().replace(/\s+/
  * Monatsnamen aus dem Freitext zu lesen wäre geraten (Quartale, „Januar bis März“, abweichende Schreibweisen) und könnte
  * zwei Zeiträume zusammenwerfen und damit eine offene Frist verschlucken. Anhänge desselben Bescheids tragen verschiedene
  * Bezeichnungen; zusammengehalten werden sie über ihre Bereitstellung. Fehlt der Veranlagungszeitraum, ist der Zeitraum
- * nicht bestimmt, und sonstige Verwaltungsakte sind eigenständig: Dort bleibt jedes Dokument für sich, damit keine
+ * nicht bestimmt, und sonstige Verwaltungsakte sind eigenständig: Dort bleibt jede Bereitstellung für sich, damit keine
  * offene Frist verschwindet.
  */
 export async function openAppealDeadlines(today: string) {
@@ -108,9 +108,10 @@ export async function openAppealDeadlines(today: string) {
     // Ohne Veranlagungszeitraum ist der Zeitraum nicht bestimmt: Gleich benannte Bescheide verschiedener Jahre dürfen
     // dann nicht zusammenfallen, sonst verschwindet eine offene Frist. Dasselbe gilt für sonstige Verwaltungsakte, die
     // eigenständig sind und deren Bezeichnung nichts unterscheidet, etwa zwei Verspätungszuschläge desselben Jahres.
+    // Dort zählt jede Bereitstellung für sich; ihre Anhänge bleiben eine Frist.
     const einzeln = bescheid.veranlagungszeitraum === "" || bescheid.datenart === "DivaSonstigerVA";
     const schluessel = einzeln
-      ? `einzeln\u0000${bescheid.id}`
+      ? `einzeln\u0000${bescheid.bereitstellungId}`
       : [bescheid.datenart, bescheid.veranlagungszeitraum, bescheid.steuernummer, zeitraum].join("\u0000");
     const bisher = juengster.get(schluessel);
     // Jüngster Bescheid je Steuerfall und Zeitraum; verglichen wird das gelesene Datum, nicht die rohe Spalte, weil
