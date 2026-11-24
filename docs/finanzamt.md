@@ -35,7 +35,7 @@ Zu jedem Bescheid zeigt Haben unter „Einspruch bis“, bis wann du Einspruch e
 
 Bei Bescheiden, die nur im Postfach zum Abruf bereitgestellt werden, gilt der Bescheid am vierten Tag nach der Bereitstellung als bekannt gegeben ([§ 122a Abs. 4 Satz 1 AO](https://www.gesetze-im-internet.de/ao_1977/__122a.html)). Haben rechnet mit dem Bescheiddatum statt dem Tag der Bereitstellung; meist ist es derselbe Tag. Im Zweifel muss das Finanzamt den Zeitpunkt der Bereitstellung nachweisen (Satz 2).
 
-Einen Abruf mit Testmerker gibt es für das Postfach nicht: Die Kombination aus PostfachAnfrage und Testmerker ist für das Testzertifikat nicht zugelassen, ELSTER lehnt sie mit 601015001 ab. Ist ERiC eingerichtet, schalte „Nur Testübermittlung“ deshalb aus; der Abruf liest ohnehin nur. Ohne ERiC bleibt der Haken sinnvoll, dann liefert Haben einen erfundenen Testbescheid, damit du die Seite ausprobieren kannst.
+Für das Postfach lehnt ELSTER einen Abruf mit Testmerker ab: Die Kombination aus PostfachAnfrage und Testmerker ist für das Testzertifikat nicht zugelassen, die Antwort ist 601015001. Echt abrufen geht nur mit eingetragener Hersteller-ID und ausgeschaltetem Haken „Nur Testübermittlung“; ohne Hersteller-ID ist der Haken gesperrt. Ein Abruf ist auch nicht folgenlos: Haben bestätigt die Abholung anschließend mit `PostfachBestaetigung`, und ELSTER erwartet das binnen 24 Stunden (siehe oben). Ohne ERiC bleibt der Haken sinnvoll, dann liefert Haben einen erfundenen Testbescheid, damit du die Seite ausprobieren kannst.
 
 ## Vorauszahlungen herabsetzen
 

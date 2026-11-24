@@ -251,7 +251,7 @@ export async function runEric(config: EricConfig, request: EricRequest): Promise
         return {
           code,
           // Bei einem Fehler nennt ERiC nur den allgemeinen Text; was der Server bemängelt, steht in seiner Antwort (#525)
-          message: code === ERIC_OK ? message : mitServerMeldung(message, serverResponseXml),
+          message: code === ERIC_OK ? message : mitServerMeldung(message, serverResponseXml, request.op === "postfach"),
           responseXml: eric.EricRueckgabepufferInhalt(rueckgabe) ?? "",
           serverResponseXml,
         };

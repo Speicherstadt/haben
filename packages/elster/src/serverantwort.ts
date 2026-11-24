@@ -58,26 +58,42 @@ export function serverRueckmeldungen(serverResponseXml: string): ServerRueckmeld
 }
 
 /**
- * Codes, bei denen der Text des Annahmeservers mehr verwirrt als erklärt, mit einer Erklärung statt der Serverantwort.
- *
- * 601015001: Der Testabruf im Postfach geht mit Testmerker in die Test-Datenbank, und dort ist die Kombination aus
- * ElsterDatenabholung, PostfachAnfrage und send-Auth für das Testzertifikat nicht zugelassen. Der Servertext nennt
- * dabei das Zertifikat des Aufrufers, obwohl das gar nicht gemeint ist (#1791).
+ * 601015001 ist der allgemeine Code der Verfahrensprüfung; der Text des Annahmeservers benennt, was nicht passt
+ * (Kombination aus Verfahren, Datenart und Vorgang, Hersteller-ID). Diese Fälle gibt es außerhalb des Postfachs.
+ * Deshalb wird der Text nur ersetzt, wenn er den belegten Zertifikatssatz trägt, und auch dann ohne
+ * Handlungsanweisung (#1791).
  */
-const HINWEISE: Record<number, string> = {
-  601015001:
-    "ELSTER lehnt die Anfrage mit 601015001 ab: Diese Kombination ist für das verwendete Zertifikat nicht zugelassen. " +
-    "Beim Postfach heißt das meist, dass „Nur Testübermittlung“ gesetzt ist und die Anfrage mit Testmerker beim " +
-    "Testzertifikat landet. Schalte den Haken aus und rufe das Postfach echt ab.",
-};
+const VERFAHRENSPRUEFUNG = 601015001;
 
-/** Die Meldung von ERiC, ergänzt um Code und Text des Servers; unverändert, wenn der Server nichts meldet */
-export function mitServerMeldung(message: string, serverResponseXml: string): string {
+/** „… ist fuer ihr Client-Zertifikat mit CN: … nicht zugelassen“ – der Satz aus dem belegten Postfach-Fall (#1791) */
+const zertifikatssatz = (text: string) => /zertifikat[\s\S]{0,200}?nicht zugelassen/i.test(text);
+
+/** Sagt, was der Code bedeutet, statt den Zertifikatssatz zu wiederholen; keine Handlungsanweisung */
+const VERFAHRENSPRUEFUNG_TEXT =
+  "Verfahrensprüfung: Diese Kombination aus Verfahren, Datenart und Vorgang ist nicht zugelassen. " +
+  "Der Zertifikatssatz der Antwort nennt das Zertifikat des Aufrufers; gemeint ist die Kombination.";
+
+/**
+ * Was beim Postfach dahintersteckt. Gehört nur zum Postfachweg: In der Voranmeldung und im Belegabruf nennt
+ * derselbe Code andere Gründe, dort wäre der Rat falsch (#1791).
+ */
+const POSTFACH_HINWEIS =
+  "Beim Postfach tritt 601015001 auf, wenn die Anfrage mit Testmerker in die Test-Datenbank geht: " +
+  "ELSTER lässt diese Kombination dort nicht zu. Echt abrufen geht mit eigener Hersteller-ID und " +
+  "ausgeschaltetem „Nur Testübermittlung“.";
+
+/**
+ * Die Meldung von ERiC, ergänzt um Code und Text des Servers; unverändert, wenn der Server nichts meldet.
+ * `postfach` sagt, dass die Antwort zu einer PostfachAnfrage gehört; nur dort steht der Rat zum Testmerker.
+ */
+export function mitServerMeldung(message: string, serverResponseXml: string, postfach = false): string {
   const meldungen = serverRueckmeldungen(serverResponseXml);
   if (meldungen.length === 0) return message;
   const zeilen = meldungen.map((m) => {
-    const text = HINWEISE[m.code] ?? m.text;
-    return `${m.quelle} ${m.code}${text ? ` – ${text}` : ""}`;
+    const verdeckt = m.code === VERFAHRENSPRUEFUNG && zertifikatssatz(m.text);
+    const rat = postfach && m.code === VERFAHRENSPRUEFUNG ? POSTFACH_HINWEIS : "";
+    const teile = [verdeckt ? VERFAHRENSPRUEFUNG_TEXT : m.text, rat].filter((teil) => teil !== "");
+    return `${m.quelle} ${m.code}${teile.length > 0 ? ` – ${teile.join(" ")}` : ""}`;
   });
   return `${message} Antwort des ELSTER-Servers: ${zeilen.join("; ")}`;
 }

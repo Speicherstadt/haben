@@ -99,17 +99,37 @@ describe("mitServerMeldung", () => {
     expect(mitServerMeldung(eric, antwort(ok))).toBe(eric);
   });
 
-  it("erklärt 601015001, statt den Text zum Zertifikat zu wiederholen", () => {
-    const xml = antwort(
-      fehler(
-        601015001,
-        "Es ist ein Fehler bei der Verfahrenspruefung aufgetreten - Die Kombination ... ist fuer ihr Client-Zertifikat mit CN: extern-eric nicht zugelassen.",
-      ),
-    );
-    const meldung = mitServerMeldung("M", xml);
+  const zertifikatssatz =
+    "Es ist ein Fehler bei der Verfahrenspruefung aufgetreten - Die Kombination ... ist fuer ihr Client-Zertifikat mit CN: extern-eric nicht zugelassen.";
+
+  it("erklärt 601015001 mit dem Zertifikatssatz, statt den Satz zum Zertifikat zu wiederholen", () => {
+    const meldung = mitServerMeldung("M", antwort(fehler(601015001, zertifikatssatz)));
     expect(meldung).toContain("601015001");
-    expect(meldung).toContain("Nur Testübermittlung");
+    expect(meldung).toContain("Diese Kombination aus Verfahren, Datenart und Vorgang ist nicht zugelassen");
     expect(meldung).not.toContain("extern-eric");
+    // Der Rat zum Testmerker gehört zum Postfachweg (eric.ts), nicht in die gemeinsame Funktion (#1791)
+    expect(meldung).not.toContain("Nur Testübermittlung");
+  });
+
+  it("nennt den Postfach-Rat nur, wenn der Aufrufer den Postfachweg meldet", () => {
+    const xml = antwort(fehler(601015001, zertifikatssatz));
+    const meldung = mitServerMeldung("M", xml, true);
+    expect(meldung).toContain("Beim Postfach tritt 601015001 auf");
+    expect(meldung).toContain("Nur Testübermittlung");
+    expect(mitServerMeldung("M", antwort(fehler(610101210, "Anderer Text.")), true)).not.toContain("Beim Postfach");
+  });
+
+  it("lässt den Text stehen, wenn 601015001 einen anderen Grund nennt", () => {
+    const text = "Die HerstellerID ist nicht zugelassen.";
+    expect(mitServerMeldung("M", antwort(fehler(601015001, text)))).toBe(
+      "M Antwort des ELSTER-Servers: Transferheader 601015001 – Die HerstellerID ist nicht zugelassen.",
+    );
+  });
+
+  it("lässt einen Fremdtext mit 601015001 außerhalb des Postfachs unverändert", () => {
+    const text = "Die Kombination aus Verfahren DatenArt Vorgang Testmerker Verschluesselung Kompression ist nicht zugelassen";
+    const meldung = mitServerMeldung("M", antwort(fehler(601015001, text)));
+    expect(meldung).toBe(`M Antwort des ELSTER-Servers: Transferheader 601015001 – ${text}`);
   });
 
   it("nennt auch einen Code ohne Text", () => {
