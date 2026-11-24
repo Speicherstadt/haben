@@ -81,9 +81,12 @@ function umsatzsteuerAufgaben(
   if (taxAccount && taxShortfall > 0 && vatRequired) {
     todos.push({
       title: `Steuerkonto ${taxAccount.name} deckt die Zahllast nicht`,
-      detail: `Es fehlen ${formatEuro(taxShortfall)} für ${periodLabel(data.period)}, fällig ${formatLongDate(data.dueDate)}`,
+      // Vor dem Start enthält der Fehlbetrag nur offene Voranmeldungen früherer Zeiträume, nicht den der Seite
+      detail: vorStart
+        ? `Es fehlen ${formatEuro(taxShortfall)} für offene Voranmeldungen`
+        : `Es fehlen ${formatEuro(taxShortfall)} für ${periodLabel(data.period)}, fällig ${formatLongDate(data.dueDate)}`,
       // Platzt die Lastschrift, gilt die Steuer nicht als am Fälligkeitstag entrichtet (§ 224 Abs. 2 Nr. 3 AO): Säumniszuschläge (§ 240 AO)
-      frist: data.dueDate,
+      frist: vorStart ? undefined : data.dueDate,
       action: "Zur Bank",
       tone: "warn",
       to: "/bank",
@@ -284,7 +287,7 @@ function OverviewPage() {
 
       <UebersichtAufgaben geordnet={geordnet} zeitraum={key} />
 
-      {!ohneKennzahlen(data) && (
+      {!ohneKennzahlen(data, vorStart) && (
         <UebersichtKennzahlen
           data={data}
           showVatPeriod={showVatPeriod}
