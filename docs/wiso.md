@@ -63,9 +63,9 @@ Bereite für Kontakte, Anlagen und gegebenenfalls Artikel je eine eigene CSV mit
 
 ### Kontakte
 
-Unter **Archiv › Umzug › Umzug aus WISO** kannst du die Liste **Kunden / Interessenten** als PDF mit Textebene prüfen (höchstens 20 MB und 100 Seiten). Haben liest Nummer, Name und erste Anschrift lokal auf dem Server aus. Die Vorschau speichert keine Kontakte. Bei einem unbekannten Layout oder einer nicht eindeutig lesbaren Anschrift erstelle die CSV von Hand.
+Unter **Archiv › Umzug › Umzug aus WISO** kannst du die Liste **Kunden / Interessenten** als PDF mit Textebene prüfen (höchstens 20 MB und 100 Seiten). Haben liest Nummer, Name und erste Anschrift lokal auf dem Server aus und speichert dabei keine Kontakte. Ein unbekanntes Layout oder eine nicht eindeutig lesbare Anschrift lehnt Haben ab; dann erstellst du die CSV von Hand.
 
-Lade den CSV-Entwurf herunter und vergleiche die erkannten Namen und Anschriften mit dem PDF. Die WISO-Liste unterscheidet Kunden und Interessenten nicht je Zeile. Ersetze **Bitte prüfen** in der Spalte **Rolle** für jeden zu übernehmenden Kontakt und entferne die übrigen Zeilen. Bei fünfstelliger PLZ schlägt Haben Deutschland vor. Prüfe das Land auch bei diesen Anschriften. **Land prüfen** in der Vorschau bedeutet, dass du Land und PLZ in der CSV ergänzen musst. Dort steht im Feld **Land** zunächst **Bitte prüfen**. Anschließend zeigt der normale Kontaktimport Fehler und Dubletten vor dem Speichern.
+Vergleiche Namen und Anschriften im CSV-Entwurf mit dem PDF. In der Spalte **Rolle** steht **Bitte prüfen**, weil die WISO-Liste Kunden und Interessenten nicht je Zeile unterscheidet: Trage die Rolle ein und entferne die Zeilen, die du nicht übernimmst. Bei fünfstelliger PLZ schlägt Haben `DE` als **Land** vor, sonst steht dort **Bitte prüfen**, und die Vorschau zeigt **Land prüfen**.
 
 - Übernimm die WISO-Kundennummer als **Kundennummer**, nicht ungeprüft als DATEV-Debitor. Bewahre führende Nullen bei der Vorbereitung als Text.
 - Führe umgebrochene Namen zusammen. Trenne Firma, Vor- und Nachname nur, wenn die Zuordnung eindeutig ist. Ein Ansprechpartner unter der Anschrift ist kein weiterer Kunde.
