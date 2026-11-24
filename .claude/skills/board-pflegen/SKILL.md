@@ -22,8 +22,8 @@ Felder (Status, Aufwand, Bereich, Hinweis), Rang, Reihenfolge in „Geplant“, 
 ### 1. Lesen
 
 ```sh
-gh project item-list 3 --owner Speicherstadt --limit 300 --format json > board.json
-gh issue list --repo Speicherstadt/haben --state open --limit 300 --json number,title,author,labels,assignees,comments,createdAt,updatedAt > issues.json
+gh project item-list 3 --owner Speicherstadt --limit 1000 --format json > board.json
+gh issue list --repo Speicherstadt/haben --state open --limit 500 --json number,title,author,labels,assignees,comments,createdAt,updatedAt > issues.json
 ```
 
 Daraus ermitteln:
