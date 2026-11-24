@@ -1,3 +1,4 @@
+import { latestImportFor, refreshImportRuns, importControllersFor } from "./umzug-lauf.ts";
 import {
   FastbillApiError,
   fbForArchive,
@@ -11,7 +12,7 @@ import {
   mapFbExpense,
   mapFbInvoice,
 } from "@haben/import";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
@@ -20,8 +21,8 @@ import { waitingReceipt } from "./fastbill-belege.ts";
 import { importAfterVouchers } from "./fastbill-nachlauf.ts";
 import { FastbillError, fastbillCredentials, forgetOtherFastbillCalls, newFastbillClient, otherFastbillCalls } from "./fastbill-zugang.ts";
 import { storeLegacyVoucher } from "./legacy-store.ts";
-import { fallbackName, finish, latestImport, progressMessage, STALE_MS } from "./lexoffice.ts";
-import { latestSevdeskImport } from "./sevdesk.ts";
+import { fallbackName, progressMessage } from "./umzug-gemeinsam.ts";
+import { finish } from "./umzug-lauf.ts";
 
 /*
  * Umzug aus FastBill. Gleicher Ablauf und dieselben Archivtabellen wie beim sevDesk-Import (Spalte source = "fastbill"),
@@ -51,27 +52,10 @@ export {
   uploadFastbillReceipts,
 } from "./fastbill-belege.ts";
 
-const running = new Map<string, AbortController>();
+const running = importControllersFor("fastbill");
 
 /** Letzter Abruf aus FastBill; ein hängengebliebener Lauf (Server neu gestartet) wird als abgebrochen markiert. */
-export async function latestFastbillImport() {
-  const [row] = await db
-    .select()
-    .from(schema.lexofficeImports)
-    .where(eq(schema.lexofficeImports.source, "fastbill"))
-    .orderBy(desc(schema.lexofficeImports.startedAt))
-    .limit(1);
-  if (!row) return null;
-  if (row.status === "laeuft" && !running.has(row.id) && Date.now() - row.updatedAt.getTime() > STALE_MS) {
-    const [updated] = await db
-      .update(schema.lexofficeImports)
-      .set({ status: "abgebrochen", error: "Der Abruf wurde unterbrochen. Ein neuer Abruf setzt dort fort.", finishedAt: new Date() })
-      .where(and(eq(schema.lexofficeImports.id, row.id), eq(schema.lexofficeImports.status, "laeuft")))
-      .returning();
-    return updated ?? row;
-  }
-  return row;
-}
+export const latestFastbillImport = () => latestImportFor("fastbill");
 
 /**
  * Aufrufe der letzten Stunde aus dem letzten Lauf und aus dem Abruf der Artikel, damit weder ein Neustart noch ein Abruf
@@ -90,9 +74,7 @@ export async function startFastbillImport(actor: string, options: { wait?: boole
   const login = await fastbillCredentials();
   if (!login) throw new FastbillError("Zuerst Login-E-Mail und API-Schlüssel hinterlegen.");
   const calls = await fastbillPreviousCalls();
-  // Der eindeutige Index gilt für alle Quellen: auch verwaiste Läufe aus Lexoffice und sevDesk als abgebrochen markieren
-  await latestImport();
-  await latestSevdeskImport();
+  await refreshImportRuns();
   const progress: LexofficeImportProgress = {
     phase: "kontakte",
     contacts: 0,

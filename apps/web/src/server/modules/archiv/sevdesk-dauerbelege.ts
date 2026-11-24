@@ -2,7 +2,7 @@ import { mapSevRecurringVoucher, SevdeskApiError, type SevdeskClient, type SevFi
 import type { LexofficeImportProgress } from "../../db/schema.ts";
 import { today } from "../../today.ts";
 import { importSevdeskDauerbeleg } from "../belege/index.ts";
-import { progressMessage } from "./lexoffice.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 
 /*
  * Vorlagen wiederkehrender Belege aus sevDesk (GET /Voucher?voucherType=RV) als Dauerbelege (#472). Jede kommt angehalten an,

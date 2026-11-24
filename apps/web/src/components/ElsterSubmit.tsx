@@ -99,6 +99,7 @@ export function ElsterSubmit({
   confirmDanger = false,
   confirmFacts,
   footer,
+  pruefen,
   onSubmit,
 }: {
   setup: ElsterSetup;
@@ -117,6 +118,11 @@ export function ElsterSubmit({
   /** Was gesendet wird: Steuerart oder Meldung, Zeitraum, Zahllast, soweit es sie gibt */
   confirmFacts?: readonly ConfirmFact[];
   footer: ReactNode;
+  /**
+   * Prüft Angaben außerhalb des Kastens beim Druck auf „Nur prüfen“ oder „Senden“, statt `ready` zu sperren (DESIGN.md,
+   * Gesperrte Knöpfe); false bricht ab, Meldung und Fokus setzt sie selbst (`useSubmitCheck`)
+   */
+  pruefen?: () => boolean;
   onSubmit: (kind: ElsterKind, pin?: string) => Promise<unknown>;
 }) {
   const headingId = useId();
@@ -134,7 +140,7 @@ export function ElsterSubmit({
 
   function send(event: FormEvent) {
     event.preventDefault();
-    if (!check()) return;
+    if (pruefen?.() === false || !check()) return;
     if (live) setConfirming(true);
     else void transmit();
   }
@@ -160,7 +166,7 @@ export function ElsterSubmit({
       </ConfirmDialog>
       <NoticeBanner notice={notice} />
       <div className="actions">
-        <button type="button" className="btn" disabled={busy || !ready} onClick={() => void onSubmit("validate")}>
+        <button type="button" className="btn" disabled={busy || !ready} onClick={() => pruefen?.() !== false && void onSubmit("validate")}>
           Nur prüfen
         </button>
         <button type="submit" className="btn btn-primary" disabled={busy || !ready || !setup.certificate} style={{ flexGrow: 1 }}>

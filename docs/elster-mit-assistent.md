@@ -58,11 +58,11 @@ Voraussetzungen: Chrome oder Edge (andere Chromium-Browser wie Brave gehen auch)
 2. In den Einstellungen der Erweiterung Websites nur für `elster.de` freigeben.
 3. Claude Code mit Chrome starten:
 
-   ```bash
-   claude --chrome
-   ```
+    ```bash
+    claude --chrome
+    ```
 
-   In einer laufenden Sitzung geht auch `/chrome`. Dort siehst du den Verbindungsstatus und wählst den Browser, falls mehrere verbunden sind.
+    In einer laufenden Sitzung geht auch `/chrome`. Dort siehst du den Verbindungsstatus und wählst den Browser, falls mehrere verbunden sind.
 
 Nimm die Erweiterung zusammen mit Claude Code, nicht allein im Seitenpanel von Chrome. Allein bräuchte sie das Haben-MCP als Connector, den die Server von Anthropic aus dem Internet erreichen. Ein Haben im Heimnetz ist so nicht erreichbar, und freigeben willst du es dafür meist nicht.
 

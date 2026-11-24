@@ -32,13 +32,21 @@ const log = (objectId: string, amountPaid: number | string): SevCheckAccountTran
   }) as unknown as SevCheckAccountTransactionLog;
 
 describe.skipIf(!testDatabaseUrl)("sevDesk-Storno mit Zuordnung über 0 € (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") &
+    typeof import("./umzug-abgleich.ts") &
+    typeof import("./umzug-belege.ts") &
+    typeof import("./umzug-umsatzsteuer.ts");
   let legacy: typeof import("./legacy-open.ts");
   let sql: postgres.Sql;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = {
+      ...(await import("./lexoffice.ts")),
+      ...(await import("./umzug-abgleich.ts")),
+      ...(await import("./umzug-belege.ts")),
+      ...(await import("./umzug-umsatzsteuer.ts")),
+    };
     legacy = await import("./legacy-open.ts");
   }, 30_000);
 

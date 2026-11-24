@@ -15,14 +15,14 @@ import {
   type SevMappedVoucher,
   type SevVoucher,
 } from "@haben/import";
-import { and, desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { encrypt } from "../../crypto.ts";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
 import { storeLegacyVoucher } from "./legacy-store.ts";
-import { latestFastbillImport } from "./fastbill.ts";
-import { fallbackName, finish, latestImport, progressMessage, STALE_MS } from "./lexoffice.ts";
+import { fallbackName, progressMessage } from "./umzug-gemeinsam.ts";
+import { finish, importControllersFor, latestImportFor, refreshImportRuns } from "./umzug-lauf.ts";
 import { importOrder, isImportableOrder } from "./orders.ts";
 import { createOrderPdfImporter } from "./order-pdfs.ts";
 import { importSevdeskArticles } from "./sevdesk-artikel.ts";
@@ -72,27 +72,10 @@ export async function removeSevdeskKey(actor: string) {
   await withActor(actor, (tx) => tx.delete(schema.sevdeskConnection).where(eq(schema.sevdeskConnection.id, 1)));
 }
 
-const running = new Map<string, AbortController>();
+const running = importControllersFor("sevdesk");
 
 /** Letzter Abruf aus sevDesk; ein hängengebliebener Lauf (Server neu gestartet) wird als abgebrochen markiert. */
-export async function latestSevdeskImport() {
-  const [row] = await db
-    .select()
-    .from(schema.lexofficeImports)
-    .where(eq(schema.lexofficeImports.source, "sevdesk"))
-    .orderBy(desc(schema.lexofficeImports.startedAt))
-    .limit(1);
-  if (!row) return null;
-  if (row.status === "laeuft" && !running.has(row.id) && Date.now() - row.updatedAt.getTime() > STALE_MS) {
-    const [updated] = await db
-      .update(schema.lexofficeImports)
-      .set({ status: "abgebrochen", error: "Der Abruf wurde unterbrochen. Ein neuer Abruf setzt dort fort.", finishedAt: new Date() })
-      .where(and(eq(schema.lexofficeImports.id, row.id), eq(schema.lexofficeImports.status, "laeuft")))
-      .returning();
-    return updated ?? row;
-  }
-  return row;
-}
+export const latestSevdeskImport = () => latestImportFor("sevdesk");
 
 /**
  * Startet den Abruf im Hintergrund. Schon übernommene Belege werden übersprungen, ein neuer Lauf setzt
@@ -100,9 +83,7 @@ export async function latestSevdeskImport() {
  */
 export async function startSevdeskImport(actor: string, options: { wait?: boolean } = {}): Promise<string> {
   const key = await apiKey();
-  // Der eindeutige Index gilt für beide Quellen: auch einen verwaisten Lexoffice-Lauf als abgebrochen markieren
-  await latestImport();
-  await latestFastbillImport();
+  await refreshImportRuns();
   const progress: LexofficeImportProgress = {
     phase: "kontakte",
     contacts: 0,

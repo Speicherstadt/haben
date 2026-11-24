@@ -64,7 +64,7 @@ Nicht streichen: Fakten, Zahlen, Konten, Paragraphen, Links, Befehle, Front Matt
 
 - Ein Kommentar im PR, auch ohne Befund: je Befund das Zitat, der Beleg und was stattdessen gilt.
 - Befunde selbst beheben, je Befund ein Commit (`docs: …`). Commits des Autors nie umschreiben; bei einem fremden Fork nach Skill `fork-pushen`.
-- `zensical build --strict`, wenn `docs/` oder `mkdocs.yml` geändert ist (Skill `checks`).
+- `zensical build --strict` und `scripts/doku-listen`, wenn `docs/` oder `mkdocs.yml` geändert ist (Skill `checks`).
 - Die Beschreibung des PR nachziehen, wenn Fixes dazukamen.
 - Eine Runde. Nur Markdown: mergen wie `tdd-review`, Schritt 6, sobald die CI grün ist; mit Code mergt das TDD-Review (dort Schritt 6).
 

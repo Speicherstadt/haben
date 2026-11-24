@@ -39,10 +39,11 @@ Die Freigabe gilt nach PSD2 höchstens 180 Tage, bei manchen Banken weniger; das
 - **Umsätze außerhalb des Zeitraums:** Einen gebuchten Umsatz mit einem Buchungstag vor dem abgefragten Zeitraum, aber ab dem Stichtag übernimmt Haben mit, etwa von Banken, die nach Valuta filtern. Steht aus einer Datei oder einem FinTS-Abruf, die erst nach dem ersten übernommenen Abruf dazukamen, schon ein Umsatz mit diesem Tag und Betrag da, legt Haben keinen zweiten an, sondern verbindet den abgerufenen mit ihm und nennt das im Importprotokoll; jeder Umsatz der Datei gehört so höchstens einem abgerufenen. Einen mit einem Tag nach dem Abruf holt der nächste Abruf.
 - **Geänderter Umsatz:** Liefert die Bank eine bisher eindeutige Referenz mit anderem Betrag oder Buchungstag, ändert Haben den gespeicherten Umsatz nicht und speichert aus diesem Abruf keine neuen Umsätze für das betroffene Konto. Die Meldung steht unter **Automatischer Abruf**. Der abgelehnte Abruf erscheint im Importprotokoll und im Export `bank/importe.csv`. Ist die Kennung eines bereits gebundenen Kontos gerade nicht abrufbar, wartet der Abruf dieses Kontos. Die anderen Konten laufen weiter.
 - **Konflikt klären:** Bei einem geänderten Umsatz steht an der Verbindung **Konflikt klären**. Der Dialog zeigt den bisherigen Umsatz mit seiner Zuordnung neben dem, den die Bank jetzt liefert, und bietet zwei Wege; überschrieben wird nie, und zurücknehmen lässt sich die Entscheidung nicht.
-  - **Bisherigen Umsatz behalten:** Haben merkt sich die neuen Angaben und legt nichts an.
-  - **Als weiteren Umsatz übernehmen:** Haben legt den gelieferten Umsatz zusätzlich an, mit eigenem Eintrag im Importprotokoll. Der bisherige bleibt mit seinen Zuordnungen stehen; beide zeigen einen Hinweis auf den anderen.
+    - **Bisherigen Umsatz behalten:** Haben merkt sich die neuen Angaben und legt nichts an.
+    - **Als weiteren Umsatz übernehmen:** Haben legt den gelieferten Umsatz zusätzlich an, mit eigenem Eintrag im Importprotokoll. Der bisherige bleibt mit seinen Zuordnungen stehen; beide zeigen einen Hinweis auf den anderen.
 
-  Danach übernimmt der nächste Abruf das Konto wieder. Liefert die Bank den Umsatz später noch einmal anders, entsteht ein neuer Konflikt. Die Klärungen enthält der Datenexport in `bank/klaerungen.csv`.
+    Danach übernimmt der nächste Abruf das Konto wieder. Liefert die Bank den Umsatz später noch einmal anders, entsteht ein neuer Konflikt. Die Klärungen enthält der Datenexport in `bank/klaerungen.csv`.
+
 - **Abruf abgelehnt:** Lehnt die Bank den Zeitraum eines Folgeabrufs für ein Konto ab, etwa weil er zu lang ist, steht der Fehler an der Verbindung, und nur dieses Konto bleibt stehen. Meldet die Bank zu viele Abrufe oder ist sie nicht erreichbar, endet der Abruf mit einer Meldung, und der nächste planmäßige Abruf versucht es wieder, ohne auf einen kürzeren Zeitraum auszuweichen. Die Verbindung hält Haben nur an, wenn die Zustimmung abgelaufen oder widerrufen ist.
 - **Kontostand:** Haben nimmt den gebuchten Saldo der Bank, bevorzugt den Tagesendsaldo (CLBD), sonst den aktuellen gebuchten Saldo (ITBD), und zwar den ersten, dessen Stichtag zum Abruf passt: nicht vor dem letzten Buchungstag, nicht nach dem Ende des Abrufs. Manche Banken melden den Tagesendsaldo nur bis gestern; mit einem Umsatz von heute gilt dann der gebuchte Saldo von heute. Verfügbare Salden mit Vormerkungen oder Kreditlinie übernimmt Haben nie.
 - **Konten ohne IBAN**, zum Beispiel Kreditkarten, ruft Haben nicht ab.
@@ -217,10 +218,10 @@ Bei Umsätzen mit bestätigbarem Vorschlag steht in der Liste unter dem Verwendu
 2. Klicke auf **… bestätigen** (mit der Zahl der markierten Umsätze, etwa **3 bestätigen**). Haben bucht alle markierten Umsätze in einem Schritt, genau so, als hättest du jeden einzeln mit **Zuordnen** bzw. **Buchen** gebucht: dieselbe Buchung, festgeschrieben, nur mit Gegenbuchung aufzuheben.
 
 - Bestätigen lässt sich ein Vorschlag nur, wenn er ohne Rückfrage buchbar ist:
-  - eine Rechnung oder ein Beleg mit genau dem offenen Betrag des Umsatzes, ohne Skonto und ohne Kursdifferenz;
-  - eine Rechnung mit ihren offenen Korrekturen („Rechnung minus Korrektur“), gebucht als Aufteilung, ohne Skonto;
-  - eine Buchung auf eine Kategorie nach früheren Zuordnungen;
-  - die einfachen Arten ohne weitere Angaben: Privat, Spende, Gebühren, Mahnerlöse, Zinserträge.
+    - eine Rechnung oder ein Beleg mit genau dem offenen Betrag des Umsatzes, ohne Skonto und ohne Kursdifferenz;
+    - eine Rechnung mit ihren offenen Korrekturen („Rechnung minus Korrektur“), gebucht als Aufteilung, ohne Skonto;
+    - eine Buchung auf eine Kategorie nach früheren Zuordnungen;
+    - die einfachen Arten ohne weitere Angaben: Privat, Spende, Gebühren, Mahnerlöse, Zinserträge.
 - Es gilt dieselbe Reihenfolge wie in der Detailansicht: Eine Regel der Kontozwecke geht dem Gelernten vor; ist sie nicht bestätigbar, gibt es keinen Vorschlag zum Bestätigen.
 - Beim Einzelbuchen in der Detailansicht bleiben Geldtransit, Steuerzahlungen (Umsatzsteuer, Sondervorauszahlung, Lohnsteuer), Darlehen, Voranmeldungen und Aufladungen. Auch ein Zahlungseingang mit Rechnung oder Beleg auf dem Konto eines Zahlungsdienstleisters bleibt dort, weil zur Zahlung eine Gebühr gehören kann, die erst **Zuordnen und Gebühr buchen** mitbucht. Umsätze ohne bestätigbaren Vorschlag haben kein Markierfeld. Eine Lastschrift des Finanzamts über den Betrag einer Lohnsteuer-Anmeldung zeigt wie in der Detailansicht den Hinweis „Vorschlag“ und steht im Filter **Vorschlag**, aber ohne Markierfeld.
 - Gebucht wird erst mit dem Klick auf **… bestätigen**. Der Server berechnet den Vorschlag dabei neu und bucht, was er jetzt ergibt.

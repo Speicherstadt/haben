@@ -13,7 +13,7 @@ import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 export const Route = createFileRoute("/_app/dauerbelege/$id")({
   loader: ({ params }) => getDauerbelegDetail({ data: params.id }),
   head: ({ loaderData }) => ({ meta: [{ title: `${loaderData?.vorlage.name ?? "Dauerbeleg"} · Haben` }] }),
-  component: DauerbelegDetailPage,
+  component: DauerbelegRoute,
 });
 
 const STATUS_TEXT = {
@@ -24,12 +24,23 @@ const STATUS_TEXT = {
 
 type Vorlage = Awaited<ReturnType<typeof getDauerbelegDetail>>["vorlage"];
 
+/**
+ * Beim Wechsel zu einer anderen Vorlage bleibt die Seite stehen; sie entsteht je Vorlage neu, sonst blieben Formular,
+ * Meldung, ungespeicherte Änderungen und Rückfragen der vorigen (#1839)
+ */
+function DauerbelegRoute() {
+  const { vorlage } = Route.useLoaderData();
+  return <DauerbelegDetailPage key={vorlage.id} />;
+}
+
 function DauerbelegDetailPage() {
   const { vorlage, belege, termine, sevdesk, suppliers, categories, kleinunternehmer } = Route.useLoaderData();
   const { rechtsform } = Route.useRouteContext();
   const router = useRouter();
   const save = useServerFn(saveDauerbeleg);
   const { busy, notice, run } = useAction();
+  // Das Formular meldet ungespeicherte Änderungen; Pausieren, Fortsetzen und Beenden fragen dann erst nach (#1805)
+  const [dirty, setDirty] = useState(false);
 
   const initial: DauerbelegValues = {
     name: vorlage.name,
@@ -51,7 +62,7 @@ function DauerbelegDetailPage() {
 
   return (
     <>
-      <DauerbelegKopf vorlage={vorlage} ohneBelege={belege.length === 0} busy={busy} run={run} />
+      <DauerbelegKopf vorlage={vorlage} ohneBelege={belege.length === 0} dirty={dirty} busy={busy} run={run} />
       {vorlage.lastError && (
         <div className="banner" role="alert">
           {vorlage.lastError}
@@ -71,7 +82,8 @@ function DauerbelegDetailPage() {
           </section>
         ) : (
           <DauerbelegForm
-            key={String(vorlage.updatedAt)}
+            // Mit Millisekunden: String(Date) endet bei der Sekunde, zwei Aktionen in derselben Sekunde ließen das Formular stehen
+            key={vorlage.updatedAt.toISOString()}
             initial={initial}
             suppliers={suppliers}
             categories={categories}
@@ -80,11 +92,12 @@ function DauerbelegDetailPage() {
             isNew={false}
             withoutFile={!vorlage.sha256}
             busy={busy}
+            onDirtyChange={setDirty}
             submitLabel="Speichern"
             onSubmit={(values, file) =>
               run(async () => {
                 await save({ data: dauerbelegFormData(vorlage.id, values, file) });
-                await router.invalidate();
+                await router.invalidate({ sync: true });
               }, "Gespeichert. Die Änderung gilt für künftige Belege.")
             }
           />
@@ -154,15 +167,31 @@ function DauerbelegDetailPage() {
   );
 }
 
-/** Kopf der Seite: Pausieren, Fortsetzen, Beenden und Löschen, die beiden letzten mit Rückfrage */
+type StatusAktion = "pausieren" | "fortsetzen" | "beenden";
+
+const STATUS_AKTION = {
+  pausieren: { done: "Pausiert.", verlust: "Beim Pausieren" },
+  fortsetzen: { done: "Fortgesetzt.", verlust: "Beim Fortsetzen" },
+  beenden: { done: "Beendet.", verlust: "Beim Beenden" },
+} as const;
+
+const verlust = (aktion: StatusAktion) => `Das Formular hat ungespeicherte Änderungen. ${STATUS_AKTION[aktion].verlust} gehen sie verloren.`;
+
+/**
+ * Kopf der Seite: Pausieren, Fortsetzen, Beenden und Löschen. Beenden und Löschen fragen immer nach, Pausieren und
+ * Fortsetzen nur bei ungespeicherten Änderungen, die der Neuaufbau des Formulars verwirft (#1805). Löschen nennt sie
+ * nicht: Mit der Vorlage ist auch das Formular weg.
+ */
 function DauerbelegKopf({
   vorlage,
   ohneBelege,
+  dirty,
   busy,
   run,
 }: {
   vorlage: Vorlage;
   ohneBelege: boolean;
+  dirty: boolean;
   busy: boolean;
   run: ReturnType<typeof useAction>["run"];
 }) {
@@ -170,13 +199,15 @@ function DauerbelegKopf({
   const navigate = useNavigate();
   const changeStatus = useServerFn(changeDauerbelegStatus);
   const remove = useServerFn(removeDauerbeleg);
-  const [confirming, setConfirming] = useState<"loeschen" | "beenden" | null>(null);
+  const [confirming, setConfirming] = useState<StatusAktion | "loeschen" | null>(null);
+  const wechsel = confirming === "pausieren" || confirming === "fortsetzen" ? confirming : null;
 
-  const status = (aktion: "pausieren" | "fortsetzen" | "beenden", done: string) =>
+  const status = (aktion: StatusAktion) =>
     run(async () => {
       await changeStatus({ data: { id: vorlage.id, aktion } });
-      await router.invalidate();
-    }, done);
+      await router.invalidate({ sync: true });
+    }, STATUS_AKTION[aktion].done);
+  const pausierenOderFortsetzen = (aktion: "pausieren" | "fortsetzen") => (dirty ? setConfirming(aktion) : status(aktion));
 
   return (
     <>
@@ -189,12 +220,12 @@ function DauerbelegKopf({
         </div>
         <div className="actions">
           {vorlage.status === "aktiv" && (
-            <button type="button" className="btn" disabled={busy} onClick={() => status("pausieren", "Pausiert.")}>
+            <button type="button" className="btn" disabled={busy} onClick={() => pausierenOderFortsetzen("pausieren")}>
               Pausieren
             </button>
           )}
           {vorlage.status === "pausiert" && (
-            <button type="button" className="btn" disabled={busy} onClick={() => status("fortsetzen", "Fortgesetzt.")}>
+            <button type="button" className="btn" disabled={busy} onClick={() => pausierenOderFortsetzen("fortsetzen")}>
               Fortsetzen
             </button>
           )}
@@ -211,14 +242,25 @@ function DauerbelegKopf({
         </div>
       </div>
       <ConfirmDialog
+        open={wechsel !== null}
+        title={`${vorlage.name} ${wechsel}?`}
+        confirmLabel={`Trotzdem ${wechsel}`}
+        danger
+        onConfirm={() => wechsel && status(wechsel)}
+        onClose={() => setConfirming(null)}
+      >
+        <p>{wechsel && verlust(wechsel)}</p>
+      </ConfirmDialog>
+      <ConfirmDialog
         open={confirming === "beenden"}
         title={`${vorlage.name} beenden?`}
         confirmLabel="Beenden"
         danger
-        onConfirm={() => status("beenden", "Beendet.")}
+        onConfirm={() => status("beenden")}
         onClose={() => setConfirming(null)}
       >
         <p>Beenden ist endgültig: Es entstehen keine Belege mehr, auch nicht nach einer Änderung. Vorübergehend anhalten geht mit Pausieren.</p>
+        {dirty && <p>{verlust("beenden")}</p>}
       </ConfirmDialog>
       <ConfirmDialog
         open={confirming === "loeschen"}

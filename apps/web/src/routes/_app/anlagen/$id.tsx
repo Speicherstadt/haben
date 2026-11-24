@@ -13,8 +13,14 @@ import { Status } from "../../../components/Status.tsx";
 export const Route = createFileRoute("/_app/anlagen/$id")({
   loader: ({ params }) => getAssetDetail({ data: params.id }),
   head: ({ loaderData }) => ({ meta: [{ title: `${loaderData?.asset.name ?? "Anlage"} · Haben` }] }),
-  component: AssetPage,
+  component: AssetRoute,
 });
+
+/** Beim Wechsel zu einer anderen Anlage bleibt die Seite stehen; sie entsteht je Anlage neu, sonst blieben Formular und Meldung der vorigen (#1839) */
+function AssetRoute() {
+  const { asset } = Route.useLoaderData();
+  return <AssetPage key={asset.id} />;
+}
 
 function AssetPage() {
   const { asset, schedule, bookedYears } = Route.useLoaderData();
@@ -118,7 +124,8 @@ function AssetPage() {
             </p>
           )}
           <AssetForm
-            key={String(asset.updatedAt)}
+            // Mit Millisekunden: String(Date) endet bei der Sekunde, zwei Aktionen in derselben Sekunde ließen das Formular stehen
+            key={asset.updatedAt.toISOString()}
             initial={{
               name: asset.name,
               kind: asset.kind,
@@ -150,7 +157,7 @@ function AssetPage() {
                 await update({
                   data: { id: asset.id, asset: fromDocument ? rest : { ...rest, openingDate, openingBookValue } },
                 });
-                await router.invalidate();
+                await router.invalidate({ sync: true });
               }, "Gespeichert.")
             }
           />

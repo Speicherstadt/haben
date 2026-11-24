@@ -98,14 +98,14 @@ function parts(rows: Row[], skr = "03") {
 
 describe.skipIf(!testDatabaseUrl)("BuchhaltungsButler: Originale und Stapel im Archiv (Postgres)", () => {
   let bb: typeof import("./buchhaltungsbutler.ts");
-  let lex: typeof import("./lexoffice.ts");
+  let lex: typeof import("./umzug-abgleich.ts");
   let archive: typeof import("./archive.ts");
   let sql: postgres.Sql;
 
   beforeAll(async () => {
     sql = await setupTestDb();
     bb = await import("./buchhaltungsbutler.ts");
-    lex = await import("./lexoffice.ts");
+    lex = await import("./umzug-abgleich.ts");
     archive = await import("./archive.ts");
   }, 30_000);
 

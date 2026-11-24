@@ -116,7 +116,7 @@ function fakeApi(options: { failVoucher?: boolean } = {}) {
 
 describe.skipIf(!testDatabaseUrl)("sevDesk-Übernahme (Postgres)", () => {
   let sevdesk: typeof import("./sevdesk.ts");
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-abgleich.ts");
   let legacy: typeof import("./legacy-open.ts");
   let importPkg: typeof import("@haben/import");
   let sql: postgres.Sql;
@@ -131,7 +131,7 @@ describe.skipIf(!testDatabaseUrl)("sevDesk-Übernahme (Postgres)", () => {
   beforeAll(async () => {
     sql = await setupTestDb();
     sevdesk = await import("./sevdesk.ts");
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")) };
     legacy = await import("./legacy-open.ts");
     importPkg = await import("@haben/import");
   }, 30_000);

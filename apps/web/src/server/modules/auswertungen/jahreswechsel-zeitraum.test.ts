@@ -8,7 +8,8 @@ import { kleinunternehmerStand } from "./test-umsatz-stand.ts";
  * Voranmeldung und EÜR über den Jahreswechsel 2026/2027 (#542, #1116, docs/adr/journal-als-quelle.md): Umsätze ohne Steuer, Abschlags- und Schlussrechnung, vierteljährliche Abgabe, Dauerfristverlängerung
  * und die berichtigte Voranmeldung für Dezember 2026, erstellt im Januar 2027. Erwartet nach dem Gesetz, von Hand gerechnet:
  * - Kz 21 (§ 13b Abs. 1, 5 UStG, § 18b Satz 1 Nr. 2 UStG), Kz 41 (§ 18b Satz 1 Nr. 1, Satz 2 UStG) und Kz 45 nach
- *   Rechnungsdatum auch bei Ist (DATEV-Dok. 1080673, docs/umsatzsteuer.md „Umsätze ohne Steuer“); Kz 43 und 48 wie Kz 81.
+ *   Rechnungsdatum auch bei Ist (DATEV-Dok. 1080673, docs/umsatzsteuer.md „Umsätze ohne Steuer“); Kz 43 und 48 auch bei Ist im
+ *   Monat der Leistung (Anleitung zur UStVA 2026, #1312).
  * - Ein Quartal umfasst seine drei Monate (§ 18 Abs. 2 Satz 1 UStG).
  * - Kz 39 nur in der letzten Voranmeldung des Jahres (§ 48 Abs. 4 UStDV); die Sondervorauszahlung ist in der EÜR gezahlte
  *   Umsatzsteuer im Jahr der Zahlung (§ 11 Abs. 2 EStG), ebenso die Zahllast für Dezember, gezahlt im Januar.
@@ -202,9 +203,10 @@ describe.skipIf(!testDatabaseUrl)("Jahreswechsel 2026/2027: Umsätze ohne Steuer
           await zahlung({ invoiceId: inv.id }, `0${i + 4}.01.27`, "500,00");
         }
         const nachRechnung: Kennzahlen = { kz21: 50_000, kz41: 50_000, kz45: 50_000 };
-        const wieKz81: Kennzahlen = { kz43: 50_000, kz48: 50_000 };
-        expect(await va(DEZ)).toEqual({ ...nachRechnung, ...(versteuerung === "soll" ? wieKz81 : {}) });
-        expect(await va(JAN)).toEqual({ ...(versteuerung === "ist" ? wieKz81 : {}) });
+        // Kz 43 und 48 auch bei Ist im Monat der Leistung, hier der Rechnung (#1312)
+        const nachLeistung: Kennzahlen = { kz43: 50_000, kz48: 50_000 };
+        expect(await va(DEZ)).toEqual({ ...nachRechnung, ...nachLeistung });
+        expect(await va(JAN)).toEqual({});
         expect(await euer(2026)).toEqual({ gewinn: 0 });
         expect(await euer(2027)).toEqual({ einnahmenSteuerfrei: 250_000, gewinn: 250_000 });
         await abgleichSauber([DEZ, JAN]);

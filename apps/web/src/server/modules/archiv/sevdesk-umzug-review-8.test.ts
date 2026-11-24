@@ -10,13 +10,13 @@ const pos = (sumNet: string, sumTax: string, sumGross: string, taxRate: string) 
 const head = { invoiceDate: "2025-03-10", status: "1000", paidAmount: 0, payDate: null };
 
 describe.skipIf(!testDatabaseUrl)("sevDesk-Stornopaar je Steuersatz (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-abgleich.ts");
   let archive: typeof import("./archive.ts");
   let sql: postgres.Sql;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")) };
     archive = await import("./archive.ts");
   }, 30_000);
 

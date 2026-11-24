@@ -3,13 +3,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
 describe.skipIf(!testDatabaseUrl)("Lexoffice-/sevDesk-Altbestand für KI-Assistenten (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-belege.ts") & typeof import("./umzug-umsatzsteuer.ts");
   let sql: postgres.Sql;
   let importId: string;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-belege.ts")), ...(await import("./umzug-umsatzsteuer.ts")) };
   }, 30_000);
 
   afterAll(async () => {

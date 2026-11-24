@@ -70,7 +70,8 @@ describe.skipIf(!testDatabaseUrl)("Körperschaft- und Gewerbesteuer (Postgres)",
           [k.bank, 0, 100_000],
         ]);
 
-        expect((await kst.kapgSteuernJahr(2026))?.steuern).toBeNull();
+        // Ohne Angaben für 2025 gibt es keinen Vorschlag und nichts anzuheben (#1310)
+        expect(await kst.kapgSteuernJahr(2026)).toMatchObject({ angaben: null, steuern: null, angehobenVon: null });
         await expect(kst.bookSteuerrueckstellungen(actor, 2026, today)).rejects.toThrow("Hebesatz");
         await expect(kst.saveKapgAngaben(actor, 2026, { hebesatz: 150, verlustvortragKst: 0, verlustvortragGewst: 0 })).rejects.toThrow("mindestens 200");
         await kst.saveKapgAngaben(actor, 2026, { hebesatz: 400, verlustvortragKst: 1_000_000, verlustvortragGewst: 0 });
@@ -111,7 +112,11 @@ describe.skipIf(!testDatabaseUrl)("Körperschaft- und Gewerbesteuer (Postgres)",
 
         // 2027 ohne eigene Angaben: Hebesatz und Vorträge aus 2026 (Vortrag verbraucht)
         const folgejahr = await kst.kapgSteuernJahr(2027);
-        expect(folgejahr).toMatchObject({ gespeichert: false, angaben: { hebesatz: 400, verlustvortragKst: 0, verlustvortragGewst: 0 } });
+        expect(folgejahr).toMatchObject({
+          gespeichert: false,
+          angaben: { hebesatz: 400, verlustvortragKst: 0, verlustvortragGewst: 0 },
+          angehobenVon: null,
+        });
       },
       30_000,
     );
@@ -127,13 +132,16 @@ describe.skipIf(!testDatabaseUrl)("Körperschaft- und Gewerbesteuer (Postgres)",
 
     // Eine Gemeinde mit 250 %: Hat sie für 2027 keinen höheren bestimmt, gilt der Mindesthebesatz (§ 16 Abs. 4 Satz 2 GewStG)
     await kst.saveKapgAngaben(actor, 2026, { hebesatz: 250, ...ohneVortrag });
-    expect(await kst.kapgSteuernJahr(2027)).toMatchObject({ gespeichert: false, angaben: { hebesatz: 280 } });
+    // Der Vorschlag nennt den Hebesatz des Vorjahres, damit der Hinweis die Anhebung zeigen kann (#1310)
+    expect(await kst.kapgSteuernJahr(2027)).toMatchObject({ gespeichert: false, angaben: { hebesatz: 280 }, angehobenVon: 250 });
+    await kst.saveKapgAngaben(actor, 2026, { hebesatz: 280, ...ohneVortrag });
+    expect(await kst.kapgSteuernJahr(2027)).toMatchObject({ gespeichert: false, angaben: { hebesatz: 280 }, angehobenVon: null });
 
     const zuNiedrig = kst.saveKapgAngaben(actor, 2027, { hebesatz: 279, ...ohneVortrag });
     await expect(zuNiedrig).rejects.toThrow("Der Hebesatz beträgt 2027 mindestens 280 %.");
     await expect(zuNiedrig).rejects.toBeInstanceOf(kst.KoerperschaftError);
     await kst.saveKapgAngaben(actor, 2027, { hebesatz: 280, ...ohneVortrag });
-    expect(await kst.kapgSteuernJahr(2027)).toMatchObject({ gespeichert: true, angaben: { hebesatz: 280 } });
+    expect(await kst.kapgSteuernJahr(2027)).toMatchObject({ gespeichert: true, angaben: { hebesatz: 280 }, angehobenVon: null });
   });
 
   it("gleichzeitiges Speichern von Steuerangaben und Angaben zur Erklärung verliert keine", async () => {

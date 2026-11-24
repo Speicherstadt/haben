@@ -258,6 +258,14 @@ test("Ausbuchung aufheben fragt mit Art und Betrag nach", async () => {
   await page.waitForURL(/rechnungen\/[0-9a-f-]{36}$/);
   await page.waitForLoadState("networkidle");
   const karte = page.getByRole("region", { name: "Ausbuchen" });
+  // Nicht lesbarer Betrag: Meldung am Feld, Fokus dort, nichts ausgebucht (#1270)
+  const betrag = karte.getByLabel("Betrag");
+  await betrag.fill("12€50");
+  await karte.getByRole("button", { name: "Ausbuchen" }).click();
+  await expect(karte.getByText("Trag einen Betrag über 0 bis zum offenen Rest ein, etwa 595,00.")).toBeVisible();
+  await expect(betrag).toBeFocused();
+  await expect(karte.getByRole("button", { name: "Aufheben", exact: true })).toHaveCount(0);
+  await betrag.fill("595,00");
   await karte.getByRole("button", { name: "Ausbuchen" }).click();
   const aufheben = karte.getByRole("button", { name: "Aufheben", exact: true });
   await expect(aufheben).toBeVisible();

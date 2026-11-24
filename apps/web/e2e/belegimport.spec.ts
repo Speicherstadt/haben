@@ -538,7 +538,7 @@ test("Beleg aus sevDesk: später hochgeladene Datei zeigt die Belegansicht als n
   await gehe(page, `/archiv/beleg/${voucher.id}`);
   const datei = page.getByRole("region", { name: "Datei", exact: true });
   await expect(datei).toContainText("Nachgeladen am");
-  await expect(datei).toContainText("Ein späterer Abruf aus sevDesk hat die Datei angehängt.");
+  await expect(datei).toContainText("Die übrigen Angaben stammen aus dem ersten Import.");
   await expect(datei.getByRole("link", { name: "rechnung-januar.pdf herunterladen" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Dateistand" })).toContainText("sevDesk nennt die Datei erst nach dem ersten Abruf");
   // Die PDF-Vorschau ist ein eigenes Dokument ohne Landmarke

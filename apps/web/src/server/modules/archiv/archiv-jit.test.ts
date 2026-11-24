@@ -14,7 +14,7 @@ type Plan = { "Query Text": string; Plan: { "Total Cost": number }; JIT?: { Func
 
 describe.skipIf(!testDatabaseUrl)("Archiv ohne JIT (Postgres)", () => {
   let sql: postgres.Sql;
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-abgleich.ts") & typeof import("./umzug-umsatzsteuer.ts");
   let open: typeof import("./legacy-open.ts");
   let archivExport: typeof import("./export.ts");
   let sevdeskPayments: typeof import("./sevdesk-payments.ts");
@@ -59,7 +59,7 @@ describe.skipIf(!testDatabaseUrl)("Archiv ohne JIT (Postgres)", () => {
       const json = message.indexOf("{");
       if (message.startsWith("duration:") && json >= 0) plans.push(JSON.parse(message.slice(json)) as Plan);
     });
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-umsatzsteuer.ts")) };
     open = await import("./legacy-open.ts");
     archivExport = await import("./export.ts");
     sevdeskPayments = await import("./sevdesk-payments.ts");

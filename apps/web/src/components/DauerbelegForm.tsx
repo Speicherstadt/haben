@@ -1,8 +1,9 @@
 import { amountError, dauerbelegSummen, parseEuro, type Recurrence, type Rechtsform, type Prozent } from "@haben/core";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { savedAsChoice, type ContactChoice } from "./ContactCombobox.tsx";
 import { NewContactDialog } from "./NewContactDialog.tsx";
 import { aendereBetragszeile, betragszeileAus, betragszeileAusVorlage, bruttoLesbar, steuerausweisUmschalten, type Betragszeile } from "../lib/betragszeile.ts";
+import { useFokusNachSperre } from "../lib/use-fokus-nach-sperre.ts";
 import { useSubmitCheck } from "../lib/use-submit-check.ts";
 import { DauerbelegAllgemein, DauerbelegBetraege, DauerbelegDokument, type DauerbelegState, DauerbelegTermine, RATES, type Rate } from "./DauerbelegTeile.tsx";
 
@@ -41,6 +42,7 @@ export function DauerbelegForm({
   busy,
   submitLabel,
   onSubmit,
+  onDirtyChange,
 }: {
   initial: DauerbelegValues;
   suppliers: ContactChoice[];
@@ -53,6 +55,8 @@ export function DauerbelegForm({
   busy: boolean;
   submitLabel: string;
   onSubmit: (values: DauerbelegValues, file: File | null) => void;
+  /** Meldet ungespeicherte Änderungen an die Seite; nach dem Neuaufbau mit dem gespeicherten Stand wieder false */
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [v, setV] = useState<DauerbelegState>(() => dauerbelegState(initial));
   const set = (patch: Partial<DauerbelegState>) => setV((prev) => ({ ...prev, ...patch }));
@@ -73,6 +77,11 @@ export function DauerbelegForm({
   });
   const sums = dauerbelegSummen(parsed);
   const { form, error, check } = useSubmitCheck(dauerbelegErrors(v, amounts, taxShown, parsed, sums.gross, isNew && !hasFile));
+  // Nach einem Fehler beim Speichern steht der Fokus wieder im gesperrten Feld
+  useFokusNachSperre(busy);
+  // Ob die Steuer von Hand kam und welcher Betrag zuletzt eingegeben wurde, speichert Haben nicht: Zurückgetippt ist nichts offen
+  const betraege = amounts.map(({ key: _key, taxTouched: _taxTouched, basis: _basis, ...a }) => a);
+  useAenderungenMelden({ v, taxShown, betraege }, hasFile, onDirtyChange);
 
   // Selbst geschuldete Steuer (§ 13b) gibt es am Dauerbeleg nicht
   function updateAmount(key: number, patch: Partial<Omit<Betragszeile, "key">>) {
@@ -111,38 +120,42 @@ export function DauerbelegForm({
   return (
     <>
       <form ref={form} className="card form-card form-narrow" onSubmit={submit} aria-label="Dauerbeleg" noValidate>
-        <DauerbelegAllgemein
-          v={v}
-          set={set}
-          error={error}
-          suppliers={suppliers}
-          categories={categories}
-          rechtsform={rechtsform}
-          pickSupplier={pickSupplier}
-          onCreateSupplier={setNewSupplierName}
-        />
-        <DauerbelegTermine v={v} set={set} error={error} isNew={isNew} />
-        <DauerbelegDokument
-          error={error}
-          isNew={isNew}
-          withoutFile={withoutFile}
-          fileRef={fileRef}
-          setHasFile={setHasFile}
-          taxShown={taxShown}
-          chooseTaxShown={chooseTaxShown}
-          kleinunternehmer={kleinunternehmer}
-        />
-        <DauerbelegBetraege
-          v={v}
-          set={set}
-          error={error}
-          amounts={amounts}
-          taxShown={taxShown}
-          sums={sums}
-          updateAmount={updateAmount}
-          removeAmount={(key) => setAmounts((prev) => prev.filter((x) => x.key !== key))}
-          addRate={addRate}
-        />
+        {/* Gesperrt, solange gespeichert oder pausiert wird: Danach baut die Seite das Formular mit dem neuen `updatedAt` im
+            `key` neu auf, und was man bis dahin tippt, ginge verloren (#1793) */}
+        <fieldset className="fieldset-plain" disabled={busy}>
+          <DauerbelegAllgemein
+            v={v}
+            set={set}
+            error={error}
+            suppliers={suppliers}
+            categories={categories}
+            rechtsform={rechtsform}
+            pickSupplier={pickSupplier}
+            onCreateSupplier={setNewSupplierName}
+          />
+          <DauerbelegTermine v={v} set={set} error={error} isNew={isNew} />
+          <DauerbelegDokument
+            error={error}
+            isNew={isNew}
+            withoutFile={withoutFile}
+            fileRef={fileRef}
+            setHasFile={setHasFile}
+            taxShown={taxShown}
+            chooseTaxShown={chooseTaxShown}
+            kleinunternehmer={kleinunternehmer}
+          />
+          <DauerbelegBetraege
+            v={v}
+            set={set}
+            error={error}
+            amounts={amounts}
+            taxShown={taxShown}
+            sums={sums}
+            updateAmount={updateAmount}
+            removeAmount={(key) => setAmounts((prev) => prev.filter((x) => x.key !== key))}
+            addRate={addRate}
+          />
+        </fieldset>
         <div className="actions form-footer">
           <button type="submit" className="btn btn-primary" disabled={busy}>
             {submitLabel}
@@ -159,6 +172,14 @@ export function DauerbelegForm({
       />
     </>
   );
+}
+
+/** Ungespeichert ist, was vom Stand beim Aufbau abweicht, und eine gewählte Datei; zurückgetippt ist nichts mehr offen */
+function useAenderungenMelden(stand: unknown, hasFile: boolean, onDirtyChange?: (dirty: boolean) => void) {
+  const jetzt = JSON.stringify(stand);
+  const [anfang] = useState(jetzt);
+  const dirty = hasFile || jetzt !== anfang;
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 }
 
 function dauerbelegState({ amounts: _amounts, taxShown: _taxShown, privateShare: _privateShare, ...values }: DauerbelegValues): DauerbelegState {

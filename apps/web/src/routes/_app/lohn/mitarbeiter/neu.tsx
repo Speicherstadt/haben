@@ -1,7 +1,8 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { isKapitalgesellschaft } from "@haben/core";
-import { beschaeftigungsartenFor, MitarbeiterForm, NEUER_MITARBEITER } from "../../../../components/MitarbeiterForm.tsx";
+import { beschaeftigungsartenFor, MitarbeiterForm } from "../../../../components/MitarbeiterForm.tsx";
+import { NEUER_MITARBEITER } from "../../../../components/mitarbeiter-pruefung.ts";
 import { NoticeBanner } from "../../../../components/NoticeBanner.tsx";
 import { useAction } from "../../../../lib/use-action.ts";
 import { saveMitarbeiterFn } from "../../../../server/functions/lohn.ts";
@@ -14,7 +15,7 @@ export const Route = createFileRoute("/_app/lohn/mitarbeiter/neu")({
 function NeuerMitarbeiterPage() {
   const navigate = useNavigate();
   const save = useServerFn(saveMitarbeiterFn);
-  const { busy, notice, setNotice, run } = useAction();
+  const { busy, notice, run } = useAction();
   const arten = beschaeftigungsartenFor(isKapitalgesellschaft(Route.useRouteContext().rechtsform));
   return (
     <>
@@ -35,7 +36,6 @@ function NeuerMitarbeiterPage() {
           arten={arten}
           submitLabel="Mitarbeiter anlegen"
           busy={busy}
-          onError={(text) => setNotice({ tone: "danger", text })}
           onSubmit={(werte) =>
             void run(async () => {
               await save({ data: { id: null, data: werte } });
