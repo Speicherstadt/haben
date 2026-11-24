@@ -27,10 +27,14 @@ function backup(withAttachment: boolean) {
 describe.skipIf(!testDatabaseUrl)("Lexware-Sicherung mit fehlender Datei (Postgres)", () => {
   let sql: postgres.Sql;
   let lexoffice: typeof import("./lexoffice.ts");
+  let legacy: typeof import("./legacy-open.ts");
+  let dateistand: typeof import("./dateistand.ts");
 
   beforeAll(async () => {
     sql = await setupTestDb();
     lexoffice = await import("./lexoffice.ts");
+    legacy = await import("./legacy-open.ts");
+    dateistand = await import("./dateistand.ts");
   }, 30_000);
 
   afterAll(async () => {
@@ -56,6 +60,12 @@ describe.skipIf(!testDatabaseUrl)("Lexware-Sicherung mit fehlender Datei (Postgr
         history: [{ state: "abruf_fehlgeschlagen", role: "anhang", sourceFileId: path }],
       },
     });
+    // Offene Posten und „ohne Datei bestätigen“ lesen die Herkunft aus der Archivzeile, nicht aus der Belegansicht
+    const [posten] = (await legacy.openLegacyItems("2025-12-31")).filter((item) => item.number === "2025-4711");
+    expect(posten!.blocker).toBe("Datei fehlt in der Sicherung. Eine neue Sicherung mit der fehlenden Datei importieren.");
+    await expect(dateistand.confirmWithoutFile(actor, id, "")).rejects.toThrow(
+      "Datei fehlt in der Sicherung. Eine neue Sicherung mit der fehlenden Datei importieren.",
+    );
     expect(await year()).toMatchObject({
       withoutFile: 1,
       files: { abrufFehlgeschlagen: 1 },
