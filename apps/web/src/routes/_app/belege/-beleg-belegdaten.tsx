@@ -18,7 +18,7 @@ export function Belegdaten({ f, data }: { f: DocumentFormState; data: Detail }) 
   const {
     locked,
     readOnly,
-    running,
+    fieldsDisabled,
     invoiceNumber,
     setInvoiceNumber,
     documentDate,
@@ -35,7 +35,7 @@ export function Belegdaten({ f, data }: { f: DocumentFormState; data: Detail }) 
     touch,
   } = f;
   return (
-    <fieldset className="card" disabled={readOnly || running} style={{ margin: 0 }}>
+    <fieldset className="card" disabled={fieldsDisabled} style={{ margin: 0 }}>
       <legend className="visually-hidden">Belegdaten</legend>
       <div className="form-grid">
         <Lieferant f={f} data={data} />
@@ -104,7 +104,18 @@ export function Belegdaten({ f, data }: { f: DocumentFormState; data: Detail }) 
 
 /** Lieferant als Name oder Kontakt (#1253), mit dem Dialog für einen neuen Kontakt */
 function Lieferant({ f, data }: { f: DocumentFormState; data: Detail }) {
-  const { readOnly, running, supplierName, supplierUstId, supplierContactId, newSupplierName, setNewSupplierName, touch, pickSupplier, typeSupplierName } = f;
+  const {
+    readOnly,
+    fieldsDisabled,
+    supplierName,
+    supplierUstId,
+    supplierContactId,
+    newSupplierName,
+    setNewSupplierName,
+    touch,
+    pickSupplier,
+    typeSupplierName,
+  } = f;
   return (
     <>
       {/* Ein Feld für Name und Kontakt (#1253): Der Name darf frei stehen, eine Wahl aus den Kontakten verknüpft ihn */}
@@ -117,7 +128,7 @@ function Lieferant({ f, data }: { f: DocumentFormState; data: Detail }) {
             contactId={supplierContactId ?? ""}
             freitext={{ value: supplierName, onInput: touch(typeSupplierName) }}
             placeholder="Name eintragen oder Kontakt suchen"
-            disabled={readOnly || running}
+            disabled={fieldsDisabled}
             onChoose={(id) => touch(pickSupplier)(data.suppliers.find((s) => s.id === id) ?? null)}
             onCreate={readOnly ? undefined : setNewSupplierName}
           />

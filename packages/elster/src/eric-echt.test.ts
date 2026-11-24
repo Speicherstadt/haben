@@ -426,6 +426,25 @@ const faelle: [string, () => string][] = [
         }),
     ],
     [
+      // Forderungsausfall bei Soll (#1809): Kz 650 zusätzlich zu den geminderten Umsätzen; und Rechnung und Ausfall im selben Jahr
+      `USt-Erklärung ${year} Forderungsausfall (Kz 650)`,
+      () =>
+        buildUstErklaerungXml({
+          ...envelope(year),
+          versteuerung: "soll",
+          figures: { base19: 100_000, tax19: 19_000, base7: 50_000, tax7: 3_500, vorsteuer: 0, vorauszahlungen: 22_500, kz50: 150_000 },
+        }),
+    ],
+    [
+      `USt-Erklärung ${year} Forderungsausfall, Umsätze heben sich auf`,
+      () =>
+        buildUstErklaerungXml({
+          ...envelope(year),
+          versteuerung: "soll",
+          figures: { base19: 0, tax19: 0, base7: 0, tax7: 0, vorsteuer: 0, vorauszahlungen: 0, kz50: 150_000 },
+        }),
+    ],
+    [
       // Zeilen, deren Summen sich aufheben: Gutschriften zu 19 % gegen 7 %, negative Rechnungsvorsteuer gegen Einfuhrumsatzsteuer
       `USt-Erklärung ${year} mit sich aufhebenden Zeilen`,
       () =>

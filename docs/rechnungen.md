@@ -393,6 +393,8 @@ Bei neuen normalen Rechnungen in Euro mit regulärer deutscher Umsatzsteuer, auc
 
 Beispiel: Leistung und Rechnung am 20. Januar über 700 € netto und 133 € Steuer, Zahlung schon am 13. Dezember des Vorjahres. Im Dezember stehen bei GmbH/UG 700 € Anzahlung und 133 € fällige Steuer; der Erlös entsteht im Januar. Bei nur 119 € Vorauszahlung sind es zunächst 100 € Anzahlung und 19 € Steuer. Die verbleibende Steuer wird bei Soll mit der Leistung, bei Ist mit der Restzahlung fällig; die Vorauszahlung wird nicht erneut besteuert.
 
+Bei GmbH und UG steht in neu erzeugten Bilanzierungseinträgen zu einer normalen Rechnung **Erlösabgrenzung Rechnung** mit Rechnungsnummer. Bei einer Anzahlungsrechnung lautet der Text dieser Einträge **Bilanzierung Anzahlung** mit Rechnungsnummer.
+
 Rechnungen, die vor dieser Regel festgeschrieben wurden, nehmen bei Soll oder als GmbH/UG keine Zahlung vor ihrem Leistungstag an; bei Ist ohne Bilanz stimmt der bisherige Weg schon. Zahlungen ab dem Leistungstag bleiben auch vor dem Rechnungsdatum möglich. Storniere die Alt-Rechnung im Monat der Leistung, stelle sie mit Leistungszeitraum neu aus und ordne die Zahlung der neuen Rechnung zu. Ist der Eingangsmonat schon gemeldet, zeigt die [Umsatzsteuerseite](umsatzsteuer.md) die Abweichung zur Berichtigung.
 
 Beim Einzelunternehmen mit Soll stehen am Leistungstag zwei Journalbelege, Rechnung und Steuerumbuchung; Forderung und Erlös entstehen nur einmal.
@@ -481,7 +483,7 @@ Stornorechnung und Rechnungskorrektur übernehmen die Sprache der ursprüngliche
 
 ## Wiederkehrende Rechnungen
 
-Für Wochen- und Monatspauschalen, Wartungsverträge oder Hosting legst du unter **Rechnungen › Wiederkehrend › Neue Vorlage** eine Vorlage an. Haben erzeugt daraus zu jedem Termin eine Rechnung.
+Für Wochen- und Monatspauschalen, Wartungsverträge oder Hosting legst du unter **Rechnungen › Wiederkehrend › Neue Vorlage** eine Vorlage an. Haben erzeugt daraus zu jedem Termin eine Rechnung. Bis die gespeicherte Vorlage geladen ist, sind die Felder kurz gesperrt, damit keine Eingabe verloren geht.
 
 | Feld | Bedeutung |
 |---|---|

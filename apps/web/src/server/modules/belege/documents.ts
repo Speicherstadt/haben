@@ -889,7 +889,7 @@ export async function listDocuments() {
     })
     .from(schema.documents)
     .leftJoin(schema.documentCancellations, eq(schema.documentCancellations.documentId, schema.documents.id))
-    .orderBy(sql`${schema.documents.status} = 'gebucht'`, desc(schema.documents.documentDate), desc(schema.documents.uploadedAt));
+    .orderBy(sql`${schema.documents.status} = 'gebucht'`, desc(schema.documents.documentDate), desc(schema.documents.uploadedAt), desc(schema.documents.id));
 }
 
 /** Vorsteuer aus gebuchten Belegen eines Monats oder Quartals (nach Belegdatum), für Kz 66; ohne die vorgetragene aus einer Eröffnung */

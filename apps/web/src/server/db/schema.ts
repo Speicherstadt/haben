@@ -24,7 +24,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import type { Buyer, Seller } from "@haben/einvoice";
-import type { BankCsvMapping, ImportMovement, ParsedTransaction } from "@haben/import";
+import type { BankCsvMapping, ImportMovement, ParsedTransaction, WebOmittedCounts } from "@haben/import";
 import type { LetterheadDesign, OutgoingTaxDetails } from "@haben/core";
 import {
   ASSET_KIND_KEYS,
@@ -3516,6 +3516,8 @@ export type LexofficeImportProgress = {
    * Packen draußen (#183).
    */
   ignored?: { drafts: number };
+  /** Im Sicherungsskript für Lexware Office ausgelassene Vorgänge, je Sicherung statt je ZIP-Teil (#1640). */
+  webOmitted?: WebOmittedCounts;
   /** Belege aus früheren Läufen, deren fehlende Datei in diesem Lauf doch noch ankam (#1504) */
   nachgeladen?: number;
   /** sevDesk: Vorlagen wiederkehrender Belege, in diesem Lauf als Dauerbelege übernommen */

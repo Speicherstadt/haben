@@ -12,7 +12,7 @@ import { formatDate, formatDateTime } from "../../../lib/format.ts";
 import { getDocumentDetail } from "../../../server/functions/documents.ts";
 import { ConfirmDialog, isDialogOpen } from "../../../components/ConfirmDialog.tsx";
 import { DocumentForm } from "./-beleg-formular.tsx";
-import { Preview } from "./-beleg-vorschau.tsx";
+import { type Detail, Preview } from "./-beleg-vorschau.tsx";
 
 export const Route = createFileRoute("/_app/belege/$id")({
   /** geprueft: nach dem Buchen war kein Beleg mehr „Zu prüfen“; dupliziert und vorhanden: nach „Beleg duplizieren“ */
@@ -67,27 +67,7 @@ function DocumentPage() {
         </div>
         <div className="actions">
           <DocumentStatus status={doc.status} extractionStatus={doc.extractionStatus} cancelled={data.cancellation !== null} />
-          {navigation.position > 0 && (
-            <div className="doc-nav" role="group" aria-label="Zwischen Belegen wechseln">
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => go(navigation.previousId)}
-                disabled={!navigation.previousId}
-                title="Vorheriger Beleg (K)"
-              >
-                <Icon name="chevron-left" size={16} />
-                Vorheriger
-              </button>
-              <span className="small muted">
-                {navigation.position} von {navigation.total}
-              </span>
-              <button type="button" className="btn btn-ghost" onClick={() => go(navigation.nextId)} disabled={!navigation.nextId} title="Nächster Beleg (J)">
-                Nächster
-                <Icon name="chevron-right" size={16} />
-              </button>
-            </div>
-          )}
+          <BelegBlaettern navigation={navigation} go={go} />
           {data.assetId && (
             <Link to="/anlagen/$id" params={{ id: data.assetId }} className="btn">
               Zur Anlage
@@ -110,6 +90,26 @@ function DocumentPage() {
       >
         <p>Der Beleg hat ungespeicherte Änderungen. Beim Wechsel gehen sie verloren.</p>
       </ConfirmDialog>
+      <BelegMeldungen data={data} inhaber={inhaber} geprueft={Boolean(geprueft)} />
+      <div className="editor-grid doc-editor">
+        <Preview doc={doc} />
+        <div className="stack">
+          {/* key: nach dem Auslesen oder Speichern mit den neuen Werten aufsetzen, mit Millisekunden auch in derselben Sekunde (#1824) */}
+          <DocumentForm key={`${doc.id}-${doc.updatedAt.toISOString()}`} data={data} inhaber={inhaber} onDirtyChange={setDirty} />
+          {/* Außerhalb des Formulars: Enter im Feld „Grund“ speichert nicht */}
+          {inhaber && <DocumentCancellation key={`storno-${doc.id}`} data={data} />}
+          <BelegVerrechnung key={`verrechnung-${doc.id}`} documentId={doc.id} supplier={doc.supplierName} readOnly={!inhaber} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** Hinweise über dem Beleg: erzeugte Überweisungen, abweichende IBAN und „Alle Belege geprüft“ nach dem Buchen */
+function BelegMeldungen({ data, inhaber, geprueft }: { data: Detail; inhaber: boolean; geprueft: boolean }) {
+  const doc = data.document;
+  return (
+    <>
       {data.sepaTransfers.map((t) => (
         <div key={t.endToEndId} className="banner" role="status">
           <Icon name="bank" />
@@ -135,17 +135,27 @@ function DocumentPage() {
           </span>
         </div>
       )}
-      <div className="editor-grid doc-editor">
-        <Preview doc={doc} />
-        <div className="stack">
-          {/* key: nach dem Auslesen oder Speichern mit den neuen Werten aufsetzen */}
-          <DocumentForm key={`${doc.id}-${String(doc.updatedAt)}`} data={data} inhaber={inhaber} onDirtyChange={setDirty} />
-          {/* Außerhalb des Formulars: Enter im Feld „Grund“ speichert nicht */}
-          {inhaber && <DocumentCancellation key={`storno-${doc.id}`} data={data} />}
-          <BelegVerrechnung key={`verrechnung-${doc.id}`} documentId={doc.id} supplier={doc.supplierName} readOnly={!inhaber} />
-        </div>
-      </div>
     </>
+  );
+}
+
+/** Vorheriger und nächster Beleg im Kopf, mit der Position in der Liste; go fragt bei ungespeicherten Änderungen erst nach */
+function BelegBlaettern({ navigation, go }: { navigation: Detail["navigation"]; go: (id: string | null) => void }) {
+  if (navigation.position <= 0) return null;
+  return (
+    <div className="doc-nav" role="group" aria-label="Zwischen Belegen wechseln">
+      <button type="button" className="btn btn-ghost" onClick={() => go(navigation.previousId)} disabled={!navigation.previousId} title="Vorheriger Beleg (K)">
+        <Icon name="chevron-left" size={16} />
+        Vorheriger
+      </button>
+      <span className="small muted">
+        {navigation.position} von {navigation.total}
+      </span>
+      <button type="button" className="btn btn-ghost" onClick={() => go(navigation.nextId)} disabled={!navigation.nextId} title="Nächster Beleg (J)">
+        Nächster
+        <Icon name="chevron-right" size={16} />
+      </button>
+    </div>
   );
 }
 

@@ -1,16 +1,16 @@
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { amountError, evatrPruefbar, parseEuro, parsePersonenkonto } from "@haben/core";
-import { useRef, useState, type FormEvent } from "react";
-import { flushSync } from "react-dom";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { UstIdHinweis } from "./UstIdHinweis.tsx";
 import { saveContact } from "../server/functions/contacts.ts";
 import type { Contact, ContactInput } from "../server/modules/stammdaten/index.ts";
-import { Field } from "./Field.tsx";
 import { NoticeBanner } from "./NoticeBanner.tsx";
+import { ContactAddress, ContactBasics, ContactInvoices, ContactTax, type IbanSuggestion } from "./ContactFormTeile.tsx";
 import { ContactWeitereAngaben, feldFehler, weitereAngabenFeld } from "./ContactWeitereAngaben.tsx";
-import { parseSkontoRows, toSkontoRows } from "./SkontoFields.tsx";
+import { parseSkontoRows, type SkontoRow, toSkontoRows } from "./SkontoFields.tsx";
 import { useAction } from "../lib/use-action.ts";
+import { useFokusNachSperre } from "../lib/use-fokus-nach-sperre.ts";
 
 const EMPTY: ContactInput = {
   kundennummer: "",
@@ -35,14 +35,14 @@ const EMPTY: ContactInput = {
 /** Ein neu angelegter Kontakt, wie ihn ein Formular für seine Auswahl braucht */
 export type SavedContact = ContactInput & { id: string };
 
+const SAVED_NOTICE = { tone: "ok", text: "Gespeichert. Die vorige Fassung bleibt als Version erhalten." } as const;
+
 /**
  * nextNumber: Kundennummer, die Haben beim Anlegen ohne eigene Nummer vergibt; null = keine automatische Vergabe.
  * Im Dialog eines anderen Formulars (Beleg, Rechnungsentwurf, #330): prefill füllt vor, onSaved bekommt den neuen
  * Kontakt statt der Weiterleitung, onCancel ersetzt den Link zurück. Bei gleicher USt-IdNr. weist der Server auf den
  * vorhandenen Kontakt hin (UstIdHinweis); onPickExisting bietet ihn zum Wählen an, ohne ihn still zusammenzuführen.
  */
-const SAVED_NOTICE = { tone: "ok", text: "Gespeichert. Die vorige Fassung bleibt als Version erhalten." } as const;
-
 export function ContactForm({
   contact,
   nextNumber = null,
@@ -69,120 +69,33 @@ export function ContactForm({
   saved?: boolean;
   onUpdated?: () => void;
 }) {
-  const router = useRouter();
-  const navigate = useNavigate();
-  const save = useServerFn(saveContact);
-  const { busy, notice, run } = useAction();
   const [ustId, setUstId] = useState(contact?.ustId ?? prefill?.ustId ?? "");
   // Skonto: null = Vorgabe aus den Einstellungen; eigene Stufen, leer = ohne Skonto
   const [ownSkonto, setOwnSkonto] = useState(contact?.skonto != null);
   const [skontoRows, setSkontoRows] = useState(() => toSkontoRows(contact?.skonto ?? []));
   const [weitereOffen, setWeitereOffen] = useState(false);
-  const initial: ContactInput = contact
-    ? {
-        ...EMPTY,
-        ...contact,
-        kundennummer: contact.kundennummer ?? "",
-        lieferantennummer: contact.lieferantennummer ?? "",
-        defaultFormat: contact.defaultFormat,
-      }
-    : { ...EMPTY, ...prefill };
-
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-    const text = (name: keyof ContactInput) => String(form.get(name) ?? "").trim();
-    const format = text("defaultFormat");
-    const isCustomer = form.get("isCustomer") === "on";
-    const isSupplier = form.get("isSupplier") === "on";
-    const skonto = parseSkontoRows(skontoRows);
-    const debitor = parsePersonenkonto("debitor", text("debitorNr"));
-    const kreditor = parsePersonenkonto("kreditor", text("kreditorNr"));
-    const rate = text("hourlyRateCents") === "" ? null : parseEuro(text("hourlyRateCents"));
-    void run(async () => {
-      try {
-        if (!isCustomer && !isSupplier) throw new Error("Ein Kontakt ist Kunde oder Lieferant oder beides.");
-        if (!debitor.ok) throw feldFehler("debitorNr", debitor.error);
-        if (!kreditor.ok) throw feldFehler("kreditorNr", kreditor.error);
-        if (text("hourlyRateCents") !== "" && (rate === null || rate < 0)) throw feldFehler("hourlyRateCents", amountError("den Stundensatz", 9_500));
-        if (ownSkonto && !skonto.valid) throw feldFehler("skonto", "Skonto: je Stufe einen Satz (z. B. 2) und eine Frist in Tagen angeben.");
-        const input = {
-          ...textFields(text),
-          defaultFormat: format ? (format as ContactInput["defaultFormat"]) : null,
-          language: text("language") === "en" ? "en" : "de",
-          skonto: ownSkonto ? skonto.stufen : null,
-          isCustomer,
-          isSupplier,
-          debitorNr: debitor.value,
-          kreditorNr: kreditor.value,
-          hourlyRateCents: rate,
-        } satisfies ContactInput;
-        const result = await save({ data: { id: contact?.id ?? null, contact: input } });
-        if (onSaved) {
-          onSaved({ ...input, id: result.id });
-        } else if (contact) {
-          onUpdated?.();
-          await router.invalidate();
-        } else {
-          await navigate({ to: "/kontakte/$id", params: { id: result.id }, search: evatrPruefbar(input.ustId) ? { bestaetigen: true } : {} });
-        }
-      } catch (error) {
-        // Ein Fehler an einem Feld im eingeklappten Bereich, vom Formular oder vom Server, klappt ihn auf; der Fokus geht ins Feld
-        const feld = weitereAngabenFeld(error);
-        if (feld) {
-          flushSync(() => setWeitereOffen(true));
-          (formElement.elements.namedItem(feld) as HTMLElement | null)?.focus();
-        }
-        throw error;
-      }
-    });
-  }
+  const { busy, notice, form, onSubmit } = useKontaktSpeichern({ contact, onSaved, onUpdated, ownSkonto, skontoRows, setWeitereOffen });
+  const initial = initialValues(contact, prefill);
 
   return (
-    <form className="card form-card contact-form" onSubmit={onSubmit} aria-label="Kontakt">
-      <ContactBasics initial={initial} isNew={!contact} nextNumber={nextNumber} />
-
-      <section className="form-section" aria-labelledby="contact-address">
-        <h2 id="contact-address">Anschrift</h2>
-        <Field label="Straße und Hausnummer">
-          {(control) => <input {...control} name="strasse" defaultValue={initial.strasse} autoComplete="street-address" />}
-        </Field>
-        <div className="form-row cols-address">
-          <Field label="PLZ">{(control) => <input {...control} name="plz" defaultValue={initial.plz} autoComplete="postal-code" inputMode="numeric" />}</Field>
-          <Field label="Ort">{(control) => <input {...control} name="ort" defaultValue={initial.ort} autoComplete="address-level2" />}</Field>
-          <Field label="Land (z. B. DE)">
-            {(control) => <input {...control} name="land" defaultValue={initial.land} maxLength={2} autoComplete="country" className="uppercase" />}
-          </Field>
-        </div>
-      </section>
-
-      <ContactTax initial={initial} ustId={ustId} onUstId={setUstId} ibanSuggestion={ibanSuggestion} />
-
-      <section className="form-section" aria-labelledby="contact-invoices">
-        <h2 id="contact-invoices">Rechnungen</h2>
-        <UnsereLieferantennummerField defaultValue={initial.unsereLieferantennummer ?? ""} />
-        <div className="form-row cols-2">
-          <Field label="Sprache von Rechnungen und Angeboten">
-            {(control) => (
-              <select {...control} name="language" defaultValue={initial.language ?? "de"}>
-                <option value="de">Deutsch</option>
-                <option value="en">Englisch</option>
-              </select>
-            )}
-          </Field>
-        </div>
-      </section>
-
-      <ContactWeitereAngaben
-        initial={initial}
-        ownSkonto={ownSkonto}
-        onOwnSkonto={setOwnSkonto}
-        skontoRows={skontoRows}
-        onSkontoRows={setSkontoRows}
-        offen={weitereOffen}
-        onOffen={setWeitereOffen}
-      />
+    <form ref={form} className="card form-card contact-form" onSubmit={onSubmit} aria-label="Kontakt">
+      {/* Gesperrt, solange gespeichert wird: Danach baut die Seite das Formular mit der neuen Version im `key` neu auf, und
+          was man bis dahin tippt, ginge verloren (#1824) */}
+      <fieldset className="fieldset-plain" disabled={busy}>
+        <ContactBasics initial={initial} isNew={!contact} nextNumber={nextNumber} />
+        <ContactAddress initial={initial} />
+        <ContactTax initial={initial} ustId={ustId} onUstId={setUstId} ibanSuggestion={ibanSuggestion} />
+        <ContactInvoices initial={initial} />
+        <ContactWeitereAngaben
+          initial={initial}
+          ownSkonto={ownSkonto}
+          onOwnSkonto={setOwnSkonto}
+          skontoRows={skontoRows}
+          onSkontoRows={setSkontoRows}
+          offen={weitereOffen}
+          onOffen={setWeitereOffen}
+        />
+      </fieldset>
 
       <UstIdHinweis
         ustId={ustId}
@@ -209,6 +122,118 @@ export function ContactForm({
   );
 }
 
+/** Die Felder zu Beginn: der gespeicherte Kontakt oder, beim Anlegen, die Vorgaben aus prefill */
+function initialValues(contact: Contact | null, prefill: Partial<ContactInput> | undefined): ContactInput {
+  if (!contact) return { ...EMPTY, ...prefill };
+  return {
+    ...EMPTY,
+    ...contact,
+    kundennummer: contact.kundennummer ?? "",
+    lieferantennummer: contact.lieferantennummer ?? "",
+    defaultFormat: contact.defaultFormat,
+  };
+}
+
+/**
+ * Prüfen und Speichern des Kontaktformulars. Geprüft wird vor dem Sperren der Felder, damit der Fokus ein Feld mit Fehler
+ * findet (DESIGN.md, Gesperrte Knöpfe). Ein Fehler an einem Feld in „Weitere Angaben“, vom Formular oder vom Server, klappt
+ * den Bereich auf; der Fokus geht ins Feld, sobald es wieder frei ist. Nach dem Speichern lädt die Seite bis zum Ende neu,
+ * damit die Felder bis zum Neuaufbau gesperrt bleiben.
+ */
+function useKontaktSpeichern({
+  contact,
+  onSaved,
+  onUpdated,
+  ownSkonto,
+  skontoRows,
+  setWeitereOffen,
+}: {
+  contact: Contact | null;
+  onSaved: ((saved: SavedContact) => void) | undefined;
+  onUpdated: (() => void) | undefined;
+  ownSkonto: boolean;
+  skontoRows: SkontoRow[];
+  setWeitereOffen: (offen: boolean) => void;
+}) {
+  const router = useRouter();
+  const navigate = useNavigate();
+  const save = useServerFn(saveContact);
+  const { busy, notice, setNotice, run } = useAction();
+  const form = useRef<HTMLFormElement>(null);
+  // Nach einem Fehler beim Speichern steht der Fokus wieder im gesperrten Feld
+  useFokusNachSperre(busy);
+  // Feld in „Weitere Angaben“ mit Fehler; gesperrt nimmt es den Fokus nicht an
+  const [fehlerFeld, setFehlerFeld] = useState<string | null>(null);
+  useEffect(() => {
+    if (busy || !fehlerFeld) return;
+    (form.current?.elements.namedItem(fehlerFeld) as HTMLElement | null)?.focus();
+    setFehlerFeld(null);
+  }, [busy, fehlerFeld]);
+
+  function feldZeigen(error: unknown) {
+    const feld = weitereAngabenFeld(error);
+    if (!feld) return;
+    setWeitereOffen(true);
+    setFehlerFeld(feld);
+  }
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const eingaben = kontaktEingaben(new FormData(event.currentTarget), ownSkonto, skontoRows);
+    if (eingaben instanceof Error) {
+      setNotice({ tone: "danger", text: eingaben.message });
+      feldZeigen(eingaben);
+      return;
+    }
+    void run(async () => {
+      try {
+        const result = await save({ data: { id: contact?.id ?? null, contact: eingaben } });
+        if (onSaved) {
+          onSaved({ ...eingaben, id: result.id });
+        } else if (contact) {
+          onUpdated?.();
+          await router.invalidate({ sync: true });
+        } else {
+          await navigate({ to: "/kontakte/$id", params: { id: result.id }, search: evatrPruefbar(eingaben.ustId) ? { bestaetigen: true } : {} });
+        }
+      } catch (error) {
+        feldZeigen(error);
+        throw error;
+      }
+    });
+  }
+
+  return { busy, notice, form, onSubmit };
+}
+
+/** Die Eingaben des Formulars, wie sie gespeichert werden, oder der erste Fehler, den schon der Browser erkennt */
+function kontaktEingaben(form: FormData, ownSkonto: boolean, skontoRows: SkontoRow[]): ContactInput | Error {
+  const text = (name: keyof ContactInput) => String(form.get(name) ?? "").trim();
+  const format = text("defaultFormat");
+  const isCustomer = form.get("isCustomer") === "on";
+  const isSupplier = form.get("isSupplier") === "on";
+  const skonto = parseSkontoRows(skontoRows);
+  const debitor = parsePersonenkonto("debitor", text("debitorNr"));
+  const kreditor = parsePersonenkonto("kreditor", text("kreditorNr"));
+  const rate = text("hourlyRateCents") === "" ? null : parseEuro(text("hourlyRateCents"));
+  if (!isCustomer && !isSupplier) return new Error("Ein Kontakt ist Kunde oder Lieferant oder beides.");
+  if (!debitor.ok) return feldFehler("debitorNr", debitor.error);
+  if (!kreditor.ok) return feldFehler("kreditorNr", kreditor.error);
+  if (text("hourlyRateCents") !== "" && (rate === null || rate < 0)) return feldFehler("hourlyRateCents", amountError("den Stundensatz", 9_500));
+  if (ownSkonto && !skonto.valid) return feldFehler("skonto", "Skonto: je Stufe einen Satz (z. B. 2) und eine Frist in Tagen angeben.");
+  return {
+    ...textFields(text),
+    defaultFormat: format ? (format as ContactInput["defaultFormat"]) : null,
+    language: text("language") === "en" ? "en" : "de",
+    skonto: ownSkonto ? skonto.stufen : null,
+    isCustomer,
+    isSupplier,
+    debitorNr: debitor.value,
+    kreditorNr: kreditor.value,
+    hourlyRateCents: rate,
+  } satisfies ContactInput;
+}
+
 /** Die Textfelder des Formulars, wie sie gespeichert werden: USt-IdNr. und IBAN ohne Leerzeichen, Land in Großbuchstaben */
 function textFields(text: (name: keyof ContactInput) => string) {
   return {
@@ -226,142 +251,4 @@ function textFields(text: (name: keyof ContactInput) => string) {
     unsereLieferantennummer: text("unsereLieferantennummer"),
     lieferantennummer: text("lieferantennummer"),
   };
-}
-
-/** Abschnitt „Allgemein“: Name, Rolle, Kontaktwege und Nummern; isNew: beim Anlegen nennt das Feld Kundennummer die voraussichtlich nächste (nextNumber) */
-function ContactBasics({ initial, isNew, nextNumber }: { initial: ContactInput; isNew: boolean; nextNumber: string | null }) {
-  return (
-    <section className="form-section" aria-labelledby="contact-basics">
-      <h2 id="contact-basics">Allgemein</h2>
-      <Field label="Name oder Firma">
-        {(control) => <input {...control} name="name" defaultValue={initial.name} required autoComplete="organization" placeholder="z. B. Muster GmbH" />}
-      </Field>
-      <fieldset className="field-group" style={{ border: 0, padding: 0, margin: 0 }}>
-        <legend className="small">Rolle</legend>
-        <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-          <label className="checkbox">
-            <input type="checkbox" name="isCustomer" defaultChecked={initial.isCustomer ?? true} />
-            Kunde
-          </label>
-          <label className="checkbox">
-            <input type="checkbox" name="isSupplier" defaultChecked={initial.isSupplier ?? false} />
-            Lieferant
-          </label>
-        </div>
-        <p className="field-hint">Kunden stehen bei Rechnungen und Angeboten zur Auswahl, Lieferanten bei den Belegen. Beides geht.</p>
-      </fieldset>
-      <div className="form-row cols-2">
-        <Field label="E-Mail" hint="Mehrere Adressen mit Komma trennen, bis zu fünf. Der Versand schreibt an alle.">
-          {(control) => (
-            <input
-              {...control}
-              name="email"
-              type="email"
-              multiple
-              defaultValue={initial.email}
-              autoComplete="email"
-              placeholder="rechnung@kunde.de, freigabe@kunde.de"
-            />
-          )}
-        </Field>
-        <Field label="Telefon">
-          {(control) => (
-            <input {...control} name="telefon" type="tel" defaultValue={initial.telefon} autoComplete="tel" placeholder="optional, z. B. +49 941 123456" />
-          )}
-        </Field>
-      </div>
-      <div className="form-row cols-2">
-        <Field label="Kundennummer" hint={isNew && nextNumber ? `Leer lassen: Haben vergibt die nächste Nummer, voraussichtlich ${nextNumber}.` : undefined}>
-          {(control) => (
-            <input {...control} name="kundennummer" defaultValue={initial.kundennummer} placeholder={isNew && nextNumber ? nextNumber : "optional"} />
-          )}
-        </Field>
-        <Field label="Lieferantennummer">
-          {(control) => (
-            <input
-              {...control}
-              name="lieferantennummer"
-              defaultValue={initial.lieferantennummer}
-              placeholder="optional, z. B. deine Kundennummer beim Lieferanten"
-            />
-          )}
-        </Field>
-      </div>
-    </section>
-  );
-}
-
-/** Abschnitt „Steuer und Zahlung“: USt-IdNr. (gehört dem Formular, für den Hinweis auf gleiche Nummern) und IBAN samt Vorschlag vom Beleg */
-function ContactTax({
-  initial,
-  ustId,
-  onUstId,
-  ibanSuggestion,
-}: {
-  initial: ContactInput;
-  ustId: string;
-  onUstId: (ustId: string) => void;
-  ibanSuggestion: IbanSuggestion | null;
-}) {
-  const ibanInput = useRef<HTMLInputElement>(null);
-  const takeIban = (iban: string) => {
-    if (!ibanInput.current) return;
-    ibanInput.current.value = iban;
-    ibanInput.current.focus();
-  };
-  return (
-    <section className="form-section" aria-labelledby="contact-tax">
-      <h2 id="contact-tax">Steuer und Zahlung</h2>
-      <div className="form-row cols-2">
-        <Field label="USt-IdNr.">
-          {(control) => <input {...control} name="ustId" value={ustId} onChange={(e) => onUstId(e.target.value)} placeholder="DE123456789" className="mono" />}
-        </Field>
-        <div className="stack" style={{ gap: 4 }}>
-          <Field label="IBAN" describedBy={ibanSuggestion ? "iban-suggestion" : undefined}>
-            {(control) => (
-              <input {...control} ref={ibanInput} name="iban" defaultValue={initial.iban} placeholder="DE00 0000 0000 0000 0000 00" className="mono" />
-            )}
-          </Field>
-          {ibanSuggestion && <IbanSuggestionHint suggestion={ibanSuggestion} onTake={() => takeIban(ibanSuggestion.iban)} />}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/** Die Nummer, unter der uns der Kunde führt (#711); nicht die Lieferantennummer oben, die meint die Gegenrichtung */
-function UnsereLieferantennummerField({ defaultValue }: { defaultValue: string }) {
-  return (
-    <Field
-      label="Unsere Lieferantennummer bei diesem Kunden"
-      hint="Vom Kunden vergeben. Steht im Kopf der Rechnung und in der E-Rechnung als Verkäuferkennung (BT-29)."
-    >
-      {(control) => <input {...control} name="unsereLieferantennummer" defaultValue={defaultValue} placeholder="optional" />}
-    </Field>
-  );
-}
-
-export interface IbanSuggestion {
-  iban: string;
-  source: "e-rechnung" | "ki";
-  /** Textausschnitt des Belegs, in dem die IBAN steht (KI-Auslesung) */
-  fundstelle: string | null;
-  /** Prüfziffer nach ISO 13616 stimmt */
-  valid: boolean;
-}
-
-/** Vorschlag unter dem Feld: IBAN in Vierergruppen, Herkunft, Fundstelle und Prüfziffer; übernommen wird nur auf Klick */
-function IbanSuggestionHint({ suggestion, onTake }: { suggestion: IbanSuggestion; onTake: () => void }) {
-  return (
-    <div id="iban-suggestion" className="small muted" style={{ overflowWrap: "anywhere" }}>
-      Vorschlag vom Beleg: <span className="mono">{suggestion.iban.replace(/(.{4})/g, "$1 ").trim()}</span>,{" "}
-      {suggestion.source === "e-rechnung" ? "aus der E-Rechnung (BT-84)" : "aus der KI-Auslesung"}
-      {suggestion.fundstelle && <> („{suggestion.fundstelle}“)</>}.{" "}
-      {suggestion.valid ? "Prüfziffer stimmt." : <strong style={{ color: "var(--danger-ink)" }}>Prüfziffer stimmt nicht.</strong>} Prüfe die IBAN beim
-      Lieferanten, bevor du sie übernimmst.{" "}
-      <button type="button" className="link-button" onClick={onTake}>
-        IBAN übernehmen
-      </button>
-    </div>
-  );
 }

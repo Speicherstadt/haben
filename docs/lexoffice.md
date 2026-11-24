@@ -76,6 +76,8 @@ Deine eigenen Daten holst du für den Umzug über die Web-Oberfläche: Ein Skrip
 
 Das Skript ändert nichts in Lexware Office. Es ruft nur die Adressen auf, die die Web-Oberfläche beim Anzeigen selbst abfragt, mit kurzen Pausen dazwischen, und schickt nichts an Haben oder sonst wohin: Die Daten landen nur als Download in deinem Browser.
 
+Schritt 2 zeigt unter „Die Sicherung lässt … aus“, wie viele Entwürfe, Angebote, Auftragsbestätigungen, Lieferscheine und sonstige Vorgänge das Skript ausgelassen hat, gezählt über die ganze Sicherung, nicht je ZIP-Teil. Ein Entwurf zählt dabei nur als Entwurf. Sicherungen aus einer älteren Skriptversion enthalten diese Zahlen nicht; Haben übernimmt sie trotzdem, nur ohne den Hinweis.
+
 Belege, die das Skript nicht laden konnte, stehen in der ZIP-Datei und nach dem Hochladen in Schritt 2 unter den offenen Punkten beim Abruf. Lässt du das Skript später noch einmal laufen und lädst die neue Sicherung hoch, überspringt Haben alles, was schon da ist, und holt die fehlenden nach — auch das Original-PDF einer Rechnung und jeden einzelnen fehlenden Anhang eines Belegs.
 
 Buchungen, Bankumsätze, Voranmeldungen und Anlagen holst du wie beim Abruf über die API aus den Exporten (Schritt 4).
@@ -113,7 +115,6 @@ Unterschiede zur Public API:
 - **Steuer je Position:** Die Belegansicht nennt je Position nur Betrag und Steuersatz. Haben rechnet die Steuer daraus (aus dem Bruttobetrag herausgerechnet bzw. auf den Nettobetrag aufgeschlagen, kaufmännisch gerundet). Bei mehreren Positionen kann das im Cent von Lexware Office abweichen; maßgeblich bleibt der Bruttobetrag des Belegs.
 - **Schlussrechnungen:** Haben nimmt den geforderten Betrag (`claimed…`), in dem die Abschläge schon abgezogen sind.
 - **Zahlungsarten:** „Sonstige Zahlung“ (`partPaymentOther`) zählt wie `manualPayment` der Public API als Entgelt.
-- **Angebote, Aufträge, Lieferscheine und Entwürfe** lädt das Skript nicht.
 - **Buchungen ohne Beleg** kommen nur über das Skript, siehe unten.
 - Die Originalantworten liegen im übernommenen Beleg unter `web`, zum Nachweis.
 
@@ -165,6 +166,8 @@ Haben liest nur. Es legt in Lexware Office nichts an und ändert nichts. Nach de
 1. **Kontakte:** alle Kontakte mit Name, Rolle (Kunde, Lieferant oder beides; ohne Rolle als Kunde), Kunden- und Lieferantennummer, Rechnungsadresse (sonst Lieferadresse), erster E-Mail-Adresse und USt-IdNr. Archivierte Kontakte werden in Haben archiviert angelegt.
 2. **Belegliste:** alle Ausgangsrechnungen, Gutschriften und Abschlagsrechnungen aus dem Rechnungsmodul sowie alle Einnahme- und Ausgabebelege samt Gutschriften aus der Buchhaltung, archiviert und nicht archiviert. Entwürfe bleiben draußen; Schritt 2 nennt ihre Zahl unter „Übergangen, kein Beleg“.
 3. **Belege und Dateien:** je Beleg die Details, der Zahlungsstatus mit den einzelnen Zahlungen, das Original-PDF, bei E-Rechnungen das XML und bei Buchhaltungsbelegen alle angehängten Dateien. Die Kategorien aus Lexware Office kommen mit ihrem Namen dazu.
+
+Der Fortschritt unter **Dateien** zählt sowohl beim API-Abruf als auch beim ZIP-Import die neu an Belegen gespeicherten Dateien. Dazu gehören auch Dateien, die Haben an bereits archivierte Belege anhängt.
 
 Die Antwort der API wird je Beleg vollständig gespeichert, zum Nachweis. Beträge rechnet Haben in Cent um; maßgeblich sind Brutto und Steuer des Belegs, Netto ergibt sich daraus. Bei Schlussrechnungen rechnet Haben die verrechneten Abschläge je Steuersatz heraus, die Beträge entsprechen also dem geforderten Restbetrag. Die Abschlagsrechnungen sind eigene Belege; so zählen ihre Umsätze und Steuern im Abgleich und bei den offenen Posten nicht doppelt. Das gilt für Belege, die mit dieser Version abgerufen werden; schon gespeicherte Belege bleiben unverändert.
 
@@ -253,7 +256,8 @@ Die Zahlung muss in Haben ankommen: Ruft Haben die Bank erst ab einem späteren 
 | Betrag nicht positiv | Gutschriften werden nicht übernommen |
 | keine Datei aus Lexoffice | Erst die Datei in Lexware Office anhängen und erneut abrufen |
 | XML der E-Rechnung fehlt | Erneut abrufen; bei der Sicherung das Skript noch einmal laufen lassen und die neue Sicherung hochladen |
-| Datei erwartet, Abruf aus Lexoffice fehlgeschlagen | Ebenso |
+| Datei fehlt in der Sicherung | Eine neue Sicherung mit der fehlenden Datei importieren |
+| Datei erwartet, Abruf aus Lexware Office fehlgeschlagen | Im Umzug **Erneut abrufen** wählen |
 
 Warum eine Teilzahlung vor dem Stichtag sperrt: Die Rechnung in Haben trägt den Betrag des Original-PDFs, und offen ist in Haben, was keine Zahlung im Bankabgleich deckt. Für die Zahlung vor dem Stichtag gibt es in Haben keinen Bankumsatz. Sie als Ausbuchung zu erfassen, minderte die Umsatzsteuer wie eine Änderung der Bemessungsgrundlage (§ 17 Abs. 1 UStG), obwohl das Entgelt gezahlt ist. Eine Teilzahlung nach dem Stichtag sperrt nicht: Am Stichtag war der ganze Betrag offen, und die Zahlung kommt in Haben an.
 

@@ -18,6 +18,7 @@ import {
   readWebExport,
   type LexofficeClientOptions,
   type LexofficeSource,
+  type WebOmittedCounts,
   webExportSource,
 } from "@haben/import";
 import {
@@ -48,8 +49,7 @@ import { fastbillWaitingByYear } from "./fastbill-belege.ts";
 import { latestSevdeskImport } from "./sevdesk.ts";
 import { legacyDunningsFor } from "./mahnungen-archiv.ts";
 import { customTaxSetId, legacyTaxSetFields } from "./sevdesk-steuerarten.ts";
-import { ohneBelegGrund, ohneDateiBestaetigbar } from "./ohne-datei.ts";
-import { FILE_STATUS_LABELS, fileStateHistory, latestFileStateSql, legacyFileStatus, OPEN_FILE_STATUSES, recordFileState } from "./dateistand.ts";
+import { latestFileStateSql, legacyFileStatus, legacyVoucherFileState, OPEN_FILE_STATUSES, recordFileState } from "./dateistand.ts";
 
 export class LexofficeError extends UserError {}
 
@@ -150,11 +150,16 @@ export async function startImport(actor: string, options: { wait?: boolean } = {
  * übersprungen, Teile dürfen nacheinander kommen.
  */
 export async function startWebImport(actor: string, parts: { name: string; bytes: Uint8Array }[], options: { wait?: boolean } = {}): Promise<string> {
-  const source = webExportSource(readWebExport(parts));
-  return launchImport(actor, () => source, options);
+  const backup = readWebExport(parts);
+  const source = webExportSource(backup);
+  return launchImport(actor, () => source, { ...options, webOmitted: backup.omitted });
 }
 
-async function launchImport(actor: string, sourceFor: (signal: AbortSignal) => LexofficeSource, options: { wait?: boolean }): Promise<string> {
+async function launchImport(
+  actor: string,
+  sourceFor: (signal: AbortSignal) => LexofficeSource,
+  options: { wait?: boolean; webOmitted?: WebOmittedCounts },
+): Promise<string> {
   const current = await latestImport();
   if (current?.status === "laeuft") throw new LexofficeError("Ein Abruf läuft bereits.");
   // Der eindeutige Index gilt für beide Quellen: auch einen verwaisten sevDesk-Lauf als abgebrochen markieren
@@ -169,6 +174,7 @@ async function launchImport(actor: string, sourceFor: (signal: AbortSignal) => L
     skipped: 0,
     files: 0,
     failed: [],
+    ...(options.webOmitted ? { webOmitted: options.webOmitted } : {}),
   };
   const [row] = await withActor(actor, (tx) => tx.insert(schema.lexofficeImports).values({ progress }).returning({ id: schema.lexofficeImports.id })).catch(
     (error: unknown) => {
@@ -211,7 +217,7 @@ export async function finish(id: string, progress: LexofficeImportProgress, stat
 /**
  * Belegliste des Laufs. Entwürfe sind keine Belege; der Abruf übergeht sie und zählt ihre Zahl, damit sie nicht still
  * verschwindet (#1504). Vorgänge ohne Belegart kommen über die API gar nicht erst in die Liste — die Sicherung aus der
- * Web-Oberfläche lässt sie schon beim Packen draußen (#183), deshalb gibt es dafür keinen Zähler.
+ * Web-Oberfläche lässt sie schon beim Packen draußen (#183) und zählt sie dort; ihre Zahlen stehen in `webOmitted` (#1640).
  */
 async function sammleBelegliste(
   client: LexofficeSource,
@@ -311,7 +317,7 @@ async function runImport(actor: string, importId: string, client: LexofficeSourc
         continue;
       }
       try {
-        if (await nachladenDateien(actor, importId, client, item, offen)) progress.nachgeladen = (progress.nachgeladen ?? 0) + 1;
+        if (await nachladenDateien(actor, importId, client, item, offen, progress)) progress.nachgeladen = (progress.nachgeladen ?? 0) + 1;
       } catch (error) {
         if (error instanceof LexofficeApiError && (error.status === 401 || error.status === 403)) throw error;
         if (signal.aborted || (error instanceof Error && error.name === "AbortError")) throw error;
@@ -384,6 +390,7 @@ async function nachladenDateien(
   client: LexofficeSource,
   item: { id: string; type: string },
   offen: OffeneDatei[],
+  progress: LexofficeImportProgress,
 ): Promise<boolean> {
   // Das PDF und ein XML der Rechnung hängen nicht an einer Kennung; sie kommen über den Beleg selbst
   const salesType = isSalesType(item.type) ? item.type : null;
@@ -406,25 +413,24 @@ async function nachladenDateien(
   if (files.length === 0 && ohneAnhang.length === 0) return false;
   const voucherId = offen[0]!.voucherId;
   const number = offen[0]!.number || item.id;
-  await withActor(actor, async (tx) => {
-    if (files.length > 0)
-      await attachVoucherFiles(
-        tx,
-        voucherId,
-        files.map((entry) => ({
-          role: entry.role,
-          sourceFileId: entry.lexofficeFileId,
-          filename: entry.file.filename ?? fallbackName({ number, lexofficeId: item.id }, entry.role, entry.file.bytes),
-          mimeType: entry.file.mimeType,
-          bytes: entry.file.bytes,
-        })),
-      );
+  const angehaengt = await withActor(actor, async (tx) => {
+    const count = await attachVoucherFiles(
+      tx,
+      voucherId,
+      files.map((entry) => ({
+        role: entry.role,
+        sourceFileId: entry.lexofficeFileId,
+        filename: entry.file.filename ?? fallbackName({ number, lexofficeId: item.id }, entry.role, entry.file.bytes),
+        mimeType: entry.file.mimeType,
+        bytes: entry.file.bytes,
+      })),
+    );
     // Ein Stand je Datei mit Rolle und Kennung: er löst genau diese Datei und trägt den Zeitpunkt für „(nachgeladen)“ (#1624)
     for (const entry of files)
       await recordFileState(
         tx,
         voucherId,
-        { state: "nachgeladen", role: entry.role, sourceFileId: entry.lexofficeFileId, message: "Datei aus einer späteren Sicherung nachgeladen." },
+        { state: "nachgeladen", role: entry.role, sourceFileId: entry.lexofficeFileId, message: "Datei bei einem späteren Import nachgeladen." },
         { actor, importId },
       );
     // Die Quelle nennt ohne Fehler kein XML: nichts mehr offen, auch wenn nichts ankam. Sonst bliebe die Rechnung für
@@ -436,7 +442,9 @@ async function nachladenDateien(
         { state: "kein_anhang", role: "xml", sourceFileId: null, message: "Die Quelle nennt keine E-Rechnung." },
         { actor, importId },
       );
+    return count;
   });
+  progress.files += angehaengt;
   // Was weiterhin fehlt, wird danach in einem eigenen Schritt vermerkt: mit dem jüngeren Zeitstempel bleibt der Beleg
   // offen, auch wenn eine der Dateien ankam (#1624)
   if (weiterhin.length > 0) await withActor(actor, (tx) => vermerkeFehlendeDateien(tx, voucherId, weiterhin, { actor, importId }));
@@ -675,6 +683,7 @@ export async function legacyVoucherDetail(id: string) {
       accountingType: accountingTypeKinds("lexoffice_vouchers"),
       ohneBeleg: WITHOUT_RECEIPT,
       rawGuid: sql<string | null>`${schema.lexofficeVouchers.raw}->>'guid'`,
+      rawQuelle: sql<string | null>`${schema.lexofficeVouchers.raw}->>'quelle'`,
       rawDocumentPresent: sql<boolean | null>`(${schema.lexofficeVouchers.raw}->>'documentPresent')::boolean`,
       positionAccounts: sevdeskPositionAccounts("lexoffice_vouchers"),
     })
@@ -696,15 +705,8 @@ export async function legacyVoucherDetail(id: string) {
     .orderBy(schema.lexofficeVoucherFiles.createdAt, schema.lexofficeVoucherFiles.id);
   // Mahnstufen der Rechnung aus der Quelle; nur Archiv, ohne Wirkung auf Betrag und Zahlungsstand
   const dunnings = voucher.direction === "einnahme" ? await legacyDunningsFor([voucher.lexofficeId]) : [];
-  // Dateistand mit Verlauf (#345); bestätigen lässt sich ein Beleg mit offenem Stand „ohne Datei“, Quelle siehe ohneDateiBestaetigbar
-  const fileStates = await fileStateHistory(id);
-  const fileStatus = legacyFileStatus(fileStates.at(-1)?.state ?? null, files.length, voucher.ohneBeleg);
-  // Offener Stand „ohne Datei“ oder eine Buchung ohne Beleg aus dem Accountable-Stapel bzw. der Lexoffice-Sicherung, wenn die Quelle es hergibt (#1235, #1318)
-  const canConfirmWithoutFile =
-    (fileStatus === "ohne_datei_offen" || fileStatus === "ohne_beleg") &&
-    files.length === 0 &&
-    ohneDateiBestaetigbar({ ...voucher, guid: voucher.rawGuid, documentPresent: voucher.rawDocumentPresent, ohneBeleg: voucher.ohneBeleg });
-  const { positionAccounts, ...shown } = voucher;
+  const { positionAccounts, rawQuelle, ...shown } = voucher;
+  const fileState = await legacyVoucherFileState(shown, files.length, rawQuelle);
   const categories = positionAccounts ? sevdeskCategories(voucher.categories, positionAccounts, await loadSevdeskAccountCategories()) : voucher.categories;
   // Frühere WISO-Importe setzten das Zahlungsdatum als Leistung, obwohl die Quelle sie nicht belegt (#565).
   // Nur lesend korrigieren; die unveränderliche Archivzeile bleibt erhalten. Quelle: https://github.com/Speicherstadt/haben/issues/565
@@ -723,20 +725,11 @@ export async function legacyVoucherDetail(id: string) {
     files: files.map((f) => ({
       ...f,
       reloadedAt:
-        fileStates.find((s) => s.state === "nachgeladen" && s.role === f.role && s.sourceFileId === (f.role === "anhang" ? f.lexofficeFileId : null))
+        fileState.history.find((s) => s.state === "nachgeladen" && s.role === f.role && s.sourceFileId === (f.role === "anhang" ? f.lexofficeFileId : null))
           ?.createdAt ?? null,
     })),
     dunnings,
-    fileState: {
-      status: fileStatus,
-      label: FILE_STATUS_LABELS[fileStatus],
-      history: fileStates,
-      canConfirmWithoutFile,
-      // Merkmal aus dem Import, nicht aus dem Stand: die Rückfrage unterscheidet daran die Buchung ohne Beleg (Stapel, Sicherung) von sevDesk (#1317)
-      ohneBeleg: voucher.ohneBeleg,
-      // Warum keine Datei da ist, hängt an Quelle, Beleg-GUID und „Dokument Vorhanden“ (#1235, #1322)
-      ohneBelegGrund: ohneBelegGrund({ source: voucher.source, guid: voucher.rawGuid, documentPresent: voucher.rawDocumentPresent }),
-    },
+    fileState,
   };
 }
 
@@ -912,6 +905,7 @@ export async function legacyVouchersForPeriod(filter: {
   search: string;
   withPayments: boolean;
   limit: number;
+  offset?: number;
 }): Promise<{ total: number; vouchers: LegacyVoucherForVat[]; neutral: LegacyNeutralSum[] }> {
   if (filter.withPayments) {
     // Ausdrücke über alle sevDesk-Belege: mit JIT dauerte schon das Kompilieren Sekunden (ohne-jit.ts)
@@ -985,7 +979,7 @@ export async function legacyVouchersForPeriod(filter: {
       and v.source not in ('buchhaltungsbutler', 'sevdesk-export')
       ${filter.direction === "alle" ? sql`` : sql`and ${effectiveDirection("v")} = ${filter.direction}`}
       ${term ? sql`and (v.number ilike ${term} or ${effectiveContactName("v")} ilike ${term} or v.remark ilike ${term})` : sql``}
-    order by v.date, v.number`),
+    order by v.date, v.number, v.id`),
   );
   // Was weder Einnahme noch Ausgabe ist, geht nicht in die Umsatzsteuer ein, wie im Abgleich; es steht summiert daneben
   const { rechtsform } = await loadCompany();
@@ -1017,7 +1011,8 @@ export async function legacyVouchersForPeriod(filter: {
       accountingTypeIssue: accountingTypeIssue(r.accounting_type),
       files: Number(r.files),
     }));
-  return { total: all.length, vouchers: all.slice(0, filter.limit), neutral };
+  const offset = filter.offset ?? 0;
+  return { total: all.length, vouchers: all.slice(offset, offset + filter.limit), neutral };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
