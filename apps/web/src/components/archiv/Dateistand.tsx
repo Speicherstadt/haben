@@ -61,13 +61,6 @@ export function MissingFileBanner({
   bestaetigbar?: boolean;
 }) {
   switch (status) {
-    case "abruf_fehlgeschlagen":
-      return (
-        <div className="banner banner-danger">
-          {product} führt eine Datei zu diesem Beleg, der Abruf ist fehlgeschlagen. „Erneut abrufen“ im Umzug versucht es noch einmal und hängt sie an diesen
-          Beleg.
-        </div>
-      );
     case "ohne_datei_offen":
       return (
         <div className="banner banner-info">

@@ -103,10 +103,13 @@ export async function withAdvanceVatChange<T>(tx: Tx, invoiceId: string | null, 
         lines,
       });
     }
+    const { kind, variant, advanceType, number } = after.original;
+    const balanceDescription =
+      kind === "rechnung" && variant === null && advanceType === null ? `Erlösabgrenzung Rechnung ${number}` : `Bilanzierung Anzahlung ${number}`;
     for (const { date, lines } of balanceChanges) {
       await post(tx, books, {
         date,
-        description: `Bilanzierung Anzahlung ${after.original.number}`,
+        description: balanceDescription,
         sourceType: "invoice",
         sourceId: original.id,
         lines,

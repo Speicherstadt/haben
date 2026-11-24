@@ -23,6 +23,7 @@ import {
 } from "./einrichtung.ts";
 import { receiptJpeg } from "./belegbild.ts";
 import { abzugEinspielen } from "./abzug.ts";
+import { eingabeNachAktion, fokusNachFehlschlag } from "./felder-sperre.ts";
 
 /**
  * Abschnitt von rechnungen (#1742) mit eigenem Server und eigener Datenbank, parallel zu den anderen Abschnitten:
@@ -332,6 +333,30 @@ test("Kontakt bearbeiten: Die Meldung „Gespeichert.“ bleibt nach dem Speiche
   // Auch wenn Speichern und Neuladen ganz durch sind, nicht nur für einen Augenblick
   await speichern.fertig();
   await expect(meldung).toBeVisible();
+  // Archivieren: Die folgenden Tests rechnen nicht mit diesem Kunden
+  await page.getByRole("button", { name: "Archivieren" }).click();
+  await expect(page.getByRole("button", { name: "Wiederherstellen" })).toBeVisible();
+});
+
+test("Kontakt bearbeiten: Eingaben direkt nach dem Speichern bleiben erhalten (#1824)", async () => {
+  await go("/kontakte/neu");
+  const name = page.getByLabel("Name oder Firma");
+  await name.fill("Sperre Testkunde GmbH");
+  await page.getByRole("button", { name: "Kontakt anlegen" }).click();
+  await expect(page.getByRole("heading", { name: "Versionen" })).toBeVisible();
+
+  await name.fill("Sperre Testkunde gespeichert");
+  await eingabeNachAktion(page, {
+    aktion: page.getByRole("button", { name: "Speichern", exact: true }),
+    feld: page.getByLabel("Ort"),
+    text: "Gleich danach getippt",
+    neuGeladen: page.getByRole("heading", { name: "Sperre Testkunde gespeichert", level: 1 }),
+  });
+});
+
+test("Kontakt bearbeiten: Speichern schlägt fehl, der Fokus steht danach wieder im Feld (#1824)", async () => {
+  // Der Kontakt aus dem Test davor
+  await fokusNachFehlschlag(page, page.getByLabel("Ort"));
   // Archivieren: Die folgenden Tests rechnen nicht mit diesem Kunden
   await page.getByRole("button", { name: "Archivieren" }).click();
   await expect(page.getByRole("button", { name: "Wiederherstellen" })).toBeVisible();

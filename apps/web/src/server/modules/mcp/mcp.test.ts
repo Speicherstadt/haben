@@ -236,7 +236,9 @@ describe.skipIf(!testDatabaseUrl)("MCP-Zugang für KI-Assistenten (Postgres)", (
       { monat: "2025-04", kz81Bemessungsgrundlage19: 0, steuer19: 0, kz86Bemessungsgrundlage7: 0, steuer7: 0, kz66Vorsteuer: 0, kz41: 1000 },
     ]);
 
-    const belege = (await run_("lexoffice_belege", { zeitraum: "2025-05", richtung: "alle", suche: "", limit: 50 })) as { belege: Record<string, unknown>[] };
+    const belege = (await run_("lexoffice_belege", { zeitraum: "2025-05", richtung: "alle", suche: "", limit: 50, offset: 0 })) as {
+      belege: Record<string, unknown>[];
+    };
     expect(belege.belege[0]).toMatchObject({
       nummer: "RE1",
       steuerart: "intraCommunitySupply",
@@ -254,7 +256,7 @@ describe.skipIf(!testDatabaseUrl)("MCP-Zugang für KI-Assistenten (Postgres)", (
       const gmbh = (await run_("lexoffice_abgleich", { jahr: 2025 })) as { rechtsform: string; jahre: { nichtEinnahmeOderAusgabe: unknown[] }[] };
       expect(gmbh.rechtsform).toBe("gmbh");
       expect(gmbh.jahre[0]!.nichtEinnahmeOderAusgabe).toEqual([{ art: "Körperschaft- und Gewerbesteuer", anzahl: 1, zufluss: 0, abfluss: 500 }]);
-      const mai = (await run_("lexoffice_belege", { zeitraum: "2025-05", richtung: "alle", suche: "", limit: 50 })) as {
+      const mai = (await run_("lexoffice_belege", { zeitraum: "2025-05", richtung: "alle", suche: "", limit: 50, offset: 0 })) as {
         belege: { nummer: string }[];
         nichtEinnahmeOderAusgabe: unknown[];
       };
@@ -276,7 +278,9 @@ describe.skipIf(!testDatabaseUrl)("MCP-Zugang für KI-Assistenten (Postgres)", (
       ["4930", "aufwand", 119],
       ["8400", "ertrag", -1190],
     ]);
-    const buchungen = (await run_("lexoffice_buchungen", { zeitraum: "2025", konto: "8400", ohneBeleg: false, limit: 50 })) as { buchungen: unknown[] };
+    const buchungen = (await run_("lexoffice_buchungen", { zeitraum: "2025", konto: "8400", ohneBeleg: false, limit: 50, offset: 0 })) as {
+      buchungen: unknown[];
+    };
     expect(buchungen.buchungen).toEqual([
       {
         datum: "2025-04-10",
@@ -300,7 +304,7 @@ describe.skipIf(!testDatabaseUrl)("MCP-Zugang für KI-Assistenten (Postgres)", (
     // Ein Belegfeld ohne Nummer hat nichts zu finden: belegGefunden bleibt null wie bei leerem Feld (#1355)
     await sql`insert into datev_bookings (file_id, row, date, amount, side, account, contra_account, voucher_field1, raw) values
       (${file!.id}, 5, '2025-04-15', 1250, 'S', '1200', '4930', 'Beispielzahldienst', '{}'::jsonb)`;
-    const ohneNummer = (await run_("lexoffice_buchungen", { zeitraum: "2025", konto: "4930", ohneBeleg: false, limit: 50 })) as {
+    const ohneNummer = (await run_("lexoffice_buchungen", { zeitraum: "2025", konto: "4930", ohneBeleg: false, limit: 50, offset: 0 })) as {
       buchungen: { belegnummer: string; belegGefunden: boolean | null }[];
     };
     expect(ohneNummer.buchungen.map((b) => [b.belegnummer, b.belegGefunden])).toEqual([

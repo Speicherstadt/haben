@@ -1,6 +1,6 @@
 // Umsatzliste eines oder mehrerer Konten mit Filter, Suche und Sortierung
 
-import { and, asc, inArray, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import { db, schema } from "../../db/index.ts";
 import { bankDuplicateConfirmedSql, bankDuplicatePendingSql, bankNeutralizedSql, bankOpenAmountSql as openAmountSql } from "../../db/bank-open.ts";
 import { STANDARD_SORTIERUNG, umsatzReihenfolge, type UmsatzSortierung } from "./umsatzliste.ts";
@@ -10,6 +10,21 @@ import { nichtPrivat, privat } from "./privat-kennzeichnung.ts";
 type TransactionFilter = "offen" | "zugeordnet" | "alle";
 
 export const UMSATZ_LISTENLIMIT = 500;
+
+/** Offen: nicht ganz zugeordnet und nicht als privat gekennzeichnet */
+const offen = () => [sql`${openAmountSql} <> 0`, nichtPrivat()];
+
+/**
+ * Zahl der offenen Umsätze eines Kontos, Zeile für Zeile wie `listTransactions` mit „offen“. `openCount` aus
+ * `listAccounts` zählt beim Zahlungsdienstleister Zahlung und Gebühr als eine Zeile und passt deshalb nicht zum Blättern.
+ */
+export async function countOpenTransactions(accountId: string): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(schema.bankTransactions)
+    .where(and(eq(schema.bankTransactions.bankAccountId, accountId), ...offen()));
+  return row?.n ?? 0;
+}
 
 /** Höchstens 500 Umsätze, sortiert vor der Grenze (umsatzliste.ts); ohne Sortierung der neueste oben */
 export async function listTransactions(
@@ -24,7 +39,7 @@ export async function listTransactions(
   // Mehrere Konten in „Alle Konten“ der Bankseite, wohin „Alle anzeigen“ der Schnellsuche führt (#617)
   const conditions = [inArray(schema.bankTransactions.bankAccountId, typeof accountIds === "string" ? [accountIds] : [...accountIds])];
   if (ids) conditions.push(inArray(schema.bankTransactions.id, [...ids]));
-  if (filter === "offen") conditions.push(sql`${openAmountSql} <> 0`, nichtPrivat());
+  if (filter === "offen") conditions.push(...offen());
   if (filter === "zugeordnet") conditions.push(sql`${openAmountSql} = 0`);
   if (search.trim()) {
     // Wie die Schnellsuche, dazu der Betrag als Text („19.9“ findet 19,90 €)

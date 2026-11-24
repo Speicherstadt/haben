@@ -111,7 +111,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: gleicher Inhalt beim Nachladen (#1
     await lexoffice.startImport(actor, { wait: true });
     const run = await lexoffice.latestImport();
     // Ohne den Fix bricht der zweite Lauf am Unique-Index (voucher_id, sha256) ab: „failed“ statt „nachgeladen“
-    expect(run!.progress).toMatchObject({ nachgeladen: 1, failed: [] });
+    expect(run!.progress).toMatchObject({ nachgeladen: 1, files: 0, failed: [] });
 
     // Derselbe Inhalt hängt je Beleg weiterhin nur einmal
     const dateien = await sql`select role, sha256 from lexoffice_voucher_files where voucher_id = ${belegId}`;
