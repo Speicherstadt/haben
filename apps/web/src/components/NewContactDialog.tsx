@@ -1,6 +1,7 @@
 import { useRouter } from "@tanstack/react-router";
 import type { ContactInput } from "../server/modules/stammdaten/index.ts";
-import { ContactForm, type IbanSuggestion, type SavedContact } from "./ContactForm.tsx";
+import { ContactForm, type SavedContact } from "./ContactForm.tsx";
+import type { IbanSuggestion } from "./ContactFormTeile.tsx";
 import { FormDialog } from "./FormDialog.tsx";
 
 const TITLE = { kunde: "Neuen Kunden anlegen", lieferant: "Neuen Lieferanten anlegen" } as const;

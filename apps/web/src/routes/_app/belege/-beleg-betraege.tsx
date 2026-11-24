@@ -10,8 +10,7 @@ import type { Detail } from "./-beleg-vorschau.tsx";
 /** Karte „Beträge je Steuersatz“ mit § 13b, Summe, Vorsteueranteil und Privatanteil */
 export function Betraege({ f, data }: { f: DocumentFormState; data: Detail }) {
   const {
-    readOnly,
-    running,
+    fieldsDisabled,
     category,
     privateShare,
     setPrivateShare,
@@ -36,7 +35,7 @@ export function Betraege({ f, data }: { f: DocumentFormState; data: Detail }) {
     updateRow,
   } = f;
   return (
-    <fieldset className="card" disabled={readOnly || running} style={{ margin: 0 }}>
+    <fieldset className="card" disabled={fieldsDisabled} style={{ margin: 0 }}>
       <legend style={{ fontWeight: 600, fontSize: 16, padding: 0, marginBottom: 4 }}>Beträge je Steuersatz</legend>
       <BelegUmsatzsteuer value={reverseCharge} onChange={chooseReverseCharge} looksLikeReverseCharge={looksLikeReverseCharge} />
       {rows.map((row, index) => (

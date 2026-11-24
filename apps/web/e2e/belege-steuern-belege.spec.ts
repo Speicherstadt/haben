@@ -19,7 +19,7 @@ import { abzugEinspielen } from "./abzug.ts";
 import { receiptJpeg } from "./belegbild.ts";
 import { vorsteuerPruefen } from "./belege-vorsteuer.ts";
 import { serverAufrufe } from "./warten.ts";
-import { eingabeNachAktion, fokusNachFehlschlag, kurzNacheinanderSpeichern } from "./felder-sperre.ts";
+import { eingabeNachAktion, fokusNachFehlschlag, gesperrtBisNeuGeladen, kurzNacheinanderSpeichern } from "./felder-sperre.ts";
 
 /**
  * Abschnitt von belege-steuern (#1742) mit eigenem Server und eigener Datenbank, parallel zu den anderen Abschnitten:
@@ -1669,6 +1669,61 @@ test("Beleg prüfen: Zuklappen und Wahl im selben Bild lassen „Weitere Angaben
   await page.getByRole("button", { name: "Löschen", exact: true }).click();
   await bestaetigen(page, "Beleg löschen");
   await expect(page).not.toHaveURL(belegUrl);
+});
+
+// Die vier Tests zu #1824 teilen sich einen Beleg und stehen am Ende: Der letzte bucht ihn, die Tests davor zählen offene Belege
+test("Beleg prüfen: Eingaben direkt nach dem Speichern bleiben erhalten (#1824)", async ({ browser }) => {
+  await go("/belege");
+  await page
+    .locator("input[type=file][multiple]")
+    .setInputFiles([{ name: "sperre.jpg", mimeType: "image/jpeg", buffer: await receiptJpeg(browser, "Papierhaus Sperre GmbH") }]);
+  await expect(page.getByText("sperre.jpg: abgelegt.")).toBeVisible();
+  await page
+    .getByRole("link", { name: /sperre\.jpg/ })
+    .first()
+    .click();
+  await page.waitForURL(/belege\/[0-9a-f-]{36}$/);
+  await page.waitForLoadState("networkidle");
+  const nummer = page.getByLabel("Rechnungsnummer");
+  await page.getByLabel("Lieferant", { exact: true }).fill("Papierhaus Sperre GmbH");
+  await nummer.fill("PS-0001");
+  await eingabeNachAktion(page, {
+    aktion: page.locator(".doc-actions").getByRole("button", { name: "Speichern" }),
+    feld: nummer,
+    text: "Gleich danach getippt",
+    // Vor dem ersten Speichern heißt die Seite „Neuer Beleg“
+    neuGeladen: page.getByRole("heading", { name: "Papierhaus Sperre GmbH", level: 1 }),
+  });
+});
+
+test("Beleg prüfen: Kurz nacheinander gespeichert, baut sich das Formular jedes Mal neu auf (#1824)", async () => {
+  // Der Beleg aus dem Test davor
+  await kurzNacheinanderSpeichern({
+    feld: page.getByLabel("Rechnungsnummer"),
+    speichern: page.locator(".doc-actions").getByRole("button", { name: "Speichern" }),
+    texte: ["PS-eins", "PS-zwei", "PS-drei"],
+  });
+});
+
+test("Beleg prüfen: Speichern schlägt fehl, der Fokus steht danach wieder im Feld (#1824)", async () => {
+  // Der Beleg aus den Tests davor; Enter speichert nur mit Änderungen, sonst ist „Speichern“ gesperrt
+  const nummer = page.getByLabel("Rechnungsnummer");
+  await nummer.fill("PS-Fehler");
+  await fokusNachFehlschlag(page, nummer);
+});
+
+test("Beleg prüfen: Nach dem Buchen werden die Felder bis zum Neuaufbau nicht frei (#1824)", async () => {
+  // Der Beleg aus den Tests davor; auf ihm bleiben, damit die Seite ihn neu lädt statt zum nächsten zu wechseln
+  await page.getByLabel("Belegdatum").fill(day(-2));
+  await waehleKategorie(page.getByLabel("Kategorie"), "buero");
+  await page.getByLabel("Netto", { exact: true }).fill("42,00");
+  await page.getByLabel("Nach dem Buchen zum nächsten offenen Beleg").uncheck();
+  await page.getByRole("button", { name: "Bestätigen und buchen" }).click();
+  await gesperrtBisNeuGeladen(page, {
+    aktion: page.getByRole("dialog").getByRole("button", { name: "Buchen", exact: true }),
+    feld: page.getByLabel("Rechnungsnummer"),
+    neuGeladen: page.getByText(/Gebucht .*festgeschrieben/),
+  });
 });
 
 test("Seiten mit den Daten dieses Abschnitts ohne axe-Verstöße", async () => {

@@ -1348,8 +1348,11 @@ summary { cursor: pointer; min-height: 24px; }
 .form-dialog > h2 { flex: none; padding: 20px 24px 16px; font-size: 24px; border-bottom: 1px solid var(--line); }
 .form-dialog > form { flex: 1 1 auto; min-height: 0; max-width: none; overflow: auto; display: flex; flex-direction: column; gap: 16px; padding: 0 var(--dialog-pad); border: 0; border-radius: 0; background: none; box-shadow: none; scroll-padding-top: 16px; scroll-padding-bottom: calc(var(--dialog-footer) + 16px); }
 .form-dialog > form.form-card { gap: 0; }
-.form-dialog > form > :first-child:not(.form-section) { margin-top: 20px; }
-.form-dialog > form > .form-section { margin-inline: calc(-1 * var(--dialog-pad)); padding-inline: var(--dialog-pad); }
+/* Ein Fieldset, das die Felder beim Speichern sperrt (.fieldset-plain, DESIGN.md, Gesperrte Knöpfe), zählt nicht als Ebene */
+.form-dialog > form > :first-child:not(.form-section, .fieldset-plain),
+.form-dialog > form > .fieldset-plain:first-child > :first-child:not(.form-section) { margin-top: 20px; }
+.form-dialog > form > .form-section,
+.form-dialog > form > .fieldset-plain > .form-section { margin-inline: calc(-1 * var(--dialog-pad)); padding-inline: var(--dialog-pad); }
 .form-dialog > form > .banner { margin-inline: 0; }
 .form-dialog > form > .actions:last-child { position: sticky; bottom: 0; min-height: var(--dialog-footer); margin: auto calc(-1 * var(--dialog-pad)) 0; padding: 16px var(--dialog-pad); border-top: 1px solid var(--line); align-items: center; background: var(--surface); }
 @media (max-width: 640px) {
