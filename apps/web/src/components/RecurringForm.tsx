@@ -11,8 +11,9 @@ import {
   lineAmount,
 } from "@haben/core";
 import { type FormEvent, useState } from "react";
-import { positionsFehler } from "../lib/editor-lines.ts";
+import { positionenFehler } from "../lib/editor-lines.ts";
 import type { InvoiceFormat } from "../lib/invoice.ts";
+import { useFokusNachSperre } from "../lib/use-fokus-nach-sperre.ts";
 import { useSubmitCheck } from "../lib/use-submit-check.ts";
 import type { ContactChoice } from "./ContactCombobox.tsx";
 import { NewContactDialog } from "./NewContactDialog.tsx";
@@ -91,6 +92,8 @@ export function RecurringForm({
   const fehler = recurringErrors(v, lines, outgoingTaxIssues(v.taxTreatment, v.taxDetails, kleinunternehmer), taxNote);
   const valid = parsed.length > 0 && parsed.every((l) => l.valid) && Object.values(fehler).every((e) => e === null);
   const { form, error, check } = useSubmitCheck(fehler);
+  // Nach einem Fehler beim Speichern steht der Fokus wieder im gesperrten Feld
+  useFokusNachSperre(busy);
 
   const period = v.nextDate ? invoiceServicePeriod(v.nextDate, v.recurrence, v.servicePeriod) : null;
   const reference = period ?? (v.nextDate ? { from: v.nextDate, to: v.nextDate } : null);
@@ -118,47 +121,51 @@ export function RecurringForm({
   return (
     <>
       <form ref={form} className="stack" onSubmit={submit} noValidate>
-        <section className="card form-card" aria-label="Vorlage">
-          <RecurringBasics v={v} set={set} error={error} contacts={contacts} onCreateContact={setNewContactName} />
-          <RecurringSchedule v={v} set={set} error={error} />
-          <div className="form-section" role="group" aria-labelledby="recurring-invoice">
-            <h2 id="recurring-invoice">Rechnung</h2>
-            <RecurringPayment v={v} set={set} error={error} />
-            <RecurringTax v={v} set={set} error={error} kleinunternehmer={kleinunternehmer} />
-          </div>
-          <RecurringRunMode v={v} set={set} />
-        </section>
+        {/* Gesperrt, solange gespeichert wird: Danach baut die Seite das Formular mit dem neuen `updatedAt` im `key` neu auf,
+            und was man bis dahin tippt, ginge verloren (#1793) */}
+        <fieldset className="stack fieldset-plain" disabled={busy}>
+          <section className="card form-card" aria-label="Vorlage">
+            <RecurringBasics v={v} set={set} error={error} contacts={contacts} onCreateContact={setNewContactName} />
+            <RecurringSchedule v={v} set={set} error={error} />
+            <div className="form-section" role="group" aria-labelledby="recurring-invoice">
+              <h2 id="recurring-invoice">Rechnung</h2>
+              <RecurringPayment v={v} set={set} error={error} />
+              <RecurringTax v={v} set={set} error={error} kleinunternehmer={kleinunternehmer} />
+            </div>
+            <RecurringRunMode v={v} set={set} />
+          </section>
 
-        <RecurringPositions
-          lines={lines}
-          setLines={setLines}
-          parsed={parsed}
-          special={special}
-          amountLabel={amountLabel}
-          units={units}
-          error={error}
-          kopf={textBlock("Einleitung über den Positionen (optional)", "kopf", v.intro, "intro")}
-          fuss={
-            <>
-              {textBlock("Hinweis auf der Rechnung (optional)", "fuss", v.note, "note")}
-              <PropertyRetentionField checked={v.propertyRetention} onChange={(propertyRetention) => set({ propertyRetention })} />
-            </>
-          }
-        />
-
-        {reference && (
-          <RecurringPreview
-            nextDate={v.nextDate}
-            period={period}
-            reference={reference}
-            amountLabel={amountLabel}
-            sum={sum}
+          <RecurringPositions
+            lines={lines}
+            setLines={setLines}
             parsed={parsed}
             special={special}
-            taxTreatment={v.taxTreatment}
-            taxNote={taxNote}
+            amountLabel={amountLabel}
+            units={units}
+            error={error}
+            kopf={textBlock("Einleitung über den Positionen (optional)", "kopf", v.intro, "intro")}
+            fuss={
+              <>
+                {textBlock("Hinweis auf der Rechnung (optional)", "fuss", v.note, "note")}
+                <PropertyRetentionField checked={v.propertyRetention} onChange={(propertyRetention) => set({ propertyRetention })} />
+              </>
+            }
           />
-        )}
+
+          {reference && (
+            <RecurringPreview
+              nextDate={v.nextDate}
+              period={period}
+              reference={reference}
+              amountLabel={amountLabel}
+              sum={sum}
+              parsed={parsed}
+              special={special}
+              taxTreatment={v.taxTreatment}
+              taxNote={taxNote}
+            />
+          )}
+        </fieldset>
 
         <div className="actions">
           <button type="submit" className="btn btn-primary" disabled={busy}>
@@ -186,7 +193,7 @@ function formState({ lines: _lines, ...values }: RecurringValues): FormState {
 function recurringErrors(v: FormState, lines: LineState[], taxIssues: string[], taxNote: string): Record<string, string | null> {
   const term = Number(v.paymentTermDays);
   return {
-    ...Object.fromEntries(lines.map((l) => [`pos-${l.key}`, positionsFehler(l)])),
+    ...positionenFehler(lines),
     name: v.name.trim() === "" ? "Trag eine Bezeichnung ein, etwa Wartungsvertrag Nordwerk." : null,
     contact: v.contactId === "" ? "Wähle den Kunden." : null,
     nextDate: v.nextDate ? null : "Wähle den Tag der nächsten Rechnung.",

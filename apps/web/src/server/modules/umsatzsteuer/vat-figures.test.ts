@@ -308,7 +308,7 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung aus Buchungen (Postgres)", () =>
     return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
   }
 
-  it("Reverse Charge und Drittland im Rechnungsmonat (auch bei Ist), steuerfrei nach Zahlung", async () => {
+  it("Reverse Charge und Drittland im Rechnungsmonat (auch bei Ist), steuerfrei im Monat der Leistung (#1312)", async () => {
     const rc = await specialInvoice("reverse_charge", "AT", "ATU12345678", "2026-10-15");
     const ch = await specialInvoice("drittland", "CH", "", "2026-10-01");
     await specialInvoice("steuerfrei", "DE", "", "2026-10-01");
@@ -321,9 +321,10 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung aus Buchungen (Postgres)", () =>
     await bank.allocate(actor, { kind: "invoice", transactionId: tx!.id, invoiceId: ch.id, amount: 500_000 });
 
     const result = await figures.computeVatFigures(october);
-    expect(result).toMatchObject({ kz21: 500_000, kz45: 500_000, kz48: 0, kz81: 0, steuerfrei: 0 });
+    // Die unbezahlte steuerfreie Rechnung zählt auch bei Ist im Monat der Leistung (Anleitung zur UStVA 2026, Kz 48)
+    expect(result).toMatchObject({ kz21: 500_000, kz45: 500_000, kz48: 500_000, kz81: 0, steuerfrei: 0 });
     const draft = await vat.saveDraft(actor, october, { mode: "berechnet" });
-    expect(draft).toMatchObject({ kz21: 500_000, kz45: 500_000, kz83: 0 });
+    expect(draft).toMatchObject({ kz21: 500_000, kz45: 500_000, kz48: 500_000, kz83: 0 });
     let xml = "";
     const spy = {
       validate: async (body: string) => {
@@ -337,6 +338,7 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung aus Buchungen (Postgres)", () =>
     await vat.submitReturn(actor, draft.id, spy, { kind: "validate" });
     expect(xml).toContain("<Kz21>5000</Kz21>");
     expect(xml).toContain("<Kz45>5000</Kz45>");
+    expect(xml).toContain("<Kz48>5000</Kz48>");
   }, 30_000);
 
   // DATEV weist nicht steuerbare Umsätze ins Drittland auch bei Ist-Versteuerung mit der Rechnung aus, nicht mit der

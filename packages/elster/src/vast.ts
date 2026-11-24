@@ -17,15 +17,25 @@ export const VAST_DATENART_VERSION = "ElsterVaStDaten_32";
 /** Testmerker für Belegabruf und Berechtigungsmanagement wie bei erica (ElsterDatenabholung, ElsterBRM) */
 export const VAST_TESTMERKER = "370000001";
 
+/**
+ * Namen der Belegarten: ERiC-Entwicklerhandbuch 44.3.6.0, Tabelle 9-26 „VaSt, Datenartnamen der Belege“ (Kap. 9.9.5).
+ * VaSt_Pers3 (ab 2025, Steuer-ID und Steuernummer) fehlt dort; der Name steht in der Jahresdokumentation
+ * (VaSt-Belege/Zuordnungsinformationen/ESt_2025/Jahresdokumentation_VaSt_Pers3_1.ods, Datenart und Drucktext B 1).
+ */
 export const VAST_BELEGART_LABEL: Record<string, string> = {
   VaSt_LStB: "Lohnsteuerbescheinigung",
+  VaSt_KRV: "Bescheinigung zur Basiskrankenversicherung und gesetzlichen Pflegeversicherung",
+  VaSt_RIE: "Bescheinigung über Beiträge zur Riester-Rente",
+  VaSt_RUE: "Bescheinigung über Beiträge zur Basisversorgung (Rürup-Rente)",
+  VaSt_LErsL: "Bescheinigung über Lohnersatzleistungen",
+  VaSt_Pers1: "Stammdaten des Steuerpflichtigen",
+  VaSt_Pers2: "Stammdaten des Steuerpflichtigen (Religionszugehörigkeit)",
+  VaSt_Pers3: "Ergänzende Stammdaten",
   VaSt_RBM: "Rentenbezugsmitteilung",
-  VaSt_KRV: "Kranken- und Pflegeversicherung",
-  VaSt_AVOR: "Altersvorsorgebeiträge (Riester)",
-  VaSt_LEL: "Lohnersatzleistungen",
-  VaSt_VL: "Vermögenswirksame Leistungen",
-  VaSt_Pers1: "Persönliche Daten",
-  VaSt_Pers2: "Persönliche Daten (Religion, Familienstand)",
+  VaSt_VWL: "Vermögensbildungsbescheinigung",
+  VaSt_FSA: "Freistellungsauftrag",
+  VaSt_ZUS: "Zuschüsse nach § 10 Absatz 4b EStG",
+  VaSt_GDB: "Bescheinigung über den Grad der Behinderung",
 };
 
 export const vastBelegartLabel = (belegart: string) => VAST_BELEGART_LABEL[belegart] ?? belegart.replace(/^VaSt_/, "");

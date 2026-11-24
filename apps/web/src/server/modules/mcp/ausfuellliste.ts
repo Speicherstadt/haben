@@ -36,7 +36,7 @@ const FELDER: { kz: Feld; abschnitt: string; bezeichnung: string; volleEuro: boo
   {
     kz: "kz48",
     abschnitt: "Steuerfreie Lieferungen und sonstige Leistungen",
-    bezeichnung: "Steuerfreie Umsätze ohne Vorsteuerabzug (§ 4 UStG)",
+    bezeichnung: "Steuerfreie Umsätze ohne Vorsteuerabzug (§ 4 Nr. 8 bis 29 oder § 19 Abs. 1 UStG)",
     volleEuro: true,
   },
   {
@@ -72,6 +72,12 @@ const FELDER: { kz: Feld; abschnitt: string; bezeichnung: string; volleEuro: boo
     volleEuro: true,
   },
   { kz: "kz45", abschnitt: "Ergänzende Angaben zu Umsätzen", bezeichnung: "Übrige nicht steuerbare Umsätze (Leistungsort nicht im Inland)", volleEuro: true },
+  {
+    kz: "kz50",
+    abschnitt: "Ergänzende Angaben zu Umsätzen",
+    bezeichnung: "Minderung der Bemessungsgrundlage nach § 17 Abs. 1 Satz 1 i. V. m. Abs. 2 Nr. 1 Satz 1 UStG (in Kz 81 und 86 enthalten)",
+    volleEuro: true,
+  },
   {
     kz: "kz66",
     abschnitt: "Abziehbare Vorsteuerbeträge",

@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 
 /**
  * Steuerart in den Werten von Lexoffice aus VAT_CASE der Rechnung (https://apidocs.fastbill.com/fastbill/en/invoice.html),
- * eingeordnet nach UStG: standard → regulär; small_business_regulation → steuerfrei, nicht gemeldet (§ 19 Abs. 1 UStG);
+ * eingeordnet nach UStG: standard → regulär; small_business_regulation → steuerfrei (§ 19 Abs. 1 UStG, ab 2025 Kz 48, vorher nicht gemeldet);
  * b2b_eu_goods → innergemeinschaftliche Lieferung Kz 41 (§ 4 Nr. 1 Buchst. b, § 6a); b2b_eu_services → sonstige Leistung im
  * übrigen Gemeinschaftsgebiet Kz 21 (§ 3a Abs. 2, § 18b Satz 1 Nr. 2), wie Lexoffice „externalService13b“; b2b_noneu_goods
  * und b2c_noneu_goods → Ausfuhr Kz 43 (§ 4 Nr. 1 Buchst. a, § 6; bei B2C nur, wenn der Unternehmer befördert, § 6 Abs. 1

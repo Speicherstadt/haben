@@ -183,8 +183,8 @@ export function YearCheck({ year, versteuerung, product }: { year: MigrationData
             Aus den übernommenen Belegen berechnet:{" "}
             {versteuerung === "ist" ? "Einnahmen nach Zahlungsdatum (Ist-Versteuerung)" : "Einnahmen nach Rechnungsdatum (Soll-Versteuerung)"}, Ausgaben
             (Vorsteuer, § 13b, innergemeinschaftlicher Erwerb) nach Belegdatum. Kz 21, 41 und 60 zählen immer nach Belegdatum. „Steuerfrei“ gehört in Kz 48,
-            wenn die Umsätze nach § 4 Nr. 8–28 UStG steuerfrei sind, und fehlt bei Kleinunternehmern ganz; „OSS“ meldest du nicht in der Voranmeldung. Kleine
-            Abweichungen entstehen, wenn in {product} nachträglich korrigiert wurde.
+            wenn die Umsätze nach § 4 Nr. 8–29 UStG steuerfrei sind, als Kleinunternehmer ab 2025, und fehlt bei Kleinunternehmern vor 2025 ganz; „OSS“ meldest
+            du nicht in der Voranmeldung. Kleine Abweichungen entstehen, wenn in {product} nachträglich korrigiert wurde.
           </p>
         </details>
       )}

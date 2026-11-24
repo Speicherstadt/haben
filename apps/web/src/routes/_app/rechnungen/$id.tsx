@@ -26,8 +26,8 @@ function InvoicePage() {
     return (
       <>
         <InvoiceEditor
-          // nach dem Speichern mit den gespeicherten Werten neu aufsetzen
-          key={`${invoice.id}-${String(invoice.updatedAt)}`}
+          // nach dem Speichern mit den gespeicherten Werten neu aufsetzen, auch in derselben Sekunde (#1804)
+          key={`${invoice.id}-${invoice.updatedAt.toISOString()}`}
           action={draftAction}
           id={invoice.id}
           kind={invoice.kind}

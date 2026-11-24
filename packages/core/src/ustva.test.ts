@@ -25,6 +25,7 @@ describe("computeUstva", () => {
       tax93: 0,
       kz61: 0,
       kz62: 0,
+      kz50: 0,
       kz39: 0,
       kz83: 37_745,
     });
@@ -61,5 +62,16 @@ describe("computeUstva", () => {
 describe("Einfuhrumsatzsteuer", () => {
   it("Kz 62 mindert Kz 83 wie Vorsteuer, in Cent", () => {
     expect(computeUstva({ kz81: 100_000, kz86: 0, kz66: 1_900, kz62: 38_015 })).toMatchObject({ kz62: 38_015, kz83: 19_000 - 1_900 - 38_015 });
+  });
+});
+
+// #1267: Anleitung zur UStVA 2026, Kz 50; im ERiC-Schema 2026 GanzzahlNichtNeg (UStVA-2026.xsd)
+describe("Minderung der Bemessungsgrundlage bei Uneinbringlichkeit (Kz 50)", () => {
+  it("in vollen Euro, ohne Wirkung auf Kz 83", () => {
+    expect(computeUstva({ kz81: -100_000, kz86: 0, kz66: 0, kz50: 100_099 })).toMatchObject({ kz50: 100_000, kz83: -19_000 });
+  });
+
+  it("nie negativ: Überwiegt die Aufhebung eines Forderungsausfalls aus einem früheren Zeitraum, bleibt Kz 50 leer", () => {
+    expect(computeUstva({ kz81: 100_000, kz86: 0, kz66: 0, kz50: -100_000 })).toMatchObject({ kz50: 0 });
   });
 });
