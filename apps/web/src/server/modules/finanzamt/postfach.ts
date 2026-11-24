@@ -76,15 +76,17 @@ const vergleichsform = (bezeichnung: string) => bezeichnung.trim().replace(/\s+/
 /**
  * Echte Bescheide, deren Einspruchsfrist heute noch läuft; je Steuerfall und Zeitraum einer.
  *
- * Ein Änderungsbescheid ändert den Bescheid, den er ändert (§ 172 Abs. 1 AO); der geänderte wird insoweit
- * gegenstandslos (§ 124 Abs. 2 AO), und die Frist läuft nur noch für den neuen (§ 355 Abs. 1 AO). Deshalb zählt je
- * Datenart, Veranlagungszeitraum, Steuernummer und Zeitraum nur das jüngste Bescheiddatum; sonst steht die erledigte
+ * Ein Änderungsbescheid (§ 172 AO) tritt an die Stelle des Bescheids, den er ändert; der alte bleibt nur wirksam,
+ * soweit der neue ihn nicht erledigt (§ 124 Abs. 2 AO). Solange die Frist des alten läuft, ist der neue voll anfechtbar
+ * (§ 351 Abs. 1 AO beschränkt nur Änderungen unanfechtbarer Bescheide), und seine Frist endet nie früher. Deshalb zählt
+ * je Datenart, Veranlagungszeitraum, Steuernummer und Zeitraum nur das jüngste Bescheiddatum; sonst steht die erledigte
  * Frist gleichrangig daneben (#1817).
  *
- * Den Zeitraum führt nur die Dateibezeichnung des Finanzamts („Umsatzsteuer-Vorauszahlungsbescheid Januar 2025“), ein
- * eigenes Feld speichert Haben nicht. Sie wird deshalb so, wie sie kommt, Teil des Schlüssels; Monatsnamen aus dem
- * Freitext zu lesen wäre geraten (Quartale, „Januar bis März“, abweichende Schreibweisen) und könnte zwei Zeiträume
- * zusammenwerfen und damit eine offene Frist verschlucken. Anhänge desselben Bescheids tragen verschiedene
+ * Monat oder Quartal liefert ELSTER nicht verlässlich als Feld: `veranlagungszeitraum` ist optional und kann bei
+ * Anmeldesteuern einen Teilzeitraum tragen (SSb ElsterDatenabholung V32, Kap. 9.2 und 9.3). Die Dateibezeichnung des
+ * Finanzamts („Umsatzsteuer-Vorauszahlungsbescheid Januar 2025“) wird deshalb so, wie sie kommt, Teil des Schlüssels;
+ * Monatsnamen aus dem Freitext zu lesen wäre geraten (Quartale, „Januar bis März“, abweichende Schreibweisen) und könnte
+ * zwei Zeiträume zusammenwerfen und damit eine offene Frist verschlucken. Anhänge desselben Bescheids tragen verschiedene
  * Bezeichnungen; zusammengehalten werden sie über ihre Bereitstellung.
  */
 export async function openAppealDeadlines(today: string) {
