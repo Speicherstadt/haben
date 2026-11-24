@@ -15,6 +15,7 @@ import type { PageData } from "./-zeitraum-quellen.tsx";
 import { type FieldKey, KennzahlenTabelle } from "./-zeitraum-kennzahlen.tsx";
 import { AbgabeSpalte, anmeldbar, useVoranmeldungAktionen } from "./-zeitraum-abgabe.tsx";
 import { ZeitraumHinweise } from "./-zeitraum-hinweise.tsx";
+import { useFokusUeberWechsel } from "../../../lib/use-fokus-ueber-wechsel.ts";
 
 export const Route = createFileRoute("/_app/umsatzsteuer/$zeitraum")({
   loader: ({ params }) => {
@@ -81,6 +82,8 @@ function describe(figures: Record<FieldKey, number>): string {
 function VatPeriodPage() {
   const data = Route.useLoaderData();
   const navigate = useNavigate();
+  // Die Auswahl behält beim Wechsel den Fokus, obwohl die Seite neu entsteht
+  const auswahl = useFokusUeberWechsel<HTMLSelectElement>("umsatzsteuer-zeitraum");
   const key = periodKey(data.period);
   // Meldungen überleben das Neuaufsetzen des Formulars nach dem Speichern; die Seite entsteht je Zeitraum neu
   const [notice, setNotice] = useState<Notice>(null);
@@ -104,7 +107,15 @@ function VatPeriodPage() {
         </div>
         <Field label="Zeitraum">
           {(control) => (
-            <select {...control} value={key} onChange={(event) => navigate({ to: "/umsatzsteuer/$zeitraum", params: { zeitraum: event.target.value } })}>
+            <select
+              {...control}
+              ref={auswahl.ref}
+              value={key}
+              onChange={(event) => {
+                auswahl.merken();
+                void navigate({ to: "/umsatzsteuer/$zeitraum", params: { zeitraum: event.target.value } });
+              }}
+            >
               {options.map((option) => (
                 <option key={periodKey(option)} value={periodKey(option)}>
                   {periodLabel(option)}
