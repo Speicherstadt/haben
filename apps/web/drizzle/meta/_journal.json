@@ -2234,6 +2234,13 @@
       "when": 1795431837210,
       "tag": "0318_siegel_standardwert_befund",
       "breakpoints": true
+    },
+    {
+      "idx": 319,
+      "version": "7",
+      "when": 1795439734056,
+      "tag": "0319_voranmeldung_kz50",
+      "breakpoints": true
     }
   ]
 }

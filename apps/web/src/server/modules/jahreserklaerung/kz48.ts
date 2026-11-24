@@ -26,7 +26,7 @@ export interface Kz48Ergebnis {
  * der Teil von Kz 48 eines Monats, zu dem es keine Quelle gibt: Ab dem Stichjahr kommt Kz 48 aus dem Journal, und
  * eine Buchung ohne Rechnung (etwa aus einem Umzug) hat keinen Befreiungsgrund.
  */
-export function kz48Einordnen(months: readonly { kz48: Cents; revenue: readonly RevenueSource[] }[], year: number): Kz48Ergebnis {
+export function kz48Einordnen(months: readonly { kz48: Cents; kz48Kleinunternehmer: Cents; revenue: readonly RevenueSource[] }[], year: number): Kz48Ergebnis {
   let zeile46 = 0;
   let zeile47 = 0;
   const nummern47 = new Map<string, Paragraph4Nummer>();
@@ -52,7 +52,8 @@ export function kz48Einordnen(months: readonly { kz48: Cents; revenue: readonly 
   }
   months.forEach((month, i) => {
     const ausQuellen = month.revenue.filter((r) => r.treatment === "steuerfrei").reduce((s, r) => s + r.base, 0);
-    const rest = month.kz48 - ausQuellen;
+    // Umsätze als Kleinunternehmer zählt die Voranmeldung in Kz 48 (#1268); in die Zeilen 46/47 (§ 4 UStG) gehören sie nicht
+    const rest = month.kz48 - month.kz48Kleinunternehmer - ausQuellen;
     if (rest !== 0) gesperrt.push({ quelle: `Buchungen ohne Rechnung ${String(i + 1).padStart(2, "0")}/${year}`, text: "", betrag: rest, grund: "nummer" });
   });
   return {

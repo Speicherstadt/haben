@@ -382,7 +382,7 @@ Rechnungen ohne Steuerausweis gehen ohne Steuerzeile auf eigene Erlöskonten:
 | Warenlieferung in die EU (innergemeinschaftliche Lieferung) | 8125 | 4125 | `IGL` (Kz 41) |
 | Warenlieferung ins Nicht-EU-Ausland (Ausfuhrlieferung) | 8120 | 4120 | `Ausfuhr` (Kz 43) |
 | Steuerfreie Leistung, z. B. Heilbehandlung oder Unterricht | 8100 | 4100 | `Steuerfrei` (Kz 48) |
-| Kleinunternehmer: ohne Umsatzsteuer | 8192 | 4184 | `KU` (keine Kennzahl) |
+| Kleinunternehmer: ohne Umsatzsteuer | 8192 | 4184 | `KU` (Kz 48 nach dem [Leistungstag](umsatzsteuer.md#umsätze-ohne-steuer-kz-21-41-43-45-und-48)) |
 
 > [!IMPORTANT]
 > Die Kontenzuordnung stammt aus `packages/core/src/kontenplan.ts`. Gleiche sie vor dem Echtbetrieb mit deiner Steuerberatung ab.

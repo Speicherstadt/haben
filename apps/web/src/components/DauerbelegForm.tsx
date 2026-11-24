@@ -1,5 +1,5 @@
 import { amountError, dauerbelegSummen, parseEuro, type Recurrence, type Rechtsform, type Prozent } from "@haben/core";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { savedAsChoice, type ContactChoice } from "./ContactCombobox.tsx";
 import { NewContactDialog } from "./NewContactDialog.tsx";
 import { aendereBetragszeile, betragszeileAus, betragszeileAusVorlage, bruttoLesbar, steuerausweisUmschalten, type Betragszeile } from "../lib/betragszeile.ts";
@@ -42,6 +42,7 @@ export function DauerbelegForm({
   busy,
   submitLabel,
   onSubmit,
+  onDirtyChange,
 }: {
   initial: DauerbelegValues;
   suppliers: ContactChoice[];
@@ -54,6 +55,8 @@ export function DauerbelegForm({
   busy: boolean;
   submitLabel: string;
   onSubmit: (values: DauerbelegValues, file: File | null) => void;
+  /** Meldet ungespeicherte Änderungen an die Seite; nach dem Neuaufbau mit dem gespeicherten Stand wieder false */
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [v, setV] = useState<DauerbelegState>(() => dauerbelegState(initial));
   const set = (patch: Partial<DauerbelegState>) => setV((prev) => ({ ...prev, ...patch }));
@@ -76,6 +79,9 @@ export function DauerbelegForm({
   const { form, error, check } = useSubmitCheck(dauerbelegErrors(v, amounts, taxShown, parsed, sums.gross, isNew && !hasFile));
   // Nach einem Fehler beim Speichern steht der Fokus wieder im gesperrten Feld
   useFokusNachSperre(busy);
+  // Ob die Steuer von Hand kam und welcher Betrag zuletzt eingegeben wurde, speichert Haben nicht: Zurückgetippt ist nichts offen
+  const betraege = amounts.map(({ key: _key, taxTouched: _taxTouched, basis: _basis, ...a }) => a);
+  useAenderungenMelden({ v, taxShown, betraege }, hasFile, onDirtyChange);
 
   // Selbst geschuldete Steuer (§ 13b) gibt es am Dauerbeleg nicht
   function updateAmount(key: number, patch: Partial<Omit<Betragszeile, "key">>) {
@@ -166,6 +172,14 @@ export function DauerbelegForm({
       />
     </>
   );
+}
+
+/** Ungespeichert ist, was vom Stand beim Aufbau abweicht, und eine gewählte Datei; zurückgetippt ist nichts mehr offen */
+function useAenderungenMelden(stand: unknown, hasFile: boolean, onDirtyChange?: (dirty: boolean) => void) {
+  const jetzt = JSON.stringify(stand);
+  const [anfang] = useState(jetzt);
+  const dirty = hasFile || jetzt !== anfang;
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 }
 
 function dauerbelegState({ amounts: _amounts, taxShown: _taxShown, privateShare: _privateShare, ...values }: DauerbelegValues): DauerbelegState {

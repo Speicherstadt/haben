@@ -385,7 +385,7 @@ Aufgeklappt zeigt jede Karte eine Tabelle je Monat, berechnet aus den abgerufene
 | Kz 86 | Bemessungsgrundlage (netto) der Umsätze zu 7 % |
 | Kz 66 | Vorsteuer aus Ausgabebelegen und Buchungen ohne Beleg nach Belegdatum |
 | Kz 21, 41, 43, 45, 60, 87 | Sonderfälle nach der Steuerart der Rechnung in Lexware Office (siehe unten); die Spalte erscheint nur, wenn im Jahr etwas drinsteht |
-| Steuerfrei | Rechnungen mit Steuerart „steuerfrei“: Kz 48, wenn sie nach § 4 Nr. 8–28 UStG steuerfrei sind, bei Kleinunternehmern gar nicht gemeldet |
+| Steuerfrei | Rechnungen mit Steuerart „steuerfrei“: Kz 48, wenn sie nach § 4 Nr. 8–29 UStG steuerfrei sind; als Kleinunternehmer ab 2025 ebenfalls Kz 48, vorher gar nicht gemeldet ([Umsätze ohne Steuer](umsatzsteuer.md#umsätze-ohne-steuer-kz-21-41-43-45-und-48)) |
 | OSS | Fernverkäufe und elektronische Dienstleistungen ins EU-Ausland über das OSS-Verfahren; gehören nicht in die Voranmeldung |
 | Andere Sätze | Umsätze zu 0 % und Altsätzen (16 %, 5 %) sowie unbekannte Steuerarten, nur zur Information |
 

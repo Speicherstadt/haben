@@ -34,6 +34,11 @@ export const JOURNAL_KENNZAHLEN = [
   "tax93",
   "kz61",
   "kz62",
+  /**
+   * Minderung der Bemessungsgrundlage, weil das Entgelt uneinbringlich ist (§ 17 Abs. 2 Nr. 1 Satz 1 UStG), zusätzlich zur
+   * Minderung von Kz 81 bzw. 86: der Forderungsausfall auf steuerpflichtige Umsätze (Anleitung zur UStVA 2026, Kz 50)
+   */
+  "kz50",
   /** Regulär besteuerte Umsätze zu 0 %: gebucht, aber in keiner Kennzahl gemeldet */
   "steuerfrei",
 ] as const;
@@ -130,7 +135,11 @@ export function kennzahlenDerZeile(kontenrahmen: Kontenrahmen, zeile: JournalZei
   }
   const bemessung = zeile.taxCode === null ? undefined : BEMESSUNG[zeile.taxCode];
   if (!bemessung) return [];
-  return [{ feld: bemessung.feld, betrag: zeile.basis ?? betrag(bemessung.seite) }];
+  const treffer = [{ feld: bemessung.feld, betrag: zeile.basis ?? betrag(bemessung.seite) }];
+  // Forderungsausfall auf einen steuerpflichtigen Umsatz (Kz 81, 86): zusätzlich Kz 50, mit umgekehrtem Vorzeichen
+  if (zeile.account === ACCOUNTS[kontenrahmen].forderungsverluste && (bemessung.feld === "kz81" || bemessung.feld === "kz86"))
+    treffer.push({ feld: "kz50", betrag: -treffer[0]!.betrag });
+  return treffer;
 }
 
 export function leereJournalKennzahlen(): JournalKennzahlen {
@@ -139,10 +148,10 @@ export function leereJournalKennzahlen(): JournalKennzahlen {
 
 /**
  * Bemessungsgrundlagen, die bei Ist-Versteuerung erst mit der Zahlung gemeldet werden: steuerpflichtige und steuerfreie
- * inländische Umsätze (Kz 81, 86, 43, 48, 0 %). Reverse Charge, innergemeinschaftliche Lieferung und Drittland zählen
+ * inländische Umsätze (Kz 81, 86, 43, 48, 0 %), dazu Kz 50: Ein ausgefallener Rest war bei Ist nie gemeldet. Reverse Charge, innergemeinschaftliche Lieferung und Drittland zählen
  * auch bei Ist mit der Rechnung (DATEV-Dok. 1080673; NACH_RECHNUNGSDATUM in vat-figures.ts).
  */
-export const IST_NACH_ZAHLUNG: ReadonlySet<JournalKennzahl> = new Set(["kz81", "kz86", "kz43", "kz48", "steuerfrei"]);
+export const IST_NACH_ZAHLUNG: ReadonlySet<JournalKennzahl> = new Set(["kz81", "kz86", "kz43", "kz48", "kz50", "steuerfrei"]);
 
 /**
  * Summe der Kennzahlen über die Buchungen eines Zeitraums, je Buchung ihre Zeilen. Bei Ist-Versteuerung zählt wie bei

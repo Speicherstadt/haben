@@ -123,7 +123,7 @@ Was dafür fehlt, steht in der [Roadmap](roadmap.md#nicht-machbar-ohne-zertifizi
 
 ## Körperschaft- und Gewerbesteuer (GmbH und UG)
 
-Auf der Seite **Jahresabschluss** rechnet Haben Körperschaftsteuer, Solidaritätszuschlag und Gewerbesteuer des Jahres aus dem Jahresergebnis (`packages/core/src/koerperschaft.ts`) und bucht die Rückstellungen dafür. Dazu braucht es je Jahr drei Angaben: den **Hebesatz** der Gemeinde und die **Verlustvorträge** zum 31.12. des Vorjahres für Körperschaftsteuer und Gewerbesteuer, wie sie im Bescheid stehen. Der Hebesatz beträgt bis 2026 mindestens 200 %, ab 2027 mindestens 280 % (§ 16 Abs. 4 Satz 2, § 36 Abs. 5b GewStG). Ohne gespeicherte Angaben schlägt Haben die des Vorjahres vor, den Hebesatz nicht unter diesem Mindesthebesatz, mit den Vorträgen nach seiner eigenen Rechnung; speichert sie erst, wenn sie zum Bescheid passen.
+Auf der Seite **Jahresabschluss** rechnet Haben Körperschaftsteuer, Solidaritätszuschlag und Gewerbesteuer des Jahres aus dem Jahresergebnis (`packages/core/src/koerperschaft.ts`) und bucht die Rückstellungen dafür. Dazu braucht es je Jahr drei Angaben: den **Hebesatz** der Gemeinde und die **Verlustvorträge** zum 31.12. des Vorjahres für Körperschaftsteuer und Gewerbesteuer, wie sie im Bescheid stehen. Der Hebesatz beträgt bis 2026 mindestens 200 %, ab 2027 mindestens 280 % (§ 16 Abs. 4 Satz 2, § 36 Abs. 5b GewStG). Ohne gespeicherte Angaben schlägt Haben die des Vorjahres vor, den Hebesatz nicht unter diesem Mindesthebesatz, mit den Vorträgen nach seiner eigenen Rechnung; speichert sie erst, wenn sie zum Bescheid passen. Hebt Haben den Hebesatz des Vorjahres auf den Mindesthebesatz an, nennt der Hinweis unter den Angaben beide Werte.
 
 | Schritt | Was Haben rechnet |
 | --- | --- |
@@ -152,8 +152,12 @@ Nicht gerechnet werden steuerfreie Erträge (§ 8b KStG), der Spendenabzug (§ 9
 
 Unter **Steuern › Ausschüttungen** bucht Haben den Gewinnverwendungsbeschluss einer GmbH oder UG und meldet die Kapitalertragsteuer an. Du gibst Datum des Beschlusses, das Geschäftsjahr, dessen Gewinn ausgeschüttet wird (vorbelegt mit dem Vorjahr; es steht in der Steuerbescheinigung), den Betrag und, wenn der Beschluss einen bestimmt, den Tag der Auszahlung ein. Ohne Auszahlungstag fließt die Ausschüttung am Tag nach dem Beschluss zu (§ 44 Abs. 2 Satz 2 EStG).
 
-**Steuerabzug je Gesellschafter** (`packages/core/src/ausschuettung.ts`). Gesellschafter, Anteile und Kirchensteuerabzugsmerkmal kommen aus den [Angaben zur Körperschaftsteuererklärung](jahreserklaerung.md#körperschaft--und-gewerbesteuererklärung-gmbh-und-ug) des Jahres.
+**Steuerabzug je Gesellschafter** (`packages/core/src/ausschuettung.ts`). Gesellschafter, Beteiligung in Euro und Kirchensteuerabzugsmerkmal kommen aus den [Angaben zur Körperschaftsteuererklärung](jahreserklaerung.md#körperschaft--und-gewerbesteuererklärung-gmbh-und-ug) des Jahres.
 
+- **Verteilung:** Betrag und Teil aus dem Einlagekonto teilt Haben nach dem Verhältnis der Beteiligungen in Euro, also der Nennbeträge der Geschäftsanteile, nicht nach dem gerundeten Anteil in Prozent ([§ 29 Abs. 3 Satz 1 GmbHG](https://www.gesetze-im-internet.de/gmbhg/__29.html)). Drei Gesellschafter mit je 10.000 € bekommen von 90.000 € je 30.000 €. Übrige Cent gehen an die größten Rundungsreste. Gebuchte Ausschüttungen bleiben, wie sie sind.
+    - Einen anderen Maßstab aus dem Gesellschaftsvertrag (§ 29 Abs. 3 Satz 2 GmbHG) bildet Haben nicht ab.
+    - Steht bei einem Anteilseigner 0 € Beteiligung, bucht Haben nicht, denn jeder Geschäftsanteil lautet auf volle Euro ([§ 5 Abs. 2 GmbHG](https://www.gesetze-im-internet.de/gmbhg/__5.html)).
+    - Weicht ein Anteil in Prozent um mehr als 0,01 Prozentpunkte vom Verhältnis der Beteiligungen ab, nennt die Berechnung beide Werte; buchen geht trotzdem, nach der Beteiligung.
 - **Ohne Kirchensteuer:** 25 % Kapitalertragsteuer.
 - **Mit Kirchensteuer:** Die Kapitalertragsteuer ist ermäßigt auf Ertrag / (4 + Kirchensteuersatz), bei 9 % also 24,45 % (§ 43a Abs. 1 Satz 2, § 32d Abs. 1 Satz 4 EStG). Die Kirchensteuer selbst beträgt 8 oder 9 % der Kapitalertragsteuer.
 - **Solidaritätszuschlag:** 5,5 % der Kapitalertragsteuer.
@@ -161,13 +165,11 @@ Unter **Steuern › Ausschüttungen** bucht Haben den Gewinnverwendungsbeschluss
 - **Einlagekonto:** Was über den ausschüttbaren Gewinn hinausgeht, kommt ohne Steuerabzug aus dem steuerlichen Einlagekonto, höchstens bis zu dessen Bestand (§ 27 Abs. 1 KStG). Der ausschüttbare Gewinn ist das Eigenkapital zum Schluss des Vorjahres, abzüglich Stammkapital und Einlagekonto und abzüglich der Ausschüttungen des Jahres davor.
 
 **Buchung** zum Datum des Beschlusses: Gewinnvortrag (SKR03 0860, SKR04 2970) an Gesellschafter-Verrechnungskonto (0730 bzw. 3510) mit der Nettodividende und an Verbindlichkeiten aus Einbehaltungen (1746 bzw. 3760) mit Kapitalertragsteuer, Soli und Kirchensteuer.
-
 - **Grenze:** Mehr als den Gewinnvortrag zum Beschluss schüttet Haben nicht aus.
 - **Auszahlung:** Die Auszahlung an die Gesellschafter ordnest du im Bankabgleich wie jede Zahlung an sie dem Gesellschafter-Verrechnungskonto zu.
 - **Steuern an das Finanzamt:** Die Überweisung der einbehaltenen Steuern ordnest du als **Kapitalertragsteuer an das Finanzamt** zu.
 
 **Kapitalertragsteuer-Anmeldung** (KapEStA, `packages/elster/src/kapesta.ts`). Sie geht über ERiC wie die Voranmeldung. Die Frist ist der 10. des Monats nach dem Zufluss, an einem Wochenende oder Feiertag der nächste Werktag; sie steht in der [Fristenliste](fristen.md). Gemeldet werden:
-
 - Kapitalerträge, Kapitalertragsteuer und Soli;
 - der Gewinnverteilungsbeschluss mit Datum, Betrag und Zufluss;
 - die Kirchensteuer je Religionsschlüssel aus dem Kirchensteuerabzugsmerkmal.
@@ -177,7 +179,6 @@ In der **Körperschaftsteuererklärung** des Jahres stehen die Ausschüttungen i
 Ein **Storno** ist eine Gegenbuchung und geht nur, solange die Anmeldung nicht echt übermittelt ist. Danach korrigiert eine berichtigte Anmeldung über das ELSTER-Portal.
 
 **Steuerbescheinigung** (§ 45a Abs. 2 EStG). Die GmbH bescheinigt jedem Gesellschafter als Schuldner der Kapitalerträge, was sie ausgeschüttet und einbehalten hat; er braucht die Bescheinigung für seine Einkommensteuererklärung. Unter jeder gebuchten Ausschüttung steht je Gesellschafter ein Link **Steuerbescheinigung … (PDF)**.
-
 - **Muster:** Haben folgt dem amtlichen Muster II („Steuerbescheinigung einer leistenden Körperschaft, Personenvereinigung oder Vermögensmasse oder eines Personenunternehmens oder eines Spezial-Investmentfonds oder eines inländischen Betreibers/einer inländischen Zweigniederlassung eines ausländischen Betreibers einer Internet-Dienstleistungsplattform“) aus dem [BMF-Schreiben vom 16. Mai 2025](https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Abgeltungsteuer/2025-05-16-kapitalertragSt-steuerbescheinigung.pdf) (BStBl I 2025 S. 1388; das Muster allein als PDF beim [Bayerischen Landesamt für Steuern](https://www.lfst.bayern.de/fileadmin/RESSOURCEN/Formulare/Weitere_Themen_A_bis_Z/Kapitalertragsteuer/Steuerbescheinigung_Muster_II.pdf)), als Einzelsteuerbescheinigung für den Zahlungstag. Nach Rz. 1 des Schreibens darf nach Inhalt, Aufbau und Reihenfolge nicht vom Muster abgewichen werden; frei sind nur die Felder für Schuldner und Gläubiger. Inhalt in `packages/core/src/steuerbescheinigung.ts`, PDF mit derselben Vorlage wie die Mahnung in `packages/einvoice`.
 - **Inhalt:** Schuldner (die Gesellschaft mit Anschrift und Steuernummer), Titel, Art der Bescheinigung, dann der Satz des Musters „An … wurden lt. Beschluss vom … am … für das Geschäftsjahr … folgende Kapitalerträge gezahlt“ mit Name, Anschrift und Identifikationsnummer des Gesellschafters. Darunter die Zeilen im Wortlaut des Musters: Kapitalerträge im Sinne des § 43 Abs. 1 Satz 1 Nr. 1 EStG, Summe Kapitalertragsteuer, Summe Solidaritätszuschlag, Summe Kirchensteuer zur Kapitalertragsteuer, bei Kirchensteuer die kirchensteuererhebende Religionsgemeinschaft mit Namen, und Leistungen aus dem steuerlichen Einlagekonto; dazu die Fußnoten des Musters zur Anlage KAP. Was aus dem Einlagekonto kommt, ist kein Kapitalertrag und steht nur in der letzten Zeile. Zeilen für andere Kapitalerträge (Zinsen, Investmenterträge, Lebensversicherungen, ausländische Steuer) lässt Haben weg, weil sie bei einer Gewinnausschüttung nicht vorkommen.
 - **Woher die Angaben kommen:** Beträge, Beschluss und Geschäftsjahr aus der gebuchten Ausschüttung; Anschrift, Identifikationsnummer und Religionsgemeinschaft aus den Angaben zur Körperschaftsteuererklärung des Beschlussjahres; der Schuldner aus den Firmendaten. Ausschüttungen, die gebucht wurden, bevor Haben das Geschäftsjahr erfragt hat, bekommen keine Bescheinigung: Der Zeitraum gehört zum Inhalt von Muster II, und Rz. 1 des BMF-Schreibens erlaubt keine Abweichung. Für eine Bescheinigung die Ausschüttung stornieren und mit Geschäftsjahr neu buchen.

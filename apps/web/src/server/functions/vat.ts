@@ -227,6 +227,8 @@ export const saveVatDraft = createServerFn({ method: "POST" })
         kz93: centsSchema.default(0),
         kz61: centsSchema.default(0),
         kz62: centsSchema.default(0),
+        // Im ERiC-Schema nie negativ (GanzzahlNichtNeg)
+        kz50: inCents(z.number().int().min(0, "Kz 50 ist nie negativ.").max(KENNZAHL_GRENZE)).default(0),
         kz39: centsSchema.default(0),
         reason: z.string().trim().min(10, "Bitte begründen, warum von den berechneten Werten abgewichen wird (mindestens 10 Zeichen).").max(1000),
       }),

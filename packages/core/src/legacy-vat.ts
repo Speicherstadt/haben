@@ -48,7 +48,7 @@ export interface LegacyVatMonth {
   kz45: Cents;
   /** Inländische Umsätze, für die der Empfänger die Steuer nach § 13b UStG schuldet (etwa Bauleistungen) */
   kz60: Cents;
-  /** „vatfree“: steuerfrei, ohne Angabe warum. Kz 48 bei § 4 Nr. 8–28 UStG, bei Kleinunternehmern gar nicht gemeldet */
+  /** „vatfree“: steuerfrei, ohne Angabe warum. Kz 48 bei § 4 Nr. 8–29 UStG und als Kleinunternehmer ab 2025, vorher gar nicht gemeldet */
   steuerfrei: Cents;
   /** Fernverkäufe und elektronische Dienstleistungen über das OSS-Verfahren, nicht in der Voranmeldung */
   oss: Cents;

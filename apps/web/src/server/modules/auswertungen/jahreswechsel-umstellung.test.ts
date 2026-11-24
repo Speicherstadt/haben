@@ -221,7 +221,8 @@ describe.skipIf(!testDatabaseUrl)("Jahreswechsel 2026/2027: Umstellungen zum 1.1
       await zahlung({ invoiceId: a.id }, "12.01.27", "1.000,00");
       const b = await rechnung("2027-01-15", 50_000);
       await zahlung({ invoiceId: b.id }, "20.01.27", "595,00");
-      expect(await va(DEZ)).toEqual({});
+      // Umsatz als Kleinunternehmer in Kz 48 im Monat der Leistung, auch bei Ist (#1268)
+      expect(await va(DEZ)).toEqual({ kz48: 100_000 });
       expect(await va(JAN)).toEqual({ kz81: 50_000, tax81: 9_500 });
       const e = await euer(2027);
       expect(e).toMatchObject({ einnahmenSteuerpflichtig: 50_000, vereinnahmteUst: 9_500, gewinn: 159_500 });

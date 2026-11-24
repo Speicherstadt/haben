@@ -1,5 +1,5 @@
 import { UserError } from "../../errors.ts";
-import { computeUstva, toElsterSteuernummer, type Cents, type VatPeriod, vatReturnCorrectionProblem, vatReturnSendProblem } from "@haben/core";
+import { computeUstva, toElsterSteuernummer, toWholeEuros, type Cents, type VatPeriod, vatReturnCorrectionProblem, vatReturnSendProblem } from "@haben/core";
 import { buildUstvaXml, type ElsterClient, type ElsterResult } from "@haben/elster";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { companyIssues, loadCompany } from "../stammdaten/index.ts";
@@ -62,6 +62,8 @@ export interface FiguresInput {
   kz93?: Cents;
   kz61?: Cents;
   kz62?: Cents;
+  /** Minderung der Bemessungsgrundlage bei Uneinbringlichkeit */
+  kz50?: Cents;
   /** Abzug der Sondervorauszahlung in der letzten Voranmeldung des Jahres */
   kz39?: Cents;
 }
@@ -86,6 +88,7 @@ function stored(ustva: ReturnType<typeof computeUstva>) {
     kz93: ustva.kz93,
     kz61: ustva.kz61,
     kz62: ustva.kz62,
+    kz50: ustva.kz50,
     kz39: ustva.kz39,
     kz83: ustva.kz83,
   };
@@ -96,8 +99,16 @@ export type DraftInput = { mode: "berechnet" } | ({ mode: "manuell"; reason?: st
 
 /** Berechnete Kennzahlen in der Form der Voranmeldung (Bemessungsgrundlagen auf volle Euro) */
 export async function computedValues(period: VatPeriod, q: Db | Tx = db) {
+  return (await berechnet(period, q)).werte;
+}
+
+/**
+ * Wie computedValues, dazu Kz 48 ohne die Umsätze als Kleinunternehmer, wie Haben sie vor #1268 gemeldet hat: Damit
+ * erkennt der Abgleich gesendeter Voranmeldungen eine ältere Anmeldung als unverändert.
+ */
+export async function berechnet(period: VatPeriod, q: Db | Tx = db) {
   const [figures, kz39] = await Promise.all([computeVatFigures(period, q), kz39For(period, q)]);
-  return stored(computeUstva({ ...figures, kz39 }));
+  return { werte: stored(computeUstva({ ...figures, kz39 })), kz48OhneKleinunternehmer: toWholeEuros(figures.kz48 - figures.kz48Kleinunternehmer) };
 }
 
 /** Legt den Entwurf des Zeitraums an oder aktualisiert ihn. */
@@ -190,6 +201,7 @@ export async function createCorrection(actor: string, period: VatPeriod): Promis
         kz93: latest.kz93,
         kz61: latest.kz61,
         kz62: latest.kz62,
+        kz50: latest.kz50,
         kz39: latest.kz39,
         kz83: latest.kz83,
         source: uebernommen ? "manuell" : latest.source,
