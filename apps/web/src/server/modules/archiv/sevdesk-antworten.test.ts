@@ -30,14 +30,14 @@ const extfV1 = new URL("../../../../../../packages/import/test-fixtures/sevdesk/
 const extfV2 = new URL("../../../../../../packages/import/test-fixtures/sevdesk/buchhaltung-2.0/extf-buchungsstapel.csv", import.meta.url);
 
 describe.skipIf(!testDatabaseUrl)("sevDesk-Antworten je Buchhaltungsversion (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-abgleich.ts") & typeof import("./umzug-belege.ts");
   let legacy: typeof import("./legacy-open.ts");
   let archive: typeof import("./archive.ts");
   let sql: postgres.Sql;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-belege.ts")) };
     legacy = await import("./legacy-open.ts");
     archive = await import("./archive.ts");
   }, 30_000);

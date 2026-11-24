@@ -1,4 +1,4 @@
-import { formatDecimal, formatHundredths, isKapitalgesellschaft, type Rechtsform } from "@haben/core";
+import { abziehbarerAnteil, formatDecimal, formatHundredths, isKapitalgesellschaft, type Rechtsform } from "@haben/core";
 import { getRouteApi, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, type FormEvent } from "react";
@@ -89,7 +89,15 @@ export function CompanyForm() {
 
       <RechnungenAngebote company={company} skontoRows={skontoRows} onSkonto={setSkontoRows} />
 
-      {!gesellschaft && <PrivatanteilVorgaben texte={privatanteile} onChange={setPrivatanteile} error={error} {...abschnitt("company-private")} />}
+      {!gesellschaft && (
+        <PrivatanteilVorgaben
+          texte={privatanteile}
+          abzug={abziehbarerAnteil(company, null) > 0}
+          onChange={setPrivatanteile}
+          error={error}
+          {...abschnitt("company-private")}
+        />
+      )}
 
       <Mahnwesen company={company} baseRate={baseRate} onBaseRate={setBaseRate} fees={fees} onFees={setFees} error={error} {...abschnitt("company-dunning")} />
 

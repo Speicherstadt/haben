@@ -4,7 +4,7 @@ import { db, schema, type Tx } from "../../db/index.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
 import { sha256Of, storeFile } from "../../storage.ts";
 import { assertNoDatevOverlap } from "./archive.ts";
-import { progressMessage } from "./lexoffice.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 import { categoryRow, documentBlocker, externalId, mimeTypeOf, paymentOf, receiptFilename } from "./accountable-mapping.ts";
 import { type AccountableAnalysis, AccountableError, cancelled, OPEN_ITEM_LIMIT, type StagedExport } from "./accountable-state.ts";
 

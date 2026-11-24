@@ -105,7 +105,8 @@ async function respondWith(id: string, request: ApiRequest, status = 200, header
   return ok(invoiceOut(loaded.row, loaded.invoice, loaded.lines, request.baseUrl), status, headers);
 }
 
-async function contactProblem(contactId: string | null | undefined): Promise<ApiResult | null> {
+/** Unbekannter Kontakt als 422; ob er Kunde ist, prüft das Modul beim Schreiben */
+export async function contactProblem(contactId: string | null | undefined): Promise<ApiResult | null> {
   if (!contactId || (await getContact(contactId))) return null;
   return fail("unprocessable", "Kontakt nicht gefunden. Erst über /kontakte anlegen.");
 }

@@ -1,7 +1,7 @@
 import { RECHTSFORMEN, formatEuro, isKapitalgesellschaft } from "@haben/core";
 import { Link, createFileRoute, notFound, useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AnlageNFields, toArbeitnehmerDraft } from "../../../components/AnlageN.tsx";
 import { GewstSection, KapgAngaben, KapgGemeinsameHinweise, KstSection } from "../../../components/KapgErklaerungen.tsx";
 import { EricHinweis } from "../../../components/EricHinweis.tsx";
@@ -9,28 +9,21 @@ import { NoticeBanner } from "../../../components/NoticeBanner.tsx";
 import { VastBelege } from "../../../components/VastBelege.tsx";
 import { KIRCHENSTEUER_HINWEIS } from "../../../lib/kirchensteuer.ts";
 import { useAction } from "../../../lib/use-action.ts";
+import { useSubmitCheck } from "../../../lib/use-submit-check.ts";
 import { getAnnualReturns, saveIncomeTaxInputs } from "../../../server/functions/annual.ts";
 import styles from "../../../styles/auswertungen.css?url";
 import { ScrollTable } from "../../../components/ScrollTable.tsx";
 import { Field } from "../../../components/Field.tsx";
 import { Block } from "../../../components/jahreserklaerung/Block.tsx";
 import { ErklaerteZeilen } from "../../../components/jahreserklaerung/ErklaerteZeilen.tsx";
-import {
-  Amount,
-  ErsatzBlock,
-  KinderBlock,
-  type KindDraft,
-  VorsorgeBlock,
-  centsText,
-  estAngabenAusFormular,
-  sumOf,
-  sumText,
-} from "../../../components/jahreserklaerung/EstAngaben.tsx";
+import { Amount, ErsatzBlock, EstFehler, KinderBlock, VorsorgeBlock, centsText, sumOf, sumText } from "../../../components/jahreserklaerung/EstAngaben.tsx";
+import { estAngabenLesen, type Formularwerte, type KindDraft } from "../../../components/jahreserklaerung/est-pruefung.ts";
 import { Reihenfolge, SentPill } from "../../../components/jahreserklaerung/Reihenfolge.tsx";
 import { Row } from "../../../components/jahreserklaerung/Row.tsx";
 import type { Data } from "../../../components/jahreserklaerung/typen.ts";
 import { SubmitPanel } from "./-jahr-senden.tsx";
 import { EuerSection, History, Issues, UstSection } from "./-jahr-teile.tsx";
+import { useFokusUeberWechsel } from "../../../lib/use-fokus-ueber-wechsel.ts";
 
 export const Route = createFileRoute("/_app/jahreserklaerung/$jahr")({
   loader: ({ params }) => {
@@ -45,6 +38,8 @@ export const Route = createFileRoute("/_app/jahreserklaerung/$jahr")({
 function AnnualPage() {
   const data = Route.useLoaderData();
   const navigate = useNavigate();
+  // Die Auswahl behält beim Wechsel den Fokus, obwohl die Seite neu entsteht
+  const auswahl = useFokusUeberWechsel<HTMLSelectElement>("jahreserklaerung-jahr");
   // GmbH und UG: Körperschaftsteuer statt Einkommensteuer, Bilanz statt EÜR; hier bleibt die Umsatzsteuer
   const gesellschaft = isKapitalgesellschaft(data.rechtsform);
 
@@ -57,7 +52,15 @@ function AnnualPage() {
         </div>
         <Field label="Jahr">
           {(control) => (
-            <select {...control} value={data.year} onChange={(e) => navigate({ to: "/jahreserklaerung/$jahr", params: { jahr: e.target.value } })}>
+            <select
+              {...control}
+              ref={auswahl.ref}
+              value={data.year}
+              onChange={(e) => {
+                auswahl.merken();
+                void navigate({ to: "/jahreserklaerung/$jahr", params: { jahr: e.target.value } });
+              }}
+            >
               {(data.years.includes(data.year) ? data.years : [data.year, ...data.years]).map((y) => (
                 <option key={y} value={y}>
                   {y}
@@ -90,15 +93,15 @@ function AnnualPage() {
         {!gesellschaft && <Reihenfolge data={data} />}
         <UstSection data={data} />
         {!gesellschaft && <EuerSection data={data} />}
-        {!gesellschaft && <EstSection key={data.year} data={data} />}
+        {!gesellschaft && <EstSection data={data} />}
         {data.kapg && <KapgGemeinsameHinweise data={data} />}
         {data.kapg && <KstSection data={data} />}
         {data.kapg && <GewstSection data={data} />}
-        {data.kapg && <KapgAngaben key={`kapg-${data.year}`} data={data} />}
+        {data.kapg && <KapgAngaben data={data} />}
         {/* Die vorausgefüllte Steuererklärung gibt es nur für die Einkommensteuer einer Person */}
         {!gesellschaft && (
           <div id="vast" className="jump-target">
-            <VastBelege key={`vast-${data.year}`} data={data} />
+            <VastBelege data={data} />
           </div>
         )}
         <History data={data} />
@@ -107,16 +110,24 @@ function AnnualPage() {
   );
 }
 
+/** Bis das Formular nach dem ersten Rendern gelesen ist; die Felder tragen dann gespeicherte, also gültige Werte */
+const UNBERUEHRT: Formularwerte = { get: () => null };
+
 /**
- * Klappt die Blöcke um ein ungültiges Feld auf. Sonst kann der Browser ein leeres Pflichtfeld in einem zugeklappten
- * Block nicht zeigen, und das Absenden bleibt ohne Rückmeldung stehen. `invalid` steigt nicht auf, deshalb in der
- * Capture-Phase am Formular.
+ * Klappt jeden Block um ein Feld mit Fehler auf, auch verschachtelte, und setzt den Fokus aufs erste (#1277). Im
+ * zugeklappten Block findet der Fokus von useSubmitCheck das Feld nicht, und das Speichern bliebe ohne Rückmeldung.
  */
-function aufklappenBisZumFeld(event: FormEvent<HTMLFormElement>) {
-  for (let block = (event.target as HTMLElement).closest("details"); block; block = block.parentElement?.closest("details") ?? null) block.open = true;
+function fehlerAufklappen(bereich: HTMLElement | null) {
+  const felder = bereich?.querySelectorAll<HTMLElement>('[aria-invalid="true"]') ?? [];
+  for (const feld of felder) for (let block = feld.closest("details"); block; block = block.parentElement?.closest("details") ?? null) block.open = true;
+  felder[0]?.focus();
 }
 
-function EstSection({ data }: { data: Data }) {
+/**
+ * Zustand und Speichern der Angaben zur Einkommensteuer: Kinder und Anlage N im Zustand, Beträge in Feldern mit `name`.
+ * Für die Fehler bei jedem Rendern (useSubmitCheck) liest `formularGeaendert` das Formular nach jeder Eingabe neu (#1277).
+ */
+function useEstFormular(data: Data) {
   const { est } = data;
   const a = est.angaben;
   const router = useRouter();
@@ -127,34 +138,75 @@ function EstSection({ data }: { data: Data }) {
   const gesperrt = est.submitted !== null && !bearbeiten;
   const [anA, setAnA] = useState(() => toArbeitnehmerDraft(a.arbeitnehmer?.a));
   const [anB, setAnB] = useState(() => toArbeitnehmerDraft(a.arbeitnehmer?.b));
-  const nameA = est.person.a?.split(" ")[0] ?? "Person A";
-  const nameB = est.person.b?.split(" ")[0] ?? "Ehegatte";
-  const { busy, notice, setNotice, run } = useAction();
-  const blocked = est.issues.some((i) => i.tone === "fehler");
+  const action = useAction();
+  const [eingaben, setEingaben] = useState(UNBERUEHRT);
+  const pruefung = useSubmitCheck(estAngabenLesen(eingaben, est.zusammen, { kinder, anA, anB }).fehler);
+  const felder = useRef<HTMLFieldSetElement | null>(null);
+  // Werte, die der Browser beim Neuladen wiederherstellt, lösen kein onChange aus
+  useEffect(() => {
+    const form = felder.current?.form;
+    if (form) setEingaben(new FormData(form));
+  }, []);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     // Gesperrt speichert nichts: landet ein Fehlklick beim Umschalten der Fußzeile auf dem Absende-Knopf, darf er die
     // nur zum Lesen geöffnete Maske nicht überschreiben (#1141)
     if (gesperrt) return;
-    const bad: string[] = [];
-    const angaben = estAngabenAusFormular(new FormData(event.currentTarget), est, { kinder, anA, anB, nameA, nameB }, bad);
-    if (bad.length > 0) {
-      setNotice({ tone: "danger", text: `Kein gültiger Betrag: ${bad.join(", ")}.` });
+    // Mit einem Fehler wird nichts gespeichert; die Meldung steht am Feld
+    if (!pruefung.check()) {
+      fehlerAufklappen(felder.current);
+      return;
+    }
+    const frisch = new FormData(event.currentTarget);
+    const { angaben, fehler } = estAngabenLesen(frisch, est.zusammen, { kinder, anA, anB });
+    // Wich der gelesene Stand doch ab (ein Wert ohne Eingabe), nichts still weglassen: neu lesen, der nächste Druck zeigt den Fehler
+    if (Object.values(fehler).some((meldung) => meldung !== null)) {
+      setEingaben(frisch);
       return;
     }
     // Nach dem Speichern wieder sperren: die Maske ist ohne „Angaben bearbeiten" nur zum Lesen da, und ein
     // zweiter Klick auf „Angaben speichern" darf die Eingabe nicht offen lassen (#1098)
-    const gespeichert = await run(async () => {
+    const gespeichert = await action.run(async () => {
       await save({ data: { year: data.year, angaben } });
       await router.invalidate();
     }, "Angaben gespeichert.");
     if (gespeichert) setBearbeiten(false);
   }
 
+  return {
+    ...action,
+    kinder,
+    setKinder,
+    anA,
+    setAnA,
+    anB,
+    setAnB,
+    gesperrt,
+    setBearbeiten,
+    pruefung,
+    onSubmit,
+    formularGeaendert: (event: FormEvent<HTMLFormElement>) => setEingaben(new FormData(event.currentTarget)),
+    // Nur die Felder im fieldset: die Zeilenwerte darüber prüfen ihre Eingaben selbst
+    felderRef: (element: HTMLFieldSetElement | null) => {
+      pruefung.form(element);
+      felder.current = element;
+    },
+  };
+}
+
+function EstSection({ data }: { data: Data }) {
+  const { est } = data;
+  const a = est.angaben;
+  const { kinder, setKinder, anA, setAnA, anB, setAnB, gesperrt, setBearbeiten, pruefung, onSubmit, formularGeaendert, felderRef, busy, notice, setNotice } =
+    useEstFormular(data);
+  const nameA = est.person.a?.split(" ")[0] ?? "Person A";
+  const nameB = est.person.b?.split(" ")[0] ?? "Ehegatte";
+  const blocked = est.issues.some((i) => i.tone === "fehler");
+
   return (
     <section className="grid-main jump-target" id="est" aria-labelledby="est-heading">
-      <form className="card" onSubmit={onSubmit} onInvalidCapture={aufklappenBisZumFeld} aria-label="Angaben zur Einkommensteuer">
+      <form className="card" noValidate onSubmit={onSubmit} onChange={formularGeaendert} aria-label="Angaben zur Einkommensteuer">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "baseline" }}>
           <h2 id="est-heading">Einkommensteuererklärung {data.year}</h2>
           <SentPill teil={est} />
@@ -202,65 +254,67 @@ function EstSection({ data }: { data: Data }) {
             gespeicherte Zeile erreichbar sein, sonst ließen sich die Anlagen nie erfassen (#1149) */}
         <ErklaerteZeilen form="est" year={data.year} zeilen={est.erklaert} vermerkt={est.submitted !== null} />
 
-        <fieldset disabled={gesperrt} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-          <AnlageNFields wer={nameA} draft={anA} onChange={setAnA} />
-          {est.zusammen && <AnlageNFields wer={nameB} draft={anB} onChange={setAnB} />}
+        <fieldset disabled={gesperrt} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }} ref={felderRef}>
+          <EstFehler.Provider value={pruefung.error}>
+            <AnlageNFields p="a" wer={nameA} draft={anA} onChange={setAnA} />
+            {est.zusammen && <AnlageNFields p="b" wer={nameB} draft={anB} onChange={setAnB} />}
 
-          <VorsorgeBlock est={est} />
+            <VorsorgeBlock est={est} />
 
-          <Block
-            title="Sonderausgaben und Belastungen"
-            summary={sumText(sumOf(a.sonderausgaben.kirchensteuerGezahlt, a.sonderausgaben.spenden, a.krankheitskosten))}
-            open={false}
-          >
-            <div className="form-grid">
-              <Amount name="kistGezahlt" label="Gezahlte Kirchensteuer" value={a.sonderausgaben.kirchensteuerGezahlt} hint={KIRCHENSTEUER_HINWEIS} />
-              <Amount name="kistErstattet" label="Erstattete Kirchensteuer" value={a.sonderausgaben.kirchensteuerErstattet} />
-              <Amount name="spenden" label="Spenden und Mitgliedsbeiträge" value={a.sonderausgaben.spenden} hint="an steuerbegünstigte Empfänger im Inland" />
-              <Amount name="krankheitskosten" label="Krankheitskosten" value={a.krankheitskosten} hint="selbst getragen, nach Erstattungen" />
-            </div>
-          </Block>
+            <Block
+              title="Sonderausgaben und Belastungen"
+              summary={sumText(sumOf(a.sonderausgaben.kirchensteuerGezahlt, a.sonderausgaben.spenden, a.krankheitskosten))}
+              open={false}
+            >
+              <div className="form-grid">
+                <Amount name="kistGezahlt" label="Gezahlte Kirchensteuer" value={a.sonderausgaben.kirchensteuerGezahlt} hint={KIRCHENSTEUER_HINWEIS} />
+                <Amount name="kistErstattet" label="Erstattete Kirchensteuer" value={a.sonderausgaben.kirchensteuerErstattet} />
+                <Amount name="spenden" label="Spenden und Mitgliedsbeiträge" value={a.sonderausgaben.spenden} hint="an steuerbegünstigte Empfänger im Inland" />
+                <Amount name="krankheitskosten" label="Krankheitskosten" value={a.krankheitskosten} hint="selbst getragen, nach Erstattungen" />
+              </div>
+            </Block>
 
-          <Block
-            title="Haushaltsnahe Aufwendungen (§ 35a EStG)"
-            summary={sumText(sumOf(a.haushaltsnah.minijobs, a.haushaltsnah.dienstleistungen, a.haushaltsnah.handwerker))}
-            open={false}
-          >
-            <div className="form-grid">
-              <Amount name="minijobs" label="Minijobs im Haushalt" value={a.haushaltsnah.minijobs} />
-              <Amount
-                name="dienstleistungen"
-                label="Haushaltsnahe Dienstleistungen"
-                value={a.haushaltsnah.dienstleistungen}
-                hint="z. B. Reinigung, Gartenpflege"
-              />
-              <Amount name="handwerker" label="Handwerkerleistungen" value={a.haushaltsnah.handwerker} hint="nur Arbeits-, Maschinen- und Fahrtkosten" />
-            </div>
-          </Block>
+            <Block
+              title="Haushaltsnahe Aufwendungen (§ 35a EStG)"
+              summary={sumText(sumOf(a.haushaltsnah.minijobs, a.haushaltsnah.dienstleistungen, a.haushaltsnah.handwerker))}
+              open={false}
+            >
+              <div className="form-grid">
+                <Amount name="minijobs" label="Minijobs im Haushalt" value={a.haushaltsnah.minijobs} />
+                <Amount
+                  name="dienstleistungen"
+                  label="Haushaltsnahe Dienstleistungen"
+                  value={a.haushaltsnah.dienstleistungen}
+                  hint="z. B. Reinigung, Gartenpflege"
+                />
+                <Amount name="handwerker" label="Handwerkerleistungen" value={a.haushaltsnah.handwerker} hint="nur Arbeits-, Maschinen- und Fahrtkosten" />
+              </div>
+            </Block>
 
-          <KinderBlock kinder={kinder} setKinder={setKinder} />
+            <KinderBlock kinder={kinder} setKinder={setKinder} />
 
-          <Block
-            title="Kapitalerträge (Anlage KAP)"
-            summary={sumText(sumOf(a.kap?.ertraegeMitSteuerabzug, a.kap?.ertraegeOhneSteuerabzugInland, a.kap?.ertraegeAusland))}
-            open={false}
-          >
-            <div className="form-grid">
-              <Amount name="kapMit" label="Erträge mit Steuerabzug" value={a.kap?.ertraegeMitSteuerabzug} hint="laut Steuerbescheinigung der Bank" />
-              <Amount name="kapSpb" label="Davon genutzter Sparer-Pauschbetrag" value={a.kap?.sparerPauschbetrag} />
-              <Amount name="kapOhneInl" label="Inländische Erträge ohne Steuerabzug" value={a.kap?.ertraegeOhneSteuerabzugInland} />
-              <Amount name="kapAusl" label="Ausländische Erträge" value={a.kap?.ertraegeAusland} />
-              <Amount name="kapESt" label="Einbehaltene Kapitalertragsteuer" value={a.kap?.kapitalertragsteuer} />
-              <Amount name="kapSoli" label="Solidaritätszuschlag" value={a.kap?.soli} />
-              <Amount name="kapKiSt" label="Kirchensteuer zur Kapitalertragsteuer" value={a.kap?.kirchensteuer} />
-              <label className="checkbox" style={{ alignSelf: "end" }}>
-                <input type="checkbox" name="guenstigerpruefung" defaultChecked={a.kap?.guenstigerpruefung ?? false} />
-                Günstigerprüfung beantragen
-              </label>
-            </div>
-          </Block>
+            <Block
+              title="Kapitalerträge (Anlage KAP)"
+              summary={sumText(sumOf(a.kap?.ertraegeMitSteuerabzug, a.kap?.ertraegeOhneSteuerabzugInland, a.kap?.ertraegeAusland))}
+              open={false}
+            >
+              <div className="form-grid">
+                <Amount name="kapMit" label="Erträge mit Steuerabzug" value={a.kap?.ertraegeMitSteuerabzug} hint="laut Steuerbescheinigung der Bank" />
+                <Amount name="kapSpb" label="Davon genutzter Sparer-Pauschbetrag" value={a.kap?.sparerPauschbetrag} />
+                <Amount name="kapOhneInl" label="Inländische Erträge ohne Steuerabzug" value={a.kap?.ertraegeOhneSteuerabzugInland} />
+                <Amount name="kapAusl" label="Ausländische Erträge" value={a.kap?.ertraegeAusland} />
+                <Amount name="kapESt" label="Einbehaltene Kapitalertragsteuer" value={a.kap?.kapitalertragsteuer} />
+                <Amount name="kapSoli" label="Solidaritätszuschlag" value={a.kap?.soli} />
+                <Amount name="kapKiSt" label="Kirchensteuer zur Kapitalertragsteuer" value={a.kap?.kirchensteuer} />
+                <label className="checkbox" style={{ alignSelf: "end" }}>
+                  <input type="checkbox" name="guenstigerpruefung" defaultChecked={a.kap?.guenstigerpruefung ?? false} />
+                  Günstigerprüfung beantragen
+                </label>
+              </div>
+            </Block>
 
-          <ErsatzBlock est={est} />
+            <ErsatzBlock est={est} />
+          </EstFehler.Provider>
         </fieldset>
         <p className="small muted" style={{ margin: 0 }}>
           Beträge in Euro; ELSTER bekommt volle Euro, mit Cent nur die Steuern auf Kapitalerträge und Nr. 3 bis 7 der Lohnsteuerbescheinigungen, die Summe des

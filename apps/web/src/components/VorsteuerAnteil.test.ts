@@ -1,7 +1,7 @@
 import { createElement, type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { VorsteuerAnteil, parseVorsteuerAnteil, steuerSpalte } from "./VorsteuerAnteil.tsx";
+import { VorsteuerAnteil, parseVorsteuerAnteil, privatanteilHinweis, steuerSpalte } from "./VorsteuerAnteil.tsx";
 
 function render(patch: Partial<ComponentProps<typeof VorsteuerAnteil>> = {}) {
   return renderToStaticMarkup(
@@ -118,5 +118,33 @@ describe("Beschriftung der Steuerspalte (#978)", () => {
     const satz = (vorsteuerAnteil: string) => ({ vorsteuerAnteil });
     expect(steuerSpalte(null, { ...beleg, value: "0" }, [satz(""), satz("")])).toBe("Umsatzsteuer");
     expect(steuerSpalte(null, { ...beleg, value: "0" }, [satz(""), satz("100")])).toBe("Vorsteuer");
+  });
+});
+
+describe("Hinweis am Privatanteil (#1261)", () => {
+  const beleg = { value: "", company: { kleinunternehmer: false, ohneVorsteuerabzug: false }, booked: false, storedDeduction: true };
+  const mitVorsteuer = "Z. B. beim Handyvertrag: nur der betriebliche Teil wird Ausgabe und Vorsteuer.";
+  const ohneVorsteuer = "Z. B. beim Handyvertrag: nur der betriebliche Teil wird Ausgabe.";
+
+  const saetze = (...anteile: string[]) => anteile.map((vorsteuerAnteil) => ({ vorsteuerAnteil }));
+
+  it("nennt die Vorsteuer, solange von einem Steuersatz etwas abziehbar ist", () => {
+    for (const [fall, b, anteile] of [
+      ["voller Abzug", beleg, [""]],
+      ["50 % am Beleg", { ...beleg, value: "50" }, [""]],
+      ["ein Satz mit 0 %, einer mit Abzug", { ...beleg, value: "0" }, ["", "100"]],
+    ] as const)
+      expect(privatanteilHinweis(b, saetze(...anteile)), fall).toBe(mitVorsteuer);
+  });
+
+  it("nennt ohne Vorsteuerabzug keine Vorsteuer: als Kleinunternehmer, nach der Firmenvorgabe oder mit 0 %", () => {
+    for (const [fall, b, satz] of [
+      ["Kleinunternehmer", { ...beleg, company: { kleinunternehmer: true, ohneVorsteuerabzug: false } }, ""],
+      ["Kleinunternehmer mit 100 % am Steuersatz", { ...beleg, company: { kleinunternehmer: true, ohneVorsteuerabzug: false } }, "100"],
+      ["Vorgabe der Firmendaten", { ...beleg, company: { kleinunternehmer: false, ohneVorsteuerabzug: true } }, ""],
+      ["0 % am Beleg", { ...beleg, value: "0" }, ""],
+      ["gebucht ohne Abzug", { ...beleg, booked: true, storedDeduction: false }, ""],
+    ] as const)
+      expect(privatanteilHinweis(b, saetze(satz)), fall).toBe(ohneVorsteuer);
   });
 });

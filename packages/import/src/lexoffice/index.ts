@@ -26,6 +26,7 @@ export {
 } from "./types.ts";
 export type { LexofficeSource } from "./source.ts";
 export { LexwareWebExportError, readWebExport, webExportSource, type WebExport, type WebExportFailure } from "./web/source.ts";
+export type { WebOmittedCounts } from "./web/schema.ts";
 export {
   mapContact,
   mapSalesDocument,

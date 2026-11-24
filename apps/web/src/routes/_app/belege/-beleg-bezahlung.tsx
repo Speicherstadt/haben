@@ -12,9 +12,9 @@ function paymentHintText(payment: "bank" | "privat" | "kasse", gesellschaft: boo
 
 /** Karte „Bezahlung“: Geschäftskonto, privat oder Kasse, dazu Gutschrift und Hinweis aus früheren Belegen */
 export function Bezahlung({ f, data }: { f: DocumentFormState; data: Detail }) {
-  const { readOnly, running, payment, setPayment, erstattetBezahltes, setErstattetBezahltes, gross, touch } = f;
+  const { fieldsDisabled, payment, setPayment, erstattetBezahltes, setErstattetBezahltes, gross, touch } = f;
   return (
-    <fieldset className="card" disabled={readOnly || running} style={{ margin: 0 }}>
+    <fieldset className="card" disabled={fieldsDisabled} style={{ margin: 0 }}>
       <legend style={{ fontWeight: 600, fontSize: 16, padding: 0, marginBottom: 4 }}>Bezahlung</legend>
       <label className="checkbox">
         <input type="radio" name="payment" checked={payment === "bank"} onChange={() => touch(setPayment)("bank")} />

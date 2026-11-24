@@ -94,7 +94,7 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice: Übernahme gesperrt, solange ein A
     expect(dateien).toHaveLength(1);
 
     const [posten] = (await legacy.openLegacyItems("2023-12-31")).filter((i) => i.number === "2023-4711");
-    expect(posten!.blocker).toBe("Datei erwartet, Abruf aus Lexoffice fehlgeschlagen – „Erneut abrufen“ versucht es noch einmal");
+    expect(posten!.blocker).toBe("Datei erwartet, Abruf aus Lexware Office fehlgeschlagen. Im Umzug „Erneut abrufen“ wählen.");
   });
 
   it("gibt den Posten frei, wenn ein späterer Lauf den Anhang nachholt", async () => {

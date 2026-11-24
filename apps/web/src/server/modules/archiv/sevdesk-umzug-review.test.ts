@@ -12,14 +12,22 @@ const INTERNAL_ID = "1f2e3d4c-5b6a-4789-8abc-0123456789ab";
 const LONG = "EBA-BG-EUR-24-10001-2000001-30001-40001";
 
 describe.skipIf(!testDatabaseUrl)("Review #472", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") &
+    typeof import("./umzug-abgleich.ts") &
+    typeof import("./umzug-belege.ts") &
+    typeof import("./umzug-umsatzsteuer.ts");
   let legacy: typeof import("./legacy-open.ts");
   let archive: typeof import("./archive.ts");
   let sql: postgres.Sql;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = {
+      ...(await import("./lexoffice.ts")),
+      ...(await import("./umzug-abgleich.ts")),
+      ...(await import("./umzug-belege.ts")),
+      ...(await import("./umzug-umsatzsteuer.ts")),
+    };
     legacy = await import("./legacy-open.ts");
     archive = await import("./archive.ts");
   }, 30_000);

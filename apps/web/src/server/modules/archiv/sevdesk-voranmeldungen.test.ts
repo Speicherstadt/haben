@@ -170,7 +170,7 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldungen aus sevDesk (Postgres)", { tim
   it("zählt die Protokolle im Abgleich je Jahr als ELSTER-Protokolle", async () => {
     await reset();
     const archive = await import("./archive.ts");
-    const lexoffice = await import("./lexoffice.ts");
+    const lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")) };
     await archive.addArchiveFile(actor, { bytes: PDF("Kontoauszug"), filename: "auszug.pdf", kind: "kontoauszug", year: 2026 });
     const elster = async () =>
       (await lexoffice.reconciliation()).years.find((y) => y.year === 2026)!.checks.find((c) => c.label === "ELSTER-Protokolle archiviert");
@@ -182,7 +182,7 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldungen aus sevDesk (Postgres)", { tim
   it("prüft im Abgleich auch Jahre, in denen es nur archivierte Voranmeldungen gibt, mit oder ohne Protokoll", async () => {
     await reset();
     await abruf(REPORTS, ["ID_25"]);
-    const lexoffice = await import("./lexoffice.ts");
+    const lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")) };
     const { years } = await lexoffice.reconciliation();
     expect(years.map((y) => y.year)).toEqual([2026, 2024, 2023]);
     const elster = (year: number) => years.find((y) => y.year === year)!.checks.find((c) => c.label === "ELSTER-Protokolle archiviert");

@@ -1,8 +1,13 @@
 // Positionen im Editor von Rechnung und Angebot: Eingabestand je Zeile und seine Prüfung (InvoiceEditor.tsx)
 import {
+  amountError,
+  DISCOUNT_AMOUNT_MAX,
   discountInput,
   formatDecimal,
   formatQuantity,
+  LINE_DESCRIPTION_MAX,
+  LINE_QUANTITY_MAX,
+  LINE_UNIT_PRICE_MAX,
   lineDiscountProblem,
   parseDiscount,
   parseEuro,
@@ -105,20 +110,67 @@ export function parseLine(line: LineState): ParsedLine {
   };
 }
 
+/** Felder einer Position mit eigener Prüfung, in der Reihenfolge der Tabelle */
+export const POSITIONS_FELDER = ["beschreibung", "menge", "einzelpreis", "rabatt"] as const;
+export type PositionsFeld = (typeof POSITIONS_FELDER)[number];
+
+/** Schlüssel eines Felds der Position für useSubmitCheck */
+export const positionsSchluessel = (key: number, feld: PositionsFeld) => `pos-${key}-${feld}`;
+
+/** Was die Fehler einer Position braucht; ohne Rabatt (Serienrechnung) bleibt sein Fehler null */
+type PositionsEingabe = Pick<LineState, "description" | "quantity" | "unitPrice"> & { discount?: string };
+
+const PREIS_BEISPIEL = 9500;
+const PREIS_GRENZE = amountError(`einen Einzelpreis von ${formatDecimal(-LINE_UNIT_PRICE_MAX)} bis ${formatDecimal(LINE_UNIT_PRICE_MAX)}`, PREIS_BEISPIEL);
+const RABATT_UNLESBAR = "Rabatt als Prozent (z. B. 5 %) oder Betrag (z. B. 100,00).";
+
+function beschreibungFehler(text: string): string | null {
+  const beschreibung = text.trim();
+  if (beschreibung === "") return "Trag die Beschreibung ein.";
+  return beschreibung.length > LINE_DESCRIPTION_MAX ? `Kürz die Beschreibung auf höchstens ${LINE_DESCRIPTION_MAX} Zeichen.` : null;
+}
+
+function mengeFehler(text: string): string | null {
+  const menge = parseQuantity(text);
+  if (menge === null || menge <= 0) return "Trag eine Menge über 0 ein, etwa 2 oder 1,5.";
+  return menge > LINE_QUANTITY_MAX ? `Trag eine Menge bis ${formatQuantity(LINE_QUANTITY_MAX)} ein.` : null;
+}
+
+function einzelpreisFehler(text: string): string | null {
+  const preis = parseEuro(text);
+  if (preis === null) return amountError("den Einzelpreis", PREIS_BEISPIEL);
+  return Math.abs(preis) > LINE_UNIT_PRICE_MAX ? PREIS_GRENZE : null;
+}
+
+function rabattFehler(line: PositionsEingabe & { discount: string }): string | null {
+  const discount = parseDiscount(line.discount);
+  if (discount === "ungültig") return RABATT_UNLESBAR;
+  const problem = lineDiscountProblem({ quantity: parseQuantity(line.quantity) ?? 0, unitPrice: parseEuro(line.unitPrice) ?? 0, discount });
+  if (problem) return `${problem}.`;
+  return discount?.kind === "betrag" && discount.value > DISCOUNT_AMOUNT_MAX
+    ? `Trag einen Rabatt bis ${formatDecimal(DISCOUNT_AMOUNT_MAX)} ein oder gib ihn in Prozent an.`
+    : null;
+}
+
 /**
- * Was einer Position fehlt, als Satz für den Fehler unter ihr (DESIGN.md, Gesperrte Knöpfe); null, wenn sie gültig ist.
- * Ohne Rabatt (Serienrechnung) nur Beschreibung, Menge und Einzelpreis.
+ * Je Feld der Position der Fehler, der nur dieses Feld nennt, mit den Grenzen des Servers (invoiceLineInputSchema,
+ * discountSchema); null, wo die Angabe stimmt. Die Meldungen stehen untereinander unter der Zeile (DESIGN.md, Gesperrte Knöpfe).
  */
-export function positionsFehler(line: Pick<LineState, "description" | "quantity" | "unitPrice"> & Partial<LineState>): string | null {
-  const fehlt = [
-    line.description.trim() === "" && "die Beschreibung",
-    !((parseQuantity(line.quantity) ?? 0) > 0) && "eine Menge über 0",
-    parseEuro(line.unitPrice) === null && "den Einzelpreis",
-  ].filter((teil): teil is string => Boolean(teil));
-  const saetze = fehlt.length > 0 ? [`Trag ${fehlt.length > 1 ? `${fehlt.slice(0, -1).join(", ")} und ${fehlt.at(-1)}` : fehlt[0]} ein.`] : [];
-  if (line.discount !== undefined && line.key !== undefined && parseLine(line as LineState).discountError) {
-    const problem = parseDiscount(line.discount) === "ungültig" ? null : lineDiscountProblem(parseLine(line as LineState));
-    saetze.push(problem ? `${problem}.` : "Rabatt als Prozent (z. B. 5 %) oder Betrag (z. B. 100,00).");
-  }
-  return saetze.length > 0 ? saetze.join(" ") : null;
+export function positionsFehler(line: PositionsEingabe): Record<PositionsFeld, string | null> {
+  return {
+    beschreibung: beschreibungFehler(line.description),
+    menge: mengeFehler(line.quantity),
+    einzelpreis: einzelpreisFehler(line.unitPrice),
+    rabatt: line.discount === undefined ? null : rabattFehler({ ...line, discount: line.discount }),
+  };
+}
+
+/** Fehler aller Positionen, je Position und Feld ein Schlüssel (positionsSchluessel) */
+export function positionenFehler(lines: readonly (PositionsEingabe & { key: number })[]): Record<string, string | null> {
+  return Object.fromEntries(
+    lines.flatMap((line) => {
+      const fehler = positionsFehler(line);
+      return POSITIONS_FELDER.map((feld) => [positionsSchluessel(line.key, feld), fehler[feld]]);
+    }),
+  );
 }

@@ -1,15 +1,17 @@
 import { expect, type Page, test } from "@playwright/test";
+import postgres from "postgres";
 import { currentDay, day, firstLink, YEAR } from "./daten.ts";
-import type { Durchlauf } from "./durchlaeufe.ts";
+import { type Durchlauf, databaseUrlFuer } from "./durchlaeufe.ts";
 import { statusBleibtSichtbar } from "./kopfzeile.ts";
-import { axeVerstoesse, bestaetigen, durchlaufSeite, gehe, kundeWaehlen, ohneAxeVerstoesse, rechnungFestschreiben } from "./einrichtung.ts";
+import { axeVerstoesse, bestaetigen, durchlaufSeite, gehe, kundeWaehlen, ohneAxeVerstoesse, rechnungFestschreiben, ueberSchnellsuche } from "./einrichtung.ts";
 import { abzugEinspielen } from "./abzug.ts";
+import { eingabeNachAktion, fokusNachFehlschlag, kurzNacheinanderSpeichern } from "./felder-sperre.ts";
 
 /**
  * Abschnitt von rechnungen (#1742) mit eigenem Server und eigener Datenbank, parallel zu den anderen Abschnitten:
  * Angebote bis zur Abschlags- und Schlussrechnung, Versand per E-Mail mit Anhängen, Leistungen und ihre Abrechnung,
- * Verrechnung, „Bereits bezahlt“, Festschreiben nach dem Speichern, Artikel-API, Kopieren und Zeiteinträge auf der
- * Kontaktseite.
+ * Verrechnung, „Bereits bezahlt“, Festschreiben nach dem Speichern, gesperrte Felder beim Speichern (auch der
+ * wiederkehrenden Rechnung), Artikel-API, Kopieren und Zeiteinträge auf der Kontaktseite.
  * Beginnt mit dem Abzug nach der Einrichtung mit drei Kunden und einer festgeschriebenen Rechnung in rechnungen.spec.ts
  * (e2e/abzug.ts).
  */
@@ -684,6 +686,234 @@ test("Festschreiben direkt nach „Entwurf speichern“: erst nach dem Neuladen,
   await page.getByRole("button", { name: "Entwurf löschen", exact: true }).click();
   await bestaetigen(page, "Entwurf löschen");
   await expect(page).toHaveURL(/\/rechnungen(?:\?.*)?$/);
+});
+
+/**
+ * Nach „Entwurf speichern“ baut die Seite den Editor mit dem gespeicherten Stand neu auf: beim ersten Speichern auf der
+ * Adresse des neuen Entwurfs, danach mit dem neuen `updatedAt` im `key`. Was man bis dahin tippt, ginge verloren; deshalb
+ * sind die Felder so lange gesperrt, und die Eingabe landet erst im neu aufgebauten Editor (#1148). Das Neuladen ist
+ * verzögert, damit die Lücke sicher entsteht.
+ */
+async function eingabeNachDemSpeichern(bereich: "rechnungen" | "angebote") {
+  await go(`/${bereich}/neu`);
+  await kundeWaehlen(page);
+  const beschreibung = page.getByLabel("Beschreibung Position 1");
+  await beschreibung.fill("Erster Stand");
+  await page.getByLabel("Menge Position 1").fill("1");
+  await page.getByLabel(/Einzelpreis Position 1/).fill("100,00");
+
+  // Die Adresse des Entwurfs steht vor dem Speichern noch nicht fest: alle Abfragen verzögern, nicht nur die des Entwurfs
+  const abfrage = (url: URL) => url.pathname.startsWith("/_serverFn/");
+  await page.route(abfrage, async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    await new Promise((fertig) => setTimeout(fertig, 1500));
+    await route.fulfill({ response: await route.fetch() });
+  });
+  const speichern = page.getByRole("button", { name: "Entwurf speichern", exact: true });
+
+  // Erstes Speichern: Wechsel von „neu“ auf den Entwurf
+  await speichern.click();
+  await expect(beschreibung).toBeDisabled();
+  await beschreibung.fill("Gleich danach getippt");
+  // „Entwurf löschen“ gibt es erst im Editor des gespeicherten Entwurfs
+  await expect(page.getByRole("button", { name: "Entwurf löschen", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/${bereich}/[0-9a-f-]{36}$`));
+  await expect(beschreibung).toHaveValue("Gleich danach getippt");
+
+  // Weiteres Speichern: Neuaufbau mit dem neuen Stand
+  await speichern.click();
+  await expect(beschreibung).toBeDisabled();
+  await beschreibung.fill("Beim zweiten Speichern getippt");
+  await expect(page.getByText("Entwurf gespeichert.")).toBeVisible();
+  await expect(beschreibung).toHaveValue("Beim zweiten Speichern getippt");
+  await page.unroute(abfrage);
+
+  // Nicht festschreiben: die Nummern der übrigen Tests bleiben, wie sie sind
+  await page.getByRole("button", { name: "Entwurf löschen", exact: true }).click();
+  await bestaetigen(page, "Entwurf löschen");
+  await expect(page).toHaveURL(new RegExp(`/${bereich}(?:\\?.*)?$`));
+}
+
+test("Neue Rechnung: Eingaben direkt nach dem Speichern bleiben erhalten (#1148)", async () => {
+  await eingabeNachDemSpeichern("rechnungen");
+});
+
+test("Neues Angebot: Eingaben direkt nach dem Speichern bleiben erhalten (#1148)", async () => {
+  await eingabeNachDemSpeichern("angebote");
+});
+
+/** Kurz nacheinander gespeichert, baut sich der Editor jedes Mal mit dem gespeicherten Stand neu auf (#1804) */
+async function kurzNacheinanderImEntwurf(bereich: "rechnungen" | "angebote") {
+  await go(`/${bereich}/neu`);
+  await kundeWaehlen(page);
+  const beschreibung = page.getByLabel("Beschreibung Position 1");
+  await beschreibung.fill("Erster Stand");
+  await page.getByLabel("Menge Position 1").fill("1");
+  await page.getByLabel(/Einzelpreis Position 1/).fill("100,00");
+  const speichern = page.getByRole("button", { name: "Entwurf speichern", exact: true });
+  await speichern.click();
+  // „Entwurf löschen“ gibt es erst im Editor des gespeicherten Entwurfs
+  const loeschen = page.getByRole("button", { name: "Entwurf löschen", exact: true });
+  await expect(loeschen).toBeVisible();
+
+  await kurzNacheinanderSpeichern({ feld: beschreibung, speichern, texte: ["Stand eins", "Stand zwei", "Stand drei"] });
+
+  // Nicht festschreiben: die Nummern der übrigen Tests bleiben, wie sie sind
+  await loeschen.click();
+  await bestaetigen(page, "Entwurf löschen");
+  await expect(page).toHaveURL(new RegExp(`/${bereich}(?:\\?.*)?$`));
+}
+
+test("Rechnungsentwurf: Kurz nacheinander gespeichert, baut sich der Editor jedes Mal neu auf (#1804)", async () => {
+  await kurzNacheinanderImEntwurf("rechnungen");
+});
+
+test("Angebotsentwurf: Kurz nacheinander gespeichert, baut sich der Editor jedes Mal neu auf (#1804)", async () => {
+  await kurzNacheinanderImEntwurf("angebote");
+});
+
+/**
+ * Zwei Entwürfe für zwei neue Kunden; am zweiten bleibt „Entwurf gespeichert.“ nach dem Speichern stehen, nach dem Wechsel
+ * ohne Neuladen über die Schnellsuche zum ersten nicht mehr (#1843). Danach beide Entwürfe wieder gelöscht.
+ */
+async function meldungBeimWechsel(bereich: "rechnungen" | "angebote") {
+  const art = bereich === "rechnungen" ? "Rechnungsentwurf" : "Angebotsentwurf";
+  const kunden = [`Meldekunde ${art} Ost · Rostock`, `Meldekunde ${art} West · Aachen`] as const;
+  const name = (kunde: string) => kunde.split(" · ")[0]!;
+  // Der Entwurf, nicht der Kontakt mit demselben Namen
+  const treffer = (kunde: string) => new RegExp(`${art}\\s*${name(kunde)}`);
+  const speichern = page.getByRole("button", { name: "Entwurf speichern", exact: true });
+  const loeschen = page.getByRole("button", { name: "Entwurf löschen", exact: true });
+  const gespeichert = page.getByRole("status").filter({ hasText: "Entwurf gespeichert." });
+  const sql = postgres(databaseUrlFuer(DURCHLAUF), { max: 1 });
+  try {
+    await sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'e2e', true)`;
+      await tx`insert into contacts (name, ort, land, is_customer, is_supplier)
+        values (${name(kunden[0])}, 'Rostock', 'DE', true, false), (${name(kunden[1])}, 'Aachen', 'DE', true, false)`;
+    });
+    for (const kunde of kunden) {
+      await go(`/${bereich}/neu`);
+      await kundeWaehlen(page, kunde);
+      await page.getByLabel("Beschreibung Position 1").fill("Beratung");
+      await page.getByLabel("Menge Position 1").fill("1");
+      await page.getByLabel(/Einzelpreis Position 1/).fill("100,00");
+      await speichern.click();
+      // „Entwurf löschen“ gibt es erst im Editor des gespeicherten Entwurfs
+      await expect(loeschen).toBeVisible();
+    }
+    // Derselbe Entwurf geändert und gespeichert: Die Meldung bleibt, auch über den Neuaufbau des Editors
+    await page.getByLabel("Beschreibung Position 1").fill("Beratung, zweiter Stand");
+    await speichern.click();
+    await expect(gespeichert).toBeVisible();
+
+    await ueberSchnellsuche(page, name(kunden[0]), treffer(kunden[0]));
+    await expect(page.getByRole("combobox", { name: "Kunde", exact: true })).toHaveValue(kunden[0]);
+    await expect(gespeichert).toHaveCount(0);
+
+    // Nicht festschreiben: die Nummern der übrigen Tests bleiben, wie sie sind
+    await loeschen.click();
+    await bestaetigen(page, "Entwurf löschen");
+    await expect(page).toHaveURL(new RegExp(`/${bereich}(?:\\?.*)?$`));
+    await ueberSchnellsuche(page, name(kunden[1]), treffer(kunden[1]));
+    await loeschen.click();
+    await bestaetigen(page, "Entwurf löschen");
+    await expect(page).toHaveURL(new RegExp(`/${bereich}(?:\\?.*)?$`));
+  } finally {
+    // Nicht in den Zahlen der folgenden Tests
+    await sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'e2e', true)`;
+      await tx`update contacts set archived_at = now() where name in ${sql([name(kunden[0]), name(kunden[1])])}`;
+    });
+    await sql.end();
+  }
+}
+
+test("Rechnungsentwurf: Beim Wechsel ohne Neuladen bleibt die Meldung des vorigen Entwurfs nicht stehen (#1843)", async () => {
+  await meldungBeimWechsel("rechnungen");
+});
+
+test("Angebotsentwurf: Beim Wechsel ohne Neuladen bleibt die Meldung des vorigen Entwurfs nicht stehen (#1843)", async () => {
+  await meldungBeimWechsel("angebote");
+});
+
+test("Speichern schlägt fehl: der Fokus steht danach wieder im Feld, aus dem gespeichert wurde (#1148)", async () => {
+  await go("/rechnungen/neu");
+  await kundeWaehlen(page);
+  const beschreibung = page.getByLabel("Beschreibung Position 1");
+  await beschreibung.fill("Beratung");
+  await page.getByLabel("Menge Position 1").fill("1");
+  await page.getByLabel(/Einzelpreis Position 1/).fill("100,00");
+  // Nur die Anfrage zum Speichern scheitert, die Vorschau nicht
+  const speichern = (url: URL) => url.pathname.startsWith("/_serverFn/");
+  await page.route(speichern, (route) =>
+    route.request().method() === "POST" && route.request().postData()?.includes('"draft"') ? route.abort() : route.fallback(),
+  );
+  // Enter im Feld speichert; während der Anfrage ist das Feld gesperrt und verliert den Fokus
+  await beschreibung.press("Enter");
+  await expect(page.getByRole("alert").filter({ hasText: /fetch|Netzwerk|network/i })).toBeVisible();
+  await expect(beschreibung).toBeEnabled();
+  await expect(beschreibung).toBeFocused();
+  await expect(page).toHaveURL(/\/rechnungen\/neu/);
+  await page.unroute(speichern);
+});
+
+test("Kopieren mit Fehler im Entwurf: der Fokus steht auf dem Feld mit Fehler, nicht auf dem Knopf (#1148)", async () => {
+  await go("/rechnungen/neu");
+  await kundeWaehlen(page);
+  await page.getByLabel("Beschreibung Position 1").fill("Beratung");
+  await page.getByLabel("Menge Position 1").fill("1");
+  await page.getByLabel(/Einzelpreis Position 1/).fill("100,00");
+  await page.getByRole("button", { name: "Entwurf speichern", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Entwurf löschen", exact: true })).toBeVisible();
+  const rabatt = page.getByLabel("Gesamtrabatt (optional)");
+  await rabatt.fill("2000");
+  // Kopieren prüft vorher die Angaben; während die Aktion läuft, sind die Felder gesperrt und nehmen keinen Fokus an
+  await page.getByRole("button", { name: "Kopieren", exact: true }).click();
+  await expect(page.getByText("Der Gesamtrabatt ist höher als die Summe der Positionen")).toBeVisible();
+  await expect(rabatt).toBeFocused();
+  await page.getByRole("button", { name: "Entwurf löschen", exact: true }).click();
+  await bestaetigen(page, "Entwurf löschen");
+  await expect(page).toHaveURL(/\/rechnungen(?:\?.*)?$/);
+});
+
+test("Wiederkehrende Rechnung: Eingaben direkt nach dem Speichern bleiben erhalten (#1793)", async () => {
+  await go("/rechnungen/wiederkehrend/neu");
+  const bezeichnung = page.getByLabel("Bezeichnung");
+  await bezeichnung.fill("Wartung Sperre");
+  await kundeWaehlen(page);
+  await page.getByLabel("Beschreibung Position 1").fill("Wartung");
+  await page.getByLabel(/Einzelpreis Position 1/).fill("100,00");
+  await page.getByRole("button", { name: "Vorlage anlegen" }).click();
+  await page.waitForURL(/\/rechnungen\/wiederkehrend\/[0-9a-f-]{36}$/);
+  // Das Formular der neuen Seite, nicht mehr das von „neu“
+  await expect(page.getByRole("heading", { name: "Wartung Sperre", level: 1 })).toBeVisible();
+
+  await bezeichnung.fill("Wartung gespeichert");
+  await eingabeNachAktion(page, {
+    aktion: page.getByRole("button", { name: "Speichern", exact: true }),
+    feld: bezeichnung,
+    text: "Gleich danach getippt",
+    neuGeladen: page.getByRole("heading", { name: "Wartung gespeichert", level: 1 }),
+  });
+});
+
+test("Wiederkehrende Rechnung: Kurz nacheinander gespeichert, baut sich das Formular jedes Mal neu auf (#1804)", async () => {
+  // Die Vorlage aus dem Test davor
+  await kurzNacheinanderSpeichern({
+    feld: page.getByLabel("Bezeichnung"),
+    speichern: page.getByRole("button", { name: "Speichern", exact: true }),
+    texte: ["Wartung eins", "Wartung zwei", "Wartung drei"],
+  });
+});
+
+test("Wiederkehrende Rechnung: Speichern schlägt fehl, der Fokus steht danach wieder im Feld (#1793)", async () => {
+  // Die Vorlage aus den Tests davor
+  await fokusNachFehlschlag(page, page.getByLabel("Bezeichnung"));
+  // Die Vorlage gehört nur diesen drei Tests
+  await page.getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(page, "Vorlage löschen");
+  await expect(page).toHaveURL(/\/rechnungen\/wiederkehrend(?:\?.*)?$/);
 });
 
 test("Artikel-API: Rechte, Anlegen, Suchen und Ändern im Katalog (#297)", async ({ request }) => {

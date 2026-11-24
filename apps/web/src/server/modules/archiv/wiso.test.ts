@@ -119,7 +119,7 @@ describe.skipIf(!testDatabaseUrl)("WISO-Import (Postgres)", () => {
         '{"status":"paid","openAmount":0,"paidDate":"2026-01-15","items":[{"type":"payment","date":"2026-01-15","amount":11900}]}',
         '{"ohneBeleg":true,"rows":[{"zahlungsdatum":"2026-01-15","buchungsdatum":"2026-02-03"}]}') returning *`;
     const before = await sql`select * from audit_log order by id`;
-    const { legacyVoucherDetail, findLegacyVouchers } = await import("./lexoffice.ts");
+    const { legacyVoucherDetail, findLegacyVouchers } = await import("./umzug-belege.ts");
     const dates = source === "wiso" ? { serviceFrom: null, serviceTo: null } : { serviceFrom: "2026-01-15", serviceTo: "2026-01-15" };
     const detail = await legacyVoucherDetail(row!.id);
     expect(detail!.voucher).toMatchObject({ source, date: "2026-01-15", ...dates, net: 10000, tax: 1900, gross: 11900 });
@@ -140,7 +140,7 @@ describe.skipIf(!testDatabaseUrl)("WISO-Import (Postgres)", () => {
     ]);
     await wiso.startWisoImport("test-user", bytes, "wiso-ist.csv");
 
-    const { reconciliation } = await import("./lexoffice.ts");
+    const { reconciliation } = await import("./umzug-abgleich.ts");
     const jahr = (await reconciliation()).years.find((y) => y.year === 2026)!;
     const januar = jahr.vat.find((m) => m.month === "2026-01")!;
     expect({ kz81: januar.kz81, tax81: januar.tax81, kz66: januar.kz66 }).toEqual({ kz81: 16807, tax81: 3193, kz66: 1084 });
@@ -169,7 +169,7 @@ describe.skipIf(!testDatabaseUrl)("WISO-Import (Postgres)", () => {
     const [row] = await sql`select net, tax, gross from lexoffice_vouchers where lexoffice_id = 'wiso/2026/8'`;
     expect(row).toEqual({ net, tax: 0, gross: net });
 
-    const { reconciliation } = await import("./lexoffice.ts");
+    const { reconciliation } = await import("./umzug-abgleich.ts");
     const januar = (await reconciliation()).years.find((y) => y.year === 2026)!.vat.find((m) => m.month === "2026-01")!;
     expect(januar.kz66).toBe(0);
   });

@@ -6,7 +6,7 @@ import { sevdeskFakeFetch } from "./test-sevdesk-api.ts";
 /* Das Stornopaar gilt laut docs/sevdesk.md nur, „wenn zu beiden keine Zahlung besteht; sonst bleibt der Stand unklar“ (#472). */
 describe.skipIf(!testDatabaseUrl)("Einzelzahlungen zu einem sevDesk-Stornopaar im Abruf (Postgres)", () => {
   let sql: postgres.Sql;
-  let archive: typeof import("./lexoffice.ts");
+  let archive: typeof import("./umzug-belege.ts");
   let sevdesk: typeof import("./sevdesk.ts");
   let importPkg: typeof import("@haben/import");
 
@@ -50,7 +50,7 @@ describe.skipIf(!testDatabaseUrl)("Einzelzahlungen zu einem sevDesk-Stornopaar i
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    archive = await import("./lexoffice.ts");
+    archive = await import("./umzug-belege.ts");
     sevdesk = await import("./sevdesk.ts");
     importPkg = await import("@haben/import");
     await sql`insert into company (id, name, strasse, plz, ort, email, telefon, steuernummer, ust_id, bundesland, iban, versteuerung, kontenrahmen)

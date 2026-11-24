@@ -24,14 +24,22 @@ const KONTEN: Record<string, [string | null, string | null]> = {
 
 describe.skipIf(!testDatabaseUrl)("Kategorien aus dem Buchungskonto von sevDesk (Postgres)", () => {
   let sql: postgres.Sql;
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") &
+    typeof import("./umzug-abgleich.ts") &
+    typeof import("./umzug-belege.ts") &
+    typeof import("./umzug-umsatzsteuer.ts");
   let legacy: typeof import("./legacy-open.ts");
   let storage: typeof import("../../storage.ts");
   let importId: string;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = {
+      ...(await import("./lexoffice.ts")),
+      ...(await import("./umzug-abgleich.ts")),
+      ...(await import("./umzug-belege.ts")),
+      ...(await import("./umzug-umsatzsteuer.ts")),
+    };
     legacy = await import("./legacy-open.ts");
     storage = await import("../../storage.ts");
   }, 30_000);

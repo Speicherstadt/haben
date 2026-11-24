@@ -15,7 +15,7 @@ import { json, sevdeskFakeFetch } from "./test-sevdesk-api.ts";
 // #343: Einzelzahlungen aus sevDesk mit Datum, Betrag, Konto und Belegbezug statt einer Verdichtung am letzten Zahltag.
 describe.skipIf(!testDatabaseUrl)("sevDesk-Einzelzahlungen (Postgres)", () => {
   let sql: postgres.Sql;
-  let archive: typeof import("./lexoffice.ts");
+  let archive: typeof import("./umzug-abgleich.ts") & typeof import("./umzug-belege.ts") & typeof import("./umzug-umsatzsteuer.ts");
   let legacy: typeof import("./legacy-open.ts");
   let sevdesk: typeof import("./sevdesk.ts");
   let importPkg: typeof import("@haben/import");
@@ -41,7 +41,7 @@ describe.skipIf(!testDatabaseUrl)("sevDesk-Einzelzahlungen (Postgres)", () => {
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    archive = await import("./lexoffice.ts");
+    archive = { ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-belege.ts")), ...(await import("./umzug-umsatzsteuer.ts")) };
     legacy = await import("./legacy-open.ts");
     sevdesk = await import("./sevdesk.ts");
     importPkg = await import("@haben/import");
