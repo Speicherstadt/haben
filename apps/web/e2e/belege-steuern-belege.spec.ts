@@ -13,6 +13,7 @@ import {
   weitereAngabenOeffnen,
   ohneAxeVerstoesse,
   trefferliste,
+  ueberSchnellsuche,
 } from "./einrichtung.ts";
 import { LAPTOP, sichtbar } from "./kopfzeile.ts";
 import { abzugEinspielen } from "./abzug.ts";
@@ -481,6 +482,46 @@ test("Dauerbeleg: Pausieren, Fortsetzen und Beenden fragen bei ungespeicherten �
   await page.getByRole("button", { name: "Löschen", exact: true }).click();
   await bestaetigen(page, "Vorlage löschen");
   await expect(page).toHaveURL(/\/dauerbelege(?:\?.*)?$/);
+});
+
+test("Dauerbeleg: Wechsel ohne Neuladen zu einem mit gleichem Zeitstempel zeigt dessen Angaben, die Meldung des vorigen geht (#1839)", async () => {
+  const sql = postgres(databaseUrlFuer(DURCHLAUF), { max: 1 });
+  const termin = day(30);
+  const betrag = (net: number) => JSON.stringify([{ taxRate: 1900, net, tax: Math.round(net * 0.19) }]);
+  const bezeichnung = page.getByLabel("Bezeichnung");
+  const lieferant = page.getByLabel("Lieferant", { exact: true });
+  const gespeichert = page.getByRole("status").filter({ hasText: "Gespeichert." });
+  try {
+    // Zwei pausierte Vorlagen ohne Datei in einer Anweisung, also mit demselben updated_at
+    await sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'e2e', true)`;
+      await tx`insert into recurring_documents (name, status, supplier_name, category, amounts, recurrence, anchor_day, start_date, next_date)
+        values ('Stellplatz Wechsel Nord', 'pausiert', 'Parkhaus Nord GmbH', 'miete', ${betrag(5000)}::jsonb, 'P1M', ${Number(termin.slice(8))}, ${termin}, ${termin}),
+          ('Stellplatz Wechsel Süd', 'pausiert', 'Parkhaus Süd GmbH', 'miete', ${betrag(7000)}::jsonb, 'P1M', ${Number(termin.slice(8))}, ${termin}, ${termin})`;
+    });
+    await go("/dauerbelege");
+    await ueberSchnellsuche(page, "Stellplatz Wechsel Nord", /Stellplatz Wechsel Nord/);
+    await expect(page.getByRole("heading", { level: 1, name: "Stellplatz Wechsel Nord" })).toBeVisible();
+    await expect(lieferant).toHaveValue("Parkhaus Nord GmbH");
+    await ueberSchnellsuche(page, "Stellplatz Wechsel Süd", /Stellplatz Wechsel Süd/);
+    await expect(page.getByRole("heading", { level: 1, name: "Stellplatz Wechsel Süd" })).toBeVisible();
+    await expect(bezeichnung).toHaveValue("Stellplatz Wechsel Süd");
+    await expect(lieferant).toHaveValue("Parkhaus Süd GmbH");
+    await expect(page.getByLabel("Netto 1")).toHaveValue("70,00");
+
+    // Gespeichert, dann zurück: Die Meldung gehört zur anderen Vorlage
+    await page.getByRole("button", { name: "Speichern", exact: true }).click();
+    await expect(gespeichert).toBeVisible();
+    await ueberSchnellsuche(page, "Stellplatz Wechsel Nord", /Stellplatz Wechsel Nord/);
+    await expect(bezeichnung).toHaveValue("Stellplatz Wechsel Nord");
+    await expect(gespeichert).toHaveCount(0);
+  } finally {
+    await sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'e2e', true)`;
+      await tx`delete from recurring_documents where name like 'Stellplatz Wechsel %'`;
+    });
+    await sql.end();
+  }
 });
 
 test("Beleg mit § 13b: Steuer selbst berechnet, gezahlt wird netto", async ({ browser }) => {
@@ -1140,6 +1181,62 @@ test("Lieferant im Kontaktverzeichnis und im Beleg auswählen", async ({ browser
     await page.getByRole("button", { name: "Archivieren" }).click();
     await expect(page.getByRole("button", { name: "Wiederherstellen" })).toBeVisible();
   }
+});
+
+test("Beleg prüfen: Lieferant im Dialog anlegen speichert den Beleg nicht mit (#1835)", async ({ browser }) => {
+  await go("/belege");
+  await page
+    .locator("input[type=file][multiple]")
+    .setInputFiles([{ name: "kopierwerk.jpg", mimeType: "image/jpeg", buffer: await receiptJpeg(browser, "Kopierwerk Nord GmbH") }]);
+  await expect(page.getByText("kopierwerk.jpg: abgelegt.")).toBeVisible();
+  await page
+    .getByRole("link", { name: /kopierwerk\.jpg/ })
+    .first()
+    .click();
+  await page.waitForURL(/belege\/[0-9a-f-]{36}$/);
+  await page.waitForLoadState("networkidle");
+  const id = page.url().split("/").pop()!;
+  // Vollständig und gespeichert, danach eine Änderung: Ein Absenden des Belegs würde wirklich speichern
+  await page.getByLabel("Lieferant", { exact: true }).fill("Kopierwerk Nord GmbH");
+  await page.getByLabel("Rechnungsnummer").fill("KN-1");
+  await page.getByLabel("Belegdatum").fill(day(-4));
+  await waehleKategorie(page.getByLabel("Kategorie"), "telefon");
+  await page.getByRole("group", { name: "Beträge je Steuersatz" }).getByLabel("Brutto", { exact: true }).fill("119,00");
+  const speichern = page.getByRole("button", { name: "Speichern", exact: true });
+  await speichern.click();
+  await expect(speichern).toBeDisabled();
+  await page.getByLabel("Rechnungsnummer").fill("KN-2");
+  await expect(speichern).toBeEnabled();
+
+  const sql = postgres(databaseUrlFuer(DURCHLAUF), { max: 1 });
+  try {
+    const stand = async () => (await sql`select invoice_number, updated_at from documents where id = ${id}`)[0];
+    const vorher = await stand();
+    expect(vorher?.invoice_number).toBe("KN-1");
+    const dialog = page.getByRole("dialog", { name: "Neuen Lieferanten anlegen" });
+    await neuenLieferantenOeffnen(page);
+    await expect(dialog.getByLabel("Name oder Firma")).toHaveValue("Kopierwerk Nord GmbH");
+    const aufrufe = serverAufrufe(page);
+    await dialog.getByRole("button", { name: "Kontakt anlegen" }).click();
+    await expect(dialog).toBeHidden();
+    await aufrufe.fertig();
+    // Der neue Kontakt steht im Feld, die Änderung bleibt ungespeichert: Das Absenden im Dialog erreicht das Belegformular nicht
+    await expect(page.getByLabel("Lieferant", { exact: true })).toHaveAccessibleDescription("Aus den Kontakten gewählt.");
+    await expect(page.getByLabel("Rechnungsnummer")).toHaveValue("KN-2");
+    await expect(speichern).toBeEnabled();
+    expect(await stand()).toEqual(vorher);
+  } finally {
+    await sql.end();
+  }
+
+  // Nicht buchen: Beleg löschen und den Lieferanten archivieren, damit die folgenden Tests unverändert rechnen
+  await page.getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(page, "Beleg löschen");
+  await page.waitForURL(/\/belege$/);
+  await go("/kontakte?rolle=lieferant");
+  await page.getByRole("link", { name: /Kopierwerk Nord GmbH/ }).click();
+  await page.getByRole("button", { name: "Archivieren" }).click();
+  await expect(page.getByRole("button", { name: "Wiederherstellen" })).toBeVisible();
 });
 
 test("Dauerbeleg: Lieferanten suchen und direkt anlegen, ohne die Eingaben zu verlieren", async () => {
