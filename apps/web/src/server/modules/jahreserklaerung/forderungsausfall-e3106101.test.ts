@@ -139,6 +139,20 @@ describe.skipIf(!testDatabaseUrl)("Forderungsausfall in E3106101 (Postgres)", ()
     expect((await annual.ustYear(2025)).figures).toMatchObject({ base19: 200_000, base7: 100_000, kz50: 150_000 });
   });
 
+  it("Soll (SKR04), vierteljährlich: Ausfall und Wiedereingang im selben Quartal heben sich auf, wie in Kz 50 des Quartals", async () => {
+    await firma("SKR04", "soll");
+    await sql`insert into vat_frequencies (year, from_month, frequency) values (2025, 1, 'vierteljaehrlich')`;
+    const inv = await rechnung();
+    await rechnung();
+    await forderungsausfall(inv.id, "2025-10-05");
+    const [w] = await bank.listWriteOffs({ invoiceId: inv.id });
+    await bank.reverseWriteOff(actor, w!.id, "2025-11-03");
+
+    // Die Voranmeldung für das 4. Quartal meldet keine Kz 50; die Summe der Voranmeldungen des Jahres ist 0
+    expect((await vat.computeVatFigures({ year: 2025, month: 44 })).kz50).toBe(0);
+    expect((await annual.ustYear(2025)).figures).toMatchObject({ base19: 200_000, base7: 100_000, kz50: 0 });
+  });
+
   it("Abgleich: Kz 650 zählt nur, wenn die übermittelte Erklärung sie festhält", async () => {
     await firma("SKR04", "soll");
     const inv = await rechnung();
