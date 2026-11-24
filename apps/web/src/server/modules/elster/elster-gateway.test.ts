@@ -121,7 +121,7 @@ describe.skipIf(!testDatabaseUrl)("ELSTER-Gateway (Postgres)", () => {
   it("zählt die Antworten von ERiC für /api/metrics nach Vorgang und Ergebnis, eine fehlende PIN nicht", async () => {
     const metriken = await import("../../metriken.ts");
     metriken.resetMetrics();
-    const zaehler = () => metriken.renderMetrics({ version: null, commit: null, up: true }).match(/^haben_elster_submissions_total\{.*$/gm);
+    const zaehler = () => metriken.metricsText({ version: null, commit: null, up: true }).match(/^haben_elster_submissions_total\{.*$/gm);
     const u = (vorgang: "validate" | "test") => ({
       sperre: "haben.test.metriken",
       vorgang,

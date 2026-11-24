@@ -141,7 +141,7 @@ describe("Scheduler", () => {
       jobs.runDueFileCheck.mockResolvedValue(null);
       await scheduler.runScheduledJobs();
       await vi.waitFor(() => expect(jobs.runDuePruefwertMail).toHaveBeenCalledOnce());
-      const erster = metriken.renderMetrics({ version: null, commit: null, up: true });
+      const erster = metriken.metricsText({ version: null, commit: null, up: true });
       const wert = (text: string, reihe: string) =>
         text
           .split("\n")
@@ -159,7 +159,7 @@ describe("Scheduler", () => {
 
       jobs.runDueFintsSyncs.mockResolvedValue({ synced: 1, added: 3, errors: [] });
       await scheduler.runScheduledJobs();
-      const zweiter = metriken.renderMetrics({ version: null, commit: null, up: true });
+      const zweiter = metriken.metricsText({ version: null, commit: null, up: true });
       expect(wert(zweiter, 'haben_job_failures_total{task="fints_sync"}')).toBe("1");
       expect(wert(zweiter, 'haben_job_last_success_timestamp_seconds{task="fints_sync"}')).toBe(
         wert(zweiter, 'haben_job_last_run_timestamp_seconds{task="fints_sync"}'),

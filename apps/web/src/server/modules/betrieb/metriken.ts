@@ -3,8 +3,7 @@ import { readAppVersion } from "../../db/app-version.ts";
 import { createHealthProbe, type HealthStatus } from "../../db/health.ts";
 import { db } from "../../db/index.ts";
 import { env } from "../../env.ts";
-import { renderMetrics } from "../../metriken.ts";
-import { backupOverview } from "./backup-status.ts";
+import { metricsText } from "../../metriken.ts";
 
 let probe: (() => Promise<HealthStatus>) | undefined;
 
@@ -35,14 +34,7 @@ export async function metricsResponse(request: Request, options: MetricsOptions 
 
   probe ??= createHealthProbe(db.$client);
   const up = (await probe()) === "pass";
-  // Ohne erreichbare Datenbank fehlt nur der Stand des Backups; Zähler und haben_up kommen trotzdem
-  const backup = up
-    ? await backupOverview().then(
-        (o) => ({ backup: o.lastBackup?.at ?? null, restoreCheck: o.lastCheck?.at ?? null }),
-        () => undefined,
-      )
-    : undefined;
   const commit = options.commit !== undefined ? options.commit : env().HABEN_COMMIT?.trim() || null;
-  const body = renderMetrics({ version: readAppVersion(), commit, up, backup });
+  const body = metricsText({ version: readAppVersion(), commit, up });
   return new Response(body, { headers: { "Content-Type": "text/plain; version=0.0.4; charset=utf-8", "Cache-Control": "no-store" } });
 }

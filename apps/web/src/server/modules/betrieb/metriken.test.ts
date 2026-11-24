@@ -22,7 +22,6 @@ describe.skipIf(!testDatabaseUrl)("GET /api/metrics (Postgres)", () => {
 
   beforeEach(async () => {
     metriken.resetMetrics();
-    await sql`delete from backup_status`;
     await leeren(sql)`truncate company cascade`;
   });
 
@@ -35,12 +34,9 @@ describe.skipIf(!testDatabaseUrl)("GET /api/metrics (Postgres)", () => {
     expect((await betrieb.metricsResponse(get(`Basic ${TOKEN}`), { token: TOKEN })).status).toBe(401);
   });
 
-  it("meldet mit Token Version, Health, Jobs und Backup, aber nichts aus der Buchhaltung", async () => {
+  it("meldet mit Token Version, Health, Jobs und ELSTER, aber nichts aus der Buchhaltung", async () => {
     await sql`insert into company (id, name, strasse, plz, ort, steuernummer, bundesland, email, iban)
       values (1, 'Leckprobe Handels GmbH', 'Geheimweg 7', '93047', 'Regensburg', '198/113/10010', 'BY', 'chefin@leckprobe.example', 'DE89370400440532013000')`;
-    await sql`insert into backup_status (kind, ok, at, snapshot, bytes, message)
-      values ('backup', true, '2026-11-24T03:15:00Z', 'a1b2c3d4', 98765, ''),
-             ('restore_check', false, '2026-11-24T04:00:00Z', null, null, 'Leckprobe Handels GmbH: Fatal: wrong password')`;
     metriken.recordJobRun("bank_sync", false);
     metriken.recordElsterSubmission("send", true);
 
@@ -53,8 +49,6 @@ describe.skipIf(!testDatabaseUrl)("GET /api/metrics (Postgres)", () => {
     expect(text).toMatch(/^haben_up 1$/m);
     expect(text).toMatch(/^haben_job_failures_total\{task="bank_sync"\} 1$/m);
     expect(text).toMatch(/^haben_elster_submissions_total\{kind="send",result="ok"\} 1$/m);
-    expect(text).toContain(`haben_backup_last_success_timestamp_seconds{kind="backup"} ${Date.parse("2026-11-24T03:15:00Z") / 1000}\n`);
-    expect(text).not.toContain('kind="restore_check"');
-    expect(text).not.toMatch(/Leckprobe|Geheimweg|chefin|DE89|98765|a1b2c3d4|198\/113/);
+    expect(text).not.toMatch(/Leckprobe|Geheimweg|chefin|DE89|198\/113/);
   });
 });
