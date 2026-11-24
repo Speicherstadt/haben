@@ -93,7 +93,7 @@ Beim Buchen eines Belegs mit der Kategorie **Anlagegut** bucht Haben den Nettobe
 
 Die Vorsteuer zählt wie bei jedem Beleg in der Voranmeldung und, sobald bezahlt, in der EÜR. Der Kaufpreis selbst ist keine Ausgabe; er wirkt nur über die AfA. Der nicht abziehbare Teil der Vorsteuer gehört zu den Anschaffungskosten. Für Anlagen aus innergemeinschaftlichem Erwerb gelten die [Grenzen der Belegbuchung](belege.md#grenzen).
 
-Die Anlage übernimmt Datum und Betrag vom Beleg. Art und Anlagekonto stehen damit fest. Abschreibung (außer GWG und Sammelposten), Nutzungsdauer, degressiven Satz und Erinnerungswert kannst du bis zur ersten gebuchten AfA auf der Seite der Anlage noch ändern; bei degressiver AfA nimmt Haben zuerst den Höchstsatz. Von der Anlage führt ein Link zum Beleg und umgekehrt.
+Die Anlage übernimmt Datum und Betrag vom Beleg. Art und Anlagekonto stehen damit fest. Abschreibung (außer GWG und Sammelposten), Nutzungsdauer, degressiven Satz und Erinnerungswert kannst du bis zur ersten gebuchten AfA auf der Seite der Anlage noch ändern; bei degressiver AfA nimmt Haben zuerst den Höchstsatz. Bis die gespeicherte Anlage geladen ist, sind die Felder kurz gesperrt, damit keine Eingabe verloren geht. Von der Anlage führt ein Link zum Beleg und umgekehrt.
 
 Gutschriften zu Anlagen, etwa ein nachträglicher Rabatt, werden nicht unterstützt.
 

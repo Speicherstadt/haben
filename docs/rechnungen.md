@@ -481,7 +481,7 @@ Stornorechnung und Rechnungskorrektur übernehmen die Sprache der ursprüngliche
 
 ## Wiederkehrende Rechnungen
 
-Für Wochen- und Monatspauschalen, Wartungsverträge oder Hosting legst du unter **Rechnungen › Wiederkehrend › Neue Vorlage** eine Vorlage an. Haben erzeugt daraus zu jedem Termin eine Rechnung.
+Für Wochen- und Monatspauschalen, Wartungsverträge oder Hosting legst du unter **Rechnungen › Wiederkehrend › Neue Vorlage** eine Vorlage an. Haben erzeugt daraus zu jedem Termin eine Rechnung. Bis die gespeicherte Vorlage geladen ist, sind die Felder kurz gesperrt, damit keine Eingabe verloren geht.
 
 | Feld | Bedeutung |
 |---|---|
