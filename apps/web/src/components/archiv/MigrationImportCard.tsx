@@ -21,6 +21,7 @@ import { SevdeskFileFacts } from "./Dateistand.tsx";
 import { ImportWaitNotice } from "./FastbillTeile.tsx";
 import { Field } from "../Field.tsx";
 
+import { ausgelassenText } from "./ausgelassen-text.ts";
 import { type ConnectedSource, type ImportRow, SOURCES } from "./migration-quellen.ts";
 
 /* Abruf aus einer Quelle mit Fortschritt und Abbruch (Migration.tsx) */
@@ -273,26 +274,10 @@ function ImportProgress({
 }
 
 function OmittedVouchers({ progress }: { progress: NonNullable<ImportRow["progress"]> }) {
-  const omitted = progress.webOmitted;
-  if (omitted) {
-    const counts = [
-      [omitted.drafts, "Entwurf", "Entwürfe"],
-      [omitted.quotations, "Angebot", "Angebote"],
-      [omitted.orderConfirmations, "Auftragsbestätigung", "Auftragsbestätigungen"],
-      [omitted.deliveryNotes, "Lieferschein", "Lieferscheine"],
-      [omitted.other, "sonstigen Vorgang", "sonstige Vorgänge"],
-    ] as const;
-    const parts = counts.filter(([count]) => count > 0).map(([count, singular, plural]) => `${count} ${count === 1 ? singular : plural}`);
-    return (
-      <p className="small muted" style={{ margin: 0 }}>
-        Die Sicherung lässt {parts.length ? parts.join(", ") : "keine Vorgänge"} aus.
-      </p>
-    );
-  }
-  const drafts = progress.ignored?.drafts ?? 0;
-  return drafts > 0 ? (
+  const text = ausgelassenText(progress);
+  return text ? (
     <p className="small muted" style={{ margin: 0 }}>
-      Übergangen, kein Beleg: {drafts} {drafts === 1 ? "Entwurf" : "Entwürfe"}
+      {text}
     </p>
   ) : null;
 }
