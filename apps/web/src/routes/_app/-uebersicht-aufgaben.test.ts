@@ -187,6 +187,37 @@ describe("Übersicht: Voranmeldung vor dem ersten Buchungsmonat", () => {
   });
 });
 
+describe("Übersicht: Kennzahl „USt-Zahllast“ vor dem ersten Buchungsmonat", () => {
+  // Die Kennzahlenreihe erscheint erst, wenn es Zahlen gibt (ohneKennzahlen)
+  const mitZahlen = (start: string) => {
+    data.period = { year: 2026, month: 43 };
+    data.dueDate = "2026-10-12";
+    data.ersterBuchungsmonat = start;
+    data.invoices.openCount = 1;
+  };
+
+  it("ein Zeitraum vor dem ersten Buchungsmonat zeigt keine fällige Voranmeldung", () => {
+    mitZahlen("2026-11");
+    const html = render();
+    expect(html).toContain("Offene Forderungen");
+    expect(html).not.toContain("Voranmeldung fällig");
+    expect(html).not.toContain("USt-Zahllast");
+  });
+
+  it("ab dem Startmonat bleibt die Karte wie bisher", () => {
+    mitZahlen("2026-09");
+    expect(render()).toContain(`Voranmeldung fällig ${formatDate("2026-10-12")}`);
+  });
+
+  it("mit gespeichertem Entwurf bleibt alles wie bisher: Aufgabe und Karte", () => {
+    mitZahlen("2026-11");
+    data.current = { status: "draft", kz83: 0 } as unknown as typeof data.current;
+    const html = render();
+    expect(titel(html)).toContain("Voranmeldung 3. Quartal 2026 senden");
+    expect(html).toContain(`Voranmeldung fällig ${formatDate("2026-10-12")}`);
+  });
+});
+
 describe("Übersicht: Aufgaben zur Bank", () => {
   it("Steuerkonto, Zahlungsdienstleister und offene Umsätze nennen Konto, Zahl und Betrag", () => {
     data.computedKz83 = 100000;
