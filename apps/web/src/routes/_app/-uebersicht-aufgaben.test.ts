@@ -47,6 +47,8 @@ function fixture() {
     vatPaid: 0,
     vatOpen: [] as unknown[],
     dueDate: inTagen(30),
+    /** Erster Buchungsmonat (JJJJ-MM); ohne Buchung der heutige Monat */
+    ersterBuchungsmonat: "2026-01",
     exempt: false,
     kleinunternehmer: false,
     afaPending: [] as unknown[],
@@ -139,6 +141,38 @@ describe("Übersicht: Reihenfolge der Aufgaben", () => {
     data.exempt = true;
     expect(titel(render())).toEqual([]);
     expect(render()).toContain("Alles erledigt.");
+  });
+});
+
+describe("Übersicht: Voranmeldung vor dem ersten Buchungsmonat", () => {
+  // Wie die Fristen (finanzamt/fristen.ts): Was vor dem Start in Haben endete, ist nicht in Haben zu melden, sondern lag davor
+  const quartal3 = { year: 2026, month: 43 };
+
+  it("ein Zeitraum, der vor dem ersten Buchungsmonat endete, steht nicht als fällig oder überfällig da", () => {
+    data.period = quartal3;
+    data.dueDate = "2026-10-12";
+    data.ersterBuchungsmonat = "2026-11";
+    expect(titel(render())).toEqual([]);
+    expect(render()).not.toContain("Fällig");
+  });
+
+  it("ab dem Monat, in dem der Zeitraum endet, bleibt die Aufgabe wie bisher", () => {
+    data.period = quartal3;
+    data.dueDate = "2026-10-12";
+    data.ersterBuchungsmonat = "2026-09";
+    expect(aufgabe(render(), "Voranmeldung 3. Quartal 2026 senden")).toEqual({
+      href: "/umsatzsteuer/$zeitraum",
+      detail: `Fällig ${formatLongDate("2026-10-12")}`,
+    });
+    data.ersterBuchungsmonat = "2026-07";
+    expect(titel(render())).toEqual(["Voranmeldung 3. Quartal 2026 senden"]);
+  });
+
+  it("Steuerkonto und unbezahlte Voranmeldungen früherer Zeiträume bleiben davon unberührt", () => {
+    data.period = quartal3;
+    data.ersterBuchungsmonat = "2026-11";
+    data.vatOpen = [{ vatReturnId: "v2", year: 2026, month: 42, offen: 1900, faellig: inTagen(-5), berichtigt: false }];
+    expect(titel(render())).toEqual(["Umsatzsteuer 2. Quartal 2026 nicht bezahlt"]);
   });
 });
 
