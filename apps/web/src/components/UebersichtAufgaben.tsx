@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { daysUntil } from "../lib/format.ts";
 import type { SettingsArea } from "../lib/settings-areas.ts";
+import { useBescheidAbhaken } from "../routes/_app/-uebersicht-abhaken.ts";
 
 export interface Todo {
   /** Nur bei Einträgen aus Listen nötig; sonst ist der Titel eindeutig */
@@ -44,16 +45,7 @@ const nah = (todo: Todo) => !!todo.frist && daysUntil(todo.frist) <= FRIST_NAH_T
 export const ordneAufgaben = (todos: Todo[]) =>
   [...todos].sort((a, b) => Number(!nah(a)) - Number(!nah(b)) || (nah(a) ? a.frist!.localeCompare(b.frist!) : 0) || RANG[a.tone] - RANG[b.tone]);
 
-function Eintrag({
-  todo,
-  zeitraum,
-  onErledigen,
-}: {
-  todo: Todo;
-  zeitraum: string;
-  /** Hakt einen Bescheid ab; die Seite reicht die Server Function herein, damit diese Komponente ohne Datenbank prüfbar bleibt */
-  onErledigen?: (id: string) => Promise<void>;
-}) {
+function Eintrag({ todo, zeitraum, onErledigen }: { todo: Todo; zeitraum: string; onErledigen: (id: string) => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const inhalt = (
     <>
@@ -76,10 +68,10 @@ function Eintrag({
       </Link>
     );
   const erledigen = todo.erledigen?.id ?? null;
-  if (erledigen === null || !onErledigen) return link;
+  if (erledigen === null) return link;
   // Der Knopf steht neben dem Link, nicht darin: Ein Knopf im Link wäre kein gültiges Markup und würde beim Klick mitnavigieren.
   async function abhaken() {
-    if (erledigen === null || !onErledigen) return;
+    if (erledigen === null) return;
     setBusy(true);
     try {
       await onErledigen(erledigen);
@@ -98,7 +90,9 @@ function Eintrag({
 }
 
 /** „Zu erledigen“ (#1253): die drei dringendsten Einträge (`ordneAufgaben`), der Rest zugeklappt unter „Weitere (n)“; nichts entfällt */
-export function UebersichtAufgaben({ geordnet, zeitraum, onErledigen }: { geordnet: Todo[]; zeitraum: string; onErledigen?: (id: string) => Promise<void> }) {
+export function UebersichtAufgaben({ geordnet, zeitraum }: { geordnet: Todo[]; zeitraum: string }) {
+  // Der Hook holt die Server Function; in den Tests ist sie gemockt, damit die Komponente ohne Datenbank läuft
+  const onErledigen = useBescheidAbhaken();
   const weitere = geordnet.slice(ZUERST);
   return (
     <section className="card" aria-labelledby="todo-heading">

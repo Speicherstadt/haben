@@ -9,7 +9,6 @@ import { UebersichtKennzahlen, ohneKennzahlen, type UebersichtDaten } from "../.
 import { getBackupStatus } from "../../server/functions/backup.ts";
 import { getInvoiceSummary } from "../../server/functions/invoices.ts";
 import { getOverview } from "../../server/functions/vat.ts";
-import { useBescheidAbhaken } from "./-uebersicht-abhaken.ts";
 import { einrichtungsAufgaben } from "../../lib/einrichtung.ts";
 
 export const Route = createFileRoute("/_app/")({
@@ -189,7 +188,6 @@ function einstellungsAufgaben(data: UebersichtDaten, backup: Awaited<ReturnType<
 
 function OverviewPage() {
   const data = Route.useLoaderData();
-  const abhaken = useBescheidAbhaken();
   const key = periodKey(data.period);
   const sent = data.current?.status === "sent";
   const vatRequired = !data.kleinunternehmer && !data.exempt;
@@ -277,7 +275,7 @@ function OverviewPage() {
 
       {data.kleinunternehmerStand && <KleinunternehmerHinweise stand={data.kleinunternehmerStand} />}
 
-      <UebersichtAufgaben geordnet={geordnet} zeitraum={key} onErledigen={abhaken} />
+      <UebersichtAufgaben geordnet={geordnet} zeitraum={key} />
 
       {!ohneKennzahlen(data) && (
         <UebersichtKennzahlen
