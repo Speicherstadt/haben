@@ -10,4 +10,6 @@ export const SETTINGS_EXPORT_FORMAT = "haben-einstellungen";
 // bekommen false (articleInputSchema).
 // 4: Standard-Textbaustein je Mahnstufe statt „mahnung“ (#1678). Ein Standard „mahnung“ einer älteren Datei gilt danach
 // für jede Stufe (alterMahnungsStandard in stammdaten/uebernahme.ts).
-export const SETTINGS_EXPORT_VERSION = 4;
+// 5: weitere Bankverbindungen und die Bankverbindung am Kontakt (#1887). Eine ältere Datei hat keine; ihre Kontakte
+// bekommen den Standard.
+export const SETTINGS_EXPORT_VERSION = 5;

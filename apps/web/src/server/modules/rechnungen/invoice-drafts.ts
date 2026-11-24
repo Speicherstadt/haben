@@ -133,6 +133,20 @@ function draftValues(input: DraftInput, bundesland: Company["bundesland"], lines
   return { values, calculation, taxes };
 }
 
+/**
+ * Bankverbindung des Entwurfs (#1887). Eine Lastschrift zieht auf das Gläubigerkonto aus den Firmendaten ein: dann gilt
+ * der Standard, auch für Storno und Korrektur, die die Bankverbindung der Rechnung übernehmen.
+ */
+function entwurfsBankverbindung(
+  tx: Tx,
+  values: { contactId: string | null; paymentMethod: string },
+  gewaehlt: string | null | undefined,
+  bisher: { bankverbindungId: string | null; contactId: string | null } | null,
+): Promise<string | null> {
+  if (values.paymentMethod === "lastschrift") return Promise.resolve(null);
+  return bankverbindungFuerEntwurf(tx, gewaehlt, values.contactId, bisher, (m) => new InvoiceError(m));
+}
+
 type DraftExtra = Partial<Pick<Invoice, "kind" | "correctsId" | "recurringId" | "recurringDate" | "externalSource" | "externalId" | "paymentPlanRow">>;
 
 /** Rechnungen gehen an Kunden; ein Lieferant oder ein unbekannter Kontakt passt nicht */
@@ -182,7 +196,7 @@ export async function insertDraft(tx: Tx, draft: DraftInput, extra: DraftExtra =
         .from(schema.invoices)
         .where(eq(schema.invoices.id, extra.correctsId))
     : [];
-  const bankverbindungId = await bankverbindungFuerEntwurf(tx, input.bankverbindungId, values.contactId, original ?? null, (m) => new InvoiceError(m));
+  const bankverbindungId = await entwurfsBankverbindung(tx, values, input.bankverbindungId, original ?? null);
   const [invoice] = await tx
     .insert(schema.invoices)
     .values({ ...values, ...extra, bankverbindungId, replacesInvoiceId: input.replacesInvoiceId ?? null })
@@ -235,7 +249,7 @@ export async function updateDraft(actor: string, id: string, proposed: DraftInpu
     if (personProblem) throw new InvoiceError(personProblem);
     // Abschlag zu einer Zeile des Zahlungsplans: nur solange es ein Abschlag zu diesem Angebot bleibt
     const keepsPlanRow = values.variant === "abschlag" && values.quoteId === draft.quoteId;
-    const bankverbindungId = await bankverbindungFuerEntwurf(tx, input.bankverbindungId, values.contactId, draft, (m) => new InvoiceError(m));
+    const bankverbindungId = await entwurfsBankverbindung(tx, values, input.bankverbindungId, draft);
     const [updated] = await tx
       .update(schema.invoices)
       .set({ ...values, bankverbindungId, replacesInvoiceId, ...(keepsPlanRow ? {} : { paymentPlanRow: null }) })

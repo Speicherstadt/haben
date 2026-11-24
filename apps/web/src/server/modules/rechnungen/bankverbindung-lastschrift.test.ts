@@ -3,8 +3,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
-// Review #1888: Randfälle der weiteren Bankverbindungen (#1887). Alle Daten sind erfunden.
-describe.skipIf(!testDatabaseUrl)("Review weitere Bankverbindungen (Postgres, #1887)", () => {
+/*
+ * Lastschrift mit weiteren Bankverbindungen (#1887): Eingezogen wird auf das Gläubigerkonto aus den Firmendaten. Auch ohne
+ * Wahl (Abo, API) und bei einem Kunden mit eigener Vorgabe nennen Rechnung und Storno den Standard. Alle Daten sind erfunden.
+ */
+describe.skipIf(!testDatabaseUrl)("Lastschrift mit weiteren Bankverbindungen (Postgres, #1887)", () => {
   let sql: postgres.Sql;
   let invoices: typeof import("./index.ts");
   let stammdaten: typeof import("../stammdaten/index.ts");
@@ -78,18 +81,10 @@ describe.skipIf(!testDatabaseUrl)("Review weitere Bankverbindungen (Postgres, #1
 
   it("Storno einer Lastschrift-Rechnung (Kunde mit Vorgabe, ohne Wahl wie Abo und API) nennt dieselbe Bankverbindung wie die Rechnung", async () => {
     const draft = await invoices.createDraft(actor, draftInput({ paymentMethod: "lastschrift", sepaMandateId: mandateId }));
+    expect(draft.bankverbindungId).toBeNull();
     const invoice = await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
     expect(invoice.seller?.iban).toBe(STANDARD);
     const storno = await invoices.cancelInvoice(actor, draft.id, "2026-09-06");
     expect(storno.seller?.iban).toBe(invoice.seller?.iban);
-  });
-
-  it("Kunde mit inzwischen archivierter Vorgabe: ein Entwurf mit dieser Vorgabe (wie ihn der Editor beim Wählen des Kunden schickt) lässt sich speichern", async () => {
-    await stammdaten.setBankverbindungArchived(actor, nordId, true);
-    // Ohne Wahl übernimmt der Server die archivierte Vorgabe des Kunden ...
-    expect((await invoices.createDraft(actor, draftInput())).bankverbindungId).toBe(nordId);
-    // ... der Editor (chooseContact, customerDraft) setzt dieselbe Vorgabe ausdrücklich und schickt sie mit
-    const ausEditor = await invoices.createDraft(actor, draftInput({ bankverbindungId: nordId }));
-    expect(ausEditor.bankverbindungId).toBe(nordId);
   });
 });

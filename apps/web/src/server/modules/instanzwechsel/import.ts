@@ -11,6 +11,8 @@ import { mailCommonSchema, putMailTemplates } from "../mail/index.ts";
 import { nummernformateUebernehmen, standardanhaengeUebernehmen } from "../rechnungen/index.ts";
 import {
   artikelUebernehmen,
+  bankverbindungenArchivieren,
+  bankverbindungenUebernehmen,
   einheitenUebernehmen,
   einrichtungUebernehmen,
   firmaErgaenzen,
@@ -87,7 +89,9 @@ async function uebernehmen(tx: Tx, actor: string, datei: SettingsFile, today: st
   // Einheiten vor den Artikeln, Kontakte vor ihren Ansprechpartnern und Textbausteinen
   await einheitenUebernehmen(tx, datei.units);
   await artikelUebernehmen(tx, datei.articles);
+  const archivierteBankverbindungen = await bankverbindungenUebernehmen(tx, datei.bankverbindungen);
   await kontakteUebernehmen(tx, actor, datei.contacts, datei.contactPersons);
+  await bankverbindungenArchivieren(tx, archivierteBankverbindungen);
   await textbausteineUebernehmen(tx, datei.textBlocks);
   if (datei.company) await alteStandardEinleitungen(tx, datei.company);
   for (const raw of datei.ownAccounts) {

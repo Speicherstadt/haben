@@ -187,6 +187,8 @@ export {
 } from "./text-blocks.ts";
 export {
   artikelUebernehmen,
+  bankverbindungenArchivieren,
+  bankverbindungenUebernehmen,
   einheitenUebernehmen,
   einrichtungUebernehmen,
   firmaErgaenzen,

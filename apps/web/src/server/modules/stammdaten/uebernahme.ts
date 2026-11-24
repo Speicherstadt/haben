@@ -1,10 +1,11 @@
 import { ACCENT_PATTERN, DUNNING_LEVELS, numberFormatError, planTemplateSchema } from "@haben/core";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { BEREICH_IDS } from "../../../lib/bereiche.ts";
 import { schema, type Tx } from "../../db/index.ts";
 import { geprueft, mitBezeichnung, UserError } from "../../errors.ts";
 import { articleInputSchema, insertArticle } from "./articles.ts";
+import { bankverbindungSchema } from "./bankverbindungen.ts";
 import { setEinrichtung } from "./company.ts";
 import { contactPersonInputSchema, insertContactPerson } from "./contact-persons.ts";
 import { contactSchema, insertContact } from "./contacts.ts";
@@ -105,6 +106,30 @@ export async function artikelUebernehmen(tx: Tx, articles: readonly unknown[]): 
         .where(eq(schema.articles.id, created.id));
     }
   }
+}
+
+/**
+ * Weitere Bankverbindungen (#1887) mit ihrer ID aus der Datei, damit Kontakte sie als Vorgabe finden. Zuerst alle aktiv,
+ * denn ein Kontakt nimmt nur eine aktive an; die IDs der archivierten archiviert danach bankverbindungenArchivieren.
+ */
+export async function bankverbindungenUebernehmen(tx: Tx, rows: readonly unknown[]): Promise<string[]> {
+  const archivieren: string[] = [];
+  for (const raw of rows) {
+    const bezeichnung = `Bankverbindung ${genannt(raw, "bezeichnung")}`;
+    const input = geprueft(bankverbindungSchema, raw, bezeichnung);
+    const { id, archivedAt } = geprueft(z.object({ id: z.uuid() }).extend(archiviert.shape), raw, bezeichnung);
+    await mitBezeichnung(bezeichnung, () => tx.insert(schema.bankverbindungen).values({ ...input, id }));
+    if (archivedAt) archivieren.push(id);
+  }
+  return archivieren;
+}
+
+export async function bankverbindungenArchivieren(tx: Tx, ids: readonly string[]): Promise<void> {
+  if (ids.length > 0)
+    await tx
+      .update(schema.bankverbindungen)
+      .set({ archivedAt: new Date() })
+      .where(inArray(schema.bankverbindungen.id, [...ids]));
 }
 
 const kontaktZusatzSchema = z.object({
