@@ -1,0 +1,2 @@
+ALTER TABLE "invoices" ADD COLUMN "exempt_rule" text;--> statement-breakpoint
+ALTER TABLE "invoices" ADD CONSTRAINT "invoices_exempt_rule" CHECK ("invoices"."exempt_rule" is null or ("invoices"."exempt_rule" = 'leistung' and "invoices"."kind" = 'rechnung' and "invoices"."tax_treatment" in ('steuerfrei', 'ausfuhr')));

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { InvoiceTotals } from "./invoice.ts";
-import { JOURNAL_KENNZAHLEN, kennzahlenAusJournal, kennzahlenDerZeile, type JournalKennzahlen } from "./journal-kennzahlen.ts";
+import { bemessungAnZahlungen, JOURNAL_KENNZAHLEN, kennzahlenAusJournal, kennzahlenDerZeile, type JournalKennzahlen } from "./journal-kennzahlen.ts";
 import { kategoriePosting } from "./direkt-kategorie.ts";
 import {
   ACCOUNTS,
@@ -256,6 +256,25 @@ describe("Ist, Anteil mit Bemessungsgrundlage, aber ohne Steuer", () => {
       expect(kennzahlenAusJournal(kr, "ist", [lines]).kz81).toBe(-1);
     });
   }
+});
+
+// #1312: Bei Ist rechnet die Voranmeldung den Teil von Kz 43 und 48 heraus, den Zahlungen tragen
+describe.each(KONTENRAHMEN)("Kz 43 und 48 an Zahlungen (%s)", (kr) => {
+  const frei = totals({ rate: 0, base: 50_000 });
+  it("Zahlung, Bareinnahme und Rücklastschrift auf steuerfreie und Ausfuhr-Rechnungen, nicht die Rechnung selbst", () => {
+    const buchungen = [
+      invoicePosting(frei, kr, "ist", "steuerfrei"),
+      invoicePaymentPosting(frei, 50_000, kr, "ist", undefined, "steuerfrei"),
+      invoiceCashPaymentPosting(frei, 20_000, kr, "ist", undefined, "ausfuhr"),
+      invoicePaymentPosting(frei, -5_000, kr, "ist", undefined, "ausfuhr"),
+    ];
+    expect(bemessungAnZahlungen(kr, buchungen)).toEqual({ kz43: 15_000, kz48: 50_000 });
+    expect(kennzahlenAusJournal(kr, "ist", buchungen)).toMatchObject({ kz43: 15_000, kz48: 50_000 });
+  });
+  it("Kz 81 an der Zahlung zählt nicht mit", () => {
+    const t = totals({ rate: 1900, base: 10_000 });
+    expect(bemessungAnZahlungen(kr, [invoicePaymentPosting(t, t.gross, kr, "ist")])).toEqual({ kz43: 0, kz48: 0 });
+  });
 });
 
 /*

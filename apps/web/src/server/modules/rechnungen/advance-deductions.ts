@@ -1,6 +1,6 @@
 import { arbeitskostenAnteil, discountFromColumns, outgoingTaxDetailConflict, type PriceMode, type TaxTreatment, type UnitLabel } from "@haben/core";
 import { texts } from "@haben/einvoice";
-import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import { cancelledIds } from "./cancelled-invoices.ts";
 import type { DraftInput, LineInput } from "./draft-schema.ts";
@@ -193,4 +193,27 @@ export async function deductedRefs(lines: readonly { deductionOf?: string | null
       const arbeitskosten = arbeitskostenAnteil(eigene, r.priceMode, discountFromColumns(r.discountPercent, r.discountAmount));
       return { number: r.number ?? "", issueDate: r.issueDate, ...(arbeitskosten !== null ? { arbeitskosten } : {}) };
     });
+}
+
+/**
+ * Abgezogene Anzahlungen, die zum Entgelt der Leistung in Kz 43 und 48 gehören (umsatzsteuer/umsaetze-nach-leistung.ts):
+ * keine Teilleistungen (sie zählen im Monat ihrer eigenen Leistung); als Kleinunternehmer alle (#1268), über § 4 und
+ * Ausfuhr nur nach dem Update festgeschriebene (exempt_rule, #1312), ältere zählen weiter mit ihrer Zahlung.
+ */
+export const anzahlungZurLeistung = (abschlag: typeof schema.invoices) =>
+  and(ne(abschlag.advanceType, "teilleistung"), or(eq(abschlag.taxTreatment, "kleinunternehmer"), isNotNull(abschlag.exemptRule)));
+
+/** Je Rechnung die Summe ihrer Abzugspositionen für Anzahlungen zur Leistung (negativ, anzahlungZurLeistung) */
+export async function anzahlungsAbzuege(ids: string[], q: Db | Tx): Promise<Map<string, number>> {
+  if (ids.length === 0) return new Map();
+  const l = schema.invoiceLines;
+  const abschlag = schema.invoices;
+  const rows = await q
+    .select({ invoiceId: l.invoiceId, net: l.net })
+    .from(l)
+    .innerJoin(abschlag, eq(abschlag.id, l.deductionOf))
+    .where(and(inArray(l.invoiceId, ids), anzahlungZurLeistung(abschlag)));
+  const result = new Map<string, number>();
+  for (const r of rows) result.set(r.invoiceId, (result.get(r.invoiceId) ?? 0) + r.net);
+  return result;
 }

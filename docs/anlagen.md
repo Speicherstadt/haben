@@ -17,6 +17,8 @@ Wirtschaftsgüter, die länger als ein Jahr im Betrieb bleiben und mehr als 800 
 
 In der EÜR steht die AfA schon vorher, sobald die Anlage im Verzeichnis ist.
 
+Bis die gespeicherte Anlage geladen ist, sind die Felder beim Übernehmen und auf der Seite der Anlage kurz gesperrt, damit keine Eingabe verloren geht.
+
 ## Art und Abschreibung
 
 | Art | Vorschlag | Anlagekonto SKR03 / SKR04 | AfA-Konto SKR03 / SKR04 |

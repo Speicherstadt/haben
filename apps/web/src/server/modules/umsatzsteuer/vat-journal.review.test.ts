@@ -143,11 +143,12 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung aus dem Journal in Sonderfällen
       ["ausfuhr", "kz43"],
       ["steuerfrei", "kz48"],
     ] as const) {
-      it(`Ist: ${treatment} (${kz}) mit der Zahlung (${kontenrahmen})`, async () => {
+      // Das Journal bucht die Bemessungsgrundlage an der Zahlung, die Voranmeldung meldet sie im Monat der Leistung (#1312)
+      it(`Ist: ${treatment} (${kz}) im Monat der Leistung, nicht der Zahlung (${kontenrahmen})`, async () => {
         await reset("ist", kontenrahmen);
         const inv = await invoice("2026-09-20", [{ unitPrice: 50_000, taxRate: 0 }], treatment);
         await pay(inv.id, [["05.10.26", `Zahlung ${treatment}`, "500,00"]]);
-        await gleich({ 9: {}, 10: { [kz]: 50_000 } });
+        await gleich({ 9: { [kz]: 50_000 }, 10: {} });
       }, 60_000);
     }
 
@@ -219,8 +220,8 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung aus dem Journal in Sonderfällen
       await pay(inv.id, [["05.10.26", "Zahlung frei", "500,00"]]);
       const [al] = await sql`select id from allocations where invoice_id = ${inv.id}`;
       await bank.reverseAllocation(actor, al!.id);
-      // Die Gegenzeile steht am Tag der Aufhebung, nicht im Oktober
-      await gleich({ 9: {}, 10: { kz48: 50_000 } });
+      // Die Zahlung und ihre Aufhebung ändern Kz 48 nicht: Sie zählt im Monat der Leistung (#1312)
+      await gleich({ 9: { kz48: 50_000 }, 10: {} });
     }, 60_000);
   }
 });

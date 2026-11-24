@@ -15,7 +15,7 @@ import { privateUseForMonth } from "../buchhaltung/index.ts";
 import { kleinunternehmerForMonth } from "../stammdaten/index.ts";
 import { ausbuchungsQuelle } from "./ausbuchung-quelle.ts";
 import { vorsteuerAusBelegen } from "./vorsteuer-belege.ts";
-import { kennzahlenDerVoranmeldung } from "./kleinunternehmer-umsaetze.ts";
+import { kennzahlenDerVoranmeldung } from "./umsaetze-nach-leistung.ts";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import { bankAccountIncludedSql, bankNotPrivateMarkedSql, bankOpenAmountSql } from "../../db/bank-open.ts";
 import { advanceVatPlans, invoiceTaxReader, invoiceTotalsById, mixNachVerrechnungen } from "../rechnungen/index.ts";
@@ -471,14 +471,14 @@ export async function computeVatFigures(period: VatPeriod, q: Db | Tx = db, cont
 
   // Vorsteuer, § 13b, Erwerb und Einfuhrumsatzsteuer als Erläuterung aus den Belegen (vorsteuer-belege.ts)
   const { inputTax, reverseCharge, igErwerb, einfuhr } = await vorsteuerAusBelegen(period, q);
-  // Aus dem Journal, dazu Privatnutzung und Umsätze als Kleinunternehmer (kleinunternehmer-umsaetze.ts)
+  // Aus dem Journal, dazu Privatnutzung, Umsätze als Kleinunternehmer und bei Ist Kz 43 und 48 nach dem Leistungstag; die
+  // Quellen (revenue) passend dazu (umsaetze-nach-leistung.ts)
   const kennzahlen = await kennzahlenDerVoranmeldung(period, versteuerung, revenue, q);
   return {
     versteuerung,
     // Stand am Ende des Zeitraums der Voranmeldung, nicht der heutige
     kleinunternehmer: await kleinunternehmerForMonth(lastMonthOfPeriod(period).year, lastMonthOfPeriod(period).month, q),
     ...kennzahlen,
-    revenue,
     inputTax,
     reverseCharge,
     igErwerb,

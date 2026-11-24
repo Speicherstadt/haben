@@ -61,11 +61,20 @@ export { rebuildInvoiceLines, type RebuiltInvoice } from "./positionen-nachbilde
 export { createTakenOverInvoice, type TakenOverInvoice } from "./rechnung-uebernehmen.ts";
 export { copyInvoice } from "./rechnung-kopieren.ts";
 export { invoiceDocumentTotals, invoiceTotalsById, storeInvoiceTaxes } from "./invoice-taxes.ts";
-export { invoiceTaxReader, invoiceTaxYear, invoicePaymentPostingMode, invoiceVatDate, invoicePostingMode, paymentProcedure } from "./invoice-tax.ts";
+export {
+  invoiceTaxReader,
+  invoiceTaxYear,
+  invoicePaymentPostingMode,
+  invoiceVatDate,
+  invoicePostingMode,
+  leistungstag,
+  paymentProcedure,
+} from "./invoice-tax.ts";
 export { gemeldeterZeitraum, leistungsmonatHinweis, zeitraumLabel } from "./leistungsmonat.ts";
 export { leistungsmonatHinweisFuer } from "./leistungsmonat-hinweis.ts";
 export { lockInvoice, withAdvanceVatChange } from "./advance-vat.ts";
-export { advanceVatPlans, kleinunternehmerBisZurRueckzahlung } from "./advance-vat-plan.ts";
+export { advanceVatPlans } from "./advance-vat-plan.ts";
+export { anzahlungenBisZurRueckzahlung, nachLeistungBisZurRueckzahlung } from "./rueckzahlung-nach-leistung.ts";
 export { invoicePaymentGroup, invoicePaymentGroups, paperCancellationIds } from "./advance-payment-group.ts";
 export { invoiceLastSettledOn, invoiceLosses, invoicePayments, invoiceWrittenOff, paidByTarget } from "./zahlungsstand.ts";
 export { advanceReceivablesAt } from "./advance-receivables.ts";
@@ -73,7 +82,7 @@ export { unbilledAdvanceRequest } from "./advance-invoice.ts";
 export { defaultSkonto } from "./skonto.ts";
 export { InvoiceError } from "./invoice-error.ts";
 export { UmsatzgrenzeError, type UmsatzStand } from "./umsatzgrenze.ts";
-export { abschlagLinks, openAbschlaege } from "./advance-deductions.ts";
+export { abschlagLinks, anzahlungsAbzuege, openAbschlaege } from "./advance-deductions.ts";
 export { applyPublishedRatesToDrafts } from "./draft-rate.ts";
 export { draftSchema, type DraftInput } from "./draft-schema.ts";
 export { cancelInvoice, createCorrection } from "./invoice-cancellation.ts";

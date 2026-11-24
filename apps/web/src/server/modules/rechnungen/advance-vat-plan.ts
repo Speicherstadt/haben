@@ -11,7 +11,7 @@ import {
   type AdvanceVatChange,
   type TaxShare,
 } from "@haben/core";
-import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import { invoiceTotalsById } from "./invoice-taxes.ts";
 import { invoiceTaxReader } from "./invoice-tax.ts";
@@ -20,7 +20,7 @@ import { UserError } from "../../errors.ts";
 type Invoice = typeof schema.invoices.$inferSelect;
 
 /** Festgeschriebene Korrektur- und Stornokette, ohne irgendeinen alten Beleg zu verändern. */
-async function family(originalId: string, q: Db | Tx): Promise<Invoice[]> {
+export async function family(originalId: string, q: Db | Tx): Promise<Invoice[]> {
   const ids = await q.execute<{ id: string }>(sql`with recursive chain as (
     select id from invoices where id = ${originalId}
     union select i.id from invoices i join chain c on i.corrects_id = c.id where i.status = 'final'
@@ -36,12 +36,12 @@ async function family(originalId: string, q: Db | Tx): Promise<Invoice[]> {
     );
 }
 
-const negate = (shares: readonly TaxShare[]) => shares.map((share) => ({ ...share, base: -share.base, tax: -share.tax }));
+export const negate = (shares: readonly TaxShare[]) => shares.map((share) => ({ ...share, base: -share.base, tax: -share.tax }));
 
 /** Korrektur ohne Kennzeichen (vor #853 festgeschrieben): ihre Minderung wirkte schon mit dem Beleg. */
 const legacy = (invoice: Invoice) => invoice.kind !== "rechnung" && invoice.reductionRule === null;
 
-async function paymentEvents(invoices: Invoice[], q: Db | Tx): Promise<AdvanceBalanceEvent[]> {
+export async function paymentEvents(invoices: Invoice[], q: Db | Tx): Promise<AdvanceBalanceEvent[]> {
   const ids = invoices.map((i) => i.id);
   const byId = new Map(invoices.map((i) => [i.id, i]));
   const totals = await invoiceTotalsById(ids, q);
@@ -72,7 +72,7 @@ async function paymentEvents(invoices: Invoice[], q: Db | Tx): Promise<AdvanceBa
  * Storno und Korrektur der Kette. Gekennzeichnete halten bereits vereinnahmte Steuer bis zur Rückzahlung; ein Storno
  * einer Korrektur ohne Kennzeichen nimmt nur deren Anspruch zurück, nicht die Minderung anderer Korrekturen.
  */
-function correctionEvents(original: Invoice, invoices: Invoice[], totals: Map<string, { taxes: TaxShare[] }>): AdvanceVatEvent[] {
+export function correctionEvents(original: Invoice, invoices: Invoice[], totals: Map<string, { taxes: TaxShare[] }>): AdvanceVatEvent[] {
   const byId = new Map(invoices.map((i) => [i.id, i]));
   return invoices
     .filter((invoice) => invoice.id !== original.id)
@@ -147,90 +147,8 @@ export const refundOnly = (original: Pick<Invoice, "advanceType" | "advanceAccou
   original.advanceType !== "anzahlung" && (original.advanceAccounting === null || original.variant === "schluss");
 
 /** Bis zur Rückzahlung gehaltener Teil der Minderungen (advanceVatSchedule, „held“) */
-const heldUntilRefund = (original: Invoice, invoices: Invoice[], totals: Map<string, { taxes: TaxShare[] }>, events: AdvanceBalanceEvent[]) =>
+export const heldUntilRefund = (original: Invoice, invoices: Invoice[], totals: Map<string, { taxes: TaxShare[] }>, events: AdvanceBalanceEvent[]) =>
   advanceVatSchedule(totals.get(original.id)!.taxes, [...events, ...correctionEvents(original, invoices, totals)], "held");
-
-/**
- * Dieselbe Regel für Kz 48 als Kleinunternehmer (#1268): Storno und Korrektur mindern schon bezahltes Entgelt erst mit der
- * Rückzahlung, bei Ist und Soll, weil Kz 48 nach dem Leistungstag zählt. Gebucht wird nichts, der Steuerschlüssel „KU“
- * führt in keine Kennzahl. Alle Belege der Kette, auch Papierstornos einer Schlusskette (#750): Kz 48 zählt sie mit.
- * Kz 48 zählt eine Schlussrechnung samt abgezogener Anzahlungen (kleinunternehmer-umsaetze.ts), deshalb rechnen deren
- * Beträge und Zahlungen hier mit (anzahlungenDerKette).
- */
-export async function kleinunternehmerBisZurRueckzahlung(original: Invoice, q: Db | Tx): Promise<AdvanceVatChange[]> {
-  const invoices = await family(original.id, q);
-  const totals = await invoiceTotalsById(
-    invoices.map((i) => i.id),
-    q,
-  );
-  const anzahlungen = await anzahlungenDerKette(original, invoices, q);
-  const mitAbzuegen = new Map([...totals].map(([id, t]) => [id, { taxes: [...t.taxes, ...(anzahlungen.abzuege.get(id) ?? [])] }]));
-  // Der Ersatz einer Bilanz-Schlussrechnung (#750) übernimmt deren Zahlungen, das Papierstorno erstattet nichts
-  // (docs/rechnungen.md): Das Bezahlte zählt ab dem Leistungstag des Ersatzes dort.
-  const [ersatz] = await q
-    .select({ serviceDate: schema.invoices.serviceDate, issueDate: schema.invoices.issueDate })
-    .from(schema.invoices)
-    .where(and(eq(schema.invoices.replacesInvoiceId, original.id), eq(schema.invoices.status, "final")));
-  const eigene = bisZumEnde(await paymentEvents(invoices, q), ersatz ? (ersatz.serviceDate ?? ersatz.issueDate) : null);
-  return heldUntilRefund(original, invoices, mitAbzuegen, [...eigene, ...anzahlungen.zahlungen]);
-}
-
-/** Zahlungen bis vor `ende`, dort mit umgekehrtem Vorzeichen zurückgenommen; spätere zählen nicht */
-function bisZumEnde(events: AdvanceBalanceEvent[], ende: string | null): AdvanceBalanceEvent[] {
-  if (!ende) return events;
-  const vorher = events.flatMap((e) => (e.paid && e.date >= ende ? [] : [e]));
-  const bezahlt = vorher.flatMap((e) => e.paid ?? []);
-  return bezahlt.length ? [...vorher, { date: ende, paid: negate(bezahlt) }] : vorher;
-}
-
-/**
- * Die von der Kette abgezogenen Anzahlungen (Teilleistungen nicht, wie in Kz 48): je Beleg die Abzüge mit umgekehrtem
- * Vorzeichen, dazu die Zahlungen der Anzahlungen samt Rückzahlung auf ihr Storno. Das Storno der Schlussrechnung hält so
- * auch die bezahlte Anzahlung bis zur Rückzahlung. Zieht eine später festgeschriebene Schlussrechnung dieselbe Anzahlung
- * wieder ab, zählt Kz 48 sie dort im Leistungsmonat; an deren Leistungstag endet das Festhalten hier, spätere Zahlungen
- * der Anzahlung gehören zur neuen Schlussrechnung (Entscheidung in #1745).
- */
-async function anzahlungenDerKette(original: Invoice, invoices: Invoice[], q: Db | Tx) {
-  const l = schema.invoiceLines;
-  const i = schema.invoices;
-  const rows = await q
-    .select({ invoiceId: l.invoiceId, rate: l.taxRate, net: l.net, anzahlung: i })
-    .from(l)
-    .innerJoin(i, eq(i.id, l.deductionOf))
-    .where(
-      and(
-        inArray(
-          l.invoiceId,
-          invoices.map((x) => x.id),
-        ),
-        ne(i.advanceType, "teilleistung"),
-      ),
-    );
-  const abzuege = new Map<string, TaxShare[]>();
-  for (const r of rows) abzuege.set(r.invoiceId, [...(abzuege.get(r.invoiceId) ?? []), { rate: r.rate, base: -r.net, tax: 0 }]);
-  const zahlungen: AdvanceBalanceEvent[] = [];
-  for (const anzahlung of new Map(rows.map((r) => [r.anzahlung.id, r.anzahlung])).values()) {
-    const [neu] = await q
-      .select({ serviceDate: i.serviceDate, issueDate: i.issueDate })
-      .from(l)
-      .innerJoin(i, eq(i.id, l.invoiceId))
-      .where(
-        and(
-          eq(l.deductionOf, anzahlung.id),
-          eq(i.kind, "rechnung"),
-          eq(i.status, "final"),
-          sql`${i.lockedAt} > (select locked_at from invoices where id = ${original.id})`,
-        ),
-      )
-      .orderBy(asc(i.lockedAt))
-      .limit(1);
-    // Leistungstag wie in Kz 48 (kleinunternehmer-umsaetze.ts)
-    const ende = neu ? (neu.serviceDate ?? neu.issueDate) : null;
-    const bezahlt = (await paymentEvents(await family(anzahlung.id, q), q)).flatMap((e) => (e.paid ? [{ date: e.date, paid: e.paid }] : []));
-    zahlungen.push(...bisZumEnde(bezahlt, ende));
-  }
-  return { abzuege, zahlungen };
-}
 
 /** Gegenprobe aus den Nebenbüchern, ausdrücklich ohne Journalzeilen zu lesen. */
 export async function loadAdvanceVatPlan(reference: Pick<Invoice, "id">, q: Db | Tx = db, taxes = invoiceTaxReader(q)): Promise<ManagedAdvancePlan> {

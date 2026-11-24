@@ -24,7 +24,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import type { Buyer, Seller } from "@haben/einvoice";
-import type { BankCsvMapping, ImportMovement, ParsedTransaction } from "@haben/import";
+import type { BankCsvMapping, ImportMovement, ParsedTransaction, WebOmittedCounts } from "@haben/import";
 import type { LetterheadDesign, OutgoingTaxDetails } from "@haben/core";
 import {
   ASSET_KIND_KEYS,
@@ -1455,6 +1455,12 @@ export const invoices = pgTable(
      * invoices_reduction_rule); leer heißt bisheriges Verfahren, das vor #853 festgeschriebene Korrekturen behalten.
      */
     reductionRule: text("reduction_rule", { enum: ["rueckgewaehr"] }),
+    /**
+     * Rechnung über § 4 UStG oder Ausfuhr: „leistung“ heißt, Kz 48 bzw. 43 der Voranmeldung zählen sie auch bei Ist im
+     * Zeitraum der Leistung, Anzahlungen darauf nicht (#1312, Anleitung zur UStVA 2026). Gesetzt beim Festschreiben (Trigger
+     * invoices_exempt_rule); leer heißt bisherige Zuordnung wie Kz 81, die vorher festgeschriebene Ketten behalten.
+     */
+    exemptRule: text("exempt_rule", { enum: ["leistung"] }),
     /** Angebot, aus dem bzw. zu dem die Rechnung entstanden ist; die Schlussrechnung zieht dessen Abschläge ab */
     quoteId: uuid("quote_id").references((): AnyPgColumn => quotes.id),
     /** Abschlagsrechnung zu einer Zeile des Zahlungsplans im Angebot (Index ab 0) */
@@ -1516,6 +1522,10 @@ export const invoices = pgTable(
     check("invoices_advance_type", sql`${t.advanceType} is null or (${t.variant} = 'abschlag' and ${t.advanceType} in ('anzahlung', 'teilleistung'))`),
     check("invoices_advance_accounting", sql`${t.advanceAccounting} is null or ${t.advanceAccounting} = 'deferred'`),
     check("invoices_reduction_rule", sql`${t.reductionRule} is null or (${t.reductionRule} = 'rueckgewaehr' and ${t.kind} <> 'rechnung')`),
+    check(
+      "invoices_exempt_rule",
+      sql`${t.exemptRule} is null or (${t.exemptRule} = 'leistung' and ${t.kind} = 'rechnung' and ${t.taxTreatment} in ('steuerfrei', 'ausfuhr'))`,
+    ),
     check(
       "invoices_replaces_schluss",
       sql`${t.replacesInvoiceId} is null or (${t.replacesInvoiceId} <> ${t.id} and ${t.kind} = 'rechnung' and ${t.variant} is not distinct from 'schluss' and ${t.advanceAccounting} is not distinct from 'deferred' and ${t.correctsId} is null)`,
@@ -3506,6 +3516,8 @@ export type LexofficeImportProgress = {
    * Packen draußen (#183).
    */
   ignored?: { drafts: number };
+  /** Im Sicherungsskript für Lexware Office ausgelassene Vorgänge, je Sicherung statt je ZIP-Teil (#1640). */
+  webOmitted?: WebOmittedCounts;
   /** Belege aus früheren Läufen, deren fehlende Datei in diesem Lauf doch noch ankam (#1504) */
   nachgeladen?: number;
   /** sevDesk: Vorlagen wiederkehrender Belege, in diesem Lauf als Dauerbelege übernommen */
