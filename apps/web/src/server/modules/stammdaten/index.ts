@@ -43,7 +43,21 @@ export {
   type Company,
   type CompanyInput,
 } from "./company.ts";
+export { setContactIbanIfEmpty } from "./contact-iban.ts";
 export { editorContext } from "./editor-context.ts";
+export {
+  bankverbindungAuswahl,
+  bankverbindungProblem,
+  bankverbindungSchema,
+  createBankverbindung,
+  kontaktBankverbindung,
+  listBankverbindungen,
+  loadBankverbindung,
+  setBankverbindungArchived,
+  updateBankverbindung,
+  type Bankverbindung,
+  type BankverbindungInput,
+} from "./bankverbindungen.ts";
 export {
   contactRoleProblem,
   contactSchema,
@@ -54,7 +68,6 @@ export {
   listContacts,
   searchContacts,
   setContactArchived,
-  setContactIbanIfEmpty,
   updateContact,
   type Contact,
   type ContactChoice,

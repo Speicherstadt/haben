@@ -1,6 +1,7 @@
 import { currentFilingPeriod, isKapitalgesellschaft } from "@haben/core";
 import { redirect, createFileRoute } from "@tanstack/react-router";
 import { BackupCard } from "../../components/BackupCard.tsx";
+import { BankverbindungenCard } from "../../components/BankverbindungenCard.tsx";
 import { BereicheCard } from "../../components/BereicheCard.tsx";
 import { ArchiveSearchCard } from "../../components/ArchiveSearchCard.tsx";
 import { ArchiveTargetCard } from "../../components/ArchiveTargetCard.tsx";
@@ -67,6 +68,7 @@ import { getOwnAccounts } from "../../server/functions/eigene-konten.ts";
 import { SettingsHead, SettingsNav } from "../../components/SettingsNav.tsx";
 import { UnitsCard } from "../../components/UnitsCard.tsx";
 import { getUnits } from "../../server/functions/units.ts";
+import { getBankverbindungen } from "../../server/functions/bankverbindungen.ts";
 import { TaxpayerForm } from "./-einstellungen-steuerpflichtige.tsx";
 import { CertificateForm, EricCard } from "./-einstellungen-elster.tsx";
 
@@ -122,6 +124,7 @@ export const Route = createFileRoute("/_app/einstellungen")({
       quoteDefaultAttachments,
       ownAccounts,
       units,
+      bankverbindungen,
     ] = await Promise.all([
       getCompany(),
       getVatPeriod({ data: currentFilingPeriod(new Date()) }),
@@ -144,6 +147,7 @@ export const Route = createFileRoute("/_app/einstellungen")({
       getQuoteDefaultAttachments(),
       getOwnAccounts(),
       getUnits(),
+      getBankverbindungen(),
     ]);
     return {
       ...company,
@@ -168,6 +172,7 @@ export const Route = createFileRoute("/_app/einstellungen")({
       quoteDefaultAttachments,
       ownAccounts,
       units,
+      bankverbindungen,
     };
   },
   head: () => ({ meta: [{ title: "Einstellungen · Haben" }], links: [{ rel: "stylesheet", href: reportStyles }] }),
@@ -207,6 +212,7 @@ function SettingsPage() {
     quoteDefaultAttachments,
     ownAccounts,
     units,
+    bankverbindungen,
     footerPreview,
     ablage,
     neueInstanz,
@@ -229,6 +235,7 @@ function SettingsPage() {
           {bereich === "firma" && (
             <>
               <CompanyForm />
+              <BankverbindungenCard bankverbindungen={bankverbindungen} />
               <NavMarkCard color={company.navColor} logo={company.navLogo} logoSha256={logo?.sha256 ?? null} />
             </>
           )}

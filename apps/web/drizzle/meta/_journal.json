@@ -2290,6 +2290,20 @@
       "when": 1795547499310,
       "tag": "0326_bank_wiederzuordnung",
       "breakpoints": true
+    },
+    {
+      "idx": 327,
+      "version": "7",
+      "when": 1795559682727,
+      "tag": "0327_bankverbindungen",
+      "breakpoints": true
+    },
+    {
+      "idx": 328,
+      "version": "7",
+      "when": 1795559693159,
+      "tag": "0328_bankverbindungen_trigger",
+      "breakpoints": true
     }
   ]
 }

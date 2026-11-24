@@ -526,6 +526,27 @@
       "function": "public.haben_reject_truncate()"
     },
     {
+      "table": "public.bankverbindungen",
+      "name": "bankverbindungen_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER bankverbindungen_audit AFTER INSERT OR DELETE OR UPDATE ON public.bankverbindungen FOR EACH ROW EXECUTE FUNCTION public.haben_audit()",
+      "function": "public.haben_audit()"
+    },
+    {
+      "table": "public.bankverbindungen",
+      "name": "bankverbindungen_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER bankverbindungen_guard BEFORE DELETE ON public.bankverbindungen FOR EACH ROW EXECUTE FUNCTION public.haben_bankverbindungen_guard()",
+      "function": "public.haben_bankverbindungen_guard()"
+    },
+    {
+      "table": "public.bankverbindungen",
+      "name": "bankverbindungen_no_truncate",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER bankverbindungen_no_truncate BEFORE TRUNCATE ON public.bankverbindungen FOR EACH STATEMENT EXECUTE FUNCTION public.haben_reject_truncate()",
+      "function": "public.haben_reject_truncate()"
+    },
+    {
       "table": "public.beleg_layouts",
       "name": "beleg_layouts_audit",
       "enabled": "O",
@@ -3388,6 +3409,14 @@
       "securityDefiner": false,
       "sourceHash": "130cea69d88a86a48ef995b4c6c6c9b3df8e2cb4ecda12510937335f23e0edf5",
       "definitionHash": "ea37e4985a386347d2f45f0b7819db938f5b2fed889e252a2f4b036081d160da"
+    },
+    {
+      "name": "public.haben_bankverbindungen_guard()",
+      "config": [],
+      "language": "plpgsql",
+      "securityDefiner": false,
+      "sourceHash": "dfc7ee28b603ae19787e6762d5b686c1a33227c37875ab5fdf5947024c9e7de9",
+      "definitionHash": "268cb9d59df542f959838bb7626b73f02f6b1000be7d2f04849c158b189445cf"
     },
     {
       "name": "public.haben_cash_entry_invoice()",

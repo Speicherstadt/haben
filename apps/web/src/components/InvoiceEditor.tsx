@@ -35,6 +35,7 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
   const {
     alreadyPaid,
     attachments,
+    bankverbindungId,
     busy,
     contactId,
     copySource,
@@ -130,6 +131,7 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
               paymentTermDays: termValid ? term : 0,
               contactId: contactId || null,
               contactPersonId: contactPersonId || null,
+              bankverbindungId: lastschrift ? null : bankverbindungId || null,
               ...references,
               lines: [...parsed, ...deductionPreview],
               discount: discountIssue ? null : discount,

@@ -34,6 +34,8 @@ async function finalInvoiceRows() {
       externalId: schema.invoices.externalId,
       buyerOrderReference: schema.invoices.buyerOrderReference,
       sellerOrderReference: schema.invoices.sellerOrderReference,
+      bankverbindungId: schema.invoices.bankverbindungId,
+      seller: schema.invoices.seller,
     })
     .from(schema.invoices)
     .leftJoin(schema.contacts, eq(schema.contacts.id, schema.invoices.contactId))
@@ -165,6 +167,8 @@ export async function openItems(): Promise<OpenItem[]> {
   // Feiertage für das Ende der Skontofrist (§ 193 BGB) wie beim Zahlungsziel: die im Bundesland der Firma
   const { bundesland } = await loadCompany();
 
+  // Erst mit weiteren Bankverbindungen (#1887) sagt das Konto der Rechnung etwas; sonst stünde es an jedem Vorschlag
+  const mitZielkonto = invoices.some((inv) => inv.bankverbindungId !== null);
   const items: OpenItem[] = [];
   for (const inv of invoices) {
     const paid = invoicePaid.get(inv.id) ?? 0;
@@ -185,6 +189,7 @@ export async function openItems(): Promise<OpenItem[]> {
       ...orderReferencesOf(inv, externalIds.get(inv.id)),
       currency: inv.currency,
       ...(skonto.length > 0 ? { skonto } : {}),
+      ...(mitZielkonto && inv.seller?.iban ? { zielIban: inv.seller.iban } : {}),
     });
   }
   attachOpenCorrections(items, invoices);

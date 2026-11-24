@@ -3,6 +3,7 @@ import { useState } from "react";
 import { fehlerFelder } from "../lib/format.ts";
 import { FORMAT_LABEL, FORMATS, type InvoiceFormat } from "../lib/invoice.ts";
 import type { ContactInput } from "../server/modules/stammdaten/index.ts";
+import { type BankverbindungOption, BankverbindungField } from "./BankverbindungField.tsx";
 import { Field } from "./Field.tsx";
 import { parseSkontoRows, SkontoFields, type SkontoRow } from "./SkontoFields.tsx";
 import { WeitereAngaben } from "./WeitereAngaben.tsx";
@@ -16,6 +17,8 @@ export interface KontaktWeitereWerte {
   /** Skonto: false = wie in den Einstellungen, true = eigene Stufen (leer = ohne Skonto) */
   ownSkonto: boolean;
   skonto: readonly SkontoStufe[];
+  /** Bezeichnung der gewählten weiteren Bankverbindung (#1887); leer = Standard */
+  bankverbindung?: string;
 }
 
 /** Was in „Weitere Angaben“ gesetzt ist, für die Überschrift des zugeklappten Bereichs: „Leitweg-ID gesetzt · Skonto 2 % in 10 Tagen“ */
@@ -32,6 +35,7 @@ export function kontaktWeitereKurz(werte: KontaktWeitereWerte): string {
     werte.leitwegId.trim() && "Leitweg-ID gesetzt",
     werte.defaultFormat && `Format ${FORMAT_LABEL[werte.defaultFormat].split(" · ")[0]}`,
     skonto,
+    werte.bankverbindung && `Bankverbindung ${werte.bankverbindung}`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -39,7 +43,7 @@ export function kontaktWeitereKurz(werte: KontaktWeitereWerte): string {
 }
 
 /** Die Felder im Bereich, benannt wie im Formular und in `contactSchema`; ein Fehler nennt sie in `felder` (UserError, Pfad der Zod-Prüfung) */
-const WEITERE_FELDER = ["debitorNr", "kreditorNr", "hourlyRateCents", "leitwegId", "defaultFormat", "skonto"] as const;
+const WEITERE_FELDER = ["debitorNr", "kreditorNr", "hourlyRateCents", "leitwegId", "defaultFormat", "skonto", "bankverbindungId"] as const;
 
 /** Das erste Feld im Bereich, an dem ein Fehler liegt; die Seite klappt ihn dann auf und setzt den Fokus dorthin */
 export const weitereAngabenFeld = (error: unknown) => fehlerFelder(error).find((feld) => (WEITERE_FELDER as readonly string[]).includes(feld));
@@ -60,6 +64,7 @@ export function ContactWeitereAngaben({
   onSkontoRows,
   offen,
   onOffen,
+  bankverbindungen = { liste: [], standardIban: "" },
 }: {
   initial: ContactInput;
   ownSkonto: boolean;
@@ -68,13 +73,26 @@ export function ContactWeitereAngaben({
   onSkontoRows: (rows: SkontoRow[]) => void;
   offen: boolean;
   onOffen: (offen: boolean) => void;
+  /** Weitere Bankverbindungen (#1887); ohne aktive kein Feld */
+  bankverbindungen?: { liste: readonly BankverbindungOption[]; standardIban: string };
 }) {
   const [debitorNr, setDebitorNr] = useState(String(initial.debitorNr ?? ""));
   const [kreditorNr, setKreditorNr] = useState(String(initial.kreditorNr ?? ""));
   const [hourlyRate, setHourlyRate] = useState(initial.hourlyRateCents == null ? "" : formatDecimal(initial.hourlyRateCents));
   const [leitwegId, setLeitwegId] = useState(initial.leitwegId);
   const [defaultFormat, setDefaultFormat] = useState<InvoiceFormat | "">(initial.defaultFormat ?? "");
-  const kurz = kontaktWeitereKurz({ debitorNr, kreditorNr, hourlyRate, leitwegId, defaultFormat, ownSkonto, skonto: parseSkontoRows(skontoRows).stufen });
+  const [bankverbindungId, setBankverbindungId] = useState(initial.bankverbindungId ?? "");
+  const bankverbindung = bankverbindungen.liste.find((b) => b.id === bankverbindungId)?.bezeichnung ?? "";
+  const kurz = kontaktWeitereKurz({
+    debitorNr,
+    kreditorNr,
+    hourlyRate,
+    leitwegId,
+    defaultFormat,
+    ownSkonto,
+    skonto: parseSkontoRows(skontoRows).stufen,
+    bankverbindung,
+  });
   return (
     <div className="form-section">
       <WeitereAngaben kurz={kurz} offen={offen} onOffen={onOffen}>
@@ -150,6 +168,15 @@ export function ContactWeitereAngaben({
             hint="Ohne Stufe bekommt dieser Kunde kein Skonto. Eine Frist, die länger ist als das Zahlungsziel der Rechnung, entfällt dort."
           />
         )}
+        <BankverbindungField
+          name="bankverbindungId"
+          bankverbindungen={bankverbindungen.liste}
+          standardIban={bankverbindungen.standardIban}
+          value={bankverbindungId}
+          disabled={false}
+          hint="Vorgabe für neue Rechnungen und Angebote an diesen Kunden; im Beleg lässt sie sich ändern."
+          onChange={setBankverbindungId}
+        />
       </WeitereAngaben>
     </div>
   );

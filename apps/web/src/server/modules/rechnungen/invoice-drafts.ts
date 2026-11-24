@@ -18,6 +18,7 @@ import { contactPersonProblem, contactRoleProblem, loadCompany, standardTexte, t
 import { deductionLinesFor, deductionProblems } from "./advance-deductions.ts";
 import { lockInvoice } from "./advance-vat.ts";
 import { attachmentFiles, removeFiles, unusedFiles } from "./attachments.ts";
+import { bankverbindungFuerEntwurf } from "./beleg-bankverbindung.ts";
 import { draftRate, MAX_EURO_CENTS } from "./draft-rate.ts";
 import { effectivePriceMode, type DraftInput, type LineInput } from "./draft-schema.ts";
 import { InvoiceError } from "./invoice-error.ts";
@@ -174,9 +175,17 @@ export async function insertDraft(tx: Tx, draft: DraftInput, extra: DraftExtra =
   if (mandateProblem) throw new InvoiceError(mandateProblem);
   const personProblem = await contactPersonProblem(tx, values.contactId, values.contactPersonId);
   if (personProblem) throw new InvoiceError(personProblem);
+  // Storno und Korrektur nennen die Bankverbindung der ursprünglichen Rechnung (#1887)
+  const [original] = extra.correctsId
+    ? await tx
+        .select({ bankverbindungId: schema.invoices.bankverbindungId, contactId: schema.invoices.contactId })
+        .from(schema.invoices)
+        .where(eq(schema.invoices.id, extra.correctsId))
+    : [];
+  const bankverbindungId = await bankverbindungFuerEntwurf(tx, input.bankverbindungId, values.contactId, original ?? null, (m) => new InvoiceError(m));
   const [invoice] = await tx
     .insert(schema.invoices)
-    .values({ ...values, ...extra, replacesInvoiceId: input.replacesInvoiceId ?? null })
+    .values({ ...values, ...extra, bankverbindungId, replacesInvoiceId: input.replacesInvoiceId ?? null })
     .returning();
   await storeLines(tx, invoice!.id, lines, calculation, taxes);
   await syncQuoteBilling(tx, [invoice!.quoteId]);
@@ -226,9 +235,10 @@ export async function updateDraft(actor: string, id: string, proposed: DraftInpu
     if (personProblem) throw new InvoiceError(personProblem);
     // Abschlag zu einer Zeile des Zahlungsplans: nur solange es ein Abschlag zu diesem Angebot bleibt
     const keepsPlanRow = values.variant === "abschlag" && values.quoteId === draft.quoteId;
+    const bankverbindungId = await bankverbindungFuerEntwurf(tx, input.bankverbindungId, values.contactId, draft, (m) => new InvoiceError(m));
     const [updated] = await tx
       .update(schema.invoices)
-      .set({ ...values, replacesInvoiceId, ...(keepsPlanRow ? {} : { paymentPlanRow: null }) })
+      .set({ ...values, bankverbindungId, replacesInvoiceId, ...(keepsPlanRow ? {} : { paymentPlanRow: null }) })
       .where(eq(schema.invoices.id, id))
       .returning();
     await storeLines(tx, id, lines, calculation, taxes);

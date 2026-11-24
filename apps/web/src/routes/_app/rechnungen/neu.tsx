@@ -63,6 +63,8 @@ function NewInvoicePage() {
       quotes={data.quotes}
       mandates={data.mandates}
       contactPersons={data.contactPersons}
+      bankverbindungen={data.bankverbindungen}
+      standardIban={data.standardIban}
     />
   );
 }

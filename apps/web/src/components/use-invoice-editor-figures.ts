@@ -37,6 +37,7 @@ export type InvoiceEditorFigures = InvoiceEditorState & ReturnType<typeof useInv
 function editorChoices(state: InvoiceEditorState, schluss: boolean, lastschrift: boolean, { term, termValid }: { term: number; termValid: boolean }) {
   const { abschlaege, companySkonto, contactId, contactPersons, contacts, deducts, kind, mandates, quoteId, quotes, touch } = state;
   const {
+    setBankverbindungId,
     setContactId,
     setContactPersonId,
     setDeducts,
@@ -65,6 +66,8 @@ function editorChoices(state: InvoiceEditorState, schluss: boolean, lastschrift:
     // Ein Ansprechpartner gehört zu genau einem Kunden; hat der neue genau einen aktiven, ist er gleich gewählt (#1335)
     if (value !== contactId) setContactPersonId(einzigerAnsprechpartner(contactPersons, value));
     const chosen = saved ?? contacts.find((c) => c.id === value);
+    // Bankverbindung des Kunden, sonst der Standard (#1887); wie beim Speichern ohne Wahl (bankverbindungFuerEntwurf)
+    if (value !== contactId) setBankverbindungId(contacts.find((c) => c.id === value)?.bankverbindungId ?? "");
     if (chosen?.defaultFormat) setFormat(chosen.defaultFormat);
     else if (chosen?.leitwegId) setFormat("xrechnung-cii");
     if (chosen) setLanguage(chosen.language ?? "de");

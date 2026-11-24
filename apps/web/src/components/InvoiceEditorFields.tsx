@@ -1,5 +1,6 @@
 import { formatEuro, skontoFristen, type PriceMode } from "@haben/core";
 import { formatDate } from "../lib/format.ts";
+import { BankverbindungField } from "./BankverbindungField.tsx";
 import { ContactCombobox } from "./ContactCombobox.tsx";
 import { ContactPersonField } from "./ContactPersonField.tsx";
 import { Field } from "./Field.tsx";
@@ -77,8 +78,11 @@ export function InvoiceDatePaymentFields({ editor }: { editor: InvoiceEditorMode
   const {
     alreadyPaid,
     attempted,
+    bankverbindungen,
+    bankverbindungId,
     contactId,
     dueDate,
+    editable,
     error,
     initial,
     issueDate,
@@ -91,6 +95,7 @@ export function InvoiceDatePaymentFields({ editor }: { editor: InvoiceEditorMode
     paymentTermDays,
     previewGross,
     quote,
+    setBankverbindungId,
     setIssueDate,
     setMandateId,
     setPaidOn,
@@ -103,6 +108,7 @@ export function InvoiceDatePaymentFields({ editor }: { editor: InvoiceEditorMode
     skontoAllowed,
     skontoIssue,
     skontoRows,
+    standardIban,
     termValid,
     touch,
     validUntil,
@@ -147,6 +153,20 @@ export function InvoiceDatePaymentFields({ editor }: { editor: InvoiceEditorMode
             touch(setPaymentMethod)(method);
             setMandateId(mandate);
           }}
+        />
+      )}
+      {(quote || (kind === "rechnung" && paymentMethod === "ueberweisung")) && (
+        <BankverbindungField
+          bankverbindungen={bankverbindungen}
+          standardIban={standardIban}
+          value={bankverbindungId}
+          disabled={!editable}
+          hint={
+            quote
+              ? "Steht im Angebot und geht in die Rechnung aus dem Angebot über."
+              : "Steht auf der Rechnung, im GiroCode und in der E-Rechnung (BT-84). Vorgabe ist die Bankverbindung des Kunden."
+          }
+          onChange={touch(setBankverbindungId)}
         />
       )}
       {skontoAllowed && (
