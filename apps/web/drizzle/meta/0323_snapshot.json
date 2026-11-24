@@ -1,6 +1,6 @@
 {
-  "id": "33a94ade-fa96-4208-9180-4011a6d4f241",
-  "prevId": "a0d0e84e-bb52-49b9-99c0-523fabb3cf16",
+  "id": "7ebc9988-5ae3-48b9-b10c-49c33b9b5c21",
+  "prevId": "9021b405-762d-42bb-be71-78229b94ccb9",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -14708,12 +14708,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "notiz": {
-          "name": "notiz",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "at": {
           "name": "at",

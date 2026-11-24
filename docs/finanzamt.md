@@ -35,7 +35,7 @@ Zu jedem Bescheid zeigt Haben unter „Einspruch bis“, bis wann du Einspruch e
 
 ### Als geprüft abhaken
 
-Hast du einen Bescheid durchgesehen, kannst du ihn unter **Finanzamt** in der Spalte „Geprüft" als geprüft markieren; bei der Aufgabe in der Übersicht steht dafür ein eigener Knopf. Damit verschwindet der Bescheid aus den Aufgaben und aus dem Fristen-Kalender, ohne dass du bis zum Ablauf der Einspruchsfrist warten musst. „Wieder offen" holt ihn zurück, etwa wenn du doch noch Einspruch einlegen willst.
+Hast du einen Bescheid durchgesehen, kannst du ihn unter **Finanzamt** in der Spalte „Geprüft“ als geprüft markieren; bei der Aufgabe in der Übersicht steht dafür ein eigener Knopf. Damit verschwindet die Aufgabe des Bescheids aus den Aufgaben und aus dem Fristen-Kalender, ohne dass du bis zum Ablauf der Einspruchsfrist warten musst. Bei mehreren Anhängen desselben Bescheids zählt der jüngste: Erst wenn er geprüft ist, ist die Aufgabe erledigt. „Wieder offen“ holt ihn zurück, etwa wenn du doch noch Einspruch einlegen willst.
 
 Der Vermerk ändert den Bescheid nicht. Er steht als eigenes Ereignis daneben, mit Zeitpunkt, und im Audit-Log mit dem Namen dessen, der abgehakt hat. Ein abgehakter Bescheid bleibt deshalb unter Finanzamt in der Liste, und die Frist selbst läuft weiter: abgehakt heißt geprüft, nicht unanfechtbar.
 

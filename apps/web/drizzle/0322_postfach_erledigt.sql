@@ -2,7 +2,6 @@ CREATE TABLE "postfach_erledigt" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"document_id" uuid NOT NULL,
 	"art" text NOT NULL,
-	"notiz" text,
 	"at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "postfach_erledigt_art" CHECK ("postfach_erledigt"."art" in ('geprueft', 'wieder_offen'))
 );

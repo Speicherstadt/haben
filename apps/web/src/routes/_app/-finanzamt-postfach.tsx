@@ -207,18 +207,22 @@ export function History({ data }: { data: Data }) {
 function ErledigtKnopf({ dokument }: { dokument: Data["documents"][number] }) {
   const router = useRouter();
   const mark = useServerFn(markPostfachDocument);
-  const [busy, setBusy] = useState(false);
+  // useAction meldet einen Fehler, statt ihn in einer unbehandelten Ablehnung verschwinden zu lassen
+  const { busy, notice, run } = useAction();
   const geprueft = dokument.erledigt?.art === "geprueft";
   const tag = dokument.erledigt ? new Date(dokument.erledigt.at) : null;
   async function umschalten() {
-    setBusy(true);
-    try {
+    await run(async () => {
       await mark({ data: { id: dokument.id, art: geprueft ? "wieder_offen" : "geprueft" } });
       await router.invalidate();
-    } finally {
-      setBusy(false);
-    }
+    });
   }
+  if (notice)
+    return (
+      <span className="small" role="alert">
+        {notice.text}
+      </span>
+    );
   if (!geprueft) {
     return (
       <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void umschalten()}>

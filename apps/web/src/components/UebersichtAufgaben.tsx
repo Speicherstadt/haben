@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useAction } from "../lib/use-action.ts";
 import { daysUntil } from "../lib/format.ts";
 import type { SettingsArea } from "../lib/settings-areas.ts";
 import { useBescheidAbhaken } from "../routes/_app/-uebersicht-abhaken.ts";
@@ -46,7 +46,7 @@ export const ordneAufgaben = (todos: Todo[]) =>
   [...todos].sort((a, b) => Number(!nah(a)) - Number(!nah(b)) || (nah(a) ? a.frist!.localeCompare(b.frist!) : 0) || RANG[a.tone] - RANG[b.tone]);
 
 function Eintrag({ todo, zeitraum, onErledigen }: { todo: Todo; zeitraum: string; onErledigen: (id: string) => Promise<void> }) {
-  const [busy, setBusy] = useState(false);
+  const { busy, notice, run } = useAction();
   const inhalt = (
     <>
       <span className="todo-dot" style={{ background: DOT[todo.tone] }} />
@@ -72,19 +72,20 @@ function Eintrag({ todo, zeitraum, onErledigen }: { todo: Todo; zeitraum: string
   // Der Knopf steht neben dem Link, nicht darin: Ein Knopf im Link wäre kein gültiges Markup und würde beim Klick mitnavigieren.
   async function abhaken() {
     if (erledigen === null) return;
-    setBusy(true);
-    try {
-      await onErledigen(erledigen);
-    } finally {
-      setBusy(false);
-    }
+    await run(() => onErledigen(erledigen));
   }
   return (
     <div className="todo-zeile">
       {link}
-      <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void abhaken()} title="Bescheid als geprüft abhaken">
-        {busy ? "…" : "Geprüft"}
-      </button>
+      {notice ? (
+        <span className="small" role="alert">
+          {notice.text}
+        </span>
+      ) : (
+        <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void abhaken()} title="Bescheid als geprüft abhaken">
+          {busy ? "…" : "Geprüft"}
+        </button>
+      )}
     </div>
   );
 }

@@ -719,8 +719,6 @@ export const postfachErledigt = pgTable(
       .notNull()
       .references(() => postfachDocuments.id, { onDelete: "restrict" }),
     art: text("art", { enum: ["geprueft", "wieder_offen"] }).notNull(),
-    /** Freitext, etwa „Rückfrage an die Steuerberatung" */
-    notiz: text("notiz"),
     at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("postfach_erledigt_document").on(t.documentId, t.at), check("postfach_erledigt_art", sql`${t.art} in ('geprueft', 'wieder_offen')`)],

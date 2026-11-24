@@ -1,5 +1,5 @@
 {
-  "id": "a0d0e84e-bb52-49b9-99c0-523fabb3cf16",
+  "id": "9021b405-762d-42bb-be71-78229b94ccb9",
   "prevId": "69be55b4-57cb-4b6a-8f09-669ece309bcc",
   "version": "7",
   "dialect": "postgresql",
@@ -14708,12 +14708,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "notiz": {
-          "name": "notiz",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "at": {
           "name": "at",
