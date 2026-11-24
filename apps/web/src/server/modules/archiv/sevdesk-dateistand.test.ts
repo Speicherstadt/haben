@@ -138,8 +138,10 @@ describe.skipIf(!testDatabaseUrl).each([
   });
 
   it("lässt eine Rechnung ohne PDF und einen fehlgeschlagenen Abruf nicht als ohne Datei bestätigen", async () => {
-    await expect(dateistand.confirmWithoutFile("test-user", await idOf("invoice/ID_301"), "")).rejects.toThrow("Original-PDF");
-    await expect(dateistand.confirmWithoutFile("test-user", await idOf("voucher/ID_101"), "")).rejects.toThrow("sevDesk nennt zu diesem Beleg eine Datei");
+    await expect(dateistand.confirmWithoutFile("test-user", await idOf("invoice/ID_301"), "")).rejects.toThrow(/Original-PDF.*Erneut abrufen/);
+    await expect(dateistand.confirmWithoutFile("test-user", await idOf("voucher/ID_101"), "")).rejects.toThrow(
+      /sevDesk nennt zu diesem Beleg eine Datei.*Erneut abrufen/,
+    );
     await expect(dateistand.confirmWithoutFile("test-user", await idOf("voucher/ID_103"), "")).rejects.toThrow("hat eine Datei");
   });
 

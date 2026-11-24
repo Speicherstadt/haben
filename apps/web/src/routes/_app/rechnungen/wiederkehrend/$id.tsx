@@ -64,7 +64,8 @@ function RecurringDetailPage() {
       <NoticeBanner notice={notice} />
       <div className="editor-grid">
         <RecurringForm
-          key={String(recurring.updatedAt)}
+          // Mit Millisekunden: String(Date) endet bei der Sekunde, zwei Aktionen in derselben Sekunde ließen das Formular stehen
+          key={recurring.updatedAt.toISOString()}
           initial={{
             name: recurring.name,
             active: recurring.active,
@@ -96,7 +97,7 @@ function RecurringDetailPage() {
           onSubmit={(values) =>
             run(async () => {
               await save({ data: { id: recurring.id, recurring: values } });
-              await router.invalidate();
+              await router.invalidate({ sync: true });
             }, "Gespeichert.")
           }
         />

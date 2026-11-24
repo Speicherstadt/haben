@@ -242,9 +242,9 @@ describe.skipIf(!testDatabaseUrl)("Innergemeinschaftlicher Erwerb, Lieferung und
         // § 18b UStG: die innergemeinschaftliche Lieferung im Monat der Rechnung, auch bei Ist
         expect(sep.kz41).toBe(300_000);
         expect(oct.kz41).toBe(0);
-        // Ausfuhr wie die übrigen steuerfreien Umsätze: bei Ist mit der Zahlung, bei Soll mit der Rechnung
-        expect(sep.kz43).toBe(versteuerung === "soll" ? 120_000 : 0);
-        expect(oct.kz43).toBe(versteuerung === "ist" ? 120_000 : 0);
+        // Ausfuhr bei Ist und Soll im Monat der Leistung, hier der Rechnung, nicht der Zahlung (#1312)
+        expect(sep.kz43).toBe(120_000);
+        expect(oct.kz43).toBe(0);
         expect(sep.kz81 + sep.kz86 + sep.kz21 + sep.kz45 + sep.kz48 + oct.kz81 + oct.kz45 + oct.kz48).toBe(0);
 
         const q3 = await zm.zmOverview({ year: 2026, month: 43 });

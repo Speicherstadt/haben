@@ -1,4 +1,4 @@
-import { PRIVATANTEIL_FEHLER, parsePrivatanteil } from "../lib/anteil.ts";
+import { PRIVATANTEIL_FEHLER, betrieblicherTeil, parsePrivatanteil } from "../lib/anteil.ts";
 import { Field } from "./Field.tsx";
 import { EinklappAbschnitt } from "./firma/EinklappAbschnitt.tsx";
 
@@ -44,12 +44,15 @@ export function privatanteilKurz(texte: PrivatanteilTexte): string {
 
 export function PrivatanteilVorgaben({
   texte,
+  abzug,
   onChange,
   error,
   offen,
   onOffen,
 }: {
   texte: PrivatanteilTexte;
+  /** Neue Belege haben nach den gespeicherten Firmendaten Vorsteuerabzug (nicht Kleinunternehmer, nicht ohne Abzug) */
+  abzug: boolean;
   onChange: (texte: PrivatanteilTexte) => void;
   error: (name: Feld) => string | undefined;
   offen: boolean;
@@ -74,8 +77,8 @@ export function PrivatanteilVorgaben({
         ))}
       </div>
       <p id="private-share-hint" className="field-hint">
-        Vorgabe für neue Belege dieser Kategorien: Nur der betriebliche Teil wird Ausgabe und Vorsteuer, der private Teil ist eine Entnahme. Am einzelnen Beleg
-        lässt sich der Anteil ändern.
+        Vorgabe für neue Belege dieser Kategorien: Nur der betriebliche Teil wird {betrieblicherTeil(abzug)}, der private Teil ist eine Entnahme. Am einzelnen
+        Beleg lässt sich der Anteil ändern.
       </p>
     </EinklappAbschnitt>
   );

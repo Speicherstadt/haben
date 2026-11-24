@@ -35,6 +35,7 @@ function LegacyVoucherPage() {
   const file = files.find((f) => f.id === selected) ?? null;
   const src = file ? `/api/altbeleg/${file.id}` : null;
   const source = legacySource(voucher.source, voucher.sourceName);
+  const reloadIssue = fileState.status === "anhang_fehlt" || !file ? fileState.reloadIssue : null;
   return (
     <>
       <div className="page-head">
@@ -66,9 +67,7 @@ function LegacyVoucherPage() {
               ))}
             </div>
           )}
-          {fileState.status === "anhang_fehlt" && (
-            <div className="banner banner-info">Das XML der E-Rechnung fehlt. „Erneut abrufen“ im Umzug versucht es noch einmal.</div>
-          )}
+          {reloadIssue && <div className={`banner ${fileState.status === "abruf_fehlgeschlagen" ? "banner-danger" : "banner-info"}`}>{reloadIssue}</div>}
           {file?.role === "vorlage" && (
             <p className="small muted" style={{ margin: 0 }}>
               Aus der Vorlage: {source.product} führt die Datei nur an der Vorlage des wiederkehrenden Belegs, nicht am einzelnen Beleg.
@@ -76,17 +75,18 @@ function LegacyVoucherPage() {
           )}
           {file?.reloadedAt && (
             <p className="small muted" style={{ margin: 0 }}>
-              Nachgeladen am {formatDateTime(file.reloadedAt)}: Ein späterer Abruf aus {source.product} hat die Datei angehängt. Die übrigen Angaben stammen vom
-              ersten Abruf.
+              Nachgeladen am {formatDateTime(file.reloadedAt)}. Die übrigen Angaben stammen aus dem ersten Import.
             </p>
           )}
           {!file || !src ? (
-            <MissingFileBanner
-              status={fileState.status}
-              product={source.product}
-              grund={fileState.ohneBelegGrund}
-              bestaetigbar={fileState.canConfirmWithoutFile}
-            />
+            !reloadIssue && (
+              <MissingFileBanner
+                status={fileState.status}
+                product={source.product}
+                grund={fileState.ohneBelegGrund}
+                bestaetigbar={fileState.canConfirmWithoutFile}
+              />
+            )
           ) : file.mimeType === "application/pdf" ? (
             <iframe className="doc-preview" src={`${src}#view=Fit`} title={`Datei ${file.filename}`} />
           ) : file.mimeType.startsWith("image/") ? (

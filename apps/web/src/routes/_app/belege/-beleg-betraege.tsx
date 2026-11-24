@@ -2,7 +2,7 @@ import { formatDecimal, formatEuro, isKapitalgesellschaft } from "@haben/core";
 import { BelegUmsatzsteuer } from "../../../components/BelegUmsatzsteuer.tsx";
 import { betragszeileAus } from "../../../lib/betragszeile.ts";
 import { Field } from "../../../components/Field.tsx";
-import { VorsteuerAnteil, steuerSpalte } from "../../../components/VorsteuerAnteil.tsx";
+import { VorsteuerAnteil, privatanteilHinweis, steuerSpalte } from "../../../components/VorsteuerAnteil.tsx";
 import { type AmountState, nextRowKey, type Rate } from "./-beleg-zeile.ts";
 import type { DocumentFormState } from "./-beleg-zustand.ts";
 import type { Detail } from "./-beleg-vorschau.tsx";
@@ -10,8 +10,7 @@ import type { Detail } from "./-beleg-vorschau.tsx";
 /** Karte „Beträge je Steuersatz“ mit § 13b, Summe, Vorsteueranteil und Privatanteil */
 export function Betraege({ f, data }: { f: DocumentFormState; data: Detail }) {
   const {
-    readOnly,
-    running,
+    fieldsDisabled,
     category,
     privateShare,
     setPrivateShare,
@@ -36,7 +35,7 @@ export function Betraege({ f, data }: { f: DocumentFormState; data: Detail }) {
     updateRow,
   } = f;
   return (
-    <fieldset className="card" disabled={readOnly || running} style={{ margin: 0 }}>
+    <fieldset className="card" disabled={fieldsDisabled} style={{ margin: 0 }}>
       <legend style={{ fontWeight: 600, fontSize: 16, padding: 0, marginBottom: 4 }}>Beträge je Steuersatz</legend>
       <BelegUmsatzsteuer value={reverseCharge} onChange={chooseReverseCharge} looksLikeReverseCharge={looksLikeReverseCharge} />
       {rows.map((row, index) => (
@@ -108,12 +107,7 @@ export function Betraege({ f, data }: { f: DocumentFormState; data: Detail }) {
       />
       {/* Privatanteil nur im Einzelunternehmen; in GmbH und UG wäre er Arbeitslohn oder verdeckte Gewinnausschüttung */}
       {category !== "anlage" && !splitting && !isKapitalgesellschaft(data.rechtsform) && (
-        <Field
-          label="Privatanteil in %"
-          hint="Z. B. beim Handyvertrag: nur der betriebliche Teil wird Ausgabe und Vorsteuer."
-          error={error("privatanteil")}
-          style={{ maxWidth: 220 }}
-        >
+        <Field label="Privatanteil in %" hint={privatanteilHinweis(vorsteuerBeleg, rows)} error={error("privatanteil")} style={{ maxWidth: 220 }}>
           {(control) => (
             <input {...control} inputMode="numeric" value={privateShare} placeholder="0" onChange={(e) => touch(setPrivateShare)(e.target.value)} />
           )}

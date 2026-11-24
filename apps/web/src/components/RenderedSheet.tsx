@@ -5,12 +5,16 @@ export function RenderedSheet<I>({ label, render, input, revision }: { label: st
   const { sheet, failure, outdated, refresh } = useRenderedSheet(render, input, revision);
   return (
     <div className="sheet" aria-label={label}>
+      {/* Entsteht beim Tippen: höflich als Status statt alert (DESIGN.md). Solange sie steht, entfällt „Aktualisieren“, ein Knopf genügt */}
       {failure && (
-        <div className="banner banner-danger" role="alert">
-          {failure}
+        <div className="banner banner-danger" role="status">
+          <span>{failure}</span>
+          <button type="button" className="btn btn-sm" onClick={() => void refresh()}>
+            Erneut versuchen
+          </button>
         </div>
       )}
-      {outdated && (
+      {outdated && !failure && (
         <div className="sheet-outdated" role="status">
           <span className="small">Das Blatt zeigt noch den vorigen Stand.</span>
           <button type="button" className="btn btn-sm" onClick={() => void refresh()}>

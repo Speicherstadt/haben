@@ -9,8 +9,7 @@ import { loadSevdeskAccountCategories, sevdeskCategories, sevdeskPositionAccount
 import { db, schema } from "../../db/index.ts";
 import type { LegacyFileState, LegacySource } from "../../db/schema.ts";
 import { legacyDunningsFor } from "./mahnungen-archiv.ts";
-import { ohneBelegGrund, ohneDateiBestaetigbar } from "./ohne-datei.ts";
-import { FILE_STATUS_LABELS, fileStateHistory, latestFileStateSql, legacyFileStatus, OPEN_FILE_STATUSES } from "./dateistand.ts";
+import { latestFileStateSql, legacyFileStatus, legacyVoucherFileState, OPEN_FILE_STATUSES } from "./dateistand.ts";
 
 /** Buchung ohne Beleg aus der Sicherung der Web-Oberfläche: hat keine Datei und braucht keine */
 export const WITHOUT_RECEIPT = sql<boolean>`coalesce((lexoffice_vouchers.raw->>'ohneBeleg')::boolean, false)`;
@@ -106,6 +105,7 @@ export async function legacyVoucherDetail(id: string) {
       accountingType: accountingTypeKinds("lexoffice_vouchers"),
       ohneBeleg: WITHOUT_RECEIPT,
       rawGuid: sql<string | null>`${schema.lexofficeVouchers.raw}->>'guid'`,
+      rawQuelle: sql<string | null>`${schema.lexofficeVouchers.raw}->>'quelle'`,
       rawDocumentPresent: sql<boolean | null>`(${schema.lexofficeVouchers.raw}->>'documentPresent')::boolean`,
       positionAccounts: sevdeskPositionAccounts("lexoffice_vouchers"),
     })
@@ -127,15 +127,8 @@ export async function legacyVoucherDetail(id: string) {
     .orderBy(schema.lexofficeVoucherFiles.createdAt, schema.lexofficeVoucherFiles.id);
   // Mahnstufen der Rechnung aus der Quelle; nur Archiv, ohne Wirkung auf Betrag und Zahlungsstand
   const dunnings = voucher.direction === "einnahme" ? await legacyDunningsFor([voucher.lexofficeId]) : [];
-  // Dateistand mit Verlauf (#345); bestätigen lässt sich ein Beleg mit offenem Stand „ohne Datei“, Quelle siehe ohneDateiBestaetigbar
-  const fileStates = await fileStateHistory(id);
-  const fileStatus = legacyFileStatus(fileStates.at(-1)?.state ?? null, files.length, voucher.ohneBeleg);
-  // Offener Stand „ohne Datei“ oder eine Buchung ohne Beleg aus dem Accountable-Stapel bzw. der Lexoffice-Sicherung, wenn die Quelle es hergibt (#1235, #1318)
-  const canConfirmWithoutFile =
-    (fileStatus === "ohne_datei_offen" || fileStatus === "ohne_beleg") &&
-    files.length === 0 &&
-    ohneDateiBestaetigbar({ ...voucher, guid: voucher.rawGuid, documentPresent: voucher.rawDocumentPresent, ohneBeleg: voucher.ohneBeleg });
-  const { positionAccounts, ...shown } = voucher;
+  const { positionAccounts, rawQuelle, ...shown } = voucher;
+  const fileState = await legacyVoucherFileState(shown, files.length, rawQuelle);
   const categories = positionAccounts ? sevdeskCategories(voucher.categories, positionAccounts, await loadSevdeskAccountCategories()) : voucher.categories;
   // Frühere WISO-Importe setzten das Zahlungsdatum als Leistung, obwohl die Quelle sie nicht belegt (#565).
   // Nur lesend korrigieren; die unveränderliche Archivzeile bleibt erhalten. Quelle: https://github.com/Speicherstadt/haben/issues/565
@@ -154,20 +147,11 @@ export async function legacyVoucherDetail(id: string) {
     files: files.map((f) => ({
       ...f,
       reloadedAt:
-        fileStates.find((s) => s.state === "nachgeladen" && s.role === f.role && s.sourceFileId === (f.role === "anhang" ? f.lexofficeFileId : null))
+        fileState.history.find((s) => s.state === "nachgeladen" && s.role === f.role && s.sourceFileId === (f.role === "anhang" ? f.lexofficeFileId : null))
           ?.createdAt ?? null,
     })),
     dunnings,
-    fileState: {
-      status: fileStatus,
-      label: FILE_STATUS_LABELS[fileStatus],
-      history: fileStates,
-      canConfirmWithoutFile,
-      // Merkmal aus dem Import, nicht aus dem Stand: die Rückfrage unterscheidet daran die Buchung ohne Beleg (Stapel, Sicherung) von sevDesk (#1317)
-      ohneBeleg: voucher.ohneBeleg,
-      // Warum keine Datei da ist, hängt an Quelle, Beleg-GUID und „Dokument Vorhanden“ (#1235, #1322)
-      ohneBelegGrund: ohneBelegGrund({ source: voucher.source, guid: voucher.rawGuid, documentPresent: voucher.rawDocumentPresent }),
-    },
+    fileState,
   };
 }
 

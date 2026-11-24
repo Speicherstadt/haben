@@ -36,8 +36,8 @@ Google und Apple verkaufen deine Apps im eigenen Namen (als Kommissionär, § 3 
 
 1. Unter **Bank** ein Konto der Art **Zahlungsdienstleister** mit Anbieter **Google Play** bzw. **App Store** anlegen.
 2. Unter **Einstellungen › Bank › Google Play und App Store** den Zugang eintragen. Haben prüft ihn beim Speichern mit einem Abruf; Schlüssel liegen verschlüsselt in der Datenbank.
-   - **Google Play:** Google legt die Berichte in einen eigenen Cloud-Storage-Bucket (`gs://pubsite_prod_rev_…`, in der Play Console unter Berichte herunterladen › Finanzberichte). Lege in der Google Cloud ein Servicekonto mit JSON-Schlüssel an und lade seine E-Mail-Adresse in der Play Console unter Nutzer und Berechtigungen mit „Finanzdaten ansehen“ für alle Apps ein; Rollen am Bucket gibt es nicht.
-   - **App Store:** In App Store Connect unter Benutzer und Zugriff › Integrationen einen **Team-Schlüssel** mit der Rolle Finanzen anlegen (persönliche Schlüssel sehen keine Finanzberichte) und Issuer ID, Key ID, die Datei `AuthKey_….p8` und die Vendor-Nummer (Zahlungen und Finanzberichte) eintragen.
+    - **Google Play:** Google legt die Berichte in einen eigenen Cloud-Storage-Bucket (`gs://pubsite_prod_rev_…`, in der Play Console unter Berichte herunterladen › Finanzberichte). Lege in der Google Cloud ein Servicekonto mit JSON-Schlüssel an und lade seine E-Mail-Adresse in der Play Console unter Nutzer und Berechtigungen mit „Finanzdaten ansehen“ für alle Apps ein; Rollen am Bucket gibt es nicht.
+    - **App Store:** In App Store Connect unter Benutzer und Zugriff › Integrationen einen **Team-Schlüssel** mit der Rolle Finanzen anlegen (persönliche Schlüssel sehen keine Finanzberichte) und Issuer ID, Key ID, die Datei `AuthKey_….p8` und die Vendor-Nummer (Zahlungen und Finanzberichte) eintragen.
 3. Der Abruf läuft mit den übrigen Hintergrundjobs höchstens einmal am Tag; **Jetzt abrufen** startet ihn sofort. „Berichte ab Monat“ ist der erste Berichtsmonat, den Haben holt.
 
 **Was Haben übernimmt:**

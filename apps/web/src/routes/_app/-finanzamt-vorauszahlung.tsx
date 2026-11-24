@@ -1,8 +1,9 @@
-import { formatDecimal, parseEuro } from "@haben/core";
+import { formatDecimal } from "@haben/core";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { KIRCHENSTEUER_FORTSCHREIBUNG } from "../../lib/kirchensteuer.ts";
 import { Field } from "../../components/Field.tsx";
+import { vorauszahlungBetrag } from "./-finanzamt-betrag.ts";
 import { type Basis, type Data, prepaymentLetter } from "./-finanzamt-daten.ts";
 import { MessageForm } from "./-finanzamt-nachrichten.tsx";
 import { Schaetzung } from "./-finanzamt-schaetzung.tsx";
@@ -13,8 +14,10 @@ export function PrepaymentForm({ data, basis: b }: { data: Data; basis: Basis })
   const [wanted, setWanted] = useState(p.jeQuartal > 0 ? formatDecimal(p.jeQuartal) : "");
   const [reason, setReason] = useState("");
   const [usePrognose, setUsePrognose] = useState(true);
-  const currentCents = current.trim() ? parseEuro(current) : null;
-  const wantedCents = wanted.trim() ? parseEuro(wanted) : null;
+  const bisher = vorauszahlungBetrag(current);
+  const gewuenscht = vorauszahlungBetrag(wanted);
+  const currentCents = bisher.cents;
+  const wantedCents = gewuenscht.cents;
   const letter = prepaymentLetter(data, b, currentCents, wantedCents, reason, usePrognose);
 
   return (
@@ -53,29 +56,13 @@ export function PrepaymentForm({ data, basis: b }: { data: Data; basis: Basis })
           Voraussichtliche Steuer im Antrag nennen
         </label>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <Field label="Bisherige Vorauszahlung je Quartal (€)" style={{ flex: "1 1 200px" }}>
+          <Field label="Bisherige Vorauszahlung je Quartal (€)" style={{ flex: "1 1 200px" }} error={bisher.fehler ?? undefined}>
             {(control) => (
-              <input
-                {...control}
-                inputMode="decimal"
-                value={current}
-                onChange={(e) => setCurrent(e.target.value)}
-                placeholder="laut letztem Bescheid"
-                aria-invalid={current.trim() !== "" && currentCents === null}
-              />
+              <input {...control} inputMode="decimal" value={current} onChange={(e) => setCurrent(e.target.value)} placeholder="laut letztem Bescheid" />
             )}
           </Field>
-          <Field label="Gewünschte Vorauszahlung je Quartal (€)" style={{ flex: "1 1 200px" }}>
-            {(control) => (
-              <input
-                {...control}
-                inputMode="decimal"
-                value={wanted}
-                onChange={(e) => setWanted(e.target.value)}
-                placeholder="z. B. 1.000,00"
-                aria-invalid={wanted.trim() !== "" && wantedCents === null}
-              />
-            )}
+          <Field label="Gewünschte Vorauszahlung je Quartal (€)" style={{ flex: "1 1 200px" }} error={gewuenscht.fehler ?? undefined}>
+            {(control) => <input {...control} inputMode="decimal" value={wanted} onChange={(e) => setWanted(e.target.value)} placeholder="z. B. 1.000,00" />}
           </Field>
         </div>
         <Field label="Weitere Begründung (optional)">

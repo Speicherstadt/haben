@@ -13,8 +13,9 @@ import {
 import { and, eq, gte, isNull, lt, ne, notInArray, or, sql } from "drizzle-orm";
 import { privateUseForMonth } from "../buchhaltung/index.ts";
 import { kleinunternehmerForMonth } from "../stammdaten/index.ts";
+import { ausbuchungsQuelle } from "./ausbuchung-quelle.ts";
 import { vorsteuerAusBelegen } from "./vorsteuer-belege.ts";
-import { kennzahlenAusDemJournal } from "./vat-journal.ts";
+import { kennzahlenDerVoranmeldung } from "./umsaetze-nach-leistung.ts";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import { bankAccountIncludedSql, bankNotPrivateMarkedSql, bankOpenAmountSql } from "../../db/bank-open.ts";
 import { advanceVatPlans, invoiceTaxReader, invoiceTotalsById, mixNachVerrechnungen } from "../rechnungen/index.ts";
@@ -28,6 +29,8 @@ export interface RevenueSource {
   type: "payment" | "invoice" | "entnahme" | "ausbuchung" | "direkt" | "kasse";
   /** Bei Entnahmen: das Fahrzeug */
   assetId?: string;
+  /** Bei Ausbuchungen: Skonto gewährt oder Forderungsausfall (dieser zählt bei 19 % und 7 % zusätzlich in Kz 50) */
+  writeOffKind?: "skonto" | "forderungsausfall";
   /** Bei Direktbuchungen: der Bankumsatz */
   transactionId?: string;
   /** Bei Bareinnahmen ohne Rechnung: die Zeile im Kassenbuch */
@@ -112,6 +115,14 @@ export interface VatFigures {
   kz61: Cents;
   /** Entstandene Einfuhrumsatzsteuer laut Bescheid des Zolls (Beleg der Kategorie „Einfuhrumsatzsteuer“), nach Belegdatum */
   kz62: Cents;
+  /**
+   * Darin in Kz 48: Umsätze als Kleinunternehmer (§ 19 Abs. 1 UStG) im Monat der Leistung (#1268), aus den Rechnungen,
+   * Bareinnahmen und direkt gebuchten Erlösen, nicht aus dem Journal; je Quelle in `kleinunternehmerUmsaetze`
+   */
+  kz48Kleinunternehmer: Cents;
+  kleinunternehmerUmsaetze: RevenueSource[];
+  /** Minderung der Bemessungsgrundlage bei Uneinbringlichkeit (Forderungsausfall bei Soll), in Kz 81/86 schon enthalten */
+  kz50: Cents;
   /** Regulär besteuerte Umsätze zu 0 %, die in dieser Voranmeldung nicht gemeldet werden */
   steuerfrei: Cents;
   revenue: RevenueSource[];
@@ -332,6 +343,8 @@ export async function computeVatFigures(period: VatPeriod, q: Db | Tx = db, cont
     const rows = await q
       .select({
         date: schema.writeOffs.date,
+        // Nicht „kind“: das hieße für invoiceMode etwas anderes (TaxMetadata)
+        writeOffKind: schema.writeOffs.kind,
         amount: schema.writeOffs.amount,
         taxShares: schema.writeOffs.taxShares,
         taxSharesInvoiceId: schema.writeOffs.taxSharesInvoiceId,
@@ -366,20 +379,7 @@ export async function computeVatFigures(period: VatPeriod, q: Db | Tx = db, cont
       const stored = r.taxSharesInvoiceId === r.invoiceId ? r.taxShares?.map((t) => ({ rate: t.rate, base: -t.base, tax: -t.tax })) : null;
       const voll = totals.get(r.invoiceId)!;
       const shares = recordedTaxShares(voll, -r.amount, stored, mix.get(r.invoiceId) ?? [voll]);
-      for (const share of shares) {
-        revenue.push({
-          type: "ausbuchung",
-          date: r.date,
-          invoiceId: r.invoiceId,
-          number: r.number ?? "",
-          customer: r.buyer?.name ?? "",
-          treatment: r.treatment,
-          exemptionReason: r.exemptionReason,
-          rate: share.rate,
-          base: share.base,
-          tax: share.tax,
-        });
-      }
+      for (const share of shares) revenue.push(ausbuchungsQuelle(r, share));
     }
   }
 
@@ -471,18 +471,14 @@ export async function computeVatFigures(period: VatPeriod, q: Db | Tx = db, cont
 
   // Vorsteuer, § 13b, Erwerb und Einfuhrumsatzsteuer als Erläuterung aus den Belegen (vorsteuer-belege.ts)
   const { inputTax, reverseCharge, igErwerb, einfuhr } = await vorsteuerAusBelegen(period, q);
-  // Die Kennzahlen aus dem Journal (#542, #1116), wie bei DATEV aus Konto und Steuerschlüssel; die Privatnutzung von
-  // Fahrzeugen je Monat aus dem Anlagenverzeichnis (das Journal bucht sie erst mit der AfA)
-  const kennzahlen = await kennzahlenAusDemJournal(period, versteuerung, q);
-  const entnahme = revenue.filter((r) => r.type === "entnahme");
-  kennzahlen.kz81 += entnahme.reduce((s, r) => s + r.base, 0);
-  kennzahlen.tax81 += entnahme.reduce((s, r) => s + r.tax, 0);
+  // Aus dem Journal, dazu Privatnutzung, Umsätze als Kleinunternehmer und bei Ist Kz 43 und 48 nach dem Leistungstag; die
+  // Quellen (revenue) passend dazu (umsaetze-nach-leistung.ts)
+  const kennzahlen = await kennzahlenDerVoranmeldung(period, versteuerung, revenue, q);
   return {
     versteuerung,
     // Stand am Ende des Zeitraums der Voranmeldung, nicht der heutige
     kleinunternehmer: await kleinunternehmerForMonth(lastMonthOfPeriod(period).year, lastMonthOfPeriod(period).month, q),
     ...kennzahlen,
-    revenue,
     inputTax,
     reverseCharge,
     igErwerb,

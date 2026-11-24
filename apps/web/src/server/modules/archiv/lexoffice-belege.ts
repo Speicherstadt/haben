@@ -62,6 +62,7 @@ export async function nachladenDateien(
   client: LexofficeSource,
   item: { id: string; type: string },
   offen: OffeneDatei[],
+  progress: LexofficeImportProgress,
 ): Promise<boolean> {
   // Das PDF und ein XML der Rechnung hängen nicht an einer Kennung; sie kommen über den Beleg selbst
   const salesType = isSalesType(item.type) ? item.type : null;
@@ -84,25 +85,24 @@ export async function nachladenDateien(
   if (files.length === 0 && ohneAnhang.length === 0) return false;
   const voucherId = offen[0]!.voucherId;
   const number = offen[0]!.number || item.id;
-  await withActor(actor, async (tx) => {
-    if (files.length > 0)
-      await attachVoucherFiles(
-        tx,
-        voucherId,
-        files.map((entry) => ({
-          role: entry.role,
-          sourceFileId: entry.lexofficeFileId,
-          filename: entry.file.filename ?? fallbackName({ number, lexofficeId: item.id }, entry.role, entry.file.bytes),
-          mimeType: entry.file.mimeType,
-          bytes: entry.file.bytes,
-        })),
-      );
+  const angehaengt = await withActor(actor, async (tx) => {
+    const count = await attachVoucherFiles(
+      tx,
+      voucherId,
+      files.map((entry) => ({
+        role: entry.role,
+        sourceFileId: entry.lexofficeFileId,
+        filename: entry.file.filename ?? fallbackName({ number, lexofficeId: item.id }, entry.role, entry.file.bytes),
+        mimeType: entry.file.mimeType,
+        bytes: entry.file.bytes,
+      })),
+    );
     // Ein Stand je Datei mit Rolle und Kennung: er löst genau diese Datei und trägt den Zeitpunkt für „(nachgeladen)“ (#1624)
     for (const entry of files)
       await recordFileState(
         tx,
         voucherId,
-        { state: "nachgeladen", role: entry.role, sourceFileId: entry.lexofficeFileId, message: "Datei aus einer späteren Sicherung nachgeladen." },
+        { state: "nachgeladen", role: entry.role, sourceFileId: entry.lexofficeFileId, message: "Datei bei einem späteren Import nachgeladen." },
         { actor, importId },
       );
     // Die Quelle nennt ohne Fehler kein XML: nichts mehr offen, auch wenn nichts ankam. Sonst bliebe die Rechnung für
@@ -114,7 +114,9 @@ export async function nachladenDateien(
         { state: "kein_anhang", role: "xml", sourceFileId: null, message: "Die Quelle nennt keine E-Rechnung." },
         { actor, importId },
       );
+    return count;
   });
+  progress.files += angehaengt;
   // Was weiterhin fehlt, wird danach in einem eigenen Schritt vermerkt: mit dem jüngeren Zeitstempel bleibt der Beleg
   // offen, auch wenn eine der Dateien ankam (#1624)
   if (weiterhin.length > 0) await withActor(actor, (tx) => vermerkeFehlendeDateien(tx, voucherId, weiterhin, { actor, importId }));

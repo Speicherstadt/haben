@@ -65,14 +65,15 @@ die bilanzielle Trennung zwischen Anzahlung und Erlös bleibt erforderlich.
    Dienstleistungen, bleibt nur der Ausweis unter den Verbindlichkeiten.
    Infrage kommen nach den DATEV-Kontenrahmen 2026 (SKR03 Art.-Nr. 11174, S. 10; SKR04 Art.-Nr. 11175, S. 3 und 11):
 
-   | Konto | SKR03 | SKR04 |
-   | --- | --- | --- |
-   | Erhaltene Anzahlungen auf Bestellungen (Verbindlichkeiten) | 1710 | 3250 |
-   | Erhaltene, versteuerte Anzahlungen 19 % USt, mit automatischer Umsatzsteuer (AM) | 1718 | 3272 |
-   | Erhaltene, versteuerte Anzahlungen 7 % USt, AM | 1711 | 3260 |
-   | Erhaltene Anzahlungen auf Bestellungen (von Vorräten offen abgesetzt) | 1722 | 1190 |
+    | Konto | SKR03 | SKR04 |
+    | --- | --- | --- |
+    | Erhaltene Anzahlungen auf Bestellungen (Verbindlichkeiten) | 1710 | 3250 |
+    | Erhaltene, versteuerte Anzahlungen 19 % USt, mit automatischer Umsatzsteuer (AM) | 1718 | 3272 |
+    | Erhaltene, versteuerte Anzahlungen 7 % USt, AM | 1711 | 3260 |
+    | Erhaltene Anzahlungen auf Bestellungen (von Vorräten offen abgesetzt) | 1722 | 1190 |
 
-   Die Bilanzposten dieser Konten ordnet `packages/core/src/hgb.ts` schon zu.
+    Die Bilanzposten dieser Konten ordnet `packages/core/src/hgb.ts` schon zu.
+
 3. **Realisierung und Bestand:** Festlegen, welche dokumentierte Leistung die Auflösung auslöst und wie der Übergang
    auf neue Buchungen erkennbar bleibt. Bereits gesperrte Belege, Journalzeilen und deren Siegel bleiben unverändert;
    nötige Bestandskorrekturen erfolgen über nachvollziehbare Folgebuchungen in zulässigen Zeiträumen.

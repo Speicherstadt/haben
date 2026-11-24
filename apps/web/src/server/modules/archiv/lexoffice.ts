@@ -6,6 +6,7 @@ import {
   readWebExport,
   type LexofficeClientOptions,
   type LexofficeSource,
+  type WebOmittedCounts,
   webExportSource,
 } from "@haben/import";
 import { and, eq, isNull, sql } from "drizzle-orm";
@@ -83,11 +84,16 @@ export async function startImport(actor: string, options: { wait?: boolean } = {
  * übersprungen, Teile dürfen nacheinander kommen.
  */
 export async function startWebImport(actor: string, parts: { name: string; bytes: Uint8Array }[], options: { wait?: boolean } = {}): Promise<string> {
-  const source = webExportSource(readWebExport(parts));
-  return launchImport(actor, () => source, options);
+  const backup = readWebExport(parts);
+  const source = webExportSource(backup);
+  return launchImport(actor, () => source, { ...options, webOmitted: backup.omitted });
 }
 
-async function launchImport(actor: string, sourceFor: (signal: AbortSignal) => LexofficeSource, options: { wait?: boolean }): Promise<string> {
+async function launchImport(
+  actor: string,
+  sourceFor: (signal: AbortSignal) => LexofficeSource,
+  options: { wait?: boolean; webOmitted?: WebOmittedCounts },
+): Promise<string> {
   if ((await latestImport())?.status === "laeuft") throw new LexofficeError("Ein Abruf läuft bereits.");
 
   // Diese beiden Meldungen gehörten schon zur Lexware-Office-Verbindung.
@@ -107,6 +113,7 @@ async function launchImport(actor: string, sourceFor: (signal: AbortSignal) => L
     skipped: 0,
     files: 0,
     failed: [],
+    ...(options.webOmitted ? { webOmitted: options.webOmitted } : {}),
   };
   const [row] = await withActor(actor, (tx) => tx.insert(schema.lexofficeImports).values({ progress }).returning({ id: schema.lexofficeImports.id })).catch(
     (error: unknown) => {
@@ -141,7 +148,7 @@ export function cancelImport(id: string): boolean {
 /**
  * Belegliste des Laufs. Entwürfe sind keine Belege; der Abruf übergeht sie und zählt ihre Zahl, damit sie nicht still
  * verschwindet (#1504). Vorgänge ohne Belegart kommen über die API gar nicht erst in die Liste — die Sicherung aus der
- * Web-Oberfläche lässt sie schon beim Packen draußen (#183), deshalb gibt es dafür keinen Zähler.
+ * Web-Oberfläche lässt sie schon beim Packen draußen (#183) und zählt sie dort; ihre Zahlen stehen in `webOmitted` (#1640).
  */
 async function sammleBelegliste(
   client: LexofficeSource,
@@ -196,7 +203,7 @@ async function runImport(actor: string, importId: string, client: LexofficeSourc
         continue;
       }
       try {
-        if (await nachladenDateien(actor, importId, client, item, offen)) progress.nachgeladen = (progress.nachgeladen ?? 0) + 1;
+        if (await nachladenDateien(actor, importId, client, item, offen, progress)) progress.nachgeladen = (progress.nachgeladen ?? 0) + 1;
       } catch (error) {
         if (error instanceof LexofficeApiError && (error.status === 401 || error.status === 403)) throw error;
         if (signal.aborted || (error instanceof Error && error.name === "AbortError")) throw error;
