@@ -2,7 +2,7 @@
 title: "Überwachung"
 description: >-
   Metriken für Prometheus, VictoriaMetrics und andere Systeme: Health, Hintergrundjobs wie Kontoabruf und Belegpostfach,
-  ELSTER, Scrape-Konfiguration, Alarmregeln.
+  ELSTER, Scrape-Konfiguration, Alarmregeln, Grafana-Dashboard.
 ---
 
 # Überwachung
@@ -39,8 +39,8 @@ scrape_configs:
 Alarmregeln stehen in [`deploy/helm/files/prometheus-regeln.yml`](https://github.com/Speicherstadt/haben/blob/main/deploy/helm/files/prometheus-regeln.yml), zum Laden mit `rule_files` in `prometheus.yml`:
 
 - `HabenNichtBereit`: `haben_up` seit 5 Minuten `0`.
-- `HabenJobOhneErfolg`: ein Job seit über 24 Stunden ohne Erfolg, etwa weil er bei jedem Lauf wirft.
-- `HabenJobGescheitert`: ein gescheiterter Lauf in den letzten 24 Stunden. Die Regel fängt auch Jobs, die nach einem Fehler erst an ihrem nächsten Termin wieder versuchen; eine abgelaufene Bankverbindung zeigt sich nur so, einen Tag lang.
+- `HabenJobOhneErfolg`: ein Job seit über 24 Stunden ohne Erfolg, etwa weil er bei jedem Lauf wirft. Das setzt einen Erfolg seit dem Start des Servers voraus; einen Job, der seit dem Start nur scheitert, meldet `HabenJobGescheitert`.
+- `HabenJobGescheitert`: ein gescheiterter Lauf in den letzten 24 Stunden, auch von Jobs, die danach bis zu ihrem nächsten Termin als erfolgreich gelten. Eine abgelaufene Bankverbindung meldet nur diese Regel, und nur einen Tag lang.
 
 In Kubernetes legt das Helm-Chart daraus eine `PrometheusRule` an, siehe [Kubernetes › Metriken](kubernetes.md#metriken).
 

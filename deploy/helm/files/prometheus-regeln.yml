@@ -13,7 +13,8 @@ groups:
         annotations:
           summary: "Haben ist nicht bereit ({{ $labels.instance }})"
           description: "/api/health meldet fail: Datenbank nicht erreichbar oder Migrationen ausstehend."
-      # Ein Job wirft bei jedem Lauf, etwa weil ein Dienst dauerhaft nicht antwortet
+      # Ein Job wirft bei jedem Lauf, etwa weil ein Dienst dauerhaft nicht antwortet. Braucht einen Erfolg seit dem
+      # Start des Servers, sonst fehlt die Reihe; einen Job, der seit dem Start nur scheitert, meldet HabenJobGescheitert
       - alert: HabenJobOhneErfolg
         expr: time() - haben_job_last_success_timestamp_seconds > 86400
         labels:
