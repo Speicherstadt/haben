@@ -10,12 +10,16 @@ const state = vi.hoisted(() => ({
 vi.mock("../../server/functions/backup.ts", () => ({}));
 vi.mock("../../server/functions/invoices.ts", () => ({}));
 vi.mock("../../server/functions/vat.ts", () => ({}));
+vi.mock("../../server/functions/finanzamt.ts", () => ({ markPostfachDocument: () => undefined }));
+vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
 vi.mock("@tanstack/react-router", () => ({
   createFileRoute: () => (options: unknown) => ({
     options,
     useLoaderData: () => state.data,
     useRouteContext: () => ({ einrichtung: state.einrichtung }),
   }),
+  // Die Seite nutzt den Router nur zum Neuladen nach dem Abhaken eines Bescheids
+  useRouter: () => ({ invalidate: async () => undefined }),
   // Mit id setzt der Link sie ein, damit ein Test das Ziel sieht (Kontakt einer Aufgabe); andere Parameter bleiben stehen
   Link: ({ children, to, params, className }: { children: ReactNode; to: string; params?: { id?: string }; className?: string }) =>
     createElement("a", { href: params?.id ? to.replace("$id", params.id) : to, className }, children),
