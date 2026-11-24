@@ -262,6 +262,7 @@ function OverviewPage() {
           {showVatPeriod && !voranmeldungOffen && (
             <Link to="/umsatzsteuer/$zeitraum" params={{ zeitraum: key }} className="btn btn-ghost">
               Voranmeldung {periodLabel(data.period)}
+              {sent && " · abgegeben"}
             </Link>
           )}
           <Link to="/rechnungen/neu" className="btn btn-primary">

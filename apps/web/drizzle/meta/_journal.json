@@ -2255,6 +2255,13 @@
       "when": 1795505539555,
       "tag": "0321_steuerfrei_nach_leistung_trigger",
       "breakpoints": true
+    },
+    {
+      "idx": 322,
+      "version": "7",
+      "when": 1795543455771,
+      "tag": "0322_add_amazon_marktplatz",
+      "breakpoints": true
     }
   ]
 }

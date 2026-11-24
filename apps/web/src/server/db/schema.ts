@@ -2376,7 +2376,9 @@ export const bankAccounts = pgTable(
       .notNull()
       .default("geschaeft"),
     /** Nur Zahlungsdienstleister: Anbieter (PAYMENT_PROVIDERS) und Nummer des Verrechnungskontos (1361 … bzw. 1461 …) */
-    provider: text("provider", { enum: ["paypal", "stripe", "shopify", "etsy", "ebay", "sumup", "googleplay", "appstore", "sonstige"] }),
+    provider: text("provider", { enum: ["paypal", "stripe", "shopify", "etsy", "ebay", "amazon", "sumup", "googleplay", "appstore", "sonstige"] }),
+    /** Nur Amazon: Marktplatz der Abrechnung (marketplace-name, z. B. „Amazon.de“); Pflicht beim Anlegen, nur solange das Konto keine Umsätze hat änderbar */
+    marketplace: text("marketplace"),
     ledgerIndex: smallint("ledger_index").unique(),
     /** Gehört nicht zu dieser Firma (#462): ausgeblendet, kein Abruf, kein Import; nur solange kein Umsatz zugeordnet oder verrechnet ist */
     excludedAt: timestamp("excluded_at", { withTimezone: true }),

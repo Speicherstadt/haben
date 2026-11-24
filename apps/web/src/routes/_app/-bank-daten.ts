@@ -89,7 +89,6 @@ export function direktKategorie(kind: "kategorie" | "aufladung", transactionId: 
 }
 
 export const KATEGORIE_OPTION = { value: "kategorie", label: "Einnahme oder Ausgabe (Kategorie, Steuersatz)" } as const;
-
 export const STEUER_OPTION = { value: "steuer", label: "Steuerzahlung oder Erstattung (Finanzamt, Gemeinde)" } as const;
 
 export const DARLEHEN_OPTION = { value: "darlehen", label: "Darlehen: Auszahlung, Tilgung, Zinsen oder Gebühren" } as const;
@@ -153,4 +152,17 @@ export function restAngebot(target: Posten | undefined, tx: Detail["transaction"
       ? tx.open - target.open
       : 0;
   return { feeRest, rest, restKinds, exchangeDifference, korrektur };
+}
+
+/**
+ * Gibt es für Anbieter und Marktplatz schon ein Konto? Dann fragt die Seite vor dem Anlegen nach, statt ein zweites
+ * anzulegen (zwei Verkäuferkonten am selben Marktplatz sind erlaubt, aber die Marktplatzprüfung sieht beide als passend
+ * an, der Import muss also selbst wählen).
+ */
+export function hatMarktplatzKonto(
+  accounts: { provider: string | null; marketplace: string | null }[],
+  provider: string,
+  marketplace: string | null | undefined,
+): boolean {
+  return !!marketplace && accounts.some((a) => a.provider === provider && a.marketplace === marketplace);
 }

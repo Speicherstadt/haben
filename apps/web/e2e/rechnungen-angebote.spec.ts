@@ -5,13 +5,15 @@ import { type Durchlauf, databaseUrlFuer } from "./durchlaeufe.ts";
 import { statusBleibtSichtbar } from "./kopfzeile.ts";
 import { axeVerstoesse, bestaetigen, durchlaufSeite, gehe, kundeWaehlen, ohneAxeVerstoesse, rechnungFestschreiben, ueberSchnellsuche } from "./einrichtung.ts";
 import { abzugEinspielen } from "./abzug.ts";
+import { sondergebietePruefen, sondergebietsLeistungsortPruefen } from "./sondergebiete.ts";
 import { eingabeNachAktion, fokusNachFehlschlag, kurzNacheinanderSpeichern } from "./felder-sperre.ts";
 
 /**
  * Abschnitt von rechnungen (#1742) mit eigenem Server und eigener Datenbank, parallel zu den anderen Abschnitten:
  * Angebote bis zur Abschlags- und Schlussrechnung, Versand per E-Mail mit Anhängen, Leistungen und ihre Abrechnung,
  * Verrechnung, „Bereits bezahlt“, Festschreiben nach dem Speichern, gesperrte Felder beim Speichern (auch der
- * wiederkehrenden Rechnung), Artikel-API, Kopieren und Zeiteinträge auf der Kontaktseite.
+ * wiederkehrenden Rechnung), Artikel-API, Kopieren und Zeiteinträge auf der Kontaktseite und umsatzsteuerliche
+ * Sondergebiete.
  * Beginnt mit dem Abzug nach der Einrichtung mit drei Kunden und einer festgeschriebenen Rechnung in rechnungen.spec.ts
  * (e2e/abzug.ts).
  */
@@ -1063,6 +1065,14 @@ test("Kontaktseite: Zeiteinträge des Kunden erfassen und ansehen, Rechnung mit 
 
 test("Seiten mit den Daten dieses Abschnitts ohne axe-Verstöße", async () => {
   await ohneAxeVerstoesse(page, ["/angebote", "/einstellungen?bereich=email", "/rechnungen"]);
+});
+
+test("Sondergebiete: Hinweis ohne stille Änderung in Kontakt, Rechnung und Angebot (#1046)", async () => {
+  await sondergebietePruefen(page);
+});
+
+test("Sondergebiete: tatsächlichen Leistungsort in Rechnung, Angebot und Serie selbst bestätigen (#1046)", async () => {
+  await sondergebietsLeistungsortPruefen(page);
 });
 
 test("Keine Fehler im Browser", async () => {
