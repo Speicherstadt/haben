@@ -19,7 +19,7 @@ import { abzugEinspielen } from "./abzug.ts";
 import { receiptJpeg } from "./belegbild.ts";
 import { vorsteuerPruefen } from "./belege-vorsteuer.ts";
 import { serverAufrufe } from "./warten.ts";
-import { eingabeNachAktion, fokusNachFehlschlag } from "./felder-sperre.ts";
+import { eingabeNachAktion, fokusNachFehlschlag, kurzNacheinanderSpeichern } from "./felder-sperre.ts";
 
 /**
  * Abschnitt von belege-steuern (#1742) mit eigenem Server und eigener Datenbank, parallel zu den anderen Abschnitten:
@@ -388,10 +388,19 @@ test("Dauerbeleg: Eingaben direkt nach dem Speichern und nach Pausieren bleiben 
   });
 });
 
-test("Dauerbeleg: Speichern schlägt fehl, der Fokus steht danach wieder im Feld (#1793)", async () => {
+test("Dauerbeleg: Kurz nacheinander gespeichert, baut sich das Formular jedes Mal neu auf (#1804)", async () => {
   // Der Dauerbeleg aus dem Test davor
+  await kurzNacheinanderSpeichern({
+    feld: page.getByLabel("Bezeichnung"),
+    speichern: page.getByRole("button", { name: "Speichern", exact: true }),
+    texte: ["Lagerraum eins", "Lagerraum zwei", "Lagerraum drei"],
+  });
+});
+
+test("Dauerbeleg: Speichern schlägt fehl, der Fokus steht danach wieder im Feld (#1793)", async () => {
+  // Der Dauerbeleg aus den Tests davor
   await fokusNachFehlschlag(page, page.getByLabel("Bezeichnung"));
-  // Der Dauerbeleg gehört nur diesen beiden Tests
+  // Der Dauerbeleg gehört nur diesen drei Tests
   await page.getByRole("button", { name: "Löschen", exact: true }).click();
   await bestaetigen(page, "Vorlage löschen");
   await expect(page).toHaveURL(/\/dauerbelege(?:\?.*)?$/);

@@ -36,7 +36,7 @@ const FELDER: { kz: Feld; abschnitt: string; bezeichnung: string; volleEuro: boo
   {
     kz: "kz48",
     abschnitt: "Steuerfreie Lieferungen und sonstige Leistungen",
-    bezeichnung: "Steuerfreie Umsätze ohne Vorsteuerabzug (§ 4 UStG)",
+    bezeichnung: "Steuerfreie Umsätze ohne Vorsteuerabzug (§ 4 Nr. 8 bis 29 oder § 19 Abs. 1 UStG)",
     volleEuro: true,
   },
   {

@@ -65,6 +65,15 @@ const GESENDET_VERGLEICHEN = FIELDS.filter((field) => field !== "kz50");
 function sameFigures(a: Figures, b: Figures, fields: readonly FieldKey[] = FIELDS): boolean {
   return fields.every((field) => (a[field] ?? 0) === (b[field] ?? 0));
 }
+
+/**
+ * Weicht die heutige Rechnung von der gesendeten Anmeldung ab? Kz 48 gilt auch ohne die Umsätze als Kleinunternehmer als
+ * gleich, so hat Haben sie vor #1268 gemeldet (wie gesendet-pruefen.ts)
+ */
+function seitGesendetGeaendert(gesendet: Figures, computed: Figures, data: PageData): boolean {
+  const vor1268 = computeUstva({ ...data.figures, kz48: data.figures.kz48 - data.figures.kz48Kleinunternehmer, kz39: data.kz39 });
+  return !sameFigures(gesendet, computed, GESENDET_VERGLEICHEN) && !sameFigures(gesendet, vor1268, GESENDET_VERGLEICHEN);
+}
 type PeriodNotice = { key: string; notice: Notice };
 
 /** „Kz 81 1.000,00 €, Kz 86 0,00 € und Kz 66 12,00 €“; Kz 21/45/48 nur, wenn belegt */
@@ -212,7 +221,7 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
 
   // Gesendete Anmeldung, deren Buchungen sich danach geändert haben (z. B. Zuordnung aufgehoben)
   const sentBasis = locked ? (current!.source === "berechnet" ? current! : current!.computed) : null;
-  const drift = sentBasis !== null && sentBasis !== undefined && !sameFigures(sentBasis, computed, GESENDET_VERGLEICHEN);
+  const drift = sentBasis !== null && sentBasis !== undefined && seitGesendetGeaendert(sentBasis, computed, data);
 
   function update(field: FieldKey, value: string) {
     setValues((prev) => ({ ...prev, [field]: value }));

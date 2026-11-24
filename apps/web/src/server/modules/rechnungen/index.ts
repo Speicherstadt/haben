@@ -65,7 +65,7 @@ export { invoiceTaxReader, invoiceTaxYear, invoicePaymentPostingMode, invoiceVat
 export { gemeldeterZeitraum, leistungsmonatHinweis, zeitraumLabel } from "./leistungsmonat.ts";
 export { leistungsmonatHinweisFuer } from "./leistungsmonat-hinweis.ts";
 export { lockInvoice, withAdvanceVatChange } from "./advance-vat.ts";
-export { advanceVatPlans } from "./advance-vat-plan.ts";
+export { advanceVatPlans, kleinunternehmerBisZurRueckzahlung } from "./advance-vat-plan.ts";
 export { invoicePaymentGroup, invoicePaymentGroups, paperCancellationIds } from "./advance-payment-group.ts";
 export { invoiceLastSettledOn, invoiceLosses, invoicePayments, invoiceWrittenOff, paidByTarget } from "./zahlungsstand.ts";
 export { advanceReceivablesAt } from "./advance-receivables.ts";

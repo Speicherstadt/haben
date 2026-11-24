@@ -152,7 +152,12 @@ Nicht gerechnet werden steuerfreie Erträge (§ 8b KStG), der Spendenabzug (§ 9
 
 Unter **Steuern › Ausschüttungen** bucht Haben den Gewinnverwendungsbeschluss einer GmbH oder UG und meldet die Kapitalertragsteuer an. Du gibst Datum des Beschlusses, das Geschäftsjahr, dessen Gewinn ausgeschüttet wird (vorbelegt mit dem Vorjahr; es steht in der Steuerbescheinigung), den Betrag und, wenn der Beschluss einen bestimmt, den Tag der Auszahlung ein. Ohne Auszahlungstag fließt die Ausschüttung am Tag nach dem Beschluss zu (§ 44 Abs. 2 Satz 2 EStG).
 
-**Steuerabzug je Gesellschafter** (`packages/core/src/ausschuettung.ts`). Gesellschafter, Anteile und Kirchensteuerabzugsmerkmal kommen aus den [Angaben zur Körperschaftsteuererklärung](jahreserklaerung.md#körperschaft--und-gewerbesteuererklärung-gmbh-und-ug) des Jahres.
+**Steuerabzug je Gesellschafter** (`packages/core/src/ausschuettung.ts`). Gesellschafter, Beteiligung in Euro und Kirchensteuerabzugsmerkmal kommen aus den [Angaben zur Körperschaftsteuererklärung](jahreserklaerung.md#körperschaft--und-gewerbesteuererklärung-gmbh-und-ug) des Jahres.
+
+- **Verteilung:** Betrag und Teil aus dem Einlagekonto teilt Haben nach dem Verhältnis der Beteiligungen in Euro, also der Nennbeträge der Geschäftsanteile, nicht nach dem gerundeten Anteil in Prozent ([§ 29 Abs. 3 Satz 1 GmbHG](https://www.gesetze-im-internet.de/gmbhg/__29.html)). Drei Gesellschafter mit je 10.000 € bekommen von 90.000 € je 30.000 €. Übrige Cent gehen an die größten Rundungsreste. Gebuchte Ausschüttungen bleiben, wie sie sind.
+    - Einen anderen Maßstab aus dem Gesellschaftsvertrag (§ 29 Abs. 3 Satz 2 GmbHG) bildet Haben nicht ab.
+    - Steht bei einem Anteilseigner 0 € Beteiligung, bucht Haben nicht, denn jeder Geschäftsanteil lautet auf volle Euro ([§ 5 Abs. 2 GmbHG](https://www.gesetze-im-internet.de/gmbhg/__5.html)).
+    - Weicht ein Anteil in Prozent um mehr als 0,01 Prozentpunkte vom Verhältnis der Beteiligungen ab, nennt die Berechnung beide Werte; buchen geht trotzdem, nach der Beteiligung.
 - **Ohne Kirchensteuer:** 25 % Kapitalertragsteuer.
 - **Mit Kirchensteuer:** Die Kapitalertragsteuer ist ermäßigt auf Ertrag / (4 + Kirchensteuersatz), bei 9 % also 24,45 % (§ 43a Abs. 1 Satz 2, § 32d Abs. 1 Satz 4 EStG). Die Kirchensteuer selbst beträgt 8 oder 9 % der Kapitalertragsteuer.
 - **Solidaritätszuschlag:** 5,5 % der Kapitalertragsteuer.

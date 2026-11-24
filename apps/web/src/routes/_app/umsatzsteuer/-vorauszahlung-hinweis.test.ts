@@ -64,7 +64,7 @@ describe("Hinweis nach nachträglicher Vorauszahlungszuordnung", () => {
       periodProblem: null,
       kleinunternehmer: false,
       kz39: 0,
-      figures: { ...zero, revenue: [], inputTax: [], reverseCharge: [], igErwerb: [] },
+      figures: { ...zero, revenue: [], inputTax: [], reverseCharge: [], igErwerb: [], kleinunternehmerUmsaetze: [] },
       filings: [],
       submissions: [],
       recent: [],

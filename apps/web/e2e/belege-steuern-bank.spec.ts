@@ -9,7 +9,7 @@ import { bestaetigen, dkb, durchlaufSeite, gehe, lieferantWaehlen, neuenLieferan
 import { LAPTOP } from "./kopfzeile.ts";
 import { abzugEinspielen } from "./abzug.ts";
 import { receiptJpeg } from "./belegbild.ts";
-import { eingabeNachAktion, fokusNachFehlschlag } from "./felder-sperre.ts";
+import { eingabeNachAktion, fokusNachFehlschlag, kurzNacheinanderSpeichern } from "./felder-sperre.ts";
 
 /**
  * Abschnitt von belege-steuern (#1742) mit eigenem Server und eigener Datenbank, parallel zu den anderen Abschnitten:
@@ -305,10 +305,20 @@ test("Anlage: Eingaben direkt nach dem Speichern bleiben erhalten (#1793)", asyn
   });
 });
 
-test("Anlage: Speichern schlägt fehl, der Fokus steht danach wieder im Feld (#1793)", async () => {
+test("Anlage: Kurz nacheinander gespeichert, baut sich das Formular jedes Mal neu auf (#1804)", async () => {
   // Die Anlage aus dem Test davor
+  const form = page.getByRole("region", { name: "Angaben" });
+  await kurzNacheinanderSpeichern({
+    feld: form.getByLabel("Bezeichnung"),
+    speichern: form.getByRole("button", { name: "Speichern", exact: true }),
+    texte: ["Werkbank eins", "Werkbank zwei", "Werkbank drei"],
+  });
+});
+
+test("Anlage: Speichern schlägt fehl, der Fokus steht danach wieder im Feld (#1793)", async () => {
+  // Die Anlage aus den Tests davor
   await fokusNachFehlschlag(page, page.getByRole("region", { name: "Angaben" }).getByLabel("Bezeichnung"));
-  // Die Anlage gehört nur diesen beiden Tests: die folgenden rechnen ohne sie
+  // Die Anlage gehört nur diesen drei Tests: die folgenden rechnen ohne sie
   await page.locator(".page-head").getByRole("button", { name: "Löschen", exact: true }).click();
   await bestaetigen(page, "Anlage löschen");
   await expect(page).toHaveURL(/\/anlagen(?:\?.*)?$/);

@@ -51,6 +51,7 @@ export const previewAusschuettung = createServerFn({ method: "POST" })
       ausEinlagekonto: v.ausEinlagekonto,
       empfaenger: v.empfaenger,
       issues: v.issues,
+      hinweise: v.hinweise,
     };
   });
 

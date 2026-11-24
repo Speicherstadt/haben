@@ -7,6 +7,7 @@ export type Ustva = ReturnType<typeof computeUstva>;
 export function kennzahlZeilen(data: PageData, shown: Ustva, computed: Ustva, editable: boolean) {
   const revenue = (rate: number) => data.figures.revenue.filter((r) => r.treatment === "regulaer" && r.rate === rate);
   const treated = (treatment: string) => data.figures.revenue.filter((r) => r.treatment === treatment);
+  const kz48 = [...treated("steuerfrei"), ...data.figures.kleinunternehmerUmsaetze]; // samt Umsätzen als Kleinunternehmer (#1268)
   const rows = [
     { kz: "81", field: "kz81" as const, label: "Steuerpflichtige Umsätze 19 %", base: shown.kz81, tax: shown.tax81 as number | null, sources: revenue(1900) },
     { kz: "86", field: "kz86" as const, label: "Steuerpflichtige Umsätze 7 %", base: shown.kz86, tax: shown.tax86 as number | null, sources: revenue(700) },
@@ -34,7 +35,7 @@ export function kennzahlZeilen(data: PageData, shown: Ustva, computed: Ustva, ed
       tax: null,
       sources: data.figures.revenue.filter((r) => r.writeOffKind === "forderungsausfall" && r.treatment === "regulaer" && (r.rate === 1900 || r.rate === 700)),
     },
-    { kz: "48", field: "kz48" as const, label: "Steuerfreie Umsätze ohne Vorsteuerabzug", base: shown.kz48, tax: null, sources: treated("steuerfrei") },
+    { kz: "48", field: "kz48" as const, label: "Steuerfreie Umsätze ohne Vorsteuerabzug", base: shown.kz48, tax: null, sources: kz48 },
     {
       kz: "41",
       field: "kz41" as const,

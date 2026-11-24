@@ -72,7 +72,15 @@ describe("Gesendete Voranmeldung von vor Kz 50 (#1267)", () => {
       uebernommen: false,
       kz39: 0,
       // Heute aus dem Journal: dieselben Kz 81/86, dazu Kz 50
-      figures: { ...computeUstva({ kz81: -100_000, kz86: -50_000, kz66: 0, kz50: 150_000 }), revenue: [], inputTax: [], reverseCharge: [], igErwerb: [] },
+      figures: {
+        ...computeUstva({ kz81: -100_000, kz86: -50_000, kz66: 0, kz50: 150_000 }),
+        kz48Kleinunternehmer: 0,
+        revenue: [],
+        inputTax: [],
+        reverseCharge: [],
+        igErwerb: [],
+        kleinunternehmerUmsaetze: [],
+      },
       filings: [],
       submissions: [],
       recent: [],
