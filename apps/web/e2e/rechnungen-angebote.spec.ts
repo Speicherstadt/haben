@@ -3,16 +3,7 @@ import postgres from "postgres";
 import { currentDay, day, firstLink, YEAR } from "./daten.ts";
 import { type Durchlauf, databaseUrlFuer } from "./durchlaeufe.ts";
 import { statusBleibtSichtbar } from "./kopfzeile.ts";
-import {
-  axeVerstoesse,
-  bestaetigen,
-  durchlaufSeite,
-  gehe,
-  kundeWaehlen,
-  ohneAxeVerstoesse,
-  rechnungFestschreiben,
-  ueberSchnellsuche,
-} from "./einrichtung.ts";
+import { axeVerstoesse, bestaetigen, durchlaufSeite, gehe, kundeWaehlen, ohneAxeVerstoesse, rechnungFestschreiben, ueberSchnellsuche } from "./einrichtung.ts";
 import { abzugEinspielen } from "./abzug.ts";
 import { eingabeNachAktion, fokusNachFehlschlag, kurzNacheinanderSpeichern } from "./felder-sperre.ts";
 
