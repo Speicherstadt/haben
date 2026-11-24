@@ -129,7 +129,7 @@ Ohne `taxDetails` wird beim Anlegen `null` gespeichert; ein `PATCH` ohne Feld be
 
 ## Rechnungsaustausch
 
-Ein normaler Rechnungsentwurf kann in `replacesInvoiceId` die ID einer früheren festgeschriebenen Rechnung nennen. `PATCH` ohne das Feld behält den Bezug, `null` entfernt ihn. Beim Festschreiben in Haben muss die frühere Rechnung storniert sein. Kunde, Leistung, Währung, Kurs und Beträge je Steuersatz müssen übereinstimmen. Haben übernimmt ein hinterlegtes Angebot des Vorgängers. Bereits erfasste Zahlungen bleiben an der ursprünglichen Rechnung.
+Ein normaler Rechnungsentwurf kann in `replacesInvoiceId` die ID einer früheren festgeschriebenen Rechnung nennen. `PATCH` ohne das Feld behält den Bezug, `null` entfernt ihn. Beim Festschreiben in Haben muss die frühere Rechnung storniert sein. Kunde, Leistung, Steuerbehandlung, Währung, Kurs und Beträge je Steuersatz müssen übereinstimmen. Haben übernimmt ein hinterlegtes Angebot des Vorgängers. Bereits erfasste Zahlungen bleiben an der ursprünglichen Rechnung.
 
 ## Externe Referenz: eine Rechnung je Bestellung
 
