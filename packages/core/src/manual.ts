@@ -134,7 +134,10 @@ export function isPrivateAccount(kontenrahmen: Kontenrahmen, account: string): b
   return kontenrahmen === "SKR03" ? n >= 1800 && n <= 1899 : n >= 2100 && n <= 2199;
 }
 
-const isCents = (value: number) => Number.isInteger(value) && value >= 0 && value <= 100_000_000_00;
+/** Größter Betrag einer Zeile der manuellen Buchung */
+export const MANUAL_MAX_AMOUNT: Cents = 100_000_000_00;
+
+const isCents = (value: number) => Number.isInteger(value) && value >= 0 && value <= MANUAL_MAX_AMOUNT;
 
 /**
  * Art der manuellen Buchung: eine Umbuchung im laufenden Jahr oder eine Eröffnungsbuchung, die Salden aus der bisherigen
@@ -165,12 +168,13 @@ function openingAccounts(kontenrahmen: Kontenrahmen): Set<string> {
 /** Feld einer Zeile, an das eine Meldung gehört; ohne Zeile betrifft sie die ganze Buchung */
 export type ManualField = "account" | "debit" | "credit" | "taxCode";
 
-/** Eine Meldung zur manuellen Buchung: an einem Feld einer Zeile (Index ab 0) oder zur ganzen Buchung (#1277) */
-export interface ManualFinding {
-  text: string;
-  row?: number;
-  field?: ManualField;
-}
+/**
+ * Eine Meldung zur manuellen Buchung (#1277): an einem Feld einer Zeile (Index ab 0) oder zur ganzen Buchung. `sums` heißt,
+ * sie folgt aus den Beträgen der Zeilen (Summe, Seiten); stimmt ein Betrag nicht, ist sie nur eine Folge davon.
+ */
+export type ManualFinding =
+  | { text: string; row: number; field: ManualField; sums?: undefined }
+  | { text: string; row?: undefined; field?: undefined; sums?: true };
 
 /** Meldungen als Sätze, wie sie der Server zurückgibt: „Zeile 2: Konto hat vier Ziffern“ */
 export function manualFindingTexts(findings: readonly ManualFinding[]): string[] {
@@ -223,8 +227,8 @@ export function manualPostingFindings(
   }
   const debit = lines.reduce((sum, l) => sum + l.debit, 0);
   const credit = lines.reduce((sum, l) => sum + l.credit, 0);
-  if (debit !== credit) findings.push({ text: "Soll und Haben sind nicht gleich" });
-  if (lines.length >= 2 && (!lines.some((l) => l.debit > 0) || !lines.some((l) => l.credit > 0))) findings.push({ text: "Es fehlt eine Seite" });
+  if (debit !== credit) findings.push({ text: "Soll und Haben sind nicht gleich", sums: true });
+  if (lines.length >= 2 && (!lines.some((l) => l.debit > 0) || !lines.some((l) => l.credit > 0))) findings.push({ text: "Es fehlt eine Seite", sums: true });
   const accounts = new Set(lines.map((l) => l.account));
   if (lines.length >= 2 && accounts.size === 1) findings.push({ text: "Soll und Haben auf demselben Konto ändern nichts" });
   if (

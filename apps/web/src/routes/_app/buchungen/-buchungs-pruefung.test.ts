@@ -7,9 +7,13 @@ import { emptyRow, type Row } from "./-buchungs-zeile.tsx";
 describe("Prüfung der manuellen Buchung je Feld", () => {
   const zeile = (key: number, patch: Partial<Row>): Row => ({ ...emptyRow(key), ...patch });
   const betrag = (text: string) => (text.trim() === "" ? 0 : (parseEuro(text) ?? Number.NaN));
-  const pruefen = (rows: Row[]) => {
+  const pruefen = (
+    rows: Row[],
+    firma: { kontenrahmen: "SKR03" | "SKR04"; rechtsform: "gmbh" | "einzelunternehmen" } = { kontenrahmen: "SKR04", rechtsform: "gmbh" },
+  ) => {
     const lines: ManualLine[] = rows.map((r) => ({ account: r.account, debit: betrag(r.debit), credit: betrag(r.credit), taxCode: null }));
-    const { zellen, buchung } = buchungsFehler(rows, [...kontoSuchfehler(rows), ...manualPostingFindings(lines, "SKR04", "gmbh")]);
+    const findings = [...kontoSuchfehler(rows), ...manualPostingFindings(lines, firma.kontenrahmen, firma.rechtsform)];
+    const { zellen, buchung } = buchungsFehler(rows, findings);
     return { fehler: Object.fromEntries(Object.entries(zellen).filter(([, e]) => e !== null)), buchung };
   };
 
@@ -41,11 +45,22 @@ describe("Prüfung der manuellen Buchung je Feld", () => {
     expect(pruefen(rows)).toEqual({ fehler: {}, buchung: ["Soll und Haben sind nicht gleich."] });
   });
 
-  it("legt „Betrag entweder im Soll oder im Haben“ ans Soll und „Betrag ungültig“ an die Seite mit dem Fehler", () => {
+  it("meldet einen Betrag außerhalb der Grenzen mit Seite und Grenze, „Betrag entweder …“ am Soll", () => {
     expect(pruefen([zeile(1, { account: "3510" }), zeile(2, { account: "2900", credit: "-5,00" })]).fehler).toEqual({
       "1.debit": "Betrag entweder im Soll oder im Haben.",
-      "2.credit": "Betrag ungültig.",
+      "2.credit": "Trag einen Betrag von 0,00 bis 100.000.000,00 im Haben ein, etwa 100,00, oder lass das Feld leer.",
     });
+    expect(pruefen([zeile(1, { account: "3510", debit: "100.000.000,01" }), zeile(2, { account: "2900", credit: "1,00" })]).fehler).toEqual({
+      "1.debit": "Trag einen Betrag von 0,00 bis 100.000.000,00 im Soll ein, etwa 100,00, oder lass das Feld leer.",
+    });
+  });
+
+  it("blendet bei einem Fehler in einer Zeile nur die Folgen der Beträge aus, nicht die übrigen Hinweise zur Buchung", () => {
+    const rows = [zeile(1, { account: "1200", debit: "100,00" }), zeile(2, { account: "1800", credit: "zehn" })];
+    const { fehler, buchung } = pruefen(rows, { kontenrahmen: "SKR03", rechtsform: "einzelunternehmen" });
+    expect(Object.keys(fehler)).toEqual(["1.account", "2.credit"]);
+    expect(buchung).toHaveLength(1);
+    expect(buchung[0]).toMatch(/^Im Einzelunternehmen braucht der Bank-Anfangsbestand keine Buchung/);
   });
 
   it("nimmt bei einer Namenseingabe ohne Auswahl den Hinweis der Kontosuche statt „vier Ziffern“", () => {

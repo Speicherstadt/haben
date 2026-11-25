@@ -1,11 +1,13 @@
 import {
   amountError,
+  formatDecimal,
   freieBuchungFindings,
   isKapitalgesellschaft,
   type ManualField,
   type ManualFinding,
   type ManualKind,
   type ManualLine,
+  MANUAL_MAX_AMOUNT,
   manualPostingFindings,
   parseEuro,
 } from "@haben/core";
@@ -55,26 +57,37 @@ export const zellenSchluessel = (rowKey: number, field: ManualField) => `${rowKe
 
 const satz = (text: string) => (/[.!?]$/.test(text) ? text : `${text}.`);
 
-/** Fehler eines Felds: ein nicht lesbarer Betrag mit amountError, sonst die erste Meldung der Prüfung für dieses Feld */
+/** Fehler eines Betragsfelds mit amountError: nicht lesbar oder außerhalb der Grenzen der Prüfung (MANUAL_MAX_AMOUNT) */
+function betragFehler(text: string, field: "debit" | "credit"): string | null {
+  if (text.trim() === "") return null;
+  const cents = parseEuro(text);
+  if (cents === null) return amountError(`den Betrag im ${SEITE[field]}`, BEISPIEL, { optional: true });
+  if (cents < 0 || cents > MANUAL_MAX_AMOUNT) {
+    return amountError(`einen Betrag von 0,00 bis ${formatDecimal(MANUAL_MAX_AMOUNT)} im ${SEITE[field]}`, BEISPIEL, { optional: true });
+  }
+  return null;
+}
+
+/** Fehler eines Felds: ein Betrag mit amountError, sonst die erste Meldung der Prüfung für dieses Feld */
 function zellenFehler(row: Row, index: number, field: ManualField, findings: readonly ManualFinding[]): string | null {
   if (field === "debit" || field === "credit") {
-    const text = row[field];
-    if (text.trim() !== "" && parseEuro(text) === null) return amountError(`den Betrag im ${SEITE[field]}`, BEISPIEL, { optional: true });
+    const betrag = betragFehler(row[field], field);
+    if (betrag) return betrag;
   }
   const finding = findings.find((f) => f.row === index && f.field === field);
   return finding ? satz(finding.text) : null;
 }
 
 /**
- * Fehler je Feld der Zeilen und die Meldungen zur ganzen Buchung. Die Meldungen zur ganzen Buchung zählen erst, wenn die
- * Zeilen stimmen: Solange etwa ein Betrag nicht lesbar ist, wären „Soll und Haben sind nicht gleich“ und „Es fehlt eine
- * Seite“ nur Folgen davon.
+ * Fehler je Feld der Zeilen und die Meldungen zur ganzen Buchung. Was aus den Beträgen folgt (`sums`: „Soll und Haben sind
+ * nicht gleich“, „Es fehlt eine Seite“), zählt erst, wenn die Zeilen stimmen; solange etwa ein Betrag nicht lesbar ist,
+ * wäre es nur eine Folge davon. Die übrigen Hinweise zur Buchung, etwa zum Bank-Anfangsbestand, stehen immer da.
  */
 export function buchungsFehler(rows: readonly Row[], findings: readonly ManualFinding[]) {
   const zellen = Object.fromEntries(
     rows.flatMap((row, index) => ZEILEN_FELDER.map((field) => [zellenSchluessel(row.key, field), zellenFehler(row, index, field, findings)] as const)),
   );
   const zeilenOffen = Object.values(zellen).some((e) => e !== null);
-  const buchung = zeilenOffen ? [] : findings.filter((f) => f.row === undefined).map((f) => satz(f.text));
+  const buchung = findings.filter((f) => f.row === undefined && !(zeilenOffen && f.sums)).map((f) => satz(f.text));
   return { zellen, buchung };
 }
