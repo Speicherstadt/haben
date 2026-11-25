@@ -8,9 +8,11 @@ import {
   type FbInvoice,
   type FbMappedVoucher,
   isFbInvoiceImportable,
+  isFbRevenueImportable,
   mapFbCustomer,
   mapFbExpense,
   mapFbInvoice,
+  mapFbRevenue,
 } from "@haben/import";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
@@ -143,7 +145,7 @@ export function cancelFastbillImport(id: string): boolean {
 /** Alle abgerufenen Rechnungen je ID und die Gutschriften je Rechnung, auf die sie verweisen */
 type InvoiceIndex = { invoicesById: Map<string, FbInvoice>; creditsByInvoice: Map<string, FbInvoice[]> };
 
-type Listed = { kind: "invoice"; id: string; number: string; raw: FbInvoice } | { kind: "expense"; id: string; number: string; raw: FbExpense };
+type Listed = { kind: "invoice" | "revenue"; id: string; number: string; raw: FbInvoice } | { kind: "expense"; id: string; number: string; raw: FbExpense };
 
 function checkAborted(signal: AbortSignal) {
   if (signal.aborted) throw new FastbillError("Abgebrochen.");
@@ -211,7 +213,7 @@ async function importCustomers(actor: string, client: FastbillClient, progress: 
   }
 }
 
-/** 2. Rechnungen, Gutschriften und Stornos ohne Entwürfe, dazu die Ausgaben; alle Rechnungen je ID für die Stornos */
+/** 2. Rechnungen, Gutschriften und Stornos ohne Entwürfe, dazu Ausgaben und Einnahmen; alle Rechnungen je ID für die Stornos */
 async function listVouchers(client: FastbillClient, progress: LexofficeImportProgress, save: Save) {
   const listed: Listed[] = [];
   const invoicesById = new Map<string, FbInvoice>();
@@ -230,6 +232,14 @@ async function listVouchers(client: FastbillClient, progress: LexofficeImportPro
   }
   for await (const raw of client.expenses()) {
     await add({ kind: "expense", id: String(raw.INVOICE_ID), number: String(raw.INVOICE_NUMBER ?? ""), raw });
+  }
+  // Einnahmen (#1938): was invoice.get schon geliefert hat, steht nur einmal im Archiv; eine unbekannte Art wird gemeldet
+  for await (const raw of client.revenues()) {
+    const id = String(raw.INVOICE_ID);
+    if (invoicesById.has(id)) continue;
+    const number = String(raw.INVOICE_NUMBER ?? "");
+    if (isFbRevenueImportable(raw)) await add({ kind: "revenue", id, number, raw });
+    else progress.failed.push({ lexofficeId: `fastbill/revenue/${id}`, number, message: `Einnahme der Art „${String(raw.TYPE ?? "")}“ nicht übernommen.` });
   }
   return { listed, invoicesById, creditsByInvoice };
 }
@@ -286,6 +296,8 @@ async function importVoucher(
   if (item.kind === "invoice") {
     const referenced = item.raw.REFERENCED_INVOICE_ID == null ? undefined : invoicesById.get(String(item.raw.REFERENCED_INVOICE_ID));
     mapped = mapFbInvoice(item.raw, referenced, creditsByInvoice.get(item.id));
+  } else if (item.kind === "revenue") {
+    mapped = mapFbRevenue(item.raw);
   } else {
     mapped = mapFbExpense(item.raw);
   }
@@ -317,7 +329,9 @@ async function voucherFiles(
     progress.failed.push({ lexofficeId: voucher.lexofficeId, number: item.number, message: `Beleg übernommen, PDF fehlt: ${error.message}` });
     return [];
   }
-  if (apiFile) return [{ role: item.kind === "invoice" ? "pdf" : "anhang", fileId: item.kind === "expense" ? voucher.lexofficeId : null, file: apiFile }];
+  if (apiFile) return [{ role: item.kind === "invoice" ? "pdf" : "anhang", fileId: item.kind === "invoice" ? null : voucher.lexofficeId, file: apiFile }];
+  // Eine Einnahme kommt nie ohne ihren Beleg ins Archiv; ein neuer Abruf versucht es wieder
+  if (item.kind === "revenue") throw new FastbillError("Einnahme nicht übernommen: FastBill liefert die Datei nicht über die API.");
   if (item.kind !== "expense") return [];
   const receipt = await waitingReceipt(actor, item.id, voucher, documentUrl);
   if (receipt === "wartet") return "wartet";
