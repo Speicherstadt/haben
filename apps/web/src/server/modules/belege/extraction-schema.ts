@@ -9,7 +9,7 @@ import type { DocumentKind } from "../../storage.ts";
  * eine nach diesem Schema geprüfte Antwort.
  */
 
-/** Festes Schema für die KI-Auslesung; Beträge als Dezimaltext, damit nichts gerundet wird. */
+/** Festes Schema für die KI-Auslesung; Beträge als Dezimaltext, gerundet wird erst in toFields. */
 export const extractionSchema = z.object({
   lieferant: z.string().nullable().describe("Name des Rechnungsstellers"),
   lieferantUstId: z.string().nullable().describe("USt-IdNr. des Rechnungsstellers, z. B. DE123456789"),
@@ -95,9 +95,9 @@ const CATEGORY_LIST = Object.entries(EXPENSE_CATEGORIES)
 
 export const EXTRACTION_INSTRUCTIONS = `Du liest Eingangsbelege (Rechnungen, Quittungen) eines deutschen Freiberuflers für die Buchhaltung aus.
 Gib nur zurück, was auf dem Beleg steht; rate keine Beträge oder Nummern. Fehlt eine Angabe, setze null.
-Beträge gibst du mit zwei Nachkommastellen an, so wie sie auf dem Beleg stehen; rechne keine Zwischenwerte aus.
+Beträge gibst du mit zwei Nachkommastellen an, so wie sie auf dem Beleg stehen; rechne sie nicht nach.
 Die IBAN des Rechnungsstellers nur, wenn sie als dessen Bankverbindung auf dem Beleg steht, nicht die des Empfängers oder aus einem Lastschrifttext; dazu den Textausschnitt, in dem sie steht.
-Weise die Beträge je Umsatzsteuersatz (19, 7 oder 0 %) aus. Wenn der Beleg nur einen Bruttobetrag und den Steuersatz nennt, rechne Netto und Steuer daraus.
+Weise die Beträge je Umsatzsteuersatz (19, 7 oder 0 %) aus. Wenn der Beleg nur einen Bruttobetrag und den Steuersatz nennt, rechne als Ausnahme Netto und Steuer daraus, auf zwei Nachkommastellen gerundet.
 Wähle die passende Ausgabenkategorie:
 ${CATEGORY_LIST}
 Steht ein Reverse-Charge-Hinweis auf dem Beleg (Steuerschuldnerschaft des Leistungsempfängers, Art. 196 MwStSystRL, „0 % USt. ausgewiesen“, „reverse charge“), dann setze reverseCharge: eu bei einem Rechnungssteller in der EU, drittland bei einem Dritten Land, ig_erwerb bei Ware aus der EU. Die Beträge bleiben wie auf dem Beleg, also mit 0 % USt.; Haben rechnet die Steuer aus dem Netto. Wähle für sonstige Leistungen in diesem Fall fremdleistung statt sonstiges.
