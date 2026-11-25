@@ -127,18 +127,45 @@ export function decimalToCents(value: string): Cents | null {
   return match[1] ? -cents : cents;
 }
 
+/**
+ * Wie decimalToCents, aber mit mehr als zwei Nachkommastellen: kaufmännisch auf Cent gerundet (#1906). Modelle rechnen
+ * Zwischenwerte aus und liefern dann etwa 42,1336 €, obwohl der Beleg 42,13 € druckt; verworfen wäre der Betrag verloren.
+ */
+export function decimalToCentsGerundet(value: string): { cents: Cents; gerundet: boolean } | null {
+  const exakt = decimalToCents(value);
+  if (exakt !== null) return { cents: exakt, gerundet: false };
+  const match = /^(-)?(\d+)[.,](\d{3,})$/.exec(value.trim().replace(/\s/g, ""));
+  if (!match) return null;
+  const nachkomma = match[3] ?? "";
+  const cents = Number(match[2]) * 100 + Number(nachkomma.slice(0, 2)) + (Number(nachkomma[2]) >= 5 ? 1 : 0);
+  if (cents > MAX_CENTS) return null;
+  return { cents: match[1] ? -cents : cents, gerundet: true };
+}
+
+/** 4213 → „42,13 €“; nur für Hinweise, keine Rechnung */
+const euro = (cents: number) => `${(Math.abs(cents) / 100).toFixed(2).replace(".", ",")} €`;
+
 /** Wandelt die Modellantwort in Belegfelder um und prüft die Summen. */
 export function toFields(extraction: Extraction): ExtractedFields {
   const warnings: string[] = [];
   const sign = extraction.istGutschrift ? -1 : 1;
   const amounts = extraction.betraege.flatMap((row) => {
-    const net = decimalToCents(row.netto);
-    const tax = decimalToCents(row.steuer);
+    const net = decimalToCentsGerundet(row.netto);
+    const tax = decimalToCentsGerundet(row.steuer);
     if (net === null || tax === null) {
       warnings.push(`Betrag zu ${row.steuersatz} % nicht lesbar`);
       return [];
     }
-    return [{ taxRate: (Number(row.steuersatz) * 100) as 1900 | 700 | 0, net: sign * Math.abs(net), tax: sign * Math.abs(tax) }];
+    if (net.gerundet || tax.gerundet) {
+      warnings.push(`Betrag zu ${row.steuersatz} % mit mehr als zwei Nachkommastellen: netto ${euro(net.cents)}, Steuer ${euro(tax.cents)}, gerundet`);
+    }
+    return [
+      {
+        taxRate: (Number(row.steuersatz) * 100) as 1900 | 700 | 0,
+        net: sign * Math.abs(net.cents),
+        tax: sign * Math.abs(tax.cents),
+      },
+    ];
   });
   // § 13b nur als Vorschlag; die Beträge bleiben wie auf dem Beleg. Ob er gilt und welcher Satz dann statt 0 % steht,
   // entscheidet applyFields in documents.ts (nicht bei einer eigenen Ausgangsrechnung)
@@ -146,7 +173,11 @@ export function toFields(extraction: Extraction): ExtractedFields {
   // Kein Vorschlag, wenn der Beleg Steuer ausweist (§ 14a Abs. 5 UStG: bei § 13b keine) oder aus Deutschland kommt:
   // Haben kennt § 13b nur für Leistungen aus dem EU-Ausland und dem Drittland
   const reverseCharge = amounts.some((a) => a.tax !== 0) || supplierUstId.startsWith("DE") ? null : (extraction.reverseCharge ?? null);
-  const gross = extraction.brutto ? decimalToCents(extraction.brutto) : null;
+  const grossBetrag = extraction.brutto ? decimalToCentsGerundet(extraction.brutto) : null;
+  const gross = grossBetrag?.cents ?? null;
+  if (grossBetrag?.gerundet) {
+    warnings.push(`Gesamtbetrag mit mehr als zwei Nachkommastellen, auf ${euro(grossBetrag.cents)} gerundet`);
+  }
   const sum = amounts.reduce((total, a) => total + a.net + a.tax, 0);
   if (gross !== null && Math.abs(sum) !== Math.abs(gross)) {
     warnings.push("Summe aus Netto und Steuer weicht vom Gesamtbetrag ab");

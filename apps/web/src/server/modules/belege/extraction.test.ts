@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { decimalToCents, describeExtractionError, extractDocument, toFields, type Extraction } from "./extraction.ts";
+import { decimalToCentsGerundet } from "./extraction-schema.ts";
 import { ExtractionError } from "./extraction-schema.ts";
 
 const base: Extraction = {
@@ -19,6 +20,28 @@ const base: Extraction = {
 };
 
 describe("KI-Auslesung umwandeln", () => {
+  it("rundet Beträge mit mehr als zwei Nachkommastellen, statt sie zu verwerfen (#1906)", () => {
+    expect(decimalToCentsGerundet("42.13")).toEqual({ cents: 4213, gerundet: false });
+    expect(decimalToCentsGerundet("42.1336")).toEqual({ cents: 4213, gerundet: true });
+    expect(decimalToCentsGerundet("8.0054")).toEqual({ cents: 801, gerundet: true });
+    expect(decimalToCentsGerundet("8.0055")).toEqual({ cents: 801, gerundet: true });
+    expect(decimalToCentsGerundet("-1.2394")).toEqual({ cents: -124, gerundet: true });
+    expect(decimalToCentsGerundet("abc")).toBeNull();
+    expect(decimalToCentsGerundet("3000000.006")).toBeNull();
+  });
+
+  it("nennt die Rundung im Hinweis und meldet keine Summenabweichung mehr", () => {
+    const felder = toFields({
+      ...base,
+      betraege: [{ steuersatz: "19", netto: "42.1336", steuer: "8.0054" }],
+      brutto: "50.14",
+    });
+    expect(felder.amounts).toEqual([{ taxRate: 1900, net: 4213, tax: 801 }]);
+    expect(felder.warnings).not.toContain("Betrag zu 19 % nicht lesbar");
+    expect(felder.warnings).not.toContain("Summe aus Netto und Steuer weicht vom Gesamtbetrag ab");
+    expect(felder.warnings).toContain("Betrag zu 19 % mit mehr als zwei Nachkommastellen: netto 42,13 €, Steuer 8,01 €, gerundet");
+  });
+
   it("Dezimaltext exakt in Cent", () => {
     expect(decimalToCents("1234.5")).toBe(123450);
     expect(decimalToCents("0,99")).toBe(99);

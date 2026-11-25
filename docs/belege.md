@@ -203,6 +203,8 @@ Haben prüft die Antwort und zeigt Auffälligkeiten als Hinweis am Beleg:
 
 Die KI bucht nie selbst. Jeder ausgelesene Beleg bleibt im Status „Zu prüfen“, bis du ihn mit **Bestätigen und buchen** bestätigst. Mit **Mit KI neu auslesen** im Menü **⋯** neben **Bestätigen und buchen** kannst du die Auslesung wiederholen, solange der Beleg nicht gebucht ist; dabei werden die Felder überschrieben und eine Aufteilung auf mehrere Kategorien verworfen. Fehler (ungültiger Schlüssel, Auslastung, keine Verbindung, Zeitüberschreitung, unbekanntes Modell, Antwort im falschen Format, abgelehnte Auslesung) stehen am Beleg, der dann den Status „Prüfen“ trägt.
 
+**Beträge mit mehr als zwei Nachkommastellen:** Rechnet das Modell einen Zwischenwert aus, statt den gedruckten Betrag abzuschreiben, kommen etwa 42,1336 € zurück. Haben rundet solche Beträge kaufmännisch auf Cent, statt sie zu verwerfen, und schreibt an den Beleg, worauf es gerundet hat („Betrag zu 19 % mit mehr als zwei Nachkommastellen: netto 42,13 €, Steuer 8,01 €, gerundet“). Die Summenprüfung rechnet mit den gerundeten Werten; stimmen Netto, Steuer und Gesamtbetrag danach überein, erscheint kein weiterer Hinweis. Prüfe den Beleg trotzdem, denn die gerundeten Beträge sind gerechnet und nicht abgelesen.
+
 Bei der Kategorie haben die gebuchten Belege desselben Lieferanten Vorrang vor dem Vorschlag der KI: Haben nimmt die Kategorie, unter der sie am häufigsten gebucht sind, bei Gleichstand die zuletzt gebuchte. So wechselt der Vorschlag nicht, nur weil ein Lieferant wie Amazon einmal etwas anderes geliefert hat. Wie das gezählt wird, steht unter [Vorschläge aus früheren Belegen](#vorschläge-aus-früheren-belegen).
 
 ## Vorschläge aus früheren Belegen
