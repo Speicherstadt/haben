@@ -53,7 +53,14 @@ function duplicateFields(original: Document, amounts: DocumentAmount[], splits: 
       originalNet: a.originalNet,
       originalTax: a.originalTax,
     })),
-    splits: splits.map((s) => ({ category: s.category as ExpenseCategory, ownAccountId: s.ownAccountId, taxRate: s.taxRate as Satz, net: s.net })),
+    // Privatanteil je Zeile (#1914) übernimmt das Duplikat wie den des Belegs
+    splits: splits.map((s) => ({
+      category: s.category as ExpenseCategory,
+      ownAccountId: s.ownAccountId,
+      taxRate: s.taxRate as Satz,
+      net: s.net,
+      privateShare: s.privateShare,
+    })),
   };
 }
 

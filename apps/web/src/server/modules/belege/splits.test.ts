@@ -63,7 +63,13 @@ describe.skipIf(!testDatabaseUrl)("Beleg aufteilen (Postgres)", () => {
   type Options = {
     payment?: "bank" | "privat" | "kasse";
     amounts?: { taxRate: 1900 | 700 | 0; net: number; tax: number }[];
-    splits?: { category: "wareneinkauf" | "software" | "buero" | "literatur" | "anlage"; taxRate: 1900 | 700 | 0; net: number }[];
+    splits?: {
+      category: "wareneinkauf" | "software" | "buero" | "literatur" | "anlage" | "internet" | "telefon";
+      taxRate: 1900 | 700 | 0;
+      net: number;
+      /** Privatanteil der Zeile (#1914); fehlt er, gilt die Vorgabe der Firmendaten */
+      privateShare?: number;
+    }[];
     privateShare?: number;
     reverseCharge?: "eu" | null;
     currency?: string;
@@ -267,15 +273,13 @@ describe.skipIf(!testDatabaseUrl)("Beleg aufteilen (Postgres)", () => {
     expect((await vat.computeVatFigures({ year: 2026, month: 9 })).kz66).toBe(2_040);
   });
 
-  it("lehnt ab: Summe passt nicht, § 13b auf Wareneinkauf, Privatanteil, Fremdwährung, Anlagegut", async () => {
+  it("lehnt ab: Summe passt nicht, § 13b auf Wareneinkauf, Fremdwährung, Anlagegut", async () => {
     await reset("SKR03", "soll");
     const mismatch = await draft({ splits: ISSUE_SPLITS.slice(0, 2) });
     await expect(documents.bookDocument(actor, mismatch)).rejects.toThrow("Aufteilung 19 %: Zeilen zusammen 150,00 € netto, Beleg 170,00 €");
     // § 13b mit Aufteilung geht seit #508 (splits-13b.test.ts), aber wie ohne Aufteilung nicht für Wareneinkäufe
     const rc = await draft({ reverseCharge: "eu" });
     await expect(documents.bookDocument(actor, rc)).rejects.toThrow(/§ 13b gilt nicht für Wareneinkäufe/);
-    const privat = await draft({ privateShare: 20 });
-    await expect(documents.bookDocument(actor, privat)).rejects.toThrow(/Privatanteil mit Aufteilung/);
     const usd = await draft({ currency: "USD" });
     await expect(documents.bookDocument(actor, usd)).rejects.toThrow(/Fremdwährung mit Aufteilung/);
     const asset = await draft({
@@ -296,6 +300,103 @@ describe.skipIf(!testDatabaseUrl)("Beleg aufteilen (Postgres)", () => {
       { category: "buero" as const, taxRate: 1900 as const, net: -2_999_983_000 },
     ];
     await expect(draft({ splits: tooLarge })).rejects.toThrow(/zu groß/);
+  });
+
+  it("Privatanteil je Zeile: Internet 25 %, Telefon 40 % auf einem Beleg", async () => {
+    await reset("SKR03", "soll");
+    const id = await draft({
+      payment: "privat",
+      amounts: [{ taxRate: 1900, net: 10_000, tax: 1_900 }],
+      splits: [
+        { category: "internet", taxRate: 1900, net: 4_000, privateShare: 25 },
+        { category: "telefon", taxRate: 1900, net: 6_000, privateShare: 40 },
+      ],
+    });
+    const saved = (await documents.getDocument(id))!;
+    expect(saved.splits.map((s) => s.privateShare)).toEqual([25, 40]);
+    // Mit Zeilen zählt der Anteil der Zeile; der Anteil des Belegs ist 0
+    expect(saved.document.privateShare).toBe(0);
+    expect(documents.bookingIssues(saved.document, saved.amounts, "2026-09-20", saved.splits)).toEqual([]);
+    await documents.bookDocument(actor, id);
+    expect(await entryLines(id)).toEqual(
+      byAccount([
+        { account: "4925", debit: 3_000, credit: 0, tax_code: "VSt19" },
+        { account: "4920", debit: 3_600, credit: 0, tax_code: "VSt19" },
+        // Internet 1.000 + 190 und Telefon 2.400 + 456 privat
+        { account: "1800", debit: 4_046, credit: 0, tax_code: null },
+        { account: "1576", debit: 1_254, credit: 0, tax_code: "VSt19" },
+        { account: "1890", debit: 0, credit: 11_900, tax_code: null },
+      ]),
+    );
+    // Voranmeldung: nur der betriebliche Teil der Zeilen, wie im Journal
+    const september = await vat.computeVatFigures({ year: 2026, month: 9 });
+    expect(september.kz66).toBe(1_254);
+    expect(september.inputTax).toEqual([expect.objectContaining({ documentId: id, base: 6_600, tax: 1_254 })]);
+    expect((await abgleich.vatAbgleich({ year: 2026, month: 9 })).zeilen.filter((z) => z.journal !== z.quelle)).toEqual([]);
+    // EÜR: je Zeile nur der betriebliche Teil; der private Teil ist keine Ausgabe
+    const euer = await reports.euerForYear(2026);
+    expect(ausgabe(euer, "ausgabe:internet")).toBe(3_000);
+    expect(ausgabe(euer, "ausgabe:telefon")).toBe(3_600);
+    expect(ausgabe(euer, "vorsteuer")).toBe(1_254);
+    expect(euer.totalAusgaben).toBe(7_854);
+    expect((await abgleich.euerAbgleich(2026)).zeilen.filter((z) => z.journal !== z.quelle)).toEqual([]);
+  });
+
+  it("Privatanteil je Zeile mit zwei Teilzahlungen: EÜR und Journal stimmen überein", async () => {
+    await reset("SKR03", "soll");
+    const id = await draft({
+      amounts: [{ taxRate: 1900, net: 10_000, tax: 1_900 }],
+      splits: [
+        { category: "internet", taxRate: 1900, net: 4_000, privateShare: 25 },
+        { category: "telefon", taxRate: 1900, net: 6_000, privateShare: 40 },
+      ],
+    });
+    await documents.bookDocument(actor, id);
+    await importAndAllocate(id, [
+      { date: "20.09.26", amount: "-50,00", cents: -5_000 },
+      { date: "05.10.26", amount: "-69,00", cents: -6_900 },
+    ]);
+    expect((await bank.openItems()).filter((i) => i.type === "document")).toEqual([]);
+    const euer = await reports.euerForYear(2026);
+    expect(ausgabe(euer, "ausgabe:internet")).toBe(3_000);
+    expect(ausgabe(euer, "ausgabe:telefon")).toBe(3_600);
+    expect(ausgabe(euer, "vorsteuer")).toBe(1_254);
+    expect((await abgleich.euerAbgleich(2026)).zeilen.filter((z) => z.journal !== z.quelle)).toEqual([]);
+    expect((await abgleich.vatAbgleich({ year: 2026, month: 9 })).zeilen.filter((z) => z.journal !== z.quelle)).toEqual([]);
+  });
+
+  it("ohne Anteil in der Zeile gilt die Vorgabe der Firmendaten für die Kategorie", async () => {
+    await reset("SKR03", "soll");
+    await sql`update company set private_shares = '{"internet": 25}'::jsonb`;
+    const id = await draft({
+      amounts: [{ taxRate: 1900, net: 10_000, tax: 1_900 }],
+      splits: [
+        { category: "internet", taxRate: 1900, net: 4_000 },
+        { category: "telefon", taxRate: 1900, net: 6_000 },
+      ],
+    });
+    const saved = (await documents.getDocument(id))!;
+    expect(saved.splits.map((s) => s.privateShare)).toEqual([25, 0]);
+  });
+
+  it("mit Zeilen zählt der Anteil der Zeile; ein Anteil am Beleg bleibt ohne Wirkung", async () => {
+    await reset("SKR03", "soll");
+    const id = await draft({ payment: "privat", privateShare: 20 });
+    const saved = (await documents.getDocument(id))!;
+    expect(saved.document.privateShare).toBe(0);
+    await documents.bookDocument(actor, id);
+    const lines = await entryLines(id);
+    // Keine Entnahme: die Zeilen tragen keinen Anteil
+    expect(lines.map((l) => l.account)).not.toContain("1800");
+    expect(lines).toEqual(
+      byAccount([
+        { account: "3200", debit: 10_000, credit: 0, tax_code: "VSt19" },
+        { account: "4964", debit: 5_000, credit: 0, tax_code: "VSt19" },
+        { account: "4930", debit: 2_000, credit: 0, tax_code: "VSt19" },
+        { account: "1576", debit: 3_230, credit: 0, tax_code: "VSt19" },
+        { account: "1890", debit: 0, credit: 20_230, tax_code: null },
+      ]),
+    );
   });
 
   it("ohne Zeilen gilt wieder die Kategorie des Belegs", async () => {

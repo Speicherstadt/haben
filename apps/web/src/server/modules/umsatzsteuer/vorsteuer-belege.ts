@@ -11,6 +11,7 @@ import {
 } from "@haben/core";
 import { and, eq, gte, inArray, isNull, lt } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
+import { splitBusinessByRate } from "../buchhaltung/index.ts";
 import { gutschriftAnteile } from "./gutschrift.ts";
 import { ZWISCHENKONTEN } from "./vorsteuer-anteile.ts";
 import { vorsteuerNachLeistungsdatum } from "./vorsteuer-leistungsdatum.ts";
@@ -23,17 +24,26 @@ export async function vorsteuerAusBelegen(period: VatPeriod, q: Db | Tx) {
   // im Monat der Zahlung, frühestens in dem der Rechnung (§ 15 Abs. 1 Satz 1 Nr. 1 UStG, UStAE 15.3). Diese Zeilen
   // kommen aus vorsteuer-leistungsdatum.ts; die gewöhnliche Abfrage lässt die Belege aus, sonst zählten sie doppelt
   const nachLeistungsdatum = await vorsteuerNachLeistungsdatum(period, q);
-  // Mit Privatanteil zählt nur der betriebliche Teil (beim Storno derselbe wie beim Buchen); Kleinunternehmer ziehen keine Vorsteuer ab
+  // Mit Privatanteil zählt nur der betriebliche Teil (beim Storno derselbe wie beim Buchen); Kleinunternehmer ziehen keine Vorsteuer ab.
+  // Mit Aufteilung trägt jede Zeile ihren Anteil (#1914): Dann zählt der betriebliche Teil der Zeilen des Satzes.
   const business = (amount: Cents, privateShare: Prozent, sign: number) => sign * splitPrivateShare(amount, privateShare).business;
+  const jeSatz = await splitBusinessByRate([...new Set(amounts.map((a) => a.documentId))], q);
+  const eigeneZeilen = (documentId: string, rate: number) => jeSatz.get(documentId)?.get(rate);
   // Eine Gutschrift „erstattet bereits Bezahltes“ mindert die Vorsteuer erst mit dem Ausgleich (#690, #786, gutschrift.ts);
   // ohne die Angabe gilt wie bei jedem Beleg das Belegdatum
   const inputTax = amounts
     .filter((a) => a.vorsteuerAbzug && !a.reverseCharge && !a.erstattetBezahltes && !nachLeistungsdatum.belege.has(a.documentId))
-    .map(({ privateShare, vorsteuerAbzug, vorsteuerAnteil, satzAnteil, reverseCharge: _rc, erstattetBezahltes: _e, sign, category: _category, ...a }) => ({
-      ...a,
-      base: business(a.base, privateShare, sign),
-      tax: abziehbareSteuer(business(a.tax, privateShare, sign), gespeicherterAnteil({ vorsteuerAbzug, vorsteuerAnteil }, satzAnteil)),
-    }))
+    .map(({ privateShare, vorsteuerAbzug, vorsteuerAnteil, satzAnteil, reverseCharge: _rc, erstattetBezahltes: _e, sign, category: _category, ...a }) => {
+      const zeilen = eigeneZeilen(a.documentId, a.rate);
+      return {
+        ...a,
+        base: zeilen ? sign * zeilen.base : business(a.base, privateShare, sign),
+        tax: abziehbareSteuer(
+          zeilen ? sign * zeilen.tax : business(a.tax, privateShare, sign),
+          gespeicherterAnteil({ vorsteuerAbzug, vorsteuerAnteil }, satzAnteil),
+        ),
+      };
+    })
     .filter((a) => a.tax !== 0);
   inputTax.push(...nachLeistungsdatum.zeilen);
   inputTax.push(...(await skontoVorsteuerAnteile(period, q, nachLeistungsdatum.skontoOhneMinderung)));
@@ -43,23 +53,35 @@ export async function vorsteuerAusBelegen(period: VatPeriod, q: Db | Tx) {
   // § 13b: Bemessungsgrundlage und Steuer voll, auch bei Privatanteil; Vorsteuer nur betrieblich
   const reverseCharge: ReverseChargeSource[] = amounts
     .filter((a): a is typeof a & { reverseCharge: "eu" | "drittland" } => a.reverseCharge === "eu" || a.reverseCharge === "drittland")
-    .map(({ privateShare, vorsteuerAbzug, vorsteuerAnteil, satzAnteil, reverseCharge: rc, erstattetBezahltes: _e, sign, ...a }) => ({
-      ...a,
-      base: sign * a.base,
-      tax: sign * a.tax,
-      reverseCharge: rc,
-      deductible: abziehbareSteuer(business(a.tax, privateShare, sign), gespeicherterAnteil({ vorsteuerAbzug, vorsteuerAnteil }, satzAnteil)),
-    }));
+    .map(({ privateShare, vorsteuerAbzug, vorsteuerAnteil, satzAnteil, reverseCharge: rc, erstattetBezahltes: _e, sign, ...a }) => {
+      const zeilen = eigeneZeilen(a.documentId, a.rate);
+      return {
+        ...a,
+        base: sign * a.base,
+        tax: sign * a.tax,
+        reverseCharge: rc,
+        deductible: abziehbareSteuer(
+          zeilen ? sign * zeilen.tax : business(a.tax, privateShare, sign),
+          gespeicherterAnteil({ vorsteuerAbzug, vorsteuerAnteil }, satzAnteil),
+        ),
+      };
+    });
   // Innergemeinschaftlicher Erwerb ebenso, nach Belegdatum auch bei Ist-Versteuerung: Die Steuer entsteht mit Ausstellung
   // der Rechnung, spätestens mit Ablauf des Folgemonats (§ 13 Abs. 1 Nr. 6 UStG), nicht mit der Zahlung
   const igErwerb: IgErwerbSource[] = amounts
     .filter((a) => a.reverseCharge === "ig_erwerb")
-    .map(({ privateShare, vorsteuerAbzug, vorsteuerAnteil, satzAnteil, reverseCharge: _rc, erstattetBezahltes: _e, sign, ...a }) => ({
-      ...a,
-      base: sign * a.base,
-      tax: sign * a.tax,
-      deductible: abziehbareSteuer(business(a.tax, privateShare, sign), gespeicherterAnteil({ vorsteuerAbzug, vorsteuerAnteil }, satzAnteil)),
-    }));
+    .map(({ privateShare, vorsteuerAbzug, vorsteuerAnteil, satzAnteil, reverseCharge: _rc, erstattetBezahltes: _e, sign, ...a }) => {
+      const zeilen = eigeneZeilen(a.documentId, a.rate);
+      return {
+        ...a,
+        base: sign * a.base,
+        tax: sign * a.tax,
+        deductible: abziehbareSteuer(
+          zeilen ? sign * zeilen.tax : business(a.tax, privateShare, sign),
+          gespeicherterAnteil({ vorsteuerAbzug, vorsteuerAnteil }, satzAnteil),
+        ),
+      };
+    });
   // Einfuhrumsatzsteuer (§ 15 Abs. 1 Satz 1 Nr. 2 UStG): der Betrag des Bescheids ist die Steuer, abziehbar nach Belegdatum
   const einfuhr: InputTaxSource[] = amounts
     .filter((a) => a.category === "einfuhrumsatzsteuer" && a.vorsteuerAbzug && !a.reverseCharge)

@@ -1,4 +1,5 @@
 import { allocateSplitTax, formatDecimal, formatEuro, parseEuro, type ExpenseCategory } from "@haben/core";
+import { parsePrivatanteil } from "../lib/anteil.ts";
 import { CategoryCombobox } from "./CategoryCombobox.tsx";
 import { EigenesKontoWahl, passendesKonto, type OwnAccountChoice } from "./EigenesKontoWahl.tsx";
 import { Field } from "./Field.tsx";
@@ -6,7 +7,8 @@ import { Field } from "./Field.tsx";
 /*
  * Aufteilung eines Belegs auf mehrere Kategorien (#271): Zeilen mit Kategorie, Steuersatz und Netto. Die Vorsteuer je
  * Zeile verteilt Haben aus der Vorsteuer des Satzes (wie beim Speichern, allocateSplitTax); die Summen je Satz werden
- * laufend gegen die Beträge des Belegs geprüft.
+ * laufend gegen die Beträge des Belegs geprüft. Seit #1914 trägt jede Zeile ihren eigenen Privatanteil, etwa Internet
+ * 25 % und Telefon 40 % auf einem Beleg.
  */
 
 type Rate = 1900 | 700 | 0;
@@ -18,19 +20,35 @@ export interface SplitRowState {
   net: string;
   /** Eigenes Sachkonto der Zeile (#270); leer = das Konto der Kategorie */
   ownAccountId: string;
+  /** Privatanteil der Zeile in Prozent (#1914); leer = 0 */
+  privateShare: string;
 }
 
 let nextSplitKey = 1;
 
-export function splitRow(category: ExpenseCategory | "", taxRate: Rate, net: string, ownAccountId = ""): SplitRowState {
-  return { key: nextSplitKey++, category, taxRate, net, ownAccountId };
+export function splitRow(category: ExpenseCategory | "", taxRate: Rate, net: string, ownAccountId = "", privateShare = ""): SplitRowState {
+  return { key: nextSplitKey++, category, taxRate, net, ownAccountId, privateShare };
 }
 
-/** Eingegebene Zeilen als Daten; null, wenn eine Zeile noch keine Kategorie oder kein lesbares Netto hat */
-export function parseSplitRows(rows: SplitRowState[]): { category: ExpenseCategory; taxRate: Rate; net: number; ownAccountId: string | null }[] | null {
-  const parsed = rows.map((row) => ({ category: row.category, taxRate: row.taxRate, net: parseEuro(row.net || "0"), ownAccountId: row.ownAccountId || null }));
-  if (parsed.some((p) => p.category === "" || p.net === null)) return null;
-  return parsed.map((p) => ({ category: p.category as ExpenseCategory, taxRate: p.taxRate, net: p.net!, ownAccountId: p.ownAccountId }));
+/** Eingegebene Zeilen als Daten; null, wenn eine Zeile noch keine Kategorie, kein lesbares Netto oder keinen gültigen Anteil hat */
+export function parseSplitRows(
+  rows: SplitRowState[],
+): { category: ExpenseCategory; taxRate: Rate; net: number; ownAccountId: string | null; privateShare: number }[] | null {
+  const parsed = rows.map((row) => ({
+    category: row.category,
+    taxRate: row.taxRate,
+    net: parseEuro(row.net || "0"),
+    ownAccountId: row.ownAccountId || null,
+    privateShare: parsePrivatanteil(row.privateShare),
+  }));
+  if (parsed.some((p) => p.category === "" || p.net === null || p.privateShare === null)) return null;
+  return parsed.map((p) => ({
+    category: p.category as ExpenseCategory,
+    taxRate: p.taxRate,
+    net: p.net!,
+    ownAccountId: p.ownAccountId,
+    privateShare: p.privateShare!,
+  }));
 }
 
 const percent = (rate: number) => `${rate / 100} %`;
@@ -44,6 +62,10 @@ export function DocumentSplits({
   onChange,
   onDissolve,
   taxLabel = "Vorsteuer",
+  /** Privatanteil je Zeile (#1914): nur im Einzelunternehmen, wie am Beleg ohne Aufteilung */
+  privatanteil = false,
+  /** Vorgaben der Firmendaten je Kategorie, die eine neue Kategorie in ihre Zeile übernimmt */
+  privateShares = {},
   error = () => undefined,
 }: {
   rows: SplitRowState[];
@@ -57,8 +79,12 @@ export function DocumentSplits({
   onChange: (rows: SplitRowState[]) => void;
   /** Aufteilung aufheben: wieder eine Kategorie für den ganzen Beleg */
   onDissolve: () => void;
+  /** Privatanteil je Zeile (#1914) anzeigen: nur im Einzelunternehmen */
+  privatanteil?: boolean;
+  /** Vorgaben der Firmendaten je Kategorie (Prozent), die eine gewählte Kategorie übernimmt */
+  privateShares?: Partial<Record<string, number>>;
   /** Fehler je Zeile aus der Prüfung beim Buchen (useSubmitCheck), erst danach zu sehen */
-  error?: (feld: "kategorie" | "netto", key: number) => string | undefined;
+  error?: (feld: "kategorie" | "netto" | "privatanteil", key: number) => string | undefined;
   /** Steuer je Zeile: Vorsteuer, ohne Abzug Umsatzsteuer (#978), bei § 13b (#508) die selbst geschuldete Steuer */
   taxLabel?: string;
 }) {
@@ -90,6 +116,8 @@ export function DocumentSplits({
                   update(row.key, {
                     category: next as ExpenseCategory | "",
                     ownAccountId: passendesKonto(ownAccounts, next, row.ownAccountId),
+                    // Vorgabe aus den Firmendaten, z. B. Internet 25 %
+                    privateShare: privatanteil && privateShares[next] ? String(privateShares[next]) : row.privateShare,
                   })
                 }
               />
@@ -127,13 +155,33 @@ export function DocumentSplits({
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
-          <EigenesKontoWahl
-            accounts={ownAccounts}
-            category={row.category}
-            value={row.ownAccountId}
-            onChange={(ownAccountId) => update(row.key, { ownAccountId })}
-            style={{ gridColumn: "1 / -1" }}
-          />
+          <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
+            <EigenesKontoWahl
+              accounts={ownAccounts}
+              category={row.category}
+              value={row.ownAccountId}
+              onChange={(ownAccountId) => update(row.key, { ownAccountId })}
+              style={{ flex: "1 1 240px", minWidth: 0 }}
+            />
+            {privatanteil && (
+              <Field
+                label="Privatanteil in %"
+                hint="Nur der betriebliche Teil dieser Zeile ist Ausgabe und Vorsteuer."
+                error={error("privatanteil", row.key)}
+                style={{ flex: "0 0 140px" }}
+              >
+                {(control) => (
+                  <input
+                    {...control}
+                    inputMode="numeric"
+                    value={row.privateShare}
+                    placeholder="0"
+                    onChange={(e) => update(row.key, { privateShare: e.target.value })}
+                  />
+                )}
+              </Field>
+            )}
+          </div>
         </div>
       ))}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>

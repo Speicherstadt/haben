@@ -13,6 +13,7 @@ import {
 } from "@haben/core";
 import { and, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
+import { betrieblicheZeile, splitBusinessByRate } from "../buchhaltung/index.ts";
 import { geschaeftlich, ZWISCHENKONTEN } from "./vorsteuer-anteile.ts";
 
 /*
@@ -261,8 +262,10 @@ async function nebenbuecherLaden(q: Db | Tx, ids: string[]): Promise<Nebenbueche
       .where(and(inArray(w.documentId, ids), eq(w.kind, "skontoErhalten"))),
   ]);
   const zuordnungsTage = zuordnungen.map(({ wirktAm, bookingDate, ...z }) => ({ ...z, date: wirktAm ?? bookingDate }));
+  // Mit Aufteilung rechnen die Sätze mit dem betrieblichen Teil je Zeile (#1914), wie die Buchung
+  const betrieblich = await splitBusinessByRate(ids, q);
   return {
-    betraege,
+    betraege: betraege.map((b) => betrieblicheZeile(betrieblich, b)),
     stornoAm: new Map(stornos.map((x) => [x.documentId, x.date])),
     ...zahlungenJeBeleg([...zuordnungsTage, ...verrechnungen]),
     barAm: new Map(baren.flatMap((x) => (x.documentId ? [[x.documentId, x.date] as const] : []))),

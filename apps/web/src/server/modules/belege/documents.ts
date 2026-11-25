@@ -83,7 +83,7 @@ const documentFields = z.object({
   ownAccountId: z.uuid().nullable().default(null),
   payment: z.enum(["bank", "privat", "kasse"]),
   note: z.string().max(2000),
-  /** Privatanteil in Prozent, z. B. beim Handyvertrag */
+  /** Privatanteil in Prozent, z. B. beim Handyvertrag; mit Aufteilung trägt ihn jede Zeile (splits) */
   privateShare: inProzent(z.number().int().min(0).max(100)).default(0),
   /** § 15 Abs. 4 UStG: wirtschaftlich zugeordneter Anteil in Basispunkten; null erbt die Firmendaten. */
   vorsteuerAnteil: inBasisPoints(z.number().int().min(0).max(VOLLER_ABZUG)).nullable().default(null),
@@ -530,7 +530,8 @@ async function updateDocumentIn(tx: Tx, id: string, input: DocumentInput): Promi
   const bisher = { beleg: previous.ownAccountId, zeilen: (await loadSplits(id, tx)).map((s) => s.ownAccountId) };
   const [kontoProblem] = await documentOwnAccountProblems(tx, beleg, parsed.splits, bisher);
   if (kontoProblem) throw new DocumentError(kontoProblem);
-  const rate = await resolveRate(tx, parsed, previous, (await loadCompany(tx)).tageskurs);
+  const company = await loadCompany(tx);
+  const rate = await resolveRate(tx, parsed, previous, company.tageskurs);
   const amounts = euroAmounts({ ...parsed, exchangeRate: rate.exchangeRate });
   if (parsed.erstattetBezahltes) {
     const problem = erstattetBezahltesProblem(totalsOf(amounts, parsed.reverseCharge), parsed.reverseCharge, parsed.payment, parsed.category);
@@ -546,8 +547,9 @@ async function updateDocumentIn(tx: Tx, id: string, input: DocumentInput): Promi
   if (amounts.length > 0) {
     await tx.insert(schema.documentAmounts).values(amounts.map((a) => ({ documentId: id, ...a })));
   }
-  // Aufgeteilt: Kategorie und Anlage stehen in den Zeilen bzw. gibt es nicht (Anlagegüter lassen sich nicht aufteilen)
-  await replaceSplits(tx, id, parsed.splits, amounts);
+  // Aufgeteilt: Kategorie und Anlage stehen in den Zeilen bzw. gibt es nicht (Anlagegüter lassen sich nicht aufteilen).
+  // Fehlt der Privatanteil einer Zeile, gilt die Vorgabe der Firmendaten für ihre Kategorie (#1914)
+  await replaceSplits(tx, id, parsed.splits, amounts, company.privateShares);
   const { amounts: _amounts, splits, asset, ...fields } = parsed;
   const category = splits.length > 0 ? null : fields.category;
   const ownAccountId = splits.length > 0 ? null : fields.ownAccountId;
@@ -558,6 +560,8 @@ async function updateDocumentIn(tx: Tx, id: string, input: DocumentInput): Promi
       ...rate,
       category,
       ownAccountId,
+      // Mit Zeilen zählt der Anteil der Zeile; der Anteil des Belegs ist dann 0 (#1914)
+      privateShare: splits.length > 0 ? 0 : fields.privateShare,
       asset: category === "anlage" ? (asset ?? null) : null,
       supplierUstId: fields.supplierUstId.replace(/\s/g, "").toUpperCase(),
       ...totalsOf(amounts, fields.reverseCharge),
@@ -764,8 +768,10 @@ export async function bookDocumentIn(tx: Tx, id: string): Promise<void> {
   const vorsteuerAbzug = wirksameBetraege.some((a) => a.vorsteuerAnteil > 0);
   const vorab = bookingIssueList(doc, amounts, today(), splits);
   const issues = vorab.map((issue) => issue.text);
-  // GmbH und UG: privat Genutztes ist Arbeitslohn oder verdeckte Gewinnausschüttung, keine Entnahme
-  if (doc.privateShare > 0 && isKapitalgesellschaft(company.rechtsform)) issues.push("Einen Privatanteil gibt es nur im Einzelunternehmen");
+  // GmbH und UG: privat Genutztes ist Arbeitslohn oder verdeckte Gewinnausschüttung, keine Entnahme; mit Aufteilung
+  // trägt jede Zeile ihren Anteil (#1914)
+  if ((doc.privateShare > 0 || splits.some((s) => s.privateShare > 0)) && isKapitalgesellschaft(company.rechtsform))
+    issues.push("Einen Privatanteil gibt es nur im Einzelunternehmen");
   if (doc.category === "anlage" && doc.asset?.method === "elektro" && !elektroAvailable(company.rechtsform)) issues.push(ELEKTRO_NUR_EINZELUNTERNEHMEN);
   issues.push(
     ...igErwerbFirmaIssues(

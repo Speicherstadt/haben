@@ -3913,6 +3913,7 @@
     { "table": "public.document_cancellations", "column": "id", "expression": "gen_random_uuid()" },
     { "table": "public.document_cancellations", "column": "reason", "expression": "''::text" },
     { "table": "public.document_splits", "column": "id", "expression": "gen_random_uuid()" },
+    { "table": "public.document_splits", "column": "private_share", "expression": "0" },
     { "table": "public.documents", "column": "currency", "expression": "'EUR'::text" },
     { "table": "public.documents", "column": "erstattet_bezahltes", "expression": "false" },
     { "table": "public.documents", "column": "extraction_status", "expression": "'keine'::public.extraction_status" },

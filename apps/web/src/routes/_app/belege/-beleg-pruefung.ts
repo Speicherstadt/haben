@@ -22,7 +22,7 @@ export function documentFigures(f: DocumentFields, rows: AmountState[], splitRow
     tax: parseEuro(r.tax || "0"),
     vorsteuerAnteil: parseVorsteuerAnteil(r.vorsteuerAnteil),
   }));
-  // Mit Aufteilung gibt es (noch) keinen Privatanteil, siehe Grenzen in docs/belege.md
+  // Mit Aufteilung trägt jede Zeile ihren Privatanteil (#1914); der Anteil des Belegs ist dann 0
   const privateShareValue = f.category === "anlage" || splitting ? 0 : parsePrivatanteil(f.privateShare);
   const privateShareValid = privateShareValue !== null;
   const vorsteuerBeleg = { value: f.vorsteuerAnteil, company: data, booked: locked, storedDeduction: data.document.vorsteuerAbzug };
@@ -104,6 +104,7 @@ export function documentFieldErrors(
       splitRows.flatMap((r) => [
         [`kategorie-${r.key}`, r.category === "" ? "Wähle die Kategorie." : null],
         [`aufteilung-${r.key}`, parseEuro(r.net || "0") === null ? BETRAG_FEHLER : null],
+        [`privatanteil-${r.key}`, parsePrivatanteil(r.privateShare) === null ? PRIVATANTEIL_FEHLER : null],
       ]),
     ),
     privatanteil: figures.privateShareValid ? null : PRIVATANTEIL_FEHLER,

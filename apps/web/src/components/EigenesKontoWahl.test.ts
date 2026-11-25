@@ -75,8 +75,8 @@ describe("Zeilen der Aufteilung mit eigenem Konto", () => {
   it("gibt das Konto je Zeile weiter, leer als null", () => {
     const rows = [splitRow("software", 1900, "60,00", "a"), splitRow("buero", 1900, "40,00")];
     expect(parseSplitRows(rows)).toEqual([
-      { category: "software", taxRate: 1900, net: 6000, ownAccountId: "a" },
-      { category: "buero", taxRate: 1900, net: 4000, ownAccountId: null },
+      { category: "software", taxRate: 1900, net: 6000, ownAccountId: "a", privateShare: 0 },
+      { category: "buero", taxRate: 1900, net: 4000, ownAccountId: null, privateShare: 0 },
     ]);
   });
 });

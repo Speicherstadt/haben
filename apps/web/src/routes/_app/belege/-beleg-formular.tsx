@@ -1,4 +1,4 @@
-import { formatDecimal, formatEuro } from "@haben/core";
+import { formatDecimal, formatEuro, isKapitalgesellschaft } from "@haben/core";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
@@ -140,7 +140,9 @@ function BelegAufteilung({ f, data }: { f: DocumentFormState; data: Detail }) {
         disabled={fieldsDisabled}
         onChange={touch(setSplitRows)}
         taxLabel={steuerSpalte(reverseCharge, vorsteuerBeleg, rows)}
-        error={(feld, key) => error(`${feld === "netto" ? "aufteilung" : "kategorie"}-${key}`)}
+        privatanteil={!isKapitalgesellschaft(data.rechtsform)}
+        privateShares={data.privateShares}
+        error={(feld, key) => error(`${feld === "netto" ? "aufteilung" : feld}-${key}`)}
         onDissolve={() => {
           // Zurück zu einer Kategorie: die der ersten Zeile
           touch(setCategory)(splitRows[0]?.category ?? "");

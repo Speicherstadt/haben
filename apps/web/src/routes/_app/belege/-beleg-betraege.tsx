@@ -1,5 +1,6 @@
 import { formatDecimal, formatEuro, isKapitalgesellschaft } from "@haben/core";
 import { BelegUmsatzsteuer } from "../../../components/BelegUmsatzsteuer.tsx";
+import { parsePrivatanteil } from "../../../lib/anteil.ts";
 import { betragszeileAus } from "../../../lib/betragszeile.ts";
 import { Field } from "../../../components/Field.tsx";
 import { VorsteuerAnteil, privatanteilHinweis, steuerSpalte } from "../../../components/VorsteuerAnteil.tsx";
@@ -19,6 +20,7 @@ export function Betraege({ f, data }: { f: DocumentFormState; data: Detail }) {
     rows,
     setRows,
     splitting,
+    splitRows,
     setDirty,
     parsed,
     privateShareValue,
@@ -90,9 +92,11 @@ export function Betraege({ f, data }: { f: DocumentFormState; data: Detail }) {
       <p className="small muted" style={{ margin: 0 }}>
         Gutschriften mit Minus eingeben.
       </p>
+      {/* Mit Aufteilung steht der Privatanteil in den Zeilen; die Vorschau nennt dann keine Zahlen dazu (#1914) */}
       <VorsteuerAnteil
         {...vorsteuerBeleg}
         privateShare={privateShareValue}
+        privateShareJeZeile={splitRows.some((row) => parsePrivatanteil(row.privateShare) !== 0)}
         asset={category === "anlage"}
         importVat={category === "einfuhrumsatzsteuer"}
         onChange={touch(setVorsteuerAnteil)}

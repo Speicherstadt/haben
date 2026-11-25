@@ -2360,8 +2360,8 @@ export const documentAmounts = pgTable(
 
 /**
  * Aufteilung eines Belegs auf mehrere Kontierungszeilen (#271): Kategorie, Steuersatz und Netto je Zeile, dazu der
- * anteilige Betrag der Vorsteuer des Satzes (allocateSplitTax). Ohne Zeilen gilt documents.category. Gesperrt mit dem
- * Beleg und Teil seines Siegels.
+ * anteilige Betrag der Vorsteuer des Satzes (allocateSplitTax) und seit #1914 der Privatanteil der Zeile. Ohne Zeilen
+ * gilt documents.category. Gesperrt mit dem Beleg und Teil seines Siegels.
  */
 export const documentSplits = pgTable(
   "document_splits",
@@ -2378,8 +2378,13 @@ export const documentSplits = pgTable(
     taxRate: smallint("tax_rate").$type<BasisPoints>().notNull(),
     net: integer("net").$type<Cents>().notNull(),
     tax: integer("tax").$type<Cents>().notNull(),
+    /** Privatanteil dieser Zeile in Prozent (#1914): nur der betriebliche Teil ist Aufwand und Vorsteuer */
+    privateShare: smallint("private_share").$type<Prozent>().notNull().default(0),
   },
-  (t) => [uniqueIndex("document_splits_position").on(t.documentId, t.position)],
+  (t) => [
+    uniqueIndex("document_splits_position").on(t.documentId, t.position),
+    check("document_splits_private_share_range", sql`${t.privateShare} between 0 and 100`),
+  ],
 );
 
 /** Bankkonten; der Import ordnet Umsätze über die IBAN zu. */

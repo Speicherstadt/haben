@@ -1,0 +1,2 @@
+ALTER TABLE "document_splits" ADD COLUMN "private_share" smallint DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "document_splits" ADD CONSTRAINT "document_splits_private_share_range" CHECK ("document_splits"."private_share" between 0 and 100);

@@ -1,4 +1,4 @@
-import type { ExpenseCategory, SelfAssessedTax } from "@haben/core";
+import { isKapitalgesellschaft, type ExpenseCategory, type SelfAssessedTax } from "@haben/core";
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, type FormEvent } from "react";
@@ -43,7 +43,7 @@ export function useDocumentForm({ data, inhaber, onDirtyChange }: { data: Detail
 
   const figures = documentFigures(fields, rows, splitRows, data, locked);
   const { form, error, pruefen, mitFeldfehlern } = useFieldCheck(documentFieldErrors(fields, rows, splitRows, figures), fields.setWeitereOffen);
-  const actions = documentActions(fields, rowState, data.suppliers);
+  const actions = documentActions(fields, rowState, data.suppliers, !isKapitalgesellschaft(data.rechtsform));
 
   async function persist() {
     await save({ data: { id: doc.id, document: documentInput(fields, figures, splitting, ownAccounts) } });
@@ -106,7 +106,13 @@ function useFieldCheck(fehler: Record<string, string | null>, setWeitereOffen: (
 }
 
 /** Änderungen am Formular, die mehrere Felder betreffen oder es als geändert markieren */
-function documentActions(fields: DocumentFields, rowState: ReturnType<typeof useDocumentRows>, suppliers: Detail["suppliers"]) {
+function documentActions(
+  fields: DocumentFields,
+  rowState: ReturnType<typeof useDocumentRows>,
+  suppliers: Detail["suppliers"],
+  /** Darf der Beleg einen Privatanteil tragen? Nur im Einzelunternehmen (#1914) */
+  privatanteil: boolean,
+) {
   const { supplierUstId, supplierContactId, setSupplierContactId, setSupplierName, setWeitereOffen, reverseCharge } = fields;
   const { rows, setRows, setDirty } = rowState;
 
@@ -133,10 +139,15 @@ function documentActions(fields: DocumentFields, rowState: ReturnType<typeof use
     }
   }
 
-  /** Aufteilen: je Betragszeile eine Zeile mit der bisherigen Kategorie, dazu eine leere zum Verteilen */
+  /**
+   * Aufteilen: je Betragszeile eine Zeile mit der bisherigen Kategorie, dazu eine leere zum Verteilen. Den Privatanteil
+   * des Belegs übernimmt die erste Zeile (#1914), denn mit Zeilen zählt der Anteil der Zeile.
+   */
   function startSplitting() {
     const first = fields.category === "anlage" ? "" : (fields.category as ExpenseCategory | "");
-    const fromAmounts = rows.map((row, i) => splitRow(i === 0 ? first : "", row.taxRate, row.net, i === 0 ? fields.ownAccountId : ""));
+    // GmbH und UG kennen keinen Privatanteil; dort bleibt die Zeile betrieblich
+    const privat = privatanteil ? fields.privateShare : "";
+    const fromAmounts = rows.map((row, i) => splitRow(i === 0 ? first : "", row.taxRate, row.net, i === 0 ? fields.ownAccountId : "", i === 0 ? privat : ""));
     touch(rowState.setSplitRows)([...fromAmounts, splitRow("", rows[0]?.taxRate ?? 1900, "")]);
   }
 

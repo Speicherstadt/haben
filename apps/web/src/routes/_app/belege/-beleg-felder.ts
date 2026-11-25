@@ -125,9 +125,11 @@ export function useDocumentRows(data: Detail, calculateInitialTax: boolean) {
       };
     }),
   );
-  // Aufteilung auf mehrere Kategorien (#271); leer = die Kategorie gilt für den ganzen Beleg
+  // Aufteilung auf mehrere Kategorien (#271), je Zeile mit ihrem Privatanteil (#1914); leer = die Kategorie gilt für den ganzen Beleg
   const [splitRows, setSplitRows] = useState<SplitRowState[]>(() =>
-    splits.map((s) => splitRow(s.category as ExpenseCategory, s.taxRate as Rate, formatDecimal(s.net), s.ownAccountId ?? "")),
+    splits.map((s) =>
+      splitRow(s.category as ExpenseCategory, s.taxRate as Rate, formatDecimal(s.net), s.ownAccountId ?? "", s.privateShare ? String(s.privateShare) : ""),
+    ),
   );
   const splitting = splitRows.length > 0;
   const [dirty, setDirty] = useState(

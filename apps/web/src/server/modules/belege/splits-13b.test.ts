@@ -17,12 +17,32 @@ function dkbCsv(rows: string[][]) {
 }
 
 const KONTEN = {
-  SKR03: { geld: "4970", fremd: "3100", sonstiges: "4900", werbung: "4600", ustRc: "1787", vorsteuerRc: "1577", verbindlichkeiten: "1600", privat: "1890" },
-  SKR04: { geld: "6855", fremd: "5900", sonstiges: "6300", werbung: "6600", ustRc: "3837", vorsteuerRc: "1407", verbindlichkeiten: "3300", privat: "2180" },
+  SKR03: {
+    geld: "4970",
+    fremd: "3100",
+    sonstiges: "4900",
+    werbung: "4600",
+    ustRc: "1787",
+    vorsteuerRc: "1577",
+    verbindlichkeiten: "1600",
+    privat: "1890",
+    entnahme: "1800",
+  },
+  SKR04: {
+    geld: "6855",
+    fremd: "5900",
+    sonstiges: "6300",
+    werbung: "6600",
+    ustRc: "3837",
+    vorsteuerRc: "1407",
+    verbindlichkeiten: "3300",
+    privat: "2180",
+    entnahme: "2100",
+  },
 } as const;
 
 type Category = "geldverkehr" | "fremdleistung" | "sonstiges" | "werbung" | "wareneinkauf" | "software";
-type Split = { category: Category; taxRate: 1900 | 700 | 0; net: number };
+type Split = { category: Category; taxRate: 1900 | 700 | 0; net: number; privateShare?: number };
 
 const GEBUEHREN: Split[] = [
   { category: "geldverkehr", taxRate: 1900, net: 12_000 },
@@ -322,12 +342,49 @@ describe.skipIf(!testDatabaseUrl)("§ 13b mit Aufteilung (Postgres)", () => {
     }, 30_000);
   }
 
-  it("lehnt weiter ab: innergemeinschaftlicher Erwerb, Privatanteil und Fremdwährung mit Aufteilung, § 13b auf Wareneinkauf", async () => {
+  it("Privatanteil je Zeile: je Zeile nur der betriebliche Teil, eine Umsatzsteuerzeile je Satz, Entnahme mit Bemessungsgrundlage", async () => {
+    await reset("SKR03", "soll");
+    const k = KONTEN.SKR03;
+    // Werbung 50,00 € netto zu 40 % privat, Geldverkehr 200,00 € netto zu 25 % privat, zusammen 250,00 € netto, 47,50 € Steuer
+    const id = await draft({
+      splits: [
+        { category: "werbung", taxRate: 1900, net: 5_000, privateShare: 40 },
+        { category: "geldverkehr", taxRate: 1900, net: 20_000, privateShare: 25 },
+      ],
+    });
+    await documents.bookDocument(actor, id);
+    expect(await entryLines(id)).toEqual(
+      byAccount([
+        { account: k.werbung, debit: 3_000, credit: 0, tax_code: CODE.eu },
+        { account: k.geld, debit: 15_000, credit: 0, tax_code: CODE.eu },
+        // Die Bemessungsgrundlage zählt privat voll (Kz 46); die Steuer darauf ist eine Entnahme ohne Schlüssel
+        { account: k.entnahme, debit: 7_000, credit: 0, tax_code: CODE.eu },
+        { account: k.entnahme, debit: 1_330, credit: 0, tax_code: null },
+        { account: k.vorsteuerRc, debit: 3_420, credit: 0, tax_code: "VSt13b" },
+        { account: k.ustRc, debit: 0, credit: 4_750, tax_code: CODE.eu },
+        { account: k.verbindlichkeiten, debit: 0, credit: 25_000, tax_code: null },
+      ]),
+    );
+    // Genau eine Umsatzsteuerzeile je Satz, obwohl zwei Zeilen mit Anteil daran hängen
+    expect((await entryLines(id)).filter((l) => l.account === k.ustRc)).toHaveLength(1);
+    // Voranmeldung: Bemessungsgrundlage und Steuer voll, Vorsteuer und Kz 67 nur betrieblich
+    const september = await vat.computeVatFigures({ year: 2026, month: 9 });
+    expect([september.kz46, september.kz47, september.kz67, september.kz66]).toEqual([25_000, 4_750, 3_420, 0]);
+    expect((await abgleich.vatAbgleich({ year: 2026, month: 9 })).zeilen.filter((z) => z.journal !== z.quelle)).toEqual([]);
+    // EÜR: gezahlt wird netto, die Ausgabe je Zeile ist betrieblich
+    await payFromBank(id, "25.09.26", "-250,00");
+    const euer = await reports.euerForYear(2026);
+    expect(ausgabe(euer, "ausgabe:werbung")).toBe(3_000);
+    expect(ausgabe(euer, "ausgabe:geldverkehr")).toBe(15_000);
+    // Die Vorsteuer nach § 13b kommt mit der Zahlung ans Finanzamt, nicht aus dem Beleg
+    expect(ausgabe(euer, "vorsteuer")).toBe(0);
+    expect((await abgleich.euerAbgleich(2026)).zeilen.filter((z) => z.journal !== z.quelle)).toEqual([]);
+  }, 30_000);
+
+  it("lehnt weiter ab: innergemeinschaftlicher Erwerb und Fremdwährung mit Aufteilung, § 13b auf Wareneinkauf", async () => {
     await reset("SKR03", "soll");
     const ige = await draft({ reverseCharge: "ig_erwerb", splits: GEBUEHREN.map((s) => ({ ...s, category: "software" as const })) });
     await expect(documents.bookDocument(actor, ige)).rejects.toThrow(/Innergemeinschaftlicher Erwerb mit Aufteilung wird nicht unterstützt/);
-    const privat = await draft({ reverseCharge: "eu", privateShare: 20 });
-    await expect(documents.bookDocument(actor, privat)).rejects.toThrow(/Privatanteil mit Aufteilung/);
     const usd = await draft({ reverseCharge: "drittland", currency: "USD" });
     await expect(documents.bookDocument(actor, usd)).rejects.toThrow(/Fremdwährung mit Aufteilung/);
     const ware = await draft({

@@ -1,5 +1,6 @@
 import type { InvoiceTotals } from "./invoice.ts";
-import { formatEuro, roundHalfAwayFromZero, type BasisPoints, type Cents } from "./money.ts";
+import { documentRateExpenses } from "./document-posting.ts";
+import { formatEuro, roundHalfAwayFromZero, splitPrivateShare, type BasisPoints, type Cents, type Prozent } from "./money.ts";
 import {
   ACCOUNTS,
   EXPENSE_CATEGORIES,
@@ -15,7 +16,7 @@ import {
   type TaxCode,
   vatRate,
 } from "./posting.ts";
-import type { Rechtsform } from "./rechtsform.ts";
+import { isKapitalgesellschaft, type Rechtsform } from "./rechtsform.ts";
 import { abziehbareSteuer, buchungsAnteil } from "./vorsteuerabzug.ts";
 
 /*
@@ -37,6 +38,8 @@ export interface DocumentSplitLine {
   account?: string;
   taxRate: BasisPoints;
   net: Cents;
+  /** Privatanteil dieser Zeile in Prozent (#1914); fehlt er, gilt die Zeile als betrieblich */
+  privateShare?: Prozent;
 }
 
 /** Kontierungszeile mit ihrem Anteil an der Vorsteuer des Satzes */
@@ -105,11 +108,67 @@ export function splitIssues(lines: AllocatedSplitLine[], amounts: DocumentRateAm
 }
 
 /**
+ * Abziehbarer Anteil je Zeile. Ohne Privatanteil wird der Abzug des Satzes gerundet und nach Netto auf seine Zeilen
+ * verteilt (`allocateSplitTax`), den Rundungsrest trägt die größte. Mit Privatanteil zählt das betriebliche Netto der
+ * Zeilen, und die betriebliche Steuer des Satzes wird ebenso verteilt: Buchung und EÜR (euer-beleg.ts) bleiben gleich.
+ */
+function splitDeductibles(lines: AllocatedSplitLine[], totals: InvoiceTotals, vorsteuerAbzug: boolean | BasisPoints, mitPrivat: boolean): Cents[] {
+  if (!mitPrivat)
+    return allocateSplitTax(
+      lines,
+      totals.taxes.map((t) => ({ taxRate: t.rate, net: t.base, tax: abziehbareSteuer(t.tax, buchungsAnteil(vorsteuerAbzug, t.vorsteuerAnteil)) })),
+    ).map((line) => line.tax);
+  const betrieblich = lines.map((line) => ({
+    net: splitPrivateShare(line.net, line.privateShare ?? 0).business,
+    tax: splitPrivateShare(line.tax, line.privateShare ?? 0).business,
+  }));
+  return allocateSplitTax(
+    lines.map((line, i) => ({ category: line.category, taxRate: line.taxRate, net: betrieblich[i]!.net })),
+    totals.taxes.map((t) => ({
+      taxRate: t.rate,
+      net: 0,
+      tax: abziehbareSteuer(
+        lines.reduce((s, line, i) => (line.taxRate === t.rate ? s + betrieblich[i]!.tax : s), 0),
+        buchungsAnteil(vorsteuerAbzug, t.vorsteuerAnteil),
+      ),
+    })),
+  ).map((line) => line.tax);
+}
+
+/** Steuerzeilen des Belegs: je Satz eine Vorsteuerzeile, bei § 13b eine Umsatzsteuerzeile und die Vorsteuer dazu (#1914) */
+function splitTaxPosting(
+  totals: InvoiceTotals,
+  abziehbar: ReadonlyMap<number, Cents>,
+  options: { kontenrahmen: Kontenrahmen; rcCode: TaxCode | null; parken: boolean; vorsteuerAbzug: boolean | BasisPoints; mitPrivat: boolean },
+): PostingLine[] {
+  const accounts = ACCOUNTS[options.kontenrahmen];
+  const result: PostingLine[] = [];
+  for (const row of totals.taxes) {
+    const { rate, tax } = row;
+    if (tax === 0) continue;
+    const abzugsfaehig = abziehbar.get(rate) ?? (options.mitPrivat ? 0 : abziehbareSteuer(tax, buchungsAnteil(options.vorsteuerAbzug, row.vorsteuerAnteil)));
+    const satz = vatRate(rate);
+    if (options.rcCode) {
+      if (abzugsfaehig !== 0) result.push(side(accounts.vorsteuerRc, abzugsfaehig, true, "VSt13b"));
+      result.push(side(accounts.ustRc, tax, false, options.rcCode));
+    } else if (abzugsfaehig !== 0) {
+      const konto = options.parken ? accounts.vorsteuerNochNichtAbziehbar : accounts.vorsteuer[satz];
+      result.push(side(konto, abzugsfaehig, true, inputTaxCode(satz)));
+    }
+  }
+  return result;
+}
+
+/**
  * Buchung eines aufgeteilten Belegs: eine Buchung mit einer Aufwandszeile je Kategorie und Steuersatz (gleiche Kategorie
  * und gleicher Satz zusammengefasst), Vorsteuer je Satz in Höhe des Belegs, an Verbindlichkeiten, Privateinlage bzw.
  * Gesellschafter oder Kasse über den ganzen Betrag. Ohne Vorsteuerabzug (Kleinunternehmer) gehört der Steueranteil jeder
- * Zeile zu ihrem Aufwand. Gutschriften (negativ) drehen die Seiten. Privatanteil, innergemeinschaftlicher Erwerb und
- * Anlagegüter gibt es mit Aufteilung nicht (siehe bookingIssues); totals sind die Beträge des Belegs je Satz.
+ * Zeile zu ihrem Aufwand. Gutschriften (negativ) drehen die Seiten. Innergemeinschaftlicher Erwerb und Anlagegüter gibt es
+ * mit Aufteilung nicht (siehe splitBookingIssues); totals sind die Beträge des Belegs je Satz.
+ *
+ * Privatanteil je Zeile (#1914): Jede Zeile trägt ihren eigenen Anteil (Internet 25 %, Telefon 40 % auf einem Beleg). Nur
+ * ihr betrieblicher Teil ist Aufwand und Vorsteuer; der private Teil aller Zeilen steht als eine Entnahme auf
+ * privatentnahmen. Trägt keine Zeile einen Anteil, bucht Haben wie bisher.
  *
  * § 13b (#508) wie in documentPosting: Der Aufwand jeder Zeile trägt RC13bEU bzw. RC13bDrittland, die selbst geschuldete
  * Steuer steht je Satz einmal als Umsatzsteuer und, mit Vorsteuerabzug, im selben Betrag als Vorsteuer (VSt13b); gezahlt
@@ -141,48 +200,65 @@ export function documentSplitPosting(
   if (reverseCharge && !(reverseCharge in REVERSE_CHARGE_IN)) throw new RangeError(`${reverseCharge} mit Aufteilung wird nicht unterstützt`);
   const rcCode = reverseCharge ? REVERSE_CHARGE_IN[reverseCharge].code : null;
   if (rcCode && totals.taxes.some((t) => t.rate !== 1900 && t.rate !== 700)) throw new RangeError("§ 13b: Steuersatz muss 19 % oder 7 % sein");
-  const expenses = new Map<string, { account: string; amount: Cents; code: TaxCode }>();
+  // Privat genutzt ist bei einer GmbH keine Entnahme, sondern Arbeitslohn oder verdeckte Gewinnausschüttung
+  if (lines.some((line) => (line.privateShare ?? 0) !== 0) && isKapitalgesellschaft(rechtsform))
+    throw new RangeError("Privatanteil gibt es nur im Einzelunternehmen");
+  const mitPrivat = lines.some((line) => (line.privateShare ?? 0) !== 0);
+  const expenses = new Map<string, { account: string; amount: Cents; code: TaxCode | null }>();
   // Der nicht abziehbare Anteil (§ 15 Abs. 4 UStG) bleibt eine eigene Zeile: Zusammen mit einer Position zu 0 % oder einem
   // Satz ohne Abzug auf demselben Konto (beide auch keineVSt) erkennte die Verprobung den Teilabzug sonst nicht (#1230)
-  const add = (account: string, code: TaxCode, amount: Cents, nichtAbziehbar = false) => {
-    const key = `${account}|${code}|${nichtAbziehbar}`;
+  const add = (account: string, code: TaxCode | null, amount: Cents, nichtAbziehbar = false) => {
+    const key = `${account}|${code ?? ""}|${nichtAbziehbar}`;
     const seen = expenses.get(key);
     if (seen) seen.amount += amount;
     else expenses.set(key, { account, amount, code });
   };
-  // Erst je Satz runden, danach auf die Zeilen verteilen: deren Summe bleibt exakt die abziehbare Steuer.
-  const deductible = allocateSplitTax(
-    lines,
-    totals.taxes.map((t) => ({ taxRate: t.rate, net: t.base, tax: abziehbareSteuer(t.tax, buchungsAnteil(vorsteuerAbzug, t.vorsteuerAnteil)) })),
-  );
+  // Die Summe je Satz bleibt exakt die abziehbare Steuer; mit Privatanteil nach betrieblichem Netto (#1914)
+  const abzuege = splitDeductibles(lines, totals, vorsteuerAbzug, mitPrivat);
+  // Vorsteuer je Satz: die Summe der abziehbaren Anteile seiner Zeilen, damit die Buchung im Soll und Haben aufgeht
+  const abziehbar = new Map<number, Cents>();
+  const merke = (rate: BasisPoints, amount: Cents) => abziehbar.set(rate, (abziehbar.get(rate) ?? 0) + amount);
+  let privatePart = 0;
   for (const [i, line] of lines.entries()) {
     const account = line.account ?? EXPENSE_CATEGORIES[line.category][kontenrahmen];
-    const anteil = buchungsAnteil(vorsteuerAbzug, totals.taxes.find((t) => t.rate === line.taxRate)?.vorsteuerAnteil);
-    const tax = deductible[i]!.tax;
-    if (anteil > 0) {
-      add(account, rcCode ?? inputTaxCode(line.taxRate), line.net);
-      add(account, "keineVSt", line.tax - tax, true);
-    } else if (rcCode) {
-      // § 13b ohne Vorsteuerabzug: Netto mit dem Steuerschlüssel, die Steuer als Aufwand daneben, damit das Journal die
-      // Bemessungsgrundlage trägt (#542)
-      add(account, rcCode, line.net);
-      add(account, "keineVSt", line.tax);
-    } else add(account, "keineVSt", line.net + line.tax);
-  }
-  const result: PostingLine[] = [...expenses.values()].map((e) => side(e.account, e.amount, true, e.code));
-  for (const row of totals.taxes) {
-    const { rate, tax } = row;
-    const abzugsfaehig = abziehbareSteuer(tax, buchungsAnteil(vorsteuerAbzug, row.vorsteuerAnteil));
-    if (tax === 0) continue;
-    const satz = vatRate(rate);
-    if (rcCode) {
-      if (abzugsfaehig !== 0) result.push(side(accounts.vorsteuerRc, abzugsfaehig, true, "VSt13b"));
-      result.push(side(accounts.ustRc, tax, false, rcCode));
-    } else if (abzugsfaehig !== 0) {
-      const konto = parken ? accounts.vorsteuerNochNichtAbziehbar : accounts.vorsteuer[satz];
-      result.push(side(konto, abzugsfaehig, true, inputTaxCode(satz)));
+    const betrag = totals.taxes.find((t) => t.rate === line.taxRate);
+    const anteil = buchungsAnteil(vorsteuerAbzug, betrag?.vorsteuerAnteil);
+    const tax = abzuege[i] ?? 0;
+    if (!mitPrivat) {
+      if (anteil > 0) {
+        add(account, rcCode ?? inputTaxCode(line.taxRate), line.net);
+        add(account, "keineVSt", line.tax - tax, true);
+        merke(line.taxRate, tax);
+      } else if (rcCode) {
+        // § 13b ohne Vorsteuerabzug: Netto mit dem Steuerschlüssel, die Steuer als Aufwand daneben, damit das Journal die
+        // Bemessungsgrundlage trägt (#542)
+        add(account, rcCode, line.net);
+        add(account, "keineVSt", line.tax);
+      } else add(account, "keineVSt", line.net + line.tax);
+      continue;
     }
+    // Privatanteil der Zeile: Aufwand, Vorsteuer und Entnahme aus ihrem betrieblichen bzw. privaten Teil
+    const abzug = abzuege[i]!;
+    const eigen = documentRateExpenses(
+      { rate: line.taxRate, base: line.net, tax: line.tax, vorsteuerAnteil: betrag?.vorsteuerAnteil ?? null },
+      {
+        expense: account,
+        kontenrahmen,
+        vorsteuerAbzug: anteil,
+        privateShare: line.privateShare ?? 0,
+        reverseCharge: rcCode ? reverseCharge : null,
+        deductible: abzug,
+      },
+    );
+    for (const entry of eigen.lines) add(entry.account, entry.code, entry.amount, entry.nichtAbziehbar);
+    privatePart += eigen.privatePart;
+    merke(line.taxRate, abzug);
   }
+  // Der private Teil aller Zeilen ist eine Entnahme; privat bezahlt heben sich Einlage und Entnahme insoweit auf
+  if (privatePart !== 0) add(accounts.privatentnahmen, null, privatePart);
+  const result: PostingLine[] = [...expenses.values()].map((e) => side(e.account, e.amount, true, e.code));
+  // Je Satz genau eine Steuerzeile, auch bei § 13b und mehreren Zeilen desselben Satzes (#1914)
+  result.push(...splitTaxPosting(totals, abziehbar, { kontenrahmen, rcCode, parken, vorsteuerAbzug, mitPrivat }));
   const counter = payment === "privat" ? ownerAccount(kontenrahmen, rechtsform, "einlage") : payment === "kasse" ? accounts.kasse : accounts.verbindlichkeiten;
   result.push(side(counter, totals.gross, false, null));
   return result.filter((line) => line.debit !== 0 || line.credit !== 0);

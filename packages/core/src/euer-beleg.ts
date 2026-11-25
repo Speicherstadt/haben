@@ -1,11 +1,12 @@
 import type { EuerPayment } from "./euer.ts";
 import { allocateSplitTax } from "./document-split.ts";
-import { roundHalfAwayFromZero, splitPrivateShare, type BasisPoints, type Cents } from "./money.ts";
+import { roundHalfAwayFromZero, splitPrivateShare, type BasisPoints, type Cents, type Prozent } from "./money.ts";
 import { paidTaxShares, type ExpenseCategory, type TaxShare } from "./posting.ts";
 import { abziehbareSteuer, gespeicherterAnteil } from "./vorsteuerabzug.ts";
 
 type DocumentPayment = Extract<EuerPayment, { kind: "document" }>;
-type Share = { category: ExpenseCategory; share: TaxShare; deductible: Cents };
+/** Anteil einer Zeile an der Zahlung, getrennt nach betrieblichem und privatem Teil */
+type Share = { category: ExpenseCategory; share: TaxShare; business: { base: Cents; tax: Cents }; deductible: Cents };
 
 export interface DocumentEuerEffect {
   expenses: { category: ExpenseCategory; amount: Cents }[];
@@ -36,31 +37,48 @@ export function addDocumentEffects(a: DocumentEuerEffect, b: DocumentEuerEffect,
 /**
  * Die Originalsteuer bleibt Grundlage der Zahlungsaufteilung; nur der nach § 15 Abs. 4 UStG zugeordnete Anteil ist
  * gezahlte Vorsteuer. Der Rest gehört zum Aufwand (§ 9b Abs. 1 EStG). Privatanteil und Abzugsanteil sind getrennt.
+ * Den Privatanteil trägt mit Aufteilung jede Zeile selbst (#1914); ohne Zeilen gilt der des Belegs.
  * https://www.gesetze-im-internet.de/ustg_1980/__15.html; https://www.gesetze-im-internet.de/estg/__9b.html
  */
 function documentShares(p: DocumentPayment, paid: Cents): Share[] {
   const anteil = (rate: BasisPoints) => gespeicherterAnteil(p, p.totals.taxes.find((t) => t.rate === rate)?.vorsteuerAnteil);
+  const privat = (line: { privateShare?: Prozent } | undefined) => line?.privateShare ?? p.privateShare ?? 0;
   if (!p.splits?.length) {
     return paidTaxShares(p.totals, paid).map((share) => ({
       category: p.category,
       share,
-      deductible: abziehbareSteuer(splitPrivateShare(share.tax, p.privateShare ?? 0).business, anteil(share.rate)),
+      business: { base: splitPrivateShare(share.base, privat(undefined)).business, tax: splitPrivateShare(share.tax, privat(undefined)).business },
+      deductible: abziehbareSteuer(splitPrivateShare(share.tax, privat(undefined)).business, anteil(share.rate)),
     }));
   }
   const lines = p.splits;
   const shares = paidTaxShares({ ...p.totals, taxes: lines.map((l) => ({ rate: l.taxRate, base: l.net, tax: l.tax })) }, paid);
-  // Der Abzug wird je Satz gerundet und auf die Kontierungszeilen verteilt, wie die Originalsteuer: Zwei kleine Zeilen
-  // dürfen zusammen keinen zusätzlichen Cent Vorsteuer bekommen. Die größte Zeile trägt den Rundungsrest.
+  const business = shares.map((share, i) => ({
+    base: splitPrivateShare(share.base, privat(lines[i])).business,
+    tax: splitPrivateShare(share.tax, privat(lines[i])).business,
+  }));
+  // Der Abzug wird je Satz aus der betrieblichen Steuer gerundet und nach dem betrieblichen Netto auf die
+  // Kontierungszeilen verteilt, wie die Buchung (documentSplitPosting): Zwei kleine Zeilen dürfen zusammen keinen
+  // zusätzlichen Cent Vorsteuer bekommen. Die größte Zeile trägt den Rundungsrest.
   const amounts = p.totals.taxes.map((t) => ({
     taxRate: t.rate,
-    net: t.base,
+    net: 0,
     tax: abziehbareSteuer(
-      shares.filter((s) => s.rate === t.rate).reduce((sum, s) => sum + s.tax, 0),
+      business.reduce((sum, b, i) => (lines[i]!.taxRate === t.rate ? sum + b.tax : sum), 0),
       anteil(t.rate),
     ),
   }));
-  const deductible = allocateSplitTax(lines, amounts);
-  return shares.map((share, i) => ({ category: lines[i]!.category, share, deductible: anteil(share.rate) === 10_000 ? share.tax : deductible[i]!.tax }));
+  const verteilt = allocateSplitTax(
+    lines.map((line, i) => ({ category: line.category, taxRate: line.taxRate, net: business[i]!.base })),
+    amounts,
+  );
+  return shares.map((share, i) => ({
+    category: lines[i]!.category,
+    share,
+    business: business[i]!,
+    // Voller Abzug: die betriebliche Steuer der Zeile selbst (die Summe bleibt die des Satzes); sonst der verteilte Anteil
+    deductible: anteil(share.rate) === 10_000 ? business[i]!.tax : verteilt[i]!.tax,
+  }));
 }
 
 /** Wirkung eines kumulierten Zahlbetrags, ohne AfA und Zahlungen ans Finanzamt */
@@ -68,9 +86,9 @@ function documentTarget(p: DocumentPayment, paid: Cents): DocumentEuerEffect {
   const expenses: { category: ExpenseCategory; amount: Cents }[] = [];
   let vorsteuer = 0;
   let bewirtungNichtAbziehbar = 0;
-  for (const { category, share, deductible } of documentShares(p, paid)) {
-    const base = splitPrivateShare(share.base, p.privateShare ?? 0).business;
-    const tax = splitPrivateShare(share.tax, p.privateShare ?? 0).business;
+  for (const { category, share, business, deductible } of documentShares(p, paid)) {
+    const base = business.base;
+    const tax = business.tax;
     // Die reine Bescheidkategorie verlangt vollen Abzug; nicht abziehbare Einfuhrumsatzsteuer gehört zur Ware/Anlage.
     if (category === "einfuhrumsatzsteuer") {
       vorsteuer += share.base + share.tax;
@@ -86,8 +104,13 @@ function documentTarget(p: DocumentPayment, paid: Cents): DocumentEuerEffect {
     expenses.push({ category, amount: ausgabe - nichtAbziehbar });
   }
   // Selbst geschuldete Steuer steckt nicht im Zahlbetrag an den Lieferanten; sie wirkt mit der Finanzamtszahlung.
-  // Nur der private Teil zählt wie bisher als Umsatzsteuer auf die Entnahme (Anlage EÜR, Zeile 17).
-  const privat = (p.selbstGeschuldet ?? []).reduce((sum, steuer) => sum + splitPrivateShare(steuer, p.privateShare ?? 0).private, 0);
+  // Nur der private Teil zählt wie bisher als Umsatzsteuer auf die Entnahme (Anlage EÜR, Zeile 17); mit Aufteilung
+  // trägt jede Zeile ihren eigenen Anteil (#1914).
+  const privat = !p.selbstGeschuldet
+    ? 0
+    : p.splits?.length
+      ? p.splits.reduce((sum, line) => sum + splitPrivateShare(line.tax, line.privateShare ?? 0).private, 0)
+      : p.selbstGeschuldet.reduce((sum, steuer) => sum + splitPrivateShare(steuer, p.privateShare ?? 0).private, 0);
   const privateUst = p.totals.gross === 0 ? 0 : roundHalfAwayFromZero((privat * paid) / p.totals.gross);
   return { expenses, vorsteuer, bewirtungNichtAbziehbar, privateUst };
 }

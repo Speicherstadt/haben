@@ -6,6 +6,7 @@ import {
   type ExpenseCategory,
   inCents,
   inBasisPoints,
+  inProzent,
   type Prozent,
 } from "@haben/core";
 import { asc, eq, inArray } from "drizzle-orm";
@@ -17,6 +18,9 @@ import { UserError } from "../../errors.ts";
  * Aufteilung eines Belegs auf mehrere Kontierungszeilen (#271). Die Zeilen tragen Kategorie, Steuersatz und Netto; die
  * Vorsteuer des Satzes verteilt allocateSplitTax beim Speichern anteilig auf sie. Ohne Zeilen gilt wie bisher die
  * Kategorie des Belegs. Mit Zeilen steht am Beleg keine Kategorie.
+ *
+ * Seit #1914 trägt jede Zeile ihren eigenen Privatanteil (Internet 25 %, Telefon 40 % auf einem Beleg). Fehlt die Angabe,
+ * gilt die Vorgabe der Firmendaten für die Kategorie, wie am Beleg ohne Aufteilung; der Anteil des Belegs zählt dann nicht.
  */
 
 export type DocumentSplit = typeof schema.documentSplits.$inferSelect;
@@ -27,6 +31,8 @@ export const splitInputSchema = z.object({
   ownAccountId: z.uuid().nullable().default(null),
   taxRate: inBasisPoints(z.union([z.literal(1900), z.literal(700), z.literal(0)])),
   net: inCents(z.number().int().min(-100_000_000_00).max(100_000_000_00)),
+  /** Privatanteil dieser Zeile in Prozent (#1914); fehlt er, gilt die Vorgabe der Kategorie aus den Firmendaten */
+  privateShare: inProzent(z.number().int().min(0).max(100)).optional(),
 });
 
 /** Höchstwert der int4-Spalten net und tax */
@@ -39,17 +45,26 @@ export type SplitInput = z.output<typeof splitInputSchema>;
  * Zeile auf ihr eigenes Sachkonto (#270); ohne gilt das Konto der Kategorie.
  */
 export function splitLines(
-  splits: (Pick<DocumentSplit, "category" | "taxRate" | "net" | "tax"> & { ownAccountId?: string | null })[],
+  splits: (Pick<DocumentSplit, "category" | "taxRate" | "net" | "tax"> & { ownAccountId?: string | null; privateShare?: Prozent })[],
   eigene: ReadonlyMap<string, string> = new Map(),
 ): AllocatedSplitLine[] {
-  return splits.map(({ category, taxRate, net, tax, ownAccountId }) => {
+  return splits.map(({ category, taxRate, net, tax, ownAccountId, privateShare }) => {
     const account = ownAccountId ? eigene.get(ownAccountId) : undefined;
-    return { category: category as ExpenseCategory, ...(account ? { account } : {}), taxRate, net, tax };
+    return { category: category as ExpenseCategory, ...(account ? { account } : {}), taxRate, net, tax, privateShare: privateShare ?? 0 };
   });
 }
 
-/** Ersetzt die Zeilen eines offenen Belegs; die Vorsteuer je Zeile kommt aus den Euro-Beträgen des Belegs je Satz */
-export async function replaceSplits(tx: Tx, documentId: string, splits: SplitInput[], amounts: { taxRate: number; net: number; tax: number }[]): Promise<void> {
+/**
+ * Ersetzt die Zeilen eines offenen Belegs; die Vorsteuer je Zeile kommt aus den Euro-Beträgen des Belegs je Satz.
+ * `vorgaben` sind die Privatanteile der Firmendaten je Kategorie (#1914): Fehlt der Anteil einer Zeile, gilt die Vorgabe.
+ */
+export async function replaceSplits(
+  tx: Tx,
+  documentId: string,
+  splits: SplitInput[],
+  amounts: { taxRate: number; net: number; tax: number }[],
+  vorgaben: Readonly<Record<string, Prozent>> = {},
+): Promise<void> {
   await tx.delete(schema.documentSplits).where(eq(schema.documentSplits.documentId, documentId));
   if (splits.length === 0) return;
   const allocated = allocateSplitTax(splits, amounts);
@@ -57,7 +72,15 @@ export async function replaceSplits(tx: Tx, documentId: string, splits: SplitInp
   if (allocated.some((line) => Math.abs(line.net) > MAX_SPLIT_CENTS || Math.abs(line.tax) > MAX_SPLIT_CENTS)) {
     throw new UserError("Ein Betrag der Aufteilung ist zu groß. Stimmen die Nettobeträge der Zeilen?");
   }
-  await tx.insert(schema.documentSplits).values(allocated.map((line, i) => ({ documentId, position: i + 1, ...line, ownAccountId: splits[i]!.ownAccountId })));
+  await tx.insert(schema.documentSplits).values(
+    allocated.map((line, i) => ({
+      documentId,
+      position: i + 1,
+      ...line,
+      ownAccountId: splits[i]!.ownAccountId,
+      privateShare: splits[i]!.privateShare ?? vorgaben[splits[i]!.category] ?? 0,
+    })),
+  );
 }
 
 export async function loadSplits(documentId: string, q: Db | Tx = db): Promise<DocumentSplit[]> {
@@ -83,11 +106,12 @@ export async function splitsByDocument(
 
 /**
  * Was gegen das Buchen eines aufgeteilten Belegs spricht. Belege mit deutscher Umsatzsteuer in Euro und § 13b (EU und
- * Drittland, #508). Innergemeinschaftlicher Erwerb, Privatanteil und Fremdwährung verteilen Steuer bzw. Beträge anders;
- * sie lehnt Haben mit Aufteilung ab.
+ * Drittland, #508). Innergemeinschaftlicher Erwerb und Fremdwährung verteilen Steuer bzw. Beträge anders; sie lehnt Haben
+ * mit Aufteilung ab. Den Privatanteil trägt seit #1914 jede Zeile selbst; dass es ihn nur im Einzelunternehmen gibt, prüft
+ * documents.ts mit der Rechtsform.
  */
 export function splitBookingIssues(
-  doc: { reverseCharge: string | null; privateShare: Prozent; currency: string },
+  doc: { reverseCharge: string | null; currency: string },
   amounts: { taxRate: number; net: number; tax: number }[],
   splits: Pick<DocumentSplit, "category" | "taxRate" | "net" | "tax">[],
 ): string[] {
@@ -95,7 +119,6 @@ export function splitBookingIssues(
   if (doc.reverseCharge === "ig_erwerb") issues.push("Innergemeinschaftlicher Erwerb mit Aufteilung wird nicht unterstützt");
   // § 13b Abs. 1 und Abs. 2 Nr. 1 UStG: nur sonstige Leistungen und Werklieferungen, wie ohne Aufteilung (bookingIssues)
   else if (doc.reverseCharge && splits.some((s) => s.category === "wareneinkauf")) issues.push("§ 13b gilt nicht für Wareneinkäufe");
-  if (doc.privateShare > 0) issues.push("Ein Privatanteil mit Aufteilung wird nicht unterstützt");
   if (doc.currency !== "EUR") issues.push("Fremdwährung mit Aufteilung wird nicht unterstützt");
   return [...issues, ...splitIssues(splitLines(splits), amounts)];
 }

@@ -18,8 +18,36 @@ const issueLines: DocumentSplitLine[] = [
 const issueTotals = totalsFromTaxes([{ rate: 1900, base: 17_000, tax: 3_230 }]);
 
 const KONTEN = {
-  SKR03: { ware: "3200", software: "4964", buero: "4930", vorsteuer19: "1576", vorsteuer7: "1571", verbindlichkeiten: "1600", privat: "1890", kasse: "1000" },
-  SKR04: { ware: "5200", software: "6837", buero: "6815", vorsteuer19: "1406", vorsteuer7: "1401", verbindlichkeiten: "3300", privat: "2180", kasse: "1600" },
+  SKR03: {
+    ware: "3200",
+    software: "4964",
+    buero: "4930",
+    internet: "4925",
+    telefon: "4920",
+    vorsteuer19: "1576",
+    vorsteuer7: "1571",
+    vorsteuerRc: "1577",
+    ustRc: "1787",
+    verbindlichkeiten: "1600",
+    privat: "1890",
+    entnahme: "1800",
+    kasse: "1000",
+  },
+  SKR04: {
+    ware: "5200",
+    software: "6837",
+    buero: "6815",
+    internet: "6810",
+    telefon: "6805",
+    vorsteuer19: "1406",
+    vorsteuer7: "1401",
+    vorsteuerRc: "1407",
+    ustRc: "3837",
+    verbindlichkeiten: "3300",
+    privat: "2180",
+    entnahme: "2100",
+    kasse: "1600",
+  },
 } as const;
 
 const sumOf = (values: number[]) => values.reduce((s, v) => s + v, 0);
@@ -317,5 +345,101 @@ describe("documentSplitPosting mit eigenem Konto (#270)", () => {
         ]),
       );
     });
+  });
+});
+
+describe("Privatanteil je Zeile (#1914)", () => {
+  // Internet 25 % und Telefon 40 % auf einem Beleg, je 19 %: 40,00 € und 60,00 € netto, 19,00 € Vorsteuer
+  const privatLines: DocumentSplitLine[] = [
+    { category: "internet", taxRate: 1900, net: 4_000, privateShare: 25 },
+    { category: "telefon", taxRate: 1900, net: 6_000, privateShare: 40 },
+  ];
+  const privatAmounts = [{ taxRate: 1900, net: 10_000, tax: 1_900 }];
+  const privatTotals = totalsFromTaxes(privatAmounts.map((a) => ({ rate: a.taxRate, base: a.net, tax: a.tax })));
+
+  describe.each(["SKR03", "SKR04"] as const)("%s", (kontenrahmen) => {
+    const k = KONTEN[kontenrahmen];
+
+    it("nur der betriebliche Teil je Zeile ist Aufwand und Vorsteuer, der private Teil eine Entnahme", () => {
+      // Internet: 40,00 € netto, 25 % privat = 10,00 €; Telefon: 60,00 € netto, 40 % privat = 24,00 €.
+      // Vorsteuer betrieblich 5,70 € + 6,84 €, Entnahme 10,00 + 1,90 + 24,00 + 4,56 = 40,46 €
+      const lines = documentSplitPosting(privatTotals, allocateSplitTax(privatLines, privatAmounts), kontenrahmen, "einzelunternehmen", "bank");
+      expect(lines).toEqual([
+        { account: k.internet, debit: 3_000, credit: 0, taxCode: "VSt19" },
+        { account: k.telefon, debit: 3_600, credit: 0, taxCode: "VSt19" },
+        { account: k.entnahme, debit: 4_046, credit: 0, taxCode: null },
+        { account: k.vorsteuer19, debit: 1_254, credit: 0, taxCode: "VSt19" },
+        { account: k.verbindlichkeiten, debit: 0, credit: 11_900, taxCode: null },
+      ]);
+      expect(sumOf(lines.map((l) => l.debit))).toBe(sumOf(lines.map((l) => l.credit)));
+    });
+
+    it("ohne Anteil bucht die Aufteilung wie bisher, ohne Entnahme", () => {
+      const ohne: DocumentSplitLine[] = privatLines.map(({ category, taxRate, net }) => ({ category, taxRate, net }));
+      const lines = documentSplitPosting(privatTotals, allocateSplitTax(ohne, privatAmounts), kontenrahmen, "einzelunternehmen", "bank");
+      expect(lines).toEqual([
+        { account: k.internet, debit: 4_000, credit: 0, taxCode: "VSt19" },
+        { account: k.telefon, debit: 6_000, credit: 0, taxCode: "VSt19" },
+        { account: k.vorsteuer19, debit: 1_900, credit: 0, taxCode: "VSt19" },
+        { account: k.verbindlichkeiten, debit: 0, credit: 11_900, taxCode: null },
+      ]);
+    });
+
+    it("Kleinunternehmer: der betriebliche Teil samt Steuer ist Aufwand, keine Vorsteuer", () => {
+      const lines = documentSplitPosting(privatTotals, allocateSplitTax(privatLines, privatAmounts), kontenrahmen, "einzelunternehmen", "bank", false);
+      expect(lines).toEqual([
+        { account: k.internet, debit: 3_570, credit: 0, taxCode: "keineVSt" },
+        { account: k.telefon, debit: 4_284, credit: 0, taxCode: "keineVSt" },
+        { account: k.entnahme, debit: 4_046, credit: 0, taxCode: null },
+        { account: k.verbindlichkeiten, debit: 0, credit: 11_900, taxCode: null },
+      ]);
+      expect(sumOf(lines.map((l) => l.debit))).toBe(sumOf(lines.map((l) => l.credit)));
+    });
+
+    it("§ 13b: je Satz genau eine Umsatzsteuerzeile, auch bei mehreren Zeilen mit Anteil", () => {
+      const totals = { ...privatTotals, gross: privatTotals.net };
+      const lines = documentSplitPosting(totals, allocateSplitTax(privatLines, privatAmounts), kontenrahmen, "einzelunternehmen", "bank", true, "eu");
+      expect(lines).toEqual([
+        // Bemessungsgrundlage privat trägt den Steuerschlüssel (Kz 46), die Steuer darauf ist Entnahme ohne Schlüssel
+        { account: k.entnahme, debit: 3_400, credit: 0, taxCode: "RC13bEU" },
+        { account: k.internet, debit: 3_000, credit: 0, taxCode: "RC13bEU" },
+        { account: k.telefon, debit: 3_600, credit: 0, taxCode: "RC13bEU" },
+        { account: k.entnahme, debit: 646, credit: 0, taxCode: null },
+        { account: k.vorsteuerRc, debit: 1_254, credit: 0, taxCode: "VSt13b" },
+        { account: k.ustRc, debit: 0, credit: 1_900, taxCode: "RC13bEU" },
+        { account: k.verbindlichkeiten, debit: 0, credit: 10_000, taxCode: null },
+      ]);
+      expect(lines.filter((l) => l.taxCode === "RC13bEU" && l.credit > 0)).toHaveLength(1);
+      expect(sumOf(lines.map((l) => l.debit))).toBe(sumOf(lines.map((l) => l.credit)));
+    });
+
+    it("GmbH: Privatanteil in einer Zeile wird abgelehnt", () => {
+      expect(() => documentSplitPosting(privatTotals, allocateSplitTax(privatLines, privatAmounts), kontenrahmen, "gmbh", "bank")).toThrow(
+        "Privatanteil gibt es nur im Einzelunternehmen",
+      );
+    });
+  });
+
+  it("EÜR: je Zeile zählt nur der betriebliche Teil, die Vorsteuer ist die der Zeilen", () => {
+    const splits = allocateSplitTax(privatLines, privatAmounts);
+    const euer = computeEuer(2026, [{ kind: "document", date: "2026-03-10", paid: 11_900, totals: privatTotals, category: "sonstiges", splits }]);
+    const amount = (key: string) => euer.ausgaben.find((l) => l.key === key)?.amount ?? 0;
+    expect(amount("ausgabe:internet")).toBe(3_000);
+    expect(amount("ausgabe:telefon")).toBe(3_600);
+    expect(amount("vorsteuer")).toBe(1_254);
+    // Der private Teil ist keine Ausgabe: 3.000 + 3.600 + 1.254
+    expect(euer.totalAusgaben).toBe(7_854);
+  });
+
+  it("EÜR mit zwei Teilzahlungen: zusammen genau die Wirkung des ganzen Belegs", () => {
+    const splits = allocateSplitTax(privatLines, privatAmounts);
+    const euer = computeEuer(2026, [
+      { kind: "document", date: "2026-03-10", paid: 5_000, totals: privatTotals, category: "sonstiges", splits },
+      { kind: "document", date: "2026-04-10", paid: 6_900, totals: privatTotals, category: "sonstiges", splits, paidBefore: 5_000 },
+    ]);
+    const amount = (key: string) => euer.ausgaben.find((l) => l.key === key)?.amount ?? 0;
+    expect(amount("ausgabe:internet")).toBe(3_000);
+    expect(amount("ausgabe:telefon")).toBe(3_600);
+    expect(amount("vorsteuer")).toBe(1_254);
   });
 });

@@ -73,6 +73,8 @@ interface Props {
   /** Privatanteil in ganzen Prozent; null, wenn die Eingabe ungültig ist, dann ohne Vorschau */
   privateShare: Prozent | null;
   asset: boolean;
+  /** Mit Aufteilung trägt jede Zeile ihren Privatanteil (#1914): Dann nennt die Vorschau keine Zahlen dazu */
+  privateShareJeZeile?: boolean;
   importVat?: boolean;
   onChange: (value: string) => void;
   onRateChange: (key: number, value: string) => void;
@@ -102,7 +104,7 @@ function AnteilField({
 }
 
 export function VorsteuerAnteil(props: Props) {
-  const { value, rows, company, booked, privateShare, asset, onChange, onRateChange, importVat = false } = props;
+  const { value, rows, company, booked, privateShare, asset, privateShareJeZeile = false, onChange, onRateChange, importVat = false } = props;
   const blocked = !booked && company.kleinunternehmer;
   const defaultShare = zeilenAnteil(props, "");
   const valid = [value, ...rows.map((row) => row.vorsteuerAnteil)].every((text) => text.trim() === "" || parseVorsteuerAnteil(text) !== null);
@@ -163,7 +165,9 @@ export function VorsteuerAnteil(props: Props) {
         </details>
       )}
       <p className="small" role="status" aria-label="Vorsteuervorschau" style={{ margin: 0 }}>
-        {preview && (!importVat || importVatReady) ? (
+        {privateShareJeZeile ? (
+          "Privatanteile stehen in den Zeilen der Aufteilung; Ausgabe und Vorsteuer kürzt Haben je Zeile."
+        ) : preview && (!importVat || importVatReady) ? (
           <>
             Abziehbare Vorsteuer <strong className="amount">{formatEuro(totals.deductible)}</strong>
             {" · "}
