@@ -29,7 +29,7 @@ Haben kann; Tarife mit mehr oder weniger Funktionen gibt es nicht.
 
 ### Preis
 
-**12 € im Monat** oder **120 € im Jahr**, zuzüglich Umsatzsteuer. Du zahlst per SEPA-Lastschrift oder
+**12,90 € im Monat** oder **129 € im Jahr** (zwei Monate geschenkt), zuzüglich Umsatzsteuer. Du zahlst per SEPA-Lastschrift oder
 Karte über Stripe und bekommst die Rechnung per E-Mail. Das Angebot richtet sich an Unternehmer
 (Selbstständige, Freiberufler, Gesellschaften), nicht an Verbraucher.
 
