@@ -25,7 +25,8 @@ Haben kann; Tarife mit mehr oder weniger Funktionen gibt es nicht.
   die Datenschutzhinweise der Finanzverwaltung.
 - **Hilfe zum Betrieb** per E-Mail. Steuerberatung ist das nicht.
 
-<!-- Vor dem Merge ergänzen: Standort und Anbieter des Servers. -->
+- **Server in Deutschland:** Deine Instanz läuft bei netcup im Rechenzentrum Nürnberg. Die
+  verschlüsselten Backups liegen zusätzlich bei Cloudflare R2.
 
 ### Preis
 
@@ -33,12 +34,12 @@ Haben kann; Tarife mit mehr oder weniger Funktionen gibt es nicht.
 Karte über Stripe und bekommst die Rechnung per E-Mail. Das Angebot richtet sich an Unternehmer
 (Selbstständige, Freiberufler, Gesellschaften), nicht an Verbraucher.
 
-[Monatlich buchen](https://buy.stripe.com/PLATZHALTER-MONAT){ .md-button .md-button--primary } [Jährlich buchen](https://buy.stripe.com/PLATZHALTER-JAHR){ .md-button }
+[Monatlich buchen](https://buy.stripe.com/bJe3cu9oU8lW3Q3ghc7wA00){ .md-button .md-button--primary } [Jährlich buchen](https://buy.stripe.com/3cI8wO0SodGg72f2qm7wA01){ .md-button }
 
 ### So läuft es ab
 
-1. Du buchst über einen der Knöpfe und nennst den Wunschnamen deiner Instanz. Die AGB und den Vertrag
-   zur Auftragsverarbeitung bestätigst du dort.
+1. Du buchst über einen der Knöpfe und nennst den Wunschnamen deiner Instanz. Dort bestätigst du die
+   [AGB](gehostet-agb.md); der [Vertrag zur Auftragsverarbeitung](gehostet-avv.md) gehört dazu.
 2. Wir richten deine Instanz von Hand ein, in der Regel innerhalb eines Werktags.
 3. Du bekommst eine E-Mail mit der Adresse und dem Einrichtungscode und legst damit dein Konto an
    ([Erste Schritte](einrichtung.md#konto-anlegen)). Dein Passwort kennst nur du.
@@ -53,8 +54,8 @@ oder mit einer Nachricht an uns. Deine Daten nimmst du mit:
 - Auf Wunsch bekommst du ein vollständiges Backup mit seinem Schlüssel. Damit betreibst du Haben auf
   einem eigenen Server weiter ([Wiederherstellen](installation-backup.md#wiederherstellen)).
 
-30 Tage nach dem Ende des Vertrags löschen wir die Instanz und ihre Backups. Die Aufbewahrungspflicht
-für deine Unterlagen bleibt bei dir: Sichere den Export vorher.
+Nach dem Ende des Vertrags kannst du dich noch 30 Tage anmelden, dann löschen wir die Instanz und
+ihre Backups. Die Aufbewahrungspflicht für deine Unterlagen bleibt bei dir: Sichere den Export vorher.
 
 ### Mehr als eine Instanz
 
