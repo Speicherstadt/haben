@@ -178,7 +178,7 @@ export function toFields(extraction: Extraction): ExtractedFields {
   const reverseCharge = amounts.some((a) => a.tax !== 0) || supplierUstId.startsWith("DE") ? null : (extraction.reverseCharge ?? null);
   const grossBetrag = extraction.brutto ? decimalToCentsGerundet(extraction.brutto) : null;
   const gross = grossBetrag?.cents ?? null;
-  // Angegeben, aber nicht lesbar (etwa genau drei Nachkommastellen, siehe #1922): Ohne diesen Hinweis fiele die
+  // Angegeben, aber nicht lesbar: etwa genau drei Nachkommastellen oder ein Betrag über der Obergrenze (#1922). Ohne diesen Hinweis fiele die
   // Summenprüfung still weg und niemand erführe, dass der gedruckte Gesamtbetrag nicht übernommen wurde.
   if (extraction.brutto?.trim() && grossBetrag === null) {
     warnings.push("Gesamtbetrag nicht lesbar");
