@@ -1,7 +1,8 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { posix } from "node:path";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, posix } from "node:path";
 import { describe, expect, it } from "vitest";
-import { SKRIPTE } from "./laufzeit.ts";
+import { buendeln, SKRIPTE } from "./laufzeit.ts";
 
 const lesen = (pfad: string) => readFileSync(new URL(`../../${pfad}`, import.meta.url), "utf8");
 /** Pfad im Image (/app/…) oder relativ zu einem Arbeitsverzeichnis darin → Pfad im Repository */
@@ -33,5 +34,22 @@ describe("Skripte im Laufzeit-Image (laufzeit.ts)", () => {
     const pfade = docs.flatMap((datei) => [...lesen(`docs/${datei}`).matchAll(befehl)].map(([, p]) => imRepo(p)));
     expect(pfade.length).toBeGreaterThan(0);
     expect(SKRIPTE).toEqual(expect.arrayContaining(pfade));
+  });
+});
+
+describe("Bündeln (laufzeit.ts)", () => {
+  it("wertet NODE_ENV zur Laufzeit aus, nicht mit dem Wert der Build-Stufe", async () => {
+    // Die Build-Stufe des Containerfile setzt kein NODE_ENV; das Image setzt NODE_ENV=production. Ohne Vorgabe schriebe
+    // Bun den Wert beim Bündeln fest, etwa die HTTP-Ausnahme für OIDC (env.ts) in umstellung/cli.ts und import-cli.ts
+    const ordner = mkdtempSync(join(tmpdir(), "laufzeit-"));
+    try {
+      const quelle = join(ordner, "skript.ts");
+      writeFileSync(quelle, 'console.log(process.env.NODE_ENV !== "production" ? "entwicklung" : "betrieb");\n');
+      await buendeln(quelle, join(ordner, "aus", "skript.ts"));
+      const lauf = Bun.spawnSync([process.execPath, join(ordner, "aus", "skript.ts")], { env: { ...process.env, NODE_ENV: "production" } });
+      expect(lauf.stdout.toString().trim()).toBe("betrieb");
+    } finally {
+      rmSync(ordner, { recursive: true, force: true });
+    }
   });
 });

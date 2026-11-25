@@ -49,7 +49,7 @@ const UNVERAENDERT = [
 /** Die Schnappschüsse des Schemas (rund 100 MB) braucht nur drizzle-kit; der Migrator liest SQL und _journal.json */
 const ohneSchnappschuss = (pfad: string): boolean => !pfad.endsWith("_snapshot.json");
 
-async function buendeln(quelle: string, ziel: string): Promise<void> {
+export async function buendeln(quelle: string, ziel: string): Promise<void> {
   const ergebnis = await Bun.build({
     entrypoints: [quelle],
     target: "bun",
