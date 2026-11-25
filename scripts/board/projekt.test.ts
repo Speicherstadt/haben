@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { projekt } from "./github.ts";
 import { boardLink, boardNummer } from "./projekt.ts";
 import { STATUS } from "./regel.ts";
@@ -12,6 +12,8 @@ const antworten = () => [
   textZugewiesen("alice", "Geplant"),
   JSON.stringify(entscheiden("übernehmen", { person: "alice", offen: true, status: null, zugewiesen: [] })),
 ];
+
+beforeEach(() => vi.stubEnv("GITHUB_REPOSITORY", "Speicherstadt/haben"));
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -34,6 +36,20 @@ describe("Board aus BOARD_NUMMER", () => {
       expect(text).toContain(URL_ANDERES);
       expect(text).not.toContain(URL_HABEN);
     }
+  });
+
+  it("bricht in einem anderen Repository ohne Einstellung ab, statt auf Board 3 zu schreiben", () => {
+    vi.stubEnv("BOARD_NUMMER", "");
+    vi.stubEnv("GITHUB_REPOSITORY", "Speicherstadt/haben-at");
+    expect(() => boardNummer()).toThrow("BOARD_NUMMER");
+    vi.stubEnv("BOARD_NUMMER", "7");
+    expect(boardNummer()).toBe(7);
+  });
+
+  it.each([undefined, "Speicherstadt/haben"])("ist im Repository %j ohne Einstellung Board 3", (repo) => {
+    vi.stubEnv("BOARD_NUMMER", undefined);
+    vi.stubEnv("GITHUB_REPOSITORY", repo);
+    expect(boardNummer()).toBe(3);
   });
 
   it.each(["0", "-1", "3.5", "7a", "sieben", "0x7", "1e1"])("bricht bei „%s“ ab, statt auf Board 3 zu schreiben", (wert) => {
