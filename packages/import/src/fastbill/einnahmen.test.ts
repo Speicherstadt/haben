@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isFbRevenueImportable, mapFbRevenue } from "./einnahmen.ts";
+import { fbRevenueKind, mapFbRevenue } from "./einnahmen.ts";
 import type { FbInvoice } from "./types.ts";
 
 /*
@@ -68,11 +68,18 @@ describe("mapFbRevenue", () => {
   });
 });
 
-describe("isFbRevenueImportable", () => {
-  it("übernimmt nur incoming_credit; Entwürfe und unbekannte Arten nicht", () => {
-    expect(isFbRevenueImportable(revenue())).toBe(true);
-    expect(isFbRevenueImportable(revenue({ TYPE: "INCOMING_CREDIT" }))).toBe(true);
-    expect(isFbRevenueImportable(revenue({ TYPE: "draft" }))).toBe(false);
-    expect(isFbRevenueImportable(revenue({ TYPE: "outgoing" }))).toBe(false);
+describe("fbRevenueKind", () => {
+  it("übernimmt incoming_credit; Entwürfe (TYPE oder STATE draft) bleiben still draußen wie bei Rechnungen", () => {
+    expect(fbRevenueKind(revenue())).toBe("einnahme");
+    expect(fbRevenueKind(revenue({ TYPE: "INCOMING_CREDIT" }))).toBe("einnahme");
+    expect(fbRevenueKind(revenue({ TYPE: "draft" }))).toBe("entwurf");
+    expect(fbRevenueKind(revenue({ STATE: "draft" }))).toBe("entwurf");
+  });
+
+  it("meldet eine unbekannte Art und eine stornierte Einnahme, statt zu raten", () => {
+    expect(fbRevenueKind(revenue({ TYPE: "outgoing" }))).toBe("unbekannt");
+    // Bei Rechnungen hebt die Stornogutschrift die Rechnung auf; für eine Einnahme ist kein Gegenstück belegt
+    expect(fbRevenueKind(revenue({ IS_CANCELED: "1" }))).toBe("storniert");
+    expect(fbRevenueKind(revenue({ STATE: "canceled" }))).toBe("storniert");
   });
 });
