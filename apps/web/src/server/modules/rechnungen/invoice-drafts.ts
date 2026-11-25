@@ -14,7 +14,15 @@ import {
 import { asc, eq } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { schema, type Tx } from "../../db/index.ts";
-import { contactPersonProblem, contactRoleProblem, loadCompany, standardTexte, type Company, type RateFields } from "../stammdaten/index.ts";
+import {
+  bankverbindungNachIban,
+  contactPersonProblem,
+  contactRoleProblem,
+  loadCompany,
+  standardTexte,
+  type Company,
+  type RateFields,
+} from "../stammdaten/index.ts";
 import { deductionLinesFor, deductionProblems } from "./advance-deductions.ts";
 import { lockInvoice } from "./advance-vat.ts";
 import { attachmentFiles, removeFiles, unusedFiles } from "./attachments.ts";
@@ -144,6 +152,11 @@ function entwurfsBankverbindung(
   return bankverbindungFuerEntwurf(tx, gewaehlt, values.contactId, bisher, (m) => new InvoiceError(m));
 }
 
+async function kontoDerRechnung(tx: Tx, invoiceId: string): Promise<string | null> {
+  const [original] = await tx.select({ seller: schema.invoices.seller }).from(schema.invoices).where(eq(schema.invoices.id, invoiceId));
+  return (await bankverbindungNachIban(tx, original?.seller?.iban)) ?? null;
+}
+
 type DraftExtra = Partial<Pick<Invoice, "kind" | "correctsId" | "recurringId" | "recurringDate" | "externalSource" | "externalId" | "paymentPlanRow">>;
 
 /** Rechnungen gehen an Kunden; ein Lieferant oder ein unbekannter Kontakt passt nicht */
@@ -186,8 +199,11 @@ export async function insertDraft(tx: Tx, draft: DraftInput, extra: DraftExtra =
   if (mandateProblem) throw new InvoiceError(mandateProblem);
   const personProblem = await contactPersonProblem(tx, values.contactId, values.contactPersonId);
   if (personProblem) throw new InvoiceError(personProblem);
-  // Storno und Korrektur nennen das Zahlungskonto der Rechnung aus deren Verkäufer (draftSeller), ohne eigene Wahl
-  const bankverbindungId = extra.correctsId ? null : await entwurfsBankverbindung(tx, values, input.bankverbindungId, null);
+  // Storno und Korrektur nennen das weitere Zahlungskonto der Rechnung, solange es das Konto gibt; sonst wie jeder neue
+  // Beleg das heutige Standardkonto, auch wenn die Firma ihre IBAN seit der Rechnung geändert hat
+  const bankverbindungId = extra.correctsId
+    ? await kontoDerRechnung(tx, extra.correctsId)
+    : await entwurfsBankverbindung(tx, values, input.bankverbindungId, null);
   const [invoice] = await tx
     .insert(schema.invoices)
     .values({ ...values, ...extra, bankverbindungId, replacesInvoiceId: input.replacesInvoiceId ?? null })

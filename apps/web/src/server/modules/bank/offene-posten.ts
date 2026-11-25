@@ -3,7 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { type Db, db, schema, type Tx } from "../../db/index.ts";
 import { documentNotCancelled } from "../../db/document-cancelled.ts";
 import { invoicePayments, invoiceTotalsById, mixNachKorrekturen, paidByTarget, paperCancellationIds } from "../rechnungen/index.ts";
-import { loadCompany } from "../stammdaten/index.ts";
+import { listBankverbindungen, loadCompany } from "../stammdaten/index.ts";
 import { today } from "../../today.ts";
 import { documentPayees, ibanDecisions, payeeIbans } from "./document-payees.ts";
 import { directDebitReferences } from "./lastschrift-abgleich.ts";
@@ -164,11 +164,12 @@ export async function openItems(): Promise<OpenItem[]> {
   const ids = documents.map((d) => d.id);
   const [payees, decisions] = await Promise.all([documentPayees(ids), ibanDecisions(ids)]);
   // Feiertage für das Ende der Skontofrist (§ 193 BGB) wie beim Zahlungsziel: die im Bundesland der Firma
-  const company = await loadCompany();
-  const { bundesland } = company;
+  const { bundesland } = await loadCompany();
 
-  // Erst wenn eine Rechnung auf ein weiteres Zahlungskonto lautet (#1887), sagt das Konto etwas; sonst stünde es an jedem Vorschlag
-  const mitZielkonto = invoices.some((inv) => inv.seller?.iban && compactIban(inv.seller.iban) !== compactIban(company.iban));
+  // Erst wenn eine Rechnung auf ein weiteres Zahlungskonto lautet (#1887), sagt das Konto etwas; sonst stünde es an jedem
+  // Vorschlag, auch nach einem Wechsel der eigenen IBAN
+  const weitere = new Set((await listBankverbindungen()).map((b) => b.iban));
+  const mitZielkonto = invoices.some((inv) => inv.seller?.iban && weitere.has(compactIban(inv.seller.iban)));
   const items: OpenItem[] = [];
   for (const inv of invoices) {
     const paid = invoicePaid.get(inv.id) ?? 0;

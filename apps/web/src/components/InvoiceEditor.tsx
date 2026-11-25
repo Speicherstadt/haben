@@ -143,8 +143,6 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
               language,
               variant: kind === "rechnung" ? variant : null,
               corrects: corrects ?? null,
-              // Storno und Korrektur nennen das Zahlungskonto der Rechnung (#1887)
-              correctsId: corrects?.id ?? null,
               // Auch bei einer Korrektur: Sie übernimmt Währung und Kurs der Rechnung, nur ohne eigenes Feld dafür
               currency: currencyCode !== "EUR" && CURRENCY_CODE.test(currencyCode) ? currencyCode : "EUR",
               skonto: skonto.stufen,

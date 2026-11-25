@@ -120,8 +120,6 @@ export const documentPreviewSchema = z.object({
   language: z.enum(["de", "en"]),
   variant: z.enum(["abschlag", "schluss"]).nullable(),
   corrects: z.object({ number: z.string().nullable(), issueDate: z.string() }).nullable(),
-  /** Storno und Korrektur: die Rechnung, deren Zahlungskonto sie nennen (#1887) */
-  correctsId: z.uuid().nullable().default(null),
   currency: z.string().max(3),
   // Beim Tippen lässt der Editor auch Fristen über 120 Tage durch; solche Stufen fehlen auf dem Blatt, wie das Speichern sie ablehnt
   skonto: z
@@ -282,7 +280,6 @@ export async function documentPreview(input: Input): Promise<DocumentPreview> {
   const seller = await draftSeller(db, company, {
     bankverbindungId: input.bankverbindungId,
     paymentMethod: input.sepaMandateId ? "lastschrift" : "ueberweisung",
-    correctsId: input.kind === "storno" || input.kind === "korrektur" ? input.correctsId : null,
   });
   // Abgezogene Abschlagsrechnungen wie im Entwurfs-PDF, mit ihrem Anteil nach § 35a EStG (#1667); nur IDs, die es geben kann
   const deducted = input.kind === "rechnung" ? await deductedRefs(input.lines.filter((line) => z.uuid().safeParse(line.deductionOf).success)) : [];

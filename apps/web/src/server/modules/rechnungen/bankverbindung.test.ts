@@ -6,7 +6,7 @@ import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 /*
  * Weitere Zahlungskonten (#1887): Das Konto aus den Firmendaten bleibt der Standard. Gewählt am Kontakt (bevorzugt) oder am
  * Entwurf, steht das Zahlungskonto nach dem Festschreiben im Verkäufer, im PDF und in der E-Rechnung (BT-84, BT-85,
- * BT-86, EN 16931 BG-17). Festgeschrieben gilt nur diese Kopie: Storno nimmt sie, Angebot → Rechnung und Kopie finden
+ * BT-86, EN 16931 BG-17). Festgeschrieben gilt nur diese Kopie: Storno, Korrektur, Angebot → Rechnung und Kopie finden
  * das Konto über ihre IBAN, und ein Zahlungskonto lässt sich jederzeit löschen. Keine Buchung hängt daran; SKR03 genügt.
  * Alle Daten sind erfunden.
  */
@@ -165,13 +165,28 @@ describe.skipIf(!testDatabaseUrl)("Weitere Zahlungskonten an Rechnung, Angebot u
     expect(items.find((i) => i.id === standard.id)?.zielIban).toBe(STANDARD);
   });
 
-  it("Storno nennt das Zahlungskonto der Rechnung aus deren Kopie, auch wenn es inzwischen geändert ist", async () => {
-    const draft = await invoices.createDraft(actor, draftInput({ bankverbindungId: nordId }));
-    await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
-    await stammdaten.updateBankverbindung(actor, nordId, { bezeichnung: "Objekt Nord", iban: "DE75512108001245126199", bic: "", bank: "", kontoinhaber: "" });
-    const storno = await invoices.cancelInvoice(actor, draft.id, "2026-09-06");
+  it("Storno nennt das weitere Zahlungskonto der Rechnung; ist es gelöscht, das heutige Standardkonto", async () => {
+    const erste = await invoices.createDraft(actor, draftInput({ bankverbindungId: nordId }));
+    await invoices.finalizeInvoice(actor, erste.id, kleinunternehmerStand);
+    const storno = await invoices.cancelInvoice(actor, erste.id, "2026-09-06");
     expect(storno.bankverbindungId).toBeNull();
     expect(storno.seller).toMatchObject({ iban: NORD, bic: "BYLADEM1001", kontoinhaber: "Testfirma Objekt Nord" });
+
+    const zweite = await invoices.createDraft(actor, draftInput({ bankverbindungId: nordId }));
+    await invoices.finalizeInvoice(actor, zweite.id, kleinunternehmerStand);
+    await stammdaten.deleteBankverbindung(actor, nordId);
+    expect((await invoices.cancelInvoice(actor, zweite.id, "2026-09-06")).seller?.iban).toBe(STANDARD);
+  });
+
+  it("Korrektur einer Rechnung aufs Standardkonto nennt das heutige Standardkonto, auch nach einem Wechsel der Firmen-IBAN", async () => {
+    const rechnung = await invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, draftInput())).id, kleinunternehmerStand);
+    expect(rechnung.seller?.iban).toBe(STANDARD);
+    // Das alte Konto ist aufgelöst; in den Firmendaten steht ein neues
+    await sql`update company set iban = 'DE75512108001245126199', bic = '', bank = 'Neue Bank' where id = 1`;
+    const korrektur = await invoices.createCorrection(actor, rechnung.id, "2026-10-01");
+    expect(korrektur.bankverbindungId).toBeNull();
+    const fest = await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand);
+    expect(fest.seller).toMatchObject({ iban: "DE75512108001245126199", bank: "Neue Bank" });
   });
 
   it("Angebot: Wahl im Angebot, beim Festschreiben im Verkäufer, und die Rechnung aus dem Angebot übernimmt sie", async () => {

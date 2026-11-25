@@ -101,7 +101,7 @@ export type InvoiceEditorProps = {
   numberPerCustomer?: boolean;
   /** Zuletzt festgeschriebene Rechnung je Kreis (#713), Schlüssel wie bei numberCounters */
   lastFinalized?: Record<string, FinalizedCircleRef>;
-  corrects: { id?: string; number: string | null; issueDate: string; buyer?: { kundennummer?: string } | null } | null;
+  corrects: { number: string | null; issueDate: string; buyer?: { kundennummer?: string } | null } | null;
   /** Die frühere Rechnung, deren Leistung dieser Ersatz mit demselben Bezug abrechnet. */
   replaces?: { id: string; number: string | null } | null;
   /** Für die Fälligkeit: Feiertage im Bundesland */
