@@ -1,4 +1,4 @@
-import { type OutgoingTaxDetails, TAX_TREATMENTS, type TaxTreatment } from "@haben/core";
+import { formatDecimal, type OutgoingTaxDetails, parseEuro, TAX_TREATMENTS, type TaxTreatment } from "@haben/core";
 import { Field } from "./Field.tsx";
 import { EMPTY_DETAILS, ForeignTaxFields, treatmentHint } from "./OutgoingTaxFields.tsx";
 
@@ -23,6 +23,16 @@ export const FOREIGN = new Set<TaxTreatment>(["reverse_charge", "drittland", "eu
 function offeredTreatments(kleinunternehmer: boolean): TaxTreatment[] {
   const all = Object.keys(TAX_TREATMENTS) as TaxTreatment[];
   return kleinunternehmer ? all.filter((key) => key === "kleinunternehmer" || FOREIGN.has(key)) : all.filter((key) => key !== "kleinunternehmer");
+}
+
+/**
+ * Ohne deutsche Umsatzsteuer stehen alle Positionen auf 0 % (`treatmentIssues`), also gibt es nur eine Zeile ohne Steuer (#1880).
+ * Mehrere Zeilen werden zum Nettobetrag zusammengerechnet; eine einzelne behält die Eingabe, wie sie ist.
+ */
+export function nurNetto(rows: TaxRow[]): TaxRow[] {
+  if (rows.length === 1) return [{ rate: "0", net: rows[0]!.net, tax: "0,00" }];
+  const nets = rows.map((r) => parseEuro(r.net)).filter((net) => net !== null);
+  return [{ rate: "0", net: nets.length > 0 ? formatDecimal(nets.reduce((a, b) => a + b, 0)) : "", tax: "0,00" }];
 }
 
 export function TaxSection({
@@ -83,12 +93,28 @@ export function TaxSection({
           kleinunternehmer={kleinunternehmer}
         />
       )}
-      <TaxRowFields rows={rows} onChange={onRows} />
-      <div className="actions">
-        <button type="button" className="btn btn-sm" onClick={() => onRows([...rows, { rate: "0", net: "", tax: "0,00" }])}>
-          Weiteren Steuersatz
-        </button>
-      </div>
+      {treatment === "regulaer" ? (
+        <>
+          <TaxRowFields rows={rows} onChange={onRows} />
+          <div className="actions">
+            <button type="button" className="btn btn-sm" onClick={() => onRows([...rows, { rate: "0", net: "", tax: "0,00" }])}>
+              Weiteren Steuersatz
+            </button>
+          </div>
+        </>
+      ) : (
+        <Field label="Netto (€)" hint="Ohne deutsche Umsatzsteuer gilt 0 %; trag den Rechnungsbetrag ein.">
+          {(control) => (
+            <input
+              {...control}
+              inputMode="decimal"
+              value={rows[0]?.net ?? ""}
+              onChange={(e) => onRows([{ rate: "0", net: e.target.value, tax: "0,00" }])}
+              required
+            />
+          )}
+        </Field>
+      )}
     </section>
   );
 }
