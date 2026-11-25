@@ -51,7 +51,7 @@ export const documentUploadSchema = z
 
 const documentSummaryShape = {
   id: z.uuid(),
-  filename: z.string().describe("Dateiname beim Hochladen"),
+  filename: z.string().describe("Anzeigename des Belegs, aus dem Upload oder dem Feld dateiname"),
   mimeType: z.string().describe("Erkannter Dateityp"),
   status: z.enum(["neu", "gebucht"]).describe("neu = „Zu prüfen“ in Haben; gebucht = geprüft, gebucht und unveränderlich"),
   booked: z.boolean().describe("Ob der Beleg gebucht ist"),
