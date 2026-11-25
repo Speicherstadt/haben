@@ -160,6 +160,13 @@ describe("pruefen.ts: neue Abhängigkeiten", () => {
     expect(ausgabe).toMatch(/^Fehler: Begründung fehlt für `left-pad`/m);
   });
 
+  it("verlangt lokal ohne --titel keine Begründung, wie bei Titel und Beschreibung", () => {
+    const { code, ausgabe } = pruefen("--basis", "main");
+    expect(code).toBe(0);
+    expect(ausgabe).toMatch(/^Hinweis: Neue Abhängigkeit: `left-pad`/m);
+    expect(ausgabe).not.toContain("Begründung fehlt");
+  });
+
   it("lässt ihn mit Begründung durch, die Warnung bleibt", () => {
     datei("mit.md", "Umgesetzt #1\n\n## Neue Abhängigkeiten\n\n- `left-pad`: weil …\n");
     const { code, ausgabe } = pruefen("--basis", "main", "--titel", "Web: Einrückung (#1)", "--beschreibung", "mit.md");

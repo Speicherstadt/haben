@@ -29,6 +29,17 @@ describe("neueAbhaengigkeiten", () => {
     expect(neu).toEqual([{ file: "packages/core/package.json", name: "fflate", feld: "dependencies" }]);
   });
 
+  it("meldet kein Paket, das zu den devDependencies oder zwischen den Feldern zur Laufzeit wechselt", () => {
+    const neu = neueAbhaengigkeiten([
+      {
+        file: "apps/web/package.json",
+        before: paket({ dependencies: { fflate: "^0.8", qrcode: "^1" } }),
+        after: paket({ devDependencies: { fflate: "^0.8" }, optionalDependencies: { qrcode: "^1" } }),
+      },
+    ]);
+    expect(neu).toEqual([]);
+  });
+
   it("zählt bei einem neuen Workspace-Paket alles als neu, aber keine Pakete aus dem Workspace", () => {
     const neu = neueAbhaengigkeiten([
       { file: "packages/neu/package.json", before: null, after: paket({ dependencies: { "@haben/core": "workspace:*", qrcode: "^1" } }) },
