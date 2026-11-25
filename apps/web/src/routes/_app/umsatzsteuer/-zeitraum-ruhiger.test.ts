@@ -317,6 +317,14 @@ describe("Voranmeldung: Ergebnis und Ablauf zuerst (#1253, Punkte 42 und 43)", (
     }
   });
 
+  it("nennt kein Ergebnis, wenn der Zeitraum nicht zur Voranmeldung passt: Der Hinweis darüber und das gesperrte Senden widersprächen ihm", () => {
+    const problem = "Für Oktober 2026 passt die Voranmeldung nicht zum eingestellten Zeitraum (vierteljährlich).";
+    const html = seite({ periodProblem: problem, figures: mitZahllast, dueDate: "2026-12-10" });
+    expect(satz(html)).toBeNull();
+    expect(ablauf(html)).toContain("Zahlen prüfen");
+    expect(satz(seite({ figures: mitZahllast, dueDate: "2026-12-10" }))).toBe(`Du zahlst ${formatEuro(19_000)} bis 10.12.2026.`);
+  });
+
   it("lässt den Satz weg, solange von Hand ein Wert nicht lesbar ist: 0 wäre falsch, die Leiste bleibt", () => {
     const render = (werteGueltig: boolean) =>
       renderToStaticMarkup(
