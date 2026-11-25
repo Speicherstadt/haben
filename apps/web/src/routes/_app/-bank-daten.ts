@@ -159,6 +159,16 @@ export function gezeigteKonten(data: Pick<Data, "allAccounts" | "accounts" | "ac
   return data.allAccounts ? data.accounts : data.accounts.filter((a) => a.id === data.accountId);
 }
 
+/** Offene Umsätze der Konten, wie am Filter „Offen“, und ob es überhaupt Umsätze gibt (ein leerer Auszug bringt keine) */
+export function bankStand(konten: readonly Pick<Data["accounts"][number], "openCount" | "hasTransactions">[]) {
+  return { offen: konten.reduce((summe, konto) => summe + konto.openCount, 0), hatUmsaetze: konten.some((konto) => konto.hasTransactions) };
+}
+
+/** Getippte, noch nicht übernommene Suche; `null`, sobald sie in der Adresse steht. Danach gilt die Adresse, auch wenn „Nächsten offenen“ sie leert */
+export function offenerEntwurf(entwurf: string | null, suche: string): string | null {
+  return entwurf === suche ? null : entwurf;
+}
+
 /** Zähler über der Umsatzliste (#1253); die Zahl ist die am Filter „Offen“ */
 export function offenText(anzahl: number): string {
   return `${anzahl} ${anzahl === 1 ? "Umsatz" : "Umsätze"} noch offen`;
@@ -184,9 +194,9 @@ export function naechstenOffenenZiel(naechsteId: string | undefined, filter: str
   return { filter: "offen" as const, suche: undefined, umsatz: undefined };
 }
 
-/** Zähler solange etwas offen ist; „Alles zugeordnet.“ mit nächsten Schritten nur, wenn ein Import da ist (sonst gibt es nichts zuzuordnen) */
-export function fortschrittArt(offen: number, hatImport: boolean): "offen" | "fertig" | "keine" {
-  return offen > 0 ? "offen" : hatImport ? "fertig" : "keine";
+/** Zähler solange etwas offen ist; „Alles zugeordnet.“ mit nächsten Schritten nur, wenn es Umsätze gibt (sonst gibt es nichts zuzuordnen) */
+export function fortschrittArt(offen: number, hatUmsaetze: boolean): "offen" | "fertig" | "keine" {
+  return offen > 0 ? "offen" : hatUmsaetze ? "fertig" : "keine";
 }
 
 /** Links nach „Alles zugeordnet.“; Kleinunternehmer geben in der Regel keine Voranmeldung ab */
@@ -195,8 +205,8 @@ export function naechsteSchritte(kleinunternehmer: boolean): ("belege" | "voranm
 }
 
 /** Text der leeren Liste; im Filter „Offen“ steht „Alles zugeordnet.“ schon im Fortschritt */
-export function leereListeText(filter: string, anzahl: number, offen: number, hatImport: boolean): string | null {
-  if (anzahl > 0 || (filter === "offen" && fortschrittArt(offen, hatImport) === "fertig")) return null;
+export function leereListeText(filter: string, anzahl: number, offen: number, hatUmsaetze: boolean): string | null {
+  if (anzahl > 0 || (filter === "offen" && fortschrittArt(offen, hatUmsaetze) === "fertig")) return null;
   return filter === "vorschlag" ? "Keine Umsätze mit Vorschlag." : "Keine Umsätze.";
 }
 

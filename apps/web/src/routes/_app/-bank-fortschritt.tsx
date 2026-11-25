@@ -1,13 +1,17 @@
 import { getRouteApi, Link } from "@tanstack/react-router";
-import { type Data, fortschrittArt, gezeigteKonten, leereListeText, naechsteSchritte, naechstenOffenenZiel, nextOpenAfter, offenText } from "./-bank-daten.ts";
+import {
+  bankStand,
+  type Data,
+  fortschrittArt,
+  gezeigteKonten,
+  leereListeText,
+  naechsteSchritte,
+  naechstenOffenenZiel,
+  nextOpenAfter,
+  offenText,
+} from "./-bank-daten.ts";
 
 const bankRoute = getRouteApi("/_app/bank");
-
-/** Offene Umsätze der gezeigten Konten, wie am Filter „Offen“; ohne Import gibt es nichts zuzuordnen */
-function stand(data: Data) {
-  const konten = gezeigteKonten(data);
-  return { offen: konten.reduce((summe, konto) => summe + konto.openCount, 0), hatImport: konten.some((konto) => konto.lastImport) };
-}
 
 /**
  * Fortschritt über der Umsatzliste (#1253), `sichtbar` die Umsätze der Zeilen (ohne Gebühr einer Zahlung): wie viele
@@ -15,8 +19,8 @@ function stand(data: Data) {
  */
 export function Fortschritt({ data, sichtbar, selectedId }: { data: Data; sichtbar: Data["transactions"]; selectedId: string | undefined }) {
   const search = bankRoute.useSearch();
-  const { offen, hatImport } = stand(data);
-  const art = fortschrittArt(offen, hatImport);
+  const { offen, hatUmsaetze } = bankStand(gezeigteKonten(data));
+  const art = fortschrittArt(offen, hatUmsaetze);
   if (art === "keine") return null;
   if (art === "fertig") {
     const schritte = naechsteSchritte(data.kleinunternehmer);
@@ -54,8 +58,8 @@ export function Fortschritt({ data, sichtbar, selectedId }: { data: Data; sichtb
 
 /** Text der leeren Liste */
 export function LeereListe({ data, filter }: { data: Data; filter: string }) {
-  const { offen, hatImport } = stand(data);
-  const text = leereListeText(filter, data.transactions.length, offen, hatImport);
+  const { offen, hatUmsaetze } = bankStand(gezeigteKonten(data));
+  const text = leereListeText(filter, data.transactions.length, offen, hatUmsaetze);
   return (
     text && (
       <p className="muted" style={{ margin: 0, padding: "16px 20px" }}>
