@@ -35,7 +35,7 @@ Trag Login-E-Mail, Tarif und API-Schlüssel ein und klicke „Prüfen und speich
 „Alles abrufen“ startet den Abruf im Hintergrund, mit Fortschritt, Abbrechen und Fortsetzen wie bei Lexoffice. Es läuft immer nur ein Abruf, gleich aus welcher Quelle.
 
 1. **Kunden:** Name (Firma oder Person), Adresse, Land, E-Mail, USt-IdNr. und Kundennummer, als Kontakte mit der Rolle Kunde. Gibt es in Haben schon einen Kontakt mit demselben Namen und ohne FastBill-Herkunft, verknüpft Haben ihn. FastBill führt Lieferanten nicht als Kontakte; sie stehen in den Ausgaben nur als Name.
-2. **Belegliste:** Ausgangsrechnungen, Gutschriften und stornierte Rechnungen, je Art ein eigener Abruf, dazu die Ausgaben und die Einnahmen, die du in FastBill unter „Einnahmen“ erfasst hast, etwa die Gutschrift einer Plattform. Entwürfe bleiben draußen.
+2. **Belegliste:** Ausgangsrechnungen, Gutschriften und stornierte Rechnungen, je Art ein eigener Abruf, dazu die Ausgaben und die Einnahmen, die du in FastBill unter „Einnahmen“ erfasst hast, etwa die Gutschrift einer Plattform. Entwürfe bleiben draußen. Antwortet FastBill beim Abruf der Einnahmen mit einem Fehler, etwa weil der Tarif sie nicht freigibt, läuft der Abruf mit den übrigen Belegen weiter und nennt den Fehler in der Liste der fehlgeschlagenen Belege.
 3. **Dateien:** je Rechnung und Gutschrift das PDF, je Ausgabe und Einnahme der hochgeladene Beleg. Gibt FastBill den Beleg einer Ausgabe oder Einnahme nur im angemeldeten Browser heraus, wartet der Eintrag, siehe [Belege, die FastBill nur im Browser herausgibt](#belege-die-fastbill-nur-im-browser-herausgibt).
 4. **Wiederkehrende Rechnungen:** als pausierte Vorlagen, siehe [Wiederkehrende Rechnungen](#wiederkehrende-rechnungen).
 5. **Angebote:** samt PDF als Auftragsdokumente ins Archiv, siehe [Angebote](#angebote).
@@ -63,7 +63,7 @@ Solange Einträge warten, zeigt der Abgleich je Jahr den offenen Punkt „Kein B
 
 Gibt es zu einer Ausgabe oder Einnahme in FastBill wirklich keinen Beleg, übernimmt „Rest ohne Beleg übernehmen“ die übrigen wartenden Einträge beim nächsten Abruf ohne Datei. Im Abgleich bleibt „Jeder Beleg hat eine Datei“ für dieses Jahr dann offen; an einen archivierten Beleg lässt sich später keine Datei mehr hängen.
 
-Ohne Skript in der Konsole: „Rest ohne Beleg übernehmen“, dann die Belege in FastBill selbst herunterladen (einzeln oder über den Sammeldownload unter Finanzen › Ausgaben) und in Schritt 4 je Jahr als „Sonstiges“ ablegen. Einem einzelnen Eintrag ordnet Haben diese Dateien nicht zu.
+Ohne Skript in der Konsole: „Rest ohne Beleg übernehmen“, dann die Belege in FastBill selbst herunterladen (einzeln oder, bei Ausgaben, über den Sammeldownload unter Finanzen › Ausgaben) und in Schritt 4 je Jahr als „Sonstiges“ ablegen. Einem einzelnen Eintrag ordnet Haben diese Dateien nicht zu.
 
 ### Wie FastBill-Belege abgebildet werden
 
@@ -73,7 +73,7 @@ Ohne Skript in der Konsole: „Rest ohne Beleg übernehmen“, dann die Belege i
 | Gutschrift (`TYPE` credit) | Gutschrift, immer negativ |
 | Stornierte Rechnung (`STATE` canceled) und ihre Stornogutschrift | beide storniert und ausgeglichen; sie heben sich im Umsatz auf |
 | Ausgabe | Eingangsrechnung; mit negativem Betrag Gutschrift des Lieferanten |
-| Einnahme (`TYPE` incoming_credit) | Einnahmebeleg wie aus der Buchhaltung von Lexoffice; mit negativem Betrag Einnahme-Gutschrift. Eine andere Art übernimmt Haben nicht, der Abruf nennt sie unter den Fehlern |
+| Einnahme (`TYPE` incoming_credit) | Einnahmebeleg; mit negativem Betrag Einnahme-Gutschrift. Entwürfe bleiben draußen. Eine andere Art und eine stornierte Einnahme übernimmt Haben nicht, sondern nennt sie in der Liste der fehlgeschlagenen Belege: Für eine stornierte Einnahme liefert FastBill keine Gegenbuchung, sie zählte sonst voll. Gleiche sie mit FastBill ab und lege ihren Beleg in Schritt 4 als „Sonstiges“ ab |
 
 Eine Gutschrift gilt nur als Storno, wenn sie auf eine stornierte Rechnung verweist (`REFERENCED_INVOICE_ID`) und deren Betrag voll aufhebt. Eine Teilgutschrift bleibt eine Gutschrift mit eigenem Zahlungsstand.
 
