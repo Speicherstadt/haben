@@ -54,6 +54,8 @@ export async function buendeln(quelle: string, ziel: string): Promise<void> {
     entrypoints: [quelle],
     target: "bun",
     external: NATIV.map((n) => n.paket),
+    // Sonst schriebe Bun das NODE_ENV der Build-Stufe (leer, also Entwicklung) fest; im Image gilt NODE_ENV=production
+    define: { "process.env.NODE_ENV": "process.env.NODE_ENV" },
     banner: `// Gebündelt aus ${quelle} (scripts/container/laufzeit.ts)`,
     throw: false,
   });
