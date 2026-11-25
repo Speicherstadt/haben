@@ -127,8 +127,15 @@ describe("mitServerMeldung", () => {
     const meldung = mitServerMeldung("M", antwort(fehler(610101210, "Anderer Text.")), true);
     expect(meldung).toContain("Haken „Nur Testübermittlung“ aus");
     expect(meldung).toContain("„Postfach abrufen“");
-    expect(meldung).not.toContain("Übertragungszertifikat");
-    expect(meldung).not.toContain("CN");
+    // Der Servertext bleibt stehen, auch wenn er selbst einen CN nennt; der Zusatz erklärt ihn nur nicht
+    const mitCn = mitServerMeldung("M", antwort(fehler(610101210, "Zertifikat extern-eric abgelehnt")), true);
+    expect(mitCn).toContain("Zertifikat extern-eric abgelehnt");
+    expect(mitCn).not.toContain("ist das Übertragungszertifikat von ERiC");
+    expect(mitCn).not.toContain("nicht das eigene");
+  });
+
+  it("rät bei einem fremden Code auch mit Testmerker nicht", () => {
+    expect(mitServerMeldung("M", antwort(fehler(7, "")), true)).toBe("M Antwort des ELSTER-Servers: Transferheader 7");
   });
 
   it("lässt beim echten Abruf auch bei 610101210 den Servertext stehen", () => {

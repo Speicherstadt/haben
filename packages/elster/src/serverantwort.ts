@@ -78,9 +78,10 @@ const ABRUF_WEG =
 const POSTFACH_HINWEIS = `Zum Einordnen: Der genannte CN ist das Übertragungszertifikat von ERiC, nicht das eigene. ${ABRUF_WEG}`;
 
 /**
- * 610101210 ist die Verfahrensprüfung des Transferheaders. Sie kommt im Testabruf auch dann, wenn der Merker
- * stimmt, dann hilft nur der echte Abruf. Der CN aus der Antwort erklärt dabei nichts, deshalb ohne diesen Satz
- * (#1791).
+ * 610101210 heißt in der ERiC-API-Referenz (45.1.5.0) `ERIC_TRANSFER_ERR_XML_THEADER`: „Fehler im Transferheader.
+ * Der ELSTER-Annahmeserver hat einen Fehler zurückgemeldet. Bitte werten Sie die Serverantwort aus.“ Er kommt im
+ * Testabruf auch dann, wenn der Merker stimmt, dann hilft nur der echte Abruf. Der CN aus der Antwort erklärt dabei
+ * nichts, deshalb ohne diesen Satz (#1791).
  */
 const TRANSFERHEADER_PRUEFUNG = 610101210;
 
