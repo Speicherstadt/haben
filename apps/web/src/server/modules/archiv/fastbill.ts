@@ -8,7 +8,6 @@ import {
   type FbInvoice,
   type FbMappedVoucher,
   isFbInvoiceImportable,
-  isFbRevenueImportable,
   mapFbCustomer,
   mapFbExpense,
   mapFbInvoice,
@@ -20,6 +19,7 @@ import { db, schema } from "../../db/index.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
 import { isUniqueViolation } from "../../errors.ts";
 import { fastbillReceiptKey, waitingReceipt } from "./fastbill-belege.ts";
+import { listRevenues } from "./fastbill-einnahmen.ts";
 import { importAfterVouchers } from "./fastbill-nachlauf.ts";
 import { FastbillError, fastbillCredentials, forgetOtherFastbillCalls, newFastbillClient, otherFastbillCalls } from "./fastbill-zugang.ts";
 import { storeLegacyVoucher } from "./legacy-store.ts";
@@ -173,7 +173,7 @@ async function runImport(actor: string, importId: string, client: FastbillClient
   checkAborted(signal);
   progress.phase = "liste";
   await save(true);
-  const { listed, invoicesById, creditsByInvoice } = await listVouchers(client, progress, save);
+  const { listed, invoicesById, creditsByInvoice } = await listVouchers(client, progress, save, signal);
   checkAborted(signal);
   progress.phase = "belege";
   await save(true);
@@ -214,7 +214,7 @@ async function importCustomers(actor: string, client: FastbillClient, progress: 
 }
 
 /** 2. Rechnungen, Gutschriften und Stornos ohne Entwürfe, dazu Ausgaben und Einnahmen; alle Rechnungen je ID für die Stornos */
-async function listVouchers(client: FastbillClient, progress: LexofficeImportProgress, save: Save) {
+async function listVouchers(client: FastbillClient, progress: LexofficeImportProgress, save: Save, signal: AbortSignal) {
   const listed: Listed[] = [];
   const invoicesById = new Map<string, FbInvoice>();
   /** Gutschriften je Rechnung, auf die sie verweisen: unterscheiden Storno und Teilstorno */
@@ -233,14 +233,13 @@ async function listVouchers(client: FastbillClient, progress: LexofficeImportPro
   for await (const raw of client.expenses()) {
     await add({ kind: "expense", id: String(raw.INVOICE_ID), number: String(raw.INVOICE_NUMBER ?? ""), raw });
   }
-  // Einnahmen (#1938): was invoice.get schon geliefert hat, steht nur einmal im Archiv; eine unbekannte Art wird gemeldet
-  for await (const raw of client.revenues()) {
-    const id = String(raw.INVOICE_ID);
-    if (invoicesById.has(id)) continue;
-    const number = String(raw.INVOICE_NUMBER ?? "");
-    if (isFbRevenueImportable(raw)) await add({ kind: "revenue", id, number, raw });
-    else progress.failed.push({ lexofficeId: `fastbill/revenue/${id}`, number, message: `Einnahme der Art „${String(raw.TYPE ?? "")}“ nicht übernommen.` });
-  }
+  await listRevenues(
+    client,
+    invoicesById,
+    progress,
+    (item) => add(item),
+    (error) => stopsRun(error, signal),
+  );
   return { listed, invoicesById, creditsByInvoice };
 }
 

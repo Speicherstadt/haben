@@ -1,4 +1,4 @@
-import { type FbMappedVoucher, mapFbInvoice } from "./map.ts";
+import { type FbMappedVoucher, isFbInvoiceImportable, mapFbInvoice } from "./map.ts";
 import type { FbInvoice } from "./types.ts";
 
 /*
@@ -8,13 +8,26 @@ import type { FbInvoice } from "./types.ts";
  * Im Altbestand sind sie Einnahmebelege wie die aus der Buchhaltung von Lexoffice: salesinvoice, negativ salescreditnote.
  */
 
-/** Nur incoming_credit ist belegt; eine andere Art (auch ein Entwurf) wird nicht geraten, sondern im Lauf gemeldet */
-export function isFbRevenueImportable(r: FbInvoice): boolean {
-  return (
+/**
+ * Was der Abruf mit einer Einnahme tut. Belegt ist am echten Konto nur incoming_credit. Entwürfe (TYPE oder STATE draft)
+ * bleiben still draußen wie bei Rechnungen (isFbInvoiceImportable). Eine andere Art und eine stornierte Einnahme meldet
+ * der Abruf, statt zu raten: Bei Rechnungen hebt die Stornogutschrift die Rechnung auf, für Einnahmen ist kein Gegenstück
+ * belegt, und ohne es zählte die Einnahme bei Soll voll mit.
+ */
+export function fbRevenueKind(r: FbInvoice): "einnahme" | "entwurf" | "unbekannt" | "storniert" {
+  if (!isFbInvoiceImportable(r)) return "entwurf";
+  if (
     String(r.TYPE ?? "")
       .trim()
-      .toLowerCase() === "incoming_credit"
-  );
+      .toLowerCase() !== "incoming_credit"
+  )
+    return "unbekannt";
+  // Wie isCanceled in map.ts: STATE canceled oder IS_CANCELED 1
+  const canceled =
+    String(r.STATE ?? "")
+      .trim()
+      .toLowerCase() === "canceled" || String(r.IS_CANCELED ?? "").trim() === "1";
+  return canceled ? "storniert" : "einnahme";
 }
 
 export function mapFbRevenue(r: FbInvoice): FbMappedVoucher {
