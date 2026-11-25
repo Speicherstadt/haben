@@ -39,7 +39,6 @@ export {
 } from "./cancellation.ts";
 export { extractionAvailable, extractionSettings } from "./extraction.ts";
 export { loadExtractionLimits, queueOverview, type QueueOverview } from "./extraction-queue.ts";
-export type { ExtractionLimits } from "./extraction-limits.ts";
 export { supplierSuggestion, type SupplierSuggestion } from "./lieferantenvorschlag.ts";
 export { loadSplits, splitsByDocument, type DocumentSplit } from "./splits.ts";
 export { belegZeilen } from "./belegbuchung.ts";
