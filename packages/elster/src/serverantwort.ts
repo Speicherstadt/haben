@@ -69,9 +69,9 @@ const VERFAHRENSPRUEFUNG = 601015001;
  * derselbe Code andere Gründe, dort wäre der Rat falsch (#1791).
  */
 const POSTFACH_HINWEIS =
-  "Zum Einordnen: Der genannte CN ist das Übertragungszertifikat von ERiC, nicht das eigene. Kommt dieser Code beim " +
-  "Abruf aus der Test-Datenbank, hilft der eigene Testmerker der PostfachAnfrage; echt abrufen geht mit eigener " +
-  "Hersteller-ID und ausgeschaltetem „Nur Testübermittlung“.";
+  "Zum Einordnen: Der genannte CN ist das Übertragungszertifikat von ERiC, nicht das eigene. Der Abruf aus der " +
+  "Test-Datenbank ist gescheitert; echt abrufen: Haken „Nur Testübermittlung“ ausschalten (braucht die eingetragene " +
+  "Hersteller-ID), dann heißt der Knopf „Postfach abrufen“.";
 
 /**
  * Die Meldung von ERiC, ergänzt um Code und Text des Servers; unverändert, wenn der Server nichts meldet.

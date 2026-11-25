@@ -23,7 +23,7 @@ Der Abruf läuft in drei Schritten, wie bei viking:
 
 ELSTER erwartet die Bestätigung innerhalb von 24 Stunden, sonst droht die Sperre der Hersteller-ID. Scheitert sie, zeigt die Seite einen Hinweis; der nächste Abruf holt die Bestätigung nach. Abgeholte Dokumente legt Haben nicht doppelt ab. Jeder Abruf und jede Bestätigung wird mit dem XML gespeichert, ebenso wie die Dokumente unveränderlich.
 
-Mit Testmerker liest ein Abruf nur die Test-Datenbank. Für die PostfachAnfrage gilt dort ein eigener Testmerker (700000001 laut ERiC-Entwicklerhandbuch); der allgemeine Wert gilt nur für Übermittlungen. Echt abrufen braucht ohnehin die eingetragene Hersteller-ID und den ausgeschalteten Haken „Nur Testübermittlung“, ohne Hersteller-ID ist der Haken gesperrt. Ein Abruf ist auch nicht folgenlos: Haben bestätigt die Abholung anschließend mit `PostfachBestaetigung`, und ELSTER erwartet das binnen 24 Stunden. Ohne ERiC bleibt der Haken sinnvoll, dann liefert Haben einen erfundenen Testbescheid, damit du die Seite ausprobieren kannst.
+Mit Testmerker liest ein Abruf nur die Test-Datenbank. Für die PostfachAnfrage gilt dort ein eigener Testmerker (700000001 laut ERiC-Entwicklerhandbuch); der allgemeine Wert gilt nur für Übermittlungen. Scheitert der Testabruf, nennt der Hinweis den Weg zum echten Abruf: den Haken „Nur Testübermittlung“ unter dem PIN-Feld ausschalten, dann heißt der Knopf „Postfach abrufen“. Das geht nur mit eingetragener Hersteller-ID, ohne sie ist der Haken gesperrt. Auch der echte Abruf bestätigt die Abholung (siehe oben). Ohne ERiC bleibt der Haken sinnvoll, dann liefert Haben einen erfundenen Testbescheid, damit du die Seite ausprobieren kannst.
 
 ### Automatisch abrufen
 

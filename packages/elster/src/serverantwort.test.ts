@@ -122,6 +122,14 @@ describe("mitServerMeldung", () => {
     expect(meldung).not.toContain("diese Kombination nicht");
   });
 
+  it("nennt beim Testabruf den Schalter und den Knopf, nicht den Testmerker als Hebel", () => {
+    // Haben schickt 700000001 schon; der Testabruf scheiterte damit weiter (#1791), helfen kann nur der echte Abruf
+    const meldung = mitServerMeldung("M", antwort(fehler(601015001, zertifikatssatz)), true);
+    expect(meldung).toContain("Haken „Nur Testübermittlung“ aus");
+    expect(meldung).toContain("„Postfach abrufen“");
+    expect(meldung).not.toContain("hilft der eigene Testmerker");
+  });
+
   it("rät beim echten Abruf nicht, den Haken auszuschalten", () => {
     const xml = antwort(fehler(601015001, zertifikatssatz));
     expect(mitServerMeldung("M", xml)).not.toContain("Test-Datenbank");
