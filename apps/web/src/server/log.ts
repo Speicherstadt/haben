@@ -141,7 +141,7 @@ function emit(level: LogLevel, msg: string, fields: Fields, fallback: string): v
     cfg.write(stream, JSON.stringify(line));
     return;
   }
-  const extra = Object.entries(rest).map(([k, v]) => `${k}=${textValue(v)}`);
+  const extra = Object.entries(scrubDeep(rest) as Fields).map(([k, v]) => `${k}=${textValue(v)}`);
   let line = `${msg}${errorId === undefined ? "" : ` (Fehler-ID ${String(errorId)})`}${extra.length ? ` ${extra.join(" ")}` : ""}`;
   if (err) line += `\n${errorText(err)}`;
   cfg.write(stream, scrub(line));
