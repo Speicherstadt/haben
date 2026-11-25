@@ -57,7 +57,7 @@ Knöpfe und Karten tragen einen feinen Schatten (`--shadow-xs`), randlose Knöpf
 
 Der Fokusring der Knöpfe steht mit 2px Abstand außen. Bei Feldern (Eingabe, Auswahlliste, Textfeld, Combobox) liegt er auf dem eigenen Rahmen, der dabei die Akzentfarbe annimmt, statt als zweiter Rahmen daneben.
 
-Führen zwei Knöpfe zu ähnlichen Folgen, steht unter jedem eine Beschreibung (`field-hint`), was er tut, etwa „Stornieren“ und „Rechnungskorrektur anlegen“ (#1253). Sie steht im Block ihres Knopfs, nicht lose in der Knopfzeile, und ist kein Sperrgrund; dafür gilt „Gesperrte Knöpfe“ unten. Der Knopf zeigt per `aria-describedby` auf sie.
+Führen zwei Knöpfe zu ähnlichen Folgen, steht unter jedem eine Beschreibung (`field-hint`), was er tut, etwa „Stornieren“ und „Rechnungskorrektur anlegen“ (#1253). Sie steht im Block ihres Knopfs, nicht lose in der Knopfzeile. Der Knopf zeigt per `aria-describedby` auf sie.
 
 ### Gesperrte Knöpfe
 
