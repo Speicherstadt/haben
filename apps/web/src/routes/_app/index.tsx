@@ -45,6 +45,26 @@ function ustIdAufgaben(ungueltig: { contactId: string; kontakt: string; nummer: 
   }));
 }
 
+/** Stand der Voranmeldung des Zeitraums und des Steuerkontos für die Übersicht */
+function voranmeldungStand(data: UebersichtDaten) {
+  const sent = data.current?.status === "sent";
+  const vatRequired = !data.kleinunternehmer && !data.exempt;
+  // Vor dem ersten Buchungsmonat ist nichts fällig (wie bei den Fristen); ein gespeicherter Entwurf zeigt, dass es dennoch bearbeitet wird
+  const vorStart = data.current === null && periodKey(lastMonthOfPeriod(data.period)) < data.ersterBuchungsmonat;
+  // Steuerkonto: reicht der Stand für die Zahllast, die das Finanzamt per Lastschrift einzieht?
+  const zahllast = data.current?.status === "sent" ? data.current.kz83 : vorStart ? 0 : data.computedKz83;
+  const taxAccount = data.invoices.bank.find((a) => a.purpose === "steuer");
+  // Abgegebene Voranmeldungen: was je Posten noch offen ist; der Zeitraum ohne Abgabe nach den Buchungen, abzüglich
+  // schon eingezogener Lastschriften ohne Bezug (dann ist der Kontostand bereits um sie gesunken)
+  const periodOpen = data.vatOpen.filter((p) => p.year === data.period.year && p.month === data.period.month).reduce((sum, p) => sum + p.offen, 0);
+  // Bestehende Anmeldungen und ihre offenen Beträge bleiben auch ohne reguläre Abgabepflicht erreichbar.
+  const showVatPeriod = data.current !== null || periodOpen !== 0 || (!vorStart && (vatRequired || data.computedKz83 !== 0));
+  const postenOffen = data.vatOpen.filter((p) => p.offen > 0).reduce((sum, p) => sum + p.offen, 0);
+  const zahllastOffen = postenOffen + (sent || vorStart ? 0 : Math.max(0, data.computedKz83 - data.vatPaid));
+  const taxShortfall = taxAccount && taxAccount.balance !== null && zahllastOffen > 0 ? zahllastOffen - taxAccount.balance : 0;
+  return { sent, vatRequired, vorStart, zahllast, periodOpen, showVatPeriod, zahllastOffen, taxAccount, taxShortfall };
+}
+
 /** Umsatzsteuer: die Voranmeldung des Zeitraums, unbezahlte Voranmeldungen und ein zu knappes Steuerkonto */
 function umsatzsteuerAufgaben(
   data: UebersichtDaten,
@@ -198,23 +218,9 @@ function einstellungsAufgaben(data: UebersichtDaten, backup: Awaited<ReturnType<
 function OverviewPage() {
   const data = Route.useLoaderData();
   const key = periodKey(data.period);
-  const sent = data.current?.status === "sent";
-  const vatRequired = !data.kleinunternehmer && !data.exempt;
-  // Vor dem ersten Buchungsmonat ist nichts fällig (wie bei den Fristen); ein gespeicherter Entwurf zeigt, dass es dennoch bearbeitet wird
-  const vorStart = data.current === null && periodKey(lastMonthOfPeriod(data.period)) < data.ersterBuchungsmonat;
+  const { sent, vatRequired, vorStart, zahllast, periodOpen, showVatPeriod, zahllastOffen, taxAccount, taxShortfall } = voranmeldungStand(data);
 
   const todos: Todo[] = [...einrichtungsAufgaben(Route.useRouteContext().einrichtung), ...ustIdAufgaben(data.ustIdUngueltig)];
-  // Steuerkonto: reicht der Stand für die Zahllast, die das Finanzamt per Lastschrift einzieht?
-  const zahllast = data.current?.status === "sent" ? data.current.kz83 : vorStart ? 0 : data.computedKz83;
-  const taxAccount = data.invoices.bank.find((a) => a.purpose === "steuer");
-  // Abgegebene Voranmeldungen: was je Posten noch offen ist; der Zeitraum ohne Abgabe nach den Buchungen, abzüglich
-  // schon eingezogener Lastschriften ohne Bezug (dann ist der Kontostand bereits um sie gesunken)
-  const periodOpen = data.vatOpen.filter((p) => p.year === data.period.year && p.month === data.period.month).reduce((sum, p) => sum + p.offen, 0);
-  // Bestehende Anmeldungen und ihre offenen Beträge bleiben auch ohne reguläre Abgabepflicht erreichbar.
-  const showVatPeriod = data.current !== null || periodOpen !== 0 || (!vorStart && (vatRequired || data.computedKz83 !== 0));
-  const postenOffen = data.vatOpen.filter((p) => p.offen > 0).reduce((sum, p) => sum + p.offen, 0);
-  const zahllastOffen = postenOffen + (sent || vorStart ? 0 : Math.max(0, data.computedKz83 - data.vatPaid));
-  const taxShortfall = taxAccount && taxAccount.balance !== null && zahllastOffen > 0 ? zahllastOffen - taxAccount.balance : 0;
   todos.push(...umsatzsteuerAufgaben(data, { sent, vatRequired, vorStart, taxAccount, taxShortfall }), ...bankAufgaben(data));
   if (data.invoices.overdueCount > 0) {
     todos.push({
