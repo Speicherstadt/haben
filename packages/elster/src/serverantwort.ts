@@ -65,13 +65,34 @@ export function serverRueckmeldungen(serverResponseXml: string): ServerRueckmeld
 const VERFAHRENSPRUEFUNG = 601015001;
 
 /**
+ * Der Weg zum echten Abruf. Gilt für beide Codes der Verfahrensprüfung, weil der Ausweg derselbe ist (#1791).
+ */
+const ABRUF_WEG =
+  "Der Abruf aus der Test-Datenbank ist gescheitert; echt abrufen: Haken „Nur Testübermittlung“ ausschalten " +
+  "(braucht die eingetragene Hersteller-ID), dann heißt der Knopf „Postfach abrufen“.";
+
+/**
  * Was beim Postfach dahintersteckt. Gehört nur zum Postfachweg: In der Voranmeldung und im Belegabruf nennt
  * derselbe Code andere Gründe, dort wäre der Rat falsch (#1791).
  */
-const POSTFACH_HINWEIS =
-  "Zum Einordnen: Der genannte CN ist das Übertragungszertifikat von ERiC, nicht das eigene. Der Abruf aus der " +
-  "Test-Datenbank ist gescheitert; echt abrufen: Haken „Nur Testübermittlung“ ausschalten (braucht die eingetragene " +
-  "Hersteller-ID), dann heißt der Knopf „Postfach abrufen“.";
+const POSTFACH_HINWEIS = `Zum Einordnen: Der genannte CN ist das Übertragungszertifikat von ERiC, nicht das eigene. ${ABRUF_WEG}`;
+
+/**
+ * 610101210 ist die Verfahrensprüfung des Transferheaders. Sie kommt im Testabruf auch dann, wenn der Merker
+ * stimmt, dann hilft nur der echte Abruf. Der CN aus der Antwort erklärt dabei nichts, deshalb ohne diesen Satz
+ * (#1791).
+ */
+const TRANSFERHEADER_PRUEFUNG = 610101210;
+
+const TRANSFERHEADER_HINWEIS = `Zum Einordnen: ${ABRUF_WEG}`;
+
+/** Der Rat zum Testabruf je Code; leer, wenn keiner passt (#1791) */
+function hinweisFuer(code: number, testmerker: boolean): string {
+  if (!testmerker) return "";
+  if (code === VERFAHRENSPRUEFUNG) return POSTFACH_HINWEIS;
+  if (code === TRANSFERHEADER_PRUEFUNG) return TRANSFERHEADER_HINWEIS;
+  return "";
+}
 
 /**
  * Die Meldung von ERiC, ergänzt um Code und Text des Servers; unverändert, wenn der Server nichts meldet.
@@ -82,7 +103,7 @@ export function mitServerMeldung(message: string, serverResponseXml: string, tes
   const meldungen = serverRueckmeldungen(serverResponseXml);
   if (meldungen.length === 0) return message;
   const zeilen = meldungen.map((m) => {
-    const rat = testmerker && m.code === VERFAHRENSPRUEFUNG ? POSTFACH_HINWEIS : "";
+    const rat = hinweisFuer(m.code, testmerker);
     const teile = [m.text, rat].filter((teil) => teil !== "");
     return `${m.quelle} ${m.code}${teile.length > 0 ? ` – ${teile.join(" ")}` : ""}`;
   });

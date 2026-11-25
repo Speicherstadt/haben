@@ -122,6 +122,19 @@ describe("mitServerMeldung", () => {
     expect(meldung).not.toContain("diese Kombination nicht");
   });
 
+  it("ergänzt auch bei 610101210 den Weg zum echten Abruf, ohne den CN zu erklären", () => {
+    // Im Testabruf kommt die Verfahrensprüfung des Transferheaders auch mit richtigem Merker; der Ausweg ist derselbe
+    const meldung = mitServerMeldung("M", antwort(fehler(610101210, "Anderer Text.")), true);
+    expect(meldung).toContain("Haken „Nur Testübermittlung“ aus");
+    expect(meldung).toContain("„Postfach abrufen“");
+    expect(meldung).not.toContain("Übertragungszertifikat");
+    expect(meldung).not.toContain("CN");
+  });
+
+  it("lässt beim echten Abruf auch bei 610101210 den Servertext stehen", () => {
+    expect(mitServerMeldung("M", antwort(fehler(610101210, "Anderer Text.")))).toBe("M Antwort des ELSTER-Servers: Transferheader 610101210 – Anderer Text.");
+  });
+
   it("nennt beim Testabruf den Schalter und den Knopf, nicht den Testmerker als Hebel", () => {
     // Haben schickt 700000001 schon; der Testabruf scheiterte damit weiter (#1791), helfen kann nur der echte Abruf
     const meldung = mitServerMeldung("M", antwort(fehler(601015001, zertifikatssatz)), true);
@@ -134,7 +147,6 @@ describe("mitServerMeldung", () => {
     const xml = antwort(fehler(601015001, zertifikatssatz));
     expect(mitServerMeldung("M", xml)).not.toContain("Test-Datenbank");
     expect(mitServerMeldung("M", xml, false)).not.toContain("Test-Datenbank");
-    expect(mitServerMeldung("M", antwort(fehler(610101210, "Anderer Text.")), true)).not.toContain("Test-Datenbank");
   });
 
   it("lässt den Text stehen, wenn 601015001 einen anderen Grund nennt", () => {
