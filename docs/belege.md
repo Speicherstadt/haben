@@ -196,9 +196,8 @@ Eine Seite gilt nur dann als lesbar, wenn ihr Text mehr ist als ein Stempel, ein
 Haben prüft die Antwort und zeigt Auffälligkeiten als Hinweis am Beleg:
 
 - Netto plus Steuer weicht vom Gesamtbetrag ab.
-- Ein Betrag ist nicht lesbar: Er lässt sich gar nicht als Betrag lesen, oder er hat genau drei Nachkommastellen und kann damit auch ein Tausendertrennzeichen sein.
-- Ein Betrag hat mehr als zwei Nachkommastellen: Haben rundet ihn auf Cent und nennt das Ergebnis im Hinweis (siehe unten).
-- Der Gesamtbetrag hat mehr als zwei Nachkommastellen und wurde gerundet.
+- Netto oder Steuer ist nicht lesbar, auch bei genau drei Nachkommastellen (siehe unten).
+- Ein Betrag oder der Gesamtbetrag hat vier oder mehr Nachkommastellen: Haben rundet ihn auf Cent und nennt das Ergebnis im Hinweis (siehe unten).
 - Die Währung ist nicht Euro und der Kurs des Monats ist noch nicht veröffentlicht: Die Beträge stehen dann als Originalbeträge am Beleg, der Kurs fehlt noch.
 - Der Hinweis der KI zu unklaren Stellen.
 - Beim eigenen Modell: Das PDF hatte mehr Seiten als ausgelesen wurden; mit `EXTRACTION_INPUT=text` auch Seiten ohne Text und ein gekürzter Text.
