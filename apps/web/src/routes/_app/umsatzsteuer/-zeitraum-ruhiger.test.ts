@@ -289,10 +289,32 @@ describe("Voranmeldung: Ergebnis und Ablauf zuerst (#1253, Punkte 42 und 43)", (
     expect(ablauf(fertig)?.match(/\(erledigt\)/g)).toHaveLength(3);
   });
 
-  it("zählt nur Posten dieser Anmeldung: Der offene Posten einer anderen (Berichtigung) hält das Zahlen nicht offen", () => {
-    const andere = seite({ current: gesendet, posten: posten(5_000, "andere") });
-    expect(andere.match(/aria-current="step"/g)).toBeNull();
-    expect(aktuellerSchritt(seite({ current: gesendet, posten: [...posten(5_000, "andere"), ...posten(19_000)] }))).toContain("Zahlen");
+  it("zählt alle Posten des Zeitraums: Der Rest am Original einer Berichtigung nach unten hält das Zahlen offen", () => {
+    const posten = (restOriginal: number) => [
+      {
+        vatReturnId: "original",
+        berichtigt: false,
+        betrag: 100_000,
+        faellig: "2026-11-10",
+        verrechnet: 0,
+        bezahlt: 100_000 - restOriginal,
+        offen: restOriginal,
+        zahlungen: [],
+      },
+      { vatReturnId: "entwurf", berichtigt: true, betrag: -50_000, faellig: "2026-11-10", verrechnet: 50_000, bezahlt: 0, offen: 0, zahlungen: [] },
+    ];
+    const berichtigung = { ...gesendet, berichtigt: true };
+    expect(aktuellerSchritt(seite({ current: berichtigung, posten: posten(50_000) }))).toContain("Zahlen");
+    expect(seite({ current: berichtigung, posten: posten(0) }).match(/aria-current="step"/g)).toBeNull();
+  });
+
+  it("nennt bei einer berichtigten Anmeldung kein Ergebnis: Zu zahlen oder zu erstatten ist nur der Unterschied zur ersten", () => {
+    const berichtigung = { ...entwurfVonHand, source: "berechnet", berichtigt: true };
+    for (const figures of [mitZahllast, mitErstattung]) {
+      const html = seite({ current: berichtigung, figures, dueDate: "2026-12-10" });
+      expect(satz(html)).toBeNull();
+      expect(ablauf(html)).toContain("Zahlen prüfen");
+    }
   });
 
   it("lässt den Satz weg, solange von Hand ein Wert nicht lesbar ist: 0 wäre falsch, die Leiste bleibt", () => {
