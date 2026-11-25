@@ -6,6 +6,7 @@ import styles from "../../styles/auswertungen.css?url";
 import { Field } from "../../components/Field.tsx";
 import { NeueAusschuettung } from "./-ausschuettungen-neu.tsx";
 import { AusschuettungCard } from "./-ausschuettungen-teile.tsx";
+import { menueGruppe } from "../../lib/menue-gruppe.ts";
 
 export const Route = createFileRoute("/_app/ausschuettungen")({
   validateSearch: z.object({ jahr: z.number().int().min(2000).max(2100).optional() }),
@@ -24,7 +25,7 @@ function AusschuettungenPage() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Gewinnverwendung</div>
+          <div className="eyebrow">{menueGruppe("/ausschuettungen")}</div>
           <h1>Ausschüttungen {data.year}</h1>
         </div>
         <Field label="Jahr">

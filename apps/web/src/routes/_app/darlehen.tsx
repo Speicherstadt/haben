@@ -11,6 +11,7 @@ import { darlehenFehler } from "./-darlehen-pruefung.ts";
 import { createLoanFn, getLoans } from "../../server/functions/darlehen.ts";
 import styles from "../../styles/auswertungen.css?url";
 import { Field } from "../../components/Field.tsx";
+import { menueGruppe } from "../../lib/menue-gruppe.ts";
 
 export const Route = createFileRoute("/_app/darlehen")({
   loader: () => getLoans(),
@@ -26,7 +27,7 @@ function DarlehenPage() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Geld</div>
+          <div className="eyebrow">{menueGruppe("/darlehen")}</div>
           <h1>Darlehen</h1>
         </div>
       </div>
@@ -50,7 +51,7 @@ function Liste({ loans }: { loans: Data["loans"] }) {
       </h2>
       {loans.length === 0 ? (
         <p className="muted" style={{ margin: 0 }}>
-          Noch kein Darlehen angelegt.
+          Hier stehen deine Darlehen mit Restschuld; das erste legst du unten im Formular „Darlehen anlegen“ an.
         </p>
       ) : (
         <ScrollTable className="report-table">

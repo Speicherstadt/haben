@@ -7,6 +7,7 @@ import { formatDate, formatDateTime } from "../../lib/format.ts";
 import { useAction } from "../../lib/use-action.ts";
 import { createSepaTransferFn, getTransferPage } from "../../server/functions/sepa.ts";
 import { Field } from "../../components/Field.tsx";
+import { menueGruppe } from "../../lib/menue-gruppe.ts";
 
 export const Route = createFileRoute("/_app/ueberweisungen")({
   loader: () => getTransferPage(),
@@ -26,7 +27,7 @@ function TransferPage() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Ausgaben</div>
+          <div className="eyebrow">{menueGruppe("/ueberweisungen")}</div>
           <h1>Überweisungen</h1>
         </div>
       </div>

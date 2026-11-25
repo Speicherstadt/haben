@@ -10,6 +10,7 @@ import { useAction } from "../../lib/use-action.ts";
 import { createFristenAbo, getFristen, reactivateFristenAbo, revokeFristenAbo } from "../../server/functions/fristen.ts";
 import styles from "../../styles/auswertungen.css?url";
 import { Field } from "../../components/Field.tsx";
+import { menueGruppe } from "../../lib/menue-gruppe.ts";
 
 export const Route = createFileRoute("/_app/fristen")({
   loader: () => getFristen(),
@@ -147,7 +148,7 @@ function FristenPage() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Steuertermine</div>
+          <div className="eyebrow">{menueGruppe("/fristen")}</div>
           <h1>Fristen</h1>
         </div>
       </div>
