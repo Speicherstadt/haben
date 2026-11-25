@@ -1,4 +1,5 @@
-import type { ScheduleYear } from "./afa.ts";
+import { MEMO_VALUE } from "./afa-methoden.ts";
+import type { ScheduleAsset, ScheduleYear } from "./afa.ts";
 import type { Cents } from "./money.ts";
 
 export interface SpecialDepreciationAmount {
@@ -41,4 +42,43 @@ export function specialDepreciationDifference(commercial: ScheduleYear, tax: Sch
     closing: tax.closing - commercial.closing,
     profit: -(depreciation + disposal),
   };
+}
+
+export class AssetError extends Error {}
+
+/** Nach dem Begünstigungszeitraum gilt der Restwert über die Restnutzungsdauer (§ 7a Abs. 9 EStG). */
+export function linearSpecialSchedule(
+  asset: ScheduleAsset,
+  untilYear: number | undefined,
+  regularSchedule: (asset: ScheduleAsset, untilYear?: number) => ScheduleYear[],
+): ScheduleYear[] {
+  const regularAsset = { ...asset, specialDepreciation: undefined };
+  const endYear = Number(asset.acquisitionDate.slice(0, 4)) + 4;
+  const memo = asset.memoValue ? MEMO_VALUE : 0;
+  const entries = new Map(asset.specialDepreciation!.filter(({ amount }) => amount > 0).map(({ year, amount }) => [year, amount]));
+  const rows: ScheduleYear[] = [];
+  let bookValue = 0;
+  for (const regular of regularSchedule(regularAsset, Math.max(endYear, untilYear ?? endYear))) {
+    if (regular.year > endYear) {
+      const date = `${regular.year}-01-01`;
+      const opening = { date, bookValue };
+      rows.push(...regularSchedule({ ...regularAsset, opening }, untilYear));
+      break;
+    }
+    const opening = bookValue;
+    const available = opening + regular.addition;
+    const depreciation = Math.min(regular.depreciation, Math.max(available - memo, 0));
+    const specialDepreciation = entries.get(regular.year) ?? 0;
+    entries.delete(regular.year);
+    const remaining = available - depreciation - specialDepreciation;
+    if (remaining < memo) throw new AssetError("Sonder-AfA überschreitet den verfügbaren Buchwert");
+    const isDisposalYear = asset.disposalDate?.startsWith(String(regular.year)) ?? false;
+    const disposal = isDisposalYear ? remaining : 0;
+    const closing = isDisposalYear ? 0 : remaining;
+    rows.push({ ...regular, opening, depreciation, specialDepreciation, disposal, closing });
+    bookValue = closing;
+    if (closing === 0) break;
+  }
+  if (entries.size > 0) throw new AssetError("Für die Sonder-AfA fehlt im angegebenen Wirtschaftsjahr ein verfügbarer Buchwert");
+  return rows;
 }

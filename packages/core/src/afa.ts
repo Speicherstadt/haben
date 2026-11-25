@@ -1,4 +1,4 @@
-import { specialDepreciationIssues, type SpecialDepreciationAmount } from "./afa-sonder.ts";
+import { AssetError, linearSpecialSchedule, specialDepreciationIssues, type SpecialDepreciationAmount } from "./afa-sonder.ts";
 import {
   DEGRESSIVE_PERIODS_TEXT,
   ELEKTRO_STAFFEL,
@@ -178,7 +178,7 @@ export interface ScheduleYear {
   closing: Cents;
 }
 
-export class AssetError extends Error {}
+export { AssetError } from "./afa-sonder.ts";
 
 const monthIndex = (date: string) => Number(date.slice(0, 4)) * 12 + Number(date.slice(5, 7)) - 1;
 
@@ -275,7 +275,8 @@ export function depreciationSchedule(asset: ScheduleAsset, untilYear?: number): 
     const transferYear = Number(asset.opening.date.slice(0, 4));
     return depreciationSchedule({ ...asset, opening: null }, untilYear).filter(({ year }) => year >= transferYear);
   }
-  if (asset.method === "linear" && asset.specialDepreciation?.some(({ amount }) => amount > 0)) return linearSpecialSchedule(asset, untilYear);
+  if (asset.method === "linear" && asset.specialDepreciation?.some(({ amount }) => amount > 0))
+    return linearSpecialSchedule(asset, untilYear, depreciationSchedule);
   if (asset.method === "degressiv" || asset.method === "elektro") return stepSchedule(asset, untilYear);
   const memo = asset.memoValue ? MEMO_VALUE : 0;
 
@@ -320,39 +321,6 @@ export function depreciationSchedule(asset: ScheduleAsset, untilYear?: number): 
     bookValue = closing;
     if (planEnds(closing, memo, year, disposalYear, untilYear)) break;
   }
-  return rows;
-}
-
-/** Nach dem Begünstigungszeitraum gilt der Restwert über die Restnutzungsdauer (§ 7a Abs. 9 EStG). */
-function linearSpecialSchedule(asset: ScheduleAsset, untilYear: number | undefined): ScheduleYear[] {
-  const regularAsset = { ...asset, specialDepreciation: undefined };
-  const endYear = Number(asset.acquisitionDate.slice(0, 4)) + 4;
-  const memo = asset.memoValue ? MEMO_VALUE : 0;
-  const entries = new Map(asset.specialDepreciation!.filter(({ amount }) => amount > 0).map(({ year, amount }) => [year, amount]));
-  const rows: ScheduleYear[] = [];
-  let bookValue = 0;
-  for (const regular of depreciationSchedule(regularAsset, Math.max(endYear, untilYear ?? endYear))) {
-    if (regular.year > endYear) {
-      const date = `${regular.year}-01-01`;
-      const opening = { date, bookValue };
-      rows.push(...depreciationSchedule({ ...regularAsset, opening }, untilYear));
-      break;
-    }
-    const opening = bookValue;
-    const available = opening + regular.addition;
-    const depreciation = Math.min(regular.depreciation, Math.max(available - memo, 0));
-    const specialDepreciation = entries.get(regular.year) ?? 0;
-    entries.delete(regular.year);
-    const remaining = available - depreciation - specialDepreciation;
-    if (remaining < memo) throw new AssetError("Sonder-AfA überschreitet den verfügbaren Buchwert");
-    const isDisposalYear = asset.disposalDate?.startsWith(String(regular.year)) ?? false;
-    const disposal = isDisposalYear ? remaining : 0;
-    const closing = isDisposalYear ? 0 : remaining;
-    rows.push({ ...regular, opening, depreciation, specialDepreciation, disposal, closing });
-    bookValue = closing;
-    if (closing === 0) break;
-  }
-  if (entries.size > 0) throw new AssetError("Für die Sonder-AfA fehlt im angegebenen Wirtschaftsjahr ein verfügbarer Buchwert");
   return rows;
 }
 
