@@ -11,7 +11,7 @@ import {
 } from "@haben/core";
 import { parseSplitRows, type SplitRowState } from "../../../components/DocumentSplits.tsx";
 import { passendesKonto } from "../../../components/EigenesKontoWahl.tsx";
-import { parseVorsteuerAnteil } from "../../../components/VorsteuerAnteil.tsx";
+import { type Beleg, formatVorsteuerAnteil, parseVorsteuerAnteil, zeilenAnteil } from "../../../components/VorsteuerAnteil.tsx";
 import { isEuVatId, leistungsendeFehler } from "../../../components/WeitereAngaben.tsx";
 import { PRIVATANTEIL_FEHLER, parsePrivatanteil } from "../../../lib/anteil.ts";
 import { bruttoLesbar } from "../../../lib/betragszeile.ts";
@@ -122,8 +122,9 @@ export function documentFieldErrors(
 }
 
 /**
- * Der eingetragene Privatanteil fällt bei einer Aufteilung weg (#1914): Es gibt keine Zeile, an der er hängt, also wird
- * die Vorsteuer voll gezogen. Liefert den Anteil, damit die Oberfläche warnen kann; null, wenn nichts verloren geht.
+ * Der eingetragene Privatanteil fällt bei einer Aufteilung weg (#1914): Es gibt keine Zeile, an der er hängt, weil der
+ * Privatanteil mit Aufteilung nicht gebucht wird (documentSplitPosting). Liefert den Anteil, damit die Oberfläche warnen
+ * kann; null, wenn nichts verloren geht.
  */
 export function privatanteilFaelltWeg(privateShare: string, splitting: boolean): number | null {
   if (!splitting) return null;
@@ -131,13 +132,37 @@ export function privatanteilFaelltWeg(privateShare: string, splitting: boolean):
   return wert !== null && wert > 0 ? wert : null;
 }
 
+/** Was die Aufteilung mit der Vorsteuer macht: nichts, alles, ein Teil oder je Steuersatz etwas anderes (#1914) */
+export type AufteilungVorsteuer = { art: "keine" } | { art: "voll" } | { art: "teil"; prozent: string } | { art: "je" };
+
+/**
+ * Der wirksame Vorsteueranteil je Satz (#1914), gelesen wie in der Steuerspalte: als Kleinunternehmer 0, sonst der Anteil
+ * am Satz, am Beleg oder die Firmenvorgabe (§ 15 Abs. 1 und 4 UStG). Die Aufteilung bucht den Privatanteil nicht, die
+ * Vorsteuer hängt also allein an diesem Anteil; der Hinweis darf deshalb nicht unbedingt „voll gezogen“ sagen.
+ */
+export function aufteilungVorsteuer(beleg: Beleg, saetze: { vorsteuerAnteil: string }[]): AufteilungVorsteuer {
+  const anteile = [...new Set(saetze.map((satz) => zeilenAnteil(beleg, satz.vorsteuerAnteil)))];
+  if (anteile.length === 0 || anteile.every((anteil) => anteil === 0)) return { art: "keine" };
+  if (anteile.length > 1) return { art: "je" };
+  return anteile[0] === 10_000 ? { art: "voll" } : { art: "teil", prozent: `${formatVorsteuerAnteil(anteile[0])} %` };
+}
+
 /**
  * Text des Hinweises in der Beträge-Karte (#1914): der gelesene Anteil statt des Feldinhalts, sonst steht bei „25 %“ im
- * Feld „25 % %“ da. Der Vorsteueranteil ist kein Ersatz für den Privatanteil: er lässt den privaten Anteil samt Steuer
- * Aufwand bleiben, statt ihn als Entnahme zu buchen (§ 15 Abs. 1 und 4 UStG, § 4 Abs. 1 Satz 2 EStG).
+ * Feld „25 % %“ da. Mit Aufteilung bucht Haben den Privatanteil nicht (§ 4 Abs. 1 Satz 2 EStG): das ganze Netto bleibt
+ * Aufwand statt Entnahme, und die Vorsteuer folgt allein dem Vorsteueranteil. Der Satz nennt diesen Zustand, statt „voll
+ * gezogen“ zu behaupten — das stimmt weder als Kleinunternehmer noch bei abweichendem Anteil (§ 15 Abs. 1 und 4 UStG).
  */
-export function aufteilungHinweis(anteil: Prozent): string {
-  return `Die eingetragenen ${formatPercent(anteil * 100)} fallen weg, die Vorsteuer wird voll gezogen. Nimm die Aufteilung zurück oder setz oben den Vorsteueranteil auf den betrieblichen Teil; dann stimmt die Vorsteuer, der private Anteil bleibt aber samt Steuer Aufwand, statt als Entnahme zu laufen.`;
+export function aufteilungHinweis(anteil: Prozent, vorsteuer: AufteilungVorsteuer): string {
+  const folge =
+    vorsteuer.art === "keine"
+      ? "Dann ist keine Vorsteuer abziehbar."
+      : vorsteuer.art === "voll"
+        ? "Die Vorsteuer zieht Haben dann voll ab (Vorsteueranteil 100 %)."
+        : vorsteuer.art === "teil"
+          ? `Vorsteuer zieht Haben dann nur zu ${vorsteuer.prozent} ab; der Rest bleibt Aufwand.`
+          : "Vorsteuer zieht Haben dann je Steuersatz nach dessen Vorsteueranteil ab; der Rest bleibt Aufwand.";
+  return `Die eingetragenen ${formatPercent(anteil * 100)} fallen weg: der ganze Nettobetrag bleibt Aufwand statt als Entnahme zu laufen. ${folge} Nimm die Aufteilung zurück, wenn der private Teil als Entnahme laufen soll.`;
 }
 
 /** Was saveDocument als Beleg bekommt */

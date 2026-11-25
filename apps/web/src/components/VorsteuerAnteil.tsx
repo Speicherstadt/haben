@@ -25,7 +25,7 @@ export const formatVorsteuerAnteil = (value: number | null | undefined): string 
         .replace(/,00$/, "")
         .replace(/(,\d)0$/, "$1");
 
-type Beleg = Pick<Props, "value" | "company" | "booked" | "storedDeduction">;
+export type Beleg = Pick<Props, "value" | "company" | "booked" | "storedDeduction">;
 
 /**
  * Abziehbarer Anteil eines Steuersatzes in Basispunkten, wie ihn Vorschau und Beschriftung lesen. Wie beim Buchen

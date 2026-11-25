@@ -1,7 +1,7 @@
 import { formatDecimal, formatEuro, isKapitalgesellschaft, type Prozent } from "@haben/core";
 import { BelegUmsatzsteuer } from "../../../components/BelegUmsatzsteuer.tsx";
 import { betragszeileAus } from "../../../lib/betragszeile.ts";
-import { aufteilungHinweis, privatanteilFaelltWeg } from "./-beleg-pruefung.ts";
+import { aufteilungHinweis, aufteilungVorsteuer, privatanteilFaelltWeg, type AufteilungVorsteuer } from "./-beleg-pruefung.ts";
 import { Field } from "../../../components/Field.tsx";
 import { VorsteuerAnteil, privatanteilHinweis, steuerSpalte } from "../../../components/VorsteuerAnteil.tsx";
 import { type AmountState, nextRowKey, type Rate } from "./-beleg-zeile.ts";
@@ -107,8 +107,8 @@ export function Betraege({ f, data }: { f: DocumentFormState; data: Detail }) {
           tax: foreign ? (euroRows?.[index]?.tax ?? null) : parsed[index]!.tax,
         }))}
       />
-      {/* Aufgeteilt: der Anteil fällt weg, sonst zieht Haben die Vorsteuer voll (#1914) */}
-      {wegfallenderAnteil !== null && <AufteilungHinweis anteil={wegfallenderAnteil} />}
+      {/* Aufgeteilt: der Privatanteil fällt weg, die Vorsteuer hängt am Vorsteueranteil (#1914) */}
+      {wegfallenderAnteil !== null && <AufteilungHinweis anteil={wegfallenderAnteil} vorsteuer={aufteilungVorsteuer(vorsteuerBeleg, rows)} />}
       {/* Privatanteil nur im Einzelunternehmen; in GmbH und UG wäre er Arbeitslohn oder verdeckte Gewinnausschüttung */}
       {category !== "anlage" && !splitting && !isKapitalgesellschaft(data.rechtsform) && (
         <Field label="Privatanteil in %" hint={privatanteilHinweis(vorsteuerBeleg, rows)} error={error("privatanteil")} style={{ maxWidth: 220 }}>
@@ -204,10 +204,10 @@ function AmountRow({ f, row, index }: { f: DocumentFormState; row: AmountState; 
 }
 
 /** Hinweis in der Beträge-Karte: die Aufteilung verschluckt den eingetragenen Privatanteil (#1914) */
-export function AufteilungHinweis({ anteil }: { anteil: Prozent }) {
+export function AufteilungHinweis({ anteil, vorsteuer }: { anteil: Prozent; vorsteuer: AufteilungVorsteuer }) {
   return (
     <p className="small" aria-live="polite" style={{ margin: 0 }}>
-      <strong>Aufteilung ohne Privatanteil:</strong> {aufteilungHinweis(anteil)}
+      <strong>Aufteilung ohne Privatanteil:</strong> {aufteilungHinweis(anteil, vorsteuer)}
     </p>
   );
 }
