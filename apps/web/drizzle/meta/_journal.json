@@ -2294,14 +2294,14 @@
     {
       "idx": 327,
       "version": "7",
-      "when": 1795559682727,
+      "when": 1795645579114,
       "tag": "0327_bankverbindungen",
       "breakpoints": true
     },
     {
       "idx": 328,
       "version": "7",
-      "when": 1795559693159,
+      "when": 1795645593935,
       "tag": "0328_bankverbindungen_trigger",
       "breakpoints": true
     }

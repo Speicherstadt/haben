@@ -4,7 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState, type FormEvent } from "react";
 import { useAction } from "../lib/use-action.ts";
 import { useSubmitCheck } from "../lib/use-submit-check.ts";
-import { addBankverbindung, archiveBankverbindung, saveBankverbindung } from "../server/functions/bankverbindungen.ts";
+import { addBankverbindung, removeBankverbindung, saveBankverbindung } from "../server/functions/bankverbindungen.ts";
+import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { Field } from "./Field.tsx";
 import { NoticeBanner } from "./NoticeBanner.tsx";
 import { ScrollTable } from "./ScrollTable.tsx";
@@ -16,24 +17,25 @@ interface Row {
   bic: string;
   bank: string;
   kontoinhaber: string;
-  archivedAt: Date | string | null;
 }
 
-type Eingabe = Omit<Row, "id" | "archivedAt">;
+type Eingabe = Omit<Row, "id">;
 
 const LEER: Eingabe = { bezeichnung: "", iban: "", bic: "", bank: "", kontoinhaber: "" };
 
 /**
- * Weitere Bankverbindungen (#1887): Die aus den Firmendaten bleibt der Standard. Gibt es hier eine, wählt man in Rechnung,
- * Angebot und Kontakt, welche auf dem Beleg und in der E-Rechnung (BT-84) steht. Archivieren statt löschen.
+ * Weitere Zahlungskonten (#1887): Das Konto aus den Firmendaten bleibt der Standard. Gibt es hier eins, wählt man in
+ * Rechnung und Angebot das Zahlungskonto und am Kontakt das bevorzugte; es steht auf dem Beleg und in der E-Rechnung (BT-84).
+ * Löschen geht immer: Festgeschriebene Belege tragen eine Kopie, Entwürfe und Kontakte nehmen danach den Standard.
  */
 export function BankverbindungenCard({ bankverbindungen }: { bankverbindungen: Row[] }) {
   const router = useRouter();
   const add = useServerFn(addBankverbindung);
   const save = useServerFn(saveBankverbindung);
-  const archive = useServerFn(archiveBankverbindung);
+  const remove = useServerFn(removeBankverbindung);
+  const [loeschen, setLoeschen] = useState<Row | null>(null);
   const { busy, notice, run } = useAction();
-  // null: Formular zu; "neu" oder die Id der Bankverbindung, die gerade bearbeitet wird
+  // null: Formular zu; "neu" oder die Id des Zahlungskontos, das gerade bearbeitet wird
   const [offen, setOffen] = useState<string | null>(null);
   const [eingabe, setEingabe] = useState<Eingabe>(LEER);
   const iban = eingabe.iban.replace(/\s+/g, "");
@@ -60,28 +62,38 @@ export function BankverbindungenCard({ bankverbindungen }: { bankverbindungen: R
         setOffen(null);
         await router.invalidate();
       },
-      id === "neu" ? `Bankverbindung „${data.bezeichnung.trim()}“ angelegt.` : `Bankverbindung „${data.bezeichnung.trim()}“ gespeichert.`,
-    );
-  }
-
-  function archivieren(row: Row) {
-    void run(
-      async () => {
-        await archive({ data: { id: row.id, archived: !row.archivedAt } });
-        await router.invalidate();
-      },
-      row.archivedAt ? `„${row.bezeichnung}“ wiederhergestellt.` : `„${row.bezeichnung}“ archiviert.`,
+      id === "neu" ? `Zahlungskonto „${data.bezeichnung.trim()}“ angelegt.` : `Zahlungskonto „${data.bezeichnung.trim()}“ gespeichert.`,
     );
   }
 
   return (
     <section className="card stack" aria-labelledby="bankverbindungen-heading">
-      <h2 id="bankverbindungen-heading">Weitere Bankverbindungen</h2>
+      <h2 id="bankverbindungen-heading">Weitere Zahlungskonten</h2>
       <p className="small muted" style={{ margin: 0 }}>
-        Für Rechnungen und Angebote auf ein anderes Konto, etwa je Objekt oder Kunde. Die Bankverbindung in den Firmendaten bleibt der Standard. Sobald hier
-        eine steht, wählst du in Rechnung, Angebot und Kontakt, welche auf dem Beleg, im GiroCode und in der E-Rechnung steht. Archivieren statt löschen: Belege
-        verweisen darauf.
+        Für Rechnungen und Angebote auf ein anderes eigenes Konto, etwa je Objekt oder Kunde. Die Bankverbindung in den Firmendaten bleibt der Standard. Sobald
+        hier eins steht, wählst du in Rechnung und Angebot das Zahlungskonto und am Kontakt das bevorzugte; es steht auf dem Beleg, im GiroCode und in der
+        E-Rechnung.
       </p>
+      <ConfirmDialog
+        open={loeschen !== null}
+        title={loeschen ? `Zahlungskonto „${loeschen.bezeichnung}“ löschen?` : "Zahlungskonto löschen?"}
+        facts={loeschen ? [{ label: "IBAN", value: gruppierteIban(loeschen.iban), strong: true }] : undefined}
+        confirmLabel="Löschen"
+        danger
+        onConfirm={() =>
+          loeschen &&
+          void run(async () => {
+            await remove({ data: { id: loeschen.id } });
+            await router.invalidate();
+          }, `Zahlungskonto „${loeschen.bezeichnung}“ gelöscht.`)
+        }
+        onClose={() => setLoeschen(null)}
+      >
+        <p>
+          Festgeschriebene Rechnungen und Angebote behalten das Konto, es steht in ihnen selbst. Entwürfe und Kontakte, die es gewählt haben, nehmen danach das
+          Standardkonto aus den Firmendaten.
+        </p>
+      </ConfirmDialog>
       {bankverbindungen.length > 0 && (
         <ScrollTable className="report-table">
           <thead>
@@ -95,10 +107,9 @@ export function BankverbindungenCard({ bankverbindungen }: { bankverbindungen: R
           </thead>
           <tbody>
             {bankverbindungen.map((row) => (
-              <tr key={row.id} className={row.archivedAt ? "muted" : undefined}>
+              <tr key={row.id}>
                 <td>
                   {row.bezeichnung}
-                  {row.archivedAt ? " (archiviert)" : ""}
                   {row.bank && <div className="small muted">{row.bank}</div>}
                 </td>
                 <td className="mono" style={{ whiteSpace: "nowrap" }}>
@@ -106,13 +117,17 @@ export function BankverbindungenCard({ bankverbindungen }: { bankverbindungen: R
                 </td>
                 <td>
                   <div className="actions" style={{ flexWrap: "nowrap", justifyContent: "flex-end" }}>
-                    {!row.archivedAt && (
-                      <button type="button" className="btn btn-sm" disabled={busy} onClick={() => oeffnen(row)} aria-label={`${row.bezeichnung} bearbeiten`}>
-                        Bearbeiten
-                      </button>
-                    )}
-                    <button type="button" className="btn btn-sm" disabled={busy} onClick={() => archivieren(row)}>
-                      {row.archivedAt ? "Wiederherstellen" : "Archivieren"}
+                    <button type="button" className="btn btn-sm" disabled={busy} onClick={() => oeffnen(row)} aria-label={`${row.bezeichnung} bearbeiten`}>
+                      Bearbeiten
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-danger"
+                      disabled={busy}
+                      onClick={() => setLoeschen(row)}
+                      aria-label={`${row.bezeichnung} löschen`}
+                    >
+                      Löschen
                     </button>
                   </div>
                 </td>
@@ -124,11 +139,11 @@ export function BankverbindungenCard({ bankverbindungen }: { bankverbindungen: R
       {offen === null ? (
         <div className="actions">
           <button type="button" className="btn btn-dashed" onClick={() => oeffnen(null)}>
-            + Bankverbindung
+            + Zahlungskonto
           </button>
         </div>
       ) : (
-        <form ref={form} onSubmit={onSubmit} className="stack" aria-label={offen === "neu" ? "Neue Bankverbindung" : "Bankverbindung bearbeiten"} noValidate>
+        <form ref={form} onSubmit={onSubmit} className="stack" aria-label={offen === "neu" ? "Neues Zahlungskonto" : "Zahlungskonto bearbeiten"} noValidate>
           <div className="form-row cols-2">
             <Field label="Bezeichnung" hint="Nur für die Auswahl, steht nicht auf dem Beleg" error={error("bezeichnung")}>
               {(control) => <input {...control} value={eingabe.bezeichnung} maxLength={60} onChange={(e) => setze("bezeichnung")(e.target.value)} />}
@@ -163,7 +178,7 @@ export function BankverbindungenCard({ bankverbindungen }: { bankverbindungen: R
               Abbrechen
             </button>
             <button type="submit" className="btn btn-primary" disabled={busy}>
-              {offen === "neu" ? "Bankverbindung anlegen" : "Speichern"}
+              {offen === "neu" ? "Zahlungskonto anlegen" : "Speichern"}
             </button>
           </div>
         </form>

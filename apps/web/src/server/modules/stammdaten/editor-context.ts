@@ -37,8 +37,8 @@ export async function editorContext(kind: "rechnung" | "angebot") {
     mandates,
     /** Ansprechpartner aller Kunden (#424), für die Auswahl unter „Kunde“ */
     contactPersons,
-    /** Weitere Bankverbindungen (#1887), auch archivierte, und die IBAN des Standards */
-    bankverbindungen: bankverbindungen.map(({ id, bezeichnung, iban: kontoIban, archivedAt }) => ({ id, bezeichnung, iban: kontoIban, archivedAt })),
+    /** Weitere Zahlungskonten (#1887) und die IBAN des Standards */
+    bankverbindungen: bankverbindungen.map(({ id, bezeichnung, iban: kontoIban }) => ({ id, bezeichnung, iban: kontoIban })),
     standardIban: iban,
     articles: articles.map(({ id, number, description, detail, unit, unitPrice, taxRate, priceIncludesTax, arbeitskosten }) => ({
       id,

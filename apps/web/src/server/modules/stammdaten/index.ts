@@ -47,13 +47,14 @@ export { setContactIbanIfEmpty } from "./contact-iban.ts";
 export { editorContext } from "./editor-context.ts";
 export {
   bankverbindungAuswahl,
+  bankverbindungNachIban,
   bankverbindungProblem,
   bankverbindungSchema,
   createBankverbindung,
   kontaktBankverbindung,
   listBankverbindungen,
+  deleteBankverbindung,
   loadBankverbindung,
-  setBankverbindungArchived,
   updateBankverbindung,
   type Bankverbindung,
   type BankverbindungInput,
@@ -187,7 +188,6 @@ export {
 } from "./text-blocks.ts";
 export {
   artikelUebernehmen,
-  bankverbindungenArchivieren,
   bankverbindungenUebernehmen,
   einheitenUebernehmen,
   einrichtungUebernehmen,

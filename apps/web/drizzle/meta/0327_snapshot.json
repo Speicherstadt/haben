@@ -1,5 +1,5 @@
 {
-  "id": "16112b57-b8e1-4301-ac33-afa21704c3a8",
+  "id": "c9bdfc5c-4c46-49d5-9de2-d58955f462cf",
   "prevId": "e10e0748-71ac-4548-9f27-7503eb28fb88",
   "version": "7",
   "dialect": "postgresql",
@@ -3115,12 +3115,6 @@
           "notNull": true,
           "default": "''"
         },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -4660,7 +4654,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -10298,7 +10292,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "invoices_corrects_fk": {
@@ -15942,7 +15936,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "quotes_invoice_id_invoices_id_fk": {

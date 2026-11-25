@@ -123,7 +123,7 @@ export const FELDER = {
     ["id", "number", "description", "detail", "unit", "unitPrice", "taxRate", "priceIncludesTax", "arbeitskosten", "note", "sevdeskId", "archivedAt"],
     { createdAt: ANGELEGT, updatedAt: GEAENDERT },
   ),
-  bankverbindungen: felder(schema.bankverbindungen, ["id", "bezeichnung", "iban", "bic", "bank", "kontoinhaber", "archivedAt"], { createdAt: ANGELEGT }),
+  bankverbindungen: felder(schema.bankverbindungen, ["id", "bezeichnung", "iban", "bic", "bank", "kontoinhaber"], { createdAt: ANGELEGT }),
   contacts: felder(
     schema.contacts,
     [

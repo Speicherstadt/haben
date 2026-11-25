@@ -270,6 +270,8 @@ export async function finalizeDraft(tx: Tx, id: string, umsatzStand: UmsatzStand
         numberContactId,
         contactVersion: contact!.version,
         seller,
+        // Ab hier gilt die Kopie des Zahlungskontos im Verkäufer; ohne Verweis lässt sich das Konto löschen (#1887)
+        bankverbindungId: null,
         buyer,
         net: totals.net,
         tax: totals.tax,

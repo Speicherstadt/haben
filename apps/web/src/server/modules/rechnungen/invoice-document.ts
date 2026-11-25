@@ -25,10 +25,10 @@ export function invoiceTitle(invoice: Pick<Invoice, "kind" | "variant">): string
   return { rechnung: "Rechnung", storno: "Stornorechnung", korrektur: "Rechnungskorrektur" }[invoice.kind];
 }
 
-/** Bankverbindung des Belegs statt der aus den Firmendaten (#1887), nur die Felder der Bankverbindung */
+/** Zahlungskonto des Belegs statt des Standards aus den Firmendaten (#1887), nur die Felder des Kontos */
 type SellerBank = Pick<Company, "iban" | "bic" | "bank" | "kontoinhaber">;
 
-/** Verkäufer aus den Firmendaten; mit `bank` die gewählte weitere Bankverbindung statt des Standards (#1887) */
+/** Verkäufer aus den Firmendaten; mit `bank` das gewählte weitere Zahlungskonto statt des Standards (#1887) */
 export function sellerFrom(company: Company, bank: SellerBank | null = null): Seller {
   const { iban, bic, kontoinhaber, bank: bankName } = bank ?? company;
   return {
@@ -50,10 +50,23 @@ export function sellerFrom(company: Company, bank: SellerBank | null = null): Se
 }
 
 /**
- * Verkäufer eines Entwurfs mit dessen Bankverbindung (#1887). Eine Lastschrift zieht Haben immer auf das Konto aus den
- * Firmendaten ein (Gläubigerkonto der SEPA-Datei); dann steht auch auf dem Beleg der Standard.
+ * Verkäufer eines Entwurfs mit dessen Zahlungskonto (#1887). Storno und Korrektur nennen das Konto der Rechnung, aus
+ * der Kopie in deren Verkäufer, auch wenn das Zahlungskonto inzwischen geändert oder gelöscht ist. Eine Lastschrift
+ * zieht Haben immer auf das Konto aus den Firmendaten ein (Gläubigerkonto der SEPA-Datei); dann steht auch auf dem
+ * Beleg der Standard.
  */
-export async function draftSeller(q: Db | Tx, company: Company, draft: { bankverbindungId: string | null; paymentMethod?: string }): Promise<Seller> {
+export async function draftSeller(
+  q: Db | Tx,
+  company: Company,
+  draft: { bankverbindungId: string | null; paymentMethod?: string; correctsId?: string | null },
+): Promise<Seller> {
+  if (draft.correctsId) {
+    const [original] = await q.select({ seller: schema.invoices.seller }).from(schema.invoices).where(eq(schema.invoices.id, draft.correctsId));
+    if (original?.seller) {
+      const { iban = "", bic = "", bank = "", kontoinhaber = "" } = original.seller;
+      return sellerFrom(company, { iban, bic, bank, kontoinhaber });
+    }
+  }
   const bank = draft.paymentMethod === "lastschrift" ? null : await loadBankverbindung(q, draft.bankverbindungId);
   return sellerFrom(company, bank);
 }

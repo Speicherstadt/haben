@@ -17,7 +17,7 @@ export interface KontaktWeitereWerte {
   /** Skonto: false = wie in den Einstellungen, true = eigene Stufen (leer = ohne Skonto) */
   ownSkonto: boolean;
   skonto: readonly SkontoStufe[];
-  /** Bezeichnung der gewählten weiteren Bankverbindung (#1887); leer = Standard */
+  /** Bezeichnung des bevorzugten Zahlungskontos (#1887); leer = Standard */
   bankverbindung?: string;
 }
 
@@ -35,7 +35,7 @@ export function kontaktWeitereKurz(werte: KontaktWeitereWerte): string {
     werte.leitwegId.trim() && "Leitweg-ID gesetzt",
     werte.defaultFormat && `Format ${FORMAT_LABEL[werte.defaultFormat].split(" · ")[0]}`,
     skonto,
-    werte.bankverbindung && `Bankverbindung ${werte.bankverbindung}`,
+    werte.bankverbindung && `Zahlungskonto ${werte.bankverbindung}`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -73,7 +73,7 @@ export function ContactWeitereAngaben({
   onSkontoRows: (rows: SkontoRow[]) => void;
   offen: boolean;
   onOffen: (offen: boolean) => void;
-  /** Weitere Bankverbindungen (#1887); ohne aktive kein Feld */
+  /** Weitere Zahlungskonten (#1887); ohne keine Auswahl */
   bankverbindungen?: { liste: readonly BankverbindungOption[]; standardIban: string };
 }) {
   const [debitorNr, setDebitorNr] = useState(String(initial.debitorNr ?? ""));
@@ -169,12 +169,13 @@ export function ContactWeitereAngaben({
           />
         )}
         <BankverbindungField
+          label="Bevorzugtes Zahlungskonto"
           name="bankverbindungId"
           bankverbindungen={bankverbindungen.liste}
           standardIban={bankverbindungen.standardIban}
           value={bankverbindungId}
           disabled={false}
-          hint="Vorgabe für neue Rechnungen und Angebote an diesen Kunden; im Beleg lässt sie sich ändern."
+          hint="Dein Konto, das neue Rechnungen und Angebote an diesen Kunden vorschlagen; im Beleg lässt es sich ändern. Die IBAN des Kunden steht oben."
           onChange={setBankverbindungId}
         />
       </WeitereAngaben>

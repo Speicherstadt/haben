@@ -233,8 +233,9 @@ export const company = pgTable(
 );
 
 /**
- * Weitere Bankverbindungen für Rechnungen und Angebote (#1887); die Standard-Bankverbindung bleibt in `company`. Wählbar
- * je Beleg und als Vorgabe am Kontakt; nur archivieren, nicht löschen, denn Belege verweisen darauf.
+ * Weitere Zahlungskonten für Rechnungen und Angebote (#1887); das Standardkonto bleibt in `company`. Wählbar je Entwurf
+ * und als Vorgabe am Kontakt. Festgeschriebene Belege tragen eine Kopie im Verkäufer (seller) und keinen Verweis, darum
+ * lässt sich jedes löschen; Entwürfe und Kontakte fallen dann auf den Standard zurück.
  */
 export const bankverbindungen = pgTable(
   "bankverbindungen",
@@ -248,7 +249,6 @@ export const bankverbindungen = pgTable(
     bank: text("bank").notNull().default(""),
     /** Inhaber des Kontos, wenn nicht der Firmenname; leer = Firmenname (GiroCode, BT-85) */
     kontoinhaber: text("kontoinhaber").notNull().default(""),
-    archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("bankverbindungen_iban").on(t.iban)],
@@ -1143,8 +1143,8 @@ export const contacts = pgTable(
      */
     debitorNr: integer("debitor_nr").unique(),
     kreditorNr: integer("kreditor_nr").unique(),
-    /** Bankverbindung für Rechnungen und Angebote an diesen Kunden (#1887); null = Standard aus den Firmendaten */
-    bankverbindungId: uuid("bankverbindung_id").references(() => bankverbindungen.id),
+    /** Bevorzugtes Zahlungskonto für Rechnungen und Angebote an diesen Kunden (#1887); null = Standard aus den Firmendaten */
+    bankverbindungId: uuid("bankverbindung_id").references(() => bankverbindungen.id, { onDelete: "set null" }),
     /** Stundensatz für Leistungseinträge (#417); null = keiner hinterlegt */
     hourlyRateCents: integer("hourly_rate_cents").$type<Cents>(),
     version: integer("version").notNull().default(1),
@@ -1532,10 +1532,10 @@ export const invoices = pgTable(
     /** Gewählter Ansprechpartner des Kunden (#424); der festgeschriebene Stand steht im Käufer */
     contactPersonId: uuid("contact_person_id").references(() => contactPersons.id),
     /**
-     * Bankverbindung auf dem Beleg (#1887); null = Standard aus den Firmendaten. Bei Lastschrift gilt immer der Standard,
-     * auf ihn lautet das Gläubigerkonto. Festgeschrieben steht sie im Verkäufer (seller).
+     * Zahlungskonto des Entwurfs (#1887); null = Standard aus den Firmendaten. Bei Lastschrift gilt immer der Standard,
+     * auf ihn lautet das Gläubigerkonto. Beim Festschreiben geleert: Dann gilt die Kopie im Verkäufer (seller).
      */
-    bankverbindungId: uuid("bankverbindung_id").references(() => bankverbindungen.id),
+    bankverbindungId: uuid("bankverbindung_id").references(() => bankverbindungen.id, { onDelete: "set null" }),
     recurringId: uuid("recurring_id"),
     recurringDate: date("recurring_date", { mode: "string" }),
     /** Offene Rechnung aus Lexoffice übernommen: Original-PDF, Eröffnungsbuchung statt Erlösbuchung */
@@ -1725,9 +1725,10 @@ export const quotes = pgTable(
     /** Gewählter Ansprechpartner des Kunden (#424); der festgeschriebene Stand steht im Käufer */
     contactPersonId: uuid("contact_person_id").references(() => contactPersons.id),
     /**
-     * Bankverbindung auf dem Beleg (#1887); null = Standard aus den Firmendaten. Festgeschrieben steht sie im Verkäufer (seller).
+     * Zahlungskonto des Entwurfs (#1887); null = Standard aus den Firmendaten. Beim Festschreiben geleert: Dann gilt die
+     * Kopie im Verkäufer (seller).
      */
-    bankverbindungId: uuid("bankverbindung_id").references(() => bankverbindungen.id),
+    bankverbindungId: uuid("bankverbindung_id").references(() => bankverbindungen.id, { onDelete: "set null" }),
     issueDate: date("issue_date", { mode: "string" }).notNull(),
     validUntil: date("valid_until", { mode: "string" }).notNull(),
     serviceFrom: date("service_from", { mode: "string" }),

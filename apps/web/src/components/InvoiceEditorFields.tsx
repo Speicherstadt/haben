@@ -168,22 +168,23 @@ export function InvoiceDatePaymentFields({ editor }: { editor: InvoiceEditorMode
 }
 
 /**
- * Weitere Bankverbindung (#1887) im Angebot und in der Rechnung mit Überweisung; bei Lastschrift gilt das Gläubigerkonto
- * aus den Firmendaten. Ohne weitere Bankverbindungen steht das Feld nicht da (BankverbindungField).
+ * Zahlungskonto (#1887) im Angebot und in der Rechnung mit Überweisung; bei Lastschrift gilt das Gläubigerkonto aus den
+ * Firmendaten. Ohne weitere Zahlungskonten steht das Feld nicht da (BankverbindungField).
  */
 function InvoiceBankverbindungField({ editor }: { editor: InvoiceEditorModel }) {
   const { bankverbindungen, bankverbindungId, editable, kind, paymentMethod, quote, setBankverbindungId, standardIban, touch } = editor;
   if (!quote && !(kind === "rechnung" && paymentMethod === "ueberweisung")) return null;
   return (
     <BankverbindungField
+      label="Zahlungskonto"
       bankverbindungen={bankverbindungen}
       standardIban={standardIban}
       value={bankverbindungId}
       disabled={!editable}
       hint={
         quote
-          ? "Steht im Angebot und geht in die Rechnung aus dem Angebot über."
-          : "Steht auf der Rechnung, im GiroCode und in der E-Rechnung (BT-84). Vorgabe ist die Bankverbindung des Kunden."
+          ? "Dein Konto für die Zahlung des Kunden; geht in die Rechnung aus dem Angebot über. Vorgabe ist das bevorzugte Zahlungskonto des Kunden."
+          : "Dein Konto, auf das der Kunde zahlt: auf der Rechnung, im GiroCode und in der E-Rechnung (BT-84). Vorgabe ist das bevorzugte Zahlungskonto des Kunden."
       }
       onChange={touch(setBankverbindungId)}
     />

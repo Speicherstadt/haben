@@ -66,10 +66,10 @@ function editorChoices(state: InvoiceEditorState, schluss: boolean, lastschrift:
     // Ein Ansprechpartner gehört zu genau einem Kunden; hat der neue genau einen aktiven, ist er gleich gewählt (#1335)
     if (value !== contactId) setContactPersonId(einzigerAnsprechpartner(contactPersons, value));
     const chosen = saved ?? contacts.find((c) => c.id === value);
-    // Bankverbindung des Kunden, sonst der Standard (#1887); eine archivierte zählt nicht, wie kontaktBankverbindung im Server
+    // Bevorzugtes Zahlungskonto des Kunden, sonst der Standard (#1887), wie kontaktBankverbindung im Server
     if (value !== contactId) {
       const vorgabe = contacts.find((c) => c.id === value)?.bankverbindungId;
-      setBankverbindungId(bankverbindungen.some((b) => b.id === vorgabe && !b.archivedAt) ? vorgabe! : "");
+      setBankverbindungId(bankverbindungen.some((b) => b.id === vorgabe) ? vorgabe! : "");
     }
     if (chosen?.defaultFormat) setFormat(chosen.defaultFormat);
     else if (chosen?.leitwegId) setFormat("xrechnung-cii");

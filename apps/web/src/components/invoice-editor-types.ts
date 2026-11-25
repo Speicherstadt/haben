@@ -101,7 +101,7 @@ export type InvoiceEditorProps = {
   numberPerCustomer?: boolean;
   /** Zuletzt festgeschriebene Rechnung je Kreis (#713), Schlüssel wie bei numberCounters */
   lastFinalized?: Record<string, FinalizedCircleRef>;
-  corrects: { number: string | null; issueDate: string; buyer?: { kundennummer?: string } | null } | null;
+  corrects: { id?: string; number: string | null; issueDate: string; buyer?: { kundennummer?: string } | null } | null;
   /** Die frühere Rechnung, deren Leistung dieser Ersatz mit demselben Bezug abrechnet. */
   replaces?: { id: string; number: string | null } | null;
   /** Für die Fälligkeit: Feiertage im Bundesland */
@@ -131,7 +131,7 @@ export type InvoiceEditorProps = {
   mandates?: MandateOption[];
   /** Ansprechpartner aller Kunden (#424), für die Auswahl unter „Kunde“ */
   contactPersons?: ContactPersonOption[];
-  /** Weitere Bankverbindungen (#1887), auch archivierte; ohne aktive keine Auswahl im Editor */
+  /** Weitere Zahlungskonten (#1887); ohne keine Auswahl im Editor */
   bankverbindungen?: BankverbindungOption[];
   /** IBAN der Standard-Bankverbindung aus den Firmendaten, für die Auswahl */
   standardIban?: string;

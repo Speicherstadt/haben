@@ -74,7 +74,6 @@ function vergleichbar(datei: Datei) {
     einrichtung: gesetzt(datei.einrichtung, "fragenAt"),
     letterheadProfiles: ohneId(datei.letterheadProfiles).map((profil) => ({ ...profil, settings: designWithDefaults(profil.settings as never) })),
     units: ohneId(datei.units).map((zeile) => gesetzt(zeile, "archivedAt")),
-    bankverbindungen: datei.bankverbindungen.map((zeile) => gesetzt(zeile, "archivedAt")),
     articles: ohneId(datei.articles).map((zeile) => gesetzt(zeile, "archivedAt")),
     contacts: datei.contacts.map((zeile) => gesetzt(zeile, "archivedAt")),
     contactPersons: ohneId(datei.contactPersons).map((zeile) => gesetzt(zeile, "deactivatedAt")),
@@ -119,9 +118,9 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
         'COBADEFFXXX', 'SKR04', 'soll', 21, 'RE-{NNNN}', 'AN-{JJJJ}-{NNN}', true, 'K-{NNNN}', 42, '12345', '678',
         ${JSON.stringify({ a: ERIKA })}::jsonb, '#1D4ED8', false, true, now())`;
     await sql`insert into einrichtung(id, ausgeblendete_bereiche, fragen_at) values (1, ${JSON.stringify(["personal"])}::jsonb, now())`;
-    // Weitere Bankverbindungen (#1887): eine als Vorgabe des Kunden, eine archivierte
+    // Weitere Zahlungskonten (#1887): eins als bevorzugtes des Kunden, eins ohne Kontakt
     await sql`insert into bankverbindungen(id, bezeichnung, iban, bank) values (${NORD}, 'Objekt Nord', 'DE02120300000000202051', 'Deutsche Kreditbank')`;
-    await sql`insert into bankverbindungen(bezeichnung, iban, archived_at) values ('Altes Konto', 'DE75512108001245126199', now())`;
+    await sql`insert into bankverbindungen(bezeichnung, iban) values ('Rücklage', 'DE75512108001245126199')`;
     await sql`insert into contacts(id, kundennummer, name, ort, email, debitor_nr, lexoffice_id, bankverbindung_id) values (${KUNDE}, 'K-0041', 'Nordwerk GmbH', 'Hamburg', 'einkauf@nordwerk.example', 10041, 'lx-41', ${NORD})`;
     await sql`insert into contacts(id, is_customer, is_supplier, name, archived_at) values (${LIEFERANT}, false, true, 'Altlieferant KG', now())`;
     await sql`insert into contact_persons(contact_id, name, funktion, created_by) values (${KUNDE}, 'Jana Peters', 'Einkauf', 'test-user')`;
@@ -190,12 +189,12 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
       [KUNDE, "K-0041", "Nordwerk GmbH", 10041, "lx-41", false],
     ]);
     expect((await sql`select bankverbindung_id from contacts where id = ${KUNDE}`)[0]!.bankverbindung_id).toBe(NORD);
-    const bankverbindungen = await sql`select id, bezeichnung, iban, bank, archived_at from bankverbindungen order by bezeichnung`;
-    expect(bankverbindungen.map((b) => [b.bezeichnung, b.iban, b.bank, b.archived_at !== null])).toEqual([
-      ["Altes Konto", "DE75512108001245126199", "", true],
-      ["Objekt Nord", "DE02120300000000202051", "Deutsche Kreditbank", false],
+    const bankverbindungen = await sql`select id, bezeichnung, iban, bank from bankverbindungen order by bezeichnung`;
+    expect(bankverbindungen.map((b) => [b.bezeichnung, b.iban, b.bank])).toEqual([
+      ["Objekt Nord", "DE02120300000000202051", "Deutsche Kreditbank"],
+      ["Rücklage", "DE75512108001245126199", ""],
     ]);
-    expect(bankverbindungen[1]!.id).toBe(NORD);
+    expect(bankverbindungen[0]!.id).toBe(NORD);
     expect(await sql`select contact_id, name, funktion, created_by from contact_persons`).toEqual([
       { contact_id: KUNDE, name: "Jana Peters", funktion: "Einkauf", created_by: actor },
     ]);

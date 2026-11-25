@@ -1,4 +1,4 @@
-import { documentOpen, invoiceOpen, skontoZahlfristen, type InvoiceTotals, type OpenItem } from "@haben/core";
+import { compactIban, documentOpen, invoiceOpen, skontoZahlfristen, type InvoiceTotals, type OpenItem } from "@haben/core";
 import { and, eq, inArray } from "drizzle-orm";
 import { type Db, db, schema, type Tx } from "../../db/index.ts";
 import { documentNotCancelled } from "../../db/document-cancelled.ts";
@@ -34,7 +34,6 @@ async function finalInvoiceRows() {
       externalId: schema.invoices.externalId,
       buyerOrderReference: schema.invoices.buyerOrderReference,
       sellerOrderReference: schema.invoices.sellerOrderReference,
-      bankverbindungId: schema.invoices.bankverbindungId,
       seller: schema.invoices.seller,
     })
     .from(schema.invoices)
@@ -165,10 +164,11 @@ export async function openItems(): Promise<OpenItem[]> {
   const ids = documents.map((d) => d.id);
   const [payees, decisions] = await Promise.all([documentPayees(ids), ibanDecisions(ids)]);
   // Feiertage für das Ende der Skontofrist (§ 193 BGB) wie beim Zahlungsziel: die im Bundesland der Firma
-  const { bundesland } = await loadCompany();
+  const company = await loadCompany();
+  const { bundesland } = company;
 
-  // Erst mit weiteren Bankverbindungen (#1887) sagt das Konto der Rechnung etwas; sonst stünde es an jedem Vorschlag
-  const mitZielkonto = invoices.some((inv) => inv.bankverbindungId !== null);
+  // Erst wenn eine Rechnung auf ein weiteres Zahlungskonto lautet (#1887), sagt das Konto etwas; sonst stünde es an jedem Vorschlag
+  const mitZielkonto = invoices.some((inv) => inv.seller?.iban && compactIban(inv.seller.iban) !== compactIban(company.iban));
   const items: OpenItem[] = [];
   for (const inv of invoices) {
     const paid = invoicePaid.get(inv.id) ?? 0;

@@ -133,10 +133,7 @@ function draftValues(input: DraftInput, bundesland: Company["bundesland"], lines
   return { values, calculation, taxes };
 }
 
-/**
- * Bankverbindung des Entwurfs (#1887). Eine Lastschrift zieht auf das Gläubigerkonto aus den Firmendaten ein: dann gilt
- * der Standard, auch für Storno und Korrektur, die die Bankverbindung der Rechnung übernehmen.
- */
+/** Zahlungskonto des Entwurfs (#1887). Eine Lastschrift zieht auf das Gläubigerkonto aus den Firmendaten ein: dann gilt der Standard. */
 function entwurfsBankverbindung(
   tx: Tx,
   values: { contactId: string | null; paymentMethod: string },
@@ -189,14 +186,8 @@ export async function insertDraft(tx: Tx, draft: DraftInput, extra: DraftExtra =
   if (mandateProblem) throw new InvoiceError(mandateProblem);
   const personProblem = await contactPersonProblem(tx, values.contactId, values.contactPersonId);
   if (personProblem) throw new InvoiceError(personProblem);
-  // Storno und Korrektur nennen die Bankverbindung der ursprünglichen Rechnung (#1887)
-  const [original] = extra.correctsId
-    ? await tx
-        .select({ bankverbindungId: schema.invoices.bankverbindungId, contactId: schema.invoices.contactId })
-        .from(schema.invoices)
-        .where(eq(schema.invoices.id, extra.correctsId))
-    : [];
-  const bankverbindungId = await entwurfsBankverbindung(tx, values, input.bankverbindungId, original ?? null);
+  // Storno und Korrektur nennen das Zahlungskonto der Rechnung aus deren Verkäufer (draftSeller), ohne eigene Wahl
+  const bankverbindungId = extra.correctsId ? null : await entwurfsBankverbindung(tx, values, input.bankverbindungId, null);
   const [invoice] = await tx
     .insert(schema.invoices)
     .values({ ...values, ...extra, bankverbindungId, replacesInvoiceId: input.replacesInvoiceId ?? null })

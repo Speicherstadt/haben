@@ -4,18 +4,18 @@ import {
   bankverbindungAuswahl,
   bankverbindungSchema,
   createBankverbindung,
+  deleteBankverbindung,
   listBankverbindungen,
-  setBankverbindungArchived,
   updateBankverbindung,
 } from "../modules/stammdaten/index.ts";
 import { authMiddleware } from "../middleware.ts";
 
-/** Weitere Bankverbindungen für Rechnungen und Angebote (#1887), auch archivierte */
+/** Weitere Zahlungskonten für Rechnungen und Angebote (#1887) */
 export const getBankverbindungen = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(() => listBankverbindungen());
 
-/** Auswahl der Vorgabe am Kontakt: die weiteren und die IBAN des Standards */
+/** Auswahl des bevorzugten Zahlungskontos am Kontakt: die weiteren und die IBAN des Standards */
 export const getBankverbindungAuswahl = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(() => bankverbindungAuswahl());
@@ -36,10 +36,10 @@ export const saveBankverbindung = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const archiveBankverbindung = createServerFn({ method: "POST" })
+export const removeBankverbindung = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(z.object({ id: z.uuid(), archived: z.boolean() }))
+  .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data, context }) => {
-    await setBankverbindungArchived(context.user.id, data.id, data.archived);
+    await deleteBankverbindung(context.user.id, data.id);
     return { ok: true };
   });

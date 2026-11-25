@@ -103,7 +103,7 @@ describe.skipIf(!testDatabaseUrl)("Export der Einstellungen (Postgres)", () => {
     expect(export_.contactPersons).toEqual([expect.objectContaining({ contactId: KUNDE, name: "Jana Peters", funktion: "Einkauf", deactivatedAt: null })]);
     expect(export_.contactPersons[0]).not.toHaveProperty("createdBy");
     expect(export_.textBlocks).toEqual([expect.objectContaining({ name: "Rahmenvertrag", kind: "kopf", contactId: KUNDE })]);
-    expect(export_.bankverbindungen).toEqual([expect.objectContaining({ bezeichnung: "Objekt Nord", iban: "DE02120300000000202051", archivedAt: null })]);
+    expect(export_.bankverbindungen).toEqual([expect.objectContaining({ bezeichnung: "Objekt Nord", iban: "DE02120300000000202051" })]);
     expect(export_.bankverbindungen[0]).not.toHaveProperty("createdAt");
     expect(export_.units).toEqual([expect.objectContaining({ label: "Lizenz", code: "C62", archivedAt: null })]);
     expect(export_.articles).toEqual([expect.objectContaining({ number: "B-1", description: "Beratung", unitPrice: 9500, taxRate: 1900 })]);

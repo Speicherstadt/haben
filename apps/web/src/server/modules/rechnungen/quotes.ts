@@ -521,6 +521,8 @@ export async function finalizeQuote(actor: string, id: string): Promise<Quote> {
         numberContactId,
         contactVersion: contact!.version,
         seller,
+        // Ab hier gilt die Kopie des Zahlungskontos im Verkäufer; ohne Verweis lässt sich das Konto löschen (#1887)
+        bankverbindungId: null,
         buyer,
         net: doc.totals.net,
         tax: doc.totals.tax,
@@ -616,7 +618,7 @@ export async function quoteToInvoice(
       {
         contactId: locked.contactId,
         contactPersonId,
-        bankverbindungId: await uebernommeneBankverbindung(tx, locked.bankverbindungId),
+        bankverbindungId: await uebernommeneBankverbindung(tx, locked),
         issueDate: today,
         serviceFrom: newFinal ? today : locked.serviceFrom,
         serviceTo: newFinal ? null : locked.serviceTo,
@@ -671,7 +673,7 @@ export async function copyQuote(actor: string, id: string, today: string): Promi
   const validDays = Math.max(0, Math.round((Date.parse(quote.validUntil) - Date.parse(quote.issueDate)) / 86_400_000));
   const input: QuoteDraftInput = {
     contactId: quote.contactId,
-    bankverbindungId: await uebernommeneBankverbindung(db, quote.bankverbindungId),
+    bankverbindungId: await uebernommeneBankverbindung(db, quote),
     // Eine Kopie behält die Person, solange sie noch aktiv ist
     contactPersonId: quote.contactPersonId && (await contactPersonProblem(db, quote.contactId, quote.contactPersonId)) === null ? quote.contactPersonId : null,
     issueDate: today,

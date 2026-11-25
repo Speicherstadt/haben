@@ -1,19 +1,19 @@
 import { gruppierteIban } from "@haben/core";
 import { Field } from "./Field.tsx";
 
-/** Weitere Bankverbindung zur Auswahl in Rechnung, Angebot und Kontakt (#1887) */
+/** Weiteres Zahlungskonto zur Auswahl in Rechnung, Angebot und Kontakt (#1887) */
 export interface BankverbindungOption {
   id: string;
   bezeichnung: string;
   iban: string;
-  archivedAt: Date | string | null;
 }
 
 /**
- * Auswahl der Bankverbindung; steht nur da, wenn es weitere gibt (Einstellungen › Firma). Leer = Standard aus den
- * Firmendaten. Eine schon gewählte, inzwischen archivierte bleibt in der Liste, neu wählbar sind nur aktive.
+ * Auswahl des eigenen Zahlungskontos; steht nur da, wenn es weitere gibt (Einstellungen › Firma). Leer = Standard aus
+ * den Firmendaten. Der Name sagt „Zahlungskonto“, nicht „Bankverbindung“: Am Kontakt steht schon die IBAN des Kunden.
  */
 export function BankverbindungField({
+  label,
   bankverbindungen,
   standardIban,
   value,
@@ -22,6 +22,8 @@ export function BankverbindungField({
   name,
   onChange,
 }: {
+  /** „Zahlungskonto“ im Beleg, „Bevorzugtes Zahlungskonto“ am Kontakt */
+  label: string;
   bankverbindungen: readonly BankverbindungOption[];
   standardIban: string;
   value: string;
@@ -31,17 +33,15 @@ export function BankverbindungField({
   name?: string;
   onChange: (id: string) => void;
 }) {
-  const choices = bankverbindungen.filter((b) => !b.archivedAt || b.id === value);
-  if (choices.length === 0) return null;
+  if (bankverbindungen.length === 0) return null;
   return (
-    <Field label="Bankverbindung" hint={hint} style={{ gridColumn: "1 / -1" }}>
+    <Field label={label} hint={hint} style={{ gridColumn: "1 / -1" }}>
       {(control) => (
         <select {...control} name={name} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
           <option value="">Standard{standardIban ? ` · ${gruppierteIban(standardIban)}` : ""}</option>
-          {choices.map((b) => (
+          {bankverbindungen.map((b) => (
             <option key={b.id} value={b.id}>
               {b.bezeichnung} · {gruppierteIban(b.iban)}
-              {b.archivedAt ? " (archiviert)" : ""}
             </option>
           ))}
         </select>

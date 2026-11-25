@@ -24,23 +24,23 @@ Skonto ist ein Abzug, den der Kunde machen darf, wenn er früh zahlt, etwa 2 % b
 
 Zahlt der Kunde in der Frist den Betrag abzüglich Skonto, erkennt der [Bankabgleich](bank.md#skonto-auf-eigene-rechnungen) die Zahlung und bucht das Skonto mit einem Klick aus; bei einer [Barzahlung](kasse.md#rechnung-bar-bezahlt) im Kassenbuch ebenso. Wie das Skonto Erlöse und Umsatzsteuer mindert, steht unter [Ausbuchen](rechnungen.md#ausbuchen). Nach der Fälligkeit gilt der volle Betrag: [Mahnungen](#mahnwesen) fordern den ganzen offenen Betrag und weisen darauf hin, dass das Skonto entfallen ist.
 
-## Bankverbindung
+## Zahlungskonto
 
-Auf der Rechnung steht die Bankverbindung aus den [Firmendaten](einrichtung.md#firmendaten). Für Zahlungen auf ein anderes Konto, etwa je Objekt, Auftraggeber oder für Rücklagen, legst du unter **Einstellungen › Firma › Weitere Bankverbindungen** beliebig viele an: Bezeichnung (nur für die Auswahl), IBAN, Kontoinhaber, Bank und BIC. Die aus den Firmendaten bleibt der **Standard**.
+Auf der Rechnung steht als Zahlungskonto die Bankverbindung aus den [Firmendaten](einrichtung.md#firmendaten). Für Zahlungen auf ein anderes eigenes Konto, etwa je Objekt, Auftraggeber oder für Rücklagen, legst du unter **Einstellungen › Firma › Weitere Zahlungskonten** beliebig viele an: Bezeichnung (nur für die Auswahl), IBAN, Kontoinhaber, Bank und BIC. Das Konto aus den Firmendaten bleibt der **Standard**.
 
-Sobald es eine aktive weitere gibt, steht in Rechnungen mit Überweisung, in Angeboten und am [Kontakt](kontakte.md) (unter **Weitere Angaben**) die Auswahl **Bankverbindung**.
+Sobald es ein weiteres gibt, steht in Rechnungen mit Überweisung und in Angeboten die Auswahl **Zahlungskonto**, am [Kontakt](kontakte.md) unter **Weitere Angaben** das **Bevorzugte Zahlungskonto**. Gemeint ist immer dein Konto, auf das der Kunde zahlt, nicht seins.
 
-- **Vorgabe:** Ein neuer Entwurf nimmt die Bankverbindung des Kunden, sonst den Standard; wählst du im Editor einen anderen Kunden, wechselt sie mit. Das gilt auch für wiederkehrende Rechnungen, Rechnungen aus Zeiteinträgen und Entwürfe aus der [REST-API](api.md); dort setzt nur Haben die Bankverbindung. Die Rechnung aus einem Angebot und eine Kopie übernehmen die des Originals, Storno und Korrektur die der Rechnung.
-- **Auf dem Beleg:** IBAN, BIC, Bank und Kontoinhaber der gewählten Bankverbindung stehen in Fußzeile, Zahlungsaufforderung, [GiroCode](#girocode), den Platzhaltern `{iban}` und `{bic}` und in der E-Rechnung als Zahlungskonto (BT-84 bis BT-86). Mit dem Festschreiben sind sie Teil der Rechnung; spätere Änderungen an der Bankverbindung berühren sie nicht, Mahnungen nennen weiter das Konto der Rechnung.
+- **Vorgabe:** Ein neuer Entwurf nimmt das bevorzugte Zahlungskonto des Kunden, sonst den Standard; wählst du im Editor einen anderen Kunden, wechselt es mit. Das gilt auch für wiederkehrende Rechnungen, Rechnungen aus Zeiteinträgen und Entwürfe aus der [REST-API](api.md); dort setzt nur Haben das Zahlungskonto. Die Rechnung aus einem Angebot und eine Kopie übernehmen das des Originals, Storno und Korrektur das der Rechnung.
+- **Auf dem Beleg:** IBAN, BIC, Bank und Kontoinhaber des Zahlungskontos stehen in Fußzeile, Zahlungsaufforderung, [GiroCode](#girocode), den Platzhaltern `{iban}` und `{bic}` und in der E-Rechnung (BT-84 bis BT-86). Mit dem Festschreiben kopiert Haben sie in den Beleg; spätere Änderungen am Zahlungskonto berühren ihn nicht, Mahnungen, Storno und Korrektur nennen weiter das Konto der Rechnung.
 - **Lastschrift:** Haben zieht immer auf das Konto aus den Firmendaten ein; bei [Lastschrift](#lastschrift) gibt es deshalb keine Auswahl.
-- **Archivieren statt löschen:** Belege und Kontakte verweisen auf die Bankverbindung. Archiviert lässt sie sich nicht mehr neu wählen; im Entwurf und am Kontakt, wo sie schon gewählt ist, bleibt sie. Neue Entwürfe, Kopien und die Rechnung aus einem Angebot nehmen dann die Vorgabe des Kunden bzw. den Standard.
+- **Löschen:** Ein Zahlungskonto lässt sich jederzeit löschen, nach einer Rückfrage. Festgeschriebene Belege behalten ihre Kopie; Entwürfe und Kontakte, die es gewählt haben, nehmen danach den Standard.
 - **Bankabgleich:** Geht eine Zahlung auf das Konto, dessen IBAN auf der Rechnung steht, zählt das für diese Rechnung ([Vorschläge](bank.md#vorschläge)).
 
 ## GiroCode
 
 Neben der Zahlungsaufforderung druckt Haben einen GiroCode, also einen EPC-QR-Code nach dem Standard des European Payments Council. Der Kunde scannt ihn mit der Banking-App, und die Überweisung ist ausgefüllt:
 
-- Empfänger, IBAN und BIC der [Bankverbindung](#bankverbindung) der Rechnung; als Empfänger steht der **Kontoinhaber**, ohne Angabe der Firmenname,
+- Empfänger, IBAN und BIC des [Zahlungskontos](#zahlungskonto) der Rechnung; als Empfänger steht der **Kontoinhaber**, ohne Angabe der Firmenname,
 - der Rechnungsbetrag,
 - der Verwendungszweck „Rechnung 2026-001“.
 

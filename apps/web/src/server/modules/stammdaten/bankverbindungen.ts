@@ -1,13 +1,13 @@
 import { compactIban, isValidBic, isValidIban } from "@haben/core";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { withActor } from "../../db/actor.ts";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import { UserError } from "../../errors.ts";
 
 /*
- * Weitere Bankverbindungen für Rechnungen und Angebote (#1887). Die Standard-Bankverbindung bleibt in den Firmendaten;
- * diese hier wählt man je Beleg oder als Vorgabe am Kontakt. Belege verweisen darauf, darum nur archivieren.
+ * Weitere Zahlungskonten für Rechnungen und Angebote (#1887). Das Standardkonto bleibt in den Firmendaten; diese hier
+ * wählt man je Entwurf oder als bevorzugtes Zahlungskonto am Kontakt.
  */
 
 export class BankverbindungError extends UserError {}
@@ -29,7 +29,7 @@ export const bankverbindungSchema = z.object({
 
 export type BankverbindungInput = z.infer<typeof bankverbindungSchema>;
 
-/** Alle, auch archivierte, nach Bezeichnung */
+/** Alle nach Bezeichnung */
 export function listBankverbindungen(q: Db | Tx = db): Promise<Bankverbindung[]> {
   return q.select().from(schema.bankverbindungen).orderBy(asc(schema.bankverbindungen.bezeichnung));
 }
@@ -40,11 +40,11 @@ export async function loadBankverbindung(q: Db | Tx, id: string | null | undefin
   return row ?? null;
 }
 
-/** Dieselbe IBAN zweimal wäre in der Auswahl nicht zu unterscheiden; die Standard-Bankverbindung ist schon wählbar */
+/** Dieselbe IBAN zweimal wäre in der Auswahl nicht zu unterscheiden; das Standardkonto ist schon wählbar */
 async function assertNeueIban(tx: Tx, iban: string, id: string | null): Promise<void> {
   const [company] = await tx.select({ iban: schema.company.iban }).from(schema.company);
   if (company && compactIban(company.iban) === iban) {
-    throw new BankverbindungError("Diese IBAN ist schon die Standard-Bankverbindung in den Firmendaten.", { felder: ["iban"] });
+    throw new BankverbindungError("Diese IBAN ist schon das Standardkonto in den Firmendaten.", { felder: ["iban"] });
   }
   const [vorhanden] = await tx.select().from(schema.bankverbindungen).where(eq(schema.bankverbindungen.iban, iban));
   if (vorhanden && vorhanden.id !== id) {
@@ -69,51 +69,55 @@ export async function updateBankverbindung(actor: string, id: string, input: Ban
       .set(input)
       .where(eq(schema.bankverbindungen.id, id))
       .returning({ id: schema.bankverbindungen.id });
-    if (!updated) throw new BankverbindungError("Bankverbindung nicht gefunden.");
+    if (!updated) throw new BankverbindungError("Zahlungskonto nicht gefunden.");
   });
 }
 
-/** Archiviert: nicht mehr wählbar; Entwürfe und Kontakte, die sie schon gewählt haben, behalten sie */
-export async function setBankverbindungArchived(actor: string, id: string, archived: boolean): Promise<void> {
-  await withActor(actor, (tx) =>
-    tx
-      .update(schema.bankverbindungen)
-      .set({ archivedAt: archived ? new Date() : null })
-      .where(eq(schema.bankverbindungen.id, id)),
-  );
+/**
+ * Löschen geht immer: Festgeschriebene Belege tragen eine Kopie der Kontodaten im Verkäufer und keinen Verweis.
+ * Entwürfe und Kontakte, die das Konto gewählt haben, nehmen danach den Standard (ON DELETE SET NULL).
+ */
+export async function deleteBankverbindung(actor: string, id: string): Promise<void> {
+  await withActor(actor, async (tx) => {
+    const [deleted] = await tx.delete(schema.bankverbindungen).where(eq(schema.bankverbindungen.id, id)).returning({ id: schema.bankverbindungen.id });
+    if (!deleted) throw new BankverbindungError("Zahlungskonto nicht gefunden.");
+  });
 }
 
-/**
- * Eine neu gewählte Bankverbindung muss aktiv sein; eine schon gewählte (bisher) bleibt, auch wenn sie inzwischen
- * archiviert ist, wie beim Ansprechpartner.
- */
-export async function bankverbindungProblem(q: Db | Tx, id: string | null | undefined, bisher?: string | null): Promise<string | null> {
-  if (!id || id === bisher) return null;
-  const row = await loadBankverbindung(q, id);
-  if (!row) return "Die gewählte Bankverbindung gibt es nicht.";
-  if (row.archivedAt) return `Die Bankverbindung „${row.bezeichnung}“ ist archiviert.`;
-  return null;
+/** Ein gewähltes Zahlungskonto muss es geben; null ist der Standard */
+export async function bankverbindungProblem(q: Db | Tx, id: string | null | undefined): Promise<string | null> {
+  if (!id) return null;
+  return (await loadBankverbindung(q, id)) ? null : "Das gewählte Zahlungskonto gibt es nicht mehr.";
 }
 
 /** bankverbindungProblem als Fehler am Feld, für das Kontaktformular */
-export async function assertBankverbindungWaehlbar(tx: Tx, id: string | null | undefined, bisher: string | null): Promise<void> {
-  const problem = await bankverbindungProblem(tx, id, bisher);
+export async function assertBankverbindungWaehlbar(tx: Tx, id: string | null | undefined): Promise<void> {
+  const problem = await bankverbindungProblem(tx, id);
   if (problem) throw new BankverbindungError(problem, { felder: ["bankverbindungId"] });
 }
 
-/** Vorgabe am Kontakt für neue Rechnungen und Angebote; null = Standard, auch wenn die Vorgabe inzwischen archiviert ist */
+/** Vorgabe am Kontakt für neue Rechnungen und Angebote; null = Standard */
 export async function kontaktBankverbindung(q: Db | Tx, contactId: string | null | undefined): Promise<string | null> {
   if (!contactId) return null;
-  const [row] = await q
-    .select({ id: schema.bankverbindungen.id })
-    .from(schema.contacts)
-    .innerJoin(schema.bankverbindungen, eq(schema.bankverbindungen.id, schema.contacts.bankverbindungId))
-    .where(and(eq(schema.contacts.id, contactId), isNull(schema.bankverbindungen.archivedAt)));
+  const [row] = await q.select({ id: schema.contacts.bankverbindungId }).from(schema.contacts).where(eq(schema.contacts.id, contactId));
   return row?.id ?? null;
+}
+
+/**
+ * Zahlungskonto zu einer IBAN, etwa aus dem Verkäufer eines festgeschriebenen Belegs: null für die IBAN des Standards,
+ * die Id des weiteren Kontos mit dieser IBAN, undefined, wenn es keins (mehr) gibt.
+ */
+export async function bankverbindungNachIban(q: Db | Tx, iban: string | null | undefined): Promise<string | null | undefined> {
+  if (!iban) return undefined;
+  const gesucht = compactIban(iban);
+  const [company] = await q.select({ iban: schema.company.iban }).from(schema.company);
+  if (company && compactIban(company.iban) === gesucht) return null;
+  const [row] = await q.select({ id: schema.bankverbindungen.id }).from(schema.bankverbindungen).where(eq(schema.bankverbindungen.iban, gesucht));
+  return row?.id;
 }
 
 /** Für die Auswahl am Kontakt: die weiteren Bankverbindungen und die IBAN des Standards aus den Firmendaten */
 export async function bankverbindungAuswahl(q: Db | Tx = db) {
   const [liste, [company]] = await Promise.all([listBankverbindungen(q), q.select({ iban: schema.company.iban }).from(schema.company)]);
-  return { liste: liste.map(({ id, bezeichnung, iban, archivedAt }) => ({ id, bezeichnung, iban, archivedAt })), standardIban: company?.iban ?? "" };
+  return { liste: liste.map(({ id, bezeichnung, iban }) => ({ id, bezeichnung, iban })), standardIban: company?.iban ?? "" };
 }
