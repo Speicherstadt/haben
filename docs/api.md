@@ -305,7 +305,7 @@ Ein Dokumentenarchiv, ein Scanner mit eigenem Skript oder ein Werkzeug, das Rech
 - **Formate und Größe** wie beim Upload: PDF, JPEG, PNG, WebP, HEIC und E-Rechnungs-XML (XRechnung, ZUGFeRD), höchstens 20 MB. Haben erkennt das Format am Inhalt, nicht am Dateinamen. Genau eine Datei je Anfrage, im Feld `datei` oder `file` (für Werkzeuge mit festem Feldnamen wie [Paperless-ngx](#paperless-ngx)); beide zugleich lehnt die API mit `400` ab.
 - **Auslesen:** Eine E-Rechnung liest Haben sofort, die Antwort enthält dann schon Lieferant, Nummer, Datum und Beträge. Andere PDFs und Fotos liest die [KI-Auslesung](belege.md#ki-auslesung) im Hintergrund, wenn sie eingerichtet ist; bis dahin steht `extractionStatus` auf `laeuft`.
 - **Nichts wird gebucht.** Der Beleg steht unter Belege als „Zu prüfen“ (`status: "neu"`). Kategorie, Zahlungsweg und Buchen bleiben in Haben.
-- **Anzeigename:** Schickt die Quelle die Datei unter einem festen Namen und kennt den richtigen daneben, gibt sie ihn im Feld `dateiname` mit (optional, höchstens 200 Zeichen); Haben nimmt ihn statt des Namens aus dem Upload, lässt Pfadanteile und Steuerzeichen weg und ergänzt die Endung des erkannten Formats, wenn sie fehlt. Ist `dateiname` leer, gilt der Name aus dem Upload.
+- **Anzeigename:** Schickt die Quelle die Datei unter einem festen Namen und kennt den richtigen daneben, gibt sie ihn im Feld `dateiname` mit (optional, höchstens 200 Zeichen); Haben nimmt ihn statt des Namens aus dem Upload, lässt Pfadanteile und Steuerzeichen weg und ergänzt die Endung des erkannten Formats, wenn der Name auf keine der angenommenen endet. Bleibt kein Name übrig (leer oder nur `.pdf`), gilt der aus dem Upload.
 - **Vorbelegen** lässt sich nur eine Notiz (`note`). Lieferant, Nummer, Datum und Beträge nimmt die API bewusst nicht an: Sie kommen aus der E-Rechnung oder der Auslesung, die sie sonst überschriebe, und geprüft werden sie ohnehin in Haben.
 
 Hochladen, mit einer Referenz auf das Dokument im Archiv:
@@ -367,7 +367,7 @@ Paperless-ngx schickt neue Dokumente mit einem Workflow ohne eigenen Code an Hab
 
 Für `dateiname` gilt:
 
-- `{{ doc_title }}` ist der Titel des Dokuments, wenn der Workflow läuft; benennt Paperless das Dokument später um, behält der Beleg in Haben seinen Namen. `replace` ersetzt Schrägstriche im Titel, die Haben sonst als Pfad wegließe. Die Endung ergänzt Haben.
+- `{{ doc_title }}` ist der Titel des Dokuments, wenn der Workflow läuft; benennt Paperless das Dokument später um, behält der Beleg in Haben seinen Namen. `replace` ersetzt Schrägstriche im Titel, die Haben sonst als Pfad wegließe.
 - `{{ filename }}`, der Name der abgelegten Datei ohne Endung, ist beim Auslöser „Dokument hinzugefügt“ noch leer, weil Paperless die Datei erst nach den Workflows ablegt. Er passt zum Auslöser „Dokument aktualisiert“. [Platzhalter in Paperless-ngx](https://github.com/paperless-ngx/paperless-ngx/blob/v3.4.2/docs/usage.md#workflow-placeholders)
 - Ohne den Parameter heißt der Beleg wie die Datei, unter der Paperless das Dokument aufgenommen hat, beim Einwurf über den Consume-Ordner also etwa `document.pdf`; die Webhook-Aktion schickt den ursprünglichen Dateinamen, nicht den aktuellen (#1904).
 
