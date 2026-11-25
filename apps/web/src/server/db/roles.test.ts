@@ -51,7 +51,9 @@ describe.skipIf(!testDatabaseUrl)("Migration und echte App-Anmeldung (Postgres, 
     await start();
     // Ein Betreiber darf einen privilegierten Login-Default setzen, ohne der App das SET-Recht zu geben.
     // https://www.postgresql.org/docs/18/sql-alterrole.html
-    await admin`alter role ${admin(appRole)} set session_replication_role = replica`;
+    // Nur für die eigene Datenbank: Eine Vorgabe für die ganze Instanz meldet checkTriggerIntegrity auch in parallelen Testdateien.
+    const database = new URL(testDatabaseUrl!).pathname.slice(1);
+    await admin`alter role ${admin(appRole)} in database ${admin(database)} set session_replication_role = replica`;
     const connection = postgres(appUrl, { max: 1, onnotice: () => {} });
     try {
       expect(
@@ -61,7 +63,7 @@ describe.skipIf(!testDatabaseUrl)("Migration und echte App-Anmeldung (Postgres, 
       await check(connection);
     } finally {
       await connection.end();
-      await admin`alter role ${admin(appRole)} reset session_replication_role`;
+      await admin`alter role ${admin(appRole)} in database ${admin(database)} reset session_replication_role`;
     }
   }
 
@@ -180,6 +182,7 @@ describe.skipIf(!testDatabaseUrl)("Migration und echte App-Anmeldung (Postgres, 
 
   it("schreibt Hinweise von PostgreSQL als eine Zeile mit Meldung, Code und Stufe, Warnungen als warn (#1860)", async () => {
     await start();
+    // Vor 9_000_000_000_000, sonst überspränge Drizzle die Migration des nächsten Tests
     const script = futureMigration("do $$ begin raise notice 'Hinweis der Probe'; raise warning 'Warnung der Probe'; end $$", 8_000_000_000_000);
     const { stdout, stderr } = await migrate(appUrl, testDatabaseUrl, script, 0, { HABEN_LOG_FORMAT: "json" });
     const zeilen = (text: string) =>
@@ -193,7 +196,7 @@ describe.skipIf(!testDatabaseUrl)("Migration und echte App-Anmeldung (Postgres, 
     expect(zeilen(stderr)).toContainEqual(
       expect.objectContaining({ level: "warn", component: "migration", msg: "Warnung der Probe", code: "01000", severity: "WARNING" }),
     );
-    expect(stdout).not.toContain("routine");
+    expect(`${stdout}${stderr}`).not.toContain("routine");
   });
 
   it("vergibt nach einer weiteren echten Migration Tabellen- und Sequenzrechte erneut", async () => {
