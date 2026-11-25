@@ -204,30 +204,20 @@ Haben prüft die Antwort und zeigt Auffälligkeiten als Hinweis am Beleg:
 
 Die KI bucht nie selbst. Jeder ausgelesene Beleg bleibt im Status „Zu prüfen“, bis du ihn mit **Bestätigen und buchen** bestätigst. Mit **Mit KI neu auslesen** im Menü **⋯** neben **Bestätigen und buchen** kannst du die Auslesung wiederholen, solange der Beleg nicht gebucht ist; dabei werden die Felder überschrieben und eine Aufteilung auf mehrere Kategorien verworfen. Fehler (ungültiger Schlüssel, Auslastung, keine Verbindung, Zeitüberschreitung, unbekanntes Modell, Antwort im falschen Format, abgelehnte Auslesung, Anfrage über der Grenze) stehen am Beleg, der dann den Status „Prüfen“ trägt.
 
-### Warteschlange und Grenzen
-
-Belege werden nacheinander ausgelesen, einer nach dem anderen. Was zuerst angestoßen wird, kommt zuerst dran:
-
-| Anstoß | Reihenfolge |
-| --- | --- |
-| Hochladen, E-Mail, REST-API | In der Reihenfolge des Hochladens, bei mehreren Dateien in der Reihenfolge der Auswahl. Die Liste zeigt wartende Belege oben in dieser Reihenfolge, die Auslesung läuft dort also von oben nach unten. |
-| **Neu auslesen** und **Fehlgeschlagene neu auslesen** in der Liste | In der Reihenfolge, die die Liste beim Klick zeigt, mit Sortierung, Filter und Suche. Bei `?sort=datum&dir=ab` kommt der Beleg mit dem neuesten Belegdatum zuerst dran. |
-| **Mit KI neu auslesen** an einem Beleg | Vor allen Wartenden, denn du schaust gerade auf ihn. |
-
-Ein Beleg, der schon wartet, behält seinen Platz und wird nicht doppelt ausgelesen. Neu auslesen lassen sich nur ungebuchte Belege.
-
-Über der Liste steht, solange Belege warten, ausgelesen werden oder fehlgeschlagen sind, wie viele es sind. **Anhalten** hält die Warteschlange an, etwa wenn das Budget beim Anbieter knapp wird oder du das Modell wechseln willst: Ein Beleg, der gerade ausgelesen wird, wird noch fertig, die übrigen bleiben auf „Wartet auf Auslesung“, auch über einen Neustart hinweg. **Fortsetzen** macht weiter. Mit den Kästchen vor den Zeilen markierst du ungebuchte Belege und liest sie mit **Neu auslesen** erneut aus; **Fehlgeschlagene neu auslesen** nimmt alle fehlgeschlagenen, die die Liste gerade zeigt. Ein zweiter Lauf hilft auch ohne Fehler: Ein Modell liefert für denselben Beleg nicht immer dasselbe.
-
-Hat dein Anbieter ein Kontingent, etwa ein Azure-OpenAI-Deployment hinter LiteLLM mit 20.000 Tokens pro Minute, trägst du es unter **Einstellungen › KI-Assistenten und API › Grenzen der Belegauslesung** ein:
-
-- **Tokens je Anfrage:** Eine größere Anfrage schickt Haben nicht; der Grund steht am Beleg.
-- **Anfragen pro Minute** und **Tokens pro Minute:** gezählt über die letzten 60 Sekunden.
-
-Jede Grenze ist optional. Haben schickt die nächste Anfrage erst, wenn sie alle gesetzten einhält; es gilt also immer die strengste. Die Tokens einer Anfrage schätzt Haben vor dem Senden aus ihrem Text (drei Zeichen je Token), 1.600 Tokens je Bild oder PDF-Seite und 1.000 für die Antwort, eher zu hoch als zu niedrig. Meldet der Dienst trotzdem, dass er ausgelastet ist (HTTP 429), steht der Fehler am Beleg. Haben versucht es nicht von selbst erneut, weil weitere Anfragen die Überlastung nur verlängern; du liest den Beleg neu aus, wenn der Dienst wieder Luft hat.
-
 **Beträge mit mehr als zwei Nachkommastellen:** Rechnet das Modell einen Zwischenwert aus, statt den gedruckten Betrag abzuschreiben, kommen etwa 42,1336 € zurück. Ab vier Nachkommastellen rundet Haben kaufmännisch auf Cent, statt den Betrag zu verwerfen, und schreibt an den Beleg, worauf es gerundet hat („Betrag zu 19 % mit mehr als zwei Nachkommastellen: netto 42,13 €, Steuer 8,01 €, gerundet“). Genau drei Nachkommastellen bei Netto oder Steuer gelten weiter als nicht lesbar, denn `1,234` kann auch ein Tausendertrennzeichen sein: Der Beleg zeigt dann „Betrag zu 19 % nicht lesbar“, und du trägst die Beträge von Hand ein. Hat nur der Gesamtbetrag drei, erscheint kein Hinweis, und die Summenprüfung entfällt. Die Summenprüfung rechnet mit den gerundeten Werten und meldet eine Abweichung weiter, damit du hinsiehst. Prüfe den Beleg trotzdem, denn die gerundeten Beträge sind gerechnet und nicht abgelesen.
 
 Bei der Kategorie haben die gebuchten Belege desselben Lieferanten Vorrang vor dem Vorschlag der KI: Haben nimmt die Kategorie, unter der sie am häufigsten gebucht sind, bei Gleichstand die zuletzt gebuchte. So wechselt der Vorschlag nicht, nur weil ein Lieferant wie Amazon einmal etwas anderes geliefert hat. Wie das gezählt wird, steht unter [Vorschläge aus früheren Belegen](#vorschläge-aus-früheren-belegen).
+
+### Warteschlange und Grenzen
+
+Haben liest Belege nacheinander aus. Hochgeladene (auch per E-Mail und REST-API) kommen in der Reihenfolge des Hochladens dran und stehen so oben in der Liste; die Auslesung läuft dort von oben nach unten. **Mit KI neu auslesen** an einem Beleg kommt vor allen Wartenden dran. Ein wartender Beleg behält seinen Platz und wird nicht doppelt ausgelesen.
+
+Über der Liste steht, wie viele Belege warten, ausgelesen werden und fehlgeschlagen sind:
+
+- **Anhalten** und **Fortsetzen:** Ein laufender Beleg wird noch fertig, die übrigen warten, auch über einen Neustart hinweg.
+- **Neu auslesen** für die markierten ungebuchten Belege und **Fehlgeschlagene neu auslesen**, beide in der Reihenfolge, die die Liste beim Klick zeigt (bei `?sort=datum&dir=ab` das neueste Belegdatum zuerst). Ein zweiter Lauf hilft auch ohne Fehler, denn ein Modell liefert nicht immer dasselbe.
+
+Unter **Einstellungen › KI-Assistenten und API › Grenzen der Belegauslesung** trägst du das Kontingent deines Anbieters ein: Tokens je Anfrage, Anfragen pro Minute und Tokens pro Minute, je optional, gezählt über die letzten 60 Sekunden. Haben schickt die nächste Anfrage erst, wenn sie alle gesetzten Grenzen einhält. Eine Anfrage über der Grenze je Anfrage schickt es nicht; der Grund steht am Beleg. Die Tokens schätzt Haben vor dem Senden, eher zu hoch: drei Zeichen Text je Token, 1.600 je Bild oder PDF-Seite, 1.000 für die Antwort. Meldet der Dienst trotzdem „ausgelastet“ (HTTP 429), steht der Fehler am Beleg, und Haben fragt für ihn nicht von selbst erneut.
 
 ## Vorschläge aus früheren Belegen
 
