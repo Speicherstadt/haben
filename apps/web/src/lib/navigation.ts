@@ -94,7 +94,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: "Geld",
     icon: "wallet",
-    hinweis: "Wo dein Geld liegt, auf der Bank, in der Kasse und im Darlehen",
+    hinweis: "Wo dein Geld liegt, auf der Bank und in der Kasse, und was du als Darlehen schuldest",
     links: [
       { to: "/bank", icon: "bank", label: "Bank" },
       { to: "/kasse", icon: "cash", label: "Kasse" },
@@ -104,7 +104,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: "Personal",
     icon: "badge",
-    hinweis: "Was deine Mitarbeiter bekommen und was du dafür der Sozialversicherung meldest",
+    hinweis: "Was deine Mitarbeiter bekommen und was du dafür an Lohnsteuer und Sozialversicherung meldest",
     links: [
       { to: "/lohn", icon: "payroll", label: "Lohn" },
       // Lohn bleibt immer sichtbar, dort entsteht der erste Mitarbeiter
