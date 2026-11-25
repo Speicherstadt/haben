@@ -26,6 +26,12 @@ describe("KI-Auslesung umwandeln", () => {
     expect(decimalToCentsGerundet("8.0054")).toEqual({ cents: 801, gerundet: true });
     expect(decimalToCentsGerundet("8.0055")).toEqual({ cents: 801, gerundet: true });
     expect(decimalToCentsGerundet("-1.2394")).toEqual({ cents: -124, gerundet: true });
+    // Genau die Hälfte weg von null, mit Übertrag in die Euro
+    expect(decimalToCentsGerundet("1.9950")).toEqual({ cents: 200, gerundet: true });
+    expect(decimalToCentsGerundet("-1.9950")).toEqual({ cents: -200, gerundet: true });
+    // Die Grenze von 3 Mio. € gilt für den gerundeten Betrag
+    expect(decimalToCentsGerundet("3000000.0049")).toEqual({ cents: 300_000_000, gerundet: true });
+    expect(decimalToCentsGerundet("3000000.0050")).toBeNull();
     expect(decimalToCentsGerundet("abc")).toBeNull();
   });
 
