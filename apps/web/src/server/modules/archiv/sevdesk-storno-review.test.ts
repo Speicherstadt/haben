@@ -7,13 +7,13 @@ import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 const PAY_DATE = "2025-04-10T15:42:00+02:00";
 
 describe.skipIf(!testDatabaseUrl)("Review #472: Stornorechnung mit payDate", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-abgleich.ts") & typeof import("./umzug-belege.ts");
   let legacy: typeof import("./legacy-open.ts");
   let sql: postgres.Sql;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-belege.ts")) };
     legacy = await import("./legacy-open.ts");
   }, 30_000);
   afterAll(async () => {

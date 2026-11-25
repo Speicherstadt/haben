@@ -97,14 +97,14 @@ async function runScript(fetchFn: ReturnType<typeof fakeLexware>) {
 }
 
 describe.skipIf(!testDatabaseUrl)("Umzug über die Web-Oberfläche (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-abgleich.ts") & typeof import("./umzug-umsatzsteuer.ts");
   let legacyOpen: typeof import("./legacy-open.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-umsatzsteuer.ts")) };
     legacyOpen = await import("./legacy-open.ts");
   }, 30_000);
 
@@ -139,7 +139,13 @@ describe.skipIf(!testDatabaseUrl)("Umzug über die Web-Oberfläche (Postgres)", 
     const id = await lexoffice.startWebImport(actor, parts, { wait: true });
     const run = await lexoffice.latestImport();
     expect(run).toMatchObject({ id, status: "fertig" });
-    expect(run!.progress).toMatchObject({ contacts: 2, listed: 5, imported: 4, files: 2 });
+    expect(run!.progress).toMatchObject({
+      contacts: 2,
+      listed: 5,
+      imported: 4,
+      files: 2,
+      webOmitted: { drafts: 0, quotations: 1, orderConfirmations: 0, deliveryNotes: 0, other: 0 },
+    });
     expect(run!.progress.failed).toEqual([
       {
         lexofficeId: SALES.list.entityId,

@@ -2,6 +2,7 @@ import { discountInput, type InvoicePaymentMethod, type OutgoingTaxDetails, type
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAction } from "../lib/use-action.ts";
+import { useFokusNachSperre } from "../lib/use-fokus-nach-sperre.ts";
 import type { UmsatzgrenzeBestaetigung } from "../lib/kleinunternehmer.ts";
 import { type LineState, toLineState } from "../lib/editor-lines.ts";
 import { useArbeitskostenSchalter } from "./ArbeitskostenField.tsx";
@@ -40,6 +41,8 @@ export function useInvoiceEditorState(props: InvoiceEditorProps) {
   const markTouched = (key: number) => setTouched((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
   const ownAction = useAction();
   const { busy, notice, setNotice, run } = sharedAction ?? ownAction;
+  // Die Felder sind gesperrt, solange `busy` gilt (InvoiceEditor); nach einem Fehler steht der Fokus wieder im Feld
+  useFokusNachSperre(busy);
   const [confirming, setConfirming] = useState(false);
   const [umsatzwarnung, setUmsatzwarnung] = useState<({ id: string } & UmsatzgrenzeBestaetigung) | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);

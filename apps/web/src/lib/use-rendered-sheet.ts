@@ -1,7 +1,7 @@
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DocumentPreview } from "../server/modules/rechnungen/index.ts";
-import { afterRender, renderDelay, rendersOnDemand } from "./vorschau-render.ts";
+import { afterRender, previewFailure, renderDelay, rendersOnDemand } from "./vorschau-render.ts";
 
 export type LoadedSheet = Omit<DocumentPreview, "svg" | "ms"> & { url: string };
 
@@ -50,7 +50,7 @@ export function useRenderedSheet<I>(renderer: SheetRenderer<I>, input: I, revisi
       clearTimeout(again.current);
       if (folge === "neu") again.current = setTimeout(() => void loadRef.current(), renderDelay(ms));
     } catch (error) {
-      if (run === latest.current) setFailure(error instanceof Error ? error.message : "Die Vorschau ließ sich nicht erzeugen.");
+      if (run === latest.current) setFailure(previewFailure(error));
     }
   }, [render]);
   loadRef.current = load;

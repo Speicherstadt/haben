@@ -6,12 +6,12 @@ import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 // Monate und Stichtage nach dem letzten Zahldatum sind also nicht unklar.
 describe.skipIf(!testDatabaseUrl)("Review #348: Reichweite der Sperre (Postgres)", () => {
   let sql: postgres.Sql;
-  let archive: typeof import("./lexoffice.ts");
+  let archive: typeof import("./umzug-abgleich.ts") & typeof import("./umzug-umsatzsteuer.ts");
   let legacy: typeof import("./legacy-open.ts");
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    archive = await import("./lexoffice.ts");
+    archive = { ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-umsatzsteuer.ts")) };
     legacy = await import("./legacy-open.ts");
     await sql`insert into company (id, name, strasse, plz, ort, email, telefon, steuernummer, ust_id, bundesland, iban, versteuerung, kontenrahmen)
       values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '+49 941 1', '198/113/10010',

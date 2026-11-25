@@ -17,7 +17,7 @@ bun run typecheck
 TEST_DATABASE_URL=postgres://haben:haben@localhost:5432/haben_test bun run test
 bun run build
 E2E_DATABASE_URL=postgres://haben:haben@localhost:5432/haben_e2e bun run e2e   # ohne Browser von Playwright nur in der CI
-zensical build --strict                                                       # wenn docs/ oder mkdocs.yml geändert sind
+zensical build --strict && python scripts/doku-listen/haben_doku_listen.py site  # wenn docs/ oder mkdocs.yml geändert sind
 ```
 
 Beide Datenbanken leeren die Tests (siehe [Tests](entwicklung.md#tests)); nie auf einen Server mit echten Daten zeigen lassen. Was übersprungen wurde, gehört in die Beschreibung des Pull Requests.
@@ -53,6 +53,7 @@ Wer mitbauen will, sucht sich eine Aufgabe im [Project „Roadmap“](https://gi
     - Eine fertige Version (kein Release Candidate) schließt diese Issues mit Link auf das Release (Job `issues-schliessen` in `release.yml`) → „Erledigt“.
 
     Fehlt danach etwas, kommt es in ein neues Issue mit Verweis auf das alte. Die Workflows brauchen das Secret `PROJECT_TOKEN` (klassisches Token mit Scope `project`). Was die Automatik nicht sieht, also neue Issues einordnen, offene Gespräche und Übernahme-Wünsche finden und aufräumen, erledigt der Skill [`board-pflegen`](https://github.com/Speicherstadt/haben/blob/main/.claude/skills/board-pflegen/SKILL.md); jedes Issue bekommt dabei einen kurzen Kommentar mit dem Ergebnis.
+
 - **Commits im Pull Request:** gern im Stil von [Conventional Commits](https://www.conventionalcommits.org/de/) auf Deutsch, etwa `fix(belege): Fremdwährung in der Rechnungswährung vergleichen` (Empfehlung, keine Prüfung).
 
 ## Mit KI-Werkzeugen
@@ -91,6 +92,7 @@ Was sich sicher entscheiden lässt, prüft ein Skript; was nicht, erscheint als 
 | Doku zum geänderten Verhalten | `scripts/pr-regeln/`: Code unter `apps/web/src`, `apps/firmenportal/src` oder `packages/*/src` ohne Änderung in `docs/` | Hinweis |
 | Bugfix beginnt mit einem Test | `scripts/pr-regeln/`: `fix`-Commit ohne geänderten Test | Hinweis |
 | Selbstprüfung und unabhängiges Review mitbringen ([Beiträge annehmen](#beiträge-annehmen)) | `scripts/pr-regeln/`: Pull Request außerhalb des Entwurfs von jemandem ohne Schreibrecht, nennt `tdd-review` für Code, `doku-pruefen` für Markdown (`docs/`, `mkdocs.yml`, `LICENSE`), bei beidem beide | Hinweis |
+| Neue Abhängigkeit nur mit Begründung ([Konventionen](entwicklung.md#konventionen), „Wenige Abhängigkeiten“) | `scripts/pr-regeln/`: neues Paket in einer `package.json` (auch von `devDependencies` nach `dependencies`); ohne den Paketnamen unter `## Neue Abhängigkeiten` in der Beschreibung Fehler | Hinweis, ohne Begründung Fehler |
 | Fachlich heikle Pfade: Merge erst nach „OK“ des Maintainers ([Wer mergt was](#wer-mergt-was)) | `scripts/pr-regeln/`: Dateien unter `HEIKEL` in `regel.ts` | Hinweis |
 | Skills: Beschreibung höchstens 320 Zeichen, Hauptteil höchstens 1.500 Wörter (außer erzeugten), jede Datei unter `references/` in `SKILL.md` genannt und vorhanden; `CLAUDE.md` und `AGENTS.md` höchstens 10.000 Zeichen, jeder Skill in `AGENTS.md` genannt ([Befehle](entwicklung.md#befehle), „Skills“) | `scripts/skills/` in `bun run lint` | Fehler |
 | Jedes Feld der Belegvorlagen im Feldvertrag, mit Beschreibung | `layout-schema.test.ts` in `bun run test` | Fehler |
@@ -99,6 +101,7 @@ Was sich sicher entscheiden lässt, prüft ein Skript; was nicht, erscheint als 
 | Skill `belegvorlage` und Feldtabellen aktuell | `layout-anleitung.test.ts` | Fehler |
 | Doku baut ohne Warnung | Workflow „Docs“ auch im Pull Request | Fehler |
 | Jede Seite in `docs/` mit `description:` im Front Matter | Workflow „Docs“ (`docs.yml`) | Fehler |
+| Leerzeile vor jeder Liste in `docs/` ([Seiten der Doku](entwicklung.md#befehle), „Listen“) | `scripts/doku-listen/` im Workflow „Docs“ | Fehler |
 | Jede versiegelte, nur anhängbare oder gegen Löschen gesperrte Tabelle und jede, deren Löschen das Audit-Log aufzeichnet, hat einen Trigger vor `TRUNCATE` | `apps/web/src/server/db/truncate.test.ts` in `bun run test` (mit Postgres) | Fehler |
 
 `checks` ist das gemeinsame Paket [`@firsttris/checks`](https://github.com/firsttris/workflows#checks), eingestellt in `checks.json`. Nennt `bun run lint` einen Befehl mit `--clean` (`.checks/large-files.txt`) oder `--aufraeumen` (`altstellen.json`), läuft er im selben Pull Request, und die geänderte Liste wird mitcommittet.

@@ -17,13 +17,13 @@ const notes = gutschriften as unknown as Fixture[];
 const byCategory = (category: string) => notes.filter((n) => n.creditNote.bookingCategory === category);
 
 describe.skipIf(!testDatabaseUrl)("Gutschriften aus sevDesk 1.0 mit Zahlungen (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-abgleich.ts") & typeof import("./umzug-belege.ts");
   let legacy: typeof import("./legacy-open.ts");
   let sql: postgres.Sql;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-belege.ts")) };
     legacy = await import("./legacy-open.ts");
   }, 30_000);
 

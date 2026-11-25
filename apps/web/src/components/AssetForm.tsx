@@ -1,5 +1,6 @@
 import { ASSET_KINDS, type AssetKind, type AssetMethod, type CarPrivateUse } from "@haben/core";
 import { useState, type FormEvent } from "react";
+import { useFokusNachSperre } from "../lib/use-fokus-nach-sperre.ts";
 import { useSubmitCheck } from "../lib/use-submit-check.ts";
 import { Field } from "./Field.tsx";
 import { AssetBasics, AssetDepreciation, AssetPrivateUse } from "./AssetFormTeile.tsx";
@@ -71,6 +72,8 @@ export function AssetForm({
   const set = (patch: Partial<AssetState>) => setV((prev) => ({ ...prev, ...patch }));
   const { lifeMonths, suggestion, effectiveRate, monthly, errors, values } = readAsset(v, showOpening);
   const { form, error, check } = useSubmitCheck(errors);
+  // Nach einem Fehler beim Speichern steht der Fokus wieder im gesperrten Feld
+  useFokusNachSperre(busy);
 
   function chooseKind(kind: AssetKind) {
     set(kindPatch(kind));
@@ -83,43 +86,47 @@ export function AssetForm({
   }
 
   return (
-    <form ref={form} className="stack plain-sections" onSubmit={submit} noValidate>
-      <AssetBasics v={v} set={set} chooseKind={chooseKind} locked={locked} error={error} />
-      <AssetDepreciation
-        v={v}
-        set={set}
-        error={error}
-        locked={locked}
-        lifeEditable={lifeEditable}
-        switchEditable={switchEditable}
-        elektroOffered={elektroOffered}
-        showOpening={showOpening}
-        lifeMonths={lifeMonths}
-      />
-      <section className="form-section" aria-labelledby="asset-disposal">
-        <h3 id="asset-disposal">Abgang</h3>
-        <div className="form-row cols-2">
-          <Field label="Abgang (Verkauf, Entnahme, Verschrottung)" describedBy="disposal-hint">
-            {(control) => <input {...control} type="date" value={v.disposalDate} onChange={(e) => set({ disposalDate: e.target.value })} />}
-          </Field>
+    <form ref={form} className="stack" onSubmit={submit} noValidate>
+      {/* Gesperrt, solange gespeichert wird: Danach baut die Seite das Formular mit dem neuen `updatedAt` im `key` neu auf,
+          und was man bis dahin tippt, ginge verloren (#1793) */}
+      <fieldset className="stack plain-sections fieldset-plain" disabled={busy}>
+        <AssetBasics v={v} set={set} chooseKind={chooseKind} locked={locked} error={error} />
+        <AssetDepreciation
+          v={v}
+          set={set}
+          error={error}
+          locked={locked}
+          lifeEditable={lifeEditable}
+          switchEditable={switchEditable}
+          elektroOffered={elektroOffered}
+          showOpening={showOpening}
+          lifeMonths={lifeMonths}
+        />
+        <section className="form-section" aria-labelledby="asset-disposal">
+          <h3 id="asset-disposal">Abgang</h3>
+          <div className="form-row cols-2">
+            <Field label="Abgang (Verkauf, Entnahme, Verschrottung)" describedBy="disposal-hint">
+              {(control) => <input {...control} type="date" value={v.disposalDate} onChange={(e) => set({ disposalDate: e.target.value })} />}
+            </Field>
+          </div>
+          <p id="disposal-hint" className="field-hint">
+            Bis zum Abgangsmonat wird abgeschrieben, der Rest geht als Restbuchwert in die Ausgaben. Einen Verkauf stellst du als Rechnung.
+          </p>
+        </section>
+
+        <div className="form-grid">
+          {v.kind === "kfz" && privateUseAvailable && (
+            <AssetPrivateUse v={v} set={set} locked={privateUseLocked} suggestion={suggestion} effectiveRate={effectiveRate} monthly={monthly} error={error} />
+          )}
         </div>
-        <p id="disposal-hint" className="field-hint">
-          Bis zum Abgangsmonat wird abgeschrieben, der Rest geht als Restbuchwert in die Ausgaben. Einen Verkauf stellst du als Rechnung.
-        </p>
-      </section>
 
-      <div className="form-grid">
-        {v.kind === "kfz" && privateUseAvailable && (
-          <AssetPrivateUse v={v} set={set} locked={privateUseLocked} suggestion={suggestion} effectiveRate={effectiveRate} monthly={monthly} error={error} />
-        )}
-      </div>
-
-      <section className="form-section" aria-labelledby="asset-note">
-        <h3 id="asset-note">Notiz</h3>
-        <Field label="Notiz" hideLabel>
-          {(control) => <textarea {...control} value={v.note} onChange={(e) => set({ note: e.target.value })} maxLength={2000} />}
-        </Field>
-      </section>
+        <section className="form-section" aria-labelledby="asset-note">
+          <h3 id="asset-note">Notiz</h3>
+          <Field label="Notiz" hideLabel>
+            {(control) => <textarea {...control} value={v.note} onChange={(e) => set({ note: e.target.value })} maxLength={2000} />}
+          </Field>
+        </section>
+      </fieldset>
       <div className="actions">
         <button type="submit" className="btn btn-primary" disabled={busy}>
           {submitLabel}

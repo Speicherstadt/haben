@@ -20,7 +20,10 @@ const note = (bookingCategory: string, status: string, sums: { net: string; tax:
 const simple = [{ sumNet: "100.00", sumTax: "19.00", sumGross: "119.00", taxRate: "19" }] as never[];
 
 describe.skipIf(!testDatabaseUrl)("Review #535 (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") &
+    typeof import("./umzug-abgleich.ts") &
+    typeof import("./umzug-belege.ts") &
+    typeof import("./umzug-umsatzsteuer.ts");
   let kontakt: typeof import("./kontakt-altbestand.ts");
   let history: typeof import("./kontakt-historie.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
@@ -28,7 +31,12 @@ describe.skipIf(!testDatabaseUrl)("Review #535 (Postgres)", () => {
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = {
+      ...(await import("./lexoffice.ts")),
+      ...(await import("./umzug-abgleich.ts")),
+      ...(await import("./umzug-belege.ts")),
+      ...(await import("./umzug-umsatzsteuer.ts")),
+    };
     kontakt = await import("./kontakt-altbestand.ts");
     history = await import("./kontakt-historie.ts");
     contacts = await import("../stammdaten/contacts.ts");

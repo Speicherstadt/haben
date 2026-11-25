@@ -21,6 +21,11 @@ describe("Umsatzsteuer am Beleg als Frage", () => {
     expect(details(html)).toBe("");
   });
 
+  it("verspricht beim normalen Beleg Vorsteuer nur, soweit ein Abzug möglich ist (#1802)", () => {
+    for (const looksLikeReverseCharge of [false, true])
+      expect(hinweis(render(null, looksLikeReverseCharge))).toContain("Vorsteuer gibt es, soweit die Steuer ausgewiesen ist und du sie abziehen darfst.");
+  });
+
   it("nennt Kennzahlen nur in den Details, den Fachbegriff aber im Hinweis", () => {
     for (const value of ["eu", "drittland", "ig_erwerb"] as const) {
       const html = render(value);

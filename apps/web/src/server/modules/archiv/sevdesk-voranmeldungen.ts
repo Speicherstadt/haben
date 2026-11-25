@@ -4,7 +4,7 @@ import { withActor } from "../../db/actor.ts";
 import { db, schema, type Tx } from "../../db/index.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
 import { sha256Of, storeFile } from "../../storage.ts";
-import { progressMessage } from "./lexoffice.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 
 /*
  * Übermittelte Umsatzsteuer-Voranmeldungen aus sevDesk ins Archiv (#472), mit dem Übermittlungsprotokoll als PDF. Nur

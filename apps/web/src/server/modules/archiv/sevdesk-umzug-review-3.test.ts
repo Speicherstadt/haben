@@ -23,13 +23,13 @@ const NUMBER_WITH_SPACE = "EBA-BG-EUR-24-10001-20001 01-30001-40001";
 const FIELD = "-BG-EUR-24-10001-2000101-30001-40001";
 
 describe.skipIf(!testDatabaseUrl)("Drittes Review #472", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-abgleich.ts") & typeof import("./umzug-belege.ts");
   let archive: typeof import("./archive.ts");
   let sql: postgres.Sql;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-belege.ts")) };
     archive = await import("./archive.ts");
   }, 30_000);
 

@@ -5,7 +5,7 @@ import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import { env } from "../../env.ts";
 import { UserError } from "../../errors.ts";
-import { progressMessage } from "./lexoffice.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 
 /* Zugang zur FastBill-API: Login-E-Mail, verschlüsselter API-Schlüssel und Tarif mit seiner Stundengrenze. */
 

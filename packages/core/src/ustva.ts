@@ -10,10 +10,17 @@ import { taxOf, type Cents } from "./money.ts";
  * (weitere steuerfreie Umsätze mit Vorsteuerabzug, hier Ausfuhrlieferungen) in vollen Euro; Kz 89 und 93 die
  * Bemessungsgrundlagen steuerpflichtiger innergemeinschaftlicher Erwerbe zu 19 und 7 % in vollen Euro, die Steuer daraus
  * rechnet das Formular wie bei Kz 81 und 86; Kz 61 die Vorsteuer aus dem Erwerb in Cent (Vordruckmuster USt 1 A 2026); Kz 62 die
- * entstandene Einfuhrumsatzsteuer (§ 15 Abs. 1 Satz 1 Nr. 2 UStG) in Cent.
- * Kz 83 wird gerechnet. Alle Werte dürfen negativ
+ * entstandene Einfuhrumsatzsteuer (§ 15 Abs. 1 Satz 1 Nr. 2 UStG) in Cent. Kz 50 nennt zusätzlich, um wie viel Kz 81 und 86
+ * gemindert sind, weil Entgelte uneinbringlich wurden (§ 17 Abs. 2 Nr. 1 Satz 1 UStG), in vollen Euro.
+ * Kz 83 wird gerechnet. Alle Werte außer Kz 50 dürfen negativ
  * sein, etwa wenn Gutschriften im Monat überwiegen.
  */
+/**
+ * Größter Betrag je Kennzahl, den Haben beim Speichern einer Voranmeldung von Hand annimmt, in beide Richtungen
+ * (`saveVatDraft`); die Prüfung im Browser meldet dieselbe Grenze am Feld (#1270)
+ */
+export const KENNZAHL_GRENZE: Cents = 1_000_000_000_00;
+
 export interface UstvaValues {
   kz81: Cents;
   kz86: Cents;
@@ -33,6 +40,8 @@ export interface UstvaValues {
   kz61?: Cents;
   /** Entstandene Einfuhrumsatzsteuer, als Vorsteuer abziehbar */
   kz62?: Cents;
+  /** Minderung der Bemessungsgrundlage bei Uneinbringlichkeit, in Kz 81 und 86 schon enthalten */
+  kz50?: Cents;
   /** Abzug der festgesetzten Sondervorauszahlung (Dauerfristverlängerung), in der letzten Voranmeldung des Jahres */
   kz39?: Cents;
 }
@@ -66,6 +75,11 @@ export interface UstvaFigures {
   kz61: Cents;
   /** Einfuhrumsatzsteuer in Cent */
   kz62: Cents;
+  /**
+   * Minderung der Bemessungsgrundlage bei Uneinbringlichkeit in vollen Euro, nie negativ (im ERiC-Schema 2026
+   * GanzzahlNichtNeg); wirkt nicht auf Kz 83, die Minderung steckt schon in Kz 81 und 86
+   */
+  kz50: Cents;
   /** Abzug der Sondervorauszahlung, centgenau (§ 48 Abs. 4 UStDV) */
   kz39: Cents;
   /** Verbleibende Vorauszahlung; negativ = Erstattung */
@@ -110,6 +124,7 @@ export function computeUstva(input: UstvaValues): UstvaFigures {
     tax93,
     kz61,
     kz62,
+    kz50: Math.max(0, toWholeEuros(input.kz50 ?? 0)),
     kz39: input.kz39 ?? 0,
     kz83: tax81 + tax86 + tax89 + tax93 + (input.kz47 ?? 0) + (input.kz85 ?? 0) - input.kz66 - (input.kz67 ?? 0) - kz61 - kz62 - (input.kz39 ?? 0),
   };

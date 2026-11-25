@@ -61,17 +61,17 @@ export function zuAufhebendeZuordnung(
 ): AufzuhebendeZuordnung {
   const teile = a.splitId ? allocations.filter((other) => other.splitId === a.splitId && !other.reversed) : [a];
   const heute = todayInGermany();
+  const wirksam = teile.reduce((latest, teil) => (teil.date && teil.date > latest ? teil.date : latest), tag);
+  const vorgemerkt = wirksam > heute;
   return {
     id: a.id,
     bezeichnung: a.splitId ? `Aufteilung in ${teile.length} Teile` : zuordnungText(a, gesellschaft),
     betrag: teile.reduce((summe, teil) => summe + teil.amount, 0),
     aufteilung: a.splitId !== null,
     mitBeleg: teile.some((teil) => teil.kind === "invoice" || teil.kind === "document"),
-    // Die Zuordnung steht am Buchungsdatum ihres Umsatzes; früher kann die Aufhebung nicht wirken (#782). Liegt die
-    // Zahlung selbst in der Zukunft, ist heute der früheste Tag — dieselbe Grenze prüft der Server.
-    tag: tag <= heute ? tag : heute,
-    // Ist der Zeitraum der Zahlung gemeldet, wirkt die Aufhebung heute; sonst gehört die Korrektur dorthin (#782)
-    gemeldet: gemeldeteMonate.includes(tag.slice(0, 7)),
+    // Maßgeblich ist der späteste Wirktag der Teile; für vorgemerkte Umsätze in der Zukunft gilt heute (#782).
+    tag: vorgemerkt ? heute : wirksam,
+    gemeldet: gemeldeteMonate.includes(wirksam.slice(0, 7)),
   };
 }
 
@@ -89,7 +89,6 @@ export function direktKategorie(kind: "kategorie" | "aufladung", transactionId: 
 }
 
 export const KATEGORIE_OPTION = { value: "kategorie", label: "Einnahme oder Ausgabe (Kategorie, Steuersatz)" } as const;
-
 export const STEUER_OPTION = { value: "steuer", label: "Steuerzahlung oder Erstattung (Finanzamt, Gemeinde)" } as const;
 
 export const DARLEHEN_OPTION = { value: "darlehen", label: "Darlehen: Auszahlung, Tilgung, Zinsen oder Gebühren" } as const;
@@ -199,4 +198,17 @@ export function naechsteSchritte(kleinunternehmer: boolean): ("belege" | "voranm
 export function leereListeText(filter: string, anzahl: number, offen: number, hatImport: boolean): string | null {
   if (anzahl > 0 || (filter === "offen" && fortschrittArt(offen, hatImport) === "fertig")) return null;
   return filter === "vorschlag" ? "Keine Umsätze mit Vorschlag." : "Keine Umsätze.";
+}
+
+/**
+ * Gibt es für Anbieter und Marktplatz schon ein Konto? Dann fragt die Seite vor dem Anlegen nach, statt ein zweites
+ * anzulegen (zwei Verkäuferkonten am selben Marktplatz sind erlaubt, aber die Marktplatzprüfung sieht beide als passend
+ * an, der Import muss also selbst wählen).
+ */
+export function hatMarktplatzKonto(
+  accounts: { provider: string | null; marketplace: string | null }[],
+  provider: string,
+  marketplace: string | null | undefined,
+): boolean {
+  return !!marketplace && accounts.some((a) => a.provider === provider && a.marketplace === marketplace);
 }

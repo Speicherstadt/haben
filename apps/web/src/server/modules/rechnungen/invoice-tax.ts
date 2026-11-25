@@ -20,8 +20,25 @@ type TaxMetadata = Pick<
   | "serviceDate"
   | "taxTreatment"
   | "number"
+  | "exemptRule"
 >;
 type Reference = Pick<TaxMetadata, "issueDate" | "correctsId"> & Partial<TaxMetadata>;
+
+/**
+ * Leistungstag einer Rechnung, wie ihn die Voranmeldung für Umsätze nach Leistung nimmt (Kz 43 und 48, #1268, #1312):
+ * beim Festschreiben eingefroren (#694), ohne ihn (vor Version 0.9) wie bei Soll das Rechnungsdatum (docs/umsatzsteuer.md,
+ * Leistungstag bei Soll-Versteuerung). Storno und Korrektur: ihr Datum.
+ */
+export const leistungstag = (r: Pick<Invoice, "issueDate"> & Partial<Pick<Invoice, "kind" | "serviceDate">>) =>
+  r.kind === "rechnung" ? (r.serviceDate ?? r.issueDate) : r.issueDate;
+
+/**
+ * Kennzeichen beim Festschreiben (#1312, Trigger invoices_exempt_rule): Rechnungen über § 4 und Ausfuhr zählen in Kz 48
+ * bzw. 43 auch bei Ist im Zeitraum der Leistung, Anzahlungen darauf nicht. Aus Lexoffice übernommene meldet die
+ * Voranmeldung nicht. Ohne Kennzeichen (vorher festgeschrieben) zählt die Kette weiter wie Kz 81.
+ */
+export const exemptRule = (r: Pick<Invoice, "kind" | "taxTreatment"> & Partial<Pick<Invoice, "lexofficeVoucherId">>) =>
+  r.kind === "rechnung" && (r.taxTreatment === "steuerfrei" || r.taxTreatment === "ausfuhr") && !r.lexofficeVoucherId ? ("leistung" as const) : null;
 
 /** Nur Schlussrechnungen mit neuen Abschlägen: Bestandsbelege behalten ihren bisherigen Zeitpunkt. */
 async function hasNewAdvance(id: string, q: Db | Tx): Promise<boolean> {
@@ -56,6 +73,7 @@ function invoiceMetadataReader(q: Db | Tx) {
           serviceDate: schema.invoices.serviceDate,
           taxTreatment: schema.invoices.taxTreatment,
           number: schema.invoices.number,
+          exemptRule: schema.invoices.exemptRule,
         })
         .from(schema.invoices)
         .where(eq(schema.invoices.id, id))
@@ -87,7 +105,7 @@ export function invoiceTaxReader(q: Db | Tx = db) {
   const modes = new Map<number, Promise<Versteuerung>>();
   async function original(invoice: Reference): Promise<Reference> {
     const current = await snapshot(invoice);
-    const parentId = current.correctsId ?? (current.advanceAccounting === "deferred" ? current.replacesInvoiceId : null);
+    const parentId = current.correctsId ?? (current.variant === null || current.advanceAccounting === "deferred" ? current.replacesInvoiceId : null);
     if (!parentId) return current;
     let found = originals.get(parentId);
     if (!found) {
@@ -149,7 +167,16 @@ export function invoiceTaxReader(q: Db | Tx = db) {
    */
   async function invoicePostingAllowed(invoice: Reference): Promise<boolean> {
     const current = await snapshot(invoice);
+    if (current.variant === null && current.replacesInvoiceId) return false;
     const first = await original(current);
+    if (current.kind === "storno" && current.correctsId && first.variant === null && first.advanceAccounting !== "deferred") {
+      const [replacement] = await q
+        .select({ id: schema.invoices.id })
+        .from(schema.invoices)
+        .where(and(eq(schema.invoices.replacesInvoiceId, current.correctsId), eq(schema.invoices.status, "final")))
+        .limit(1);
+      if (replacement) return false;
+    }
     if (first.advanceAccounting !== "deferred") return true;
     if (first.variant === null) return false;
     return first.advanceType !== "anzahlung" && !current.replacesInvoiceId && !(current.kind === "storno" && first.variant === "schluss");

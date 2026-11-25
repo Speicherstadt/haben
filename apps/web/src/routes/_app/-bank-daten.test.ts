@@ -3,6 +3,7 @@ import {
   type Data,
   type Detail,
   fortschrittArt,
+  hatMarktplatzKonto,
   leereListeText,
   naechsteSchritte,
   naechstenOffenenZiel,
@@ -159,5 +160,30 @@ describe("Fortschritt und leere Liste (#1253)", () => {
 
   it("zeigt keinen Text, solange die Liste Umsätze hat", () => {
     expect(leereListeText("alle", 5, 0, true)).toBeNull();
+  });
+});
+
+/*
+ * Vor dem Anlegen eines Zahlungsdienstleister-Kontos: Gibt es für Anbieter und Marktplatz schon ein Konto (etwa
+ * Amazon.de), fragt die Seite nach, statt stillschweigend ein zweites anzulegen.
+ */
+describe("hatMarktplatzKonto", () => {
+  const konten = [
+    { provider: "amazon", marketplace: "Amazon.de" },
+    { provider: "ebay", marketplace: null },
+  ];
+
+  it("findet ein Konto desselben Anbieters und Marktplatzes", () => {
+    expect(hatMarktplatzKonto(konten, "amazon", "Amazon.de")).toBe(true);
+  });
+
+  it("unterscheidet Anbieter und Marktplatz", () => {
+    expect(hatMarktplatzKonto(konten, "amazon", "Amazon.fr")).toBe(false);
+    expect(hatMarktplatzKonto(konten, "paypal", "Amazon.de")).toBe(false);
+  });
+
+  it("ohne Marktplatz gibt es nichts zu fragen", () => {
+    expect(hatMarktplatzKonto(konten, "paypal", null)).toBe(false);
+    expect(hatMarktplatzKonto(konten, "ebay", undefined)).toBe(false);
   });
 });

@@ -1,20 +1,21 @@
-import { computeUstva, formatDecimal, formatEuro, parseEuro, parsePeriodKey, periodKey, periodLabel, quarterOfMonth } from "@haben/core";
-import { Link, createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
+import { computeUstva, formatDecimal, formatEuro, parseEuro, parsePeriodKey, periodKey, periodLabel } from "@haben/core";
+import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Icon } from "../../../components/Icon.tsx";
-import { EricHinweis } from "../../../components/EricHinweis.tsx";
 import { NoticeBanner } from "../../../components/NoticeBanner.tsx";
-import { VatFrequencyCard } from "../../../components/umsatzsteuer/VatFrequencyCard.tsx";
-import { DauerfristCard } from "../../../components/umsatzsteuer/DauerfristCard.tsx";
+import { FristenAbschnitt } from "../../../components/umsatzsteuer/FristenAbschnitt.tsx";
 import { VatStatus } from "../../../components/umsatzsteuer/VatStatus.tsx";
 import { JournalVergleich } from "../../../components/umsatzsteuer/JournalVergleich.tsx";
 import { formatLongDate } from "../../../lib/format.ts";
 import { getVatPeriod } from "../../../server/functions/vat.ts";
 import type { Notice } from "../../../lib/use-action.ts";
+import { usePruefungBeimSpeichern } from "./-zeitraum-pruefung.ts";
 import { Field } from "../../../components/Field.tsx";
 import type { PageData } from "./-zeitraum-quellen.tsx";
 import { type FieldKey, KennzahlenTabelle } from "./-zeitraum-kennzahlen.tsx";
-import { AbgabeSpalte, useVoranmeldungAktionen } from "./-zeitraum-abgabe.tsx";
+import { AbgabeSpalte, anmeldbar, useVoranmeldungAktionen } from "./-zeitraum-abgabe.tsx";
+import { ZeitraumHinweise } from "./-zeitraum-hinweise.tsx";
+import { useFokusUeberWechsel } from "../../../lib/use-fokus-ueber-wechsel.ts";
 
 export const Route = createFileRoute("/_app/umsatzsteuer/$zeitraum")({
   loader: ({ params }) => {
@@ -28,8 +29,6 @@ export const Route = createFileRoute("/_app/umsatzsteuer/$zeitraum")({
   component: VatPeriodPage,
 });
 
-const ELSTER_ABGABE_DOCS = "https://haben.app/elster-abgabe.html";
-
 const FIELDS: FieldKey[] = [
   "kz81",
   "kz86",
@@ -41,6 +40,7 @@ const FIELDS: FieldKey[] = [
   "kz46",
   "kz47",
   "kz48",
+  "kz50",
   "kz61",
   "kz62",
   "kz66",
@@ -53,11 +53,25 @@ const FIELDS: FieldKey[] = [
 
 type Figures = Pick<Record<FieldKey, number>, "kz81" | "kz86" | "kz66"> & Partial<Record<FieldKey, number>>;
 
+/**
+ * Kennzahlen für den Vergleich mit einer gesendeten Anmeldung: ohne Kz 50 wie der Abgleich in gesendet-pruefen.ts (#1267).
+ * Sie ändert keine Steuer, und vor #1267 gesendete Anmeldungen haben sie nicht.
+ */
+const GESENDET_VERGLEICHEN = FIELDS.filter((field) => field !== "kz50");
+
 /** Gleiche Kennzahlen? Fehlende Kz 21/45/48 (ältere Anmeldungen) zählen als 0 */
-function sameFigures(a: Figures, b: Figures): boolean {
-  return FIELDS.every((field) => (a[field] ?? 0) === (b[field] ?? 0));
+function sameFigures(a: Figures, b: Figures, fields: readonly FieldKey[] = FIELDS): boolean {
+  return fields.every((field) => (a[field] ?? 0) === (b[field] ?? 0));
 }
-type PeriodNotice = { key: string; notice: Notice };
+
+/**
+ * Weicht die heutige Rechnung von der gesendeten Anmeldung ab? Kz 48 gilt auch ohne die Umsätze als Kleinunternehmer als
+ * gleich, so hat Haben sie vor #1268 gemeldet (wie gesendet-pruefen.ts)
+ */
+function seitGesendetGeaendert(gesendet: Figures, computed: Figures, data: PageData): boolean {
+  const vor1268 = computeUstva({ ...data.figures, kz48: data.figures.kz48 - data.figures.kz48Kleinunternehmer, kz39: data.kz39 });
+  return !sameFigures(gesendet, computed, GESENDET_VERGLEICHEN) && !sameFigures(gesendet, vor1268, GESENDET_VERGLEICHEN);
+}
 
 /** „Kz 81 1.000,00 €, Kz 86 0,00 € und Kz 66 12,00 €“; Kz 21/45/48 nur, wenn belegt */
 function describe(figures: Record<FieldKey, number>): string {
@@ -68,12 +82,15 @@ function describe(figures: Record<FieldKey, number>): string {
 function VatPeriodPage() {
   const data = Route.useLoaderData();
   const navigate = useNavigate();
+  // Die Auswahl behält beim Wechsel den Fokus, obwohl die Seite neu entsteht
+  const auswahl = useFokusUeberWechsel<HTMLSelectElement>("umsatzsteuer-zeitraum");
   const key = periodKey(data.period);
-  // Meldungen überleben das Neuaufsetzen des Formulars nach dem Speichern
-  // und gelten nur für den Zeitraum, in dem sie entstanden sind.
-  const [periodNotice, setPeriodNotice] = useState<PeriodNotice | null>(null);
-  const notice = periodNotice?.key === key ? periodNotice.notice : null;
-  const setNotice = (next: Notice) => setPeriodNotice({ key, notice: next });
+  // Meldungen überleben das Neuaufsetzen des Formulars nach dem Speichern; die Seite entsteht je Zeitraum neu
+  const [notice, setNotice] = useState<Notice>(null);
+  // Passt der Zeitraum nicht zur Voranmeldung, lässt es sich dort beheben: Bis man selbst auf- oder zuklappt, steht der
+  // Bereich dann offen. Wie die Meldung gilt die Wahl nur für diesen Zeitraum
+  const [fristen, setFristen] = useState<boolean | null>(null);
+  const fristenOffen = fristen ?? Boolean(data.periodProblem);
   // Zeiträume nach dem eingestellten Voranmeldungszeitraum, dazu der angezeigte, falls er nicht dazugehört
   const options = [...data.periods];
   if (!options.some((option) => periodKey(option) === key)) options.push(data.period);
@@ -90,7 +107,15 @@ function VatPeriodPage() {
         </div>
         <Field label="Zeitraum">
           {(control) => (
-            <select {...control} value={key} onChange={(event) => navigate({ to: "/umsatzsteuer/$zeitraum", params: { zeitraum: event.target.value } })}>
+            <select
+              {...control}
+              ref={auswahl.ref}
+              value={key}
+              onChange={(event) => {
+                auswahl.merken();
+                void navigate({ to: "/umsatzsteuer/$zeitraum", params: { zeitraum: event.target.value } });
+              }}
+            >
               {options.map((option) => (
                 <option key={periodKey(option)} value={periodKey(option)}>
                   {periodLabel(option)}
@@ -101,82 +126,12 @@ function VatPeriodPage() {
         </Field>
       </div>
 
-      {data.mode === "simuliert" && <EricHinweis />}
-      {!data.herstellerIdConfigured && data.current?.status !== "sent" && (
-        <div className="banner banner-info" role="status">
-          <Icon name="info" />
-          <span>
-            Ohne eigene Hersteller-ID gibst du in Mein ELSTER ab: Entwurf speichern, „XML für Mein ELSTER“ herunterladen und dort im Formular
-            Umsatzsteuer-Voranmeldung unter Datenübernahme › XML-Import hochladen. Prüfen und absenden machst du in Mein ELSTER.{" "}
-            <a href={ELSTER_ABGABE_DOCS} target="_blank" rel="noreferrer">
-              Abgabe in Mein ELSTER
-            </a>
-          </span>
-        </div>
-      )}
-      {data.periodProblem && (
-        <div className="banner" role="status">
-          <Icon name="alert" />
-          <span>{data.periodProblem}</span>
-        </div>
-      )}
-      {data.companyIssues.length > 0 && (
-        <div className="banner" role="status">
-          <Icon name="alert" />
-          <span>
-            Firmendaten unvollständig: {data.companyIssues.join(", ")}.{" "}
-            <Link to="/einstellungen" search={{ bereich: "firma" }}>
-              In den Einstellungen ergänzen
-            </Link>
-          </span>
-        </div>
-      )}
+      <ZeitraumHinweise data={data} />
 
-      {data.current?.status !== "sent" &&
-        data.preflight.map((issue) => (
-          <div key={issue.text} className={`banner ${issue.tone === "info" ? "banner-info" : ""}`} role="status">
-            <Icon name={issue.tone === "info" ? "info" : "alert"} />
-            <span>
-              {issue.text}{" "}
-              <Link to={issue.link}>
-                {
-                  {
-                    "/bank": "Zur Bank",
-                    "/belege": "Zu den Belegen",
-                    "/rechnungen": "Zu den Rechnungen",
-                    "/konten": "Zu den Konten",
-                  }[issue.link]
-                }
-              </Link>
-            </span>
-          </div>
-        ))}
-
-      {(data.figures.kz21 !== 0 || data.figures.kz41 !== 0) && (
-        <div className="banner banner-info" role="status">
-          <Icon name="info" />
-          <span>
-            {data.figures.kz41 !== 0 ? "Leistungen und Lieferungen ins EU-Ausland (Kz 21, 41)" : "Leistungen ins EU-Ausland (Kz 21)"} meldest du je Quartal
-            zusätzlich dem BZSt.{" "}
-            <Link
-              to="/umsatzsteuer/zm/$quartal"
-              params={{
-                quartal: periodKey({ year: data.period.year, month: data.period.month >= 41 ? data.period.month : quarterOfMonth(data.period.month) }),
-              }}
-            >
-              Zur Zusammenfassenden Meldung
-            </Link>
-          </span>
-        </div>
-      )}
-
-      {/* key: Formular bei Zeitraum- oder Anmeldungswechsel neu aufsetzen */}
-      <VatReturnEditor key={`${key}-${data.current?.id ?? "neu"}-${data.current?.updatedAt ?? ""}`} data={data} notice={notice} setNotice={setNotice} />
+      {/* key: Formular bei Wechsel der Anmeldung (Berichtigung) und nach dem Speichern neu aufsetzen */}
+      <VatReturnEditor key={`${data.current?.id ?? "neu"}-${data.current?.updatedAt ?? ""}`} data={data} notice={notice} setNotice={setNotice} />
       {/* Außerhalb des Editors: der baut sich nach jedem Speichern der Anmeldung neu auf und verwürfe sonst die Auswahl hier */}
-      <div className="grid-main" style={{ marginTop: 16 }}>
-        <VatFrequencyCard key={data.frequency.year} frequency={data.frequency} />
-        <DauerfristCard key={`dauerfrist-${data.dauerfrist.year}`} overview={data.dauerfrist} setup={data} />
-      </div>
+      <FristenAbschnitt frequency={data.frequency} dauerfrist={data.dauerfrist} setup={data} offen={fristenOffen} onOffen={setFristen} />
     </>
   );
 }
@@ -196,19 +151,15 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
   const [dirty, setDirty] = useState(!current);
 
   const parsed = Object.fromEntries(FIELDS.map((f) => [f, parseEuro(values[f])])) as Record<FieldKey, number | null>;
-  // Negative Werte sind erlaubt, etwa wenn Gutschriften im Monat überwiegen
-  const manualValid = Object.values(parsed).every((v) => v !== null) && reason.trim().length >= 10;
   const manualFigures = Object.fromEntries(FIELDS.map((f) => [f, parsed[f] ?? 0])) as Record<FieldKey, number>;
-  // Ein Zeitraum, der nicht zum eingestellten Voranmeldungszeitraum passt, lässt sich nicht neu anmelden; berichtigen geht
-  const allowed = !data.periodProblem || Boolean(current?.berichtigt);
-  const valid = allowed && (mode === "berechnet" || manualValid);
+  const allowed = anmeldbar(data);
   const shown = locked ? computeUstva(current!) : mode === "manuell" ? computeUstva(manualFigures) : computed;
   // Gespeicherter berechneter Entwurf, dessen Werte sich inzwischen geändert haben
   const stale = !locked && current?.source === "berechnet" && !sameFigures(current, computed);
 
   // Gesendete Anmeldung, deren Buchungen sich danach geändert haben (z. B. Zuordnung aufgehoben)
   const sentBasis = locked ? (current!.source === "berechnet" ? current! : current!.computed) : null;
-  const drift = sentBasis !== null && sentBasis !== undefined && !sameFigures(sentBasis, computed);
+  const drift = sentBasis !== null && sentBasis !== undefined && seitGesendetGeaendert(sentBasis, computed, data);
 
   function update(field: FieldKey, value: string) {
     setValues((prev) => ({ ...prev, [field]: value }));
@@ -221,12 +172,14 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
   }
 
   const { busy, onSave, onSubmit, onCorrect } = useVoranmeldungAktionen(data, { mode, manualFigures, reason, dirty, setDirty }, setNotice);
+  // Prüfung beim Speichern statt gesperrtem Knopf (#1270)
+  const { pruefung, check, speichern } = usePruefungBeimSpeichern(parsed, reason, mode, onSave);
 
   const editable = !locked && mode === "manuell";
 
   return (
     <div className="grid-main">
-      <form className="card" onSubmit={onSave} aria-labelledby="kz-heading">
+      <form ref={pruefung.form} noValidate className="card" onSubmit={speichern} aria-labelledby="kz-heading">
         <h2 id="kz-heading">Kennzahlen</h2>
         {data.kleinunternehmer && (
           <div className="banner banner-info" role="status">
@@ -235,26 +188,6 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
               Du bist als Kleinunternehmer (§ 19 UStG) eingetragen und gibst in der Regel keine Voranmeldung ab. Nötig ist sie nur, wenn du selbst Steuer
               schuldest, etwa für Leistungen ausländischer Unternehmer an dich (Reverse Charge).
             </span>
-          </div>
-        )}
-        {!locked && (
-          <div className="mode-switch" role="group" aria-label="Herkunft der Kennzahlen">
-            <button
-              type="button"
-              className={`chip${mode === "berechnet" ? " active" : ""}`}
-              aria-pressed={mode === "berechnet"}
-              onClick={() => switchMode("berechnet")}
-            >
-              Aus Buchungen berechnet
-            </button>
-            <button
-              type="button"
-              className={`chip${mode === "manuell" ? " active" : ""}`}
-              aria-pressed={mode === "manuell"}
-              onClick={() => switchMode("manuell")}
-            >
-              Manuell überschreiben
-            </button>
           </div>
         )}
         {drift && (
@@ -272,9 +205,25 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
         <p className="small muted" style={{ margin: 0 }}>
           Kz = Kennzahl, die Nummer des Felds im ELSTER-Formular.
         </p>
-        <KennzahlenTabelle data={data} shown={shown} computed={computed} eingabe={{ locked, editable, values, parsed, update, openSources, toggleSources }} />
+        <KennzahlenTabelle
+          data={data}
+          shown={shown}
+          computed={computed}
+          eingabe={{ locked, editable, values, fehler: (f) => pruefung.error(f), update, openSources, toggleSources }}
+        />
+        {!locked && (
+          <p className="small" style={{ margin: 0 }}>
+            <button type="button" className="link-button" onClick={() => switchMode(editable ? "berechnet" : "manuell")}>
+              {editable ? "Zurück zu den berechneten Werten" : "Werte von Hand ändern (nur in Ausnahmen)"}
+            </button>
+          </p>
+        )}
         {editable && (
-          <Field label="Begründung der Abweichung (Pflicht)" hint={<>Berechnet wären {describe(computed)}.</>}>
+          <Field
+            label="Begründung der Abweichung (Pflicht)"
+            hint={<>Mindestens 10 Zeichen. Berechnet wären {describe(computed)}.</>}
+            error={pruefung.error("reason")}
+          >
             {(control) => (
               <textarea
                 {...control}
@@ -283,7 +232,7 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
                   setReason(event.target.value);
                   setDirty(true);
                 }}
-                aria-invalid={reason.trim().length < 10}
+                maxLength={1000}
                 placeholder="z. B. Zahlung vom 30.09. erst im Oktober zugeordnet"
               />
             )}
@@ -303,7 +252,7 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
         </p>
         {!locked && (
           <div className="actions">
-            <button type="submit" className="btn" disabled={busy || !valid || (!dirty && Boolean(current) && !stale)}>
+            <button type="submit" className="btn" disabled={busy || !allowed || (!dirty && Boolean(current) && !stale)}>
               Entwurf speichern
             </button>
             {current && !dirty && !stale && data.companyIssues.length === 0 && (
@@ -323,7 +272,7 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
         <NoticeBanner notice={notice} />
       </form>
 
-      <AbgabeSpalte data={data} locked={locked} valid={valid} busy={busy} shown={shown} dirty={dirty} stale={stale} onSubmit={onSubmit} setNotice={setNotice} />
+      <AbgabeSpalte data={data} locked={locked} check={check} busy={busy} shown={shown} dirty={dirty} stale={stale} onSubmit={onSubmit} setNotice={setNotice} />
     </div>
   );
 }

@@ -10,7 +10,7 @@ import {
   type DocumentReference,
 } from "../belege/index.ts";
 import { fail, notFound, ok, validate, type ApiRequest, type ApiResult } from "./http.ts";
-import { documentQuerySchema, documentUploadSchema, type documentSchema, type documentSummarySchema } from "./schemas.ts";
+import { documentQuerySchema, documentUploadSchema, type documentSchema, type documentSummarySchema } from "./belege-schemas.ts";
 
 /*
  * Belege über die REST-API (#104): eigene Werkzeuge, Dokumentenarchive und Skripte liefern Eingangsbelege, die wie beim
