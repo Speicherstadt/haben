@@ -26,11 +26,10 @@ export const documentUploadSchema = z
     dateiname: z
       .string()
       .trim()
-      .min(1)
       .max(200)
       .optional()
       .describe(
-        "Anzeigename des Belegs, wenn die Quelle ihn kennt und die Datei unter einem festen Namen schickt, etwa die Webhook-Aktion von Paperless-ngx mit „document.pdf“ (#1904); ohne Endung ergänzt Haben die des mitgeschickten Formats",
+        "Anzeigename des Belegs, wenn die Quelle ihn kennt und die Datei unter einem festen Namen schickt, etwa die Webhook-Aktion von Paperless-ngx mit „document.pdf“ (#1904); ohne Endung ergänzt Haben die des erkannten Dateityps, leer gilt der Name aus dem Upload",
       ),
     note: z.string().max(2000).optional().describe("Notiz am Beleg, z. B. woher er kommt"),
     externalSource: documentReferenceSchema.shape.externalSource
