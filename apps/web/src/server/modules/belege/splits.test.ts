@@ -379,6 +379,35 @@ describe.skipIf(!testDatabaseUrl)("Beleg aufteilen (Postgres)", () => {
     expect(saved.splits.map((s) => s.privateShare)).toEqual([25, 0]);
   });
 
+  // GmbH und UG: privat Genutztes ist Arbeitslohn oder verdeckte Gewinnausschüttung, keine Entnahme. Die Sperre in
+  // documents.ts nennt den Grund beim Buchen; das Einzelunternehmen bucht denselben Beleg.
+  it("GmbH und UG lehnen einen Anteil in einer Zeile ab, das Einzelunternehmen bucht ihn", async () => {
+    await reset("SKR03", "soll");
+    const anteil = {
+      payment: "privat" as const,
+      amounts: [{ taxRate: 1900 as const, net: 6_000, tax: 1_140 }],
+      splits: [
+        { category: "internet" as const, taxRate: 1900 as const, net: 4_000, privateShare: 25 },
+        { category: "telefon" as const, taxRate: 1900 as const, net: 2_000, privateShare: 0 },
+      ],
+    };
+    for (const rechtsform of ["gmbh", "ug"] as const) {
+      await sql`update company set rechtsform = ${rechtsform} where id = 1`;
+      const id = await draft(anteil);
+      const saved = (await documents.getDocument(id))!;
+      // Der Anteil steht in der Zeile, nicht am Beleg
+      expect(saved.document.privateShare).toBe(0);
+      expect(saved.splits.map((s) => s.privateShare)).toEqual([25, 0]);
+      await expect(documents.bookDocument(actor, id)).rejects.toThrow(/Einen Privatanteil gibt es nur im Einzelunternehmen/);
+    }
+
+    await sql`update company set rechtsform = 'einzelunternehmen' where id = 1`;
+    const id = await draft(anteil);
+    await documents.bookDocument(actor, id);
+    // Internet 1.000 € netto und 190 € Steuer privat: eine Entnahme auf 1800
+    expect((await entryLines(id)).map((l) => l.account)).toContain("1800");
+  });
+
   it("mit Zeilen zählt der Anteil der Zeile; ein Anteil am Beleg bleibt ohne Wirkung", async () => {
     await reset("SKR03", "soll");
     const id = await draft({ payment: "privat", privateShare: 20 });

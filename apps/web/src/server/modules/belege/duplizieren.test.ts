@@ -180,7 +180,7 @@ describe.skipIf(!testDatabaseUrl)("Beleg duplizieren (Postgres)", () => {
       vorsteuerAnteil: 5_000,
       amounts: [{ taxRate: 1900, net: 7_000, tax: 1_330 }],
       splits: [
-        { category: "software", ownAccountId: eigenes, taxRate: 1900, net: 5_000 },
+        { category: "software", ownAccountId: eigenes, taxRate: 1900, net: 5_000, privateShare: 25 },
         { category: "buero", taxRate: 1900, net: 2_000 },
       ],
     });
@@ -198,9 +198,11 @@ describe.skipIf(!testDatabaseUrl)("Beleg duplizieren (Postgres)", () => {
       vorsteuerAnteil: 5_000,
       documentDate: today(),
     });
-    expect(copy.splits.map(({ category, ownAccountId, taxRate, net, tax }) => ({ category, ownAccountId, taxRate, net, tax }))).toEqual([
-      { category: "software", ownAccountId: null, taxRate: 1900, net: 5_000, tax: 950 },
-      { category: "buero", ownAccountId: null, taxRate: 1900, net: 2_000, tax: 380 },
+    expect(
+      copy.splits.map(({ category, ownAccountId, taxRate, net, tax, privateShare }) => ({ category, ownAccountId, taxRate, net, tax, privateShare })),
+    ).toEqual([
+      { category: "software", ownAccountId: null, taxRate: 1900, net: 5_000, tax: 950, privateShare: 25 },
+      { category: "buero", ownAccountId: null, taxRate: 1900, net: 2_000, tax: 380, privateShare: 0 },
     ]);
     expect(documents.bookingIssues(copy.document, copy.amounts, today(), copy.splits)).toEqual([]);
     await documents.bookDocument(actor, copyId);

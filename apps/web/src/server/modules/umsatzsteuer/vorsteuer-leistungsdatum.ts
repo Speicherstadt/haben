@@ -13,7 +13,7 @@ import {
 } from "@haben/core";
 import { and, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
-import { betrieblicheZeile, splitBusinessByRate } from "../buchhaltung/index.ts";
+import { betrieblicheZeile, betrieblicherBeleg, splitBusinessByRate } from "../buchhaltung/index.ts";
 import { geschaeftlich, ZWISCHENKONTEN } from "./vorsteuer-anteile.ts";
 
 /*
@@ -357,16 +357,18 @@ function zeilenDerZahlungen(k: Kandidat & { datum: string }, totals: InvoiceTota
 function zeilenDesBelegs(k: Kandidat, nb: Nebenbuecher): { zeilen: VorsteuerZeile[]; erlass: Skonto[] } | null {
   if (!k.vorsteuerAbzug || !k.datum) return null;
   const saetze = belegSaetze(nb.betraege, k.id, Math.abs);
-  const gross = Math.abs(k.gross);
-  if (saetze.length === 0 || gross === 0) return null;
-  const totals = { net: Math.abs(k.net), tax: Math.abs(k.tax), gross, taxes: saetze };
+  if (saetze.length === 0 || Math.abs(k.gross) === 0) return null;
+  const betrieblich = betrieblicherBeleg({ net: Math.abs(k.net), tax: Math.abs(k.tax), gross: Math.abs(k.gross) }, saetze);
+  const { gross, anteil } = betrieblich;
+  const totals = { net: betrieblich.net, tax: betrieblich.tax, gross, taxes: saetze };
 
   const ausgefuehrt = leistungsdatum({ belegdatum: k.datum, leistungVon: k.von, leistungBis: k.bis });
   // Skonto vor der Ausführung erlässt den Rest, bevor seine Steuer abziehbar war: Es zählt als erledigt, ohne Zeile, und
   // die gewöhnliche Minderung im Skontomonat entfällt (wie im Journal, vorsteuer-ausgleich.ts). Seine Aufhebung vor der
   // Ausführung nimmt das zurück; eine Aufhebung danach zählt wie gewohnt im Monat der Aufhebung.
   const erlass = nb.skontos.filter((x) => x.documentId === k.id && x.date < ausgefuehrt);
-  const zahlungen = zahlungenBisZurAusfuehrung(zahlungenDesBelegs(k, k.datum, gross, nb), erlass, ausgefuehrt, gross);
+  const gezahlt = zahlungenDesBelegs(k, k.datum, Math.abs(k.gross), nb).map((z) => ({ ...z, amount: Math.round(z.amount * anteil) }));
+  const zahlungen = zahlungenBisZurAusfuehrung(gezahlt, erlass, ausgefuehrt, gross);
   const storno = nb.stornoAm.get(k.id);
   const zeilen = zeilenDerZahlungen({ ...k, datum: k.datum }, totals, zahlungen, storno);
   // Ein Skonto vor der Ausführung, das erst nach ihr aufgehoben wird, gibt seine Steuer im Monat der Aufhebung frei; das

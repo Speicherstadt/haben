@@ -1,5 +1,5 @@
 import { allocateSplitTax, formatDecimal, formatEuro, parseEuro, type ExpenseCategory } from "@haben/core";
-import { parsePrivatanteil } from "../lib/anteil.ts";
+import { parsePrivatanteil, privatanteilVorgabe } from "../lib/anteil.ts";
 import { CategoryCombobox } from "./CategoryCombobox.tsx";
 import { EigenesKontoWahl, passendesKonto, type OwnAccountChoice } from "./EigenesKontoWahl.tsx";
 import { Field } from "./Field.tsx";
@@ -49,6 +49,15 @@ export function parseSplitRows(
     ownAccountId: p.ownAccountId,
     privateShare: p.privateShare!,
   }));
+}
+
+/**
+ * Privatanteil einer Zeile nach dem Wechsel ihrer Kategorie (#1914): die Vorgabe der neuen Kategorie aus den
+ * Firmendaten, ohne Vorgabe 0, damit kein alter Wert stehen bleibt. Wo es kein Feld gibt (GmbH und UG), bleibt er, wie er war.
+ */
+export function anteilBeimKategorieWechsel(shares: Partial<Record<string, number>>, kategorie: ExpenseCategory | "", bisher: string, sichtbar = true): string {
+  if (!sichtbar) return bisher;
+  return privatanteilVorgabe(shares, kategorie) || "0";
 }
 
 const percent = (rate: number) => `${rate / 100} %`;
@@ -116,8 +125,8 @@ export function DocumentSplits({
                   update(row.key, {
                     category: next as ExpenseCategory | "",
                     ownAccountId: passendesKonto(ownAccounts, next, row.ownAccountId),
-                    // Vorgabe aus den Firmendaten, z. B. Internet 25 %
-                    privateShare: privatanteil && privateShares[next] ? String(privateShares[next]) : row.privateShare,
+                    // Vorgabe aus den Firmendaten, z. B. Internet 25 %; ohne Vorgabe 0
+                    privateShare: anteilBeimKategorieWechsel(privateShares, next as ExpenseCategory | "", row.privateShare, privatanteil),
                   })
                 }
               />

@@ -36,6 +36,21 @@ export async function splitBusinessByRate(ids: string[], q: Db | Tx = db): Promi
   return result;
 }
 
+/**
+ * Betrieblicher Teil eines Belegs samt seinem Anteil an Netto und Steuer (#1914): Mit Privatanteil in den Zeilen zählen
+ * Beträge und Zahlungen nur anteilig, sonst verteilte paidTaxShares die private Steuer mit.
+ */
+export function betrieblicherBeleg(
+  voll: { net: Cents; tax: Cents; gross: Cents },
+  saetze: readonly { base: Cents; tax: Cents }[],
+): { net: Cents; tax: Cents; gross: Cents; anteil: number } {
+  const net = saetze.reduce((s, t) => s + t.base, 0);
+  const tax = saetze.reduce((s, t) => s + t.tax, 0);
+  const gesamt = voll.net + voll.tax;
+  const anteil = gesamt === 0 ? 1 : (net + tax) / gesamt;
+  return { net, tax, gross: voll.gross * anteil, anteil };
+}
+
 /** Eine Betragszeile mit dem betrieblichen Anteil ihrer Zeilen (#1914); ohne Anteil bleibt sie, wie sie ist */
 export function betrieblicheZeile<T extends { documentId: string; rate: number; net: Cents; tax: Cents }>(
   je: ReadonlyMap<string, ReadonlyMap<number, { base: Cents; tax: Cents }>>,

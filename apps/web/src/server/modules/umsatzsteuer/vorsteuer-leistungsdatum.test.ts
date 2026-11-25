@@ -55,6 +55,7 @@ describe.skipIf(!testDatabaseUrl)("Vorsteuer nach Leistungsdatum: Nebenbücher (
     von?: string | null;
     bis?: string | null;
     privateShare?: number;
+    splits?: { category: "internet" | "telefon"; taxRate: 1900; net: number; privateShare: number }[];
     payment?: "bank" | "kasse" | "privat";
     erstattetBezahltes?: boolean;
   }) {
@@ -74,6 +75,7 @@ describe.skipIf(!testDatabaseUrl)("Vorsteuer nach Leistungsdatum: Nebenbücher (
       note: "",
       privateShare: input.privateShare ?? 0,
       amounts: input.amounts,
+      ...(input.splits ? { splits: input.splits } : {}),
       ...(input.erstattetBezahltes === undefined ? {} : { erstattetBezahltes: input.erstattetBezahltes }),
     });
     await documents.bookDocument(actor, id);
@@ -251,6 +253,29 @@ describe.skipIf(!testDatabaseUrl)("Vorsteuer nach Leistungsdatum: Nebenbücher (
 
     expect((await monat(11)).kz66).toBe(0);
     expect((await monat(12)).kz66).toBe(308);
+  });
+
+  // #1914: Mit Aufteilung trägt jede Zeile ihren Anteil; Kz 66 zählt im Monat der Ausführung nur den betrieblichen Teil
+  it("Aufteilung mit Privatanteil je Zeile: Kz 66 nur mit dem betrieblichen Teil, im Monat der Ausführung", async () => {
+    await firma();
+    const id = await beleg({
+      datum: "2026-11-20",
+      von: "2026-12-01",
+      bis: "2026-12-31",
+      amounts: [{ taxRate: 1900, net: 4_000, tax: 760 }],
+      splits: [
+        { category: "internet", taxRate: 1900, net: 2_000, privateShare: 25 },
+        { category: "telefon", taxRate: 1900, net: 2_000, privateShare: 0 },
+      ],
+    });
+    // Zahlung erst nach der Ausführung: Sie verschiebt den Monat nicht
+    await zahlung(id, -4_760, "2027-01-15");
+
+    expect((await monat(11)).kz66).toBe(0);
+    // Internet 25 % privat: 1.500 € netto und 285 € Vorsteuer, Telefon voll 2.000 € und 380 €
+    expect((await monat(12)).kz66).toBe(665);
+    expect((await monat(12)).zeilen).toEqual([{ date: "2026-12-31", tax: 665, base: 3_500 }]);
+    expect((await monat(1, 2027)).kz66).toBe(0);
   });
 
   // Beispiel aus #693, Vorschlag 4: Wartung 15.11. bis 14.12., Rechnung 20.11., bezahlt 10.01. → Vorsteuer im Dezember

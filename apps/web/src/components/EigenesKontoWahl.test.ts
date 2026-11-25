@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { parseSplitRows, splitRow } from "./DocumentSplits.tsx";
+import { anteilBeimKategorieWechsel, parseSplitRows, splitRow } from "./DocumentSplits.tsx";
 import { EigenesKontoWahl, type OwnAccountChoice, passendesKonto } from "./EigenesKontoWahl.tsx";
 
 /*
@@ -68,6 +68,22 @@ describe("passendesKonto", () => {
 
   it("behält auch ein archiviertes Konto, das der Beleg schon hat", () => {
     expect(passendesKonto(KONTEN, "software", "b")).toBe("b");
+  });
+});
+
+describe("Privatanteil beim Kategorienwechsel", () => {
+  it("übernimmt die Vorgabe der neuen Kategorie", () => {
+    expect(anteilBeimKategorieWechsel({ internet: 25 }, "internet", "40")).toBe("25");
+  });
+
+  it("setzt 0, wenn die neue Kategorie keine Vorgabe hat", () => {
+    expect(anteilBeimKategorieWechsel({ internet: 25 }, "telefon", "25")).toBe("0");
+    expect(anteilBeimKategorieWechsel({ internet: 0 }, "internet", "40")).toBe("0");
+    expect(anteilBeimKategorieWechsel({}, "", "40")).toBe("0");
+  });
+
+  it("lässt den Wert stehen, wo es kein Feld gibt (GmbH und UG)", () => {
+    expect(anteilBeimKategorieWechsel({ internet: 25 }, "internet", "40", false)).toBe("40");
   });
 });
 
