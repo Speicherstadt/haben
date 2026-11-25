@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Detail, type Posten, restAngebot } from "./-bank-daten.ts";
+import { type Detail, type Posten, hatMarktplatzKonto, restAngebot } from "./-bank-daten.ts";
 
 // Rechnung über 119,00 €, Korrektur über −23,80 €, der Kunde zahlt 95,20 € (#1398)
 const korrektur = { id: "k1", number: "RE-2026-0002", open: -2380 };
@@ -63,5 +63,30 @@ describe("Rest einer Zahlung mit offener Korrektur (#1398)", () => {
 
   it("bietet bei voller Zahlung keine Korrektur an", () => {
     expect(restAngebot(rechnung([korrektur]), zahlung(11_900)).korrektur).toBeUndefined();
+  });
+});
+
+/*
+ * Vor dem Anlegen eines Zahlungsdienstleister-Kontos: Gibt es für Anbieter und Marktplatz schon ein Konto (etwa
+ * Amazon.de), fragt die Seite nach, statt stillschweigend ein zweites anzulegen.
+ */
+describe("hatMarktplatzKonto", () => {
+  const konten = [
+    { provider: "amazon", marketplace: "Amazon.de" },
+    { provider: "ebay", marketplace: null },
+  ];
+
+  it("findet ein Konto desselben Anbieters und Marktplatzes", () => {
+    expect(hatMarktplatzKonto(konten, "amazon", "Amazon.de")).toBe(true);
+  });
+
+  it("unterscheidet Anbieter und Marktplatz", () => {
+    expect(hatMarktplatzKonto(konten, "amazon", "Amazon.fr")).toBe(false);
+    expect(hatMarktplatzKonto(konten, "paypal", "Amazon.de")).toBe(false);
+  });
+
+  it("ohne Marktplatz gibt es nichts zu fragen", () => {
+    expect(hatMarktplatzKonto(konten, "paypal", null)).toBe(false);
+    expect(hatMarktplatzKonto(konten, "ebay", undefined)).toBe(false);
   });
 });
