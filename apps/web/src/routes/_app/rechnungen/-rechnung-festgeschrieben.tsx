@@ -190,7 +190,7 @@ export function FinalInvoice({ data }: { data: Detail }) {
                 onClose={() => setConfirming(false)}
               >
                 <p>
-                  Es wird sofort eine Stornorechnung mit neuer Nummer erzeugt und gebucht.
+                  Es wird sofort eine Stornorechnung mit neuer Nummer erzeugt.
                   {hatKorrekturen && " Jede festgeschriebene Korrektur bekommt ein eigenes Storno."}
                 </p>
               </ConfirmDialog>
