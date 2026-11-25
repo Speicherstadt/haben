@@ -11,7 +11,7 @@ Die Tabellen zeigen je Vorgang die Zeilen einer Buchung. Bei mehreren Steuersät
 
 ## Rechnung festschreiben
 
-Beim Festschreiben einer Ausgangsrechnung, gebucht auf das Rechnungsdatum. Beschreibung: `Rechnung <Nummer> · <Kunde>`.
+Beim Festschreiben einer Ausgangsrechnung, gebucht auf den [Leistungstag](umsatzsteuer.md#leistungstag-bei-soll-versteuerung), ohne Angabe das Rechnungsdatum. Beschreibung: `Rechnung <Nummer> · <Kunde>`.
 
 | Konto SKR03 | Konto SKR04 | Soll | Haben |
 | --- | --- | --- | --- |
