@@ -76,6 +76,16 @@ describe("abhaengigkeitHinweise", () => {
     expect(fehler?.message).not.toContain("`left-pad`");
   });
 
+  it("zählt ein Paket nicht als begründet, nur weil sein Name in einem anderen Namen oder Wort steckt", () => {
+    const pg = [
+      { file: "apps/web/package.json", name: "pg", feld: "dependencies" },
+      { file: "apps/web/package.json", name: "@types/pg", feld: "devDependencies" },
+    ];
+    const nurTypen = "## Neue Abhängigkeiten\n\n- `@types/pg`: Typen, ein Upgrade später unnötig\n";
+    const fehler = abhaengigkeitHinweise(pg, nurTypen, false).find((m) => m.level === "error");
+    expect(fehler?.message).toContain("Begründung fehlt für `pg`");
+  });
+
   it("verlangt von Bots keinen Abschnitt und meldet ohne neue Pakete nichts", () => {
     expect(abhaengigkeitHinweise(neu, null, true).map((m) => m.level)).toEqual(["warning"]);
     expect(abhaengigkeitHinweise([], null, false)).toEqual([]);
