@@ -123,6 +123,26 @@ test("Manuelle Buchung: Fehler einer Zeile am Feld, was die ganze Buchung betrif
   await expect(page).toHaveURL(/\/buchungen\/neu$/);
 });
 
+test("Manuelle Buchung: Nach einem gescheiterten Buchen nennt das Formular einen neuen Fehler einer Zeile (Review #1950)", async () => {
+  await go("/buchungen/neu");
+  const form = page.getByRole("form", { name: "Manuelle Buchung" });
+  await form.getByLabel("Buchungstext").fill("Einlage, Verbindung bricht ab");
+  await form.getByLabel("Konto Zeile 1").fill("3510");
+  await form.getByLabel("Soll Zeile 1").fill("100,00");
+  await form.getByLabel("Konto Zeile 2").fill("2900");
+  await form.getByLabel("Haben Zeile 2").fill("100,00");
+  // Die Prüfung im Formular geht durch, der Server antwortet nicht
+  const abbrechen = (route: Route) => (route.request().method() === "POST" ? route.abort() : route.continue());
+  await page.route(/_serverFn/, abbrechen);
+  await form.getByRole("button", { name: "Buchen" }).click();
+  await expect(form.locator(".banner-danger")).toBeVisible();
+  await page.unroute(/_serverFn/, abbrechen);
+  await expect(page).toHaveURL(/\/buchungen\/neu$/);
+  // Ein Tippfehler danach: Vor dem ersten „Buchen“ stand er in der Liste; jetzt muss er irgendwo stehen
+  await form.getByLabel("Konto Zeile 1").fill("12");
+  await expect(form.getByText(/Konto hat vier Ziffern/)).toBeVisible();
+});
+
 test("Eröffnung nicht am 1. Januar: der Fehler steht am Datum und der Fokus dort (Review #971)", async () => {
   await go("/buchungen/neu");
   const form = page.getByRole("form", { name: "Manuelle Buchung" });
