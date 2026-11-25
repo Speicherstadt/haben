@@ -1,4 +1,4 @@
-import { mindestHebesatz, parseWholePercent } from "@haben/core";
+import { HOECHSTER_HEBESATZ, mindestHebesatz, parseWholePercent } from "@haben/core";
 import type { FieldErrors } from "../lib/use-submit-check.ts";
 import { betragFehler } from "./kapg-angaben-pruefung.ts";
 
@@ -11,15 +11,12 @@ export type SteuernFeld = "hebesatz" | "vortragKst" | "vortragGewst" | "ruecktra
 
 export type SteuernFormular = { year: number } & Record<SteuernFeld, string>;
 
-/** Größter Hebesatz in Prozent wie im Schema des Servers */
-const HOECHSTER_HEBESATZ = 1500;
-
 function hebesatzFehler(text: string, year: number): string | null {
   const satz = parseWholePercent(text);
   if (satz === null) return "Trag den Hebesatz der Gemeinde in ganzen Prozent ein, etwa 400.";
   const mindest = mindestHebesatz(year);
   if (satz < mindest) return `Der Hebesatz beträgt ${year} mindestens ${mindest} %.`;
-  return satz > HOECHSTER_HEBESATZ ? "Trag einen Hebesatz bis 1.500 % ein." : null;
+  return satz > HOECHSTER_HEBESATZ ? `Trag einen Hebesatz bis ${HOECHSTER_HEBESATZ.toLocaleString("de-DE")} % ein.` : null;
 }
 
 /** Fehler der Angaben je Feld, oder null, wo die Angabe stimmt; leere Verlustvorträge gelten als 0 */
