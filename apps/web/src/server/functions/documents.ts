@@ -227,6 +227,8 @@ export const saveExtractionLimitsFn = createServerFn({ method: "POST" })
   .validator(extractionLimitsSchema)
   .handler(async ({ data, context }) => {
     await saveExtractionLimits(context.user.id, data);
+    // Mehr Arbeiter erlaubt: Sie fangen gleich an
+    inBackground(resumeExtractionQueue());
     return { ok: true };
   });
 

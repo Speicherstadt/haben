@@ -232,12 +232,15 @@ export const company = pgTable(
     extractionMaxTokensPerRequest: integer("extraction_max_tokens_per_request"),
     extractionRequestsPerMinute: integer("extraction_requests_per_minute"),
     extractionTokensPerMinute: integer("extraction_tokens_per_minute"),
+    /** Höchstens so viele Belege liest Haben gleichzeitig aus */
+    extractionMaxParallel: smallint("extraction_max_parallel").notNull().default(4),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     check("company_single_row", sql`${t.id} = 1`),
     check("company_rechtsform", sql`${t.rechtsform} in ('einzelunternehmen', 'gmbh', 'ug')`),
     check("company_nav_color", sql`${t.navColor} ~ '^#[0-9A-F]{6}$'`),
+    check("company_extraction_max_parallel", sql`${t.extractionMaxParallel} between 1 and 20`),
     check(
       "company_extraction_limits",
       sql`coalesce(${t.extractionMaxTokensPerRequest}, 1) > 0 and coalesce(${t.extractionRequestsPerMinute}, 1) > 0 and coalesce(${t.extractionTokensPerMinute}, 1) > 0`,

@@ -505,8 +505,8 @@ export async function uploadDocument(
   }
 
   if (extractionAvailable() && (type.kind === "pdf" || type.kind === "jpeg" || type.kind === "png" || type.kind === "webp")) {
-    // Hinten in die Warteschlange: Mehrere Dateien kommen in der Reihenfolge des Hochladens dran
-    const { work } = await queueExtraction(actor, [id]);
+    // Vorn in die Warteschlange, wie die Liste ihn oben zeigt: Ausgelesen wird dort von oben nach unten
+    const { work } = await queueExtraction(actor, [id], { first: true });
     if (options.background) options.background(work);
     else await work;
   }
@@ -899,14 +899,8 @@ export async function listDocuments() {
       })
       .from(schema.documents)
       .leftJoin(schema.documentCancellations, eq(schema.documentCancellations.documentId, schema.documents.id))
-      // Wartende und laufende Auslesungen in der Reihenfolge der Warteschlange oben, damit sie von oben nach unten läuft (#1735)
-      .orderBy(
-        sql`${schema.documents.status} = 'gebucht'`,
-        sql`${schema.documents.extractionQueuePosition} asc nulls last`,
-        desc(schema.documents.documentDate),
-        desc(schema.documents.uploadedAt),
-        desc(schema.documents.id),
-      )
+      // Nur nach dem Hochladen, der neueste oben: Ändert sich der Status (ausgelesen, gebucht), bleibt die Zeile, wo sie ist (#1735)
+      .orderBy(desc(schema.documents.uploadedAt), desc(schema.documents.id))
   );
 }
 

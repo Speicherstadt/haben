@@ -60,7 +60,8 @@ describe.skipIf(!testDatabaseUrl)("Warteschlange der KI-Auslesung (Postgres)", (
 
   beforeEach(async () => {
     await leeren(sql)`truncate journal_lines, journal_entries, document_amounts, documents, company cascade`;
-    await sql`insert into company (id, name, kontenrahmen) values (1, 'Testfirma', 'SKR03')`;
+    // Ein Arbeiter: Die Reihenfolge der Anfragen ist dann die der Warteschlange; mehrere prüft ein eigener Test
+    await sql`insert into company (id, name, kontenrahmen, extraction_max_parallel) values (1, 'Testfirma', 'SKR03', 1)`;
     service.requests.length = 0;
     service.reply(() => ({ body: completion(JSON.stringify(ANSWER)) }));
   });
@@ -80,15 +81,17 @@ describe.skipIf(!testDatabaseUrl)("Warteschlange der KI-Auslesung (Postgres)", (
 
   const statusOf = async (id: string) => (await documents.getDocument(id))!.document;
 
-  it("hochgeladen wartet jeder Beleg; die Liste zeigt sie in der Reihenfolge des Hochladens, ausgelesen wird ebenso", async () => {
+  it("hochgeladen wartet jeder Beleg, der neueste oben in der Liste; ausgelesen wird von oben nach unten", async () => {
     const ids = await uploadPaused(1, 2, 3);
     expect(service.requests).toHaveLength(0);
     const list = await documents.listDocuments();
-    expect(list.slice(0, 3).map((d) => [d.id, d.extractionStatus])).toEqual(ids.map((id) => [id, "wartet"]));
+    expect(list.map((d) => [d.id, d.extractionStatus])).toEqual([...ids].reverse().map((id) => [id, "wartet"]));
     expect(await queue.queueOverview()).toEqual({ waiting: 3, running: 0, failed: 0, paused: true });
 
     await resume();
-    expect(service.requests.map(markerOf)).toEqual([1, 2, 3]);
+    expect(service.requests.map(markerOf)).toEqual([3, 2, 1]);
+    // Ausgelesen bleibt jede Zeile, wo sie war
+    expect((await documents.listDocuments()).map((d) => d.id)).toEqual([...ids].reverse());
     for (const id of ids)
       expect(await statusOf(id)).toMatchObject({ extractionStatus: "fertig", extractionQueuePosition: null, supplierName: "Telekom Deutschland GmbH" });
     expect(await queue.queueOverview()).toEqual({ waiting: 0, running: 0, failed: 0, paused: false });
@@ -123,23 +126,23 @@ describe.skipIf(!testDatabaseUrl)("Warteschlange der KI-Auslesung (Postgres)", (
   });
 
   it("größer als die Grenze je Anfrage: nicht gesendet, der Grund steht am Beleg", async () => {
-    await stammdaten.saveExtractionLimits(actor, { maxTokensPerRequest: 100, requestsPerMinute: null, tokensPerMinute: null });
+    await stammdaten.saveExtractionLimits(actor, { maxTokensPerRequest: 100, requestsPerMinute: null, tokensPerMinute: null, maxParallel: 1 });
     const { id } = await documents.uploadDocument(actor, jpeg(7));
     expect(service.requests).toHaveLength(0);
     const doc = await statusOf(id);
     expect(doc.extractionStatus).toBe("fehler");
     expect(doc.extractionError).toMatch(/100 Tokens je Anfrage.*nicht gesendet/);
     expect(doc.extractionQueuePosition).toBeNull();
-    expect(await queue.loadExtractionLimits()).toEqual({ maxTokensPerRequest: 100, requestsPerMinute: null, tokensPerMinute: null });
+    expect(await queue.loadExtractionLimits()).toEqual({ maxTokensPerRequest: 100, requestsPerMinute: null, tokensPerMinute: null, maxParallel: 1 });
   });
 
   it("„ausgelastet“ (HTTP 429): Fehler am Beleg, keine weitere Anfrage für ihn; die übrigen laufen weiter", async () => {
-    const [busy, next] = await uploadPaused(1, 2);
+    const [next, busy] = await uploadPaused(1, 2);
     service.reply((request) =>
-      markerOf(request) === 1 ? { status: 429, body: { error: { message: "Rate limit" } } } : { body: completion(JSON.stringify(ANSWER)) },
+      markerOf(request) === 2 ? { status: 429, body: { error: { message: "Rate limit" } } } : { body: completion(JSON.stringify(ANSWER)) },
     );
     await resume();
-    expect(service.requests.map(markerOf)).toEqual([1, 2]);
+    expect(service.requests.map(markerOf)).toEqual([2, 1]);
     expect(await statusOf(busy!)).toMatchObject({ extractionStatus: "fehler", extractionError: expect.stringMatching(/ausgelastet/) });
     expect(await statusOf(next!)).toMatchObject({ extractionStatus: "fertig" });
     expect(await queue.queueOverview()).toMatchObject({ waiting: 0, failed: 1 });
@@ -147,10 +150,26 @@ describe.skipIf(!testDatabaseUrl)("Warteschlange der KI-Auslesung (Postgres)", (
 
   it("ein Neustart während der Auslesung reiht den Beleg an seinem Platz wieder ein", async () => {
     const [a, b] = await uploadPaused(1, 2);
-    // Wie nach einem Absturz: a stand auf „läuft“, kein Prozess liest ihn mehr aus
-    await sql`update documents set extraction_status = 'laeuft' where id = ${a!}`;
+    // Wie nach einem Absturz: b (oben) stand auf „läuft“, kein Prozess liest ihn mehr aus
+    await sql`update documents set extraction_status = 'laeuft' where id = ${b!}`;
     await resume();
-    expect(service.requests.map(markerOf)).toEqual([1, 2]);
-    expect((await statusOf(b!)).extractionStatus).toBe("fertig");
+    expect(service.requests.map(markerOf)).toEqual([2, 1]);
+    expect((await statusOf(a!)).extractionStatus).toBe("fertig");
+  });
+
+  it("liest höchstens so viele Belege gleichzeitig aus, wie eingestellt sind", async () => {
+    const ids = await uploadPaused(1, 2, 3, 4, 5);
+    await sql`update company set extraction_max_parallel = 2, extraction_paused = false`;
+    let now = 0;
+    let most = 0;
+    // Statt des Dienstes: zählt, wie viele gleichzeitig dran sind, und schreibt den Beleg fertig
+    await queue.kick(async (id) => {
+      most = Math.max(most, ++now);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      await sql`update documents set extraction_status = 'fertig', extraction_queue_position = null where id = ${id}`;
+      now--;
+    });
+    expect(most).toBe(2);
+    for (const id of ids) expect((await statusOf(id)).extractionStatus).toBe("fertig");
   });
 });

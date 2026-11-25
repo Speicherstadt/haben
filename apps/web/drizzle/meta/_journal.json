@@ -2297,6 +2297,13 @@
       "when": 1795641854191,
       "tag": "0327_ki_warteschlange",
       "breakpoints": true
+    },
+    {
+      "idx": 328,
+      "version": "7",
+      "when": 1795646122843,
+      "tag": "0328_ki_parallel",
+      "breakpoints": true
     }
   ]
 }

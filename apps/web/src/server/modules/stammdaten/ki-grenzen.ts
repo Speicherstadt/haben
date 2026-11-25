@@ -15,6 +15,8 @@ export const extractionLimitsSchema = z.object({
   maxTokensPerRequest: grenze,
   requestsPerMinute: grenze,
   tokensPerMinute: grenze,
+  /** Höchstens so viele Belege gleichzeitig */
+  maxParallel: z.number().int().min(1).max(20),
 });
 
 export type ExtractionLimitsInput = z.infer<typeof extractionLimitsSchema>;
@@ -29,6 +31,7 @@ export async function saveExtractionLimits(actor: string, input: ExtractionLimit
         extractionMaxTokensPerRequest: limits.maxTokensPerRequest,
         extractionRequestsPerMinute: limits.requestsPerMinute,
         extractionTokensPerMinute: limits.tokensPerMinute,
+        extractionMaxParallel: limits.maxParallel,
         updatedAt: new Date(),
       })
       .where(eq(schema.company.id, 1)),

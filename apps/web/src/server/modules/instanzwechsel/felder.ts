@@ -101,6 +101,7 @@ export const FELDER = {
       extractionMaxTokensPerRequest: "Grenzen gehören zum KI-Dienst, den jede Instanz in ihrer Umgebung einrichtet",
       extractionRequestsPerMinute: "Grenzen gehören zum KI-Dienst, den jede Instanz in ihrer Umgebung einrichtet",
       extractionTokensPerMinute: "Grenzen gehören zum KI-Dienst, den jede Instanz in ihrer Umgebung einrichtet",
+      extractionMaxParallel: "Grenzen gehören zum KI-Dienst, den jede Instanz in ihrer Umgebung einrichtet",
       invoiceCounterPerCustomer: "Zähler je Kunde bleibt eine Einstellung der Instanz; die Kreise hängen an den Kontakten und zählen dort neu (#1426)",
       quoteCounterPerCustomer: "Zähler je Kunde bleibt eine Einstellung der Instanz; die Kreise hängen an den Kontakten und zählen dort neu (#1426)",
       elsterDatenschutzAt: "Bestätigung der Datenschutzhinweise gilt für die Instanz, in der sie gegeben wurde (ERiC-Lizenz § 5)",

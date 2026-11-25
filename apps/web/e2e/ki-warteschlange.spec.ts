@@ -114,33 +114,40 @@ test("Grenzen der Belegauslesung speichern; eine ungültige Angabe steht am Feld
   await expect(karte.getByLabel("Anfragen pro Minute")).toBeFocused();
   await expect(karte.getByText("Eine ganze Zahl ab 1, oder leer für keine Grenze.")).toBeVisible();
   await karte.getByLabel("Anfragen pro Minute").fill("600");
+  // Ein Beleg nach dem anderen, damit die Reihenfolge der Anfragen feststeht
+  await expect(karte.getByLabel("Parallele Anfragen")).toHaveValue("4");
+  await karte.getByLabel("Parallele Anfragen").fill("1");
   await karte.getByLabel("Tokens pro Minute").fill("1.000.000");
   await karte.getByRole("button", { name: "Grenzen speichern" }).click();
   await expect(karte.getByText("Grenzen gespeichert.")).toBeVisible();
   await gehe(page, "/einstellungen?bereich=ki");
   await expect(karte.getByLabel("Tokens pro Minute")).toHaveValue("1000000");
   await expect(karte.getByLabel("Tokens je Anfrage")).toHaveValue("");
+  await expect(karte.getByLabel("Parallele Anfragen")).toHaveValue("1");
   expect(await axeVerstoesse(page), "Grenzen der Belegauslesung").toEqual([]);
 });
 
-test("Hochgeladen warten die Belege in der Reihenfolge des Hochladens; Fortsetzen liest sie von oben nach unten aus", async () => {
+test("Hochgeladen warten die Belege, der neueste oben; Fortsetzen liest sie von oben nach unten aus, die Zeilen bleiben stehen", async () => {
   await angehalten(true);
   await gehe(page, "/belege");
   await page.locator("input[type=file][multiple]").setInputFiles([foto(1), foto(2), foto(3)]);
   await expect(page.getByText("beleg-3.jpg: abgelegt.")).toBeVisible();
   await expect(leiste()).toContainText("Auslesung angehalten · 3 warten");
   const zeilen = page.locator("a.table-row.document-cols");
-  await expect(zeilen.nth(0)).toContainText("beleg-1.jpg");
+  await expect(zeilen.nth(0)).toContainText("beleg-3.jpg");
   await expect(zeilen.nth(1)).toContainText("beleg-2.jpg");
-  await expect(zeilen.nth(2)).toContainText("beleg-3.jpg");
+  await expect(zeilen.nth(2)).toContainText("beleg-1.jpg");
   await expect(zeile("beleg-1.jpg")).toContainText("Wartet auf Auslesung");
   expect(await axeVerstoesse(page), "Belegliste mit Warteschlange").toEqual([]);
 
   ausgelastet.add(2);
   await leiste().getByRole("button", { name: "Fortsetzen" }).click();
-  await expect(zeile("Lieferant 3")).toContainText("Zu prüfen");
+  await expect(zeile("Lieferant 1")).toContainText("Zu prüfen");
   await expect(zeile("beleg-2.jpg")).toContainText("Prüfen");
-  expect(anfragen).toEqual([1, 2, 3]);
+  expect(anfragen).toEqual([3, 2, 1]);
+  await expect(zeilen.nth(0)).toContainText("Lieferant 3");
+  await expect(zeilen.nth(1)).toContainText("beleg-2.jpg");
+  await expect(zeilen.nth(2)).toContainText("Lieferant 1");
   await expect(leiste()).toContainText("KI-Auslesung · 1 fehlgeschlagen");
 });
 
@@ -148,7 +155,7 @@ test("Fehlgeschlagene neu auslesen: nur der fehlgeschlagene Beleg, kein zweiter 
   ausgelastet.clear();
   await leiste().getByRole("button", { name: "Fehlgeschlagene neu auslesen" }).click();
   await expect(zeile("Lieferant 2")).toContainText("Zu prüfen");
-  expect(anfragen).toEqual([1, 2, 3, 2]);
+  expect(anfragen).toEqual([3, 2, 1, 2]);
   await expect(leiste()).toHaveCount(0);
 });
 
@@ -162,6 +169,9 @@ test("Markierte neu auslesen in der Reihenfolge der Liste; Anhalten wartet den l
   await leiste().getByRole("button", { name: "Neu auslesen" }).click();
   await expect(leiste()).toContainText("1 wartet · 1 wird ausgelesen");
   await expect(zeile("Lieferant 3")).toContainText("Wird ausgelesen");
+  // Der Punkt pulsiert nur bei dem Beleg, der gerade ausgelesen wird
+  await expect(zeile("Lieferant 3").locator(".status-pulse")).toHaveCount(1);
+  await expect(zeile("Lieferant 1").locator(".status-pulse")).toHaveCount(0);
   await expect(zeile("Lieferant 1")).toContainText("Wartet auf Auslesung");
 
   await leiste().getByRole("button", { name: "Anhalten" }).click();
@@ -170,9 +180,9 @@ test("Markierte neu auslesen in der Reihenfolge der Liste; Anhalten wartet den l
   for (const freigeben of festgehalten.splice(0)) freigeben();
   await expect(zeile("Lieferant 3")).toContainText("Zu prüfen");
   await expect(zeile("Lieferant 1")).toContainText("Wartet auf Auslesung");
-  expect(anfragen).toEqual([1, 2, 3, 2, 3]);
+  expect(anfragen).toEqual([3, 2, 1, 2, 3]);
 
   await leiste().getByRole("button", { name: "Fortsetzen" }).click();
   await expect(zeile("Lieferant 1")).toContainText("Zu prüfen");
-  expect(anfragen).toEqual([1, 2, 3, 2, 3, 1]);
+  expect(anfragen).toEqual([3, 2, 1, 2, 3, 1]);
 });

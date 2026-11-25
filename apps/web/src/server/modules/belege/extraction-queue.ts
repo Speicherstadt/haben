@@ -5,8 +5,8 @@ import { limitGate, NO_LIMITS, type ExtractionLimits, type RequestGate, type Sen
 
 /*
  * Warteschlange der KI-Auslesung (#1735): Belege warten mit `extraction_status = 'wartet'` und einem Platz in
- * `extraction_queue_position` und werden in diesem Prozess nacheinander ausgelesen, so schnell es die Grenzen des
- * Dienstes zulassen. Die Reihenfolge steht in der Datenbank und übersteht einen Neustart; angehalten wird über die
+ * `extraction_queue_position` und werden in diesem Prozess von höchstens so vielen Arbeitern gleichzeitig ausgelesen,
+ * wie die Firmendaten erlauben (Vorgabe 4), so schnell es die Grenzen des Dienstes zulassen. Die Reihenfolge steht in der Datenbank und übersteht einen Neustart; angehalten wird über die
  * Firmendaten. Einen automatischen zweiten Versuch gibt es nicht: Weitere Anfragen verlängerten eine Überlastung nur.
  */
 
@@ -17,18 +17,22 @@ export const EXTRACTABLE_MIME_TYPES = ["application/pdf", "image/jpeg", "image/p
 export type ExtractQueued = (id: string, gate: RequestGate) => Promise<void>;
 
 interface QueueState {
-  /** Der laufende Durchgang durch die Warteschlange; null, wenn keiner läuft */
-  run: Promise<void> | null;
-  /** Gesendete Anfragen der letzten Minute, für die Grenzen pro Minute */
+  /** Laufende Arbeiter; jeder liest einen Beleg nach dem anderen aus */
+  workers: Set<Promise<void>>;
+  /** Arbeiter, die noch nicht beschlossen haben aufzuhören */
+  active: number;
+  /** Seit dem letzten Blick in die Warteschlange kam etwas dazu: Ein Arbeiter, der nichts fand, sieht noch einmal nach */
+  dirty: boolean;
+  /** Gesendete Anfragen der letzten Minute, für die Grenzen pro Minute; alle Arbeiter teilen sie */
   sent: SentRequest[];
   /** Auslesungen, die in diesem Prozess laufen; was sonst auf „läuft“ steht, hat ein Neustart abgebrochen */
   running: Set<string>;
 }
 
-/** Auf globalThis wie der Scheduler: Ein Neuladen im Entwicklungsserver startet keinen zweiten Durchgang */
+/** Auf globalThis wie der Scheduler: Ein Neuladen im Entwicklungsserver startet keine zweiten Arbeiter */
 function state(): QueueState {
   const g = globalThis as { __habenAuslesung?: QueueState };
-  g.__habenAuslesung ??= { run: null, sent: [], running: new Set() };
+  g.__habenAuslesung ??= { workers: new Set(), active: 0, dirty: false, sent: [], running: new Set() };
   return g.__habenAuslesung;
 }
 
@@ -36,26 +40,37 @@ export const isRunning = (id: string) => state().running.has(id);
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-/** Angehalten und Grenzen aus den Firmendaten; nur lesend, ohne die Zeile anzulegen wie loadCompany */
-async function queueSettings(): Promise<{ paused: boolean; limits: ExtractionLimits }> {
+export const DEFAULT_MAX_PARALLEL = 4;
+
+interface QueueSettings {
+  paused: boolean;
+  maxParallel: number;
+  limits: ExtractionLimits;
+}
+
+/** Angehalten, Arbeiter und Grenzen aus den Firmendaten; nur lesend, ohne die Zeile anzulegen wie loadCompany */
+async function queueSettings(): Promise<QueueSettings> {
   const [row] = await db
     .select({
       paused: schema.company.extractionPaused,
+      maxParallel: schema.company.extractionMaxParallel,
       maxTokensPerRequest: schema.company.extractionMaxTokensPerRequest,
       requestsPerMinute: schema.company.extractionRequestsPerMinute,
       tokensPerMinute: schema.company.extractionTokensPerMinute,
     })
     .from(schema.company)
     .where(eq(schema.company.id, 1));
-  if (!row) return { paused: false, limits: NO_LIMITS };
-  const { paused, ...limits } = row;
-  return { paused, limits };
+  if (!row) return { paused: false, maxParallel: DEFAULT_MAX_PARALLEL, limits: NO_LIMITS };
+  const { paused, maxParallel, ...limits } = row;
+  return { paused, maxParallel, limits };
 }
 
 const isPausedNow = async () => (await queueSettings()).paused;
 
-export async function loadExtractionLimits(): Promise<ExtractionLimits> {
-  return (await queueSettings()).limits;
+/** Für Einstellungen › KI-Assistenten und API */
+export async function loadExtractionLimits(): Promise<ExtractionLimits & { maxParallel: number }> {
+  const { limits, maxParallel } = await queueSettings();
+  return { ...limits, maxParallel };
 }
 
 /**
@@ -90,12 +105,18 @@ export async function enqueue(actor: string, ids: readonly string[], options: { 
   });
 }
 
-/** Der nächste wartende Beleg, oder null */
-async function nextWaiting(): Promise<string | null> {
+/** Der nächste wartende Beleg, den kein anderer Arbeiter gerade nimmt, oder null */
+async function nextWaiting(taken: ReadonlySet<string>): Promise<string | null> {
   const [row] = await db
     .select({ id: schema.documents.id })
     .from(schema.documents)
-    .where(and(eq(schema.documents.extractionStatus, "wartet"), isNull(schema.documents.lockedAt)))
+    .where(
+      and(
+        eq(schema.documents.extractionStatus, "wartet"),
+        isNull(schema.documents.lockedAt),
+        ...(taken.size > 0 ? [notInArray(schema.documents.id, [...taken])] : []),
+      ),
+    )
     .orderBy(asc(schema.documents.extractionQueuePosition), asc(schema.documents.uploadedAt))
     .limit(1);
   return row?.id ?? null;
@@ -116,13 +137,31 @@ async function claim(id: string): Promise<boolean> {
 /** Wer im Audit-Log die Auslesung im Hintergrund schreibt */
 export const SYSTEM_ACTOR = "system:auslesung";
 
-async function drain(extract: ExtractQueued): Promise<void> {
+/**
+ * Ein Arbeiter: liest Belege aus, bis keiner mehr wartet, die Warteschlange angehalten ist oder mehr Arbeiter laufen,
+ * als erlaubt sind. Jeder schaut vor jedem Beleg neu in die Firmendaten, so wirken Anhalten und Grenzen sofort.
+ */
+async function worker(extract: ExtractQueued): Promise<void> {
   const s = state();
+  try {
+    await work(extract, s);
+  } finally {
+    s.active--;
+  }
+}
+
+async function work(extract: ExtractQueued, s: QueueState): Promise<void> {
   for (;;) {
-    const { paused, limits } = await queueSettings();
-    if (paused) break;
-    const id = await nextWaiting();
-    if (!id) break;
+    const { paused, maxParallel, limits } = await queueSettings();
+    // Zu viele: dieser hört auf; ohne await bis zum Abzählen in worker sehen die übrigen ihn schon nicht mehr
+    if (paused || s.active > maxParallel) return;
+    const id = await nextWaiting(s.running);
+    if (!id) {
+      if (!s.dirty) return;
+      s.dirty = false;
+      continue;
+    }
+    if (s.running.has(id)) continue;
     // Vor dem Umschalten auf „läuft“ eintragen, damit getDocument den Lauf nie für abgebrochen hält
     s.running.add(id);
     try {
@@ -135,20 +174,27 @@ async function drain(extract: ExtractQueued): Promise<void> {
   }
 }
 
-/**
- * Startet einen Durchgang durch die Warteschlange, falls keiner läuft, und gibt ihn zurück. Läuft schon einer, folgt
- * ihm ein weiterer: Er könnte den gerade eingereihten Beleg schon nicht mehr gesehen haben. Fehler eines Belegs stehen
- * am Beleg; was sonst schiefgeht, landet im Log.
- */
-export function kick(extract: ExtractQueued): Promise<void> {
+function spawn(extract: ExtractQueued): void {
   const s = state();
-  if (s.run) return s.run.then(() => kick(extract));
-  s.run = drain(extract)
+  s.active++;
+  const run: Promise<void> = worker(extract)
     .catch((error: unknown) => console.error("Warteschlange der Belegauslesung", error))
-    .finally(() => {
-      s.run = null;
-    });
-  return s.run;
+    .finally(() => s.workers.delete(run));
+  s.workers.add(run);
+}
+
+/**
+ * Stößt die Warteschlange an: startet so viele Arbeiter, wie erlaubt und noch nicht da sind, und gibt ein Versprechen
+ * zurück, das sich erfüllt, wenn keiner mehr läuft. Fehler eines Belegs stehen am Beleg; was sonst schiefgeht, landet im
+ * Log.
+ */
+export async function kick(extract: ExtractQueued): Promise<void> {
+  const s = state();
+  // Sofort, noch vor dem ersten await: Ein Arbeiter, der gerade nichts gefunden hat, schaut dann noch einmal nach
+  s.dirty = true;
+  const { paused, maxParallel } = await queueSettings();
+  if (!paused) while (s.active < maxParallel) spawn(extract);
+  while (s.workers.size > 0) await Promise.all([...s.workers]);
 }
 
 /** Übersicht für die Belegliste: wartende, laufende und fehlgeschlagene ungebuchte Belege, die die KI lesen kann */

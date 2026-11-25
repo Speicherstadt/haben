@@ -45,7 +45,7 @@ Erlaubt sind PDF, JPEG, PNG, WebP, HEIC und E-Rechnungs-XML bis 20 MB je Datei. 
 2. **Ablegen unter dem SHA-256.** Die Datei wird unter ihrem SHA-256-Hash im Verzeichnis `DOCUMENTS_DIR` gespeichert (`<dir>/ab/abcdef…`), atomar über eine temporäre Datei. Beim Lesen prüft Haben den Hash erneut und meldet eine beschädigte Datei. Einmal am Tag prüft Haben außerdem alle Dateien, siehe [Dateien im Speicher](buchhaltung.md#manipulationserkennung-hash-kette-und-siegel).
 3. **Keine Dubletten.** Gibt es schon einen Beleg mit demselben Hash, entsteht kein zweiter; du landest beim vorhandenen.
 4. **E-Rechnung lesen.** Bei PDF und XML versucht Haben zuerst, eine E-Rechnung zu lesen (siehe unten).
-5. **KI-Auslesung.** Ist es keine E-Rechnung und ist die KI-Auslesung eingerichtet (Claude oder ein eigenes Modell), kommen PDF, JPEG, PNG und WebP in die [Warteschlange](#warteschlange-und-grenzen) und werden der Reihe nach im Hintergrund ausgelesen. Der Beleg zeigt „Wartet auf Auslesung“, dann „Wird ausgelesen“; Liste und Detailseite aktualisieren sich selbst.
+5. **KI-Auslesung.** Ist es keine E-Rechnung und ist die KI-Auslesung eingerichtet (Claude oder ein eigenes Modell), kommen PDF, JPEG, PNG und WebP in die [Warteschlange](#warteschlange-und-grenzen) und werden im Hintergrund ausgelesen. Der Beleg zeigt „Wartet auf Auslesung“, dann „Wird ausgelesen“; Liste und Detailseite aktualisieren sich selbst.
 6. **Eigene Rechnung erkennen.** Bei jedem Weg prüft Haben, ob du gerade eine eigene Ausgangsrechnung hochgeladen hast, und schlägt dann keine Ausgabe vor (siehe [Eigene Ausgangsrechnung erkennen](#eigene-ausgangsrechnung-erkennen)).
 
 Ohne E-Rechnung und ohne KI füllst du die Felder von Hand aus.
@@ -210,14 +210,14 @@ Bei der Kategorie haben die gebuchten Belege desselben Lieferanten Vorrang vor d
 
 ### Warteschlange und Grenzen
 
-Haben liest Belege nacheinander aus. Hochgeladene (auch per E-Mail und REST-API) kommen in der Reihenfolge des Hochladens dran und stehen so oben in der Liste; die Auslesung läuft dort von oben nach unten. **Mit KI neu auslesen** an einem Beleg kommt vor allen Wartenden dran. Ein wartender Beleg behält seinen Platz und wird nicht doppelt ausgelesen.
+Haben liest höchstens so viele Belege gleichzeitig aus, wie unter **Parallele Anfragen** eingestellt ist (Vorgabe 4), und die Liste von oben nach unten: Hochgeladene (auch per E-Mail und REST-API) kommen vor allen Wartenden dran, der zuletzt hochgeladene zuerst, ebenso **Mit KI neu auslesen** an einem Beleg. Ein wartender Beleg behält seinen Platz und wird nicht doppelt ausgelesen.
 
-Über der Liste steht, wie viele Belege warten, ausgelesen werden und fehlgeschlagen sind:
+Über der Liste steht, wie viele Belege warten, ausgelesen werden (ihr Punkt pulsiert) und fehlgeschlagen sind:
 
-- **Anhalten** und **Fortsetzen:** Ein laufender Beleg wird noch fertig, die übrigen warten, auch über einen Neustart hinweg.
+- **Anhalten** und **Fortsetzen:** Laufende Belege werden noch fertig, die übrigen warten, auch über einen Neustart hinweg.
 - **Neu auslesen** für die markierten ungebuchten Belege und **Fehlgeschlagene neu auslesen**, beide in der Reihenfolge, die die Liste beim Klick zeigt (bei `?sort=datum&dir=ab` das neueste Belegdatum zuerst). Ein zweiter Lauf hilft auch ohne Fehler, denn ein Modell liefert nicht immer dasselbe.
 
-Unter **Einstellungen › KI-Assistenten und API › Grenzen der Belegauslesung** trägst du das Kontingent deines Anbieters ein: Tokens je Anfrage, Anfragen pro Minute und Tokens pro Minute, je optional, gezählt über die letzten 60 Sekunden. Haben schickt die nächste Anfrage erst, wenn sie alle gesetzten Grenzen einhält. Eine Anfrage über der Grenze je Anfrage schickt es nicht; der Grund steht am Beleg. Die Tokens schätzt Haben vor dem Senden, eher zu hoch: drei Zeichen Text je Token, 1.600 je Bild oder PDF-Seite, 1.000 für die Antwort. Meldet der Dienst trotzdem „ausgelastet“ (HTTP 429), steht der Fehler am Beleg, und Haben fragt für ihn nicht von selbst erneut.
+Unter **Einstellungen › KI-Assistenten und API › Grenzen der Belegauslesung** stellst du die parallelen Anfragen und das Kontingent deines Anbieters ein: Tokens je Anfrage, Anfragen pro Minute und Tokens pro Minute, je optional, gezählt über die letzten 60 Sekunden. Haben schickt die nächste Anfrage erst, wenn sie alle gesetzten Grenzen einhält. Eine Anfrage über der Grenze je Anfrage schickt es nicht; der Grund steht am Beleg. Die Tokens schätzt Haben vor dem Senden, eher zu hoch: drei Zeichen Text je Token, 1.600 je Bild oder PDF-Seite, 1.000 für die Antwort. Meldet der Dienst trotzdem „ausgelastet“ (HTTP 429), steht der Fehler am Beleg, und Haben fragt für ihn nicht von selbst erneut.
 
 ## Vorschläge aus früheren Belegen
 
@@ -542,7 +542,7 @@ Nicht stornieren lassen sich:
 
 ## Liste und Status
 
-Die Liste zeigt Datum, Lieferant mit Rechnungsnummer und Quelle (ZUGFeRD, XRechnung, KI oder Hand), Kategorie mit der Nummer ihres Kontos (bei einer Aufteilung „Aufgeteilt auf 3 Zeilen“, darunter ein [eigenes Konto](buchhaltung.md#eigene-konten), wenn der Beleg eines hat), Bruttobetrag und Status. Ungebuchte Belege stehen oben, solange du nicht nach einer Spalte sortierst, und unter ihnen zuerst die, die auf die KI-Auslesung warten, in deren Reihenfolge; die Zahl „… zu prüfen“ in der Kopfzeile zählt sie.
+Die Liste zeigt Datum, Lieferant mit Rechnungsnummer und Quelle (ZUGFeRD, XRechnung, KI oder Hand), Kategorie mit der Nummer ihres Kontos (bei einer Aufteilung „Aufgeteilt auf 3 Zeilen“, darunter ein [eigenes Konto](buchhaltung.md#eigene-konten), wenn der Beleg eines hat), Bruttobetrag und Status. Solange du nicht nach einer Spalte sortierst, steht der zuletzt hochgeladene Beleg oben, gebucht oder nicht; ändert sich der Status, bleibt die Zeile, wo sie ist. Die Zahl „… zu prüfen“ in der Kopfzeile zählt die ungebuchten.
 
 Über der Liste filtern **Alle**, **Zu prüfen** (alle ungebuchten Belege, auch „Wartet auf Auslesung“, „Wird ausgelesen“ und „Prüfen“, mit ihrer Zahl) und **Gebucht** (auch stornierte). Der Filter steht als `status` in der Adresse, bleibt bei Sortierung und Suche erhalten und lässt sich verlinken. Die Suche gilt innerhalb des gewählten Filters; findet sie dort nichts, nennt die Meldung den Filter. Ohne Belege nennt die Liste den ersten Schritt: oben ablegen, zum Beispiel eine Stromrechnung, und solange kein Postfach eingerichtet ist, der Knopf **Postfach für Belege einrichten**. Unter „Zu prüfen“ und „Gebucht“ sagt sie, dass nichts mehr zu prüfen ist oder noch nichts gebucht wurde.
 
@@ -551,7 +551,7 @@ Die Spaltenköpfe Datum, Lieferant, Kategorie, Brutto und Status sortieren die L
 | Status | Bedeutung |
 | --- | --- |
 | Wartet auf Auslesung | Der Beleg steht in der [Warteschlange](#warteschlange-und-grenzen) der KI-Auslesung. Das Formular ist solange gesperrt. |
-| Wird ausgelesen | Die KI liest den Beleg gerade. Das Formular ist solange gesperrt. Wurde der Server während der Auslesung neu gestartet, kommt der Beleg an seinem Platz in der Warteschlange wieder dran. |
+| Wird ausgelesen | Die KI liest den Beleg gerade; der Punkt pulsiert. Das Formular ist solange gesperrt. Wurde der Server während der Auslesung neu gestartet, kommt der Beleg an seinem Platz in der Warteschlange wieder dran. |
 | Zu prüfen | Bereit zur Prüfung, noch nicht gebucht. |
 | Prüfen | Die Auslesung ist fehlgeschlagen; der Grund steht am Beleg. |
 | Gebucht | Festgeschrieben. |

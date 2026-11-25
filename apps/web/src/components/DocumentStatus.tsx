@@ -42,7 +42,14 @@ export function DocumentStatus({
         {text}
       </Status>
     );
-  if (extractionStatus === "laeuft" || extractionStatus === "wartet") return <Status tone="info">{text}</Status>;
+  // Läuft: Der Punkt pulsiert, so sieht man auf einen Blick, welche Belege gerade ausgelesen werden
+  if (extractionStatus === "laeuft")
+    return (
+      <Status tone="info" pulse>
+        {text}
+      </Status>
+    );
+  if (extractionStatus === "wartet") return <Status tone="info">{text}</Status>;
   // Ohne Auslesung bleibt der Beleg liegen, bis jemand die Angaben von Hand einträgt
   if (extractionStatus === "fehler")
     return (
