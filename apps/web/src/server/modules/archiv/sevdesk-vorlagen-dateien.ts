@@ -4,7 +4,7 @@ import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
 import { sha256Of, sniff, storeFile } from "../../storage.ts";
-import { progressMessage } from "./lexoffice.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 
 /*
  * Dateien wiederkehrender Belege (#472): sevDesk legt aus einer Vorlage (voucherType RV) jeden Monat einen Beleg an und

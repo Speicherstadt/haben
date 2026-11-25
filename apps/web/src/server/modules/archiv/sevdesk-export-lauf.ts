@@ -5,7 +5,7 @@ import { UserError } from "../../errors.ts";
 import type { LexofficeImportProgress, SevdeskExportProgress } from "../../db/schema.ts";
 import { sha256Of, sniff, storeFile } from "../../storage.ts";
 import { storeDatevBookings } from "./accountable-import.ts";
-import { progressMessage } from "./lexoffice.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 import { sevdeskExportNeedsFile } from "./sevdesk-export-abgleich.ts";
 import type { StagedSevdeskExport } from "./sevdesk-export.ts";
 

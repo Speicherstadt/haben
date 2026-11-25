@@ -207,7 +207,15 @@ describe.skipIf(!testDatabaseUrl)("Vorauszahlung auf normale EUR-Inlandsrechnung
 
   it("ein dokumentierter Leistungszeitraum verwendet sein Leistungsende", async () => {
     const finalized = await invoice("2026-01-01", "2026-01-20");
+    const journal = () =>
+      sql`select date::text, description from journal_entries
+          where source_type = 'invoice' and source_id = ${finalized.id}`;
+    const description = `Erlösabgrenzung Rechnung ${finalized.number}`;
+    expect.soft(await journal()).toContainEqual({ date: "2026-01-20", description });
     await pay(finalized.id, "bar", "2025-12-13", 83_300);
+    const entries = await journal();
+    expect.soft(entries).toContainEqual({ date: "2025-12-13", description });
+    expect.soft(entries.map((entry) => entry.description)).not.toContain(`Bilanzierung Anzahlung ${finalized.number}`);
     expect(finalized.advanceAccounting).toBe("deferred");
     expect(await balance(ACCOUNTS.SKR03.erhalteneAnzahlungen, "2025-12-31")).toBe(-70_000);
     // saldenliste verwendet die exklusive Obergrenze des Zeitraums.

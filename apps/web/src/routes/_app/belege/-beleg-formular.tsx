@@ -127,7 +127,7 @@ function BelegHinweise({ data, locked, running }: { data: Detail; locked: boolea
 
 /** Aufteilung auf mehrere Kategorien (#271) */
 function BelegAufteilung({ f, data }: { f: DocumentFormState; data: Detail }) {
-  const { readOnly, running, reverseCharge, rows, splitRows, setSplitRows, parsed, vorsteuerBeleg, foreign, error, touch, setCategory, setOwnAccountId } = f;
+  const { fieldsDisabled, reverseCharge, rows, splitRows, setSplitRows, parsed, vorsteuerBeleg, foreign, error, touch, setCategory, setOwnAccountId } = f;
   return (
     <div id="aufteilung">
       <DocumentSplits
@@ -137,7 +137,7 @@ function BelegAufteilung({ f, data }: { f: DocumentFormState; data: Detail }) {
         }
         categories={data.categories}
         ownAccounts={data.ownAccounts}
-        disabled={readOnly || running}
+        disabled={fieldsDisabled}
         onChange={touch(setSplitRows)}
         taxLabel={steuerSpalte(reverseCharge, vorsteuerBeleg, rows)}
         error={(feld, key) => error(`${feld === "netto" ? "aufteilung" : "kategorie"}-${key}`)}

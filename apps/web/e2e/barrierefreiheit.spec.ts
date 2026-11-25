@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { fristenOeffnen } from "./einrichtung.ts";
 import { ANONYMOUS, chunks, currentYear, fakeEigeneSeite, firstLink, SESSION, USER } from "./daten.ts";
 
 /**
@@ -199,6 +200,8 @@ for (const group of chunks(PAGES, GROUP)) {
     await withTheme(page, "wald");
     for (const path of group) {
       await open(page, path);
+      // axe prüft Zugeklapptes nicht: Zeitraum und Dauerfristverlängerung der Voranmeldung stehen unter „Fristen und Zeitraum ändern“
+      if (/^\/umsatzsteuer\/\d{4}-/.test(path)) await fristenOeffnen(page);
       expect.soft(await axe(page), path).toEqual([]);
     }
   });
@@ -250,19 +253,19 @@ for (const theme of THEMES.filter((t) => t.endsWith(":dunkel"))) {
     }
   });
 
-  // Die Kennzahlen der Voranmeldung sind erst nach „Manuell überschreiben“ Eingabefelder (Review #364)
+  // Die Kennzahlen der Voranmeldung sind erst nach „Werte von Hand ändern“ Eingabefelder (Review #364)
   test(`Kennzahlen der Voranmeldung auf der Theme-Fläche im Theme ${theme}`, async ({ page }) => {
     await withTheme(page, theme);
     let path = "";
     for (const candidate of [`/umsatzsteuer/${YEAR}-Q1`, `/umsatzsteuer/${YEAR}-03`, `/umsatzsteuer/${YEAR - 1}-03`, `/umsatzsteuer/${YEAR + 1}-03`]) {
       await open(page, candidate);
-      if (await page.getByRole("button", { name: "Manuell überschreiben" }).count()) {
+      if (await page.getByRole("button", { name: /^Werte von Hand ändern/ }).count()) {
         path = candidate;
         break;
       }
     }
-    expect(path, "Voranmeldung zum manuellen Überschreiben").not.toBe("");
-    await page.getByRole("button", { name: "Manuell überschreiben" }).click();
+    expect(path, "Voranmeldung zum Ändern von Hand").not.toBe("");
+    await page.getByRole("button", { name: /^Werte von Hand ändern/ }).click();
     await expect(page.locator(".kz-row input").first()).toBeVisible();
     expect(await fieldsOffSurface(page), `${path}: Felder ohne Theme-Fläche`).toEqual([]);
   });
@@ -717,13 +720,13 @@ test("Kennzahlen der Voranmeldung am Handy: Bezeichnung über die volle Breite, 
   let gefunden = false;
   for (const candidate of [`/umsatzsteuer/${YEAR}-Q1`, `/umsatzsteuer/${YEAR}-03`, `/umsatzsteuer/${YEAR - 1}-03`, `/umsatzsteuer/${YEAR + 1}-03`]) {
     await open(page, candidate);
-    if (await page.getByRole("button", { name: "Manuell überschreiben" }).count()) {
+    if (await page.getByRole("button", { name: /^Werte von Hand ändern/ }).count()) {
       gefunden = true;
       break;
     }
   }
-  expect(gefunden, "Voranmeldung zum manuellen Überschreiben").toBe(true);
-  await page.getByRole("button", { name: "Manuell überschreiben" }).click();
+  expect(gefunden, "Voranmeldung zum Ändern von Hand").toBe(true);
+  await page.getByRole("button", { name: /^Werte von Hand ändern/ }).click();
   await expect(page.locator(".kz-row input").first()).toBeVisible();
 
   const probleme = await page.evaluate(() => {

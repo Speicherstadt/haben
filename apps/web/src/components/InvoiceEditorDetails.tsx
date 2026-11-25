@@ -1,5 +1,6 @@
-import { advanceUsesPayments, CURRENCY_CODE, parseExchangeRate } from "@haben/core";
+import { advanceUsesPayments, CURRENCY_CODE, parseExchangeRate, vatTerritory } from "@haben/core";
 import { Link } from "@tanstack/react-router";
+import { useId } from "react";
 import { FORMAT_LABEL, FORMATS } from "../lib/invoice.ts";
 import type { DraftInput } from "../server/modules/rechnungen/index.ts";
 import { Field } from "./Field.tsx";
@@ -12,6 +13,7 @@ import type { InvoiceEditorModel } from "./use-invoice-editor.ts";
 export function InvoiceEditorDetails({ editor }: { editor: InvoiceEditorModel }) {
   const {
     advanceType,
+    contact,
     contacts,
     editable,
     error,
@@ -30,11 +32,13 @@ export function InvoiceEditorDetails({ editor }: { editor: InvoiceEditorModel })
     touch,
     variant,
   } = editor;
+  const territoryHintId = useId();
+  const territoryDescription = editable && vatTerritory(contact?.land, contact?.plz) ? territoryHintId : undefined;
   return (
     <section className="card" aria-label={quote ? "Angebotsdaten" : "Rechnungsdaten"}>
       <div className="form-grid">
         <InvoiceVariantFields editor={editor} />
-        <InvoiceCustomerFields editor={editor} />
+        <InvoiceCustomerFields editor={editor} territoryDescription={territoryDescription} />
         <InvoiceDatePaymentFields editor={editor} />
         <Field label="Leistung von" error={error("serviceFrom")}>
           {(control) => (
@@ -73,7 +77,7 @@ export function InvoiceEditorDetails({ editor }: { editor: InvoiceEditorModel })
             )}
           </Field>
         )}
-        <InvoiceTaxFields editor={editor} />
+        <InvoiceTaxFields editor={editor} territoryDescription={territoryDescription} />
       </div>
       {!contacts.length && (
         <p className="small muted" style={{ margin: 0 }}>

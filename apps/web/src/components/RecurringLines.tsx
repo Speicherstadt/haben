@@ -10,11 +10,13 @@ import {
   RECURRING_PLACEHOLDERS,
 } from "@haben/core";
 import type { ReactNode } from "react";
+import { positionsSchluessel } from "../lib/editor-lines.ts";
 import { unitOptions } from "../lib/units.ts";
 import { ArbeitskostenField, LineArbeitskosten, useArbeitskostenSchalter } from "./ArbeitskostenField.tsx";
 import { FormattedTextarea } from "./FormattedTextarea.tsx";
 import { Icon } from "./Icon.tsx";
 import { LineAmount, LineCell } from "./LineCell.tsx";
+import { type PositionsMeldung, PositionsMeldungen, zellenAttribute } from "./PositionsFehler.tsx";
 
 /* Positionen einer Vorlage für wiederkehrende Rechnungen (RecurringForm.tsx) */
 
@@ -100,8 +102,8 @@ type RowProps = {
   special: boolean;
   amountLabel: string;
   units: readonly string[];
-  /** Fehler der Position aus der Prüfung beim Speichern */
-  fehler: string | null | undefined;
+  /** Fehler je Feld der Position aus der Prüfung beim Speichern */
+  meldung: PositionsMeldung;
   removable: boolean;
   /** Auswahl „Material oder Arbeit“ zeigen (§ 35a EStG) */
   arbeitskosten: boolean;
@@ -109,13 +111,7 @@ type RowProps = {
   remove: () => void;
 };
 
-function LineTitle({
-  line,
-  index,
-  update,
-  arbeitskosten,
-  posFehlerId,
-}: Pick<RowProps, "line" | "index" | "update" | "arbeitskosten"> & { posFehlerId: string | undefined }) {
+function LineTitle({ line, index, update, arbeitskosten, meldung }: Pick<RowProps, "line" | "index" | "update" | "arbeitskosten" | "meldung">) {
   return (
     <div className={arbeitskosten ? "line-title with-kind" : "line-title"}>
       <input
@@ -133,22 +129,14 @@ function LineTitle({
         aria-label={`Beschreibung Position ${index + 1}`}
         value={line.description}
         onChange={(e) => update({ description: e.target.value })}
-        aria-invalid={line.description.trim() === ""}
-        aria-describedby={posFehlerId}
+        {...zellenAttribute(meldung, line.key, "beschreibung")}
       />
       {arbeitskosten && <LineArbeitskosten index={index} value={line.arbeitskosten} onChange={(value) => update({ arbeitskosten: value })} />}
     </div>
   );
 }
 
-function LineNumbers({
-  line,
-  index,
-  special,
-  units,
-  update,
-  posFehlerId,
-}: Pick<RowProps, "line" | "index" | "special" | "units" | "update"> & { posFehlerId: string | undefined }) {
+function LineNumbers({ line, index, special, units, update, meldung }: Pick<RowProps, "line" | "index" | "special" | "units" | "update" | "meldung">) {
   return (
     <>
       <LineCell label="Menge">
@@ -158,8 +146,7 @@ function LineNumbers({
           aria-label={`Menge Position ${index + 1}`}
           value={line.quantity}
           onChange={(e) => update({ quantity: e.target.value })}
-          aria-invalid={!((parseQuantity(line.quantity) ?? 0) > 0)}
-          aria-describedby={posFehlerId}
+          {...zellenAttribute(meldung, line.key, "menge")}
         />
       </LineCell>
       <LineCell label="Einheit">
@@ -178,8 +165,7 @@ function LineNumbers({
           value={line.unitPrice}
           placeholder="0,00"
           onChange={(e) => update({ unitPrice: e.target.value })}
-          aria-invalid={parseEuro(line.unitPrice) === null}
-          aria-describedby={posFehlerId}
+          {...zellenAttribute(meldung, line.key, "einzelpreis")}
         />
       </LineCell>
       <LineCell label="USt">
@@ -200,11 +186,10 @@ function LineNumbers({
 }
 
 export function RecurringLineRow(props: RowProps) {
-  const { line, parsed: p, index, amountLabel, arbeitskosten, fehler, removable, update, remove } = props;
-  const posFehlerId = fehler ? `pos-fehler-${line.key}` : undefined;
+  const { line, parsed: p, index, amountLabel, arbeitskosten, meldung, removable, update, remove } = props;
   return (
     <div className="line-row">
-      <LineTitle line={line} index={index} update={update} arbeitskosten={arbeitskosten} posFehlerId={posFehlerId} />
+      <LineTitle line={line} index={index} update={update} arbeitskosten={arbeitskosten} meldung={meldung} />
       <FormattedTextarea
         className="line-detail"
         rows={line.detail ? Math.min(6, line.detail.split("\n").length) : 1}
@@ -214,18 +199,14 @@ export function RecurringLineRow(props: RowProps) {
         maxLength={LINE_DETAIL_MAX}
         onChange={(e) => update({ detail: e.target.value })}
       />
-      <LineNumbers {...props} posFehlerId={posFehlerId} />
+      <LineNumbers {...props} />
       <LineAmount label={amountLabel}>{p.valid ? formatEuro(lineAmount(p.quantity, p.unitPrice)) : "–"}</LineAmount>
       <div className="line-actions">
         <button type="button" className="icon-btn" aria-label={`Position ${index + 1} entfernen`} disabled={!removable} onClick={remove}>
           <Icon name="close" size={16} />
         </button>
       </div>
-      {fehler && (
-        <span id={posFehlerId} className="field-error" style={{ gridColumn: "1 / -1" }}>
-          {fehler}
-        </span>
-      )}
+      <PositionsMeldungen meldung={meldung} lineKey={line.key} />
     </div>
   );
 }
@@ -268,7 +249,7 @@ export function RecurringPositions(props: {
           special={props.special}
           amountLabel={props.amountLabel}
           units={props.units}
-          fehler={props.error(`pos-${line.key}`)}
+          meldung={(feld) => props.error(positionsSchluessel(line.key, feld))}
           removable={lines.length > 1}
           arbeitskosten={arbeitskosten}
           update={(patch) => updateLine(line.key, patch)}

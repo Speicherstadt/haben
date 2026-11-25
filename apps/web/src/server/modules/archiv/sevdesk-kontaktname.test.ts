@@ -8,14 +8,14 @@ import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 /* sevDesk liefert bei den meisten Belegen nur den Verweis `supplier`, `supplierName` ist leer (#472). */
 
 describe.skipIf(!testDatabaseUrl)("sevDesk-Beleg ohne supplierName (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") & typeof import("./umzug-belege.ts") & typeof import("./umzug-umsatzsteuer.ts");
   let legacy: typeof import("./legacy-open.ts");
   let exporter: typeof import("./export.ts");
   let sql: postgres.Sql;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-belege.ts")), ...(await import("./umzug-umsatzsteuer.ts")) };
     legacy = await import("./legacy-open.ts");
     exporter = await import("./export.ts");
   }, 30_000);

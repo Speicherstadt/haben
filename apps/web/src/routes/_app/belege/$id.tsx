@@ -12,7 +12,7 @@ import { formatDate, formatDateTime } from "../../../lib/format.ts";
 import { getDocumentDetail } from "../../../server/functions/documents.ts";
 import { ConfirmDialog, isDialogOpen } from "../../../components/ConfirmDialog.tsx";
 import { DocumentForm } from "./-beleg-formular.tsx";
-import { Preview } from "./-beleg-vorschau.tsx";
+import { type Detail, Preview } from "./-beleg-vorschau.tsx";
 
 export const Route = createFileRoute("/_app/belege/$id")({
   /** geprueft: nach dem Buchen war kein Beleg mehr „Zu prüfen“; dupliziert und vorhanden: nach „Beleg duplizieren“ */
@@ -32,11 +32,10 @@ function DocumentPage() {
   const inhaber = Route.useRouteContext().user.role === "inhaber";
   const { document: doc, navigation } = data;
   const running = doc.extractionStatus === "laeuft";
-  // Das Formular meldet ungespeicherte Änderungen; beim Wechsel des Belegs setzt es sich mit false neu auf
+  // Das Formular meldet ungespeicherte Änderungen
   const [dirty, setDirty] = useState(false);
   // Ungespeicherte Änderungen: erst nachfragen, der Dialog wechselt und verwirft sie
-  const [pending, setPending] = useState<{ from: string; to: string } | null>(null);
-  const pendingId = pending?.from === doc.id ? pending.to : null;
+  const [pendingId, setPendingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!running) return;
@@ -50,7 +49,7 @@ function DocumentPage() {
   /** Zu einem anderen Beleg oder ("liste") zurück zur Liste; bei ungespeicherten Änderungen erst nachfragen */
   function go(id: string | null) {
     if (!id) return;
-    if (dirty) setPending({ from: doc.id, to: id });
+    if (dirty) setPendingId(id);
     else leaveTo(id);
   }
   const duplizieren = useBelegDuplizieren(data, duplikat, dirty, leaveTo);
@@ -67,27 +66,7 @@ function DocumentPage() {
         </div>
         <div className="actions">
           <DocumentStatus status={doc.status} extractionStatus={doc.extractionStatus} cancelled={data.cancellation !== null} />
-          {navigation.position > 0 && (
-            <div className="doc-nav" role="group" aria-label="Zwischen Belegen wechseln">
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => go(navigation.previousId)}
-                disabled={!navigation.previousId}
-                title="Vorheriger Beleg (K)"
-              >
-                <Icon name="chevron-left" size={16} />
-                Vorheriger
-              </button>
-              <span className="small muted">
-                {navigation.position} von {navigation.total}
-              </span>
-              <button type="button" className="btn btn-ghost" onClick={() => go(navigation.nextId)} disabled={!navigation.nextId} title="Nächster Beleg (J)">
-                Nächster
-                <Icon name="chevron-right" size={16} />
-              </button>
-            </div>
-          )}
+          <BelegBlaettern navigation={navigation} go={go} />
           {data.assetId && (
             <Link to="/anlagen/$id" params={{ id: data.assetId }} className="btn">
               Zur Anlage
@@ -106,10 +85,30 @@ function DocumentPage() {
         confirmLabel="Ohne Speichern wechseln"
         danger
         onConfirm={() => pendingId && leaveTo(pendingId)}
-        onClose={() => setPending(null)}
+        onClose={() => setPendingId(null)}
       >
         <p>Der Beleg hat ungespeicherte Änderungen. Beim Wechsel gehen sie verloren.</p>
       </ConfirmDialog>
+      <BelegMeldungen data={data} inhaber={inhaber} geprueft={Boolean(geprueft)} />
+      <div className="editor-grid doc-editor">
+        <Preview doc={doc} />
+        <div className="stack">
+          {/* key: nach dem Auslesen oder Speichern mit den neuen Werten aufsetzen, mit Millisekunden auch in derselben Sekunde (#1824) */}
+          <DocumentForm key={doc.updatedAt.toISOString()} data={data} inhaber={inhaber} onDirtyChange={setDirty} />
+          {/* Außerhalb des Formulars: Enter im Feld „Grund“ speichert nicht */}
+          {inhaber && <DocumentCancellation data={data} />}
+          <BelegVerrechnung documentId={doc.id} supplier={doc.supplierName} readOnly={!inhaber} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** Hinweise über dem Beleg: erzeugte Überweisungen, abweichende IBAN und „Alle Belege geprüft“ nach dem Buchen */
+function BelegMeldungen({ data, inhaber, geprueft }: { data: Detail; inhaber: boolean; geprueft: boolean }) {
+  const doc = data.document;
+  return (
+    <>
       {data.sepaTransfers.map((t) => (
         <div key={t.endToEndId} className="banner" role="status">
           <Icon name="bank" />
@@ -135,17 +134,27 @@ function DocumentPage() {
           </span>
         </div>
       )}
-      <div className="editor-grid doc-editor">
-        <Preview doc={doc} />
-        <div className="stack">
-          {/* key: nach dem Auslesen oder Speichern mit den neuen Werten aufsetzen */}
-          <DocumentForm key={`${doc.id}-${String(doc.updatedAt)}`} data={data} inhaber={inhaber} onDirtyChange={setDirty} />
-          {/* Außerhalb des Formulars: Enter im Feld „Grund“ speichert nicht */}
-          {inhaber && <DocumentCancellation key={`storno-${doc.id}`} data={data} />}
-          <BelegVerrechnung key={`verrechnung-${doc.id}`} documentId={doc.id} supplier={doc.supplierName} readOnly={!inhaber} />
-        </div>
-      </div>
     </>
+  );
+}
+
+/** Vorheriger und nächster Beleg im Kopf, mit der Position in der Liste; go fragt bei ungespeicherten Änderungen erst nach */
+function BelegBlaettern({ navigation, go }: { navigation: Detail["navigation"]; go: (id: string | null) => void }) {
+  if (navigation.position <= 0) return null;
+  return (
+    <div className="doc-nav" role="group" aria-label="Zwischen Belegen wechseln">
+      <button type="button" className="btn btn-ghost" onClick={() => go(navigation.previousId)} disabled={!navigation.previousId} title="Vorheriger Beleg (K)">
+        <Icon name="chevron-left" size={16} />
+        Vorheriger
+      </button>
+      <span className="small muted">
+        {navigation.position} von {navigation.total}
+      </span>
+      <button type="button" className="btn btn-ghost" onClick={() => go(navigation.nextId)} disabled={!navigation.nextId} title="Nächster Beleg (J)">
+        Nächster
+        <Icon name="chevron-right" size={16} />
+      </button>
+    </div>
   );
 }
 

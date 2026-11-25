@@ -49,8 +49,8 @@ jobs:
         run: |
           set -euo pipefail
           # Pull Request: Merge-Commit gegen seine Basis; Push auf main: gegen den Stand vor dem Push
-          if [ "${{ github.event_name }}" = push ]; then
-            before="${{ github.event.before }}"
+          if [ "${EREIGNIS:-}" = push ]; then
+            before="${VORHER:-}"
             if [ -z "$before" ] || [ "$before" = 0000000000000000000000000000000000000000 ] || ! git fetch -q --depth=1 origin "$before"; then
               # Ohne Vergleichsstand läuft alles
               { echo code=true; echo einvoice=true; echo deploy=true; } >> "$GITHUB_OUTPUT"
@@ -75,12 +75,17 @@ jobs:
           if grep -Eq "^deploy/|^apps/web/drizzle/|$always" <<< "$changed"; then deploy=true; else deploy=false; fi
           echo "einvoice=$einvoice" >> "$GITHUB_OUTPUT"
           echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
-          # container und dev-compose im Pull Request nur, wenn Image, Compose oder Abhängigkeiten sich ändern; auf main
-          # immer (Ausgabe leer), dort fällt ein Build-Fehler aus dem App-Code spätestens auf
-          if [ "${{ github.event_name }}" = pull_request ]; then
-            if grep -Eq "Containerfile$|(^|/)compose[^/]*\.ya?ml$|^deploy/|$always" <<< "$changed"; then bild=true; else bild=false; fi
+          # container und dev-compose im Pull Request nur, wenn Image (mit scripts/container/: Inhalt und Prüfungen),
+          # Compose oder Abhängigkeiten sich ändern; auf main immer (Ausgabe leer), dort fällt ein Build-Fehler aus dem
+          # App-Code spätestens auf
+          if [ "${EREIGNIS:-}" != push ]; then
+            if grep -Eq "Containerfile$|(^|/)compose[^/]*\.ya?ml$|^deploy/|^scripts/container/|$always" <<< "$changed"; then bild=true; else bild=false; fi
             echo "bild=$bild" >> "$GITHUB_OUTPUT"
           fi
+        # Als Umgebung statt ${{ }} im Skript, damit scripts/ci/doku-filter.test.ts den Block unverändert ausführen kann
+        env:
+          EREIGNIS: ${{ github.event_name }}
+          VORHER: ${{ github.event.before }}
 
   # Lint und Typecheck brauchen keine Datenbank; gebaut wird in den Jobs e2e-teil
   check:
@@ -96,6 +101,10 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run lint
       - run: bun run typecheck
+      # Ausgabe von /api/metrics mit dem Parser von Prometheus selbst (#1858)
+      - run: bun scripts/metriken/beispiel.ts | docker run --rm -i --entrypoint promtool prom/prometheus:v3.5.0 check metrics
+      # Alarmregeln für dieselben Metriken mit ihren Unit-Tests (#1871)
+      - run: docker run --rm -v "$PWD:/w:ro" -w /w --entrypoint promtool prom/prometheus:v3.5.0 test rules scripts/metriken/regeln.test.yml
 
   # Vier Teile parallel (Vitest --shard); jeder migriert seine eigene Vorlage
   test-teil:

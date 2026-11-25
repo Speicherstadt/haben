@@ -7,7 +7,7 @@ import { UserError } from "../../errors.ts";
 import { importRecurringPaused } from "../rechnungen/index.ts";
 import { loadCompany } from "../stammdaten/index.ts";
 import { today } from "../../today.ts";
-import { progressMessage } from "./lexoffice.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 
 /*
  * Vorlagen wiederkehrender Rechnungen aus FastBill (recurring.get), wie die aus sevDesk (sevdesk-vorlagen.ts): Jede

@@ -126,6 +126,50 @@ describe("Scheduler", () => {
     await vi.waitFor(() => expect(jobs.runDuePruefwertMail).toHaveBeenCalledOnce());
   });
 
+  it("zählt für /api/metrics: geworfener Fehler und gemeldete Fehler scheitern, ein Lauf ohne Fehler setzt den letzten Erfolg", async () => {
+    const metriken = await import("./metriken.ts");
+    metriken.resetMetrics();
+    const stumm = [vi.spyOn(console, "error"), vi.spyOn(console, "warn"), vi.spyOn(console, "log")].map((spy) => spy.mockImplementation(() => {}));
+    try {
+      // Abgelaufene FinTS-Verbindung: der Abruf wirft nicht, er meldet den Fehler, mit Daten aus der Buchhaltung
+      jobs.runDueFintsSyncs.mockResolvedValue({
+        synced: 0,
+        added: 0,
+        errors: ["FinTS Musterbank, DE89370400440532013000 (Erika Mustermann): 1.234,56 € offen"],
+      });
+      jobs.runExistingDuplicateCheck.mockRejectedValue(new Error("Rechnung RE-2026-0042 an Beispiel GmbH"));
+      jobs.runDueFileCheck.mockResolvedValue(null);
+      await scheduler.runScheduledJobs();
+      await vi.waitFor(() => expect(jobs.runDuePruefwertMail).toHaveBeenCalledOnce());
+      const erster = metriken.metricsText({ version: null, commit: null, up: true });
+      const wert = (text: string, reihe: string) =>
+        text
+          .split("\n")
+          .find((z) => z.startsWith(`${reihe} `))
+          ?.split(" ")[1];
+      expect(wert(erster, 'haben_job_failures_total{task="fints_sync"}')).toBe("1");
+      expect(wert(erster, 'haben_job_failures_total{task="bank_duplicate_check"}')).toBe("1");
+      expect(wert(erster, 'haben_job_last_success_timestamp_seconds{task="fints_sync"}')).toBeUndefined();
+      expect(wert(erster, 'haben_job_last_run_timestamp_seconds{task="fints_sync"}')).toBeDefined();
+      expect(wert(erster, 'haben_job_failures_total{task="bank_sync"}')).toBe("0");
+      expect(wert(erster, 'haben_job_last_success_timestamp_seconds{task="bank_sync"}')).toBeDefined();
+      expect(wert(erster, 'haben_job_last_success_timestamp_seconds{task="audit_checksum_mail"}')).toBeDefined();
+      // Nur feste Namen und Zahlen: nichts aus den Meldungen
+      expect(erster).not.toMatch(/Musterbank|DE89|Mustermann|1\.234|RE-2026|Beispiel/);
+
+      jobs.runDueFintsSyncs.mockResolvedValue({ synced: 1, added: 3, errors: [] });
+      await scheduler.runScheduledJobs();
+      const zweiter = metriken.metricsText({ version: null, commit: null, up: true });
+      expect(wert(zweiter, 'haben_job_failures_total{task="fints_sync"}')).toBe("1");
+      expect(wert(zweiter, 'haben_job_last_success_timestamp_seconds{task="fints_sync"}')).toBe(
+        wert(zweiter, 'haben_job_last_run_timestamp_seconds{task="fints_sync"}'),
+      );
+      expect(wert(zweiter, 'haben_job_failures_total{task="bank_duplicate_check"}')).toBe("2");
+    } finally {
+      for (const spy of stumm) spy.mockRestore();
+    }
+  });
+
   it("nennt im Log eine gescheiterte Prüfung der Prüfwert-Mail, nicht „0 Befunde“", async () => {
     jobs.runDueFileCheck.mockResolvedValue(null);
     jobs.runDuePruefwertMail.mockResolvedValue({ seq: 7, problems: 0, rewritten: false, fileProblems: 0, failed: true });

@@ -32,7 +32,10 @@ const note = (accountingTypeId: string | null, extra: Record<string, unknown> = 
 const positions = [{ sumNet: "100.00", sumTax: "19.00", sumGross: "119.00", taxRate: "19" }] as never[];
 
 describe.skipIf(!testDatabaseUrl)("sevDesk-Gutschriften auf Buchungskonto nach Kontoart (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") &
+    typeof import("./umzug-abgleich.ts") &
+    typeof import("./umzug-belege.ts") &
+    typeof import("./umzug-umsatzsteuer.ts");
   let kontakt: typeof import("./kontakt-altbestand.ts");
   let legacy: typeof import("./legacy-open.ts");
   let exporter: typeof import("./export.ts");
@@ -41,7 +44,12 @@ describe.skipIf(!testDatabaseUrl)("sevDesk-Gutschriften auf Buchungskonto nach K
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = {
+      ...(await import("./lexoffice.ts")),
+      ...(await import("./umzug-abgleich.ts")),
+      ...(await import("./umzug-belege.ts")),
+      ...(await import("./umzug-umsatzsteuer.ts")),
+    };
     kontakt = await import("./kontakt-altbestand.ts");
     legacy = await import("./legacy-open.ts");
     exporter = await import("./export.ts");

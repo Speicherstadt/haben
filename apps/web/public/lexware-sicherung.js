@@ -11,7 +11,7 @@
  * Welche das sind und wie Haben sie liest, steht in docs/lexoffice.md („Umzug über die Web-Oberfläche“).
  *
  * Inhalt jeder ZIP-Datei:
- *   manifest.json            Format, Version, Teil, Zeitpunkt
+ *   manifest.json            Format, Version, Teil, Zeitpunkt, weggelassene Vorgänge der gesamten Sicherung
  *   kontakte.json            alle Kontakte (in jedem Teil, damit jeder Teil für sich übernommen werden kann)
  *   belege/<id>.json         je Beleg die Antworten der Web-Oberfläche und die Liste seiner Dateien; auch je
  *                            Buchung ohne Beleg (direkt auf einen Bankumsatz gebucht) mit den Bankumsätzen dazu
@@ -122,7 +122,26 @@
     return [...byId.values()];
   }
 
-  /** Belegliste, nicht archiviert und archiviert; Angebote, Aufträge, Lieferscheine und Entwürfe bleiben draußen */
+  function omittedKind(item) {
+    if (item.billingStatus === "draft") return "drafts";
+    if (
+      (item.entityType === "salesvoucher" && SALES_TYPES.includes(item.entitySubType)) ||
+      (item.entityType === "bookkeepingvoucher" && BOOKKEEPING_TYPES.includes(item.entitySubType))
+    )
+      return null;
+    switch (item.entitySubType) {
+      case "Quotation":
+        return "quotations";
+      case "OrderConfirmation":
+        return "orderConfirmations";
+      case "DeliveryNote":
+        return "deliveryNotes";
+      default:
+        return "other";
+    }
+  }
+
+  /** Zählt Vorgänge erst nach beiden Listen, damit auch überlappende Seiten sie nur einmal beitragen. */
   async function voucherList() {
     const byId = new Map();
     for (const archived of ["", "&archived=true"]) {
@@ -134,12 +153,14 @@
         if (firstRow + 500 >= (page.numFound ?? 0)) break;
       }
     }
-    return [...byId.values()].filter(
-      (item) =>
-        item.billingStatus !== "draft" &&
-        ((item.entityType === "salesvoucher" && SALES_TYPES.includes(item.entitySubType)) ||
-          (item.entityType === "bookkeepingvoucher" && BOOKKEEPING_TYPES.includes(item.entitySubType))),
-    );
+    const items = [];
+    const omitted = { drafts: 0, quotations: 0, orderConfirmations: 0, deliveryNotes: 0, other: 0 };
+    for (const item of byId.values()) {
+      const kind = omittedKind(item);
+      if (kind === null) items.push(item);
+      else omitted[kind] += 1;
+    }
+    return { items, omitted };
   }
 
   /** Bankumsätze, die einem Beleg aus der Belegliste zugeordnet sind, mit der Zahl der Zuordnungen */
@@ -335,7 +356,7 @@
   log("Kontakte …");
   const allContacts = await contacts();
   log(`${allContacts.length} Kontakte. Belegliste …`);
-  const items = await voucherList();
+  const { items, omitted } = await voucherList();
   log(`${items.length} Belege. Lade Details und Dateien; das dauert etwa ${Math.ceil((items.length * 4 * (PAUSE_MS + 150)) / 60000)} Minuten.`);
 
   const contactsJson = encoder.encode(JSON.stringify(allContacts));
@@ -353,7 +374,7 @@
   }
 
   function finishPart() {
-    const manifest = { format: FORMAT, version: VERSION, part, createdAt, origin: location.origin, vouchers: inPart, failed };
+    const manifest = { format: FORMAT, version: VERSION, part, createdAt, origin: location.origin, vouchers: inPart, failed, omitted };
     zip.add("manifest.json", encoder.encode(JSON.stringify(manifest, null, 2)));
     const name = `lexware-sicherung-${stamp}-teil-${String(part).padStart(2, "0")}.zip`;
     download(zip.finish(), name);
