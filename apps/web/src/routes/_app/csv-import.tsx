@@ -5,7 +5,6 @@ import { useRef, useState, type FormEvent } from "react";
 import { z } from "zod/mini";
 import { FilePicker } from "../../components/FilePicker.tsx";
 import { NoticeBanner } from "../../components/NoticeBanner.tsx";
-import { ScrollTable } from "../../components/ScrollTable.tsx";
 import { useAction } from "../../lib/use-action.ts";
 import { previewCsvImportFn, runCsvImportFn } from "../../server/functions/csv-import.ts";
 import { getFastbillArticlesCsv } from "../../server/functions/fastbill.ts";
@@ -315,7 +314,7 @@ function PreviewCard({
           {preview.problem}
         </div>
       )}
-      <ScrollTable className="report-table">
+      <table className="report-table stack-table csv-preview">
         <thead>
           <tr>
             <th scope="col" className="num">
@@ -337,7 +336,7 @@ function PreviewCard({
                 </Status>
               </td>
               <td className="small" style={{ overflowWrap: "anywhere" }}>
-                <span id={`csv-hint-${row.line}`}>{row.message ?? ""}</span>
+                {row.message && <span id={`csv-hint-${row.line}`}>{row.message}</span>}
                 {row.status === "zuordnen" && !row.canCreate && (
                   <label className="checkbox" style={{ overflowWrap: "normal", hyphens: "auto" }}>
                     <input
@@ -357,7 +356,7 @@ function PreviewCard({
             </tr>
           ))}
         </tbody>
-      </ScrollTable>
+      </table>
       {rows.length > shown.length && (
         <p className="small muted" style={{ margin: 0 }}>
           Weitere {rows.length - shown.length} neue Zeilen sind nicht aufgeführt.

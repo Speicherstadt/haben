@@ -108,6 +108,10 @@
   .stack-table td:empty { display: none; }
   .stack-table tr[aria-current] { background: var(--accent-soft); border-radius: 8px; margin-inline: -8px; padding-inline: 8px; width: calc(100% + 16px); }
   .stack-table .group-row, .stack-table .subtotal-row { padding: 6px 0; }
+  /* Vorschau des CSV-Imports: Zeile, Kontakt und Status oben, Hinweis und Auswahl darunter über die ganze Breite */
+  .csv-preview tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 12px; align-items: first baseline; }
+  .csv-preview td.num::before { content: "Zeile "; color: var(--muted); }
+  .csv-preview td:last-child { grid-column: 1 / -1; }
 }
 
 @media (max-width: 720px) {
