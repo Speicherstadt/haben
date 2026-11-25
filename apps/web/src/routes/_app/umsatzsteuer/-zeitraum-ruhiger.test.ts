@@ -289,6 +289,13 @@ describe("Voranmeldung: Ergebnis und Ablauf zuerst (#1253, Punkte 42 und 43)", (
     expect(ablauf(fertig)?.match(/\(erledigt\)/g)).toHaveLength(3);
   });
 
+  it("hält das Zahlen nicht offen, solange nur eine Erstattung aussteht: Es ist nichts zu zahlen", () => {
+    const erstattung = [{ vatReturnId: "entwurf", berichtigt: false, betrag: -5_000, faellig: "2026-11-10", verrechnet: 0, bezahlt: 0, offen: -5_000, zahlungen: [] }];
+    const html = seite({ current: gesendet, posten: erstattung });
+    expect(html.match(/aria-current="step"/g)).toBeNull();
+    expect(ablauf(html)?.match(/\(erledigt\)/g)).toHaveLength(3);
+  });
+
   it("zählt alle Posten des Zeitraums: Der Rest am Original einer Berichtigung nach unten hält das Zahlen offen", () => {
     const posten = (restOriginal: number) => [
       {
