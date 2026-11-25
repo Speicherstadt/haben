@@ -111,7 +111,7 @@ Anbieter: Teufel-IT, Inhaber Tristan Teufel, Seestr. 2, 77815 Bühl, Deutschland
 ## § 11 Datenschutz
 
 1. Der Anbieter verarbeitet die in der Instanz gespeicherten personenbezogenen Daten im Auftrag des Kunden. Dafür schließen die Parteien den [Vertrag zur Auftragsverarbeitung](gehostet-avv.md) nach Art. 28 DSGVO. Er ist Bestandteil des Vertrags.
-2. Die Verarbeitung der Vertrags- und Zahlungsdaten des Kunden durch den Anbieter als Verantwortlichen beschreibt die Datenschutzerklärung.
+2. Für Buchung, Einrichtung und Abrechnung verarbeitet der Anbieter als Verantwortlicher die Angaben des Kunden: Name, Firma, Anschrift, E-Mail-Adresse, Umsatzsteuer-Identifikationsnummer, den Wunschnamen der Instanz und die Daten zur Zahlung. Rechtsgrundlage ist die Erfüllung des Vertrags (Art. 6 Abs. 1 Buchst. b DSGVO). Die Zahlung wickelt Stripe ab (Stripe Payments Europe, Limited, Irland); Stripe erhält dafür die Angaben aus der Buchung. Der Anbieter bewahrt die Daten nach den gesetzlichen Fristen für Geschäftsunterlagen auf. Die Rechte der betroffenen Personen und die Kontaktdaten stehen in der [Datenschutzerklärung](https://speicherstadt.org/datenschutz/).
 
 ## § 12 Mängel
 

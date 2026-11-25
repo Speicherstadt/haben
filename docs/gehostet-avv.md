@@ -54,7 +54,8 @@ Teufel-IT, Inhaber Tristan Teufel, Seestr. 2, 77815 Bühl, Deutschland, E-Mail: 
    - Bankdaten: Bankverbindungen, Kontoumsätze und Verwendungszwecke aus dem Bankimport,
    - Steuerdaten: Steuernummern, Umsatzsteuer-Identifikationsnummern, Voranmeldungen und Erklärungen, das ELSTER-Zertifikat des Auftraggebers (verschlüsselt gespeichert),
    - Daten von Beschäftigten, soweit der Auftraggeber sie erfasst, zum Beispiel Namen, Zeiteinträge und Auslagen,
-   - Zugangsdaten der Nutzer (Benutzername, E-Mail-Adresse, Passwort als Hash) und Protokolldaten (Zeitpunkt, IP-Adresse, ausgeführte Aktion).
+   - Zugangsdaten der Nutzer (Benutzername, E-Mail-Adresse, Passwort als Hash) und Protokolldaten (Zeitpunkt, IP-Adresse, ausgeführte Aktion),
+   - Zugangsdaten zu Diensten, die der Auftraggeber selbst anbindet (E-Mail-Versand, Bankabruf, KI-Auslesung von Belegen); sie werden verschlüsselt gespeichert.
 3. Besondere Kategorien personenbezogener Daten nach Art. 9 DSGVO sind nicht Gegenstand der Verarbeitung. Der Auftraggeber vermeidet es, solche Daten zu erfassen. Einzelne Belege können dennoch solche Angaben enthalten, zum Beispiel Rechnungen von Ärzten oder Hinweise auf eine Kirchensteuerpflicht.
 
 ## § 4 Weisungsrecht
@@ -87,6 +88,7 @@ Teufel-IT, Inhaber Tristan Teufel, Seestr. 2, 77815 Bühl, Deutschland, E-Mail: 
 5. Keine Unterauftragsverarbeitung sind Nebenleistungen ohne Bezug zur Verarbeitung der Daten des Auftraggebers, zum Beispiel Telekommunikation, Post und Reinigung.
 6. Die Übermittlung von Steuerdaten an die Finanzverwaltung über ELSTER ist keine Unterauftragsverarbeitung. Sie erfolgt auf Veranlassung des Auftraggebers an eine Behörde als eigene Verantwortliche.
 7. Die Abwicklung der Zahlung des Auftraggebers über Stripe betrifft die Vertragsdaten des Auftraggebers und nicht die Daten, die im Auftrag verarbeitet werden. Stripe ist daher kein Unterauftragsverarbeiter nach diesem Vertrag.
+8. Dienste, die der Auftraggeber in seiner Instanz selbst anbindet, sind keine Unterauftragsverarbeiter des Auftragnehmers. Das betrifft insbesondere den E-Mail-Versand über ein eigenes Postfach, den Bankabruf und die KI-Auslesung von Belegen mit einem eigenen Zugang. Für diese Dienste ist der Auftraggeber selbst verantwortlich.
 
 ## § 8 Unterstützung bei Betroffenenrechten
 
@@ -146,54 +148,50 @@ Teufel-IT, Inhaber Tristan Teufel, Seestr. 2, 77815 Bühl, Deutschland, E-Mail: 
 
 ### 1. Vertraulichkeit
 
-**Zutrittskontrolle.** Der Server steht im Rechenzentrum des Hosting-Anbieters (Anlage 2). Zutritt haben nur dessen berechtigte Mitarbeiter. Es gelten die Sicherheitsmaßnahmen und Zertifizierungen des Hosting-Anbieters. Der Auftragnehmer betreibt keine eigenen Serverräume.
+**Zutrittskontrolle.** Der Server steht im Rechenzentrum des Hosting-Anbieters (Anlage 2). Zutritt haben nur dessen berechtigte Mitarbeiter. Es gelten die Sicherheitsmaßnahmen des Hosting-Anbieters. Der Auftragnehmer betreibt keine eigenen Serverräume.
 
 **Zugangskontrolle.**
 
-- Administrativer Zugang zum Server nur für den Inhaber, nur über SSH mit Schlüssel, kein Login mit Passwort.
-- Zwei-Faktor-Anmeldung für die Kundenkonten beim Hosting-Anbieter und beim Backup-Speicher.
-- Firewall, nur die nötigen Ports sind offen.
-- Sicherheitsupdates für Betriebssystem und Software werden zeitnah eingespielt.
-- Die Arbeitsgeräte des Inhabers sind verschlüsselt und mit Bildschirmsperre gesichert.
+- Administrativen Zugang zum Server hat nur der Inhaber des Auftragnehmers, über eine verschlüsselte Verbindung.
+- Der Auftraggeber hat Zugang zur Anwendung, nicht zum Server, zum Betriebssystem oder zur Datenbank.
+- Updates der Anwendung spielt der Auftragnehmer ein.
 
 **Zugriffskontrolle.**
 
-- Jeder Kunde hat eine eigene Instanz mit eigenen Benutzerkonten und Rollen. Die Vergabe der Zugänge liegt beim Auftraggeber.
-- Passwörter der Nutzer werden nur als Hash gespeichert.
+- Jeder Auftraggeber hat eine eigene Instanz mit eigenen Benutzerkonten. Die Vergabe der Zugänge liegt beim Auftraggeber.
+- Passwörter der Nutzer werden nicht im Klartext gespeichert. Das Passwort eines Nutzers kennt der Auftragnehmer nicht.
 - Der Auftragnehmer greift auf Inhalte nur zu, soweit es für Betrieb, Störungsbehebung oder eine erbetene Hilfe nötig ist.
 
 **Trennungskontrolle.**
 
-- Jede Kundeninstanz läuft getrennt, mit eigener Datenbank und eigenem Dateispeicher.
-- Backups werden je Instanz getrennt und mit eigenem Schlüssel angelegt.
-- Test- und Produktivsysteme sind getrennt. Für Tests werden keine Kundendaten verwendet.
+- Jede Instanz hat eine eigene Datenbank, getrennt von den Instanzen anderer Kunden.
+- Für Tests werden keine Kundendaten verwendet.
 
 **Verschlüsselung.**
 
-- Übertragung zwischen Browser und Instanz ausschließlich über TLS.
-- Backups werden vor der Übertragung zum Backup-Speicher verschlüsselt. Den Schlüssel hat nur der Auftragnehmer. Der Betreiber des Backup-Speichers kann die Inhalte nicht lesen.
+- Die Übertragung zwischen Browser und Instanz ist mit TLS verschlüsselt.
+- Geheimnisse in der Instanz, zum Beispiel das ELSTER-Zertifikat und Zugangsdaten zu angebundenen Diensten, werden mit AES-256-GCM verschlüsselt gespeichert.
+- Backups werden vor der Übertragung zum Backup-Speicher verschlüsselt. Das Passwort der Backups hat nur der Auftragnehmer. Der Betreiber des Backup-Speichers kann die Inhalte nicht lesen.
 
 ### 2. Integrität
 
-**Weitergabekontrolle.** Daten verlassen den Server nur verschlüsselt: als Backup zum Backup-Speicher, als Übermittlung an ELSTER auf Veranlassung des Auftraggebers und als Export, den der Auftraggeber selbst herunterlädt. Die Herausgabe eines vollständigen Backups erfolgt auf einem gesicherten Weg.
+**Weitergabekontrolle.** Daten verlassen den Server nur verschlüsselt: als Backup zum Backup-Speicher, als Übermittlung an ELSTER auf Veranlassung des Auftraggebers, an Dienste, die der Auftraggeber selbst angebunden hat, und als Export, den der Auftraggeber herunterlädt.
 
-**Eingabekontrolle.** Die Anwendung protokolliert Änderungen an Buchungen und Belegen. Administrative Zugriffe auf den Server werden protokolliert.
+**Eingabekontrolle.** Die Anwendung führt ein Protokoll der Änderungen (Audit-Log), das gegen nachträgliche Veränderung gesichert ist.
 
 ### 3. Verfügbarkeit und Belastbarkeit
 
-- Tägliche verschlüsselte Backups, gespeichert an einem zweiten Ort bei einem anderen Anbieter als dem Server.
+- Tägliche verschlüsselte Backups, gespeichert bei einem anderen Anbieter als dem Server.
 - Aufbewahrung der Backups: 30 Tage.
-- Regelmäßige Prüfung, ob sich Backups wiederherstellen lassen.
-- Überwachung der Erreichbarkeit der Instanzen und Benachrichtigung des Auftragnehmers bei Störungen.
 - Schutz der Infrastruktur im Rechenzentrum durch den Hosting-Anbieter (Stromversorgung, Klima, Brandschutz, Netzanbindung).
+- Die Software ist frei verfügbar. Der Auftraggeber kann seine Instanz mit einem Backup auf einem eigenen Server weiterbetreiben.
 
 ### 4. Verfahren zur regelmäßigen Überprüfung
 
 - Der Auftragnehmer überprüft diese Maßnahmen mindestens einmal im Jahr und nach Sicherheitsvorfällen.
 - Sicherheitsvorfälle werden dokumentiert und nach § 10 gemeldet.
-- Unterauftragsverarbeiter werden vor dem Einsatz ausgewählt und vertraglich nach Art. 28 DSGVO verpflichtet.
+- Unterauftragsverarbeiter werden nach Art. 28 DSGVO vertraglich verpflichtet.
 - Die Software ist quelloffen, der Quelltext kann von Dritten geprüft werden.
-- Datenschutzfreundliche Voreinstellungen: keine Auswertung der Kundendaten für eigene Zwecke, keine Tracking-Dienste in der Anwendung.
 
 ---
 
@@ -201,7 +199,8 @@ Teufel-IT, Inhaber Tristan Teufel, Seestr. 2, 77815 Bühl, Deutschland, E-Mail: 
 
 | Unterauftragsverarbeiter | Leistung | Ort der Verarbeitung |
 | --- | --- | --- |
-| netcup GmbH, Daimlerstraße 25, 76185 Karlsruhe, Deutschland | Bereitstellung des Servers, auf dem die Instanzen laufen (Hosting) | Deutschland, Rechenzentrum Nürnberg |
-| Cloudflare, Inc., 101 Townsend Street, San Francisco, CA 94107, USA | Objektspeicher „R2“ (S3-kompatibel) für die verschlüsselten Backups | Europäische Union |
-| Cloudflare, Inc., 101 Townsend Street, San Francisco, CA 94107, USA | Vorgeschalteter Proxy und DNS für `*.haben.app`: nimmt die Zugriffe auf die Instanzen entgegen und leitet sie an den Server weiter | weltweit, am Standort des Zugriffs |
+| netcup GmbH, Daimlerstraße 25, 76185 Karlsruhe, Deutschland | Server, auf dem die Instanzen laufen, und Server für das Postfach, über das Hilfeanfragen eingehen | Deutschland; die Instanzen laufen im Rechenzentrum Nürnberg |
+| Cloudflare, Inc., 101 Townsend Street, San Francisco, CA 94107, USA | Objektspeicher „R2“ für die verschlüsselten Backups | Europäische Union (Zuständigkeit „EU“ des Speichers) |
+
+Die Adressen unter `haben.app` werden über den DNS-Dienst von Cloudflare aufgelöst. Der Datenverkehr zwischen Browser und Instanz läuft dabei nicht über Cloudflare.
 
