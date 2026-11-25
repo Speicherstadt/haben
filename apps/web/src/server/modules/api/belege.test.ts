@@ -294,6 +294,29 @@ describe.skipIf(!testDatabaseUrl)("REST-API /api/v1/belege (Postgres)", () => {
       expect(await count()).toBe(1);
     });
 
+    it("nimmt den Anzeigenamen aus dem Feld dateiname, wie ihn die Webhook-Aktion von Paperless-ngx nicht mitschickt (#1904)", async () => {
+      const t = await token(["belege:anlegen"]);
+      const form = new FormData();
+      form.append("file", new File([jpeg(60)], "document.pdf"));
+      form.append("externalSource", "paperless");
+      form.append("externalId", "9001");
+      form.append("dateiname", "2026-11-24-Lieferant-Rechnung 123456789");
+      const created = await send(t, "POST", "/belege", { body: form });
+      expect(created.status).toBe(201);
+      // Ohne Endung ergänzt Haben die des mitgeschickten Formats
+      expect(schemas.documentSchema.parse(created.json)).toMatchObject({ filename: "2026-11-24-Lieferant-Rechnung 123456789.pdf" });
+    });
+
+    it("lässt Pfadanteile im dateiname weg und behält eine vorhandene Endung", async () => {
+      const t = await token(["belege:anlegen"]);
+      const form = new FormData();
+      form.append("datei", new File([jpeg(61)], "scan.jpg"));
+      form.append("dateiname", "../../etc/Rechnung 42.PDF");
+      const created = await send(t, "POST", "/belege", { body: form });
+      expect(created.status).toBe(201);
+      expect(schemas.documentSchema.parse(created.json)).toMatchObject({ filename: "Rechnung 42.PDF" });
+    });
+
     it("lehnt eine Anfrage mit datei und file zugleich ab: eine Datei je Anfrage (#104)", async () => {
       const t = await token(["belege:anlegen"]);
       const form = new FormData();

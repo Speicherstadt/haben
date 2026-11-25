@@ -118,6 +118,19 @@ async function existing(id: string, reference: DocumentReference | null, request
   });
 }
 
+/**
+ * Anzeigename des Belegs. Werkzeuge mit festem Feldnamen schicken die Datei als „document.pdf“ und kennen den richtigen
+ * Namen nur als eigenes Feld (#1904): Dann gilt der mitgeschickte Name. Pfadanteile fallen weg, und ohne Endung kommt die
+ * des Multipart-Namens dazu, damit die Ablage eine hat; Haben erkennt das Format ohnehin am Inhalt.
+ */
+function belegDateiname(wunsch: string | undefined, multipart: string): string {
+  const name = (wunsch ?? "").split(/[\/]/).pop()?.trim();
+  if (!name) return multipart || "beleg";
+  if (/\.[A-Za-z0-9]{1,8}$/.test(name)) return name;
+  const endung = /\.[A-Za-z0-9]{1,8}$/.exec(multipart ?? "")?.[0];
+  return endung ? `${name}${endung}` : name;
+}
+
 /** Neuer Beleg wie beim Upload unter Belege; mit externer Referenz idempotent */
 export async function createDocumentHandler(request: ApiRequest): Promise<ApiResult> {
   const input = validate(documentUploadSchema, request.body);
@@ -126,7 +139,7 @@ export async function createDocumentHandler(request: ApiRequest): Promise<ApiRes
   // Genau eines der beiden Felder ist gesetzt (documentUploadSchema); Fehler nennen das Feld, in dem die Datei kam
   const field = input.data.datei ? "datei" : "file";
   const datei = (input.data.datei ?? input.data.file)!;
-  const filename = datei.name || "beleg";
+  const filename = belegDateiname(input.data.dateiname, datei.name);
   // Vor dem Einlesen, wie beim Upload in Haben
   if (datei.size > MAX_DOCUMENT_SIZE) return fail("payload_too_large", `${filename}: größer als ${MAX_DOCUMENT_SIZE / 1024 / 1024} MB.`);
   const file = { bytes: new Uint8Array(await datei.arrayBuffer()), filename };

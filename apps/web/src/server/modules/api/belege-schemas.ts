@@ -23,6 +23,15 @@ export const documentUploadSchema = z
       .describe(`Der Beleg: PDF, JPEG, PNG, WebP, HEIC oder E-Rechnungs-XML (XRechnung, ZUGFeRD), höchstens ${MB} MB; statt dessen auch im Feld file`),
     // Paperless-ngx hängt die Datei in seiner Webhook-Aktion fest unter „file“ an (#104); eine Datei je Anfrage
     file: z.file().optional().describe("Wie datei, für Werkzeuge mit festem Feldnamen wie die Webhook-Aktion von Paperless-ngx; nur eines von beiden"),
+    dateiname: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe(
+        "Anzeigename des Belegs, wenn die Quelle ihn kennt und die Datei unter einem festen Namen schickt, etwa die Webhook-Aktion von Paperless-ngx mit „document.pdf“ (#1904); ohne Endung ergänzt Haben die des mitgeschickten Formats",
+      ),
     note: z.string().max(2000).optional().describe("Notiz am Beleg, z. B. woher er kommt"),
     externalSource: documentReferenceSchema.shape.externalSource
       .optional()
