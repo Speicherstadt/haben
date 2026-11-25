@@ -169,12 +169,13 @@ function openingAccounts(kontenrahmen: Kontenrahmen): Set<string> {
 export type ManualField = "account" | "debit" | "credit" | "taxCode";
 
 /**
- * Eine Meldung zur manuellen Buchung (#1277): an einem Feld einer Zeile (Index ab 0) oder zur ganzen Buchung. `sums` heißt,
- * sie folgt aus den Beträgen der Zeilen (Summe, Seiten); stimmt ein Betrag nicht, ist sie nur eine Folge davon.
+ * Eine Meldung zur manuellen Buchung (#1277): an einem Feld einer Zeile (Index ab 0) oder zur ganzen Buchung. `folge` heißt,
+ * sie folgt aus den Beträgen oder Konten der Zeilen (Summe, Seiten, dasselbe Konto); stimmt eine Zeile nicht, ist sie
+ * womöglich nur eine Folge davon (zwei leere Konten sind „dasselbe Konto“).
  */
 export type ManualFinding =
-  | { text: string; row: number; field: ManualField; sums?: undefined }
-  | { text: string; row?: undefined; field?: undefined; sums?: true };
+  | { text: string; row: number; field: ManualField; folge?: undefined }
+  | { text: string; row?: undefined; field?: undefined; folge?: true };
 
 /** Meldungen als Sätze, wie sie der Server zurückgibt: „Zeile 2: Konto hat vier Ziffern“ */
 export function manualFindingTexts(findings: readonly ManualFinding[]): string[] {
@@ -227,10 +228,10 @@ export function manualPostingFindings(
   }
   const debit = lines.reduce((sum, l) => sum + l.debit, 0);
   const credit = lines.reduce((sum, l) => sum + l.credit, 0);
-  if (debit !== credit) findings.push({ text: "Soll und Haben sind nicht gleich", sums: true });
-  if (lines.length >= 2 && (!lines.some((l) => l.debit > 0) || !lines.some((l) => l.credit > 0))) findings.push({ text: "Es fehlt eine Seite", sums: true });
+  if (debit !== credit) findings.push({ text: "Soll und Haben sind nicht gleich", folge: true });
+  if (lines.length >= 2 && (!lines.some((l) => l.debit > 0) || !lines.some((l) => l.credit > 0))) findings.push({ text: "Es fehlt eine Seite", folge: true });
   const accounts = new Set(lines.map((l) => l.account));
-  if (lines.length >= 2 && accounts.size === 1) findings.push({ text: "Soll und Haben auf demselben Konto ändern nichts" });
+  if (lines.length >= 2 && accounts.size === 1) findings.push({ text: "Soll und Haben auf demselben Konto ändern nichts", folge: true });
   if (
     rechtsform === "einzelunternehmen" &&
     kind === "umbuchung" &&

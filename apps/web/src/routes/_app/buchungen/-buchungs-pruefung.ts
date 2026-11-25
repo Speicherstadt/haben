@@ -79,15 +79,16 @@ function zellenFehler(row: Row, index: number, field: ManualField, findings: rea
 }
 
 /**
- * Fehler je Feld der Zeilen und die Meldungen zur ganzen Buchung. Was aus den Beträgen folgt (`sums`: „Soll und Haben sind
- * nicht gleich“, „Es fehlt eine Seite“), zählt erst, wenn die Zeilen stimmen; solange etwa ein Betrag nicht lesbar ist,
- * wäre es nur eine Folge davon. Die übrigen Hinweise zur Buchung, etwa zum Bank-Anfangsbestand, stehen immer da.
+ * Fehler je Feld der Zeilen und die Meldungen zur ganzen Buchung. Was aus Beträgen oder Konten der Zeilen folgt (`folge`:
+ * „Soll und Haben sind nicht gleich“, „Es fehlt eine Seite“, „… auf demselben Konto …“), zählt erst, wenn die Zeilen
+ * stimmen; solange etwa ein Betrag nicht lesbar oder ein Konto leer ist, wäre es nur eine Folge davon. Die übrigen Hinweise
+ * zur Buchung, etwa zum Bank-Anfangsbestand, stehen immer da.
  */
 export function buchungsFehler(rows: readonly Row[], findings: readonly ManualFinding[]) {
   const zellen = Object.fromEntries(
     rows.flatMap((row, index) => ZEILEN_FELDER.map((field) => [zellenSchluessel(row.key, field), zellenFehler(row, index, field, findings)] as const)),
   );
   const zeilenOffen = Object.values(zellen).some((e) => e !== null);
-  const buchung = findings.filter((f) => f.row === undefined && !(zeilenOffen && f.sums)).map((f) => satz(f.text));
+  const buchung = findings.filter((f) => f.row === undefined && !(zeilenOffen && f.folge)).map((f) => satz(f.text));
   return { zellen, buchung };
 }

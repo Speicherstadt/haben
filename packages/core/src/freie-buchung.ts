@@ -56,7 +56,8 @@ export function freieBuchungFindings(lines: readonly ManualLine[], k: FreieBuchu
   // Im Einzelunternehmen wirkt in der EÜR nur, was Erfolgskonten und Privat berühren; eine Buchung zwischen anderen
   // Bestandskonten neben einem Erfolgskonto wäre eine Einnahme oder Ausgabe ohne Zahlung
   if (!gmbh && lines.some((l) => erfolg(l.account)) && lines.some((l) => !erfolg(l.account) && !isPrivateAccount(k.kontenrahmen, l.account))) {
-    findings.push({ text: "Im Einzelunternehmen steht neben einem Erfolgskonto nur ein Privatkonto; Zahlungen gehen über Bank oder Kasse" });
+    // Ein leeres oder falsches Konto zählt hier als Bestandskonto; die Meldung kann also eine Folge des Fehlers am Konto sein
+    findings.push({ text: "Im Einzelunternehmen steht neben einem Erfolgskonto nur ein Privatkonto; Zahlungen gehen über Bank oder Kasse", folge: true });
   }
   return findings;
 }
