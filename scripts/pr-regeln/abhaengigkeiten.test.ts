@@ -86,6 +86,14 @@ describe("abhaengigkeitHinweise", () => {
     expect(fehler?.message).toContain("Begründung fehlt für `pg`");
   });
 
+  it("zählt den Namen vor einem deutschen Wort mit Bindestrich als genannt (`pg-Treiber`), nicht vor einem Paketnamen (`pg-boss`)", () => {
+    const pg = [{ file: "apps/web/package.json", name: "pg", feld: "dependencies" }];
+    const kompositum = "## Neue Abhängigkeiten\n\nDer pg-Treiber spricht mit Postgres, MIT, ohne weitere Pakete.\n";
+    expect(abhaengigkeitHinweise(pg, kompositum, false).map((m) => m.level)).toEqual(["warning"]);
+    const anderesPaket = "## Neue Abhängigkeiten\n\n- `pg-boss`: Warteschlange\n";
+    expect(abhaengigkeitHinweise(pg, anderesPaket, false)).toContainEqual(expect.objectContaining({ level: "error" }));
+  });
+
   it("verlangt von Bots keinen Abschnitt und meldet ohne neue Pakete nichts", () => {
     expect(abhaengigkeitHinweise(neu, null, true).map((m) => m.level)).toEqual(["warning"]);
     expect(abhaengigkeitHinweise([], null, false)).toEqual([]);
