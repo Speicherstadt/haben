@@ -39,7 +39,7 @@ export function serviceHintState(editor: {
 
 const ZEITRAUM = "Tag oder Zeitraum der Leistung, wenn er vom Rechnungsdatum abweicht. Beide leer: Auf der Rechnung steht das Rechnungsdatum.";
 // Bei Soll § 13 Abs. 1 Nr. 1 Buchst. a Satz 4 UStG, bei Ist Buchst. b: https://www.gesetze-im-internet.de/ustg_1980/__13.html
-// Kleinunternehmer sehen den Satz nicht: Ihre Rechnung hat die Behandlung „kleinunternehmer“, nicht „regulaer“ (`outgoingTaxIssues`)
+// Kleinunternehmer sehen den Satz in der Vorgabe nicht (Behandlung „kleinunternehmer“); „regulaer“ lehnt das Festschreiben dort ab (`outgoingTaxIssues`)
 const NORMAL =
   "Tag oder Zeitraum der Leistung. Beide leer: Auf der Rechnung steht das Rechnungsdatum; eine Zahlung vor der Leistung erkennt Haben dann nicht als Vorauszahlung. Eingetragen, auch am Rechnungsdatum: Die Steuer auf eine Zahlung vor der Leistung entsteht im Voranmeldungszeitraum der Zahlung.";
 const ANGEBOT = "Geplanter Leistungszeitraum. Leer: steht nicht im Angebot.";
