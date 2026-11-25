@@ -289,7 +289,7 @@ function periodBounds(year: number, month?: number) {
 }
 
 /** DATEV-Buchungen eines Jahres oder Monats, auf Wunsch nur die eines Kontos (als Konto oder Gegenkonto) */
-export async function datevBookingsForPeriod(filter: { year: number; month?: number; account: string; unmatched: boolean; limit: number }) {
+export async function datevBookingsForPeriod(filter: { year: number; month?: number; account: string; unmatched: boolean; limit: number; offset?: number }) {
   const { from, to } = periodBounds(filter.year, filter.month);
   const conditions: SQL[] = [gte(schema.datevBookings.date, from), lte(schema.datevBookings.date, to)];
   const account = filter.account.trim();
@@ -318,8 +318,10 @@ export async function datevBookingsForPeriod(filter: { year: number; month?: num
       })
       .from(schema.datevBookings)
       .where(where)
-      .orderBy(asc(schema.datevBookings.date), asc(schema.datevBookings.row))
-      .limit(filter.limit),
+      // Die Zeile ist nur je Stapel eindeutig; beim Blättern braucht auch der Gleichstand eine feste Reihenfolge
+      .orderBy(asc(schema.datevBookings.date), asc(schema.datevBookings.row), asc(schema.datevBookings.fileId))
+      .limit(filter.limit)
+      .offset(filter.offset ?? 0),
     db.select({ n: count() }).from(schema.datevBookings).where(where),
   ]);
   return { total: total?.n ?? 0, rows };

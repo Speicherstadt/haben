@@ -1,5 +1,6 @@
 import type postgres from "postgres";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { captureLog } from "../../log.ts";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
 describe.skipIf(!testDatabaseUrl)("MCP-Zugang für KI-Assistenten (Postgres)", () => {
@@ -236,7 +237,9 @@ describe.skipIf(!testDatabaseUrl)("MCP-Zugang für KI-Assistenten (Postgres)", (
       { monat: "2025-04", kz81Bemessungsgrundlage19: 0, steuer19: 0, kz86Bemessungsgrundlage7: 0, steuer7: 0, kz66Vorsteuer: 0, kz41: 1000 },
     ]);
 
-    const belege = (await run_("lexoffice_belege", { zeitraum: "2025-05", richtung: "alle", suche: "", limit: 50 })) as { belege: Record<string, unknown>[] };
+    const belege = (await run_("lexoffice_belege", { zeitraum: "2025-05", richtung: "alle", suche: "", limit: 50, offset: 0 })) as {
+      belege: Record<string, unknown>[];
+    };
     expect(belege.belege[0]).toMatchObject({
       nummer: "RE1",
       steuerart: "intraCommunitySupply",
@@ -254,7 +257,7 @@ describe.skipIf(!testDatabaseUrl)("MCP-Zugang für KI-Assistenten (Postgres)", (
       const gmbh = (await run_("lexoffice_abgleich", { jahr: 2025 })) as { rechtsform: string; jahre: { nichtEinnahmeOderAusgabe: unknown[] }[] };
       expect(gmbh.rechtsform).toBe("gmbh");
       expect(gmbh.jahre[0]!.nichtEinnahmeOderAusgabe).toEqual([{ art: "Körperschaft- und Gewerbesteuer", anzahl: 1, zufluss: 0, abfluss: 500 }]);
-      const mai = (await run_("lexoffice_belege", { zeitraum: "2025-05", richtung: "alle", suche: "", limit: 50 })) as {
+      const mai = (await run_("lexoffice_belege", { zeitraum: "2025-05", richtung: "alle", suche: "", limit: 50, offset: 0 })) as {
         belege: { nummer: string }[];
         nichtEinnahmeOderAusgabe: unknown[];
       };
@@ -276,7 +279,9 @@ describe.skipIf(!testDatabaseUrl)("MCP-Zugang für KI-Assistenten (Postgres)", (
       ["4930", "aufwand", 119],
       ["8400", "ertrag", -1190],
     ]);
-    const buchungen = (await run_("lexoffice_buchungen", { zeitraum: "2025", konto: "8400", ohneBeleg: false, limit: 50 })) as { buchungen: unknown[] };
+    const buchungen = (await run_("lexoffice_buchungen", { zeitraum: "2025", konto: "8400", ohneBeleg: false, limit: 50, offset: 0 })) as {
+      buchungen: unknown[];
+    };
     expect(buchungen.buchungen).toEqual([
       {
         datum: "2025-04-10",
@@ -300,13 +305,39 @@ describe.skipIf(!testDatabaseUrl)("MCP-Zugang für KI-Assistenten (Postgres)", (
     // Ein Belegfeld ohne Nummer hat nichts zu finden: belegGefunden bleibt null wie bei leerem Feld (#1355)
     await sql`insert into datev_bookings (file_id, row, date, amount, side, account, contra_account, voucher_field1, raw) values
       (${file!.id}, 5, '2025-04-15', 1250, 'S', '1200', '4930', 'Beispielzahldienst', '{}'::jsonb)`;
-    const ohneNummer = (await run_("lexoffice_buchungen", { zeitraum: "2025", konto: "4930", ohneBeleg: false, limit: 50 })) as {
+    const ohneNummer = (await run_("lexoffice_buchungen", { zeitraum: "2025", konto: "4930", ohneBeleg: false, limit: 50, offset: 0 })) as {
       buchungen: { belegnummer: string; belegGefunden: boolean | null }[];
     };
     expect(ohneNummer.buchungen.map((b) => [b.belegnummer, b.belegGefunden])).toEqual([
       ["", null],
       ["Beispielzahldienst", null],
     ]);
+  });
+
+  it("schreibt einen unerwarteten Fehler mit seiner Fehler-ID unter mcp ins Log (#1860)", async () => {
+    const token = await enabledToken();
+    const werkzeug = vi.spyOn(tools.MCP_TOOLS.find((t) => t.name === "uebersicht")!, "run").mockRejectedValue(new Error("kaputt"));
+    const { lines, restore } = captureLog("error");
+    try {
+      const { result } = await (await rpc(token, "tools/call", { name: "uebersicht", arguments: {} })).json();
+      expect(lines).toEqual([expect.objectContaining({ component: "mcp", msg: "Unerwarteter Fehler in einem MCP-Werkzeug" })]);
+      expect(result).toMatchObject({ isError: true, content: [{ text: `Interner Fehler (Fehler-ID ${lines[0]!.errorId}). Details stehen im Server-Log.` }] });
+    } finally {
+      restore();
+      werkzeug.mockRestore();
+    }
+  });
+
+  it("sagt bei einem unbekannten Auftragsdokument, dass es fehlt, statt „Interner Fehler“", async () => {
+    const token = await enabledToken();
+    const { lines, restore } = captureLog("error");
+    try {
+      const response = await rpc(token, "tools/call", { name: "archiv_auftragsdokument", arguments: { id: "00000000-0000-4000-8000-000000000000" } });
+      expect((await response.json()).result).toEqual({ isError: true, content: [{ type: "text", text: "Archivdokument nicht gefunden." }] });
+      expect(lines).toEqual([]);
+    } finally {
+      restore();
+    }
   });
 
   it("begrenzt die Anfragen je Token", async () => {

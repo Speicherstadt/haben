@@ -21,13 +21,13 @@ const stapel = (zeilen: string[]) =>
   ].join("\r\n");
 
 describe.skipIf(!testDatabaseUrl)("Aufladung und Belegfeld 1 im DATEV-Abgleich (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./umzug-abgleich.ts");
   let archive: typeof import("./archive.ts");
   let sql: postgres.Sql;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = await import("./umzug-abgleich.ts");
     archive = await import("./archive.ts");
   }, 30_000);
 

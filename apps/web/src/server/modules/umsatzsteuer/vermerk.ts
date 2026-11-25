@@ -82,7 +82,7 @@ export function vermerkeAbgabe(actor: string, returnId: string, input: VermerkIn
       if (lockedProblem) throw new VatError(lockedProblem);
       if (locked!.kz83 !== input.kz83) {
         throw new VatError(
-          `Kz 83 laut Protokoll (${formatEuro(input.kz83)}) weicht von der Voranmeldung (${formatEuro(locked!.kz83)}) ab. Gemeldet ist also etwas anderes; passe die Anmeldung an (manuell überschreiben, mit Begründung) und vermerke dann.`,
+          `Kz 83 laut Protokoll (${formatEuro(input.kz83)}) weicht von der Voranmeldung (${formatEuro(locked!.kz83)}) ab. Gemeldet ist also etwas anderes; passe die Anmeldung an (Werte von Hand ändern, mit Begründung) und vermerke dann.`,
         );
       }
       await lockFileUse(tx, sha256);

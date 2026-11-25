@@ -3,7 +3,7 @@ import { type FbMappedTime, type FbProject, isFbTimeBilled, mapFbTime } from "@h
 import { inArray } from "drizzle-orm";
 import { db, schema } from "../../db/index.ts";
 import { billedExternalIds, upsertExternalServiceEntry } from "../leistungen/index.ts";
-import { progressMessage } from "./lexoffice.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 import { withFastbillRequest } from "./fastbill-anfrage.ts";
 
 /*

@@ -1,3 +1,4 @@
+import type { Cents } from "@haben/core";
 import type { UstErklaerungFigures } from "@haben/elster";
 import { EUER_AUSGABEN, EUER_EINNAHMEN, EUER_FIELDS } from "@haben/elster/euer-felder";
 import { z } from "zod";
@@ -11,6 +12,9 @@ import { z } from "zod";
  * Liste von Kennzahlen gab es hier einmal; sie war an die Zeilennummern eines Vordruckjahres gebunden (2024/2025:
  * Zeile 17 statt Kz 15) und deckte die Zeilen nicht ab, die Haben selbst übermittelt.
  */
+
+/** Größter Betrag einer Zeile in Cent, plus oder minus; die Grenze hält einen Tippfehler davon ab, die Summe zu sprengen */
+export const ZEILENBETRAG_GRENZE: Cents = 1_000_000_000_00;
 
 /** Eine Zeile, die außerhalb von Haben erklärt wurde: Schlüssel der Erklärung, Zeilentext und Anlage */
 export interface ErklaerteZeile {
@@ -164,6 +168,7 @@ const UST_FELDER: Record<UstBetrag | "abschluss", string> = {
   kz43: "Steuerfreie Ausfuhrlieferungen (Kz 43)",
   kz21: "Nicht steuerbare Leistungen, Ort im EU-Ausland (Kz 21)",
   kz45: "Nicht steuerbare Umsätze Drittland (Kz 45)",
+  kz50: "Minderung der Bemessungsgrundlage bei Forderungsausfall, in den Umsätzen zu 19 und 7 % enthalten (Kz 650)",
   kz46: "§-13b-Leistungen aus dem EU-Ausland, Bemessung (Kz 46)",
   kz47: "Steuer aus §-13b-Leistungen aus dem EU-Ausland (Kz 47)",
   kz84: "§-13b-Leistungen aus dem Drittland, Bemessung (Kz 84)",
@@ -192,6 +197,7 @@ const UST_REIHENFOLGE = [
   "kz43",
   "kz21",
   "kz45",
+  "kz50",
   "kz46",
   "kz47",
   "kz84",

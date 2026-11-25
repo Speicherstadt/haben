@@ -6,6 +6,7 @@ import { useAction } from "../../lib/use-action.ts";
 import { NoticeBanner } from "../NoticeBanner.tsx";
 import { saveVatFrequency, type getVatPeriod } from "../../server/functions/vat.ts";
 import { Field } from "../Field.tsx";
+import { zeitraumKurz } from "./zeitraum-kurz.ts";
 
 type FrequencyOverviewData = Awaited<ReturnType<typeof getVatPeriod>>["frequency"];
 type StartMonth = (typeof FREQUENCY_START_MONTHS)[number];
@@ -24,7 +25,7 @@ export function VatFrequencyCard({ frequency: overview }: { frequency: Frequency
 
   const source =
     overview.own.length > 0
-      ? overview.own.map((s) => `${s.fromMonth === 1 ? "" : `ab ${MONTHS[s.fromMonth - 1]}: `}${VAT_FREQUENCY_LABEL[s.frequency]}`).join(", ")
+      ? zeitraumKurz(overview)
       : `${VAT_FREQUENCY_LABEL[overview.frequency]} (ohne eigene Einstellung für ${year}, ${overview.inherited ? "aus dem Vorjahr übernommen" : "wie bisher"})`;
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {

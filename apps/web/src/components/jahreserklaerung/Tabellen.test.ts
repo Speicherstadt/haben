@@ -84,6 +84,15 @@ describe("UstTabelle", () => {
     expect(zeile(davor, "Vorauszahlungssoll")).toMatch(/[-−]200,00/);
     expect(zeile(davor, "Erstattung")).toMatch(/>316,38/);
   });
+
+  it("zeigt die Minderung bei Forderungsausfall (Kz 650) nur mit Betrag, als Angabe ohne Steuer (#1809)", () => {
+    const label = "Minderung der Bemessungsgrundlage bei Forderungsausfall";
+    expect(teile(html(UstTabelle)).gruppe).not.toContain(label);
+    const mitAusfall = { ...data.ust, figures: { ...data.ust.figures, kz50: 150000 } };
+    const { gruppe } = teile(renderToStaticMarkup(createElement(UstTabelle, { data: { ...data, ust: mitAusfall } as Data })));
+    expect(zeile(gruppe, label)).toContain("650");
+    expect(zeile(gruppe, label)).toContain("1.500,00");
+  });
 });
 
 describe("EuerTabelle", () => {

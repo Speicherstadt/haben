@@ -7,7 +7,7 @@ import type { LegacyOriginalFile } from "./legacy-store.ts";
 import { storeLegacyOrder } from "./legacy-store.ts";
 import { sha256Of, storeFile } from "../../storage.ts";
 import { FastbillError } from "./fastbill-zugang.ts";
-import { progressMessage } from "./lexoffice.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 
 /*
  * Angebote aus FastBill als Auftragsdokumente im Archiv (legacy_order_documents, source fastbill), wie die aus sevDesk:

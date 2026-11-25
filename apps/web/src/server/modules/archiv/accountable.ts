@@ -1,12 +1,12 @@
+import { latestImportFor, refreshImportRuns } from "./umzug-lauf.ts";
 import { isUniqueViolation } from "../../errors.ts";
 import { type AccountableExport, type AccountableMapping, mapAccountableExport, readAccountableExport } from "@haben/import";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
-import { finish, latestImport, progressMessage, STALE_MS } from "./lexoffice.ts";
-import { latestFastbillImport } from "./fastbill.ts";
-import { latestSevdeskImport } from "./sevdesk.ts";
+import { finish } from "./umzug-lauf.ts";
+import { progressMessage } from "./umzug-gemeinsam.ts";
 import { runAccountableImport } from "./accountable-import.ts";
 import { AccountableError, type AccountableAnalysis, cancelled, MAX_ACCOUNTABLE_SIZE, running, stageExport, stagedExport } from "./accountable-state.ts";
 
@@ -91,22 +91,8 @@ function runOf(row: typeof schema.lexofficeImports.$inferSelect): AccountableImp
 
 /** Letzter Accountable-Lauf; ein hängengebliebener Lauf (Server neu gestartet) gilt als abgebrochen. */
 export async function latestAccountableImport(): Promise<AccountableImportRun | null> {
-  const [row] = await db
-    .select()
-    .from(schema.lexofficeImports)
-    .where(eq(schema.lexofficeImports.source, "accountable"))
-    .orderBy(desc(schema.lexofficeImports.startedAt))
-    .limit(1);
-  if (!row) return null;
-  if (row.status === "laeuft" && !running.has(row.id) && Date.now() - row.updatedAt.getTime() > STALE_MS) {
-    const [updated] = await db
-      .update(schema.lexofficeImports)
-      .set({ status: "abgebrochen", error: "Der Abruf wurde unterbrochen. Ein neuer Abruf setzt dort fort.", finishedAt: new Date() })
-      .where(and(eq(schema.lexofficeImports.id, row.id), eq(schema.lexofficeImports.status, "laeuft")))
-      .returning();
-    return runOf(updated ?? row);
-  }
-  return runOf(row);
+  const row = await latestImportFor("accountable");
+  return row ? runOf(row) : null;
 }
 
 /** Fortschritt eines Laufs; null, wenn die ID zu keinem Accountable-Lauf gehört. */
@@ -125,11 +111,7 @@ export async function accountableImportStatus(id: string): Promise<AccountableIm
 export async function startAccountableImport(actor: string, options: { wait?: boolean } = {}): Promise<string> {
   const upload = stagedExport();
   if (!upload) throw new AccountableError("Zuerst den Export hochladen.");
-  // Der eindeutige Index gilt über alle Quellen: verwaiste Läufe anderer Quellen als abgebrochen markieren
-  await latestImport();
-  await latestSevdeskImport();
-  await latestFastbillImport();
-  await latestAccountableImport();
+  await refreshImportRuns();
   const progress: LexofficeImportProgress = {
     phase: "belege",
     contacts: 0,

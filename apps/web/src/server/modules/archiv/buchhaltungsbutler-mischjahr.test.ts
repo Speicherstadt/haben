@@ -92,13 +92,13 @@ function parts(rows: Row[], skr = "03") {
 
 describe.skipIf(!testDatabaseUrl)("BuchhaltungsButler im Mischjahr und Nummernkreis (Postgres)", () => {
   let bb: typeof import("./buchhaltungsbutler.ts");
-  let lex: typeof import("./lexoffice.ts");
+  let lex: typeof import("./umzug-abgleich.ts");
   let sql: postgres.Sql;
 
   beforeAll(async () => {
     sql = await setupTestDb();
     bb = await import("./buchhaltungsbutler.ts");
-    lex = await import("./lexoffice.ts");
+    lex = await import("./umzug-abgleich.ts");
   }, 30_000);
 
   afterAll(async () => {

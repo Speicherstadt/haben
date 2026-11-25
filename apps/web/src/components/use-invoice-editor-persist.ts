@@ -62,12 +62,9 @@ export function useInvoiceEditorPersist(editor: InvoiceEditorFigures) {
   };
 
   // Kopieren aus dem gespeicherten Stand wie beim PDF: Ungespeichertes erst speichern, damit die Kopie zeigt, was im Formular steht
-  // Nur ein gespeicherter Rechnungsentwurf; ob die Art sich kopieren lässt, entscheidet useInvoiceCopy
-  const copySource = !quote && initialId ? { id: initialId, kind, variant } : null;
-  const prepareCopy = async () => {
-    if (!pruefe()) return null;
-    return dirty ? persist() : initialId;
-  };
+  // Nur ein gespeicherter Entwurf; ob die Art sich kopieren lässt, entscheidet useInvoiceCopy
+  const copySource = initialId ? { id: initialId, kind, variant } : null;
+  const prepareCopy = { pruefe, speichern: async () => (dirty ? persist() : initialId) };
 
   const deleteNow = () => {
     void run(async () => {

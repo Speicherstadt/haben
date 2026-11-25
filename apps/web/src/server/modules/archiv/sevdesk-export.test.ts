@@ -47,7 +47,7 @@ const NAME = "BITTE-ENTPACKEN_Buchungsstapel_und_Belegbilder_1_1_20240101_bis_20
 describe.skipIf(!testDatabaseUrl)("sevDesk ohne API: Export-ZIP übernehmen (Postgres)", () => {
   let sev: typeof import("./sevdesk-export.ts");
   let archive: typeof import("./archive.ts");
-  let lex: typeof import("./lexoffice.ts");
+  let lex: typeof import("./umzug-abgleich.ts") & typeof import("./umzug-umsatzsteuer.ts") & typeof import("./umzug-belege.ts");
   let open: typeof import("./legacy-open.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
@@ -56,7 +56,7 @@ describe.skipIf(!testDatabaseUrl)("sevDesk ohne API: Export-ZIP übernehmen (Pos
     sql = await setupTestDb();
     sev = await import("./sevdesk-export.ts");
     archive = await import("./archive.ts");
-    lex = await import("./lexoffice.ts");
+    lex = { ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-umsatzsteuer.ts")), ...(await import("./umzug-belege.ts")) };
     open = await import("./legacy-open.ts");
   }, 30_000);
 

@@ -201,7 +201,8 @@ export async function openPositions(today: string, { bis }: { bis?: string } = {
   const payables = await openPayables(today, bis);
   const vat = await openVatPosten(today, bis);
 
-  const byDue = (a: OpenPosition, b: OpenPosition) => a.dueDate.localeCompare(b.dueDate) || a.number.localeCompare(b.number);
+  // Zuletzt die ID: Wer die Liste seitenweise liest (MCP, #1518), braucht auch bei Gleichstand eine feste Reihenfolge
+  const byDue = (a: OpenPosition, b: OpenPosition) => a.dueDate.localeCompare(b.dueDate) || a.number.localeCompare(b.number) || a.id.localeCompare(b.id);
   receivables.sort(byDue);
   payables.sort(byDue);
   const total = (items: OpenPosition[]) => items.reduce((s, i) => s + i.open, 0);

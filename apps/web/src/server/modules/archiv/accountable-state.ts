@@ -1,3 +1,4 @@
+import { runningUploadsFor } from "./umzug-lauf.ts";
 import type { AccountableExport, AccountableMapping } from "@haben/import";
 import { UserError } from "../../errors.ts";
 import type { AccountableProgress } from "../../db/schema.ts";
@@ -32,5 +33,5 @@ export const stageExport = (upload: StagedExport | null) => {
 };
 
 /** Läufe, die gerade im Prozess laufen; ein Neustart des Servers macht sie zu abgebrochenen Läufen. */
-export const running = new Set<string>();
+export const running = runningUploadsFor("accountable");
 export const cancelled = new Set<string>();

@@ -41,7 +41,7 @@ describe.skipIf(!testDatabaseUrl).each([
 ] as const)("sevDesk: Dateistand der Belege, %s und %s (Postgres)", (kontenrahmen, versteuerung) => {
   let sql: postgres.Sql;
   let sevdesk: typeof import("./sevdesk.ts");
-  let archiv: typeof import("./lexoffice.ts");
+  let archiv: typeof import("./umzug-abgleich.ts") & typeof import("./umzug-belege.ts");
   let dateistand: typeof import("./dateistand.ts");
   let exporter: typeof import("./export.ts");
   /** Abrufe, die gerade scheitern; ein zweiter Lauf leert die Menge */
@@ -63,7 +63,7 @@ describe.skipIf(!testDatabaseUrl).each([
   beforeAll(async () => {
     sql = await setupTestDb();
     sevdesk = await import("./sevdesk.ts");
-    archiv = await import("./lexoffice.ts");
+    archiv = { ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-belege.ts")) };
     dateistand = await import("./dateistand.ts");
     exporter = await import("./export.ts");
     const importPkg = await import("@haben/import");
@@ -138,8 +138,10 @@ describe.skipIf(!testDatabaseUrl).each([
   });
 
   it("lässt eine Rechnung ohne PDF und einen fehlgeschlagenen Abruf nicht als ohne Datei bestätigen", async () => {
-    await expect(dateistand.confirmWithoutFile("test-user", await idOf("invoice/ID_301"), "")).rejects.toThrow("Original-PDF");
-    await expect(dateistand.confirmWithoutFile("test-user", await idOf("voucher/ID_101"), "")).rejects.toThrow("sevDesk nennt zu diesem Beleg eine Datei");
+    await expect(dateistand.confirmWithoutFile("test-user", await idOf("invoice/ID_301"), "")).rejects.toThrow(/Original-PDF.*Erneut abrufen/);
+    await expect(dateistand.confirmWithoutFile("test-user", await idOf("voucher/ID_101"), "")).rejects.toThrow(
+      /sevDesk nennt zu diesem Beleg eine Datei.*Erneut abrufen/,
+    );
     await expect(dateistand.confirmWithoutFile("test-user", await idOf("voucher/ID_103"), "")).rejects.toThrow("hat eine Datei");
   });
 
