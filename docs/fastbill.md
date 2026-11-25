@@ -35,8 +35,8 @@ Trag Login-E-Mail, Tarif und API-Schlüssel ein und klicke „Prüfen und speich
 „Alles abrufen“ startet den Abruf im Hintergrund, mit Fortschritt, Abbrechen und Fortsetzen wie bei Lexoffice. Es läuft immer nur ein Abruf, gleich aus welcher Quelle.
 
 1. **Kunden:** Name (Firma oder Person), Adresse, Land, E-Mail, USt-IdNr. und Kundennummer, als Kontakte mit der Rolle Kunde. Gibt es in Haben schon einen Kontakt mit demselben Namen und ohne FastBill-Herkunft, verknüpft Haben ihn. FastBill führt Lieferanten nicht als Kontakte; sie stehen in den Ausgaben nur als Name.
-2. **Belegliste:** Ausgangsrechnungen, Gutschriften und stornierte Rechnungen, je Art ein eigener Abruf, dazu die Ausgaben. Entwürfe bleiben draußen.
-3. **Dateien:** je Rechnung und Gutschrift das PDF, je Ausgabe der hochgeladene Beleg. Gibt FastBill den Beleg einer Ausgabe nur im angemeldeten Browser heraus, wartet die Ausgabe, siehe [Belege, die FastBill nur im Browser herausgibt](#belege-die-fastbill-nur-im-browser-herausgibt).
+2. **Belegliste:** Ausgangsrechnungen, Gutschriften und stornierte Rechnungen, je Art ein eigener Abruf, dazu die Ausgaben und die Einnahmen, die du in FastBill unter „Einnahmen“ erfasst hast, etwa die Gutschrift einer Plattform. Entwürfe bleiben draußen.
+3. **Dateien:** je Rechnung und Gutschrift das PDF, je Ausgabe und Einnahme der hochgeladene Beleg. Eine Einnahme, deren Beleg FastBill nicht über die API herausgibt, übernimmt Haben nicht; sie steht unter den Fehlern des Abrufs, und ein neuer Abruf versucht es wieder. Gibt FastBill den Beleg einer Ausgabe nur im angemeldeten Browser heraus, wartet die Ausgabe, siehe [Belege, die FastBill nur im Browser herausgibt](#belege-die-fastbill-nur-im-browser-herausgibt).
 4. **Wiederkehrende Rechnungen:** als pausierte Vorlagen, siehe [Wiederkehrende Rechnungen](#wiederkehrende-rechnungen).
 5. **Angebote:** samt PDF als Auftragsdokumente ins Archiv, siehe [Angebote](#angebote).
 
@@ -73,6 +73,7 @@ Ohne Skript in der Konsole: „Rest ohne Beleg übernehmen“, dann die Belege i
 | Gutschrift (`TYPE` credit) | Gutschrift, immer negativ |
 | Stornierte Rechnung (`STATE` canceled) und ihre Stornogutschrift | beide storniert und ausgeglichen; sie heben sich im Umsatz auf |
 | Ausgabe | Eingangsrechnung; mit negativem Betrag Gutschrift des Lieferanten |
+| Einnahme (`TYPE` incoming_credit) | Einnahmebeleg wie aus der Buchhaltung von Lexoffice; mit negativem Betrag Einnahme-Gutschrift. Eine andere Art übernimmt Haben nicht, der Abruf nennt sie unter den Fehlern |
 
 Eine Gutschrift gilt nur als Storno, wenn sie auf eine stornierte Rechnung verweist (`REFERENCED_INVOICE_ID`) und deren Betrag voll aufhebt. Eine Teilgutschrift bleibt eine Gutschrift mit eigenem Zahlungsstand.
 
