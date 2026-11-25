@@ -257,32 +257,36 @@ export function planDatevContacts<T extends Numbers>(
   candidates: readonly (Omit<DatevContactCandidate, "value"> & { value: T | null })[],
   stock: readonly DatevStockContact[],
 ): DatevContactPlan<T>[] {
+  const planned = candidates.map((c) => (c.duplicateOf || c.errors.length > 0 || c.value === null ? null : againstStock(c.value, stock)));
+  // Ein Vorschlag über Nummer, USt-IdNr. oder Kundennummer geht einem über den Namen vor, auch aus einer späteren Zeile
   const proposed = new Map<string, number>();
-  return candidates.map((c): DatevContactPlan<T> => {
+  for (const [i, p] of planned.entries())
+    if (p?.status === "zuordnen-an" && !p.byName && !proposed.has(p.contact.id)) proposed.set(p.contact.id, candidates[i]!.line);
+  return candidates.map((c, i): DatevContactPlan<T> => {
     const base = { line: c.line, lines: c.lines, title: c.title };
     const withHints = (message: string | null) => [message, ...c.hints].filter(Boolean).join("; ") || null;
     if (c.duplicateOf) return { ...base, status: "dublette", value: null, message: c.duplicateOf };
     if (c.errors.length > 0 || c.value === null) return { ...base, status: "fehler", value: null, message: c.errors.join("; ") };
-    const planned = againstStock(c.value, stock);
-    if (planned.status === "neu-hinweis") return { ...base, status: "neu", value: c.value, message: withHints(planned.hint) };
-    if (planned.status !== "zuordnen-an") return { ...base, status: planned.status, value: null, message: planned.message };
-    const earlier = proposed.get(planned.contact.id);
-    if (earlier !== undefined && planned.byName) {
-      const hint = `Gleicher Name wie ${named(planned.contact)} in Haben, dem schon Zeile ${earlier} vorgeschlagen ist; eigener Kontakt`;
+    const result = planned[i]!;
+    if (result.status === "neu-hinweis") return { ...base, status: "neu", value: c.value, message: withHints(result.hint) };
+    if (result.status !== "zuordnen-an") return { ...base, status: result.status, value: null, message: result.message };
+    const earlier = proposed.get(result.contact.id);
+    if (earlier !== undefined && earlier !== c.line && result.byName) {
+      const hint = `Gleicher Name wie ${named(result.contact)} in Haben, dem schon Zeile ${earlier} vorgeschlagen ist; eigener Kontakt`;
       return { ...base, status: "neu", value: c.value, message: withHints(hint) };
     }
-    if (earlier !== undefined)
+    if (earlier !== undefined && earlier !== c.line)
       return {
         ...base,
         status: "fehler",
         value: null,
-        message: `„${planned.contact.name}“ bekommt schon die Nummer aus Zeile ${earlier}; trage diese von Hand ein`,
+        message: `„${result.contact.name}“ bekommt schon die Nummer aus Zeile ${earlier}; trage diese von Hand ein`,
       };
-    proposed.set(planned.contact.id, c.line);
-    const missing = numbersOf(c.value).filter(({ rolle }) => nrOf(planned.contact, rolle) === null);
-    const assign = { contactId: planned.contact.id, debitorNr: null as number | null, kreditorNr: null as number | null };
+    proposed.set(result.contact.id, c.line);
+    const missing = numbersOf(c.value).filter(({ rolle }) => nrOf(result.contact, rolle) === null);
+    const assign = { contactId: result.contact.id, debitorNr: null as number | null, kreditorNr: null as number | null };
     for (const { rolle, nr } of missing) assign[`${rolle}Nr`] = nr;
-    const message = `${missing.map(({ rolle, nr }) => konto(rolle, nr)).join(" und ")} an ${named(planned.contact)} vergeben (${planned.why})`;
-    return { ...base, status: "zuordnen", value: null, message: withHints(message)!, assign, orNew: planned.byName ? c.value : null };
+    const message = `${missing.map(({ rolle, nr }) => konto(rolle, nr)).join(" und ")} an ${named(result.contact)} vergeben (${result.why})`;
+    return { ...base, status: "zuordnen", value: null, message: withHints(message)!, assign, orNew: result.byName ? c.value : null };
   });
 }

@@ -218,7 +218,11 @@ describe("planDatevContacts", () => {
       ),
     ).toEqual([
       [[3], "neu", "Gleicher Name wie „Müller GmbH“ in Haben, dem schon Zeile 4 vorgeschlagen ist; eigener Kontakt"],
-      [[4], "zuordnen", "Kreditor 70001 an „Müller GmbH“ vergeben (gleiche USt-IdNr.); Gleicher Name wie Zeile 3; ohne gleiche USt-IdNr. oder Steuernummer ein eigener Kontakt"],
+      [
+        [4],
+        "zuordnen",
+        "Kreditor 70001 an „Müller GmbH“ vergeben (gleiche USt-IdNr.); Gleicher Name wie Zeile 3; ohne gleiche USt-IdNr. oder Steuernummer ein eigener Kontakt",
+      ],
     ]);
   });
 
