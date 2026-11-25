@@ -209,6 +209,19 @@ describe("planDatevContacts", () => {
     expect(planned).toEqual([expect.objectContaining({ status: "zuordnen", orNew: null })]);
   });
 
+  it("lässt einen Vorschlag über den Namen einem späteren über die USt-IdNr. an denselben Kontakt den Vortritt", () => {
+    // Zeile 3 passt nur über den Namen, Zeile 4 über die USt-IdNr.; ohne Vorschlag über den Namen war 3 neu und 4 ein Vorschlag
+    expect(
+      plan(
+        [gp(3, { nr: 10001, name: "Müller GmbH" }), gp(4, { nr: 70001, name: "Müller GmbH", ustId: "DE136695976" })],
+        [stock({ id: "m", name: "Müller GmbH", ustId: "DE136695976" })],
+      ),
+    ).toEqual([
+      [[3], "neu", "Gleicher Name wie „Müller GmbH“ in Haben, dem schon Zeile 4 vorgeschlagen ist; eigener Kontakt"],
+      [[4], "zuordnen", "Kreditor 70001 an „Müller GmbH“ vergeben (gleiche USt-IdNr.); Gleicher Name wie Zeile 3; ohne gleiche USt-IdNr. oder Steuernummer ein eigener Kontakt"],
+    ]);
+  });
+
   it("ändert beim zweiten Import nichts: das Personenkonto ist der Schlüssel, auch bei geändertem Namen", () => {
     const contacts = [stock({ id: "a", name: "Müller GmbH (alt)", debitorNr: 10001, kreditorNr: 70001, ustId: "DE136695976" })];
     expect(
