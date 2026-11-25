@@ -1,4 +1,5 @@
-import { INTERNAL_ERROR, userMessage } from "../../errors.ts";
+import { reportInternalError, userMessage } from "../../errors.ts";
+import { withLogComponent } from "../../log-kontext.ts";
 import { authenticateMcp, hasScope, recordMcpCall, type McpAccess } from "./tokens.ts";
 import { MCP_TOOLS, todayContext } from "./tools.ts";
 import { OAUTH_SCOPE, protectedResourceMetadataUrl } from "./oauth.ts";
@@ -59,9 +60,8 @@ function createServer(access: McpAccess): McpServer {
         ok = true;
         return { text: JSON.stringify(result) };
       } catch (error) {
-        const message = userMessage(error);
-        if (message === undefined) console.error(error);
-        return { text: message ?? INTERNAL_ERROR, isError: true };
+        const text = userMessage(error) ?? reportInternalError("Unerwarteter Fehler in einem MCP-Werkzeug", error);
+        return { text, isError: true };
       } finally {
         await recordMcpCall(access, tool.name, ok, performance.now() - started).catch((error: unknown) => console.error(error));
       }
@@ -74,7 +74,12 @@ function createServer(access: McpAccess): McpServer {
  * Eine Anfrage an /api/mcp (Streamable HTTP, zustandslos): Zugang prüfen, Rate begrenzen, dann ein frischer MCP-Server
  * für genau diese Anfrage. Ist der Zugang ausgeschaltet, sieht der Endpunkt aus wie jedes unbekannte Token (401).
  */
-export async function handleMcpRequest(request: Request): Promise<Response> {
+export function handleMcpRequest(request: Request): Promise<Response> {
+  // Jede Logzeile der Anfrage trägt den Bereich mcp (log-kontext.ts), auch die eines unerwarteten Fehlers
+  return withLogComponent("mcp", () => beantworten(request));
+}
+
+async function beantworten(request: Request): Promise<Response> {
   if (request.method !== "POST") return jsonError(405, "Nur POST; dieser Server hält keine Sitzungen.", { Allow: "POST" });
   const access = await authenticateMcp(request);
   if (!access)
