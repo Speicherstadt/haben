@@ -307,6 +307,38 @@ describe.skipIf(!testDatabaseUrl)("REST-API /api/v1/belege (Postgres)", () => {
       expect(schemas.documentSchema.parse(created.json)).toMatchObject({ filename: "2026-11-24-Lieferant-Rechnung 123456789.pdf" });
     });
 
+    it("hält ein Datum am Ende nicht für eine Endung und ergänzt die des Formats", async () => {
+      const t = await token(["belege:anlegen"]);
+      const form = new FormData();
+      form.append("file", new File([jpeg(62)], "document.pdf"));
+      form.append("dateiname", "Rechnung 24.11.2026");
+      const created = await send(t, "POST", "/belege", { body: form });
+      expect(created.status).toBe(201);
+      expect(schemas.documentSchema.parse(created.json)).toMatchObject({ filename: "Rechnung 24.11.2026.pdf" });
+    });
+
+    it("kürzt einen sehr langen dateiname so, dass die Endung erhalten bleibt", async () => {
+      const t = await token(["belege:anlegen"]);
+      const form = new FormData();
+      form.append("file", new File([jpeg(63)], "document.pdf"));
+      form.append("dateiname", "A".repeat(200));
+      const created = await send(t, "POST", "/belege", { body: form });
+      expect(created.status).toBe(201);
+      const { filename } = schemas.documentSchema.parse(created.json);
+      expect(filename.length).toBe(200);
+      expect(filename.endsWith(".pdf")).toBe(true);
+    });
+
+    it("entfernt Steuerzeichen und trennt auch an Backslashes", async () => {
+      const t = await token(["belege:anlegen"]);
+      const form = new FormData();
+      form.append("file", new File([jpeg(64)], "scan.jpg"));
+      form.append("dateiname", "..\\..\\Rechnung\n42");
+      const created = await send(t, "POST", "/belege", { body: form });
+      expect(created.status).toBe(201);
+      expect(schemas.documentSchema.parse(created.json)).toMatchObject({ filename: "Rechnung42.jpg" });
+    });
+
     it("lässt Pfadanteile im dateiname weg und behält eine vorhandene Endung", async () => {
       const t = await token(["belege:anlegen"]);
       const form = new FormData();

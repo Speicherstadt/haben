@@ -118,17 +118,23 @@ async function existing(id: string, reference: DocumentReference | null, request
   });
 }
 
+/** Endungen, die Haben annimmt; ein Datum wie „Rechnung 24.11.2026“ endet damit nicht auf einer. */
+const DATEIENDUNG = /\.(?:pdf|jpe?g|png|webp|heic|tiff?|xml)$/i;
+
 /**
  * Anzeigename des Belegs. Werkzeuge mit festem Feldnamen schicken die Datei als „document.pdf“ und kennen den richtigen
- * Namen nur als eigenes Feld (#1904): Dann gilt der mitgeschickte Name. Pfadanteile fallen weg, und ohne Endung kommt die
- * des Multipart-Namens dazu, damit die Ablage eine hat; Haben erkennt das Format ohnehin am Inhalt.
+ * Namen nur als eigenes Feld (#1904): Dann gilt der mitgeschickte Name. Pfadanteile und Steuerzeichen fallen weg, und
+ * ohne Endung kommt die des Multipart-Namens dazu, damit die Ablage eine hat; Haben erkennt das Format am Inhalt.
  */
 function belegDateiname(wunsch: string | undefined, multipart: string): string {
-  const name = (wunsch ?? "").split(/[\/]/).pop()?.trim();
+  // Ein Zeilenumbruch im Namen landete sonst in der Liste und in Fehlermeldungen
+  const bereinigt = (wunsch ?? "").replace(/\p{Cc}/gu, "");
+  const name = bereinigt.split(/[\\/]/).pop()?.trim() ?? "";
   if (!name) return multipart || "beleg";
-  if (/\.[A-Za-z0-9]{1,8}$/.test(name)) return name;
-  const endung = /\.[A-Za-z0-9]{1,8}$/.exec(multipart ?? "")?.[0];
-  return endung ? `${name}${endung}` : name;
+  if (DATEIENDUNG.test(name)) return name.slice(0, 200);
+  const endung = DATEIENDUNG.exec(multipart ?? "")?.[0] ?? "";
+  // Platz für die Endung lassen, sonst schneidet das Speichern bei 200 Zeichen sie wieder ab
+  return `${name.slice(0, Math.max(0, 200 - endung.length))}${endung}`;
 }
 
 /** Neuer Beleg wie beim Upload unter Belege; mit externer Referenz idempotent */
