@@ -2,10 +2,12 @@ import { type computeUstva, periodLabel } from "@haben/core";
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, type FormEvent } from "react";
+import { EinklappAbschnitt } from "../../../components/firma/EinklappAbschnitt.tsx";
 import { ElsterSubmit } from "../../../components/ElsterSubmit.tsx";
 import { MeinElsterWerte } from "../../../components/MeinElsterWerte.tsx";
 import { AbgabeVermerken } from "../../../components/umsatzsteuer/AbgabeVermerken.tsx";
 import { UstvaZahlung } from "../../../components/umsatzsteuer/UstvaZahlung.tsx";
+import { ablaufSchritt, ergebnisSatz, VoranmeldungAblauf } from "../../../components/umsatzsteuer/VoranmeldungAblauf.tsx";
 import { elsterNotice, zahllastFakt, type ElsterKind } from "../../../lib/elster.ts";
 import { errorMessage } from "../../../lib/format.ts";
 import type { Notice } from "../../../lib/use-action.ts";
@@ -84,6 +86,30 @@ export function anmeldbar(data: PageData): boolean {
   return !data.periodProblem || Boolean(data.current?.berichtigt);
 }
 
+/**
+ * Ablauf und Ergebnis über den Kennzahlen (#1253). Bei einer festgeschriebenen Anmeldung zeigen Status und „Zahlung an das
+ * Finanzamt“ den echten Stand, daher dort kein Satz; `geaendert`: ungespeicherte oder seit dem Speichern veraltete Werte.
+ */
+export function ZeitraumAblauf({
+  data,
+  locked,
+  shown,
+  geaendert,
+}: {
+  data: PageData;
+  locked: boolean;
+  shown: ReturnType<typeof computeUstva>;
+  geaendert: boolean;
+}) {
+  const schritt = ablaufSchritt({
+    locked,
+    gespeichert: Boolean(data.current),
+    geaendert,
+    ausgeglichen: !data.posten.some((p) => p.vatReturnId === data.current?.id && p.offen !== 0),
+  });
+  return <VoranmeldungAblauf schritt={schritt} satz={locked ? null : ergebnisSatz(shown.kz83, data.dueDate)} />;
+}
+
 /** Rechte Spalte: an ELSTER senden, Zahlung an das Finanzamt, Abgabe außerhalb von Haben, Werte für Mein ELSTER, Verlauf */
 export function AbgabeSpalte({
   data,
@@ -95,6 +121,7 @@ export function AbgabeSpalte({
   stale,
   onSubmit,
   setNotice,
+  vermerk,
 }: {
   data: PageData;
   locked: boolean;
@@ -106,6 +133,8 @@ export function AbgabeSpalte({
   stale: boolean;
   onSubmit: (kind: ElsterKind, pin?: string) => Promise<void>;
   setNotice: (notice: Notice) => void;
+  /** Ob „Schon anders abgegeben?“ offen steht; die Seite hält es, damit es das Neuaufsetzen nach dem Speichern übersteht */
+  vermerk: { offen: boolean; onOffen: (offen: boolean) => void };
 }) {
   const loadWerte = useServerFn(getMeinElsterUstvaWerte);
   const current = data.current;
@@ -131,13 +160,21 @@ export function AbgabeSpalte({
       )}
       <UstvaZahlung posten={data.posten} />
       {!locked && current && (
-        <AbgabeVermerken
-          returnId={current.id}
-          kz83={shown.kz83}
-          blocked={dirty || stale}
-          today={data.today}
-          onFiled={() => setNotice({ tone: "ok", text: "Abgabe vermerkt und Voranmeldung festgeschrieben. Die Zahllast steht jetzt im Bankabgleich." })}
-        />
+        <EinklappAbschnitt
+          id="ust-vermerk"
+          titel="Schon anders abgegeben?"
+          kurz="Abgabe in Mein ELSTER vermerken"
+          offen={vermerk.offen}
+          onOffen={vermerk.onOffen}
+        >
+          <AbgabeVermerken
+            returnId={current.id}
+            kz83={shown.kz83}
+            blocked={dirty || stale}
+            today={data.today}
+            onFiled={() => setNotice({ tone: "ok", text: "Abgabe vermerkt und Voranmeldung festgeschrieben. Die Zahllast steht jetzt im Bankabgleich." })}
+          />
+        </EinklappAbschnitt>
       )}
       {!data.herstellerIdConfigured && !locked && current && (
         <MeinElsterWerte

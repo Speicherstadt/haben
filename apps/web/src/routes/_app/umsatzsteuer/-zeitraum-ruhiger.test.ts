@@ -232,7 +232,9 @@ describe("Voranmeldung: weniger Hinweise über den Zahlen (#1253, Punkt 32)", ()
 const mitZahllast = { ...mitIgLieferung, kz41: 0, kz81: 100_000 };
 const mitErstattung = { ...mitIgLieferung, kz41: 0, kz66: 5_000 };
 const gesendet = { ...entwurfVonHand, status: "sent", source: "berechnet" };
-const posten = (offen: number) => [{ vatReturnId: "entwurf", berichtigt: false, betrag: 19_000, faellig: "2026-11-10", verrechnet: 0, bezahlt: 19_000 - offen, offen, zahlungen: [] }];
+const posten = (offen: number) => [
+  { vatReturnId: "entwurf", berichtigt: false, betrag: 19_000, faellig: "2026-11-10", verrechnet: 0, bezahlt: 19_000 - offen, offen, zahlungen: [] },
+];
 
 /** Die Leiste „Ablauf der Voranmeldung“ samt Inhalt, sonst null */
 const ablauf = (html: string) => html.match(/<section[^>]*aria-label="Ablauf der Voranmeldung"[^>]*>[\s\S]*?<\/section>/)?.[0] ?? null;
