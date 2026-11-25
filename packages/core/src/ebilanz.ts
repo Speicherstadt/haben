@@ -324,6 +324,8 @@ function kontenOf(kontenrahmen: Kontenrahmen): Record<string, EbilanzZiel> {
     [anlagen.sammelposten, [`${EQUIPM}.gwgsammelposten`]],
     [anlagen.afa, [`${DEPR}.other`]],
     [anlagen.afaKfz, [`${DEPR}.other`]],
+    [anlagen.sonderAfa, [`${IS}.deprAmort.fixAss.specific.other`]],
+    [anlagen.sonderAfaKfz, [`${IS}.deprAmort.fixAss.specific.other`]],
     [anlagen.afaGwg, [`${DEPR}.lowValueAs`]],
     [anlagen.afaSammelposten, [`${DEPR}.lowValueAsCollItem`]],
     [anlagen.restbuchwert, [`${OC}.disposFixAss.bookValue.tan.other`]],

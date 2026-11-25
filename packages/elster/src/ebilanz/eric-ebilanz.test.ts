@@ -83,7 +83,7 @@ describe.each(TAXONOMIEN)("E-Bilanz mit ERiC (Taxonomie %s, Wirtschaftsjahr %i)"
   );
 
   fall(
-    "Folgejahr: Pkw mit AfA im Anlagenspiegel, Verlust",
+    "Folgejahr: Pkw mit Sonder-AfA im Anlagenspiegel, Verlust",
     async () => {
       await pruefe({
         ...basis,
@@ -96,7 +96,8 @@ describe.each(TAXONOMIEN)("E-Bilanz mit ERiC (Taxonomie %s, Wirtschaftsjahr %i)"
           "bs.eqLiab.liab.other.other": 190_000,
           [ERLOESE_19]: 1_000_000,
           [SONSTIGE]: 690_000,
-          "is.netIncome.regular.operatingTC.deprAmort.fixAss.tan.other": 600_000,
+          "is.netIncome.regular.operatingTC.deprAmort.fixAss.tan.other": 500_000,
+          "is.netIncome.regular.operatingTC.deprAmort.fixAss.specific.other": 100_000,
         },
         bvv: { eigenkapitalVorjahr: 2_500_000, ausschuettungen: 0, einlagen: 0 },
         anlagen: [
@@ -107,6 +108,7 @@ describe.each(TAXONOMIEN)("E-Bilanz mit ERiC (Taxonomie %s, Wirtschaftsjahr %i)"
             abgaenge: 0,
             afaAnfang: 1_200_000,
             afaJahr: 600_000,
+            sonderAfaJahr: 100_000,
             afaAbgaenge: 0,
           },
         ],

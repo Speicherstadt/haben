@@ -30,6 +30,7 @@ function AssetPage() {
   const fromDocument = asset.documentId !== null;
   const deletable = !booked && !fromDocument;
   const lastBooked = bookedYears.at(-1) ?? null;
+  const acquisitionYear = Number(asset.acquisitionDate.slice(0, 4));
   // § 7 Abs. 3 EStG: Wechsel zur linearen AfA, solange er noch nicht gebucht ist
   const switchEditable = asset.method === "degressiv" && (lastBooked === null || asset.linearFromYear === null || asset.linearFromYear > lastBooked);
 
@@ -99,7 +100,10 @@ function AssetPage() {
                 <div className="mono">{row.year}</div>
                 <div className="num">{formatDecimal(row.opening)}</div>
                 <div className="num">{formatDecimal(row.addition)}</div>
-                <div className="num">{formatDecimal(row.depreciation)}</div>
+                <div className="num">
+                  {formatDecimal(row.depreciation)}
+                  {row.specialDepreciation ? <div className="small">+ {formatDecimal(row.specialDepreciation)} Sonder-AfA</div> : null}
+                </div>
                 <div className="num">{formatDecimal(row.disposal)}</div>
                 <div className="num">{formatDecimal(row.closing)}</div>
                 <div>{bookedYears.includes(row.year) ? <Status tone="ok">Gebucht</Status> : null}</div>
@@ -116,6 +120,54 @@ function AssetPage() {
                 ? "Es ist schon gebucht; änderbar sind nur Bezeichnung, Notiz, ein Abgang und bei degressiver AfA der Wechsel zur linearen, beide in einem noch nicht gebuchten Jahr."
                 : "Art, Datum und Kosten kommen aus dem gebuchten Beleg; bis zur ersten AfA lassen sich Abschreibung und Nutzungsdauer ändern."}
             </p>
+          )}
+          {(asset.method === "linear" || asset.method === "degressiv") && (
+            <form
+              className="stack"
+              key={asset.updatedAt.toISOString()}
+              onSubmit={(event) => {
+                event.preventDefault();
+                const form = new FormData(event.currentTarget);
+                const entries = Array.from({ length: 5 }, (_, index) => {
+                  const year = acquisitionYear + index;
+                  const amount =
+                    year <= (lastBooked ?? 0)
+                      ? (asset.specialDepreciation.find((entry) => entry.year === year)?.amount ?? 0)
+                      : Math.round(Number(form.get(String(year))) * 100);
+                  return { year, amount };
+                }).filter(({ amount }) => amount > 0);
+                void run(async () => {
+                  await update({ data: { id: asset.id, asset: { name: asset.name, specialDepreciation: entries } } });
+                  await router.invalidate({ sync: true });
+                }, "Sonder-AfA gespeichert.");
+              }}
+            >
+              <h3>Sonder-AfA nach § 7g EStG</h3>
+              {Array.from({ length: 5 }, (_, index) => {
+                const year = acquisitionYear + index;
+                const amount = asset.specialDepreciation.find((entry) => entry.year === year)?.amount ?? 0;
+                return (
+                  <label key={year}>
+                    {year} (€)
+                    <input
+                      name={String(year)}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      defaultValue={(amount / 100).toFixed(2)}
+                      disabled={year <= (lastBooked ?? 0)}
+                    />
+                  </label>
+                );
+              })}
+              <label>
+                <input type="checkbox" required /> Der maßgebliche Vorjahresgewinn beträgt höchstens 200.000 €. Die Anlage wird im Anschaffungsjahr und im
+                Folgejahr vermietet oder zu mindestens 90 % in einer inländischen Betriebsstätte betrieblich genutzt.
+              </label>
+              <button type="submit" className="btn" disabled={busy}>
+                Sonder-AfA speichern
+              </button>
+            </form>
           )}
           <AssetForm
             // Mit Millisekunden: String(Date) endet bei der Sekunde, zwei Aktionen in derselben Sekunde ließen das Formular stehen

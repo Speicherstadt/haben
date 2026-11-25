@@ -15,6 +15,7 @@ export interface AnlagenspiegelZeile {
   abgaenge: Cents;
   afaAnfang: Cents;
   afaJahr: Cents;
+  sonderAfaJahr?: Cents;
   /** Kumulierte AfA der Abgänge */
   afaAbgaenge: Cents;
 }
@@ -43,7 +44,7 @@ export function anlagenspiegelZeile(
   const cost = asset.cost;
   const akAnfang = start < year || asset.opening ? cost : 0;
   const bookValueStart = row ? row.opening : 0;
-  const afaJahr = row?.depreciation ?? 0;
+  const afaJahr = (row?.depreciation ?? 0) + (row?.specialDepreciation ?? 0);
   const gone = leaves === year;
   return {
     position,
@@ -52,6 +53,7 @@ export function anlagenspiegelZeile(
     abgaenge: gone ? cost : 0,
     afaAnfang: akAnfang - bookValueStart,
     afaJahr,
+    ...(row?.specialDepreciation ? { sonderAfaJahr: row.specialDepreciation } : {}),
     // Beim Abgang ist alles bis auf den Restbuchwert abgeschrieben; der Restbuchwert geht als Aufwand ab
     afaAbgaenge: gone ? cost - (row?.disposal ?? 0) : 0,
   };

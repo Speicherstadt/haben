@@ -80,6 +80,12 @@ Das Gesetz nennt die Staffel „Absetzung für Abnutzung“, nicht Sonderabschre
 
 In GmbH und UG bietet Haben die Staffel nicht an. Sie ist eine rein steuerliche Abschreibung: In der Handelsbilanz wird planmäßig über die Nutzungsdauer abgeschrieben (§ 253 Abs. 3 Satz 1 HGB), und seit dem BilMoG folgt die Handelsbilanz steuerlichen Wahlrechten nicht mehr (§ 5 Abs. 1 Satz 1 Halbsatz 2 EStG). Haben führt ein Buch für Handels- und Steuerbilanz ohne Überleitung; die Staffel stünde damit auch in der Handelsbilanz. Die degressive AfA bleibt in der GmbH wählbar, sie ist auch nach HGB eine planmäßige Methode.
 
+## Sonder-AfA nach § 7g EStG
+
+Für eine begünstigte Anlage mit linearer oder degressiver AfA trägst du in den Anlagendetails die Beträge je Wirtschaftsjahr ein. Das Anschaffungsjahr und die vier Folgejahre stehen zur Auswahl. Insgesamt sind höchstens 40 % der Anschaffungskosten möglich, bei Anschaffungen vor 2024 höchstens 20 %. Die Eignung der Anlage und die Voraussetzungen nach [§ 7g EStG](https://www.gesetze-im-internet.de/estg/__7g.html) bestätigst du beim Speichern.
+
+Im Einzelunternehmen bucht Haben die Sonder-AfA separat und weist sie in EÜR und AVEÜR aus. Für GmbH und UG weist die E-Bilanz die steuerliche Abschreibung und den steuerlichen Buchwert aus. Das Handelsjournal enthält die reguläre Abschreibung. Für bereits gebuchte Jahre sind die Beträge gesperrt. Bei einer Übernahme zum 1. Januar erfasst du auch die bisher beanspruchten Jahresbeträge. Haben führt daraus den steuerlichen Plan fort. Im Einzelunternehmen muss der erfasste Übernahmebuchwert mit diesem Plan übereinstimmen.
+
 ## Erinnerungswert
 
 Mit **Erinnerungswert 1 € bis zum Abgang stehen lassen** schreibt Haben eine Anlage nur bis auf 1 € ab, wie es in der Bilanz nach HGB üblich ist, damit sie im Verzeichnis bleibt. Der Euro geht mit dem Abgang als Restbuchwert in den Aufwand. Das geht bei linearer, degressiver und Elektro-AfA, nicht bei GWG, Sammelposten und Computern mit einjähriger Nutzungsdauer. In der EÜR heißt das 1 € weniger AfA im letzten Jahr und 1 € Restbuchwert beim Abgang; Haben schlägt den Erinnerungswert deshalb nicht von selbst vor.
@@ -193,7 +199,7 @@ Im Jahresexport liegt `anlagen/anlagenverzeichnis.csv` mit Buchwert am Jahresanf
 ## Grenzen
 
 - Nur bewegliche Wirtschaftsgüter, keine Gebäude und keine immateriellen Wirtschaftsgüter außer Software.
-- Lineare und degressive AfA, die Staffel für Elektrofahrzeuge, GWG und Sammelposten. Keine Sonderabschreibung (§ 7g EStG), kein Investitionsabzugsbetrag, keine Leistungs-AfA und keine Absetzung für außergewöhnliche Abnutzung.
+- Lineare und degressive AfA, die Staffel für Elektrofahrzeuge, GWG und Sammelposten. Kein Investitionsabzugsbetrag, keine Leistungs-AfA und keine Absetzung für außergewöhnliche Abnutzung.
 - Degressive AfA nur für Anschaffungen ab 2020 in den oben genannten Zeiträumen; ältere degressive Anlagen übernimmst du linear mit Restbuchwert.
 - Private Kfz-Nutzung nur nach der Listenpreismethode: kein Fahrtenbuch, keine Fahrten zwischen Wohnung und Betriebsstätte (0,03 %) und keine Kostendeckelung.
 - Gebuchte AfA lässt sich nicht stornieren.

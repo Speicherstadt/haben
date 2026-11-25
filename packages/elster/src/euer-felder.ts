@@ -26,6 +26,7 @@ export interface EuerFigures {
   /** Ausgaben für eigenes Personal: Löhne und Gehälter, Lohnsteuer und Beiträge zur Sozialversicherung */
   personal?: Cents;
   afaBeweglich?: Cents;
+  sonderAfa?: Cents;
   gwg?: Cents;
   sammelposten?: Cents;
   restbuchwert?: Cents;
@@ -86,6 +87,7 @@ export const EUER_AUSGABEN = [
   "fremdleistungen",
   "personal",
   "afaBeweglich",
+  "sonderAfa",
   "gwg",
   "sammelposten",
   "restbuchwert",
@@ -146,6 +148,7 @@ export const EUER_FIELDS: Record<
   // Schema E77-2023 bis E77-2026 im ERiC-Paket: /EUER/BAus/Personal/Sum/E6001801
   personal: { kz: "E6001801", label: "Ausgaben für eigenes Personal (z. B. Gehälter, Löhne und Versicherungsbeiträge)" },
   afaBeweglich: { kz: "E6002101", label: "AfA auf bewegliche Wirtschaftsgüter" },
+  sonderAfa: { kz: "E6002201", label: "Sonderabschreibungen nach § 7g EStG" },
   gwg: { kz: "E6002301", label: "Aufwendungen für geringwertige Wirtschaftsgüter" },
   sammelposten: { kz: "E6003302", label: "Auflösung Sammelposten nach § 6 Abs. 2a EStG" },
   restbuchwert: { kz: "E6002401", label: "Restbuchwert der ausgeschiedenen Anlagegüter" },
