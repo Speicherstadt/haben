@@ -1,12 +1,14 @@
 /*
  * Stellt im Containerfile nach `bun run build` zusammen, was das Laufzeit-Image braucht, und nur das: Server-Bundle,
- * Migrationen ohne die Schnappschüsse von drizzle-kit, Vorlagen und Schriften der Belege, die gebündelten Skripte und ein node_modules nur mit den nativen
- * Paketen. Ohne das hätte das Image alle rund 350 installierten Pakete, darunter Build-Werkzeuge, die nie laufen.
+ * Migrationen ohne die Schnappschüsse von drizzle-kit, Vorlagen und Schriften der Belege, die gebündelten Skripte und
+ * ein node_modules nur mit den nativen Paketen. Ohne das hätte das Image alle rund 350 installierten Pakete, darunter
+ * Build-Werkzeuge, die nie laufen.
  *
  * Jedes Skript, das Bun im Image startet, liegt dort unter seinem Pfad aus dem Repository, aber als ein gebündeltes
  * JavaScript (Bun liest es trotz der Endung .ts). So bleiben Entrypoint, ERIC_WORKER_PATH, der Pfad des Render-Workers
  * und die Befehle in der Doku unverändert, und `import.meta.url` zeigt auf denselben Ordner wie in den Quellen
  * (etwa `../../../drizzle` in migrate.ts). Außen bleiben nur die nativen Pakete; sie kommen aus /app/node_modules.
+ * Ein Skript, das hier fehlt, fehlt im Image; laufzeit.test.ts gleicht SKRIPTE mit Entrypoint, Containerfile und Doku ab.
  *
  * Aufruf: bun scripts/container/laufzeit.ts <Zielordner>
  */
@@ -20,7 +22,7 @@ const NATIV = [
 ];
 
 /** Skripte, die Bun im Image per Pfad startet: Entrypoint, Kindprozesse und Befehle für Betreiber aus der Doku */
-const SKRIPTE = [
+export const SKRIPTE = [
   "apps/web/src/server/db/migrate.ts",
   "apps/web/src/server/db/sso-uebernahme.ts",
   "apps/web/src/server/db/local-owner.ts",
@@ -83,10 +85,16 @@ function nativKopieren(paket: string, von: string, nodeModules: string): void {
   }
 }
 
-const ziel = process.argv[2];
-if (!ziel) throw new Error("Aufruf: bun scripts/container/laufzeit.ts <Zielordner>");
-if (!existsSync("apps/web/.output")) throw new Error("apps/web/.output fehlt; vorher bun run build");
-rmSync(ziel, { recursive: true, force: true });
-for (const pfad of UNVERAENDERT) cpSync(pfad, join(ziel, pfad), { recursive: true, filter: ohneSchnappschuss });
-for (const skript of [...SKRIPTE.map((s) => ({ quelle: s, ziel: s })), CLI]) await buendeln(skript.quelle, join(ziel, skript.ziel));
-for (const { paket, von } of NATIV) nativKopieren(paket, von, join(ziel, "node_modules"));
+async function zusammenstellen(ziel: string): Promise<void> {
+  if (!existsSync("apps/web/.output")) throw new Error("apps/web/.output fehlt; vorher bun run build");
+  rmSync(ziel, { recursive: true, force: true });
+  for (const pfad of UNVERAENDERT) cpSync(pfad, join(ziel, pfad), { recursive: true, filter: ohneSchnappschuss });
+  for (const skript of [...SKRIPTE.map((s) => ({ quelle: s, ziel: s })), CLI]) await buendeln(skript.quelle, join(ziel, skript.ziel));
+  for (const { paket, von } of NATIV) nativKopieren(paket, von, join(ziel, "node_modules"));
+}
+
+if (import.meta.main) {
+  const ziel = process.argv[2];
+  if (!ziel) throw new Error("Aufruf: bun scripts/container/laufzeit.ts <Zielordner>");
+  await zusammenstellen(ziel);
+}
