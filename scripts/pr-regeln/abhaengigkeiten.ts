@@ -55,6 +55,12 @@ function abschnitt(body: string | null): string | null {
   return zeilen.slice(start + 1, ende < 0 ? undefined : ende).join("\n");
 }
 
+/** Der Name als Ganzes, nicht als Teil eines anderen Namens oder Worts (`pg` nicht in `@types/pg` oder „Upgrade“) */
+function genannt(text: string, name: string): boolean {
+  const zeichen = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^\\w@/.-])${zeichen}($|[^\\w/-])`).test(text);
+}
+
 /** Ohne Beschreibungsprüfung (Bots wie Renovate, lokal ohne --titel) nur der Hinweis, ohne Fehler */
 export function abhaengigkeitHinweise(neu: NeueAbhaengigkeit[], body: string | null, ohneBeschreibung: boolean): Report[] {
   if (neu.length === 0) return [];
@@ -67,7 +73,7 @@ export function abhaengigkeitHinweise(neu: NeueAbhaengigkeit[], body: string | n
   ];
   if (ohneBeschreibung) return meldungen;
   const begruendung = abschnitt(body) ?? "";
-  const fehlt = [...new Set(neu.map(({ name }) => name))].filter((name) => !begruendung.includes(name));
+  const fehlt = [...new Set(neu.map(({ name }) => name))].filter((name) => !genannt(begruendung, name));
   if (fehlt.length > 0)
     meldungen.push({
       level: "error",
