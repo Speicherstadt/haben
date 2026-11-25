@@ -38,7 +38,7 @@ Oben auf der Seite zeigt eine Leiste, wo du stehst:
 
 - **Zahlen prüfen**, bis ein unveränderter Entwurf gespeichert ist.
 - **Abgeben**, sobald er gespeichert ist.
-- **Zahlen**, nach dem Festschreiben, bis die Posten ausgeglichen sind.
+- **Zahlen**, nach dem Festschreiben, bis keine Zahllast mehr offen ist. Eine ausstehende Erstattung hält ihn nicht offen.
 
 Darunter sagt ein Satz, was Kz 83 für dich heißt, auch bei von Hand geänderten Werten:
 

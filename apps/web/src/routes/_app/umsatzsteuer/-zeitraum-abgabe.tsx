@@ -109,8 +109,9 @@ export function ZeitraumAblauf({
     locked,
     gespeichert: Boolean(data.current),
     geaendert,
-    // Alle Posten des Zeitraums (`data.posten`): Eine Berichtigung nach unten verrechnet ihre Minderung, der Rest steht dann offen am Posten des Originals
-    ausgeglichen: !data.posten.some((p) => p.offen !== 0),
+    // Alle Posten des Zeitraums (`data.posten`): Eine Berichtigung nach unten verrechnet ihre Minderung, der Rest steht dann als Zahllast offen am Posten des Originals.
+    // Eine offene Erstattung (offen < 0) ist nichts zu zahlen und hält das Zahlen nicht offen.
+    ausgeglichen: !data.posten.some((p) => p.offen > 0),
   });
   return (
     <VoranmeldungAblauf

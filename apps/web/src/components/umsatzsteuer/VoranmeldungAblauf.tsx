@@ -21,7 +21,7 @@ export function ergebnisSatz(kz83: number, faellig: string, heute: string): stri
 
 /**
  * Wo die Voranmeldung im Ablauf steht, nur aus dem, was die Seite schon weiß: Zahlen prüfen, bis ein unveränderter Entwurf
- * gespeichert ist; dann abgeben; festgeschrieben bleibt das Zahlen, bis die Posten ausgeglichen sind. Null: alles erledigt.
+ * gespeichert ist; dann abgeben; festgeschrieben bleibt das Zahlen, bis keine Zahllast mehr offen ist. Null: alles erledigt.
  */
 export function ablaufSchritt({
   locked,
@@ -33,7 +33,7 @@ export function ablaufSchritt({
   gespeichert: boolean;
   /** Ungespeicherte Änderungen oder Buchungen, die sich seit dem Speichern geändert haben */
   geaendert: boolean;
-  /** Die Posten dieser Anmeldung haben nichts mehr offen */
+  /** Die Posten dieser Anmeldung haben keine Zahllast mehr offen; eine offene Erstattung zählt nicht */
   ausgeglichen: boolean;
 }): Schritt | null {
   if (locked) return ausgeglichen ? null : 3;
