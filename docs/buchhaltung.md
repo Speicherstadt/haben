@@ -315,7 +315,7 @@ Der Pfeil links klappt alle Buchungszeilen mit Soll, Haben und Steuerschlüssel 
 
 Darüber lässt sich nach Herkunft, Kontonummer und Text filtern. Unten stehen die Zahl der Buchungen und ihre Summe.
 
-Der Weg zurück geht auch: Eine festgeschriebene Rechnung nennt unter **Angaben** bei **Im Journal** ihre Buchung, ein gebuchter Beleg im Hinweis „Gebucht“, eine Zuordnung im Bankabgleich unter **Zugeordnet**. Ein Klick auf „Buchung vom …“ öffnet das Journal des Monats, hebt die Zeile hervor und rollt zu ihr. Gegenbuchungen, etwa nach einem Storno oder einer Aufhebung, stehen daneben als „Gegenbuchung vom …“.
+Der Weg zurück geht auch: Eine festgeschriebene Rechnung nennt unter **Angaben** bei **Im Journal** ihre Buchungen, ein gebuchter Beleg hinter „Im Journal:“ seine Buchung und die der [Vorsteuerfreigabe](umsatzsteuer.md#vorsteuer-kz-66), eine Zuordnung im Bankabgleich ihre Buchung unter **Zugeordnet**. Ein Klick auf „Buchung vom …“ öffnet das Journal des Monats, hebt die Zeile hervor und rollt zu ihr. Gegenbuchungen, etwa nach der Aufhebung einer Zuordnung oder dem Storno eines Belegs, stehen daneben als „Gegenbuchung vom …“. Eine Bankzahlung führt von der Rechnung unter **Zahlungen** auf ihren Umsatz, dort steht ihre Buchung.
 
 Gebucht wird über Rechnungen, Belege, Bank, Kasse, Anlagen, Pauschalen, Ausbuchungen und Lohnabrechnungen; mit [manuellen Buchungen](#manuelle-und-freie-buchungen); in einer GmbH oder UG zusätzlich mit der [Eröffnung](gmbh-abschluss.md#saldenvortrag-und-eröffnung-gmbh-und-ug) und [Ausschüttungen](gmbh-abschluss.md#gewinnausschüttung-gmbh-und-ug). Ein Klick auf eine Kontonummer öffnet das Kontenblatt des Monats.
 
@@ -396,7 +396,7 @@ Ein Klick auf ein Konto öffnet das **Kontenblatt**. Es zeigt:
 - Den Saldoverlauf als Diagramm. Beim Darüberfahren erscheinen Datum, Saldo und Buchung.
 - Jede Buchung mit Datum, Text, Gegenkonten, Herkunft, Soll, Haben und laufendem Saldo.
 
-Über ein Quartal oder Jahr kommt eine Zwischensumme je Monat dazu. Gegenkonten und Herkunft sind verlinkt. Aus der [BWA](bwa.md#bwa-für-gmbh-und-ug) öffnet das Kontenblatt einen Zeitraum von–bis innerhalb eines Jahres; die Eröffnung reicht dann bis zum Tag vor „von“.
+Über ein Quartal oder Jahr kommt eine Zwischensumme je Monat dazu. Gegenkonten und Herkunft sind verlinkt, die Herkunft wie im Journal. Aus der [BWA](bwa.md#bwa-für-gmbh-und-ug) öffnet das Kontenblatt einen Zeitraum von–bis innerhalb eines Jahres; die Eröffnung reicht dann bis zum Tag vor „von“.
 
 Am Handy werden die Tabellen zu Karten. Das Diagramm lässt sich dort waagrecht verschieben.
 

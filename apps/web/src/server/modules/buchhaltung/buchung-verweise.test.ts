@@ -19,6 +19,8 @@ describe.skipIf(!testDatabaseUrl)("Verweise zwischen Buchung, Rechnung und Banku
   let invoices: typeof import("../rechnungen/index.ts");
   let contacts: typeof import("../stammdaten/index.ts");
   let buchhaltung: typeof import("./index.ts");
+  let documents: typeof import("../belege/documents.ts");
+  let cancellation: typeof import("../belege/cancellation.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
 
@@ -28,6 +30,8 @@ describe.skipIf(!testDatabaseUrl)("Verweise zwischen Buchung, Rechnung und Banku
     invoices = await import("../rechnungen/index.ts");
     contacts = await import("../stammdaten/index.ts");
     buchhaltung = await import("./index.ts");
+    documents = await import("../belege/documents.ts");
+    cancellation = await import("../belege/cancellation.ts");
   }, 30_000);
 
   afterAll(async () => {
@@ -101,6 +105,8 @@ describe.skipIf(!testDatabaseUrl)("Verweise zwischen Buchung, Rechnung und Banku
     expect(rechnung).toMatchObject({ date: "2026-03-05", reversal: false });
     const [journalRechnung] = await sql`select id from journal_entries where source_type = 'invoice' and source_id = ${invoiceId}`;
     expect(rechnung?.id).toBe(journalRechnung!.id);
+    // Die Zahlung an der Rechnung verlinkt auf ihren Umsatz, dort steht ihre Buchung
+    expect((await bank.invoicePaymentList(invoiceId)).map((z) => z.transactionId)).toEqual([transactionId]);
 
     expect((await bank.transactionDetail(transactionId))!.allocations.map((a) => a.buchungen)).toEqual([
       [{ id: expect.any(String), date: "2026-03-20", reversal: false }],
@@ -111,5 +117,53 @@ describe.skipIf(!testDatabaseUrl)("Verweise zwischen Buchung, Rechnung und Banku
       { date: "2026-03-20", reversal: false },
       { date: "2026-07-10", reversal: true },
     ]);
+  }, 30_000);
+
+  /** Gebuchter Beleg vom 20.11. mit Leistung bis 14.12.: die Vorsteuer wird zum 14.12. freigegeben (#693) */
+  async function belegMitFreigabe() {
+    await sql`update company set journal_ab = 2026`;
+    const { id } = await documents.uploadDocument(actor, { bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 18, 55]), filename: "strom.jpg" });
+    await documents.updateDocument(actor, id, {
+      supplierName: "Stadtwerke Beispiel GmbH",
+      supplierUstId: "",
+      invoiceNumber: "B-1855",
+      documentDate: "2026-11-20",
+      dueDate: null,
+      serviceFrom: "2026-11-15",
+      serviceTo: "2026-12-14",
+      category: "edv",
+      payment: "bank",
+      note: "",
+      privateShare: 0,
+      amounts: [{ taxRate: 1900, net: 3_240, tax: 616 }],
+    });
+    await documents.bookDocument(actor, id);
+    return id;
+  }
+
+  it("der Beleg kennt Buchung und Vorsteuerfreigabe, nach dem Storno beide Gegenbuchungen, in der Reihenfolge des Journals", async () => {
+    const id = await belegMitFreigabe();
+    const verweise = async () =>
+      ((await buchhaltung.buchungenZu(["document", "freigabe"], [id])).get(id) ?? []).map(({ date, reversal }) => ({ date, reversal }));
+    expect(await verweise()).toEqual([
+      { date: "2026-11-20", reversal: false },
+      { date: "2026-12-14", reversal: false },
+    ]);
+    await cancellation.cancelDocument(actor, id, { reason: "falscher Beleg" }, "2026-11-25");
+    expect(await verweise()).toEqual([
+      { date: "2026-11-20", reversal: false },
+      { date: "2026-11-20", reversal: true },
+      { date: "2026-12-14", reversal: false },
+      { date: "2026-12-14", reversal: true },
+    ]);
+  }, 30_000);
+
+  it("der Link „Gegenbuchung“ am stornierten Beleg trifft den Storno des Belegs, nicht die spätere Umkehr der Freigabe", async () => {
+    const id = await belegMitFreigabe();
+    await cancellation.cancelDocument(actor, id, { reason: "falscher Beleg" }, "2026-11-25");
+    const { cancellation: storno } = await cancellation.documentCancellation(id);
+    const [ziel] = await sql`select date::text, source_type from journal_entries where id = ${storno!.journalEntryId}`;
+    // Der Link führt in den Monat des Stornos (cancellation.date); dort muss die Zeile stehen
+    expect(ziel).toEqual({ date: storno!.date, source_type: "document" });
   }, 30_000);
 });

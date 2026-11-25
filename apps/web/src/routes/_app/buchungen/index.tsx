@@ -34,12 +34,12 @@ function nextPeriod({ year, month }: VatPeriod): VatPeriod {
 }
 
 /** Herkunft als Link auf Rechnung, Beleg (auch Vorsteuerfreigabe), Anlage oder Bankumsatz; ein Verweis, kein Status (DESIGN.md › Status) */
-function SourceLink({ entry }: { entry: Entry }) {
+function SourceLink({ entry, rolle }: { entry: Entry; rolle: string }) {
   const label = entry.reversal ? "Gegenbuchung" : JOURNAL_SOURCE[entry.sourceType];
   const vorgang = vorgangZurHerkunft(entry);
   if (vorgang)
     return (
-      <VorgangLink vorgang={vorgang} className="journal-source">
+      <VorgangLink vorgang={vorgang} rolle={rolle} className="journal-source">
         {label}
       </VorgangLink>
     );
@@ -256,7 +256,7 @@ function JournalPage() {
                       </td>
                       <td data-label="Datum">{shortDate(e.date)}</td>
                       <td data-label="Herkunft">
-                        <SourceLink entry={e} />
+                        <SourceLink entry={e} rolle={user.role} />
                       </td>
                       <td data-label="Text">{e.description}</td>
                       <td data-label="Soll">

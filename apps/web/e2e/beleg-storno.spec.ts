@@ -162,6 +162,8 @@ test("Bankzuordnung im Stornodialog bestätigen und zusammen mit dem Beleg zurü
   await page.reload();
   await expect(page.locator(".page-head").getByText("Storniert", { exact: true })).toBeVisible();
   expect((await sql`select id from document_cancellations where document_id = ${documentId}`).length).toBe(1);
+  // Nach dem Storno bleibt der Weg ins Journal, mit der Gegenbuchung (#1855)
+  await expect(page.getByRole("link", { name: /^Gegenbuchung vom / })).toBeVisible();
   await page.getByRole("link", { name: "Gegenbuchung", exact: true }).click();
   await expect(page.getByText(/Storno: Beleg L-4711/)).toBeVisible();
   // Der Link zeigt auf die Zeile der Gegenbuchung, nicht nur auf den Monat (#1855)

@@ -56,8 +56,14 @@ describe("Buchung über die Bank öffnet ihren Umsatz (#1855)", () => {
   it("führt mit dem Umsatz der Zuordnung auf genau diesen Umsatz, in allen Konten und ohne Filter", () => {
     const vorgang = vorgangZurHerkunft({ ...zuordnung, transactionId: "t1" });
     expect(vorgang).toEqual({ to: "/bank", umsatz: "t1" });
-    expect(renderToStaticMarkup(createElement(VorgangLink, { vorgang: vorgang! }, "Bank"))).toBe(
+    expect(renderToStaticMarkup(createElement(VorgangLink, { vorgang: vorgang!, rolle: "inhaber" }, "Bank"))).toBe(
       '<a href="/bank?umsatz=t1&amp;konto=alle&amp;filter=alle">Bank</a>',
+    );
+  });
+
+  it("die Steuerberatung sieht die Bank nicht und bekommt nur den Text", () => {
+    expect(renderToStaticMarkup(createElement(VorgangLink, { vorgang: { to: "/bank", umsatz: "t1" }, rolle: "steuerberatung" }, "Bank"))).toBe(
+      "<span>Bank</span>",
     );
   });
 
@@ -66,7 +72,7 @@ describe("Buchung über die Bank öffnet ihren Umsatz (#1855)", () => {
   });
 
   it("Rechnung, Beleg und Anlage behalten ihren Link auf die Detailseite", () => {
-    expect(renderToStaticMarkup(createElement(VorgangLink, { vorgang: { to: "/rechnungen/$id", id: "r1" } }, "Rechnung"))).toBe(
+    expect(renderToStaticMarkup(createElement(VorgangLink, { vorgang: { to: "/rechnungen/$id", id: "r1" }, rolle: "steuerberatung" }, "Rechnung"))).toBe(
       '<a href="/rechnungen/r1">Rechnung</a>',
     );
   });

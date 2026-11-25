@@ -2,6 +2,7 @@ import { MONTHS, formatEuro, saldoAnzeige, saldoSeite, type Kontenrahmen } from 
 import { Link } from "@tanstack/react-router";
 import { Fragment, type ReactNode } from "react";
 import { formatDate } from "../lib/format.ts";
+import { siehtSeite } from "../lib/rollen.ts";
 
 export const ZEITRAEUME: [string, string][] = [
   ["jahr", "Ganzes Jahr"],
@@ -78,9 +79,10 @@ export function vorgangZurHerkunft(e: {
 
 /**
  * Link auf den Vorgang. Den Umsatz öffnet die Bank in allen Konten und ohne Filter, damit er sicher in der Liste steht
- * (wie aus der Liquiditätsvorschau).
+ * (wie aus der Liquiditätsvorschau). Sieht die Rolle die Bank nicht (Steuerberatung), steht nur der Text.
  */
-export function VorgangLink({ vorgang, className, children }: { vorgang: Vorgang; className?: string; children?: ReactNode }) {
+export function VorgangLink({ vorgang, rolle, className, children }: { vorgang: Vorgang; rolle: string; className?: string; children?: ReactNode }) {
+  if (vorgang.to === "/bank" && !siehtSeite(rolle, "/bank")) return <span className={className}>{children}</span>;
   return vorgang.to === "/bank" ? (
     <Link to="/bank" search={{ umsatz: vorgang.umsatz, konto: "alle", filter: "alle" }} className={className}>
       {children}

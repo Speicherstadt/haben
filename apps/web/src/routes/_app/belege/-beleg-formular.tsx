@@ -130,6 +130,12 @@ function BelegHinweise({ data, locked, running }: { data: Detail; locked: boolea
           </span>
         </div>
       )}
+      {/* Nach dem Storno steht der Hinweis „Gebucht“ nicht mehr; der Weg ins Journal bleibt, auch für die Steuerberatung */}
+      {locked && data.cancellation && data.buchungen.length > 0 && (
+        <p className="small" style={{ margin: 0 }}>
+          Im Journal: <BuchungLinks buchungen={data.buchungen} />.
+        </p>
+      )}
     </>
   );
 }

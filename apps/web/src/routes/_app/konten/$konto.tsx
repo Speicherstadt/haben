@@ -42,6 +42,7 @@ function SourceLink({
   invoiceId,
   documentId,
   transactionId,
+  rolle,
 }: {
   type: string;
   id: string;
@@ -49,10 +50,16 @@ function SourceLink({
   invoiceId: string | null;
   documentId: string | null;
   transactionId: string | null;
+  rolle: string;
 }) {
   const label = reversal ? "Gegenbuchung" : (JOURNAL_SOURCE[type as keyof typeof JOURNAL_SOURCE] ?? type);
   const vorgang = vorgangZurHerkunft({ sourceType: type, sourceId: id, invoiceId, documentId, transactionId });
-  if (vorgang) return <VorgangLink vorgang={vorgang}>{label}</VorgangLink>;
+  if (vorgang)
+    return (
+      <VorgangLink vorgang={vorgang} rolle={rolle}>
+        {label}
+      </VorgangLink>
+    );
   if (type === "allocation") return <Link to="/bank">{label}</Link>;
   if (type === "pauschale") return <Link to="/pauschalen">{label}</Link>;
   if (type === "kasse") return <Link to="/kasse">{label}</Link>;
@@ -61,6 +68,7 @@ function SourceLink({
 }
 
 function KontenblattPage() {
+  const rolle = Route.useRouteContext().user.role;
   const data = Route.useLoaderData();
   const { konto } = Route.useParams();
   const deps = Route.useSearch();
@@ -224,6 +232,7 @@ function KontenblattPage() {
                           invoiceId={z.invoiceId}
                           documentId={z.documentId}
                           transactionId={z.transactionId}
+                          rolle={rolle}
                         />
                       </td>
                       <td className="num" data-label="Soll">
