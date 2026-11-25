@@ -13,6 +13,7 @@ import {
   offenText,
   type Posten,
   restAngebot,
+  suchziel,
 } from "./-bank-daten.ts";
 
 // Rechnung über 119,00 €, Korrektur über −23,80 €, der Kunde zahlt 95,20 € (#1398)
@@ -144,6 +145,28 @@ describe("Suchfeld (#1253)", () => {
     const entwurf = offenerEntwurf("miete", "miete");
     expect(entwurf).toBeNull();
     expect(offenerEntwurf(entwurf, "")).toBeNull();
+  });
+
+  // Während der Loader läuft, steht die Suche der Navigation schon in `location`; `initial` und `resolvedLocation` sind noch die alten
+  const ort = (suche?: string, pathname = "/bank") => ({ pathname, search: { suche } });
+  const laeuft = (alt: string | undefined, neu: string | undefined) => suchziel({ location: ort(neu), resolvedLocation: ort(alt) }, alt ?? "");
+
+  it("schickt Gelöschtes und Zurückgetipptes ab, während die vorige Suche noch lädt", () => {
+    expect(offenerEntwurf("m", laeuft("", "m"))).toBeNull();
+    expect(offenerEntwurf("", laeuft("", "m"))).toBe("");
+    expect(offenerEntwurf("miete", laeuft("miete", "mietee"))).toBe("miete");
+    expect(offenerEntwurf("miete", laeuft("miete", undefined))).toBe("miete");
+    expect(offenerEntwurf("mietee", laeuft("", "miete"))).toBe("mietee");
+  });
+
+  it("folgt „Nächsten offenen“ und Browser-Zurück schon während des Ladens", () => {
+    expect(laeuft("miete", undefined)).toBe("");
+    expect(laeuft(undefined, "miete")).toBe("miete");
+  });
+
+  it("behält die Suche beim Wechsel auf eine andere Seite und vor dem ersten Laden", () => {
+    expect(suchziel({ location: ort(undefined, "/belege"), resolvedLocation: ort("miete") }, "miete")).toBe("miete");
+    expect(suchziel({ location: ort("miete"), resolvedLocation: undefined }, "miete")).toBe("miete");
   });
 
   it("schickt eine Suche aus der Adresse ohne Tippen nicht ab", () => {
