@@ -1,4 +1,14 @@
-import { amountError, convertForeignAmounts, CURRENCY_CODE, parseEuro, parseExchangeRate, usesUsefulLife, type ExpenseCategory } from "@haben/core";
+import {
+  amountError,
+  convertForeignAmounts,
+  CURRENCY_CODE,
+  formatPercent,
+  parseEuro,
+  parseExchangeRate,
+  usesUsefulLife,
+  type ExpenseCategory,
+  type Prozent,
+} from "@haben/core";
 import { parseSplitRows, type SplitRowState } from "../../../components/DocumentSplits.tsx";
 import { passendesKonto } from "../../../components/EigenesKontoWahl.tsx";
 import { parseVorsteuerAnteil } from "../../../components/VorsteuerAnteil.tsx";
@@ -119,6 +129,15 @@ export function privatanteilFaelltWeg(privateShare: string, splitting: boolean):
   if (!splitting) return null;
   const wert = parsePrivatanteil(privateShare);
   return wert !== null && wert > 0 ? wert : null;
+}
+
+/**
+ * Text des Hinweises in der Beträge-Karte (#1914): der gelesene Anteil statt des Feldinhalts, sonst steht bei „25 %“ im
+ * Feld „25 % %“ da. Der Vorsteueranteil ist kein Ersatz für den Privatanteil: er lässt den privaten Anteil samt Steuer
+ * Aufwand bleiben, statt ihn als Entnahme zu buchen (§ 15 Abs. 1 und 4 UStG, § 4 Abs. 1 Satz 2 EStG).
+ */
+export function aufteilungHinweis(anteil: Prozent): string {
+  return `Die eingetragenen ${formatPercent(anteil * 100)} fallen weg, die Vorsteuer wird voll gezogen. Nimm die Aufteilung zurück oder setz oben den Vorsteueranteil auf den betrieblichen Teil; dann stimmt die Vorsteuer, der private Anteil bleibt aber samt Steuer Aufwand, statt als Entnahme zu laufen.`;
 }
 
 /** Was saveDocument als Beleg bekommt */

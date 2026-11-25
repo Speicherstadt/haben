@@ -1,7 +1,7 @@
-import { formatDecimal, formatEuro, isKapitalgesellschaft } from "@haben/core";
+import { formatDecimal, formatEuro, isKapitalgesellschaft, type Prozent } from "@haben/core";
 import { BelegUmsatzsteuer } from "../../../components/BelegUmsatzsteuer.tsx";
 import { betragszeileAus } from "../../../lib/betragszeile.ts";
-import { privatanteilFaelltWeg } from "./-beleg-pruefung.ts";
+import { aufteilungHinweis, privatanteilFaelltWeg } from "./-beleg-pruefung.ts";
 import { Field } from "../../../components/Field.tsx";
 import { VorsteuerAnteil, privatanteilHinweis, steuerSpalte } from "../../../components/VorsteuerAnteil.tsx";
 import { type AmountState, nextRowKey, type Rate } from "./-beleg-zeile.ts";
@@ -35,6 +35,7 @@ export function Betraege({ f, data }: { f: DocumentFormState; data: Detail }) {
     touch,
     updateRow,
   } = f;
+  const wegfallenderAnteil = privatanteilFaelltWeg(privateShare, splitting);
   return (
     <fieldset className="card" disabled={fieldsDisabled} style={{ margin: 0 }}>
       <legend style={{ fontWeight: 600, fontSize: 16, padding: 0, marginBottom: 4 }}>Beträge je Steuersatz</legend>
@@ -107,12 +108,7 @@ export function Betraege({ f, data }: { f: DocumentFormState; data: Detail }) {
         }))}
       />
       {/* Aufgeteilt: der Anteil fällt weg, sonst zieht Haben die Vorsteuer voll (#1914) */}
-      {privatanteilFaelltWeg(privateShare, splitting) !== null && (
-        <p className="small" style={{ margin: 0 }}>
-          <strong>Aufteilung ohne Privatanteil:</strong> Die eingetragenen {privateShare} % fallen weg, die Vorsteuer wird voll gezogen. Nimm die Aufteilung
-          zurück oder setz oben den Vorsteueranteil auf den betrieblichen Teil.
-        </p>
-      )}
+      {wegfallenderAnteil !== null && <AufteilungHinweis anteil={wegfallenderAnteil} />}
       {/* Privatanteil nur im Einzelunternehmen; in GmbH und UG wäre er Arbeitslohn oder verdeckte Gewinnausschüttung */}
       {category !== "anlage" && !splitting && !isKapitalgesellschaft(data.rechtsform) && (
         <Field label="Privatanteil in %" hint={privatanteilHinweis(vorsteuerBeleg, rows)} error={error("privatanteil")} style={{ maxWidth: 220 }}>
@@ -204,5 +200,14 @@ function AmountRow({ f, row, index }: { f: DocumentFormState; row: AmountState; 
         </svg>
       </button>
     </div>
+  );
+}
+
+/** Hinweis in der Beträge-Karte: die Aufteilung verschluckt den eingetragenen Privatanteil (#1914) */
+export function AufteilungHinweis({ anteil }: { anteil: Prozent }) {
+  return (
+    <p className="small" aria-live="polite" style={{ margin: 0 }}>
+      <strong>Aufteilung ohne Privatanteil:</strong> {aufteilungHinweis(anteil)}
+    </p>
   );
 }
