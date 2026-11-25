@@ -6,9 +6,15 @@ const SCHRITTE = ["Zahlen prüfen", "Abgeben", "Zahlen"] as const;
 
 type Schritt = 1 | 2 | 3;
 
-/** Der Satz über den Kennzahlen: was die Kennzahl 83 für dich heißt, immer ohne Vorzeichen. Bei Erstattung keine Frist, wie in `UstvaZahlung` */
-export function ergebnisSatz(kz83: number, faellig: string): string {
-  if (kz83 > 0) return `Du zahlst ${formatEuro(kz83)} bis ${formatDate(faellig)}.`;
+/**
+ * Der Satz über den Kennzahlen: was die Kennzahl 83 für dich heißt, immer ohne Vorzeichen. Eine Frist, die vorbei ist, steht nicht
+ * mehr als „bis“ da, sondern als fällig gewesen. Bei Erstattung keine Frist, wie in `UstvaZahlung`. `heute` und `faellig` als ISO-Tag.
+ */
+export function ergebnisSatz(kz83: number, faellig: string, heute: string): string {
+  if (kz83 > 0)
+    return faellig < heute
+      ? `Die Zahllast von ${formatEuro(kz83)} war am ${formatDate(faellig)} fällig.`
+      : `Du zahlst ${formatEuro(kz83)} bis ${formatDate(faellig)}.`;
   if (kz83 < 0) return `Du bekommst ${formatEuro(Math.abs(kz83))} zurück, sobald das Finanzamt zustimmt.`;
   return "Diesmal ist nichts zu zahlen.";
 }

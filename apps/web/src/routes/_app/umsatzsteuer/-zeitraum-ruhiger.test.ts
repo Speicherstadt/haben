@@ -300,7 +300,6 @@ describe("Voranmeldung: Ergebnis und Ablauf zuerst (#1253, Punkte 42 und 43)", (
       renderToStaticMarkup(
         createElement(ZeitraumAblauf, {
           data: { current: null, posten: [], dueDate: "2026-12-10", today: "2026-11-23" } as unknown as PageData,
-          locked: false,
           shown: zero,
           geaendert: true,
           werteGueltig,

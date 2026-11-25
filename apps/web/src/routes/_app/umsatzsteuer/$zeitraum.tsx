@@ -198,7 +198,7 @@ function VatReturnEditor({
 
   return (
     <>
-      <ZeitraumAblauf data={data} locked={locked} shown={shown} geaendert={dirty || stale} />
+      <ZeitraumAblauf data={data} shown={shown} geaendert={dirty || stale} werteGueltig={mode !== "manuell" || !Object.values(parsed).includes(null)} />
       <div className="grid-main">
         <form ref={pruefung.form} noValidate className="card" onSubmit={speichern} aria-labelledby="kz-heading">
           <h2 id="kz-heading">Kennzahlen</h2>

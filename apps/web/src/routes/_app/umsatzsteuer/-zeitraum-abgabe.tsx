@@ -88,26 +88,28 @@ export function anmeldbar(data: PageData): boolean {
 
 /**
  * Ablauf und Ergebnis über den Kennzahlen (#1253). Bei einer festgeschriebenen Anmeldung zeigen Status und „Zahlung an das
- * Finanzamt“ den echten Stand, daher dort kein Satz; `geaendert`: ungespeicherte oder seit dem Speichern veraltete Werte.
+ * Finanzamt“ den echten Stand, daher dort kein Satz; ebenso, solange ein Wert von Hand nicht lesbar ist (`werteGueltig` false):
+ * Die Seite rechnet ihn dann als 0, und „nichts zu zahlen“ wäre falsch. `geaendert`: ungespeicherte oder veraltete Werte.
  */
 export function ZeitraumAblauf({
   data,
-  locked,
   shown,
   geaendert,
+  werteGueltig,
 }: {
   data: PageData;
-  locked: boolean;
   shown: ReturnType<typeof computeUstva>;
   geaendert: boolean;
+  werteGueltig: boolean;
 }) {
+  const locked = data.current?.status === "sent";
   const schritt = ablaufSchritt({
     locked,
     gespeichert: Boolean(data.current),
     geaendert,
     ausgeglichen: !data.posten.some((p) => p.vatReturnId === data.current?.id && p.offen !== 0),
   });
-  return <VoranmeldungAblauf schritt={schritt} satz={locked ? null : ergebnisSatz(shown.kz83, data.dueDate)} />;
+  return <VoranmeldungAblauf schritt={schritt} satz={locked || !werteGueltig ? null : ergebnisSatz(shown.kz83, data.dueDate, data.today)} />;
 }
 
 /** Rechte Spalte: an ELSTER senden, Zahlung an das Finanzamt, Abgabe außerhalb von Haben, Werte für Mein ELSTER, Verlauf */
