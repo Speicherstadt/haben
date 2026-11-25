@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { type McpServer, mcpAntwort } from "./protokoll.ts";
 
@@ -103,6 +103,25 @@ describe("MCP-Protokoll", () => {
     });
     expect((await senden(anfrage("initialize"))).json?.error?.code).toBe(-32602);
     expect(await senden(anfrage("ping", undefined, "a"))).toEqual({ status: 200, json: { jsonrpc: "2.0", id: "a", result: {} } });
+  });
+
+  it("meldet ein Werkzeug, das wirft, als Internal error ohne den Text der Ausnahme", async () => {
+    const wirft: McpServer = {
+      ...server,
+      werkzeuge: [{ ...server.werkzeuge[0]!, run: () => Promise.reject(new Error("geheim")) }],
+    };
+    const fehler = vi.spyOn(console, "error").mockImplementation(() => {});
+    const antwort = await mcpAntwort(
+      new Request("http://localhost/api/mcp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: ACCEPT },
+        body: JSON.stringify(anfrage("tools/call", { name: "echo", arguments: { text: "x" } })),
+      }),
+      wirft,
+    );
+    expect(await antwort.json()).toEqual({ jsonrpc: "2.0", id: 1, error: { code: -32603, message: "Internal error" } });
+    expect(fehler).toHaveBeenCalledOnce();
+    fehler.mockRestore();
   });
 
   it("beantwortet einen Batch als Array in der Reihenfolge der Anfragen, ohne Benachrichtigungen", async () => {

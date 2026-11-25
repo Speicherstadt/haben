@@ -5,8 +5,9 @@ import { z } from "zod";
  * Stream, nur Werkzeuge (Spezifikation 2025-11-25, Basic › Transports und Server › Tools, modelcontextprotocol.io).
  * Statuscodes und Fehlertexte wie im TypeScript-SDK (@modelcontextprotocol/sdk, WebStandardStreamableHTTPServerTransport
  * mit enableJsonResponse), gegen dessen Client mcp-sdk.test.ts prüft. Bewusst anders: Ein Batch bekommt immer ein
- * Array zurück (JSON-RPC 2.0, Abschnitt 6), ein ungültiges JSON-RPC-Objekt -32600 statt -32700, fehlende oder falsche
- * Parameter -32602 statt -32603.
+ * Array zurück, ein leerer Batch und ein ungültiges JSON-RPC-Objekt sind -32600 (JSON-RPC 2.0, Abschnitte 5.1 und 6),
+ * fehlende oder falsche Parameter -32602 statt -32603, ein unbekanntes Werkzeug ein Fehler im Protokoll statt eines
+ * Ergebnisses mit isError (Server › Tools, Error Handling).
  */
 
 export const LATEST_PROTOCOL_VERSION = "2025-11-25";
@@ -56,14 +57,9 @@ const initializeParams = z.object({
 });
 const callParams = z.object({ name: z.string(), arguments: z.record(z.string(), z.unknown()).optional() });
 
-class RpcFehler extends Error {
-  constructor(
-    readonly code: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+/** Ausgang einer Methode: Ergebnis oder JSON-RPC-Fehler, als Wert statt geworfen */
+type Ausgang = { result: unknown } | { error: { code: number; message: string } };
+const fehler = (code: number, message: string): Ausgang => ({ error: { code, message } });
 
 const isAnfrage = (n: z.infer<typeof nachricht>): n is Anfrage => "id" in n && "method" in n;
 
@@ -80,61 +76,66 @@ export const inputSchema = (input: z.ZodRawShape) => z.toJSONSchema(z.object(inp
 const fehlerText = (error: z.ZodError) =>
   error.issues.map((issue) => (issue.path.length ? `${issue.message} at ${issue.path.map(String).join(".")}` : issue.message)).join("\n");
 
-async function werkzeugAufrufen(server: McpServer, roh: Record<string, unknown> | undefined) {
+async function werkzeugAufrufen(server: McpServer, roh: Record<string, unknown> | undefined): Promise<Ausgang> {
   const parsed = callParams.safeParse(roh);
-  if (!parsed.success) throw new RpcFehler(INVALID_PARAMS, `Invalid params: ${fehlerText(parsed.error)}`);
+  if (!parsed.success) return fehler(INVALID_PARAMS, `Invalid params: ${fehlerText(parsed.error)}`);
   const { name, arguments: args } = parsed.data;
   const werkzeug = server.werkzeuge.find((w) => w.name === name);
-  const fehler = (text: string) => ({ content: [{ type: "text", text }], isError: true });
-  if (!werkzeug) return fehler(`Tool ${name} not found`);
+  if (!werkzeug) return fehler(INVALID_PARAMS, `Unknown tool: ${name}`);
   const eingabe = z.object(werkzeug.input).safeParse(args ?? {});
-  if (!eingabe.success) return fehler(`Input validation error: Invalid arguments for tool ${name}: ${fehlerText(eingabe.error)}`);
+  if (!eingabe.success) {
+    const text = `Input validation error: Invalid arguments for tool ${name}: ${fehlerText(eingabe.error)}`;
+    return { result: { content: [{ type: "text", text }], isError: true } };
+  }
   const { text, isError } = await werkzeug.run(eingabe.data);
-  return { content: [{ type: "text", text }], ...(isError ? { isError: true } : {}) };
+  return { result: { content: [{ type: "text", text }], ...(isError ? { isError: true } : {}) } };
 }
 
-function initialisieren(server: McpServer, roh: Record<string, unknown> | undefined) {
+function initialisieren(server: McpServer, roh: Record<string, unknown> | undefined): Ausgang {
   const parsed = initializeParams.safeParse(roh);
-  if (!parsed.success) throw new RpcFehler(INVALID_PARAMS, `Invalid params: ${fehlerText(parsed.error)}`);
+  if (!parsed.success) return fehler(INVALID_PARAMS, `Invalid params: ${fehlerText(parsed.error)}`);
   const version = parsed.data.protocolVersion;
   return {
-    protocolVersion: SUPPORTED_PROTOCOL_VERSIONS.includes(version) ? version : LATEST_PROTOCOL_VERSION,
-    capabilities: { tools: {} },
-    serverInfo: server.info,
-    instructions: server.instructions,
+    result: {
+      protocolVersion: SUPPORTED_PROTOCOL_VERSIONS.includes(version) ? version : LATEST_PROTOCOL_VERSION,
+      capabilities: { tools: {} },
+      serverInfo: server.info,
+      instructions: server.instructions,
+    },
   };
 }
 
-async function ergebnis(server: McpServer, anfrage: Anfrage): Promise<unknown> {
+async function ausfuehren(server: McpServer, anfrage: Anfrage): Promise<Ausgang> {
   switch (anfrage.method) {
     case "initialize":
       return initialisieren(server, anfrage.params);
     case "ping":
-      return {};
+      return { result: {} };
     case "tools/list":
       return {
-        tools: server.werkzeuge.map((w) => ({
-          name: w.name,
-          title: w.title,
-          description: w.description,
-          inputSchema: inputSchema(w.input),
-          annotations: w.annotations,
-        })),
+        result: {
+          tools: server.werkzeuge.map((w) => ({
+            name: w.name,
+            title: w.title,
+            description: w.description,
+            inputSchema: inputSchema(w.input),
+            annotations: w.annotations,
+          })),
+        },
       };
     case "tools/call":
       return werkzeugAufrufen(server, anfrage.params);
     default:
-      throw new RpcFehler(METHOD_NOT_FOUND, "Method not found");
+      return fehler(METHOD_NOT_FOUND, "Method not found");
   }
 }
 
 async function beantworten(server: McpServer, anfrage: Anfrage) {
   try {
-    return { jsonrpc: "2.0", id: anfrage.id, result: await ergebnis(server, anfrage) };
+    return { jsonrpc: "2.0", id: anfrage.id, ...(await ausfuehren(server, anfrage)) };
   } catch (error) {
-    const code = error instanceof RpcFehler ? error.code : INTERNAL_ERROR;
-    if (!(error instanceof RpcFehler)) console.error(error);
-    return { jsonrpc: "2.0", id: anfrage.id, error: { code, message: error instanceof RpcFehler ? error.message : "Internal error" } };
+    console.error(error);
+    return { jsonrpc: "2.0", id: anfrage.id, ...fehler(INTERNAL_ERROR, "Internal error") };
   }
 }
 
@@ -162,6 +163,7 @@ async function nachrichtenLesen(request: Request): Promise<Response | { batch: b
     return jsonFehler(400, PARSE_ERROR, "Parse error: Invalid JSON");
   }
   const liste: unknown[] = Array.isArray(roh) ? roh : [roh];
+  if (liste.length === 0) return jsonFehler(400, INVALID_REQUEST, "Invalid Request: Batch must not be empty");
   if (liste.length > MAX_BATCH_SIZE) return jsonFehler(400, INVALID_REQUEST, `Invalid Request: Batch must not exceed ${MAX_BATCH_SIZE} messages`);
   const nachrichten = z.array(nachricht).safeParse(liste);
   if (!nachrichten.success) return jsonFehler(400, INVALID_REQUEST, "Invalid Request: Invalid JSON-RPC message");
