@@ -23,6 +23,8 @@ describe("Korrigieren einer festgeschriebenen Rechnung", () => {
   it("erklärt jeden Knopf unter ihm und verbindet den Text mit dem Knopf", () => {
     const html = render();
     expect(knopf(html, "Stornieren").text).toMatch(/^Hebt die Rechnung ganz auf.*Korrekturen werden mit storniert/);
+    // Das Papierstorno einer Schlussrechnung im Bilanzverfahren und einer Anzahlungsanforderung bucht nichts (advance-invoice.ts)
+    expect(knopf(html, "Stornieren").text).not.toMatch(/gebucht/);
     expect(knopf(html, "Rechnungskorrektur anlegen").text).toMatch(/^Mindert den Betrag: ein Entwurf mit allen Positionen negativ/);
   });
 
