@@ -62,12 +62,12 @@ describe("MCP-Server mit dem Client des SDK", () => {
     await expect(c.ping()).resolves.toEqual({});
   });
 
-  it("ruft Werkzeuge auf und bekommt Eingabefehler als Ergebnis mit isError", async () => {
+  it("ruft Werkzeuge auf, bekommt Eingabefehler als Ergebnis mit isError und ein unbekanntes Werkzeug als Fehler", async () => {
     const c = await verbinden();
     expect(await c.callTool({ name: "summe", arguments: { a: 1.5, b: 2 } })).toEqual({ content: [{ type: "text", text: '{"summe":3.5}' }] });
     const falsch = await c.callTool({ name: "summe", arguments: { a: "eins" } });
     expect(falsch.isError).toBe(true);
-    expect(await c.callTool({ name: "gibtsnicht", arguments: {} })).toMatchObject({ isError: true });
+    await expect(c.callTool({ name: "gibtsnicht", arguments: {} })).rejects.toThrow(/Unknown tool: gibtsnicht/);
   });
 
   it("meldet eine unbekannte Methode als Fehler des Protokolls", async () => {

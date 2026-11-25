@@ -84,10 +84,9 @@ describe("MCP-Protokoll", () => {
     ]);
   });
 
-  it("meldet Fehler des Werkzeugs, unbekannte Werkzeuge und falsche Argumente als Ergebnis mit isError", async () => {
+  it("meldet Fehler des Werkzeugs und falsche Argumente als Ergebnis mit isError", async () => {
     const ergebnis = async (params: unknown) => (await senden(anfrage("tools/call", params))).json?.result;
     expect(await ergebnis({ name: "echo", arguments: { text: "kaputt" } })).toEqual({ content: [{ type: "text", text: "Geht nicht" }], isError: true });
-    expect(await ergebnis({ name: "gibtsnicht" })).toEqual({ content: [{ type: "text", text: "Tool gibtsnicht not found" }], isError: true });
     expect((await ergebnis({ name: "echo", arguments: { text: 1 } }))?.content?.[0]?.text).toBe(
       "Input validation error: Invalid arguments for tool echo: Invalid input: expected string, received number at text",
     );
@@ -96,6 +95,12 @@ describe("MCP-Protokoll", () => {
   it("antwortet auf Fehler im Protokoll mit JSON-RPC-Fehlern", async () => {
     expect((await senden(anfrage("resources/list"))).json?.error).toEqual({ code: -32601, message: "Method not found" });
     expect((await senden(anfrage("tools/call"))).json?.error?.code).toBe(-32602);
+    // Server › Tools, Error Handling: ein unbekanntes Werkzeug ist ein Fehler im Protokoll, kein Ergebnis mit isError
+    expect((await senden(anfrage("tools/call", { name: "gibtsnicht" }))).json).toEqual({
+      jsonrpc: "2.0",
+      id: 1,
+      error: { code: -32602, message: "Unknown tool: gibtsnicht" },
+    });
     expect((await senden(anfrage("initialize"))).json?.error?.code).toBe(-32602);
     expect(await senden(anfrage("ping", undefined, "a"))).toEqual({ status: 200, json: { jsonrpc: "2.0", id: "a", result: {} } });
   });
@@ -117,7 +122,6 @@ describe("MCP-Protokoll", () => {
   it("nimmt Benachrichtigungen und Antworten des Clients mit 202 ohne Inhalt an", async () => {
     expect(await senden({ jsonrpc: "2.0", method: "notifications/initialized" })).toEqual({ status: 202, json: null });
     expect(await senden({ jsonrpc: "2.0", id: 9, result: {} })).toEqual({ status: 202, json: null });
-    expect(await senden([])).toEqual({ status: 202, json: null });
   });
 
   it.each([
@@ -125,6 +129,8 @@ describe("MCP-Protokoll", () => {
     ["ohne jsonrpc", { id: 1, method: "ping" }, {}, 400, -32600],
     ["jsonrpc 1.0", { jsonrpc: "1.0", id: 1, method: "ping" }, {}, 400, -32600],
     ["id null", { jsonrpc: "2.0", id: null, method: "ping" }, {}, 400, -32600],
+    // JSON-RPC 2.0, Abschnitt 6: ein leeres Array ist eine ungültige Anfrage
+    ["leerer Batch", [], {}, 400, -32600],
     ["mehr als 100 im Batch", Array.from({ length: 101 }, (_, i) => anfrage("ping", undefined, i)), {}, 400, -32600],
     ["initialize mit weiteren Nachrichten", [init("2025-06-18"), anfrage("ping", undefined, 2)], {}, 400, -32600],
     ["unbekannte Version im Header", anfrage("ping"), { "mcp-protocol-version": "2030-01-01" }, 400, -32000],
