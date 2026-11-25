@@ -24,7 +24,7 @@ E-Rechnung bis zur Voranmeldung an ELSTER, ohne Abo.</p>
 
 [Rundgang starten](#rundgang){ .md-button .md-button--primary } [Installieren](installation.md){ .md-button } [Gehostet buchen](gehostet.md#haben-gehostet){ .md-button } [Alle Funktionen im Detail](ueberblick.md){ .md-button }
 
-Kein eigener Server? [Haben gehostet](gehostet.md#haben-gehostet) gibt es ab 12,90 € im Monat, zuzüglich Umsatzsteuer.
+Kein eigener Server? [Haben gehostet](gehostet.md#haben-gehostet) gibt es für 12,90 € im Monat, zuzüglich Umsatzsteuer.
 { .showcase-hinweis }
 
 <p class="showcase-hinweis">Haben ist noch in der Beta: vor jedem Update ein Backup.</p>
