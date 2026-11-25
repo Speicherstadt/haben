@@ -63,9 +63,9 @@ export function OnlyEinzelunternehmen() {
           <h1>Pauschalen</h1>
         </div>
       </div>
-      <p className="muted" style={{ marginTop: 0, maxWidth: 760 }}>
-        Pauschalen gibt es nur im Einzelunternehmen. Erstattet die Gesellschaft dem Gesellschafter Reisekosten oder Auslagen, lade die Abrechnung unter{" "}
-        <Link to="/belege">Belege</Link> hoch und wähle „Vom Gesellschafter ausgelegt“.
+      <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
+        Pauschalen für Ausgaben ohne Beleg gibt es nur im Einzelunternehmen. Erstattet die Gesellschaft dem Gesellschafter Reisekosten oder Auslagen, lade die
+        Abrechnung unter <Link to="/belege">Belege</Link> hoch und wähle „Vom Gesellschafter ausgelegt“.
       </p>
     </>
   );

@@ -137,9 +137,13 @@ function ContactsPage() {
         {contacts.length === 0 ? (
           <>
             <p className="muted" style={{ margin: 0 }}>
-              {rolle ? `Keine ${rolle === "kunde" ? "Kunden" : "Lieferanten"}.` : "Hier stehen deine Kunden und Lieferanten."}
+              {rolle
+                ? `Keine ${rolle === "kunde" ? "Kunden" : "Lieferanten"}.`
+                : archiv
+                  ? "Keine Kontakte, auch keine archivierten."
+                  : "Hier stehen deine Kunden und Lieferanten."}
             </p>
-            {!rolle && (
+            {!rolle && !archiv && (
               <Link to="/kontakte/neu" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>
                 Neuer Kontakt
               </Link>
