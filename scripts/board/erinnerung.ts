@@ -10,6 +10,7 @@ import {
   zugewieseneIssues,
   zuweisungAufheben,
 } from "./github.ts";
+import { boardNummer } from "./projekt.ts";
 import { STATUS, verweise } from "./regel.ts";
 import { faellig, MARKE_ERINNERUNG, textAutomatischFreigegeben, textErinnerung } from "./uebernahme.ts";
 
@@ -27,6 +28,8 @@ const github = process.env.GITHUB_TOKEN ?? "";
 const projectToken = process.env.PROJECT_TOKEN;
 const repo = process.env.GITHUB_REPOSITORY ?? "Speicherstadt/haben";
 const jetzt = new Date();
+// Eine falsche Nummer bricht vor dem ersten Schreiben ab, nicht erst nach dem Aufheben einer Zuweisung
+if (projectToken) boardNummer();
 
 const beiPrs = new Set((await offenePrs(github, repo)).flatMap((text) => Object.values(verweise(text)).flat()));
 const vertraut = new Map<string, boolean>();
@@ -61,11 +64,12 @@ for (const { number: nummer, assignees } of await zugewieseneIssues(github, repo
     await kommentieren(github, repo, nummer, textErinnerung(personen));
     continue;
   }
-  // Die Karte geht nur zurück, wenn niemand mehr zugewiesen ist und sie noch in Arbeit steht. Das Board vor dem
-  // Aufheben lesen: Scheitert das, bleibt die Zuweisung und der nächste Lauf versucht es wieder
-  const board = projectToken && personen.length === assignees.length ? await projekt(projectToken, STATUS) : null;
-  const stand = projectToken && board ? await karte(projectToken, repo, nummer, board.id) : null;
   await zuweisungAufheben(github, repo, nummer, personen);
-  if (projectToken && board && stand?.itemId && stand.status === "In Arbeit") await statusSetzen(projectToken, board, stand.itemId, "Geplant");
+  // Die Karte geht nur zurück, wenn niemand mehr zugewiesen ist und sie noch in Arbeit steht
+  if (projectToken && personen.length === assignees.length) {
+    const board = await projekt(projectToken, STATUS);
+    const stand = await karte(projectToken, repo, nummer, board.id);
+    if (stand.itemId && stand.status === "In Arbeit") await statusSetzen(projectToken, board, stand.itemId, "Geplant");
+  }
   await kommentieren(github, repo, nummer, textAutomatischFreigegeben(personen));
 }
