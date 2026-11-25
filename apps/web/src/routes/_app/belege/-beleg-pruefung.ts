@@ -111,6 +111,16 @@ export function documentFieldErrors(
   };
 }
 
+/**
+ * Der eingetragene Privatanteil fällt bei einer Aufteilung weg (#1914): Es gibt keine Zeile, an der er hängt, also wird
+ * die Vorsteuer voll gezogen. Liefert den Anteil, damit die Oberfläche warnen kann; null, wenn nichts verloren geht.
+ */
+export function privatanteilFaelltWeg(privateShare: string, splitting: boolean): number | null {
+  if (!splitting) return null;
+  const wert = parsePrivatanteil(privateShare);
+  return wert !== null && wert > 0 ? wert : null;
+}
+
 /** Was saveDocument als Beleg bekommt */
 export function documentInput(f: DocumentFields, figures: DocumentFigures, splitting: boolean, ownAccounts: Detail["ownAccounts"]) {
   const { category, exchangeRate, assetMethod } = f;
