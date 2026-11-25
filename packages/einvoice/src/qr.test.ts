@@ -21,8 +21,11 @@ function lesen(svg: string): { text: string; version: number } {
   return { text: new TextDecoder().decode(new Uint8Array(code.binaryData)), version: code.version };
 }
 
-const giro = (amount: number, text: string) =>
-  girocodePayload({ name: "Müller & Söhne GmbH", iban: "DE89370400440532013000", bic: "COBADEFFXXX", amount, text });
+function giro(amount: number, text: string, name = "Müller & Söhne GmbH"): string {
+  const payload = girocodePayload({ name, iban: "DE89370400440532013000", bic: "COBADEFFXXX", amount, text });
+  if (!payload) throw new Error("ungültiger GiroCode im Test");
+  return payload;
+}
 
 describe("qrSvg", () => {
   it.each([
@@ -30,8 +33,7 @@ describe("qrSvg", () => {
     ["GiroCode mit Umlauten", giro(123_45, "Rechnung 2026-001 für März")],
     ["GiroCode mit langem Verwendungszweck", giro(9_999_999_99, `Rechnung ${"x".repeat(130)}`)],
   ])("%s lässt sich wieder lesen", (_name, text) => {
-    expect(text).toBeTruthy();
-    expect(lesen(qrSvg(text!)).text).toBe(text);
+    expect(lesen(qrSvg(text)).text).toBe(text);
   });
 
   it("zeichnet ohne Rand, die Größe passt zur Version", () => {
@@ -44,6 +46,12 @@ describe("qrSvg", () => {
   it("nimmt Fehlerkorrektur M wie bisher (Version 1 trägt bei M höchstens 14 Byte, bei L 17)", () => {
     expect(lesen(qrSvg("a".repeat(14))).version).toBe(1);
     expect(lesen(qrSvg("a".repeat(15))).version).toBe(2);
+  });
+
+  it("bleibt beim längsten GiroCode bei Version 13 (EPC069-12: höchstens 331 Byte, Version 13, Fehlerkorrektur M)", () => {
+    const text = giro(9_999_999_99, `${"ä".repeat(62)}x`, "Ö".repeat(70));
+    expect(new TextEncoder().encode(text).length).toBe(331);
+    expect(lesen(qrSvg(text))).toEqual({ text, version: 13 });
   });
 });
 
