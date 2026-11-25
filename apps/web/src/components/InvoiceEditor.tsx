@@ -105,7 +105,7 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
   return (
     <>
       <InvoiceEditorDialogs editor={editor} />
-      <InvoiceEditorHead editor={editor} preview={preview} />
+      <InvoiceEditorHead editor={editor} preview={preview} replaces={props.replaces} />
 
       <PreviewLayout
         preview={preview}

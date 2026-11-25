@@ -30,7 +30,7 @@ direkt an ELSTER. Für die GoBD gebaut, auf deinem Server; Daten gehen nur an Di
 [Dokumentation](https://haben.app/) •
 [Entwicklung](#entwicklung)
 
-<sub>English: self-hosted open-source bookkeeping for German freelancers, small businesses and small limited companies (GmbH, UG), with e-invoicing (ZUGFeRD, XRechnung), bank reconciliation, EÜR or balance sheet with E-Bilanz, and VAT, corporate and trade tax returns via ELSTER. The app and its [documentation](https://haben.app/) are in German.</sub>
+<sub>English: self-hosted open-source bookkeeping for German freelancers, small businesses and small limited companies (GmbH, UG), with e-invoicing (ZUGFeRD, XRechnung), bank reconciliation, EÜR or balance sheet with E-Bilanz, and VAT, corporate and trade tax returns via ELSTER. The app and its [documentation](https://haben.app/) are in German. **Want a version for your country? [Open an issue](https://github.com/Speicherstadt/haben/issues/new); an Austrian one is underway in [haben-at](https://github.com/Speicherstadt/haben-at).**</sub>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-uebersicht-dunkel.png">
@@ -91,7 +91,7 @@ Kurz je Bereich; die Details stehen auf der verlinkten Seite der [Dokumentation]
 | 📦 [Umzug aus Lexoffice](https://haben.app/lexoffice.html) · [sevDesk](https://haben.app/sevdesk.html) · [FastBill](https://haben.app/fastbill.html) · [BuchhaltungsButler](https://haben.app/buchhaltungsbutler.html) · [Accountable](https://haben.app/accountable.html) · [JSON-Paket](https://haben.app/belegimport.html) | Rechnungen, Belege, Buchungen und Kontakte übernehmen, mit Abgleich je Jahr |
 | 🔐 [Anmeldung](https://haben.app/einrichtung.html#konto-anlegen) · [App](https://haben.app/einrichtung.html#als-app-installieren) | Passkey oder ausschließlich OpenID Connect mit Rollen aus Gruppen, Lesezugang für die [Steuerberatung](https://haben.app/steuerberatung.html), installierbar als App auf Handy und Desktop, helles und dunkles Theme |
 | 📥 [CSV-Import](https://haben.app/csv-import.html) | Kontakte, Artikel und Anlagen aus CSV, mit Spaltenzuordnung und Vorschau |
-| 🔌 [REST-API](https://haben.app/api.html) · [Dokumentenarchiv](https://haben.app/dokumentenarchiv.html) | Versionierte Schnittstelle mit OpenAPI für Kontakte, Rechnungsentwürfe und Belege; Tokens mit Rechten je Bereich; festgeschriebene Rechnungen als Kopie an ein Archiv |
+| 🔌 [REST-API](https://haben.app/api.html) · [Dokumentenarchiv](https://haben.app/dokumentenarchiv.html) | Versionierte Schnittstelle mit OpenAPI für Kontakte, Rechnungs- und Angebotsentwürfe und Belege; Tokens mit Rechten je Bereich; festgeschriebene Rechnungen als Kopie an ein Archiv |
 | 🤖 [KI-Assistenten (MCP)](https://haben.app/ki-assistenten.html) | Haben im Gespräch mit Claude oder einem lokalen Modell abfragen („Welche Rechnungen sind überfällig?“), nur lesend |
 | 🧩 [Eigene Seiten](https://haben.app/eigene-seiten.html) | Eigene Werkzeuge, etwa aus n8n, als Menüeintrag in Haben |
 | ♿ [Barrierefreiheit](https://haben.app/barrierefreiheit.html) | Vollständig per Tastatur bedienbar, jede Seite in der CI gegen WCAG 2.2 AA geprüft |
@@ -167,7 +167,7 @@ Podman Quadlets stehen in [Installation](https://haben.app/installation.html), E
 > sind ELSTER-Zertifikat und die Schlüssel für Lexoffice und sevDesk nach einer Wiederherstellung nicht mehr lesbar,
 > ohne das Passwort lässt sich das Backup nicht öffnen.
 
-Keinen eigenen Server oder keine eigene IT? Haben gibt es auf [Anfrage](https://haben.app/gehostet.html) gehostet oder über einen IT-Dienstleister aus dem [Partnerprogramm](https://speicherstadt.app/partner/).
+Keinen eigenen Server oder keine eigene IT? Haben gibt es auf [Anfrage](https://haben.app/gehostet.html) gehostet oder über einen IT-Dienstleister aus dem [Partnerprogramm](https://speicherstadt.org/partner/).
 
 ## FAQ
 
@@ -319,7 +319,7 @@ Aufbau und Abläufe beschreibt die [Architektur](https://haben.app/architektur.h
 
 ## Mehr von uns
 
-Weitere Open-Source-Apps für deinen eigenen Server, etwa für Mail, Office-Dokumente, ein Dokumentenarchiv und mehr: **[speicherstadt.app](https://speicherstadt.app)**
+Weitere Open-Source-Apps für deinen eigenen Server, etwa für Mail, Office-Dokumente, ein Dokumentenarchiv und mehr: **[speicherstadt.org](https://speicherstadt.org)**
 
 ## Mitwirken
 
@@ -344,7 +344,7 @@ Was vor einem Pull Request laufen muss und was er enthält, steht unter [Mitwirk
 [Fehler melden](https://github.com/Speicherstadt/haben/issues/new) &nbsp;·&nbsp; [Idee besprechen](https://github.com/Speicherstadt/haben/discussions/categories/ideas) &nbsp;·&nbsp; [Frage stellen](https://github.com/Speicherstadt/haben/discussions/categories/q-a) &nbsp;·&nbsp; [Discord](https://discord.gg/CT2GQytSYH)
 
 <sub>Lizenz: <a href="LICENSE">AGPL-3.0</a> · © Tristan Teufel und Mitwirkende<br>
-Wer eine veränderte Fassung von Haben für andere übers Netz betreibt, muss ihnen den Quellcode anbieten (§ 13 AGPL); der Link steht in der Navigation. Für IT-Dienstleister, Hoster und Steuerberatungen: <a href="https://speicherstadt.app/partner/">Partnerprogramm</a>.<br>
+Wer eine veränderte Fassung von Haben für andere übers Netz betreibt, muss ihnen den Quellcode anbieten (§ 13 AGPL); der Link steht in der Navigation. Für IT-Dienstleister, Hoster und Steuerberatungen: <a href="https://speicherstadt.org/partner/">Partnerprogramm</a>.<br>
 Haben ist keine Steuerberatung. Konten, Kategorien und Aufbewahrung vor dem Echtbetrieb mit deiner Steuerberatung abgleichen.<br>
 ELSTER ist eine Marke der Finanzverwaltung; Lexware Office (lexoffice), sevDesk, FastBill, BuchhaltungsButler, Accountable und DATEV sind Marken ihrer Inhaber. Haben steht weder mit der Finanzverwaltung noch mit diesen Unternehmen in Verbindung.</sub>
 
