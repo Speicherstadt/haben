@@ -91,7 +91,7 @@ function VatPeriodPage() {
   // Bereich dann offen. Wie die Meldung gilt die Wahl nur für diesen Zeitraum
   const [fristen, setFristen] = useState<boolean | null>(null);
   const fristenOffen = fristen ?? Boolean(data.periodProblem);
-  // „Schon anders abgegeben?“: Ohne eigene Hersteller-ID ist Mein ELSTER der Hauptweg und der Vermerk der nächste Schritt, dann steht er offen.
+  // „Schon anders abgegeben?“: Ohne ERiC und eigene Hersteller-ID (`herstellerIdConfigured` false) ist Mein ELSTER der Hauptweg und der Vermerk der nächste Schritt, dann steht er offen.
   // Wie die Fristen hier, weil der Editor beim Speichern neu entsteht und die Wahl sonst verwürfe
   const [vermerk, setVermerk] = useState<boolean | null>(null);
   // Zeiträume nach dem eingestellten Voranmeldungszeitraum, dazu der angezeigte, falls er nicht dazugehört

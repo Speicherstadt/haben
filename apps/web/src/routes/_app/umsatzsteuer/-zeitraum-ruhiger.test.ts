@@ -338,7 +338,7 @@ describe("Voranmeldung: Ergebnis und Ablauf zuerst (#1253, Punkte 42 und 43)", (
 const vermerk = (html: string) => html.match(/<section[^>]*aria-labelledby="ust-vermerk"[^>]*>[\s\S]*?<\/section>/)?.[0] ?? null;
 
 describe("Voranmeldung: Abgabe außerhalb von Haben eingeklappt (#1253, Punkt 42)", () => {
-  it("klappt die Karte mit eigener Hersteller-ID zu, ohne dass etwas wegfällt", () => {
+  it("klappt die Karte mit ERiC und eigener Hersteller-ID zu, ohne dass etwas wegfällt", () => {
     const bereich = vermerk(seite({ current: entwurfVonHand, herstellerIdConfigured: true }));
     expect(bereich).not.toBeNull();
     expect(bereich).toMatch(/<details>/);
@@ -348,7 +348,7 @@ describe("Voranmeldung: Abgabe außerhalb von Haben eingeklappt (#1253, Punkt 42
     expect(bereich).toContain("Kz 83 laut Protokoll");
   });
 
-  it("lässt sie ohne Hersteller-ID offen stehen: Dort ist Mein ELSTER der Hauptweg und der Vermerk der nächste Schritt", () => {
+  it("lässt sie offen stehen, solange ERiC oder die Hersteller-ID fehlt (`herstellerIdConfigured` false): Dort ist Mein ELSTER der Hauptweg und der Vermerk der nächste Schritt", () => {
     const bereich = vermerk(seite({ current: entwurfVonHand, herstellerIdConfigured: false }));
     expect(bereich).toMatch(/<details open="">/);
     expect(bereich).toContain("Außerhalb von Haben abgegeben");

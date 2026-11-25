@@ -34,7 +34,23 @@ Bist du in den Einstellungen als Kleinunternehmer eingetragen, zeigt die Seite o
 
 Vor jedem Prüfen oder Senden speichert Haben den Entwurf, falls er neu oder geändert ist. Mit **Entwurf speichern** geht das auch ohne Prüfung.
 
-Oben auf der Seite zeigt eine Leiste, wo du stehst: **Zahlen prüfen**, bis ein unveränderter Entwurf gespeichert ist, dann **Abgeben**, nach dem Festschreiben **Zahlen**, bis die Posten ausgeglichen sind. Darunter sagt ein Satz, was Kz 83 für dich heißt: „Du zahlst 1.234,00 € bis 10.12.2026.“ (nach der Frist: „Die Zahllast von 1.234,00 € war am 10.12.2026 fällig.“), „Du bekommst 123,00 € zurück, sobald das Finanzamt zustimmt.“ oder „Diesmal ist nichts zu zahlen.“ Er folgt den Werten, auch von Hand geänderten. Er entfällt, solange von Hand ein Wert nicht lesbar ist, bei einer berichtigten Anmeldung (zu zahlen oder zu erstatten ist nur der Unterschied zur ersten Anmeldung, siehe [berichtigte Anmeldung](#berichtigte-anmeldung)) und nach dem Festschreiben; dort zeigen Status und **Zahlung an das Finanzamt** den Stand.
+Oben auf der Seite zeigt eine Leiste, wo du stehst:
+
+- **Zahlen prüfen**, bis ein unveränderter Entwurf gespeichert ist.
+- **Abgeben**, sobald er gespeichert ist.
+- **Zahlen**, nach dem Festschreiben, bis die Posten ausgeglichen sind.
+
+Darunter sagt ein Satz, was Kz 83 für dich heißt, auch bei von Hand geänderten Werten:
+
+- „Du zahlst 1.234,00 € bis 10.12.2026.“; nach der Frist: „Die Zahllast von 1.234,00 € war am 10.12.2026 fällig.“
+- „Du bekommst 123,00 € zurück, sobald das Finanzamt zustimmt.“
+- „Diesmal ist nichts zu zahlen.“
+
+Der Satz entfällt:
+
+- solange von Hand ein Wert nicht lesbar ist,
+- bei einer berichtigten Anmeldung, denn zu zahlen oder zu erstatten ist nur der Unterschied zur ersten Anmeldung (siehe [berichtigte Anmeldung](#berichtigte-anmeldung)),
+- nach dem Festschreiben; dort zeigen Status und **Zahlung an das Finanzamt** den Stand.
 
 ## Voranmeldungszeitraum
 
@@ -385,7 +401,7 @@ Hast du die Voranmeldung außerhalb von Haben abgegeben, per XML-Import in Mein 
 | Kz 83 laut Protokoll | die verbleibende Vorauszahlung bzw. der Überschuss, wie gemeldet |
 | Übermittlungsprotokoll (PDF) | das Protokoll aus Mein ELSTER |
 
-Den Bereich findest du in der rechten Spalte unter **Schon anders abgegeben?**: mit eigener Hersteller-ID zugeklappt, ohne sie offen, denn dann ist Mein ELSTER der Hauptweg und der Vermerk der nächste Schritt.
+Den Bereich findest du in der rechten Spalte unter **Schon anders abgegeben?**: mit eingerichtetem ERiC und eigener Hersteller-ID zugeklappt, sonst offen, denn dann ist Mein ELSTER der Hauptweg und der Vermerk der nächste Schritt.
 
 **Abgabe vermerken** fragt in einem Dialog nach, der Tag, Transferticket und Kz 83 noch einmal zeigt, und schreibt die Anmeldung dann fest wie eine Übermittlung über ERiC: Status „Abgegeben … (vermerkt)“, die [Frist](fristen.md) ist erledigt, eine Berichtigung geht wie nach dem Senden über **Berichtigte Anmeldung anlegen**, und die Zahllast wird ein [offener Posten](#zahlung-an-das-finanzamt). Ein berechneter Entwurf wird vorher auf den Stand der Buchungen gebracht, wie vor dem Senden.
 
