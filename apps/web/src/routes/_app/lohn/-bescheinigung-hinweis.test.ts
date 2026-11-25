@@ -1,3 +1,5 @@
+import { lstbFrist } from "@haben/core";
+import { lstbOhneSchnittstelle } from "@haben/elster";
 import { createElement, type ComponentType, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -12,13 +14,51 @@ vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => async () => {},
   useRouter: () => ({ invalidate: async () => {} }),
 }));
+import type { getLstb } from "../../../server/functions/lstb.ts";
 import { Route } from "./bescheinigung.$jahr.tsx";
 
-const seite = (daten: Record<string, unknown>) => {
+type Daten = Awaited<ReturnType<typeof getLstb>>;
+const werte = (jahr: number) => ({
+  jahr,
+  von: `${jahr}-01-01`,
+  bis: `${jahr}-12-31`,
+  bruttoarbeitslohn: 3_600_000,
+  lohnsteuer: 360_000,
+  soli: 0,
+  kirchensteuer: 0,
+  rvArbeitgeber: 334_800,
+  rvArbeitnehmer: 334_800,
+  kvArbeitnehmer: 306_000,
+  pvArbeitnehmer: 86_400,
+  avArbeitnehmer: 46_800,
+  pkvBasis: null,
+  merkmale: [{ gueltigAb: `${jahr}-01-01`, steuerklasse: 1 as const, faktor: 1000, kinderfreibetraege: 0, konfession: null }],
+});
+const erika = (jahr: number): Daten["mitarbeiter"][number] => ({
+  id: "e1",
+  name: "Erika Muster",
+  personalnummer: 1,
+  ergebnis: { status: "bereit", werte: werte(jahr) },
+  aktuell: null,
+  status: "bereit",
+  naechste: "neu",
+  ausdruck: "entwurf",
+  verlauf: [],
+});
+/** Wie `lstbUebersicht` und `getLstb`: ob ERiC das Jahr kann, sagt `lstbOhneSchnittstelle` */
+const jahr = (year: number): Partial<Daten> => ({
+  year,
+  frist: lstbFrist(year, "BE"),
+  ohneSchnittstelle: lstbOhneSchnittstelle(year),
+  mitarbeiter: [erika(year)],
+  heute: `${year + 1}-01-15`,
+});
+
+const seite = (daten: Partial<Daten>) => {
   state.data = {
     year: 2025,
     frist: "2026-02-28",
-    ohneSchnittstelle: null,
+    ohneSchnittstelle: lstbOhneSchnittstelle(2025),
     firmenfehler: [],
     mitarbeiter: [],
     heute: "2026-01-15",
@@ -41,6 +81,13 @@ describe("Lohnsteuerbescheinigung: Hinweis bei fehlendem ERiC", () => {
   });
 
   it("zeigt ihn nicht, wo ERiC die Bescheinigung nicht sendet: der Weg läuft dann über Mein ELSTER", () => {
-    expect(seite({ year: 2026, ohneSchnittstelle: "Für 2026 gibt es keine Schnittstelle." })).not.toContain("ERiC ist nicht eingerichtet");
+    expect(seite(jahr(2026))).not.toContain("ERiC ist nicht eingerichtet");
+  });
+
+  it.each([2024, 2025, 2026, 2027])("zeigt ihn %i genau dann, wenn die Seite den Sendekasten hat", (year) => {
+    const html = seite(jahr(year));
+    expect(html).toContain("Erika Muster");
+    expect(html.includes("ERiC ist nicht eingerichtet")).toBe(html.includes("Bescheinigung für Erika Muster senden"));
+    expect(html.includes("ERiC ist nicht eingerichtet")).toBe(year === 2025);
   });
 });
