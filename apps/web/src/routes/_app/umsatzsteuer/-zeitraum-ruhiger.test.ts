@@ -3,6 +3,8 @@ import { createElement, type ComponentType, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Route } from "./$zeitraum.tsx";
+import { ZeitraumAblauf } from "./-zeitraum-abgabe.tsx";
+import type { PageData } from "./-zeitraum-quellen.tsx";
 
 vi.mock("@tanstack/react-router", async (original) => {
   const router = await original<typeof import("@tanstack/react-router")>();
@@ -232,23 +234,25 @@ describe("Voranmeldung: weniger Hinweise über den Zahlen (#1253, Punkt 32)", ()
 const mitZahllast = { ...mitIgLieferung, kz41: 0, kz81: 100_000 };
 const mitErstattung = { ...mitIgLieferung, kz41: 0, kz66: 5_000 };
 const gesendet = { ...entwurfVonHand, status: "sent", source: "berechnet" };
-const posten = (offen: number) => [
-  { vatReturnId: "entwurf", berichtigt: false, betrag: 19_000, faellig: "2026-11-10", verrechnet: 0, bezahlt: 19_000 - offen, offen, zahlungen: [] },
+const posten = (offen: number, vatReturnId = "entwurf") => [
+  { vatReturnId, berichtigt: false, betrag: 19_000, faellig: "2026-11-10", verrechnet: 0, bezahlt: 19_000 - offen, offen, zahlungen: [] },
 ];
 
 /** Die Leiste „Ablauf der Voranmeldung“ samt Inhalt, sonst null */
 const ablauf = (html: string) => html.match(/<section[^>]*aria-label="Ablauf der Voranmeldung"[^>]*>[\s\S]*?<\/section>/)?.[0] ?? null;
 /** Der Schritt mit aria-current="step", sonst null */
 const aktuellerSchritt = (html: string) => ablauf(html)?.match(/<li[^>]*aria-current="step"[^>]*>([\s\S]*?)<\/li>/)?.[1] ?? null;
-const satz = (html: string) => html.match(/Du zahlst [^<]*|Du bekommst [^<]*|Diesmal ist nichts zu zahlen\./)?.[0] ?? null;
+const satz = (html: string) => html.match(/Du zahlst [^<]*|Die Zahllast von [^<]*|Du bekommst [^<]*|Diesmal ist nichts zu zahlen\./)?.[0] ?? null;
 
 describe("Voranmeldung: Ergebnis und Ablauf zuerst (#1253, Punkte 42 und 43)", () => {
   it("sagt über den Kennzahlen, was Zahllast, Erstattung oder 0 für dich heißt", () => {
-    const zahllast = seite({ figures: mitZahllast });
-    expect(satz(zahllast)).toBe(`Du zahlst ${formatEuro(19_000)} bis 10.11.2026.`);
+    const zahllast = seite({ figures: mitZahllast, dueDate: "2026-12-10" });
+    expect(satz(zahllast)).toBe(`Du zahlst ${formatEuro(19_000)} bis 10.12.2026.`);
     expect(ablauf(zahllast)).toContain(satz(zahllast));
     // Vor der Tabelle, nicht erst als letzte Zeile
     expect(zahllast.indexOf("Du zahlst")).toBeLessThan(zahllast.indexOf('id="kz-81"'));
+    // Heute ist der 23.11.: Eine Frist am 10.11. liegt hinter uns
+    expect(satz(seite({ figures: mitZahllast }))).toBe(`Die Zahllast von ${formatEuro(19_000)} war am 10.11.2026 fällig.`);
     expect(satz(seite({ figures: mitErstattung }))).toBe(`Du bekommst ${formatEuro(5_000)} zurück, sobald das Finanzamt zustimmt.`);
     expect(satz(seite())).toBe("Diesmal ist nichts zu zahlen.");
   });
@@ -283,6 +287,29 @@ describe("Voranmeldung: Ergebnis und Ablauf zuerst (#1253, Punkte 42 und 43)", (
     const fertig = seite({ current: gesendet, posten: posten(0) });
     expect(fertig.match(/aria-current="step"/g)).toBeNull();
     expect(ablauf(fertig)?.match(/\(erledigt\)/g)).toHaveLength(3);
+  });
+
+  it("zählt nur Posten dieser Anmeldung: Der offene Posten einer anderen (Berichtigung) hält das Zahlen nicht offen", () => {
+    const andere = seite({ current: gesendet, posten: posten(5_000, "andere") });
+    expect(andere.match(/aria-current="step"/g)).toBeNull();
+    expect(aktuellerSchritt(seite({ current: gesendet, posten: [...posten(5_000, "andere"), ...posten(19_000)] }))).toContain("Zahlen");
+  });
+
+  it("lässt den Satz weg, solange von Hand ein Wert nicht lesbar ist: 0 wäre falsch, die Leiste bleibt", () => {
+    const render = (werteGueltig: boolean) =>
+      renderToStaticMarkup(
+        createElement(ZeitraumAblauf, {
+          data: { current: null, posten: [], dueDate: "2026-12-10", today: "2026-11-23" } as unknown as PageData,
+          locked: false,
+          shown: zero,
+          geaendert: true,
+          werteGueltig,
+        }),
+      );
+    expect(satz(render(true))).toBe("Diesmal ist nichts zu zahlen.");
+    const ungueltig = render(false);
+    expect(satz(ungueltig)).toBeNull();
+    expect(ablauf(ungueltig)).toContain("Zahlen prüfen");
   });
 });
 
