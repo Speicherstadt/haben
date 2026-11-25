@@ -2,7 +2,7 @@ import type { TaxTreatment } from "@haben/core";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { nurNetto, TaxSection, type TaxRow } from "./ForeignInvoiceTax.tsx";
+import { nurNetto, startZeilen, TaxSection, type TaxRow } from "./ForeignInvoiceTax.tsx";
 
 const render = (treatment: TaxTreatment, rows: TaxRow[]) =>
   renderToStaticMarkup(
@@ -38,6 +38,13 @@ describe("Steuer der hochgeladenen Ausgangsrechnung (#1880)", () => {
     for (const text of ["Steuersatz 1", "Netto 1 (€)", "Steuer 1 (€)", "Weiteren Steuersatz"]) expect(html).toContain(text);
   });
 
+  it("versteckt keinen Satz über 0 %, den eine E-Rechnung bei einer Sonderbehandlung nennt", () => {
+    const html = render("steuerfrei", [{ rate: "1900", net: "100,00", tax: "19,00" }]);
+    expect(html).toContain("Steuersatz 1");
+    expect(html).toContain("Steuer 1 (€)");
+    expect(html).not.toContain("Netto (€)");
+  });
+
   it("fasst beim Wechsel die Zeilen zu einer zu 0 % ohne Steuer zusammen", () => {
     expect(nurNetto([{ rate: "1900", net: "1.000,00", tax: "190,00" }])).toEqual([{ rate: "0", net: "1.000,00", tax: "0,00" }]);
     expect(
@@ -54,5 +61,22 @@ describe("Steuer der hochgeladenen Ausgangsrechnung (#1880)", () => {
       ]),
     ).toEqual([{ rate: "0", net: "20,00", tax: "0,00" }]);
     expect(nurNetto([{ rate: "1900", net: "", tax: "" }])).toEqual([{ rate: "0", net: "", tax: "0,00" }]);
+  });
+
+  it("lässt einen unlesbaren Betrag stehen, statt ihn still aus der Summe zu nehmen", () => {
+    expect(
+      nurNetto([
+        { rate: "1900", net: "1.000,00", tax: "190,00" },
+        { rate: "700", net: "5O,00", tax: "3,50" },
+      ]),
+    ).toEqual([{ rate: "0", net: "5O,00", tax: "0,00" }]);
+  });
+
+  it("beginnt ohne E-Rechnung regulär mit 19 %, sonst mit 0 %; aus der E-Rechnung bleiben die Sätze, wie gelesen", () => {
+    expect(startZeilen([], "regulaer")).toEqual([{ rate: "1900", net: "", tax: "" }]);
+    expect(startZeilen([], "kleinunternehmer")).toEqual([{ rate: "0", net: "", tax: "0,00" }]);
+    expect(startZeilen([], "steuerfrei")).toEqual([{ rate: "0", net: "", tax: "0,00" }]);
+    expect(startZeilen([{ rate: 0, net: 50_000, tax: 0 }], "steuerfrei")).toEqual([{ rate: "0", net: "500,00", tax: "0,00" }]);
+    expect(startZeilen([{ rate: 1900, net: 10_000, tax: 1900 }], "kleinunternehmer")).toEqual([{ rate: "1900", net: "100,00", tax: "19,00" }]);
   });
 });
