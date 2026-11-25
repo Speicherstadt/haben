@@ -56,6 +56,17 @@ describe("KI-Auslesung umwandeln", () => {
     expect(felder.warnings).toContain("Gesamtbetrag mit mehr als zwei Nachkommastellen, auf 38,56\u00a0€ gerundet");
   });
 
+  it("nennt die Rundung bei Fremdwährung in der Währung des Belegs", () => {
+    const felder = toFields({
+      ...base,
+      waehrung: "USD",
+      betraege: [{ steuersatz: "0", netto: "42.1336", steuer: "0.00" }],
+      brutto: "42.1336",
+    });
+    expect(felder.warnings).toContain("Betrag zu 0 % mit mehr als zwei Nachkommastellen: netto 42,13 USD, Steuer 0,00 USD, gerundet");
+    expect(felder.warnings).toContain("Gesamtbetrag mit mehr als zwei Nachkommastellen, auf 42,13 USD gerundet");
+  });
+
   it("nennt die Rundung im Hinweis und meldet keine Summenabweichung mehr", () => {
     const felder = toFields({
       ...base,
