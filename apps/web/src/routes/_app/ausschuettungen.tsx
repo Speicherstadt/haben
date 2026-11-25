@@ -50,9 +50,9 @@ function AusschuettungenPage() {
           <NeueAusschuettung />
           {data.ausschuettungen.length === 0 ? (
             <p className="muted" style={{ maxWidth: 760 }}>
-              Noch keine Ausschüttung, die in {data.year} bei den Gesellschaftern ankommt (steuerlich: Zufluss). Beispiel: Beschluss am 30.06.{data.year} über
-              20.000 € aus dem Gewinn {data.year - 1}; ohne Auszahlungstag im Beschluss gilt steuerlich der 01.07.{data.year} als Zufluss (§ 44 Abs. 2 Satz 2
-              EStG).
+              Noch keine Ausschüttung, die in {data.year} bei den Gesellschaftern ankommt (steuerlich: Zufluss); erfasse sie oben unter
+              „Gewinnverwendungsbeschluss buchen“. Beispiel: Beschluss am 30.06.{data.year} über 20.000 € aus dem Gewinn {data.year - 1}; ohne Auszahlungstag im
+              Beschluss gilt steuerlich der 01.07.{data.year} als Zufluss (§ 44 Abs. 2 Satz 2 EStG).
             </p>
           ) : (
             data.ausschuettungen.map((a) => <AusschuettungCard key={a.id} data={data} a={a} />)
