@@ -1,4 +1,4 @@
-import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_KEYS, SELF_ASSESSED_TAX_KEYS, formatEuro, type Cents } from "@haben/core";
+import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_KEYS, SELF_ASSESSED_TAX_KEYS, formatDecimal, formatEuro, type Cents } from "@haben/core";
 import { z } from "zod";
 import { UserError } from "../../errors.ts";
 import type { DocumentKind } from "../../storage.ts";
@@ -148,6 +148,10 @@ export function decimalToCentsGerundet(value: string): { cents: Cents; gerundet:
 export function toFields(extraction: Extraction): ExtractedFields {
   const warnings: string[] = [];
   const sign = extraction.istGutschrift ? -1 : 1;
+  // „€“ oder „Euro“ statt des Codes ist trotzdem Euro
+  const code = extraction.waehrung.trim().toUpperCase();
+  const currency = code === "€" || code === "EURO" ? "EUR" : code.slice(0, 10);
+  const betrag = (cents: Cents) => (currency === "EUR" ? formatEuro(cents) : `${formatDecimal(cents)} ${currency}`);
   const amounts = extraction.betraege.flatMap((row) => {
     const net = decimalToCentsGerundet(row.netto);
     const tax = decimalToCentsGerundet(row.steuer);
@@ -156,9 +160,7 @@ export function toFields(extraction: Extraction): ExtractedFields {
       return [];
     }
     if (net.gerundet || tax.gerundet) {
-      warnings.push(
-        `Betrag zu ${row.steuersatz} % mit mehr als zwei Nachkommastellen: netto ${formatEuro(net.cents)}, Steuer ${formatEuro(tax.cents)}, gerundet`,
-      );
+      warnings.push(`Betrag zu ${row.steuersatz} % mit mehr als zwei Nachkommastellen: netto ${betrag(net.cents)}, Steuer ${betrag(tax.cents)}, gerundet`);
     }
     return [
       {
@@ -177,15 +179,12 @@ export function toFields(extraction: Extraction): ExtractedFields {
   const grossBetrag = extraction.brutto ? decimalToCentsGerundet(extraction.brutto) : null;
   const gross = grossBetrag?.cents ?? null;
   if (grossBetrag?.gerundet) {
-    warnings.push(`Gesamtbetrag mit mehr als zwei Nachkommastellen, auf ${formatEuro(grossBetrag.cents)} gerundet`);
+    warnings.push(`Gesamtbetrag mit mehr als zwei Nachkommastellen, auf ${betrag(grossBetrag.cents)} gerundet`);
   }
   const sum = amounts.reduce((total, a) => total + a.net + a.tax, 0);
   if (gross !== null && Math.abs(sum) !== Math.abs(gross)) {
     warnings.push("Summe aus Netto und Steuer weicht vom Gesamtbetrag ab");
   }
-  // „€“ oder „Euro“ statt des Codes ist trotzdem Euro
-  const code = extraction.waehrung.trim().toUpperCase();
-  const currency = code === "€" || code === "EURO" ? "EUR" : code.slice(0, 10);
   if (currency !== "EUR") warnings.push(`Währung ${currency}: bitte den Umrechnungskurs eintragen`);
   if (extraction.hinweis) warnings.push(extraction.hinweis.slice(0, 500));
   // Längen wie im Beleg-Formular (documentInputSchema)
