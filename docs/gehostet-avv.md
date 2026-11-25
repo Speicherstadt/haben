@@ -1,8 +1,8 @@
 ---
 title: "Auftragsverarbeitung für Haben gehostet"
 description: >-
-  Vertrag zur Auftragsverarbeitung nach Art. 28 DSGVO für den gehosteten Betrieb von Haben, mit
-  technischen und organisatorischen Maßnahmen und der Liste der Unterauftragsverarbeiter.
+  Vertrag zur Auftragsverarbeitung nach Art. 28 DSGVO für Haben gehostet, mit Schutzmaßnahmen und
+  Unterauftragsverarbeitern.
 ---
 
 # Vertrag zur Auftragsverarbeitung nach Art. 28 DSGVO für „Haben gehostet“
@@ -55,7 +55,7 @@ Teufel-IT, Inhaber Tristan Teufel, Seestr. 2, 77815 Bühl, Deutschland, E-Mail: 
    - Steuerdaten: Steuernummern, Umsatzsteuer-Identifikationsnummern, Voranmeldungen und Erklärungen, das ELSTER-Zertifikat des Auftraggebers (verschlüsselt gespeichert),
    - Daten von Beschäftigten, soweit der Auftraggeber sie erfasst, zum Beispiel Namen, Zeiteinträge und Auslagen,
    - Zugangsdaten der Nutzer (Benutzername, E-Mail-Adresse, Passwort als Hash) und Protokolldaten (Zeitpunkt, IP-Adresse, ausgeführte Aktion),
-   - Zugangsdaten zu Diensten, die der Auftraggeber selbst anbindet (E-Mail-Versand, Bankabruf, KI-Auslesung von Belegen); sie werden verschlüsselt gespeichert.
+   - Zugangsdaten zu Diensten, die der Auftraggeber selbst anbindet (E-Mail-Versand, Bankabruf); sie werden verschlüsselt gespeichert.
 3. Besondere Kategorien personenbezogener Daten nach Art. 9 DSGVO sind nicht Gegenstand der Verarbeitung. Der Auftraggeber vermeidet es, solche Daten zu erfassen. Einzelne Belege können dennoch solche Angaben enthalten, zum Beispiel Rechnungen von Ärzten oder Hinweise auf eine Kirchensteuerpflicht.
 
 ## § 4 Weisungsrecht
@@ -88,7 +88,7 @@ Teufel-IT, Inhaber Tristan Teufel, Seestr. 2, 77815 Bühl, Deutschland, E-Mail: 
 5. Keine Unterauftragsverarbeitung sind Nebenleistungen ohne Bezug zur Verarbeitung der Daten des Auftraggebers, zum Beispiel Telekommunikation, Post und Reinigung.
 6. Die Übermittlung von Steuerdaten an die Finanzverwaltung über ELSTER ist keine Unterauftragsverarbeitung. Sie erfolgt auf Veranlassung des Auftraggebers an eine Behörde als eigene Verantwortliche.
 7. Die Abwicklung der Zahlung des Auftraggebers über Stripe betrifft die Vertragsdaten des Auftraggebers und nicht die Daten, die im Auftrag verarbeitet werden. Stripe ist daher kein Unterauftragsverarbeiter nach diesem Vertrag.
-8. Dienste, die der Auftraggeber in seiner Instanz selbst anbindet, sind keine Unterauftragsverarbeiter des Auftragnehmers. Das betrifft insbesondere den E-Mail-Versand über ein eigenes Postfach, den Bankabruf und die KI-Auslesung von Belegen mit einem eigenen Zugang. Für diese Dienste ist der Auftraggeber selbst verantwortlich.
+8. Dienste, die der Auftraggeber in seiner Instanz selbst anbindet, sind keine Unterauftragsverarbeiter des Auftragnehmers. Das betrifft insbesondere den E-Mail-Versand über ein eigenes Postfach und den Bankabruf mit einem eigenen Zugang. Für diese Dienste ist der Auftraggeber selbst verantwortlich. Die KI-Auslesung von Belegen ist im gehosteten Betrieb nicht eingerichtet.
 
 ## § 8 Unterstützung bei Betroffenenrechten
 
@@ -118,8 +118,8 @@ Teufel-IT, Inhaber Tristan Teufel, Seestr. 2, 77815 Bühl, Deutschland, E-Mail: 
 ## § 11 Löschung und Rückgabe
 
 1. Während der Laufzeit kann der Auftraggeber seine Daten jederzeit selbst exportieren, insbesondere als Jahresarchiv und als DATEV-Export.
-2. Auf Wunsch des Auftraggebers gibt der Auftragnehmer ein vollständiges Backup der Instanz mit dem zugehörigen Schlüssel heraus. Der Wunsch ist in Textform bis spätestens 30 Tage nach dem Ende des Hauptvertrags zu äußern.
-3. 30 Tage nach dem Ende des Hauptvertrags löscht der Auftragnehmer die Instanz und alle Backups mit Daten des Auftraggebers, auch bei den Unterauftragsverarbeitern. Das gilt nicht, soweit das Recht der Union oder eines Mitgliedstaats den Auftragnehmer zur Speicherung verpflichtet.
+2. Auf Wunsch des Auftraggebers gibt der Auftragnehmer ein vollständiges Backup der Instanz mit dem Schlüssel der Instanz und dem Passwort des Backups heraus. Der Wunsch ist in Textform bis spätestens 30 Tage nach dem Ende des Hauptvertrags zu äußern.
+3. Nach Ablauf von 30 Tagen nach dem Ende des Hauptvertrags, frühestens am 31. Tag und nicht vor der Herausgabe eines rechtzeitig verlangten Backups, löscht der Auftragnehmer die Instanz und alle Backups mit Daten des Auftraggebers, auch bei den Unterauftragsverarbeitern. Das gilt nicht, soweit das Recht der Union oder eines Mitgliedstaats den Auftragnehmer zur Speicherung verpflichtet.
 4. Der Auftragnehmer bestätigt die Löschung auf Anfrage in Textform.
 5. Die gesetzlichen Aufbewahrungspflichten für die Buchhaltungsunterlagen treffen den Auftraggeber. Der Auftragnehmer bewahrt die Daten nicht für ihn über die Frist nach Absatz 3 hinaus auf.
 6. Unterlagen, die dem Nachweis der ordnungsgemäßen Auftragsverarbeitung dienen, darf der Auftragnehmer über das Vertragsende hinaus aufbewahren.
@@ -171,18 +171,19 @@ Teufel-IT, Inhaber Tristan Teufel, Seestr. 2, 77815 Bühl, Deutschland, E-Mail: 
 
 - Die Übertragung zwischen Browser und Instanz ist mit TLS verschlüsselt.
 - Geheimnisse in der Instanz, zum Beispiel das ELSTER-Zertifikat und Zugangsdaten zu angebundenen Diensten, werden mit AES-256-GCM verschlüsselt gespeichert.
-- Backups werden vor der Übertragung zum Backup-Speicher verschlüsselt. Das Passwort der Backups hat nur der Auftragnehmer. Der Betreiber des Backup-Speichers kann die Inhalte nicht lesen.
+- Backups werden vor der Übertragung zum Backup-Speicher verschlüsselt. Jede Instanz hat ein eigenes Backup mit eigenem Passwort. Das Passwort liegt beim Auftragnehmer und wird nur mit einem Backup nach § 11 Abs. 2 an den Auftraggeber herausgegeben. Der Betreiber des Backup-Speichers kann die Inhalte nicht lesen.
 
 ### 2. Integrität
 
-**Weitergabekontrolle.** Daten verlassen den Server nur verschlüsselt: als Backup zum Backup-Speicher, als Übermittlung an ELSTER auf Veranlassung des Auftraggebers, an Dienste, die der Auftraggeber selbst angebunden hat, und als Export, den der Auftraggeber herunterlädt.
+**Weitergabekontrolle.** Daten verlassen den Server nur verschlüsselt: als Backup zum Backup-Speicher, als Übermittlung an ELSTER auf Veranlassung des Auftraggebers, als Abfrage ausländischer Umsatzsteuer-Identifikationsnummern beim Bundeszentralamt für Steuern, an Dienste, die der Auftraggeber selbst angebunden hat, und als Export, den der Auftraggeber herunterlädt.
 
-**Eingabekontrolle.** Die Anwendung führt ein Protokoll der Änderungen (Audit-Log), das gegen nachträgliche Veränderung gesichert ist.
+**Eingabekontrolle.** Die Anwendung führt ein Protokoll der Änderungen (Audit-Log) als Hash-Kette, an der sich nachträgliche Veränderungen erkennen lassen. Verhindern kann die Kette eine Veränderung nicht: Wer Server und Datenbank betreibt, hier der Auftragnehmer, könnte sie neu berechnen. Den Nachweis dagegen hat der Auftraggeber selbst in der Hand, mit dem Prüfwert des Protokolls, den die Anwendung ihm wöchentlich per E-Mail schickt, wenn er den E-Mail-Versand eingerichtet hat, und mit seinen eigenen Exporten.
 
 ### 3. Verfügbarkeit und Belastbarkeit
 
 - Tägliche verschlüsselte Backups, gespeichert bei einem anderen Anbieter als dem Server.
-- Aufbewahrung der Backups: 30 Tage.
+- Aufbewahrung der Backups: tägliche Stände für 14 Tage, monatliche Stände für 24 Monate und jährliche Stände für 11 Jahre, längstens bis zur Löschung nach § 11.
+- Die Anwendung prüft alle 7 Tage, ob sich das Backup wiederherstellen lässt.
 - Schutz der Infrastruktur im Rechenzentrum durch den Hosting-Anbieter (Stromversorgung, Klima, Brandschutz, Netzanbindung).
 - Die Software ist frei verfügbar. Der Auftraggeber kann seine Instanz mit einem Backup auf einem eigenen Server weiterbetreiben.
 

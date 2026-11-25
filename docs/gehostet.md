@@ -1,9 +1,8 @@
 ---
 title: "Gehostet oder mit Partner"
 description: >-
-  Haben ohne eigenen Server: eine eigene Instanz buchen, mit Updates, Backups und ELSTER ohne eigene
-  Hersteller-ID; Partnerprogramm für IT-Dienstleister, Hoster und Steuerberatungen; Fragen in
-  Discussions, Discord und Issues.
+  Haben ohne eigenen Server: eigene Instanz buchen, mit Updates, Backups und ELSTER; Partnerprogramm
+  für IT-Dienstleister und Steuerberatungen; Fragen.
 ---
 
 # Gehostet oder mit Partner
@@ -11,8 +10,10 @@ description: >-
 ## Haben gehostet
 
 Haben ist Open Source: Du kannst es [selbst betreiben](installation.md), ohne etwas zu zahlen. Wer
-keinen Server pflegen will, bucht den Betrieb bei uns. Du bekommst eine eigene Instanz mit allem, was
-Haben kann; Tarife mit mehr oder weniger Funktionen gibt es nicht.
+keinen Server pflegen will, bucht den Betrieb bei uns. Du bekommst eine eigene Instanz; Tarife
+mit mehr oder weniger Funktionen gibt es nicht. Nicht eingerichtet sind die
+[KI-Auslesung von Belegen](einrichtung.md#ki-auslesung-von-belegen) und der [Bankabruf über FinTS](bank-fints.md); Kontoauszüge
+liest du als Datei ein oder rufst sie über Enable Banking ab.
 
 ### Was du bekommst
 
@@ -21,10 +22,9 @@ Haben kann; Tarife mit mehr oder weniger Funktionen gibt es nicht.
 - **Updates und Backups:** Wir spielen neue Versionen ein und sichern täglich.
 - **ELSTER ohne eigene Hersteller-ID:** Voranmeldung und Erklärungen sendest du direkt aus Haben.
   Die [Hersteller-ID](einrichtung-elster.md#hersteller-id-wer-ist-hersteller), auf die man sonst
-  Wochen wartet, und ERiC bringen wir mit. Dein ELSTER-Zertifikat lädst du selbst hoch und bestätigst
+  Tage bis Wochen wartet, und ERiC bringen wir mit. Dein ELSTER-Zertifikat lädst du selbst hoch und bestätigst
   die Datenschutzhinweise der Finanzverwaltung.
 - **Hilfe zum Betrieb** per E-Mail. Steuerberatung ist das nicht.
-
 - **Server in Deutschland:** Deine Instanz läuft bei netcup im Rechenzentrum Nürnberg. Die
   verschlüsselten Backups liegen zusätzlich bei Cloudflare R2.
 
@@ -53,7 +53,8 @@ nimmst du mit:
 
 - Das [Jahresarchiv](auswertungen.md#jahresexport) und den
   [DATEV-Export](auswertungen.md#datev-export-für-die-steuerberatung) lädst du selbst herunter.
-- Auf Wunsch bekommst du ein vollständiges Backup mit seinem Schlüssel. Damit betreibst du Haben auf
+- Auf Wunsch bekommst du ein vollständiges Backup mit dem Schlüssel der Instanz und dem Passwort des
+  Backups. Damit betreibst du Haben auf
   einem eigenen Server weiter ([Wiederherstellen](installation-backup.md#wiederherstellen)).
 
 Nach dem Ende des Vertrags kannst du dich noch 30 Tage anmelden, dann löschen wir die Instanz und

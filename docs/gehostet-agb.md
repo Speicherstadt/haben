@@ -1,8 +1,8 @@
 ---
 title: "AGB für Haben gehostet"
 description: >-
-  Allgemeine Geschäftsbedingungen für den gehosteten Betrieb von Haben: Leistung, Preise, Laufzeit und
-  Kündigung, Datensicherung, Herausgabe und Löschung der Daten, Haftung.
+  AGB für den gehosteten Betrieb von Haben: Leistung, Preise, Laufzeit und Kündigung,
+  Datensicherung, Herausgabe und Löschung der Daten, Haftung.
 ---
 
 # Allgemeine Geschäftsbedingungen für „Haben gehostet“
@@ -47,10 +47,10 @@ Anbieter: Teufel-IT, Inhaber Tristan Teufel, Seestr. 2, 77815 Bühl, Deutschland
 1. Es gelten die Preise zum Zeitpunkt der Buchung. Derzeit kostet der Dienst 12,90 € im Monat oder 129,00 € im Jahr.
 2. Alle Preise sind Nettopreise. Hinzu kommt die gesetzliche Umsatzsteuer, derzeit 19 %.
 3. Das Entgelt ist im Voraus für den jeweiligen Abrechnungszeitraum (Monat oder Jahr) fällig. Der erste Abrechnungszeitraum beginnt mit der Buchung.
-4. Die Zahlung erfolgt über Stripe per SEPA-Lastschrift oder Karte. Der Kunde ermächtigt den Einzug der wiederkehrenden Entgelte von dem angegebenen Zahlungsmittel. Bei SEPA-Lastschrift wird die Frist für die Vorabankündigung auf einen Tag verkürzt.
+4. Die Zahlung erfolgt über Stripe per SEPA-Lastschrift, Karte oder einer anderen auf der Bezahlseite angebotenen Zahlungsart. Der Kunde ermächtigt den Einzug der wiederkehrenden Entgelte von dem angegebenen Zahlungsmittel. Bei SEPA-Lastschrift wird die Frist für die Vorabankündigung auf einen Tag verkürzt.
 5. Rechnungen erhält der Kunde elektronisch per E-Mail. Er kann sie außerdem über das Kundenportal abrufen.
 6. Schlägt ein Einzug fehl, versucht Stripe den Einzug mehrfach erneut. Kosten einer Rücklastschrift, die der Kunde zu vertreten hat, trägt der Kunde in der tatsächlich entstandenen Höhe.
-7. Bleibt der Einzug auch nach den Wiederholungen erfolglos, endet das Abonnement und der Anbieter darf den Zugang zur Instanz sperren. Für die Daten gilt § 10.
+7. Bleibt der Einzug auch nach den Wiederholungen erfolglos, endet der Vertrag und der Anbieter darf den Zugang zur Instanz sperren. Für die Daten gilt § 10.
 8. Der Anbieter darf die Preise mit Wirkung zum Beginn eines neuen Abrechnungszeitraums ändern. Er kündigt die Änderung mindestens sechs Wochen vorher in Textform an. Der Kunde kann den Vertrag zum Zeitpunkt des Wirksamwerdens der Änderung kündigen. Darauf weist der Anbieter in der Ankündigung hin.
 9. Der Kunde darf nur mit Forderungen aufrechnen, die unbestritten oder rechtskräftig festgestellt sind.
 
@@ -85,14 +85,14 @@ Anbieter: Teufel-IT, Inhaber Tristan Teufel, Seestr. 2, 77815 Bühl, Deutschland
 3. Für die Übermittlung an ELSTER verwendet der Kunde sein eigenes ELSTER-Zertifikat. Er lädt das Zertifikat selbst in seine Instanz hoch; es wird dort verschlüsselt gespeichert. Das Original und das zugehörige Passwort verwahrt der Kunde selbst und sorgt für die Gültigkeit des Zertifikats. Der Anbieter stellt nur die technische Übermittlung unter seiner Hersteller-ID bereit. Steuerpflichtiger und Absender der Erklärung bleibt der Kunde.
 4. Die gesetzlichen Aufbewahrungspflichten für Bücher, Aufzeichnungen und Belege, insbesondere nach § 147 AO und § 257 HGB, bleiben beim Kunden. Der Dienst ist kein Archiv, das diese Pflichten für den Kunden erfüllt. Der Kunde lädt seine Unterlagen regelmäßig und spätestens vor Vertragsende herunter und bewahrt sie selbst auf (§ 10).
 5. Der Kunde ist für die Ordnungsmäßigkeit seiner Buchführung verantwortlich, einschließlich einer Verfahrensdokumentation, soweit er dazu verpflichtet ist.
-6. Der Kunde nutzt den Dienst nur für seine eigene Buchhaltung und die seiner eigenen Unternehmen. Er überlässt den Dienst nicht Dritten zur eigenen Nutzung. Zugänge für die eigene Steuerberatung und für Beschäftigte sind erlaubt.
+6. Der Kunde nutzt eine Instanz für die Buchhaltung eines eigenen Unternehmens. Er überlässt den Dienst nicht Dritten zur eigenen Nutzung. Zugänge für die eigene Steuerberatung und für Beschäftigte sind erlaubt.
 7. Der Kunde unterlässt alles, was den Betrieb gefährdet, insbesondere Angriffe auf die Instanz, automatisierte Zugriffe in einem Umfang, der den Betrieb stört, und das Speichern rechtswidriger Inhalte.
 8. Der Kunde hält seine Kontaktdaten und Rechnungsangaben aktuell. Mitteilungen an die zuletzt genannte E-Mail-Adresse gelten als zugegangen.
 
 ## § 9 Datensicherung
 
 1. Der Anbieter sichert die Daten der Instanz täglich. Die Sicherungen werden verschlüsselt und an einem zweiten Ort getrennt vom Server gespeichert.
-2. Die Sicherungen werden 30 Tage aufbewahrt.
+2. Aufbewahrt werden die täglichen Sicherungen der letzten 14 Tage, monatliche Stände für 24 Monate und jährliche Stände für 11 Jahre, längstens bis zur Löschung nach § 10.
 3. Die Sicherungen dienen der Wiederherstellung der gesamten Instanz nach einer Störung. Ein Anspruch auf Wiederherstellung einzelner Datensätze oder eines bestimmten früheren Standes besteht nicht. Der Anbieter bemüht sich auf Anfrage darum.
 4. Daten, die seit der letzten Sicherung erfasst wurden, können bei einer Wiederherstellung verloren gehen.
 5. Der Kunde lädt wichtige Auswertungen und Exporte regelmäßig selbst herunter, insbesondere das Jahresarchiv und den DATEV-Export.
@@ -101,9 +101,9 @@ Anbieter: Teufel-IT, Inhaber Tristan Teufel, Seestr. 2, 77815 Bühl, Deutschland
 
 1. Die Daten in der Instanz gehören dem Kunden.
 2. Der Kunde kann während der Vertragslaufzeit jederzeit das Jahresarchiv und den DATEV-Export selbst aus der Anwendung herunterladen.
-3. Auf Wunsch erhält der Kunde ein vollständiges Backup seiner Instanz zusammen mit dem Schlüssel, der zur Entschlüsselung nötig ist. Der Wunsch ist in Textform bis spätestens 30 Tage nach Vertragsende zu äußern. Das Backup kann mit der frei verfügbaren Software „Haben“ auf einem eigenen Server wiederhergestellt werden.
-4. Nach Vertragsende bleibt die Instanz 30 Tage gespeichert. Der Kunde kann sich in dieser Zeit weiter anmelden und seine Daten herunterladen.
-5. 30 Tage nach Vertragsende löscht der Anbieter die Instanz und alle Sicherungen endgültig. Eine Wiederherstellung ist danach nicht mehr möglich.
+3. Auf Wunsch erhält der Kunde ein vollständiges Backup seiner Instanz zusammen mit dem Schlüssel der Instanz und dem Passwort des Backups; beide sind zum Wiederherstellen nötig. Der Wunsch ist in Textform bis spätestens 30 Tage nach Vertragsende zu äußern. Das Backup kann mit der frei verfügbaren Software „Haben“ auf einem eigenen Server wiederhergestellt werden.
+4. Nach Vertragsende bleibt die Instanz 30 Tage gespeichert. Der Kunde kann sich in dieser Zeit weiter anmelden und seine Daten herunterladen, soweit der Zugang nicht nach § 4 Abs. 7 oder § 6 Abs. 5 gesperrt ist; dann erhält er seine Daten als Backup nach Absatz 3.
+5. Nach Ablauf der 30 Tage, frühestens am 31. Tag nach Vertragsende und nicht vor der Herausgabe eines rechtzeitig verlangten Backups, löscht der Anbieter die Instanz und alle Sicherungen endgültig. Eine Wiederherstellung ist danach nicht mehr möglich.
 6. Der Anbieter weist den Kunden mit der Bestätigung der Kündigung auf die Löschung und den Termin hin.
 7. Die Aufbewahrungspflicht für die Unterlagen bleibt auch nach Vertragsende beim Kunden. Der Anbieter bewahrt für den Kunden nichts über die 30 Tage hinaus auf.
 8. Eigene Unterlagen des Anbieters über das Vertragsverhältnis, zum Beispiel Rechnungen und Schriftverkehr, bewahrt der Anbieter nach den für ihn geltenden gesetzlichen Fristen auf.
