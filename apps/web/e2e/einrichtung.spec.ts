@@ -177,6 +177,19 @@ test("Leere Belegliste: Satz mit Beispiel, Weg zum Postfach, kein Filter und kei
   await expect(page).toHaveURL(/\/einstellungen\?bereich=email/);
 });
 
+// DESIGN.md, Seitenkopf: Leert ein Filter die Liste, steht kein Knopf zum Anlegen im Leerzustand. Mit „Archivierte zeigen“
+// (archiv=true) zählen auch die archivierten Kontakte mit, die Liste ist also nur ohne jeden Kontakt leer.
+test("Leere Kontaktliste: Satz und Knopf zum Anlegen, mit Archivfilter nur der Satz (#1253)", async () => {
+  await gehe(page, "/kontakte");
+  const liste = page.getByRole("region", { name: "Kontaktliste" });
+  await expect(liste.getByText("Hier stehen deine Kunden und Lieferanten.")).toBeVisible();
+  await expect(liste.getByRole("link", { name: "Neuer Kontakt" })).toBeVisible();
+  await gehe(page, "/kontakte?archiv=true");
+  await expect(liste.getByText("Keine Kontakte, auch keine archivierten.")).toBeVisible();
+  await expect(liste.getByText("Hier stehen deine Kunden und Lieferanten.")).toHaveCount(0);
+  await expect(liste.getByRole("link", { name: "Neuer Kontakt" })).toHaveCount(0);
+});
+
 test("Am Handy ohne waagrechtes Scrollen, hell und dunkel", async () => {
   await page.setViewportSize({ width: 390, height: 844 });
   for (const modus of ["hell", "dunkel"]) {
