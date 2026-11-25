@@ -131,7 +131,7 @@ function TransferForm({ data }: { data: Data }) {
       </div>
       {data.candidates.length === 0 ? (
         <p className="muted" style={{ margin: 0 }}>
-          Keine offenen Belege, die per Bank zu bezahlen sind.
+          Keine offenen Belege, die per Bank zu bezahlen sind; neue legst du unter <Link to="/belege">Belege</Link> ab.
         </p>
       ) : (
         <div className="table">

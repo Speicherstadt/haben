@@ -71,7 +71,7 @@ function InvoicesPage() {
         {invoices.length === 0 ? (
           <>
             <p className="muted" style={{ margin: 0 }}>
-              Hier stehen die Rechnungen, die du an Kunden schreibst.
+              {inhaber ? "Hier stehen die Rechnungen, die du an Kunden schreibst." : "Hier stehen die Rechnungen an Kunden."}
             </p>
             {inhaber && (
               <Link to="/rechnungen/neu" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>

@@ -52,10 +52,6 @@ function PauschalenList() {
         Ausgaben ohne Beleg: Homeoffice-Tage, Fahrten mit dem eigenen Auto, Wege zur Betriebsstätte und Verpflegung auf Geschäftsreisen mindern den Gewinn, ohne
         dass du etwas bezahlt hast.
       </p>
-      <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
-        Haben bucht sie als Ausgabe an Privateinlage und trägt sie in die richtigen Zeilen der <Link to="/jahreserklaerung">Anlage EÜR</Link> ein. Halte fest,
-        wann du wo warst (Kalender, Fahrtenliste); das Finanzamt kann danach fragen.
-      </p>
 
       <nav className="filter-row" aria-label="Jahr wählen">
         <div className="chip-row">
@@ -100,6 +96,10 @@ function PauschalenList() {
           <h2 id="neu-heading" style={{ margin: 0, fontSize: 16 }}>
             Pauschale eintragen
           </h2>
+          <p className="muted small" style={{ margin: 0 }}>
+            Haben bucht sie als Ausgabe an Privateinlage und trägt sie in die richtigen Zeilen der <Link to="/jahreserklaerung">Anlage EÜR</Link> ein. Halte
+            fest, wann du wo warst (Kalender, Fahrtenliste); das Finanzamt kann danach fragen.
+          </p>
           <div className="mode-switch" role="group" aria-label="Art der Pauschale">
             {ARTEN.map((a) => (
               <button

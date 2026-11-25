@@ -111,7 +111,7 @@ function KontenPage() {
         </div>
       </div>
       <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
-        Die Saldenliste zeigt zu jedem Konto Eröffnung, Soll, Haben und Saldo im gewählten Zeitraum.
+        Die Saldenliste zeigt zu jedem Konto Soll, Haben und Saldo im gewählten Zeitraum, mit Eröffnung, wenn es davor schon Buchungen gab.
       </p>
 
       <div className="kpi-grid" aria-label="Kennzahlen">

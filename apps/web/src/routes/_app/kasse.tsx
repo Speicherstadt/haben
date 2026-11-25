@@ -64,6 +64,9 @@ function CashPage() {
         </div>
       </div>
       <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
+        Das Kassenbuch führt dein Bargeld: Einnahmen, Ausgaben und den Bestand.
+      </p>
+      <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
         Bar bezahlte <Link to="/belege">Belege</Link> landen beim Buchen automatisch hier; Bareinnahmen auf <Link to="/rechnungen">Rechnungen</Link> und ohne
         Rechnung, {isKapitalgesellschaft(data.rechtsform) ? "Geld vom und an den Gesellschafter" : "Einlagen, Entnahmen"} und Geld von oder zur Bank trägst du
         ein. Einträge lassen sich nur stornieren, der Bestand darf nie negativ werden.

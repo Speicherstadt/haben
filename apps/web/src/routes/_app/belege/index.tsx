@@ -109,7 +109,7 @@ function DocumentsPage() {
         )}
       </div>
       <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
-        Hier landen Eingangsrechnungen und Quittungen, die du prüfst und buchst.
+        Hier stehen Eingangsrechnungen und Quittungen, von der Prüfung bis zur Buchung.
       </p>
       {inhaber && <DocumentUpload aiAvailable={aiAvailable} />}
       {inbox ? (
