@@ -1,4 +1,4 @@
-import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_KEYS, SELF_ASSESSED_TAX_KEYS, type Cents } from "@haben/core";
+import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_KEYS, SELF_ASSESSED_TAX_KEYS, formatEuro, type Cents } from "@haben/core";
 import { z } from "zod";
 import { UserError } from "../../errors.ts";
 import type { DocumentKind } from "../../storage.ts";
@@ -95,6 +95,7 @@ const CATEGORY_LIST = Object.entries(EXPENSE_CATEGORIES)
 
 export const EXTRACTION_INSTRUCTIONS = `Du liest Eingangsbelege (Rechnungen, Quittungen) eines deutschen Freiberuflers für die Buchhaltung aus.
 Gib nur zurück, was auf dem Beleg steht; rate keine Beträge oder Nummern. Fehlt eine Angabe, setze null.
+Beträge gibst du mit zwei Nachkommastellen an, so wie sie auf dem Beleg stehen; rechne keine Zwischenwerte aus.
 Die IBAN des Rechnungsstellers nur, wenn sie als dessen Bankverbindung auf dem Beleg steht, nicht die des Empfängers oder aus einem Lastschrifttext; dazu den Textausschnitt, in dem sie steht.
 Weise die Beträge je Umsatzsteuersatz (19, 7 oder 0 %) aus. Wenn der Beleg nur einen Bruttobetrag und den Steuersatz nennt, rechne Netto und Steuer daraus.
 Wähle die passende Ausgabenkategorie:
@@ -128,22 +129,20 @@ export function decimalToCents(value: string): Cents | null {
 }
 
 /**
- * Wie decimalToCents, aber mit mehr als zwei Nachkommastellen: kaufmännisch auf Cent gerundet (#1906). Modelle rechnen
- * Zwischenwerte aus und liefern dann etwa 42,1336 €, obwohl der Beleg 42,13 € druckt; verworfen wäre der Betrag verloren.
+ * Wie decimalToCents, aber ab vier Nachkommastellen: kaufmännisch auf Cent gerundet (#1906). Modelle rechnen Zwischenwerte
+ * aus und liefern dann etwa 42,1336 €, obwohl der Beleg 42,13 € druckt; verworfen wäre der Betrag verloren. Genau drei
+ * Stellen bleiben null, weil „1.234“ auch ein Tausendertrennzeichen sein kann (#1907).
  */
 export function decimalToCentsGerundet(value: string): { cents: Cents; gerundet: boolean } | null {
   const exakt = decimalToCents(value);
   if (exakt !== null) return { cents: exakt, gerundet: false };
-  const match = /^(-)?(\d+)[.,](\d{3,})$/.exec(value.trim().replace(/\s/g, ""));
+  const match = /^(-)?(\d+)[.,](\d{4,})$/.exec(value.trim().replace(/\s/g, ""));
   if (!match) return null;
   const nachkomma = match[3] ?? "";
   const cents = Number(match[2]) * 100 + Number(nachkomma.slice(0, 2)) + (Number(nachkomma[2]) >= 5 ? 1 : 0);
   if (cents > MAX_CENTS) return null;
   return { cents: match[1] ? -cents : cents, gerundet: true };
 }
-
-/** 4213 → „42,13 €“; nur für Hinweise, keine Rechnung */
-const euro = (cents: number) => `${(Math.abs(cents) / 100).toFixed(2).replace(".", ",")} €`;
 
 /** Wandelt die Modellantwort in Belegfelder um und prüft die Summen. */
 export function toFields(extraction: Extraction): ExtractedFields {
@@ -157,7 +156,9 @@ export function toFields(extraction: Extraction): ExtractedFields {
       return [];
     }
     if (net.gerundet || tax.gerundet) {
-      warnings.push(`Betrag zu ${row.steuersatz} % mit mehr als zwei Nachkommastellen: netto ${euro(net.cents)}, Steuer ${euro(tax.cents)}, gerundet`);
+      warnings.push(
+        `Betrag zu ${row.steuersatz} % mit mehr als zwei Nachkommastellen: netto ${formatEuro(net.cents)}, Steuer ${formatEuro(tax.cents)}, gerundet`,
+      );
     }
     return [
       {
@@ -176,7 +177,7 @@ export function toFields(extraction: Extraction): ExtractedFields {
   const grossBetrag = extraction.brutto ? decimalToCentsGerundet(extraction.brutto) : null;
   const gross = grossBetrag?.cents ?? null;
   if (grossBetrag?.gerundet) {
-    warnings.push(`Gesamtbetrag mit mehr als zwei Nachkommastellen, auf ${euro(grossBetrag.cents)} gerundet`);
+    warnings.push(`Gesamtbetrag mit mehr als zwei Nachkommastellen, auf ${formatEuro(grossBetrag.cents)} gerundet`);
   }
   const sum = amounts.reduce((total, a) => total + a.net + a.tax, 0);
   if (gross !== null && Math.abs(sum) !== Math.abs(gross)) {
