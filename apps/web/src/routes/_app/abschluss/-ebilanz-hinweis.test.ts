@@ -27,7 +27,7 @@ import { Route } from "./$jahr.tsx";
 type Daten = Awaited<ReturnType<typeof getJahresabschluss>>;
 type Kapitalgesellschaft = Extract<Daten, { kapitalgesellschaft: true }>;
 
-const HINWEIS = "ERiC ist nicht eingerichtet. Prüfen und Senden laufen simuliert, nichts geht an das Finanzamt.";
+const HINWEIS = "ERiC ist nicht eingerichtet";
 const SENDEKASTEN = "E-Bilanz übermitteln";
 
 const ebilanz = (year: number, issues: NonNullable<Kapitalgesellschaft["ebilanz"]>["issues"] = []): NonNullable<Kapitalgesellschaft["ebilanz"]> => ({
