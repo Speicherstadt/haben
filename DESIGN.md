@@ -179,16 +179,18 @@ Die Grenze von 7 Tagen ist dieselbe wie auf der Seite Fristen. Was nur wartet, o
 
 Jede Seite beginnt mit `.page-head` als direktem Kind von `<main>`: Titel, Status und Hauptaktionen. Hat die ganze Seite einen Status (Rechnung, Angebot, Umsatzsteuer-Voranmeldung), steht er neben dem Titel (`.title-with-status`), damit er mit dem Kopf sichtbar bleibt. Er bleibt beim Scrollen stehen (#356).
 
-Der Eyebrow über dem Titel einer Seite in einer Menügruppe ist der Name dieser Gruppe, für die Steuerberatung der ihres Menüs (`menueGruppe` in `lib/menue-gruppe.ts`, nie von Hand getippt; `lib/menue-gruppe.test.ts` prüft beide Menülisten). Davon ausgenommen sind die Weiterleitungen (Jahresabschluss, Jahreserklärung, Umsatzsteuer): Der Eyebrow steht von Hand auf ihrer Zielseite. Ein Fachbegriff, der Orientierung gibt, steht stattdessen in einem Satz unter dem Kopf (`<p className="muted small">`); eine längere Einleitung, die es auf einer Seite schon gibt, bleibt, und der Begriff steht dann in ihrem ersten Satz oder in einem eigenen davor. Die Tabs Mahnwesen und Wiederkehrend der Rechnungen zeigen „Rechnungen › Mahnwesen“ und „Rechnungen › Wiederkehrend“, die Elternseite als Link.
-
-Eine leere Liste, die man von Hand füllt, nennt kurz, was hier entsteht. Hat der Seitenkopf einen Knopf zum Anlegen, steht derselbe Knopf noch einmal im Leerzustand, nur für den, der ihn im Kopf sieht, und nicht, wenn ein Filter (Rolle, Archiv, Suche) die Liste leert; Jahr und Monat zählen nicht als Filter. Hat der Kopf keinen, nennt der Satz den Ort (Formular, Karte, Tab oder Link). Ausnahmen:
-
-- Belege: Der Leerzustand zeigt „Postfach für Belege einrichten“ als zweiten Weg, nicht als Wiederholung eines Kopfknopfs.
-- Bank: Der Kopf hat „Konto hinzufügen“ und „CSV / CAMT importieren“; der Leerzustand erklärt den Weg ohne Knopf.
-
 Seine gemessene Höhe steht in `--page-head-height` (`usePageHeadHeight` in `lib/use-page-head.ts`), seine Unterkante samt Handy-Navigation in `--below-head`. Was darunter ebenfalls stehen bleibt (Unternavigation, Belegansicht, Tabellenköpfe, Sprungleisten), nimmt `top: var(--below-head)` statt eines festen Abstands; `scroll-padding-top` hält Sprungziele und Felder mit Fokus unter dem Kopf.
 
 Auf dem Handy steht der Kopf kompakt: die Aktionen in einer Zeile, die seitlich scrollt; im Mahnungseditor (`.editor-actions`) und bei Horizont und Schalter der Liquiditätsvorschau (`.liq-wahl`) brechen sie um, damit nichts abgeschnitten steht. Im Rechnungs- und Angebotseditor (`InvoiceEditor`, #396, #355 Variante E) bleiben die Aktionen ab 861 px im Seitenkopf. Unter 861 px zeigt der Seitenkopf nur den Titel, und alle Aktionen wandern in die feste Leiste `.action-bar` (`ActionBar`) am Ende von `<main>`: das Überlaufmenü `⋯` (`MoreActionsMenu`, Menu Button nach WAI-ARIA APG) links neben `PreviewButton`, gefolgt von „Entwurf speichern“ und „Festschreiben“. Ihre gemessene Höhe steht in `--action-bar-height`, `scroll-padding-bottom` hält Felder mit Fokus über ihr.
+
+Der Eyebrow über dem Titel einer Seite in einer Menügruppe ist der Name dieser Gruppe, für die Steuerberatung der ihres Menüs (`menueGruppe` in `lib/menue-gruppe.ts`, nie von Hand getippt; `lib/menue-gruppe.test.ts` prüft beide Menülisten). Ausnahmen:
+
+- Die Weiterleitungen (Jahresabschluss, Jahreserklärung, Umsatzsteuer): Der Eyebrow steht von Hand auf ihrer Zielseite.
+- Die Tabs Mahnwesen und Wiederkehrend der Rechnungen zeigen „Rechnungen › Mahnwesen“ und „Rechnungen › Wiederkehrend“, die Elternseite als Link.
+
+Ein Fachbegriff, der Orientierung gibt, steht nicht im Eyebrow, sondern in einem Satz unter dem Kopf (`<p className="muted small">`); eine längere Einleitung, die es auf einer Seite schon gibt, bleibt, und der Begriff steht dann in ihrem ersten Satz oder in einem eigenen davor.
+
+Eine leere Liste, die man von Hand füllt, nennt kurz, was hier entsteht. Hat der Seitenkopf einen Knopf zum Anlegen, steht derselbe Knopf noch einmal im Leerzustand, nur für den, der ihn im Kopf sieht, und nicht, wenn ein Filter (Rolle, Archiv, Suche) die Liste leert; Jahr und Monat zählen nicht als Filter. Hat der Kopf keinen, nennt der Satz den Ort (Formular, Karte, Tab oder Link); bei den Belegen kommt für den Inhaber ohne Postfach der Knopf „Postfach für Belege einrichten“ dazu. Eine Ausnahme: Die Bank hat im Kopf „Konto hinzufügen“ und „CSV / CAMT importieren“, der Leerzustand erklärt den Weg ohne Knopf.
 
 Der Kontaktdialog (`NewContactDialog`) folgt demselben Muster: Titel in Seitentitelgröße oben und die Knöpfe unten stehen, nur das Formular dazwischen scrollt; der Dialog ist selbst die Karte, das Formular darin hat keinen eigenen Rahmen. Formular-Dialoge laufen über `FormDialog`, und der setzt Rand, Abstände und die stehende Knopfzeile selbst: Das Formular darin ist ein schlichtes `<form>` mit Feldern und als letztem Kind einer `.actions`-Zeile, ohne eigene Klassen für Rand oder Fußzeile. Abschnitte (`form-section`), auch in dem `fieldset-plain`, das die Felder beim Speichern sperrt (siehe Gesperrte Knöpfe), und die Knopfzeile reichen bis an den Rand des Dialogs.
 
