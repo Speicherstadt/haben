@@ -55,10 +55,14 @@ function abschnitt(body: string | null): string | null {
   return zeilen.slice(start + 1, ende < 0 ? undefined : ende).join("\n");
 }
 
-/** Der Name als Ganzes, nicht als Teil eines anderen Namens oder Worts (`pg` nicht in `@types/pg` oder „Upgrade“) */
+/**
+ * Der Name als Ganzes, nicht als Teil eines anderen Namens oder Worts (`pg` nicht in `@types/pg`, `pg-boss` oder
+ * „Upgrade“). Ein Bindestrich vor einem Großbuchstaben beginnt ein deutsches Wort („pg-Treiber“): Paketnamen auf npm
+ * sind klein geschrieben.
+ */
 function genannt(text: string, name: string): boolean {
   const zeichen = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(^|[^\\w@/.-])${zeichen}($|[^\\w/-])`).test(text);
+  return new RegExp(`(^|[^\\w@/.-])${zeichen}($|[^\\w/-]|-(?=[A-ZÄÖÜ]))`).test(text);
 }
 
 /** Ohne Beschreibungsprüfung (Bots wie Renovate, lokal ohne --titel) nur der Hinweis, ohne Fehler */
