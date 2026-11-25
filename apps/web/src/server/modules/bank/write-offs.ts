@@ -100,7 +100,12 @@ async function skontoErhalten(
   if (doc.payment !== "bank") throw new BankError("Der Beleg ist privat oder bar bezahlt; dort gibt es nichts auszubuchen.");
   await assertNotCancelled(tx, doc.id);
   if (doc.reverseCharge) throw new BankError("Skonto auf Belege mit § 13b oder innergemeinschaftlichem Erwerb wird nicht unterstützt.");
-  if (doc.privateShare > 0) throw new BankError("Skonto auf Belege mit Privatanteil wird nicht unterstützt.");
+  // Mit Aufteilung steht der Privatanteil in den Zeilen, documents.private_share ist dann 0 (#1914)
+  const splits = await tx
+    .select({ privateShare: schema.documentSplits.privateShare })
+    .from(schema.documentSplits)
+    .where(eq(schema.documentSplits.documentId, doc.id));
+  if (doc.privateShare > 0 || splits.some((s) => s.privateShare > 0)) throw new BankError("Skonto auf Belege mit Privatanteil wird nicht unterstützt.");
   if (doc.category === "anlage") throw new BankError("Skonto auf Anlagegüter mindert die Anschaffungskosten und wird nicht unterstützt.");
   const open = documentOpen(doc.gross, await settledOn(tx, "document_id", doc.id));
   const amount = input.amount ?? open;

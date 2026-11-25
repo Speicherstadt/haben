@@ -56,7 +56,7 @@ Die Entscheidungen stehen in einer eigenen, nur anhängbaren Tabelle mit Eintrag
 
 ### Skonto
 
-Skonto bietet Haben nur an, wenn die E-Rechnung es in den Zahlungsbedingungen (BT-20) so angibt, wie XRechnung es vorschreibt (Regel BR-DE-18): `#SKONTO#TAGE=7#PROZENT=2.00#`, wahlweise mit `#BASISBETRAG=…#`. Bei mehreren Stufen gilt die höchste, deren Frist am Ausführungsdatum noch läuft; die Frist zählt ab dem Rechnungsdatum. Dann steht unter dem Lieferanten ein Haken **2,00 % Skonto bis … abziehen**. Ohne Skontoangabe, bei schon teilweise bezahlten Belegen und dort, wo der Bankabgleich kein erhaltenes Skonto buchen kann (§ 13b, Privatanteil, Anlagegut), gibt es den Haken nicht. Nach der Abbuchung buchst du den Rest im Bankabgleich mit **Rest … als erhaltenes Skonto** aus ([Rest ausbuchen](bank.md#rest-ausbuchen-skonto-und-forderungsausfall)).
+Skonto bietet Haben nur an, wenn die E-Rechnung es in den Zahlungsbedingungen (BT-20) so angibt, wie XRechnung es vorschreibt (Regel BR-DE-18): `#SKONTO#TAGE=7#PROZENT=2.00#`, wahlweise mit `#BASISBETRAG=…#`. Bei mehreren Stufen gilt die höchste, deren Frist am Ausführungsdatum noch läuft; die Frist zählt ab dem Rechnungsdatum. Dann steht unter dem Lieferanten ein Haken **2,00 % Skonto bis … abziehen**. Ohne Skontoangabe, bei schon teilweise bezahlten Belegen und dort, wo der Bankabgleich kein erhaltenes Skonto buchen kann (§ 13b, Privatanteil am Beleg oder in einer Aufteilungszeile, Anlagegut), gibt es den Haken nicht. Nach der Abbuchung buchst du den Rest im Bankabgleich mit **Rest … als erhaltenes Skonto** aus ([Rest ausbuchen](bank.md#rest-ausbuchen-skonto-und-forderungsausfall)).
 
 ### Vermerk am Beleg
 

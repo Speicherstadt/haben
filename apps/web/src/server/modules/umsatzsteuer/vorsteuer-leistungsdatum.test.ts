@@ -255,8 +255,13 @@ describe.skipIf(!testDatabaseUrl)("Vorsteuer nach Leistungsdatum: Nebenbücher (
     expect((await monat(12)).kz66).toBe(308);
   });
 
-  // #1914: Mit Aufteilung trägt jede Zeile ihren Anteil; Kz 66 zählt im Monat der Ausführung nur den betrieblichen Teil
-  it("Aufteilung mit Privatanteil je Zeile: Kz 66 nur mit dem betrieblichen Teil, im Monat der Ausführung", async () => {
+  /*
+   * #1914: Mit Aufteilung trägt jede Zeile ihren Anteil. Die tragende Zusicherung ist die Zeile unter `zeilen`, also die
+   * Quellen unter Kz 66: Internet 25 % privat ergibt 1.500 € netto und 285 € Vorsteuer, Telefon voll 2.000 € und 380 €,
+   * zusammen 3.500 € und 665 € statt der vollen 4.000 € und 760 €. Kz 66 selbst kommt aus dem Journal und war auch vor
+   * der Reparatur grün; die Zusicherung dazu bleibt als Kontrolle.
+   */
+  it("Aufteilung mit Privatanteil je Zeile: die Quellen unter Kz 66 tragen 3.500 € netto und 665 € Vorsteuer, im Monat der Ausführung", async () => {
     await firma();
     const id = await beleg({
       datum: "2026-11-20",
@@ -272,9 +277,10 @@ describe.skipIf(!testDatabaseUrl)("Vorsteuer nach Leistungsdatum: Nebenbücher (
     await zahlung(id, -4_760, "2027-01-15");
 
     expect((await monat(11)).kz66).toBe(0);
-    // Internet 25 % privat: 1.500 € netto und 285 € Vorsteuer, Telefon voll 2.000 € und 380 €
-    expect((await monat(12)).kz66).toBe(665);
+    // Die Quellen unter Kz 66: Internet 25 % privat mit 1.500 € netto und 285 € Vorsteuer, Telefon voll mit 2.000 € und 380 €
     expect((await monat(12)).zeilen).toEqual([{ date: "2026-12-31", tax: 665, base: 3_500 }]);
+    // Kontrolle: Kz 66 kommt aus dem Journal und war auch vor der Reparatur grün
+    expect((await monat(12)).kz66).toBe(665);
     expect((await monat(1, 2027)).kz66).toBe(0);
   });
 

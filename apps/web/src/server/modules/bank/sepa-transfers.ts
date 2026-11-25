@@ -76,6 +76,16 @@ function payeeAccount(
   return { iban, ibanSource, problem, warning, ibanDecisionNeeded: false };
 }
 
+/** Belege, deren Aufteilungszeilen einen Privatanteil tragen (#1914); dort steht documents.private_share auf 0 */
+async function splitPrivateDocuments(ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const rows = await db
+    .select({ documentId: schema.documentSplits.documentId, privateShare: schema.documentSplits.privateShare })
+    .from(schema.documentSplits)
+    .where(inArray(schema.documentSplits.documentId, ids));
+  return new Set(rows.filter((row) => row.privateShare > 0).map((row) => row.documentId));
+}
+
 /** Offene Belege, die per Bank bezahlt werden, mit Konto des Lieferanten; älteste Fälligkeit zuerst */
 export async function transferCandidates(): Promise<TransferCandidate[]> {
   const documents = await db
@@ -94,7 +104,13 @@ export async function transferCandidates(): Promise<TransferCandidate[]> {
     .from(schema.documents)
     .where(and(eq(schema.documents.status, "gebucht"), eq(schema.documents.payment, "bank"), documentNotCancelled()));
   const ids = documents.map((d) => d.id);
-  const [paid, payees, transfers, decisions] = await Promise.all([documentPayments(ids), documentPayees(ids), transfersByDocument(ids), ibanDecisions(ids)]);
+  const [paid, payees, transfers, decisions, splitsMitAnteil] = await Promise.all([
+    documentPayments(ids),
+    documentPayees(ids),
+    transfersByDocument(ids),
+    ibanDecisions(ids),
+    splitPrivateDocuments(ids),
+  ]);
   return documents
     .map((doc) => {
       const paidSoFar = paid.get(doc.id) ?? 0;
@@ -102,7 +118,13 @@ export async function transferCandidates(): Promise<TransferCandidate[]> {
       const payee = payees.get(doc.id);
       const account = payeeAccount(payee, decisions.get(doc.id) ?? []);
       // Erhaltenes Skonto bucht Haben nur ohne § 13b, Privatanteil und Anlagegut (write-offs.ts, writeOff); angeboten nur auf einen noch ganz offenen Beleg
-      const skontoAllowed = paidSoFar === 0 && doc.reverseCharge === null && doc.privateShare === 0 && doc.category !== "anlage" && doc.documentDate !== null;
+      const skontoAllowed =
+        paidSoFar === 0 &&
+        doc.reverseCharge === null &&
+        doc.privateShare === 0 &&
+        !splitsMitAnteil.has(doc.id) &&
+        doc.category !== "anlage" &&
+        doc.documentDate !== null;
       return {
         documentId: doc.id,
         supplierName: doc.supplierName,
