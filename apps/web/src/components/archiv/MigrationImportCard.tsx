@@ -21,6 +21,7 @@ import { SevdeskFileFacts } from "./Dateistand.tsx";
 import { ImportWaitNotice } from "./FastbillTeile.tsx";
 import { Field } from "../Field.tsx";
 
+import { ausgelassenText } from "./ausgelassen-text.ts";
 import { type ConnectedSource, type ImportRow, SOURCES } from "./migration-quellen.ts";
 
 /* Abruf aus einer Quelle mit Fortschritt und Abbruch (Migration.tsx) */
@@ -168,9 +169,6 @@ function ImportProgress({
   running: boolean;
 }) {
   const accountable = source === "accountable";
-  // Was die Belegliste übergeht (#1504): Entwürfe, die keine Belege sind
-  const ignored = progress.ignored;
-  const ignoredText = ignored && ignored.drafts > 0 ? `${ignored.drafts} ${ignored.drafts === 1 ? "Entwurf" : "Entwürfe"}` : "";
   return (
     <div className="stack" style={{ gap: 12 }} aria-live="polite">
       <div className="small">
@@ -258,11 +256,7 @@ function ImportProgress({
           {run.error}
         </div>
       )}
-      {ignoredText && (
-        <p className="small muted" style={{ margin: 0 }}>
-          Übergangen, kein Beleg: {ignoredText}
-        </p>
-      )}
+      <OmittedVouchers progress={progress} />
       {progress.failed.length > 0 && (
         <details>
           <summary className="small">{progress.failed.length} offene Punkte beim Abruf</summary>
@@ -277,4 +271,13 @@ function ImportProgress({
       )}
     </div>
   );
+}
+
+function OmittedVouchers({ progress }: { progress: NonNullable<ImportRow["progress"]> }) {
+  const text = ausgelassenText(progress);
+  return text ? (
+    <p className="small muted" style={{ margin: 0 }}>
+      {text}
+    </p>
+  ) : null;
 }

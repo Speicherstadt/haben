@@ -4,13 +4,13 @@ import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
 describe.skipIf(!testDatabaseUrl)("Unvollständige sevDesk-Zahlungshistorie (Postgres)", () => {
   let sql: postgres.Sql;
-  let archive: typeof import("./lexoffice.ts");
+  let archive: typeof import("./umzug-abgleich.ts") & typeof import("./umzug-belege.ts") & typeof import("./umzug-umsatzsteuer.ts");
   let legacy: typeof import("./legacy-open.ts");
   let voucherId: string;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    archive = await import("./lexoffice.ts");
+    archive = { ...(await import("./umzug-abgleich.ts")), ...(await import("./umzug-belege.ts")), ...(await import("./umzug-umsatzsteuer.ts")) };
     legacy = await import("./legacy-open.ts");
     await sql`insert into company (id, name, strasse, plz, ort, email, telefon, steuernummer, ust_id, bundesland, iban, versteuerung, kontenrahmen)
       values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '+49 941 1', '198/113/10010',

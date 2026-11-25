@@ -7,7 +7,7 @@ const REVERSE_CHARGE_KURZ =
 
 /** Der Normalfall; der Satz steht im Hinweis statt in der Option, damit sie am Handy nicht abgeschnitten wird */
 const LIEFERANT_KURZ =
-  "Mit oder ohne deutsche Umsatzsteuer auf der Rechnung, auch bei Kleinunternehmern und 0 %. Vorsteuer gibt es, soweit die Steuer ausgewiesen ist.";
+  "Mit oder ohne deutsche Umsatzsteuer auf der Rechnung, auch bei Kleinunternehmern und 0 %. Vorsteuer gibt es, soweit die Steuer ausgewiesen ist und du sie abziehen darfst.";
 
 const ERKLAERUNG: Record<SelfAssessedTax, { kurz: string; details: string }> = {
   eu: {

@@ -76,9 +76,9 @@ Ein Jahr aus dem Export wird bei **Soll-Versteuerung** vollständig, wenn alle P
 Verglichen an einem Konto mit Buchhaltungsversion 1.0 und SKR03, Jahr 2024: 210 Belege aus dem Export gegen 218 Rechnungen, Belege und Gutschriften aus der API ([#472](https://github.com/Speicherstadt/haben/issues/472)). Version 2.0 ist nicht verglichen.
 
 - **Vollständigkeit:**
-  - Jeder Beleg aus dem Export hat seine Entsprechung in der API, mit gleichem Datum.
-  - Umgekehrt fehlen nur Vorlagen wiederkehrender Belege (in der API `voucherType` RV); sie sind keine Belege.
-  - Belege auf Darlehens-, Privat- und Zinskonten stehen mit Netto und Steuer in der Beleginfo im Stapel, aber ohne Belegbild (19 von 218).
+    - Jeder Beleg aus dem Export hat seine Entsprechung in der API, mit gleichem Datum.
+    - Umgekehrt fehlen nur Vorlagen wiederkehrender Belege (in der API `voucherType` RV); sie sind keine Belege.
+    - Belege auf Darlehens-, Privat- und Zinskonten stehen mit Netto und Steuer in der Beleginfo im Stapel, aber ohne Belegbild (19 von 218).
 - **Belegbilder:** Der Export hat auch Bilder, wo die API keine Datei meldet (8 Belege, alle zu einem wiederkehrenden Beleg).
 - **Belegnummern:** Wiederkehrende Belege teilen ihre Nummer (bis zu 9 Belege je Nummer); erst das Datum unterscheidet sie. Zeichen außerhalb des DATEV-Zeichensatzes fehlen (siehe [Schritt 3, 5 und 6](#schritt-3-5-und-6)).
 - **Fremdwährung:** Im Umsatz steht der Betrag in der Fremdwährung, Netto und Steuer in der Beleginfo stehen in Euro. `Kurs` und `Basis-Umsatz` sind leer.

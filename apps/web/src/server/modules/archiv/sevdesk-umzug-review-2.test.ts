@@ -29,14 +29,22 @@ type Row = {
 };
 
 describe.skipIf(!testDatabaseUrl)("Zweites Review #472", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") &
+    typeof import("./umzug-abgleich.ts") &
+    typeof import("./umzug-belege.ts") &
+    typeof import("./umzug-umsatzsteuer.ts");
   let legacy: typeof import("./legacy-open.ts");
   let archive: typeof import("./archive.ts");
   let sql: postgres.Sql;
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = {
+      ...(await import("./lexoffice.ts")),
+      ...(await import("./umzug-abgleich.ts")),
+      ...(await import("./umzug-belege.ts")),
+      ...(await import("./umzug-umsatzsteuer.ts")),
+    };
     legacy = await import("./legacy-open.ts");
     archive = await import("./archive.ts");
   }, 30_000);

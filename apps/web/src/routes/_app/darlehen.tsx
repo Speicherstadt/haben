@@ -6,6 +6,8 @@ import { NoticeBanner } from "../../components/NoticeBanner.tsx";
 import { ScrollTable } from "../../components/ScrollTable.tsx";
 import { formatDate } from "../../lib/format.ts";
 import { useAction } from "../../lib/use-action.ts";
+import { useSubmitCheck } from "../../lib/use-submit-check.ts";
+import { darlehenFehler } from "./-darlehen-pruefung.ts";
 import { createLoanFn, getLoans } from "../../server/functions/darlehen.ts";
 import styles from "../../styles/auswertungen.css?url";
 import { Field } from "../../components/Field.tsx";
@@ -92,27 +94,32 @@ function NeuesDarlehen({ data }: { data: Data }) {
   const router = useRouter();
   const create = useServerFn(createLoanFn);
   const action = useAction();
+  const [name, setName] = useState("");
   const [restschuld, setRestschuld] = useState("");
+  const [stichtag, setStichtag] = useState("");
+  const pruefung = useSubmitCheck(darlehenFehler({ name, restschuld, stichtag }));
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!pruefung.check()) return;
     const form = event.currentTarget;
     const values = new FormData(form);
-    const openingBalance = restschuld.trim() === "" ? 0 : parseEuro(restschuld);
-    if (openingBalance === null) return;
+    const openingBalance = restschuld.trim() === "" ? 0 : (parseEuro(restschuld) ?? 0);
     void action.run(async () => {
       await create({
         data: {
-          name: String(values.get("name") ?? ""),
+          name: name.trim(),
           lender: values.get("lender") as Darlehensgeber,
           term: values.get("term") as DarlehenLaufzeit,
           purpose: values.get("purpose") as DarlehenZweck,
           openingBalance,
-          openingDate: openingBalance > 0 ? String(values.get("openingDate") ?? "") || null : null,
+          openingDate: openingBalance > 0 ? stichtag : null,
         },
       });
       form.reset();
+      setName("");
       setRestschuld("");
+      setStichtag("");
       await router.invalidate();
     }, "Darlehen angelegt.");
   }
@@ -122,8 +129,20 @@ function NeuesDarlehen({ data }: { data: Data }) {
       <h2 id="neu-heading" style={{ margin: 0, fontSize: 16 }}>
         Darlehen anlegen
       </h2>
-      <form className="stack" style={{ gap: 12 }} onSubmit={submit} aria-labelledby="neu-heading">
-        <Field label="Name">{(control) => <input {...control} name="name" required maxLength={100} placeholder="z. B. Hausbank Investitionskredit" />}</Field>
+      <form ref={pruefung.form} noValidate className="stack" style={{ gap: 12 }} onSubmit={submit} aria-labelledby="neu-heading">
+        <Field label="Name" error={pruefung.error("name")}>
+          {(control) => (
+            <input
+              {...control}
+              name="name"
+              required
+              maxLength={100}
+              placeholder="z. B. Hausbank Investitionskredit"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          )}
+        </Field>
         <div className="form-row cols-3">
           <Field label="Darlehensgeber">
             {(control) => (
@@ -160,20 +179,11 @@ function NeuesDarlehen({ data }: { data: Data }) {
           </Field>
         </div>
         <div className="form-row cols-2">
-          <Field label="Restschuld bei Übernahme (€, leer bei einem neuen Darlehen)">
-            {(control) => (
-              <input
-                {...control}
-                className="mono"
-                inputMode="decimal"
-                value={restschuld}
-                onChange={(e) => setRestschuld(e.target.value)}
-                aria-invalid={restschuld.trim() !== "" && parseEuro(restschuld) === null}
-              />
-            )}
+          <Field label="Restschuld bei Übernahme (€, leer bei einem neuen Darlehen)" error={pruefung.error("restschuld")}>
+            {(control) => <input {...control} className="mono" inputMode="decimal" value={restschuld} onChange={(e) => setRestschuld(e.target.value)} />}
           </Field>
-          <Field label="Stichtag der Restschuld">
-            {(control) => <input {...control} name="openingDate" type="date" disabled={restschuld.trim() === ""} />}
+          <Field label="Stichtag der Restschuld" error={pruefung.error("stichtag")}>
+            {(control) => <input {...control} type="date" disabled={restschuld.trim() === ""} value={stichtag} onChange={(e) => setStichtag(e.target.value)} />}
           </Field>
         </div>
         <p className="small muted" style={{ margin: 0 }}>

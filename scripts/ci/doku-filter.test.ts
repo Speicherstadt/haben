@@ -53,7 +53,7 @@ const BESTAND = {
 
 // Baut wie GitHub einen Merge-Commit, dessen erster Elternteil die Basis ist, und führt den Filter darauf aus; gibt
 // die Ausgaben des Schritts zurück (code, einvoice, deploy)
-const filterFuer = (aenderung: Aenderung): Record<string, string> => {
+const filterFuer = (aenderung: Aenderung, umgebung: Record<string, string> = {}): Record<string, string> => {
   const cwd = mkdtempSync(join(tmpdir(), "doku-filter-"));
   ordner.push(cwd);
   git(cwd, "init", "-q", "-b", "main");
@@ -73,7 +73,7 @@ const filterFuer = (aenderung: Aenderung): Record<string, string> => {
   git(cwd, "merge", "-q", "--no-ff", "-m", "Merge", "pr");
 
   const ausgabe = join(cwd, ".git", "github-output");
-  execFileSync("bash", ["-c", filterSkript()], { cwd, env: { ...process.env, GITHUB_OUTPUT: ausgabe }, stdio: "pipe" });
+  execFileSync("bash", ["-c", filterSkript()], { cwd, env: { ...process.env, ...umgebung, GITHUB_OUTPUT: ausgabe }, stdio: "pipe" });
   return Object.fromEntries(
     readFileSync(ausgabe, "utf8")
       .trim()
@@ -123,5 +123,22 @@ describe("Filter des Jobs changes in ci.yml", () => {
     const ausgabe = filterFuer(aenderung);
     expect(ausgabe.einvoice).toBe(einvoice);
     expect(ausgabe.deploy).toBe(deploy);
+  });
+
+  // container und dev-compose im Pull Request nur bei Image, Compose-Datei oder Abhängigkeiten
+  it.each([
+    ["Code in apps/web", { schreiben: { "src/a.ts": "neu\n" } }, "false"],
+    ["Containerfile", { schreiben: { Containerfile: "neu\n" } }, "true"],
+    ["compose.yml", { schreiben: { "compose.yml": "neu\n" } }, "true"],
+    ["deploy/", { schreiben: { "deploy/backup/backup.sh": "neu\n" } }, "true"],
+    ["scripts/container/", { schreiben: { "scripts/container/laufzeit.ts": "neu\n" } }, "true"],
+    ["bun.lock", { schreiben: { "bun.lock": "neu\n" } }, "true"],
+  ] as [string, Aenderung, string][])("%s: bild=%s", (_name, aenderung, bild) => {
+    expect(filterFuer(aenderung, { EREIGNIS: "pull_request" }).bild).toBe(bild);
+  });
+
+  it("prüft auf main alles, wenn der Stand vor dem Push fehlt, und lässt bild leer", () => {
+    const ausgabe = filterFuer({ schreiben: { "src/a.ts": "neu\n" } }, { EREIGNIS: "push", VORHER: "0000000000000000000000000000000000000000" });
+    expect(ausgabe).toEqual({ code: "true", einvoice: "true", deploy: "true" });
   });
 });

@@ -3,7 +3,6 @@
 # ones that are gone or small again.
 apps/web/src/server/db/schema.ts
 apps/web/src/server/modules/archiv/legacy-open.ts
-apps/web/src/server/modules/archiv/lexoffice.ts
 apps/web/src/server/modules/bank/bank-sync.ts
 apps/web/src/server/modules/belege/documents.ts
 apps/web/src/server/modules/jahreserklaerung/annual.ts

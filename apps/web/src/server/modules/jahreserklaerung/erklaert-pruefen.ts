@@ -37,10 +37,18 @@ export interface ErklaertAbweichung {
 
 const NICHT_AUS_DEM_JOURNAL = new Set(["vorauszahlungen", "abschluss"]);
 
+/**
+ * Felder, die Haben erst später übermittelt: verglichen nur, wenn die Erklärung sie festhält. Kz 650 der
+ * Umsatzsteuererklärung (E3106101, #1809) wiederholt nur, was die Umsätze zu 19 und 7 % schon mindern, und ändert keine
+ * Steuer; vorher übermittelte Erklärungen haben sie nicht (wie Kz 50 im Abgleich der Voranmeldungen, gesendet-pruefen.ts).
+ */
+const NUR_WENN_FESTGEHALTEN = new Set(["kz50"]);
+
 /** Felder, die festgehalten anders sind als heute gerechnet, ohne `ausser` */
 function vergleich(gespeichert: Record<string, number>, heute: Record<string, number>, ausser: ReadonlySet<string>) {
   return [...new Set([...Object.keys(gespeichert), ...Object.keys(heute)])]
-    .filter((feld) => !ausser.has(feld) && (gespeichert[feld] ?? 0) !== (heute[feld] ?? 0))
+    .filter((feld) => !ausser.has(feld) && (feld in gespeichert || !NUR_WENN_FESTGEHALTEN.has(feld)))
+    .filter((feld) => (gespeichert[feld] ?? 0) !== (heute[feld] ?? 0))
     .map((feld) => ({ feld, erklaert: gespeichert[feld] ?? 0, journal: heute[feld] ?? 0 }));
 }
 

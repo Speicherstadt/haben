@@ -83,7 +83,10 @@ function fakeApi(options: { failVoucher?: boolean; contacts?: Record<string, unk
 }
 
 describe.skipIf(!testDatabaseUrl)("Lexoffice-Übernahme (Postgres)", () => {
-  let lexoffice: typeof import("./lexoffice.ts");
+  let lexoffice: typeof import("./lexoffice.ts") &
+    typeof import("./umzug-abgleich.ts") &
+    typeof import("./umzug-belege.ts") &
+    typeof import("./umzug-umsatzsteuer.ts");
   let archive: typeof import("./archive.ts");
   let importPkg: typeof import("@haben/import");
   let sql: postgres.Sql;
@@ -100,7 +103,12 @@ describe.skipIf(!testDatabaseUrl)("Lexoffice-Übernahme (Postgres)", () => {
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    lexoffice = await import("./lexoffice.ts");
+    lexoffice = {
+      ...(await import("./lexoffice.ts")),
+      ...(await import("./umzug-abgleich.ts")),
+      ...(await import("./umzug-belege.ts")),
+      ...(await import("./umzug-umsatzsteuer.ts")),
+    };
     archive = await import("./archive.ts");
     importPkg = await import("@haben/import");
   }, 30_000);

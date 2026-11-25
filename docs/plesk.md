@@ -82,18 +82,19 @@ Bei der Subdomain unter **Einstellungen für Apache & nginx**:
    einmal. Plesk schreibt daraus `client_max_body_size`; die Zeile gehört deshalb nicht unten dazu.
 3. In **Zusätzliche nginx-Anweisungen** eintragen:
 
-   ```nginx
-   proxy_read_timeout 300s;
-   add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-   add_header X-Content-Type-Options nosniff always;
-   add_header Referrer-Policy same-origin always;
-   add_header X-Frame-Options SAMEORIGIN always;
-   ```
+    ```nginx
+    proxy_read_timeout 300s;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy same-origin always;
+    add_header X-Frame-Options SAMEORIGIN always;
+    ```
 
-   Eine Übermittlung an ELSTER wartet in der Anfrage auf ERiC; mit dem Standard von 60 Sekunden bräche sie ab. Was die
-   Header bewirken, steht unter [Eigener Reverse Proxy](installation.md#eigener-reverse-proxy). `proxy_set_header`
-   brauchst du hier nicht: Die Proxy-Regel aus dem nächsten Schritt setzt `Host` und `X-Forwarded-For` selbst, und
-   Zeilen auf dieser Ebene würden nginx in ihrem Block ohnehin nicht übernehmen.
+    Eine Übermittlung an ELSTER wartet in der Anfrage auf ERiC; mit dem Standard von 60 Sekunden bräche sie ab. Was die
+    Header bewirken, steht unter [Eigener Reverse Proxy](installation.md#eigener-reverse-proxy). `proxy_set_header`
+    brauchst du hier nicht: Die Proxy-Regel aus dem nächsten Schritt setzt `Host` und `X-Forwarded-For` selbst, und
+    Zeilen auf dieser Ebene würden nginx in ihrem Block ohnehin nicht übernehmen.
+
 4. **Übernehmen**.
 
 ## Proxy-Regel

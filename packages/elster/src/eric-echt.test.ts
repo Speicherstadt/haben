@@ -89,6 +89,8 @@ const alleKennzahlen: Omit<UstvaXmlInput["figures"], "kz83"> = {
   kz61: 12_800,
   // Entstandene Einfuhrumsatzsteuer (Bescheid des Zolls)
   kz62: 38_000,
+  // Minderung bei Uneinbringlichkeit, in Kz 81 enthalten (#1267)
+  kz50: 200_000,
 };
 
 // ---------------------------------------------------------------------------
@@ -362,6 +364,7 @@ const faelle: [string, () => string][] = [
   ],
   ["UStVA Erstattung", ustva(2026, { kz81: 0, kz86: 0, kz66: 1_200 })],
   ["UStVA Einfuhrumsatzsteuer", ustva(2026, { kz81: 100_000, kz86: 0, kz66: 1_900, kz62: 38_000 })],
+  ["UStVA Forderungsausfall (Kz 50, #1267)", ustva(2026, { kz81: -100_000, kz86: -50_000, kz66: 0, kz50: 150_000 })],
   ["UStVA Nullmeldung", ustva(2026, { kz81: 0, kz86: 0, kz66: 0 })],
   ["UStVA berichtigt", ustva(2026, { kz81: 100_000, kz86: 0, kz66: 1_745 }, { berichtigt: true })],
   ["UStVA Dezember", ustva(2026, { kz81: 100_000, kz86: 0, kz66: 0 }, { period: { year: 2026, month: 12 } })],
@@ -420,6 +423,25 @@ const faelle: [string, () => string][] = [
           ...envelope(year),
           versteuerung: "ist",
           figures: { base19: 0, tax19: 0, base7: 1_000_000, tax7: 70_000, vorsteuer: 0, vorauszahlungen: 70_000 },
+        }),
+    ],
+    [
+      // Forderungsausfall bei Soll (#1809): Kz 650 zusätzlich zu den geminderten Umsätzen; und Rechnung und Ausfall im selben Jahr
+      `USt-Erklärung ${year} Forderungsausfall (Kz 650)`,
+      () =>
+        buildUstErklaerungXml({
+          ...envelope(year),
+          versteuerung: "soll",
+          figures: { base19: 100_000, tax19: 19_000, base7: 50_000, tax7: 3_500, vorsteuer: 0, vorauszahlungen: 22_500, kz50: 150_000 },
+        }),
+    ],
+    [
+      `USt-Erklärung ${year} Forderungsausfall, Umsätze heben sich auf`,
+      () =>
+        buildUstErklaerungXml({
+          ...envelope(year),
+          versteuerung: "soll",
+          figures: { base19: 0, tax19: 0, base7: 0, tax7: 0, vorsteuer: 0, vorauszahlungen: 0, kz50: 150_000 },
         }),
     ],
     [

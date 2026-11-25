@@ -18,7 +18,7 @@ import {
   usesCustomerNumber,
 } from "@haben/core";
 import { formatDate } from "../lib/format.ts";
-import { parseLine, positionsFehler } from "../lib/editor-lines.ts";
+import { parseLine, positionenFehler } from "../lib/editor-lines.ts";
 import { invoiceTitle } from "../lib/invoice.ts";
 import type { InvoiceEditorProps } from "./invoice-editor-types.ts";
 import { parsePlanRows } from "./PaymentPlanFields.tsx";
@@ -178,7 +178,7 @@ export function editorFieldErrors(
   const { advanceType, contactId, issueDate, kind, lines, paidOn, paidVia, quote, serviceFrom, taxTreatment, variant } = state;
   const { alreadyPaid, skontoIssue, discountIssue, kindIssue, planIssue, taxIssues, taxNote } = payment;
   return {
-    ...Object.fromEntries(lines.map((l) => [`pos-${l.key}`, positionsFehler(l)])),
+    ...positionenFehler(lines),
     issueDate: issueDate ? null : "Wähle das Datum.",
     // Ohne Kunden lässt sich ein Entwurf speichern, aber nicht festschreiben und nicht als PDF ausgeben
     contact: contactId ? null : "Wähle den Kunden.",

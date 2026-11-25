@@ -290,14 +290,27 @@ test("Entwurf aus dem stehenden Kopf speichern: die Bestätigung erscheint im Fe
   await page.setViewportSize(LAPTOP);
   await page.goto("/rechnungen/neu", { waitUntil: "networkidle" });
   await kundeWaehlen(page);
-  // Leere Position: „Festschreiben“ fragt nicht nach, sondern nennt unter der Position, was fehlt (DESIGN.md, Gesperrte Knöpfe)
-  await page.locator(".main > .page-head").getByRole("button", { name: "Festschreiben" }).click();
+  // Leere Position: „Festschreiben“ fragt nicht nach, sondern nennt unter der Position je Feld, was fehlt (DESIGN.md, Gesperrte
+  // Knöpfe); der Fokus geht ins erste Feld mit Fehler (#1277)
+  const festschreiben = page.locator(".main > .page-head").getByRole("button", { name: "Festschreiben" });
+  const menge = page.getByLabel("Menge Position 1");
+  const preis = page.getByLabel(/Einzelpreis Position 1/);
+  await festschreiben.click();
   await expect(page.getByLabel("Beschreibung Position 1")).toBeFocused();
-  await expect(page.getByLabel("Beschreibung Position 1")).toHaveAccessibleDescription("Trag die Beschreibung und den Einzelpreis ein.");
+  await expect(page.getByLabel("Beschreibung Position 1")).toHaveAccessibleDescription("Trag die Beschreibung ein.");
+  await expect(preis).toHaveAttribute("aria-invalid", "true");
+  await expect(preis).toHaveAccessibleDescription("Trag den Einzelpreis ein, etwa 95,00.");
+  await expect(menge).not.toHaveAttribute("aria-invalid", "true");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByLabel("Beschreibung Position 1").fill("Beratung");
-  await page.getByLabel("Menge Position 1").fill("1");
-  await page.getByLabel(/Einzelpreis Position 1/).fill("100");
+  await menge.fill("0");
+  await festschreiben.click();
+  await expect(menge).toBeFocused();
+  await expect(menge).toHaveAccessibleDescription("Trag eine Menge über 0 ein, etwa 2 oder 1,5.");
+  await expect(page.getByLabel("Beschreibung Position 1")).not.toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await menge.fill("1");
+  await preis.fill("100");
   const speichern = page.locator(".main > .page-head").getByRole("button", { name: "Entwurf speichern" });
   await speichern.click();
   await expect(page).toHaveURL(/\/rechnungen\/[0-9a-f-]{36}/);

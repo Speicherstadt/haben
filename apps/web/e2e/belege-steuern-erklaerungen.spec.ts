@@ -11,6 +11,7 @@ import {
   faktenZeigen,
   dkb,
   durchlaufSeite,
+  fristenOeffnen,
   gehe,
   kundeWaehlen,
   neuenLieferantenOeffnen,
@@ -164,6 +165,21 @@ test("Auswertungen, Umsatzsteuer und Jahreserklärung laden", async () => {
   ).toBeVisible();
   await go("/finanzamt");
   await expect(page.getByRole("heading", { name: "Finanzamt", level: 1 })).toBeVisible();
+  // Nicht lesbare Vorauszahlung: die Meldung steht sofort am Feld, es gibt keinen eigenen Knopf (#1270)
+  const vorauszahlung = page.getByRole("region", { name: /^Einkommensteuer-Vorauszahlungen \d{4}$/ });
+  const bisher = vorauszahlung.getByLabel("Bisherige Vorauszahlung je Quartal (€)");
+  const antrag = page.getByRole("region", { name: "Herabsetzung der Vorauszahlungen" }).getByLabel("Text", { exact: true });
+  await bisher.fill("12€50");
+  await expect(vorauszahlung.getByText("Trag die Vorauszahlung je Quartal ein, etwa 1.500,00, oder lass das Feld leer.")).toBeVisible();
+  await expect(bisher).toHaveAttribute("aria-invalid", "true");
+  // Der Antrag nennt den Betrag erst, wenn er lesbar ist; ein negativer Betrag stand bisher darin
+  await expect(antrag).not.toHaveValue(/bisher festgesetzten Vorauszahlungen/);
+  await bisher.fill("-100");
+  await expect(vorauszahlung.getByText("Trag die Vorauszahlung je Quartal ein, etwa 1.500,00, oder lass das Feld leer.")).toBeVisible();
+  await expect(antrag).not.toHaveValue(/bisher festgesetzten Vorauszahlungen/);
+  await bisher.fill("1.500,00");
+  await expect(vorauszahlung.getByText("Trag die Vorauszahlung je Quartal ein")).toHaveCount(0);
+  await expect(antrag).toHaveValue(/bisher festgesetzten Vorauszahlungen von 1\.500,00\s€ je Quartal/);
 });
 
 test("Umsatzsteuer öffnet ohne Abgabe in Haben den zuletzt abgelaufenen Zeitraum, nie den laufenden (#1102)", async () => {
@@ -201,6 +217,7 @@ test("Voranmeldung vierteljährlich: Zeitraum einstellen, Quartal prüfen und te
   // Im Folgejahr, damit die übrigen Seiten und Bilder beim monatlichen Zeitraum bleiben
   const next = YEAR + 1;
   await go(`/umsatzsteuer/${next}-01`);
+  await fristenOeffnen(page);
   const card = page.getByRole("form", { name: `Voranmeldungszeitraum ${next}` });
   await expect(card).toContainText("monatlich");
   await card.getByRole("combobox", { name: "Zeitraum" }).selectOption("vierteljaehrlich");
@@ -231,6 +248,7 @@ test("Voranmeldung vierteljährlich: Zeitraum einstellen, Quartal prüfen und te
   await expect(history).toContainText(/Testübermittlung\s*OK/);
 
   // Zurück auf monatlich: Der Entwurf des Quartals bleibt mit seinem Verlauf, lässt sich aber nicht mehr senden
+  await fristenOeffnen(page);
   const frequency = page.getByRole("form", { name: `Voranmeldungszeitraum ${next}` });
   await frequency.getByRole("combobox", { name: "Zeitraum" }).selectOption("monatlich");
   await frequency.getByRole("button", { name: "Zeitraum speichern" }).click();
@@ -243,6 +261,7 @@ test("Dauerfristverlängerung: Sondervorauszahlung prüfen und testweise senden,
   // Im Folgejahr, damit die übrigen Seiten und Bilder ohne Dauerfristverlängerung bleiben
   const next = YEAR + 1;
   await go(`/umsatzsteuer/${next}-01`);
+  await fristenOeffnen(page);
   const card = page.getByRole("region", { name: `Dauerfristverlängerung ${next}` });
   await expect(card).toContainText("Nicht eingetragen");
   const amount = card.getByRole("textbox", { name: "Sondervorauszahlung (Kz 38, volle Euro)" });
@@ -272,6 +291,7 @@ test("Dauerfristverlängerung: Sondervorauszahlung prüfen und testweise senden,
 
   // Wieder beenden, damit Fristen und Bilder ohne Verlängerung bleiben
   await go(`/umsatzsteuer/${next}-01`);
+  await fristenOeffnen(page);
   const again = page.getByRole("region", { name: `Dauerfristverlängerung ${next}` }).getByRole("form", { name: "Außerhalb von Haben" });
   await again.getByRole("checkbox", { name: `Dauerfristverlängerung besteht für ${next}` }).uncheck();
   await again.getByRole("button", { name: "Stand speichern" }).click();
@@ -541,7 +561,7 @@ test("Voranmeldung außerhalb von Haben abgegeben: Abgabe vermerken, Zahllast im
   const year = YEAR - 2;
   const yy = String(year).slice(2);
   await go(`/umsatzsteuer/${year}-06`);
-  await page.getByRole("button", { name: "Manuell überschreiben" }).click();
+  await page.getByRole("button", { name: /^Werte von Hand ändern/ }).click();
   await page.getByLabel("Steuerpflichtige Umsätze 19 %").fill("1.000,00");
   await page.getByLabel("Begründung der Abweichung (Pflicht)").fill("Rechnung aus der alten Buchhaltung, dort nicht gemeldet");
   await page.getByRole("button", { name: "Entwurf speichern" }).click();
@@ -634,7 +654,7 @@ test("Voranmeldung außerhalb von Haben abgegeben: Abgabe vermerken, Zahllast im
   await expect(page.getByRole("region", { name: "Zahlung an das Finanzamt" })).toContainText("Lastschrift 190,00");
 });
 
-test("Voranmeldung von Hand: alle angebotenen Kennzahlen eintragen, ein ungültiger Betrag sperrt das Speichern", async () => {
+test("Voranmeldung von Hand: alle angebotenen Kennzahlen eintragen, ein ungültiger Betrag meldet sich beim Speichern am Feld", async () => {
   // Mai vor dem Vorjahr: ohne Buchungen und ohne Anmeldung. Der Entwurf wird am Ende gelöscht, damit spätere Tests den
   // Monat leer vorfinden
   const year = YEAR - 2;
@@ -642,7 +662,7 @@ test("Voranmeldung von Hand: alle angebotenen Kennzahlen eintragen, ein ungülti
   try {
     await go(`/umsatzsteuer/${year}-05`);
     const formular = page.getByRole("form", { name: "Kennzahlen" });
-    await formular.getByRole("button", { name: "Manuell überschreiben" }).click();
+    await formular.getByRole("button", { name: /^Werte von Hand ändern/ }).click();
     const werte: [string, string][] = [
       ["Steuerpflichtige Umsätze 19 %", "1.000,00"],
       ["Steuerpflichtige Umsätze 7 %", "200,00"],
@@ -664,24 +684,37 @@ test("Voranmeldung von Hand: alle angebotenen Kennzahlen eintragen, ein ungülti
     for (const [label, wert] of werte) await formular.getByLabel(label, { exact: true }).fill(wert);
     // Steuer zu 81, 86, 89 und 93 sowie Kz 47 und 85, abzüglich der Vorsteuer in Kz 66, 67 und 61
     await expect(formular.locator(".kz-row.total .kz-amount")).toHaveText(/^174,00/);
+    // Speichern prüft beim Absenden statt gesperrt zu sein (#1270): ohne Begründung die Meldung am Feld, Fokus dort
     const speichern = formular.getByRole("button", { name: "Entwurf speichern" });
-    await expect(speichern).toBeDisabled();
-    await formular.getByLabel("Begründung der Abweichung (Pflicht)").fill("Werte aus der alten Buchhaltung übernommen");
-    await expect(speichern).toBeEnabled();
+    const begruendung = formular.getByLabel("Begründung der Abweichung (Pflicht)");
+    // Höchstens 1.000 Zeichen wie im Schema von saveVatDraft
+    await expect(begruendung).toHaveAttribute("maxlength", "1000");
+    await speichern.click();
+    await expect(formular.getByText("Begründe die Abweichung mit mindestens 10 Zeichen", { exact: false })).toBeVisible();
+    await expect(begruendung).toBeFocused();
+    await begruendung.fill("Werte aus der alten Buchhaltung übernommen");
     const kz66 = formular.getByLabel("Vorsteuer aus Rechnungen anderer Unternehmer", { exact: true });
     await kz66.fill("dreißig");
+    // „Nur prüfen“ im ELSTER-Kasten ist nicht gesperrt, sondern prüft dieselben Felder: Meldung und Fokus am Feld, kein Aufruf
+    await page.getByRole("form", { name: "An ELSTER übermitteln" }).getByRole("button", { name: "Nur prüfen" }).click();
+    await expect(formular.getByText("Trag den Betrag der Kennzahl ein, etwa 1.234,56.")).toBeVisible();
+    await expect(kz66).toBeFocused();
+    await expect(page.getByText("ERiC hat die Daten geprüft", { exact: false })).toHaveCount(0);
+    await speichern.click();
+    await expect(formular.getByText("Trag den Betrag der Kennzahl ein, etwa 1.234,56.")).toBeVisible();
+    await expect(kz66).toBeFocused();
     await expect(kz66).toHaveAttribute("aria-invalid", "true");
-    await expect(speichern).toBeDisabled();
+    await expect(page.getByText("Entwurf gespeichert.")).toHaveCount(0);
     await kz66.fill("30,00");
     await speichern.click();
     await expect(page.getByText("Entwurf gespeichert.")).toBeVisible();
 
     await page.reload();
-    await expect(formular.getByRole("button", { name: "Manuell überschreiben" })).toHaveAttribute("aria-pressed", "true");
+    await expect(formular.getByRole("button", { name: "Zurück zu den berechneten Werten" })).toBeVisible();
     for (const [label, wert] of werte) await expect(formular.getByLabel(label, { exact: true })).toHaveValue(wert);
     await expect(formular.getByLabel("Begründung der Abweichung (Pflicht)")).toHaveValue("Werte aus der alten Buchhaltung übernommen");
     // Zurück zu den Buchungen: der leere Monat, ohne Begründung
-    await formular.getByRole("button", { name: "Aus Buchungen berechnet" }).click();
+    await formular.getByRole("button", { name: "Zurück zu den berechneten Werten" }).click();
     await expect(page.locator("#kz-81")).toHaveText(/^0,00/);
     await expect(formular.getByLabel("Begründung der Abweichung (Pflicht)")).toHaveCount(0);
     await expect(formular.locator(".kz-row.total .kz-amount")).toHaveText(/^0,00/);

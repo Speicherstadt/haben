@@ -206,7 +206,7 @@ describe.skipIf(!testDatabaseUrl)("Accountable-Import (Postgres)", () => {
     await sql`insert into company (id, name, strasse, plz, ort, email, telefon, steuernummer, ust_id, bundesland, iban, versteuerung, kontenrahmen)
       values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '+49 941 1', '198/113/10010',
               'DE123456789', 'BY', 'DE89370400440532013000', 'ist', 'SKR03') on conflict (id) do nothing`;
-    const lexoffice = await import("./lexoffice.ts");
+    const lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")) };
     accountable.analyseAccountableUpload(export_("3f2b8c1e-7d4a-4e9b-9c2f-1a6d5e8b0c47"), "Accountable_Max_Mustermann_skr03_2025-01-01_test.zip");
     await accountable.startAccountableImport(actor, { wait: true });
     const { years } = await lexoffice.reconciliation();
@@ -217,7 +217,7 @@ describe.skipIf(!testDatabaseUrl)("Accountable-Import (Postgres)", () => {
     await sql`insert into company (id, name, strasse, plz, ort, email, telefon, steuernummer, ust_id, bundesland, iban, versteuerung, kontenrahmen)
       values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '+49 941 1', '198/113/10010',
               'DE123456789', 'BY', 'DE89370400440532013000', 'ist', 'SKR03') on conflict (id) do nothing`;
-    const lexoffice = await import("./lexoffice.ts");
+    const lexoffice = { ...(await import("./lexoffice.ts")), ...(await import("./umzug-abgleich.ts")) };
     accountable.analyseAccountableUpload(export_(), "Accountable_Max_Mustermann_skr03_2026-11-10_a.zip");
     await accountable.startAccountableImport(actor, { wait: true });
     // Ein zweiter Export desselben Jahres (in Accountable neu erstellt): andere Bytes, dieselben Buchungen

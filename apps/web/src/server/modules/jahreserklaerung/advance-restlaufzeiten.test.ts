@@ -66,6 +66,8 @@ describe.skipIf(!testDatabaseUrl)("Restlaufzeiten neuer Anzahlungs- und Schlussk
           correctsId: input.cancels ?? null,
           // Kennzeichen beim Festschreiben ab #853 (Trigger invoices_reduction_rule)
           reductionRule: input.cancels ? "rueckgewaehr" : null,
+          // ebenso ab #1312 an steuerfreien Rechnungen (Trigger invoices_exempt_rule)
+          exemptRule: input.cancels ? null : "leistung",
           variant: input.variant ?? null,
           advanceType: input.variant === "abschlag" ? "anzahlung" : null,
           advanceAccounting: input.marker ?? null,

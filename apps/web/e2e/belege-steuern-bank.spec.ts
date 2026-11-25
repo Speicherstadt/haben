@@ -9,6 +9,7 @@ import { bestaetigen, dkb, durchlaufSeite, gehe, lieferantWaehlen, neuenLieferan
 import { LAPTOP } from "./kopfzeile.ts";
 import { abzugEinspielen } from "./abzug.ts";
 import { receiptJpeg } from "./belegbild.ts";
+import { eingabeNachAktion, fokusNachFehlschlag, kurzNacheinanderSpeichern } from "./felder-sperre.ts";
 
 /**
  * Abschnitt von belege-steuern (#1742) mit eigenem Server und eigener Datenbank, parallel zu den anderen Abschnitten:
@@ -279,6 +280,50 @@ test("Anlage anlegen: Erinnerungswert angehakt, dann zu Computer gewechselt, wir
   await expect(page.getByRole("region", { name: "Abschreibungsplan" })).not.toContainText("Erinnerungswert");
 });
 
+test("Anlage: Eingaben direkt nach dem Speichern bleiben erhalten (#1793)", async () => {
+  await go("/anlagen/neu");
+  const form = page.getByRole("region", { name: "Angaben" });
+  const bezeichnung = form.getByLabel("Bezeichnung");
+  await bezeichnung.fill("Werkbank Sperre");
+  await form.getByRole("combobox", { name: "Art", exact: true }).selectOption({ label: "Sonstige Betriebs- und Geschäftsausstattung" });
+  await form.getByLabel("Nutzungsdauer in Jahren").fill("10");
+  await form.getByLabel("Anschaffungsdatum").fill("2025-03-01");
+  await form.getByLabel("Anschaffungskosten netto (€)").fill("2.400,00");
+  await form.getByLabel("Übernahmestichtag").fill("2026-01-01");
+  await form.getByLabel("Restbuchwert zum Stichtag (€)").fill("2.200,00");
+  await form.getByRole("button", { name: "Anlage übernehmen" }).click();
+  await page.waitForURL(/\/anlagen\/[0-9a-f-]{36}$/);
+  // Das Formular der neuen Seite, nicht mehr das von „neu“
+  await expect(page.getByRole("heading", { name: "Werkbank Sperre", level: 1 })).toBeVisible();
+
+  await bezeichnung.fill("Werkbank gespeichert");
+  await eingabeNachAktion(page, {
+    aktion: form.getByRole("button", { name: "Speichern", exact: true }),
+    feld: bezeichnung,
+    text: "Gleich danach getippt",
+    neuGeladen: page.getByRole("heading", { name: "Werkbank gespeichert", level: 1 }),
+  });
+});
+
+test("Anlage: Kurz nacheinander gespeichert, baut sich das Formular jedes Mal neu auf (#1804)", async () => {
+  // Die Anlage aus dem Test davor
+  const form = page.getByRole("region", { name: "Angaben" });
+  await kurzNacheinanderSpeichern({
+    feld: form.getByLabel("Bezeichnung"),
+    speichern: form.getByRole("button", { name: "Speichern", exact: true }),
+    texte: ["Werkbank eins", "Werkbank zwei", "Werkbank drei"],
+  });
+});
+
+test("Anlage: Speichern schlägt fehl, der Fokus steht danach wieder im Feld (#1793)", async () => {
+  // Die Anlage aus den Tests davor
+  await fokusNachFehlschlag(page, page.getByRole("region", { name: "Angaben" }).getByLabel("Bezeichnung"));
+  // Die Anlage gehört nur diesen drei Tests: die folgenden rechnen ohne sie
+  await page.locator(".page-head").getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(page, "Anlage löschen");
+  await expect(page).toHaveURL(/\/anlagen(?:\?.*)?$/);
+});
+
 test("Aufteilen mit zu viel verteilt: der Fehler am Betrag sagt, wie viel zu viel ist (Review #970)", async () => {
   const csv =
     "\ufeff" +
@@ -413,6 +458,19 @@ test("Darlehen: anlegen, Auszahlung zuordnen, Rate in Tilgung und Zinsen aufteil
   await go("/darlehen");
   const neu = page.getByRole("form", { name: "Darlehen anlegen" });
   await neu.getByLabel("Name").fill("Hausbank Investitionskredit");
+  // Nicht lesbare Restschuld: Meldung am Feld, Fokus dort, nichts angelegt (#1270)
+  const restschuld = neu.getByLabel(/Restschuld bei Übernahme/);
+  await restschuld.fill("12€50");
+  await neu.getByRole("button", { name: "Darlehen anlegen" }).click();
+  await expect(neu.getByText("Trag die Restschuld ein, etwa 25.000,00, oder lass das Feld leer.")).toBeVisible();
+  await expect(restschuld).toBeFocused();
+  await expect(page.getByRole("row", { name: /Hausbank Investitionskredit/ })).toHaveCount(0);
+  // Restschuld ohne Stichtag: Meldung am Stichtag statt der Ablehnung durch den Server
+  await restschuld.fill("25.000,00");
+  await neu.getByRole("button", { name: "Darlehen anlegen" }).click();
+  await expect(neu.getByText("Wähle den Stichtag der Restschuld.")).toBeVisible();
+  await expect(neu.getByLabel("Stichtag der Restschuld")).toBeFocused();
+  await restschuld.fill("");
   await neu.getByRole("button", { name: "Darlehen anlegen" }).click();
   await expect(page.getByRole("row", { name: /Hausbank Investitionskredit/ })).toContainText("0630");
 
@@ -1036,6 +1094,76 @@ test("Unbekannte Bank-CSV: Spalten zuordnen, importieren, der nächste Export ge
 
 test("Seiten mit den Daten dieses Abschnitts ohne axe-Verstöße", async () => {
   await ohneAxeVerstoesse(page, ["/anlagen", "/darlehen", "/bank", "/ueberweisungen", ibanBeleg]);
+});
+
+test("Wiederzuordnung: je Teil die aufgehobene Zuordnung wählen (#1454)", async () => {
+  const buchungstag = dkb(day(-18));
+  const aufhebungen = [day(-8), day(-5)];
+  const zweck = "Zahlung mit zwei aufgehobenen Teilzuordnungen";
+  const csv = [
+    '"Girokonto";"DE45 1203 0000 1234 5678 90"',
+    '""',
+    '"Buchungsdatum";"Wertstellung";"Status";"Zahlungspflichtige*r";"Zahlungsempfänger*in";"Verwendungszweck";"Umsatztyp";"IBAN";"Betrag (€)";"Gläubiger-ID";"Mandatsreferenz";"Kundenreferenz"',
+    [buchungstag, buchungstag, "Gebucht", "Firma Musterkonto", "Mustermann IT", zweck, "Eingang", "", "238,00", "", "", ""]
+      .map((wert) => `"${wert}"`)
+      .join(";"),
+  ].join("\n");
+  await go("/bank");
+  await page.getByLabel("Kontoauszugsdateien").setInputFiles({ name: "wiederzuordnung.csv", mimeType: "text/csv", buffer: Buffer.from(`\ufeff${csv}`) });
+  await expect(page.getByText(/wiederzuordnung\.csv: 1 neue Umsätze/)).toBeVisible();
+  const sql = postgres(databaseUrlFuer(DURCHLAUF), { max: 1 });
+  try {
+    const umsaetze = await sql<{ id: string; bank_account_id: string }[]>`
+      select id, bank_account_id from bank_transactions where purpose = ${zweck}`;
+    expect(umsaetze).toHaveLength(1);
+    const { id, bank_account_id } = umsaetze[0]!;
+    await go(`/bank?${new URLSearchParams({ filter: "alle", konto: bank_account_id, umsatz: id, suche: zweck })}`);
+    const panel = page.getByRole("complementary", { name: "Zuordnung" });
+    for (const anzahl of [1, 2]) {
+      const direkt = panel.getByRole("button", { name: "Direkt buchen", exact: true });
+      if (await direkt.isVisible()) await direkt.click();
+      await panel.getByLabel("Buchen als").selectOption("zinsertrag");
+      await panel.getByLabel("Betrag", { exact: true }).fill("119,00");
+      await panel.getByRole("button", { name: "Buchen", exact: true }).click();
+      await expect(panel.getByRole("button", { name: "Aufheben", exact: true })).toHaveCount(anzahl);
+    }
+    for (const [i, datum] of aufhebungen.entries()) {
+      await panel.getByRole("button", { name: "Aufheben", exact: true }).first().click();
+      const dialog = page.getByRole("dialog", { name: "Zuordnung aufheben?" });
+      await dialog.getByLabel("Tag der Aufhebung").fill(datum);
+      await dialog.getByRole("button", { name: "Zuordnung aufheben" }).click();
+      await expect(panel.getByText("aufgehoben", { exact: true })).toHaveCount(i + 1);
+    }
+
+    await panel.getByRole("button", { name: "Aufteilen", exact: true }).click();
+    const form = panel.getByRole("form", { name: "Umsatz aufteilen" });
+    for (const teil of [1, 2]) {
+      const zeile = form.locator(".split-row").nth(teil - 1);
+      await zeile.getByLabel(`Teil ${teil}`, { exact: true }).selectOption("zinsertrag");
+      await zeile.getByLabel("Betrag", { exact: true }).fill("119,00");
+    }
+    const bezuege = form.getByRole("combobox", { name: "Aufgehobene Zuordnung" });
+    await expect(bezuege).toHaveCount(2);
+    await form.getByRole("button", { name: "Aufteilen und buchen" }).click();
+    await expect(bezuege.first()).toBeFocused();
+    await expect(bezuege.first()).toHaveAccessibleDescription("Wähle die aufgehobene Zuordnung, zu der der Betrag gehört.");
+    for (const [i, datum] of aufhebungen.entries()) {
+      const aufgehobenAm = datum.split("-").reverse().join(".");
+      const auswahl = bezuege.nth(i);
+      const option = auswahl.getByRole("option", { name: new RegExp(aufgehobenAm.replaceAll(".", "\\.")) });
+      await expect(option).toHaveText(`Zinserträge · ${aufgehobenAm} · 119,00 €`);
+      await auswahl.selectOption((await option.getAttribute("value")) ?? "");
+    }
+    await form.getByRole("button", { name: "Aufteilen und buchen" }).click();
+    await expect(panel.getByRole("button", { name: "Aufteilung aufheben", exact: true })).toBeVisible();
+    const zeilen = await sql`select a.date::text as wirksam, r.date::text as aufhebung, j.date::text as journal
+      from allocations a join allocations r on r.reverses_id = a.reassigns_id
+      join journal_entries j on j.source_id = a.id and j.source_type = 'allocation'
+      where a.transaction_id = ${id} order by a.date`;
+    expect(zeilen).toEqual(aufhebungen.map((datum) => ({ wirksam: datum, aufhebung: datum, journal: datum })));
+  } finally {
+    await sql.end();
+  }
 });
 
 test("Keine Fehler im Browser", async () => {
