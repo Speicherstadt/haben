@@ -228,3 +228,84 @@ describe("Voranmeldung: weniger Hinweise über den Zahlen (#1253, Punkt 32)", ()
     expect(oben).not.toContain("Prüfen und absenden machst du in Mein ELSTER");
   });
 });
+
+const mitZahllast = { ...mitIgLieferung, kz41: 0, kz81: 100_000 };
+const mitErstattung = { ...mitIgLieferung, kz41: 0, kz66: 5_000 };
+const gesendet = { ...entwurfVonHand, status: "sent", source: "berechnet" };
+const posten = (offen: number) => [{ vatReturnId: "entwurf", berichtigt: false, betrag: 19_000, faellig: "2026-11-10", verrechnet: 0, bezahlt: 19_000 - offen, offen, zahlungen: [] }];
+
+/** Die Leiste „Ablauf der Voranmeldung“ samt Inhalt, sonst null */
+const ablauf = (html: string) => html.match(/<section[^>]*aria-label="Ablauf der Voranmeldung"[^>]*>[\s\S]*?<\/section>/)?.[0] ?? null;
+/** Der Schritt mit aria-current="step", sonst null */
+const aktuellerSchritt = (html: string) => ablauf(html)?.match(/<li[^>]*aria-current="step"[^>]*>([\s\S]*?)<\/li>/)?.[1] ?? null;
+const satz = (html: string) => html.match(/Du zahlst [^<]*|Du bekommst [^<]*|Diesmal ist nichts zu zahlen\./)?.[0] ?? null;
+
+describe("Voranmeldung: Ergebnis und Ablauf zuerst (#1253, Punkte 42 und 43)", () => {
+  it("sagt über den Kennzahlen, was Zahllast, Erstattung oder 0 für dich heißt", () => {
+    const zahllast = seite({ figures: mitZahllast });
+    expect(satz(zahllast)).toBe(`Du zahlst ${formatEuro(19_000)} bis 10.11.2026.`);
+    expect(ablauf(zahllast)).toContain(satz(zahllast));
+    // Vor der Tabelle, nicht erst als letzte Zeile
+    expect(zahllast.indexOf("Du zahlst")).toBeLessThan(zahllast.indexOf('id="kz-81"'));
+    expect(satz(seite({ figures: mitErstattung }))).toBe(`Du bekommst ${formatEuro(5_000)} zurück, sobald das Finanzamt zustimmt.`);
+    expect(satz(seite())).toBe("Diesmal ist nichts zu zahlen.");
+  });
+
+  it("nimmt den Wert, den ein von Hand überschriebener Entwurf zeigt", () => {
+    expect(satz(seite({ current: { ...entwurfVonHand, kz66: 12_300 } }))).toBe(`Du bekommst ${formatEuro(12_300)} zurück, sobald das Finanzamt zustimmt.`);
+  });
+
+  it("lässt den Satz bei einer festgeschriebenen Anmeldung weg: Status und Zahlung an das Finanzamt zeigen den echten Stand", () => {
+    const html = seite({ current: gesendet, posten: posten(19_000) });
+    expect(satz(html)).toBeNull();
+    expect(html).toContain("Zahlung an das Finanzamt");
+  });
+
+  it("zeigt Zahlen prüfen, Abgeben und Zahlen als Liste und markiert den aktuellen Schritt", () => {
+    const html = seite();
+    expect(ablauf(html)).toMatch(/<ol[^>]*>[\s\S]*Zahlen prüfen[\s\S]*Abgeben[\s\S]*Zahlen[\s\S]*<\/ol>/);
+    expect(ablauf(html)?.match(/<li/g)).toHaveLength(3);
+    // Noch nichts gespeichert: die Zahlen prüfen
+    expect(aktuellerSchritt(html)).toContain("Zahlen prüfen");
+    expect(html.match(/aria-current="step"/g)).toHaveLength(1);
+    // Gespeichert und unverändert: abgeben
+    expect(aktuellerSchritt(seite({ current: entwurfVonHand }))).toContain("Abgeben");
+  });
+
+  it("zeigt nach dem Festschreiben das Zahlen als aktuell und nennt Erledigtes mit Worten, nicht nur mit Farbe", () => {
+    const html = seite({ current: gesendet, posten: posten(19_000) });
+    expect(aktuellerSchritt(html)).toContain("Zahlen");
+    expect(aktuellerSchritt(html)).not.toContain("prüfen");
+    expect(ablauf(html)?.match(/\(erledigt\)/g)).toHaveLength(2);
+    // Ausgeglichen: alles erledigt, nichts mehr aktuell
+    const fertig = seite({ current: gesendet, posten: posten(0) });
+    expect(fertig.match(/aria-current="step"/g)).toBeNull();
+    expect(ablauf(fertig)?.match(/\(erledigt\)/g)).toHaveLength(3);
+  });
+});
+
+/** Der Abschnitt „Schon anders abgegeben?“ samt Inhalt, sonst null */
+const vermerk = (html: string) => html.match(/<section[^>]*aria-labelledby="ust-vermerk"[^>]*>[\s\S]*?<\/section>/)?.[0] ?? null;
+
+describe("Voranmeldung: Abgabe außerhalb von Haben eingeklappt (#1253, Punkt 42)", () => {
+  it("klappt die Karte mit eigener Hersteller-ID zu, ohne dass etwas wegfällt", () => {
+    const bereich = vermerk(seite({ current: entwurfVonHand, herstellerIdConfigured: true }));
+    expect(bereich).not.toBeNull();
+    expect(bereich).toMatch(/<details>/);
+    expect(bereich).toContain('<h3 id="ust-vermerk">Schon anders abgegeben?</h3>');
+    expect(bereich).toContain('<span class="form-section-kurz">Abgabe in Mein ELSTER vermerken</span>');
+    expect(bereich).toContain("Außerhalb von Haben abgegeben");
+    expect(bereich).toContain("Kz 83 laut Protokoll");
+  });
+
+  it("lässt sie ohne Hersteller-ID offen stehen: Dort ist Mein ELSTER der Hauptweg und der Vermerk der nächste Schritt", () => {
+    const bereich = vermerk(seite({ current: entwurfVonHand, herstellerIdConfigured: false }));
+    expect(bereich).toMatch(/<details open="">/);
+    expect(bereich).toContain("Außerhalb von Haben abgegeben");
+  });
+
+  it("zeigt sie nur, wo sich eine Abgabe vermerken lässt: nicht ohne gespeicherten Entwurf und nicht nach dem Festschreiben", () => {
+    expect(vermerk(seite())).toBeNull();
+    expect(vermerk(seite({ current: gesendet }))).toBeNull();
+  });
+});
