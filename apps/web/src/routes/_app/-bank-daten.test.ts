@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  bankStand,
   type Data,
   type Detail,
   fortschrittArt,
@@ -8,6 +9,7 @@ import {
   naechsteSchritte,
   naechstenOffenenZiel,
   nextOpenAfter,
+  offenerEntwurf,
   offenText,
   type Posten,
   restAngebot,
@@ -131,6 +133,24 @@ describe("Knopf „Nächsten offenen“ (#1253)", () => {
   });
 });
 
+describe("Suchfeld (#1253)", () => {
+  it("hält Getipptes, bis es in der Adresse steht", () => {
+    expect(offenerEntwurf("miet", "")).toBe("miet");
+    expect(offenerEntwurf("miete", "miet")).toBe("miete");
+    expect(offenerEntwurf("", "miete")).toBe("");
+  });
+
+  it("hält nichts mehr, sobald die Suche übernommen ist, sonst setzte das Feld eine von „Nächsten offenen“ geleerte Suche wieder ein", () => {
+    const entwurf = offenerEntwurf("miete", "miete");
+    expect(entwurf).toBeNull();
+    expect(offenerEntwurf(entwurf, "")).toBeNull();
+  });
+
+  it("schickt eine Suche aus der Adresse ohne Tippen nicht ab", () => {
+    expect(offenerEntwurf(null, "miete")).toBeNull();
+  });
+});
+
 describe("Fortschritt und leere Liste (#1253)", () => {
   it("zeigt den Zähler, solange etwas offen ist, auch ohne Import", () => {
     expect(fortschrittArt(3, true)).toBe("offen");
@@ -156,6 +176,15 @@ describe("Fortschritt und leere Liste (#1253)", () => {
     expect(leereListeText("offen", 0, 4, true)).toBe("Keine Umsätze.");
     expect(leereListeText("zugeordnet", 0, 0, true)).toBe("Keine Umsätze.");
     expect(leereListeText("vorschlag", 0, 2, true)).toBe("Keine Umsätze mit Vorschlag.");
+  });
+
+  it("hält einen leeren Auszug ohne Umsätze nicht für „Alles zugeordnet.“", () => {
+    const konto = (openCount: number, hasTransactions: boolean) =>
+      ({ openCount, hasTransactions, lastImport: { periodTo: "2026-10-31" } }) as unknown as Data["accounts"][number];
+    expect(bankStand([konto(0, false)])).toEqual({ offen: 0, hatUmsaetze: false });
+    expect(bankStand([konto(0, false), konto(0, true)])).toEqual({ offen: 0, hatUmsaetze: true });
+    expect(bankStand([konto(2, true), konto(3, true)])).toEqual({ offen: 5, hatUmsaetze: true });
+    expect(bankStand([])).toEqual({ offen: 0, hatUmsaetze: false });
   });
 
   it("zeigt keinen Text, solange die Liste Umsätze hat", () => {

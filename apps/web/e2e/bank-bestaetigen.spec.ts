@@ -76,6 +76,8 @@ test("Vorschläge markieren (Klick, Leertaste) und gemeinsam bestätigen", async
   await expect(page.getByText("3 Umsätze noch offen")).toBeVisible();
   await page.getByRole("link", { name: "Nächsten offenen" }).click();
   await expect(page).not.toHaveURL(/suche=/);
+  // Das Suchfeld ist mit geleert, sonst setzte es die Suche kurz darauf wieder ein
+  await expect(page.getByLabel("Umsätze durchsuchen")).toHaveValue("");
   await expect(page.locator(".tx-wrap")).toHaveCount(3);
 
   await gehe(page, "/bank?filter=alle");
