@@ -51,6 +51,10 @@ describe("KI-Auslesung umwandeln", () => {
     const felder = toFields({ ...base, brutto: "1.234" });
     expect(felder.amounts).toEqual([{ taxRate: 1900, net: 3240, tax: 616 }]);
     expect(felder.warnings).toContain("Gesamtbetrag nicht lesbar");
+    // Auch ein zu grosser Betrag ist nicht lesbar und wird gemeldet, nicht geraten
+    expect(toFields({ ...base, brutto: "3000000.01" }).warnings).toContain("Gesamtbetrag nicht lesbar");
+    // Nur Leerzeichen zaehlt nicht als Angabe
+    expect(toFields({ ...base, brutto: " " }).warnings).not.toContain("Gesamtbetrag nicht lesbar");
     // Fehlt er ganz, gibt es nichts zu melden
     expect(toFields({ ...base, brutto: null }).warnings).not.toContain("Gesamtbetrag nicht lesbar");
     // Ein lesbarer Gesamtbetrag bleibt wie bisher und passt zur Summe

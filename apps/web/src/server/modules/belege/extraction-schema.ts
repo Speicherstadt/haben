@@ -180,7 +180,7 @@ export function toFields(extraction: Extraction): ExtractedFields {
   const gross = grossBetrag?.cents ?? null;
   // Angegeben, aber nicht lesbar (etwa genau drei Nachkommastellen, siehe #1922): Ohne diesen Hinweis fiele die
   // Summenprüfung still weg und niemand erführe, dass der gedruckte Gesamtbetrag nicht übernommen wurde.
-  if (extraction.brutto && grossBetrag === null) {
+  if (extraction.brutto?.trim() && grossBetrag === null) {
     warnings.push("Gesamtbetrag nicht lesbar");
   }
   if (grossBetrag?.gerundet) {
