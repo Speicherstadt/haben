@@ -2290,6 +2290,13 @@
       "when": 1795547499310,
       "tag": "0326_bank_wiederzuordnung",
       "breakpoints": true
+    },
+    {
+      "idx": 327,
+      "version": "7",
+      "when": 1795641854191,
+      "tag": "0327_ki_warteschlange",
+      "breakpoints": true
     }
   ]
 }

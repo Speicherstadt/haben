@@ -45,7 +45,7 @@ Erlaubt sind PDF, JPEG, PNG, WebP, HEIC und E-Rechnungs-XML bis 20 MB je Datei. 
 2. **Ablegen unter dem SHA-256.** Die Datei wird unter ihrem SHA-256-Hash im Verzeichnis `DOCUMENTS_DIR` gespeichert (`<dir>/ab/abcdef…`), atomar über eine temporäre Datei. Beim Lesen prüft Haben den Hash erneut und meldet eine beschädigte Datei. Einmal am Tag prüft Haben außerdem alle Dateien, siehe [Dateien im Speicher](buchhaltung.md#manipulationserkennung-hash-kette-und-siegel).
 3. **Keine Dubletten.** Gibt es schon einen Beleg mit demselben Hash, entsteht kein zweiter; du landest beim vorhandenen.
 4. **E-Rechnung lesen.** Bei PDF und XML versucht Haben zuerst, eine E-Rechnung zu lesen (siehe unten).
-5. **KI-Auslesung.** Ist es keine E-Rechnung und ist die KI-Auslesung eingerichtet (Claude oder ein eigenes Modell), startet für PDF, JPEG, PNG und WebP die Auslesung im Hintergrund. Der Beleg zeigt solange „Wird ausgelesen“, Liste und Detailseite aktualisieren sich selbst.
+5. **KI-Auslesung.** Ist es keine E-Rechnung und ist die KI-Auslesung eingerichtet (Claude oder ein eigenes Modell), kommen PDF, JPEG, PNG und WebP in die [Warteschlange](#warteschlange-und-grenzen) und werden der Reihe nach im Hintergrund ausgelesen. Der Beleg zeigt „Wartet auf Auslesung“, dann „Wird ausgelesen“; Liste und Detailseite aktualisieren sich selbst.
 6. **Eigene Rechnung erkennen.** Bei jedem Weg prüft Haben, ob du gerade eine eigene Ausgangsrechnung hochgeladen hast, und schlägt dann keine Ausgabe vor (siehe [Eigene Ausgangsrechnung erkennen](#eigene-ausgangsrechnung-erkennen)).
 
 Ohne E-Rechnung und ohne KI füllst du die Felder von Hand aus.
@@ -202,7 +202,28 @@ Haben prüft die Antwort und zeigt Auffälligkeiten als Hinweis am Beleg:
 - Der Hinweis der KI zu unklaren Stellen.
 - Beim eigenen Modell: Das PDF hatte mehr Seiten als ausgelesen wurden; mit `EXTRACTION_INPUT=text` auch Seiten ohne Text und ein gekürzter Text.
 
-Die KI bucht nie selbst. Jeder ausgelesene Beleg bleibt im Status „Zu prüfen“, bis du ihn mit **Bestätigen und buchen** bestätigst. Mit **Mit KI neu auslesen** im Menü **⋯** neben **Bestätigen und buchen** kannst du die Auslesung wiederholen, solange der Beleg nicht gebucht ist; dabei werden die Felder überschrieben und eine Aufteilung auf mehrere Kategorien verworfen. Fehler (ungültiger Schlüssel, Auslastung, keine Verbindung, Zeitüberschreitung, unbekanntes Modell, Antwort im falschen Format, abgelehnte Auslesung) stehen am Beleg, der dann den Status „Prüfen“ trägt.
+Die KI bucht nie selbst. Jeder ausgelesene Beleg bleibt im Status „Zu prüfen“, bis du ihn mit **Bestätigen und buchen** bestätigst. Mit **Mit KI neu auslesen** im Menü **⋯** neben **Bestätigen und buchen** kannst du die Auslesung wiederholen, solange der Beleg nicht gebucht ist; dabei werden die Felder überschrieben und eine Aufteilung auf mehrere Kategorien verworfen. Fehler (ungültiger Schlüssel, Auslastung, keine Verbindung, Zeitüberschreitung, unbekanntes Modell, Antwort im falschen Format, abgelehnte Auslesung, Anfrage über der Grenze) stehen am Beleg, der dann den Status „Prüfen“ trägt.
+
+### Warteschlange und Grenzen
+
+Belege werden nacheinander ausgelesen, einer nach dem anderen. Was zuerst angestoßen wird, kommt zuerst dran:
+
+| Anstoß | Reihenfolge |
+| --- | --- |
+| Hochladen, E-Mail, REST-API | In der Reihenfolge des Hochladens, bei mehreren Dateien in der Reihenfolge der Auswahl. Die Liste zeigt wartende Belege oben in dieser Reihenfolge, die Auslesung läuft dort also von oben nach unten. |
+| **Neu auslesen** und **Fehlgeschlagene neu auslesen** in der Liste | In der Reihenfolge, die die Liste beim Klick zeigt, mit Sortierung, Filter und Suche. Bei `?sort=datum&dir=ab` kommt der Beleg mit dem neuesten Belegdatum zuerst dran. |
+| **Mit KI neu auslesen** an einem Beleg | Vor allen Wartenden, denn du schaust gerade auf ihn. |
+
+Ein Beleg, der schon wartet, behält seinen Platz und wird nicht doppelt ausgelesen. Neu auslesen lassen sich nur ungebuchte Belege.
+
+Über der Liste steht, solange Belege warten, ausgelesen werden oder fehlgeschlagen sind, wie viele es sind. **Anhalten** hält die Warteschlange an, etwa wenn das Budget beim Anbieter knapp wird oder du das Modell wechseln willst: Ein Beleg, der gerade ausgelesen wird, wird noch fertig, die übrigen bleiben auf „Wartet auf Auslesung“, auch über einen Neustart hinweg. **Fortsetzen** macht weiter. Mit den Kästchen vor den Zeilen markierst du ungebuchte Belege und liest sie mit **Neu auslesen** erneut aus; **Fehlgeschlagene neu auslesen** nimmt alle fehlgeschlagenen, die die Liste gerade zeigt. Ein zweiter Lauf hilft auch ohne Fehler: Ein Modell liefert für denselben Beleg nicht immer dasselbe.
+
+Hat dein Anbieter ein Kontingent, etwa ein Azure-OpenAI-Deployment hinter LiteLLM mit 20.000 Tokens pro Minute, trägst du es unter **Einstellungen › KI-Assistenten und API › Grenzen der Belegauslesung** ein:
+
+- **Tokens je Anfrage:** Eine größere Anfrage schickt Haben nicht; der Grund steht am Beleg.
+- **Anfragen pro Minute** und **Tokens pro Minute:** gezählt über die letzten 60 Sekunden.
+
+Jede Grenze ist optional. Haben schickt die nächste Anfrage erst, wenn sie alle gesetzten einhält; es gilt also immer die strengste. Die Tokens einer Anfrage schätzt Haben vor dem Senden aus ihrem Text (drei Zeichen je Token), 1.600 Tokens je Bild oder PDF-Seite und 1.000 für die Antwort, eher zu hoch als zu niedrig. Meldet der Dienst trotzdem, dass er ausgelastet ist (HTTP 429), steht der Fehler am Beleg. Haben versucht es nicht von selbst erneut, weil weitere Anfragen die Überlastung nur verlängern; du liest den Beleg neu aus, wenn der Dienst wieder Luft hat.
 
 **Beträge mit mehr als zwei Nachkommastellen:** Rechnet das Modell einen Zwischenwert aus, statt den gedruckten Betrag abzuschreiben, kommen etwa 42,1336 € zurück. Ab vier Nachkommastellen rundet Haben kaufmännisch auf Cent, statt den Betrag zu verwerfen, und schreibt an den Beleg, worauf es gerundet hat („Betrag zu 19 % mit mehr als zwei Nachkommastellen: netto 42,13 €, Steuer 8,01 €, gerundet“). Genau drei Nachkommastellen bei Netto oder Steuer gelten weiter als nicht lesbar, denn `1,234` kann auch ein Tausendertrennzeichen sein: Der Beleg zeigt dann „Betrag zu 19 % nicht lesbar“, und du trägst die Beträge von Hand ein. Hat nur der Gesamtbetrag drei, erscheint kein Hinweis, und die Summenprüfung entfällt. Die Summenprüfung rechnet mit den gerundeten Werten und meldet eine Abweichung weiter, damit du hinsiehst. Prüfe den Beleg trotzdem, denn die gerundeten Beträge sind gerechnet und nicht abgelesen.
 
@@ -531,15 +552,16 @@ Nicht stornieren lassen sich:
 
 ## Liste und Status
 
-Die Liste zeigt Datum, Lieferant mit Rechnungsnummer und Quelle (ZUGFeRD, XRechnung, KI oder Hand), Kategorie mit der Nummer ihres Kontos (bei einer Aufteilung „Aufgeteilt auf 3 Zeilen“, darunter ein [eigenes Konto](buchhaltung.md#eigene-konten), wenn der Beleg eines hat), Bruttobetrag und Status. Ungebuchte Belege stehen oben, solange du nicht nach einer Spalte sortierst; die Zahl „… zu prüfen“ in der Kopfzeile zählt sie.
+Die Liste zeigt Datum, Lieferant mit Rechnungsnummer und Quelle (ZUGFeRD, XRechnung, KI oder Hand), Kategorie mit der Nummer ihres Kontos (bei einer Aufteilung „Aufgeteilt auf 3 Zeilen“, darunter ein [eigenes Konto](buchhaltung.md#eigene-konten), wenn der Beleg eines hat), Bruttobetrag und Status. Ungebuchte Belege stehen oben, solange du nicht nach einer Spalte sortierst, und unter ihnen zuerst die, die auf die KI-Auslesung warten, in deren Reihenfolge; die Zahl „… zu prüfen“ in der Kopfzeile zählt sie.
 
-Über der Liste filtern **Alle**, **Zu prüfen** (alle ungebuchten Belege, auch „Wird ausgelesen“ und „Prüfen“, mit ihrer Zahl) und **Gebucht** (auch stornierte). Der Filter steht als `status` in der Adresse, bleibt bei Sortierung und Suche erhalten und lässt sich verlinken. Die Suche gilt innerhalb des gewählten Filters; findet sie dort nichts, nennt die Meldung den Filter. Ohne Belege nennt die Liste den ersten Schritt: oben ablegen, zum Beispiel eine Stromrechnung, und solange kein Postfach eingerichtet ist, der Knopf **Postfach für Belege einrichten**. Unter „Zu prüfen“ und „Gebucht“ sagt sie, dass nichts mehr zu prüfen ist oder noch nichts gebucht wurde.
+Über der Liste filtern **Alle**, **Zu prüfen** (alle ungebuchten Belege, auch „Wartet auf Auslesung“, „Wird ausgelesen“ und „Prüfen“, mit ihrer Zahl) und **Gebucht** (auch stornierte). Der Filter steht als `status` in der Adresse, bleibt bei Sortierung und Suche erhalten und lässt sich verlinken. Die Suche gilt innerhalb des gewählten Filters; findet sie dort nichts, nennt die Meldung den Filter. Ohne Belege nennt die Liste den ersten Schritt: oben ablegen, zum Beispiel eine Stromrechnung, und solange kein Postfach eingerichtet ist, der Knopf **Postfach für Belege einrichten**. Unter „Zu prüfen“ und „Gebucht“ sagt sie, dass nichts mehr zu prüfen ist oder noch nichts gebucht wurde.
 
 Die Spaltenköpfe Datum, Lieferant, Kategorie, Brutto und Status sortieren die Liste, die Kategorie nach der Nummer. Der erste Klick sortiert absteigend, ein zweiter Klick auf denselben Kopf dreht die Richtung; der aktive Kopf zeigt einen Pfeil. Die Sortierung steht als `sort` und `dir` in der Adresse, lässt sich also verlinken und bleibt beim Neuladen erhalten.
 
 | Status | Bedeutung |
 | --- | --- |
-| Wird ausgelesen | Die KI liest den Beleg gerade. Das Formular ist solange gesperrt. Wurde der Server während der Auslesung neu gestartet, zeigt der Beleg beim nächsten Öffnen einen Fehler, und du liest ihn erneut aus oder füllst ihn von Hand aus. |
+| Wartet auf Auslesung | Der Beleg steht in der [Warteschlange](#warteschlange-und-grenzen) der KI-Auslesung. Das Formular ist solange gesperrt. |
+| Wird ausgelesen | Die KI liest den Beleg gerade. Das Formular ist solange gesperrt. Wurde der Server während der Auslesung neu gestartet, kommt der Beleg an seinem Platz in der Warteschlange wieder dran. |
 | Zu prüfen | Bereit zur Prüfung, noch nicht gebucht. |
 | Prüfen | Die Auslesung ist fehlgeschlagen; der Grund steht am Beleg. |
 | Gebucht | Festgeschrieben. |

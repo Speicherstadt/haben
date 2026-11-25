@@ -1055,6 +1055,18 @@ textarea { font: inherit; font-size: 14px; padding: 10px 12px; border: 1px solid
 .csv-vorschau-kopf { display: flex; justify-content: space-between; gap: 12px; }
 .document-cols { grid-template-columns: 96px minmax(0, 1fr) 160px 120px 170px; }
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Belege neu auslesen (#1735): Markierfelder wie bei den Vorschlägen der Bankliste (#1440), links eine Spalte von 28 px; Linie
+   und Hover liegen auf dem Umschlag, der Link beginnt rechts der Spalte */
+.card:has(.doc-check) .doc-wrap { display: grid; grid-template-columns: 28px minmax(0, 1fr); border-top: 1px solid var(--line-soft); }
+.card:has(.doc-check) .doc-wrap:hover { background: var(--ground); }
+.doc-wrap > .doc-check { grid-column: 1; grid-row: 1; align-self: start; display: flex; justify-content: center; padding-top: 12px; }
+.doc-check input { margin: 0; }
+.doc-wrap > .table-row { grid-column: 2; grid-row: 1; }
+.card:has(.doc-check) .doc-wrap > .table-row { border-top: 0; padding-left: 8px; }
+.card:has(.doc-check) .doc-wrap > a.table-row:hover { background: none; }
+.card:has(.doc-check) .table-row.head.document-cols { padding-left: 36px; }
+.auslesung-leiste { flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.auslesung-leiste > .banner { flex-basis: 100%; }
 .camera-only { display: none; }
 .camera-only-text { display: none; }
 @media (pointer: coarse) {

@@ -36,6 +36,7 @@ import { EigeneSeitenCard } from "../../components/EigeneSeitenCard.tsx";
 import { OwnAccountsCard } from "../../components/OwnAccountsCard.tsx";
 import { McpCard } from "../../components/McpCard.tsx";
 import { ExtractionCard } from "../../components/ExtractionCard.tsx";
+import { ExtractionLimitsCard } from "../../components/ExtractionLimitsCard.tsx";
 import { PasskeysCard } from "../../components/PasskeysCard.tsx";
 import { PasswordCard } from "../../components/PasswordCard.tsx";
 import { SsoZugaengeCard } from "../../components/SsoZugaengeCard.tsx";
@@ -295,6 +296,7 @@ function SettingsPage() {
             <>
               <McpCard data={mcp} />
               <ExtractionCard settings={extraction} />
+              {extraction.provider !== null && <ExtractionLimitsCard limits={extraction.limits} />}
             </>
           )}
           {bereich === "konten" && <OwnAccountsCard overview={ownAccounts} />}
