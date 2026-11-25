@@ -321,8 +321,10 @@ function PreviewCard({
               Zeile
             </th>
             <th scope="col">{meta.singular}</th>
-            <th scope="col">Ergebnis</th>
             <th scope="col">Hinweis</th>
+            <th scope="col" className="csv-status">
+              Ergebnis
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -330,11 +332,6 @@ function PreviewCard({
             <tr key={row.line}>
               <td className="num">{row.lines.join(", ")}</td>
               <td style={{ overflowWrap: "anywhere" }}>{row.title}</td>
-              <td>
-                <Status tone={STATUS[row.status].tone} emphasis={STATUS[row.status].emphasis}>
-                  {STATUS[row.status].text}
-                </Status>
-              </td>
               <td className="small" style={{ overflowWrap: "anywhere" }}>
                 {row.message && <span id={`csv-hint-${row.line}`}>{row.message}</span>}
                 {row.status === "zuordnen" && !row.canCreate && (
@@ -352,6 +349,11 @@ function PreviewCard({
                 {row.status === "zuordnen" && row.canCreate && (
                   <NameChoice line={row.line} title={row.title} value={choices.get(row.line) ?? null} busy={busy} onChange={(c) => choose(row.line, c)} />
                 )}
+              </td>
+              <td className="csv-status">
+                <Status tone={STATUS[row.status].tone} emphasis={STATUS[row.status].emphasis}>
+                  {STATUS[row.status].text}
+                </Status>
               </td>
             </tr>
           ))}
