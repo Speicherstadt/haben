@@ -50,7 +50,7 @@ function PauschalenList() {
       </div>
       <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
         Ausgaben ohne Beleg: Homeoffice-Tage, Fahrten mit dem eigenen Auto, Wege zur Betriebsstätte und Verpflegung auf Geschäftsreisen mindern den Gewinn, ohne
-        dass du etwas bezahlt hast.
+        dass du etwas bezahlt hast, das einen Beleg hätte.
       </p>
 
       <nav className="filter-row" aria-label="Jahr wählen">
