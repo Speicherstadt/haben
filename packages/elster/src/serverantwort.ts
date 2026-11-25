@@ -74,15 +74,34 @@ const POSTFACH_HINWEIS =
   "Hersteller-ID), dann heißt der Knopf „Postfach abrufen“.";
 
 /**
+ * 610101210 meldet einen Fehler im Transferheader (ERIC_TRANSFER_ERR_XML_THEADER). Im Testabruf scheitert damit schon
+ * der Transferweg, bevor das Postfach angesprochen wird; die Antwort nennt dort keinen CN, deshalb steht hier nur der
+ * Weg zum echten Abruf. Der Satz oben bleibt für 601015001, weil er dort die Ursache erklärt (#1791).
+ */
+const TRANSFERHEADER = 610101210;
+
+const POSTFACH_ABRUF_HINWEIS =
+  "Zum Einordnen: Der Abruf aus der Test-Datenbank ist gescheitert; echt abrufen: Haken „Nur Testübermittlung“ " +
+  "ausschalten (braucht die eingetragene Hersteller-ID), dann heißt der Knopf „Postfach abrufen“.";
+
+/** Der Rat zum Testabruf je Code; leer, wenn der Code keinen eigenen Satz hat. */
+function ratZumTestabruf(code: number): string {
+  if (code === VERFAHRENSPRUEFUNG) return POSTFACH_HINWEIS;
+  if (code === TRANSFERHEADER) return POSTFACH_ABRUF_HINWEIS;
+  return "";
+}
+
+/**
  * Die Meldung von ERiC, ergänzt um Code und Text des Servers; unverändert, wenn der Server nichts meldet.
  * `testmerker: true` heißt: Antwort auf eine PostfachAnfrage mit Testmerker; nur dort steht der Rat zum Haken
- * „Nur Testübermittlung“. Beim echten Abruf und außerhalb des Postfachs bleibt der Text des Servers stehen.
+ * „Nur Testübermittlung“, bei 601015001 mit CN, bei 610101210 ohne. Beim echten Abruf und außerhalb des Postfachs
+ * bleibt der Text des Servers stehen.
  */
 export function mitServerMeldung(message: string, serverResponseXml: string, testmerker = false): string {
   const meldungen = serverRueckmeldungen(serverResponseXml);
   if (meldungen.length === 0) return message;
   const zeilen = meldungen.map((m) => {
-    const rat = testmerker && m.code === VERFAHRENSPRUEFUNG ? POSTFACH_HINWEIS : "";
+    const rat = testmerker ? ratZumTestabruf(m.code) : "";
     const teile = [m.text, rat].filter((teil) => teil !== "");
     return `${m.quelle} ${m.code}${teile.length > 0 ? ` – ${teile.join(" ")}` : ""}`;
   });
