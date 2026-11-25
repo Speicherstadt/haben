@@ -1,7 +1,16 @@
-import { ASSET_KINDS, ASSET_METHODS, formatDecimal, formatDegressiveRate, elektroAvailable, isKapitalgesellschaft } from "@haben/core";
+import {
+  ASSET_KINDS,
+  ASSET_METHODS,
+  formatDecimal,
+  formatDegressiveRate,
+  elektroAvailable,
+  isKapitalgesellschaft,
+  type SpecialDepreciationAmount,
+} from "@haben/core";
 import { Link, createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
+import { Field } from "../../../components/Field.tsx";
 import { AssetForm } from "../../../components/AssetForm.tsx";
 import { formatDate } from "../../../lib/format.ts";
 import { NoticeBanner } from "../../../components/NoticeBanner.tsx";
@@ -28,9 +37,7 @@ function AssetPage() {
 
   const booked = bookedYears.length > 0 || asset.openingEntryId !== null;
   const fromDocument = asset.documentId !== null;
-  const deletable = !booked && !fromDocument;
   const lastBooked = bookedYears.at(-1) ?? null;
-  const acquisitionYear = Number(asset.acquisitionDate.slice(0, 4));
   // § 7 Abs. 3 EStG: Wechsel zur linearen AfA, solange er noch nicht gebucht ist
   const switchEditable = asset.method === "degressiv" && (lastBooked === null || asset.linearFromYear === null || asset.linearFromYear > lastBooked);
 
@@ -43,7 +50,7 @@ function AssetPage() {
           </div>
           <h1>{asset.name}</h1>
         </div>
-        {deletable && (
+        {!booked && !fromDocument && (
           <div className="actions">
             <button type="button" className="btn btn-danger" disabled={busy} onClick={() => setConfirmingDelete(true)}>
               Löschen
@@ -122,55 +129,20 @@ function AssetPage() {
             </p>
           )}
           {(asset.method === "linear" || asset.method === "degressiv") && (
-            <form
-              className="stack"
+            <SpecialDepreciationForm
               key={asset.updatedAt.toISOString()}
-              onSubmit={(event) => {
-                event.preventDefault();
-                const form = new FormData(event.currentTarget);
-                const entries = Array.from({ length: 5 }, (_, index) => {
-                  const year = acquisitionYear + index;
-                  const amount =
-                    year <= (lastBooked ?? 0)
-                      ? (asset.specialDepreciation.find((entry) => entry.year === year)?.amount ?? 0)
-                      : Math.round(Number(form.get(String(year))) * 100);
-                  return { year, amount };
-                }).filter(({ amount }) => amount > 0);
-                void run(async () => {
-                  await update({ data: { id: asset.id, asset: { name: asset.name, specialDepreciation: entries } } });
+              asset={asset}
+              lastBooked={lastBooked}
+              busy={busy}
+              onSave={(specialDepreciation) =>
+                run(async () => {
+                  await update({ data: { id: asset.id, asset: { name: asset.name, specialDepreciation } } });
                   await router.invalidate({ sync: true });
-                }, "Sonder-AfA gespeichert.");
-              }}
-            >
-              <h3>Sonder-AfA nach § 7g EStG</h3>
-              {Array.from({ length: 5 }, (_, index) => {
-                const year = acquisitionYear + index;
-                const amount = asset.specialDepreciation.find((entry) => entry.year === year)?.amount ?? 0;
-                return (
-                  <label key={year}>
-                    {year} (€)
-                    <input
-                      name={String(year)}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      defaultValue={(amount / 100).toFixed(2)}
-                      disabled={year <= (lastBooked ?? 0)}
-                    />
-                  </label>
-                );
-              })}
-              <label>
-                <input type="checkbox" required /> Der maßgebliche Vorjahresgewinn beträgt höchstens 200.000 €. Die Anlage wird im Anschaffungsjahr und im
-                Folgejahr vermietet oder zu mindestens 90 % in einer inländischen Betriebsstätte betrieblich genutzt.
-              </label>
-              <button type="submit" className="btn" disabled={busy}>
-                Sonder-AfA speichern
-              </button>
-            </form>
+                }, "Sonder-AfA gespeichert.")
+              }
+            />
           )}
           <AssetForm
-            // Mit Millisekunden: String(Date) endet bei der Sekunde, zwei Aktionen in derselben Sekunde ließen das Formular stehen
             key={asset.updatedAt.toISOString()}
             initial={{
               name: asset.name,
@@ -210,5 +182,52 @@ function AssetPage() {
         </section>
       </div>
     </>
+  );
+}
+
+function SpecialDepreciationForm({
+  asset,
+  lastBooked,
+  busy,
+  onSave,
+}: {
+  asset: { acquisitionDate: string; specialDepreciation: SpecialDepreciationAmount[] };
+  lastBooked: number | null;
+  busy: boolean;
+  onSave: (entries: SpecialDepreciationAmount[]) => Promise<boolean>;
+}) {
+  const years = Array.from({ length: 5 }, (_, index) => {
+    const year = Number(asset.acquisitionDate.slice(0, 4)) + index;
+    return { year, amount: asset.specialDepreciation.find((entry) => entry.year === year)?.amount ?? 0, locked: year <= (lastBooked ?? 0) };
+  });
+  return (
+    <form
+      className="stack"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const fields = new FormData(event.currentTarget);
+        const entries = years
+          .map(({ year, amount, locked }) => ({
+            year,
+            amount: locked ? amount : Math.round(Number(fields.get(String(year))) * 100),
+          }))
+          .filter(({ amount }) => amount > 0);
+        void onSave(entries);
+      }}
+    >
+      <h3>Sonder-AfA nach § 7g EStG</h3>
+      {years.map(({ year, amount, locked }) => (
+        <Field key={year} label={`${year} (€)`}>
+          {(control) => <input {...control} name={String(year)} type="number" min="0" step="0.01" defaultValue={(amount / 100).toFixed(2)} disabled={locked} />}
+        </Field>
+      ))}
+      <label>
+        <input type="checkbox" required /> Der maßgebliche Vorjahresgewinn beträgt höchstens 200.000 €. Die Anlage wird im Anschaffungsjahr und im Folgejahr
+        vermietet oder zu mindestens 90 % in einer inländischen Betriebsstätte betrieblich genutzt.
+      </label>
+      <button type="submit" className="btn" disabled={busy}>
+        Sonder-AfA speichern
+      </button>
+    </form>
   );
 }

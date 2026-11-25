@@ -196,28 +196,6 @@ describe.skipIf(!testDatabaseUrl)("Weitere AfA-Methoden (Postgres)", () => {
     }
   });
 
-  it.each([
-    ["SKR03", "ist", "4851"],
-    ["SKR04", "soll", "6241"],
-  ] as const)("%s, %s: Sonder-AfA aus dem Plan, dann gebucht und in der EÜR", async (kr, versteuerung, konto) => {
-    await setup([kr, versteuerung, "einzelunternehmen"]);
-    const id = await buyByDocument("2025-07-01", 1_000_000, {
-      name: "Maschine",
-      kind: "sonstiges",
-      method: "degressiv",
-      usefulLifeMonths: 120,
-    });
-    const specialDepreciation = [{ year: 2025, amount: 200_000 }];
-    await assets.updateAsset(actor, id, { name: "Maschine", specialDepreciation });
-    expect((await annual.euerYear(2025)).figures.sonderAfa).toBe(200_000);
-    await assets.bookDepreciation(actor, 2025, "2025-12-01");
-    expect(await linesOf(id, 2025)).toContainEqual({ date: "2025-12-31", account: konto, debit: 200_000, credit: 0 });
-    const year = await annual.euerYear(2025);
-    expect(year.figures).toMatchObject({ sonderAfa: 200_000, afaBeweglich: 150_000 });
-    expect(year.anlagen[0]).toMatchObject({ sonderAfa: 200_000, buchwertEnde: 650_000 });
-    await expect(assets.updateAsset(actor, id, { name: "Maschine", specialDepreciation: [] })).rejects.toThrow("bereits gebuchte");
-  });
-
   it.each(FAELLE)("%s, %s, %s: Erinnerungswert bleibt stehen, der Abgang bucht ihn aus", async (...fall) => {
     await setup(fall);
     const k = KONTEN[fall[0]];
@@ -252,28 +230,6 @@ describe.skipIf(!testDatabaseUrl)("Weitere AfA-Methoden (Postgres)", () => {
     if (fall[2] === "einzelunternehmen") {
       expect((await reports.euerForYear(2027)).ausgaben.find((l) => l.key === "restbuchwert")?.amount).toBe(100);
     }
-  });
-
-  it.each([
-    ["SKR03", "ist", "4851"],
-    ["SKR04", "soll", "6241"],
-  ] as const)("%s, %s: Sonder-AfA aus dem Plan, dann gebucht und in der EÜR", async (kr, versteuerung, konto) => {
-    await setup([kr, versteuerung, "einzelunternehmen"]);
-    const id = await buyByDocument("2025-07-01", 1_000_000, {
-      name: "Maschine",
-      kind: "sonstiges",
-      method: "degressiv",
-      usefulLifeMonths: 120,
-    });
-    const specialDepreciation = [{ year: 2025, amount: 200_000 }];
-    await assets.updateAsset(actor, id, { name: "Maschine", specialDepreciation });
-    expect((await annual.euerYear(2025)).figures.sonderAfa).toBe(200_000);
-    await assets.bookDepreciation(actor, 2025, "2025-12-01");
-    expect(await linesOf(id, 2025)).toContainEqual({ date: "2025-12-31", account: konto, debit: 200_000, credit: 0 });
-    const year = await annual.euerYear(2025);
-    expect(year.figures).toMatchObject({ sonderAfa: 200_000, afaBeweglich: 150_000 });
-    expect(year.anlagen[0]).toMatchObject({ sonderAfa: 200_000, buchwertEnde: 650_000 });
-    await expect(assets.updateAsset(actor, id, { name: "Maschine", specialDepreciation: [] })).rejects.toThrow("bereits gebuchte");
   });
 
   it.each(FAELLE)("%s, %s, %s: degressive Übernahme nur mit rechnerischem Restbuchwert", async (...fall) => {

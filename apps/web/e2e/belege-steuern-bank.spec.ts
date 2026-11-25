@@ -231,7 +231,7 @@ test("Anlage übernehmen: degressive AfA mit Höchstsatz, Restbuchwert geprüft,
   // Wechsel zur linearen AfA ab 2027: 27.200 € über die Restnutzungsdauer von 87 Monaten
   const angaben = page.getByRole("region", { name: "Angaben" });
   await angaben.getByLabel("Linear ab Jahr (optional)").fill("2027");
-  await angaben.getByRole("button", { name: "Speichern" }).click();
+  await angaben.getByRole("button", { name: "Speichern", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Gespeichert." })).toBeVisible();
   await expect(plan).toContainText("linear ab 2027");
   await expect(plan.locator(".table-row", { hasText: /^2027/ })).toContainText("3.751,72");
