@@ -5,10 +5,11 @@ import type { Report } from "./regel.ts";
  * ist fremder Code mit eigenen Abhängigkeiten, Angriffsfläche und Pflege. Deshalb immer eine Warnung, die man im Pull
  * Request sieht, und ein Fehler, solange die Beschreibung den Grund nicht unter „## Neue Abhängigkeiten“ nennt.
  * Verglichen werden die package.json-Dateien vorher und nachher; ein Update der Version zählt nicht, ein Paket,
- * das aus devDependencies zur Laufzeit wechselt, schon. Neue Pakete nur in bun.lock (transitiv) sieht die Prüfung nicht.
+ * das aus devDependencies zur Laufzeit wechselt, schon, umgekehrt oder zwischen den Feldern zur Laufzeit nicht. Neue Pakete nur in bun.lock (transitiv) sieht die Prüfung nicht.
  */
 
 const FELDER = ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"] as const;
+const LAUFZEIT = ["dependencies", "optionalDependencies", "peerDependencies"] as const;
 
 export type NeueAbhaengigkeit = { file: string; name: string; feld: string };
 
@@ -34,7 +35,12 @@ export function neueAbhaengigkeiten(staende: { file: string; before: string | nu
   return staende.flatMap(({ file, before, after }) => {
     const vorher = felder(before);
     const nachher = felder(after);
-    return FELDER.flatMap((feld) => (nachher[feld] ?? []).filter((name) => !(vorher[feld] ?? []).includes(name)).map((name) => ({ file, name, feld })));
+    // Bekannt ist für devDependencies jedes Paket von vorher, für die Felder zur Laufzeit nur eins, das schon zur Laufzeit lief
+    const bekannt = (feld: string) => new Set((feld === "devDependencies" ? FELDER : LAUFZEIT).flatMap((f) => vorher[f] ?? []));
+    return FELDER.flatMap((feld) => {
+      const alt = bekannt(feld);
+      return (nachher[feld] ?? []).filter((name) => !alt.has(name)).map((name) => ({ file, name, feld }));
+    });
   });
 }
 
@@ -49,7 +55,8 @@ function abschnitt(body: string | null): string | null {
   return zeilen.slice(start + 1, ende < 0 ? undefined : ende).join("\n");
 }
 
-export function abhaengigkeitHinweise(neu: NeueAbhaengigkeit[], body: string | null, bot: boolean): Report[] {
+/** Ohne Beschreibungsprüfung (Bots wie Renovate, lokal ohne --titel) nur der Hinweis, ohne Fehler */
+export function abhaengigkeitHinweise(neu: NeueAbhaengigkeit[], body: string | null, ohneBeschreibung: boolean): Report[] {
   if (neu.length === 0) return [];
   const liste = neu.map(({ file, name, feld }) => `\`${name}\` (${file}, ${feld})`).join(", ");
   const meldungen: Report[] = [
@@ -58,7 +65,7 @@ export function abhaengigkeitHinweise(neu: NeueAbhaengigkeit[], body: string | n
       message: `Neue Abhängigkeit: ${liste}. Jedes Paket bringt fremden Code und meist weitere Pakete mit; vorher prüfen, ob wenige Zeilen eigener Code oder ein vorhandenes Paket reichen (docs/entwicklung.md, Konventionen, „Wenige Abhängigkeiten“).`,
     },
   ];
-  if (bot) return meldungen;
+  if (ohneBeschreibung) return meldungen;
   const begruendung = abschnitt(body) ?? "";
   const fehlt = [...new Set(neu.map(({ name }) => name))].filter((name) => !begruendung.includes(name));
   if (fehlt.length > 0)

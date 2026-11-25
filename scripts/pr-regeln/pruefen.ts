@@ -131,7 +131,7 @@ const reports: Report[] = [
   ...functionLengthHints(functionChanges),
   ...reviewHint(pr, files),
   ...heikelHint(files),
-  ...abhaengigkeitHinweise(neuePakete, pr.body, isBot(pr.user)),
+  ...abhaengigkeitHinweise(neuePakete, pr.body, isBot(pr.user) || pr.title === null),
 ];
 
 if (lokal) {
