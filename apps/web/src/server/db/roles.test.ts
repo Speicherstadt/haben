@@ -16,7 +16,7 @@ describe.skipIf(!testDatabaseUrl)("Migration und echte App-Anmeldung (Postgres, 
   const externalOwner = `role619_owner_${process.pid}`;
   const externalDb = `role619_external_${process.pid}`;
   let appUrl: string;
-  let started: Promise<void> | undefined;
+  let started: Promise<unknown> | undefined;
 
   const loginUrl = (role: string, database?: string) => {
     const url = new URL(testDatabaseUrl!);
@@ -26,15 +26,22 @@ describe.skipIf(!testDatabaseUrl)("Migration und echte App-Anmeldung (Postgres, 
     return url.toString();
   };
 
-  async function migrate(runtimeUrl: string, migrationUrl?: string, script = fileURLToPath(new URL("./migrate.ts", import.meta.url)), expectedExit = 0) {
+  async function migrate(
+    runtimeUrl: string,
+    migrationUrl?: string,
+    script = fileURLToPath(new URL("./migrate.ts", import.meta.url)),
+    expectedExit = 0,
+    env: Record<string, string> = {},
+  ) {
     // Vitest läuft unter Bun; derselbe Interpreter führt auch die echte CLI aus.
     const child = spawnSync(process.execPath, [script], {
-      env: { ...process.env, DATABASE_URL: runtimeUrl, MIGRATION_DATABASE_URL: migrationUrl ?? "" },
+      env: { ...process.env, DATABASE_URL: runtimeUrl, MIGRATION_DATABASE_URL: migrationUrl ?? "", ...env },
       encoding: "utf-8",
       timeout: 15_000,
     });
     expect(child.status, `${child.stdout}\n${child.stderr}`).toBe(expectedExit);
     expect(`${child.stdout}\n${child.stderr}`).not.toContain("rollen-test-619");
+    return child;
   }
 
   // Alle Rechteproben gehen erst durch den echten CLI-Start, nicht durch eine im Test vorab abgesicherte Rolle.
@@ -169,6 +176,24 @@ describe.skipIf(!testDatabaseUrl)("Migration und echte App-Anmeldung (Postgres, 
     expect(await app`select table_name from seals where row_id = ${entry}`).toEqual([{ table_name: "journal_entries" }]);
     await expect(app`update journal_lines set debit = 1 where entry_id = ${entry} and debit > 0`).rejects.toThrow();
     expect(await app`select * from haben_integrity_problems()`).toEqual([]);
+  });
+
+  it("schreibt Hinweise von PostgreSQL als eine Zeile mit Meldung, Code und Stufe, Warnungen als warn (#1860)", async () => {
+    await start();
+    const script = futureMigration("do $$ begin raise notice 'Hinweis der Probe'; raise warning 'Warnung der Probe'; end $$", 8_000_000_000_000);
+    const { stdout, stderr } = await migrate(appUrl, testDatabaseUrl, script, 0, { HABEN_LOG_FORMAT: "json" });
+    const zeilen = (text: string) =>
+      text
+        .split("\n")
+        .filter(Boolean)
+        .map((zeile) => JSON.parse(zeile) as Record<string, unknown>);
+    expect(zeilen(stdout)).toContainEqual(
+      expect.objectContaining({ level: "info", component: "migration", msg: "Hinweis der Probe", code: "00000", severity: "NOTICE" }),
+    );
+    expect(zeilen(stderr)).toContainEqual(
+      expect.objectContaining({ level: "warn", component: "migration", msg: "Warnung der Probe", code: "01000", severity: "WARNING" }),
+    );
+    expect(stdout).not.toContain("routine");
   });
 
   it("vergibt nach einer weiteren echten Migration Tabellen- und Sequenzrechte erneut", async () => {
