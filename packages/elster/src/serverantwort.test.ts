@@ -134,7 +134,20 @@ describe("mitServerMeldung", () => {
     const xml = antwort(fehler(601015001, zertifikatssatz));
     expect(mitServerMeldung("M", xml)).not.toContain("Test-Datenbank");
     expect(mitServerMeldung("M", xml, false)).not.toContain("Test-Datenbank");
-    expect(mitServerMeldung("M", antwort(fehler(610101210, "Anderer Text.")), true)).not.toContain("Test-Datenbank");
+    expect(mitServerMeldung("M", antwort(fehler(610101210, "Anderer Text.")))).not.toContain("Test-Datenbank");
+    expect(mitServerMeldung("M", antwort(fehler(610101210, "Anderer Text.")), false)).not.toContain("Test-Datenbank");
+  });
+
+  it("nennt beim Testabruf auch bei 610101210 den Weg zum echten Abruf, ohne CN", () => {
+    // 610101210 meldet den Fehler im Transferheader; dort nennt die Antwort keinen CN, der Satz für 601015001 passt
+    // an dieser Stelle nicht (#1791)
+    const meldung = mitServerMeldung("M", antwort(fehler(610101210, "Anderer Text.")), true);
+    expect(meldung).toContain("Transferheader 610101210 – Anderer Text.");
+    expect(meldung).toContain("Test-Datenbank");
+    expect(meldung).toContain("Haken „Nur Testübermittlung“ aus");
+    expect(meldung).toContain("„Postfach abrufen“");
+    expect(meldung).not.toContain("CN");
+    expect(meldung).not.toContain("Übertragungszertifikat");
   });
 
   it("lässt den Text stehen, wenn 601015001 einen anderen Grund nennt", () => {
