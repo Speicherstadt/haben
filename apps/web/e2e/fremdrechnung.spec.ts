@@ -124,8 +124,19 @@ test("Steuerbehandlung: nur, was die Übernahme annimmt; die Befreiungsvorschrif
   await expect(vorschrift).toHaveJSProperty("required", true);
   // Die Vorschrift steht im Hinweis unter der Auswahl, nicht im Namen
   await expect(behandlung).toHaveAccessibleDescription(/Steuerbefreiung nach § 4 UStG/);
+  // Ohne deutsche Umsatzsteuer gilt 0 %: nur der Nettobetrag, zusammengefasst aus den Zeilen (#1880)
+  await expect(page.getByLabel("Steuersatz 1")).toHaveCount(0);
+  await expect(page.getByLabel("Steuer 1 (€)")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Weiteren Steuersatz" })).toHaveCount(0);
+  await page.getByLabel("Netto (€)").fill("1.000,00");
   await behandlung.selectOption("ig_lieferung");
   await expect(behandlung).toHaveAccessibleDescription(/§ 4 Nr\. 1 Buchst\. b, § 6a UStG/);
+  await expect(page.getByLabel("Netto (€)")).toHaveValue("1.000,00");
+  // Zurück auf regulär: wieder Satz und Steuer je Zeile, der Satz bleibt 0 %
+  await behandlung.selectOption("regulaer");
+  await expect(page.getByLabel("Steuersatz 1")).toHaveValue("0");
+  await expect(page.getByLabel("Netto 1 (€)")).toHaveValue("1.000,00");
+  await expect(page.getByLabel("Steuer 1 (€)")).toHaveValue("0,00");
 });
 
 test("Auslandsleistung: Leistungsort wie im Rechnungseditor, bei der sonstigen EU-Leistung Pflicht, nie aus der Kundenanschrift vorbelegt (#1392)", async () => {
