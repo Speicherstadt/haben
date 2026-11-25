@@ -235,7 +235,7 @@ Im Formular gilt dasselbe für ganze Abschnitte (`EinklappAbschnitt` in `compone
 
 ### Ablauf
 
-Hat eine Seite eine feste Reihenfolge von Schritten, zeigt `VoranmeldungAblauf` (`.ablauf-*`) sie oben in einer Karte: eine geordnete Liste, der aktuelle Schritt trägt `aria-current="step"` und ist fett, Erledigtes trägt einen Haken und für Screenreader das unsichtbare Wort „(erledigt)“, nie nur Farbe. Darunter steht in einem Satz das Ergebnis; wo es nichts Verlässliches zu sagen gibt (festgeschrieben, berichtigt), entfällt der Satz, die Leiste bleibt. Der Zustand kommt aus dem, was die Seite schon weiß.
+Hat eine Seite eine feste Reihenfolge von Schritten, zeigt `VoranmeldungAblauf` (`.ablauf-*`) sie oben in einer Karte: eine geordnete Liste, der aktuelle Schritt trägt `aria-current="step"` und ist fett, Erledigtes trägt einen Haken und für Screenreader das unsichtbare Wort „(erledigt)“, nie nur Farbe. Darunter steht in einem Satz das Ergebnis; wo es nichts Verlässliches zu sagen gibt (festgeschrieben, berichtigt, Zeitraum passt nicht zur Voranmeldung), entfällt der Satz, die Leiste bleibt. Der Zustand kommt aus dem, was die Seite schon weiß.
 
 ### Datei-Felder
 

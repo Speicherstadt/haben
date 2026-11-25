@@ -89,7 +89,8 @@ export function anmeldbar(data: PageData): boolean {
 /**
  * Ablauf und Ergebnis über den Kennzahlen (#1253). Der Satz entfällt bei einer festgeschriebenen Anmeldung (Status und „Zahlung
  * an das Finanzamt“ zeigen den echten Stand), bei einer berichtigten (ihr Posten ist die Differenz zur ersten Anmeldung, nicht
- * Kz 83) und solange ein Wert von Hand nicht lesbar ist (`werteGueltig` false): Die Seite rechnet ihn dann als 0, und „nichts zu
+ * Kz 83), bei einem Zeitraum, der nicht zur Voranmeldung passt (`anmeldbar`: Der Hinweis darüber und das gesperrte Senden widersprächen
+ * dem Satz), und solange ein Wert von Hand nicht lesbar ist (`werteGueltig` false): Die Seite rechnet ihn dann als 0, und „nichts zu
  * zahlen“ wäre falsch. `geaendert`: ungespeicherte oder veraltete Werte.
  */
 export function ZeitraumAblauf({
@@ -114,7 +115,7 @@ export function ZeitraumAblauf({
   return (
     <VoranmeldungAblauf
       schritt={schritt}
-      satz={locked || data.current?.berichtigt || !werteGueltig ? null : ergebnisSatz(shown.kz83, data.dueDate, data.today)}
+      satz={locked || data.current?.berichtigt || !anmeldbar(data) || !werteGueltig ? null : ergebnisSatz(shown.kz83, data.dueDate, data.today)}
     />
   );
 }

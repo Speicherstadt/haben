@@ -50,6 +50,7 @@ Der Satz entfällt:
 
 - solange von Hand ein Wert nicht lesbar ist,
 - bei einer berichtigten Anmeldung, denn zu zahlen oder zu erstatten ist nur der Unterschied zur ersten Anmeldung (siehe [berichtigte Anmeldung](#berichtigte-anmeldung)),
+- wenn der Zeitraum nicht zur Voranmeldung passt (siehe [Voranmeldungszeitraum](#voranmeldungszeitraum)),
 - nach dem Festschreiben; dort zeigen Status und **Zahlung an das Finanzamt** den Stand.
 
 ## Voranmeldungszeitraum
