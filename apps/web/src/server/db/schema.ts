@@ -315,8 +315,9 @@ export const vatReturns = pgTable(
     /**
      * „leistung“: Die berechneten Kennzahlen (die Anmeldung selbst bei „berechnet“, sonst `computed`) enthalten in Kz 48
      * die Umsätze als Kleinunternehmer im Zeitraum der Leistung (#1268). Gesetzt beim Speichern des Entwurfs, bei einer
-     * Berichtigung von der berichtigten Anmeldung übernommen. Leer heißt gerechnet vor #1268 ohne diese Umsätze: Nur dann
-     * gilt im Abgleich gesendeter Anmeldungen auch Kz 48 ohne sie als unverändert (#1811).
+     * Berichtigung von der berichtigten Anmeldung übernommen. Leer heißt gerechnet vor #1811, ob mit diesen Umsätzen (ab
+     * 0.13) oder ohne (bis 0.12), ist unbekannt: Nur dann gilt im Abgleich gesendeter Anmeldungen auch Kz 48 ohne sie als
+     * unverändert.
      */
     smallBusinessRule: text("small_business_rule", { enum: ["leistung"] }),
     /** Berechnete Werte zum Zeitpunkt des Speicherns, zum Nachvollziehen einer Überschreibung */
