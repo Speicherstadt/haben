@@ -2,13 +2,23 @@ import { Link } from "@tanstack/react-router";
 import { Icon } from "./Icon.tsx";
 import { FINALIZE_HINT, FINALIZE_HINT_ID } from "./InvoiceEditorHinweise.tsx";
 import { InvoiceCopyButton } from "./InvoiceCopyButton.tsx";
+import { InvoiceReplacementNotice } from "./InvoiceReplacementNotice.tsx";
 import { NoticeBanner } from "./NoticeBanner.tsx";
 import { PreviewButton, type DocumentPreview } from "./DocumentPreview.tsx";
+import type { InvoiceEditorProps } from "./invoice-editor-types.ts";
 import type { InvoiceEditorModel } from "./use-invoice-editor.ts";
 
 // Kopf des Editors mit Titel und Knöpfen, darunter die Hinweise vor dem Festschreiben
 
-export function InvoiceEditorHead({ editor, preview }: { editor: InvoiceEditorModel; preview: DocumentPreview }) {
+export function InvoiceEditorHead({
+  editor,
+  preview,
+  replaces,
+}: {
+  editor: InvoiceEditorModel;
+  preview: DocumentPreview;
+  replaces?: InvoiceEditorProps["replaces"];
+}) {
   const {
     alreadyPaid,
     busy,
@@ -94,6 +104,7 @@ export function InvoiceEditorHead({ editor, preview }: { editor: InvoiceEditorMo
         </div>
       )}
       <NoticeBanner notice={notice} />
+      {replaces && <InvoiceReplacementNotice reference={replaces} />}
     </>
   );
 }

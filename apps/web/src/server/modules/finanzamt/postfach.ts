@@ -6,6 +6,7 @@ import { encrypt } from "../../crypto.ts";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import { FinanzamtError } from "./finanzamt.ts";
+import { type ErledigtStand, erledigtStand } from "./postfach-erledigt.ts";
 import { sniff, storeFile } from "../../storage.ts";
 import { ABRUF, isSimulated, loadActiveCertificate, PRODUKT_VERSION, signatur, zugang } from "../elster/index.ts";
 
@@ -45,6 +46,7 @@ export async function listPostfachDocuments(limit = 200) {
         bereitstellungId: schema.postfachDocuments.bereitstellungId,
         datenart: schema.postfachDocuments.datenart,
         veranlagungszeitraum: schema.postfachDocuments.veranlagungszeitraum,
+        steuernummer: schema.postfachDocuments.steuernummer,
         bescheiddatum: schema.postfachDocuments.bescheiddatum,
         dateibezeichnung: schema.postfachDocuments.dateibezeichnung,
         filename: schema.postfachDocuments.filename,
@@ -54,30 +56,88 @@ export async function listPostfachDocuments(limit = 200) {
         fetchedAt: schema.postfachDocuments.fetchedAt,
       })
       .from(schema.postfachDocuments)
-      .orderBy(desc(schema.postfachDocuments.fetchedAt))
+      // Fester zweiter Schlüssel: Anhänge einer Bereitstellung kommen im selben Takt, sonst entscheidet der Zufall
+      .orderBy(desc(schema.postfachDocuments.fetchedAt), desc(schema.postfachDocuments.id))
       .limit(limit),
   ]);
+  const erledigt = await erledigtStand(rows.map((row) => row.id));
   return rows.map((row) => {
     const datum = parseBescheiddatum(row.bescheiddatum);
     return {
       ...row,
       bescheiddatumIso: datum,
       frist: datum && isBescheid(row.datenart) ? einspruchsfrist(datum, company.bundesland as Bundesland | null) : null,
+      /** „geprüft“ nimmt den Bescheid aus den Aufgaben, bis jemand ihn wieder öffnet (#1819) */
+      erledigt: erledigt.get(row.id) ?? null,
     };
   });
 }
 
-/** Echte Bescheide, deren Einspruchsfrist heute noch läuft; je Bereitstellung einer */
+type PostfachDokument = Awaited<ReturnType<typeof listPostfachDocuments>>[number];
+
+/** Vergleichsform einer Dateibezeichnung: einfacher Leerraum, Groß- und Kleinschreibung egal */
+const vergleichsform = (bezeichnung: string) => bezeichnung.trim().replace(/\s+/g, " ").toLowerCase();
+
+/**
+ * Echte Bescheide, deren Einspruchsfrist heute noch läuft; je Steuerfall und Zeitraum einer.
+ *
+ * Ein Änderungsbescheid (§§ 164, 165, 172 ff. AO) tritt an die Stelle des Bescheids, den er ändert; der alte bleibt nur
+ * wirksam, soweit der neue ihn nicht erledigt (§ 124 Abs. 2 AO). Ergeht der neue, solange die Frist des alten läuft, ist
+ * er voll anfechtbar (§ 351 Abs. 1 AO beschränkt nur Änderungen unanfechtbarer Bescheide), und seine Frist endet nie
+ * früher. Deshalb zählt je Datenart, Veranlagungszeitraum, Steuernummer und Zeitraum nur das jüngste Bescheiddatum;
+ * sonst steht die erledigte Frist gleichrangig daneben (#1817). Daraus lesen Aufgaben, Fristen, Kalender-Abo und MCP.
+ *
+ * Monat oder Quartal liefert ELSTER nicht verlässlich als Feld: `veranlagungszeitraum` ist optional und kann bei
+ * Anmeldesteuern einen Teilzeitraum tragen (SSb ElsterDatenabholung V32, Kap. 9.2 und 9.3). Die Dateibezeichnung des
+ * Finanzamts („Umsatzsteuer-Vorauszahlungsbescheid Januar 2025“) wird deshalb so, wie sie kommt, Teil des Schlüssels;
+ * Monatsnamen aus dem Freitext zu lesen wäre geraten (Quartale, „Januar bis März“, abweichende Schreibweisen) und könnte
+ * zwei Zeiträume zusammenwerfen und damit eine offene Frist verschlucken. Anhänge desselben Bescheids tragen verschiedene
+ * Bezeichnungen; zusammengehalten werden sie über ihre Bereitstellung. Fehlt der Veranlagungszeitraum, ist der Zeitraum
+ * nicht bestimmt, und sonstige Verwaltungsakte sind eigenständig: Dort bleibt jede Bereitstellung für sich, damit keine
+ * offene Frist verschwindet.
+ */
 export async function openAppealDeadlines(today: string) {
-  const seen = new Set<string>();
-  return (await listPostfachDocuments())
-    .filter((d) => !d.test && d.frist && d.frist.fristende >= today)
-    .filter((d) => {
-      if (seen.has(d.bereitstellungId)) return false;
-      seen.add(d.bereitstellungId);
-      return true;
-    })
-    .sort((a, b) => a.frist!.fristende.localeCompare(b.frist!.fristende));
+  const offen = (await listPostfachDocuments()).filter(
+    (d): d is PostfachDokument & { bescheiddatumIso: string; frist: NonNullable<PostfachDokument["frist"]> } =>
+      !d.test && d.frist !== null && d.frist.fristende >= today && d.bescheiddatumIso !== null,
+  );
+  const bezeichnungen = new Map<string, Set<string>>();
+  for (const dokument of offen) {
+    const menge = bezeichnungen.get(dokument.bereitstellungId) ?? new Set<string>();
+    menge.add(vergleichsform(dokument.dateibezeichnung));
+    bezeichnungen.set(dokument.bereitstellungId, menge);
+  }
+  const gruppen = new Map<string, (typeof offen)[number][]>();
+  for (const bescheid of offen) {
+    const zeitraum = [...(bezeichnungen.get(bescheid.bereitstellungId) ?? [])].sort().join("\u0001");
+    // Ohne Veranlagungszeitraum ist der Zeitraum nicht bestimmt: Gleich benannte Bescheide verschiedener Jahre dürfen
+    // dann nicht zusammenfallen, sonst verschwindet eine offene Frist. Dasselbe gilt für sonstige Verwaltungsakte, die
+    // eigenständig sind und deren Bezeichnung nichts unterscheidet, etwa zwei Verspätungszuschläge desselben Jahres.
+    // Dort zählt jede Bereitstellung für sich; ihre Anhänge bleiben eine Frist.
+    const einzeln = bescheid.veranlagungszeitraum === "" || bescheid.datenart === "DivaSonstigerVA";
+    const schluessel = einzeln
+      ? `einzeln\u0000${bescheid.bereitstellungId}`
+      : [bescheid.datenart, bescheid.veranlagungszeitraum, bescheid.steuernummer, zeitraum].join("\u0000");
+    const liste = gruppen.get(schluessel) ?? [];
+    liste.push(bescheid);
+    gruppen.set(schluessel, liste);
+  }
+  // Erst nach der Gruppierung filtern: Anhänge desselben Bescheids teilen sich die Aufgabe (#1819). Maßgeblich ist das
+  // gelesene Datum, nicht die rohe Spalte, weil der Parser JJJJMMTT, JJJJ-MM-TT und TT.MM.JJJJ kennt. Tragen mehrere
+  // Anhänge dasselbe Bescheiddatum, entscheidet unter ihnen das jüngste Ereignis und nicht eines von ihnen allein: sonst
+  // bliebe „Wieder offen“ folgenlos, solange ein anderer Anhang geprüft ist (#1819). Ein älterer Bescheid derselben
+  // Gruppe lässt die Frist dagegen nicht wieder aufleben. Ohne Ereignis gilt der Bescheid als offen; bei gleichem
+  // Zeitstempel bleibt die erste Zeile, weil die Liste fest sortiert ist.
+  type MitEreignis = (typeof offen)[number] & { erledigt: ErledigtStand };
+  const offenBleibend: typeof offen = [];
+  for (const liste of gruppen.values()) {
+    const juengster = liste.reduce((a, b) => (b.bescheiddatumIso > a.bescheiddatumIso ? b : a));
+    const amJuengsten = liste.filter((d): d is MitEreignis => d.bescheiddatumIso === juengster.bescheiddatumIso && d.erledigt !== null);
+    const letztes = amJuengsten.reduce<MitEreignis | null>((a, b) => (a === null || b.erledigt.at > a.erledigt.at ? b : a), null);
+    // Zurück kommt der Anhang, dessen Vermerk den Ausschlag gibt: an ihm hängt der Knopf der Aufgabe.
+    if (letztes?.erledigt.art !== "geprueft") offenBleibend.push(letztes ?? juengster);
+  }
+  return offenBleibend.sort((a, b) => a.frist.fristende.localeCompare(b.frist.fristende));
 }
 
 export async function postfachDocumentFile(id: string) {

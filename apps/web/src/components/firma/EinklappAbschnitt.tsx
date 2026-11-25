@@ -38,7 +38,7 @@ export function useAnkerAufklappen(setOffen: Dispatch<SetStateAction<OffeneAbsch
 }
 
 /**
- * Aufklappbarer Abschnitt eines Formulars für Seltenes (#1253). `offen` und `onOffen` hält die Seite selbst, damit sie den
+ * Aufklappbarer Abschnitt eines Formulars oder einer Seite für Seltenes (#1253). `offen` und `onOffen` hält die Seite selbst, damit sie den
  * Abschnitt aufklappen kann, wenn ein Feld darin einen Fehler hat oder ein Link es anspringt: Ein Fehler im zugeklappten
  * Abschnitt fände weder Fokus noch Auge. Die Felder bleiben auch zugeklappt im Formular und gehen beim Speichern mit. Gesetztes
  * steht als `kurz` in der Überschrift.
@@ -51,7 +51,7 @@ export function EinklappAbschnitt({
   onOffen,
   children,
 }: {
-  id: FirmaAbschnitt;
+  id: string;
   titel: string;
   kurz?: string;
   offen: boolean;
