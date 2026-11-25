@@ -19,7 +19,7 @@ import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
 import { isUniqueViolation } from "../../errors.ts";
-import { waitingReceipt } from "./fastbill-belege.ts";
+import { fastbillReceiptKey, waitingReceipt } from "./fastbill-belege.ts";
 import { importAfterVouchers } from "./fastbill-nachlauf.ts";
 import { FastbillError, fastbillCredentials, forgetOtherFastbillCalls, newFastbillClient, otherFastbillCalls } from "./fastbill-zugang.ts";
 import { storeLegacyVoucher } from "./legacy-store.ts";
@@ -307,9 +307,9 @@ async function importVoucher(
 }
 
 /**
- * Die Datei eines Belegs: Rechnungen haben ihr PDF immer; bei Ausgaben ohne hochgeladenen Beleg liefert FastBill eine leere
- * Antwort. Gibt FastBill sie nur im angemeldeten Browser heraus, wartet die Ausgabe auf das Browser-Skript oder auf „ohne
- * Beleg übernehmen“ und wird nie stillschweigend ohne Datei archiviert (fastbill-belege.ts).
+ * Die Datei eines Belegs: Rechnungen haben ihr PDF immer; bei Ausgaben und Einnahmen ohne hochgeladenen Beleg liefert
+ * FastBill eine leere Antwort. Gibt FastBill sie nur im angemeldeten Browser heraus, wartet der Beleg auf das Browser-Skript
+ * oder auf „ohne Beleg übernehmen“ und wird nie stillschweigend ohne Datei archiviert (fastbill-belege.ts).
  */
 async function voucherFiles(
   actor: string,
@@ -330,10 +330,9 @@ async function voucherFiles(
     return [];
   }
   if (apiFile) return [{ role: item.kind === "invoice" ? "pdf" : "anhang", fileId: item.kind === "invoice" ? null : voucher.lexofficeId, file: apiFile }];
-  // Eine Einnahme kommt nie ohne ihren Beleg ins Archiv; ein neuer Abruf versucht es wieder
-  if (item.kind === "revenue") throw new FastbillError("Einnahme nicht übernommen: FastBill liefert die Datei nicht über die API.");
-  if (item.kind !== "expense") return [];
-  const receipt = await waitingReceipt(actor, item.id, voucher, documentUrl);
+  if (item.kind === "invoice") return [];
+  // Ausgaben und Einnahmen (#1938) warten auf das Browser-Skript, statt ohne Datei ins Archiv zu kommen
+  const receipt = await waitingReceipt(actor, fastbillReceiptKey(item.kind, item.id), voucher, documentUrl);
   if (receipt === "wartet") return "wartet";
   return receipt === "ohne_beleg" ? [] : [{ role: "anhang", fileId: voucher.lexofficeId, file: receipt }];
 }
@@ -376,7 +375,7 @@ async function storeVoucher(
     if (!row) return false;
     progress.files += row.files;
     // Die Datei hängt jetzt am archivierten Beleg; das Zwischenlager braucht die Zeile nicht mehr
-    if (item.kind === "expense") await tx.delete(schema.fastbillReceipts).where(eq(schema.fastbillReceipts.expenseId, item.id));
+    if (item.kind !== "invoice") await tx.delete(schema.fastbillReceipts).where(eq(schema.fastbillReceipts.expenseId, fastbillReceiptKey(item.kind, item.id)));
     return true;
   });
 }

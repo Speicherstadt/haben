@@ -1,5 +1,6 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { zipSync } from "fflate";
 import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
 /*
@@ -43,7 +44,7 @@ const REVENUES = [
     INVOICE_DATE: "2024-03-31",
     DOCUMENT_URL: "https://my.fastbill.com/download/datei-9101",
   },
-  // FastBill liefert die Datei der API nicht (leere Seite): nicht ohne Beleg archivieren
+  // Beleg nur im angemeldeten Browser (leere Seite für die API): wartet wie eine Ausgabe auf das Browser-Skript
   {
     ...base,
     INVOICE_ID: "9102",
@@ -109,18 +110,20 @@ describe.skipIf(!testDatabaseUrl)("Einnahmen aus FastBill (Postgres, #1938)", ()
     from lexoffice_vouchers v left join contacts c on c.id = v.contact_id
     where v.source = 'fastbill' order by v.lexoffice_id`;
 
-  it("übernimmt eine Einnahme mit Datei als Einnahmebeleg; ohne Datei oder unbekannte Art nicht, mit Meldung", async () => {
+  it("übernimmt eine Einnahme mit Datei als Einnahmebeleg; ohne Datei wartet sie, eine unbekannte Art wird gemeldet", async () => {
     services.length = 0;
     await fastbill.startFastbillImport(actor, { wait: true });
     expect(services).toContain("revenue.get");
     const run = await fastbill.latestFastbillImport();
     expect(run).toMatchObject({ status: "fertig" });
-    expect(run!.progress.failed.map((f) => [f.lexofficeId, f.number])).toEqual([
-      ["fastbill/revenue/9103", "E-1"],
-      ["fastbill/revenue/9102", "GS-2024-4"],
-    ]);
+    expect(run!.progress.failed.map((f) => [f.lexofficeId, f.number])).toEqual([["fastbill/revenue/9103", "E-1"]]);
     expect(run!.progress.failed[0]!.message).toContain("other_income");
-    expect(run!.progress.failed[1]!.message).toContain("Datei");
+    expect(run!.progress.fastbillWaiting).toBe(1);
+    // Im Zwischenlager unter eigener Kennung, damit sie sich nicht mit einer Ausgabe derselben ID mischt
+    expect((await fastbill.fastbillReceiptsOverview()).map((r) => ({ id: r.expenseId, kind: r.kind, status: r.status, name: r.supplier }))).toEqual([
+      { id: "einnahme-9102", kind: "einnahme", status: "wartet", name: "Plattform Beispiel GmbH" },
+    ]);
+    expect(await fastbill.fastbillReceiptScriptList()).toEqual([{ id: "einnahme-9102", url: "https://my.fastbill.com/download/leer-9102" }]);
 
     expect((await vouchers()).map((v) => ({ ...v }))).toEqual([
       {
@@ -155,11 +158,23 @@ describe.skipIf(!testDatabaseUrl)("Einnahmen aus FastBill (Postgres, #1938)", ()
     expect(year?.einnahmen).toEqual({ count: 2, net: 40_000, tax: 7_600, gross: 47_600 });
   });
 
-  it("ein zweiter Abruf überspringt die übernommene Einnahme und versucht die ohne Datei erneut", async () => {
+  it("mit dem Beleg aus dem Browser-Skript kommt die wartende Einnahme beim nächsten Abruf mit Datei ins Archiv", async () => {
+    const zip = zipSync({
+      "manifest.json": new TextEncoder().encode(JSON.stringify({ format: "haben-fastbill-belege" })),
+      "belege/einnahme-9102.pdf": PDF,
+    });
+    expect(await fastbill.uploadFastbillReceipts(actor, zip)).toEqual({ accepted: 1, unknown: 0, invalid: [] });
+
     await fastbill.startFastbillImport(actor, { wait: true });
     const run = await fastbill.latestFastbillImport();
-    expect(run!.progress).toMatchObject({ imported: 0, skipped: 2 });
-    expect(run!.progress.failed.map((f) => f.lexofficeId)).toEqual(["fastbill/revenue/9103", "fastbill/revenue/9102"]);
-    expect(await vouchers()).toHaveLength(2);
+    expect(run!.progress).toMatchObject({ imported: 1, skipped: 2, fastbillWaiting: 0 });
+    expect(run!.progress.failed.map((f) => f.lexofficeId)).toEqual(["fastbill/revenue/9103"]);
+    expect((await vouchers()).map((v) => [v.lexoffice_id, v.type, v.files])).toEqual([
+      ["fastbill/invoice/7101", "invoice", 1],
+      ["fastbill/revenue/9101", "salesinvoice", 1],
+      ["fastbill/revenue/9102", "salesinvoice", 1],
+    ]);
+    // Die Datei hängt am Beleg; das Zwischenlager braucht die Zeile nicht mehr
+    expect(await fastbill.fastbillReceiptsOverview()).toEqual([]);
   });
 });
