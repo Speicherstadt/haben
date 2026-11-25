@@ -164,6 +164,14 @@ export function bankStand(konten: readonly Pick<Data["accounts"][number], "openC
   return { offen: konten.reduce((summe, konto) => summe + konto.openCount, 0), hatUmsaetze: konten.some((konto) => konto.hasTransactions) };
 }
 
+type Ort = { pathname: string; search: { suche?: unknown } };
+
+/** Suche der Adresse, zu der der Router gerade geht, auch solange sie noch lädt; beim Verlassen der Seite die bisherige */
+export function suchziel({ location, resolvedLocation }: { location: Ort; resolvedLocation?: Ort }, initial: string): string {
+  if (location.pathname !== resolvedLocation?.pathname) return initial;
+  return typeof location.search.suche === "string" ? location.search.suche : "";
+}
+
 /** Getippte, noch nicht übernommene Suche; `null`, sobald sie in der Adresse steht. Danach gilt die Adresse, auch wenn „Nächsten offenen“ sie leert */
 export function offenerEntwurf(entwurf: string | null, suche: string): string | null {
   return entwurf === suche ? null : entwurf;
