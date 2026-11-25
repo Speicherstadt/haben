@@ -103,8 +103,11 @@ function ManualEntryForm({ data }: { data: Data }) {
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
+    // Vor check, damit die Liste schon beim Fokus nur noch die ganze Buchung nennt; geht die Prüfung durch, zeigt useSubmitCheck
+    // keine Fehler mehr an den Feldern, und die Liste nennt beim Tippen wieder alles (etwa nach einem Fehler des Servers)
     setVersucht(true);
     if (!check()) return;
+    setVersucht(false);
     void run(async () => {
       await create({ data: { kind, date, description, lines: lines.map((l) => ({ ...l, taxCode: l.taxCode ?? null })) } });
       await navigate({ to: "/buchungen", search: { jahr: Number(date.slice(0, 4)), monat: Number(date.slice(5, 7)) } });
