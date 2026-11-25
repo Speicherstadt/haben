@@ -466,6 +466,12 @@ describe.skipIf(!testDatabaseUrl)("Kleinunternehmer-Umsätze in Kz 48 (Postgres)
       expect(await vat.gesendeteAbweichungen([2026])).toEqual([nachher]);
     });
 
+  it("Die Datenbank nimmt in small_business_rule nur „leistung“ oder nichts (#1811)", async () => {
+    await firma("SKR03", "ist");
+    const entwurf = await vat.saveDraft(actor, september, { mode: "berechnet" });
+    await expect(sql`update vat_returns set small_business_rule = 'zahlung' where id = ${entwurf.id}`).rejects.toThrow(/vat_returns_small_business_rule/);
+  });
+
   it("SKR04/ist: Von Hand überschrieben, zählen die beim Speichern berechneten Werte samt Umsätzen als Kleinunternehmer (#1811)", async () => {
     await firma("SKR04", "ist");
     const entwurf = await vat.saveDraft(actor, september, { mode: "manuell", reason: "Werte aus der alten Buchhaltung", kz81: 0, kz86: 0, kz66: 0 });

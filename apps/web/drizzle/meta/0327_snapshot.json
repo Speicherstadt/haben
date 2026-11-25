@@ -1,5 +1,5 @@
 {
-  "id": "12c1692f-a3d4-41c9-86fd-42d41e923a7f",
+  "id": "91f74910-d54c-4f81-8578-44ea09686059",
   "prevId": "e10e0748-71ac-4548-9f27-7503eb28fb88",
   "version": "7",
   "dialect": "postgresql",
@@ -20344,6 +20344,10 @@
         "vat_returns_month": {
           "name": "vat_returns_month",
           "value": "\"vat_returns\".\"month\" between 1 and 12 or \"vat_returns\".\"month\" between 41 and 44"
+        },
+        "vat_returns_small_business_rule": {
+          "name": "vat_returns_small_business_rule",
+          "value": "\"vat_returns\".\"small_business_rule\" is null or \"vat_returns\".\"small_business_rule\" = 'leistung'"
         }
       },
       "isRLSEnabled": false

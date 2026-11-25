@@ -353,6 +353,7 @@ export const vatReturns = pgTable(
   (t) => [
     // Zeitraum wie im ELSTER-Feld Zeitraum: 1–12 Monate, 41–44 Kalendervierteljahre
     check("vat_returns_month", sql`${t.month} between 1 and 12 or ${t.month} between 41 and 44`),
+    check("vat_returns_small_business_rule", sql`${t.smallBusinessRule} is null or ${t.smallBusinessRule} = 'leistung'`),
     foreignKey({ name: "vat_returns_corrects_fk", columns: [t.correctsId], foreignColumns: [t.id] }),
     // höchstens ein Entwurf je Zeitraum
     uniqueIndex("vat_returns_one_draft_per_period").on(t.year, t.month).where(sql`${t.status} = 'draft'`),
