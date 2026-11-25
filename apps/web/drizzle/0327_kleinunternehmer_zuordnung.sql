@@ -1,0 +1,1 @@
+ALTER TABLE "vat_returns" ADD COLUMN "small_business_rule" text;
