@@ -53,4 +53,11 @@ describe("Logger: Daten bleiben aus dem Log (Review #1860)", () => {
   it("findet eine IBAN auch zwischen Unterstrichen, etwa im Dateinamen eines Kontoauszugs", () => {
     expect(scrub("Import von Umsatzanzeige_DE89370400440532013000_20261124.csv gescheitert")).not.toContain("DE89370400440532013000");
   });
+
+  it("schreibt im Textformat keinen SQL-Parameter eines Fehlers in einem anderen Feld als error", () => {
+    const { lines, restore } = captureLogText();
+    console.warn("Abruf gescheitert", { grund: fehler, details: { letzter: fehler } });
+    restore();
+    expect(lines.join("\n")).not.toMatch(/Heidestraße|51147|Köln|123456/);
+  });
 });
