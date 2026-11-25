@@ -60,7 +60,7 @@ describe("Hinweise im Rechnungseditor (#1253)", () => {
  * der erbrachten Teilleistung fehlt“), „Leistung bis“ ist nie Pflicht. Die Schlussrechnung nimmt ohne Angabe ihr Rechnungsdatum (`leistungsdatum`),
  * ebenso Storno und Korrektur, die das Leistungsdatum des Originals übernehmen (`stornoOf` in `invoice-cancellation.ts`, auch für die Korrektur); das Angebot speichert
  * `null` (`quotes.ts`, `serviceFrom` nullable) und zeigt dann keine Zeile. Nur an einer normalen Rechnung (kein Abschlag, EUR, regulär) löst ein eingetragener Tag das
- * Vorauszahlungsverfahren aus (`advanceProcedure` in `advance-procedure.ts`): Der Hinweis verweist dort auf die Vorauszahlungen, ohne die Steuerfolge zu nennen.
+ * Vorauszahlungsverfahren aus (`advanceProcedure` in `advance-procedure.ts`): Nur dort nennt der Hinweis die Steuerfolge der Zahlung vor der Leistung.
  */
 const EUR = { currency: "EUR", taxTreatment: "regulaer" };
 const ZUSTAENDE = [
@@ -124,7 +124,7 @@ describe("Hinweis zu „Leistung von“ und „Leistung bis“ in jedem Zustand 
 
 describe("Rückfrage beim Festschreiben einer Rechnung (#1253)", () => {
   it("Der Satz sagt nur, was in jedem Fall gilt: Nummer, PDF und XML, aber keine Buchung", () => {
-    // Eine Anzahlungsanforderung bucht bei GmbH und UG nichts (`advanceInvoicePosting` in `advance-invoice.ts`, #750); sonst bucht das Festschreiben.
+    // Eine Anzahlungsanforderung bucht bei GmbH und UG nichts (`advanceInvoicePosting` in `advance-invoice.ts`, #750).
     // Nummer, PDF und XML entstehen immer. Mit „gebucht“ stimmte der Satz also nicht für die Anzahlung bei GmbH und UG.
     expect(FINALIZE_DIALOG_TEXT).not.toMatch(/buch/i);
     expect(FINALIZE_DIALOG_TEXT).toContain("Nummer");

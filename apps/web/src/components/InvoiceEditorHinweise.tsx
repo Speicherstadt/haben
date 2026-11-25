@@ -4,9 +4,9 @@
 export const FINALIZE_HINT = "Danach nicht mehr änderbar, Haben vergibt die Nummer";
 
 /**
- * Erster Satz der Rückfrage beim Festschreiben einer Rechnung. Sagt nichts über Buchung: Eine Anzahlungsanforderung bucht bei GmbH und UG
- * nichts (`advanceInvoicePosting` in `advance-invoice.ts`), alles andere schon; Nummer, PDF und XML entstehen immer (docs/rechnungen.md,
- * „Was beim Festschreiben passiert“).
+ * Erster Satz der Rückfrage beim Festschreiben einer Rechnung. Sagt nichts über Buchung: Nicht jede Rechnung bucht dabei, eine
+ * Anzahlungsanforderung bei GmbH und UG etwa nicht (`advanceInvoicePosting` in `advance-invoice.ts`); Nummer, PDF und XML entstehen immer
+ * (docs/rechnungen.md, „Was beim Festschreiben passiert“).
  */
 export const FINALIZE_DIALOG_TEXT = "Haben vergibt die Nummer und erzeugt PDF und XML.";
 
@@ -38,6 +38,8 @@ export function serviceHintState(editor: {
 }
 
 const ZEITRAUM = "Tag oder Zeitraum der Leistung, wenn er vom Rechnungsdatum abweicht. Beide leer: Auf der Rechnung steht das Rechnungsdatum.";
+// Bei Soll § 13 Abs. 1 Nr. 1 Buchst. a Satz 4 UStG, bei Ist Buchst. b: https://www.gesetze-im-internet.de/ustg_1980/__13.html
+// Kleinunternehmer sehen den Satz nicht: Ihre Rechnung hat die Behandlung „kleinunternehmer“, nicht „regulaer“ (`outgoingTaxIssues`)
 const NORMAL =
   "Tag oder Zeitraum der Leistung. Beide leer: Auf der Rechnung steht das Rechnungsdatum; eine Zahlung vor der Leistung erkennt Haben dann nicht als Vorauszahlung. Eingetragen, auch am Rechnungsdatum: Die Steuer auf eine Zahlung vor der Leistung entsteht im Voranmeldungszeitraum der Zahlung.";
 const ANGEBOT = "Geplanter Leistungszeitraum. Leer: steht nicht im Angebot.";
