@@ -179,6 +179,15 @@ Die Grenze von 7 Tagen ist dieselbe wie auf der Seite Fristen. Was nur wartet, o
 
 Jede Seite beginnt mit `.page-head` als direktem Kind von `<main>`: Titel, Status und Hauptaktionen. Hat die ganze Seite einen Status (Rechnung, Angebot, Umsatzsteuer-Voranmeldung), steht er neben dem Titel (`.title-with-status`), damit er mit dem Kopf sichtbar bleibt. Er bleibt beim Scrollen stehen (#356).
 
+Der Eyebrow über dem Titel einer Seite aus dem Menü ist der Name ihrer Menügruppe, für die Steuerberatung der ihres Menüs (`menueGruppe` in `lib/menue-gruppe.ts`, nie von Hand getippt; `lib/menue-gruppe.test.ts` prüft beide Menülisten). Ein Fachbegriff, der Orientierung gibt, steht stattdessen in einem Satz unter dem Kopf (`<p className="muted small">`). Die Unterseiten der Rechnungen zeigen „Rechnungen › Mahnwesen“ und „Rechnungen › Wiederkehrend“, die Elternseite als Link.
+
+Eine leere Liste, die man von Hand füllt, sagt in einem Satz, was hier entsteht. Hat der Seitenkopf einen Knopf zum Anlegen, steht derselbe Knopf noch einmal im Leerzustand, nur für den, der ihn im Kopf sieht, und nicht, wenn ein Filter die Liste leert; hat der Kopf keinen, nennt der Satz den Ort (Karte, Tab oder Link). Ausnahmen:
+
+- Weiterleitungen (Jahresabschluss, Jahreserklärung, Umsatzsteuer): Der Eyebrow steht von Hand auf der Zielseite.
+- Belege: Der Leerzustand zeigt „Postfach für Belege einrichten“ als zweiten Weg, nicht als Wiederholung eines Kopfknopfs.
+- Bank: Der Kopf hat „Konto hinzufügen“ und „CSV / CAMT importieren“; der Leerzustand erklärt den Weg ohne Knopf.
+- Lohn: „Mitarbeiter anlegen“ steht im Kopf der Karte, nicht im Seitenkopf; der Satz nennt den Knopf.
+
 Seine gemessene Höhe steht in `--page-head-height` (`usePageHeadHeight` in `lib/use-page-head.ts`), seine Unterkante samt Handy-Navigation in `--below-head`. Was darunter ebenfalls stehen bleibt (Unternavigation, Belegansicht, Tabellenköpfe, Sprungleisten), nimmt `top: var(--below-head)` statt eines festen Abstands; `scroll-padding-top` hält Sprungziele und Felder mit Fokus unter dem Kopf.
 
 Auf dem Handy steht der Kopf kompakt: die Aktionen in einer Zeile, die seitlich scrollt; im Mahnungseditor (`.editor-actions`) und bei Horizont und Schalter der Liquiditätsvorschau (`.liq-wahl`) brechen sie um, damit nichts abgeschnitten steht. Im Rechnungs- und Angebotseditor (`InvoiceEditor`, #396, #355 Variante E) bleiben die Aktionen ab 861 px im Seitenkopf. Unter 861 px zeigt der Seitenkopf nur den Titel, und alle Aktionen wandern in die feste Leiste `.action-bar` (`ActionBar`) am Ende von `<main>`: das Überlaufmenü `⋯` (`MoreActionsMenu`, Menu Button nach WAI-ARIA APG) links neben `PreviewButton`, gefolgt von „Entwurf speichern“ und „Festschreiben“. Ihre gemessene Höhe steht in `--action-bar-height`, `scroll-padding-bottom` hält Felder mit Fokus über ihr.
