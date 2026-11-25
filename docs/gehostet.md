@@ -30,8 +30,8 @@ Haben kann; Tarife mit mehr oder weniger Funktionen gibt es nicht.
 
 ### Preis
 
-**12,90 € im Monat** oder **129 € im Jahr** (zwei Monate geschenkt), zuzüglich Umsatzsteuer. Du zahlst per SEPA-Lastschrift oder
-Karte über Stripe und bekommst die Rechnung per E-Mail. Das Angebot richtet sich an Unternehmer
+**12,90 € im Monat** oder **129 € im Jahr** (zwei Monate geschenkt), zuzüglich Umsatzsteuer. Du zahlst per SEPA-Lastschrift,
+Karte, Apple Pay oder Google Pay über Stripe und bekommst die Rechnung per E-Mail. Das Angebot richtet sich an Unternehmer
 (Selbstständige, Freiberufler, Gesellschaften), nicht an Verbraucher.
 
 [Monatlich buchen](https://buy.stripe.com/bJe3cu9oU8lW3Q3ghc7wA00){ .md-button .md-button--primary } [Jährlich buchen](https://buy.stripe.com/3cI8wO0SodGg72f2qm7wA01){ .md-button }
@@ -46,8 +46,10 @@ Karte über Stripe und bekommst die Rechnung per E-Mail. Das Angebot richtet sic
 
 ### Kündigen und umziehen
 
-Du kündigst zum Ende des bezahlten Zeitraums, über den Link in der E-Mail mit deinen Zugangsdaten
-oder mit einer Nachricht an uns. Deine Daten nimmst du mit:
+Du kündigst zum Ende des bezahlten Zeitraums, im
+[Kundenportal](https://billing.stripe.com/p/login/bJe3cu9oU8lW3Q3ghc7wA00) oder mit einer Nachricht an
+uns. Im Kundenportal änderst du auch die Zahlungsart und lädst deine Rechnungen herunter. Deine Daten
+nimmst du mit:
 
 - Das [Jahresarchiv](auswertungen.md#jahresexport) und den
   [DATEV-Export](auswertungen.md#datev-export-für-die-steuerberatung) lädst du selbst herunter.

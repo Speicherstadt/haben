@@ -121,7 +121,7 @@ Anbieter: Teufel-IT, Inhaber Tristan Teufel, Seestr. 2, 77815 Bühl, Deutschland
 ## § 13 Haftung
 
 1. Der Anbieter erbringt keine Steuerberatung und keine Rechtsberatung. Die Software und die Hilfe per E-Mail ersetzen keine Beratung durch eine Steuerberaterin oder einen Steuerberater.
-2. Der Anbieter haftet nicht für die inhaltliche Richtigkeit, Vollständigkeit und rechtzeitige Abgabe von Buchungen, Auswertungen, Voranmeldungen und Steuererklärungen des Kunden. Der Kunde prüft die Ergebnisse der Software vor ihrer Verwendung und vor jeder Übermittlung.
+2. Für die Angaben, die der Kunde erfasst, für seine steuerlichen Entscheidungen und für die rechtzeitige Abgabe seiner Voranmeldungen und Erklärungen ist der Kunde selbst verantwortlich. Der Kunde prüft die Ergebnisse der Software vor ihrer Verwendung und vor jeder Übermittlung. Für Fehler der Software haftet der Anbieter nach den Absätzen 3 bis 7.
 3. Der Anbieter haftet unbeschränkt bei Vorsatz und grober Fahrlässigkeit, bei Verletzung von Leben, Körper oder Gesundheit, nach dem Produkthaftungsgesetz und soweit er eine Garantie übernommen hat.
 4. Bei leichter Fahrlässigkeit haftet der Anbieter nur, wenn er eine wesentliche Vertragspflicht verletzt. Wesentlich sind Pflichten, deren Erfüllung die Durchführung des Vertrags erst ermöglicht und auf deren Einhaltung der Kunde regelmäßig vertrauen darf. Die Haftung ist in diesem Fall auf den Schaden begrenzt, der bei Vertragsschluss vorhersehbar und für diese Art von Vertrag typisch ist.
 5. Die Haftung nach Absatz 4 ist außerdem je Schadensfall und insgesamt je Vertragsjahr auf das Entgelt begrenzt, das der Kunde in den zwölf Monaten vor dem Schadensfall gezahlt hat.
@@ -143,6 +143,7 @@ Anbieter: Teufel-IT, Inhaber Tristan Teufel, Seestr. 2, 77815 Bühl, Deutschland
 1. Der Anbieter darf diese AGB ändern, wenn ein sachlicher Grund besteht, zum Beispiel eine Änderung der Rechtslage, der Rechtsprechung, der technischen Gegebenheiten oder des Leistungsumfangs, und die Änderung den Kunden nicht unangemessen benachteiligt.
 2. Der Anbieter teilt die Änderung mindestens sechs Wochen vor ihrem Wirksamwerden in Textform mit.
 3. Die Änderung gilt als angenommen, wenn der Kunde nicht bis zum Wirksamwerden in Textform widerspricht. Auf diese Folge und die Frist weist der Anbieter in der Mitteilung hin. Widerspricht der Kunde, läuft der Vertrag zu den bisherigen Bedingungen weiter. Der Anbieter darf ihn dann ordentlich kündigen.
+4. Änderungen, die die Hauptleistungen oder das Verhältnis von Leistung und Entgelt wesentlich verschieben, werden nur wirksam, wenn der Kunde ihnen ausdrücklich zustimmt. Für Preisänderungen gilt § 4.
 
 ## § 16 Schlussbestimmungen
 
