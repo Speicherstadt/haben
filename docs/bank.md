@@ -563,7 +563,7 @@ Bei Eingängen (Privateinlage, Geldtransit, Erstattung vom Finanzamt) steht die 
 
 ## Zuordnung aufheben
 
-Unter **Zugeordnet** steht neben jeder Zuordnung **Aufheben**, bei einer Aufteilung einmal **Aufteilung aufheben** für alle Teile. Haben fragt vorher in einem Dialog nach und nennt Zuordnung, Betrag und den **Tag der Aufhebung**. Vorbelegt ist der Buchungstag der Zahlung, solange deren Zeitraum nicht gemeldet ist, sonst heute. Es löscht dabei nichts: Es legt eine Gegenzeile mit umgekehrtem Betrag an und bucht die ursprüngliche Buchung mit vertauschten Seiten zurück („Storno: …“), und zwar an diesem Tag. Die aufgehobene Zuordnung bleibt durchgestrichen sichtbar, der Betrag ist wieder offen.
+Unter **Zugeordnet** steht neben jeder Zuordnung **Aufheben**, bei einer Aufteilung einmal **Aufteilung aufheben** für alle Teile. Haben fragt vorher in einem Dialog nach und nennt Zuordnung, Betrag und den **Tag der Aufhebung**. Vorbelegt ist der Buchungstag der Zahlung, solange deren Zeitraum nicht gemeldet ist, sonst heute. Es löscht dabei nichts: Es legt eine Gegenzeile mit umgekehrtem Betrag an und bucht die ursprüngliche Buchung mit vertauschten Seiten zurück („Storno: …“), und zwar an diesem Tag. Die aufgehobene Zuordnung bleibt durchgestrichen sichtbar, der Betrag ist wieder offen. Unter jeder Zuordnung führt „Buchung vom …“ auf ihre Buchung im [Journal](buchhaltung.md#die-seite-buchungen), nach einer Aufhebung auch „Gegenbuchung vom …“; umgekehrt öffnet dort die Herkunft „Bank“ diesen Umsatz.
 
 Eine Zuordnung lässt sich nur einmal aufheben.
 

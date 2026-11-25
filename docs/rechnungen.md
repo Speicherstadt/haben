@@ -542,7 +542,7 @@ Unter dem Status steht in Grau, was er für diese Rechnung gerade heißt. Überf
 
 ## Festgeschriebene Rechnung
 
-Die Detailseite zeigt das PDF, die Eckdaten (Kunde, Rechnungsdatum, Fälligkeit, Netto, Umsatzsteuer, Brutto, Format, Zeitpunkt der Festschreibung, bei Rechnungen ohne Steuerausweis die Umsatzsteuer-Behandlung) und den Anfang des SHA-256 des PDFs.
+Die Detailseite zeigt das PDF, die Eckdaten (Kunde, Rechnungsdatum, Fälligkeit, Netto, Umsatzsteuer, Brutto, Format, Zeitpunkt der Festschreibung, bei Rechnungen ohne Steuerausweis die Umsatzsteuer-Behandlung, unter **Im Journal** ein Link auf die Buchung der Rechnung) und den Anfang des SHA-256 des PDFs. Zahlungen führen über ihren Umsatz im Bankabgleich zu ihrer Buchung.
 
 - **PDF herunterladen** liefert `Rechnung-<Nummer>.pdf`.
 - **XML herunterladen** liefert `Rechnung-<Nummer>-cii.xml` bzw. `-ubl.xml`. Bei ZUGFeRD ist das dasselbe XML, das im PDF steckt.

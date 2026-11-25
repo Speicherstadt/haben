@@ -1,4 +1,7 @@
 import { MONTHS, formatEuro, saldoAnzeige, saldoSeite, type Kontenrahmen } from "@haben/core";
+import { Link } from "@tanstack/react-router";
+import { Fragment, type ReactNode } from "react";
+import { formatDate } from "../lib/format.ts";
 
 export const ZEITRAEUME: [string, string][] = [
   ["jahr", "Ganzes Jahr"],
@@ -47,14 +50,20 @@ export const JOURNAL_SOURCE = {
 } as const;
 export type JournalSource = keyof typeof JOURNAL_SOURCE;
 
-/** Detailseite des Vorgangs hinter einer Buchung */
-export type Vorgang = { to: "/rechnungen/$id" | "/belege/$id" | "/anlagen/$id"; id: string };
+/** Detailseite des Vorgangs hinter einer Buchung; bei einer Bankzuordnung ihr Umsatz im Bankabgleich (#1855) */
+export type Vorgang = { to: "/rechnungen/$id" | "/belege/$id" | "/anlagen/$id"; id: string } | { to: "/bank"; umsatz: string };
 
 /**
  * Vorgang zur Herkunft einer Buchung, wenn er eine eigene Detailseite hat (Journal und Kontenblatt); sonst null, dann
  * führt die Seite auf die Übersicht (Bank, Kasse, Lohn, …) oder zeigt nur die Herkunft.
  */
-export function vorgangZurHerkunft(e: { sourceType: string; sourceId: string; invoiceId: string | null; documentId: string | null }): Vorgang | null {
+export function vorgangZurHerkunft(e: {
+  sourceType: string;
+  sourceId: string;
+  invoiceId: string | null;
+  documentId: string | null;
+  transactionId: string | null;
+}): Vorgang | null {
   if (e.sourceType === "invoice") return { to: "/rechnungen/$id", id: e.sourceId };
   // Freigabe der Vorsteuer zum Leistungsdatum (#693): Quelle ist der Beleg selbst (vorsteuer-freigabe.ts)
   if (e.sourceType === "document" || e.sourceType === "freigabe") return { to: "/belege/$id", id: e.sourceId };
@@ -62,7 +71,40 @@ export function vorgangZurHerkunft(e: { sourceType: string; sourceId: string; in
   if (e.sourceType === "verrechnung" && e.invoiceId) return { to: "/rechnungen/$id", id: e.invoiceId };
   if (e.sourceType === "verrechnung" && e.documentId) return { to: "/belege/$id", id: e.documentId };
   if (e.sourceType === "asset") return { to: "/anlagen/$id", id: e.sourceId };
+  // Zahlung über die Bank (#1855): Quelle ist die Zuordnung, und die hängt an ihrem Umsatz
+  if (e.sourceType === "allocation" && e.transactionId) return { to: "/bank", umsatz: e.transactionId };
   return null;
+}
+
+/**
+ * Link auf den Vorgang. Den Umsatz öffnet die Bank in allen Konten und ohne Filter, damit er sicher in der Liste steht
+ * (wie aus der Liquiditätsvorschau).
+ */
+export function VorgangLink({ vorgang, className, children }: { vorgang: Vorgang; className?: string; children?: ReactNode }) {
+  return vorgang.to === "/bank" ? (
+    <Link to="/bank" search={{ umsatz: vorgang.umsatz, konto: "alle", filter: "alle" }} className={className}>
+      {children}
+    </Link>
+  ) : (
+    <Link to={vorgang.to} params={{ id: vorgang.id }} className={className}>
+      {children}
+    </Link>
+  );
+}
+
+/**
+ * Rückweg von Rechnung, Beleg und Bankumsatz zur Buchung (#1855): ins Journal des Monats, auf die Zeile der Buchung
+ * (`#buchung-<id>`, useZielzeile). Mehrere Buchungen, etwa nach Storno oder Aufhebung, stehen nebeneinander.
+ */
+export function BuchungLinks({ buchungen }: { buchungen: { id: string; date: string; reversal: boolean }[] }) {
+  return buchungen.map((b, i) => (
+    <Fragment key={b.id}>
+      {i > 0 && ", "}
+      <Link to="/buchungen" search={{ jahr: Number(b.date.slice(0, 4)), monat: Number(b.date.slice(5, 7)) }} hash={`buchung-${b.id}`}>
+        {b.reversal ? "Gegenbuchung" : "Buchung"} vom {formatDate(b.date)}
+      </Link>
+    </Fragment>
+  ));
 }
 
 /** Herkünfte, die es nur in einer Rechtsform gibt: Pauschalen im Einzelunternehmen, die übrigen in GmbH und UG (docs/einrichtung.md) */

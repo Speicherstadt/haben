@@ -306,7 +306,7 @@ Regulär besteuerte Umsätze zu 0 % (Schlüssel `frei`) meldet Haben nicht; die 
 
 Unter **Buchungen** steht das Journal je Monat, neueste zuerst, mit Pfeilen zum Vor- und Folgemonat. Jede Buchung ist eine Zeile:
 
-- Datum und Herkunft („Rechnung“, „Beleg“, „Verrechnung“, „Bank“, „Anlage“, „Pauschale“, „Kasse“, „Ausbuchung“, „Vorsteuerfreigabe“ (Vorsteuer eines Belegs mit Leistungsdatum nach dem Belegdatum, [Vorsteuer (Kz 66)](umsatzsteuer.md#vorsteuer-kz-66)), „Lohn“, „Manuell“, „Import“ (aus dem [Datenimport](belegimport.md)), in GmbH und UG „Eröffnung“ und „Ausschüttung“, oder „Gegenbuchung“). Ein Klick auf die Herkunft öffnet den Vorgang.
+- Datum und Herkunft („Rechnung“, „Beleg“, „Verrechnung“, „Bank“, „Anlage“, „Pauschale“, „Kasse“, „Ausbuchung“, „Vorsteuerfreigabe“ (Vorsteuer eines Belegs mit Leistungsdatum nach dem Belegdatum, [Vorsteuer (Kz 66)](umsatzsteuer.md#vorsteuer-kz-66)), „Lohn“, „Manuell“, „Import“ (aus dem [Datenimport](belegimport.md)), in GmbH und UG „Eröffnung“ und „Ausschüttung“, oder „Gegenbuchung“). Ein Klick auf die Herkunft öffnet den Vorgang, bei „Bank“ den Umsatz im [Bankabgleich](bank.md).
 - Buchungstext.
 - Soll- und Habenkonto, jeweils das größte. Weitere Konten stehen als „+n“ daneben.
 - Betrag und Steuerschlüssel.
@@ -314,6 +314,8 @@ Unter **Buchungen** steht das Journal je Monat, neueste zuerst, mit Pfeilen zum 
 Der Pfeil links klappt alle Buchungszeilen mit Soll, Haben und Steuerschlüssel auf.
 
 Darüber lässt sich nach Herkunft, Kontonummer und Text filtern. Unten stehen die Zahl der Buchungen und ihre Summe.
+
+Der Weg zurück geht auch: Eine festgeschriebene Rechnung nennt unter **Angaben** bei **Im Journal** ihre Buchung, ein gebuchter Beleg im Hinweis „Gebucht“, eine Zuordnung im Bankabgleich unter **Zugeordnet**. Ein Klick auf „Buchung vom …“ öffnet das Journal des Monats, hebt die Zeile hervor und rollt zu ihr. Gegenbuchungen, etwa nach einem Storno oder einer Aufhebung, stehen daneben als „Gegenbuchung vom …“.
 
 Gebucht wird über Rechnungen, Belege, Bank, Kasse, Anlagen, Pauschalen, Ausbuchungen und Lohnabrechnungen; mit [manuellen Buchungen](#manuelle-und-freie-buchungen); in einer GmbH oder UG zusätzlich mit der [Eröffnung](gmbh-abschluss.md#saldenvortrag-und-eröffnung-gmbh-und-ug) und [Ausschüttungen](gmbh-abschluss.md#gewinnausschüttung-gmbh-und-ug). Ein Klick auf eine Kontonummer öffnet das Kontenblatt des Monats.
 

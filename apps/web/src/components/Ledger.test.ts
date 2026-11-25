@@ -4,7 +4,19 @@ import { describe, expect, it, vi } from "vitest";
 
 // Link als <a>, mit Ziel, Parametern, Suche und Anker in href, damit der Test die Adresse sieht
 vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, to, params, search, hash }: { children: ReactNode; to: string; params?: { id: string }; search?: Record<string, string>; hash?: string }) =>
+  Link: ({
+    children,
+    to,
+    params,
+    search,
+    hash,
+  }: {
+    children: ReactNode;
+    to: string;
+    params?: { id: string };
+    search?: Record<string, string>;
+    hash?: string;
+  }) =>
     createElement("a", { href: `${to.replace("$id", params?.id ?? "")}${search ? `?${new URLSearchParams(search)}` : ""}${hash ? `#${hash}` : ""}` }, children),
 }));
 import { BuchungLinks, vorgangZurHerkunft, VorgangLink } from "./Ledger.tsx";
@@ -44,7 +56,9 @@ describe("Buchung über die Bank öffnet ihren Umsatz (#1855)", () => {
   it("führt mit dem Umsatz der Zuordnung auf genau diesen Umsatz, in allen Konten und ohne Filter", () => {
     const vorgang = vorgangZurHerkunft({ ...zuordnung, transactionId: "t1" });
     expect(vorgang).toEqual({ to: "/bank", umsatz: "t1" });
-    expect(renderToStaticMarkup(createElement(VorgangLink, { vorgang: vorgang! }, "Bank"))).toBe('<a href="/bank?umsatz=t1&amp;konto=alle&amp;filter=alle">Bank</a>');
+    expect(renderToStaticMarkup(createElement(VorgangLink, { vorgang: vorgang! }, "Bank"))).toBe(
+      '<a href="/bank?umsatz=t1&amp;konto=alle&amp;filter=alle">Bank</a>',
+    );
   });
 
   it("ohne Umsatz bleibt es bei der Seite Bank", () => {
@@ -52,7 +66,9 @@ describe("Buchung über die Bank öffnet ihren Umsatz (#1855)", () => {
   });
 
   it("Rechnung, Beleg und Anlage behalten ihren Link auf die Detailseite", () => {
-    expect(renderToStaticMarkup(createElement(VorgangLink, { vorgang: { to: "/rechnungen/$id", id: "r1" } }, "Rechnung"))).toBe('<a href="/rechnungen/r1">Rechnung</a>');
+    expect(renderToStaticMarkup(createElement(VorgangLink, { vorgang: { to: "/rechnungen/$id", id: "r1" } }, "Rechnung"))).toBe(
+      '<a href="/rechnungen/r1">Rechnung</a>',
+    );
   });
 });
 

@@ -22,7 +22,8 @@ export function DocumentCancellation({ data }: { data: Detail }) {
   const { document: doc, cancellation, reentryId } = data;
   if (doc.replacesDocumentId && !doc.lockedAt) return <ReentryNotice replacesId={doc.replacesDocumentId} />;
   if (!doc.lockedAt) return null;
-  if (cancellation) return <Cancelled documentId={doc.id} cancellation={cancellation} reentryId={reentryId} />;
+  if (cancellation)
+    return <Cancelled documentId={doc.id} cancellation={cancellation} reentryId={reentryId} gegenbuchung={data.buchungen.findLast((b) => b.reversal)} />;
   return <CancelForm doc={doc} issues={data.cancellationIssues} date={data.cancellationDate} today={data.today} allocations={data.cancellationAllocations} />;
 }
 
@@ -45,10 +46,12 @@ function Cancelled({
   documentId,
   cancellation,
   reentryId,
+  gegenbuchung,
 }: {
   documentId: string;
   cancellation: NonNullable<Detail["cancellation"]>;
   reentryId: string | null;
+  gegenbuchung: Detail["buchungen"][number] | undefined;
 }) {
   const navigate = useNavigate();
   const reenter = useServerFn(reenterDocumentFn);
@@ -64,8 +67,8 @@ function Cancelled({
       <div className="banner banner-danger" role="status">
         <Icon name="alert" />
         <span>
-          Storniert mit einer{" "}
-          <Link to="/buchungen" search={{ jahr: year, monat: month }}>
+          Storniert mit einer {/* Auf die Zeile der Gegenbuchung im Journal (#1855) */}
+          <Link to="/buchungen" search={{ jahr: year, monat: month }} hash={gegenbuchung ? `buchung-${gegenbuchung.id}` : undefined}>
             Gegenbuchung
           </Link>{" "}
           zum {formatDate(cancellation.date)}.{cancellation.reason ? ` Grund: ${cancellation.reason}` : ""}
