@@ -46,7 +46,7 @@
 .report-table td input:not([type="checkbox"]):not([type="radio"]), .report-table td select { min-height: 36px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 8px; font: inherit; font-size: 14px; color: var(--ink); background-color: var(--surface); }
 .report-table td.num input { text-align: right; font-family: var(--mono); font-size: 13px; }
 /* Feld mit Fehler in einer Tabellenzeile, wie das Konto (.combobox) und die Positionen (.line-row) */
-.report-table td input[aria-invalid="true"], .report-table td select[aria-invalid="true"] { border-color: var(--danger-ink); }
+.report-table td input:not([type="checkbox"]):not([type="radio"])[aria-invalid="true"], .report-table td select[aria-invalid="true"] { border-color: var(--danger-ink); }
 .report-table td input:focus-visible, .report-table td select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .report-table tfoot th, .report-table tfoot td { border-top: 2px solid var(--ink); font-weight: 600; }
 
