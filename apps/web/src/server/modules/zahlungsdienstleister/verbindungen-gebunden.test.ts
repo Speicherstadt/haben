@@ -11,7 +11,12 @@ import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
 const HEUTE = new Date("2026-11-07T10:00:00Z");
 
-const KONTEN: Record<string, string> = { rk_live_alteaaaaaaaaaa: "acct_alt", rk_live_andereaaaaaaaa: "acct_andere" };
+const KONTEN: Record<string, string> = {
+  rk_live_alteaaaaaaaaaa: "acct_alt",
+  rk_live_andereaaaaaaaa: "acct_andere",
+  rk_live_dritteaaaaaaaa: "acct_dritte",
+  rk_live_vierteaaaaaaaa: "acct_vierte",
+};
 
 const fake = (apiKey: string) =>
   ({
@@ -96,5 +101,26 @@ describe.skipIf(!testDatabaseUrl)("Verbindung zu einem schon gebundenen Konto de
     });
     await expect(wieder).rejects.toBeInstanceOf(psp.ZahlungsdienstleisterError);
     await expect(wieder).rejects.toThrow("„Andere“");
+  });
+
+  it("behält beim Wechsel auf ein anderes Stripe-Konto mit „Automatisch“ nicht das schon gebundene Konto", async () => {
+    const id = await psp.speichereVerbindung(actor, {
+      provider: "stripe",
+      name: "Wechsel Alt",
+      eingabe: { apiKey: "rk_live_dritteaaaaaaaa" },
+      fetchFrom: "2026-11-01",
+    });
+    expect((await psp.abrufen(actor, id, HEUTE)).error).toBeNull();
+    const gebunden = (await psp.ladeVerbindung(id))!.row.bankAccountId!;
+    // Kontowechsel auf ein neues Stripe-Konto mit „Automatisch“: das bisherige Konto gehört schon zu acct_dritte (#306)
+    await psp.speichereVerbindung(actor, {
+      id,
+      provider: "stripe",
+      name: "Wechsel Neu",
+      bankAccountId: null,
+      eingabe: { apiKey: "rk_live_vierteaaaaaaaa" },
+      fetchFrom: "2026-11-01",
+    });
+    expect((await psp.ladeVerbindung(id))!.row.bankAccountId).not.toBe(gebunden);
   });
 });
