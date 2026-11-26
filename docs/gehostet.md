@@ -24,7 +24,8 @@ liest du als Datei ein oder rufst sie über Enable Banking ab.
   Die [Hersteller-ID](einrichtung-elster.md#hersteller-id-wer-ist-hersteller), auf die man sonst
   Tage bis Wochen wartet, und ERiC bringen wir mit. Dein ELSTER-Zertifikat lädst du selbst hoch und bestätigst
   die Datenschutzhinweise der Finanzverwaltung.
-- **Hilfe zum Betrieb** per E-Mail. Steuerberatung ist das nicht.
+- **Hilfe zum Betrieb** per E-Mail: Störungen, Zugang, Updates und Backups. Fragen zur Bedienung
+  beantworten wir öffentlich (siehe [Fragen](#fragen)). Steuerberatung ist das nicht.
 - **Server in Deutschland:** Deine Instanz läuft bei netcup im Rechenzentrum Nürnberg. Die
   verschlüsselten Backups liegen zusätzlich bei Cloudflare R2.
 
@@ -69,7 +70,9 @@ nach einem Partner.
 ## Partnerprogramm
 
 IT-Dienstleister, Hoster und Steuerberatungen, die Haben für ihre Kunden einrichten und betreuen wollen, werden Partner
-über das [Partnerprogramm](https://speicherstadt.org/partner/).
+über das [Partnerprogramm](https://speicherstadt.org/partner/). Partner bekommen gehostete Instanzen zum Partnerpreis
+von 8,90 € im Monat (zuzüglich Umsatzsteuer) und legen den Preis für ihre Kunden selbst fest; die ersten zehn zahlen im
+ersten Jahr keine Partnergebühr.
 
 ## Fragen
 
