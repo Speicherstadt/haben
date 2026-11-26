@@ -29,6 +29,7 @@ export {
   accountSettingsSchema,
   createAccount,
   createProviderAccount,
+  providerKontoAnlegen,
   listAccounts,
   ownAccounts,
   providerAccountSchema,

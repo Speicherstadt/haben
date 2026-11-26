@@ -1,11 +1,12 @@
 import { and, asc, eq, isNull, ne, notInArray, sql } from "drizzle-orm";
+import type { PaymentProvider } from "@haben/core";
 import { z } from "zod";
 import { decrypt, encrypt } from "../../crypto.ts";
 import { withActor } from "../../db/actor.ts";
 import { db, schema, type Tx } from "../../db/index.ts";
 import { UserError } from "../../errors.ts";
 import { today } from "../../today.ts";
-import { keineExterneQuelle, openConflicts } from "../bank/index.ts";
+import { keineExterneQuelle, openConflicts, providerKontoAnlegen } from "../bank/index.ts";
 import type { PspAdapter } from "./adapter.ts";
 import { ANBIETER, adapterFuer } from "./anbieter.ts";
 import { RHYTHMEN, type Rhythmus } from "./regeln.ts";
@@ -140,16 +141,6 @@ async function gebundenesKonto(provider: string, accountId: string) {
   return quelle ?? null;
 }
 
-/** Gibt es außer dieser schon eine Verbindung zum Anbieter? */
-async function weitereVerbindung(provider: string, id: string | null): Promise<boolean> {
-  const [andere] = await db
-    .select({ id: schema.pspConnections.id })
-    .from(schema.pspConnections)
-    .where(and(eq(schema.pspConnections.provider, provider), id ? ne(schema.pspConnections.id, id) : sql`true`))
-    .limit(1);
-  return Boolean(andere);
-}
-
 /**
  * Speichert eine Verbindung. Ein neuer Zugang wird beim Anbieter geprüft und liefert die Kontokennung; gehört er zu einem
  * anderen Konto, beginnt der Abruf wieder am gewählten Tag, weil der Stand des alten Kontos nichts über das neue sagt.
@@ -183,13 +174,6 @@ export async function speichereVerbindung(actor: string, input: z.input<typeof v
     );
   }
   const bankAccountId = gewaehlt ?? gebunden?.id ?? existing?.row.bankAccountId ?? (await freiesKonto(db, adapter.provider, id))?.id ?? null;
-  // Die erste Verbindung geht wie vor #1729 auch vor dem Konto; jede weitere braucht ihr eigenes (Grenze von neun Konten)
-  if (!bankAccountId && (await weitereVerbindung(adapter.provider, id))) {
-    throw new ZahlungsdienstleisterError(
-      `Für eine weitere Verbindung zu ${adapter.name} fehlt ein freies Konto der Art Zahlungsdienstleister. Lege es unter Bank › Konto hinzufügen an.`,
-      { felder: ["bankAccountId"] },
-    );
-  }
   // Ein Konto, eine Quelle (#306): hat das Konto des Abrufs schon eine externe Quelle, keine Verbindung
   if (bankAccountId) await keineExterneQuelle(db, [bankAccountId]);
   const anderesKonto = existing !== null && existing.row.accountId !== accountId;
@@ -211,6 +195,8 @@ export async function speichereVerbindung(actor: string, input: z.input<typeof v
     updatedAt: new Date(),
   };
   return withActor(actor, async (tx) => {
+    // Ohne freies Konto legt die Verbindung ihr eigenes an, mit ihrem Namen; erst wenn alle neun Verrechnungskonten belegt sind, Fehler
+    if (!values.bankAccountId) values.bankAccountId = (await providerKontoAnlegen(tx, { name: data.name, provider: adapter.provider as PaymentProvider })).id;
     if (id) {
       await tx.update(schema.pspConnections).set(values).where(eq(schema.pspConnections.id, id));
       return id;

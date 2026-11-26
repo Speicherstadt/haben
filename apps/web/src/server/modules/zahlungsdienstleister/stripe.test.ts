@@ -61,12 +61,6 @@ describe.skipIf(!testDatabaseUrl)("Stripe-Abruf (Postgres)", () => {
     await sql?.end();
   });
 
-  async function kontoAnlegen() {
-    await sql`insert into bank_accounts (name, purpose, provider, ledger_index) values ('Stripe', 'zahlungsdienstleister', 'stripe', 3) on conflict do nothing`;
-    const [konto] = await sql`select id from bank_accounts where provider = 'stripe'`;
-    return konto!.id as string;
-  }
-
   it("speichert den Schlüssel verschlüsselt und nennt in der Zusammenfassung nur die Kontokennung und die letzten Zeichen", async () => {
     await stripe.saveStripeConnection(actor, { apiKey: KEY, fetchFrom: "2019-01-01" });
     const stand = await stripe.stripeSummary();
@@ -100,19 +94,16 @@ describe.skipIf(!testDatabaseUrl)("Stripe-Abruf (Postgres)", () => {
     await stripe.saveStripeConnection(actor, { fetchFrom: "2019-01-01", rhythmus: "taeglich" });
   });
 
-  it("legt ohne Konto des Dienstleisters nichts an und lässt den Startpunkt stehen", async () => {
-    const result = await stripe.syncStripe(actor, HEUTE);
-    expect(result.error).toBeNull();
-    expect(result.accountName).toBeNull();
-    expect(result.messages.join(" ")).toContain("noch kein Konto");
-    const [anzahl] = await sql`select count(*)::int as n from bank_transactions`;
-    expect(anzahl!.n).toBe(0);
-    const [row] = await sql`select fetch_from::text as f from psp_connections where provider = 'stripe'`;
-    expect(row!.f).toBe("2019-01-01");
+  it("legt beim Speichern das Konto des Dienstleisters mit dem Namen der Verbindung an, wenn keins frei ist (#1729)", async () => {
+    const konten =
+      await sql`select b.name, b.purpose, b.provider from psp_connections c join bank_accounts b on b.id = c.bank_account_id where c.provider = 'stripe'`;
+    expect(konten).toEqual([{ name: "Stripe", purpose: "zahlungsdienstleister", provider: "stripe" }]);
+    // Weiteres Speichern legt kein zweites an
+    expect((await sql`select count(*)::int as n from bank_accounts where provider = 'stripe'`)[0]!.n).toBe(1);
+    expect((await sql`select count(*)::int as n from bank_transactions`)[0]!.n).toBe(0);
   });
 
   it("übernimmt die Umsätze ins Konto des Dienstleisters, Zahlung und Gebühr getrennt", async () => {
-    await kontoAnlegen();
     const result = await stripe.syncStripe(actor, HEUTE);
     expect(result.error).toBeNull();
     expect(result.entries).toBe(6);

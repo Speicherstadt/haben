@@ -68,6 +68,19 @@ describe.skipIf(!testDatabaseUrl)("Verbindungen zu Zahlungsdienstleistern (Postg
     return row!.id as string;
   }
 
+  it("holt bei einer Verbindung ohne Konto (aus dem Umzug, vor #1729 möglich) nichts und sagt, was fehlt", async () => {
+    const zugang = crypto.encrypt(new TextEncoder().encode(JSON.stringify({ art: "schluessel", apiKey: "rk_live_ohnekontoaaaaa" })));
+    const id = (
+      await sql`insert into psp_connections (provider, name, account_id, key_hint, ciphertext, fetch_from, abruf_start)
+        values ('stripe', 'Stripe', 'acct_ohne', 'aaaa', ${zugang}, '2026-11-01', '2026-11-01') returning id`
+    )[0]!.id as string;
+    const result = await psp.abrufen(actor, id, HEUTE);
+    expect(result.accountName).toBeNull();
+    expect(result.messages.join(" ")).toContain("noch kein Konto");
+    expect((await sql`select fetch_from::text as f from psp_connections where id = ${id}`)[0]!.f).toBe("2026-11-01");
+    await sql`delete from psp_connections where id = ${id}`;
+  });
+
   it("ruft zwei Stripe-Verbindungen mit eigenem Namen je in ihr eigenes Konto ab", async () => {
     const shopKonto = await konto("Stripe Shop", "stripe", 1);
     const kurseKonto = await konto("Stripe Kurse", "stripe", 2);
@@ -231,18 +244,23 @@ describe.skipIf(!testDatabaseUrl)("Verbindungen zu Zahlungsdienstleistern (Postg
     expect((await psp.abrufen(actor, zweite, new Date(HEUTE.getTime() + 2 * 60 * 60 * 1000))).error).toBeNull();
   });
 
-  it("lehnt eine weitere Verbindung ohne freies Konto des Anbieters ab; die erste nimmt das frei gewordene", async () => {
-    // Das Konto „PayPal“ nutzt schon die umgezogene Verbindung; eine zweite bekäme keins und schriebe nie (#1729, Grenze)
-    psp.setPayPalClientFactory(() => ({ accountId: async () => "HAENDLERNEU", transactions: async () => [] }) as unknown as PayPalClient);
-    const eingabe = { clientId: "client-neu", clientSecret: "geheim-neu" };
-    await expect(psp.speichereVerbindung(actor, { provider: "paypal", name: "PayPal Zwei", eingabe, fetchFrom: "2026-11-01" })).rejects.toThrow(
-      "Für eine weitere Verbindung zu PayPal fehlt ein freies Konto",
-    );
-    expect(await sql`select name from psp_connections where provider = 'paypal'`).toEqual([{ name: "PayPal" }]);
-    // Ohne andere Verbindung des Anbieters ist das Konto wieder frei (ganz ohne Konto: wie vor #1729, paypal.test.ts)
-    await sql`delete from psp_connections where provider = 'paypal'`;
-    const erste = await psp.speichereVerbindung(actor, { provider: "paypal", name: "PayPal Zwei", eingabe, fetchFrom: "2026-11-01" });
-    expect((await psp.ladeVerbindung(erste))!.row.bankAccountId).not.toBeNull();
+  it("legt ohne freies Konto eines mit dem Namen der Verbindung an, bis alle neun Verrechnungskonten belegt sind", async () => {
+    // Das Konto „PayPal“ nutzt schon die umgezogene Verbindung; die zweite bekommt ihr eigenes
+    let haendler = 0;
+    psp.setPayPalClientFactory(() => ({ accountId: async () => `HAENDLER${++haendler}`, transactions: async () => [] }) as unknown as PayPalClient);
+    const neue = (name: string) =>
+      psp.speichereVerbindung(actor, { provider: "paypal", name, eingabe: { clientId: `client-${name}`, clientSecret: "geheim" }, fetchFrom: "2026-11-01" });
+    const zweite = await neue("PayPal Zwei");
+    const [konto] =
+      await sql`select b.name, b.purpose, b.provider, b.ledger_index from psp_connections c join bank_accounts b on b.id = c.bank_account_id where c.id = ${zweite}`;
+    expect(konto).toEqual({ name: "PayPal Zwei", purpose: "zahlungsdienstleister", provider: "paypal", ledger_index: expect.any(Number) });
+    expect((await psp.abrufen(actor, zweite, HEUTE)).accountName).toBe("PayPal Zwei");
+    // Bis alle neun Nummern vergeben sind, dann mit Meldung und ohne halbe Verbindung
+    const frei = (await sql`select 9 - count(*)::int as frei from bank_accounts where ledger_index is not null`)[0]!.frei as number;
+    for (let i = 0; i < frei; i++) await neue(`PayPal ${i + 3}`);
+    const vorher = (await sql`select count(*)::int as n from psp_connections`)[0]!.n;
+    await expect(neue("PayPal Zuviel")).rejects.toThrow("schon neun Zahlungsdienstleister");
+    expect((await sql`select count(*)::int as n from psp_connections`)[0]!.n).toBe(vorher);
   });
 
   it("schreibt Änderungen ins Protokoll, ohne den Zugang", async () => {

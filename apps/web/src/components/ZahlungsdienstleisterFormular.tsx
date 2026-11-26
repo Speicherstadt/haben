@@ -108,10 +108,10 @@ export function VerbindungFormular({
         {(control) => <input {...control} name="name" required value={name} onChange={(event) => setName(event.target.value)} />}
       </Field>
       {anbieter && <ZugangFelder anbieter={anbieter} gespeichert={!neu} config={config} setConfig={setConfig} />}
-      <Field label="Konto in Haben" hint="Konto der Art Zahlungsdienstleister, in das der Abruf schreibt; anlegen unter Bank › Konto hinzufügen">
+      <Field label="Konto in Haben" hint="Konto der Art Zahlungsdienstleister, in das der Abruf schreibt; ein neues bekommt den Namen der Verbindung">
         {(control) => (
           <select {...control} name="bankAccountId" value={bankAccountId} onChange={(event) => setBankAccountId(event.target.value)}>
-            <option value="">Automatisch: das älteste freie Konto des Anbieters</option>
+            <option value="">Automatisch: ein freies Konto des Anbieters, sonst ein neues</option>
             {konten.map((k) => (
               <option key={k.id} value={k.id}>
                 {k.name}

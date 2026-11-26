@@ -163,17 +163,15 @@ describe.skipIf(!testDatabaseUrl)("PayPal-Abruf (Postgres)", () => {
     await paypal.savePayPalConnection(actor, { fetchFrom: "2026-10-01", rhythmus: "taeglich" });
   });
 
-  it("legt ohne Konto des Dienstleisters nichts an und lässt den Startpunkt stehen", async () => {
-    const result = await paypal.syncPayPal(actor, HEUTE);
-    expect(result.error).toBeNull();
-    expect(result.accountName).toBeNull();
-    expect(result.messages.join(" ")).toContain("noch kein Konto");
+  it("legt beim Speichern das Konto des Dienstleisters mit dem Namen der Verbindung an, wenn keins frei ist (#1729)", async () => {
+    const konten =
+      await sql`select b.name, b.purpose, b.provider from psp_connections c join bank_accounts b on b.id = c.bank_account_id where c.provider = 'paypal'`;
+    expect(konten).toEqual([{ name: "PayPal", purpose: "zahlungsdienstleister", provider: "paypal" }]);
+    expect((await sql`select count(*)::int as n from bank_accounts where provider = 'paypal'`)[0]!.n).toBe(1);
     expect((await sql`select count(*)::int as n from bank_transactions`)[0]!.n).toBe(0);
-    expect((await sql`select fetch_from::text as f from psp_connections where provider = 'paypal'`)[0]!.f).toBe("2026-10-01");
   });
 
   it("übernimmt die Umsätze ins Konto des Dienstleisters und meldet, was nicht ankommt", async () => {
-    await sql`insert into bank_accounts (name, purpose, provider, ledger_index) values ('PayPal', 'zahlungsdienstleister', 'paypal', 3)`;
     const result = await paypal.syncPayPal(actor, HEUTE);
     expect(result.error).toBeNull();
     expect(result.accountName).toBe("PayPal");

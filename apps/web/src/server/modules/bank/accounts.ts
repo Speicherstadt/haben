@@ -170,25 +170,28 @@ export const providerAccountSchema = z
 
 export async function createProviderAccount(actor: string, input: z.input<typeof providerAccountSchema>) {
   const data = providerAccountSchema.parse(input);
-  return withActor(actor, async (tx) => {
-    // Sperre gegen zwei gleichzeitige Anlagen mit derselben Nummer; die Spalte ist zusätzlich eindeutig
-    await tx.execute(sql`lock table bank_accounts in share row exclusive mode`);
-    const used = new Set((await tx.select({ i: schema.bankAccounts.ledgerIndex }).from(schema.bankAccounts)).map((r) => r.i));
-    const ledgerIndex = [1, 2, 3, 4, 5, 6, 7, 8, 9].find((i) => !used.has(i));
-    if (!ledgerIndex) throw new BankError("Es gibt schon neun Zahlungsdienstleister; mehr Verrechnungskonten sieht Haben nicht vor.");
-    const [created] = await tx
-      .insert(schema.bankAccounts)
-      .values({
-        name: data.name,
-        iban: null,
-        purpose: "zahlungsdienstleister",
-        provider: data.provider,
-        marketplace: data.provider === "amazon" ? (data.marketplace ?? null) : null,
-        ledgerIndex,
-      })
-      .returning();
-    return created!;
-  });
+  return withActor(actor, (tx) => providerKontoAnlegen(tx, data));
+}
+
+/** Legt das Konto in einer laufenden Transaktion an, etwa zusammen mit der Verbindung des Abrufs (zahlungsdienstleister/, #1729) */
+export async function providerKontoAnlegen(tx: Tx, data: z.output<typeof providerAccountSchema>) {
+  // Sperre gegen zwei gleichzeitige Anlagen mit derselben Nummer; die Spalte ist zusätzlich eindeutig
+  await tx.execute(sql`lock table bank_accounts in share row exclusive mode`);
+  const used = new Set((await tx.select({ i: schema.bankAccounts.ledgerIndex }).from(schema.bankAccounts)).map((r) => r.i));
+  const ledgerIndex = [1, 2, 3, 4, 5, 6, 7, 8, 9].find((i) => !used.has(i));
+  if (!ledgerIndex) throw new BankError("Es gibt schon neun Zahlungsdienstleister; mehr Verrechnungskonten sieht Haben nicht vor.");
+  const [created] = await tx
+    .insert(schema.bankAccounts)
+    .values({
+      name: data.name,
+      iban: null,
+      purpose: "zahlungsdienstleister",
+      provider: data.provider,
+      marketplace: data.provider === "amazon" ? (data.marketplace ?? null) : null,
+      ledgerIndex,
+    })
+    .returning();
+  return created!;
 }
 
 /** Konto zur IBAN; fehlt es, wird es angelegt */
