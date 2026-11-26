@@ -19,7 +19,7 @@ vi.mock("@tanstack/react-router", () => ({
   }) =>
     createElement("a", { href: `${to.replace("$id", params?.id ?? "")}${search ? `?${new URLSearchParams(search)}` : ""}${hash ? `#${hash}` : ""}` }, children),
 }));
-import { BuchungLinks, vorgangZurHerkunft, VorgangLink } from "./Ledger.tsx";
+import { BuchungLink, BuchungLinks, type Vorgang, vorgangZurHerkunft, VorgangLink } from "./Ledger.tsx";
 
 describe("Herkunft einer Buchung öffnet den Vorgang (Journal und Kontenblatt)", () => {
   const buchung = { sourceId: "q1", invoiceId: null, documentId: null, transactionId: null };
@@ -71,9 +71,21 @@ describe("Buchung über die Bank öffnet ihren Umsatz (#1855)", () => {
     expect(vorgangZurHerkunft({ ...zuordnung, transactionId: null })).toBeNull();
   });
 
-  it("Rechnung, Beleg und Anlage behalten ihren Link auf die Detailseite", () => {
-    expect(renderToStaticMarkup(createElement(VorgangLink, { vorgang: { to: "/rechnungen/$id", id: "r1" }, rolle: "steuerberatung" }, "Rechnung"))).toBe(
-      '<a href="/rechnungen/r1">Rechnung</a>',
+  it("Rechnung und Beleg bleiben auch für die Steuerberatung Links, die Anlage nicht: diese Seite sieht sie nicht", () => {
+    const id = "7f1c2a9e-3b4d-4e5f-8a6b-1c2d3e4f5a6b";
+    const link = (vorgang: Vorgang, rolle: string) =>
+      renderToStaticMarkup(createElement(VorgangLink, { vorgang, rolle, className: "journal-source" }, "Herkunft"));
+    expect(link({ to: "/rechnungen/$id", id }, "steuerberatung")).toBe(`<a href="/rechnungen/${id}">Herkunft</a>`);
+    expect(link({ to: "/belege/$id", id }, "steuerberatung")).toBe(`<a href="/belege/${id}">Herkunft</a>`);
+    expect(link({ to: "/anlagen/$id", id }, "steuerberatung")).toBe('<span class="journal-source">Herkunft</span>');
+    expect(link({ to: "/anlagen/$id", id }, "inhaber")).toBe(`<a href="/anlagen/${id}">Herkunft</a>`);
+  });
+});
+
+describe("Link auf eine Buchung (#1855)", () => {
+  it("führt ins Journal des Monats auf die Zeile; der Storno-Hinweis am Beleg gibt so die Buchung des Stornos an", () => {
+    expect(renderToStaticMarkup(createElement(BuchungLink, { id: "e9", date: "2026-03-10" }, "Gegenbuchung"))).toBe(
+      '<a href="/buchungen?jahr=2026&amp;monat=3#buchung-e9">Gegenbuchung</a>',
     );
   });
 });

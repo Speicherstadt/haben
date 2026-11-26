@@ -79,10 +79,12 @@ export function vorgangZurHerkunft(e: {
 
 /**
  * Link auf den Vorgang. Den Umsatz öffnet die Bank in allen Konten und ohne Filter, damit er sicher in der Liste steht
- * (wie aus der Liquiditätsvorschau). Sieht die Rolle die Bank nicht (Steuerberatung), steht nur der Text.
+ * (wie aus der Liquiditätsvorschau). Kann die Rolle die Seite nicht öffnen (die Steuerberatung etwa Bank und Anlagen), steht
+ * nur der Text, statt dass der Link sie auf ihre Startseite umleitet.
  */
 export function VorgangLink({ vorgang, rolle, className, children }: { vorgang: Vorgang; rolle: string; className?: string; children?: ReactNode }) {
-  if (vorgang.to === "/bank" && !siehtSeite(rolle, "/bank")) return <span className={className}>{children}</span>;
+  const pfad = vorgang.to === "/bank" ? "/bank" : vorgang.to.replace("$id", vorgang.id);
+  if (!siehtSeite(rolle, pfad)) return <span className={className}>{children}</span>;
   return vorgang.to === "/bank" ? (
     <Link to="/bank" search={{ umsatz: vorgang.umsatz, konto: "alle", filter: "alle" }} className={className}>
       {children}
@@ -102,11 +104,20 @@ export function BuchungLinks({ buchungen }: { buchungen: { id: string; date: str
   return buchungen.map((b, i) => (
     <Fragment key={b.id}>
       {i > 0 && ", "}
-      <Link to="/buchungen" search={{ jahr: Number(b.date.slice(0, 4)), monat: Number(b.date.slice(5, 7)) }} hash={`buchung-${b.id}`}>
+      <BuchungLink id={b.id} date={b.date}>
         {b.reversal ? "Gegenbuchung" : "Buchung"} vom {formatDate(b.date)}
-      </Link>
+      </BuchungLink>
     </Fragment>
   ));
+}
+
+/** Eine Buchung im Journal ihres Monats, mit Anker auf ihre Zeile; auch der Storno-Hinweis am Beleg nutzt ihn */
+export function BuchungLink({ id, date, children }: { id: string; date: string; children?: ReactNode }) {
+  return (
+    <Link to="/buchungen" search={{ jahr: Number(date.slice(0, 4)), monat: Number(date.slice(5, 7)) }} hash={`buchung-${id}`}>
+      {children}
+    </Link>
+  );
 }
 
 /** Herkünfte, die es nur in einer Rechtsform gibt: Pauschalen im Einzelunternehmen, die übrigen in GmbH und UG (docs/einrichtung.md) */
