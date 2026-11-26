@@ -128,20 +128,16 @@ async function kontoBeimAnbieterFrei(adapter: PspAdapter, accountId: string, id:
 }
 
 /**
- * Fehler, wenn die Quellenbindung (#306) das Konto beim Anbieter schon an ein anderes Konto in Haben hält: Der Abruf dorthin
- * scheiterte sonst bei jedem Lauf (sourceFor in bank/import-batch.ts).
+ * Konto in Haben, an das die Quellenbindung (#306) das Konto beim Anbieter schon hält, auch nach dem Entfernen einer Verbindung:
+ * Ein anderes Konto lehnte jeder Abruf ab (sourceFor in bank/import-batch.ts).
  */
-async function quelleImKonto(adapter: PspAdapter, accountId: string, bankAccountId: string) {
+async function gebundenesKonto(provider: string, accountId: string) {
   const [quelle] = await db
-    .select({ bankAccountId: schema.importSources.bankAccountId, name: schema.bankAccounts.name })
+    .select({ id: schema.importSources.bankAccountId, name: schema.bankAccounts.name })
     .from(schema.importSources)
     .innerJoin(schema.bankAccounts, eq(schema.bankAccounts.id, schema.importSources.bankAccountId))
-    .where(and(eq(schema.importSources.provider, adapter.provider), eq(schema.importSources.externalAccountId, accountId)));
-  if (quelle && quelle.bankAccountId !== bankAccountId) {
-    throw new ZahlungsdienstleisterError(`Dieses ${adapter.name}-Konto ist schon mit dem Konto ${quelle.name} verbunden; der Abruf schreibt weiter dorthin.`, {
-      felder: ["bankAccountId"],
-    });
-  }
+    .where(and(eq(schema.importSources.provider, provider), eq(schema.importSources.externalAccountId, accountId)));
+  return quelle ?? null;
 }
 
 /**
@@ -160,17 +156,22 @@ export async function speichereVerbindung(actor: string, input: z.input<typeof v
   if (data.id && !existing) throw new ZahlungsdienstleisterError("Die Verbindung gibt es nicht mehr.");
   if (existing && existing.row.provider !== adapter.provider) throw new ZahlungsdienstleisterError("Der Anbieter einer Verbindung lässt sich nicht ändern.");
   const id = existing?.row.id ?? null;
-  const bankAccountId = data.bankAccountId
-    ? await gewaehltesKonto(data.bankAccountId, adapter.provider, id)
-    : (existing?.row.bankAccountId ?? (await freiesKonto(db, adapter.provider, id))?.id ?? null);
-  // Ein Konto, eine Quelle (#306): hat das Konto des Abrufs schon eine externe Quelle, keine Verbindung
-  if (bankAccountId) await keineExterneQuelle(db, [bankAccountId]);
+  const gewaehlt = data.bankAccountId ? await gewaehltesKonto(data.bankAccountId, adapter.provider, id) : null;
   const neuerZugang = adapter.zugangAusEingabe(data.eingabe, config, existing ? { zugang: existing.zugang, config: existing.config } : null);
   const zugang = neuerZugang ?? existing!.zugang;
   const pruefung = neuerZugang ? await adapter.pruefen(neuerZugang, config) : null;
   const accountId = pruefung?.accountId ?? existing!.row.accountId;
   await kontoBeimAnbieterFrei(adapter, accountId, id);
-  if (bankAccountId) await quelleImKonto(adapter, accountId, bankAccountId);
+  // Schreibt der Abruf schon in ein Konto, bleibt es dabei: „Automatisch“ nimmt es, eine andere Wahl wird abgelehnt
+  const gebunden = await gebundenesKonto(adapter.provider, accountId);
+  if (gebunden && gewaehlt && gewaehlt !== gebunden.id) {
+    throw new ZahlungsdienstleisterError(`Dieses ${adapter.name}-Konto ist schon mit dem Konto ${gebunden.name} verbunden; der Abruf schreibt weiter dorthin.`, {
+      felder: ["bankAccountId"],
+    });
+  }
+  const bankAccountId = gewaehlt ?? gebunden?.id ?? existing?.row.bankAccountId ?? (await freiesKonto(db, adapter.provider, id))?.id ?? null;
+  // Ein Konto, eine Quelle (#306): hat das Konto des Abrufs schon eine externe Quelle, keine Verbindung
+  if (bankAccountId) await keineExterneQuelle(db, [bankAccountId]);
   const anderesKonto = existing !== null && existing.row.accountId !== accountId;
   const startGeaendert = existing?.row.abrufStart !== data.fetchFrom;
   const values = {
