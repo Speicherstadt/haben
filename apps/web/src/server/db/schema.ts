@@ -611,6 +611,8 @@ export const residualTerms = pgTable("residual_terms", {
 export interface AusschuettungEmpfaenger {
   name: string;
   anteil: BasisPoints;
+  /** Beteiligung in Euro (Nennbetrag), nach der verteilt wird (§ 29 Abs. 3 Satz 1 GmbHG, #1286); fehlt bei Ausschüttungen vor #1812 */
+  beteiligung?: Cents;
   brutto: Cents;
   ausEinlagekonto: Cents;
   ertrag: Cents;
@@ -4022,6 +4024,7 @@ export const assets = pgTable(
     openingDate: date("opening_date", { mode: "string" }),
     openingBookValue: integer("opening_book_value").$type<Cents>(),
     openingEntryId: uuid("opening_entry_id"),
+    specialDepreciation: jsonb("special_depreciation").$type<{ year: number; amount: Cents }[]>().notNull().default([]),
     disposalDate: date("disposal_date", { mode: "string" }),
     /** Firmenwagen: private Nutzung nach der Listenpreismethode */
     privateUse: jsonb("private_use").$type<CarPrivateUse>(),

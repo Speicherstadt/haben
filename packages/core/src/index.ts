@@ -63,6 +63,7 @@ export * from "./holidays.ts";
 export * from "./liquiditaet.ts";
 export * from "./liquiditaet-steuern.ts";
 export * from "./afa.ts";
+export * from "./afa-sonder.ts";
 export * from "./afa-methoden.ts";
 export * from "./private-use.ts";
 export * from "./recurrence.ts";
