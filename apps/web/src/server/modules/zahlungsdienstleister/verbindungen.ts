@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, ne, notInArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne, notInArray, sql } from "drizzle-orm";
 import type { PaymentProvider } from "@haben/core";
 import { z } from "zod";
 import { decrypt, encrypt } from "../../crypto.ts";
@@ -79,7 +79,7 @@ export const verbindungSchema = z.object({
  * Das älteste Konto der Art Zahlungsdienstleister mit diesem Anbieter, das keine andere Verbindung nutzt. Dorthin schrieb der
  * Abruf schon vor #1729; eine Verbindung ohne gewähltes Konto nimmt es beim Speichern und beim ersten Abruf.
  */
-export async function freiesKonto(tx: Tx | typeof db, provider: string, ausser: string | null) {
+export async function freiesKonto(tx: Tx | typeof db, provider: string, ausser: string | null, accountId: string) {
   const belegt = tx
     .select({ id: schema.pspConnections.bankAccountId })
     .from(schema.pspConnections)
@@ -92,11 +92,40 @@ export async function freiesKonto(tx: Tx | typeof db, provider: string, ausser: 
         eq(schema.bankAccounts.purpose, "zahlungsdienstleister"),
         sql`${schema.bankAccounts.provider} = ${provider}`,
         notInArray(schema.bankAccounts.id, belegt),
+        notInArray(schema.bankAccounts.id, fremdeQuellen(tx, provider, accountId)),
       ),
     )
     .orderBy(asc(schema.bankAccounts.createdAt))
     .limit(1);
   return konto ?? null;
+}
+
+/**
+ * Konten, an die die Quellenbindung (#306) ein anderes Konto beim selben Anbieter hält: Sie enthalten dessen Umsätze und bekommen
+ * kein zweites (ein Konto, eine Quelle), auch nachdem die Verbindung dazu entfernt ist. Ein Konto mit externer Quelle lehnt
+ * keineExterneQuelle ab.
+ */
+function fremdeQuellen(tx: Tx | typeof db, provider: string, accountId: string) {
+  return tx
+    .select({ id: schema.importSources.bankAccountId })
+    .from(schema.importSources)
+    .where(and(eq(schema.importSources.provider, provider), ne(schema.importSources.externalAccountId, accountId)));
+}
+
+/** Fehler, wenn das gewählte Konto schon die Umsätze eines anderen Kontos beim selben Anbieter bekommt */
+async function ohneFremdeQuelle(adapter: PspAdapter, bankAccountId: string, accountId: string) {
+  const [fremd] = await db
+    .select()
+    .from(schema.bankAccounts)
+    .where(and(eq(schema.bankAccounts.id, bankAccountId), inArray(schema.bankAccounts.id, fremdeQuellen(db, adapter.provider, accountId))));
+  if (fremd) {
+    throw new ZahlungsdienstleisterError(
+      `Das Konto ${fremd.name} bekommt schon die Umsätze eines anderen ${adapter.name}-Kontos; wähle ein anderes oder „Automatisch“.`,
+      {
+        felder: ["bankAccountId"],
+      },
+    );
+  }
 }
 
 /** Das gewählte Konto muss eines des Anbieters sein und frei */
@@ -184,7 +213,8 @@ export async function speichereVerbindung(actor: string, input: z.input<typeof v
       },
     );
   }
-  const bankAccountId = gewaehlt ?? gebunden?.id ?? existing?.row.bankAccountId ?? (await freiesKonto(db, adapter.provider, id))?.id ?? null;
+  if (gewaehlt && !gebunden) await ohneFremdeQuelle(adapter, gewaehlt, accountId);
+  const bankAccountId = gewaehlt ?? gebunden?.id ?? existing?.row.bankAccountId ?? (await freiesKonto(db, adapter.provider, id, accountId))?.id ?? null;
   // Ein Konto, eine Quelle (#306): hat das Konto des Abrufs schon eine externe Quelle, keine Verbindung
   if (bankAccountId) await keineExterneQuelle(db, [bankAccountId]);
   const anderesKonto = existing !== null && existing.row.accountId !== accountId;
@@ -231,7 +261,7 @@ export async function kontoDerVerbindung(actor: string, row: Row) {
       .where(eq(schema.bankAccounts.id, row.bankAccountId));
     return konto ?? null;
   }
-  const konto = await freiesKonto(db, row.provider, row.id);
+  const konto = await freiesKonto(db, row.provider, row.id, row.accountId);
   if (konto) {
     await withActor(actor, (tx) =>
       tx
