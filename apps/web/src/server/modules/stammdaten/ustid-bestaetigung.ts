@@ -61,6 +61,8 @@ const verbindung = (): EvatrVerbindung => ({ fetch, url: env().EVATR_API_URL ?? 
 
 export const evatrAbgeschaltet = () => process.env.HABEN_EVATR === "off";
 
+const GB_13B_DRITTLAND = "Für eine Leistung aus Großbritannien passt § 13b Drittland (Kz 84/85).";
+
 const ZUSTAND_TEXT: Record<Exclude<UstIdBestaetigungsZustand["art"], "bereit">, string> = {
   aus: "Die Bestätigung beim BZSt ist auf dieser Installation abgeschaltet (HABEN_EVATR=off).",
   "ohne-eigene": "Für die Bestätigung braucht es deine deutsche USt-IdNr. in den Firmendaten.",
@@ -311,6 +313,13 @@ export async function ustIdVorBuchen(
   // Das BZSt bestätigt XI trotzdem (§ 30 Abs. 2, BMF vom 10.12.2020, BStBl I S. 1370, Rz. 22), deshalb ohne Abfrage und auch abgeschaltet (#1579)
   if (lieferant.behandlung === "eu" && nummer.startsWith("XI"))
     return { hinweis: `${nummer}: ${XI_NUR_LIEFERUNGEN}. Für eine Leistung aus Nordirland passt § 13b Drittland (Kz 84/85).` };
+  // Großbritannien gehört seit 2021 nicht mehr zum Gemeinschaftsgebiet (§ 1 Abs. 2a UStG), bei Leistungen auch Nordirland:
+  // eine britische Nummer oder ohne Nummer das Land des Kontakts, ohne Abfrage und auch abgeschaltet (#1603). Eine EU-Nummer
+  // (Betriebsstätte in der EU, § 13b Abs. 7 UStG) prüft Haben weiter wie jede andere
+  if (lieferant.behandlung === "eu" && (nummer.startsWith("GB") || (!nummer && contact?.land === "GB")))
+    return {
+      hinweis: `${nummer ? `${nummer}: britische USt-IdNr.; Großbritannien ist` : "Der Lieferant sitzt laut Kontakt in Großbritannien,"} seit 2021 Drittland. ${GB_13B_DRITTLAND}`,
+    };
   if (evatrAbgeschaltet()) return { hinweis: null };
   // Bei § 1a sperrt „Vor dem Buchen“ eine fehlende oder falsch aufgebaute Nummer selbst (igErwerbIssues). Bei § 13b ist sie
   // keine Pflicht; eine, die sich nicht bestätigen lässt, nennt der Hinweis wie vor dem Festschreiben
