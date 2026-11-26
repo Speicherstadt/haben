@@ -1,5 +1,5 @@
 import { formatEuro } from "@haben/core";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { type ReactNode, type RefObject, useCallback, useEffect, useId, useRef, useState } from "react";
 import { Icon } from "../../components/Icon.tsx";
 import { type ActionMenuItem, MoreActionsMenu } from "../../components/MoreActionsMenu.tsx";
@@ -28,6 +28,17 @@ const GRUPPEN = [
 ] as const;
 
 const anzahl = (n: number, eins: string, mehr: string) => `${n} ${n === 1 ? eins : mehr}`;
+
+/**
+ * Gewählte Karte: das Konto aus der Adresse, ohne eins das, welches die Daten zeigen. Nicht allein aus den Daten: Nach
+ * einem Klick ist die Adresse schon weiter, während die Daten des neuen Kontos noch laden, und der Router markiert den
+ * Link der Adresse von sich aus; mit den alten Daten wären zwei Karten gewählt.
+ */
+function useGewaehlt(data: Props["data"]): string | null {
+  // Die Adresse, zu der es geht (state.location), nicht die der geladenen Treffer wie bei useSearch; nach ihr markiert der Router
+  const konto = useRouterState({ select: (s) => (s.location.search as { konto?: string }).konto });
+  return konto ?? (data.allAccounts ? "alle" : data.accountId);
+}
 
 /** Ob sich die Leiste nach links bzw. rechts rollen lässt; ohne Überlauf beides nicht */
 function useRollen(ref: RefObject<HTMLElement | null>) {
@@ -123,6 +134,7 @@ function Rahmen({ name, aktionen, children }: { name: string; aktionen: ActionMe
 }
 
 function KartenLeiste({ data, filter, aktionen }: Props) {
+  const gewaehlt = useGewaehlt(data);
   const ref = useRef<HTMLElement>(null);
   const { links, rechts, rollen } = useRollen(ref);
   const { karten, alle } = data.karten;
@@ -136,7 +148,7 @@ function KartenLeiste({ data, filter, aktionen }: Props) {
         {karten.length > 1 && (
           <Gruppe titel="Gesamt">
             <Rahmen name="alle Konten" aktionen={aktionen("alle")}>
-              <Link to="/bank" search={{ konto: "alle", filter }} aria-current={data.allAccounts ? "page" : undefined} className="konto-karte">
+              <Link to="/bank" search={{ konto: "alle", filter }} aria-current={gewaehlt === "alle" ? "page" : undefined} className="konto-karte">
                 <Karte
                   name="Alle Konten"
                   zahl={anzahl(alle.konten, "Konto", "Konten")}
@@ -155,7 +167,7 @@ function KartenLeiste({ data, filter, aktionen }: Props) {
             <Gruppe key={gruppe} titel={titel}>
               {inGruppe.map((k) => (
                 <Rahmen key={k.id} name={k.name} aktionen={aktionen(k)}>
-                  <Link to="/bank" search={{ konto: k.id, filter }} aria-current={k.id === data.accountId ? "page" : undefined} className="konto-karte">
+                  <Link to="/bank" search={{ konto: k.id, filter }} aria-current={k.id === gewaehlt ? "page" : undefined} className="konto-karte">
                     <Karte name={k.name} saldo={k.saldo} offen={k.offen} status={k.status} leise={k.quelle} />
                   </Link>
                 </Rahmen>
@@ -199,11 +211,12 @@ function Klein({
 
 /** Schmale Zeile kleiner Karten, Gruppen durch eine Linie getrennt */
 function KontenKlein({ data, filter }: Props) {
+  const gewaehlt = useGewaehlt(data);
   const { karten, alle } = data.karten;
   return (
     <nav className="konten-klein" aria-label="Konten">
       {karten.length > 1 && (
-        <Klein to={{ konto: "alle", filter }} aktiv={data.allAccounts} name="Alle" offen={alle.offen} status={alle.mitStatus > 0 ? PRUEFEN : null} />
+        <Klein to={{ konto: "alle", filter }} aktiv={gewaehlt === "alle"} name="Alle" offen={alle.offen} status={alle.mitStatus > 0 ? PRUEFEN : null} />
       )}
       {GRUPPEN.map(({ gruppe }, i) => {
         const inGruppe = karten.filter((k) => k.gruppe === gruppe);
@@ -212,9 +225,7 @@ function KontenKlein({ data, filter }: Props) {
           (karten.length > 1 || (i > 0 && karten.some((k) => k.gruppe === "banken"))) && (
             <span key={`trenner-${gruppe}`} className="konten-klein-trenner" aria-hidden="true" />
           ),
-          ...inGruppe.map((k) => (
-            <Klein key={k.id} to={{ konto: k.id, filter }} aktiv={k.id === data.accountId} name={k.name} offen={k.offen} status={k.status} />
-          )),
+          ...inGruppe.map((k) => <Klein key={k.id} to={{ konto: k.id, filter }} aktiv={k.id === gewaehlt} name={k.name} offen={k.offen} status={k.status} />),
         ];
       })}
     </nav>
