@@ -11,7 +11,7 @@ Unter **Bank** holst du die Umsätze automatisch über Enable Banking oder FinTS
 
 ## Konten und Verbindungen
 
-Oben stehen alle Konten als Karten: Name, Saldo, offene Umsätze und Weg mit Zeit („FinTS · heute 06:00“) oder ein Status wie **Fehlgeschlagen**, **Konflikt** oder **Läuft ab**. Ein Klick wählt das Konto. **⋯** auf der Karte bietet **Jetzt abrufen** (ohne Verbindung **Datei importieren**), **Name und Zweck …**, **Verbindung bearbeiten** und **Alle Verbindungen**. Ein negativer Saldo steht rot. Hat das gewählte Konto einen Status, steht darunter ein Hinweis mit dem vollen Text und dem Knopf, der ihn löst (**Klären**, **Neu anmelden**, **Zugang ändern**, **Datei importieren**). Die erste Zeile der Liste nennt Weg und Stand des Kontos, rechts daneben **Jetzt abrufen**; darunter stehen die Filter und die Suche. Am Handy werden die Karten zu einer schmalen Zeile, die beim Rollen stehen bleibt.
+Oben stehen alle Konten als Karten: Name, Saldo, offene Umsätze und Weg mit Zeit („FinTS · heute 06:00“) oder ein Status wie **Fehlgeschlagen**, **Konflikt** oder **Läuft ab**. Ein Klick wählt das Konto. **⋯** auf der Karte bietet **Jetzt abrufen** (ohne Verbindung **Datei importieren**), **Name und Zweck …**, **Verbindung bearbeiten** und **Alle Verbindungen**. Ein negativer Saldo steht rot. Hat das gewählte Konto einen Status, steht darunter ein Hinweis mit dem vollen Text und dem Knopf, der ihn löst (**Klären**, **Neu anmelden**, **Zugang ändern**, **Jetzt abrufen**, **Datei importieren**). Die erste Zeile der Liste nennt Weg und Stand des Kontos, rechts daneben **Jetzt abrufen**; darunter stehen die Filter und die Suche. Am Handy werden die Karten zu einer schmalen Zeile, die beim Rollen stehen bleibt.
 
 ### Verbindungen
 
