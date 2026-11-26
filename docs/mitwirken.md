@@ -32,7 +32,7 @@ Beide Datenbanken leeren die Tests (siehe [Tests](entwicklung.md#tests)); nie au
 
 ## Etwas übernehmen
 
-Wer mitbauen will, sucht sich eine Aufgabe im [Project „Roadmap“](https://github.com/orgs/Speicherstadt/projects/3) aus:
+Wer mitbauen will, sucht sich eine Aufgabe im [Project „Roadmap Haben“](https://github.com/orgs/Speicherstadt/projects/3) aus:
 
 1. **Aussuchen:** eine Karte aus „Geplant“, am liebsten weit oben, denn die Reihenfolge ist die Priorität. Für den Einstieg eignen sich Karten mit Aufwand „S“ und Issues mit dem Label [`einstieg`](https://github.com/Speicherstadt/haben/issues?q=is%3Aopen+label%3Aeinstieg). Ein Entwurf ohne Issue bekommt zuerst ein Issue.
 2. **Übernehmen:** im Issue eine Zeile `/übernehmen` kommentieren, gern mit einem kurzen Plan darunter. Der Workflow „Übernehmen“ (`.github/workflows/uebernehmen.yml`) weist dir das Issue zu, schiebt die Karte nach „In Arbeit“ und bestätigt es im Issue; Schreibrecht brauchst du dafür nicht. Er lehnt mit Begründung ab, wenn das Issue schon vergeben ist, noch keine Karte hat oder die Karte schon in „Im nächsten Release“ oder „Erledigt“ steht. Eine Karte in „In Arbeit“ ohne Zuweisung, etwa weil ein Pull Request sie vorgezogen hat, lässt sich übernehmen. Wie viele Karten jemand übernimmt, ist nicht begrenzt. Bei Karten aus „Später“ den Umfang am besten erst kurz im Issue klären.
@@ -47,12 +47,12 @@ Wer mitbauen will, sucht sich eine Aufgabe im [Project „Roadmap“](https://gi
 - **Beschreibung:** Beim Squash wird die Beschreibung des Pull Requests die Nachricht des Commits auf `main` (Einstellung des Repositorys: `PR_BODY`) und bleibt so in der Historie. Sie muss deshalb bis zum Merge zum Stand des Pull Requests passen: Ändert ein weiterer Push, was der Pull Request tut oder wie er geprüft wurde, ändert sich die Beschreibung mit, auch nach Fixes aus dem Review und nach einem Rebase. Sie nennt alles, was der Pull Request ändert, und beschreibt das Ergebnis, nicht den Weg dorthin; Zwischenstände und Antworten auf Reviews gehören in Kommentare.
 - **Hinweis für das Release:** Muss jemand beim Update etwas wissen oder tun (geändertes Verhalten, eine Schnittstelle, Doppelte bei einem erneuten Import), steht das in der Beschreibung unter der Überschrift `## Für das Release`, vor der Kennzeichnung „🤖 Generated with …“. Das Release setzt diese Abschnitte über die Liste der Änderungen; was Nutzer dauerhaft wissen müssen, steht zusätzlich in der Doku.
 - **Issues in der Beschreibung:** mit `Umgesetzt #…`, wenn der Pull Request das Issue fertig macht, sonst mit `Refs #…` (ein Teil). Hält der Pull Request nur etwas zu einem Issue fest, ohne daran zu arbeiten (etwa eine Entscheidung in `roadmap.md`), steht `#…` ohne Stichwort; mit `Refs` schöbe das Board die Karte nach „In Arbeit“. Mehrere gehen als Liste: `Umgesetzt #12, #13`. Kommt ein Issue in mehreren Pull Requests, trägt der letzte Teil `Umgesetzt`; sonst bleibt das Issue nach dem Release offen. Wird `Refs #…` erst nach dem Merge zu `Umgesetzt #…`, zählt das Release es trotzdem, aber nur für ein Issue, das schon beim Merge mit `Refs` dastand. Nie `Closes` oder `Fixes`: GitHub schlösse das Issue schon beim Merge, die Nutzer haben es aber erst mit dem Release; „PR-Regeln“ meldet es als Fehler.
-- **Vom Issue zum Release:** Das [Project „Roadmap“](https://github.com/orgs/Speicherstadt/projects/3) zieht die Karte mit (Workflows „Board“ und „Übernehmen“, `scripts/board/`), nie zurück:
+- **Vom Issue zum Release:** Das [Project „Roadmap Haben“](https://github.com/orgs/Speicherstadt/projects/3) zieht die Karte mit (Workflows „Board“ und „Übernehmen“, `scripts/board/`), nie zurück:
     - Issue zugewiesen oder Pull Request mit `Refs` oder `Umgesetzt` geöffnet → „In Arbeit“.
     - Pull Request mit `Umgesetzt` gemergt → „Im nächsten Release“.
     - Eine fertige Version (kein Release Candidate) schließt diese Issues mit Link auf das Release (Job `issues-schliessen` in `release.yml`) → „Erledigt“.
 
-    Fehlt danach etwas, kommt es in ein neues Issue mit Verweis auf das alte. Die Workflows brauchen das Secret `PROJECT_TOKEN` (klassisches Token mit Scope `project`). Was die Automatik nicht sieht, also neue Issues einordnen, offene Gespräche und Übernahme-Wünsche finden und aufräumen, erledigt der Skill [`board-pflegen`](https://github.com/Speicherstadt/haben/blob/main/.claude/skills/board-pflegen/SKILL.md); jedes Issue bekommt dabei einen kurzen Kommentar mit dem Ergebnis.
+    Fehlt danach etwas, kommt es in ein neues Issue mit Verweis auf das alte. Die Workflows brauchen das Secret `PROJECT_TOKEN` (klassisches Token mit Scope `project`). Ein anderes Repository mit eigenem Board setzt dessen Nummer als Variable `BOARD_NUMMER` (am Repository, nicht an der Organisation); Haben braucht sie nicht. Was die Automatik nicht sieht, also neue Issues einordnen, offene Gespräche und Übernahme-Wünsche finden und aufräumen, erledigt der Skill [`board-pflegen`](https://github.com/Speicherstadt/haben/blob/main/.claude/skills/board-pflegen/SKILL.md); jedes Issue bekommt dabei einen kurzen Kommentar mit dem Ergebnis.
 
 - **Commits im Pull Request:** gern im Stil von [Conventional Commits](https://www.conventionalcommits.org/de/) auf Deutsch, etwa `fix(belege): Fremdwährung in der Rechnungswährung vergleichen` (Empfehlung, keine Prüfung).
 
@@ -99,6 +99,7 @@ Was sich sicher entscheiden lässt, prüft ein Skript; was nicht, erscheint als 
 | Kein Feld einer Version fällt weg, wird umbenannt oder wechselt den Typ | `layout-schema.test.ts` gegen `layout-schema.v<n>.json` | Fehler |
 | Alte Layouts ergeben mit heutigen Daten ein PDF | `layout-kompatibel.test.ts` mit `templates/kompatibel/` | Fehler |
 | Skill `belegvorlage` und Feldtabellen aktuell | `layout-anleitung.test.ts` | Fehler |
+| Eyebrow der Menüseiten ist `menueGruppe(…)`, nicht von Hand getippt | `menue-gruppe.test.ts` in `bun run test` | Fehler |
 | Doku baut ohne Warnung | Workflow „Docs“ auch im Pull Request | Fehler |
 | Jede Seite in `docs/` mit `description:` im Front Matter | Workflow „Docs“ (`docs.yml`) | Fehler |
 | Leerzeile vor jeder Liste in `docs/` ([Seiten der Doku](entwicklung.md#befehle), „Listen“) | `scripts/doku-listen/` im Workflow „Docs“ | Fehler |
@@ -140,7 +141,7 @@ Größere Vorhaben und Issues von Agenten folgen dieser Gliederung:
 | Stand in Haben | Was Haben heute tut, **auf dem aktuellen `main` geprüft**, mit Commit und Links auf Doku oder Code. Nicht aus dem Gedächtnis. |
 | Vorschlag | Was sich ändern soll, bei Bedarf in Stufen. Grenzen nennen: was ausdrücklich nicht dazugehört. |
 | Akzeptanzkriterien | Drei bis sechs prüfbare Punkte als `- [ ]`, zu denen ein Test oder ein Blick in die Oberfläche Ja oder Nein sagt. Bei Buchungen und Steuer: SKR03 und SKR04, Ist und Soll. |
-| Bezug | Verwandte Issues und Pull Requests, Karte im [Project „Roadmap“](https://github.com/orgs/Speicherstadt/projects/3), Primärquellen mit Link (Gesetz, BMF-Schreiben, Formularanleitung, Formatbeschreibung), bei Fremdprogrammen die Hilfe-Seite. Quellen aus früheren Pull Requests dürfen mit Link auf den Pull Request übernommen werden. |
+| Bezug | Verwandte Issues und Pull Requests, Karte im [Project „Roadmap Haben“](https://github.com/orgs/Speicherstadt/projects/3), Primärquellen mit Link (Gesetz, BMF-Schreiben, Formularanleitung, Formatbeschreibung), bei Fremdprogrammen die Hilfe-Seite. Quellen aus früheren Pull Requests dürfen mit Link auf den Pull Request übernommen werden. |
 
 Ein Issue behandelt ein Thema und passt auf ein bis zwei Bildschirme; Quellcode steht als Link. Fachliche Aussagen belegt eine Quelle, kein Ratgeber; was unsicher ist oder die Steuerberatung entscheiden muss, steht ausdrücklich darin. Der Titel nennt das Ergebnis, nicht den Anlass. Agenten legen Issues nur auf Anweisung an und kennzeichnen sie; die Schritte stehen im Skill `issue-schreiben`. Beim Anlegen kommt der Typ als Label dazu (`fehler`, `wunsch`, `steuer`, `umzug`, `frage`, `technik`, `doku`); fehlt er, ergänzt ihn `board-pflegen` zusammen mit Themen-Labels und dem Platz in der Roadmap, nach OK des Maintainers.
 
