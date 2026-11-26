@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { StripeBalanceTransaction, StripeClient } from "@haben/import";
+import type { PayPalClient, PayPalClientOptions, StripeBalanceTransaction, StripeClient } from "@haben/import";
 import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
 /*
@@ -188,6 +188,15 @@ describe.skipIf(!testDatabaseUrl)("Verbindungen zu Zahlungsdienstleistern (Postg
     const result = await psp.abrufen(actor, stripeId, HEUTE);
     expect(result.error).toBeNull();
     expect((await sql`select fetch_from::text as f, last_error from psp_connections where id = ${stripeId}`)[0]).toEqual({ f: "2026-11-04", last_error: null });
+    // PayPal ebenso: Client-ID, Secret und Sandbox aus dem Umzug gehen an PayPal
+    const anPayPal: PayPalClientOptions[] = [];
+    psp.setPayPalClientFactory((options) => {
+      anPayPal.push(options);
+      return { accountId: async () => "HAENDLERALT", transactions: async () => [] } as unknown as PayPalClient;
+    });
+    expect((await psp.abrufen(actor, paypalId, HEUTE)).error).toBeNull();
+    expect(anPayPal).toEqual([expect.objectContaining({ clientId: "client-alt", clientSecret: "geheim-alt", environment: "sandbox" })]);
+    expect((await sql`select last_error from psp_connections where id = ${paypalId}`)[0]).toEqual({ last_error: null });
   });
 
   it("lehnt ein anderes Konto in Haben ab, wenn der Abruf schon an ein Konto gebunden ist", async () => {
