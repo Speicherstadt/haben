@@ -167,7 +167,7 @@ Podman Quadlets stehen in [Installation](https://haben.app/installation.html), E
 > sind ELSTER-Zertifikat und die Schlüssel für Lexoffice und sevDesk nach einer Wiederherstellung nicht mehr lesbar,
 > ohne das Passwort lässt sich das Backup nicht öffnen.
 
-Keinen eigenen Server oder keine eigene IT? Haben gibt es auf [Anfrage](https://haben.app/gehostet.html) gehostet oder über einen IT-Dienstleister aus dem [Partnerprogramm](https://speicherstadt.org/partner/).
+Keinen eigenen Server oder keine eigene IT? Haben gibt es [gehostet zum Buchen](https://haben.app/gehostet.html) oder über einen IT-Dienstleister aus dem [Partnerprogramm](https://speicherstadt.org/partner/).
 
 ## FAQ
 
@@ -323,7 +323,7 @@ Weitere Open-Source-Apps für deinen eigenen Server, etwa für Mail, Office-Doku
 
 ## Mitwirken
 
-Fehler und Ideen gern als Issue. Wer mitbauen will, sucht sich eine Aufgabe im [Project „Roadmap“](https://github.com/orgs/Speicherstadt/projects/3) aus, etwa mit dem Label `einstieg`, und kommentiert im Issue `/übernehmen`. Wie es dann bis zum Merge weitergeht, zeigt [Agentic Engineering bei Haben](https://haben.app/agentic-engineering.html).
+Fehler und Ideen gern als Issue. Wer mitbauen will, sucht sich eine Aufgabe im [Project „Roadmap Haben“](https://github.com/orgs/Speicherstadt/projects/3) aus, etwa mit dem Label `einstieg`, und kommentiert im Issue `/übernehmen`. Wie es dann bis zum Merge weitergeht, zeigt [Agentic Engineering bei Haben](https://haben.app/agentic-engineering.html).
 Was vor einem Pull Request laufen muss und was er enthält, steht unter [Mitwirken](https://haben.app/mitwirken.html). Programmieren musst du dafür nicht: Wissen zu Steuern und Buchhaltung hilft genauso.
 
 ## Sterne im Verlauf
