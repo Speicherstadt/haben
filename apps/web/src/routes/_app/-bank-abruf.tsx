@@ -145,7 +145,9 @@ export function LoesungKnopf({
 }) {
   const loesung: Loesung | null = loesungFuer(karte);
   if (!loesung) return null;
-  const klasse = `btn${klein ? " btn-sm" : ""}${karte.status?.tone === "danger" ? " btn-primary" : ""}`;
+  // Neutral, auch bei einem Fehlschlag: Die Dringlichkeit zeigt der Status bzw. die Fläche des Hinweises, und die
+  // Hauptaktion der Seite steht im Kopf (DESIGN.md, Knöpfe in Zeilen und Hinweisen)
+  const klasse = `btn${klein ? " btn-sm" : ""}`;
   if (loesung.art === "klaeren") {
     const { konflikte, quelle } = konflikteVon(data, karte.id);
     return <KonfliktKlaeren konflikte={konflikte} disabled={abruf.beschaeftigt} quelle={quelle} label={loesung.label} className={klasse} />;

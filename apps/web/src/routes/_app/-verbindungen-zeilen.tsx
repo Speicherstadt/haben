@@ -258,7 +258,7 @@ function VerbindungsZeile({
             />
           )}
           {!zeile.kontoId && zeile.status && z && (
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => abruf.zugangAendern(z)}>
+            <button type="button" className="btn btn-sm" onClick={() => abruf.zugangAendern(z)}>
               {z.art === "enablebanking" ? "Neu anmelden" : "Zugang ändern"}
             </button>
           )}
