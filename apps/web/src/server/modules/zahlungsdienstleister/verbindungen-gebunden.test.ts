@@ -50,14 +50,29 @@ describe.skipIf(!testDatabaseUrl)("Verbindung zu einem schon gebundenen Konto de
   });
 
   it("meldet, welche Verbindung das gebundene Konto inzwischen nutzt, statt an der Datenbank zu scheitern", async () => {
-    const erste = await psp.speichereVerbindung(actor, { provider: "stripe", name: "Alt", eingabe: { apiKey: "rk_live_alteaaaaaaaaaa" }, fetchFrom: "2026-11-01" });
+    const erste = await psp.speichereVerbindung(actor, {
+      provider: "stripe",
+      name: "Alt",
+      eingabe: { apiKey: "rk_live_alteaaaaaaaaaa" },
+      fetchFrom: "2026-11-01",
+    });
     expect((await psp.abrufen(actor, erste, HEUTE)).error).toBeNull();
     const gebunden = (await psp.ladeVerbindung(erste))!.row.bankAccountId;
     await psp.entferneVerbindung(actor, erste);
     // „Automatisch“ gibt das nun freie Konto einer anderen Verbindung
-    const andere = await psp.speichereVerbindung(actor, { provider: "stripe", name: "Andere", eingabe: { apiKey: "rk_live_andereaaaaaaaa" }, fetchFrom: "2026-11-01" });
+    const andere = await psp.speichereVerbindung(actor, {
+      provider: "stripe",
+      name: "Andere",
+      eingabe: { apiKey: "rk_live_andereaaaaaaaa" },
+      fetchFrom: "2026-11-01",
+    });
     expect((await psp.ladeVerbindung(andere))!.row.bankAccountId).toBe(gebunden);
-    const wieder = psp.speichereVerbindung(actor, { provider: "stripe", name: "Alt wieder", eingabe: { apiKey: "rk_live_alteaaaaaaaaaa" }, fetchFrom: "2026-11-01" });
+    const wieder = psp.speichereVerbindung(actor, {
+      provider: "stripe",
+      name: "Alt wieder",
+      eingabe: { apiKey: "rk_live_alteaaaaaaaaaa" },
+      fetchFrom: "2026-11-01",
+    });
     await expect(wieder).rejects.toBeInstanceOf(psp.ZahlungsdienstleisterError);
     await expect(wieder).rejects.toThrow("„Andere“");
   });

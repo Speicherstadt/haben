@@ -132,13 +132,24 @@ async function kontoBeimAnbieterFrei(adapter: PspAdapter, accountId: string, id:
  * Konto in Haben, an das die Quellenbindung (#306) das Konto beim Anbieter schon hält, auch nach dem Entfernen einer Verbindung:
  * Ein anderes Konto lehnte jeder Abruf ab (sourceFor in bank/import-batch.ts).
  */
-async function gebundenesKonto(provider: string, accountId: string) {
+async function gebundenesKonto(adapter: PspAdapter, accountId: string, id: string | null) {
   const [quelle] = await db
     .select({ id: schema.importSources.bankAccountId, name: schema.bankAccounts.name })
     .from(schema.importSources)
     .innerJoin(schema.bankAccounts, eq(schema.bankAccounts.id, schema.importSources.bankAccountId))
-    .where(and(eq(schema.importSources.provider, provider), eq(schema.importSources.externalAccountId, accountId)));
-  return quelle ?? null;
+    .where(and(eq(schema.importSources.provider, adapter.provider), eq(schema.importSources.externalAccountId, accountId)));
+  if (!quelle) return null;
+  // Nach dem Entfernen kann eine andere Verbindung das Konto übernommen haben; zwei je Konto hält psp_connections_konto ab
+  const [andere] = await db
+    .select({ name: schema.pspConnections.name })
+    .from(schema.pspConnections)
+    .where(and(eq(schema.pspConnections.bankAccountId, quelle.id), id ? ne(schema.pspConnections.id, id) : sql`true`));
+  if (andere) {
+    throw new ZahlungsdienstleisterError(
+      `Dieses ${adapter.name}-Konto ist schon mit dem Konto ${quelle.name} verbunden, und das nutzt jetzt die Verbindung „${andere.name}“.`,
+    );
+  }
+  return quelle;
 }
 
 /**
@@ -164,7 +175,7 @@ export async function speichereVerbindung(actor: string, input: z.input<typeof v
   const accountId = pruefung?.accountId ?? existing!.row.accountId;
   await kontoBeimAnbieterFrei(adapter, accountId, id);
   // Schreibt der Abruf schon in ein Konto, bleibt es dabei: „Automatisch“ nimmt es, eine andere Wahl wird abgelehnt
-  const gebunden = await gebundenesKonto(adapter.provider, accountId);
+  const gebunden = await gebundenesKonto(adapter, accountId, id);
   if (gebunden && gewaehlt && gewaehlt !== gebunden.id) {
     throw new ZahlungsdienstleisterError(
       `Dieses ${adapter.name}-Konto ist schon mit dem Konto ${gebunden.name} verbunden; der Abruf schreibt weiter dorthin.`,
