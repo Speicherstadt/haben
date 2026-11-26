@@ -68,7 +68,7 @@ Der Entwurf geht über den Auszahlungsanspruch des Monats, zu 0 % mit Reverse Ch
 
 ## Verbindungen über die API
 
-PayPal und Stripe ruft Haben über deren Schnittstelle ab. Verbunden wird auf der Seite **Bank** mit **Konto verbinden › Zahlungsdienstleister verbinden**: Der Dialog **Anbieter wählen** nennt je Anbieter den Zugang, die Zahl der Schritte und die bestehenden Verbindungen; Anbieter ohne Abruf stehen ausgegraut mit dem Weg, der für sie gilt. **Weiter** führt durch die Schritte:
+PayPal und Stripe ruft Haben über deren Schnittstelle ab. Verbunden wird auf der Seite **Bank** mit **Konto verbinden › Zahlungsdienstleister verbinden**: Der Dialog **Anbieter wählen** nennt je Anbieter den Zugang, die Zahl der Schritte und die bestehenden Verbindungen; die übrigen stehen ausgegraut mit dem Weg, der für sie gilt (Etsy, Google Play und App Store unter **Einstellungen › Bank**, sonst der Dateiimport). **Weiter** führt durch die Schritte:
 
 1. **Zugang:** eintragen, was der Anbieter braucht (steht in seinem Abschnitt unten), und **Zugang prüfen**. Haben fragt den Anbieter, ohne etwas zu speichern, und zeigt die Kennung des Kontos dort. Ist dieses Konto schon verbunden, nennt Haben die Verbindung und geht nicht weiter.
 2. **Name und Zeitraum:** einen **Namen** vergeben, etwa „Shop DE“, dazu **Konto in Haben**, **Abruf ab** und **Automatischer Abruf** (stündlich, täglich oder wöchentlich). Unter den Feldern steht, in welches Konto der Abruf schreibt oder welches Haben anlegt. **Speichern und abrufen** legt die Verbindung an.
