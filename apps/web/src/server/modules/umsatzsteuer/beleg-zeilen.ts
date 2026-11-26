@@ -14,6 +14,9 @@ import { db, schema, type Db, type Tx } from "../../db/index.ts";
 /*
  * Zeilen eines aufgeteilten Belegs (#1914) mit ihrem Privatanteil. Buchung, Voranmeldung und Zwischenkonto rechnen damit
  * je Zeile; Belege ohne Aufteilung fehlen, für sie gilt der Privatanteil des Belegs auf seinen Sätzen.
+ *
+ * Abziehbar ist nur der betriebliche Teil (§ 15 Abs. 1 Satz 1 Nr. 1 UStG); die Aufteilung bei gemischter Nutzung folgt
+ * § 15 Abs. 4 UStG, der private Teil ist eine Entnahme (§ 4 Abs. 1 Satz 2 und § 12 Nr. 1 EStG).
  */
 
 /** Betrag eines Belegs je Steuersatz, mit dem beim Buchen festgehaltenen abziehbaren Anteil */

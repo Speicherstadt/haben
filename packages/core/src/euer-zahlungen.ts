@@ -32,6 +32,7 @@ function netGroups(payments: EuerPayment[]): Netted[] {
     const key = p.group === undefined ? `#${i}` : `${groupKey(p)}|${p.group}|${p.date}`;
     const existing = groups.get(key);
     if (existing) {
+      // paidBefore bleibt der Stand der ersten Zahlung der Gruppe: Ihre Summe deckt alle Zahlungen der Gruppe.
       existing.sum += amount;
       // Gespeicherte Anteile nur, wenn alle Zahlungen der Gruppe welche haben; sonst aus der Summe gerechnet
       if (existing.kind === "invoice" && p.kind === "invoice") existing.shares = existing.shares && p.shares ? [...existing.shares, ...p.shares] : undefined;

@@ -40,7 +40,8 @@ function duplicateFields(original: Document, amounts: DocumentAmount[], splits: 
     ownAccountId: original.ownAccountId,
     payment: original.payment,
     note: "",
-    privateShare: original.privateShare,
+    // Mit Zeilen trägt jede Zeile ihren Anteil; die Kombination mit einem Anteil am Beleg lehnt documents.ts ab (#1914)
+    privateShare: splits.length > 0 ? 0 : original.privateShare,
     vorsteuerAnteil: anteile.beleg,
     reverseCharge: original.reverseCharge,
     asset: original.asset,

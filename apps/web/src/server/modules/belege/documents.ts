@@ -520,6 +520,10 @@ export async function updateDocument(actor: string, id: string, input: DocumentI
 async function updateDocumentIn(tx: Tx, id: string, input: DocumentInput): Promise<void> {
   const previous = await lockOpen(tx, id);
   const parsed = documentInputSchema.parse(input);
+  // Mit Aufteilung trägt jede Zeile ihren Privatanteil (#1914); ein Anteil am Beleg ginge sonst still verloren.
+  if (parsed.splits.length > 0 && parsed.privateShare > 0) {
+    throw new DocumentError("Bei einer Aufteilung trägt jede Zeile ihren Privatanteil; ein Anteil am Beleg ist dann nicht möglich.");
+  }
   // Nur eine neue Zuordnung wird geprüft: ein Kontakt, der inzwischen kein Lieferant mehr ist, bleibt am Beleg
   if (parsed.supplierContactId && parsed.supplierContactId !== previous.supplierContactId) {
     const problem = await contactRoleProblem(tx, parsed.supplierContactId, "lieferant", "Lieferant nicht gefunden.");

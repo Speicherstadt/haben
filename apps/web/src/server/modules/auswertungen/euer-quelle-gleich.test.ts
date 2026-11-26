@@ -355,15 +355,15 @@ const ERWARTET: Record<string, ReturnType<typeof kurz>> = {
       ["erstatteteUst", 0],
     ],
     ausgaben: [
-      ["ausgabe:bewirtung", 3422, "Abziehbarer Teil (70 %)"],
+      ["ausgabe:bewirtung", 3421, "Abziehbarer Teil (70 %)"],
       ["ausgabe:geschenke", 2381],
       ["vorsteuer", 0],
       ["gezahlteUst", 0],
     ],
-    gewinn: 27530,
-    bewirtung: 1466,
+    gewinn: 27531,
+    bewirtung: 1467,
     gewerbesteuer: 0,
-    monate: { einnahmen: [0, 0, 33333, 0, 0, 0, 0, 0, 0, 0, 0, 0], ausgaben: [0, 0, 2333, 3470, 0, 0, 0, 0, 0, 0, 0, 0] },
+    monate: { einnahmen: [0, 0, 33333, 0, 0, 0, 0, 0, 0, 0, 0, 0], ausgaben: [0, 0, 2333, 3469, 0, 0, 0, 0, 0, 0, 0, 0] },
   },
   "Regelbesteuert: Bewirtung zu 7 % und 19 % mit Teilzahlungen, Privatanteil, Aufteilung, § 13b (SKR03)|2026": {
     einnahmen: [
@@ -433,15 +433,15 @@ const ERWARTET: Record<string, ReturnType<typeof kurz>> = {
       ["erstatteteUst", 0],
     ],
     ausgaben: [
-      ["ausgabe:bewirtung", 3422, "Abziehbarer Teil (70 %)"],
+      ["ausgabe:bewirtung", 3421, "Abziehbarer Teil (70 %)"],
       ["ausgabe:geschenke", 2381],
       ["vorsteuer", 0],
       ["gezahlteUst", 0],
     ],
-    gewinn: 27530,
-    bewirtung: 1466,
+    gewinn: 27531,
+    bewirtung: 1467,
     gewerbesteuer: 0,
-    monate: { einnahmen: [0, 0, 33333, 0, 0, 0, 0, 0, 0, 0, 0, 0], ausgaben: [0, 0, 2333, 3470, 0, 0, 0, 0, 0, 0, 0, 0] },
+    monate: { einnahmen: [0, 0, 33333, 0, 0, 0, 0, 0, 0, 0, 0, 0], ausgaben: [0, 0, 2333, 3469, 0, 0, 0, 0, 0, 0, 0, 0] },
   },
   "Regelbesteuert: Bewirtung zu 7 % und 19 % mit Teilzahlungen, Privatanteil, Aufteilung, § 13b (SKR04)|2026": {
     einnahmen: [

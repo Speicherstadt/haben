@@ -7,6 +7,9 @@ import { paidTaxShares, type TaxShare } from "./steueranteile.ts";
  * Steuer einer Zeile werden getrennt gerundet (splitPrivateShare, wie beim Buchen), die betrieblichen Summen sind die
  * Summe dieser Zeilen. So trifft die Zeilensumme den Beleg centgenau, und ein voller Ausgleich lässt das Zwischenkonto
  * (SKR03 1548, SKR04 1434) auf null aufgehen.
+ *
+ * Nur der betriebliche Teil ist vorsteuerabziehbar (§ 15 Abs. 1 Satz 1 Nr. 1 UStG); bei gemischter Nutzung wird er
+ * aufgeteilt (§ 15 Abs. 4 UStG), der private Teil ist eine Entnahme (§ 4 Abs. 1 Satz 2 und § 12 Nr. 1 EStG).
  */
 
 /** Eine Zeile des Belegs mit ihrem Privatanteil: bei einer Aufteilung die Zeile aus document_splits, sonst ein Satz */

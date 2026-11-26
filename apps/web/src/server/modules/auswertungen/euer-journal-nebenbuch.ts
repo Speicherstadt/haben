@@ -12,6 +12,7 @@ import {
   type ExpenseCategory,
   type Kontenrahmen,
   type TaxTreatment,
+  type Cents,
   type DocumentEuerEffect,
   type Prozent,
 } from "@haben/core";
@@ -20,7 +21,7 @@ import { schema, type Db, type Tx } from "../../db/index.ts";
 import { splitsByDocument } from "../belege/index.ts";
 import { invoiceTotalsById } from "../rechnungen/index.ts";
 import { bloecke, offenerPosten, type Zeile } from "./euer-journal-buchungen.ts";
-import { belegZahlungsWirkungen } from "./euer-belegzahlungen.ts";
+import { belegZahlungen } from "./euer-belegzahlungen.ts";
 
 /*
  * Was die EÜR aus dem Journal (euer-journal.ts) aus dem Nebenbuch braucht, weil die Buchung allein es nicht hergibt: die
@@ -38,6 +39,8 @@ export interface BelegNebenbuch {
   /** § 13b und Erwerb: selbst geschuldete Steuer je Steuersatz */
   selbstGeschuldet?: number[];
   effects?: ReadonlyMap<string, DocumentEuerEffect>;
+  /** Stand vor jeder Zahlung, nach Zahlungs-ID: damit rundet documentEuer Teilzahlungen kumuliert */
+  standVorher?: ReadonlyMap<string, Cents>;
 }
 
 /** Aufteilung je Beleg aus dem Nebenbuch, für alle `ids` gesammelt geladen; Belege, die keine brauchen, fehlen in der Map */
@@ -83,7 +86,7 @@ export async function belegNebenbuecher(q: Db | Tx, ids: string[]): Promise<Map<
     if (noetig.length === 0) continue;
     const noetigIds = noetig.map((doc) => doc.id);
     const splitsJe = await splitsByDocument(noetigIds, q);
-    const effects = await belegZahlungsWirkungen(q, noetigIds);
+    const { effects, standVorher } = await belegZahlungen(q, noetigIds);
     for (const doc of noetig) {
       // § 13b und Erwerb: gezahlt ist nur netto, auch je Zeile der Aufteilung (wie reports.ts)
       const rows = (amounts.get(doc.id) ?? []).map((a) => ({
@@ -102,6 +105,7 @@ export async function belegNebenbuecher(q: Db | Tx, ids: string[]): Promise<Map<
         ...(splits ? { splits } : {}),
         ...(doc.reverseCharge ? { selbstGeschuldet: (amounts.get(doc.id) ?? []).map((a) => a.tax) } : {}),
         ...(effects.size > 0 ? { effects } : {}),
+        ...(standVorher.size > 0 ? { standVorher } : {}),
       });
     }
   }
@@ -117,7 +121,21 @@ export function belegTeilzahlung(
   eventId?: string,
 ): EuerAusJournal {
   const effect = eventId ? beleg.effects?.get(eventId) : undefined;
-  const payment: EuerPayment = { kind: "document", date: `${year}-06-30`, paid, ...beleg, ...(effect ? { effect } : {}) };
+  // Der Stand vor dieser Rate lässt documentEuer kumuliert runden: Alle Raten zusammen ergeben die Wirkung des Belegs.
+  const standVorher = eventId ? beleg.standVorher?.get(eventId) : undefined;
+  const payment: EuerPayment = {
+    kind: "document",
+    date: `${year}-06-30`,
+    paid,
+    totals: beleg.totals,
+    category: beleg.category,
+    vorsteuerAbzug: beleg.vorsteuerAbzug,
+    privateShare: beleg.privateShare,
+    ...(beleg.splits ? { splits: beleg.splits } : {}),
+    ...(beleg.selbstGeschuldet ? { selbstGeschuldet: beleg.selbstGeschuldet } : {}),
+    ...(standVorher !== undefined ? { paidBefore: standVorher } : {}),
+    ...(effect ? { effect } : {}),
+  };
   const result = computeEuer(year, [payment]);
   for (const l of [...result.einnahmen, ...result.ausgaben]) if (l.amount !== 0) summe.zeilen[l.key] = (summe.zeilen[l.key] ?? 0) + l.amount;
   summe.bewirtungNichtAbziehbar += result.bewirtungNichtAbziehbar;

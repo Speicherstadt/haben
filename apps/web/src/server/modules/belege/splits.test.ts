@@ -408,23 +408,11 @@ describe.skipIf(!testDatabaseUrl)("Beleg aufteilen (Postgres)", () => {
     expect((await entryLines(id)).map((l) => l.account)).toContain("1800");
   });
 
-  it("mit Zeilen zählt der Anteil der Zeile; ein Anteil am Beleg bleibt ohne Wirkung", async () => {
+  // Vor dem Umbau wurde diese Kombination beim Buchen abgelehnt; danach fiel der Anteil am Beleg still weg (#1914).
+  it("Aufteilung und ein Anteil am Beleg zusammen werden abgelehnt", async () => {
     await reset("SKR03", "soll");
-    const id = await draft({ payment: "privat", privateShare: 20 });
-    const saved = (await documents.getDocument(id))!;
-    expect(saved.document.privateShare).toBe(0);
-    await documents.bookDocument(actor, id);
-    const lines = await entryLines(id);
-    // Keine Entnahme: die Zeilen tragen keinen Anteil
-    expect(lines.map((l) => l.account)).not.toContain("1800");
-    expect(lines).toEqual(
-      byAccount([
-        { account: "3200", debit: 10_000, credit: 0, tax_code: "VSt19" },
-        { account: "4964", debit: 5_000, credit: 0, tax_code: "VSt19" },
-        { account: "4930", debit: 2_000, credit: 0, tax_code: "VSt19" },
-        { account: "1576", debit: 3_230, credit: 0, tax_code: "VSt19" },
-        { account: "1890", debit: 0, credit: 20_230, tax_code: null },
-      ]),
+    await expect(draft({ payment: "privat", privateShare: 20 })).rejects.toThrow(
+      "Bei einer Aufteilung trägt jede Zeile ihren Privatanteil; ein Anteil am Beleg ist dann nicht möglich.",
     );
   });
 

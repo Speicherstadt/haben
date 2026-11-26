@@ -195,6 +195,50 @@ describe.skipIf(!testDatabaseUrl)("EÜR-Teilabzug: Journal und Nebenbücher (Pos
     }, 60_000);
   }
 
+  // Befund #1914: Raten eines aufgeteilten Belegs wurden einzeln gerundet; die letzte Rate holte den Rundungsrest nicht
+  // nach, die Vorsteuer der EÜR wich von der gebuchten ab. paidBefore lässt documentEuer kumuliert rechnen.
+  it("aufgeteilter Beleg, zwei Raten: Internet 25 %, Telefon 40 % ergeben zusammen die Vorsteuer des Belegs", async () => {
+    await reset("SKR03", "ist");
+    const id = await book({
+      vorsteuerAnteil: 10_000,
+      amounts: [{ taxRate: 1900, net: 4_213, tax: 801 }],
+      splits: [
+        { category: "internet", taxRate: 1900, net: 3_360, privateShare: 25 },
+        { category: "telefon", taxRate: 1900, net: 853, privateShare: 40 },
+      ],
+    });
+    for (const date of ["24.11.26", "25.11.26"]) {
+      const t = await transaction(date, "-25,07");
+      await bank.allocate(actor, { kind: "document", documentId: id, transactionId: t.id, amount: t.amount });
+    }
+    const euer = await reports.euerForYear(2026);
+    expect(amount(euer, "vorsteuer")).toBe(576);
+    expect(amount(euer, "ausgabe:internet")).toBe(2_520);
+    expect(amount(euer, "ausgabe:telefon")).toBe(512);
+    expect(abgleich.abweichungen((await abgleich.euerAbgleich(2026)).zeilen)).toEqual([]);
+  }, 60_000);
+
+  it("aufgeteilter Beleg ohne Privatanteil der Internet-Zeile: zwei Raten ergeben 736 statt 738 Cent Vorsteuer", async () => {
+    await reset("SKR03", "ist");
+    const id = await book({
+      vorsteuerAnteil: 10_000,
+      amounts: [{ taxRate: 1900, net: 4_213, tax: 801 }],
+      splits: [
+        { category: "internet", taxRate: 1900, net: 3_360, privateShare: 0 },
+        { category: "telefon", taxRate: 1900, net: 853, privateShare: 40 },
+      ],
+    });
+    for (const date of ["24.11.26", "25.11.26"]) {
+      const t = await transaction(date, "-25,07");
+      await bank.allocate(actor, { kind: "document", documentId: id, transactionId: t.id, amount: t.amount });
+    }
+    const euer = await reports.euerForYear(2026);
+    expect(amount(euer, "vorsteuer")).toBe(736);
+    expect(amount(euer, "ausgabe:internet")).toBe(3_360);
+    expect(amount(euer, "ausgabe:telefon")).toBe(512);
+    expect(abgleich.abweichungen((await abgleich.euerAbgleich(2026)).zeilen)).toEqual([]);
+  }, 60_000);
+
   // § 13b + Zeilenanteil bleibt beim Belegpfad: Der Nebenbuchpfad setzt die Zeilensteuer für den Zahlbetrag auf 0 und
   // verlöre damit den privaten Teil der selbst geschuldeten Steuer in Zeile 17 (Vorschlag im Review: in euer-beleg.ts).
   it("§ 13b mit Privatanteil je Zeile: Zeile 17 bleibt der private Teil der selbst geschuldeten Steuer", async () => {
