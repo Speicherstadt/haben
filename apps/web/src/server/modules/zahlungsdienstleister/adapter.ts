@@ -4,7 +4,8 @@ import type { StoreBatchInput } from "../bank/index.ts";
 /*
  * Vertrag zwischen der gemeinsamen Anbindung und einem Zahlungsdienstleister (#1729). Die Anbindung kümmert sich um Tabelle,
  * Zeitplan, Fenster, Konto, Speichern nach dem Importvertrag und Meldungen; ein Adapter nur um das, was beim Anbieter anders ist.
- * Ein neuer Anbieter braucht einen Adapter und einen Eintrag in anbieter.ts, sonst nichts.
+ * Ein neuer Anbieter braucht keine Migration und keine Änderung an Tabelle, Zeitplan oder Karte; welche festen Listen er außer
+ * anbieter.ts noch braucht, steht im Skill anbindung-hinzufuegen (references/zahlungsdienstleister-api.md).
  */
 
 /** Ein Feld der Einstellungen, das der Adapter beschreibt; die Karte baut daraus das Formular */
