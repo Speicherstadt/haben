@@ -9,6 +9,8 @@ type Verbindung = {
   lastSyncAt: Date | string | null;
   lastError: string | null;
   zugangGueltigBis: Date | string | null;
+  /** Offene Konflikte des Abrufs an dieser Verbindung */
+  konflikte?: readonly unknown[];
 };
 
 /**
@@ -32,7 +34,8 @@ export function anbieterZugaenge(
         verbindungId: v.id,
         weg: name.get(v.provider) ?? v.provider,
         lastSyncAt: v.lastSyncAt,
-        fehler: v.lastError,
+        // Ein Konflikt lehnt den Abruf ab und steht dann auch in lastError; die Karte zeigt ihn als „Konflikt“ mit „Klären“
+        fehler: v.konflikte?.length ? null : v.lastError,
         abgelaufen: tage !== null && tage < 0,
         laeuftAbAm: tage !== null && tage >= 0 && tage <= vorlaufTage ? bis : null,
       },

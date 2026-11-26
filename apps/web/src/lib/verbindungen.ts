@@ -43,7 +43,10 @@ export function hinweisText(karte: Karte): string {
   const wer = zugang?.art === "enablebanking" ? "Die Zustimmung bei der Bank" : "Der Zugang";
   switch (status.text) {
     case "Fehlgeschlagen":
-      return karte.fehler ? `Der letzte Abruf ist fehlgeschlagen: ${karte.fehler}` : "Der letzte Abruf ist fehlgeschlagen.";
+      // FinTS und die Zahlungsdienstleister schreiben „Abruf fehlgeschlagen: …“ an die Verbindung; das steht hier schon
+      return karte.fehler
+        ? `Der letzte Abruf ist fehlgeschlagen: ${karte.fehler.replace(/^Abruf fehlgeschlagen:\s*/, "")}`
+        : "Der letzte Abruf ist fehlgeschlagen.";
     case "Abgelaufen":
       return `${wer} ist abgelaufen. Bis du ${zugang?.art === "enablebanking" ? "sie" : "ihn"} erneuerst, ruft Haben nichts mehr ab.`;
     case "Läuft ab":

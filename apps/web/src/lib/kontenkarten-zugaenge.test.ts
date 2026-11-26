@@ -59,7 +59,15 @@ describe("Konflikt beim Abruf eines Zahlungsdienstleisters", () => {
     const ohne = {
       anbieter: [{ provider: "stripe", name: "Stripe" }],
       verbindungen: [
-        { id: "v1", provider: "stripe", bankAccountId: "k1", lastSyncAt: null, lastError: "Abruf fehlgeschlagen: Schlüssel abgelehnt", zugangGueltigBis: null, konflikte: [] },
+        {
+          id: "v1",
+          provider: "stripe",
+          bankAccountId: "k1",
+          lastSyncAt: null,
+          lastError: "Abruf fehlgeschlagen: Schlüssel abgelehnt",
+          zugangGueltigBis: null,
+          konflikte: [],
+        },
       ],
     } as unknown as Parameters<typeof anbieterZugaenge>[0];
     expect(anbieterZugaenge(ohne, JETZT, 14)[0]!.fehler).toBe("Abruf fehlgeschlagen: Schlüssel abgelehnt");

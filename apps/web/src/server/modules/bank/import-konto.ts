@@ -20,7 +20,8 @@ export async function importAccount(tx: Tx, statement: ParsedStatement, filename
     // Export eines Zahlungsdienstleisters nur in dessen Konto, ein Kontoauszug nie dorthin
     const providerFile = PSP_FORMATS.includes(statement.format);
     if (providerFile !== (account.purpose === "zahlungsdienstleister")) {
-      throw new BankError(
+      // Falsches Konto gewählt: Die Meldung auf der Bankseite fragt nach dem richtigen (#1951)
+      throw new KontoWaehlenError(
         providerFile
           ? `${filename}: Das ist der Export eines Zahlungsdienstleisters. Wähle das Konto des Dienstleisters.`
           : `${filename}: ${account.name} ist ein Zahlungsdienstleister; dorthin gehört nur dessen Export.`,
