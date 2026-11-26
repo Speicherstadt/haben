@@ -130,7 +130,7 @@ function AssetPage() {
           )}
           {(asset.method === "linear" || asset.method === "degressiv") && (
             <SpecialDepreciationForm
-              key={asset.updatedAt.toISOString()}
+              key={`sonder-afa-${asset.updatedAt.toISOString()}`}
               asset={asset}
               lastBooked={lastBooked}
               busy={busy}
@@ -143,7 +143,7 @@ function AssetPage() {
             />
           )}
           <AssetForm
-            key={asset.updatedAt.toISOString()}
+            key={`angaben-${asset.updatedAt.toISOString()}`}
             initial={{
               name: asset.name,
               kind: asset.kind,

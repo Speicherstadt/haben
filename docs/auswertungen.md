@@ -168,7 +168,7 @@ Daneben zeigt die Übersicht den **Umsatz** des Vormonats netto: den Saldo der K
 Die Auswertung ist eine Vorschau und ersetzt nicht die Anlage EÜR. Bekannte Lücken:
 
 - Die Auswertung nennt keine Zeilennummern der Anlage EÜR. Die Anlage selbst ordnet Haben den Zeilen zu und sendet sie über ELSTER ([Jahreserklärungen](jahreserklaerung.md)).
-- Abschreibungen rechnet Haben linear, degressiv mit Wechsel zur linearen, als Staffel für Elektrofahrzeuge (§ 7 Abs. 2a EStG), als Sofortabschreibung geringwertiger Wirtschaftsgüter und als Sammelposten ([Anlagen und AfA](anlagen.md)); Sonderabschreibungen nach § 7g EStG und der Investitionsabzugsbetrag fehlen.
+- Abschreibungen rechnet Haben linear, degressiv mit Wechsel zur linearen, als Staffel für Elektrofahrzeuge (§ 7 Abs. 2a EStG), als Sofortabschreibung geringwertiger Wirtschaftsgüter und als Sammelposten ([Anlagen und AfA](anlagen.md)). Die [Sonder-AfA nach § 7g EStG](anlagen.md#sonder-afa-nach--7g-estg) steht separat in der EÜR. Der Investitionsabzugsbetrag fehlt.
 - Bei Regelbesteuerten landen Umsätze zu 0 %, Reverse Charge, Drittland und steuerfreie Umsätze gemeinsam unter „Umsatzsteuerfreie und nicht steuerbare Betriebseinnahmen“, ohne weitere Unterscheidung.
 - Private Kfz-Nutzung rechnet Haben nur nach der 1-%-Regel ([Anlagen](anlagen.md)), ein Fahrtenbuch fehlt. Das häusliche Arbeitszimmer als Mittelpunkt kennt Haben nicht, die Homeoffice-Pauschale schon ([Pauschalen](pauschalen.md)).
 

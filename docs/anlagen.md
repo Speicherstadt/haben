@@ -78,13 +78,15 @@ Für Elektrofahrzeuge nach § 9 Abs. 2 KraftStG, die du vom 01.07.2025 bis 31.12
 
 Das Gesetz nennt die Staffel „Absetzung für Abnutzung“, nicht Sonderabschreibung. Sie steht deshalb in der Anlage EÜR in der Zeile **AfA auf bewegliche Wirtschaftsgüter** und in der Anlage AVEÜR in der Spalte AfA; die Spalte für Sonderabschreibungen ist § 7g EStG vorbehalten. Haben meldet das Fahrzeug in der AVEÜR als Elektrofahrzeug. Gebucht wird auf das Konto für Kfz-Abschreibungen.
 
-In GmbH und UG bietet Haben die Staffel nicht an. Sie ist eine rein steuerliche Abschreibung: In der Handelsbilanz wird planmäßig über die Nutzungsdauer abgeschrieben (§ 253 Abs. 3 Satz 1 HGB), und seit dem BilMoG folgt die Handelsbilanz steuerlichen Wahlrechten nicht mehr (§ 5 Abs. 1 Satz 1 Halbsatz 2 EStG). Haben führt ein Buch für Handels- und Steuerbilanz ohne Überleitung; die Staffel stünde damit auch in der Handelsbilanz. Die degressive AfA bleibt in der GmbH wählbar, sie ist auch nach HGB eine planmäßige Methode.
+In GmbH und UG bietet Haben die Staffel nicht an. Sie ist eine rein steuerliche Abschreibung: In der Handelsbilanz wird planmäßig über die Nutzungsdauer abgeschrieben (§ 253 Abs. 3 Satz 1 HGB), und seit dem BilMoG folgt die Handelsbilanz steuerlichen Wahlrechten nicht mehr (§ 5 Abs. 1 Satz 1 Halbsatz 2 EStG). Für die Elektro-AfA führt Haben keinen eigenen steuerlichen Abschreibungsplan. Die degressive AfA bleibt in der GmbH wählbar, sie ist auch nach HGB eine planmäßige Methode.
 
 ## Sonder-AfA nach § 7g EStG
 
-Für eine begünstigte Anlage mit linearer oder degressiver AfA trägst du in den Anlagendetails die Beträge je Wirtschaftsjahr ein. Das Anschaffungsjahr und die vier Folgejahre stehen zur Auswahl. Insgesamt sind höchstens 40 % der Anschaffungskosten möglich, bei Anschaffungen vor 2024 höchstens 20 %. Die Eignung der Anlage und die Voraussetzungen nach [§ 7g EStG](https://www.gesetze-im-internet.de/estg/__7g.html) bestätigst du beim Speichern.
+Für eine begünstigte Anlage mit linearer oder degressiver AfA trägst du in den Anlagendetails die Beträge je Wirtschaftsjahr ein. Das Anschaffungsjahr und die vier Folgejahre stehen zur Auswahl. Insgesamt sind höchstens 40 % der Anschaffungskosten möglich. Für Anschaffungen vor 2024 gelten höchstens 20 % ([§ 52 Abs. 16 Satz 6 EStG](https://www.gesetze-im-internet.de/estg/__52.html), [BMF zum Wachstumschancengesetz](https://www.bundesfinanzministerium.de/Monatsberichte/Ausgabe/2024/04/Inhalte/Kapitel-3-Analysen/3-4-wachstumschancengesetz.html)). Die Voraussetzungen nach [§ 7g EStG](https://www.gesetze-im-internet.de/estg/__7g.html) bestätigst du beim Speichern.
 
 Im Einzelunternehmen bucht Haben die Sonder-AfA separat und weist sie in EÜR und AVEÜR aus. Für GmbH und UG weist die E-Bilanz die steuerliche Abschreibung und den steuerlichen Buchwert aus. Das Handelsjournal enthält die reguläre Abschreibung. Für bereits gebuchte Jahre sind die Beträge gesperrt. Bei einer Übernahme zum 1. Januar erfasst du auch die bisher beanspruchten Jahresbeträge. Haben führt daraus den steuerlichen Plan fort. Im Einzelunternehmen muss der erfasste Übernahmebuchwert mit diesem Plan übereinstimmen.
+
+Im Einzelunternehmen lässt sich eine degressive Anlage, deren Übernahmebuchwert bereits durch Sonder-AfA gemindert ist, über die Erfassungsmaske derzeit nicht degressiv übernehmen.
 
 ## Erinnerungswert
 

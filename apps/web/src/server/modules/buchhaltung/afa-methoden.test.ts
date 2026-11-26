@@ -120,6 +120,35 @@ describe.skipIf(!testDatabaseUrl)("Weitere AfA-Methoden (Postgres)", () => {
     expect((await linesOf(asset.id, 2026)).some((line) => line.account === "4851")).toBe(false);
   });
 
+  it("gleicht gebuchte Sonder-AfA mit dem Anlagenverzeichnis ab", async () => {
+    await setup(["SKR03", "ist", "einzelunternehmen"]);
+    const id = await buyByDocument("2025-07-01", 1_000_000, {
+      name: "Maschine",
+      kind: "sonstiges",
+      method: "degressiv",
+      usefulLifeMonths: 120,
+    });
+    await assets.updateAsset(actor, id, { name: "Maschine", specialDepreciation: [{ year: 2025, amount: 200_000 }] });
+    await assets.bookDepreciation(actor, 2025, "2025-12-01");
+    const { euerAbgleich } = await import("../auswertungen/abgleich.ts");
+    expect((await euerAbgleich(2025)).zeilen).toContainEqual(expect.objectContaining({ posten: "Sonder-AfA", journal: 200_000, quelle: 200_000 }));
+  });
+
+  it("vergleicht bei der GmbH im Folgejahr die gebuchte AfA mit dem Handelsplan", async () => {
+    await setup(["SKR04", "soll", "gmbh"]);
+    const id = await buyByDocument("2025-07-01", 1_000_000, {
+      name: "Maschine",
+      kind: "sonstiges",
+      method: "degressiv",
+      usefulLifeMonths: 120,
+    });
+    await assets.updateAsset(actor, id, { name: "Maschine", specialDepreciation: [{ year: 2025, amount: 200_000 }] });
+    await assets.bookDepreciation(actor, 2025, "2025-12-01");
+    await assets.bookDepreciation(actor, 2026, "2026-12-01");
+    const { euerAbgleich } = await import("../auswertungen/abgleich.ts");
+    expect((await euerAbgleich(2026)).zeilen).toContainEqual(expect.objectContaining({ posten: "AfA", journal: 255_000, quelle: 255_000 }));
+  });
+
   it.each(FAELLE)("%s, %s, %s: degressiv und Elektrofahrzeug per Beleg, Wechsel zur linearen, Sperren", async (...fall) => {
     await setup(fall);
     const k = KONTEN[fall[0]];

@@ -300,6 +300,7 @@ export function canBookYear(year: number, today: string): boolean {
 /** Abschreibungen eines Jahres für die EÜR, aus dem Plan (gebucht oder nicht) */
 export async function depreciationForEuer(year: number, q: Db | Tx = db): Promise<EuerDepreciation> {
   const assets = await q.select().from(schema.assets);
+  const tax = !isKapitalgesellschaft((await loadCompany(q)).rechtsform);
   const result: EuerDepreciation = {
     afa: 0,
     gwg: 0,
@@ -307,7 +308,7 @@ export async function depreciationForEuer(year: number, q: Db | Tx = db): Promis
     restbuchwert: 0,
   };
   for (const asset of assets) {
-    const row = scheduleOf(asset, year, true).find((r) => r.year === year);
+    const row = scheduleOf(asset, year, tax).find((r) => r.year === year);
     if (!row) continue;
     if (asset.method === "gwg") result.gwg += row.depreciation;
     else if (asset.method === "sammelposten") result.sammelposten += row.depreciation;

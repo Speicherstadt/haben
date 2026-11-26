@@ -236,6 +236,18 @@ test("Anlage übernehmen: degressive AfA mit Höchstsatz, Restbuchwert geprüft,
   await expect(plan).toContainText("linear ab 2027");
   await expect(plan.locator(".table-row", { hasText: /^2027/ })).toContainText("3.751,72");
   await expect(angaben.getByLabel("Erinnerungswert 1 € bis zum Abgang stehen lassen")).not.toBeChecked();
+
+  const sonderAfA = angaben.getByRole("button", { name: "Sonder-AfA speichern" });
+  await expect(sonderAfA).toHaveCount(1);
+  const betrag = angaben.getByRole("spinbutton", { name: "2026 (€)", exact: true });
+  await betrag.fill("5000");
+  await angaben.getByRole("checkbox", { name: /maßgebliche Vorjahresgewinn/ }).check();
+  await sonderAfA.click();
+  await expect(page.getByRole("status").filter({ hasText: "Sonder-AfA gespeichert." })).toBeVisible();
+  await expect(plan.locator(".table-row", { hasText: /^2026/ })).toContainText("5.000,00 Sonder-AfA");
+  await page.reload();
+  await expect(betrag).toHaveValue("5000.00");
+  await expect(plan.locator(".table-row", { hasText: /^2026/ })).toContainText("5.000,00 Sonder-AfA");
 });
 
 test("Beleg als Anlagegut: Wechsel von Fahrzeug zu Sonstige Transportmittel lässt die sechs Jahre für Pkw nicht stehen (#312)", async ({ browser }) => {
