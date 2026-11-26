@@ -83,7 +83,7 @@ describe("Buchung über die Bank öffnet ihren Umsatz (#1855)", () => {
 });
 
 describe("Link auf eine Buchung (#1855)", () => {
-  it("führt ins Journal des Monats auf die Zeile; der Storno-Hinweis am Beleg gibt so die Buchung des Stornos an", () => {
+  it("führt ins Journal des Monats auf die Zeile der Buchung", () => {
     expect(renderToStaticMarkup(createElement(BuchungLink, { id: "e9", date: "2026-03-10" }, "Gegenbuchung"))).toBe(
       '<a href="/buchungen?jahr=2026&amp;monat=3#buchung-e9">Gegenbuchung</a>',
     );
