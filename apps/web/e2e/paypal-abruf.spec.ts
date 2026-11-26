@@ -160,6 +160,10 @@ test("Zugang prüfen, speichern und erster Abruf: Zahlung, Gebühr und Abbuchung
   expect(await umsaetze()).toEqual(ERWARTET);
   await ergebnis.getByRole("link", { name: "Zum Konto" }).click();
   await expect(page.getByRole("navigation", { name: "Konten" }).getByRole("link", { name: /^PayPal/ })).toHaveAttribute("aria-current", "page");
+  // „Alle Konten“ mit nur einem Konto (so verlinken Journal und Liquidität einen Umsatz): Haben zeigt das eine Konto, also ist
+  // seine Karte gewählt, auch wenn die Adresse „alle“ sagt (#1951)
+  await gehe(page, "/bank?konto=alle&filter=alle");
+  await expect(page.getByRole("navigation", { name: "Konten" }).getByRole("link", { name: /^PayPal/ })).toHaveAttribute("aria-current", "page");
   await gehe(page, "/bank/verbindungen");
   await expect(verbindung().getByText(`PayPal · ${KONTO}`)).toBeVisible();
 });
