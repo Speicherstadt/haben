@@ -35,6 +35,18 @@ describe("mapFbCustomerDetails", () => {
     expect(d.problems.join(" ")).toMatch(/Debitor/);
   });
 
+  it("CUSTOMER_ACCOUNT 0 heißt kein Debitor, wie 0 bei anderen IDs aus FastBill", () => {
+    expect(mapFbCustomerDetails({ CUSTOMER_ID: "9", CUSTOMER_ACCOUNT: 0 })).toEqual({ telefon: "", leitwegId: "", debitorNr: null, problems: [] });
+    expect(mapFbCustomerDetails({ CUSTOMER_ID: "9", CUSTOMER_ACCOUNT: "0" }).problems).toEqual([]);
+  });
+
+  it("ist PHONE ungültig, nimmt es ein gültiges MOBILE und meldet nichts", () => {
+    expect(mapFbCustomerDetails({ CUSTOMER_ID: "10", PHONE: "bitte anrufen", MOBILE: "0170 1234567" })).toMatchObject({
+      telefon: "0170 1234567",
+      problems: [],
+    });
+  });
+
   it("ein Debitor als Zahl wie im echten Konto", () => {
     expect(mapFbCustomerDetails({ CUSTOMER_ID: "8", CUSTOMER_ACCOUNT: 69_999 }).debitorNr).toBe(69_999);
   });
@@ -61,5 +73,10 @@ describe("mapFbContactPerson", () => {
     expect(mapFbContactPerson({ CONTACT_ID: "32", CUSTOMER_ID: "0", FIRST_NAME: "Max", LAST_NAME: "Muster" })).toBeNull();
     expect(mapFbContactPerson({ CONTACT_ID: "33", CUSTOMER_ID: "4", FIRST_NAME: "", LAST_NAME: "" })).toBeNull();
     expect(mapFbContactPerson({ CONTACT_ID: "34", CUSTOMER_ID: "4", LAST_NAME: "Muster", PHONE: "abends" })).toMatchObject({ name: "Muster", telefon: "" });
+    expect(mapFbContactPerson({ CONTACT_ID: "35", CUSTOMER_ID: "4", LAST_NAME: "Muster", PHONE: "abends", MOBILE: "0170 1" })).toMatchObject({
+      telefon: "0170 1",
+    });
+    // Nur die Firma ohne Person ist kein Ansprechpartner
+    expect(mapFbContactPerson({ CONTACT_ID: "36", CUSTOMER_ID: "4", ORGANIZATION: "Muster GmbH" })).toBeNull();
   });
 });

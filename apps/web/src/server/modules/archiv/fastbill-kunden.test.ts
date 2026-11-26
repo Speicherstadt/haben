@@ -20,7 +20,16 @@ const CUSTOMERS = [
     CUSTOMER_ACCOUNT: "10701",
   },
   // Gibt es in Haben schon (gleicher Name, ohne FastBill-Herkunft): eigene Werte bleiben, nur Leeres wird gefüllt
-  { CUSTOMER_ID: "702", CUSTOMER_NUMBER: "1702", ORGANIZATION: "Bestand GmbH", COUNTRY_CODE: "DE", PHONE: "+49 30 999", CUSTOMER_ACCOUNT: "10702" },
+  {
+    CUSTOMER_ID: "702",
+    CUSTOMER_NUMBER: "1702",
+    ORGANIZATION: "Bestand GmbH",
+    COUNTRY_CODE: "DE",
+    PHONE: "+49 30 999",
+    BUYER_REFERENCE: "991-00000-11",
+    // Schon an 701 vergeben, aber Bestand GmbH hat in Haben einen eigenen: keine Meldung
+    CUSTOMER_ACCOUNT: "10701",
+  },
   // Debitor schon an 701 vergeben
   { CUSTOMER_ID: "703", CUSTOMER_NUMBER: "1703", ORGANIZATION: "Doppelt GmbH", COUNTRY_CODE: "DE", CUSTOMER_ACCOUNT: "10701" },
   // Telefon besteht die Prüfung nicht
@@ -66,7 +75,7 @@ describe.skipIf(!testDatabaseUrl)("Kunden aus FastBill mit Telefon, Leitweg-ID, 
       (o) => new importPkg.FastbillClient({ ...o, fetch: fakeFastbill(), minIntervalMs: 0, maxRetries: 0, sleep: async () => {} }),
     );
     await sql`select set_config('haben.actor', 'test', false)`;
-    await sql`insert into contacts (name, is_customer, telefon) values ('Bestand GmbH', true, '+49 40 111')`;
+    await sql`insert into contacts (name, is_customer, telefon, leitweg_id, debitor_nr) values ('Bestand GmbH', true, '+49 40 111', '991-77777-22', 10800)`;
     await fastbill.saveFastbillKey(actor, { email: "inhaber@example.de", apiKey: KEY, callsPerHour: 50 });
   }, 30_000);
 
@@ -85,7 +94,7 @@ describe.skipIf(!testDatabaseUrl)("Kunden aus FastBill mit Telefon, Leitweg-ID, 
     const run = await fastbill.latestFastbillImport();
     expect(run).toMatchObject({ status: "fertig" });
     expect(await contacts()).toEqual([
-      { fastbill_id: "702", name: "Bestand GmbH", telefon: "+49 40 111", leitweg_id: "", debitor_nr: 10_702 },
+      { fastbill_id: "702", name: "Bestand GmbH", telefon: "+49 40 111", leitweg_id: "991-77777-22", debitor_nr: 10_800 },
       { fastbill_id: "703", name: "Doppelt GmbH", telefon: "", leitweg_id: "", debitor_nr: null },
       { fastbill_id: "704", name: "Rückruf KG", telefon: "", leitweg_id: "", debitor_nr: null },
       { fastbill_id: "701", name: "Stadtwerke Beispiel", telefon: "+49 941 1234", leitweg_id: "991-12345-67", debitor_nr: 10_701 },
@@ -105,10 +114,15 @@ describe.skipIf(!testDatabaseUrl)("Kunden aus FastBill mit Telefon, Leitweg-ID, 
     ]);
   });
 
-  it("ein zweiter Abruf legt nichts doppelt an und überschreibt keine Werte", async () => {
+  it("ein zweiter Abruf legt nichts doppelt an, überschreibt nichts und meldet nicht mehr, was in Haben behoben ist", async () => {
+    // In Haben nachgetragen: Telefon für 704, ein eigener Debitor für 703; das Telefon von 701 geändert
     await sql`update contacts set telefon = '+49 941 0000' where fastbill_id = '701'`;
+    await sql`update contacts set telefon = '+49 89 4711' where fastbill_id = '704'`;
+    await sql`update contacts set debitor_nr = 10703 where fastbill_id = '703'`;
     await fastbill.startFastbillImport(actor, { wait: true });
     expect(await persons()).toHaveLength(2);
     expect((await contacts()).find((c) => c.fastbill_id === "701")).toMatchObject({ telefon: "+49 941 0000", debitor_nr: 10_701 });
+    // Sonst würde die Liste der fehlgeschlagenen Belege nie leer
+    expect((await fastbill.latestFastbillImport())!.progress.failed).toEqual([]);
   });
 });
