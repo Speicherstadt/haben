@@ -1,0 +1,199 @@
+import { readFileSync } from "node:fs";
+import type postgres from "postgres";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { StripeBalanceTransaction, StripeClient } from "@haben/import";
+import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+
+/*
+ * Gemeinsame Anbindung der Zahlungsdienstleister gegen Postgres (#1729): mehrere Verbindungen beim selben Anbieter, jede in ihr
+ * eigenes Konto; dasselbe Konto beim Anbieter nur einmal; Umzug der Zugänge aus stripe_connections und paypal_connections.
+ * Der Stripe-Client ist nachgebaut; Kennungen und Beträge sind erfunden.
+ */
+
+const drizzle = (name: string) => readFileSync(new URL(`../../../../drizzle/${name}`, import.meta.url), "utf8");
+const statements = (text: string) => text.split("--> statement-breakpoint").map((s) => s.trim());
+
+const HEUTE = new Date("2026-11-07T10:00:00Z");
+
+/** Je Schlüssel ein Konto bei Stripe mit einer Zahlung */
+const KONTEN: Record<string, { acct: string; txn: string; betrag: number }> = {
+  rk_live_shopdeaaaaaaaa: { acct: "acct_shop", txn: "txn_shop1", betrag: 11900 },
+  rk_live_kurseaaaaaaaaa: { acct: "acct_kurse", txn: "txn_kurse1", betrag: 4900 },
+};
+
+function zahlung(txn: string, betrag: number): StripeBalanceTransaction {
+  return {
+    id: txn,
+    object: "balance_transaction",
+    amount: betrag,
+    created: Math.floor(Date.parse("2026-11-05T09:00:00Z") / 1000),
+    currency: "eur",
+    description: `Zahlung ${txn}`,
+    fee: 0,
+    net: betrag,
+    reporting_category: "charge",
+    source: `ch_${txn}`,
+    status: "available",
+    type: "charge",
+  } as StripeBalanceTransaction;
+}
+
+const fake = (apiKey: string) => {
+  const konto = KONTEN[apiKey] ?? { acct: "acct_alt", txn: "txn_alt1", betrag: 1000 };
+  return { accountId: async () => konto.acct, balanceTransactions: async () => [zahlung(konto.txn, konto.betrag)] } as unknown as StripeClient;
+};
+
+describe.skipIf(!testDatabaseUrl)("Verbindungen zu Zahlungsdienstleistern (Postgres)", () => {
+  let psp: typeof import("./index.ts");
+  let crypto: typeof import("../../crypto.ts");
+  let sql: postgres.Sql;
+  const actor = "test-user";
+
+  beforeAll(async () => {
+    sql = await setupTestDb();
+    psp = await import("./index.ts");
+    crypto = await import("../../crypto.ts");
+    psp.setStripeClientFactory((options) => fake(options.apiKey));
+  }, 60_000);
+
+  afterAll(async () => {
+    await sql?.end();
+  });
+
+  async function konto(name: string, provider: string, ledgerIndex: number) {
+    const [row] =
+      await sql`insert into bank_accounts (name, purpose, provider, ledger_index) values (${name}, 'zahlungsdienstleister', ${provider}, ${ledgerIndex}) returning id`;
+    return row!.id as string;
+  }
+
+  it("ruft zwei Stripe-Verbindungen mit eigenem Namen je in ihr eigenes Konto ab", async () => {
+    const shopKonto = await konto("Stripe Shop", "stripe", 1);
+    const kurseKonto = await konto("Stripe Kurse", "stripe", 2);
+    const shop = await psp.speichereVerbindung(actor, {
+      provider: "stripe",
+      name: "Shop DE",
+      bankAccountId: shopKonto,
+      eingabe: { apiKey: "rk_live_shopdeaaaaaaaa" },
+      fetchFrom: "2026-11-01",
+    });
+    const kurse = await psp.speichereVerbindung(actor, {
+      provider: "stripe",
+      name: "Online-Kurse",
+      bankAccountId: kurseKonto,
+      eingabe: { apiKey: "rk_live_kurseaaaaaaaaa" },
+      fetchFrom: "2026-11-01",
+    });
+    expect((await psp.abrufen(actor, shop, HEUTE)).accountName).toBe("Stripe Shop");
+    expect((await psp.abrufen(actor, kurse, HEUTE)).accountName).toBe("Stripe Kurse");
+    const umsaetze = await sql`select bank_account_id, amount from bank_transactions order by amount`;
+    expect(umsaetze.map((u) => [u.bank_account_id, u.amount])).toEqual([
+      [kurseKonto, 4900],
+      [shopKonto, 11900],
+    ]);
+    const { verbindungen } = await psp.verbindungenUebersicht();
+    expect(verbindungen.map((v) => [v.name, v.accountId, v.kontoName])).toEqual([
+      ["Shop DE", "acct_shop", "Stripe Shop"],
+      ["Online-Kurse", "acct_kurse", "Stripe Kurse"],
+    ]);
+  });
+
+  it("lehnt dasselbe Stripe-Konto ein zweites Mal ab und ein Konto, das schon eine Verbindung nutzt", async () => {
+    const drittes = await konto("Stripe drei", "stripe", 3);
+    await expect(
+      psp.speichereVerbindung(actor, {
+        provider: "stripe",
+        name: "Doppelt",
+        bankAccountId: drittes,
+        eingabe: { apiKey: "rk_live_shopdeaaaaaaaa" },
+        fetchFrom: "2026-11-01",
+      }),
+    ).rejects.toThrow("Dieses Stripe-Konto ist schon als „Shop DE“ verbunden.");
+    const [shopKonto] = await sql`select id from bank_accounts where name = 'Stripe Shop'`;
+    await expect(
+      psp.speichereVerbindung(actor, {
+        provider: "stripe",
+        name: "Neu",
+        bankAccountId: shopKonto!.id,
+        eingabe: { apiKey: "rk_live_neuaaaaaaaaaaa" },
+        fetchFrom: "2026-11-01",
+      }),
+    ).rejects.toThrow("Das Konto Stripe Shop nutzt schon die Verbindung „Shop DE“.");
+    const paypalKonto = await konto("PayPal", "paypal", 4);
+    await expect(
+      psp.speichereVerbindung(actor, {
+        provider: "stripe",
+        name: "Falsch",
+        bankAccountId: paypalKonto,
+        eingabe: { apiKey: "rk_live_neuaaaaaaaaaaa" },
+        fetchFrom: "2026-11-01",
+      }),
+    ).rejects.toThrow("Das Konto gehört nicht zu diesem Zahlungsdienstleister.");
+    expect(await sql`select count(*)::int as n from psp_connections`).toEqual([{ n: 2 }]);
+  });
+
+  it("zieht die Zugänge aus stripe_connections und paypal_connections mit Schlüssel, Abrufstand, Rhythmus und Konto um", async () => {
+    await sql`delete from psp_connections`;
+    const [stripeKonto] = await sql`select id from bank_accounts where name = 'Stripe Shop'`;
+    const [paypalKonto] = await sql`select id from bank_accounts where name = 'PayPal'`;
+    // Die Tabellen von vor #1729, wie die Migrationen sie angelegt haben
+    for (const s of [...statements(drizzle("0305_paypal_zugang.sql")), ...statements(drizzle("0307_stripe_zugang.sql"))]) await sql.unsafe(s);
+    const schluessel = crypto.encrypt(new TextEncoder().encode("rk_live_altaaaaaaaaaaa"));
+    const paypalZugang = crypto.encrypt(new TextEncoder().encode(JSON.stringify({ clientId: "client-alt", clientSecret: "geheim-alt" })));
+    await sql`insert into stripe_connections (account_id, key_hint, ciphertext, fetch_from, abruf_start, rhythmus, last_error)
+      values ('acct_alt', 'aaaa', ${schluessel}, '2026-10-20', '2026-01-01', 'stuendlich', 'Abruf fehlgeschlagen: alt')`;
+    await sql`insert into paypal_connections (account_id, key_hint, sandbox, ciphertext, zeitzone, fetch_from, abruf_start, rhythmus)
+      values ('HAENDLERALT', '-alt', true, ${paypalZugang}, 'Europe/Vienna', '2026-10-15', '2026-02-01', 'woechentlich')`;
+    // Nur der Umzug: Tabelle und Trigger stehen schon (0327 und der Anfang von 0328)
+    for (const s of statements(drizzle("0328_psp_verbindungen_umzug.sql")).filter((s) => /^(--.*\n)*INSERT/m.test(s))) await sql.unsafe(s);
+    for (const s of statements(drizzle("0329_psp_verbindungen_alte_tabellen.sql"))) await sql.unsafe(s);
+
+    const rows =
+      await sql`select provider, name, bank_account_id, account_id, key_hint, config, fetch_from::text as f, abruf_start::text as a, rhythmus, last_error
+      from psp_connections order by provider`;
+    expect(rows).toEqual([
+      {
+        provider: "paypal",
+        name: "PayPal",
+        bank_account_id: paypalKonto!.id,
+        account_id: "HAENDLERALT",
+        key_hint: "-alt",
+        config: { sandbox: true, zeitzone: "Europe/Vienna" },
+        f: "2026-10-15",
+        a: "2026-02-01",
+        rhythmus: "woechentlich",
+        last_error: null,
+      },
+      {
+        provider: "stripe",
+        name: "Stripe",
+        bank_account_id: stripeKonto!.id,
+        account_id: "acct_alt",
+        key_hint: "aaaa",
+        config: {},
+        f: "2026-10-20",
+        a: "2026-01-01",
+        rhythmus: "stuendlich",
+        last_error: "Abruf fehlgeschlagen: alt",
+      },
+    ]);
+    // Die Adapter lesen die alten Formen des Zugangs
+    const idVon = async (p: string) => (await sql`select id from psp_connections where provider = ${p}`)[0]!.id as string;
+    const stripeId = await idVon("stripe");
+    const paypalId = await idVon("paypal");
+    expect((await psp.ladeVerbindung(stripeId))!.zugang).toEqual({ art: "schluessel", apiKey: "rk_live_altaaaaaaaaaaa" });
+    expect((await psp.ladeVerbindung(paypalId))!.zugang).toEqual({ art: "client", clientId: "client-alt", clientSecret: "geheim-alt" });
+    // Und rufen damit ab: der Schlüssel geht an Stripe, der Stand rückt vor
+    const result = await psp.abrufen(actor, stripeId, HEUTE);
+    expect(result.error).toBeNull();
+    expect((await sql`select fetch_from::text as f, last_error from psp_connections where id = ${stripeId}`)[0]).toEqual({ f: "2026-11-04", last_error: null });
+  });
+
+  it("schreibt Änderungen ins Protokoll, ohne den Zugang", async () => {
+    const audit = await sql`select new_value::text as v from audit_log where table_name = 'psp_connections'`;
+    expect(audit.length).toBeGreaterThan(0);
+    for (const { v } of audit) {
+      expect(v ?? "").not.toContain("ciphertext");
+      expect(v ?? "").not.toContain("rk_live");
+    }
+  });
+});

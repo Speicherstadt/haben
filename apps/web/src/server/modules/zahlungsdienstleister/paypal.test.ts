@@ -3,6 +3,7 @@ import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PayPalClient } from "@haben/import";
 import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { alsPayPal } from "./test-verbindung.ts";
 
 /*
  * Abruf der Transaction Search von PayPal gegen Postgres: Zugang speichern, Umsätze abrufen, ins Konto des
@@ -107,14 +108,14 @@ function csv(): Uint8Array {
 }
 
 describe.skipIf(!testDatabaseUrl)("PayPal-Abruf (Postgres)", () => {
-  let paypal: typeof import("./index.ts");
+  let paypal: ReturnType<typeof alsPayPal>;
   let bank: typeof import("../bank/index.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
 
   beforeAll(async () => {
     sql = await setupTestDb();
-    paypal = await import("./index.ts");
+    paypal = alsPayPal(await import("./index.ts"));
     bank = await import("../bank/index.ts");
     paypal.setPayPalClientFactory(factory);
   }, 60_000);
@@ -140,11 +141,11 @@ describe.skipIf(!testDatabaseUrl)("PayPal-Abruf (Postgres)", () => {
     });
     expect(JSON.stringify(stand)).not.toContain(SECRET);
     expect(JSON.stringify(stand)).not.toContain(ID);
-    const [row] = await sql`select ciphertext::text as c from paypal_connections`;
+    const [row] = await sql`select ciphertext::text as c from psp_connections where provider = 'paypal'`;
     expect(row!.c).not.toContain(SECRET);
     expect(row!.c).not.toContain(Buffer.from(SECRET).toString("hex"));
     // Das Protokoll enthält die Änderung, aber nicht den Inhalt von ciphertext
-    const audit = await sql`select new_value::text as v from audit_log where table_name = 'paypal_connections'`;
+    const audit = await sql`select new_value::text as v from audit_log where table_name = 'psp_connections'`;
     expect(audit.length).toBeGreaterThan(0);
     expect(audit.some((a) => a.v.includes("ciphertext") || a.v.includes(SECRET))).toBe(false);
   });
@@ -168,7 +169,7 @@ describe.skipIf(!testDatabaseUrl)("PayPal-Abruf (Postgres)", () => {
     expect(result.accountName).toBeNull();
     expect(result.messages.join(" ")).toContain("noch kein Konto");
     expect((await sql`select count(*)::int as n from bank_transactions`)[0]!.n).toBe(0);
-    expect((await sql`select fetch_from::text as f from paypal_connections`)[0]!.f).toBe("2026-10-01");
+    expect((await sql`select fetch_from::text as f from psp_connections where provider = 'paypal'`)[0]!.f).toBe("2026-10-01");
   });
 
   it("übernimmt die Umsätze ins Konto des Dienstleisters und meldet, was nicht ankommt", async () => {
@@ -221,7 +222,7 @@ describe.skipIf(!testDatabaseUrl)("PayPal-Abruf (Postgres)", () => {
     expect(result.added).toBe(0);
     expect((await sql`select count(*)::int as n from bank_transactions`)[0]!.n).toBe(12);
     // Zehn Tage vor heute wäre der 28.10.; die ausstehende Zahlung vom 21.10. hält den Start auf dem 21.10.
-    const [row] = await sql`select fetch_from::text as f, last_error from paypal_connections`;
+    const [row] = await sql`select fetch_from::text as f, last_error from psp_connections where provider = 'paypal'`;
     expect(row!.f).toBe("2026-10-21");
     expect(row!.last_error).toBeNull();
   });
@@ -236,7 +237,7 @@ describe.skipIf(!testDatabaseUrl)("PayPal-Abruf (Postgres)", () => {
       expect(result.error).toBeNull();
       // Zahlung mit Betrag 20,00 und Gebühr 0: ein Umsatz
       expect(result.added).toBe(1);
-      expect((await sql`select fetch_from::text as f from paypal_connections`)[0]!.f).toBe("2026-10-29");
+      expect((await sql`select fetch_from::text as f from psp_connections where provider = 'paypal'`)[0]!.f).toBe("2026-10-29");
     } finally {
       rows = fixture.transaction_details;
     }

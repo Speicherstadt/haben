@@ -2290,6 +2290,27 @@
       "when": 1795547499310,
       "tag": "0326_bank_wiederzuordnung",
       "breakpoints": true
+    },
+    {
+      "idx": 327,
+      "version": "7",
+      "when": 1795652269551,
+      "tag": "0327_psp_verbindungen",
+      "breakpoints": true
+    },
+    {
+      "idx": 328,
+      "version": "7",
+      "when": 1795652276311,
+      "tag": "0328_psp_verbindungen_umzug",
+      "breakpoints": true
+    },
+    {
+      "idx": 329,
+      "version": "7",
+      "when": 1795652293368,
+      "tag": "0329_psp_verbindungen_alte_tabellen",
+      "breakpoints": true
     }
   ]
 }
