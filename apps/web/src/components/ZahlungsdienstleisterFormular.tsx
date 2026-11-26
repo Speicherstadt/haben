@@ -2,6 +2,7 @@ import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, type FormEvent } from "react";
 import { useAction } from "../lib/use-action.ts";
+import { datumFehler, useSubmitCheck } from "../lib/use-submit-check.ts";
 import { Field } from "./Field.tsx";
 import { NoticeBanner } from "./NoticeBanner.tsx";
 import { type getPspSettings, savePspConnectionFn } from "../server/functions/zahlungsdienstleister.ts";
@@ -51,6 +52,10 @@ export function VerbindungFormular({
   const neu = !verbindung;
   const belegt = new Set(daten.verbindungen.filter((v) => v.id !== verbindung?.id).map((v) => v.bankAccountId));
   const konten = daten.konten.filter((k) => k.provider === provider && !belegt.has(k.id));
+  const pruefung = useSubmitCheck({
+    name: name.trim() ? null : "Gib der Verbindung einen Namen.",
+    fetchFrom: datumFehler(fetchFrom, "2000-01-01", daten.heute),
+  });
 
   function anbieterWechseln(wert: string) {
     const bisher = daten.anbieter.find((a) => a.provider === provider);
@@ -64,6 +69,7 @@ export function VerbindungFormular({
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!pruefung.check()) return;
     const form = event.currentTarget;
     const formData = new FormData(form);
     const eingabe = Object.fromEntries((anbieter?.felder ?? []).filter((f) => f.art === "geheim").map((f) => [f.name, String(formData.get(f.name) ?? "")]));
@@ -77,7 +83,13 @@ export function VerbindungFormular({
   }
 
   return (
-    <form className="stack" onSubmit={onSubmit} aria-label={neu ? "Neue Verbindung" : `Verbindung ${verbindung.name} bearbeiten`}>
+    <form
+      ref={pruefung.form}
+      className="stack"
+      onSubmit={onSubmit}
+      noValidate
+      aria-label={neu ? "Neue Verbindung" : `Verbindung ${verbindung.name} bearbeiten`}
+    >
       {neu && (
         <Field label="Anbieter">
           {(control) => (
@@ -92,7 +104,7 @@ export function VerbindungFormular({
         </Field>
       )}
       {neu && anbieter && <AnbieterHinweis anbieter={anbieter} />}
-      <Field label="Name" hint="Frei wählbar, etwa „Shop DE“; so heißt die Verbindung in Haben">
+      <Field label="Name" hint="Frei wählbar, etwa „Shop DE“; so heißt die Verbindung in Haben" error={pruefung.error("name")}>
         {(control) => <input {...control} name="name" required value={name} onChange={(event) => setName(event.target.value)} />}
       </Field>
       {anbieter && <ZugangFelder anbieter={anbieter} gespeichert={!neu} config={config} setConfig={setConfig} />}
@@ -108,8 +120,18 @@ export function VerbindungFormular({
           </select>
         )}
       </Field>
-      <Field label="Abruf ab" hint="Erster Tag, den Haben holt; davor gilt der Export des Anbieters">
-        {(control) => <input {...control} name="fetchFrom" type="date" value={fetchFrom} onChange={(event) => setFetchFrom(event.target.value)} />}
+      <Field label="Abruf ab" hint="Erster Tag, den Haben holt; davor gilt der Export des Anbieters" error={pruefung.error("fetchFrom")}>
+        {(control) => (
+          <input
+            {...control}
+            name="fetchFrom"
+            type="date"
+            required
+            max={daten.heute}
+            value={fetchFrom}
+            onChange={(event) => setFetchFrom(event.target.value)}
+          />
+        )}
       </Field>
       <Field label="Automatischer Abruf">
         {(control) => (

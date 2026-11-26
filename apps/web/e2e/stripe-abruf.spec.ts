@@ -106,6 +106,12 @@ test("Ein Schlüssel des Testmodus wird abgelehnt, ohne Stripe zu fragen", async
   await karte().getByRole("button", { name: "Verbindung hinzufügen" }).click();
   await expect(formular().getByLabel("Anbieter")).toHaveValue("stripe");
   await expect(formular().getByLabel("Name")).toHaveValue("Stripe");
+  // Ohne Namen: Fehler am Feld statt Meldung des Browsers, der Fokus steht im Feld (DESIGN.md, Gesperrte Knöpfe)
+  await formular().getByLabel("Name").fill("");
+  await formular().getByRole("button", { name: "Speichern" }).click();
+  await expect(formular().getByText("Gib der Verbindung einen Namen.")).toBeVisible();
+  await expect(formular().getByLabel("Name")).toBeFocused();
+  await formular().getByLabel("Name").fill("Stripe");
   await formular().getByLabel("API-Schlüssel").fill(["rk", "test", "e2eBeispielSchluessel4711"].join("_"));
   await formular().getByRole("button", { name: "Speichern" }).click();
   await expect(formular().getByRole("alert")).toContainText("Haben ruft nur Live-Umsätze ab; bitte einen Live-Schlüssel mit Leserechten eintragen.");
