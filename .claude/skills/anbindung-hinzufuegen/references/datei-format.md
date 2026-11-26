@@ -10,7 +10,7 @@ Die Schritte für ein Bankformat stehen in `docs/entwicklung.md`, „Neues Bankf
 
 ## Erkennung
 
-- Am Inhalt, nicht am Dateinamen, in `detect()` in `packages/import/src/parse.ts`. Die ganze Erkennungstabelle in `parse.test.ts` muss weiter stimmen: ein neues Format darf kein bestehendes übernehmen.
+- Die ganze Erkennungstabelle in `parse.test.ts` muss weiter stimmen: ein neues Format darf kein bestehendes übernehmen.
 - Die Meldung „wurde nicht erkannt“ in `parse.ts` zählt die unterstützten Formate auf; dort ergänzen.
 
 ## Was das Format in Haben noch braucht

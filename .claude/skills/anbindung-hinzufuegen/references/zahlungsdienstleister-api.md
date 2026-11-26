@@ -1,6 +1,6 @@
 # Zahlungsdienstleister über die API
 
-Gemeinsame Anbindung aus #1729: Tabelle `psp_connections`, Zeitplan (Job `psp_sync`), Fenster, Konto, Speichern über `storeBatch`, Meldungen und die Karte **Zahlungsdienstleister** in Einstellungen › Bank gibt es schon. Ein Anbieter bringt den Client in `packages/import`, einen Adapter und die Einträge in den festen Listen unten. Keine Migration, keine neue Tabelle.
+Was die gemeinsame Anbindung schon kann, steht in `docs/entwicklung.md`, „Neuer Zahlungsdienstleister“. Ein Anbieter bringt den Client in `packages/import`, einen Adapter und die Einträge in den festen Listen unten.
 
 Vorlagen: Stripe (ein Schlüssel, Fenster in UTC, keine Konfiguration) und PayPal (Client-ID und Secret, Sandbox und Zeitzone als `config`, ausstehende Zahlungen über `offenSeit`).
 
