@@ -74,6 +74,43 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Dauerbelege und wiederk
   it.each([
     ["SKR03", "ist"],
     ["SKR04", "soll"],
+  ] as const)("erwartet die Vorsteuer eines Dauerbelegs so, wie die Buchung sie abzieht (%s, %s)", async (kontenrahmen, versteuerung) => {
+    await firma(sql, { kontenrahmen, versteuerung });
+    const einmal = { taxShown: true, next: "2026-12-01", end: "2026-12-31" };
+    // Gebucht wird je Satz der private Teil gerundet, der betriebliche ist der Rest (splitPrivateShare in documentRatePosting):
+    // 10 ct zu 25 % privat sind 3 ct privat und 7 ct abziehbar, nicht 7,5 ct auf 8 gerundet
+    const halb = await dauerbeleg("Halber Cent", { ...einmal, privateShare: 25, amounts: [{ taxRate: 1900, net: 53, tax: 10 }] });
+    // Zwei Sätze zu je 10 ct: je Satz 7 ct, zusammen 14 ct, nicht 75 % der Summe von 20 ct
+    const zwei = await dauerbeleg("Zwei Sätze", {
+      ...einmal,
+      privateShare: 25,
+      amounts: [
+        { taxRate: 1900, net: 53, tax: 10 },
+        { taxRate: 700, net: 143, tax: 10 },
+      ],
+    });
+    const vorsteuer = async () =>
+      new Map((await dauerbelege.dauerbelegPosten(await kontext.ladeKontext("2026-11-20", "13w"))).map((p) => [p.quelle.id, p.steuer?.betrag ?? 0]));
+    expect(await vorsteuer()).toEqual(
+      new Map([
+        [halb, -7],
+        [zwei, -14],
+      ]),
+    );
+
+    // Nur steuerfreie Umsätze ohne Vorsteuerabzug (Firmendaten): die Buchung zieht nichts ab, die Vorschau erwartet nichts
+    await sql`update company set ohne_vorsteuerabzug = true`;
+    expect(await vorsteuer()).toEqual(
+      new Map([
+        [halb, 0],
+        [zwei, 0],
+      ]),
+    );
+  });
+
+  it.each([
+    ["SKR03", "ist"],
+    ["SKR04", "soll"],
   ] as const)("wiederkehrende Rechnungen je Termin zur Fälligkeit, inaktive fehlen (%s, %s)", async (kontenrahmen, versteuerung) => {
     await firma(sql, { kontenrahmen, versteuerung });
     const contactId = await kunde(contacts);
