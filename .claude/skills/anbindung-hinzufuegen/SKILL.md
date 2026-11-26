@@ -25,7 +25,7 @@ Gibt es API und Datei (wie bei Stripe), sind das getrennte Pull Requests, die Da
 - **Doku des Anbieters** lesen und im Code nennen: Endpunkte, Felder, Paginierung, Zeitzone der Zeitpunkte, Grenzen für Anfragen und Zeitraum, Testmodus. Wo die Doku nicht erreichbar ist (Host gesperrt, Anmeldung nötig), das im Issue festhalten, nicht raten.
 - **Echte Antworten oder Dateien** sind die Grundlage, nicht die Beschreibung allein: aus einem Testkonto oder maskiert von der Person, die das Issue gestellt hat. Unter `packages/import/test-fixtures/<anbieter>/` ablegen, mit README, was echt und was ersetzt ist (Vorbild `test-fixtures/stripe/README.md`). Nie echte Namen, IBANs, Kennungen oder Schlüssel.
 - **Zugänge zum Testen** kommen nie in den Chat und nie ins Repository. In einer Cloud-Session über `request_credential` für den Host; der Host muss im Netz der Umgebung freigegeben sein.
-- Beträge in ganze Cent aus dem Text lesen: `parseDotAmount` und `parseGermanAmount` (`packages/import/src/text.ts`), bei einer API Dezimaltext wie `centsOf` (`packages/import/src/paypal/client.ts`), das Stellen nach dem Cent ablehnt, außer Nullen. Kommt der Betrag in der kleinsten Einheit (Stripe), als Ganzzahl prüfen. Nie `Math.round(x * 100)` auf einer Zahl aus JSON; Fremdwährung ablehnen oder als übersprungen melden.
+- Beträge in ganze Cent aus dem Text lesen: `parseDotAmount` und `parseGermanAmount` (`packages/import/src/text.ts`), bei einer API Dezimaltext mit `apiBetragInCent` (ebenda), das Stellen nach dem Cent ablehnt, außer Nullen. Kommt der Betrag in der kleinsten Einheit (Stripe), als Ganzzahl prüfen. Nie `Math.round(x * 100)` auf einer Zahl aus JSON; Fremdwährung ablehnen oder als übersprungen melden.
 
 ## 3. Gemeinsame Regeln
 

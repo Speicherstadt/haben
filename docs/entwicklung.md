@@ -367,7 +367,7 @@ Das Format wird als Text in `bank_imports.format` gespeichert; eine Migration is
 
 ## Neuer Zahlungsdienstleister
 
-Ein Zahlungsdienstleister mit API läuft über die gemeinsame Anbindung im Modul `zahlungsdienstleister` ([#1729](https://github.com/Speicherstadt/haben/issues/1729)): Client und Lieferung in `packages/import/src/<anbieter>/`, ein Adapter nach dem Vertrag in `adapter.ts` und sein Eintrag in `anbieter.ts`. Tabelle, Zeitplan und Einstellungen nehmen ihn ohne Migration auf; dazu kommt er in einige feste Listen (Anbieter des Kontos, interne Quellen, Formatnamen). Die Schritte stehen im Skill [`anbindung-hinzufuegen`](https://github.com/Speicherstadt/haben/blob/main/.claude/skills/anbindung-hinzufuegen/SKILL.md).
+Ein Zahlungsdienstleister mit API läuft über die gemeinsame Anbindung im Modul `zahlungsdienstleister` ([#1729](https://github.com/Speicherstadt/haben/issues/1729)): Client und Lieferung in `packages/import/src/<anbieter>/`, ein Adapter nach dem Vertrag in `adapter.ts` und sein Eintrag in `anbieter.ts`. Tabelle, Zeitplan und Einstellungen nehmen ihn ohne Migration auf; dazu kommt er in einige feste Listen (`PAYMENT_PROVIDERS`, interne Quellen, Formatnamen). Die Schritte stehen im Skill [`anbindung-hinzufuegen`](https://github.com/Speicherstadt/haben/blob/main/.claude/skills/anbindung-hinzufuegen/SKILL.md).
 
 ## Neue Ausgabenkategorie
 

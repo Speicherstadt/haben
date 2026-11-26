@@ -35,11 +35,9 @@ tsc meldet nicht jede davon; alle durchgehen:
 | Stelle | Eintrag |
 | --- | --- |
 | `packages/import/src/importvertrag/anbieter.ts` | `INTERNAL_PROVIDERS` (Test `interne-anbieter.test.ts`) |
-| `packages/core/src/matching-direkt.ts` | `PAYMENT_PROVIDERS`: Bezeichnung und Muster der Gegenpartei auf der Bank |
-| `apps/web/src/server/db/schema.ts` (`bankAccounts.provider`) und `modules/bank/accounts.ts` (`z.enum`) | Anbieter des Kontos; die Spalte ist Text, eine Migration braucht es nicht |
-| `modules/bank/quellen.ts` | `FORMAT_NAMEN` (tsc) und `ABRUF_NAMEN` (tsc) |
-| `routes/_app/bank.tsx` | `FORMAT_LABEL` für die Formate |
-| `components/ImportKonflikt.tsx` | `QUELLEN` und `quelleZuAnbieter`, sonst heißt der Anbieter in der Klärung „die Bank“ |
+| `packages/core/src/matching-direkt.ts` | `PAYMENT_PROVIDERS`: Bezeichnung und Muster der Gegenpartei auf der Bank; daraus kommen der Anbieter des Kontos und sein Name in der Konfliktklärung |
+| `packages/import/src/format-namen.ts` | `FORMAT_NAMEN` (tsc): Name der Quelle in Meldungen und in der Kontenliste |
+| `modules/bank/quellen.ts` | `ABRUF_NAMEN` (tsc) |
 | `routes/_app/-bank-konto-neu.tsx` | Beispiele im Text der Auswahl, wenn der Anbieter bekannt genug ist |
 | `server/env.ts`, `docs/installation-konfiguration.md` | `<ANBIETER>_API_URL` |
 | `e2e/durchlaeufe.ts`, `playwright.config.ts` | Durchlauf `<anbieter>-abruf` mit Port für die nachgebaute API |
