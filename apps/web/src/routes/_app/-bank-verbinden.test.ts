@@ -48,6 +48,6 @@ describe("„Anbieter wählen“ (#1951)", () => {
     expect(uebrige.every((w) => w.gesperrt !== null)).toBe(true);
     expect(uebrige.map((w) => w.wert)).toContain("etsy");
     expect(uebrige.map((w) => w.wert)).not.toContain("sonstige");
-    expect(uebrige.find((w) => w.wert === "shopify")?.gesperrt).toBe("Noch kein Abruf; die Umsätze kommen als Datei über „CSV / CAMT importieren“.");
+    expect(uebrige.find((w) => w.wert === "shopify")?.gesperrt).toBe("Noch kein Abruf; die Umsätze kommen als Datei über „Datei importieren“.");
   });
 });

@@ -307,47 +307,36 @@ test("Bankabgleich: ein fremdes Konto ausschließen fragt nach, blendet es aus u
     .setInputFiles([datei("zweitfirma.csv", [["Kunde der Zweitfirma", "Rechnung 2026-17", "250,00"]])]);
   await expect(page.getByText(/zweitfirma.csv: 1 neue/)).toBeVisible({ timeout: 30_000 });
 
-  // Die Reiter der Konten ohne „Alle Konten“, den es ab zwei Konten gibt (#617)
-  const konten = page.getByRole("navigation", { name: "Konten" }).getByRole("link").filter({ hasNotText: "Alle Konten" });
+  // Ausgeschlossen wird an der Zeile des Kontos auf der Seite Verbindungen (#1951)
+  await go("/bank/verbindungen");
+  const konten = page.getByRole("region", { name: "Banken", exact: true }).locator("tbody tr");
   await expect(konten).toHaveCount(2);
-  const waehle = async (iban: string) => {
-    for (let i = 0; i < (await konten.count()); i++) {
-      await konten.nth(i).click();
-      // Die Anschrift des Kontos erscheint erst, wenn die Seite die Daten des gewählten Kontos hat
-      const da = await page
-        .getByText(iban)
-        .first()
-        .waitFor({ timeout: 3_000 })
-        .then(
-          () => true,
-          () => false,
-        );
-      if (da) return;
-    }
-    throw new Error(`Konto ${iban} nicht gefunden`);
+  const ausschliessen = async (iban: string) => {
+    const kurz = `${iban.slice(0, 4)} …${iban.replace(/\s/g, "").slice(-4)}`;
+    const zeile = konten.filter({ hasText: kurz });
+    await zeile.getByRole("button", { name: /^Weitere Aktionen für / }).click();
+    await page.getByRole("menuitem", { name: "Gehört nicht zu dieser Firma …" }).click();
   };
 
-  // Das Konto mit zugeordneten Umsätzen gehört zur Firma: der Knopf ist gesperrt und nennt den Grund
-  await waehle(EIGEN);
-  await expect(page.getByRole("button", { name: "Gehört nicht zu dieser Firma" })).toBeDisabled();
+  // Das Konto mit zugeordneten Umsätzen gehört zur Firma: statt der Rückfrage steht der Grund da
+  await ausschliessen(EIGEN);
   await expect(page.getByText(/ist schon zugeordnet|ist schon verrechnet/).first()).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 
   // Das fremde Konto: abbrechen ändert nichts, bestätigen blendet es aus
-  await waehle(FREMD);
-  const knopf = page.getByRole("button", { name: "Gehört nicht zu dieser Firma" });
-  await expect(knopf).toBeEnabled();
-  await knopf.click();
+  await ausschliessen(FREMD);
   await expect(page.getByRole("dialog", { name: /^Konto „.+“ ausschließen\?$/ })).toContainText("Gelöscht wird nichts");
   await page.getByRole("dialog").getByRole("button", { name: "Abbrechen", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(konten).toHaveCount(2);
 
-  await knopf.click();
+  await ausschliessen(FREMD);
   await bestaetigen(page, "Konto ausschließen");
   await expect(konten).toHaveCount(1);
   const liste = page.getByRole("region", { name: "Ausgeschlossene Konten" });
   await expect(liste).toContainText(FREMD);
   await expect(liste).toContainText("1 Umsatz");
+  await go("/bank?filter=alle");
   await expect(page.getByText("Rechnung 2026-17")).toHaveCount(0);
 
   // Ein Import in das ausgeschlossene Konto wird abgelehnt
@@ -355,14 +344,14 @@ test("Bankabgleich: ein fremdes Konto ausschließen fragt nach, blendet es aus u
     .locator('input[type=file][aria-label="Kontoauszugsdateien"]')
     .setInputFiles([datei("zweitfirma-2.csv", [["Kunde der Zweitfirma", "Rechnung 2026-18", "80,00"]])]);
   await expect(page.getByText(/ausgeschlossen/).first()).toBeVisible({ timeout: 30_000 });
-  await expect(konten).toHaveCount(1);
 
   // Wieder aufnehmen: das Konto und sein Umsatz sind da
+  await go("/bank/verbindungen");
+  await expect(konten).toHaveCount(1);
   await liste.getByRole("button", { name: /wieder aufnehmen/ }).click();
   await expect(konten).toHaveCount(2);
   await expect(page.getByRole("region", { name: "Ausgeschlossene Konten" })).toHaveCount(0);
-  await waehle(FREMD);
-  await page.getByRole("link", { name: "Alle", exact: true }).click();
+  await go("/bank?konto=alle&filter=alle");
   await expect(page.getByText("Rechnung 2026-17").first()).toBeVisible();
 });
 

@@ -460,12 +460,13 @@ test("Aktionen unter dem Titel stehen rechtsbündig, wenn der Kopf umbricht", as
 });
 
 test("Bank: Importknöpfe unter dem Titel stehen rechtsbündig, wenn der Kopf umbricht", async ({ page }) => {
-  // Mit Seitenleiste (ab 861 px) zu schmal für Titel, Kontowahl und Knöpfe in einer Zeile
+  // Mit Seitenleiste (ab 861 px) zu schmal für Titel und Knöpfe in einer Zeile
   await page.setViewportSize({ width: 900, height: 800 });
   await page.goto("/bank");
   const head = page.locator(".main > .page-head");
   const titel = head.getByRole("heading", { level: 1 });
-  const importieren = head.getByRole("button", { name: "CSV / CAMT importieren" });
+  // Der letzte Knopf ist „Konto verbinden“, die Hauptaktion (#1951)
+  const importieren = head.getByRole("button", { name: "Konto verbinden" });
   await expect(importieren).toBeVisible();
   const titelBox = await titel.boundingBox();
   const knopfBox = await importieren.boundingBox();

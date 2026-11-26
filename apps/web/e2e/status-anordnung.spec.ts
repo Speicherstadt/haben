@@ -55,10 +55,11 @@ async function reihenfolge(status: Locator, zeile: Locator) {
   }, rand);
 }
 
+/** Zeile des Kontos auf der Seite Verbindungen (#1951): der Status steht in seiner Spalte vor den Knöpfen */
 async function bankZeile(page: Page) {
-  await page.goto(`/bank?konto=${kontoId}`);
+  await page.goto("/bank/verbindungen");
   await page.waitForLoadState("networkidle");
-  const zeile = page.getByRole("region", { name: "Automatischer Abruf" }).locator(".history-row", { hasText: BANK });
+  const zeile = page.getByRole("region", { name: "Banken", exact: true }).locator("tbody tr", { hasText: KONTO });
   return { zeile, status: zeile.locator(".status") };
 }
 
@@ -108,10 +109,6 @@ async function knopfRaender(zeile: Locator) {
 
 test("Handy: Knöpfe in den Karten füllen die Zeile", async ({ page }) => {
   await page.setViewportSize(HANDY);
-  // Automatischer Abruf: „Trennen“ vorn an der linken, „Jetzt abrufen“ an der rechten Kante
-  const bank = await knopfRaender((await bankZeile(page)).zeile);
-  expect(Math.abs(bank.links)).toBeLessThanOrEqual(1);
-  expect(Math.abs(bank.rechts)).toBeLessThanOrEqual(1);
   // SEPA-Mandat: neben dem Link „Mandat als PDF“ reicht der kleine Knopf bis an die rechte Kante
   const mandat = await knopfRaender((await mandatZeile(page)).zeile);
   expect(Math.abs(mandat.rechts)).toBeLessThanOrEqual(1);

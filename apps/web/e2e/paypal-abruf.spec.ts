@@ -95,8 +95,9 @@ test.afterEach(() => {
 });
 
 const zugang = () => page.getByRole("form", { name: "Zugang" });
-/** Die Verbindung heißt wie vorgeschlagen nach dem Anbieter; sie steht über der Liste ihres Kontos (#1951) */
-const verbindung = () => page.getByRole("region", { name: "Automatischer Abruf" }).getByRole("region", { name: "PayPal", exact: true });
+/** Die Verbindung heißt wie vorgeschlagen nach dem Anbieter; ihre Zeile steht auf der Seite Verbindungen (#1951) */
+const verbindung = () => page.getByRole("region", { name: "Zahlungsdienstleister", exact: true }).getByRole("row").filter({ hasText: "PayPal" });
+const abrufBereich = () => page.getByRole("region", { name: "Automatischer Abruf" });
 
 async function mitDatenbank<T>(arbeit: (sql: postgres.Sql) => Promise<T>): Promise<T> {
   const sql = postgres(databaseUrlFuer("paypal-abruf"), { max: 1, onnotice: () => {} });
@@ -158,7 +159,9 @@ test("Zugang prüfen, speichern und erster Abruf: Zahlung, Gebühr und Abbuchung
   // Die Abbuchung per Hand (T0403) ist als Auszahlung eingeordnet: PayPal ist die Gegenseite, nicht leer wie bei einem unbekannten Code
   expect(await umsaetze()).toEqual(ERWARTET);
   await ergebnis.getByRole("link", { name: "Zum Konto" }).click();
-  await expect(verbindung().getByText(`PayPal: verbunden mit ${KONTO} (Client-ID …AB12).`)).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Konten" }).getByRole("link", { name: /^PayPal/ })).toHaveAttribute("aria-current", "page");
+  await gehe(page, "/bank/verbindungen");
+  await expect(verbindung().getByText(`PayPal · ${KONTO}`)).toBeVisible();
 });
 
 const umsaetze = () => mitDatenbank((sql) => sql`select amount, counterparty_name from bank_transactions order by amount`);
@@ -169,24 +172,26 @@ const ERWARTET = [
 ];
 
 test("Jetzt abrufen an der Verbindung legt nichts doppelt an; Bearbeiten zeigt Client-ID und Secret nicht", async () => {
-  await verbindung().getByRole("button", { name: "Jetzt abrufen" }).click();
-  await expect(verbindung().getByText("Abruf durchgelaufen.")).toBeVisible();
-  await expect(verbindung().getByText(/Letzter Abruf: /)).toBeVisible();
+  await verbindung().getByRole("button", { name: "PayPal jetzt abrufen" }).click();
+  await expect(abrufBereich().getByText("PayPal: Abruf durchgelaufen.")).toBeVisible();
   expect(await umsaetze()).toEqual(ERWARTET);
-  await verbindung().getByRole("button", { name: "Bearbeiten" }).click();
-  await expect(verbindung().getByLabel("Secret (leer lassen zum Behalten)")).toHaveValue("");
-  await expect(verbindung().getByLabel("Client-ID (leer lassen zum Behalten)")).toHaveValue("");
-  await verbindung().getByRole("button", { name: "Abbrechen" }).click();
+  await verbindung().getByRole("button", { name: "Weitere Aktionen für PayPal" }).click();
+  await page.getByRole("menuitem", { name: "Bearbeiten …" }).click();
+  const dialog = page.getByRole("dialog", { name: "PayPal bearbeiten" });
+  await expect(dialog).toContainText(`PayPal: verbunden mit ${KONTO} (Client-ID …AB12).`);
+  await expect(dialog).toContainText(/Letzter Abruf: /);
+  await expect(dialog.getByLabel("Secret (leer lassen zum Behalten)")).toHaveValue("");
+  await expect(dialog.getByLabel("Client-ID (leer lassen zum Behalten)")).toHaveValue("");
+  await dialog.getByRole("button", { name: "Abbrechen" }).click();
 });
 
 test("Verbindung entfernen löscht Client-ID und Secret, die Umsätze bleiben", async () => {
-  await verbindung().getByRole("button", { name: "Verbindung entfernen" }).click();
+  await verbindung().getByRole("button", { name: "Weitere Aktionen für PayPal" }).click();
+  await page.getByRole("menuitem", { name: "Verbindung entfernen" }).click();
   const dialog = page.getByRole("dialog", { name: "Verbindung PayPal entfernen?" });
   await dialog.getByRole("button", { name: "Entfernen" }).click();
-  await expect(
-    page.getByRole("region", { name: "Automatischer Abruf" }).getByText("Verbindung entfernt. Übernommene Umsätze bleiben im Konto stehen."),
-  ).toBeVisible();
-  await expect(verbindung()).toHaveCount(0);
+  await expect(abrufBereich().getByText("Verbindung entfernt. Übernommene Umsätze bleiben im Konto stehen.")).toBeVisible();
+  await expect(verbindung().getByRole("button", { name: "PayPal jetzt abrufen" })).toHaveCount(0);
   expect(await mitDatenbank((sql) => sql`select count(*)::int as n from psp_connections`)).toEqual([{ n: 0 }]);
   expect(await mitDatenbank((sql) => sql`select count(*)::int as n from bank_transactions`)).toEqual([{ n: 3 }]);
 });

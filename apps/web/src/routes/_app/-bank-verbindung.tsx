@@ -1,19 +1,13 @@
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { ConnectionStatus } from "../../components/BankStatus.tsx";
-import { FintsAbruf, type FintsZustand } from "../../components/FintsAbruf.tsx";
 import { defaultFetchFrom, fetchFromForConnect } from "../../lib/bank-connect.ts";
-import { errorMessage, formatDate, formatDateTime } from "../../lib/format.ts";
-import { useAction } from "../../lib/use-action.ts";
+import { errorMessage, formatDate } from "../../lib/format.ts";
 import { useSubmitCheck } from "../../lib/use-submit-check.ts";
 import { connectBank, disconnectBank, getEnableBanks, syncBankConnection } from "../../server/functions/bank.ts";
 import { today as todayInGermany } from "../../server/today.ts";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
-import { KonfliktKlaeren, stichtagText } from "../../components/ImportKonflikt.tsx";
 import { Field } from "../../components/Field.tsx";
-import { NoticeBanner } from "../../components/NoticeBanner.tsx";
-import { VerbindungZeile } from "../../components/ZahlungsdienstleisterZeile.tsx";
 import type { Data } from "./-bank-daten.ts";
 
 export type Sync = Data["sync"];
@@ -21,84 +15,32 @@ type Verbindung = Sync["connections"][number];
 type Meldung = { tone: "ok" | "danger" | "info"; text: string };
 
 /**
- * Automatischer Abruf des gewählten Kontos über der Liste (#1951): seine Verbindung über Enable Banking, FinTS oder zum
- * Zahlungsdienstleister mit Stand, Fehler und Aktionen. Bei „Alle Konten“ steht hier nur eine Verbindung ohne Konto in der
- * Kartenleiste, die es bei jedem Konto tut. Die Formulare zum
- * Verbinden („Konto verbinden › Bank hinzufügen“) erscheinen hier auch ohne gewähltes Konto, ebenso eine FinTS-Verbindung,
- * an der gerade ein Schritt der Bank offen ist oder ein Abruf läuft. Ohne Inhalt ist der Bereich leer und unsichtbar
- * (bank.css); er bleibt im Dokument, damit Meldungen nach dem Verbinden nicht mit ihm verschwinden.
+ * Abruf über Enable Banking an den Zeilen der Konten (#1951): „Jetzt abrufen“, „Neu anmelden“ (Zustimmung erneuern) und
+ * „Trennen“, dazu der Bereich mit dem Formular „Bank verbinden“, der Rückmeldung der Bank nach der Anmeldung und den
+ * Meldungen. Die Seite ruft den Hook einmal auf und stellt `bereich` dorthin, wo Formular und Meldungen erscheinen.
  */
-export function BankSync({
-  data,
-  kontoId,
+export function useEnableBankingAbruf({
+  sync,
   connecting,
   setConnecting,
-  fintsZustand,
   result,
+  von,
 }: {
-  data: Pick<Data, "accounts" | "sync" | "fints" | "zahlungsdienstleister">;
-  /** Das gewählte Konto; null bei „Alle Konten“ und ohne Konto */
-  kontoId: string | null;
+  sync: Sync;
   connecting: boolean;
   setConnecting: (v: boolean) => void;
-  fintsZustand: FintsZustand;
+  /** Rückmeldung nach der Anmeldung bei der Bank aus der Adresse (abruf, meldung) */
   result: { ok: boolean; message: string } | null;
+  von: "/bank" | "/bank/verbindungen";
 }) {
-  const { sync, fints, zahlungsdienstleister } = data;
-  const navigate = useNavigate({ from: "/bank" });
-  const connectFn = useServerFn(connectBank);
-  // Meldung nach dem Entfernen einer Verbindung zum Zahlungsdienstleister: Ihre Zeile ist danach weg
-  const entfernt = useAction();
-  // Eine Verbindung ohne Konto in der Kartenleiste (keins freigegeben, alle ausgeschlossen) wählt keine Karte; sie steht
-  // immer hier, sonst ließe sie sich weder sehen noch trennen
-  const konten = new Set(data.accounts.map((a) => a.id));
-  const ohneKarte = (ids: readonly (string | null)[]) => !ids.some((id) => id !== null && konten.has(id));
-  const gehoert = (accounts: readonly { bankAccountId: string }[]) =>
-    (kontoId !== null && accounts.some((a) => a.bankAccountId === kontoId)) || ohneKarte(accounts.map((a) => a.bankAccountId));
-  const fintsZeigen = (c: Data["fints"]["connections"][number]) =>
-    gehoert(c.accounts) || c.id === fintsZustand.offen?.fuer || c.id === fintsZustand.busy || fintsZustand.busy === `x-${c.id}`;
-
-  return (
-    <section className="card bank-abruf" aria-label="Automatischer Abruf">
-      {result && (
-        <div className={`banner banner-${result.ok ? "ok" : "danger"}`} role="status" style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-          <span>{result.message || (result.ok ? "Bank verbunden." : "Die Verbindung ist fehlgeschlagen.")}</span>
-          <button
-            type="button"
-            className="btn btn-sm"
-            onClick={() => void navigate({ search: (prev) => ({ ...prev, abruf: undefined, meldung: undefined }), replace: true })}
-          >
-            Schließen
-          </button>
-        </div>
-      )}
-      {connecting && <ConnectForm onCancel={() => setConnecting(false)} callbackUrl={sync.callbackUrl} connect={connectFn} />}
-      {sync.connections
-        .filter((c) => gehoert(c.accounts))
-        .map((c) => (
-          <EnableBankingZeile key={c.id} c={c} sync={sync} />
-        ))}
-      <FintsAbruf fints={fints} zeigen={fintsZeigen} {...fintsZustand} />
-      {zahlungsdienstleister.verbindungen
-        .filter((v) => (kontoId !== null && v.bankAccountId === kontoId) || ohneKarte([v.bankAccountId]))
-        .map((v) => (
-          <VerbindungZeile key={v.id} daten={zahlungsdienstleister} verbindung={v} entfernen={entfernt.run} />
-        ))}
-      <NoticeBanner notice={entfernt.notice} />
-    </section>
-  );
-}
-
-/** Eine Verbindung über Enable Banking: Stand, Fehler, Konflikte, „Trennen“, „Zustimmung erneuern“ und „Jetzt abrufen“ */
-function EnableBankingZeile({ c, sync }: { c: Verbindung; sync: Sync }) {
   const router = useRouter();
+  const navigate = useNavigate({ from: von });
   const syncFn = useServerFn(syncBankConnection);
   const disconnectFn = useServerFn(disconnectBank);
   const connectFn = useServerFn(connectBank);
-  const [trennt, setTrennt] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [trennt, setTrennt] = useState<Verbindung | null>(null);
   const [messages, setMessages] = useState<Meldung[]>([]);
-  const canSync = c.status === "aktiv";
 
   async function run(id: string, work: () => Promise<void>) {
     setBusy(id);
@@ -113,85 +55,78 @@ function EnableBankingZeile({ c, sync }: { c: Verbindung; sync: Sync }) {
     }
   }
 
-  const renew = () =>
-    run("renew", async () => {
+  const abrufen = (c: Verbindung) =>
+    run(c.id, async () => {
+      const r = await syncFn({ data: c.id });
+      setMessages([
+        r.error ? { tone: "danger", text: r.error } : { tone: "ok", text: `${c.aspspName}: ${r.added} neue Umsätze.` },
+        ...r.gaps.map((g) => ({ tone: "danger" as const, text: g })),
+      ]);
+    });
+
+  const erneuern = (c: Verbindung) =>
+    run(`renew-${c.id}`, async () => {
       const { url } = await connectFn({ data: { aspspName: c.aspspName, psuType: c.psuType } });
       window.location.assign(url);
     });
 
-  return (
+  const bereich = (
     <>
-      <div className="history-row" style={{ alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, flex: "1 1 260px" }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <span style={{ fontWeight: 600 }}>{c.aspspName}</span>
-            <ConnectionStatus connection={c} />
-          </div>
-          <span className="small muted">
-            {c.accounts.map((a) => `${a.name} …${a.iban.slice(-4)}${stichtagText(sync.stichtage, a.bankAccountId)}`).join(" · ") || "Keine Konten"}
-          </span>
-          <span className="small muted">
-            {c.lastSyncAt ? `Zuletzt abgerufen ${formatDateTime(c.lastSyncAt)}` : "Noch nicht abgerufen"}
-            {c.validUntil ? ` · Zustimmung bis ${formatDate(c.validUntil)}` : ""}
-          </span>
-          {c.lastError && <span className="field-error">{c.lastError}</span>}
-        </div>
-        <div className="actions">
-          <button type="button" className="btn" disabled={busy !== null} onClick={() => setTrennt(true)}>
-            Trennen
+      {result && (
+        <div className={`banner banner-${result.ok ? "ok" : "danger"} banner-aktion`} role="status">
+          <span>{result.message || (result.ok ? "Bank verbunden." : "Die Verbindung ist fehlgeschlagen.")}</span>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => void navigate({ search: (prev) => ({ ...prev, abruf: undefined, meldung: undefined }), replace: true })}
+          >
+            Schließen
           </button>
-          {sync.configured && (c.status !== "aktiv" || c.renewSoon) && (
-            <button type="button" className="btn" disabled={busy !== null} onClick={() => void renew()}>
-              Zustimmung erneuern
-            </button>
-          )}
-          <KonfliktKlaeren konflikte={sync.konflikte.filter((k) => c.accounts.some((a) => a.bankAccountId === k.bankAccountId))} disabled={busy !== null} />
-          {canSync && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={busy !== null}
-              onClick={() =>
-                void run(c.id, async () => {
-                  const r = await syncFn({ data: c.id });
-                  setMessages([
-                    r.error ? { tone: "danger", text: r.error } : { tone: "ok", text: `${c.aspspName}: ${r.added} neue Umsätze.` },
-                    ...r.gaps.map((g) => ({ tone: "danger" as const, text: g })),
-                  ]);
-                })
-              }
-            >
-              {busy === c.id ? "Rufe ab …" : "Jetzt abrufen"}
-            </button>
-          )}
         </div>
-      </div>
+      )}
+      {connecting && <ConnectForm onCancel={() => setConnecting(false)} callbackUrl={sync.callbackUrl} connect={connectFn} />}
       <ConfirmDialog
-        open={trennt}
-        title={`Verbindung zu ${c.aspspName} trennen?`}
+        open={trennt !== null}
+        title={`Verbindung zu ${trennt?.aspspName} trennen?`}
         confirmLabel="Trennen"
         danger
-        onConfirm={() =>
-          void run(`x-${c.id}`, async () => {
-            await disconnectFn({ data: c.id });
-          })
-        }
-        onClose={() => setTrennt(false)}
+        onConfirm={() => {
+          const c = trennt;
+          if (c)
+            void run(`x-${c.id}`, async () => {
+              await disconnectFn({ data: c.id });
+            });
+        }}
+        onClose={() => setTrennt(null)}
       >
         <p>Die abgerufenen Umsätze bleiben erhalten.</p>
       </ConfirmDialog>
       {messages.length > 0 && (
-        <ul className="upload-messages" role="status">
-          {messages.map((m, i) => (
-            <li key={i} className={`banner banner-${m.tone}`}>
-              {m.text}
-            </li>
-          ))}
-        </ul>
+        <div role="status">
+          <ul className="upload-messages">
+            {messages.map((m, i) => (
+              <li key={i} className={`banner banner-${m.tone}`}>
+                {m.text}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </>
   );
+
+  return {
+    configured: sync.configured,
+    gesperrt: busy !== null,
+    laeuft: (c: Verbindung) => (busy === c.id ? "abruf" : busy === `x-${c.id}` ? "trennen" : null),
+    abrufen,
+    erneuern,
+    trennenFragen: (c: Verbindung) => setTrennt(c),
+    sichtbar: result !== null || connecting || messages.length > 0,
+    bereich,
+  };
 }
+export type EnableBankingAktionen = ReturnType<typeof useEnableBankingAbruf>;
 
 /** Höchstens so viele Banken stehen in der Auswahl; mehr findet die Suche */
 export const MAX_BANK_OPTIONS = 300;

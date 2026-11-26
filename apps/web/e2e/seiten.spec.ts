@@ -42,6 +42,7 @@ async function routes(page: Page): Promise<[string, string | null][]> {
     ["darlehen", "/darlehen"],
     ["bank", "/bank"],
     ["bank-verbinden", "/bank/verbinden/stripe"],
+    ["bank-verbindungen", "/bank/verbindungen"],
     ["anlagen", "/anlagen"],
     ["anlage-neu", "/anlagen/neu"],
     ["csv-import", "/csv-import?art=kontakte"],

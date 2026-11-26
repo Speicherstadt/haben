@@ -22,7 +22,7 @@ export function NeuesKontoForm({
   onCreated,
   onMessage,
 }: {
-  data: Data;
+  data: Pick<Data, "accounts" | "providers">;
   datei?: boolean;
   onClose: () => void;
   onCreated: (id: string) => void;

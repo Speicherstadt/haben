@@ -28,30 +28,100 @@
 .konto-karte .status-label { flex: none; }
 .konto-karte .status-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 
-/* Schmal (Liste und Zuordnung untereinander) und am Handy: eine Zeile aus Chips, die unter dem Seitenkopf stehen bleibt */
-.konten-chips { display: none; }
+/* `⋯` oben rechts in der Karte, neben dem Link und nicht darin; der Name lässt ihm Platz */
+.konto-karte-rahmen { position: relative; flex: none; }
+.konto-karte-rahmen > .konto-karte .konto-karte-name { padding-right: 28px; }
+.konto-karte-rahmen > .more-actions-menu { position: absolute; top: 6px; right: 6px; }
+.konto-karte-rahmen > .more-actions-menu > .btn-icon { width: 32px; height: 32px; min-height: 32px; color: var(--muted); }
+.konto-karte-rahmen > .more-actions-menu > .btn-icon:hover { color: var(--ink); }
+.konto-karte-rahmen > .more-actions-menu > .split-menu { left: 0; right: auto; }
+
+/* Hinweis zum gewählten Konto unter der Leiste, nur bei einem Status */
+.konto-hinweis { margin: 0; }
+
+/* Werkzeugzeile der Liste: rechts Stand des gewählten Kontos und sein Abruf */
+.tx-stand { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.tx-stand { flex-wrap: wrap; justify-content: flex-end; }
+.tx-stand > .small { white-space: nowrap; }
+.tx-stand > .tx-stand-grund { flex-basis: 100%; white-space: normal; text-align: right; }
+.nur-schmal { display: none; }
+
+/* Schmal (Liste und Zuordnung untereinander) und am Handy: eine Zeile kleiner Karten, die unter dem Seitenkopf stehen bleibt */
+.konten-klein { display: none; }
 @media (max-width: 1100px) {
   .konten-leiste { display: none; }
-  .konten-chips {
+  .nur-schmal { display: contents; }
+  .konten-klein {
     position: sticky; top: var(--below-head); z-index: 9;
-    display: flex; align-items: center; gap: 8px; overflow-x: auto; scrollbar-width: none;
-    margin: -12px calc(-1 * var(--main-pad-x)); padding: 8px var(--main-pad-x); background: var(--ground);
+    display: flex; align-items: stretch; gap: 6px; overflow-x: auto; scrollbar-width: none;
+    margin: -12px calc(-1 * var(--main-pad-x)); padding: 8px var(--main-pad-x); background: var(--ground); border-bottom: 1px solid var(--line);
   }
 }
-.konto-chip { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); color: var(--ink); font-size: 13px; text-decoration: none; }
-.konto-chip:hover { color: var(--ink); background: var(--hover); }
-.konto-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.konto-chip[aria-current="page"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); font-weight: 500; }
-.konto-chip-punkt { width: 8px; height: 8px; border-radius: 4px; background: var(--accent); flex: none; }
-.konto-chip[data-tone="warn"] .konto-chip-punkt { background: var(--warn-dot); }
-.konto-chip[data-tone="danger"] .konto-chip-punkt { background: var(--danger-ink); }
-.konto-chip-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.konto-chip-zahl { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; }
-.konten-chips-trenner { flex: none; width: 1px; height: 20px; background: var(--line); }
+/* Wie die Karten der breiten Leiste, nur kleiner: gleiche Kante, Ecken und Auswahl */
+.konto-klein { flex: none; display: flex; flex-direction: column; justify-content: center; gap: 1px; min-width: 96px; max-width: 148px; min-height: 48px; box-sizing: border-box; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-xs); color: var(--ink); text-decoration: none; }
+.konto-klein:hover { color: var(--ink); background: var(--hover); }
+.konto-klein:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.konto-klein[aria-current="page"], .konto-klein[aria-current="page"]:hover { background: var(--accent-soft); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.konto-klein[aria-current="page"] .konto-klein-name { color: var(--accent-ink); }
+.konto-klein-name { font-size: 13px; font-weight: 600; line-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.konto-klein-zeile { font-size: 12px; line-height: 16px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Status mit Punkt in seiner Farbe, das Wort in Tinte der Stufe */
+.konto-klein-status { display: inline-flex; align-items: center; gap: 5px; }
+.konto-klein-status::before { content: ""; width: 6px; height: 6px; border-radius: 3px; background: currentColor; flex: none; }
+.konto-klein[data-tone="warn"] .konto-klein-status { color: var(--warn-ink); }
+.konto-klein[data-tone="danger"] .konto-klein-status { color: var(--danger-ink); }
+.konten-klein-trenner { flex: none; width: 1px; margin: 6px 2px; background: var(--line); }
 
-/* Automatischer Abruf des gewählten Kontos über der Liste (#1951); ohne Inhalt unsichtbar, bleibt aber im Dokument */
-.bank-abruf { gap: 12px; margin-bottom: 16px; }
-.bank-abruf:empty { display: none; }
+/* Seite Verbindungen: je Gruppe eine Karte mit Tabelle; Knöpfe am Ende der Zeile, `⋯` zuletzt */
+.verbindungen-gruppe { padding: 0; overflow: hidden; }
+.verbindungen-kopf { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px 12px; }
+.verbindungen-kopf > h2 { margin: 0; }
+/* Feste Spalten, damit die Tabellen der Gruppen untereinander bündig stehen */
+.verbindungen-tabelle { width: 100%; border-collapse: collapse; font-size: 14px; table-layout: fixed; }
+.verbindungen-tabelle .spalte-konto { width: 30%; }
+.verbindungen-tabelle .spalte-abruf { width: 22%; }
+.verbindungen-tabelle .spalte-saldo { width: 13%; }
+.verbindungen-tabelle .spalte-offen { width: 7%; }
+.verbindungen-tabelle .spalte-aktionen { width: 240px; }
+.verbindungen-tabelle th { padding: 6px 12px; font-size: 12px; font-weight: 500; color: var(--muted); text-align: left; border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); }
+.verbindungen-tabelle td { padding: 10px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: baseline; }
+.verbindungen-tabelle tr:last-child > td { border-bottom: 0; }
+.verbindungen-tabelle :is(th, td):first-child { padding-left: 20px; }
+.verbindungen-tabelle :is(th, td):last-child { padding-right: 16px; }
+.verbindungen-tabelle .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.verbindungen-tabelle .nw { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+/* Status mit 12px mehr Abstand zur Spalte davor (DESIGN.md, Status) */
+.verbindungen-tabelle .spalte-status { padding-left: 24px; }
+/* Ein Fehler steht als Auskunft unter dem Wort, in ganzer Länge */
+.verbindungen-tabelle .spalte-status .status-detail { white-space: normal; }
+.verbindung-name { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.verbindung-name > div { min-width: 0; }
+.verbindung-link { color: var(--ink); font-weight: 600; text-decoration: none; text-align: left; overflow-wrap: anywhere; }
+.verbindung-link:hover { color: var(--ink); text-decoration: underline; }
+.verbindung-kennung { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.verbindung-kachel { flex: none; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; background: var(--line-soft); color: var(--ink-2); }
+.verbindung-kennung { font-size: 12px; color: var(--muted); }
+.verbindung-aktionen { display: flex; gap: 4px; justify-content: flex-end; align-items: center; margin: -6px 0; }
+.verbindung-aktionen > .btn:not(.btn-icon) { margin-right: 4px; white-space: nowrap; }
+.verbindung-grund { display: block; font-size: 12px; color: var(--muted); white-space: normal; max-width: 280px; }
+/* Am Handy: jede Zeile als Liste, Name oben, Saldo rechts, darunter Abruf und Status rechts an der Kante, Knöpfe am Ende */
+@media (max-width: 760px) {
+  .verbindungen-tabelle thead { display: none; }
+  .verbindungen-tabelle, .verbindungen-tabelle tbody { display: block; }
+  .verbindungen-tabelle tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
+  .verbindungen-tabelle tr:last-child { border-bottom: 0; }
+  .verbindungen-tabelle td { padding: 0; border: 0; }
+  .verbindungen-tabelle :is(th, td):first-child { padding-left: 0; }
+  .verbindungen-tabelle :is(th, td):last-child { padding-right: 0; }
+  .verbindungen-tabelle :is(.spalte-konto, .spalte-abruf, .spalte-saldo, .spalte-offen, .spalte-aktionen) { width: auto; }
+  .verbindungen-tabelle .spalte-konto { grid-column: 1; }
+  .verbindungen-tabelle .spalte-saldo { grid-column: 2; grid-row: 1; }
+  .verbindungen-tabelle .spalte-abruf { grid-column: 1; }
+  .verbindungen-tabelle .spalte-status { grid-column: 2; padding-left: 0; text-align: right; }
+  .verbindungen-tabelle .spalte-offen { display: none; }
+  .verbindungen-tabelle .spalte-aktionen { grid-column: 1 / -1; }
+  .verbindung-aktionen { justify-content: flex-end; margin: 0; }
+}
 
 /* „Wie verbinden?“ und „Anbieter wählen“: ein Weg, der hier nicht geht, steht ausgegraut mit seinem Grund */
 .verbinden-wahl > [data-gesperrt] > .checkbox { color: var(--muted); cursor: default; }
@@ -66,3 +136,11 @@
 .einrichtung-ergebnis { display: flex; flex-direction: column; gap: 8px; padding: 16px 0 0; border-top: 1px solid var(--line); }
 .einrichtung-ergebnis-kopf { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 @media (max-width: 640px) { .einrichtung-schritte { gap: 8px; } .einrichtung-schritte > li { font-size: 12px; } }
+
+/* Abruf: Formulare, Schritte der Bank und Meldungen unter der Leiste bzw. dem Kopf (#1951); ohne Inhalt unsichtbar */
+.bank-abruf { display: flex; flex-direction: column; gap: 12px; }
+.bank-abruf:empty { display: none; }
+
+/* Nachfrage nach dem Konto in der Meldung eines Imports: Feld und Knopf in einer Zeile */
+.konto-nachfrage { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 8px; }
+.konto-nachfrage > .field { min-width: 200px; }

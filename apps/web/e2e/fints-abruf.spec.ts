@@ -1,5 +1,5 @@
 import { type FintsTestbank, type FintsTestbankUmsatz, startFintsTestbank } from "@haben/import/fints-testbank";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import postgres from "postgres";
 import { databaseUrlFuer, FINTS_BANK_PORT, FINTS_PRODUKT_E2E } from "./durchlaeufe.ts";
 import { axeVerstoesse, bankVerbinden, bestaetigen, durchlaufSeite, einrichten, gehe, kontoVerbinden } from "./einrichtung.ts";
@@ -8,8 +8,9 @@ import { axeVerstoesse, bankVerbinden, bestaetigen, durchlaufSeite, einrichten, 
  * Kontoabruf über FinTS (#654) in eigener, leerer Datenbank (Projekt „fints-abruf“, e2e/durchlaeufe.ts). Der Server
  * des Durchlaufs hat als einziger FINTS_PRODUKT_ID (playwright.config.ts); die Bank baut @haben/import/fints-testbank
  * nach: FinTS 3.0 mit PIN/TAN, chipTAN und pushTAN, zwei Konten, Umsätze als MT940. Verbunden wird über „Konto
- * verbinden › Bank hinzufügen › FinTS“; im Bereich „Automatischer Abruf“ steht die Verbindung des gewählten Kontos und jede,
- * an der gerade ein Schritt der Bank offen ist oder eine Anfrage läuft (#1951).
+ * verbinden › Bank hinzufügen › FinTS“. Die Verbindungen stehen auf der Seite Verbindungen je Konto in einer Zeile mit
+ * „Jetzt abrufen“ und `⋯` (Zugang ändern, Trennen); Formular, Schritte der Bank und Meldungen im Bereich „Automatischer
+ * Abruf“ darüber (#1951).
  */
 
 test.describe.configure({ mode: "serial" });
@@ -92,8 +93,36 @@ async function fintsWahl(grund: string | null) {
   await expect(dialog).toHaveCount(0);
 }
 
-/** Wählt in der Kartenleiste das Konto, dessen Karte name nennt */
-const kontoWaehlen = (name: string | RegExp) => page.getByRole("navigation", { name: "Konten" }).getByRole("link", { name }).click();
+const banken = () => page.getByRole("region", { name: "Banken", exact: true });
+/** Zeilen der Konten, die eine Verbindung über FinTS abruft */
+const fintsZeilen = () => banken().locator("tbody tr").filter({ hasText: "(FinTS)" });
+/** Erste Zeile eines Kontos der Verbindung zu bankName */
+const zeile = (bankName: string) =>
+  fintsZeilen()
+    .filter({ hasText: `${bankName} (FinTS)` })
+    .first();
+/** Zeile einer Verbindung an der Endung der IBAN ihres Girokontos; zwei Verbindungen heißen „Testbank“ (#1677) */
+const zeileMitKonto = (endung: string) => fintsZeilen().filter({ hasText: `Girokonto …${endung}` });
+/** „Jetzt abrufen“ als Symbol am Ende der Zeile */
+const abrufKnopf = (z: Locator) => z.getByRole("button", { name: / jetzt abrufen$/ });
+/** Öffnet `⋯` der Zeile und gibt den Punkt zurück; danach schließt zu() das Menü */
+async function punkt(z: Locator, name: string): Promise<Locator> {
+  await z.getByRole("button", { name: /^Weitere Aktionen für / }).click();
+  return page.getByRole("menuitem", { name, exact: true });
+}
+const zu = () => page.keyboard.press("Escape");
+const zuletzt = (z: Locator) => z.locator(".spalte-abruf");
+
+/** Ob die Knöpfe der Zeile gesperrt sind und welchen Grund sie nennen ("" ohne) */
+async function knoepfeStand(z: Locator, gesperrt: boolean, grund: string, knoepfe = ["Trennen", "Zugang ändern", "Jetzt abrufen"]) {
+  for (const knopf of knoepfe) {
+    const ziel = knopf === "Jetzt abrufen" ? abrufKnopf(z) : await punkt(z, knopf);
+    if (gesperrt) await expect(ziel).toBeDisabled();
+    else await expect(ziel).toBeEnabled();
+    await expect(ziel).toHaveAccessibleDescription(grund);
+    if (knopf !== "Jetzt abrufen") await zu();
+  }
+}
 
 async function zugangEingeben(pin = "12345", ziel = bank, blz = "12030000") {
   const form = page.getByRole("form", { name: "Über FinTS verbinden" });
@@ -125,7 +154,7 @@ test("Einstellungen › Bank zeigt, dass FinTS eingerichtet ist, ohne die Nummer
 });
 
 test("prüft den Zugang im Formular, bevor Haben die Bank fragt", async () => {
-  await gehe(page, "/bank");
+  await gehe(page, "/bank/verbindungen");
   // Ohne Konto und ohne Verbindung erscheint das Formular trotzdem im Bereich „Automatischer Abruf“
   await fintsVerbinden();
   const form = abruf().getByRole("form", { name: "Über FinTS verbinden" });
@@ -171,9 +200,13 @@ test("verbindet mit TAN-Verfahren und TAN und holt nur die Umsätze des gewählt
 
   await expect(abruf().getByText("Testbank verbunden, 2 neue Umsätze.")).toBeVisible();
   await expect(abruf().getByText(/^Neu angelegt: Testbank Girokonto …2051\. /)).toBeVisible();
-  await expect(abruf().getByText("Testbank Girokonto …2051", { exact: true })).toBeVisible();
-  await expect(abruf().getByText("Aktiv")).toBeVisible();
-  await expect(abruf().getByRole("button", { name: "Zugang ändern" })).toBeVisible();
+  await expect(fintsZeilen()).toHaveCount(1);
+  await expect(zeile("Testbank")).toContainText("Testbank Girokonto …2051");
+  await expect(zeile("Testbank").locator(".spalte-status")).toHaveText("Aktiv");
+  await expect(await punkt(zeile("Testbank"), "Zugang ändern")).toBeEnabled();
+  await zu();
+  expect(await axeVerstoesse(page), "Seite Verbindungen mit FinTS").toEqual([]);
+  await gehe(page, "/bank");
   const konten = page.getByRole("navigation", { name: "Konten" });
   await expect(konten.getByRole("link", { name: /Tagesgeld/ })).toHaveCount(0);
   await expect(konten.getByRole("link", { name: /Testbank Girokonto …2051/ })).toContainText("FinTS · heute");
@@ -181,10 +214,10 @@ test("verbindet mit TAN-Verfahren und TAN und holt nur die Umsätze des gewählt
   await expect(page.getByText("Mobilfunk").first()).toBeVisible();
 });
 
-test("„Jetzt abrufen“ fragt die TAN ab, wenn die Bank sie verlangt", async () => {
+test("„Jetzt abrufen“ über der Liste fragt die TAN ab, wenn die Bank sie verlangt", async () => {
   umsaetze[GIRO]!.push({ tag: tag(-1), betrag: "250,00", name: "Kunde AG", zweck: "RE-2026-0050", ref: "G3" });
   bank.zustand.scaBeiUmsaetzen = true;
-  await abruf().getByRole("button", { name: "Jetzt abrufen" }).click();
+  await page.getByRole("region", { name: "Umsätze" }).getByRole("button", { name: "Jetzt abrufen" }).click();
   await freigabe().getByLabel("TAN", { exact: true }).fill("123456");
   await freigabe().getByRole("button", { name: "TAN senden" }).click();
   await expect(abruf().getByText("Testbank, 1 neue Umsätze.")).toBeVisible();
@@ -193,9 +226,9 @@ test("„Jetzt abrufen“ fragt die TAN ab, wenn die Bank sie verlangt", async (
 
 // Bis #1951 klappte der Knopf „Über FinTS verbinden“ oben das Formular auch zu; das tut jetzt „Abbrechen“ im Formular
 test("„Bank hinzufügen › FinTS“ öffnet nach abgebrochenem „Zugang ändern“ ein leeres Formular", async () => {
-  await gehe(page, "/bank");
+  await gehe(page, "/bank/verbindungen");
   const form = page.getByRole("form", { name: "Über FinTS verbinden" });
-  await abruf().getByRole("button", { name: "Zugang ändern" }).click();
+  await (await punkt(zeile("Testbank"), "Zugang ändern")).click();
   await expect(form.getByLabel("Bankleitzahl")).toHaveValue("12030000");
   await form.getByRole("button", { name: "Abbrechen" }).click();
   await expect(form).toHaveCount(0);
@@ -206,7 +239,7 @@ test("„Bank hinzufügen › FinTS“ öffnet nach abgebrochenem „Zugang änd
   await form.getByRole("button", { name: "Abbrechen" }).click();
 
   // „Zugang ändern“ füllt das Formular weiter mit den Angaben der Verbindung, nur die PIN fehlt
-  await abruf().getByRole("button", { name: "Zugang ändern" }).click();
+  await (await punkt(zeile("Testbank"), "Zugang ändern")).click();
   await expect(form.getByLabel("Bankleitzahl")).toHaveValue("12030000");
   await expect(form.getByLabel("FinTS-Adresse der Bank")).toHaveValue(bank.url);
   await expect(form.getByLabel("Anmeldename")).toHaveValue("max");
@@ -218,9 +251,9 @@ test("„Bank hinzufügen › FinTS“ öffnet nach abgebrochenem „Zugang änd
 test("„Bank hinzufügen › FinTS“ bei offenem „Zugang ändern“ öffnet ein leeres Formular für eine neue Bank (Review #1951)", async () => {
   // Bis #1951 klappte „Über FinTS verbinden“ das Formular von „Zugang ändern“ zu; das Menü darf nicht die Angaben der
   // bestehenden Verbindung als neue Bank anbieten
-  await gehe(page, "/bank");
+  await gehe(page, "/bank/verbindungen");
   const form = page.getByRole("form", { name: "Über FinTS verbinden" });
-  await abruf().getByRole("button", { name: "Zugang ändern" }).click();
+  await (await punkt(zeile("Testbank"), "Zugang ändern")).click();
   await expect(form.getByLabel("Bankleitzahl")).toHaveValue("12030000");
   await fintsVerbinden();
   await expect(form).toHaveCount(1);
@@ -239,9 +272,10 @@ test("nach einer abgelehnten PIN den Zugang ändern und dabei ein Konto dazunehm
   } finally {
     await sql.end();
   }
-  await gehe(page, "/bank");
-  await expect(abruf().getByText("Abruf fehlgeschlagen: PIN ungültig. (9942)")).toBeVisible();
-  await abruf().getByRole("button", { name: "Zugang ändern" }).click();
+  await gehe(page, "/bank/verbindungen");
+  // Der Fehler steht als Auskunft unter „Fehlgeschlagen“, „Zugang ändern“ am Ende der Zeile löst ihn
+  await expect(zeile("Testbank").locator(".spalte-status")).toHaveText(/Fehlgeschlagen\s*Abruf fehlgeschlagen: PIN ungültig\. \(9942\)/);
+  await zeile("Testbank").getByRole("button", { name: "Zugang ändern" }).click();
   const form = page.getByRole("form", { name: "Über FinTS verbinden" });
   await expect(form.getByLabel("Bankleitzahl")).toHaveValue("12030000");
   await expect(form.getByLabel("FinTS-Adresse der Bank")).toHaveValue(bank.url);
@@ -259,17 +293,19 @@ test("nach einer abgelehnten PIN den Zugang ändern und dabei ein Konto dazunehm
   await kontenwahl().getByRole("button", { name: "Weiter" }).click();
   await expect(abruf().getByText("Testbank verbunden, 0 neue Umsätze.")).toBeVisible();
   await expect(abruf().getByText(/^Neu angelegt: Testbank Tagesgeld …9890\. /)).toBeVisible();
-  await expect(abruf().getByText("Testbank Girokonto …2051 · Testbank Tagesgeld …9890")).toBeVisible();
-  await expect(abruf().getByText("Aktiv")).toBeVisible();
-  await expect(abruf().getByText("Abruf fehlgeschlagen: PIN ungültig. (9942)")).toHaveCount(0);
-  await expect(abruf().getByRole("button", { name: "Zugang ändern" })).toBeVisible();
+  await expect(fintsZeilen()).toHaveCount(2);
+  await expect(fintsZeilen().filter({ hasText: "Testbank Tagesgeld …9890" })).toHaveCount(1);
+  await expect(zeile("Testbank").locator(".spalte-status")).toHaveText("Aktiv");
+  await expect(page.getByText("Abruf fehlgeschlagen: PIN ungültig. (9942)")).toHaveCount(0);
+  await expect(await punkt(zeile("Testbank"), "Zugang ändern")).toBeEnabled();
+  await zu();
   // Das Formular schließt wie beim ersten Verbinden, mit der PIN darin bleibt nichts stehen
   await expect(page.getByRole("form", { name: "Über FinTS verbinden" })).toHaveCount(0);
 });
 
 test("pushTAN: wartet auf die Freigabe in der App", async () => {
   bank.zustand.scaBeiUmsaetzen = true;
-  await abruf().getByRole("button", { name: "Jetzt abrufen" }).click();
+  await abrufKnopf(zeile("Testbank")).click();
   await expect(freigabe().getByText("Bitte bestätigen Sie den Zugriff in Ihrer Banking-App.")).toBeVisible();
   await expect(freigabe().getByLabel("TAN", { exact: true })).toHaveCount(0);
   await freigabe().getByRole("button", { name: "Freigegeben, weiter" }).click();
@@ -298,7 +334,7 @@ test("pushTAN: fragt die TAN ab, wenn die Bank bei der Anmeldung eine aus der Ap
   });
   await kontenwahl().getByRole("button", { name: "Weiter" }).click();
   await expect(abruf().getByText("Testbank verbunden, 0 neue Umsätze.")).toBeVisible();
-  await expect(abruf().getByText("Aktiv")).toBeVisible();
+  await expect(zeile("Testbank").locator(".spalte-status")).toHaveText("Aktiv");
   // „wait“ lässt verzögerte Anfragen noch fertig laufen
   await page.unrouteAll({ behavior: "wait" });
   bank.zustand.appTanEintippen = false;
@@ -306,8 +342,7 @@ test("pushTAN: fragt die TAN ab, wenn die Bank bei der Anmeldung eine aus der Ap
 
 test("erneut verbinden, bei der TAN für die Umsätze abgebrochen: die bisherige Verbindung bleibt und ruft ab", async () => {
   const ids = await verbindungsIds();
-  const zuletzt = abruf().getByText(/^Zuletzt abgerufen/);
-  const vorher = (await zuletzt.textContent())!;
+  const vorher = (await zuletzt(zeile("Testbank")).textContent())!;
   bank.zustand.scaBeiUmsaetzen = true;
   await fintsVerbinden();
   await zugangEingeben();
@@ -318,24 +353,25 @@ test("erneut verbinden, bei der TAN für die Umsätze abgebrochen: die bisherige
   await freigabe().getByRole("button", { name: "Abbrechen" }).click();
   await expect(freigabe()).toHaveCount(0);
 
-  // Gleiche ID, „Zuletzt abgerufen“ wie vorher, auch nach dem Neuladen (#1617)
+  // Gleiche ID, Stand des letzten Abrufs wie vorher, auch nach dem Neuladen (#1617)
   expect(await verbindungsIds()).toEqual(ids);
-  await gehe(page, "/bank");
-  await expect(zuletzt).toHaveText(vorher);
-  await abruf().getByRole("button", { name: "Jetzt abrufen" }).click();
+  await gehe(page, "/bank/verbindungen");
+  await expect(zuletzt(zeile("Testbank"))).toHaveText(vorher);
+  await abrufKnopf(zeile("Testbank")).click();
   await freigabe().getByLabel("TAN", { exact: true }).fill("123456");
   await freigabe().getByRole("button", { name: "TAN senden" }).click();
   await expect(abruf().getByText("Testbank, 0 neue Umsätze.")).toBeVisible();
 });
 
 test("Trennen löscht die Verbindung, die Umsätze bleiben", async () => {
-  await abruf().getByRole("button", { name: "Trennen" }).click();
+  await (await punkt(zeile("Testbank"), "Trennen")).click();
   await bestaetigen(page, "Trennen");
-  await expect(abruf().getByText("Testbank", { exact: true })).toHaveCount(0);
-  // Ohne Verbindung am Konto bleibt der Bereich leer und unsichtbar
-  await expect(abruf().locator(".history-row")).toHaveCount(0);
+  // Die Konten bleiben, ohne Verbindung; der Bereich ist leer und unsichtbar
+  await expect(fintsZeilen()).toHaveCount(0);
   await expect(abruf()).toBeHidden();
+  await gehe(page, "/bank?konto=alle&filter=alle");
   await expect(page.getByText("RE-2026-0050").first()).toBeVisible();
+  await gehe(page, "/bank/verbindungen");
 });
 
 test("erneut verbinden, bei der Wahl des TAN-Verfahrens abgebrochen: die bisherige Verbindung bleibt, wie sie ist", async () => {
@@ -346,15 +382,14 @@ test("erneut verbinden, bei der Wahl des TAN-Verfahrens abgebrochen: die bisheri
   await kontenwahl().getByRole("button", { name: "Weiter" }).click();
   await expect(abruf().getByText(/^Testbank verbunden/)).toBeVisible();
   const ids = await verbindungsIds();
-  const zuletzt = abruf().getByText(/^Zuletzt abgerufen/);
-  const vorher = (await zuletzt.textContent())!;
+  const vorher = (await zuletzt(zeile("Testbank")).textContent())!;
 
   await fintsVerbinden();
   await zugangEingeben();
   await freigabe().getByRole("button", { name: "Abbrechen" }).click();
   await expect(freigabe()).toHaveCount(0);
   await expect(page.getByRole("form", { name: "Über FinTS verbinden" })).toHaveCount(0);
-  await expect(zuletzt).toHaveText(vorher);
+  await expect(zuletzt(zeile("Testbank"))).toHaveText(vorher);
   expect(await verbindungsIds()).toEqual(ids);
 });
 
@@ -370,7 +405,8 @@ test("erneut verbinden, bei der TAN für die Umsätze abgebrochen: „Trennen“
   // (#1614)
   await expect(freigabe().getByLabel("TAN", { exact: true })).toBeVisible();
   expect(await verbindungsIds()).toEqual(ids);
-  await expect(abruf().getByRole("button", { name: "Trennen" })).toBeDisabled();
+  await expect(await punkt(zeile("Testbank"), "Trennen")).toBeDisabled();
+  await zu();
   // Das Formular schließt erst nach dem Neuladen, auch wenn die Seite langsam lädt; „Trennen“ danach findet die Verbindung
   const neuLaden = (url: URL) => url.pathname.startsWith("/_serverFn/");
   await page.route(neuLaden, async (route) => {
@@ -379,15 +415,16 @@ test("erneut verbinden, bei der TAN für die Umsätze abgebrochen: „Trennen“
     await route.continue();
   });
   await freigabe().getByRole("button", { name: "Abbrechen" }).click();
-  await expect(abruf().getByRole("button", { name: "Trennen" })).toBeDisabled();
+  await expect(await punkt(zeile("Testbank"), "Trennen")).toBeDisabled();
+  await zu();
   await expect(freigabe()).toHaveCount(0);
-  await abruf().getByRole("button", { name: "Trennen" }).click();
+  await (await punkt(zeile("Testbank"), "Trennen")).click();
   await bestaetigen(page, "Trennen");
-  // Ohne Verbindung am Konto bleibt der Bereich leer und unsichtbar
-  await expect(abruf().locator(".history-row")).toHaveCount(0);
+  // Ohne Verbindung bleibt der Bereich leer und unsichtbar
+  await expect(fintsZeilen()).toHaveCount(0);
   await expect(abruf()).toBeHidden();
   await page.unrouteAll({ behavior: "wait" });
-  await expect(abruf().getByText("Verbindung nicht gefunden.")).toHaveCount(0);
+  await expect(page.getByText("Verbindung nicht gefunden.")).toHaveCount(0);
   bank.zustand.scaBeiUmsaetzen = false;
 });
 
@@ -409,7 +446,8 @@ test("erneut verbinden, während die Bank wartet, mit „Abbrechen“ im Schritt
   await expect(freigabe().getByLabel("TAN-Verfahren")).toBeVisible();
   await freigabe().getByRole("button", { name: "Abbrechen" }).click();
   await expect(freigabe()).toHaveCount(0);
-  await expect(abruf().getByRole("button", { name: "Trennen" })).toBeEnabled();
+  await expect(await punkt(zeile("Testbank"), "Trennen")).toBeEnabled();
+  await zu();
   expect(await verbindungsIds()).toEqual(ids);
 
   // Nach dem Speichern des Zugangs, bei der TAN für die Umsätze: Die ID bleibt (#1617), und „Trennen“ trennt die Verbindung,
@@ -432,13 +470,13 @@ test("erneut verbinden, während die Bank wartet, mit „Abbrechen“ im Schritt
   );
   await freigabe().getByRole("button", { name: "Abbrechen" }).click();
   await expect(freigabe()).toHaveCount(0);
-  await abruf().getByRole("button", { name: "Trennen" }).click();
+  await (await punkt(zeile("Testbank"), "Trennen")).click();
   await bestaetigen(page, "Trennen");
-  // Ohne Verbindung am Konto bleibt der Bereich leer und unsichtbar
-  await expect(abruf().locator(".history-row")).toHaveCount(0);
+  // Ohne Verbindung bleibt der Bereich leer und unsichtbar
+  await expect(fintsZeilen()).toHaveCount(0);
   await expect(abruf()).toBeHidden();
   await page.unrouteAll({ behavior: "wait" });
-  await expect(abruf().getByText("Verbindung nicht gefunden.")).toHaveCount(0);
+  await expect(page.getByText("Verbindung nicht gefunden.")).toHaveCount(0);
   bank.zustand.scaBeiUmsaetzen = false;
 });
 
@@ -454,14 +492,14 @@ test("FinTS im Dialog „Wie verbinden?“ ist gesperrt, solange an einer Zeile 
 
   // Sonst ersetzte der Schritt beim Verbinden den an der Zeile, ohne dass Haben den Vorgang bei der Bank verwirft
   bank.zustand.scaBeiUmsaetzen = true;
-  await abruf().getByRole("button", { name: "Jetzt abrufen" }).click();
+  await abrufKnopf(zeile("Testbank")).click();
   await expect(tan).toBeVisible();
   await fintsWahl(grund);
   await freigabe().getByRole("button", { name: "Abbrechen" }).click();
   await expect(freigabe()).toHaveCount(0);
   await fintsWahl(null);
 
-  await abruf().getByRole("button", { name: "Jetzt abrufen" }).click();
+  await abrufKnopf(zeile("Testbank")).click();
   await expect(tan).toBeVisible();
   await fintsWahl(grund);
   await tan.fill("123456");
@@ -485,44 +523,40 @@ test("„Jetzt abrufen“ und „Zugang ändern“ sind gesperrt, solange oben �
   const status = async (s: "aktiv" | "fehler") => {
     await sql`update fints_connections set status = ${s}, last_error = ${s === "fehler" ? "Abruf fehlgeschlagen: PIN ungültig. (9942)" : null}`;
   };
-  const jetzt = abruf().getByRole("button", { name: "Jetzt abrufen" });
-  const zugang = abruf().getByRole("button", { name: "Zugang ändern" });
-  const trennen = abruf().getByRole("button", { name: "Trennen" });
+  const z = zeile("Testbank");
   const form = page.getByRole("form", { name: "Über FinTS verbinden" });
   const sobald = "gehen wieder, sobald das Verbinden über FinTS oben fertig oder abgebrochen ist.";
   const grund = `„Zugang ändern“ und „Jetzt abrufen“ ${sobald}`;
   try {
     await status("fehler");
-    await gehe(page, "/bank");
+    await gehe(page, "/bank/verbindungen");
     await fintsVerbinden();
     await expect(form).toBeVisible();
-    await expect(jetzt).toBeDisabled();
-    await expect(zugang).toBeDisabled();
-    await expect(trennen).toBeEnabled();
-    await expect(abruf().getByText(grund)).toBeVisible();
-    await expect(jetzt).toHaveAccessibleDescription(grund);
-    await expect(zugang).toHaveAccessibleDescription(grund);
+    await knoepfeStand(z, true, grund, ["Zugang ändern", "Jetzt abrufen"]);
+    // Auch der Knopf zum Status („Fehlgeschlagen“) am Ende der Zeile
+    await expect(z.getByRole("button", { name: "Zugang ändern" })).toBeDisabled();
+    await expect(z.getByRole("button", { name: "Zugang ändern" })).toHaveAccessibleDescription(grund);
+    await expect(await punkt(z, "Trennen")).toBeEnabled();
+    await zu();
+    await expect(z.getByText(grund)).toBeVisible();
     await form.getByRole("button", { name: "Abbrechen" }).click();
-    await expect(jetzt).toBeEnabled();
-    await expect(zugang).toBeEnabled();
-    await expect(abruf().getByText(grund)).toHaveCount(0);
+    await knoepfeStand(z, false, "", ["Zugang ändern", "Jetzt abrufen"]);
+    await expect(page.getByText(grund)).toHaveCount(0);
 
     // Auch das Formular aus „Zugang ändern“ und der Schritt der Bank beim Verbinden; dort ist auch „Trennen“ gesperrt
-    await zugang.click();
+    await z.getByRole("button", { name: "Zugang ändern" }).click();
     await expect(form.getByLabel("Bankleitzahl")).toHaveValue("12030000");
-    await expect(jetzt).toBeDisabled();
-    await expect(jetzt).toHaveAccessibleDescription(grund);
+    await expect(abrufKnopf(z)).toBeDisabled();
+    await expect(abrufKnopf(z)).toHaveAccessibleDescription(grund);
     await form.getByLabel("PIN").fill("12345");
     await form.getByRole("button", { name: "Verbinden" }).click();
     await expect(freigabe().getByLabel("TAN-Verfahren")).toBeVisible();
     const alle = `„Trennen“, „Zugang ändern“ und „Jetzt abrufen“ ${sobald}`;
-    await expect(trennen).toBeDisabled();
-    await expect(trennen).toHaveAccessibleDescription(alle);
-    await expect(jetzt).toHaveAccessibleDescription(alle);
+    await knoepfeStand(z, true, alle, ["Trennen", "Jetzt abrufen"]);
     await freigabe().getByRole("button", { name: "Abbrechen" }).click();
     await expect(freigabe()).toHaveCount(0);
-    await expect(jetzt).toBeEnabled();
-    await expect(abruf().getByText(alle)).toHaveCount(0);
+    await expect(abrufKnopf(z)).toBeEnabled();
+    await expect(page.getByText(alle)).toHaveCount(0);
   } finally {
     await status("aktiv");
     await sql.end();
@@ -531,7 +565,7 @@ test("„Jetzt abrufen“ und „Zugang ändern“ sind gesperrt, solange oben �
 
 test("FinTS im Dialog „Wie verbinden?“ ist gesperrt, solange eine Zeile „Rufe ab …“ zeigt", async () => {
   // Sonst ersetzte ein Schritt beim Verbinden den, mit dem die Bank auf den Abruf antwortet (#1660)
-  await gehe(page, "/bank");
+  await gehe(page, "/bank/verbindungen");
   const grund = "„Über FinTS verbinden“ geht wieder, sobald der Abruf für Testbank fertig ist.";
   let loslassen!: () => void;
   const gehalten = new Promise<void>((fertig) => {
@@ -546,8 +580,9 @@ test("FinTS im Dialog „Wie verbinden?“ ist gesperrt, solange eine Zeile „R
     },
   );
   try {
-    await abruf().getByRole("button", { name: "Jetzt abrufen" }).click();
-    await expect(abruf().getByRole("button", { name: "Rufe ab …" })).toBeDisabled();
+    await abrufKnopf(zeile("Testbank")).click();
+    await expect(abrufKnopf(zeile("Testbank"))).toBeDisabled();
+    await expect(abrufKnopf(zeile("Testbank"))).toHaveAttribute("title", "Rufe ab …");
     await fintsWahl(grund);
   } finally {
     loslassen();
@@ -557,16 +592,6 @@ test("FinTS im Dialog „Wie verbinden?“ ist gesperrt, solange eine Zeile „R
   await fintsWahl(null);
 });
 
-/** Zeile einer Verbindung im Bereich „Automatischer Abruf“, am Namen der Bank */
-const zeile = (bankName: string) =>
-  abruf()
-    .locator(".history-row")
-    .filter({ has: page.getByText(bankName, { exact: true }) });
-
-/** Karten der Konten beider Banken; im Bereich steht die Verbindung des gewählten Kontos (#1951) */
-const TESTBANK_GIRO = /^Testbank Girokonto …2051/;
-const ZWEITBANK = /^Zweitbank/;
-
 test("zweite Verbindung über FinTS zu einer anderen Bank", async () => {
   zweit = await startFintsTestbank({
     produktId: FINTS_PRODUKT_E2E,
@@ -575,18 +600,15 @@ test("zweite Verbindung über FinTS zu einer anderen Bank", async () => {
     konten: [{ iban: ZWEIT_GIRO, nummer: "5407324924", name: "Geschäftskonto" }],
     umsaetze: { [ZWEIT_GIRO]: [] },
   });
-  await gehe(page, "/bank");
+  await gehe(page, "/bank/verbindungen");
   await fintsVerbinden();
   await zugangEingeben("12345", zweit, ZWEIT_BLZ);
   await freigabe().getByLabel("TAN-Verfahren").selectOption({ label: "chipTAN manuell" });
   await freigabe().getByRole("button", { name: "Weiter" }).click();
   await expect(abruf().getByText(/^Zweitbank verbunden/)).toBeVisible();
-  // Gewählt bleibt das Konto der Testbank: Nur ihre Verbindung steht im Bereich, die der Zweitbank an deren Konto
+  // Beide Verbindungen stehen in der Tabelle, jede an ihren Konten
   await expect(zeile("Testbank")).toBeVisible();
-  await expect(zeile("Zweitbank")).toHaveCount(0);
-  await kontoWaehlen(ZWEITBANK);
   await expect(zeile("Zweitbank")).toBeVisible();
-  await expect(zeile("Testbank")).toHaveCount(0);
 });
 
 test("Formular oben offen bei zwei Verbindungen: jede Zeile nennt den Grund einmal", async () => {
@@ -594,61 +616,50 @@ test("Formular oben offen bei zwei Verbindungen: jede Zeile nennt den Grund einm
   const form = page.getByRole("form", { name: "Über FinTS verbinden" });
   await fintsVerbinden();
   await expect(form).toBeVisible();
-  // Das Formular bleibt offen, während die Karte das Konto wechselt
-  for (const [name, karte] of [
-    ["Zweitbank", ZWEITBANK],
-    ["Testbank", TESTBANK_GIRO],
-  ] as const) {
-    await kontoWaehlen(karte);
-    await expect(form).toBeVisible();
-    await expect(zeile(name).getByText(/wieder, sobald/)).toHaveText(grund);
-    await expect(zeile(name).getByRole("button", { name: "Zugang ändern" })).toHaveAccessibleDescription(grund);
-    await expect(zeile(name).getByRole("button", { name: "Jetzt abrufen" })).toHaveAccessibleDescription(grund);
+  const zeilen = await fintsZeilen().count();
+  expect(zeilen).toBeGreaterThan(1);
+  for (let i = 0; i < zeilen; i++) {
+    const z = fintsZeilen().nth(i);
+    await expect(z.getByText(/wieder, sobald/)).toHaveText(grund);
+    await knoepfeStand(z, true, grund, ["Zugang ändern", "Jetzt abrufen"]);
   }
+  // Die IDs der Gründe sind je Zeile eigen, auch bei zwei Konten derselben Verbindung
+  expect(await axeVerstoesse(page), "Gründe an mehreren Zeilen").toEqual([]);
   await form.getByRole("button", { name: "Abbrechen" }).click();
-  await expect(abruf().getByText(/wieder, sobald/)).toHaveCount(0);
+  await expect(banken().getByText(/wieder, sobald/)).toHaveCount(0);
 });
 
 test("Ist an einer Zeile ein Schritt der Bank offen, nennen die übrigen den Grund ihrer gesperrten Knöpfe", async () => {
-  // Ein zweiter Schritt ersetzte den offenen, ohne dass Haben den Vorgang bei der Bank verwirft (#1662). Die Zeile mit dem
-  // offenen Schritt bleibt im Bereich, auch wenn ein anderes Konto gewählt ist
+  // Ein zweiter Schritt ersetzte den offenen, ohne dass Haben den Vorgang bei der Bank verwirft (#1662). Der Schritt steht
+  // im Bereich über der Tabelle und nennt seine Bank
   const oben = zeile("Zweitbank");
   const unten = zeile("Testbank");
   const grund = "„Trennen“, „Zugang ändern“ und „Jetzt abrufen“ gehen wieder, sobald die Freigabe für Testbank gesendet oder abgebrochen ist.";
-  const tan = unten.getByLabel("TAN", { exact: true });
-  const abrufenUndWechseln = async () => {
-    await kontoWaehlen(TESTBANK_GIRO);
-    await unten.getByRole("button", { name: "Jetzt abrufen" }).click();
-    await expect(tan).toBeVisible();
-    await kontoWaehlen(ZWEITBANK);
-    await expect(tan).toBeVisible();
-  };
+  const tan = freigabe().getByLabel("TAN", { exact: true });
   const gesperrtMitGrund = async () => {
     await expect(oben.getByText(grund)).toBeVisible();
-    for (const knopf of ["Trennen", "Zugang ändern", "Jetzt abrufen"]) {
-      await expect(oben.getByRole("button", { name: knopf })).toBeDisabled();
-      await expect(oben.getByRole("button", { name: knopf })).toHaveAccessibleDescription(grund);
-    }
-    // Die Zeile mit dem Schritt hat das Formular direkt unter sich
+    await knoepfeStand(oben, true, grund);
+    // Die Zeile mit dem Schritt nennt keinen Grund; ihr Schritt steht im Bereich
     await expect(unten.getByText(/wieder, sobald/)).toHaveCount(0);
-    await expect(unten.getByRole("button", { name: "Trennen" })).toHaveAccessibleDescription("");
+    await expect(await punkt(unten, "Trennen")).toHaveAccessibleDescription("");
+    await zu();
+    await expect(abruf().getByRole("region", { name: "FinTS: Testbank" })).toBeVisible();
   };
   const freiOhneGrund = async () => {
-    await expect(abruf().getByText(grund)).toHaveCount(0);
-    for (const knopf of ["Trennen", "Zugang ändern", "Jetzt abrufen"]) {
-      await expect(oben.getByRole("button", { name: knopf })).toBeEnabled();
-      await expect(oben.getByRole("button", { name: knopf })).toHaveAccessibleDescription("");
-    }
+    await expect(banken().getByText(grund)).toHaveCount(0);
+    await knoepfeStand(oben, false, "");
   };
 
   bank.zustand.scaBeiUmsaetzen = true;
-  await abrufenUndWechseln();
+  await abrufKnopf(unten).click();
+  await expect(tan).toBeVisible();
   await gesperrtMitGrund();
   await freigabe().getByRole("button", { name: "Abbrechen" }).click();
   await expect(freigabe()).toHaveCount(0);
   await freiOhneGrund();
 
-  await abrufenUndWechseln();
+  await abrufKnopf(unten).click();
+  await expect(tan).toBeVisible();
   await gesperrtMitGrund();
   await tan.fill("123456");
   await freigabe().getByRole("button", { name: "TAN senden" }).click();
@@ -658,11 +669,10 @@ test("Ist an einer Zeile ein Schritt der Bank offen, nennen die übrigen den Gru
 
 test("Zeigt eine Zeile „Rufe ab …“, nennen die übrigen den Grund ihrer gesperrten Knöpfe", async () => {
   // Die Bank kann auf den Abruf mit einem Schritt antworten, der sonst einen anderen ersetzte (#1662); mit „Zugang ändern“
-  // an einer Verbindung mit Fehler. Die Zeile mit dem laufenden Abruf bleibt im Bereich, auch bei einem anderen Konto
+  // an einer Verbindung mit Fehler
   const sql = postgres(databaseUrlFuer("fints-abruf"), { max: 1, onnotice: () => {} });
   const oben = zeile("Zweitbank");
   const unten = zeile("Testbank");
-  const knoepfe = ["Trennen", "Zugang ändern", "Jetzt abrufen"];
   const grund = "„Trennen“, „Zugang ändern“ und „Jetzt abrufen“ gehen wieder, sobald der Abruf für Testbank fertig ist.";
   let loslassen!: () => void;
   const gehalten = new Promise<void>((fertig) => {
@@ -670,10 +680,9 @@ test("Zeigt eine Zeile „Rufe ab …“, nennen die übrigen den Grund ihrer ge
   });
   try {
     await sql`update fints_connections set status = 'fehler', last_error = 'Abruf fehlgeschlagen: PIN ungültig. (9942)' where bank_name = 'Zweitbank'`;
-    await gehe(page, "/bank");
-    await kontoWaehlen(ZWEITBANK);
-    await expect(oben.getByRole("button", { name: "Zugang ändern" })).toBeEnabled();
-    await kontoWaehlen(TESTBANK_GIRO);
+    await gehe(page, "/bank/verbindungen");
+    await expect(await punkt(oben, "Zugang ändern")).toBeEnabled();
+    await zu();
     await page.route(
       (url) => url.pathname.startsWith("/_serverFn/"),
       async (route) => {
@@ -683,38 +692,24 @@ test("Zeigt eine Zeile „Rufe ab …“, nennen die übrigen den Grund ihrer ge
       },
     );
     try {
-      await unten.getByRole("button", { name: "Jetzt abrufen" }).click();
-      await expect(unten.getByRole("button", { name: "Rufe ab …" })).toBeDisabled();
-      await kontoWaehlen(ZWEITBANK);
-      await expect(unten.getByRole("button", { name: "Rufe ab …" })).toBeDisabled();
+      await abrufKnopf(unten).click();
+      await expect(abrufKnopf(unten)).toBeDisabled();
+      await expect(abrufKnopf(unten)).toHaveAttribute("title", "Rufe ab …");
       await expect(oben.getByText(grund)).toBeVisible();
-      for (const knopf of knoepfe) {
-        await expect(oben.getByRole("button", { name: knopf })).toBeDisabled();
-        await expect(oben.getByRole("button", { name: knopf })).toHaveAccessibleDescription(grund);
-      }
+      await knoepfeStand(oben, true, grund);
       await expect(unten.getByText(/wieder, sobald/)).toHaveCount(0);
     } finally {
       loslassen();
       await page.unrouteAll({ behavior: "wait" });
     }
     await expect(abruf().getByText(/^Testbank, \d+ neue Umsätze\.$/)).toBeVisible();
-    await expect(abruf().getByText(grund)).toHaveCount(0);
-    for (const knopf of knoepfe) {
-      await expect(oben.getByRole("button", { name: knopf })).toBeEnabled();
-      await expect(oben.getByRole("button", { name: knopf })).toHaveAccessibleDescription("");
-    }
+    await expect(banken().getByText(grund)).toHaveCount(0);
+    await knoepfeStand(oben, false, "");
   } finally {
     await sql`update fints_connections set status = 'aktiv', last_error = null where bank_name = 'Zweitbank'`;
     await sql.end();
   }
 });
-
-/** Zeile einer Verbindung, an der Endung der IBAN ihres ersten Kontos; zwei Verbindungen heißen „Testbank“ (#1677) */
-const zeileMitKonto = (endung: string) =>
-  abruf()
-    .locator(".history-row")
-    .filter({ has: page.getByText(`Girokonto …${endung}`) });
-const DRITTBANK_GIRO = /^Testbank Girokonto …3001/;
 
 test("zweite Verbindung zu einer Bank mit demselben Namen", async () => {
   dritt = await startFintsTestbank({
@@ -724,16 +719,14 @@ test("zweite Verbindung zu einer Bank mit demselben Namen", async () => {
     konten: [{ iban: DRITT_GIRO, nummer: "0532013001", name: "Girokonto" }],
     umsaetze: { [DRITT_GIRO]: [] },
   });
-  await gehe(page, "/bank");
+  await gehe(page, "/bank/verbindungen");
   await fintsVerbinden();
   await zugangEingeben("12345", dritt, DRITT_BLZ);
   await freigabe().getByLabel("TAN-Verfahren").selectOption({ label: "chipTAN manuell" });
   await freigabe().getByRole("button", { name: "Weiter" }).click();
   await expect(abruf().getByText(/^Testbank verbunden/)).toBeVisible();
-  await expect(zeileMitKonto("2051")).toContainText("Testbank");
-  await kontoWaehlen(DRITTBANK_GIRO);
-  await expect(abruf().locator(".history-row")).toHaveCount(1);
-  await expect(zeileMitKonto("3001")).toContainText("Testbank");
+  await expect(zeileMitKonto("2051")).toContainText("Testbank (FinTS)");
+  await expect(zeileMitKonto("3001")).toContainText("Testbank (FinTS)");
 });
 
 test("Heißen zwei Verbindungen gleich, nennt der Grund die wartende mit der Endung ihrer IBAN", async () => {
@@ -741,37 +734,27 @@ test("Heißen zwei Verbindungen gleich, nennt der Grund die wartende mit der End
   const sobald = "sobald die Freigabe für Testbank …2051 gesendet oder abgebrochen ist.";
   const grund = `„Trennen“, „Zugang ändern“ und „Jetzt abrufen“ gehen wieder, ${sobald}`;
   bank.zustand.scaBeiUmsaetzen = true;
-  await kontoWaehlen(TESTBANK_GIRO);
-  await wartend.getByRole("button", { name: "Jetzt abrufen" }).click();
-  await expect(wartend.getByLabel("TAN", { exact: true })).toBeVisible();
-  for (const [z, karte] of [
-    [zeileMitKonto("3001"), DRITTBANK_GIRO],
-    [zeile("Zweitbank"), ZWEITBANK],
-  ] as const) {
-    await kontoWaehlen(karte);
+  await abrufKnopf(wartend).click();
+  await expect(freigabe().getByLabel("TAN", { exact: true })).toBeVisible();
+  for (const z of [zeileMitKonto("3001"), zeile("Zweitbank")]) {
     await expect(z.getByText(/wieder, sobald/)).toHaveText(grund);
-    await expect(z.getByRole("button", { name: "Zugang ändern" })).toHaveAccessibleDescription(grund);
-    await expect(z.getByRole("button", { name: "Jetzt abrufen" })).toHaveAccessibleDescription(grund);
+    await knoepfeStand(z, true, grund, ["Zugang ändern", "Jetzt abrufen"]);
   }
   await fintsWahl(`„Über FinTS verbinden“ geht wieder, ${sobald}`);
   await freigabe().getByRole("button", { name: "Abbrechen" }).click();
   await expect(freigabe()).toHaveCount(0);
-  await expect(abruf().getByText(/wieder, sobald/)).toHaveCount(0);
+  await expect(banken().getByText(/wieder, sobald/)).toHaveCount(0);
   bank.zustand.scaBeiUmsaetzen = false;
 });
 
 test("Läuft „Trennen“ an einer Zeile, nennen die übrigen den Grund ihrer gesperrten Knöpfe", async () => {
   const trennt = zeileMitKonto("3001");
-  const uebrige = [
-    [zeile("Zweitbank"), ZWEITBANK],
-    [zeileMitKonto("2051"), TESTBANK_GIRO],
-  ] as const;
+  const uebrige = [zeile("Zweitbank"), zeileMitKonto("2051")];
   const grund = "„Trennen“, „Zugang ändern“ und „Jetzt abrufen“ gehen wieder, sobald die Verbindung zu Testbank …3001 getrennt ist.";
   let loslassen!: () => void;
   const gehalten = new Promise<void>((fertig) => {
     loslassen = fertig;
   });
-  await kontoWaehlen(DRITTBANK_GIRO);
   await page.route(
     (url) => url.pathname.startsWith("/_serverFn/"),
     async (route) => {
@@ -781,19 +764,15 @@ test("Läuft „Trennen“ an einer Zeile, nennen die übrigen den Grund ihrer g
     },
   );
   try {
-    await trennt.getByRole("button", { name: "Trennen" }).click();
+    await (await punkt(trennt, "Trennen")).click();
     await bestaetigen(page, "Trennen");
-    // Die Zeile selbst zeigt, was läuft, wie „Rufe ab …“ beim Abruf; sie bleibt im Bereich, auch bei einem anderen Konto
-    await expect(trennt.getByRole("button", { name: "Trenne …" })).toBeDisabled();
+    // Die Zeile selbst zeigt, was läuft, wie „Rufe ab …“ beim Abruf
+    await expect(await punkt(trennt, "Trenne …")).toBeDisabled();
+    await zu();
     await expect(trennt.getByText(/wieder, sobald/)).toHaveCount(0);
-    for (const [z, karte] of uebrige) {
-      await kontoWaehlen(karte);
-      await expect(trennt.getByRole("button", { name: "Trenne …" })).toBeDisabled();
+    for (const z of uebrige) {
       await expect(z.getByText(/wieder, sobald/)).toHaveText(grund);
-      for (const knopf of ["Trennen", "Zugang ändern", "Jetzt abrufen"]) {
-        await expect(z.getByRole("button", { name: knopf })).toBeDisabled();
-        await expect(z.getByRole("button", { name: knopf })).toHaveAccessibleDescription(grund);
-      }
+      await knoepfeStand(z, true, grund);
     }
     // Neu verbinden stört das Trennen nicht und bleibt frei
     await fintsWahl(null);
@@ -802,19 +781,13 @@ test("Läuft „Trennen“ an einer Zeile, nennen die übrigen den Grund ihrer g
     await page.unrouteAll({ behavior: "wait" });
   }
   await expect(trennt).toHaveCount(0);
-  await expect(abruf().getByText(/wieder, sobald/)).toHaveCount(0);
-  for (const [z, karte] of uebrige) {
-    await kontoWaehlen(karte);
-    for (const knopf of ["Trennen", "Zugang ändern", "Jetzt abrufen"]) {
-      await expect(z.getByRole("button", { name: knopf })).toBeEnabled();
-      await expect(z.getByRole("button", { name: knopf })).toHaveAccessibleDescription("");
-    }
-  }
+  await expect(banken().getByText(/wieder, sobald/)).toHaveCount(0);
+  for (const z of uebrige) await knoepfeStand(z, false, "");
 });
 
-test("Eine Verbindung über Enable Banking ohne Konto in der Leiste bleibt sichtbar und lässt sich trennen (Review #1951)", async () => {
+test("Eine Verbindung über Enable Banking ohne Konto bleibt sichtbar und lässt sich trennen (Review #1951)", async () => {
   // Bestätigt die Bank die Freigabe nicht oder gibt kein Euro-Konto mit IBAN frei, steht die Verbindung ohne Konto auf
-  // „Fehler“ (bank-sync.ts). Ohne Karte, die sie wählt, muss sie trotzdem mit Fehler und „Trennen“ zu sehen sein
+  // „Fehler“ (bank-sync.ts). Ohne Konto in der Leiste steht sie trotzdem mit Fehler und „Trennen“ in der Tabelle
   const sql = postgres(databaseUrlFuer("fints-abruf"), { max: 1, onnotice: () => {} });
   const fehler = "Die Bank hat kein Konto mit IBAN freigegeben.";
   try {
@@ -826,13 +799,12 @@ test("Eine Verbindung über Enable Banking ohne Konto in der Leiste bleibt sicht
   } finally {
     await sql.end();
   }
-  await gehe(page, "/bank");
-  const leer = abruf()
-    .locator(".history-row")
-    .filter({ has: page.getByText("Leerbank", { exact: true }) });
+  await gehe(page, "/bank/verbindungen");
+  const leer = banken().locator("tbody tr").filter({ hasText: "Leerbank" });
   await expect(leer).toBeVisible();
+  await expect(leer).toContainText("Abruf · kein Konto in Haben");
   await expect(leer.getByText(fehler)).toBeVisible();
-  await leer.getByRole("button", { name: "Trennen" }).click();
+  await (await punkt(leer, "Trennen")).click();
   await bestaetigen(page, "Trennen");
   await expect(leer).toHaveCount(0);
 });

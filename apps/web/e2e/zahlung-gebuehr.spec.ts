@@ -49,6 +49,12 @@ test("Einrichtung mit einer festgeschriebenen Rechnung und einem Stripe-Konto mi
   await page
     .locator('input[type=file][aria-label="Kontoauszugsdateien"]')
     .setInputFiles([{ name: "stripe.csv", mimeType: "text/csv", buffer: Buffer.from(csv) }]);
+  // Der Export nennt kein Konto: die Meldung fragt danach, vorgewählt ist das eben angelegte (#1951)
+  const nachfrage = page.getByRole("form", { name: "Konto für stripe.csv" });
+  await expect(page.getByText("stripe.csv: Export eines Zahlungsdienstleisters. Wähle das Konto des Dienstleisters.")).toBeVisible({ timeout: 30_000 });
+  await expect(nachfrage.getByLabel("Konto")).toHaveValue(/.+/);
+  await expect(nachfrage.getByLabel("Konto").locator("option:checked")).toHaveText("Stripe");
+  await nachfrage.getByRole("button", { name: "Importieren" }).click();
   await expect(page.getByText(/4 neue Umsätze für Stripe/)).toBeVisible({ timeout: 30_000 });
 });
 

@@ -8,7 +8,7 @@ import { AbrufSchritt, EinstellungenSchritt, type Pruefung, Schrittleiste, useSp
 
 /*
  * Geführte Einrichtung eines Zahlungsdienstleisters (#1951): „Konto verbinden › Zahlungsdienstleister hinzufügen“ auf der
- * Bankseite führt hierher. Die Schritte nennt der Adapter (#1729); Stripe und PayPal haben drei: Zugang, Name und Zeitraum,
+ * Bankseite oder der Seite Verbindungen führt hierher. Die Schritte nennt der Adapter (#1729); Stripe und PayPal haben drei: Zugang, Name und Zeitraum,
  * erster Abruf. Der Zugang bleibt bis zum Speichern im Browser; neu laden beginnt von vorn.
  */
 
@@ -27,7 +27,7 @@ function EinrichtungPage() {
       <div className="page-head">
         <div>
           <div className="eyebrow">
-            {menueGruppe("/bank")} › <Link to="/bank">Bank</Link>
+            {menueGruppe("/bank/verbindungen")} › <Link to="/bank/verbindungen">Verbindungen</Link>
           </div>
           <h1>{anbieter ? `${anbieter.name} verbinden` : "Zahlungsdienstleister verbinden"}</h1>
         </div>
@@ -37,7 +37,7 @@ function EinrichtungPage() {
       ) : (
         <section className="card">
           <p style={{ margin: 0 }}>
-            Für „{provider}“ holt Haben keine Umsätze über die Schnittstelle. <Link to="/bank">Zur Bank</Link>
+            Für „{provider}“ holt Haben keine Umsätze über die Schnittstelle. <Link to="/bank/verbindungen">Zu den Verbindungen</Link>
           </p>
         </section>
       )}

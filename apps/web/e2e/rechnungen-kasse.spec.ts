@@ -435,7 +435,8 @@ test("Lastschriftdatei: fällige Rechnung wählen, pain.008 herunterladen, danac
   await kontoForm.getByRole("textbox", { name: "Name" }).fill("Girokonto");
   await kontoForm.getByRole("textbox", { name: "IBAN" }).fill("DE89 3704 0044 0532 0130 00");
   await kontoForm.getByRole("button", { name: "Konto anlegen" }).click();
-  await expect(page.getByRole("combobox", { name: "Konto" }).locator("option", { hasText: "Girokonto" })).toHaveCount(1);
+  // Das neue Konto ist gewählt: seine Karte steht in der Leiste (#1951)
+  await expect(page.getByRole("navigation", { name: "Konten" }).getByRole("link", { name: /^Girokonto/ })).toHaveAttribute("aria-current", "page");
 
   await go("/lastschriften");
   const form = page.getByRole("form", { name: "SEPA-Lastschrift erzeugen" });

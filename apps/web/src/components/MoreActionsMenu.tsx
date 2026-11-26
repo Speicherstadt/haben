@@ -6,6 +6,10 @@ export type ActionMenuItem = {
   label: string;
   icon?: IconName;
   disabled?: boolean;
+  /** Linie davor, etwa vor „Alle Verbindungen“ am Ende des Menüs einer Karte */
+  trenner?: boolean;
+  /** ID eines Satzes, der den Punkt beschreibt, etwa warum er gerade gesperrt ist */
+  beschreibung?: string;
   onSelect: () => void;
 };
 
@@ -25,11 +29,17 @@ export function MoreActionsMenu({
   text,
   items,
   triggerRef,
+  primary = false,
+  ghost = false,
 }: {
   label?: string;
   text?: string;
   items: ActionMenuItem[];
   triggerRef?: RefObject<HTMLButtonElement | null>;
+  /** Auslöser mit Text als Hauptaktion des Kopfs („Konto verbinden ▾“, #1951) */
+  primary?: boolean;
+  /** Auslöser ohne Rahmen, etwa `⋯` auf einer Karte oder am Ende einer Zeile */
+  ghost?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [initialFocus, setInitialFocus] = useState<"first" | "last">("first");
@@ -99,7 +109,7 @@ export function MoreActionsMenu({
       <button
         ref={setTriggerRef}
         type="button"
-        className={text ? "btn" : "btn btn-icon"}
+        className={`btn${text ? "" : " btn-icon"}${primary ? " btn-primary" : ""}${ghost ? " btn-ghost" : ""}`}
         aria-label={text ? undefined : label}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -121,13 +131,15 @@ export function MoreActionsMenu({
       </button>
       {open && (
         <div ref={menu} id={menuId} role="menu" aria-label={text ?? label} className="split-menu" onKeyDown={onMenuKey}>
-          {items.map((item) => (
+          {items.map((item) => [
+            item.trenner && <hr key={`${item.key}-trenner`} className="split-menu-trenner" />,
             <button
               key={item.key}
               type="button"
               role="menuitem"
               tabIndex={-1}
               disabled={item.disabled}
+              aria-describedby={item.beschreibung}
               onClick={() => {
                 closeMenu(true);
                 item.onSelect();
@@ -135,8 +147,8 @@ export function MoreActionsMenu({
             >
               {item.icon && <Icon name={item.icon} size={16} />}
               <span>{item.label}</span>
-            </button>
-          ))}
+            </button>,
+          ])}
         </div>
       )}
     </div>

@@ -2,18 +2,25 @@ import { formatEuro } from "@haben/core";
 import { Link } from "@tanstack/react-router";
 import { type ReactNode, type RefObject, useCallback, useEffect, useId, useRef, useState } from "react";
 import { Icon } from "../../components/Icon.tsx";
+import { type ActionMenuItem, MoreActionsMenu } from "../../components/MoreActionsMenu.tsx";
 import { Status } from "../../components/Status.tsx";
 import type { Kontokarte } from "../../lib/kontenkarten.ts";
 import type { Data } from "./-bank-daten.ts";
 
 /*
- * Kartenleiste der Konten auf der Bankseite (#1951): alle Konten als Karten in einer Zeile, seitlich rollbar, in Gruppen.
- * Unter 1100 px dieselben Konten als schmale Zeile aus Chips, die unter dem Seitenkopf stehen bleibt (bank.css). Beide
- * stehen im Dokument, CSS zeigt eine; die verborgene ist weder per Tab noch für Screenreader erreichbar.
+ * Kartenleiste der Konten auf der Bankseite (#1951): alle Konten als Karten in einer Zeile, seitlich rollbar, in Gruppen,
+ * jede mit `⋯` für Abruf, Name und Zweck und Verbindung. Unter 1100 px dieselben Konten als schmale Zeile kleiner Karten,
+ * die unter dem Seitenkopf stehen bleibt (bank.css). Beide stehen im Dokument, CSS zeigt eine; die verborgene ist weder per
+ * Tab noch für Screenreader erreichbar.
  */
 
 type Filter = "offen" | "zugeordnet" | "alle" | "vorschlag";
-type Props = { data: Pick<Data, "karten" | "accountId" | "allAccounts">; filter: Filter };
+type Props = {
+  data: Pick<Data, "karten" | "accountId" | "allAccounts">;
+  filter: Filter;
+  /** Punkte im Menü `⋯` einer Karte; "alle" für „Alle Konten“ */
+  aktionen: (karte: Kontokarte | "alle") => ActionMenuItem[];
+};
 
 const GRUPPEN = [
   { gruppe: "banken", titel: "Banken" },
@@ -76,12 +83,28 @@ function KarteStatus({ status, leise }: { status: Kontokarte["status"]; leise: s
   );
 }
 
-function Karte({ name, zahl, offen, status, leise }: { name: string; zahl: string; offen: number; status: Kontokarte["status"]; leise: string }) {
+function Karte({
+  name,
+  zahl,
+  saldo,
+  offen,
+  status,
+  leise,
+}: {
+  name: string;
+  zahl?: string;
+  saldo?: number | null;
+  offen: number;
+  status: Kontokarte["status"];
+  leise: string;
+}) {
+  // Ein negativer Saldo steht in der Farbe für Gefahr (DESIGN.md, Beträge)
+  const negativ = saldo !== undefined && saldo !== null && saldo < 0;
   return (
     <>
       <span className="konto-karte-name">{name}</span>
       <span className="konto-karte-zahlen">
-        <span className="amount">{zahl}</span>
+        <span className={`amount${negativ ? " betrag-negativ" : ""}`}>{zahl ?? (saldo === null || saldo === undefined ? "–" : formatEuro(saldo))}</span>
         {offen > 0 && <span className="konto-karte-offen">{offen} offen</span>}
       </span>
       <KarteStatus status={status} leise={leise} />
@@ -89,7 +112,17 @@ function Karte({ name, zahl, offen, status, leise }: { name: string; zahl: strin
   );
 }
 
-function KartenLeiste({ data, filter }: Props) {
+/** Karte als Link zur Auswahl, `⋯` daneben und nicht im Link, damit beide eigene Ziele für Tab und Klick sind */
+function Rahmen({ name, aktionen, children }: { name: string; aktionen: ActionMenuItem[]; children: ReactNode }) {
+  return (
+    <div className="konto-karte-rahmen">
+      {children}
+      <MoreActionsMenu label={`Aktionen für ${name}`} items={aktionen} ghost />
+    </div>
+  );
+}
+
+function KartenLeiste({ data, filter, aktionen }: Props) {
   const ref = useRef<HTMLElement>(null);
   const { links, rechts, rollen } = useRollen(ref);
   const { karten, alle } = data.karten;
@@ -102,15 +135,17 @@ function KartenLeiste({ data, filter }: Props) {
       <nav ref={ref} className="konten-karten" aria-label="Konten">
         {karten.length > 1 && (
           <Gruppe titel="Gesamt">
-            <Link to="/bank" search={{ konto: "alle", filter }} aria-current={data.allAccounts ? "page" : undefined} className="konto-karte">
-              <Karte
-                name="Alle Konten"
-                zahl={anzahl(alle.konten, "Konto", "Konten")}
-                offen={alle.offen}
-                status={alle.mitStatus > 0 ? { text: "Prüfen", tone: "warn", emphasis: "notice", detail: anzahl(alle.mitStatus, "Konto", "Konten") } : null}
-                leise="Alles aktuell"
-              />
-            </Link>
+            <Rahmen name="alle Konten" aktionen={aktionen("alle")}>
+              <Link to="/bank" search={{ konto: "alle", filter }} aria-current={data.allAccounts ? "page" : undefined} className="konto-karte">
+                <Karte
+                  name="Alle Konten"
+                  zahl={anzahl(alle.konten, "Konto", "Konten")}
+                  offen={alle.offen}
+                  status={alle.mitStatus > 0 ? { text: "Prüfen", tone: "warn", emphasis: "notice", detail: anzahl(alle.mitStatus, "Konto", "Konten") } : null}
+                  leise="Alles aktuell"
+                />
+              </Link>
+            </Rahmen>
           </Gruppe>
         )}
         {GRUPPEN.map(({ gruppe, titel }) => {
@@ -119,15 +154,11 @@ function KartenLeiste({ data, filter }: Props) {
           return (
             <Gruppe key={gruppe} titel={titel}>
               {inGruppe.map((k) => (
-                <Link
-                  key={k.id}
-                  to="/bank"
-                  search={{ konto: k.id, filter }}
-                  aria-current={k.id === data.accountId ? "page" : undefined}
-                  className="konto-karte"
-                >
-                  <Karte name={k.name} zahl={k.saldo === null ? "–" : formatEuro(k.saldo)} offen={k.offen} status={k.status} leise={k.quelle} />
-                </Link>
+                <Rahmen key={k.id} name={k.name} aktionen={aktionen(k)}>
+                  <Link to="/bank" search={{ konto: k.id, filter }} aria-current={k.id === data.accountId ? "page" : undefined} className="konto-karte">
+                    <Karte name={k.name} saldo={k.saldo} offen={k.offen} status={k.status} leise={k.quelle} />
+                  </Link>
+                </Rahmen>
               ))}
             </Gruppe>
           );
@@ -140,7 +171,8 @@ function KartenLeiste({ data, filter }: Props) {
   );
 }
 
-function Chip({
+/** Kleine Karte der schmalen Zeile: Name, darunter der Status mit Punkt oder die Zahl offener Umsätze (fehlt bei null) */
+function Klein({
   to,
   aktiv,
   name,
@@ -154,35 +186,34 @@ function Chip({
   status?: Kontokarte["status"];
 }) {
   return (
-    <Link to="/bank" search={to} aria-current={aktiv ? "page" : undefined} className="konto-chip" data-tone={status?.tone}>
-      {status !== undefined && <span className="konto-chip-punkt" aria-hidden="true" />}
-      <span className="konto-chip-name">{name}</span>
-      {status && <span className="visually-hidden">, {status.text}</span>}
-      {offen > 0 && (
-        <span className="konto-chip-zahl">
-          {offen}
-          <span className="visually-hidden"> offen</span>
-        </span>
+    <Link to="/bank" search={to} aria-current={aktiv ? "page" : undefined} className="konto-klein" data-tone={status?.tone}>
+      <span className="konto-klein-name">{name}</span>
+      {status ? (
+        <span className="konto-klein-zeile konto-klein-status">{status.text}</span>
+      ) : (
+        offen > 0 && <span className="konto-klein-zeile">{offen} offen</span>
       )}
     </Link>
   );
 }
 
-/** Schmale Zeile: Punkt in der Farbe des Status, Name und Zahl offener Umsätze (fehlt bei null); das Wort des Status liest der Screenreader */
-function KontenChips({ data, filter }: Props) {
+/** Schmale Zeile kleiner Karten, Gruppen durch eine Linie getrennt */
+function KontenKlein({ data, filter }: Props) {
   const { karten, alle } = data.karten;
   return (
-    <nav className="konten-chips" aria-label="Konten">
-      {karten.length > 1 && <Chip to={{ konto: "alle", filter }} aktiv={data.allAccounts} name="Alle" offen={alle.offen} />}
+    <nav className="konten-klein" aria-label="Konten">
+      {karten.length > 1 && (
+        <Klein to={{ konto: "alle", filter }} aktiv={data.allAccounts} name="Alle" offen={alle.offen} status={alle.mitStatus > 0 ? PRUEFEN : null} />
+      )}
       {GRUPPEN.map(({ gruppe }, i) => {
         const inGruppe = karten.filter((k) => k.gruppe === gruppe);
         if (inGruppe.length === 0) return null;
         return [
           (karten.length > 1 || (i > 0 && karten.some((k) => k.gruppe === "banken"))) && (
-            <span key={`trenner-${gruppe}`} className="konten-chips-trenner" aria-hidden="true" />
+            <span key={`trenner-${gruppe}`} className="konten-klein-trenner" aria-hidden="true" />
           ),
           ...inGruppe.map((k) => (
-            <Chip key={k.id} to={{ konto: k.id, filter }} aktiv={k.id === data.accountId} name={k.name} offen={k.offen} status={k.status} />
+            <Klein key={k.id} to={{ konto: k.id, filter }} aktiv={k.id === data.accountId} name={k.name} offen={k.offen} status={k.status} />
           )),
         ];
       })}
@@ -190,11 +221,13 @@ function KontenChips({ data, filter }: Props) {
   );
 }
 
+const PRUEFEN = { text: "Prüfen", tone: "warn", emphasis: "notice", detail: null } as const;
+
 export function Kartenleiste(props: Props) {
   return (
     <>
       <KartenLeiste {...props} />
-      <KontenChips {...props} />
+      <KontenKlein {...props} />
     </>
   );
 }

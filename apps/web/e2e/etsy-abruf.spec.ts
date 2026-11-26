@@ -111,7 +111,7 @@ test("Einrichtung", async () => {
 });
 
 test("Zugangsdaten speichern: Schlüssel gespeichert, Freigabe fehlt noch", async () => {
-  await gehe(page, "/einstellungen?bereich=bank");
+  await gehe(page, "/bank/verbindungen");
   await expect(karte().getByText("Nicht eingerichtet.")).toBeVisible();
   await expect(karte().getByRole("button", { name: "Verbinden" })).toBeDisabled();
 
@@ -134,7 +134,7 @@ test("Zugangsdaten speichern: Schlüssel gespeichert, Freigabe fehlt noch", asyn
 
 test("Verbinden: Etsy gibt frei, die Karte nennt den Shop", async () => {
   await karte().getByRole("button", { name: "Verbinden" }).click();
-  await page.waitForURL("**/einstellungen?bereich=bank");
+  await page.waitForURL("**/bank/verbindungen");
   await expect(karte().getByText(`Verbunden mit Werkstatt Nord (${SHOP}).`)).toBeVisible();
 
   const freigabe = anfragen.find((a) => a.startsWith("GET /oauth/connect"));
@@ -152,7 +152,7 @@ test("Jetzt abrufen: der Verkauf kommt mit dem Betrag ohne Sales Tax ins Konto d
     expect(await sql`select name, purpose, provider from bank_accounts where purpose = 'zahlungsdienstleister'`).toEqual([
       { name: "Etsy", purpose: "zahlungsdienstleister", provider: "etsy" },
     ]);
-    await gehe(page, "/einstellungen?bereich=bank");
+    await gehe(page, "/bank/verbindungen");
     await karte().getByRole("button", { name: "Jetzt abrufen" }).click();
     await expect(karte().getByText("Abruf durchgelaufen.")).toBeVisible();
     await expect(karte().getByText(/Letzter Abruf: /)).toBeVisible();

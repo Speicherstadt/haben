@@ -14,6 +14,7 @@ import type { Data } from "./-bank-daten.ts";
  */
 
 export type BankWeg = "enablebanking" | "fints" | "datei";
+export type VerbindenDialog = "bank" | "anbieter" | null;
 
 /** Eine Wahl im Dialog: Name, wann sie passt, und, wenn sie gerade nicht geht, warum (mit Link, wo es sich beheben lässt) */
 type Wahl<T extends string> = { wert: T; label: string; hint: string; gesperrt: ReactNode | null };
@@ -23,6 +24,8 @@ const EINSTELLUNGEN_BANK = (
     Einstellungen › Bank
   </Link>
 );
+
+const VERBINDUNGEN = <Link to="/bank/verbindungen">Bank › Verbindungen</Link>;
 
 /** Die drei Wege zur Bank; FinTS wartet wie bisher auf einen offenen Schritt oder Abruf an einer Zeile (#1647, #1660) */
 export function bankWege(data: Pick<Data, "sync" | "fints">, fintsZustand: Pick<FintsZustand, "offen" | "busy">): Wahl<BankWeg>[] {
@@ -61,9 +64,9 @@ export function bankWege(data: Pick<Data, "sync" | "fints">, fintsZustand: Pick<
 
 /** Grund, aus dem ein Anbieter ohne Adapter nicht wählbar ist */
 function ohneAdapter(provider: string): ReactNode {
-  if (provider === "etsy") return <>Etsy verbindest du unter {EINSTELLUNGEN_BANK}.</>;
-  if (provider === "googleplay" || provider === "appstore") return <>Die Finanzberichte holst du unter {EINSTELLUNGEN_BANK}.</>;
-  return "Noch kein Abruf; die Umsätze kommen als Datei über „CSV / CAMT importieren“.";
+  if (provider === "etsy") return <>Etsy verbindest du unter {VERBINDUNGEN}.</>;
+  if (provider === "googleplay" || provider === "appstore") return <>Die Finanzberichte holst du unter {VERBINDUNGEN}.</>;
+  return "Noch kein Abruf; die Umsätze kommen als Datei über „Datei importieren“.";
 }
 
 /** Anbieter mit Adapter zuerst, dann die übrigen ausgegraut; „Anderer Zahlungsdienstleister“ ist kein Anbieter zum Verbinden */
@@ -163,18 +166,28 @@ export function KontoVerbinden({
   fintsZustand,
   onBankWeg,
   onOhneAbruf,
+  primary = false,
+  dialog: gesteuert,
+  setDialog: setGesteuert,
 }: {
   data: Pick<Data, "sync" | "fints" | "zahlungsdienstleister">;
   fintsZustand: Pick<FintsZustand, "offen" | "busy">;
   onBankWeg: (weg: BankWeg) => void;
   onOhneAbruf: () => void;
+  primary?: boolean;
+  /** Offener Dialog, wenn die Seite ihn auch von anderswo öffnet („Bank hinzufügen“ im Kopf einer Gruppe) */
+  dialog?: VerbindenDialog;
+  setDialog?: (d: VerbindenDialog) => void;
 }) {
   const navigate = useNavigate();
-  const [dialog, setDialog] = useState<"bank" | "anbieter" | null>(null);
+  const [eigener, setEigener] = useState<VerbindenDialog>(null);
+  const dialog = setGesteuert ? (gesteuert ?? null) : eigener;
+  const setDialog = setGesteuert ?? setEigener;
   return (
     <>
       <MoreActionsMenu
         text="Konto verbinden"
+        primary={primary}
         items={[
           { key: "bank", label: "Bank hinzufügen", onSelect: () => setDialog("bank") },
           { key: "anbieter", label: "Zahlungsdienstleister hinzufügen", onSelect: () => setDialog("anbieter") },

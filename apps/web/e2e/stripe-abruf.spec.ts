@@ -92,7 +92,9 @@ test.afterEach(() => {
 
 const zugang = () => page.getByRole("form", { name: "Zugang" });
 const geprueft = () => page.getByRole("status", { name: "Zugang geprüft" });
-const shop = () => page.getByRole("region", { name: "Automatischer Abruf" }).getByRole("region", { name: "Shop DE", exact: true });
+const abrufBereich = () => page.getByRole("region", { name: "Automatischer Abruf" });
+/** Zeile von Shop DE auf der Seite Verbindungen (#1951) */
+const zeile = () => page.getByRole("region", { name: "Zahlungsdienstleister", exact: true }).getByRole("row").filter({ hasText: "Shop DE" });
 
 async function mitDatenbank<T>(arbeit: (sql: postgres.Sql) => Promise<T>): Promise<T> {
   const sql = postgres(databaseUrlFuer("stripe-abruf"), { max: 1, onnotice: () => {} });
@@ -116,9 +118,9 @@ test("„Konto verbinden › Zahlungsdienstleister hinzufügen“: Anbieter wäh
   await expect(stripeWahl).toHaveAccessibleDescription("API-Schlüssel · 3 Schritte · noch nicht verbunden");
   await expect(dialog.getByRole("radio", { name: "PayPal" })).toBeEnabled();
   await expect(dialog.getByRole("radio", { name: "Etsy Payments" })).toBeDisabled();
-  await expect(dialog.getByRole("radio", { name: "Etsy Payments" })).toHaveAccessibleDescription("Etsy verbindest du unter Einstellungen › Bank.");
+  await expect(dialog.getByRole("radio", { name: "Etsy Payments" })).toHaveAccessibleDescription("Etsy verbindest du unter Bank › Verbindungen.");
   await expect(dialog.getByRole("radio", { name: "Shopify Payments" })).toHaveAccessibleDescription(
-    "Noch kein Abruf; die Umsätze kommen als Datei über „CSV / CAMT importieren“.",
+    "Noch kein Abruf; die Umsätze kommen als Datei über „Datei importieren“.",
   );
   expect(await axeVerstoesse(page), "Dialog „Anbieter wählen“").toEqual([]);
   await dialog.getByRole("button", { name: "Weiter" }).click();
@@ -185,12 +187,16 @@ test("Zugang prüfen nennt das Konto bei Stripe und speichert nichts; Name und Z
     expect(umsaetze.find((u) => u.bank_reference === "txn_e2eZahlung")?.counterparty_name).toBe("Studio Süd");
   });
 
-  // „Zum Konto“: die Bankseite mit der Karte des neuen Kontos gewählt, die Verbindung über seiner Liste
+  // „Zum Konto“: die Bankseite mit der Karte des neuen Kontos gewählt; Weg und Stand stehen über der Liste, ohne Karte
+  // der Verbindung dazwischen (#1951)
   await ergebnis.getByRole("link", { name: "Zum Konto" }).click();
   const karte = page.getByRole("navigation", { name: "Konten" }).getByRole("link", { name: /^Shop DE/ });
   await expect(karte).toHaveAttribute("aria-current", "page");
   await expect(karte).toContainText("Stripe · heute");
-  await expect(shop().getByText(`Stripe: verbunden mit ${KONTO} (Schlüssel …4711).`)).toBeVisible();
+  const liste = page.getByRole("region", { name: "Umsätze" });
+  await expect(liste.getByText(/^Stripe · heute/)).toBeVisible();
+  await expect(liste.getByRole("button", { name: "Jetzt abrufen" })).toBeEnabled();
+  await expect(page.getByText(`Stripe: verbunden mit ${KONTO}`)).toHaveCount(0);
   await expect(page.getByText("Studio Süd").first()).toBeVisible();
 });
 
@@ -209,28 +215,78 @@ test("Ein schon verbundenes Konto erkennt die Prüfung, mit dem Namen der Verbin
   expect(await mitDatenbank((sql) => sql`select count(*)::int as n from psp_connections`)).toEqual([{ n: 1 }]);
 });
 
-test("Jetzt abrufen an der Verbindung legt nichts doppelt an; Bearbeiten zeigt den Schlüssel nicht", async () => {
-  await shop().getByRole("button", { name: "Jetzt abrufen" }).click();
-  await expect(shop().getByText("Abruf durchgelaufen.")).toBeVisible();
-  await expect(shop().getByText(/Letzter Abruf: /)).toBeVisible();
+test("Jetzt abrufen über der Liste und im Menü der Karte legt nichts doppelt an (#1951)", async () => {
+  const liste = page.getByRole("region", { name: "Umsätze" });
+  await liste.getByRole("button", { name: "Jetzt abrufen" }).click();
+  await expect(abrufBereich().getByText("Shop DE: Abruf durchgelaufen.")).toBeVisible();
+  await page.getByRole("button", { name: "Aktionen für Shop DE" }).click();
+  const menue = page.getByRole("menu", { name: "Aktionen für Shop DE" });
+  await expect(menue.getByRole("menuitem")).toHaveText(["Jetzt abrufen", "Name und Zweck …", "Verbindung bearbeiten", "Alle Verbindungen"]);
+  expect(await axeVerstoesse(page), "Menü einer Karte").toEqual([]);
+  await menue.getByRole("menuitem", { name: "Jetzt abrufen" }).click();
+  await expect(abrufBereich().getByText("Shop DE: Abruf durchgelaufen.")).toBeVisible();
   expect(await mitDatenbank((sql) => sql`select count(*)::int as n from bank_transactions`)).toEqual([{ n: 3 }]);
-  await shop().getByRole("button", { name: "Bearbeiten" }).click();
-  await expect(shop().getByLabel("API-Schlüssel (leer lassen zum Behalten)")).toHaveValue("");
-  await shop().getByRole("button", { name: "Abbrechen" }).click();
+});
+
+test("Ein fehlgeschlagener Abruf: Hinweis unter der Leiste mit „Zugang ändern“, auf der Seite Verbindungen oben mit Status (#1951)", async () => {
+  await mitDatenbank((sql) => sql`update psp_connections set last_error = 'Stripe lehnt den Schlüssel ab.'`);
+  await gehe(page, "/bank");
+  await page
+    .getByRole("navigation", { name: "Konten" })
+    .getByRole("link", { name: /^Shop DE/ })
+    .click();
+  const hinweis = page.locator(".konto-hinweis");
+  await expect(hinweis).toHaveText(/Shop DE: Der letzte Abruf ist fehlgeschlagen: Stripe lehnt den Schlüssel ab\./);
+  // Der Knopf steht rechts neben dem Text (DESIGN.md, Hinweis mit Aktion)
+  const text = await hinweis.locator("span").first().boundingBox();
+  const knopf = await hinweis.getByRole("button", { name: "Zugang ändern" }).boundingBox();
+  expect(knopf && text && knopf.x > text.x + text.width - 1).toBe(true);
+  await hinweis.getByRole("button", { name: "Zugang ändern" }).click();
+  const dialog = page.getByRole("dialog", { name: "Shop DE bearbeiten" });
+  await expect(dialog).toContainText(`Stripe: verbunden mit ${KONTO} (Schlüssel …4711).`);
+  await expect(dialog.getByLabel("API-Schlüssel (leer lassen zum Behalten)")).toHaveValue("");
+  await dialog.getByRole("button", { name: "Abbrechen" }).click();
+
+  await gehe(page, "/bank/verbindungen");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Verbindungen");
+  await expect(page.getByRole("heading", { level: 2 }).filter({ hasText: /^(Banken|Zahlungsdienstleister)$/ })).toHaveText(["Banken", "Zahlungsdienstleister"]);
+  await expect(zeile().getByRole("cell").nth(4)).toHaveText(/Fehlgeschlagen/);
+  // Knöpfe am Ende der Zeile, `⋯` zuletzt (DESIGN.md, Tabellen)
+  await expect(zeile().getByRole("cell").last().getByRole("button")).toHaveText(["Zugang ändern", "", ""]);
+  await expect(zeile().getByRole("cell").last().getByRole("button").last()).toHaveAccessibleName("Weitere Aktionen für Shop DE");
+  expect(await axeVerstoesse(page), "Seite Verbindungen").toEqual([]);
+  await mitDatenbank((sql) => sql`update psp_connections set last_error = null`);
+});
+
+test("Verbindungen: Jetzt abrufen an der Zeile, Bearbeiten im Dialog zeigt den Schlüssel nicht", async () => {
+  await gehe(page, "/bank/verbindungen");
+  await zeile().getByRole("button", { name: "Shop DE jetzt abrufen" }).click();
+  await expect(abrufBereich().getByText("Shop DE: Abruf durchgelaufen.")).toBeVisible();
+  await expect(zeile().getByRole("cell").nth(4)).toHaveText("Aktiv");
+  expect(await mitDatenbank((sql) => sql`select count(*)::int as n from bank_transactions`)).toEqual([{ n: 3 }]);
+  await zeile().getByRole("button", { name: "Weitere Aktionen für Shop DE" }).click();
+  await page.getByRole("menuitem", { name: "Bearbeiten …" }).click();
+  const dialog = page.getByRole("dialog", { name: "Shop DE bearbeiten" });
+  await expect(dialog.getByLabel("API-Schlüssel (leer lassen zum Behalten)")).toHaveValue("");
+  await dialog.getByRole("button", { name: "Abbrechen" }).click();
+  await expect(dialog).toHaveCount(0);
 });
 
 test("Verbindung entfernen löscht den Schlüssel, die Umsätze bleiben", async () => {
-  const abruf = page.getByRole("region", { name: "Automatischer Abruf" });
-  await shop().getByRole("button", { name: "Verbindung entfernen" }).click();
+  await zeile().getByRole("button", { name: "Weitere Aktionen für Shop DE" }).click();
+  await page.getByRole("menuitem", { name: "Verbindung entfernen" }).click();
   const dialog = page.getByRole("dialog", { name: "Verbindung Shop DE entfernen?" });
   await dialog.getByRole("button", { name: "Entfernen" }).click();
-  await expect(abruf.getByText("Verbindung entfernt. Übernommene Umsätze bleiben im Konto stehen.")).toBeVisible();
-  await expect(shop()).toHaveCount(0);
+  await expect(abrufBereich().getByText("Verbindung entfernt. Übernommene Umsätze bleiben im Konto stehen.")).toBeVisible();
+  // Das Konto bleibt, ohne Verbindung und ohne Abruf
+  await expect(zeile().getByRole("button", { name: "Shop DE jetzt abrufen" })).toHaveCount(0);
   expect(await mitDatenbank((sql) => sql`select count(*)::int as n from psp_connections`)).toEqual([{ n: 0 }]);
   expect(await mitDatenbank((sql) => sql`select count(*)::int as n from bank_transactions`)).toEqual([{ n: 3 }]);
-  // Einstellungen › Bank verweist auf die Bankseite statt einer eigenen Karte
+  // Einstellungen › Bank verweist auf die Seite Verbindungen statt einer eigenen Karte
   await gehe(page, "/einstellungen?bereich=bank");
-  const hinweis = page.getByRole("region", { name: "Zahlungsdienstleister", exact: true });
-  await expect(hinweis).toContainText("Stripe und PayPal verbindest du auf der Seite Bank");
+  const hinweis = page.getByRole("region", { name: "Zahlungsdienstleister und Stores", exact: true });
+  await expect(hinweis).toContainText(
+    "Stripe und PayPal, Etsy Payments und die Berichte von Google Play und App Store verbindest du unter Bank › Verbindungen.",
+  );
   await expect(hinweis.getByRole("button")).toHaveCount(0);
 });
