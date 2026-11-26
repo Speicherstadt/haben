@@ -133,7 +133,7 @@ Grundlage ist dieselbe Rechnung wie unter [Auswertungen](auswertungen.md): Zuflu
 | Reparatur und Instandhaltung (Ausstattung, ohne EDV und Kfz) | Erhaltungsaufwendungen, ohne solche für Gebäude und Kfz (Zeile 48, Kz 225) |
 | Beiträge zur Berufsgenossenschaft, Versorgungskassen | Ausgaben für eigenes Personal (Gehälter, Löhne und Versicherungsbeiträge für Arbeitnehmer) |
 | [Direkt gebuchte](bank.md#auf-eine-kategorie-buchen) Einnahme bzw. Ausgabe auf eine Kategorie | Umsatzsteuerpflichtige Betriebseinnahmen und vereinnahmte Umsatzsteuer (Kleinunternehmer: Betriebseinnahmen als Kleinunternehmer; nicht steuerbare Einnahme: Umsatzsteuerfreie und nicht steuerbare Betriebseinnahmen) bzw. die Zeile der Kategorie wie bei einem Beleg |
-| AfA aus dem Anlagenverzeichnis, linear, degressiv und für Elektrofahrzeuge (§ 7 Abs. 2a EStG) | AfA auf bewegliche Wirtschaftsgüter, Auflösung Sammelposten, Restbuchwert ausgeschiedener Anlagen |
+| AfA aus dem Anlagenverzeichnis, linear, degressiv und für Elektrofahrzeuge (§ 7 Abs. 2a EStG) sowie Sonder-AfA nach § 7g EStG | AfA auf bewegliche Wirtschaftsgüter, Sonderabschreibungen nach § 7g EStG, Auflösung Sammelposten, Restbuchwert ausgeschiedener Anlagen |
 | [Pauschale](pauschalen.md): Homeoffice-Tage | Tagespauschale für die Arbeit in der Wohnung |
 | [Pauschale](pauschalen.md): Fahrten mit dem Privatfahrzeug | Fahrtkosten für nicht zum Betriebsvermögen gehörende Fahrzeuge (Nutzungseinlage) |
 | [Pauschale](pauschalen.md): Verpflegungsmehraufwand | Verpflegungsmehraufwendungen (beschränkt abziehbar) |

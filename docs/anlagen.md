@@ -142,7 +142,7 @@ Solange nichts gebucht ist, lässt sich eine übernommene Anlage ändern und lö
 4832 Abschreibungen auf Kfz   6.000,00   an  0320 Pkw   6.000,00
 ```
 
-Die Buchungen sind wie alle anderen sofort festgeschrieben. Danach sind die Berechnungsgrundlagen der Anlage gesperrt (Art, Abschreibung, Datum, Kosten, Nutzungsdauer, degressiver Satz, Erinnerungswert, Übernahmewerte), auch in der Datenbank per Trigger. Bezeichnung und Notiz bleiben änderbar, bei degressiver AfA auch der Wechsel zur linearen für ein noch nicht gebuchtes Jahr.
+Die Buchungen sind wie alle anderen sofort festgeschrieben. Danach sind die Berechnungsgrundlagen der Anlage gesperrt (Art, Abschreibung, Datum, Kosten, Nutzungsdauer, degressiver Satz, Erinnerungswert, Übernahmewerte), auch in der Datenbank per Trigger. Bezeichnung und Notiz bleiben änderbar, ebenso für noch nicht gebuchte Jahre die Sonder-AfA, ein Abgang und bei degressiver AfA der Wechsel zur linearen.
 
 ## Abgang
 
@@ -196,9 +196,9 @@ Ist schon gebucht, lässt sich die Privatnutzung nicht mehr ändern.
 
 ## In der EÜR
 
-Die [EÜR](auswertungen.md) bekommt je nach Bedarf die Zeilen **AfA auf bewegliche Wirtschaftsgüter**, **Sofortabschreibung geringwertiger Wirtschaftsgüter**, **Auflösung Sammelposten** und **Restbuchwert ausgeschiedener Anlagegüter**. Solange die AfA des Jahres nicht gebucht ist, kommen die Werte aus dem Abschreibungsplan. Danach kommen sie aus dem Journal ([EÜR nach Zufluss und Abfluss](auswertungen.md#eür-nach-zufluss-und-abfluss)); der [Abgleich](buchhaltung.md#abgleich-im-journal) prüft, dass gebuchte AfA und Plan übereinstimmen.
+Die [EÜR](auswertungen.md) bekommt je nach Bedarf die Zeilen **AfA auf bewegliche Wirtschaftsgüter**, **Sonderabschreibungen nach § 7g EStG**, **Sofortabschreibung geringwertiger Wirtschaftsgüter**, **Auflösung Sammelposten** und **Restbuchwert ausgeschiedener Anlagegüter**. Solange die AfA des Jahres nicht gebucht ist, kommen die Werte aus dem Abschreibungsplan. Danach kommen sie aus dem Journal ([EÜR nach Zufluss und Abfluss](auswertungen.md#eür-nach-zufluss-und-abfluss)); der [Abgleich](buchhaltung.md#abgleich-im-journal) prüft, dass gebuchte AfA und Plan übereinstimmen.
 
-Im Jahresexport liegt `anlagen/anlagenverzeichnis.csv` mit Buchwert am Jahresanfang, Zugang, AfA, Abgang und Buchwert am Jahresende je Anlage.
+Im Jahresexport liegt `anlagen/anlagenverzeichnis.csv` mit Buchwert am Jahresanfang, Zugang, AfA, Sonder-AfA, Abgang und Buchwert am Jahresende je Anlage.
 
 ## Grenzen
 
