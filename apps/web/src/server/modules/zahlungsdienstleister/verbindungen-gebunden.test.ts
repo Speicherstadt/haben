@@ -49,7 +49,7 @@ describe.skipIf(!testDatabaseUrl)("Verbindung zu einem schon gebundenen Konto de
     await sql?.end();
   });
 
-  it("meldet, welche Verbindung das gebundene Konto inzwischen nutzt, statt an der Datenbank zu scheitern", async () => {
+  it("gibt einem anderen Stripe-Konto nicht das Konto, an das ein früheres gebunden ist; das frühere bekommt es wieder", async () => {
     const erste = await psp.speichereVerbindung(actor, {
       provider: "stripe",
       name: "Alt",
@@ -57,16 +57,37 @@ describe.skipIf(!testDatabaseUrl)("Verbindung zu einem schon gebundenen Konto de
       fetchFrom: "2026-11-01",
     });
     expect((await psp.abrufen(actor, erste, HEUTE)).error).toBeNull();
-    const gebunden = (await psp.ladeVerbindung(erste))!.row.bankAccountId;
+    const gebunden = (await psp.ladeVerbindung(erste))!.row.bankAccountId!;
     await psp.entferneVerbindung(actor, erste);
-    // „Automatisch“ gibt das nun freie Konto einer anderen Verbindung
+    // „Automatisch“ nimmt das frei gewordene Konto nicht: Es enthält die Umsätze des alten Stripe-Kontos (ein Konto, eine Quelle, #306)
     const andere = await psp.speichereVerbindung(actor, {
       provider: "stripe",
       name: "Andere",
       eingabe: { apiKey: "rk_live_andereaaaaaaaa" },
       fetchFrom: "2026-11-01",
     });
-    expect((await psp.ladeVerbindung(andere))!.row.bankAccountId).toBe(gebunden);
+    expect((await psp.ladeVerbindung(andere))!.row.bankAccountId).not.toBe(gebunden);
+    // Gewählt wird es auch nicht (vor dem ersten Abruf; danach hält schon die eigene Quellenbindung die Verbindung)
+    await expect(
+      psp.speichereVerbindung(actor, { id: andere, provider: "stripe", name: "Andere", bankAccountId: gebunden, fetchFrom: "2026-11-01" }),
+    ).rejects.toThrow("bekommt schon die Umsätze eines anderen Stripe-Kontos");
+    expect((await psp.abrufen(actor, andere, HEUTE)).error).toBeNull();
+    // Das alte Stripe-Konto schreibt wieder in sein Konto
+    const wieder = await psp.speichereVerbindung(actor, {
+      provider: "stripe",
+      name: "Alt wieder",
+      eingabe: { apiKey: "rk_live_alteaaaaaaaaaa" },
+      fetchFrom: "2026-11-01",
+    });
+    expect((await psp.ladeVerbindung(wieder))!.row.bankAccountId).toBe(gebunden);
+    await psp.entferneVerbindung(actor, wieder);
+  });
+
+  it("meldet, welche Verbindung das gebundene Konto nutzt, statt an der Datenbank zu scheitern (Stand von vor dieser Prüfung)", async () => {
+    // So konnte es vor der Prüfung oben entstehen: eine andere Verbindung im gebundenen Konto
+    const [alt] = await sql`select bank_account_id as id from import_sources where external_account_id = 'acct_alt'`;
+    const andere = (await sql`select id from psp_connections where name = 'Andere'`)[0]!.id as string;
+    await sql`update psp_connections set bank_account_id = ${alt!.id} where id = ${andere}`;
     const wieder = psp.speichereVerbindung(actor, {
       provider: "stripe",
       name: "Alt wieder",
