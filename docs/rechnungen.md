@@ -7,7 +7,7 @@ description: >-
 
 # Rechnungen und E-Rechnung
 
-Haben schreibt Ausgangsrechnungen als E-Rechnung: ZUGFeRD (PDF/A-3 mit eingebettetem XML, Profil EN 16931) oder XRechnung 3.0 in CII- oder UBL-Syntax. Eine Rechnung ist zuerst ein Entwurf, den du beliebig ändern kannst. Mit dem Festschreiben bekommt sie ihre Nummer, PDF und XML werden erzeugt, sie wird gebucht und ist danach unveränderlich.
+Haben schreibt Ausgangsrechnungen als E-Rechnung: ZUGFeRD (PDF/A-3 mit eingebettetem XML, Profil EN 16931) oder XRechnung 3.0 in CII- oder UBL-Syntax. Eine Rechnung ist zuerst ein Entwurf, den du beliebig ändern kannst. Mit dem Festschreiben bekommt sie ihre Nummer, PDF und XML werden erzeugt, sie wird gebucht, und sie ist danach unveränderlich. Gebucht wird dabei nicht jede Rechnung, etwa eine Anzahlungsanforderung von GmbH und UG: Sie bleibt bis zur Schlussleistung ohne Buchungssatz ([Abschlags- und Schlussrechnung](#abschlags--und-schlussrechnung)).
 
 <img src="screenshot-rechnung.png" alt="Rechnungseditor mit Kunde, Leistungszeitraum, Positionen und Live-Vorschau der Rechnung rechts daneben" width="900">
 
@@ -288,7 +288,7 @@ Der Editor listet alles auf, was noch fehlt. Geprüft werden:
 
 - Firmendaten: Name, Anschrift, E-Mail-Adresse, IBAN, Steuernummer oder USt-IdNr.
 - Kunde gewählt, mindestens eine Position, keine Position mit Betrag 0.
-- Umsatzsteuer: Außer bei „Regulär“ müssen alle Positionen 0 % haben. Reverse Charge braucht deine USt-IdNr. und die USt-IdNr. des Kunden. Die innergemeinschaftliche Lieferung braucht deine USt-IdNr. und die USt-IdNr. des Kunden aus einem anderen EU-Land. Die zusätzliche Prüfung des länderspezifischen Aufbaus gilt für neue Rechnungen. Bei beiden prüft Haben außerdem das Land des Kunden. Die Ausfuhrlieferung braucht deine USt-IdNr. und als Bestimmungsort eine Kundenanschrift im umsatzsteuerlichen Drittland. [Sondergebiete](umsatzsteuer-sondergebiete.md) geben einen Prüfhinweis. Bei Dienstleistungen kann ein ausdrücklich erfasster tatsächlicher Leistungsort vom Kundensitz abweichen. Monaco zählt zu Frankreich ([Umsatzsteuer](umsatzsteuer.md#zusammenfassende-meldung)). „Steuerfreie Leistung, z. B. Heilbehandlung oder Unterricht“ braucht die Befreiungsvorschrift.
+- Umsatzsteuer: Außer bei „Regulär“ müssen alle Positionen 0 % haben. Reverse Charge und die innergemeinschaftliche Lieferung brauchen deine USt-IdNr. und eine USt-IdNr. des Kunden aus einem anderen EU-Land. Haben prüft sie wie die [Vorprüfung der ZM](umsatzsteuer.md#vorprüfung-der-zm) und nach dem Aufbau in ihrem Land; nordirische Nummern (XI) gehen nur bei Lieferungen. Bei beiden prüft Haben außerdem das Land des Kunden. Storno und Korrektur übernehmen die Nummer der Rechnung ohne Prüfung des Aufbaus; bei Reverse Charge prüfen sie nur, ob eine Nummer da ist. Die Ausfuhrlieferung braucht deine USt-IdNr. und als Bestimmungsort eine Kundenanschrift im umsatzsteuerlichen Drittland. [Sondergebiete](umsatzsteuer-sondergebiete.md) geben einen Prüfhinweis. Bei Dienstleistungen kann ein ausdrücklich erfasster tatsächlicher Leistungsort vom Kundensitz abweichen. Monaco zählt zu Frankreich ([Umsatzsteuer](umsatzsteuer.md#zusammenfassende-meldung)). „Steuerfreie Leistung, z. B. Heilbehandlung oder Unterricht“ braucht die Befreiungsvorschrift.
 - Kleinunternehmer: Die gewählte Umsatzsteuer-Behandlung muss zum Firmenstatus passen, siehe [Umsatzsteuer auf der Rechnung](#umsatzsteuer-auf-der-rechnung).
 - Bei Kleinunternehmer-Rechnungen mit Rechnungsdatum bis Ende des laufenden Jahres fragt Haben vor dem Festschreiben nach, wenn die vollständige Zahlung im laufenden Jahr die Jahresgrenze überschreiten könnte oder der erfasste Vorjahresumsatz über 25.000 € liegt. Bei Abbruch bleibt der Entwurf gespeichert. Die automatische Festschreibung einer wiederkehrenden Rechnung braucht dann eine manuelle Bestätigung am Entwurf. Mehr zur Berechnung unter [Kleinunternehmer](einrichtung.md#kleinunternehmer).
 - Eine Rechnung muss einen positiven Gesamtbetrag haben, eine Rechnungskorrektur einen negativen.
@@ -338,7 +338,7 @@ Alles läuft in einer einzigen Datenbanktransaktion. Schlägt ein Schritt fehl, 
 3. **PDF erzeugen.** Die sichtbare Rechnung entsteht mit Typst als PDF/A-3b, aus dem Layout, das der Rechnung zugeordnet ist ([Eigene Belegvorlagen](belegvorlagen.md)). Als Erstellungszeit steht das Rechnungsdatum im PDF.
 4. **XML erzeugen.** Haben schreibt je nach Format Factur-X EN 16931 (und bettet es ins PDF ein), XRechnung CII oder XRechnung UBL. Unbekannte Länder- oder Währungscodes lehnt Haben vorher mit einer Meldung ab.
 5. **Prüfsummen.** Von PDF und XML wird je ein SHA-256 gespeichert. Die ersten Zeichen des PDF-Hashes stehen auf der Detailseite.
-6. **Buchen.** Haben legt den Buchungssatz an (siehe unten) und schreibt ihn fest.
+6. **Buchen.** Haben legt den Buchungssatz an (siehe unten) und schreibt ihn fest. Im Bilanzverfahren von GmbH und UG endet dieser Schritt ohne Buchungssatz: bei einer Anzahlungsanforderung vor der Schlussleistung und ihrem Storno, bei einem Storno der Schlussrechnung und bei einem betragsgleichen Ersatz nach Storno. Dazu kommt die Schlussrechnung, deren Rest durch Abschläge vollständig gedeckt ist, auch außerhalb des Bilanzverfahrens ([Abschlags- und Schlussrechnung](#abschlags--und-schlussrechnung)).
 7. **Sperren.** Die Rechnung bekommt einen Festschreibungszeitpunkt. Ab dann lehnen Datenbank-Trigger jede Änderung oder Löschung der Rechnung, ihrer Positionen und ihrer [zusätzlichen Anhänge](#zusätzliche-anhänge) ab. Das Siegel der Rechnung schließt die Anhänge ein.
 
 ## Pflichtangaben einer GmbH oder UG
@@ -516,7 +516,7 @@ Bezug ist der Leistungszeitraum, ohne Leistungszeitraum das Rechnungsdatum. „W
 
 Scheitert das Festschreiben, etwa weil in den Firmendaten die IBAN fehlt, bleibt die Rechnung als Entwurf stehen. Scheitert nur der E-Mail-Versand (kein E-Mail-Zugang, keine Adresse beim Kunden, Server nicht erreichbar), ist die Rechnung festgeschrieben und du schickst sie auf ihrer Seite von Hand. Die Vorlage zeigt den Fehler, bis du sie das nächste Mal speicherst.
 
-Die Seite einer Vorlage listet alle daraus erzeugten Rechnungen. Löschen lässt sich eine Vorlage nur, solange daraus keine Rechnung entstanden ist; sonst deaktivierst du sie.
+Die Seite einer Vorlage listet alle noch vorhandenen Rechnungen und Entwürfe, die daraus entstanden sind. Solange diese Liste Einträge enthält, kannst du die Vorlage deaktivieren. Ist sie leer, kannst du die Vorlage löschen.
 
 Vorlagen aus sevDesk und FastBill kommen pausiert an, siehe [Umzug aus sevDesk](sevdesk.md#wiederkehrende-rechnungen) und [Umzug aus FastBill](fastbill.md#wiederkehrende-rechnungen).
 
@@ -542,7 +542,7 @@ Unter dem Status steht in Grau, was er für diese Rechnung gerade heißt. Überf
 
 ## Festgeschriebene Rechnung
 
-Die Detailseite zeigt das PDF, die Eckdaten (Kunde, Rechnungsdatum, Fälligkeit, Netto, Umsatzsteuer, Brutto, Format, Zeitpunkt der Festschreibung, bei Rechnungen ohne Steuerausweis die Umsatzsteuer-Behandlung) und den Anfang des SHA-256 des PDFs.
+Die Detailseite zeigt das PDF, die Eckdaten (Kunde, Rechnungsdatum, Fälligkeit, Netto, Umsatzsteuer, Brutto, Format, Zeitpunkt der Festschreibung, bei Rechnungen ohne Steuerausweis die Umsatzsteuer-Behandlung, unter **Im Journal** die Buchungen der Rechnung) und den Anfang des SHA-256 des PDFs.
 
 - **PDF herunterladen** liefert `Rechnung-<Nummer>.pdf`.
 - **XML herunterladen** liefert `Rechnung-<Nummer>-cii.xml` bzw. `-ubl.xml`. Bei ZUGFeRD ist das dasselbe XML, das im PDF steckt.
@@ -553,7 +553,7 @@ Beide Dateien werden aus der Datenbank ausgeliefert, so wie sie beim Festschreib
 
 Ist eine [Ablage im Dokumentenarchiv](dokumentenarchiv.md) eingerichtet, steht unter den Eckdaten **Archiv**: „Wird übertragen“, „Übertragen“ mit Zeitpunkt, HTTP-Status und, falls das Archiv eine Kennung nennt, **Im Archiv öffnen**, oder „Fehlgeschlagen“ mit der Zahl der Versuche und dem Grund (HTTP-Status und Anfang der Antwort).
 
-Unter **Zahlungen** stehen die Zahlungen auf die Rechnung mit Datum und Betrag: „Bank“ für eine Zuordnung im [Bankabgleich](bank.md), „bar“ mit der Nummer im [Kassenbuch](kasse.md#rechnung-bar-bezahlt) für eine Bareinnahme. Aufgehobene und stornierte Zahlungen sind durchgestrichen. Solange die Rechnung offen ist, führt **Barzahlung in der Kasse erfassen** ins Kassenbuch, mit der Rechnung und dem offenen Betrag vorbelegt.
+Unter **Zahlungen** stehen die Zahlungen auf die Rechnung mit Datum und Betrag: „Bank“ für eine Zuordnung im [Bankabgleich](bank.md) (der Link öffnet den Umsatz, dort steht ihre Buchung), „bar“ mit der Nummer im [Kassenbuch](kasse.md#rechnung-bar-bezahlt) für eine Bareinnahme. Aufgehobene und stornierte Zahlungen sind durchgestrichen. Solange die Rechnung offen ist, führt **Barzahlung in der Kasse erfassen** ins Kassenbuch, mit der Rechnung und dem offenen Betrag vorbelegt.
 
 ## Zusätzliche Anhänge
 
@@ -666,7 +666,7 @@ Eine festgeschriebene Rechnung änderst du nicht, du stellst eine neue aus. Auf 
 Für beide gilt:
 
 - Sie bekommen eine eigene Nummer aus demselben Nummernkreis und das heutige Datum.
-- Sie gehen an die Anschrift, die auf der ursprünglichen Rechnung steht; der Kunde ist im Editor nicht wählbar. Ebenso übernehmen sie seine USt-IdNr., auch wenn sie nicht zum [Aufbau in ihrem Land](umsatzsteuer.md#vorprüfung-der-zm) passt.
+- Sie gehen an die Anschrift, die auf der ursprünglichen Rechnung steht; der Kunde ist im Editor nicht wählbar. Ebenso übernehmen sie seine USt-IdNr., geprüft nur eingeschränkt ([Was vor dem Festschreiben geprüft wird](#was-vor-dem-festschreiben-geprüft-wird)).
 - Sie übernehmen die Umsatzsteuer-Behandlung und den Hinweis der ursprünglichen Rechnung, dazu [Bestell-, Auftrags- und Lieferscheinnummer](#bestellnummer-auftrag-und-lieferschein).
 - PDF und XML verweisen auf die ursprüngliche Rechnung („zur Rechnung 2026-034 vom …“, im XML als BillingReference).
 - Im XML erscheinen sie als Gutschrift (Typcode 381) mit positiven Beträgen; der Zahlungsweg ist offen gelassen.

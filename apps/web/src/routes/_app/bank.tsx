@@ -1,4 +1,6 @@
 import { formatEuro } from "@haben/core";
+import type { StatementFormat } from "@haben/import";
+import { FORMAT_NAMEN } from "@haben/import/format-namen";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { z } from "zod/mini";
@@ -17,6 +19,7 @@ import { AllocationPanel } from "./-bank-zuordnung.tsx";
 import { BankSync } from "./-bank-verbindung.tsx";
 import { AccountSettings, ImportControls, SearchBox } from "./-bank-konto.tsx";
 import { ExterneQuelle } from "../../components/ExterneQuelle.tsx";
+import { menueGruppe } from "../../lib/menue-gruppe.ts";
 
 const searchSchema = z.object({
   /** Ein Konto oder „alle“ (#617) */
@@ -63,36 +66,8 @@ export const Route = createFileRoute("/_app/bank")({
   component: BankPage,
 });
 
-const FORMAT_LABEL = (format: string) =>
-  format === "enablebanking" || format === "fints"
-    ? "Abruf"
-    : format.startsWith("importvertrag")
-      ? "REST-Import"
-      : format.startsWith("camt")
-        ? "CAMT.053"
-        : format === "paypal-csv"
-          ? "PayPal"
-          : format === "paypal-api"
-            ? "PayPal (Abruf)"
-            : format === "stripe-csv"
-              ? "Stripe"
-              : format === "stripe-api"
-                ? "Stripe (Abruf)"
-                : format === "shopify-payments-csv"
-                  ? "Shopify"
-                  : format === "ebay-csv"
-                    ? "eBay"
-                    : format === "etsy-csv"
-                      ? "Etsy"
-                      : format === "etsy-ledger"
-                        ? "Etsy (Abruf)"
-                        : format === "googleplay-earnings"
-                          ? "Google Play"
-                          : format === "appstore-finance"
-                            ? "App Store"
-                            : format === "store-payout"
-                              ? "Auszahlung"
-                              : "CSV";
+/** Quelle des letzten Imports in der Kontenliste; unbekannte Formate (aus älteren Versionen) als „Datei“ */
+const FORMAT_LABEL = (format: string) => FORMAT_NAMEN[format as StatementFormat] ?? "Datei";
 
 /** J/K springen zum nächsten bzw. vorigen Umsatz */
 function useUmsatzTasten(transactions: Data["transactions"], index: number) {
@@ -138,11 +113,14 @@ function BankPage() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Umsätze zuordnen</div>
+          <div className="eyebrow">{menueGruppe("/bank")}</div>
           <h1>Bank</h1>
         </div>
         <ImportControls data={data} />
       </div>
+      <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
+        Hier ordnest du die Umsätze deiner Konten Belegen und Rechnungen zu.
+      </p>
 
       <BankSync sync={data.sync} fints={data.fints} result={search.abruf ? { ok: search.abruf === "ok", message: search.meldung ?? "" } : null} />
 

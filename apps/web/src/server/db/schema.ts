@@ -69,6 +69,7 @@ import {
   type KirchensteuerSatz,
   type Millis,
   type Prozent,
+  PAYMENT_PROVIDER_KEYS,
   RECURRENCE_KEYS,
 } from "@haben/core";
 import type { LstbWerte } from "@haben/core";
@@ -328,6 +329,14 @@ export const vatReturns = pgTable(
       .notNull()
       .default("manuell"),
     overrideReason: text("override_reason"),
+    /**
+     * „leistung“: Die berechneten Kennzahlen (die Anmeldung selbst bei „berechnet“, sonst `computed`) enthalten in Kz 48
+     * die Umsätze als Kleinunternehmer im Zeitraum der Leistung (#1268). Gesetzt beim Speichern des Entwurfs, bei einer
+     * Berichtigung von der berichtigten Anmeldung übernommen. Leer heißt gerechnet vor #1811, ob mit diesen Umsätzen (ab
+     * 0.13) oder ohne (bis 0.12), ist unbekannt: Nur dann gilt im Abgleich gesendeter Anmeldungen auch Kz 48 ohne sie als
+     * unverändert.
+     */
+    smallBusinessRule: text("small_business_rule", { enum: ["leistung"] }),
     /** Berechnete Werte zum Zeitpunkt des Speicherns, zum Nachvollziehen einer Überschreibung */
     computed: jsonb("computed").$type<{
       kz81: Cents;
@@ -361,6 +370,7 @@ export const vatReturns = pgTable(
   (t) => [
     // Zeitraum wie im ELSTER-Feld Zeitraum: 1–12 Monate, 41–44 Kalendervierteljahre
     check("vat_returns_month", sql`${t.month} between 1 and 12 or ${t.month} between 41 and 44`),
+    check("vat_returns_small_business_rule", sql`${t.smallBusinessRule} is null or ${t.smallBusinessRule} = 'leistung'`),
     foreignKey({ name: "vat_returns_corrects_fk", columns: [t.correctsId], foreignColumns: [t.id] }),
     // höchstens ein Entwurf je Zeitraum
     uniqueIndex("vat_returns_one_draft_per_period").on(t.year, t.month).where(sql`${t.status} = 'draft'`),
@@ -618,6 +628,8 @@ export const residualTerms = pgTable("residual_terms", {
 export interface AusschuettungEmpfaenger {
   name: string;
   anteil: BasisPoints;
+  /** Beteiligung in Euro (Nennbetrag), nach der verteilt wird (§ 29 Abs. 3 Satz 1 GmbHG, #1286); fehlt bei Ausschüttungen vor #1812 */
+  beteiligung?: Cents;
   brutto: Cents;
   ausEinlagekonto: Cents;
   ertrag: Cents;
@@ -1700,6 +1712,8 @@ export const quotes = pgTable(
   "quotes",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    externalSource: text("external_source"),
+    externalId: text("external_id"),
     status: invoiceStatusEnum("status").notNull().default("draft"),
     number: text("number").unique(),
     /** Kreis des Zählers: Jahr des Belegdatums, 0 = durchlaufender Zähler (counterCircle) */
@@ -1762,6 +1776,8 @@ export const quotes = pgTable(
   },
   (t) => [
     check("quotes_final_has_number", sql`${t.status} = 'draft' or (${t.number} is not null and ${t.lockedAt} is not null)`),
+    check("quotes_external_ref_pair", sql`(${t.externalSource} is null) = (${t.externalId} is null)`),
+    uniqueIndex("quotes_external_ref").on(t.externalSource, t.externalId),
     check("quotes_decision_final", sql`${t.decision} is null or ${t.status} = 'final'`),
     check("quotes_discount", sql`${t.discountPercent} is null or ${t.discountAmount} is null`),
     check("quotes_discount_percent", sql`${t.discountPercent} is null or ${t.discountPercent} between 1 and 10000`),
@@ -2418,7 +2434,7 @@ export const bankAccounts = pgTable(
       .notNull()
       .default("geschaeft"),
     /** Nur Zahlungsdienstleister: Anbieter (PAYMENT_PROVIDERS) und Nummer des Verrechnungskontos (1361 … bzw. 1461 …) */
-    provider: text("provider", { enum: ["paypal", "stripe", "shopify", "etsy", "ebay", "amazon", "sumup", "googleplay", "appstore", "sonstige"] }),
+    provider: text("provider", { enum: PAYMENT_PROVIDER_KEYS }),
     /** Nur Amazon: Marktplatz der Abrechnung (marketplace-name, z. B. „Amazon.de“); Pflicht beim Anlegen, nur solange das Konto keine Umsätze hat änderbar */
     marketplace: text("marketplace"),
     ledgerIndex: smallint("ledger_index").unique(),
@@ -3472,7 +3488,7 @@ export const fastbillConnection = pgTable(
 export const fastbillReceipts = pgTable("fastbill_receipts", {
   /** Wie jede Tabelle mit Dateiverweis eine id, über die die Vollprüfung der Dateien den Datensatz nennt */
   id: uuid("id").primaryKey().defaultRandom(),
-  /** INVOICE_ID der Ausgabe in FastBill */
+  /** INVOICE_ID der Ausgabe in FastBill; bei einer Einnahme mit „einnahme-“ davor (fastbillReceiptKey, #1938) */
   expenseId: text("expense_id").notNull().unique(),
   status: text("status", { enum: ["wartet", "datei", "ohne_beleg"] }).notNull(),
   number: text("number").notNull().default(""),
@@ -4027,6 +4043,7 @@ export const assets = pgTable(
     openingDate: date("opening_date", { mode: "string" }),
     openingBookValue: integer("opening_book_value").$type<Cents>(),
     openingEntryId: uuid("opening_entry_id"),
+    specialDepreciation: jsonb("special_depreciation").$type<{ year: number; amount: Cents }[]>().notNull().default([]),
     disposalDate: date("disposal_date", { mode: "string" }),
     /** Firmenwagen: private Nutzung nach der Listenpreismethode */
     privateUse: jsonb("private_use").$type<CarPrivateUse>(),
@@ -4809,27 +4826,33 @@ export const etsyConnections = pgTable(
 );
 
 /**
- * Zugang zur Transaction Search von PayPal über die API (Einstellungen › Bank, #1512). Genau eine Zeile, weil Haben ein
- * PayPal-Konto je Installation anbindet. Client-ID und Secret der PayPal-App des Betreibers liegen zusammen verschlüsselt in
- * ciphertext; die Kennung des Händlerkontos (`account_id`) ist nicht geheim und ermittelt Haben beim Speichern über die API.
- * Sie ist die Kennung der Quellenbindung. Wird der Zugang entfernt, verschwindet die Zeile mit dem Abrufstand; der nächste
- * Abruf beginnt am gewählten Tag.
+ * Zugänge zu Zahlungsdienstleistern über ihre API (Einstellungen › Bank, #1729), eine Zeile je Verbindung. Gemeinsam für
+ * alle Anbieter mit Adapter (modules/zahlungsdienstleister/anbieter.ts); welcher es ist, sagt `provider`. Mehrere Verbindungen
+ * beim selben Anbieter gehen, jede schreibt in ihr eigenes Konto. Der Zugang (Schlüssel, Client-ID und Secret, Tokens) liegt
+ * als JSON-Objekt AES-256-GCM-verschlüsselt in ciphertext; `account_id` ist die Kennung des Kontos beim Anbieter, beim Speichern
+ * über die API ermittelt und Kennung der Quellenbindung. Eigenheiten des Anbieters (PayPal: Sandbox, Zeitzone) stehen in
+ * `config`, geprüft vom Adapter. Wird eine Verbindung entfernt, verschwindet die Zeile mit dem Abrufstand.
  */
-export const paypalConnections = pgTable(
-  "paypal_connections",
+export const pspConnections = pgTable(
+  "psp_connections",
   {
-    /** Es gibt genau eine Verbindung; der feste Wert hält es dabei */
-    id: text("id").primaryKey().default("paypal"),
-    /** Kennung des Händlerkontos, beim Speichern von PayPal ermittelt */
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Anbieter, Schlüssel eines Adapters (stripe, paypal …); eine Liste in der Datenbank gibt es bewusst nicht */
+    provider: text("provider").notNull(),
+    /** Frei gewählter Name, etwa „Shop DE“ */
+    name: text("name").notNull(),
+    /** Konto des Zahlungsdienstleisters in Haben; leer: das älteste noch freie Konto des Anbieters, beim ersten Abruf gesetzt */
+    bankAccountId: uuid("bank_account_id").references(() => bankAccounts.id, { onDelete: "set null" }),
+    /** Kennung des Kontos beim Anbieter, beim Speichern ermittelt */
     accountId: text("account_id").notNull(),
-    /** Letzte Zeichen der Client-ID für die Anzeige, ohne sie zu verraten */
+    /** Letzte Zeichen des Schlüssels oder der Client-ID für die Anzeige, ohne sie zu verraten */
     keyHint: text("key_hint").notNull().default(""),
-    /** Zugang der Sandbox (api-m.sandbox.paypal.com): Testdaten, keine echten Umsätze */
-    sandbox: boolean("sandbox").notNull().default(false),
-    /** Client-ID und Secret als JSON: AES-256-GCM */
+    /** Eigenheiten des Anbieters, nicht geheim */
+    config: jsonb("config").$type<Record<string, string | number | boolean | null>>().notNull().default({}),
+    /** Der Zugang als JSON-Objekt: AES-256-GCM */
     ciphertext: bytea("ciphertext").notNull(),
-    /** Zeitzone des PayPal-Kontos (IANA-Name): In ihr schreibt der Aktivitätenexport das Datum, nach ihr bildet Haben den Buchungstag */
-    zeitzone: text("zeitzone").notNull().default("Europe/Berlin"),
+    /** Bis wann der Zugang gilt, wenn der Anbieter es sagt (etwa eine Anmeldung, die abläuft); nicht geheim */
+    zugangGueltigBis: timestamp("zugang_gueltig_bis", { withTimezone: true }),
     /** Erster Tag, den der nächste Abruf holt (Stand des Abrufs, rückt mit jedem Lauf vor) */
     fetchFrom: date("fetch_from").notNull(),
     /** Der in den Einstellungen gewählte erste Tag */
@@ -4838,44 +4861,14 @@ export const paypalConnections = pgTable(
     rhythmus: text("rhythmus").notNull().default("taeglich"),
     lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
     lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    check("paypal_connections_id", sql`${t.id} = 'paypal'`),
-    check("paypal_connections_rhythmus", sql`${t.rhythmus} in ('stuendlich', 'taeglich', 'woechentlich')`),
-  ],
-);
-
-/**
- * Zugang zu den Balance Transactions von Stripe über die API (Einstellungen › Bank, #1280). Genau eine Zeile, weil Haben
- * ein Stripe-Konto je Installation anbindet. Der Schlüssel (`rk_…` mit Lesezugriff oder `sk_…`) liegt verschlüsselt in
- * ciphertext; die Kennung des Kontos (`acct_…`) ist nicht geheim und ermittelt Haben beim Speichern über die API. Sie
- * ist die Kennung der Quellenbindung. Wird der Zugang entfernt, verschwindet die Zeile mit dem Abrufstand; der nächste Abruf beginnt am gewählten Tag.
- */
-export const stripeConnections = pgTable(
-  "stripe_connections",
-  {
-    /** Es gibt genau eine Verbindung; der feste Wert hält es dabei */
-    id: text("id").primaryKey().default("stripe"),
-    /** Kennung des Stripe-Kontos, beim Speichern von Stripe ermittelt */
-    accountId: text("account_id").notNull(),
-    /** Letzte Zeichen des Schlüssels für die Anzeige, ohne ihn zu verraten */
-    keyHint: text("key_hint").notNull().default(""),
-    /** Der Schlüssel: AES-256-GCM */
-    ciphertext: bytea("ciphertext").notNull(),
-    /** Erster Tag, den der nächste Abruf holt (Stand des Abrufs, rückt mit jedem Lauf vor) */
-    fetchFrom: date("fetch_from").notNull(),
-    /** Der in den Einstellungen gewählte erste Tag */
-    abrufStart: date("abruf_start").notNull(),
-    /** Wie oft der Zeitplan abruft: stuendlich, taeglich oder woechentlich */
-    rhythmus: text("rhythmus").notNull().default("taeglich"),
-    lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
-    lastError: text("last_error"),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    check("stripe_connections_id", sql`${t.id} = 'stripe'`),
-    check("stripe_connections_rhythmus", sql`${t.rhythmus} in ('stuendlich', 'taeglich', 'woechentlich')`),
+    uniqueIndex("psp_connections_konto_beim_anbieter").on(t.provider, t.accountId),
+    uniqueIndex("psp_connections_konto").on(t.bankAccountId),
+    check("psp_connections_provider", sql`${t.provider} ~ '^[a-z][a-z0-9]*$'`),
+    check("psp_connections_rhythmus", sql`${t.rhythmus} in ('stuendlich', 'taeglich', 'woechentlich')`),
   ],
 );
 

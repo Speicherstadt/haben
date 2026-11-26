@@ -1,5 +1,5 @@
 {
-  "id": "e3f41b8e-ac54-4e2a-842b-bd06c8b66a0c",
+  "id": "91f74910-d54c-4f81-8578-44ea09686059",
   "prevId": "e10e0748-71ac-4548-9f27-7503eb28fb88",
   "version": "7",
   "dialect": "postgresql",
@@ -3931,31 +3931,6 @@
           "notNull": true,
           "default": true
         },
-        "extraction_paused": {
-          "name": "extraction_paused",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "extraction_max_tokens_per_request": {
-          "name": "extraction_max_tokens_per_request",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "extraction_requests_per_minute": {
-          "name": "extraction_requests_per_minute",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "extraction_tokens_per_minute": {
-          "name": "extraction_tokens_per_minute",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamp with time zone",
@@ -3981,10 +3956,6 @@
         "company_nav_color": {
           "name": "company_nav_color",
           "value": "\"company\".\"nav_color\" ~ '^#[0-9A-F]{6}$'"
-        },
-        "company_extraction_limits": {
-          "name": "company_extraction_limits",
-          "value": "coalesce(\"company\".\"extraction_max_tokens_per_request\", 1) > 0 and coalesce(\"company\".\"extraction_requests_per_minute\", 1) > 0 and coalesce(\"company\".\"extraction_tokens_per_minute\", 1) > 0"
         }
       },
       "isRLSEnabled": false
@@ -5771,12 +5742,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "extraction_queue_position": {
-          "name": "extraction_queue_position",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": false
-        },
         "extraction": {
           "name": "extraction",
           "type": "jsonb",
@@ -6059,22 +6024,6 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "documents_extraction_queue_idx": {
-          "name": "documents_extraction_queue_idx",
-          "columns": [
-            {
-              "expression": "extraction_queue_position",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"documents\".\"extraction_queue_position\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -20298,6 +20247,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "small_business_rule": {
+          "name": "small_business_rule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "computed": {
           "name": "computed",
           "type": "jsonb",
@@ -20389,6 +20344,10 @@
         "vat_returns_month": {
           "name": "vat_returns_month",
           "value": "\"vat_returns\".\"month\" between 1 and 12 or \"vat_returns\".\"month\" between 41 and 44"
+        },
+        "vat_returns_small_business_rule": {
+          "name": "vat_returns_small_business_rule",
+          "value": "\"vat_returns\".\"small_business_rule\" is null or \"vat_returns\".\"small_business_rule\" = 'leistung'"
         }
       },
       "isRLSEnabled": false
@@ -20904,8 +20863,7 @@
         "keine",
         "laeuft",
         "fertig",
-        "fehler",
-        "wartet"
+        "fehler"
       ]
     },
     "public.invoice_format": {
@@ -20960,18 +20918,7 @@
     }
   },
   "schemas": {},
-  "sequences": {
-    "public.documents_extraction_queue_seq": {
-      "name": "documents_extraction_queue_seq",
-      "schema": "public",
-      "increment": "1",
-      "startWith": "1",
-      "minValue": "1",
-      "maxValue": "9223372036854775807",
-      "cache": "1",
-      "cycle": false
-    }
-  },
+  "sequences": {},
   "roles": {},
   "policies": {},
   "views": {},

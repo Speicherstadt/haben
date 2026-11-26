@@ -155,6 +155,7 @@ export {
   contactPersonOptions,
   contactPersonProblem,
   createContactPerson,
+  insertContactPerson,
   listContactPersons,
   setContactPersonActive,
   updateContactPerson,

@@ -9,6 +9,7 @@ import { DocumentUpload } from "../../../components/DocumentUpload.tsx";
 import { BelegFilterChips, BelegeLeer, filterBelege, filterName, sucheBelege } from "../../../components/BelegeFilter.tsx";
 import { Field } from "../../../components/Field.tsx";
 import { formatDate, formatDateTime } from "../../../lib/format.ts";
+import { menueGruppe } from "../../../lib/menue-gruppe.ts";
 import { getDocuments } from "../../../server/functions/documents.ts";
 import { AuslesungLeiste, BelegMarkierung, auslesungAktiv, useAuslesung } from "./-belege-auslesung.tsx";
 
@@ -109,7 +110,7 @@ function DocumentsPage() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Eingangsrechnungen und Quittungen</div>
+          <div className="eyebrow">{menueGruppe("/belege", inhaber)}</div>
           <h1>Belege</h1>
         </div>
         {open > 0 && (
@@ -118,6 +119,9 @@ function DocumentsPage() {
           </Status>
         )}
       </div>
+      <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
+        Hier stehen Eingangsrechnungen und Quittungen, von der Prüfung bis zur Buchung.
+      </p>
       {inhaber && <DocumentUpload aiAvailable={aiAvailable} />}
       {inbox ? (
         <p className="small muted" style={{ margin: 0, overflowWrap: "anywhere" }}>

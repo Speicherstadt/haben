@@ -1,2 +1,0 @@
-ALTER TABLE "company" ADD COLUMN "extraction_max_parallel" smallint DEFAULT 4 NOT NULL;--> statement-breakpoint
-ALTER TABLE "company" ADD CONSTRAINT "company_extraction_max_parallel" CHECK ("company"."extraction_max_parallel" between 1 and 20);
