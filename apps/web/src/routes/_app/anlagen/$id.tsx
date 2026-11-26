@@ -95,7 +95,7 @@ function AssetPage() {
               `übernommen zum ${formatDate(asset.openingDate!)}`
             )}
           </p>
-          <ScrollBox label="Jahresbeträge im Abschreibungsplan">
+          <ScrollBox label="Jahresbeträge der Anlage">
             <div className="table">
               <div className="table-row head plan-cols">
                 <div>Jahr (€)</div>
