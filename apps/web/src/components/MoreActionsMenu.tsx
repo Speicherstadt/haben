@@ -19,32 +19,33 @@ function enabledMenuItems(menu: HTMLElement | null): HTMLElement[] {
 }
 
 /**
- * Lage eines schwebenden Menüs: fest über der Seite, bündig mit der rechten Kante des Auslösers, links und rechts 8px
- * Abstand zum Fenster. Rollen außerhalb des Menüs und eine Größenänderung schließen es, weil es sonst vom Auslöser abrückte.
+ * Lage eines schwebenden Menüs: fest über der Seite, bündig mit der rechten Kante des Auslösers, unter ihm oder, wenn
+ * unten der Platz fehlt, über ihm, mit 8px Abstand zum Fenster. Beim Rollen und bei einer Größenänderung rückt es mit;
+ * schlösse es dabei, ginge es schon zu, wenn der Browser beim Öffnen den ersten Punkt in den Blick rollt.
  */
-function useSchwebendeLage(
-  aktiv: boolean,
-  ausloeser: RefObject<HTMLButtonElement | null>,
-  menu: RefObject<HTMLDivElement | null>,
-  schliessen: () => void,
-): CSSProperties | undefined {
+function useSchwebendeLage(aktiv: boolean, ausloeser: RefObject<HTMLButtonElement | null>, menu: RefObject<HTMLDivElement | null>): CSSProperties | undefined {
   const [lage, setLage] = useState<CSSProperties | undefined>(undefined);
-  const zu = useRef(schliessen);
-  zu.current = schliessen;
   useLayoutEffect(() => {
     if (!aktiv) return setLage(undefined);
-    const knopf = ausloeser.current?.getBoundingClientRect();
-    if (!knopf) return;
-    const breite = menu.current?.offsetWidth ?? 0;
-    setLage({ position: "fixed", top: knopf.bottom + 4, left: Math.max(8, Math.min(knopf.right - breite, window.innerWidth - breite - 8)), right: "auto" });
-    const weg = (e: Event) => {
-      if (!menu.current?.contains(e.target as Node)) zu.current();
+    const ausrichten = () => {
+      const knopf = ausloeser.current?.getBoundingClientRect();
+      if (!knopf) return;
+      const breite = menu.current?.offsetWidth ?? 0;
+      const hoehe = menu.current?.offsetHeight ?? 0;
+      const unten = knopf.bottom + 4 + hoehe <= window.innerHeight - 8 || knopf.top - 4 - hoehe < 8;
+      setLage({
+        position: "fixed",
+        top: unten ? knopf.bottom + 4 : knopf.top - 4 - hoehe,
+        left: Math.max(8, Math.min(knopf.right - breite, window.innerWidth - breite - 8)),
+        right: "auto",
+      });
     };
-    window.addEventListener("scroll", weg, { capture: true, passive: true });
-    window.addEventListener("resize", weg);
+    ausrichten();
+    window.addEventListener("scroll", ausrichten, { capture: true, passive: true });
+    window.addEventListener("resize", ausrichten);
     return () => {
-      window.removeEventListener("scroll", weg, { capture: true });
-      window.removeEventListener("resize", weg);
+      window.removeEventListener("scroll", ausrichten, { capture: true });
+      window.removeEventListener("resize", ausrichten);
     };
   }, [aktiv, ausloeser, menu]);
   return lage;
@@ -76,7 +77,7 @@ export function MoreActionsMenu({
   /**
    * Das Menü schwebt fest über der Seite statt im Fluss seines Behälters: für einen Auslöser in einer Fläche, die
    * überlaufenden Inhalt abschneidet (rollbare Kartenleiste, Karte mit Tabelle). Bündig mit der rechten Kante des
-   * Auslösers, so weit der Platz reicht; Rollen und Größenänderung schließen es.
+   * Auslösers, so weit der Platz reicht; beim Rollen rückt es mit.
    */
   schwebend?: boolean;
 }) {
@@ -97,7 +98,7 @@ export function MoreActionsMenu({
     if (focusTrigger) ownTrigger.current?.focus();
   };
 
-  const lage = useSchwebendeLage(schwebend && open, ownTrigger, menu, () => setOpen(false));
+  const lage = useSchwebendeLage(schwebend && open, ownTrigger, menu);
 
   useEffect(() => {
     if (!open) return;
