@@ -17,6 +17,16 @@ export const betrieblicherTeil = (abzug: boolean): string => (abzug ? "Ausgabe u
 /** Vorgabe für den Privatanteil einer Kategorie als Text für das Feld am Beleg; ohne Vorgabe leer */
 export const privatanteilVorgabe = (shares: Partial<Record<string, number>>, kategorie: string): string => (shares[kategorie] ? String(shares[kategorie]) : "");
 
+/**
+ * Privatanteil der ersten Zeile beim Aufteilen (#1914): den Anteil des Belegs, sonst die Vorgabe der bisherigen Kategorie.
+ * Wo es kein Feld gibt (GmbH und UG), bleibt die Zeile betrieblich. Ohne diese Regel startete die Aufteilung immer mit 0,
+ * obwohl in den Einstellungen eine Vorgabe steht.
+ */
+export function anteilBeimAufteilen(shares: Partial<Record<string, number>>, kategorie: string, belegAnteil: string, sichtbar = true): string {
+  if (!sichtbar) return "";
+  return belegAnteil.trim() !== "" ? belegAnteil : privatanteilVorgabe(shares, kategorie);
+}
+
 /** Anteil eines Anteilseigners in der Jahreserklärung der GmbH als Text, in Basispunkten: 10000 → "100", 3333 → "33,33" */
 export const anteilText = (anteil: BasisPoints) => (anteil / 100).toLocaleString("de-DE", { maximumFractionDigits: 2 });
 

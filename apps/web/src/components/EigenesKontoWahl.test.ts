@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { anteilBeimAufteilen } from "../lib/anteil.ts";
 import { anteilBeimKategorieWechsel, parseSplitRows, splitRow } from "./DocumentSplits.tsx";
 import { EigenesKontoWahl, type OwnAccountChoice, passendesKonto } from "./EigenesKontoWahl.tsx";
 
@@ -94,5 +95,29 @@ describe("Zeilen der Aufteilung mit eigenem Konto", () => {
       { category: "software", taxRate: 1900, net: 6000, ownAccountId: "a", privateShare: 0 },
       { category: "buero", taxRate: 1900, net: 4000, ownAccountId: null, privateShare: 0 },
     ]);
+  });
+});
+
+/*
+ * Privatanteil der ersten Zeile beim Aufteilen (#1914): Mit dem Klick auf Aufteilen stand dort bisher immer 0, auch wenn in
+ * den Einstellungen eine Vorgabe für die Kategorie steht. Der Anteil des Belegs gilt weiter vor der Vorgabe.
+ */
+describe("anteilBeimAufteilen", () => {
+  it("nimmt die Vorgabe der bisherigen Kategorie, wenn der Beleg keinen Anteil hat", () => {
+    expect(anteilBeimAufteilen({ internet: 25, telefon: 40 }, "internet", "")).toBe("25");
+    expect(anteilBeimAufteilen({ internet: 25, telefon: 40 }, "telefon", "")).toBe("40");
+  });
+
+  it("lässt den Anteil des Belegs stehen, wenn einer eingetragen ist", () => {
+    expect(anteilBeimAufteilen({ internet: 25 }, "internet", "30")).toBe("30");
+  });
+
+  it("bleibt leer ohne Vorgabe für die Kategorie", () => {
+    expect(anteilBeimAufteilen({ internet: 25 }, "software", "")).toBe("");
+    expect(anteilBeimAufteilen({}, "internet", "")).toBe("");
+  });
+
+  it("bleibt im GmbH- und UG-Fall leer, dort gibt es kein Feld", () => {
+    expect(anteilBeimAufteilen({ internet: 25 }, "internet", "", false)).toBe("");
   });
 });

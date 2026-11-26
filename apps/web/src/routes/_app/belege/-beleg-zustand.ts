@@ -6,6 +6,7 @@ import { flushSync } from "react-dom";
 import type { ContactChoice } from "../../../components/ContactCombobox.tsx";
 import { splitRow } from "../../../components/DocumentSplits.tsx";
 import { inWeitereAngaben, isEuVatId } from "../../../components/WeitereAngaben.tsx";
+import { anteilBeimAufteilen } from "../../../lib/anteil.ts";
 import { aendereBetragszeile } from "../../../lib/betragszeile.ts";
 import { fehlerFelder } from "../../../lib/format.ts";
 import { useAction } from "../../../lib/use-action.ts";
@@ -43,7 +44,7 @@ export function useDocumentForm({ data, inhaber, onDirtyChange }: { data: Detail
 
   const figures = documentFigures(fields, rows, splitRows, data, locked);
   const { form, error, pruefen, mitFeldfehlern } = useFieldCheck(documentFieldErrors(fields, rows, splitRows, figures), fields.setWeitereOffen);
-  const actions = documentActions(fields, rowState, data.suppliers, !isKapitalgesellschaft(data.rechtsform));
+  const actions = documentActions(fields, rowState, data.suppliers, !isKapitalgesellschaft(data.rechtsform), data.privateShares);
 
   async function persist() {
     await save({ data: { id: doc.id, document: documentInput(fields, figures, splitting, ownAccounts) } });
@@ -112,6 +113,8 @@ function documentActions(
   suppliers: Detail["suppliers"],
   /** Darf der Beleg einen Privatanteil tragen? Nur im Einzelunternehmen (#1914) */
   privatanteil: boolean,
+  /** Vorgaben je Kategorie aus den Firmendaten, die eine Zeile beim Aufteilen übernimmt (#1914) */
+  privateShares: Partial<Record<string, number>>,
 ) {
   const { supplierUstId, supplierContactId, setSupplierContactId, setSupplierName, setWeitereOffen, reverseCharge } = fields;
   const { rows, setRows, setDirty } = rowState;
@@ -146,7 +149,7 @@ function documentActions(
   function startSplitting() {
     const first = fields.category === "anlage" ? "" : (fields.category as ExpenseCategory | "");
     // GmbH und UG kennen keinen Privatanteil; dort bleibt die Zeile betrieblich
-    const privat = privatanteil ? fields.privateShare : "";
+    const privat = privatanteil ? anteilBeimAufteilen(privateShares, first, fields.privateShare) : "";
     const fromAmounts = rows.map((row, i) => splitRow(i === 0 ? first : "", row.taxRate, row.net, i === 0 ? fields.ownAccountId : "", i === 0 ? privat : ""));
     touch(rowState.setSplitRows)([...fromAmounts, splitRow("", rows[0]?.taxRate ?? 1900, "")]);
   }
