@@ -71,8 +71,8 @@ nach einem Partner.
 
 IT-Dienstleister, Hoster und Steuerberatungen, die Haben für ihre Kunden einrichten und betreuen wollen, werden Partner
 über das [Partnerprogramm](https://speicherstadt.org/partner/). Partner bekommen 30 % Rabatt auf gehostete
-Instanzen und legen den Preis für ihre Kunden selbst fest; zum Ausprobieren gibt es eine kostenlose Demo-Instanz, und die
-ersten zehn Partner zahlen im ersten Jahr keine Partnergebühr.
+Instanzen und legen den Preis für ihre Kunden selbst fest; zum Ausprobieren gibt es eine kostenlose Demo-Instanz, und wer
+jetzt Partner wird, zahlt im ersten Jahr keine Partnergebühr.
 
 ## Fragen
 
