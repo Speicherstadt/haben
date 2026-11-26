@@ -45,6 +45,6 @@ Gibt es API und Datei (wie bei Stripe), sind das getrennte Pull Requests, die Da
 ## 5. Doku und Pull Request
 
 - Abschnitt des Anbieters in `docs/bank-zahlungsdienstleister.md` (Zugang, was kommt, wie gespeichert, Grenzen) bzw. Zeile in der Formattabelle von `docs/bank.md`.
-- Aufzählungen der Anbieter und Formate nachziehen: `README.md`, `docs/index.md`, `docs/ueberblick.md`, `docs/architektur.md` (Zeile `packages/import`), bei einem Abruf `docs/einrichtung-echtbetrieb.md` (Zugangsdaten) und `docs/auswertungen.md` (`bank/quellen.csv`); eine neue Umgebungsvariable in `docs/installation-konfiguration.md`.
+- Aufzählungen der Anbieter und Formate nachziehen: `README.md`, `docs/index.md`, `docs/ueberblick.md`, `docs/architektur.md` (Zeile `packages/import`), bei einem Abruf `docs/einrichtung-echtbetrieb.md` (Zugangsdaten), `docs/auswertungen.md` (`bank/quellen.csv`) und `docs/installation-anbindungen.md` (Host, den der Server erreichen muss, wie „PayPal-Abruf“); eine neue Umgebungsvariable in `docs/installation-konfiguration.md`.
 - Ändert sich die Oberfläche: Bilder vorher und nachher (Skill `pr-screenshots`), mit nachgebauter API und Testdaten.
 - Pull Request nach Skill `beitrag`; nennt die Quellen und welche Fälle an echten Daten geprüft sind und welche nur nach Doku.
