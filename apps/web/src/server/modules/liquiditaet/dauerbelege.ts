@@ -1,4 +1,16 @@
-import { dauerbelegFaellig, dauerbelegSummen, folgeTermin, roundHalfAwayFromZero, type LiquiditaetsPosten } from "@haben/core";
+import {
+  abziehbarerAnteil,
+  abziehbareSteuer,
+  dauerbelegFaellig,
+  dauerbelegSummen,
+  folgeTermin,
+  splitPrivateShare,
+  type BasisPoints,
+  type Cents,
+  type DauerbelegBetrag,
+  type LiquiditaetsPosten,
+  type Prozent,
+} from "@haben/core";
 import { listDauerbelege } from "../belege/index.ts";
 import type { Kontext } from "./kontext.ts";
 
@@ -9,6 +21,15 @@ import type { Kontext } from "./kontext.ts";
  * offenen Verbindlichkeiten.
  */
 
+/**
+ * Die Vorsteuer, die die Buchung des Belegs abziehen wird: je Satz der private Teil gerundet und der betriebliche als Rest,
+ * davon der abziehbare Anteil (wie documentRatePosting in packages/core/src/document-posting.ts). Ein Beleg aus dem Lauf
+ * hat keinen eigenen Anteil, es gilt die Vorgabe der Firmendaten (abziehbarerAnteil).
+ */
+function erwarteteVorsteuer(amounts: DauerbelegBetrag[], privateShare: Prozent, anteil: BasisPoints): Cents {
+  return amounts.reduce((sum, a) => sum + abziehbareSteuer(splitPrivateShare(a.tax, privateShare).business, anteil), 0);
+}
+
 /** Höchstens so viele Termine je Vorlage; zwölf Monate mit monatlichem Intervall brauchen 13 */
 const HOECHSTENS_TERMINE = 60;
 
@@ -16,12 +37,13 @@ export async function dauerbelegPosten(k: Kontext): Promise<LiquiditaetsPosten[]
   const posten: LiquiditaetsPosten[] = [];
   for (const { vorlage } of await listDauerbelege()) {
     if (vorlage.status !== "aktiv" || vorlage.payment !== "bank") continue;
-    const { tax, gross } = dauerbelegSummen(vorlage.amounts);
+    const { gross } = dauerbelegSummen(vorlage.amounts);
     if (gross <= 0) continue;
     let termin = vorlage.nextDate;
     for (let i = 0; i < HOECHSTENS_TERMINE && termin <= k.bis && (!vorlage.endDate || termin <= vorlage.endDate); i++) {
-      // Vorsteuer nur mit ausgewiesener Steuer (§ 15 Abs. 1 Nr. 1 UStG) und nur der betriebliche Teil, nach Belegdatum
-      const vorsteuer = vorlage.taxShown && !k.kleinunternehmer(termin) ? roundHalfAwayFromZero((tax * (100 - vorlage.privateShare)) / 100) : 0;
+      // Vorsteuer nur mit ausgewiesener Steuer (§ 15 Abs. 1 Nr. 1 UStG) und nur der abziehbare betriebliche Teil, nach Belegdatum
+      const anteil = abziehbarerAnteil({ kleinunternehmer: k.kleinunternehmer(termin), ohneVorsteuerabzug: k.ohneVorsteuerabzug }, null);
+      const vorsteuer = vorlage.taxShown ? erwarteteVorsteuer(vorlage.amounts, vorlage.privateShare, anteil) : 0;
       posten.push({
         datum: dauerbelegFaellig(termin, vorlage.dueDays),
         betrag: gross,
