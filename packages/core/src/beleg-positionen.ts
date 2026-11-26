@@ -6,10 +6,9 @@ import { isKapitalgesellschaft, type Rechtsform } from "./rechtsform.ts";
 import type { TaxShare } from "./steueranteile.ts";
 
 /*
- * Beleg aus Positionen statt Beträgen je Steuersatz (#1975). Maßgeblich ist die Steuer je Satz laut Rechnung
- * (§ 14 Abs. 4 Nr. 8 UStG): Sie wird zuerst festgelegt, korrigierbar auf den Wert der Rechnung, und dann über
- * allocateSplitTax nach Netto auf die Positionen des Satzes verteilt. Netto × Satz je Position zu runden liefe
- * gegen die Steuer der Rechnung auseinander und damit gegen Kz 66.
+ * Beleg aus Positionen statt Beträgen je Steuersatz (#1975). Maßgeblich ist die Steuer je Satz laut Rechnung: Sie wird
+ * zuerst festgelegt und dann über allocateSplitTax nach Netto auf die Positionen des Satzes verteilt. Netto × Satz je
+ * Position zu runden liefe gegen die Steuer der Rechnung auseinander und damit gegen Kz 66.
  *
  * Privat ist eine Kategorie, keine eigene Art: Was privat ist, erkennt die Rechnung an kategorie "privatentnahme".
  * Eine solche Position ist betrieblich genau 0, in Netto und Steuer. Der Anteil entsteht einmalig über
@@ -97,20 +96,6 @@ export function saetzeAusBrutto(betraege: readonly BruttoBetrag[]): TaxShare[] {
   return [...je.entries()].sort(([a], [b]) => b - a).map(([rate, gross]) => ({ rate, base: netOf(gross, rate, "brutto"), tax: taxIncluded(gross, rate) }));
 }
 
-/**
- * Setzt die Steuer eines Satzes auf den Betrag der Rechnung; die Aufschlüsselung nach Steuersätzen ist Angabepflicht
- * nach § 14 Abs. 4 Nr. 8 UStG, abziehbar ist die Steuer nur auf einer ordnungsgemäßen Rechnung (§ 15 Abs. 1 Satz 1
- * Nr. 1 UStG), eine zu hoch ausgewiesene schuldet der Aussteller nach § 14c Abs. 1 UStG. Plausibel bleibt sie nur mit
- * demselben Vorzeichen wie der Satz (Storno bleibt negativ) und höchstens in Höhe seines Nettos: mehr Steuer als Netto
- * gibt es bei Sätzen bis 100 % nicht; sonst null.
- */
-export function steuerKorrektur(satz: TaxShare, steuer: Cents): TaxShare | null {
-  if (!Number.isSafeInteger(steuer)) return null;
-  if (steuer !== 0 && Math.sign(steuer) !== Math.sign(satz.base)) return null;
-  if (Math.abs(steuer) > Math.abs(satz.base)) return null;
-  return { ...satz, tax: steuer };
-}
-
 /** Vorgabe je Satz, ergänzt um Sätze, für die keine Steuer angegeben ist: dann gilt Netto × Satz */
 function vorgabeJeSatz(positionen: readonly Position[], saetze: readonly TaxShare[]): DocumentRateAmount[] {
   const vorgabe: DocumentRateAmount[] = saetze.map((satz) => ({ taxRate: satz.rate, net: satz.base, tax: satz.tax }));
@@ -125,7 +110,8 @@ function vorgabeJeSatz(positionen: readonly Position[], saetze: readonly TaxShar
 
 /**
  * Verteilt die Steuer je Satz über allocateSplitTax auf die Positionen. Eine Privatentnahme zählt dabei mit ihrem
- * Netto, denn sie steht mit diesem Betrag auf der Rechnung; ihre zugeteilte Steuer gehört aber zur Entnahme.
+ * Netto, denn sie steht mit diesem Betrag auf der Rechnung; allocateSplitTax teilt die Steuer des Satzes danach zuerst
+ * zwischen Betrieb und Entnahme und weist ihr ihren Anteil zu (#1976).
  */
 function verteilung(
   positionen: readonly Position[],
@@ -135,8 +121,13 @@ function verteilung(
   privat: { net: Cents; tax: Cents }[];
 } {
   const lines: DocumentSplitLine[] = positionen.map((position) => {
-    // allocateSplitTax liest nur Satz und Netto; die Kategorie reicht es unverändert durch
-    return { category: position.kategorie as ExpenseCategory, taxRate: position.rate, net: position.net };
+    // allocateSplitTax liest Satz, Netto und die Entnahme-Markierung; die Kategorie reicht es unverändert durch
+    return {
+      category: position.kategorie as ExpenseCategory,
+      taxRate: position.rate,
+      net: position.net,
+      ...(istPrivatentnahme(position) ? { privat: true } : {}),
+    };
   });
   const verteilt = allocateSplitTax(lines, vorgabeJeSatz(positionen, saetze));
   const steuer = new Map<number, Cents>();
@@ -209,6 +200,11 @@ export function summenProbe(summen: PositionenSummen, vorgabe: readonly TaxShare
     const privat = summen.privat.saetze.find((zeile) => zeile.rate === rate);
     const net = (betrieblich?.base ?? 0) + (privat?.base ?? 0);
     const tax = (betrieblich?.tax ?? 0) + (privat?.tax ?? 0);
+    // Wie splitIssues: Plus und Minus im selben Satz heben sich zu 0 auf und gingen sonst als aufgeteilt durch (#1976)
+    const werte = summen.zeilen.filter((zeile) => zeile.rate === rate).flatMap((zeile) => [zeile.net, zeile.privatNet]);
+    if (werte.some((wert) => wert > 0) && werte.some((wert) => wert < 0)) {
+      issues.push(`Summenprobe ${rate / 100} %: Netto mit Plus und Minus gemischt; eine Gutschrift hat nur negative Beträge`);
+    }
     const satz = vorgabe.find((zeile) => zeile.rate === rate);
     if (!satz) {
       issues.push(`Summenprobe ${rate / 100} %: Netto ${formatEuro(net)} und Steuer ${formatEuro(tax)} stehen nicht in der Vorgabe`);

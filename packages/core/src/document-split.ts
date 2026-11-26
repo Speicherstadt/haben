@@ -24,10 +24,10 @@ import { abziehbareSteuer, buchungsAnteil } from "./vorsteuerabzug.ts";
  *
  * Maßgeblich bleiben die Beträge des Belegs je Steuersatz (document_amounts): Die Vorsteuer steht auf der Rechnung und
  * wird wie bisher nicht nachgerechnet. Die Zeilen tragen Kategorie, Steuersatz und Netto; ihr Netto muss je Satz genau
- * das Netto des Belegs ergeben. Die Vorsteuer eines Satzes verteilt Haben anteilig nach Netto auf seine Zeilen und rundet
- * kaufmännisch; den Rundungsrest trägt die betragsmäßig größte Zeile des Satzes, wie beim Netto einer Bruttorechnung
- * (computeInvoice) und beim Steueranteil einer Teilzahlung (paidTaxShares). So ergeben die Zeilen je Satz exakt Netto
- * und Vorsteuer des Belegs.
+ * das Netto des Belegs ergeben. Die Vorsteuer eines Satzes teilt Haben zuerst nach Netto zwischen Betrieb und Entnahme
+ * und dann innerhalb jeder Gruppe auf ihre Zeilen, damit der abziehbare Teil nicht davon abhängt, an welcher Stelle die
+ * Entnahme steht (#1976). Gerechnet wird mit Beträgen, damit eine Gutschrift dieselben Anteile ergibt wie die Rechnung.
+ * So ergeben die Zeilen je Satz exakt Netto und Vorsteuer des Belegs.
  */
 
 /** Eine Kontierungszeile, wie sie eingegeben wird */
@@ -37,6 +37,11 @@ export interface DocumentSplitLine {
   account?: string;
   taxRate: BasisPoints;
   net: Cents;
+  /**
+   * Zeile gehört zur Entnahme (#1976): Ihr Anteil an der Steuer des Satzes ist nicht abziehbar. Die Steuer des Satzes
+   * wird dann zuerst nach Netto zwischen Betrieb und Entnahme geteilt, nicht über alle Zeilen hinweg.
+   */
+  privat?: boolean;
 }
 
 /** Kontierungszeile mit ihrem Anteil an der Vorsteuer des Satzes */
@@ -55,9 +60,32 @@ export interface DocumentRateAmount {
 const sum = (values: Cents[]) => values.reduce((s, v) => s + v, 0);
 
 /**
- * Verteilt die Vorsteuer je Satz anteilig nach Netto auf die Zeilen dieses Satzes; die Summe je Satz ist exakt die Steuer
- * des Belegs. Stimmt das Netto der Zeilen (noch) nicht, wird nach ihrem eigenen Netto verteilt; ohne Netto bleibt die
- * Steuer bei 0, das meldet splitIssues.
+ * Teilt einen Steuerbetrag nach Netto auf Zeilen, deren Teile zusammen exakt den Betrag ergeben. Gerechnet wird mit
+ * Beträgen: Eine Gutschrift (alles negativ) bekommt so dieselben Anteile wie die Rechnung, statt den Rest gegen das
+ * Vorzeichen zu legen. Den Rest trägt die Zeile mit dem größten Bruchteil, bei Gleichstand die mit dem größten Netto und
+ * dann die erste — dieselbe Regel wie beim Netto einer Bruttorechnung.
+ */
+function verteileSteuer(betrag: Cents, nettos: readonly Cents[]): Cents[] {
+  const gewicht = sum(nettos.map((net) => Math.abs(net)));
+  if (betrag === 0 || gewicht === 0) return nettos.map(() => 0);
+  const vorzeichen = Math.sign(betrag);
+  const anteile = nettos.map((net) => (Math.abs(betrag) * Math.abs(net)) / gewicht);
+  const teile = anteile.map((anteil) => Math.floor(anteil));
+  const reihenfolge = anteile
+    .map((anteil, i) => ({ i, bruch: anteil - Math.floor(anteil), netto: Math.abs(nettos[i]!) }))
+    .sort((a, b) => b.bruch - a.bruch || b.netto - a.netto || a.i - b.i);
+  for (let rest = Math.abs(betrag) - sum(teile), k = 0; rest > 0; rest -= 1, k = (k + 1) % reihenfolge.length) {
+    const ziel = reihenfolge[k]!.i;
+    teile[ziel] = (teile[ziel] ?? 0) + 1;
+  }
+  return teile.map((teil) => teil * vorzeichen);
+}
+
+/**
+ * Verteilt die Vorsteuer je Satz auf die Zeilen: zuerst nach Netto zwischen Betrieb und Entnahme, dann innerhalb jeder
+ * Gruppe anteilig nach Netto. So hängt der abziehbare Teil nicht davon ab, wo die Entnahme steht, und übersteigt nie die
+ * Steuer des Belegs (#1976); die Summe je Satz bleibt exakt die Steuer des Belegs. Stimmt das Netto der Zeilen (noch)
+ * nicht, wird nach ihrem eigenen Netto verteilt; ohne Netto bleibt die Steuer bei 0, das meldet splitIssues.
  */
 export function allocateSplitTax(lines: DocumentSplitLine[], amounts: DocumentRateAmount[]): AllocatedSplitLine[] {
   const result: AllocatedSplitLine[] = lines.map((line) => ({ ...line, tax: 0 }));
@@ -65,10 +93,26 @@ export function allocateSplitTax(lines: DocumentSplitLine[], amounts: DocumentRa
     const indexes = lines.flatMap((line, i) => (line.taxRate === amount.taxRate ? [i] : []));
     const base = sum(indexes.map((i) => lines[i]!.net));
     if (indexes.length === 0 || base === 0) continue;
-    for (const i of indexes) result[i]!.tax = roundHalfAwayFromZero((amount.tax * lines[i]!.net) / base);
-    const rest = amount.tax - sum(indexes.map((i) => result[i]!.tax));
-    const largest = indexes.reduce((best, i) => (Math.abs(lines[i]!.net) > Math.abs(lines[best]!.net) ? i : best), indexes[0]!);
-    result[largest]!.tax += rest;
+    const betrieb = indexes.filter((i) => lines[i]!.privat !== true);
+    const entnahme = indexes.filter((i) => lines[i]!.privat === true);
+    const entnahmeNetto = sum(entnahme.map((i) => lines[i]!.net));
+    // Die Entnahme trägt ihren gerundeten Anteil, der Betrieb den Rest: zusammen genau die Steuer des Belegs
+    const entnahmeSteuer =
+      entnahme.length === 0 ? 0 : Math.sign(amount.tax) * roundHalfAwayFromZero((Math.abs(amount.tax) * Math.abs(entnahmeNetto)) / Math.abs(base));
+    const gruppen: { indexes: number[]; steuer: Cents }[] = [
+      { indexes: betrieb, steuer: amount.tax - entnahmeSteuer },
+      { indexes: entnahme, steuer: entnahmeSteuer },
+    ];
+    for (const gruppe of gruppen) {
+      if (gruppe.indexes.length === 0) continue;
+      const teile = verteileSteuer(
+        gruppe.steuer,
+        gruppe.indexes.map((i) => lines[i]!.net),
+      );
+      gruppe.indexes.forEach((i, k) => {
+        result[i]!.tax = teile[k]!;
+      });
+    }
   }
   return result;
 }

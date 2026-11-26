@@ -67,6 +67,32 @@ describe("allocateSplitTax", () => {
     const negated = issueLines.map((l) => ({ ...l, net: -l.net }));
     expect(allocateSplitTax(negated, [{ taxRate: 1900, net: -17_000, tax: -3_230 }]).map((l) => l.tax)).toEqual([-1_900, -950, -380]);
   });
+
+  it("teilt die Steuer je Satz zuerst zwischen Betrieb und Entnahme (#1976)", () => {
+    // Fünf Zeilen zu je 3 ct netto bei 19 %, Steuer des Belegs 3 ct: Vorher trug die erste Zeile den Rundungsrest,
+    // betrieblich waren es dann 4 ct (Entnahme vorn) oder 2 ct (hinten) — der abziehbare Teil hing an der Reihenfolge.
+    const betrieb: DocumentSplitLine[] = Array.from({ length: 4 }, () => ({ category: "wareneinkauf", taxRate: 1900, net: 3 }));
+    const entnahme: DocumentSplitLine = { category: "sonstiges", taxRate: 1900, net: 3, privat: true };
+    const amounts = [{ taxRate: 1900, net: 15, tax: 3 }];
+    for (const lines of [
+      [entnahme, ...betrieb],
+      [...betrieb, entnahme],
+    ]) {
+      const allocated = allocateSplitTax(lines, amounts);
+      expect(sumOf(allocated.filter((line) => line.privat).map((line) => line.tax))).toBe(1);
+      expect(sumOf(allocated.filter((line) => !line.privat).map((line) => line.tax))).toBe(2);
+      expect(sumOf(allocated.map((line) => line.tax))).toBe(3);
+    }
+  });
+
+  it("Gutschrift: die Entnahme bekommt ihren negativen Anteil, der Betrieb bleibt negativ (#1976)", () => {
+    const betrieb: DocumentSplitLine[] = Array.from({ length: 4 }, () => ({ category: "wareneinkauf", taxRate: 1900, net: -3 }));
+    const entnahme: DocumentSplitLine = { category: "sonstiges", taxRate: 1900, net: -3, privat: true };
+    const allocated = allocateSplitTax([entnahme, ...betrieb], [{ taxRate: 1900, net: -15, tax: -3 }]);
+    expect(allocated.filter((line) => line.privat).map((line) => line.tax)).toEqual([-1]);
+    expect(sumOf(allocated.filter((line) => !line.privat).map((line) => line.tax))).toBe(-2);
+    expect(sumOf(allocated.map((line) => line.tax))).toBe(-3);
+  });
 });
 
 describe("splitIssues", () => {

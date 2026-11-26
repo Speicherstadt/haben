@@ -5,7 +5,6 @@ import {
   privatZulaessig,
   pruefePrivatpositionen,
   saetzeAusBrutto,
-  steuerKorrektur,
   summenProbe,
   type Position,
 } from "./beleg-positionen.ts";
@@ -183,18 +182,6 @@ describe("Steuer je Satz", () => {
     ]);
   });
 
-  it("korrigiert die Steuer auf den Betrag der Rechnung und weist Unsinn ab", () => {
-    // 42,13 € netto zu 19 % wären 8,00 €; die Rechnung weist 8,01 € aus
-    const satz = { rate: 1900, base: 4_213, tax: 800 };
-    expect(steuerKorrektur(satz, 801)).toEqual({ rate: 1900, base: 4_213, tax: 801 });
-    expect(steuerKorrektur(satz, -1)).toBeNull();
-    // Obergrenze ist das Netto, nicht das Brutto
-    expect(steuerKorrektur(satz, 4_213)).toEqual({ rate: 1900, base: 4_213, tax: 4_213 });
-    // 50,13 € Steuer auf 42,13 € Netto wären mehr Steuer als Umsatz, also ein Zahlendreher
-    expect(steuerKorrektur(satz, 5_013)).toBeNull();
-    expect(steuerKorrektur(satz, 5_014)).toBeNull();
-  });
-
   it("summiert zwei Steuersätze getrennt und verteilt je Satz auf dessen Positionen", () => {
     const gemischt: Position[] = [
       { kategorie: "ware", rate: 1900, net: 3_000 },
@@ -224,6 +211,38 @@ describe("Steuer je Satz", () => {
       { rate: 1900, base: 1_000, tax: 190 },
       { rate: 700, base: 1_000, tax: 70 },
     ]);
+  });
+
+  it("teilt die Steuer je Satz zuerst zwischen Betrieb und Entnahme, unabhängig von der Reihenfolge (#1976)", () => {
+    // Fünf Positionen zu je 3 ct netto, Steuer der Rechnung 3 ct. Vorher trug die erste Zeile den Rundungsrest: Stand
+    // die Entnahme vorn, blieben betrieblich 4 ct und bei ihr −1 ct; stand sie hinten, waren es 2 ct und 1 ct.
+    const betrieb: Position[] = Array.from({ length: 4 }, () => ({ kategorie: "ware", rate: 1900, net: 3 }));
+    const entnahme: Position = { kategorie: "privatentnahme", rate: 1900, net: 3 };
+    const steuer = [{ rate: 1900, base: 15, tax: 3 }];
+    for (const positionen of [
+      [entnahme, ...betrieb],
+      [...betrieb, entnahme],
+    ]) {
+      const summen = positionenSummen(positionen, steuer);
+      expect(summen.tax).toBe(2);
+      expect(summen.privat.tax).toBe(1);
+      expect(summen.tax + summen.privat.tax).toBe(3);
+    }
+  });
+
+  it("geht auch als Gutschrift auf: alles negativ, die Steuer bleibt negativ (#1976)", () => {
+    const betrieb: Position[] = Array.from({ length: 4 }, () => ({ kategorie: "ware", rate: 1900, net: -3 }));
+    const entnahme: Position = { kategorie: "privatentnahme", rate: 1900, net: -3 };
+    const steuer = [{ rate: 1900, base: -15, tax: -3 }];
+    for (const positionen of [
+      [entnahme, ...betrieb],
+      [...betrieb, entnahme],
+    ]) {
+      const summen = positionenSummen(positionen, steuer);
+      expect(summen.tax).toBe(-2);
+      expect(summen.privat.tax).toBe(-1);
+      expect(summen.tax + summen.privat.tax).toBe(-3);
+    }
   });
 });
 
@@ -276,5 +295,27 @@ describe("Summenprobe", () => {
     const issues = summenProbe(summen, vorgabe);
     expect(issues).toHaveLength(1);
     expect(issues[0]).toContain("Steuer 0,00");
+  });
+
+  it("meldet einen Satz, den nur die Positionen kennen (#1976)", () => {
+    // Rechnung 42,13 € zu 19 %, Positionen zusätzlich 10,00 € zu 7 %: die 10,70 € brutto stehen auf keiner Rechnung
+    const positionen: Position[] = [
+      { kategorie: "ware", rate: 1900, net: 4_213 },
+      { kategorie: "literatur", rate: 700, net: 1_000 },
+    ];
+    const vorgabe = [{ rate: 1900, base: 4_213, tax: 801 }];
+    const issues = summenProbe(positionenSummen(positionen, vorgabe), vorgabe);
+    expect(issues.length).toBeGreaterThan(0);
+    expect(issues.some((issue) => issue.includes("7 %"))).toBe(true);
+  });
+
+  it("weist Plus und Minus im selben Satz ab, auch wenn sie sich zu Netto 0 aufheben (#1976)", () => {
+    const positionen: Position[] = [
+      { kategorie: "ware", rate: 1900, net: 10_000 },
+      { kategorie: "privatentnahme", rate: 1900, net: -10_000 },
+    ];
+    const vorgabe = [{ rate: 1900, base: 0, tax: 0 }];
+    const issues = summenProbe(positionenSummen(positionen, vorgabe), vorgabe);
+    expect(issues.some((issue) => issue.includes("Plus und Minus"))).toBe(true);
   });
 });
