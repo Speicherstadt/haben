@@ -64,6 +64,8 @@ Die Menüpunkte eines Bereichs, den du mit „Nein“ beantwortest, verschwinden
 
 **Zu erledigen** steht oben auf der Übersicht und zeigt die drei dringendsten Aufgaben: erst Fristen der nächsten zwei Wochen wie Voranmeldung, Zahllast ohne Deckung auf dem Steuerkonto, Einspruch oder Zertifikat (auch überfällige), die nächste zuerst, dann Warnungen vor Hinweisen vor Anstehendem. Die übrigen stehen unter **Weitere (n)**. Steht die Voranmeldung nicht unter den drei, führt im Seitenkopf ein Link zum Zeitraum; bei Kleinunternehmern und Befreiten nur, wenn es dazu eine Voranmeldung oder Zahlen gibt. Die Kennzahlen darunter erscheinen, sobald es Rechnungen, offene Posten, Umsatz im Vormonat, eine Zahllast oder Voranmeldung oder einen Kontostand gibt. Solange keine Rechnung festgeschrieben ist, führt **Erste Rechnung schreiben** unter **Letzte Rechnungen** zur ersten Rechnung.
 
+Endete der Zeitraum einer Voranmeldung vor deinem ersten Buchungsmonat, steht sie weder unter **Zu erledigen** (auch nicht als fehlende Deckung auf dem Steuerkonto) noch bei den Kennzahlen als fällig, und der Link im Seitenkopf entfällt: Was davor lag, hast du nicht in Haben gebucht, wie bei den [Fristen](fristen.md). War dein Unternehmen in dem Zeitraum schon tätig, bleibt sie beim Finanzamt abzugeben (§ 18 Abs. 1 UStG). Mit einer gespeicherten Voranmeldung (auch Entwurf) zu dem Zeitraum zeigt Haben Aufgabe, Link und Kennzahl wie sonst.
+
 ## Zugang für die Steuerberatung
 
 Deine Steuerberatung bekommt auf Wunsch einen eigenen Zugang, der nur lesen kann: Auswertungen, Journal, Kontenblätter, Belege und Rechnungen ansehen, Dateien, DATEV-Export und Jahresarchiv herunterladen. Unter **Einstellungen › Sicherheit › Zugänge** erzeugst du einen Einladungslink, der einmal und 72 Stunden gilt; die Steuerberatung legt damit Passwort und Passkey selbst an. Sperren und Entfernen geht an derselben Stelle. Buchen, Festschreiben, Senden an ELSTER, Einstellungen, Zertifikat, Bankzugang und API-Tokens bleiben bei dir. Alles Weitere steht in [Zugang für die Steuerberatung](steuerberatung.md).
@@ -95,7 +97,7 @@ Die App ist dieselbe Seite wie im Browser und speichert nichts auf dem Gerät zw
 
 Unter **Einstellungen › Firma** hinterlegst du die Angaben, die auf Rechnungen und in der Voranmeldung stehen. Fehlt etwas für ELSTER, zeigt das Formular oben „Für ELSTER fehlt noch: …“.
 
-Seltenes steht eingeklappt, mit dem Gesetzten in der Überschrift: **Handelsregister und Geschäftsführung** (nur GmbH und UG, „HRB 12345 HB“), **Fremdwährung** („Tageskurs“), **Privatanteile** (nur Einzelunternehmen, „Telefon 20 % · Internet 50 %“) und **Mahnwesen** („Basiszinssatz 2,27 % · Gebühren 0 / 5,00 / 10,00 €“). Die Felder gehen auch zugeklappt mit, wenn du speicherst. Ein Fehler in einem Feld darin und ein Link aus dem [Mahnwesen](rechnungen-zahlung.md#mahnwesen) oder der Hinterlegung klappen den Abschnitt auf; fehlen einer GmbH oder UG Pflichtangaben, steht das Handelsregister offen.
+Seltenes steht eingeklappt, mit dem Gesetzten in der Überschrift: **Handelsregister und Geschäftsführung** (nur GmbH und UG, „HRB 12345 HB“), **Fremdwährung** („Tageskurs“), **Privatanteile** (nur Einzelunternehmen, „Telefon 20 % · Internet 50 %“) und **Mahnwesen** („Basiszinssatz 2,27 % · Gebühren 0 / 5,00 / 10,00 €“). Die Felder gehen auch zugeklappt mit, wenn du speicherst. Ein Fehler in einem Feld darin und ein Link aus dem [Mahnwesen](rechnungen-zahlung.md#mahnwesen), der Hinterlegung oder dem Hinweis auf fehlende Pflichtangaben für Geschäftsbriefe im Rechnungseditor klappen den Abschnitt auf; fehlen einer GmbH oder UG Pflichtangaben, steht das Handelsregister offen.
 
 | Feld | Wofür |
 | --- | --- |
@@ -469,7 +471,7 @@ Der Beleg geht dann an OpenRouter und an den Anbieter des Modells. Wie lange sie
 
 ## Bankkonten
 
-Bankkonten musst du meist nicht von Hand anlegen. Mit dem automatischen Abruf über Enable Banking oder FinTS legt Haben die freigegebenen Konten beim Verbinden an (Einrichtung in [Anbindungen](installation-anbindungen.md#kontoabruf-enable-banking) und [Kontoabruf über FinTS](installation-anbindungen.md#kontoabruf-über-fints), Ablauf in [Bank](bank.md#automatischer-abruf)). Beim ersten Import eines DKB-CSV oder CAMT.053-Auszugs legt Haben das Konto über die IBAN aus der Datei an. N26-CSV-Dateien enthalten keine eigene IBAN. Dafür legst du das Konto vorher an:
+Bankkonten musst du meist nicht von Hand anlegen. Mit dem automatischen Abruf über Enable Banking oder FinTS legt Haben beim Verbinden die freigegebenen Konten an, bei FinTS die gewählten (Einrichtung in [Anbindungen](installation-anbindungen.md#kontoabruf-enable-banking) und [Kontoabruf über FinTS](installation-anbindungen.md#kontoabruf-über-fints), Ablauf in [Bank](bank.md#automatischer-abruf)). Beim ersten Import eines DKB-CSV oder CAMT.053-Auszugs legt Haben das Konto über die IBAN aus der Datei an. N26-CSV-Dateien enthalten keine eigene IBAN. Dafür legst du das Konto vorher an:
 
 1. Auf der Seite **Bank** „Konto hinzufügen“ wählen.
 2. Name (z. B. „N26 Business“) und IBAN eintragen und „Konto anlegen“.

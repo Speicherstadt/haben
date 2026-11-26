@@ -1,5 +1,5 @@
 {
-  "id": "dd33e947-9c38-4078-901b-3c7f6915cd12",
+  "id": "91f74910-d54c-4f81-8578-44ea09686059",
   "prevId": "e10e0748-71ac-4548-9f27-7503eb28fb88",
   "version": "7",
   "dialect": "postgresql",
@@ -1553,13 +1553,6 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
-        },
-        "special_depreciation": {
-          "name": "special_depreciation",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
         },
         "disposal_date": {
           "name": "disposal_date",
@@ -20254,6 +20247,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "small_business_rule": {
+          "name": "small_business_rule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "computed": {
           "name": "computed",
           "type": "jsonb",
@@ -20345,6 +20344,10 @@
         "vat_returns_month": {
           "name": "vat_returns_month",
           "value": "\"vat_returns\".\"month\" between 1 and 12 or \"vat_returns\".\"month\" between 41 and 44"
+        },
+        "vat_returns_small_business_rule": {
+          "name": "vat_returns_small_business_rule",
+          "value": "\"vat_returns\".\"small_business_rule\" is null or \"vat_returns\".\"small_business_rule\" = 'leistung'"
         }
       },
       "isRLSEnabled": false

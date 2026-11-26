@@ -55,7 +55,7 @@ Jeder Abruf wird wie eine Datei als Import gespeichert, mit Zeitraum, Kontostand
 
 ### Abruf über FinTS
 
-Mit einer eigenen Registrierungsnummer für FinTS holt Haben die Umsätze direkt bei der Bank, mit PIN und TAN, ohne Enable Banking. Verbinden, TAN, welche Umsätze kommen, Fehler und was passiert, wenn ein Konto schon über Enable Banking kommt, stehen in [Abruf über FinTS](bank-fints.md).
+Mit einer eigenen Registrierungsnummer für FinTS holt Haben die Umsätze direkt bei der Bank, mit PIN und TAN, ohne Enable Banking. Verbinden, TAN, Wahl der Konten, welche Umsätze kommen, Fehler und was passiert, wenn ein Konto schon über Enable Banking kommt, stehen in [Abruf über FinTS](bank-fints.md).
 
 ### Externe Quelle
 
@@ -151,7 +151,7 @@ Kennzeichnen lässt sich nur ein ganz offener Umsatz. Zuordnen, Direkt buchen, A
 
 ### Fremdes Konto ausschließen
 
-Manchmal gehört ein Konto nicht zu dieser Firma, etwa wenn der Bankzugang auch das Konto einer zweiten Firma freigibt. Löschen geht nicht: Importierte Umsätze sind gesperrt. Stattdessen schließt du das Konto aus: Wähle es und klicke neben **Name und Zweck** auf **Gehört nicht zu dieser Firma**; nach einer Rückfrage ist es erledigt.
+Manchmal gehört ein Konto nicht zu dieser Firma, etwa wenn der Bankzugang auch das Konto einer zweiten Firma freigibt. Löschen geht nicht: Importierte Umsätze sind gesperrt. Stattdessen schließt du das Konto aus: Wähle es und klicke neben **Name und Zweck** auf **Gehört nicht zu dieser Firma**; nach einer Rückfrage ist es erledigt. Beim [Abruf über FinTS](bank-fints.md) lässt du ein solches Konto schon beim Verbinden weg; dann legt Haben es gar nicht an.
 
 Das geht nur, **solange kein Umsatz des Kontos zugeordnet, verrechnet oder ausgebucht ist**, denn dann gehört das Konto zu dieser Firma. Hat das gewählte Konto schon eine Zuordnung, ist der Knopf gesperrt und nennt den Grund. Ein Zahlungsdienstleister lässt sich nicht ausschließen.
 
@@ -194,6 +194,12 @@ Importe, Umsätze, Zuordnungen und [Verrechnungen](#gegenläufige-umsätze-verre
 Ab zwei Konten zeigt der erste Reiter, **Alle Konten**, die Umsätze aller Konten in einer Liste, unter der Gegenpartei mit dem Namen des Kontos. Dorthin führt auch **Alle anzeigen** bei den Bankumsätzen der [Schnellsuche](suche.md).
 
 Die Filter **Alle**, **Offen** (mit Anzahl), **Zugeordnet** (auch verrechnete Umsätze) und **Vorschlag** schränken die Liste ein. **Vorschlag** zeigt nur Umsätze mit dem gleichnamigen Status. Das Suchfeld findet dieselben Umsätze wie die [Schnellsuche](suche.md#was-sie-findet), dazu Beträge, deren Zahl die Eingabe enthält: `19.9` findet 19,90 €. Angezeigt werden höchstens 500 Treffer.
+
+Über der Liste steht, wie viele Umsätze noch offen sind: dieselbe Zahl wie am Filter **Offen**, für das gewählte Konto bzw. alle Konten, unabhängig von Suche und Filter. Teilweise zugeordnete Umsätze zählen mit, [gekennzeichnete private](#privates-konto-umsätze-ohne-buchungsart) nicht, bei einem Zahlungsdienstleister Zahlung und Gebühr zusammen einmal.
+
+- **Nächsten offenen** wählt den nächsten offenen Umsatz der Liste, am Ende wieder von vorn, und setzt den Fokus auf seine Zeile.
+- Steht kein weiterer offener Umsatz in der Liste (anderer Filter oder Suche), zeigt der Knopf alle offenen Umsätze ohne Suche, ohne den Fokus zu setzen. Zeigt die Liste schon alle offenen und ist nur einer offen, fehlt der Knopf.
+- Ist alles zugeordnet, steht dort „Alles zugeordnet.“ mit den Links **Belege prüfen** und, außer bei Kleinunternehmern, **Voranmeldung prüfen**. Ohne importierte Umsätze steht stattdessen „Keine Umsätze.“.
 
 Die Spaltenköpfe Datum, Gegenpartei · Verwendungszweck, Betrag und Status sortieren die Liste. Der erste Klick sortiert absteigend, ein zweiter Klick auf denselben Kopf dreht die Richtung; der aktive Kopf zeigt einen Pfeil. Ohne Auswahl steht der neueste Umsatz oben. Am Handy sind Datum und Status ausgeblendet, dort sortieren Gegenpartei und Betrag.
 
@@ -312,6 +318,8 @@ Die Rechnung ist wieder offen und steht unter **Lastschriften** zum erneuten Ein
 4. **Zuordnen** klicken. Ist der Umsatz damit ganz zugeordnet, springt die Auswahl zum nächsten offenen Umsatz, am Ende der Liste wieder von vorn.
 
 Tastatur: **Enter** ordnet zu, solange der Fokus nicht in einem Eingabefeld, auf einem Knopf oder Link liegt. **J** springt zum nächsten, **K** zum vorigen Umsatz.
+
+Unter **Zugeordnet** führt „Buchung vom …“ bei jeder Zuordnung auf ihre Buchung im [Journal](buchhaltung.md#die-seite-buchungen). Umgekehrt öffnet die Herkunft „Bank“ in Journal und Kontenblatt diesen Umsatz.
 
 ### Teilzahlungen und mehrere Zuordnungen
 
@@ -563,7 +571,7 @@ Bei Eingängen (Privateinlage, Geldtransit, Erstattung vom Finanzamt) steht die 
 
 ## Zuordnung aufheben
 
-Unter **Zugeordnet** steht neben jeder Zuordnung **Aufheben**, bei einer Aufteilung einmal **Aufteilung aufheben** für alle Teile. Haben fragt vorher in einem Dialog nach und nennt Zuordnung, Betrag und den **Tag der Aufhebung**. Vorbelegt ist der Buchungstag der Zahlung, solange deren Zeitraum nicht gemeldet ist, sonst heute. Es löscht dabei nichts: Es legt eine Gegenzeile mit umgekehrtem Betrag an und bucht die ursprüngliche Buchung mit vertauschten Seiten zurück („Storno: …“), und zwar an diesem Tag. Die aufgehobene Zuordnung bleibt durchgestrichen sichtbar, der Betrag ist wieder offen.
+Unter **Zugeordnet** steht neben jeder Zuordnung **Aufheben**, bei einer Aufteilung einmal **Aufteilung aufheben** für alle Teile. Haben fragt vorher in einem Dialog nach und nennt Zuordnung, Betrag und den **Tag der Aufhebung**. Vorbelegt ist der Buchungstag der Zahlung, solange deren Zeitraum nicht gemeldet ist, sonst heute. Es löscht dabei nichts: Es legt eine Gegenzeile mit umgekehrtem Betrag an und bucht die ursprüngliche Buchung mit vertauschten Seiten zurück („Storno: …“), und zwar an diesem Tag. Die aufgehobene Zuordnung bleibt durchgestrichen sichtbar, der Betrag ist wieder offen. Unter der aufgehobenen Zuordnung steht dann neben „Buchung vom …“ auch „Gegenbuchung vom …“.
 
 Eine Zuordnung lässt sich nur einmal aufheben.
 

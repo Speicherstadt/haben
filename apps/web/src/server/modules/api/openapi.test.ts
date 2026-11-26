@@ -79,6 +79,23 @@ describe("OpenAPI-Beschreibung der REST-API", () => {
     expect(doc.components.schemas.ArticlePatch).not.toHaveProperty("required");
   });
 
+  it("beschreibt Ändern und Löschen wiederkehrender Vorlagen mit eigenem Recht und Konfliktantwort", () => {
+    expect(doc.paths["/rechnungen/wiederkehrend/{id}"]).toMatchObject({
+      patch: {
+        security: [{ token: ["rechnungen:vorlagen-bearbeiten"] }],
+        requestBody: { content: { "application/json": { schema: { $ref: "#/components/schemas/RecurringInvoicePatch" } } } },
+        responses: { 200: { description: expect.any(String) }, 409: { description: "Die Vorlage ist aktiv" } },
+      },
+      delete: {
+        security: [{ token: ["rechnungen:vorlagen-bearbeiten"] }],
+        responses: { 204: { description: "Gelöscht" }, 409: { description: "Eine aus der Vorlage erzeugte Rechnung oder ein Entwurf ist vorhanden" } },
+      },
+    });
+    expect(doc.components.schemas.RecurringInvoicePatch).toMatchObject({ additionalProperties: false });
+    expect(doc.components.schemas.RecurringInvoicePatch).not.toHaveProperty("required");
+    expect(doc.components.schemas.RecurringInvoicePatch).not.toHaveProperty("properties.active");
+  });
+
   it("beschreibt den REST-Import von Bankumsätzen mit eigenem Recht, Vertrag als Eingabe und den Fehlern (#306)", () => {
     expect(doc.paths["/bankimporte"]).toMatchObject({
       post: {
@@ -111,7 +128,10 @@ describe("OpenAPI-Beschreibung der REST-API", () => {
       post: {
         security: [{ token: ["angebote:entwuerfe"] }],
         requestBody: { content: { "application/json": { schema: { $ref: "#/components/schemas/QuoteDraftCreate" } } } },
-        responses: { 201: { content: { "application/json": { schema: { $ref: "#/components/schemas/Quote" } } } } },
+        responses: {
+          200: { content: { "application/json": { schema: { $ref: "#/components/schemas/Quote" } } } },
+          201: { content: { "application/json": { schema: { $ref: "#/components/schemas/Quote" } } } },
+        },
       },
     });
     expect(doc.paths["/angebote/{id}"]).toMatchObject({
@@ -129,6 +149,10 @@ describe("OpenAPI-Beschreibung der REST-API", () => {
     const create = doc.components.schemas.QuoteDraftCreate as { additionalProperties: boolean; required: string[]; properties: Record<string, unknown> };
     expect(create).toMatchObject({ additionalProperties: false, required: ["lines"] });
     expect(create.properties).toHaveProperty("validUntil");
+    for (const field of ["externalSource", "externalId"]) {
+      expect(create.properties).toHaveProperty(field);
+      expect((doc.components.schemas.QuoteDraftPatch as { properties: object }).properties).not.toHaveProperty(field);
+    }
     for (const field of ["discount", "paymentPlan", "contactPersonId"]) expect(create.properties).not.toHaveProperty(field);
     expect(doc.components.schemas.QuoteDraftPatch).not.toHaveProperty("required");
     const line = doc.components.schemas.QuoteLineInput as { additionalProperties: boolean; properties: Record<string, unknown> };
