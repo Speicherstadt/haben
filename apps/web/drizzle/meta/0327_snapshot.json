@@ -1,5 +1,5 @@
 {
-  "id": "3c624576-96b6-4f79-8c6a-28bf402e94ab",
+  "id": "91f74910-d54c-4f81-8578-44ea09686059",
   "prevId": "e10e0748-71ac-4548-9f27-7503eb28fb88",
   "version": "7",
   "dialect": "postgresql",
@@ -5620,13 +5620,6 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
-        },
-        "private_share": {
-          "name": "private_share",
-          "type": "smallint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
         }
       },
       "indexes": {
@@ -5683,12 +5676,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "document_splits_private_share_range": {
-          "name": "document_splits_private_share_range",
-          "value": "\"document_splits\".\"private_share\" between 0 and 100"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.documents": {
@@ -20259,6 +20247,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "small_business_rule": {
+          "name": "small_business_rule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "computed": {
           "name": "computed",
           "type": "jsonb",
@@ -20350,6 +20344,10 @@
         "vat_returns_month": {
           "name": "vat_returns_month",
           "value": "\"vat_returns\".\"month\" between 1 and 12 or \"vat_returns\".\"month\" between 41 and 44"
+        },
+        "vat_returns_small_business_rule": {
+          "name": "vat_returns_small_business_rule",
+          "value": "\"vat_returns\".\"small_business_rule\" is null or \"vat_returns\".\"small_business_rule\" = 'leistung'"
         }
       },
       "isRLSEnabled": false

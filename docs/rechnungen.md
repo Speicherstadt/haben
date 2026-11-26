@@ -7,7 +7,7 @@ description: >-
 
 # Rechnungen und E-Rechnung
 
-Haben schreibt Ausgangsrechnungen als E-Rechnung: ZUGFeRD (PDF/A-3 mit eingebettetem XML, Profil EN 16931) oder XRechnung 3.0 in CII- oder UBL-Syntax. Eine Rechnung ist zuerst ein Entwurf, den du beliebig ändern kannst. Mit dem Festschreiben bekommt sie ihre Nummer, PDF und XML werden erzeugt, sie wird gebucht und ist danach unveränderlich.
+Haben schreibt Ausgangsrechnungen als E-Rechnung: ZUGFeRD (PDF/A-3 mit eingebettetem XML, Profil EN 16931) oder XRechnung 3.0 in CII- oder UBL-Syntax. Eine Rechnung ist zuerst ein Entwurf, den du beliebig ändern kannst. Mit dem Festschreiben bekommt sie ihre Nummer, PDF und XML werden erzeugt, sie wird gebucht, und sie ist danach unveränderlich. Gebucht wird dabei nicht jede Rechnung, etwa eine Anzahlungsanforderung von GmbH und UG: Sie bleibt bis zur Schlussleistung ohne Buchungssatz ([Abschlags- und Schlussrechnung](#abschlags--und-schlussrechnung)).
 
 <img src="screenshot-rechnung.png" alt="Rechnungseditor mit Kunde, Leistungszeitraum, Positionen und Live-Vorschau der Rechnung rechts daneben" width="900">
 
@@ -25,9 +25,9 @@ Bevor du die erste Rechnung festschreibst, brauchst du:
 2. **Kunde** wählen: Das Feld sucht beim Tippen nach Name, Kundennummer und Ort (Serienrechnungen haben dieselbe Auswahl; bei Textbausteinen bedeutet ein leeres Feld „für alle Kunden“); Pfeiltasten und Enter wählen einen Treffer, Escape schließt die Liste. Ohne Auswahl bleibt der bisherige Kunde, ein geleertes Feld nimmt ihn weg. Hat der Kontakt ein Standardformat, wird es übernommen; hat er eine Leitweg-ID und kein Standardformat, stellt Haben auf XRechnung 3.0 (CII) um. Fehlt der Kunde noch, legst du ihn über den letzten Eintrag der Trefferliste an: **Neuen Kontakt anlegen**, oder nach dem Tippen **„…“ als neuen Kunden anlegen** mit dem getippten Namen. Beides geht, ohne den Entwurf zu verlassen: Im Dialog ist die Rolle **Kunde** angehakt, nach dem Speichern ist er gewählt, und die Eingaben im Entwurf bleiben stehen, auch wenn du abbrichst. Gibt es schon einen Kontakt mit derselben USt-IdNr., weist der Dialog darauf hin: Ist er ein Kunde und nicht archiviert, kannst du ihn wählen, statt eine Dublette anzulegen; sonst verweist der Hinweis auf den Kontakt, um dort die Rolle zu ergänzen oder ihn wiederherzustellen. Das gilt ebenso im Angebot.
 3. **Rechnungsdatum** und **Zahlungsziel in Tagen** (0 bis 120) eintragen. Darunter steht das errechnete Fälligkeitsdatum (siehe [Fälligkeit](rechnungen-zahlung.md#fälligkeit)). Vorgabe für das Zahlungsziel ist der Wert aus den Firmendaten.
    Optional **Skonto**: je Stufe Satz und Frist in Tagen, vorbelegt vom Kunden oder aus den Firmendaten (siehe [Skonto](rechnungen-zahlung.md#skonto)).
-4. Optional **Leistung von** und **Leistung bis**. Ohne Angabe gilt das Rechnungsdatum als Leistungsdatum und steht als solches auf der Rechnung; ist nur ein Tag angegeben oder sind beide gleich, erscheint auf der Rechnung „Leistungsdatum“, sonst „Leistungszeitraum“. Bei einem Zeitraum übernimmt Haben im XML die Kundenanschrift als Lieferanschrift mit Lieferland. Eine abweichende Lieferanschrift kennt Haben nicht.
+4. Optional **Leistung von** und **Leistung bis**. Sind beide leer, steht auf der Rechnung das Rechnungsdatum als Leistungsdatum. Ist nur ein Tag angegeben oder sind beide gleich, erscheint auf der Rechnung „Leistungsdatum“, sonst „Leistungszeitraum“. Bei einem Zeitraum übernimmt Haben im XML die Kundenanschrift als Lieferanschrift mit Lieferland. Eine abweichende Lieferanschrift kennt Haben nicht. Was ein eingetragener Tag bei einer Zahlung vor der Leistung für die Umsatzsteuer bedeutet, steht unter [Vorauszahlung auf normale Rechnungen](#vorauszahlung-auf-normale-rechnungen).
    Optional **Bestellnummer**, **Eigene Auftragsnummer** und **Lieferscheinnummer** (siehe [Bestellnummer, Auftrag und Lieferschein](#bestellnummer-auftrag-und-lieferschein)).
-5. **E-Rechnungsformat** prüfen.
+5. **E-Rechnungsformat** prüfen (siehe [Format wählen](#format-wählen)).
 6. Unter **Umsatzsteuer** die steuerliche Behandlung wählen, im Normalfall „Regulär“ (siehe [Umsatzsteuer auf der Rechnung](#umsatzsteuer-auf-der-rechnung)).
 7. Unter **Preise** wählen, ob die Einzelpreise netto oder brutto inklusive Umsatzsteuer gelten (siehe [Netto- oder Bruttopreise](#nettopreise-oder-bruttopreise)). Vorgabe ist netto.
 8. Optional eine **Einleitung über den Positionen** eintragen (Kopftext, bis 2000 Zeichen), etwa Rahmenvertrag oder Anrede; Bestell-, Auftrags- und Lieferscheinnummer haben eigene Felder. Vorbelegt ist sie mit dem [Standard-Kopftext für Rechnungen](#standard-je-belegart), der Hinweis mit dem Standard-Fußtext, wenn es sie gibt. **Textbaustein einfügen** übernimmt einen gespeicherten Kopftext (siehe [Textbausteine](#textbausteine)).
@@ -280,6 +280,8 @@ Alte Befreiungstexte werden nicht automatisch einer Vorschrift zugeordnet. Ihr g
 
 Die Reihenfolge, nach der Haben das Format vorschlägt: Standardformat des Kontakts, sonst XRechnung (CII) bei vorhandener Leitweg-ID, sonst das Standardformat aus den Einstellungen. Du kannst es im Entwurf jederzeit ändern.
 
+Als Rat: ZUGFeRD passt für die meisten Kunden, XRechnung nur, wenn der Kunde sie verlangt. CII und UBL sind zwei Schreibweisen davon, im Zweifel CII.
+
 ### Was vor dem Festschreiben geprüft wird
 
 Der Editor listet alles auf, was noch fehlt. Geprüft werden:
@@ -336,7 +338,7 @@ Alles läuft in einer einzigen Datenbanktransaktion. Schlägt ein Schritt fehl, 
 3. **PDF erzeugen.** Die sichtbare Rechnung entsteht mit Typst als PDF/A-3b, aus dem Layout, das der Rechnung zugeordnet ist ([Eigene Belegvorlagen](belegvorlagen.md)). Als Erstellungszeit steht das Rechnungsdatum im PDF.
 4. **XML erzeugen.** Haben schreibt je nach Format Factur-X EN 16931 (und bettet es ins PDF ein), XRechnung CII oder XRechnung UBL. Unbekannte Länder- oder Währungscodes lehnt Haben vorher mit einer Meldung ab.
 5. **Prüfsummen.** Von PDF und XML wird je ein SHA-256 gespeichert. Die ersten Zeichen des PDF-Hashes stehen auf der Detailseite.
-6. **Buchen.** Haben legt den Buchungssatz an (siehe unten) und schreibt ihn fest.
+6. **Buchen.** Haben legt den Buchungssatz an (siehe unten) und schreibt ihn fest. Im Bilanzverfahren von GmbH und UG endet dieser Schritt ohne Buchungssatz: bei einer Anzahlungsanforderung vor der Schlussleistung und ihrem Storno, bei einem Storno der Schlussrechnung und bei einem betragsgleichen Ersatz nach Storno. Dazu kommt die Schlussrechnung, deren Rest durch Abschläge vollständig gedeckt ist, auch außerhalb des Bilanzverfahrens ([Abschlags- und Schlussrechnung](#abschlags--und-schlussrechnung)).
 7. **Sperren.** Die Rechnung bekommt einen Festschreibungszeitpunkt. Ab dann lehnen Datenbank-Trigger jede Änderung oder Löschung der Rechnung, ihrer Positionen und ihrer [zusätzlichen Anhänge](#zusätzliche-anhänge) ab. Das Siegel der Rechnung schließt die Anhänge ein.
 
 ## Pflichtangaben einer GmbH oder UG
@@ -391,7 +393,7 @@ Rechnungen ohne Steuerausweis gehen ohne Steuerzeile auf eigene Erlöskonten:
 
 ### Vorauszahlung auf normale Rechnungen
 
-Bei neuen normalen Rechnungen in Euro mit regulärer deutscher Umsatzsteuer, auch an eine ausländische Kundenanschrift, zählt als Leistungstag **Leistung von**, bei einem Zeitraum **Leistung bis**; er wird beim Festschreiben gespeichert. Ordne eine frühere Bank- oder Barzahlung mit ihrem tatsächlichen Zahlungstag zu: Die Steuer auf diesen Betrag entsteht im Eingangsmonat, auch bei Soll ([§ 13 Abs. 1 Nr. 1 Buchst. a Satz 4 UStG](https://www.gesetze-im-internet.de/ustg_1980/__13.html)). GmbH und UG führen den Nettobetrag bis zur Leistung als [erhaltene Anzahlung](buchhaltung.md#anzahlungen-vor-leistung). Die EÜR bleibt beim Zufluss ([§ 11 Abs. 1 EStG](https://www.gesetze-im-internet.de/estg/__11.html)).
+Bei neuen normalen Rechnungen in Euro mit regulärer deutscher Umsatzsteuer, auch an eine ausländische Kundenanschrift, zählt als Leistungstag **Leistung von**, bei einem Zeitraum **Leistung bis**; er wird beim Festschreiben gespeichert. Sind beide leer, grenzt Haben eine frühere Zahlung nicht als Vorauszahlung ab; ein Leistungstag am Rechnungsdatum zählt als Angabe. Ordne eine frühere Bank- oder Barzahlung mit ihrem tatsächlichen Zahlungstag zu: Die Steuer auf diesen Betrag entsteht im Voranmeldungszeitraum des Zahlungseingangs, auch bei Soll ([§ 13 Abs. 1 Nr. 1 Buchst. a Satz 4 UStG](https://www.gesetze-im-internet.de/ustg_1980/__13.html)). GmbH und UG führen den Nettobetrag bis zur Leistung als [erhaltene Anzahlung](buchhaltung.md#anzahlungen-vor-leistung). Die EÜR bleibt beim Zufluss ([§ 11 Abs. 1 EStG](https://www.gesetze-im-internet.de/estg/__11.html)).
 
 Beispiel: Leistung und Rechnung am 20. Januar über 700 € netto und 133 € Steuer, Zahlung schon am 13. Dezember des Vorjahres. Im Dezember stehen bei GmbH/UG 700 € Anzahlung und 133 € fällige Steuer; der Erlös entsteht im Januar. Bei nur 119 € Vorauszahlung sind es zunächst 100 € Anzahlung und 19 € Steuer. Die verbleibende Steuer wird bei Soll mit der Leistung, bei Ist mit der Restzahlung fällig; die Vorauszahlung wird nicht erneut besteuert.
 
@@ -514,7 +516,7 @@ Bezug ist der Leistungszeitraum, ohne Leistungszeitraum das Rechnungsdatum. „W
 
 Scheitert das Festschreiben, etwa weil in den Firmendaten die IBAN fehlt, bleibt die Rechnung als Entwurf stehen. Scheitert nur der E-Mail-Versand (kein E-Mail-Zugang, keine Adresse beim Kunden, Server nicht erreichbar), ist die Rechnung festgeschrieben und du schickst sie auf ihrer Seite von Hand. Die Vorlage zeigt den Fehler, bis du sie das nächste Mal speicherst.
 
-Die Seite einer Vorlage listet alle daraus erzeugten Rechnungen. Löschen lässt sich eine Vorlage nur, solange daraus keine Rechnung entstanden ist; sonst deaktivierst du sie.
+Die Seite einer Vorlage listet alle noch vorhandenen Rechnungen und Entwürfe, die daraus entstanden sind. Solange diese Liste Einträge enthält, kannst du die Vorlage deaktivieren. Ist sie leer, kannst du die Vorlage löschen.
 
 Vorlagen aus sevDesk und FastBill kommen pausiert an, siehe [Umzug aus sevDesk](sevdesk.md#wiederkehrende-rechnungen) und [Umzug aus FastBill](fastbill.md#wiederkehrende-rechnungen).
 
@@ -540,7 +542,7 @@ Unter dem Status steht in Grau, was er für diese Rechnung gerade heißt. Überf
 
 ## Festgeschriebene Rechnung
 
-Die Detailseite zeigt das PDF, die Eckdaten (Kunde, Rechnungsdatum, Fälligkeit, Netto, Umsatzsteuer, Brutto, Format, Zeitpunkt der Festschreibung, bei Rechnungen ohne Steuerausweis die Umsatzsteuer-Behandlung) und den Anfang des SHA-256 des PDFs.
+Die Detailseite zeigt das PDF, die Eckdaten (Kunde, Rechnungsdatum, Fälligkeit, Netto, Umsatzsteuer, Brutto, Format, Zeitpunkt der Festschreibung, bei Rechnungen ohne Steuerausweis die Umsatzsteuer-Behandlung, unter **Im Journal** die Buchungen der Rechnung) und den Anfang des SHA-256 des PDFs.
 
 - **PDF herunterladen** liefert `Rechnung-<Nummer>.pdf`.
 - **XML herunterladen** liefert `Rechnung-<Nummer>-cii.xml` bzw. `-ubl.xml`. Bei ZUGFeRD ist das dasselbe XML, das im PDF steckt.
@@ -551,7 +553,7 @@ Beide Dateien werden aus der Datenbank ausgeliefert, so wie sie beim Festschreib
 
 Ist eine [Ablage im Dokumentenarchiv](dokumentenarchiv.md) eingerichtet, steht unter den Eckdaten **Archiv**: „Wird übertragen“, „Übertragen“ mit Zeitpunkt, HTTP-Status und, falls das Archiv eine Kennung nennt, **Im Archiv öffnen**, oder „Fehlgeschlagen“ mit der Zahl der Versuche und dem Grund (HTTP-Status und Anfang der Antwort).
 
-Unter **Zahlungen** stehen die Zahlungen auf die Rechnung mit Datum und Betrag: „Bank“ für eine Zuordnung im [Bankabgleich](bank.md), „bar“ mit der Nummer im [Kassenbuch](kasse.md#rechnung-bar-bezahlt) für eine Bareinnahme. Aufgehobene und stornierte Zahlungen sind durchgestrichen. Solange die Rechnung offen ist, führt **Barzahlung in der Kasse erfassen** ins Kassenbuch, mit der Rechnung und dem offenen Betrag vorbelegt.
+Unter **Zahlungen** stehen die Zahlungen auf die Rechnung mit Datum und Betrag: „Bank“ für eine Zuordnung im [Bankabgleich](bank.md) (der Link öffnet den Umsatz, dort steht ihre Buchung), „bar“ mit der Nummer im [Kassenbuch](kasse.md#rechnung-bar-bezahlt) für eine Bareinnahme. Aufgehobene und stornierte Zahlungen sind durchgestrichen. Solange die Rechnung offen ist, führt **Barzahlung in der Kasse erfassen** ins Kassenbuch, mit der Rechnung und dem offenen Betrag vorbelegt.
 
 ## Zusätzliche Anhänge
 
@@ -656,8 +658,8 @@ Eine festgeschriebene Rechnung änderst du nicht, du stellst eine neue aus. Auf 
 
 | | Stornieren | Rechnungskorrektur anlegen |
 | --- | --- | --- |
-| Zweck | Hebt die Rechnung vollständig auf. | Mindert den Betrag teilweise. |
-| Ergebnis | Stornorechnung mit allen Positionen negativ, sofort festgeschrieben und gebucht. | Entwurf mit allen Positionen negativ, den du anpasst. |
+| Zweck | Hebt die Rechnung vollständig auf. | Mindert den Betrag. |
+| Ergebnis | Stornorechnung mit allen Positionen negativ, sofort festgeschrieben und gebucht. Das Papierstorno einer Schlussrechnung oder Anzahlungsanforderung bei GmbH und UG ([Bilanzverfahren](#abschlags--und-schlussrechnung)) bucht nichts. Festgeschriebene Korrekturen der Rechnung bekommen je ein eigenes Storno. | Entwurf mit allen Positionen negativ, den du auf die Minderung kürzt. |
 | Bestätigung | Im Dialog **Stornieren**. | Festschreiben wie bei einer Rechnung. |
 | Bedingung | – | Gesamtbetrag muss negativ bleiben. |
 
@@ -737,6 +739,6 @@ Die CI prüft bei jedem Push auf `main` und in jedem Pull Request die erzeugten 
 - Ausfuhrlieferungen anhand der Kundenanschrift einschließlich der erkannten umsatzsteuerlichen Sondergebiete; den Ausfuhrnachweis führt Haben nicht. Die Grenzen der PLZ-Erkennung stehen unter [Sondergebiete](umsatzsteuer-sondergebiete.md).
 - Skonto nur vom ganzen Rechnungsbetrag (kein Basisbetrag nach BR-DE-18), höchstens drei Stufen, nur in Euro. Keine Zuschläge auf Belegebene; Abschläge auf Belegebene nur als [Gesamtrabatt](#rabatte).
 - Höchstens 200 Positionen je Rechnung.
-- Ohne **Leistung von**/**bis** grenzt Haben eine frühere Zahlung nicht als Vorauszahlung ab, auch wenn bar bei der Leistung bezahlt und die Rechnung später ausgestellt wurde; das Rechnungsdatum ersetzt keinen Leistungsnachweis. Trag den Leistungstag vor dem Festschreiben ein.
+- Das Rechnungsdatum ersetzt keinen Leistungsnachweis, auch wenn bar bei der Leistung bezahlt und die Rechnung später ausgestellt wurde: Trag den Leistungstag vor dem Festschreiben ein (siehe [Vorauszahlung](#vorauszahlung-auf-normale-rechnungen)).
 - Rechnungen gehen per E-Mail über deinen SMTP-Zugang oder über [Microsoft 365](einrichtung-email.md#e-mail-über-microsoft-365), nicht über Peppol oder die Portale öffentlicher Auftraggeber. Über Microsoft 365 gehen Anhänge nur bis 2,5 MB zusammen.
 - Zusätzliche Anhänge nur als PDF, bis 20 MB je Datei und zehn je Rechnung. Viele Mailserver nehmen Mails ab etwa 25 MB nicht mehr an; das Versandprotokoll zeigt dann die Meldung des Servers. Anhänge lassen sich nur in Haben hochladen, nicht über die [REST-API](api.md); [wiederkehrende Rechnungen](#wiederkehrende-rechnungen) haben keine Anhänge und versenden ohne sie. Mahnungen gehen ohne die Anhänge der Rechnung.
