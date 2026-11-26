@@ -32,12 +32,15 @@ const anzahl = (n: number, eins: string, mehr: string) => `${n} ${n === 1 ? eins
 /**
  * Gewählte Karte: das Konto aus der Adresse, ohne eins das, welches die Daten zeigen. Nicht allein aus den Daten: Nach
  * einem Klick ist die Adresse schon weiter, während die Daten des neuen Kontos noch laden, und der Router markiert den
- * Link der Adresse von sich aus; mit den alten Daten wären zwei Karten gewählt.
+ * Link der Adresse von sich aus; mit den alten Daten wären zwei Karten gewählt. Hat die Adresse keine Karte („alle“ bei
+ * nur einem Konto, ein gelöschtes Konto), zeigt der Server ein anderes Konto; dann gilt das der Daten.
  */
 function useGewaehlt(data: Props["data"]): string | null {
   // Die Adresse, zu der es geht (state.location), nicht die der geladenen Treffer wie bei useSearch; nach ihr markiert der Router
   const konto = useRouterState({ select: (s) => (s.location.search as { konto?: string }).konto });
-  return konto ?? (data.allAccounts ? "alle" : data.accountId);
+  const { karten } = data.karten;
+  const hatKarte = konto === "alle" ? karten.length > 1 : karten.some((k) => k.id === konto);
+  return hatKarte && konto ? konto : data.allAccounts ? "alle" : data.accountId;
 }
 
 /** Ob sich die Leiste nach links bzw. rechts rollen lässt; ohne Überlauf beides nicht */
