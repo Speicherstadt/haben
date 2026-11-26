@@ -107,6 +107,10 @@ describe.skipIf(!testDatabaseUrl)("Weitere Zahlungskonten an Rechnung, Angebot u
     const final = await invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, draftInput())).id, kleinunternehmerStand);
     // Festgeschrieben gilt nur die Kopie im Verkäufer, der Verweis ist leer
     expect(final.bankverbindungId).toBeNull();
+    // Die Datenbank erzwingt das: Mit Verweis lässt sich keine Rechnung und kein Angebot festschreiben
+    const pruefungen =
+      await sql`select conname from pg_constraint where conname in ('invoices_bankverbindung_entwurf', 'quotes_bankverbindung_entwurf') order by conname`;
+    expect(pruefungen.map((p) => p.conname)).toEqual(["invoices_bankverbindung_entwurf", "quotes_bankverbindung_entwurf"]);
     expect(final.seller?.iban).toBe(NORD);
     const entwurf = await invoices.createDraft(actor, draftInput());
     expect(entwurf.bankverbindungId).toBe(nordId);

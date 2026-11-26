@@ -1,5 +1,5 @@
 {
-  "id": "c9bdfc5c-4c46-49d5-9de2-d58955f462cf",
+  "id": "8e15b81d-7559-4edd-a8ae-9fa977979242",
   "prevId": "e10e0748-71ac-4548-9f27-7503eb28fb88",
   "version": "7",
   "dialect": "postgresql",
@@ -10371,6 +10371,10 @@
           "name": "invoices_payment_method",
           "value": "\"invoices\".\"payment_method\" in ('ueberweisung', 'lastschrift', 'bereits_bezahlt')"
         },
+        "invoices_bankverbindung_entwurf": {
+          "name": "invoices_bankverbindung_entwurf",
+          "value": "\"invoices\".\"status\" = 'draft' or \"invoices\".\"bankverbindung_id\" is null"
+        },
         "invoices_paid_payment": {
           "name": "invoices_paid_payment",
           "value": "case when \"invoices\".\"payment_method\" = 'bereits_bezahlt'\n        then \"invoices\".\"kind\" = 'rechnung' and \"invoices\".\"paid_on\" is not null and \"invoices\".\"paid_via\" is not null and length(btrim(\"invoices\".\"paid_via\")) between 1 and 120\n        else \"invoices\".\"paid_on\" is null and \"invoices\".\"paid_via\" is null end"
@@ -15968,6 +15972,10 @@
         "quotes_final_has_number": {
           "name": "quotes_final_has_number",
           "value": "\"quotes\".\"status\" = 'draft' or (\"quotes\".\"number\" is not null and \"quotes\".\"locked_at\" is not null)"
+        },
+        "quotes_bankverbindung_entwurf": {
+          "name": "quotes_bankverbindung_entwurf",
+          "value": "\"quotes\".\"status\" = 'draft' or \"quotes\".\"bankverbindung_id\" is null"
         },
         "quotes_decision_final": {
           "name": "quotes_decision_final",

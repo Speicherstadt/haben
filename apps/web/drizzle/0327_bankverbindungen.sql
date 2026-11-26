@@ -14,4 +14,6 @@ ALTER TABLE "quotes" ADD COLUMN "bankverbindung_id" uuid;--> statement-breakpoin
 CREATE UNIQUE INDEX "bankverbindungen_iban" ON "bankverbindungen" USING btree ("iban");--> statement-breakpoint
 ALTER TABLE "contacts" ADD CONSTRAINT "contacts_bankverbindung_id_bankverbindungen_id_fk" FOREIGN KEY ("bankverbindung_id") REFERENCES "public"."bankverbindungen"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "invoices" ADD CONSTRAINT "invoices_bankverbindung_id_bankverbindungen_id_fk" FOREIGN KEY ("bankverbindung_id") REFERENCES "public"."bankverbindungen"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "quotes" ADD CONSTRAINT "quotes_bankverbindung_id_bankverbindungen_id_fk" FOREIGN KEY ("bankverbindung_id") REFERENCES "public"."bankverbindungen"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "quotes" ADD CONSTRAINT "quotes_bankverbindung_id_bankverbindungen_id_fk" FOREIGN KEY ("bankverbindung_id") REFERENCES "public"."bankverbindungen"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "invoices" ADD CONSTRAINT "invoices_bankverbindung_entwurf" CHECK ("invoices"."status" = 'draft' or "invoices"."bankverbindung_id" is null);--> statement-breakpoint
+ALTER TABLE "quotes" ADD CONSTRAINT "quotes_bankverbindung_entwurf" CHECK ("quotes"."status" = 'draft' or "quotes"."bankverbindung_id" is null);

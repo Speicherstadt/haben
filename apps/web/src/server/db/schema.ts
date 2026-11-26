@@ -1553,6 +1553,9 @@ export const invoices = pgTable(
   },
   (t) => [
     check("invoices_payment_method", sql`${t.paymentMethod} in ('ueberweisung', 'lastschrift', 'bereits_bezahlt')`),
+    // Zahlungskonto nur im Entwurf (#1887): festgeschrieben gilt die Kopie im Verkäufer. So berührt ON DELETE SET NULL nie
+    // eine gesperrte, versiegelte Zeile, und versiegelt ist hier immer NULL
+    check("invoices_bankverbindung_entwurf", sql`${t.status} = 'draft' or ${t.bankverbindungId} is null`),
     check(
       "invoices_paid_payment",
       sql`case when ${t.paymentMethod} = 'bereits_bezahlt'
@@ -1780,6 +1783,8 @@ export const quotes = pgTable(
   },
   (t) => [
     check("quotes_final_has_number", sql`${t.status} = 'draft' or (${t.number} is not null and ${t.lockedAt} is not null)`),
+    // Zahlungskonto nur im Entwurf (#1887), wie bei Rechnungen
+    check("quotes_bankverbindung_entwurf", sql`${t.status} = 'draft' or ${t.bankverbindungId} is null`),
     check("quotes_decision_final", sql`${t.decision} is null or ${t.status} = 'final'`),
     check("quotes_discount", sql`${t.discountPercent} is null or ${t.discountAmount} is null`),
     check("quotes_discount_percent", sql`${t.discountPercent} is null or ${t.discountPercent} between 1 and 10000`),
