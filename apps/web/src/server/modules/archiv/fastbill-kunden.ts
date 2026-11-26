@@ -3,12 +3,13 @@ import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { schema, type Tx } from "../../db/index.ts";
 import type { LexofficeImportProgress } from "../../db/schema.ts";
-import { contactPersonInputSchema } from "../stammdaten/index.ts";
+import { contactPersonInputSchema, insertContactPerson } from "../stammdaten/index.ts";
 
 /*
  * Kunden aus FastBill beim Abruf (fastbill.ts): neu anlegen, über den Namen verknüpfen oder die Rolle ergänzen. Telefon,
- * Leitweg-ID und DATEV-Debitor (#1939) füllen nur leere Felder, damit Werte aus Haben bleiben; was nicht passt, nennt
- * der Abruf in der Liste der fehlgeschlagenen Belege, der Kunde kommt trotzdem. Danach die Ansprechpartner.
+ * Leitweg-ID und DATEV-Debitor (#1939) füllen nur leere Felder, damit Werte aus Haben bleiben. Was nicht passt, nennt
+ * der Abruf in der Liste der fehlgeschlagenen Belege, solange das Feld in Haben leer ist; ist es dort gefüllt, gibt es
+ * nichts mehr zu tun, und die Liste kann leer werden. Der Kunde kommt in jedem Fall. Danach die Ansprechpartner.
  */
 
 type Save = (force?: boolean) => Promise<void>;
@@ -19,7 +20,7 @@ export async function importFastbillCustomers(actor: string, client: FastbillCli
   for await (const raw of client.customers()) {
     const contact = mapFbCustomer(raw);
     const details = mapFbCustomerDetails(raw);
-    const problems = [...details.problems];
+    let problems: string[] = [];
     await withActor(actor, async (tx) => {
       const [known] = await tx.select({ id: schema.contacts.id }).from(schema.contacts).where(eq(schema.contacts.fastbillId, contact.fastbillId));
       if (known) {
@@ -27,7 +28,7 @@ export async function importFastbillCustomers(actor: string, client: FastbillCli
           .update(schema.contacts)
           .set({ isCustomer: true })
           .where(and(eq(schema.contacts.id, known.id), eq(schema.contacts.isCustomer, false)));
-        await fillEmpty(tx, known.id, details, problems);
+        problems = await fillEmpty(tx, known.id, details);
         return;
       }
       const [sameName] = await tx
@@ -37,7 +38,7 @@ export async function importFastbillCustomers(actor: string, client: FastbillCli
         .limit(1);
       if (sameName) {
         await tx.update(schema.contacts).set({ fastbillId: contact.fastbillId, isCustomer: true }).where(eq(schema.contacts.id, sameName.id));
-        await fillEmpty(tx, sameName.id, details, problems);
+        problems = await fillEmpty(tx, sameName.id, details);
         progress.contactsLinked += 1;
         return;
       }
@@ -46,7 +47,7 @@ export async function importFastbillCustomers(actor: string, client: FastbillCli
         .insert(schema.contacts)
         .values({ fastbillId, isCustomer: true, isSupplier: false, kundennummer, name, strasse, plz, ort, land, email, ustId })
         .returning({ id: schema.contacts.id });
-      await fillEmpty(tx, created!.id, details, problems);
+      problems = await fillEmpty(tx, created!.id, details);
       progress.contacts += 1;
     });
     if (problems.length > 0)
@@ -60,8 +61,11 @@ export async function importFastbillCustomers(actor: string, client: FastbillCli
   await importFastbillContactPersons(actor, client, save);
 }
 
-/** Telefon, Leitweg-ID und Debitor nur in leere Felder; ein vergebener Debitor bleibt weg und kommt in `problems` */
-async function fillEmpty(tx: Tx, contactId: string, details: Details, problems: string[]) {
+/**
+ * Telefon, Leitweg-ID und Debitor nur in leere Felder. Gibt zurück, was danach noch fehlt und warum: ein ungültiger Wert
+ * aus FastBill oder ein Debitor, der schon an einem anderen Kontakt hängt; ein in Haben gefülltes Feld meldet nichts.
+ */
+async function fillEmpty(tx: Tx, contactId: string, details: Details): Promise<string[]> {
   const c = schema.contacts;
   if (details.telefon)
     await tx
@@ -73,18 +77,20 @@ async function fillEmpty(tx: Tx, contactId: string, details: Details, problems: 
       .update(c)
       .set({ leitwegId: details.leitwegId })
       .where(and(eq(c.id, contactId), eq(c.leitwegId, "")));
-  if (details.debitorNr === null) return;
-  const [taken] = await tx
-    .select({ id: c.id })
-    .from(c)
-    .where(and(eq(c.debitorNr, details.debitorNr), ne(c.id, contactId)))
-    .limit(1);
-  if (taken) problems.push(`DATEV-Debitor ${details.debitorNr} ist schon an einem anderen Kontakt vergeben`);
-  else
-    await tx
-      .update(c)
-      .set({ debitorNr: details.debitorNr })
-      .where(and(eq(c.id, contactId), isNull(c.debitorNr)));
+  const problems = { ...details.problems };
+  const [current] = await tx.select({ debitorNr: c.debitorNr }).from(c).where(eq(c.id, contactId));
+  if (details.debitorNr !== null && current?.debitorNr === null) {
+    const [taken] = await tx
+      .select({ id: c.id })
+      .from(c)
+      .where(and(eq(c.debitorNr, details.debitorNr), ne(c.id, contactId)))
+      .limit(1);
+    if (taken) problems.debitorNr = `DATEV-Debitor ${details.debitorNr} ist schon an einem anderen Kontakt vergeben`;
+    else await tx.update(c).set({ debitorNr: details.debitorNr }).where(eq(c.id, contactId));
+  }
+  const [after] = await tx.select({ telefon: c.telefon, leitwegId: c.leitwegId, debitorNr: c.debitorNr }).from(c).where(eq(c.id, contactId));
+  const empty = { telefon: !after?.telefon, leitwegId: !after?.leitwegId, debitorNr: after?.debitorNr == null };
+  return (Object.keys(problems) as (keyof typeof problems)[]).filter((field) => empty[field]).map((field) => problems[field]!);
 }
 
 /**
@@ -106,10 +112,10 @@ async function importFastbillContactPersons(actor: string, client: FastbillClien
         .limit(1);
       if (same) return;
       const { customerId: _, ...fields } = person;
-      const parsed = contactPersonInputSchema.safeParse(fields);
-      const data = parsed.success ? parsed.data : contactPersonInputSchema.safeParse({ ...fields, email: "" }).data;
-      if (!data) return;
-      await tx.insert(p).values({ ...data, contactId: contact.id, createdBy: actor });
+      // Lehnt das Formular die E-Mail ab, kommt die Person ohne sie; scheitert auch das, bleibt sie weg
+      const input = contactPersonInputSchema.safeParse(fields).success ? fields : { ...fields, email: "" };
+      if (!contactPersonInputSchema.safeParse(input).success) return;
+      await insertContactPerson(tx, actor, contact.id, input);
     });
     await save();
   }

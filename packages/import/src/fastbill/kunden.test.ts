@@ -12,7 +12,7 @@ describe("mapFbCustomerDetails", () => {
       telefon: "+49 941 123456",
       leitwegId: "991-12345-67",
       debitorNr: 10_004,
-      problems: [],
+      problems: {},
     });
   });
 
@@ -21,29 +21,29 @@ describe("mapFbCustomerDetails", () => {
       telefon: "0170 1234567",
       leitwegId: "",
       debitorNr: null,
-      problems: [],
+      problems: {},
     });
-    expect(mapFbCustomerDetails({ CUSTOMER_ID: "6" })).toEqual({ telefon: "", leitwegId: "", debitorNr: null, problems: [] });
+    expect(mapFbCustomerDetails({ CUSTOMER_ID: "6" })).toEqual({ telefon: "", leitwegId: "", debitorNr: null, problems: {} });
   });
 
   it("übernimmt nichts Ungültiges, sondern nennt es", () => {
     const d = mapFbCustomerDetails({ CUSTOMER_ID: "7", PHONE: "bitte anrufen", BUYER_REFERENCE: "9".repeat(47), CUSTOMER_ACCOUNT: "1400" });
     expect(d).toMatchObject({ telefon: "", leitwegId: "", debitorNr: null });
-    expect(d.problems).toHaveLength(3);
-    expect(d.problems.join(" ")).toMatch(/Telefon/);
-    expect(d.problems.join(" ")).toMatch(/Leitweg-ID/);
-    expect(d.problems.join(" ")).toMatch(/Debitor/);
+    expect(Object.keys(d.problems)).toHaveLength(3);
+    expect(Object.values(d.problems).join(" ")).toMatch(/Telefon/);
+    expect(Object.values(d.problems).join(" ")).toMatch(/Leitweg-ID/);
+    expect(Object.values(d.problems).join(" ")).toMatch(/Debitor/);
   });
 
   it("CUSTOMER_ACCOUNT 0 heißt kein Debitor, wie 0 bei anderen IDs aus FastBill", () => {
-    expect(mapFbCustomerDetails({ CUSTOMER_ID: "9", CUSTOMER_ACCOUNT: 0 })).toEqual({ telefon: "", leitwegId: "", debitorNr: null, problems: [] });
-    expect(mapFbCustomerDetails({ CUSTOMER_ID: "9", CUSTOMER_ACCOUNT: "0" }).problems).toEqual([]);
+    expect(mapFbCustomerDetails({ CUSTOMER_ID: "9", CUSTOMER_ACCOUNT: 0 })).toEqual({ telefon: "", leitwegId: "", debitorNr: null, problems: {} });
+    expect(mapFbCustomerDetails({ CUSTOMER_ID: "9", CUSTOMER_ACCOUNT: "0" }).problems).toEqual({});
   });
 
   it("ist PHONE ungültig, nimmt es ein gültiges MOBILE und meldet nichts", () => {
     expect(mapFbCustomerDetails({ CUSTOMER_ID: "10", PHONE: "bitte anrufen", MOBILE: "0170 1234567" })).toMatchObject({
       telefon: "0170 1234567",
-      problems: [],
+      problems: {},
     });
   });
 
