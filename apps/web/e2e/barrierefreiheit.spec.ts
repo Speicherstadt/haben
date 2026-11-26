@@ -41,6 +41,8 @@ const PAGES = [
   "/anlagen/neu",
   "/csv-import?art=anlagen",
   "/bank",
+  // Geführte Einrichtung eines Zahlungsdienstleisters (#1951), Schritt 1
+  "/bank/verbinden/stripe",
   "/kasse",
   "/darlehen",
   "/umsatzsteuer",
