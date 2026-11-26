@@ -83,6 +83,10 @@ Die Tab-Reihenfolge folgt dem Markup und gleicht der sichtbaren (WCAG 1.3.2 und 
 
 Ausrichtung: auf der Seite linksbündig an der Kante der Felder, im Dialog rechtsbündig (`dialog .form-footer`), im Seitenkopf rechts. Auf dem Handy füllen die Knöpfe die Zeile und brechen bei Bedarf um, die Hauptaktion bleibt rechts; kleine Knöpfe (`btn-sm`) in Tabellen, auch Listen aus `.table`, und in Bannern bleiben so breit wie ihr Text. Kein Stapeln mit der Hauptaktion oben: Das ginge nur gegen die DOM-Reihenfolge. Einzige, gewollte Ausnahme ist das Blatt von `ConfirmDialog` am Handy (siehe Rückfragen). `e2e/knopfreihenfolge.spec.ts` prüft in Zeilen mit Hauptaktion Reihenfolge, Gefahrknopf vorn und dass weder CSS noch `tabindex` die Folge ändern (#394). Gewollt abweichend ausgerichtet ist der feste Fuß der Angaben zur Einkommensteuererklärung (`.form-sticky-footer`, #1141): „Angaben speichern“ steht links, „Angaben bearbeiten“ rechts, auch wenn je nur einer der beiden zu sehen ist. Stünden sie an derselben Stelle, tauschte der Klick den Knopf unter dem aufgelegten Zeiger aus: Das Loslassen auf „Angaben bearbeiten“ träfe dann schon den Absende-Knopf, und die gerade erst geöffnete, leere Maske speicherte sich selbst und sperrte sich wieder.
 
+### Menüknopf
+
+Gibt es zu einer Aktion mehrere Wege, steht statt mehrerer Knöpfe ein Menüknopf mit Text und `chevron-down`, etwa „Konto verbinden ▾“ auf der Bankseite mit „Bank verbinden“, „Zahlungsdienstleister verbinden“ und „Konto ohne Abruf anlegen“. Er ist derselbe `MoreActionsMenu` wie `⋯`, mit `text` statt Symbol (Menu Button nach WAI-ARIA APG); sein Text ist der Name des Menüs. Ein Punkt, der eine Wahl braucht, öffnet einen Dialog mit Auswahl (siehe Auswahl im Dialog), statt das Menü zu verschachteln.
+
 ### Symbole
 
 Symbole kommen aus der `Icon`-Komponente, nicht als Emoji oder Unicode-Zeichen.
@@ -198,7 +202,7 @@ Eine leere Liste, die man von Hand füllt, nennt kurz, was hier entsteht:
 
 - Hat der Seitenkopf einen Knopf zum Anlegen, steht derselbe Knopf noch einmal im Leerzustand, nur für den, der ihn im Kopf sieht, und nicht, wenn ein Filter (Rolle, Archiv, Suche) die Liste leert; Jahr und Monat zählen nicht als Filter.
 - Hat der Kopf keinen, nennt der Satz den Ort (Formular, Karte, Tab oder Link); bei den Belegen kommt für den Inhaber ohne Postfach der Knopf „Postfach für Belege einrichten“ dazu.
-- Ausnahme Bank: Der Kopf hat „Konto hinzufügen“ und „CSV / CAMT importieren“, der Leerzustand erklärt den Weg ohne Knopf.
+- Ausnahme Bank: Der Kopf hat „Konto verbinden ▾“ und „CSV / CAMT importieren“, der Leerzustand erklärt den Weg ohne Knopf.
 
 ### Rückfragen
 
@@ -210,6 +214,14 @@ Am Handy ist der Dialog ein Blatt von unten mit der Aktion über „Abbrechen“
 
 Rot (`danger`) sind Löschen, Stornieren, Entfernen, Widerrufen, Trennen, endgültiges Beenden, Abschließen und das Verwerfen ungespeicherter Änderungen („Ohne Speichern wechseln“), grün der erwartete nächste Schritt wie Festschreiben, Buchen und Senden. Der Dialog schließt vor der Aktion; das Ergebnis meldet die Seite. Tastenkürzel der Seite fragen `isDialogOpen()`.
 
+### Auswahl im Dialog
+
+Fragt ein Dialog, welcher Weg oder Anbieter (Bankseite: „Wie verbinden?“, „Anbieter wählen“), stehen die Möglichkeiten als Optionsfelder in einer `choice-group`, je mit einem Satz, wann sie passt, als `field-hint`, und „Weiter“ als Hauptaktion. Vorgewählt ist die erste, die geht. Was auf der Installation nicht eingerichtet ist oder gerade nicht geht, steht ausgegraut da, nicht versteckt, damit klar bleibt, was es gibt; der Grund steht darunter und hängt per `aria-describedby` am Optionsfeld. Für den Grund gilt dasselbe wie bei gesperrten Knöpfen: fehlt etwas außerhalb, verlinkt er dorthin (Einstellungen › Bank, Anleitung); wartet ein anderer Vorgang, nennt er ihn ohne Link.
+
+### Einrichtung in Schritten
+
+Eine Einrichtung mit mehreren Schritten (Zahlungsdienstleister verbinden, `bank_.verbinden.$anbieter.tsx`) ist eine eigene Seite: oben eine Schrittleiste (`ol` mit `aria-current="step"`, erledigte und der aktuelle Schritt mit Linie in `--accent`), darunter je Schritt eine Karte mit „Schritt n von m“ über dem Titel. Die Schritte kommen aus dem Adapter; Rahmen, Leiste und Ergebnis sind für alle gleich. Eine Prüfung im Schritt speichert nichts und zeigt ihr Ergebnis in derselben Karte unter einer Linie, mit `Status` rechts; erst danach erscheint „Weiter“. Was länger läuft, ohne dass der Server einen Fortschritt meldet, zeigt seine Phase als Text („Hole Umsätze ab 01.11.2026 …“), ohne Ladekreis und ohne Balken, und das Ergebnis im selben Schritt.
+
 ### Karten
 
 Inhalte stehen in `.card`: Fläche `--surface`, Linie `--line`, Schatten `--shadow-xs`, Ecken 12px, Innenabstand 20px. Am Handy stehen `.grid-3`, `.grid-4` und `.grid-5` (fünf Kennzahlen, am Desktop in einer Reihe, wenn sie passen) in zwei Spalten mit 12px Abstand, die Karten darin haben 16px Innenabstand; bei ungerader Zahl füllt die letzte Karte die Zeile. Felder und normale Knöpfe sind auf Touchgeräten 44px hoch (`--control-h`); ausgenommen sind kleine Knöpfe (`.btn-sm`) und die Knöpfe der Auszeichnungen (`.format-bar`).
@@ -220,7 +232,7 @@ Zeigt ein Link auf eine Zeile einer Tabelle, etwa aus der BWA auf eine Buchung i
 
 **Gewählte Karte:** Ist eine Karte unter mehreren gewählt, etwa ein Konto in der Kartenleiste, trägt sie `aria-current`, die Fläche `--accent-soft`, den Namen in `--accent-ink` und den Rand in `--accent` mit einem Ring von 1px (`box-shadow`) dazu. Anders als bei einem Menüpunkt reicht die Fläche allein nicht: Neben dem eigenen Rand der Karte ist sie kaum zu erkennen.
 
-**Status in Karten:** Eine Karte, die einen Stand zeigt, nennt im Normalfall leise in `--muted`, woher er kommt und wann („FinTS · heute 06:00“, „Datei · 13.11.“). Nur bei einer Abweichung steht an dieser Stelle ein `Status` mit `inline`, Wort und Auskunft in einer Zeile („Veraltet“ mit „13.11.“, „Konflikt“ mit „3 Umsätze“, „Fehlgeschlagen“); was nicht passt, endet mit „…“. So fällt das eine Konto auf, das etwas braucht.
+**Status in Karten:** Eine Karte, die einen Stand zeigt, nennt im Normalfall leise in `--muted`, woher er kommt und wann („FinTS · heute 06:00“, „Datei · 13.11.“). Nur bei einer Abweichung steht an dieser Stelle ein `Status` mit `inline`, Wort und Auskunft in einer Zeile („Veraltet“ mit „13.11.“, „Konflikt“ mit „3 Umsätze“, „Freigabe nötig“, „Fehlgeschlagen“ und „Abgelaufen“ dringend); was nicht passt, endet mit „…“. So fällt das eine Konto auf, das etwas braucht.
 
 Hinweise (`.banner`) als direkte Kinder von `<main>` stehen 24px von ihren Nachbarn, folgen zwei aufeinander, nur 12px. Der Hinweis „Senden ist noch nicht eingerichtet“ ist die Komponente `EricHinweis`, nie ein eigener Text; sein Link bricht nicht um. Was das Senden hindert oder Zahlen verfälscht, bleibt je ein eigener Hinweis; mehrere Hinweise, die nichts blockieren, stehen gebündelt in einem als Liste (`.banner-list`, so auf der Voranmeldung); die Einrichtungshinweise (ERiC, Hersteller-ID) stehen davon getrennt für sich.
 
@@ -228,7 +240,9 @@ Hinweise (`.banner`) als direkte Kinder von `<main>` stehen 24px von ihren Nachb
 
 Auf der Bankseite stehen die Konten als Karten in einer Zeile (`-bank-kartenleiste.tsx`, `styles/bank.css`), nie in einer zweiten Zeile: Was nicht passt, rollt seitlich, die letzte sichtbare Karte ist angeschnitten, ohne Verlauf am Rand. Links und rechts rollen `btn-ghost btn-icon` mit `aria-label` („Konten nach links“, „nach rechts“) um eine Breite weiter; am Ende sind sie gesperrt, ohne Überlauf unsichtbar an ihrem Platz. Die Karten stehen in Gruppen („Gesamt“, „Banken“, „Zahlungsdienstleister“) mit kleiner Überschrift (12px, `--muted`), die beim Rollen links stehen bleibt, solange ihre Gruppe zu sehen ist (`position: sticky; left: 0` in der Gruppe). Jede Karte ist gleich breit und hoch und hat drei Zeilen: Name; Saldo links und „n offen“ rechts auf derselben Grundlinie (fehlt bei null); Weg und Zeit oder ein Status (siehe Status in Karten). Die Karten sind Links in der sichtbaren Reihenfolge, die gewählte wie unter Gewählte Karte.
 
-Bis 1100 px Breite, wo Liste und Zuordnung untereinander stehen, und am Handy werden die Karten zu einer schmalen Zeile aus Chips mit Punkt, Name und Zahl offener Umsätze, die unter dem Seitenkopf stehen bleibt (`top: var(--below-head)`). Der Punkt hat die Farbe des Status; das Wort liest der Screenreader aus verstecktem Text, weil der Punkt allein keine Bedeutung trägt.
+Die erste Karte „Alle Konten“ nennt die Zahl der Konten und offenen Umsätze; brauchen Konten etwas, steht dort „Prüfen“ mit ihrer Zahl, sonst leise „Alles aktuell“. Über der Liste des gewählten Kontos steht seine Verbindung (Bereich „Automatischer Abruf“) mit vollem Fehlertext und Aktionen; bei „Alle Konten“ keine.
+
+Bis 1100 px Breite, wo Liste und Zuordnung untereinander stehen, und am Handy werden die Karten zu einer schmalen Zeile aus Chips mit Punkt, Name und Zahl offener Umsätze (fehlt bei null), die unter dem Seitenkopf stehen bleibt (`top: var(--below-head)`). Der Punkt hat die Farbe des Status; das Wort liest der Screenreader aus verstecktem Text, weil der Punkt allein keine Bedeutung trägt.
 
 ### Blätter am Handy
 

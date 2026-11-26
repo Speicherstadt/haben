@@ -488,7 +488,18 @@ test("Belege per E-Mail: Postfach einrichten, Fehler beim Abruf sichtbar", async
 
 test("Kontoabruf: Enable Banking in den Einstellungen, ein falscher Schlüssel wird abgelehnt", async () => {
   await go("/bank");
-  await page.getByRole("link", { name: "Einstellungen › Bank" }).click();
+  // Ohne Zugang zu Enable Banking steht der Weg im Dialog ausgegraut, mit Grund und Link zu den Einstellungen (#1951)
+  await kontoVerbinden(page, "Bank verbinden");
+  const wie = page.getByRole("dialog", { name: "Wie verbinden?" });
+  const enableBanking = wie.getByRole("radio", { name: "Online-Banking über Enable Banking (PSD2)" });
+  await expect(enableBanking).toBeDisabled();
+  await expect(enableBanking).toHaveAccessibleDescription(/Braucht einen Zugang zu Enable Banking; einrichten unter Einstellungen › Bank\.$/);
+  // Vorgewählt ist der erste Weg, der geht
+  await expect(wie.getByRole("radio", { name: "Kontoauszüge als Datei (CSV/CAMT)" })).toBeChecked();
+  expect(await axeVerstoesse(page), "Dialog „Wie verbinden?“").toEqual([]);
+  // Der Link im Grund führt zur Einrichtung
+  await wie.getByRole("link", { name: "Einstellungen › Bank" }).click();
+
   await page.waitForURL("**/einstellungen?bereich=bank");
   const card = page.getByRole("form", { name: "Automatischer Kontoabruf" });
   await expect(card.getByText("/api/bank/callback")).toBeVisible();
@@ -502,19 +513,6 @@ test("Kontoabruf: Enable Banking in den Einstellungen, ein falscher Schlüssel w
 });
 
 test("Bank verbinden: die markierte Bank ist gewählt, auch als einziger Treffer der Suche (#555)", async () => {
-  // Ohne Zugang zu Enable Banking steht der Weg im Dialog ausgegraut, mit Grund und Link zu den Einstellungen (#1951)
-  await go("/bank");
-  await kontoVerbinden(page, "Bank verbinden");
-  const wie = page.getByRole("dialog", { name: "Wie verbinden?" });
-  const enableBanking = wie.getByRole("radio", { name: "Online-Banking über Enable Banking (PSD2)" });
-  await expect(enableBanking).toBeDisabled();
-  await expect(enableBanking).toHaveAccessibleDescription(/Braucht einen Zugang zu Enable Banking; einrichten unter Einstellungen › Bank\.$/);
-  await expect(wie.getByRole("link", { name: "Einstellungen › Bank" })).toBeVisible();
-  // Vorgewählt ist der erste Weg, der geht
-  await expect(wie.getByRole("radio", { name: "Kontoauszüge als Datei (CSV/CAMT)" })).toBeChecked();
-  expect(await axeVerstoesse(page), "Dialog „Wie verbinden?“").toEqual([]);
-  await wie.getByRole("button", { name: "Abbrechen" }).click();
-
   const api = await enableBankingAttrappe();
   try {
     await go("/einstellungen?bereich=bank");

@@ -14,9 +14,15 @@ Unter **Bank** holst du die Umsätze automatisch über Enable Banking oder FinTS
 
 ## Automatischer Abruf
 
-Ist Enable Banking eingerichtet (unter **Einstellungen › Bank**, siehe [Anbindungen](installation-anbindungen.md#kontoabruf-enable-banking)), steht unter **Bank** der Bereich **Automatischer Abruf** mit dem Knopf **Bank verbinden**. Mit FinTS steht dort **Über FinTS verbinden**, siehe [Abruf über FinTS](#abruf-über-fints).
+Im Kopf der Seite **Bank** öffnet **Konto verbinden** ein Menü: **Bank verbinden**, **Zahlungsdienstleister verbinden** ([geführte Einrichtung](bank-zahlungsdienstleister.md#verbindungen-über-die-api)) und **Konto ohne Abruf anlegen**. **Bank verbinden** fragt **Wie verbinden?**:
 
-1. **Bank verbinden** klicken, die Bank suchen und auswählen. Gewählt ist die markierte Bank; bleibt nach der Suche nur eine übrig, ist sie schon gewählt. Unter der Liste steht, zu welcher Bank es weitergeht. Bietet die Bank beides an, wählst du Geschäfts- oder Privatkonto; das entscheidet, mit welchem Online-Banking-Zugang du dich gleich anmeldest. Unter **Umsätze abrufen ab** steht der Jahresbeginn; beginnt deine Buchhaltung in Haben später im Jahr, etwa nach einem Umzug, trägst du hier diesen Tag ein (siehe [Welche Umsätze abgerufen werden](#welche-umsätze-abgerufen-werden)).
+- **Online-Banking über Enable Banking (PSD2):** für die meisten Banken in Europa; braucht den Zugang zu Enable Banking unter **Einstellungen › Bank** ([Anbindungen](installation-anbindungen.md#kontoabruf-enable-banking)).
+- **FinTS (PIN/TAN):** vor allem für Sparkassen, Volks- und Raiffeisenbanken; braucht die Produktnummer der Installation, siehe [Abruf über FinTS](#abruf-über-fints).
+- **Kontoauszüge als Datei (CSV/CAMT):** geht immer, siehe [So gehst du vor](#so-gehst-du-vor).
+
+Was auf deiner Installation nicht eingerichtet ist, steht ausgegraut mit dem, was fehlt. Das Formular des gewählten Wegs erscheint über der Liste im Bereich **Automatischer Abruf**; dort steht danach die Verbindung des gewählten Kontos mit Stand, Fehler und Knöpfen.
+
+1. **Online-Banking über Enable Banking** wählen, **Weiter**, dann die Bank suchen und auswählen. Gewählt ist die markierte Bank; bleibt nach der Suche nur eine übrig, ist sie schon gewählt. Unter der Liste steht, zu welcher Bank es weitergeht. Bietet die Bank beides an, wählst du Geschäfts- oder Privatkonto; das entscheidet, mit welchem Online-Banking-Zugang du dich gleich anmeldest. Unter **Umsätze abrufen ab** steht der Jahresbeginn; beginnt deine Buchhaltung in Haben später im Jahr, etwa nach einem Umzug, trägst du hier diesen Tag ein (siehe [Welche Umsätze abgerufen werden](#welche-umsätze-abgerufen-werden)).
 2. **Weiter zur Bank** führt zur Anmeldeseite deiner Bank. Dort meldest du dich an, bestätigst mit TAN und wählst die Konten aus.
 3. Die Bank leitet zurück zu Haben. Haben ordnet die freigegebenen Konten über die IBAN zu, legt fehlende an und holt sofort die ersten Umsätze. Neue Konten heißen nach Bank, Kontoname der Bank und den letzten vier Ziffern der IBAN, z. B. „Finom Geschäftskonto …7890“; die Meldung nach der Rückkehr nennt sie. Name und Zweck legst du danach mit **Name und Zweck** fest (siehe [Konto](#konto)).
 
@@ -125,13 +131,13 @@ Viele Selbständige haben bei derselben Bank mehrere Konten, etwa ein Geschäfts
 | Geschäftskonto (Standard) | wie bisher; sein Kontostand steht in der Übersicht |
 | Steuerkonto | Vorbelegung für [Bankverbindung ändern](finanzamt.md#bankverbindung-ändern); Lastschriften und Erstattungen der Umsatzsteuer auf diesem Konto bekommen „Umsatzsteuer an das Finanzamt“ als Vorschlag; die Übersicht zeigt den Stand neben der noch offenen Zahllast (abzüglich schon zugeordneter Zahlungen an das Finanzamt nach Ende des Zeitraums) und warnt, wenn er nicht reicht |
 | Rücklagen- oder Sparkonto | Überträge zu und von eigenen Konten bekommen „Geldtransit“ als Vorschlag |
-| Privatkonto | Umsätze dort bleiben zuordenbar; Geschäftsvorfälle bucht Haben gegen Entnahme bzw. Einlage, in GmbH und UG gegen das Gesellschafter-Verrechnungskonto ([Privates Konto](#privates-konto-geschäftsvorfälle-gegen-entnahme-und-einlage)). Auf deinen anderen Konten bekommen Überweisungen dorthin oder von dort „Privat“ als Vorschlag. Das Konto legst du mit **Konto hinzufügen** an; Umsätze importierst du nur, wenn du sie buchen willst, denn ungebuchte stehen unter „offen“, bis du sie [kennzeichnest](#privates-konto-umsätze-ohne-buchungsart). |
+| Privatkonto | Umsätze dort bleiben zuordenbar; Geschäftsvorfälle bucht Haben gegen Entnahme bzw. Einlage, in GmbH und UG gegen das Gesellschafter-Verrechnungskonto ([Privates Konto](#privates-konto-geschäftsvorfälle-gegen-entnahme-und-einlage)). Auf deinen anderen Konten bekommen Überweisungen dorthin oder von dort „Privat“ als Vorschlag. Das Konto legst du mit **Konto verbinden › Konto ohne Abruf anlegen** an; Umsätze importierst du nur, wenn du sie buchen willst, denn ungebuchte stehen unter „offen“, bis du sie [kennzeichnest](#privates-konto-umsätze-ohne-buchungsart). |
 
 Auf einem Privatkonto bietet der Abgleich Kontoführung und Bankgebühren, Zinserträge, Privat, Spende und Geldtransit nicht an, schlägt sie nicht vor und lehnt sie ab. Gebühren und Zinsen eines privaten Kontos sind privat: kein Betriebsaufwand (§ 12 Nr. 1 EStG) und keine Betriebseinnahme (§ 20 EStG); „Privat“ und „Spende“ buchten privat gegen privat, und Geldtransit wäre Entnahme gegen Entnahme. Alle anderen Arten sind dort erlaubt und laufen über Entnahme und Einlage, in GmbH und UG über das Gesellschafter-Verrechnungskonto ([unten](#privates-konto-geschäftsvorfälle-gegen-entnahme-und-einlage)). Schon gebuchte Zuordnungen bleiben sichtbar und lassen sich aufheben.
 
 Jedes Konto hat einen Zweck. Außer auf einem privaten Konto bucht Haben auf das eine Bankkonto (1200 bzw. 1800); welche IBAN auf Rechnungen steht, bestimmen die Firmendaten.
 
-N26-Exporte enthalten keine eigene IBAN. Dafür legst du das Konto vorher mit **Konto hinzufügen** an (Name und IBAN) und wählst es vor dem Import in der Auswahl **Konto** aus. Steht die Auswahl auf „aus der Datei“, lehnt Haben eine Datei ohne IBAN ab.
+N26-Exporte enthalten keine eigene IBAN. Dafür legst du das Konto vorher mit **Konto verbinden › Konto ohne Abruf anlegen** an (Name und IBAN) und wählst es vor dem Import in der Auswahl **Konto** aus. Steht die Auswahl auf „aus der Datei“, lehnt Haben eine Datei ohne IBAN ab.
 
 Wählst du ein Konto aus und die Datei nennt eine andere IBAN, bricht der Import mit einer Meldung ab.
 
@@ -141,6 +147,7 @@ Wählst du ein Konto aus und die Datei nennt eine andere IBAN, bricht der Import
 | --- | --- |
 | Fehlgeschlagen | Der letzte Abruf über FinTS, Enable Banking, Stripe oder PayPal ist fehlgeschlagen. |
 | Abgelaufen, Läuft ab | Die Zustimmung bei der Bank ist abgelaufen oder läuft in den nächsten 14 Tagen ab, ab 7 Tagen vorher hervorgehoben. |
+| Freigabe nötig | Die Bank wartet bei FinTS auf eine TAN oder Freigabe in der App. |
 | Konflikt | Der Abruf hat [Konflikte](#welche-umsätze-abgerufen-werden), die auf deine Entscheidung warten. |
 | Veraltet | Der letzte Import oder Abruf ist älter als sieben Tage. |
 
@@ -200,7 +207,7 @@ Importe, Umsätze, Zuordnungen und [Verrechnungen](#gegenläufige-umsätze-verre
 
 ## Umsatzliste
 
-Ab zwei Konten zeigt die erste Karte, **Alle Konten**, die Umsätze aller Konten in einer Liste, unter der Gegenpartei mit dem Namen des Kontos. Die Karte nennt die Zahl der Konten und offenen Umsätze und mit „Prüfen“, wie viele Konten einen Status haben. Dorthin führt auch **Alle anzeigen** bei den Bankumsätzen der [Schnellsuche](suche.md).
+Ab zwei Konten zeigt die erste Karte, **Alle Konten**, die Umsätze aller Konten in einer Liste, unter der Gegenpartei mit dem Namen des Kontos. Die Karte nennt die Zahl der Konten und offenen Umsätze und mit „Prüfen“, wie viele Konten einen Status haben, sonst „Alles aktuell“. Dorthin führt auch **Alle anzeigen** bei den Bankumsätzen der [Schnellsuche](suche.md).
 
 Die Filter **Alle**, **Offen** (mit Anzahl), **Zugeordnet** (auch verrechnete Umsätze) und **Vorschlag** schränken die Liste ein. **Vorschlag** zeigt nur Umsätze mit dem gleichnamigen Status. Das Suchfeld findet dieselben Umsätze wie die [Schnellsuche](suche.md#was-sie-findet), dazu Beträge, deren Zahl die Eingabe enthält: `19.9` findet 19,90 €. Angezeigt werden höchstens 500 Treffer.
 

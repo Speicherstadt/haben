@@ -12,7 +12,7 @@ import { ANBIETER, adapterFuer } from "./anbieter.ts";
 import { RHYTHMEN, type Rhythmus } from "./regeln.ts";
 
 /*
- * Verbindungen zu Zahlungsdienstleistern speichern, lesen und entfernen (Einstellungen › Bank, #1729). Eine Zeile in
+ * Verbindungen zu Zahlungsdienstleistern speichern, prüfen, lesen und entfernen (#1729; eingerichtet auf der Bankseite, #1951). Eine Zeile in
  * psp_connections je Verbindung; was beim Anbieter anders ist, entscheidet sein Adapter (anbieter.ts). Der Zugang liegt
  * AES-256-GCM-verschlüsselt in ciphertext, nie im Klartext in der Datenbank, im Protokoll oder in einer Meldung.
  */
@@ -308,7 +308,7 @@ export async function kontoDerVerbindung(actor: string, row: Row) {
   return konto;
 }
 
-/** Was die Einstellungen von einem Anbieter brauchen, ohne Funktionen */
+/** Was die Oberfläche von einem Anbieter braucht, ohne Funktionen */
 const anbieterFuerOberflaeche = (a: PspAdapter) => ({
   provider: a.provider,
   name: a.name,
@@ -326,7 +326,7 @@ function configHinweis(row: Row): string | null {
   return adapter && parsed?.success ? (adapter.configHinweis?.(parsed.data) ?? null) : null;
 }
 
-/** Für die Einstellungen: alle Verbindungen ohne Zugang, die Anbieter mit ihren Feldern und die Konten zur Auswahl */
+/** Für Bankseite und Einrichtung: alle Verbindungen ohne Zugang, die Anbieter mit ihren Feldern und die Konten zur Auswahl */
 export async function verbindungenUebersicht() {
   const [rows, konten, konflikte] = await Promise.all([
     alleVerbindungen(),
