@@ -80,6 +80,8 @@ describe("Grund beim Trennen ohne FINTS_PRODUKT_ID (Review #1693)", () => {
         zeigen: () => true,
         verbinden: false,
         setVerbinden: () => {},
+        vorlage: null,
+        setVorlage: () => {},
         offen: null,
         setOffen: () => {},
         busy: "x-b",

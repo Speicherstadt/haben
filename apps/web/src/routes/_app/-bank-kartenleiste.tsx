@@ -33,9 +33,14 @@ function useRollen(ref: RefObject<HTMLElement | null>) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    // Die gewählte Karte in den sichtbaren Bereich rollen, ohne die Seite zu bewegen
+    // Die gewählte Karte in den sichtbaren Bereich rollen, ohne die Seite zu bewegen. Gemessen an der Leiste selbst:
+    // offsetLeft zählte ab dem nächsten positionierten Vorfahren (der Seite) und rollte eine ganz sichtbare Karte hinaus
     const aktiv = el.querySelector<HTMLElement>("[aria-current='page']");
-    if (aktiv && aktiv.offsetLeft + aktiv.offsetWidth > el.clientWidth) el.scrollLeft = aktiv.offsetLeft - 48;
+    if (aktiv) {
+      const karte = aktiv.getBoundingClientRect();
+      const leiste = el.getBoundingClientRect();
+      if (karte.right > leiste.right) el.scrollLeft += karte.left - leiste.left - 48;
+    }
     messen();
     const beobachter = new ResizeObserver(messen);
     beobachter.observe(el);

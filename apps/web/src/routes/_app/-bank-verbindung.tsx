@@ -22,7 +22,8 @@ type Meldung = { tone: "ok" | "danger" | "info"; text: string };
 
 /**
  * Automatischer Abruf des gewählten Kontos über der Liste (#1951): seine Verbindung über Enable Banking, FinTS oder zum
- * Zahlungsdienstleister mit Stand, Fehler und Aktionen. Bei „Alle Konten“ steht hier keine Verbindung. Die Formulare zum
+ * Zahlungsdienstleister mit Stand, Fehler und Aktionen. Bei „Alle Konten“ steht hier nur eine Verbindung ohne Konto in der
+ * Kartenleiste, die es bei jedem Konto tut. Die Formulare zum
  * Verbinden („Konto verbinden › Bank verbinden“) erscheinen hier auch ohne gewähltes Konto, ebenso eine FinTS-Verbindung,
  * an der gerade ein Schritt der Bank offen ist oder ein Abruf läuft. Ohne Inhalt ist der Bereich leer und unsichtbar
  * (bank.css); er bleibt im Dokument, damit Meldungen nach dem Verbinden nicht mit ihm verschwinden.
@@ -35,7 +36,7 @@ export function BankSync({
   fintsZustand,
   result,
 }: {
-  data: Pick<Data, "sync" | "fints" | "zahlungsdienstleister">;
+  data: Pick<Data, "accounts" | "sync" | "fints" | "zahlungsdienstleister">;
   /** Das gewählte Konto; null bei „Alle Konten“ und ohne Konto */
   kontoId: string | null;
   connecting: boolean;
@@ -48,7 +49,12 @@ export function BankSync({
   const connectFn = useServerFn(connectBank);
   // Meldung nach dem Entfernen einer Verbindung zum Zahlungsdienstleister: Ihre Zeile ist danach weg
   const entfernt = useAction();
-  const gehoert = (accounts: readonly { bankAccountId: string }[]) => kontoId !== null && accounts.some((a) => a.bankAccountId === kontoId);
+  // Eine Verbindung ohne Konto in der Kartenleiste (keins freigegeben, alle ausgeschlossen) wählt keine Karte; sie steht
+  // immer hier, sonst ließe sie sich weder sehen noch trennen
+  const konten = new Set(data.accounts.map((a) => a.id));
+  const ohneKarte = (ids: readonly (string | null)[]) => !ids.some((id) => id !== null && konten.has(id));
+  const gehoert = (accounts: readonly { bankAccountId: string }[]) =>
+    (kontoId !== null && accounts.some((a) => a.bankAccountId === kontoId)) || ohneKarte(accounts.map((a) => a.bankAccountId));
   const fintsZeigen = (c: Data["fints"]["connections"][number]) =>
     gehoert(c.accounts) || c.id === fintsZustand.offen?.fuer || c.id === fintsZustand.busy || fintsZustand.busy === `x-${c.id}`;
 
@@ -74,7 +80,7 @@ export function BankSync({
         ))}
       <FintsAbruf fints={fints} zeigen={fintsZeigen} {...fintsZustand} />
       {zahlungsdienstleister.verbindungen
-        .filter((v) => kontoId !== null && v.bankAccountId === kontoId)
+        .filter((v) => (kontoId !== null && v.bankAccountId === kontoId) || ohneKarte([v.bankAccountId]))
         .map((v) => (
           <VerbindungZeile key={v.id} daten={zahlungsdienstleister} verbindung={v} entfernen={entfernt.run} />
         ))}

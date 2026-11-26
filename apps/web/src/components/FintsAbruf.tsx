@@ -1,6 +1,6 @@
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { defaultFetchFrom, fetchFromForConnect } from "../lib/bank-connect.ts";
 import { errorMessage, formatDate, formatDateTime } from "../lib/format.ts";
 import { useSubmitCheck } from "../lib/use-submit-check.ts";
@@ -25,13 +25,23 @@ export type FintsOffen = { fuer: string; schritt: Offen } | null;
 
 /**
  * Was die Bankseite für FinTS führt, damit der Dialog „Wie verbinden?“ es kennt (#1951): Formular „Über FinTS verbinden“ offen
- * (verbinden), offener Schritt der Bank und die Zeile mit laufender Anfrage (busy: ihre ID beim Abruf, `x-<ID>` beim Trennen)
+ * (verbinden) samt Vorlage von „Zugang ändern“, offener Schritt der Bank und die Zeile mit laufender Anfrage (busy: ihre ID
+ * beim Abruf, `x-<ID>` beim Trennen). Zugeklappt und mit neuVerbinden („Bank verbinden › FinTS“) gilt keine Vorlage mehr
  */
 export function useFintsZustand() {
-  const [verbinden, setVerbinden] = useState(false);
+  const [verbinden, setFormular] = useState(false);
+  const [vorlage, setVorlage] = useState<Verbindung | null>(null);
   const [offen, setOffen] = useState<FintsOffen>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  return { verbinden, setVerbinden, offen, setOffen, busy, setBusy };
+  const setVerbinden = (v: boolean) => {
+    if (!v) setVorlage(null);
+    setFormular(v);
+  };
+  const neuVerbinden = () => {
+    setVorlage(null);
+    setFormular(true);
+  };
+  return { verbinden, setVerbinden, vorlage, setVorlage, neuVerbinden, offen, setOffen, busy, setBusy };
 }
 export type FintsZustand = ReturnType<typeof useFintsZustand>;
 
@@ -250,24 +260,16 @@ export function FintsAbruf({
   zeigen,
   verbinden,
   setVerbinden,
+  vorlage,
+  setVorlage,
   offen,
   setOffen,
   busy,
   setBusy,
-}: {
-  fints: Fints;
-  zeigen: (c: Verbindung) => boolean;
-  verbinden: boolean;
-  setVerbinden: (v: boolean) => void;
-  offen: FintsOffen;
-  setOffen: (o: FintsOffen) => void;
-  busy: string | null;
-  setBusy: (b: string | null) => void;
-}) {
+}: Omit<FintsZustand, "neuVerbinden"> & { fints: Fints; zeigen: (c: Verbindung) => boolean }) {
   const router = useRouter();
   const sync = useServerFn(syncFints);
   const disconnect = useServerFn(disconnectFints);
-  const [vorlage, setVorlage] = useState<Verbindung | null>(null);
   const grundId = useId();
   const grundVon = (c: Verbindung) => zeilenGrund(c, fints.connections, { verbinden, offen, busy }, fints.configured);
   // ID des Grundes an der Zeile für aria-describedby; mitTrennen für „Trennen“, das nicht jeder Grund nennt
@@ -320,13 +322,8 @@ export function FintsAbruf({
   // Erst neu laden, dann schließen; solange ein Schritt offen ist, sind die Knöpfe an den Zeilen gesperrt
   const schrittAbbrechen = () => void router.invalidate({ sync: true }).then(schliessen);
 
-  // Jedes Zuklappen des Formulars setzt hier die Vorlage zurück: Nach „Zugang ändern“ öffnet „Bank verbinden › FinTS“
-  // danach ein leeres Formular. Ein offener Schritt beim Verbinden schließt nur über seine eigenen Knöpfe; kommt die Antwort
-  // der Bank erst nach dem Verlassen der Seite, verwirft useAntwort den Vorgang
-  useEffect(() => {
-    if (!verbinden) setVorlage(null);
-  }, [verbinden]);
-
+  // Ein offener Schritt beim Verbinden schließt nur über seine eigenen Knöpfe; kommt die Antwort der Bank erst nach dem
+  // Verlassen der Seite oder einem neuen Formular, verwirft useAntwort den Vorgang
   return (
     <>
       {verbinden &&

@@ -134,7 +134,7 @@ function BankPage() {
         <ImportControls
           data={data}
           fintsZustand={fintsZustand}
-          onBankWeg={(weg) => (weg === "enablebanking" ? setConnecting(true) : fintsZustand.setVerbinden(true))}
+          onBankWeg={(weg) => (weg === "enablebanking" ? setConnecting(true) : fintsZustand.neuVerbinden())}
         />
       </div>
       <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
