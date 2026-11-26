@@ -9,12 +9,12 @@ import { testDatabaseUrl } from "../test-db.ts";
 const MIGRATIONS = fileURLToPath(new URL("../../../drizzle", import.meta.url));
 
 /*
- * Migration 0329 (#1914): Der Privatanteil steht je Zeile der Aufteilung, nicht mehr am Beleg. Ein Entwurf mit Zeilen und
+ * Migration 0331 (#1914): Der Privatanteil steht je Zeile der Aufteilung, nicht mehr am Beleg. Ein Entwurf mit Zeilen und
  * einem Anteil am Beleg verliert ihn nicht stumm: Die Zeile mit der kleinsten Position übernimmt ihn, der Beleg geht auf 0.
  * Festschriebene Belege bleiben unberührt; ohne `locked_at IS NULL` würde ihr Trigger (documents_locked) die Migration
  * abbrechen.
  */
-describe.skipIf(!testDatabaseUrl)("Migration 0329: Privatanteil je Zeile (Postgres, #1914)", () => {
+describe.skipIf(!testDatabaseUrl)("Migration 0331: Privatanteil je Zeile (Postgres, #1914)", () => {
   let sql: postgres.Sql;
 
   beforeAll(async () => {
@@ -26,7 +26,7 @@ describe.skipIf(!testDatabaseUrl)("Migration 0329: Privatanteil je Zeile (Postgr
     const previous = mkdtempSync(join(tmpdir(), "haben-migrationen-"));
     cpSync(MIGRATIONS, previous, { recursive: true });
     const full = JSON.parse(readFileSync(join(MIGRATIONS, "meta", "_journal.json"), "utf8"));
-    const idx = full.entries.findIndex((e: { tag: string }) => e.tag === "0329_volatile_jane_foster");
+    const idx = full.entries.findIndex((e: { tag: string }) => e.tag === "0331_privatanteil_je_zeile");
     writeFileSync(join(previous, "meta", "_journal.json"), JSON.stringify({ ...full, entries: full.entries.slice(0, idx) }));
     sql = postgres(testDatabaseUrl!, { max: 1, onnotice: () => {} });
     const { drizzle } = await import("drizzle-orm/postgres-js");

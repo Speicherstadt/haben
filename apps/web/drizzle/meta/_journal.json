@@ -2318,6 +2318,13 @@
       "when": 1795695970088,
       "tag": "0330_sonder_afa_trigger",
       "breakpoints": true
+    },
+    {
+      "idx": 331,
+      "version": "7",
+      "when": 1795705500199,
+      "tag": "0331_privatanteil_je_zeile",
+      "breakpoints": true
     }
   ]
 }
