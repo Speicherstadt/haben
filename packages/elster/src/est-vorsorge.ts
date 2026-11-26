@@ -7,19 +7,23 @@ import { euro, euroAb, euroAuf } from "./est-werte.ts";
 type Arbeitnehmer = EstArbeitnehmer | undefined;
 
 /**
- * Summe laut Lohnsteuerbescheinigungen; in vollen Euro zugunsten der Person wie die amtliche Zuordnung (Aufrunden bzw.
- * Abrunden der Summe, VAST_Vorberechnungen_<Jahr>.ods, Blatt „VaSt_LStB_Gesamt - Regeln“)
+ * Summe laut Lohnsteuerbescheinigungen mit Cent. In vollen Euro geht sie zugunsten der Person wie in der amtlichen Zuordnung
+ * hinaus (euroAuf/euroAb, VAST_Vorberechnungen_<Jahr>.ods, Blatt „VaSt_LStB_Gesamt - Regeln“)
  */
 const lstb = (an: Arbeitnehmer, key: keyof Omit<EstLohnsteuerbescheinigung, "steuerklasse">) =>
   an ? an.bescheinigungen.reduce((s, b) => s + (b[key] ?? 0), 0) : 0;
 
 function altersvorsorge(person: string, v: EstVorsorgePerson | undefined, an: Arbeitnehmer): XmlNode | null {
+  const rvAn = lstb(an, "rvArbeitnehmer");
+  const rvAg = lstb(an, "rvArbeitgeber");
+  // Regel 950020: Arbeitnehmer- und Arbeitgeberanteil nur gemeinsam, gegebenenfalls mit 0 (Berechne_E2000401, Berechne_E2000801)
+  const lohn = rvAn !== 0 || rvAg !== 0;
   const felder: XmlNode[] = [
-    ["E2000401", euroAuf(lstb(an, "rvArbeitnehmer"))],
+    ["E2000401", lohn ? (euroAuf(rvAn) ?? "0") : undefined],
     ["E2000601", euro(v?.rentenversicherung)],
     // Zeile 8: zertifizierte Basisrentenverträge (Rürup), teilt den Höchstbetrag mit Zeile 4 bis 6
     ["E2000701", euro(v?.basisrente)],
-    ["E2000801", euroAb(lstb(an, "rvArbeitgeber"))],
+    ["E2000801", lohn ? (euroAb(rvAg) ?? "0") : undefined],
   ];
   return felder.some((f) => f[1]) ? ["AVor", [["Person", person], ...felder]] : null;
 }

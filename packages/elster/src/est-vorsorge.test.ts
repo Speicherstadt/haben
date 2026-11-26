@@ -33,6 +33,16 @@ describe("anlageVorsorge", () => {
     expect(xml).toMatch(/<Pers>\s*<Person>PersonA<\/Person>\s*<E2004403>201<\/E2004403>\s*<\/Pers>/);
   });
 
+  it("schreibt Arbeitnehmer- und Arbeitgeberanteil zur Rentenversicherung gemeinsam, den fehlenden mit 0 (Regel 950020)", () => {
+    // Berechne_E2000401 und Berechne_E2000801 greifen, sobald einer der Anteile ≠ 0 ist; aus dem TDD-Review
+    const avor = (xml: string) => /<AVor>[\s\S]*?<\/AVor>/.exec(xml)?.[0] ?? "";
+    const kleinerAg = avor(mitVorsorge({}, [{ steuerklasse: 1, brutto: 2_000_000, rvArbeitnehmer: 10_000, rvArbeitgeber: 60 }]));
+    expect(kleinerAg).toMatch(/<E2000401>100<\/E2000401>\s*<E2000801>0<\/E2000801>/);
+    const nurAg = avor(mitVorsorge({}, [{ steuerklasse: 1, brutto: 600_000, rvArbeitgeber: 55_800 }]));
+    expect(nurAg).toMatch(/<E2000401>0<\/E2000401>\s*<E2000801>558<\/E2000801>/);
+    expect(mitVorsorge({ basisrente: 100_000 })).not.toContain("<E2000401>");
+  });
+
   it("schreibt beim Zuschuss zur Krankenversicherung ohne den zur Pflegeversicherung dort 0 (Regel 100240078)", () => {
     // Berechne_E2003907: 0, wenn nur ein Zuschuss zur Krankenversicherung bescheinigt ist
     const gesetzlich = zuschuss(mitVorsorge({ gkv: 300_000, gpv: 60_000, agZuschussGkv: 84_000 }));
