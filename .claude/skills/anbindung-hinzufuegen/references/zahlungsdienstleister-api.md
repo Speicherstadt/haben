@@ -36,7 +36,7 @@ tsc meldet nicht jede davon; alle durchgehen:
 | --- | --- |
 | `packages/import/src/importvertrag/anbieter.ts` | `INTERNAL_PROVIDERS` (Test `interne-anbieter.test.ts`) |
 | `packages/core/src/matching-direkt.ts` | `PAYMENT_PROVIDERS`: Bezeichnung und Muster der Gegenpartei auf der Bank; daraus kommen der Anbieter des Kontos und sein Name in der Konfliktklärung |
-| `packages/import/src/format-namen.ts` | `FORMAT_NAMEN` (tsc): Name der Quelle in Meldungen und in der Kontenliste |
+| `packages/import/src/format-namen.ts` | `FORMAT_NAMEN` (tsc): Name der Quelle in Meldungen |
 | `modules/bank/quellen.ts` | `ABRUF_NAMEN` (tsc) |
 | `routes/_app/-bank-konto-neu.tsx` | Beispiele im Text der Auswahl, wenn der Anbieter bekannt genug ist |
 | `server/env.ts`, `docs/installation-konfiguration.md` | `<ANBIETER>_API_URL` |
