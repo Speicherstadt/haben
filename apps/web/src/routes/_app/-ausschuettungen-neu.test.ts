@@ -50,7 +50,7 @@ const empfaenger = (name: string, anteil: number, beteiligung?: number) => ({
 });
 const zellen = (html: string, tag: "th" | "td") => [...html.matchAll(new RegExp(`<${tag}[^>]*>([^<]*)</${tag}>`, "g"))].map((m) => m[1]);
 
-it("nennt je Empfänger die Beteiligung in Euro in einer eigenen Spalte, in der Summe das ganze Kapital (#1812)", () => {
+it("nennt je Empfänger die Beteiligung in Euro in einer eigenen Spalte, in der Summe alle Beteiligungen zusammen (#1812)", () => {
   const html = renderToStaticMarkup(
     createElement(EmpfaengerTabelle, {
       empfaenger: [empfaenger("Erika", 3334, 1_000_000), empfaenger("Max", 3333, 1_000_000), empfaenger("Lena", 3333, 1_000_000)],
