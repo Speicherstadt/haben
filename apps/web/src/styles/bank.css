@@ -1,0 +1,50 @@
+/* Bankseite: Kartenleiste der Konten (#1951, DESIGN.md › Kartenleiste der Konten) */
+
+/* Breit: alle Konten als Karten in einer Zeile, seitlich rollbar, Pfeile links und rechts */
+.konten-leiste { display: flex; align-items: center; gap: 4px; }
+.konten-leiste:not([data-rollbar]) > .btn-icon { visibility: hidden; }
+/* Innenabstand, damit Fokusring und Rand der gewählten Karte nicht am Rand der Rollfläche abgeschnitten werden */
+.konten-karten { flex: 1; min-width: 0; display: flex; gap: 16px; overflow-x: auto; padding: 4px 4px 8px; scrollbar-width: thin; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { .konten-karten { scroll-behavior: auto; } }
+.konten-gruppe { flex: none; display: flex; flex-direction: column; gap: 4px; }
+/* Die Überschrift bleibt beim Rollen links stehen, solange ihre Gruppe zu sehen ist */
+.konten-gruppe-titel { position: sticky; left: 0; align-self: flex-start; padding-right: 8px; font-size: 12px; line-height: 16px; color: var(--muted); background: var(--ground); }
+.konten-gruppe-karten { display: flex; gap: 8px; }
+
+/* Jede Karte gleich hoch: Name; Saldo und „n offen“; Weg und Zeit oder ein Status */
+.konto-karte { width: 184px; display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow-xs); color: var(--ink); text-decoration: none; transition: background var(--fade); }
+.konto-karte:hover { background: var(--hover); color: var(--ink); }
+.konto-karte:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Gewählt: Fläche, Name in Akzent und Rand mit Ring, denn die Fläche allein trennt sich vom eigenen Rand der Karte kaum */
+.konto-karte[aria-current="page"], .konto-karte[aria-current="page"]:hover { background: var(--accent-soft); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.konto-karte[aria-current="page"] .konto-karte-name { color: var(--accent-ink); }
+.konto-karte-name { font-size: 14px; font-weight: 600; line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.konto-karte-zahlen { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; line-height: 20px; }
+.konto-karte-zahlen > .amount { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.konto-karte-offen { flex: none; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.konto-karte-quelle { font-size: 12px; line-height: 20px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Status in einer Zeile; was nicht passt, endet mit „…“ */
+.konto-karte .status { max-width: 100%; gap: 8px; }
+.konto-karte .status-label { flex: none; }
+.konto-karte .status-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+
+/* Schmal (Liste und Zuordnung untereinander) und am Handy: eine Zeile aus Chips, die unter dem Seitenkopf stehen bleibt */
+.konten-chips { display: none; }
+@media (max-width: 1100px) {
+  .konten-leiste { display: none; }
+  .konten-chips {
+    position: sticky; top: var(--below-head); z-index: 9;
+    display: flex; align-items: center; gap: 8px; overflow-x: auto; scrollbar-width: none;
+    margin: -12px calc(-1 * var(--main-pad-x)); padding: 8px var(--main-pad-x); background: var(--ground);
+  }
+}
+.konto-chip { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); color: var(--ink); font-size: 13px; text-decoration: none; }
+.konto-chip:hover { color: var(--ink); background: var(--hover); }
+.konto-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.konto-chip[aria-current="page"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); font-weight: 500; }
+.konto-chip-punkt { width: 8px; height: 8px; border-radius: 4px; background: var(--accent); flex: none; }
+.konto-chip[data-tone="warn"] .konto-chip-punkt { background: var(--warn-dot); }
+.konto-chip[data-tone="danger"] .konto-chip-punkt { background: var(--danger-ink); }
+.konto-chip-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.konto-chip-zahl { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; }
+.konten-chips-trenner { flex: none; width: 1px; height: 20px; background: var(--line); }

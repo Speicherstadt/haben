@@ -725,3 +725,59 @@ test("Bank: ein zweites Konto für denselben Marktplatz fragt vorher nach (#1779
   await bestaetigen(page, "Konto trotzdem anlegen");
   await expect(zweites).toHaveCount(1);
 });
+
+test("Bank: Konten als Kartenleiste in Gruppen, im schmalen Fenster als Chips unter dem Kopf (#1951)", async () => {
+  await go("/bank?konto=alle");
+  const leiste = page.getByRole("navigation", { name: "Konten" });
+  const alle = leiste.getByRole("group", { name: "Gesamt" }).getByRole("link", { name: /Alle Konten/ });
+  await expect(alle).toHaveAttribute("aria-current", "page");
+  await expect(alle).toContainText("4 Konten");
+  const banken = leiste.getByRole("group", { name: "Banken" }).getByRole("link");
+  await expect(banken).toHaveCount(2);
+  // Normalfall leise: Weg und Zeit des letzten Imports, ohne Status
+  await expect(banken.first()).toContainText(/Datei · heute \d\d:\d\d/);
+  const dienstleister = leiste.getByRole("group", { name: "Zahlungsdienstleister" }).getByRole("link");
+  await expect(dienstleister).toHaveCount(2);
+  const amazon2 = dienstleister.filter({ hasText: "Amazon DE 2" });
+  await expect(amazon2).toContainText("Noch kein Import");
+  // Alle Karten passen: keine Pfeile
+  const nachLinks = page.getByRole("button", { name: "Konten nach links" });
+  const nachRechts = page.getByRole("button", { name: "Konten nach rechts" });
+  await expect(nachLinks).toBeHidden();
+  await expect(nachRechts).toBeHidden();
+
+  const groesse = page.viewportSize()!;
+  try {
+    // Schmaler, aber noch über 1100 px: die Leiste rollt, die Pfeile erscheinen
+    await page.setViewportSize({ width: 1120, height: 800 });
+    await expect(nachRechts).toBeEnabled();
+    await expect(nachLinks).toBeDisabled();
+    await nachRechts.click();
+    await expect(nachLinks).toBeEnabled();
+
+    // Eine Karte ist ein Link: sie wählt das Konto, „Alle Konten“ ist dann nicht mehr gewählt
+    await amazon2.click();
+    await expect(amazon2).toHaveAttribute("aria-current", "page");
+    await expect(alle).not.toHaveAttribute("aria-current", "page");
+
+    // Unter 1100 px: Chips mit Name und Zahl offener Umsätze statt Karten, stehen beim Rollen unter dem Kopf
+    await page.setViewportSize({ width: 900, height: 500 });
+    const chips = page.getByRole("navigation", { name: "Konten" });
+    await expect(chips.getByRole("group")).toHaveCount(0);
+    await expect(chips.getByRole("link")).toHaveCount(5);
+    await expect(chips.getByRole("link", { name: /Amazon DE 2/ })).toHaveAttribute("aria-current", "page");
+    const alleChip = chips.getByRole("link", { name: /^Alle/ });
+    await alleChip.click();
+    await expect(alleChip).toHaveAttribute("aria-current", "page");
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const kopf = page.locator(".page-head");
+    await expect
+      .poll(async () => {
+        const [k, c] = await Promise.all([kopf.boundingBox(), chips.boundingBox()]);
+        return k && c ? Math.round(c.y - (k.y + k.height)) : null;
+      })
+      .toBe(0);
+  } finally {
+    await page.setViewportSize(groesse);
+  }
+});

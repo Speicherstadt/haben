@@ -20,7 +20,7 @@ Ist Enable Banking eingerichtet (unter **Einstellungen › Bank**, siehe [Anbind
 2. **Weiter zur Bank** führt zur Anmeldeseite deiner Bank. Dort meldest du dich an, bestätigst mit TAN und wählst die Konten aus.
 3. Die Bank leitet zurück zu Haben. Haben ordnet die freigegebenen Konten über die IBAN zu, legt fehlende an und holt sofort die ersten Umsätze. Neue Konten heißen nach Bank, Kontoname der Bank und den letzten vier Ziffern der IBAN, z. B. „Finom Geschäftskonto …7890“; die Meldung nach der Rückkehr nennt sie. Name und Zweck legst du danach mit **Name und Zweck** fest (siehe [Konto](#konto)).
 
-Danach ruft Haben jede Verbindung einmal täglich ab, im Hintergrund und ohne dass du angemeldet sein musst. **Jetzt abrufen** holt die Umsätze sofort. Die Konten erscheinen als Reiter, mit „Abruf“ statt „CSV“ und dem Kontostand der Bank.
+Danach ruft Haben jede Verbindung einmal täglich ab, im Hintergrund und ohne dass du angemeldet sein musst. **Jetzt abrufen** holt die Umsätze sofort. Die Konten erscheinen als Karten mit dem Kontostand der Bank, darunter „Abruf“ und die Zeit des letzten Abrufs.
 
 ### Zustimmung
 
@@ -61,7 +61,7 @@ Mit einer eigenen Registrierungsnummer für FinTS holt Haben die Umsätze direkt
 
 Ein eigener Dienst, der Zahlungen bei einem Anbieter abholt, etwa Verkäufe, Gebühren und Auszahlungen eines Marktplatzes, liefert sie über die [REST-API](api.md#bankumsätze) als Umsätze in ein Konto. Dafür gibst du die Quelle am Konto frei: Konto wählen, **Externe Quelle hinzufügen**, dann Anbieter und Kennung des Kontos beim Anbieter eintragen, so wie der Dienst sie liefert. Der Stichtag ist der erste Tag, den die Quelle liefert, frühestens der Tag nach dem letzten Umsatz des Kontos; leer gilt dieser Tag, bei einem Konto ohne Umsätze der heutige. Davor nimmt Haben nichts an; soll der Dienst in ein Konto ohne Umsätze auch ältere Zahlungen liefern, trag den ersten Tag ein. Ein Konto hat höchstens eine Quelle; ein Konto mit Bankabruf (Enable Banking oder FinTS), Etsy-, PayPal- oder Stripe-Abruf bekommt keine externe, auch vor dem ersten Abruf. Umgekehrt lässt sich ein Konto mit externer Quelle nicht für einen Abruf verbinden.
 
-Danach steht unter dem Konto die Quelle mit Stichtag und bis wann geliefert ist; nach einer Lieferung zeigt der Reiter des Kontos „REST-Import“. Liefert der Dienst einen schon übernommenen Umsatz anders, steht dort **Konflikt klären**, mit denselben zwei Wegen wie beim [Bankabruf](#welche-umsätze-abgerufen-werden).
+Danach steht unter dem Konto die Quelle mit Stichtag und bis wann geliefert ist; nach einer Lieferung zeigt die Karte des Kontos „REST-Import“. Liefert der Dienst einen schon übernommenen Umsatz anders, steht dort **Konflikt klären**, mit denselben zwei Wegen wie beim [Bankabruf](#welche-umsätze-abgerufen-werden).
 
 ## Unterstützte Formate
 
@@ -116,7 +116,7 @@ Nennt die Datei eine IBAN (DKB, CAMT), legt Haben das Konto beim ersten Import a
 
 ### Name und Zweck
 
-Unter den Reitern stehen Name, Zweck und IBAN des gewählten Kontos. Mit **Name und Zweck** änderst du beides, auch für Konten aus dem automatischen Abruf oder dem Dateiimport. Der Name ist nur Anzeige: Umsätze bleiben am Konto, und spätere Importe findet Haben weiter über die IBAN. Die Änderung steht im Änderungsprotokoll.
+Unter den Karten stehen Name, Zweck und IBAN des gewählten Kontos. Mit **Name und Zweck** änderst du beides, auch für Konten aus dem automatischen Abruf oder dem Dateiimport. Der Name ist nur Anzeige: Umsätze bleiben am Konto, und spätere Importe findet Haben weiter über die IBAN. Die Änderung steht im Änderungsprotokoll.
 
 Viele Selbständige haben bei derselben Bank mehrere Konten, etwa ein Geschäftskonto und ein Steuerkonto, auf das sie die Umsatzsteuer zurücklegen und von dem das Finanzamt per Lastschrift einzieht. Der Zweck sagt Haben, wofür ein Konto dient:
 
@@ -135,7 +135,16 @@ N26-Exporte enthalten keine eigene IBAN. Dafür legst du das Konto vorher mit **
 
 Wählst du ein Konto aus und die Datei nennt eine andere IBAN, bricht der Import mit einer Meldung ab.
 
-Über der Liste steht je Konto ein Reiter mit Format und Datum des letzten Imports und dem Endsaldo. Ist der letzte Import älter als sieben Tage, ist die Angabe hervorgehoben.
+Über der Liste stehen die Konten als Karten in einer Zeile, getrennt in Banken und Zahlungsdienstleister; die Pfeile links und rechts rollen weiter. Jede Karte zeigt den Namen, den Saldo (Endsaldo des letzten Imports, beim Dienstleister das Guthaben) mit der Zahl offener Umsätze und darunter, woher der letzte Stand kommt und wann, etwa „FinTS · heute 06:00“ oder „Datei · 13.11.“. Nur wenn etwas nicht stimmt, steht dort ein Status:
+
+| Status | Wann |
+| --- | --- |
+| Fehlgeschlagen | Der letzte Abruf über FinTS, Enable Banking, Stripe oder PayPal ist fehlgeschlagen. |
+| Abgelaufen, Läuft ab | Die Zustimmung bei der Bank ist abgelaufen oder läuft in den nächsten 14 Tagen ab, ab 7 Tagen vorher hervorgehoben. |
+| Konflikt | Der Abruf hat [Konflikte](#welche-umsätze-abgerufen-werden), die auf deine Entscheidung warten. |
+| Veraltet | Der letzte Import oder Abruf ist älter als sieben Tage. |
+
+Im schmalen Fenster und am Handy werden die Karten zu einer Zeile aus Namen mit der Zahl offener Umsätze, die beim Rollen unter dem Kopf stehen bleibt; der Punkt davor hat die Farbe des Status.
 
 ### Privates Konto: Geschäftsvorfälle gegen Entnahme und Einlage
 
@@ -157,7 +166,7 @@ Das geht nur, **solange kein Umsatz des Kontos zugeordnet, verrechnet oder ausge
 
 Ein ausgeschlossenes Konto:
 
-- steht nicht mehr unter den Reitern und fehlt in Bankabgleich, Vorschlägen, Übersicht, Überweisungen und Lastschriften, in der Vorprüfung der Voranmeldung, in der Jahresauswahl und im [Jahresarchiv](auswertungen.md#jahresexport);
+- steht nicht mehr unter den Karten und fehlt in Bankabgleich, Vorschlägen, Übersicht, Überweisungen und Lastschriften, in der Vorprüfung der Voranmeldung, in der Jahresauswahl und im [Jahresarchiv](auswertungen.md#jahresexport);
 - wird beim automatischen Abruf übersprungen; die Verbindung selbst läuft für die anderen Konten weiter;
 - nimmt keinen Import an: Eine Datei mit seiner IBAN oder mit diesem Konto als Ziel lehnt Haben mit einer Meldung ab.
 
@@ -191,7 +200,7 @@ Importe, Umsätze, Zuordnungen und [Verrechnungen](#gegenläufige-umsätze-verre
 
 ## Umsatzliste
 
-Ab zwei Konten zeigt der erste Reiter, **Alle Konten**, die Umsätze aller Konten in einer Liste, unter der Gegenpartei mit dem Namen des Kontos. Dorthin führt auch **Alle anzeigen** bei den Bankumsätzen der [Schnellsuche](suche.md).
+Ab zwei Konten zeigt die erste Karte, **Alle Konten**, die Umsätze aller Konten in einer Liste, unter der Gegenpartei mit dem Namen des Kontos. Die Karte nennt die Zahl der Konten und offenen Umsätze und mit „Prüfen“, wie viele Konten einen Status haben. Dorthin führt auch **Alle anzeigen** bei den Bankumsätzen der [Schnellsuche](suche.md).
 
 Die Filter **Alle**, **Offen** (mit Anzahl), **Zugeordnet** (auch verrechnete Umsätze) und **Vorschlag** schränken die Liste ein. **Vorschlag** zeigt nur Umsätze mit dem gleichnamigen Status. Das Suchfeld findet dieselben Umsätze wie die [Schnellsuche](suche.md#was-sie-findet), dazu Beträge, deren Zahl die Eingabe enthält: `19.9` findet 19,90 €. Angezeigt werden höchstens 500 Treffer.
 

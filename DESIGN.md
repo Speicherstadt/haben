@@ -218,7 +218,17 @@ Karte in Karte gibt es nicht: Ist ein Dialog oder Blatt selbst die Karte, verlie
 
 Zeigt ein Link auf eine Zeile einer Tabelle, etwa aus der BWA auf eine Buchung im Kontenblatt (`#buchung-…`), trägt die Zeile `aria-current` und die Fläche `--accent-soft` wie der aktive Bereich der Einstellungen, rollt in die Mitte und bekommt den Fokus (`tabindex="-1"`, Ring aus `:focus-visible`). Am Handy, wo die Zeile eine Karte ist, ragt die Fläche 8px in den Rand. Das setzt die Seite nach dem Laden; `:target` allein greift nicht, weil ein Link innerhalb der App die Seite nicht neu lädt.
 
+**Gewählte Karte:** Ist eine Karte unter mehreren gewählt, etwa ein Konto in der Kartenleiste, trägt sie `aria-current`, die Fläche `--accent-soft`, den Namen in `--accent-ink` und den Rand in `--accent` mit einem Ring von 1px (`box-shadow`) dazu. Anders als bei einem Menüpunkt reicht die Fläche allein nicht: Neben dem eigenen Rand der Karte ist sie kaum zu erkennen.
+
+**Status in Karten:** Eine Karte, die einen Stand zeigt, nennt im Normalfall leise in `--muted`, woher er kommt und wann („FinTS · heute 06:00“, „Datei · 13.11.“). Nur bei einer Abweichung steht an dieser Stelle ein `Status` mit `inline`, Wort und Auskunft in einer Zeile („Veraltet“ mit „13.11.“, „Konflikt“ mit „3 Umsätze“, „Fehlgeschlagen“); was nicht passt, endet mit „…“. So fällt das eine Konto auf, das etwas braucht.
+
 Hinweise (`.banner`) als direkte Kinder von `<main>` stehen 24px von ihren Nachbarn, folgen zwei aufeinander, nur 12px. Der Hinweis „Senden ist noch nicht eingerichtet“ ist die Komponente `EricHinweis`, nie ein eigener Text; sein Link bricht nicht um. Was das Senden hindert oder Zahlen verfälscht, bleibt je ein eigener Hinweis; mehrere Hinweise, die nichts blockieren, stehen gebündelt in einem als Liste (`.banner-list`, so auf der Voranmeldung); die Einrichtungshinweise (ERiC, Hersteller-ID) stehen davon getrennt für sich.
+
+### Kartenleiste der Konten
+
+Auf der Bankseite stehen die Konten als Karten in einer Zeile (`-bank-kartenleiste.tsx`, `styles/bank.css`), nie in einer zweiten Zeile: Was nicht passt, rollt seitlich, die letzte sichtbare Karte ist angeschnitten, ohne Verlauf am Rand. Links und rechts rollen `btn-ghost btn-icon` mit `aria-label` („Konten nach links“, „nach rechts“) um eine Breite weiter; am Ende sind sie gesperrt, ohne Überlauf unsichtbar an ihrem Platz. Die Karten stehen in Gruppen („Gesamt“, „Banken“, „Zahlungsdienstleister“) mit kleiner Überschrift (12px, `--muted`), die beim Rollen links stehen bleibt, solange ihre Gruppe zu sehen ist (`position: sticky; left: 0` in der Gruppe). Jede Karte ist gleich breit und hoch und hat drei Zeilen: Name; Saldo links und „n offen“ rechts auf derselben Grundlinie (fehlt bei null); Weg und Zeit oder ein Status (siehe Status in Karten). Die Karten sind Links in der sichtbaren Reihenfolge, die gewählte wie unter Gewählte Karte.
+
+Bis 1100 px Breite, wo Liste und Zuordnung untereinander stehen, und am Handy werden die Karten zu einer schmalen Zeile aus Chips mit Punkt, Name und Zahl offener Umsätze, die unter dem Seitenkopf stehen bleibt (`top: var(--below-head)`). Der Punkt hat die Farbe des Status; das Wort liest der Screenreader aus verstecktem Text, weil der Punkt allein keine Bedeutung trägt.
 
 ### Blätter am Handy
 

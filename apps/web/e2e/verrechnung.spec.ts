@@ -281,7 +281,8 @@ test("Externe Quelle am Konto freigeben, danach Konflikt dieser Quelle klären (
 
   await gehe(page, `/bank?konto=${konto}`);
   await expect(page.getByText(/Externe Quelle: haben-ebay · verkaeufer-beispiel · .* geliefert bis/)).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Konten" }).getByRole("link", { name: /eBay/ })).toContainText("REST-Import · zuletzt");
+  // Der offene Konflikt steht als Status auf der Karte des Kontos statt Weg und Zeit (#1951)
+  await expect(page.getByRole("navigation", { name: "Konten" }).getByRole("link", { name: /eBay/ })).toContainText("Konflikt 1 Umsatz");
   await page.getByRole("button", { name: "Konflikt klären" }).click();
   const klaeren = page.getByRole("dialog", { name: "Konflikt klären" });
   await expect(klaeren).toContainText("Der Dienst liefert diesen Umsatz (SALE-0001)");

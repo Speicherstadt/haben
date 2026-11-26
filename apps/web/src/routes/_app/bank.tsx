@@ -1,12 +1,9 @@
-import { formatEuro } from "@haben/core";
-import type { StatementFormat } from "@haben/import";
-import { FORMAT_NAMEN } from "@haben/import/format-namen";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { z } from "zod/mini";
 import { TransactionStatus } from "../../components/BankStatus.tsx";
 import { UmsatzBetrag, useGebuehrZeilen } from "../../components/BankGebuehr.tsx";
-import { formatDate, daysUntil } from "../../lib/format.ts";
+import { formatDate } from "../../lib/format.ts";
 import { getBankOverview } from "../../server/functions/bank.ts";
 import { getExternalBankSources } from "../../server/functions/bank-quellen.ts";
 import { ExcludedAccounts } from "../../components/BankKontoAusschliessen.tsx";
@@ -20,6 +17,8 @@ import { BankSync } from "./-bank-verbindung.tsx";
 import { AccountSettings, ImportControls, SearchBox } from "./-bank-konto.tsx";
 import { ExterneQuelle } from "../../components/ExterneQuelle.tsx";
 import { menueGruppe } from "../../lib/menue-gruppe.ts";
+import bankStyles from "../../styles/bank.css?url";
+import { Kartenleiste } from "./-bank-kartenleiste.tsx";
 
 const searchSchema = z.object({
   /** Ein Konto oder „alle“ (#617) */
@@ -62,12 +61,9 @@ export const Route = createFileRoute("/_app/bank")({
     ]);
     return { ...overview, ...quellen };
   },
-  head: () => ({ meta: [{ title: "Bank · Haben" }] }),
+  head: () => ({ meta: [{ title: "Bank · Haben" }], links: [{ rel: "stylesheet", href: bankStyles }] }),
   component: BankPage,
 });
-
-/** Quelle des letzten Imports in der Kontenliste; unbekannte Formate (aus älteren Versionen) als „Datei“ */
-const FORMAT_LABEL = (format: string) => FORMAT_NAMEN[format as StatementFormat] ?? "Datei";
 
 /** J/K springen zum nächsten bzw. vorigen Umsatz */
 function useUmsatzTasten(transactions: Data["transactions"], index: number) {
@@ -134,35 +130,7 @@ function BankPage() {
         </section>
       ) : (
         <>
-          <nav className="account-tabs" aria-label="Konten">
-            {data.accounts.length > 1 && (
-              <Link to="/bank" search={{ konto: "alle", filter }} aria-current={data.allAccounts ? "page" : undefined} className="account-tab">
-                <span style={{ fontSize: 14, fontWeight: 600 }}>Alle Konten</span>
-                <span className="small muted">{data.accounts.length} Konten</span>
-              </Link>
-            )}
-            {data.accounts.map((account) => {
-              const age = account.lastImport ? -daysUntil(account.lastImport.createdAt) : null;
-              return (
-                <Link
-                  key={account.id}
-                  to="/bank"
-                  search={{ konto: account.id, filter }}
-                  aria-current={account.id === data.accountId ? "page" : undefined}
-                  className="account-tab"
-                >
-                  <span style={{ fontSize: 14, fontWeight: 600 }}>{account.name}</span>
-                  <span className="small" style={{ color: age !== null && age > 7 ? "var(--warn-ink)" : "var(--muted)" }}>
-                    {account.lastImport
-                      ? `${FORMAT_LABEL(account.lastImport.format)} · zuletzt ${formatDate(account.lastImport.createdAt)}`
-                      : "noch kein Import"}
-                    {account.lastImport?.closingBalance != null ? ` · ${formatEuro(account.lastImport.closingBalance)}` : ""}
-                    {account.providerBalance !== null ? ` · Guthaben ${formatEuro(account.providerBalance)}` : ""}
-                  </span>
-                </Link>
-              );
-            })}
-          </nav>
+          <Kartenleiste data={data} filter={filter} />
           {/* key: beim Kontowechsel mit dem Namen des neuen Kontos aufsetzen */}
           {selectedAccount && (
             <AccountSettings

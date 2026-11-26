@@ -64,9 +64,10 @@ import {
   reverseNeutralization,
 } from "../modules/bank/index.ts";
 import { deleteEnableBankingSettings, enableBankingSettingsSchema, enableBankingSettingsSummary, saveEnableBankingSettings } from "../modules/bank/index.ts";
-import { callbackUrl, enableBankingConfigured, listBanks, listConnections, removeConnection, startConnection, syncConnection } from "../modules/bank/index.ts";
-import { fintsConfigured, listFintsConnections } from "../modules/bank/index.ts";
-import { cutoverDates, klaerungView, openConflicts, resolveConflict, resolveConflictSchema } from "../modules/bank/index.ts";
+import { listBanks, removeConnection, startConnection, syncConnection } from "../modules/bank/index.ts";
+import { fintsConfigured } from "../modules/bank/index.ts";
+import { klaerungView, resolveConflict, resolveConflictSchema } from "../modules/bank/index.ts";
+import { abrufUndKarten } from "./bank-karten.ts";
 import { authMiddleware } from "../middleware.ts";
 import { today } from "../today.ts";
 import { UserError } from "../errors.ts";
@@ -142,15 +143,8 @@ export const getBankOverview = createServerFn({ method: "GET" })
             .map(async (a) => [a.id, paymentProviderAccount((await loadCompany()).kontenrahmen, a.ledgerIndex!)] as const),
         ),
       ),
-      sync: {
-        configured: await enableBankingConfigured(),
-        callbackUrl: callbackUrl(),
-        connections: await listConnections(),
-        /** Offene Konflikte im Abruf und Stichtag je Konto (#306) */
-        konflikte: await openConflicts(),
-        stichtage: await cutoverDates(),
-      },
-      fints: { configured: fintsConfigured(), connections: await listFintsConnections() },
+      /** Kontoabruf (Enable Banking, FinTS) und die Karten der Konten mit ihrem Stand (#1951) */
+      ...(await abrufUndKarten(accounts)),
     };
   });
 

@@ -150,7 +150,7 @@ test("verbindet mit TAN-Verfahren und TAN und holt nur die Umsätze des gewählt
   await expect(abruf().getByRole("button", { name: "Zugang ändern" })).toBeVisible();
   const konten = page.getByRole("navigation", { name: "Konten" });
   await expect(konten.getByRole("link", { name: /Tagesgeld/ })).toHaveCount(0);
-  await expect(konten.getByRole("link", { name: /Testbank Girokonto …2051/ })).toContainText("Abruf");
+  await expect(konten.getByRole("link", { name: /Testbank Girokonto …2051/ })).toContainText("FinTS · heute");
   await expect(konten.getByRole("link", { name: /Testbank Girokonto …2051/ })).toContainText("1.140,01 €");
   await expect(page.getByText("Mobilfunk").first()).toBeVisible();
 });
