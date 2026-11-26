@@ -1,5 +1,5 @@
 import { allocateSplitTax, type DocumentRateAmount, type DocumentSplitLine } from "./document-split.ts";
-import { formatEuro, roundHalfAwayFromZero, taxIncluded, taxOf, type BasisPoints, type Cents, type Prozent } from "./money.ts";
+import { formatEuro, splitPrivateShare, taxIncluded, taxOf, type BasisPoints, type Cents, type Prozent } from "./money.ts";
 import type { ExpenseCategory } from "./posting.ts";
 import { netOf } from "./rabatt.ts";
 import { isKapitalgesellschaft, type Rechtsform } from "./rechtsform.ts";
@@ -17,11 +17,13 @@ import type { TaxShare } from "./steueranteile.ts";
  * zwei gewöhnliche Positionen ohne Verbindung, nichts rechnet später nach. Ein fester Betrag (#1926) ist eine von
  * Hand angelegte Position privatentnahme; brutto reicht dafür saetzeAusBrutto.
  *
- * Brutto-Eingabe wird je Satz zusammengezählt und wie in computeInvoice in Netto und Steuer geteilt (§ 35 Abs. 1
- * UStDV), erst danach auf die Positionen verteilt.
+ * Brutto-Eingabe wird je Satz zusammengezählt und wie in computeInvoice in Netto und Steuer geteilt; das Entgelt nach
+ * Steuersätzen aufgeschlüsselt samt Steuerbetrag verlangt § 14 Abs. 4 Nr. 8 UStG, erst danach wird es auf die
+ * Positionen verteilt.
  *
- * Abziehbar ist nur der betriebliche Teil (§ 15 Abs. 1 Satz 1 Nr. 1 UStG), bei gemischter Nutzung wird er aufgeteilt
- * (§ 15 Abs. 4 UStG); der private Teil ist eine Entnahme (§ 4 Abs. 1 Satz 2 und § 12 Nr. 1 EStG).
+ * Abziehbar ist nur der betriebliche Teil der ordnungsgemäßen Rechnung (§ 15 Abs. 1 Satz 1 Nr. 1 UStG), bei gemischter
+ * Nutzung wird er aufgeteilt (§ 15 Abs. 4 UStG); eine zu hoch ausgewiesene Steuer schuldet der Aussteller nach § 14c
+ * Abs. 1 UStG. Der private Teil ist eine Entnahme (§ 4 Abs. 1 Satz 2 und § 12 Nr. 1 EStG).
  *
  * Alles in Cent, ohne Gleitkomma und ohne Seiteneffekte.
  */
@@ -84,9 +86,10 @@ function istPrivatentnahme(position: Position): boolean {
 }
 
 /**
- * Teilt Brutto je Steuersatz in Netto und Steuer (§ 35 Abs. 1 UStDV). Beträge desselben Satzes werden zuerst
- * zusammengezählt, dann wird die enthaltene Steuer herausgerechnet und das Netto ist der Rest, genau wie in
- * computeInvoice bei Bruttopreisen. So ergibt Netto plus Steuer wieder centgenau das Brutto.
+ * Teilt Brutto je Steuersatz in Netto und Steuer; die Rechnung weist das Entgelt nach Steuersätzen aufgeschlüsselt aus
+ * (§ 14 Abs. 4 Nr. 8 UStG). Beträge desselben Satzes werden zuerst zusammengezählt, dann wird die enthaltene Steuer
+ * herausgerechnet und das Netto ist der Rest, genau wie in computeInvoice bei Bruttopreisen. So ergibt Netto plus
+ * Steuer wieder centgenau das Brutto.
  */
 export function saetzeAusBrutto(betraege: readonly BruttoBetrag[]): TaxShare[] {
   const je = new Map<BasisPoints, Cents>();
@@ -95,14 +98,16 @@ export function saetzeAusBrutto(betraege: readonly BruttoBetrag[]): TaxShare[] {
 }
 
 /**
- * Setzt die Steuer eines Satzes auf den Betrag der Rechnung (§ 14 Abs. 4 Nr. 8 UStG). Plausibel bleibt sie nur mit
- * demselben Vorzeichen wie der Satz (Storno bleibt negativ) und höchstens in Höhe seines Bruttobetrags; sonst null.
+ * Setzt die Steuer eines Satzes auf den Betrag der Rechnung; die Aufschlüsselung nach Steuersätzen ist Angabepflicht
+ * nach § 14 Abs. 4 Nr. 8 UStG, abziehbar ist die Steuer nur auf einer ordnungsgemäßen Rechnung (§ 15 Abs. 1 Satz 1
+ * Nr. 1 UStG), eine zu hoch ausgewiesene schuldet der Aussteller nach § 14c Abs. 1 UStG. Plausibel bleibt sie nur mit
+ * demselben Vorzeichen wie der Satz (Storno bleibt negativ) und höchstens in Höhe seines Nettos: mehr Steuer als Netto
+ * gibt es bei Sätzen bis 100 % nicht; sonst null.
  */
 export function steuerKorrektur(satz: TaxShare, steuer: Cents): TaxShare | null {
   if (!Number.isSafeInteger(steuer)) return null;
-  const brutto = satz.base + satz.tax;
-  if (steuer !== 0 && Math.sign(steuer) !== Math.sign(brutto)) return null;
-  if (Math.abs(steuer) > Math.abs(brutto)) return null;
+  if (steuer !== 0 && Math.sign(steuer) !== Math.sign(satz.base)) return null;
+  if (Math.abs(steuer) > Math.abs(satz.base)) return null;
   return { ...satz, tax: steuer };
 }
 
@@ -192,17 +197,25 @@ export function positionenSummen(positionen: readonly Position[], saetze: readon
 
 /**
  * Summenprobe gegen die Vorgabe je Satz: betrieblich plus Entnahme muss je Steuersatz Netto und Steuer der Rechnung
- * ergeben. Leere Liste = der Beleg geht centgenau auf.
+ * ergeben, und keinen Satz darf nur eine der beiden Seiten kennen. Leere Liste = der Beleg geht centgenau auf.
  */
 export function summenProbe(summen: PositionenSummen, vorgabe: readonly TaxShare[]): string[] {
   const issues: string[] = [];
-  for (const satz of vorgabe) {
-    const betrieblich = summen.saetze.find((zeile) => zeile.rate === satz.rate);
-    const privat = summen.privat.saetze.find((zeile) => zeile.rate === satz.rate);
+  const saetze = [
+    ...new Set([...vorgabe.map((satz) => satz.rate), ...summen.saetze.map((satz) => satz.rate), ...summen.privat.saetze.map((satz) => satz.rate)]),
+  ].sort((a, b) => b - a);
+  for (const rate of saetze) {
+    const betrieblich = summen.saetze.find((zeile) => zeile.rate === rate);
+    const privat = summen.privat.saetze.find((zeile) => zeile.rate === rate);
     const net = (betrieblich?.base ?? 0) + (privat?.base ?? 0);
     const tax = (betrieblich?.tax ?? 0) + (privat?.tax ?? 0);
-    if (net !== satz.base) issues.push(`Summenprobe ${satz.rate / 100} %: Netto ${formatEuro(net)}, Vorgabe ${formatEuro(satz.base)}`);
-    if (tax !== satz.tax) issues.push(`Summenprobe ${satz.rate / 100} %: Steuer ${formatEuro(tax)}, Vorgabe ${formatEuro(satz.tax)}`);
+    const satz = vorgabe.find((zeile) => zeile.rate === rate);
+    if (!satz) {
+      issues.push(`Summenprobe ${rate / 100} %: Netto ${formatEuro(net)} und Steuer ${formatEuro(tax)} stehen nicht in der Vorgabe`);
+      continue;
+    }
+    if (net !== satz.base) issues.push(`Summenprobe ${rate / 100} %: Netto ${formatEuro(net)}, Vorgabe ${formatEuro(satz.base)}`);
+    if (tax !== satz.tax) issues.push(`Summenprobe ${rate / 100} %: Steuer ${formatEuro(tax)}, Vorgabe ${formatEuro(satz.tax)}`);
   }
   return issues;
 }
@@ -219,8 +232,9 @@ export function pruefePrivatpositionen(positionen: readonly Position[], rechtsfo
 }
 
 /**
- * Teilt eine Position einmalig in den betrieblichen Teil und die Privatentnahme (#1975). Das betriebliche Netto wird
- * gerundet, das private ist die Differenz zum Ausgangsnetto; so ergeben beide zusammen centgenau wieder das Netto.
+ * Teilt eine Position einmalig in den betrieblichen Teil und die Privatentnahme (#1975) über splitPrivateShare: Der
+ * private Teil wird gerundet, der betriebliche ist die Differenz zum Ausgangsnetto; so ergeben beide zusammen centgenau
+ * wieder das Netto, und der gerundete Betrag ist der, den die Beschreibung mit dem Prozentsatz nennt.
  * Gespeichert wird kein Prozentsatz und kein Verweis: Wer korrigieren will, löscht die Entnahme, stellt den Betrag
  * der Ausgangsposition richtig und spaltet neu ab. Das Konto bleibt nur am betrieblichen Teil.
  */
@@ -228,13 +242,13 @@ export function privatanteilAbspalten(position: Position, prozent: Prozent): { b
   if (istPrivatentnahme(position)) throw new RangeError("Von einer Privatentnahme lässt sich kein Anteil abspalten");
   if (!Number.isInteger(prozent) || prozent <= 0 || prozent >= 100)
     throw new RangeError("Der Privatanteil muss ein ganzer Prozentsatz über 0 und unter 100 sein");
-  const betrieblich = roundHalfAwayFromZero((position.net * (100 - prozent)) / 100);
+  const { business, private: privat } = splitPrivateShare(position.net, prozent);
   return {
-    betrieblich: { ...position, net: betrieblich },
+    betrieblich: { ...position, net: business },
     privat: {
       kategorie: PRIVATENTNAHME,
       rate: position.rate,
-      net: position.net - betrieblich,
+      net: privat,
       beschreibung: `${prozent} % von ${position.beschreibung ?? position.kategorie}`,
     },
   };
