@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useId, useState } from "react";
 import { formatDate, formatDateTime } from "../lib/format.ts";
 import { useAction } from "../lib/use-action.ts";
+import { anbieterAufzaehlung, zugangGueltigBisText } from "../lib/zahlungsdienstleister-text.ts";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { KonfliktKlaeren } from "./ImportKonflikt.tsx";
 import { quelleZuAnbieter } from "../lib/import-quelle.ts";
@@ -23,8 +24,8 @@ export function ZahlungsdienstleisterCard({ daten }: { daten: PspDaten }) {
     <section className="card" aria-labelledby="psp-heading">
       <h2 id="psp-heading">Zahlungsdienstleister</h2>
       <p className="small muted" style={{ margin: 0 }}>
-        Haben holt die Umsätze von {daten.anbieter.map((a) => a.name).join(" und ")} über deren Schnittstelle und legt sie im Konto des Zahlungsdienstleisters
-        an. Je Verbindung ein Konto; mehrere Konten beim selben Anbieter gehen, jedes mit eigenem Namen.
+        Haben holt die Umsätze von {anbieterAufzaehlung(daten.anbieter.map((a) => a.name))} über deren Schnittstelle und legt sie im Konto des
+        Zahlungsdienstleisters an. Je Verbindung ein Konto; mehrere Konten beim selben Anbieter gehen, jedes mit eigenem Namen.
       </p>
       {daten.verbindungen.length === 0 && !neu && (
         <p className="small" style={{ margin: "0.5rem 0 0" }}>
@@ -82,7 +83,7 @@ function VerbindungZeile({ daten, verbindung: v, entfernen }: { daten: PspDaten;
         {v.kontoName ? `Konto in Haben: ${v.kontoName}. ` : "Noch kein Konto in Haben. "}
         {v.lastSyncAt ? `Letzter Abruf: ${formatDateTime(v.lastSyncAt)}.` : "Noch kein Abruf."}
         {v.lastSyncAt ? ` Der nächste Abruf holt ab dem ${formatDate(v.naechsterAbrufAb)}.` : ""}
-        {v.zugangGueltigBis ? ` Der Zugang gilt bis ${formatDate(v.zugangGueltigBis.toISOString().slice(0, 10))}.` : ""}
+        {v.zugangGueltigBis ? zugangGueltigBisText(v.zugangGueltigBis) : ""}
       </p>
       {v.hinweis && (
         <div className="banner banner-warn" role="note">
