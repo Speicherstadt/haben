@@ -5,7 +5,7 @@
  * Öffentliche Schnittstelle des Moduls: Andere Module, Server Functions und Routen importieren nur von hier
  * (Modulgrenzen, scripts/modulgrenzen/regel.ts).
  */
-export type { AdapterFeld, Fenster, Lieferung, PspAdapter, Pruefung } from "./adapter.ts";
+export { type AdapterFeld, type Fenster, type Lieferung, type PspAdapter, type Pruefung } from "./adapter.ts";
 export { ANBIETER, adapterFuer } from "./anbieter.ts";
 export { abrufen, type AbrufErgebnis, runDuePspSyncs, syncActor, type Zeitplanergebnis } from "./abruf.ts";
 export { PayPalError, setPayPalClientFactory } from "./paypal.ts";
