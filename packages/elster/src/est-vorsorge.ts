@@ -1,28 +1,32 @@
 import type { XmlNode } from "./erklaerung.ts";
 import type { EstAngaben, EstArbeitnehmer, EstLohnsteuerbescheinigung, EstVorsorgePerson } from "./est.ts";
-import { euro } from "./est-werte.ts";
+import { euro, euroAb, euroAuf } from "./est-werte.ts";
 
 /* Anlage Vorsorgeaufwand der Einkommensteuererklärung (est.ts) */
 
 type Arbeitnehmer = EstArbeitnehmer | undefined;
 
+/**
+ * Summe laut Lohnsteuerbescheinigungen; in vollen Euro zugunsten der Person wie die amtliche Zuordnung (Aufrunden bzw.
+ * Abrunden der Summe, VAST_Vorberechnungen_<Jahr>.ods, Blatt „VaSt_LStB_Gesamt - Regeln“)
+ */
 const lstb = (an: Arbeitnehmer, key: keyof Omit<EstLohnsteuerbescheinigung, "steuerklasse">) =>
   an ? an.bescheinigungen.reduce((s, b) => s + (b[key] ?? 0), 0) : 0;
 
 function altersvorsorge(person: string, v: EstVorsorgePerson | undefined, an: Arbeitnehmer): XmlNode | null {
   const felder: XmlNode[] = [
-    ["E2000401", euro(lstb(an, "rvArbeitnehmer"))],
+    ["E2000401", euroAuf(lstb(an, "rvArbeitnehmer"))],
     ["E2000601", euro(v?.rentenversicherung)],
     // Zeile 8: zertifizierte Basisrentenverträge (Rürup), teilt den Höchstbetrag mit Zeile 4 bis 6
     ["E2000701", euro(v?.basisrente)],
-    ["E2000801", euro(lstb(an, "rvArbeitgeber"))],
+    ["E2000801", euroAb(lstb(an, "rvArbeitgeber"))],
   ];
   return felder.some((f) => f[1]) ? ["AVor", [["Person", person], ...felder]] : null;
 }
 
 function gesetzlicheKvPv(person: string, v: EstVorsorgePerson | undefined, an: Arbeitnehmer): XmlNode | null {
-  const kvAn = euro(lstb(an, "kvArbeitnehmer"));
-  const pvAn = euro(lstb(an, "pvArbeitnehmer"));
+  const kvAn = euroAuf(lstb(an, "kvArbeitnehmer"));
+  const pvAn = euroAuf(lstb(an, "pvArbeitnehmer"));
   const andere = euro(v?.gkv) || euro(v?.gpv) || euro(v?.gkvZusatz);
   if (!kvAn && !pvAn && !andere) return null;
   return [
@@ -69,25 +73,30 @@ function privateKvPv(person: string, v: EstVorsorgePerson | undefined): XmlNode 
   ];
 }
 
-function arbeitgeberZuschuss(person: string, v: EstVorsorgePerson | undefined): XmlNode | null {
-  return (
-    // Zeilen 34 bis 36: steuerfreie Zuschüsse des Arbeitgebers laut Nr. 24 a, 24 b und 24 c
-    euro(v?.agZuschussGkv) || euro(v?.agZuschussKv) || euro(v?.agZuschussPv)
-      ? [
-          "Stfr_AG_Zusch",
-          [
-            ["Person", person],
-            ["E2003705", euro(v?.agZuschussGkv)],
-            ["E2003807", euro(v?.agZuschussKv)],
-            ["E2003907", euro(v?.agZuschussPv)],
-          ],
-        ]
-      : null
-  );
+function arbeitgeberZuschuss(person: string, v: EstVorsorgePerson | undefined, an: Arbeitnehmer): XmlNode | null {
+  // Zeilen 34 bis 36: steuerfreie Zuschüsse des Arbeitgebers laut Nr. 24 a, 24 b und 24 c
+  const gkv = euro(v?.agZuschussGkv);
+  const pkv = euro(v?.agZuschussKv);
+  const pv = euro(v?.agZuschussPv);
+  if (!gkv && !pkv && !pv) return null;
+  // Regel 100240078: Zuschüsse zur Kranken- und zur Pflegeversicherung nur gemeinsam; fehlt einer, steht dort 0 wie in
+  // der Zuordnung (Berechne_E2003705, Berechne_E2003907). Die 0 zur Krankenversicherung gehört zu der Versicherung, deren
+  // Beiträge die Person angibt, sonst greift Regel 100240075 bzw. 100240076
+  const kvNull = gkv || pkv ? undefined : "0";
+  const privat = !euroAuf(lstb(an, "kvArbeitnehmer")) && !euro(v?.gkv) && !!euro(v?.pkv);
+  return [
+    "Stfr_AG_Zusch",
+    [
+      ["Person", person],
+      ["E2003705", gkv ?? (privat ? undefined : kvNull)],
+      ["E2003807", pkv ?? (privat ? kvNull : undefined)],
+      ["E2003907", pv ?? "0"],
+    ],
+  ];
 }
 
 function arbeitslosenversicherung(person: string, an: Arbeitnehmer): XmlNode | null {
-  const av = euro(lstb(an, "avArbeitnehmer"));
+  const av = euroAuf(lstb(an, "avArbeitnehmer"));
   return av
     ? [
         "Pers",
@@ -112,7 +121,7 @@ export function anlageVorsorge(x: EstAngaben, zusammen: boolean, personen: [stri
       ...vorsorgePersonen.map(([person, v]) => altersvorsorge(person, v, arbeitnehmerVon(person))),
       ...vorsorgePersonen.map(([person, v]) => gesetzlicheKvPv(person, v, arbeitnehmerVon(person))),
       ...vorsorgePersonen.map(([person, v]) => privateKvPv(person, v)),
-      ...vorsorgePersonen.map(([person, v]) => arbeitgeberZuschuss(person, v)),
+      ...vorsorgePersonen.map(([person, v]) => arbeitgeberZuschuss(person, v, arbeitnehmerVon(person))),
       [
         "Weit_Sons_VorAW",
         [
