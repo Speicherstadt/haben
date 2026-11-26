@@ -2,6 +2,7 @@ import {
   ASSET_KINDS,
   ASSET_METHODS,
   formatDecimal,
+  parseEuro,
   formatDegressiveRate,
   elektroAvailable,
   isKapitalgesellschaft,
@@ -14,6 +15,7 @@ import { Field } from "../../../components/Field.tsx";
 import { AssetForm } from "../../../components/AssetForm.tsx";
 import { formatDate } from "../../../lib/format.ts";
 import { NoticeBanner } from "../../../components/NoticeBanner.tsx";
+import { useSubmitCheck } from "../../../lib/use-submit-check.ts";
 import { useAction } from "../../../lib/use-action.ts";
 import { deleteAssetFn, getAssetDetail, updateAssetFn } from "../../../server/functions/assets.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
@@ -124,11 +126,11 @@ function AssetPage() {
           {(booked || fromDocument) && (
             <p className="small muted" style={{ margin: 0 }}>
               {booked
-                ? "Es ist schon gebucht; änderbar sind nur Bezeichnung, Notiz, ein Abgang und bei degressiver AfA der Wechsel zur linearen, beide in einem noch nicht gebuchten Jahr."
+                ? "Es ist schon gebucht; änderbar sind Bezeichnung und Notiz sowie für ungebuchte Jahre Abgang, Sonder-AfA und der Wechsel von degressiver zu linearer AfA."
                 : "Art, Datum und Kosten kommen aus dem gebuchten Beleg; bis zur ersten AfA lassen sich Abschreibung und Nutzungsdauer ändern."}
             </p>
           )}
-          {(asset.method === "linear" || asset.method === "degressiv") && (
+          {!isKapitalgesellschaft(rechtsform) && (asset.method === "linear" || asset.method === "degressiv") && (
             <SpecialDepreciationForm
               key={`sonder-afa-${asset.updatedAt.toISOString()}`}
               asset={asset}
@@ -200,34 +202,68 @@ function SpecialDepreciationForm({
     const year = Number(asset.acquisitionDate.slice(0, 4)) + index;
     return { year, amount: asset.specialDepreciation.find((entry) => entry.year === year)?.amount ?? 0, locked: year <= (lastBooked ?? 0) };
   });
+  const [values, setValues] = useState(() => Object.fromEntries(years.map(({ year, amount }) => [year, formatDecimal(amount)])));
+  const [confirmed, setConfirmed] = useState(false);
+  const amounts = years.map(({ year, amount, locked }) => ({
+    year,
+    amount: locked ? amount : parseEuro(values[year] || "0"),
+    locked,
+  }));
+  const needsConfirmation = amounts.some(({ locked, amount }) => !locked && (amount ?? 0) > 0);
+  const errors = Object.fromEntries(
+    amounts.map(({ year, amount }) => [String(year), amount === null || amount < 0 ? "Trag einen Betrag ab 0 € in vollen Cent ein." : null]),
+  );
+  const { form, error, check } = useSubmitCheck<string>({
+    ...errors,
+    confirmed: needsConfirmation && !confirmed ? "Bestätige die Voraussetzungen für die Sonder-AfA." : null,
+  });
   return (
     <form
-      className="stack"
+      ref={form}
+      noValidate
+      className="form-section"
       onSubmit={(event) => {
         event.preventDefault();
-        const fields = new FormData(event.currentTarget);
-        const entries = years
-          .map(({ year, amount, locked }) => ({
-            year,
-            amount: locked ? amount : Math.round(Number(fields.get(String(year))) * 100),
-          }))
-          .filter(({ amount }) => amount > 0);
-        void onSave(entries);
+        if (!check()) return;
+        void onSave(amounts.flatMap(({ year, amount }) => (amount && amount > 0 ? [{ year, amount }] : [])));
       }}
     >
       <h3>Sonder-AfA nach § 7g EStG</h3>
-      {years.map(({ year, amount, locked }) => (
-        <Field key={year} label={`${year} (€)`}>
-          {(control) => <input {...control} name={String(year)} type="number" min="0" step="0.01" defaultValue={(amount / 100).toFixed(2)} disabled={locked} />}
+      {years.map(({ year, locked }) => (
+        <Field key={year} label={`${year} (€)`} error={error(String(year))}>
+          {(control) => (
+            <input
+              {...control}
+              inputMode="decimal"
+              value={values[year]}
+              disabled={locked}
+              onChange={(event) => setValues({ ...values, [year]: event.target.value })}
+            />
+          )}
         </Field>
       ))}
-      <label>
-        <input type="checkbox" required /> Der maßgebliche Vorjahresgewinn beträgt höchstens 200.000 €. Die Anlage wird im Anschaffungsjahr und im Folgejahr
-        vermietet oder zu mindestens 90 % in einer inländischen Betriebsstätte betrieblich genutzt.
+      <label className="checkbox">
+        <input
+          type="checkbox"
+          checked={confirmed}
+          onChange={(event) => setConfirmed(event.target.checked)}
+          aria-required={needsConfirmation}
+          aria-invalid={Boolean(error("confirmed"))}
+          aria-describedby={error("confirmed") ? "sonder-afa-bestaetigung-fehler" : undefined}
+        />{" "}
+        Der maßgebliche Vorjahresgewinn beträgt höchstens 200.000 €. Die Anlage wird im Anschaffungsjahr und im Folgejahr vermietet oder zu mindestens 90 % in
+        einer inländischen Betriebsstätte betrieblich genutzt.
       </label>
-      <button type="submit" className="btn" disabled={busy}>
-        Sonder-AfA speichern
-      </button>
+      {error("confirmed") && (
+        <p id="sonder-afa-bestaetigung-fehler" className="field-error">
+          {error("confirmed")}
+        </p>
+      )}
+      <div className="actions">
+        <button type="submit" className="btn" disabled={busy}>
+          Sonder-AfA speichern
+        </button>
+      </div>
     </form>
   );
 }

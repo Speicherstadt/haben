@@ -96,6 +96,10 @@ describe.skipIf(!testDatabaseUrl)("Weitere AfA-Methoden (Postgres)", () => {
     expect(year.figures).toMatchObject({ sonderAfa: 200_000, afaBeweglich: 150_000 });
     expect(year.anlagen[0]).toMatchObject({ sonderAfa: 200_000, buchwertEnde: 650_000 });
     await expect(assets.updateAsset(actor, id, { name: "Maschine", specialDepreciation: [] })).rejects.toThrow("bereits gebuchte");
+    await expect(sql`update assets set special_depreciation = '[]' where id = ${id}`).rejects.toMatchObject({ code: "23514" });
+    const future = [...specialDepreciation, { year: 2026, amount: 10_000 }];
+    await sql`update assets set special_depreciation = ${JSON.stringify(future)}::jsonb where id = ${id}`;
+    expect((await assets.getAsset(id))?.asset.specialDepreciation).toEqual(future);
   });
 
   it("übernimmt historische Sonder-AfA in den Buchwert und bucht sie nicht erneut", async () => {
@@ -134,7 +138,7 @@ describe.skipIf(!testDatabaseUrl)("Weitere AfA-Methoden (Postgres)", () => {
     expect((await euerAbgleich(2025)).zeilen).toContainEqual(expect.objectContaining({ posten: "Sonder-AfA", journal: 200_000, quelle: 200_000 }));
   });
 
-  it("vergleicht bei der GmbH im Folgejahr die gebuchte AfA mit dem Handelsplan", async () => {
+  it("weist Sonder-AfA bei der GmbH zurück", async () => {
     await setup(["SKR04", "soll", "gmbh"]);
     const id = await buyByDocument("2025-07-01", 1_000_000, {
       name: "Maschine",
@@ -142,11 +146,12 @@ describe.skipIf(!testDatabaseUrl)("Weitere AfA-Methoden (Postgres)", () => {
       method: "degressiv",
       usefulLifeMonths: 120,
     });
-    await assets.updateAsset(actor, id, { name: "Maschine", specialDepreciation: [{ year: 2025, amount: 200_000 }] });
-    await assets.bookDepreciation(actor, 2025, "2025-12-01");
-    await assets.bookDepreciation(actor, 2026, "2026-12-01");
-    const { euerAbgleich } = await import("../auswertungen/abgleich.ts");
-    expect((await euerAbgleich(2026)).zeilen).toContainEqual(expect.objectContaining({ posten: "AfA", journal: 255_000, quelle: 255_000 }));
+    await expect(
+      assets.updateAsset(actor, id, {
+        name: "Maschine",
+        specialDepreciation: [{ year: 2025, amount: 200_000 }],
+      }),
+    ).rejects.toThrow("nur für Einzelunternehmen");
   });
 
   it.each(FAELLE)("%s, %s, %s: degressiv und Elektrofahrzeug per Beleg, Wechsel zur linearen, Sperren", async (...fall) => {

@@ -203,6 +203,11 @@ export function assetIssues(asset: ScheduleAsset): string[] {
   issues.push(...methodIssues(asset));
   if (asset.specialDepreciation?.length) {
     issues.push(...specialDepreciationIssues(asset.acquisitionDate, asset.cost, asset.specialDepreciation));
+    // § 7g Abs. 6 Nr. 2 EStG: https://www.gesetze-im-internet.de/estg/__7g.html
+    const acquisitionYear = Number(asset.acquisitionDate.slice(0, 4));
+    if (asset.disposalDate && Number(asset.disposalDate.slice(0, 4)) <= acquisitionYear + 1 && asset.specialDepreciation.some(({ amount }) => amount > 0)) {
+      issues.push("Sonder-AfA setzt voraus, dass die Anlage bis zum Ende des Folgejahres im Betrieb verbleibt");
+    }
     if (!usesUsefulLife(asset.method)) {
       issues.push("Sonder-AfA wird derzeit nur bei linearer oder degressiver AfA berechnet");
     }
@@ -348,6 +353,8 @@ function stepSchedule(asset: ScheduleAsset, untilYear: number | undefined): Sche
   let switched = false;
   const specialEntries = new Map(asset.specialDepreciation?.filter(({ amount }) => amount > 0).map(({ year, amount }) => [year, amount]));
   const hasSpecialDepreciation = specialEntries.size > 0;
+  const endYear = acquisitionYear + 4;
+  const regularPlan = hasSpecialDepreciation ? stepSchedule({ ...asset, specialDepreciation: undefined }, endYear) : [];
 
   const elektro = (year: number, available: Cents): Cents => {
     const k = year - acquisitionYear;
@@ -364,13 +371,32 @@ function stepSchedule(asset: ScheduleAsset, untilYear: number | undefined): Sche
     const linearAmount = Math.round((available * months) / remaining);
     const degressiveAmount = Math.round((available * asset.degressiveRate! * months) / 120_000);
     if (!switched && ((asset.linearFromYear != null && year >= asset.linearFromYear) || linearAmount >= degressiveAmount)) switched = true;
-    return switched ? linearAmount : degressiveAmount;
+    if (!switched) return degressiveAmount;
+    // Eine Sonder-AfA verändert die lineare Bemessungsgrundlage erst nach dem Begünstigungszeitraum.
+    return hasSpecialDepreciation ? (regularPlan.find((row) => row.year === year)?.depreciation ?? 0) : linearAmount;
   };
   const amount = asset.method === "elektro" ? elektro : degressive;
 
   const rows: ScheduleYear[] = [];
   let bookValue = asset.opening ? asset.opening.bookValue : 0;
   for (let year = firstYear; ; year++) {
+    // § 7a Abs. 9 EStG: https://www.gesetze-im-internet.de/estg/__7a.html
+    if (hasSpecialDepreciation && year > endYear) {
+      rows.push(
+        ...depreciationSchedule(
+          {
+            ...asset,
+            method: "linear",
+            degressiveRate: null,
+            linearFromYear: null,
+            specialDepreciation: undefined,
+            opening: { date: `${year}-01-01`, bookValue },
+          },
+          untilYear,
+        ),
+      );
+      break;
+    }
     const addition = !asset.opening && year === firstYear ? asset.cost : 0;
     const opening = bookValue;
     const available = opening + addition;

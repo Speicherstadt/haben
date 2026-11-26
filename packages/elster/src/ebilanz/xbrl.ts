@@ -182,9 +182,8 @@ function anlagenspiegel(input: Pick<EbilanzInput, "year" | "anlagen" | "taxonomi
   const positionen = ebilanzPositionen(input.taxonomie);
   const groups = new Map<string, AnlagenspiegelZeile>();
   const add = (position: string, z: AnlagenspiegelZeile) => {
-    const g: AnlagenspiegelZeile = groups.get(position) ?? { position, akAnfang: 0, zugaenge: 0, abgaenge: 0, afaAnfang: 0, afaJahr: 0, afaAbgaenge: 0 };
+    const g = groups.get(position) ?? { position, akAnfang: 0, zugaenge: 0, abgaenge: 0, afaAnfang: 0, afaJahr: 0, afaAbgaenge: 0 };
     for (const key of ["akAnfang", "zugaenge", "abgaenge", "afaAnfang", "afaJahr", "afaAbgaenge"] as const) g[key] += z[key];
-    if (z.sonderAfaJahr) g.sonderAfaJahr = (g.sonderAfaJahr ?? 0) + z.sonderAfaJahr;
     groups.set(position, g);
   };
   groups.set("bs.ass.fixAss", { position: "bs.ass.fixAss", akAnfang: 0, zugaenge: 0, abgaenge: 0, afaAnfang: 0, afaJahr: 0, afaAbgaenge: 0 });
@@ -217,10 +216,10 @@ function anlagenspiegel(input: Pick<EbilanzInput, "year" | "anlagen" | "taxonomi
       ["gross", gross],
       ["accDepr.beginning", g.afaAnfang],
       ["accDepr.DeprPeriod", g.afaJahr],
-      // Taxonomie: impairment bezeichnet hier die Sonderabschreibung.
-      ["accDepr.DeprPeriod.regular", g.afaJahr - (g.sonderAfaJahr ?? 0)],
+      // Haben bucht nur planmäßige AfA (linear, GWG, Sammelposten); keine außerplanmäßige, Teilwert- oder Sonder-AfA
+      ["accDepr.DeprPeriod.regular", g.afaJahr],
       ["accDepr.DeprPeriod.extraordinary", 0],
-      ["accDepr.DeprPeriod.impairment", g.sonderAfaJahr ?? 0],
+      ["accDepr.DeprPeriod.impairment", 0],
       ["accDepr.DeprPeriod.EStG7g_2", 0],
       ["accDepr.DeprPeriod.EStG6b_3", 0],
       ["accDepr.addition", 0],

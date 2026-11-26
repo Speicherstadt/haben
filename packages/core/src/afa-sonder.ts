@@ -31,19 +31,6 @@ export function specialDepreciationIssues(acquisitionDate: string, basis: Cents,
   return issues;
 }
 
-/** Steuerliche Werte abzüglich Handelswerte. Der Restbuchwert beim Abgang zählt als Aufwand. */
-export function specialDepreciationDifference(commercial: ScheduleYear, tax: ScheduleYear) {
-  const depreciation = tax.depreciation + (tax.specialDepreciation ?? 0) - commercial.depreciation;
-  const disposal = tax.disposal - commercial.disposal;
-  return {
-    opening: tax.opening - commercial.opening,
-    depreciation,
-    disposal,
-    closing: tax.closing - commercial.closing,
-    profit: -(depreciation + disposal),
-  };
-}
-
 export class AssetError extends Error {}
 
 /** Nach dem Begünstigungszeitraum gilt der Restwert über die Restnutzungsdauer (§ 7a Abs. 9 EStG). */

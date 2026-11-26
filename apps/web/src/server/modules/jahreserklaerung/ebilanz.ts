@@ -1,10 +1,5 @@
 import {
   anlagenspiegelZeile,
-  ASSET_ACCOUNTS,
-  depreciationAccount,
-  depreciationSchedule,
-  specialDepreciationDifference,
-  type ScheduleYear,
   ebilanzPosition,
   ebilanzZuordnung,
   isKapitalgesellschaft,
@@ -82,49 +77,7 @@ function betriebsvermoegen(
 export async function ebilanzDaten(year: number, company: Company): Promise<{ daten: EbilanzDaten; issues: EbilanzHinweis[] }> {
   const kontenrahmen = company.kontenrahmen;
   const rows = (await saldenliste(ledgerRange(year), { aufgeloest: true })).filter((r) => r.kontenrahmen === kontenrahmen);
-  const anlagen: AnlagenspiegelZeile[] = [];
-  const taxRows = new Map(rows.map((row) => [row.account, { ...row }]));
-  // Steuerliche Abweichungen werden für den Export abgeleitet. Das Journal bleibt die Quelle des HGB-Abschlusses.
-  const adjust = (account: string, saldo: Cents, vortrag: Cents = 0) => {
-    if (!saldo && !vortrag) return;
-    const row = taxRows.get(account) ?? { account, saldo: 0, vortrag: 0, sollJahr: 0, habenJahr: 0, kontenrahmen, name: "", eroeffnung: 0, soll: 0, haben: 0 };
-    row.saldo += saldo;
-    row.vortrag += vortrag;
-    taxRows.set(account, row);
-  };
-  const accounts = ASSET_ACCOUNTS[kontenrahmen];
-  const retainedEarnings = kontenrahmen === "SKR03" ? "0860" : "2970";
-  const zero: ScheduleYear = { year, opening: 0, addition: 0, depreciation: 0, disposal: 0, closing: 0 };
-  for (const asset of await listAssets(year)) {
-    const input = {
-      account: asset.account,
-      acquisitionDate: asset.acquisitionDate,
-      cost: asset.cost,
-      method: asset.method,
-      usefulLifeMonths: asset.usefulLifeMonths,
-      degressiveRate: asset.degressiveRate,
-      linearFromYear: asset.linearFromYear,
-      memoValue: asset.memoValue,
-      opening: asset.openingDate && asset.openingBookValue !== null ? { date: asset.openingDate, bookValue: asset.openingBookValue } : null,
-      disposalDate: asset.disposalDate,
-    };
-    const schedule =
-      asset.specialDepreciation.length > 0 ? depreciationSchedule({ ...input, specialDepreciation: asset.specialDepreciation }, year) : asset.schedule;
-    if (schedule !== asset.schedule) {
-      const tax = schedule.find((row) => row.year === year) ?? zero;
-      const delta = specialDepreciationDifference(asset.year ?? zero, tax);
-      const special = tax.specialDepreciation ?? 0;
-      adjust(asset.account, delta.closing);
-      adjust(retainedEarnings, -delta.opening, -delta.opening);
-      adjust(depreciationAccount(asset.kind, asset.method, kontenrahmen), delta.depreciation - special);
-      adjust(asset.kind === "kfz" ? accounts.sonderAfaKfz : accounts.sonderAfa, special);
-      adjust(accounts.restbuchwert, delta.disposal);
-    }
-    const zeile = anlagenspiegelZeile(kontenrahmen, input, schedule, year);
-    if (zeile) anlagen.push(zeile);
-  }
-  const steuerSalden = [...taxRows.values()];
-  const { zuordnung, fehlend } = ebilanzZuordnung(kontenrahmen, steuerSalden);
+  const { zuordnung, fehlend } = ebilanzZuordnung(kontenrahmen, rows);
   const konto = (account: string) => `${account}${accountName(kontenrahmen, account) ? ` ${accountName(kontenrahmen, account)}` : ""}`;
   const issues: EbilanzHinweis[] = fehlend.map(({ account }) => ({
     tone: "fehler",
@@ -132,6 +85,24 @@ export async function ebilanzDaten(year: number, company: Company): Promise<{ da
       ? `Konto ${konto(account)} ist nicht ausgeglichen; die E-Bilanz braucht eine vollständige Eröffnung.`
       : `Konto ${konto(account)} hat keine Position in der E-Bilanz; umbuchen oder die E-Bilanz von der Steuerberatung senden lassen.`,
   }));
+  const anlagen: AnlagenspiegelZeile[] = [];
+  for (const asset of await listAssets(year)) {
+    const zeile = anlagenspiegelZeile(
+      kontenrahmen,
+      {
+        account: asset.account,
+        acquisitionDate: asset.acquisitionDate,
+        cost: asset.cost,
+        method: asset.method,
+        usefulLifeMonths: asset.usefulLifeMonths,
+        opening: asset.openingDate && asset.openingBookValue !== null ? { date: asset.openingDate, bookValue: asset.openingBookValue } : null,
+        disposalDate: asset.disposalDate,
+      },
+      asset.schedule,
+      year,
+    );
+    if (zeile) anlagen.push(zeile);
+  }
   const davon = (await ebilanzDavon(year, kontenrahmen)) ?? {};
   const taxonomie = ebilanzTaxonomie(year);
   return {
@@ -139,7 +110,7 @@ export async function ebilanzDaten(year: number, company: Company): Promise<{ da
       taxonomie,
       werte: { ...ebilanzWerte(zuordnung, taxonomie), ...davon },
       konten: ebilanzKontensalden(zuordnung, (account) => accountName(kontenrahmen, account), taxonomie),
-      bvv: betriebsvermoegen(kontenrahmen, steuerSalden),
+      bvv: betriebsvermoegen(kontenrahmen, rows),
       anlagen,
     },
     issues,

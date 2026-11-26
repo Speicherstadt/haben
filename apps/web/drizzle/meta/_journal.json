@@ -2297,6 +2297,13 @@
       "when": 1795598524019,
       "tag": "0327_sonder_afa",
       "breakpoints": true
+    },
+    {
+      "idx": 328,
+      "version": "7",
+      "when": 1795690571624,
+      "tag": "0328_sonder_afa_trigger",
+      "breakpoints": true
     }
   ]
 }

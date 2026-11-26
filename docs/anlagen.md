@@ -82,11 +82,13 @@ In GmbH und UG bietet Haben die Staffel nicht an. Sie ist eine rein steuerliche 
 
 ## Sonder-AfA nach § 7g EStG
 
-Für eine begünstigte Anlage mit linearer oder degressiver AfA trägst du in den Anlagendetails die Beträge je Wirtschaftsjahr ein. Das Anschaffungsjahr und die vier Folgejahre stehen zur Auswahl. Insgesamt sind höchstens 40 % der Anschaffungskosten möglich. Für Anschaffungen vor 2024 gelten höchstens 20 % ([§ 52 Abs. 16 Satz 6 EStG](https://www.gesetze-im-internet.de/estg/__52.html), [BMF zum Wachstumschancengesetz](https://www.bundesfinanzministerium.de/Monatsberichte/Ausgabe/2024/04/Inhalte/Kapitel-3-Analysen/3-4-wachstumschancengesetz.html)). Die Voraussetzungen nach [§ 7g EStG](https://www.gesetze-im-internet.de/estg/__7g.html) bestätigst du beim Speichern.
+Im Einzelunternehmen kannst du für eine begünstigte Anlage mit linearer oder degressiver AfA in den Anlagendetails die Beträge je Wirtschaftsjahr eintragen. Das Anschaffungsjahr und die vier Folgejahre stehen zur Auswahl. Insgesamt sind höchstens 40 % der Anschaffungskosten möglich. Für Anschaffungen vor 2024 gelten höchstens 20 % ([§ 52 Abs. 16 Satz 6 EStG](https://www.gesetze-im-internet.de/estg/__52.html), [BMF zum Wachstumschancengesetz](https://www.bundesfinanzministerium.de/Monatsberichte/Ausgabe/2024/04/Inhalte/Kapitel-3-Analysen/3-4-wachstumschancengesetz.html)). Die Voraussetzungen nach [§ 7g EStG](https://www.gesetze-im-internet.de/estg/__7g.html) bestätigst du beim Speichern eines positiven Betrags.
 
-Im Einzelunternehmen bucht Haben die Sonder-AfA separat und weist sie in EÜR und AVEÜR aus. Für GmbH und UG weist die E-Bilanz die steuerliche Abschreibung und den steuerlichen Buchwert aus. Das Handelsjournal enthält die reguläre Abschreibung. Für bereits gebuchte Jahre sind die Beträge gesperrt. Bei einer Übernahme zum 1. Januar erfasst du auch die bisher beanspruchten Jahresbeträge. Haben führt daraus den steuerlichen Plan fort. Im Einzelunternehmen muss der erfasste Übernahmebuchwert mit diesem Plan übereinstimmen.
+Haben bucht die Sonder-AfA separat und weist sie in EÜR und AVEÜR sowie im CSV-Anlagenverzeichnis aus. Für bereits gebuchte Jahre sind die Beträge gesperrt. Bei einem Abgang im Anschaffungs- oder Folgejahr lässt sich keine Sonder-AfA erfassen. Bei einer Übernahme zum 1. Januar erfasst du auch die bisher beanspruchten Jahresbeträge. Haben führt daraus den steuerlichen Plan fort. Der erfasste Übernahmebuchwert muss mit diesem Plan übereinstimmen.
 
-Im Einzelunternehmen lässt sich eine degressive Anlage, deren Übernahmebuchwert bereits durch Sonder-AfA gemindert ist, über die Erfassungsmaske derzeit nicht degressiv übernehmen.
+Nach dem fünften Jahr verteilt Haben den Restwert linear über die Restnutzungsdauer ([§ 7a Abs. 9 EStG](https://www.gesetze-im-internet.de/estg/__7a.html)).
+
+Eine degressive Anlage, deren Übernahmebuchwert bereits durch Sonder-AfA gemindert ist, lässt sich in der Erfassungsmaske derzeit nur linear übernehmen.
 
 ## Erinnerungswert
 

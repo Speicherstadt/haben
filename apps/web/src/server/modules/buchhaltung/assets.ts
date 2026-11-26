@@ -235,10 +235,13 @@ export async function updateAsset(actor: string, id: string, input: z.infer<type
       }
       next.specialDepreciation = amounts;
     }
+    if (next.specialDepreciation.some(({ amount }) => amount > 0) && isKapitalgesellschaft(company.rechtsform)) {
+      throw new AssetUserError("Sonder-AfA ist nur für Einzelunternehmen verfügbar.");
+    }
     if (next.specialDepreciation.length > 0) {
       try {
         const taxSchedule = depreciationSchedule({ ...scheduleInput(next), specialDepreciation: next.specialDepreciation });
-        if (next.openingDate && !isKapitalgesellschaft(company.rechtsform) && (taxSchedule[0]?.opening ?? 0) !== next.openingBookValue) {
+        if (next.openingDate && (taxSchedule[0]?.opening ?? 0) !== next.openingBookValue) {
           throw new AssetUserError("Der übernommene Buchwert muss zum steuerlichen Plan einschließlich der bisherigen Sonder-AfA passen.");
         }
       } catch (error) {

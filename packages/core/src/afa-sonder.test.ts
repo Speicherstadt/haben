@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { depreciationSchedule } from "./afa.ts";
-import { anlagenspiegelZeile } from "./anlagenspiegel.ts";
-import { specialDepreciationIssues, specialDepreciationDifference } from "./afa-sonder.ts";
+import { specialDepreciationIssues } from "./afa-sonder.ts";
 
 describe("Sonder-AfA nach § 7g EStG", () => {
   const amounts = [
@@ -50,6 +49,21 @@ describe("linearer Plan mit Sonder-AfA", () => {
 });
 
 describe("degressiver Plan mit Sonder-AfA", () => {
+  it("verteilt Sonder-AfA bei einem vorzeitigen Wechsel erst ab dem sechsten Jahr neu", () => {
+    const asset = {
+      acquisitionDate: "2025-07-01",
+      cost: 1_000_000,
+      method: "degressiv" as const,
+      usefulLifeMonths: 120,
+      degressiveRate: 3000,
+      linearFromYear: 2026,
+    };
+    const regular = depreciationSchedule(asset);
+    const plan = depreciationSchedule({ ...asset, specialDepreciation: [{ year: 2025, amount: 200_000 }] });
+    expect(plan.slice(1, 5).map((row) => row.depreciation)).toEqual(regular.slice(1, 5).map((row) => row.depreciation));
+    expect(plan[5]?.depreciation).toBe(Math.round((plan[5]!.opening * 12) / 66));
+  });
+
   it("berechnet die AfA des Folgejahres vom geminderten Buchwert", () => {
     const plan = depreciationSchedule({
       acquisitionDate: "2025-07-01",
@@ -61,41 +75,23 @@ describe("degressiver Plan mit Sonder-AfA", () => {
     });
     expect(plan[0]).toMatchObject({ depreciation: 150_000, specialDepreciation: 200_000, closing: 650_000 });
     expect(plan[1]).toMatchObject({ opening: 650_000, depreciation: 195_000 });
-    expect(plan[6]?.depreciation).toBe(Math.round(plan[6]!.opening * 0.3));
+    expect(plan[5]).toMatchObject({ year: 2030, opening: 156_065, depreciation: 28_375 });
+    expect(plan[6]?.depreciation).toBe(28_376);
     expect(plan.at(-1)?.closing).toBe(0);
   });
 });
 
-it("gleicht beim Abgang die aus dem Vorjahr vorgetragene Buchwertdifferenz aus", () => {
-  const commercial = { year: 2025, opening: 900_000, addition: 0, depreciation: 10_000, disposal: 890_000, closing: 0 };
-  const tax = { ...commercial, opening: 500_000, disposal: 490_000 };
-  expect(specialDepreciationDifference(commercial, tax)).toEqual({
-    opening: -400_000,
-    depreciation: 0,
-    disposal: -400_000,
-    closing: 0,
-    profit: 400_000,
-  });
-});
-
-it("führt Sonder-AfA im steuerlichen Anlagenspiegel bis zum Abgang fort", () => {
-  const asset = {
-    account: "0420",
-    acquisitionDate: "2024-01-01",
-    cost: 1_000_000,
-    method: "linear" as const,
-    usefulLifeMonths: 120,
-    disposalDate: "2025-01-01",
-    specialDepreciation: [{ year: 2024, amount: 400_000 }],
-  };
-  const tax = depreciationSchedule(asset);
-  expect(anlagenspiegelZeile("SKR03", asset, tax, 2024)).toMatchObject({ zugaenge: 1_000_000, afaJahr: 500_000 });
-  expect(anlagenspiegelZeile("SKR03", asset, tax, 2025)).toMatchObject({
-    afaAnfang: 500_000,
-    abgaenge: 1_000_000,
-    afaAbgaenge: 508_333,
-    afaJahr: 8_333,
-  });
+it.each(["2025-12-01", "2026-12-01"])("lehnt Sonder-AfA bei einem frühen Abgang am %s ab", (disposalDate) => {
+  expect(() =>
+    depreciationSchedule({
+      acquisitionDate: "2025-07-01",
+      cost: 1_000_000,
+      method: "linear",
+      usefulLifeMonths: 120,
+      disposalDate,
+      specialDepreciation: [{ year: 2025, amount: 200_000 }],
+    }),
+  ).toThrow("Ende des Folgejahres");
 });
 
 it("führt eine übernommene Anlage mit der bisherigen Sonder-AfA ab dem Stichtag fort", () => {

@@ -1,4 +1,4 @@
-import { buildEbilanzXml, ebilanzPruefen } from "@haben/elster";
+import { ebilanzPruefen } from "@haben/elster";
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
@@ -64,43 +64,6 @@ describe.skipIf(!testDatabaseUrl)("E-Bilanz (Postgres)", () => {
       }),
     );
   }
-
-  it.each([
-    ["SKR03", "ist", "gmbh", "0490", "4851"],
-    ["SKR04", "soll", "ug", "0690", "6241"],
-  ] as const)("%s, %s, %s: Sonder-AfA in der Steuerbilanz ohne Änderung des Handelsjournals", async (kr, vat, legal, account, specialAccount) => {
-    await setup(kr, vat);
-    await sql`update company set rechtsform = ${legal} where id = 1`;
-    const [asset] = await sql`insert into assets (name, kind, method, account, acquisition_date, cost, useful_life_months)
-        values ('Maschine', 'sonstiges', 'linear', ${account}, '2026-01-01', 1000000, 120) returning id`;
-    await book("2026-01-01", [
-      [account, 1_000_000, 0],
-      [kr === "SKR03" ? "0800" : "2900", 0, 1_000_000],
-    ]);
-    await assets.updateAsset(actor, asset!.id, { name: "Maschine", specialDepreciation: [{ year: 2026, amount: 400_000 }] });
-    await assets.bookDepreciation(actor, 2026, today);
-    const ledgerRows = await ledger.saldenliste(ledger.ledgerRange(2026));
-    expect(ledgerRows.find((row) => row.account === account)?.saldo).toBe(900_000);
-    expect(ledgerRows.some((row) => row.account === specialAccount)).toBe(false);
-    const { daten, issues } = await ebilanz.ebilanzDaten(2026, await stammdaten.loadCompany());
-    expect(issues).toEqual([]);
-    expect(daten.anlagen[0]).toMatchObject({ afaJahr: 500_000, sonderAfaJahr: 400_000 });
-    expect(daten.werte).toMatchObject({
-      "bs.ass.fixAss.tan.otherEquipm.otherbga": 500_000,
-      "is.netIncome.regular.operatingTC.deprAmort.fixAss.specific.other": 400_000,
-    });
-    const xml = buildEbilanzXml({
-      ...daten,
-      year: 2026,
-      steuernummer13: "9198011310010",
-      firma: { name: "Nordlicht", strasse: "Hafenallee 3", plz: "93047", ort: "Regensburg", telefon: "", email: "" },
-      herstellerId: "74931",
-      produktVersion: "0.1.0",
-      test: true,
-      erstellt: today,
-    });
-    expect(xml).toMatch(/accDepr\.DeprPeriod\.impairment[^>]*>4000\.00</);
-  });
 
   describe.each([
     ["SKR03", { bank: "1200", kapital: "0800", vortrag: "0860", gesellschafter: "0730", erloes: "8400", ust: "1776", aufwand: "4900", fremd: "0010" }],
