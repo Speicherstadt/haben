@@ -63,7 +63,7 @@ describe.skipIf(!testDatabaseUrl)("REST-API für wiederkehrende Vorlagen (#1899)
 
   it("ändert nur genannte Felder und erhält die in Haben gewählten Einstellungen", async () => {
     const id = await create();
-    await sql`update recurring_invoices set mode = 'festschreiben', send_by_mail = true where id = ${id}`;
+    await sql`update recurring_invoices set mode = 'festschreiben', send_by_mail = true, last_error = 'Letzter Lauf fehlgeschlagen' where id = ${id}`;
     const before = (await rechnungen.getRecurring(id))!.recurring;
     const response = await call(editToken, "PATCH", path(id), { name: "Neuer Name" });
     expect(response.status).toBe(200);
@@ -82,6 +82,18 @@ describe.skipIf(!testDatabaseUrl)("REST-API für wiederkehrende Vorlagen (#1899)
     const lines = [{ description: "Neue Position", quantity: 1000, unit: "Stk.", unitPrice: 6000, taxRate: 1900 }];
     expect((await call(editToken, "PATCH", path(id), { endDate: null, lines })).status).toBe(200);
     expect((await rechnungen.getRecurring(id))?.recurring).toMatchObject({ endDate: null, note: "Erledigt", lines });
+  });
+
+  it("setzt beim Wechsel von Wochen auf Monate den Ankertag des bestehenden nächsten Termins", async () => {
+    const id = await create();
+    expect((await call(editToken, "PATCH", path(id), { recurrence: "P1W" })).status).toBe(200);
+    await sql`update recurring_invoices set active = true where id = ${id}`;
+    expect(await rechnungen.runDueRecurring("2026-01-31", kleinunternehmerStand)).toMatchObject({ created: 1, errors: [] });
+    await sql`update recurring_invoices set active = false where id = ${id}`;
+    expect((await rechnungen.getRecurring(id))?.recurring.nextDate).toBe("2026-02-07");
+
+    expect((await call(editToken, "PATCH", path(id), { recurrence: "P1M" })).status).toBe(200);
+    expect((await rechnungen.getRecurring(id))?.recurring.anchorDay).toBe(7);
   });
 
   it("schützt aktive Vorlagen und verlangt ein eigenes Recht zum Ändern und Löschen", async () => {
