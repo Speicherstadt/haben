@@ -13,7 +13,7 @@ import { usePruefungBeimSpeichern } from "./-zeitraum-pruefung.ts";
 import { Field } from "../../../components/Field.tsx";
 import type { PageData } from "./-zeitraum-quellen.tsx";
 import { type FieldKey, KennzahlenTabelle } from "./-zeitraum-kennzahlen.tsx";
-import { AbgabeSpalte, anmeldbar, useVoranmeldungAktionen } from "./-zeitraum-abgabe.tsx";
+import { AbgabeSpalte, anmeldbar, useVoranmeldungAktionen, ZeitraumAblauf } from "./-zeitraum-abgabe.tsx";
 import { ZeitraumHinweise } from "./-zeitraum-hinweise.tsx";
 import { useFokusUeberWechsel } from "../../../lib/use-fokus-ueber-wechsel.ts";
 import { useFokusNachSperre } from "../../../lib/use-fokus-nach-sperre.ts";
@@ -92,6 +92,9 @@ function VatPeriodPage() {
   // Bereich dann offen. Wie die Meldung gilt die Wahl nur für diesen Zeitraum
   const [fristen, setFristen] = useState<boolean | null>(null);
   const fristenOffen = fristen ?? Boolean(data.periodProblem);
+  // „Schon anders abgegeben?“: Ohne ERiC oder ohne eigene Hersteller-ID (`herstellerIdConfigured` false) ist Mein ELSTER der Hauptweg und der Vermerk der nächste Schritt, dann steht er offen.
+  // Wie die Fristen hier, weil der Editor beim Speichern neu entsteht und die Wahl sonst verwürfe
+  const [vermerk, setVermerk] = useState<boolean | null>(null);
   // Zeiträume nach dem eingestellten Voranmeldungszeitraum, dazu der angezeigte, falls er nicht dazugehört
   const options = [...data.periods];
   if (!options.some((option) => periodKey(option) === key)) options.push(data.period);
@@ -131,14 +134,30 @@ function VatPeriodPage() {
 
       {/* key: Formular bei Wechsel der Anmeldung (Berichtigung) und nach dem Speichern neu aufsetzen, auf die Millisekunde,
           damit auch zwei Speichervorgänge in derselben Sekunde es neu aufsetzen (#1804) */}
-      <VatReturnEditor key={`${data.current?.id ?? "neu"}-${data.current?.updatedAt.toISOString() ?? ""}`} data={data} notice={notice} setNotice={setNotice} />
+      <VatReturnEditor
+        key={`${data.current?.id ?? "neu"}-${data.current?.updatedAt.toISOString() ?? ""}`}
+        data={data}
+        notice={notice}
+        setNotice={setNotice}
+        vermerk={{ offen: vermerk ?? !data.herstellerIdConfigured, onOffen: setVermerk }}
+      />
       {/* Außerhalb des Editors: der baut sich nach jedem Speichern der Anmeldung neu auf und verwürfe sonst die Auswahl hier */}
       <FristenAbschnitt frequency={data.frequency} dauerfrist={data.dauerfrist} setup={data} offen={fristenOffen} onOffen={setFristen} />
     </>
   );
 }
 
-function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: Notice; setNotice: (notice: Notice) => void }) {
+function VatReturnEditor({
+  data,
+  notice,
+  setNotice,
+  vermerk,
+}: {
+  data: PageData;
+  notice: Notice;
+  setNotice: (notice: Notice) => void;
+  vermerk: { offen: boolean; onOffen: (offen: boolean) => void };
+}) {
   const current = data.current;
   const locked = current?.status === "sent";
   // Kz 39: die Sondervorauszahlung, abgezogen in der letzten Voranmeldung des Jahres
@@ -181,105 +200,119 @@ function VatReturnEditor({ data, notice, setNotice }: { data: PageData; notice: 
   const editable = !locked && mode === "manuell";
 
   return (
-    <div className="grid-main">
-      <form ref={pruefung.form} noValidate className="card" onSubmit={speichern} aria-labelledby="kz-heading">
-        <h2 id="kz-heading">Kennzahlen</h2>
-        {data.kleinunternehmer && (
-          <div className="banner banner-info" role="status">
-            <Icon name="info" />
-            <span>
-              Du bist als Kleinunternehmer (§ 19 UStG) eingetragen und gibst in der Regel keine Voranmeldung ab. Nötig ist sie nur, wenn du selbst Steuer
-              schuldest, etwa für Leistungen ausländischer Unternehmer an dich (Reverse Charge).
-            </span>
-          </div>
-        )}
-        {drift && (
-          <div className="banner" role="alert">
-            Seit der Übermittlung haben sich die Buchungen dieses Monats geändert. Aus den Buchungen ergäben sich jetzt {describe(computed)}. Prüfe die Änderung
-            und lege bei Bedarf eine berichtigte Anmeldung an.
-          </div>
-        )}
-        <JournalVergleich year={data.period.year} uebernommen={data.uebernommen} current={current} returns={data.returns} journal={computed} />
-        {stale && mode === "berechnet" && (
-          <div className="banner banner-info" role="status">
-            Die Buchungen haben sich seit dem Speichern geändert; angezeigt sind die aktuellen Werte. Beim Senden werden sie übernommen.
-          </div>
-        )}
-        <p className="small muted" style={{ margin: 0 }}>
-          Kz = Kennzahl, die Nummer des Felds im ELSTER-Formular.
-        </p>
-        {/* Gesperrt, solange gespeichert, gesendet oder berichtigt wird: Danach baut die Seite das Formular mit dem neuen
-            `updatedAt` im `key` neu auf, und was man bis dahin tippt, ginge verloren (#1824). Abstand wie in der Karte */}
-        <fieldset className="stack fieldset-plain" style={{ gap: 12 }} disabled={busy}>
-          <KennzahlenTabelle
-            data={data}
-            shown={shown}
-            computed={computed}
-            eingabe={{ locked, editable, values, fehler: (f) => pruefung.error(f), update, openSources, toggleSources }}
-          />
-          {!locked && (
-            <p className="small" style={{ margin: 0 }}>
-              <button type="button" className="link-button" onClick={() => switchMode(editable ? "berechnet" : "manuell")}>
-                {editable ? "Zurück zu den berechneten Werten" : "Werte von Hand ändern (nur in Ausnahmen)"}
-              </button>
+    <>
+      <ZeitraumAblauf data={data} shown={shown} geaendert={dirty || stale} werteGueltig={mode !== "manuell" || !Object.values(parsed).includes(null)} />
+      <div className="grid-main">
+        <form ref={pruefung.form} noValidate className="card" onSubmit={speichern} aria-labelledby="kz-heading">
+          <h2 id="kz-heading">Kennzahlen</h2>
+          {data.kleinunternehmer && (
+            <div className="banner banner-info" role="status">
+              <Icon name="info" />
+              <span>
+                Du bist als Kleinunternehmer (§ 19 UStG) eingetragen und gibst in der Regel keine Voranmeldung ab. Nötig ist sie nur, wenn du selbst Steuer
+                schuldest, etwa für Leistungen ausländischer Unternehmer an dich (Reverse Charge).
+              </span>
+            </div>
+          )}
+          {drift && (
+            <div className="banner" role="alert">
+              Seit der Übermittlung haben sich die Buchungen dieses Monats geändert. Aus den Buchungen ergäben sich jetzt {describe(computed)}. Prüfe die
+              Änderung und lege bei Bedarf eine berichtigte Anmeldung an.
+            </div>
+          )}
+          <JournalVergleich year={data.period.year} uebernommen={data.uebernommen} current={current} returns={data.returns} journal={computed} />
+          {stale && mode === "berechnet" && (
+            <div className="banner banner-info" role="status">
+              Die Buchungen haben sich seit dem Speichern geändert; angezeigt sind die aktuellen Werte. Beim Senden werden sie übernommen.
+            </div>
+          )}
+          <p className="small muted" style={{ margin: 0 }}>
+            Kz = Kennzahl, die Nummer des Felds im ELSTER-Formular.
+          </p>
+          {/* Gesperrt, solange gespeichert, gesendet oder berichtigt wird: Danach baut die Seite das Formular mit dem neuen
+              `updatedAt` im `key` neu auf, und was man bis dahin tippt, ginge verloren (#1824). Abstand wie in der Karte */}
+          <fieldset className="stack fieldset-plain" style={{ gap: 12 }} disabled={busy}>
+            <KennzahlenTabelle
+              data={data}
+              shown={shown}
+              computed={computed}
+              eingabe={{ locked, editable, values, fehler: (f) => pruefung.error(f), update, openSources, toggleSources }}
+            />
+            {!locked && (
+              <p className="small" style={{ margin: 0 }}>
+                <button type="button" className="link-button" onClick={() => switchMode(editable ? "berechnet" : "manuell")}>
+                  {editable ? "Zurück zu den berechneten Werten" : "Werte von Hand ändern (nur in Ausnahmen)"}
+                </button>
+              </p>
+            )}
+            {editable && (
+              <Field
+                label="Begründung der Abweichung (Pflicht)"
+                hint={<>Mindestens 10 Zeichen. Berechnet wären {describe(computed)}.</>}
+                error={pruefung.error("reason")}
+              >
+                {(control) => (
+                  <textarea
+                    {...control}
+                    value={reason}
+                    onChange={(event) => {
+                      setReason(event.target.value);
+                      setDirty(true);
+                    }}
+                    maxLength={1000}
+                    placeholder="z. B. Zahlung vom 30.09. erst im Oktober zugeordnet"
+                  />
+                )}
+              </Field>
+            )}
+          </fieldset>
+          {locked && current?.source === "manuell" && current.overrideReason && (
+            <p className="small muted" style={{ margin: 0 }}>
+              Manuell überschrieben: {current.overrideReason}
             </p>
           )}
-          {editable && (
-            <Field
-              label="Begründung der Abweichung (Pflicht)"
-              hint={<>Mindestens 10 Zeichen. Berechnet wären {describe(computed)}.</>}
-              error={pruefung.error("reason")}
-            >
-              {(control) => (
-                <textarea
-                  {...control}
-                  value={reason}
-                  onChange={(event) => {
-                    setReason(event.target.value);
-                    setDirty(true);
-                  }}
-                  maxLength={1000}
-                  placeholder="z. B. Zahlung vom 30.09. erst im Oktober zugeordnet"
-                />
-              )}
-            </Field>
-          )}
-        </fieldset>
-        {locked && current?.source === "manuell" && current.overrideReason && (
-          <p className="small muted" style={{ margin: 0 }}>
-            Manuell überschrieben: {current.overrideReason}
+          <p id="kz-hint" className="small muted" style={{ margin: 0 }}>
+            Bemessungsgrundlagen meldet ELSTER in vollen Euro; Cent werden abgeschnitten.{" "}
+            {data.figures.versteuerung === "ist"
+              ? "Versteuerung nach vereinnahmten Entgelten (Ist): Umsatzsteuer nach Zahlungseingang, Vorsteuer nach Belegdatum."
+              : "Versteuerung nach vereinbarten Entgelten (Soll): Umsatzsteuer nach Rechnungsdatum, Vorsteuer nach Belegdatum."}{" "}
+            Fällig am {formatLongDate(data.dueDate)}.
           </p>
-        )}
-        <p id="kz-hint" className="small muted" style={{ margin: 0 }}>
-          Bemessungsgrundlagen meldet ELSTER in vollen Euro; Cent werden abgeschnitten.{" "}
-          {data.figures.versteuerung === "ist"
-            ? "Versteuerung nach vereinnahmten Entgelten (Ist): Umsatzsteuer nach Zahlungseingang, Vorsteuer nach Belegdatum."
-            : "Versteuerung nach vereinbarten Entgelten (Soll): Umsatzsteuer nach Rechnungsdatum, Vorsteuer nach Belegdatum."}{" "}
-          Fällig am {formatLongDate(data.dueDate)}.
-        </p>
-        {!locked && (
-          <div className="actions">
-            <button type="submit" className="btn" disabled={busy || !allowed || (!dirty && Boolean(current) && !stale)}>
-              Entwurf speichern
-            </button>
-            {current && !dirty && !stale && data.companyIssues.length === 0 && (
-              <a className="btn" href={`/api/ustva/${current.id}`} download>
-                XML für Mein ELSTER
-              </a>
-            )}
-          </div>
-        )}
-        {locked && (
-          <div className="actions">
-            <button type="button" className="btn" onClick={onCorrect} disabled={busy}>
-              Berichtigte Anmeldung anlegen
-            </button>
-          </div>
-        )}
-        <NoticeBanner notice={notice} />
-      </form>
+          {!locked && (
+            <div className="actions">
+              <button type="submit" className="btn" disabled={busy || !allowed || (!dirty && Boolean(current) && !stale)}>
+                Entwurf speichern
+              </button>
+              {current && !dirty && !stale && data.companyIssues.length === 0 && (
+                <a className="btn" href={`/api/ustva/${current.id}`} download>
+                  XML für Mein ELSTER
+                </a>
+              )}
+            </div>
+          )}
+          {locked && (
+            <div className="actions">
+              <button type="button" className="btn" onClick={onCorrect} disabled={busy}>
+                Berichtigte Anmeldung anlegen
+              </button>
+            </div>
+          )}
+          <NoticeBanner notice={notice} />
+        </form>
 
-      <AbgabeSpalte data={data} locked={locked} check={check} busy={busy} shown={shown} dirty={dirty} stale={stale} onSubmit={onSubmit} setNotice={setNotice} />
-    </div>
+        <AbgabeSpalte
+          data={data}
+          locked={locked}
+          check={check}
+          busy={busy}
+          shown={shown}
+          dirty={dirty}
+          stale={stale}
+          onSubmit={onSubmit}
+          setNotice={setNotice}
+          vermerk={vermerk}
+        />
+      </div>
+    </>
   );
 }

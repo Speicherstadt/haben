@@ -3,9 +3,11 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { getAusschuettungen } from "../../server/functions/ausschuettung.ts";
 import styles from "../../styles/auswertungen.css?url";
+import { EricHinweis } from "../../components/EricHinweis.tsx";
 import { Field } from "../../components/Field.tsx";
 import { NeueAusschuettung } from "./-ausschuettungen-neu.tsx";
 import { AusschuettungCard } from "./-ausschuettungen-teile.tsx";
+import { menueGruppe } from "../../lib/menue-gruppe.ts";
 
 export const Route = createFileRoute("/_app/ausschuettungen")({
   validateSearch: z.object({ jahr: z.number().int().min(2000).max(2100).optional() }),
@@ -24,7 +26,7 @@ function AusschuettungenPage() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Gewinnverwendung</div>
+          <div className="eyebrow">{menueGruppe("/ausschuettungen")}</div>
           <h1>Ausschüttungen {data.year}</h1>
         </div>
         <Field label="Jahr">
@@ -41,6 +43,7 @@ function AusschuettungenPage() {
       </div>
       {isKapitalgesellschaft(data.rechtsform) ? (
         <div className="stack" style={{ gap: 24 }}>
+          {data.mode === "simuliert" && <EricHinweis />}
           <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
             Eine GmbH oder UG schüttet ihren Gewinn mit einem Gewinnverwendungsbeschluss aus. Haben bucht ihn, behält Kapitalertragsteuer, Soli und
             Kirchensteuer je Gesellschafter ein und meldet sie über ELSTER an. Gesellschafter, Anteile und Kirchensteuerabzugsmerkmale stehen unter{" "}
@@ -49,9 +52,9 @@ function AusschuettungenPage() {
           <NeueAusschuettung />
           {data.ausschuettungen.length === 0 ? (
             <p className="muted" style={{ maxWidth: 760 }}>
-              Noch keine Ausschüttung, die in {data.year} bei den Gesellschaftern ankommt (steuerlich: Zufluss). Beispiel: Beschluss am 30.06.{data.year} über
-              20.000 € aus dem Gewinn {data.year - 1}; ohne Auszahlungstag im Beschluss gilt steuerlich der 01.07.{data.year} als Zufluss (§ 44 Abs. 2 Satz 2
-              EStG).
+              Noch keine Ausschüttung, die in {data.year} bei den Gesellschaftern ankommt (steuerlich: Zufluss); erfasse sie oben unter
+              „Gewinnverwendungsbeschluss buchen“. Beispiel: Beschluss am 30.06.{data.year} über 20.000 € aus dem Gewinn {data.year - 1}; ohne Auszahlungstag im
+              Beschluss gilt steuerlich der 01.07.{data.year} als Zufluss (§ 44 Abs. 2 Satz 2 EStG).
             </p>
           ) : (
             data.ausschuettungen.map((a) => <AusschuettungCard key={a.id} data={data} a={a} />)

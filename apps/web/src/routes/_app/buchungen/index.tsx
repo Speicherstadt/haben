@@ -4,15 +4,17 @@ import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Fragment, useMemo, useState } from "react";
 import { z } from "zod/mini";
-import { JOURNAL_SOURCE, journalSourcesFor, shortDate, vorgangZurHerkunft, type JournalSource } from "../../../components/Ledger.tsx";
+import { JOURNAL_SOURCE, journalSourcesFor, shortDate, VorgangLink, vorgangZurHerkunft, type JournalSource } from "../../../components/Ledger.tsx";
 import { Icon } from "../../../components/Icon.tsx";
 import { NoticeBanner } from "../../../components/NoticeBanner.tsx";
 import { useAction } from "../../../lib/use-action.ts";
+import { useZielzeile, zielzeile } from "../../../lib/use-zielzeile.ts";
 import { getJournal, reverseManualEntryFn } from "../../../server/functions/journal.ts";
 import styles from "../../../styles/auswertungen.css?url";
 import { ERSTES_JAHR, LETZTES_JAHR } from "../../../lib/jahre.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
 import { Field } from "../../../components/Field.tsx";
+import { menueGruppe } from "../../../lib/menue-gruppe.ts";
 
 export const Route = createFileRoute("/_app/buchungen/")({
   validateSearch: z.object({ jahr: z.optional(z.int()), monat: z.optional(z.int().check(z.minimum(1), z.maximum(12))) }),
@@ -32,15 +34,15 @@ function nextPeriod({ year, month }: VatPeriod): VatPeriod {
   return month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 };
 }
 
-/** Herkunft als Link auf Rechnung, Beleg (auch Vorsteuerfreigabe), Anlage oder Bank; ein Verweis, kein Status (DESIGN.md › Status) */
-function SourceLink({ entry }: { entry: Entry }) {
+/** Herkunft als Link auf Rechnung, Beleg (auch Vorsteuerfreigabe), Anlage oder Bankumsatz; ein Verweis, kein Status (DESIGN.md › Status) */
+function SourceLink({ entry, rolle }: { entry: Entry; rolle: string }) {
   const label = entry.reversal ? "Gegenbuchung" : JOURNAL_SOURCE[entry.sourceType];
   const vorgang = vorgangZurHerkunft(entry);
   if (vorgang)
     return (
-      <Link to={vorgang.to} params={{ id: vorgang.id }} className="journal-source">
+      <VorgangLink vorgang={vorgang} rolle={rolle} className="journal-source">
         {label}
-      </Link>
+      </VorgangLink>
     );
   if (entry.sourceType === "pauschale")
     return (
@@ -117,6 +119,22 @@ function ReverseButton({ entry, busy, onConfirm }: { entry: Entry; busy: boolean
   );
 }
 
+/** Leerer Monat: der Satz und, wie im Seitenkopf, nur für den Inhaber der Knopf zum Erfassen */
+function JournalLeer({ inhaber }: { inhaber: boolean }) {
+  return (
+    <>
+      <p className="muted" style={{ margin: 0 }}>
+        Hier stehen die festgeschriebenen Buchungen des Monats.
+      </p>
+      {inhaber && (
+        <Link to="/buchungen/neu" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>
+          Buchung erfassen
+        </Link>
+      )}
+    </>
+  );
+}
+
 function JournalPage() {
   const { period, entries } = Route.useLoaderData();
   const { rechtsform, user } = Route.useRouteContext();
@@ -124,12 +142,13 @@ function JournalPage() {
   const router = useRouter();
   const reverse = useServerFn(reverseManualEntryFn);
   const { busy, notice, run } = useAction();
+  const ziel = useZielzeile();
   const prev = previousPeriod(period);
   const next = nextPeriod(period);
   const [source, setSource] = useState<JournalSource | "alle">("alle");
   const [account, setAccount] = useState("");
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState<Set<string>>(new Set());
+  const { open, toggle } = useAufgeklappt();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -146,19 +165,12 @@ function JournalPage() {
   const total = filtered.reduce((s, e) => s + amount(e), 0);
   const counts: Record<string, number> = {};
   for (const e of entries) counts[e.sourceType] = (counts[e.sourceType] ?? 0) + 1;
-  const toggle = (id: string) =>
-    setOpen((prevOpen) => {
-      const nextOpen = new Set(prevOpen);
-      if (nextOpen.has(id)) nextOpen.delete(id);
-      else nextOpen.add(id);
-      return nextOpen;
-    });
 
   return (
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Journal · festgeschrieben</div>
+          <div className="eyebrow">{menueGruppe("/buchungen", inhaber)}</div>
           <h1>Buchungen {periodLabel(period)}</h1>
         </div>
         <div className="actions">
@@ -181,6 +193,9 @@ function JournalPage() {
           )}
         </div>
       </div>
+      <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
+        Das Journal: alle festgeschriebenen Buchungen des Monats.
+      </p>
       <NoticeBanner notice={notice} />
 
       <div className="filter-row">
@@ -203,9 +218,7 @@ function JournalPage() {
 
       <section className="card" aria-label="Buchungen">
         {entries.length === 0 ? (
-          <p className="muted" style={{ margin: 0 }}>
-            Keine Buchungen in diesem Monat.
-          </p>
+          <JournalLeer inhaber={inhaber} />
         ) : (
           <table className="report-table journal-table sticky-head stack-table">
             <thead>
@@ -232,7 +245,7 @@ function JournalPage() {
                 const taxes = [...new Set(e.lines.map((l) => l.taxCode).filter(Boolean))];
                 return (
                   <Fragment key={e.id}>
-                    <tr>
+                    <tr {...zielzeile(`buchung-${e.id}`, ziel)}>
                       <td>
                         <button
                           type="button"
@@ -248,7 +261,7 @@ function JournalPage() {
                       </td>
                       <td data-label="Datum">{shortDate(e.date)}</td>
                       <td data-label="Herkunft">
-                        <SourceLink entry={e} />
+                        <SourceLink entry={e} rolle={user.role} />
                       </td>
                       <td data-label="Text">{e.description}</td>
                       <td data-label="Soll">
@@ -337,4 +350,17 @@ function JournalPage() {
       </section>
     </>
   );
+}
+
+/** Buchungen, deren Zeilen aufgeklappt sind; ein Klick auf den Pfeil klappt sie auf oder zu */
+function useAufgeklappt() {
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setOpen((prevOpen) => {
+      const nextOpen = new Set(prevOpen);
+      if (nextOpen.has(id)) nextOpen.delete(id);
+      else nextOpen.add(id);
+      return nextOpen;
+    });
+  return { open, toggle };
 }

@@ -127,7 +127,7 @@ test("Eröffnung nach geleertem Datum: „Wähle das Datum.“ steht am Feld, ni
 
 test("Manuelle Buchung: Stammkapital erfassen, prüfen, stornieren", async () => {
   await go("/buchungen");
-  await page.getByRole("link", { name: "Buchung erfassen" }).click();
+  await page.locator(".page-head").getByRole("link", { name: "Buchung erfassen" }).click();
   await page.waitForURL("**/buchungen/neu");
   await page.waitForLoadState("networkidle");
   expect(await axe(), "/buchungen/neu").toEqual([]);
@@ -593,7 +593,7 @@ test("Beleg stornieren und neu erfassen: Gegenbuchung, Hinweis am Beleg, Entwurf
   await faktenZeigen(page, "Betrag");
   await bestaetigen(page, "Stornieren");
   await expect(page.getByText(/Storniert mit einer Gegenbuchung zum .* Grund: Brutto als Netto erfasst/)).toBeVisible();
-  await expect(page.getByRole("link", { name: "Gegenbuchung" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Gegenbuchung", exact: true })).toBeVisible();
   await expect(page.locator(".page-head").getByText("Storniert", { exact: true })).toBeVisible();
   expect(await axe(), "/belege/… storniert").toEqual([]);
 
@@ -612,7 +612,7 @@ test("Beleg stornieren und neu erfassen: Gegenbuchung, Hinweis am Beleg, Entwurf
   // Der stornierte Beleg führt jetzt zur Neuerfassung
   await go(new URL(original).pathname);
   await expect(page.getByRole("link", { name: "Zur Neuerfassung" })).toBeVisible();
-  await page.getByRole("link", { name: "Gegenbuchung" }).click();
+  await page.getByRole("link", { name: "Gegenbuchung", exact: true }).click();
   await page.waitForURL(/\/buchungen/);
   await expect(page.getByText(/Storno: Beleg L-4711/)).toBeVisible();
 });
