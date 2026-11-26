@@ -101,7 +101,7 @@ export async function createRecurring(actor: string, input: RecurringInput): Pro
 }
 
 export async function updateRecurring(actor: string, id: string, input: RecurringInput): Promise<RecurringInvoice> {
-  const row = values(input);
+  const row = { ...values(input), lastError: null };
   const updated = await saveRecurringUpdate(actor, id, () => row);
   if (!updated) throw new RecurringError("Vorlage nicht gefunden.");
   return updated;
@@ -135,11 +135,13 @@ async function saveRecurringUpdate(actor: string, id: string, changes: (previous
     // Unveränderter Termin: Ankertag behalten, sonst würde aus dem Monatsletzten nach dem Speichern am 30.11. der 30.
     // Nur bei Monaten: Wochenläufe schieben den Termin, nicht den Ankertag
     const nextDate = row.nextDate ?? previous.nextDate;
-    const keepAnchor = nextDate === previous.nextDate && recurrenceParts(previous.recurrence).weeks === null;
-    const anchorDay = row.nextDate === undefined || keepAnchor ? previous.anchorDay : Number(nextDate.slice(8, 10));
+    const wasWeekly = recurrenceParts(previous.recurrence).weeks !== null;
+    const switchesToMonthly = wasWeekly && row.recurrence !== undefined && recurrenceParts(row.recurrence).weeks === null;
+    const resetAnchor = switchesToMonthly || (row.nextDate !== undefined && (wasWeekly || nextDate !== previous.nextDate));
+    const anchorDay = resetAnchor ? Number(nextDate.slice(8, 10)) : previous.anchorDay;
     const [updated] = await tx
       .update(schema.recurringInvoices)
-      .set({ ...row, anchorDay, lastError: null, updatedAt: new Date() })
+      .set({ ...row, anchorDay, updatedAt: new Date() })
       .where(eq(schema.recurringInvoices.id, id))
       .returning();
     return updated!;

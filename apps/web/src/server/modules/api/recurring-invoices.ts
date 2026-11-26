@@ -87,7 +87,8 @@ export const RECURRING_INVOICE_ROUTES: ApiRoute[] = [
     scope: "rechnungen:vorlagen-bearbeiten",
     tag: "Rechnungen",
     summary: "Pausierte Vorlage für wiederkehrende Rechnungen ändern",
-    description: "Nur die genannten Felder ändern sich; lines ersetzt alle Positionen. Aktivierung, Ablaufmodus und E-Mail-Versand bleiben unverändert.",
+    description:
+      "Ändert die angegebenen Felder. lines ersetzt alle Positionen. Je nach Steuerbehandlung leitet Haben Preisart und Befreiungshinweis ab. Aktivierung, Ablaufmodus und E-Mail-Versand bleiben unverändert.",
     requestBody: "RecurringInvoicePatch",
     responses: { 200: { schema: "RecurringInvoiceUpdated", description: "Vorlage geändert; url führt zur Vorlage in Haben" } },
     errors: { 409: "Die Vorlage ist aktiv" },
@@ -99,9 +100,9 @@ export const RECURRING_INVOICE_ROUTES: ApiRoute[] = [
     scope: "rechnungen:vorlagen-bearbeiten",
     tag: "Rechnungen",
     summary: "Vorlage für wiederkehrende Rechnungen löschen",
-    description: "Löscht die Vorlage nur, solange daraus keine Rechnung entstanden ist.",
+    description: "Löscht die Vorlage, wenn keine daraus erzeugte Rechnung und kein daraus erzeugter Entwurf vorhanden ist.",
     responses: { 204: { schema: null, description: "Gelöscht" } },
-    errors: { 409: "Aus der Vorlage ist bereits eine Rechnung entstanden" },
+    errors: { 409: "Eine aus der Vorlage erzeugte Rechnung oder ein Entwurf ist vorhanden" },
     handler: deleteRecurringInvoiceHandler,
   },
 ];

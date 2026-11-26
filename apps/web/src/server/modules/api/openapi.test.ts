@@ -88,7 +88,7 @@ describe("OpenAPI-Beschreibung der REST-API", () => {
       },
       delete: {
         security: [{ token: ["rechnungen:vorlagen-bearbeiten"] }],
-        responses: { 204: { description: "Gelöscht" }, 409: { description: "Aus der Vorlage ist bereits eine Rechnung entstanden" } },
+        responses: { 204: { description: "Gelöscht" }, 409: { description: "Eine aus der Vorlage erzeugte Rechnung oder ein Entwurf ist vorhanden" } },
       },
     });
     expect(doc.components.schemas.RecurringInvoicePatch).toMatchObject({ additionalProperties: false });

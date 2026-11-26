@@ -18,7 +18,7 @@ Die API **bucht nichts, schreibt nichts fest und versendet nichts**. Ein Entwurf
 | --- | --- |
 | Kontakte | auflisten und suchen, lesen, anlegen, ändern (nicht löschen: Kontakte sind versioniert) |
 | Rechnungen | alle lesen, auch festgeschriebene; Entwürfe anlegen, ändern und löschen, solange sie Entwurf sind |
-| Wiederkehrende Rechnungen | [Vorlagen anlegen](#wiederkehrende-rechnungen) |
+| Wiederkehrende Rechnungen | [Vorlagen anlegen, ändern und löschen](#wiederkehrende-rechnungen) |
 | Angebote | alle lesen, auch festgeschriebene, mit der Antwort des Kunden und der Rechnung daraus; [Entwürfe](#angebotsentwürfe) anlegen, ändern und löschen, solange sie Entwurf sind |
 | Belege | hochladen (landen als „Zu prüfen“), auflisten und lesen, ob sie schon geprüft und gebucht sind; nicht ändern oder löschen |
 | Artikel | Katalogartikel auflisten, suchen, lesen, anlegen und ändern |
@@ -240,9 +240,9 @@ Ist die Rechnung schon festgeschrieben, antworten Ändern und Löschen mit `409`
 
 `recurrence` ist das Intervall als Dauer nach ISO 8601: `P1W`, `P2W` oder `P4W` für jede, jede zweite oder vierte Woche, `P1M`, `P2M`, `P3M` oder `P6M` für Monate und `P1Y` für jährlich. Die Antwort `201 Created` enthält die ID und unter `url` den Link zur Vorlage. Öffne die pausierte Vorlage in Haben, prüfe die Daten und aktiviere sie dort. Nach der Aktivierung legt Haben zu jedem Termin einen Rechnungsentwurf an. Pro erfolgreichem Aufruf entsteht eine Vorlage.
 
-`PATCH /rechnungen/wiederkehrend/{id}` ändert eine pausierte Vorlage. Sende nur die Felder, die du ändern willst, etwa `{"name":"Neuer Name"}`. `lines` ersetzt alle Positionen, `"endDate": null` entfernt das Enddatum. Aktivierung, Ablaufmodus und E-Mail-Versand stellst du in Haben ein. Die Antwort `200 OK` enthält `id`, `active: false` und `url`. Für eine aktive Vorlage meldet Haben `409 Conflict`.
+`PATCH /rechnungen/wiederkehrend/{id}` ändert eine pausierte Vorlage. Sende die Felder, die du ändern willst, etwa `{"name":"Neuer Name"}`. `lines` ersetzt alle Positionen, `"endDate": null` entfernt das Enddatum. Je nach Steuerbehandlung leitet Haben die Preisart und den Befreiungshinweis ab. Ablaufmodus und E-Mail-Versand stellst du in Haben ein. Die Antwort `200 OK` enthält `id`, `active: false` und `url`. Für eine aktive Vorlage meldet Haben `409 Conflict`.
 
-`DELETE /rechnungen/wiederkehrend/{id}` löscht eine Vorlage und antwortet mit `204 No Content`. Sobald aus ihr eine Rechnung entstanden ist, auch als Entwurf, meldet Haben `409 Conflict`. Fehlt die Vorlage, antworten beide Endpunkte mit `404 Not Found`.
+`DELETE /rechnungen/wiederkehrend/{id}` löscht eine Vorlage und antwortet mit `204 No Content`. Solange eine daraus erzeugte Rechnung oder ein Entwurf vorhanden ist, meldet Haben `409 Conflict`. Fehlt die Vorlage, antworten beide Endpunkte mit `404 Not Found`.
 
 ## Angebote
 
