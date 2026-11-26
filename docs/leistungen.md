@@ -46,8 +46,8 @@ Das Token braucht das Recht `leistungen:schreiben` (anlegen und löschen) oder `
 
 **Abrechnen** macht aus den offenen Einträgen eines Kunden einen Rechnungsentwurf:
 
-1. Wähle im Filter der Liste den Kunden und, wenn du willst, Zeitraum, Projekt oder Tätigkeit. Der Stand ist beim Abrechnen immer „Offen“. Die Liste zeigt dann genau die Einträge, die zur Wahl stehen, jeder mit einem Kästchen.
-2. Alle sind angehakt. Nimm heraus, was nicht in diesen Entwurf soll. Ändert sich der Filter, sind wieder alle angehakt.
+1. Wähle **Abrechnen**, dann im Filter der Liste den Kunden und, wenn du willst, Zeitraum, Projekt oder Tätigkeit. Der Stand steht dabei fest auf „Offen“. Die Liste zeigt dann genau die Einträge, die zur Wahl stehen, jeder mit einem Kästchen.
+2. Alle sind angehakt. Nimm heraus, was nicht in diesen Entwurf soll; das Kästchen über der Liste wählt alle ab oder an. Ändert sich der Filter, sind wieder alle angehakt.
 3. Haben zeigt vorab, wie viele Einträge angehakt sind, wie viele Stunden und welche Summe netto herauskommt, und wie die Positionen aussehen.
 4. **Rechnungsentwurf anlegen** öffnet den Entwurf. Prüfe ihn wie jeden Entwurf, ergänze ihn und schreibe ihn fest. Die nicht angehakten Einträge bleiben offen.
 
