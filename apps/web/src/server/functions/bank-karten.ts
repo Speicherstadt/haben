@@ -1,3 +1,4 @@
+import { anbieterZugaenge } from "../../lib/kontenkarten-zugaenge.ts";
 import { type KontoEingabe, type KontoZugang, kontenkarten } from "../../lib/kontenkarten.ts";
 import {
   callbackUrl,
@@ -7,6 +8,7 @@ import {
   listConnections,
   listFintsConnections,
   openConflicts,
+  RENEW_WARNING_DAYS,
 } from "../modules/bank/index.ts";
 import { verbindungenUebersicht } from "../modules/zahlungsdienstleister/index.ts";
 
@@ -16,30 +18,6 @@ import { verbindungenUebersicht } from "../modules/zahlungsdienstleister/index.t
  */
 
 type Konto = KontoEingabe & { provider: string | null; createdAt: Date | string };
-type Uebersicht = Awaited<ReturnType<typeof verbindungenUebersicht>>;
-
-/** Ab so vielen Tagen vor dem Ablauf eines Zugangs nennt die Karte „Läuft ab“ (wie bei Enable Banking) */
-const ABLAUF_VORLAUF_TAGE = 30;
-
-/** Zugänge der Zahlungsdienstleister: je Verbindung mit Konto einer, beim Anbieter genannt („Stripe“) */
-export function anbieterZugaenge(uebersicht: Uebersicht, jetzt: Date): KontoZugang[] {
-  const name = new Map(uebersicht.anbieter.map((a) => [a.provider, a.name]));
-  return uebersicht.verbindungen.flatMap((v) => {
-    if (!v.bankAccountId) return [];
-    const bis = v.zugangGueltigBis ? new Date(v.zugangGueltigBis) : null;
-    const tage = bis ? (bis.getTime() - jetzt.getTime()) / 86_400_000 : null;
-    return [
-      {
-        bankAccountId: v.bankAccountId,
-        weg: name.get(v.provider) ?? v.provider,
-        lastSyncAt: v.lastSyncAt,
-        fehler: v.lastError,
-        abgelaufen: tage !== null && tage < 0,
-        laeuftAbAm: tage !== null && tage >= 0 && tage <= ABLAUF_VORLAUF_TAGE ? bis : null,
-      },
-    ];
-  });
-}
 
 /** Zugänge der Banken: Enable Banking und FinTS, je Konto der Verbindung einer */
 function bankZugaenge(connections: Awaited<ReturnType<typeof listConnections>>, fints: Awaited<ReturnType<typeof listFintsConnections>>): KontoZugang[] {
@@ -75,7 +53,7 @@ export async function abrufUndKarten(accounts: readonly Konto[]) {
     verbindungenUebersicht(),
   ]);
   const jetzt = new Date();
-  const zugaenge = [...bankZugaenge(connections, fintsConnections), ...anbieterZugaenge(zahlungsdienstleister, jetzt)];
+  const zugaenge = [...bankZugaenge(connections, fintsConnections), ...anbieterZugaenge(zahlungsdienstleister, jetzt, RENEW_WARNING_DAYS)];
   return {
     sync: {
       configured: await enableBankingConfigured(),

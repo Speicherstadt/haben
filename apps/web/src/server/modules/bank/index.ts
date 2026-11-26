@@ -14,6 +14,7 @@ export {
   listBanks,
   listConnections,
   removeConnection,
+  RENEW_WARNING_DAYS,
   runDueBankSyncs,
   saveEnableBankingSettings,
   startConnection,
