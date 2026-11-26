@@ -148,7 +148,10 @@ test("Verbinden: Etsy gibt frei, die Karte nennt den Shop", async () => {
 test("Jetzt abrufen: der Verkauf kommt mit dem Betrag ohne Sales Tax ins Konto des Zahlungsdienstleisters", async () => {
   const sql = postgres(databaseUrlFuer("etsy-abruf"), { max: 1, onnotice: () => {} });
   try {
-    await sql`insert into bank_accounts (name, purpose, provider, ledger_index) values ('Etsy Payments', 'zahlungsdienstleister', 'etsy', 3)`;
+    // Das Konto hat das Verbinden angelegt (#1951)
+    expect(await sql`select name, purpose, provider from bank_accounts where purpose = 'zahlungsdienstleister'`).toEqual([
+      { name: "Etsy", purpose: "zahlungsdienstleister", provider: "etsy" },
+    ]);
     await gehe(page, "/einstellungen?bereich=bank");
     await karte().getByRole("button", { name: "Jetzt abrufen" }).click();
     await expect(karte().getByText("Abruf durchgelaufen.")).toBeVisible();
