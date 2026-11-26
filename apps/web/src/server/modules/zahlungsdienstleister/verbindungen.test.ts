@@ -19,6 +19,7 @@ const HEUTE = new Date("2026-11-07T10:00:00Z");
 const KONTEN: Record<string, { acct: string; txn: string; betrag: number }> = {
   rk_live_shopdeaaaaaaaa: { acct: "acct_shop", txn: "txn_shop1", betrag: 11900 },
   rk_live_kurseaaaaaaaaa: { acct: "acct_kurse", txn: "txn_kurse1", betrag: 4900 },
+  rk_live_wechselaaaaaaa: { acct: "acct_wechsel", txn: "txn_wechsel1", betrag: 2500 },
 };
 
 function zahlung(txn: string, betrag: number): StripeBalanceTransaction {
@@ -186,6 +187,25 @@ describe.skipIf(!testDatabaseUrl)("Verbindungen zu Zahlungsdienstleistern (Postg
     const result = await psp.abrufen(actor, stripeId, HEUTE);
     expect(result.error).toBeNull();
     expect((await sql`select fetch_from::text as f, last_error from psp_connections where id = ${stripeId}`)[0]).toEqual({ f: "2026-11-04", last_error: null });
+  });
+
+  it("lehnt ein anderes Konto in Haben ab, wenn der Abruf schon an ein Konto gebunden ist", async () => {
+    // Die Quellenbindung (import_sources) hält das Stripe-Konto am Konto des ersten Abrufs; ein Wechsel ließe jeden weiteren
+    // Abruf mit „Die Quelle des Abrufs ist schon mit einem anderen Konto verbunden“ scheitern
+    const erstes = await konto("Stripe Wechsel A", "stripe", 5);
+    const zweites = await konto("Stripe Wechsel B", "stripe", 6);
+    const id = await psp.speichereVerbindung(actor, {
+      provider: "stripe",
+      name: "Wechsel",
+      bankAccountId: erstes,
+      eingabe: { apiKey: "rk_live_wechselaaaaaaa" },
+      fetchFrom: "2026-11-01",
+    });
+    expect((await psp.abrufen(actor, id, HEUTE)).error).toBeNull();
+    await expect(psp.speichereVerbindung(actor, { id, provider: "stripe", name: "Wechsel", bankAccountId: zweites, fetchFrom: "2026-11-01" })).rejects.toThrow(
+      "Dieses Stripe-Konto ist schon mit dem Konto Stripe Wechsel A verbunden",
+    );
+    expect((await psp.abrufen(actor, id, new Date(HEUTE.getTime() + 60 * 60 * 1000))).error).toBeNull();
   });
 
   it("schreibt Änderungen ins Protokoll, ohne den Zugang", async () => {
