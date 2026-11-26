@@ -128,6 +128,23 @@ async function kontoBeimAnbieterFrei(adapter: PspAdapter, accountId: string, id:
 }
 
 /**
+ * Fehler, wenn die Quellenbindung (#306) das Konto beim Anbieter schon an ein anderes Konto in Haben hält: Der Abruf dorthin
+ * scheiterte sonst bei jedem Lauf (sourceFor in bank/import-batch.ts).
+ */
+async function quelleImKonto(adapter: PspAdapter, accountId: string, bankAccountId: string) {
+  const [quelle] = await db
+    .select({ bankAccountId: schema.importSources.bankAccountId, name: schema.bankAccounts.name })
+    .from(schema.importSources)
+    .innerJoin(schema.bankAccounts, eq(schema.bankAccounts.id, schema.importSources.bankAccountId))
+    .where(and(eq(schema.importSources.provider, adapter.provider), eq(schema.importSources.externalAccountId, accountId)));
+  if (quelle && quelle.bankAccountId !== bankAccountId) {
+    throw new ZahlungsdienstleisterError(`Dieses ${adapter.name}-Konto ist schon mit dem Konto ${quelle.name} verbunden; der Abruf schreibt weiter dorthin.`, {
+      felder: ["bankAccountId"],
+    });
+  }
+}
+
+/**
  * Speichert eine Verbindung. Ein neuer Zugang wird beim Anbieter geprüft und liefert die Kontokennung; gehört er zu einem
  * anderen Konto, beginnt der Abruf wieder am gewählten Tag, weil der Stand des alten Kontos nichts über das neue sagt.
  * Gibt die Kennung der Verbindung zurück.
@@ -153,6 +170,7 @@ export async function speichereVerbindung(actor: string, input: z.input<typeof v
   const pruefung = neuerZugang ? await adapter.pruefen(neuerZugang, config) : null;
   const accountId = pruefung?.accountId ?? existing!.row.accountId;
   await kontoBeimAnbieterFrei(adapter, accountId, id);
+  if (bankAccountId) await quelleImKonto(adapter, accountId, bankAccountId);
   const anderesKonto = existing !== null && existing.row.accountId !== accountId;
   const startGeaendert = existing?.row.abrufStart !== data.fetchFrom;
   const values = {
