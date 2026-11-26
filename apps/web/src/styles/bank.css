@@ -78,10 +78,10 @@
 .verbindungen-kopf > h2 { margin: 0; }
 /* Feste Spalten, damit die Tabellen der Gruppen untereinander bündig stehen */
 .verbindungen-tabelle { width: 100%; border-collapse: collapse; font-size: 14px; table-layout: fixed; }
-.verbindungen-tabelle .spalte-konto { width: 30%; }
-.verbindungen-tabelle .spalte-abruf { width: 22%; }
-.verbindungen-tabelle .spalte-saldo { width: 13%; }
-.verbindungen-tabelle .spalte-offen { width: 7%; }
+.verbindungen-tabelle .spalte-konto { width: 26%; }
+.verbindungen-tabelle .spalte-abruf { width: 18%; }
+.verbindungen-tabelle .spalte-saldo { width: 12%; }
+.verbindungen-tabelle .spalte-offen { width: 6%; }
 .verbindungen-tabelle .spalte-aktionen { width: 240px; }
 .verbindungen-tabelle th { padding: 8px 12px; font-size: 12px; font-weight: 500; color: var(--muted); text-align: left; border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); }
 .verbindungen-tabelle td { padding: 12px; border-bottom: 1px solid var(--line-soft); vertical-align: baseline; }
@@ -104,8 +104,8 @@
 .verbindung-aktionen { display: flex; gap: 4px; justify-content: flex-end; align-items: center; margin: -8px 0; }
 .verbindung-aktionen > .btn:not(.btn-icon) { margin-right: 4px; white-space: nowrap; }
 .verbindung-grund { display: block; font-size: 12px; color: var(--muted); white-space: normal; max-width: 280px; }
-/* Am Handy: jede Zeile als Liste, Name oben, Saldo rechts, darunter Abruf und Status rechts an der Kante, Knöpfe am Ende */
-@media (max-width: 760px) {
+/* Schmal und am Handy: jede Zeile als Liste, Name oben, Saldo rechts, darunter Abruf und Status rechts an der Kante, Knöpfe am Ende */
+@media (max-width: 1100px) {
   .verbindungen-tabelle thead { display: none; }
   .verbindungen-tabelle, .verbindungen-tabelle tbody { display: block; }
   .verbindungen-tabelle tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }

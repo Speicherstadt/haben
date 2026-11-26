@@ -226,7 +226,7 @@ export function useDateiImport(data: Pick<Data, "accounts" | "allAccounts" | "ac
         multiple
         accept={DATEIEN}
         className="visually-hidden"
-        aria-label="Kontoauszugsdateien für das Konto"
+        aria-label="Dateien für das gewählte Konto"
         aria-hidden="true"
         tabIndex={-1}
         onChange={(event) => {

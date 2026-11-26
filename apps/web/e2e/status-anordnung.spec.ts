@@ -86,8 +86,9 @@ test("Handy: Statuswort rechts in der Zeile am Ende, neben dem Titel zuerst", as
   // Das Wort endet an der rechten Kante der Zeile
   expect(Math.abs(r.wortRechts)).toBeLessThanOrEqual(8);
 
+  // Auf der Seite Verbindungen steht der Status am Handy rechts an der Kante der Zeile (#1951): das Wort am Ende
   const bank = await bankZeile(page);
-  expect((await reihenfolge(bank.status, bank.zeile)).wortZuerst).toBe(true);
+  expect((await reihenfolge(bank.status, bank.zeile)).wortZuerst).toBe(false);
 
   const rechnung = await firstLink(page, "/rechnungen", /^\/rechnungen\/[0-9a-f-]{36}$/);
   await page.goto(rechnung ?? "");
