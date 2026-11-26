@@ -18,7 +18,7 @@ Im Kopf der Seite **Bank** öffnet **Konto verbinden** ein Menü: **Bank verbind
 
 - **Online-Banking über Enable Banking (PSD2):** für die meisten Banken in Europa; braucht den Zugang zu Enable Banking unter **Einstellungen › Bank** ([Anbindungen](installation-anbindungen.md#kontoabruf-enable-banking)).
 - **FinTS (PIN/TAN):** vor allem für Sparkassen, Volks- und Raiffeisenbanken; braucht die Produktnummer der Installation, siehe [Abruf über FinTS](#abruf-über-fints).
-- **Kontoauszüge als Datei (CSV/CAMT):** geht immer, siehe [So gehst du vor](#so-gehst-du-vor).
+- **Kontoauszüge als Datei (CSV/CAMT):** geht immer; **Weiter** öffnet das Formular für ein Konto ohne Abruf, die Umsätze importierst du danach ([So gehst du vor](#so-gehst-du-vor)).
 
 Was auf deiner Installation nicht eingerichtet ist, steht ausgegraut mit dem, was fehlt. Das Formular des gewählten Wegs erscheint über der Liste im Bereich **Automatischer Abruf**; dort steht danach die Verbindung des gewählten Kontos mit Stand, Fehler und Knöpfen.
 
