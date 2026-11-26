@@ -62,7 +62,7 @@ Der innergemeinschaftliche Erwerb und § 13b für eine EU-Leistung setzen voraus
 - Ist die Nummer laut BZSt nicht gültig oder der Dienst nicht erreichbar, steht ein Hinweis in der Rückfrage; buchen kannst du trotzdem. Bei § 13b sagt er auch, wenn sich die Nummer gar nicht bestätigen lässt, etwa bei falschem Aufbau oder einer deutschen Nummer; beim Erwerb sperrt das schon „Vor dem Buchen“.
 - Ist der Lieferant nur als Name eingetragen, gibt es keinen Kontakt für den Nachweis: Haben fragt nicht und sagt das. Wähl oder leg dafür unter **Lieferant** einen Kontakt an.
 - Bei § 13b aus dem Drittland, bei normalen Belegen und mit `HABEN_EVATR=off` fragt Haben nicht.
-- Bei § 13b EU mit einer nordirischen (`XI`) oder britischen Nummer (`GB`), ohne Nummer auch bei einem Kontakt mit Land `GB`, fragt es ebenfalls nicht und weist stattdessen auf **Ich (§ 13b, Drittland-Leistung)** hin, auch mit `HABEN_EVATR=off`. Eine EU-Nummer an einem britischen Kontakt, etwa einer Betriebsstätte in der EU ([§ 13b Abs. 7 UStG](https://www.gesetze-im-internet.de/ustg_1980/__13b.html)), prüft Haben wie jede andere.
+- Bei § 13b EU mit einer nordirischen (`XI`) oder britischen Nummer (`GB`), ohne Nummer oder mit einer, die keine EU-Nummer ist, auch bei einem Kontakt mit Land `GB`, fragt es ebenfalls nicht und weist stattdessen auf **Ich (§ 13b, Drittland-Leistung)** hin, auch mit `HABEN_EVATR=off`. Eine EU-Nummer an einem britischen Kontakt, etwa einer Betriebsstätte in der EU ([§ 13b Abs. 7 UStG](https://www.gesetze-im-internet.de/ustg_1980/__13b.html)), prüft Haben wie jede andere.
 
 ## Einfuhrumsatzsteuer
 

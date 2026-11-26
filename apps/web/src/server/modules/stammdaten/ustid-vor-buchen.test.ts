@@ -229,7 +229,14 @@ describe.skipIf(!testDatabaseUrl)("USt-IdNr. des Lieferanten vor dem Buchen best
       hinweis: mitNummer,
     });
     expect(await modul.ustIdVorBuchen(actor, { contactId: ohneNummer, ustId: "", behandlung: "eu" }, AM_TAG, ohneAntworten.via)).toEqual({ hinweis: nurLand });
+    // Eine Nummer ohne GB vorn, die keine EU-Nummer ist, am Kontakt mit Land GB: derselbe Hinweis (Review #1955)
+    expect(await modul.ustIdVorBuchen(actor, { contactId: ohneNummer, ustId: "123 4567 89", behandlung: "eu" }, AM_TAG, ohneAntworten.via)).toEqual({
+      hinweis: nurLand,
+    });
     process.env.HABEN_EVATR = "off";
+    expect(await modul.ustIdVorBuchen(actor, { contactId: ohneNummer, ustId: "123 4567 89", behandlung: "eu" }, AM_TAG, ohneAntworten.via)).toEqual({
+      hinweis: nurLand,
+    });
     expect(await modul.ustIdVorBuchen(actor, { contactId: london, ustId: "", behandlung: "eu" }, AM_TAG, ohneAntworten.via)).toEqual({ hinweis: mitNummer });
     expect(await modul.ustIdVorBuchen(actor, { contactId: ohneNummer, ustId: "", behandlung: "eu" }, AM_TAG, ohneAntworten.via)).toEqual({ hinweis: nurLand });
     delete process.env.HABEN_EVATR;

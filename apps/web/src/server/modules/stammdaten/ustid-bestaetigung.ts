@@ -314,11 +314,11 @@ export async function ustIdVorBuchen(
   if (lieferant.behandlung === "eu" && nummer.startsWith("XI"))
     return { hinweis: `${nummer}: ${XI_NUR_LIEFERUNGEN}. Für eine Leistung aus Nordirland passt § 13b Drittland (Kz 84/85).` };
   // Großbritannien ist seit 2021 Drittlandsgebiet (§ 1 Abs. 2a Satz 3 UStG, UStAE 1.10 Abs. 2 Satz 2), bei Leistungen auch Nordirland (§ 30 Abs. 1 UStG):
-  // eine britische Nummer oder ohne Nummer das Land des Kontakts, ohne Abfrage und auch abgeschaltet (#1603). Eine EU-Nummer
+  // eine britische Nummer, sonst ohne EU-Nummer das Land des Kontakts, ohne Abfrage und auch abgeschaltet (#1603). Eine EU-Nummer
   // (Betriebsstätte in der EU, § 13b Abs. 7 UStG) prüft Haben weiter wie jede andere
-  if (lieferant.behandlung === "eu" && (nummer.startsWith("GB") || (!nummer && contact?.land === "GB")))
+  if (lieferant.behandlung === "eu" && (nummer.startsWith("GB") || ((!nummer || !evatrPruefbar(nummer)) && contact?.land === "GB")))
     return {
-      hinweis: `${nummer ? `${nummer}: britische USt-IdNr.; das Vereinigte Königreich ist` : "Am Lieferanten-Kontakt steht das Land GB (Vereinigtes Königreich),"} seit 2021 Drittland. ${GB_13B_DRITTLAND}`,
+      hinweis: `${nummer.startsWith("GB") ? `${nummer}: britische USt-IdNr.; das Vereinigte Königreich ist` : "Am Lieferanten-Kontakt steht das Land GB (Vereinigtes Königreich),"} seit 2021 Drittland. ${GB_13B_DRITTLAND}`,
     };
   if (evatrAbgeschaltet()) return { hinweis: null };
   // Bei § 1a sperrt „Vor dem Buchen“ eine fehlende oder falsch aufgebaute Nummer selbst (igErwerbIssues). Bei § 13b ist sie
