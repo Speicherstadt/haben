@@ -224,7 +224,7 @@ test("Anlage übernehmen: degressive AfA mit Höchstsatz, Restbuchwert geprüft,
   await form.getByLabel("Restbuchwert zum Stichtag (€)").fill("34.000,00");
   await form.getByRole("button", { name: "Anlage übernehmen" }).click();
   await page.waitForURL(/\/anlagen\/[0-9a-f-]{36}$/);
-  const plan = page.getByRole("region", { name: "Abschreibungsplan" });
+  const plan = page.getByRole("region", { name: "Abschreibungsplan", exact: true });
   await expect(plan).toContainText("Degressiv mit Wechsel zur linearen (§ 7 Abs. 2 EStG), 10 Jahre, 20 %");
   await expect(plan.locator(".table-row", { hasText: /^2026/ })).toContainText("6.800,00");
 
@@ -239,9 +239,13 @@ test("Anlage übernehmen: degressive AfA mit Höchstsatz, Restbuchwert geprüft,
 
   const sonderAfA = angaben.getByRole("button", { name: "Sonder-AfA speichern" });
   await expect(sonderAfA).toHaveCount(1);
-  const betrag = angaben.getByRole("spinbutton", { name: "2026 (€)", exact: true });
+  const betrag = angaben.getByRole("textbox", { name: "2026 (€)", exact: true });
   await betrag.fill("5000");
-  await angaben.getByRole("checkbox", { name: /maßgebliche Vorjahresgewinn/ }).check();
+  const bestaetigung = angaben.getByRole("checkbox", { name: /maßgebliche Vorjahresgewinn/ });
+  await sonderAfA.click();
+  await expect(bestaetigung).toBeFocused();
+  await expect(bestaetigung).toHaveAccessibleDescription("Bestätige die Voraussetzungen für die Sonder-AfA.");
+  await bestaetigung.check();
   await sonderAfA.click();
   await expect(page.getByRole("status").filter({ hasText: "Sonder-AfA gespeichert." })).toBeVisible();
   await expect(plan.locator(".table-row", { hasText: /^2026/ })).toContainText("5.000,00 Sonder-AfA");
@@ -293,7 +297,7 @@ test("Anlage anlegen: Erinnerungswert angehakt, dann zu Computer gewechselt, wir
   await form.getByLabel("Restbuchwert zum Stichtag (€)").fill("0,00");
   await form.getByRole("button", { name: "Anlage übernehmen" }).click();
   await page.waitForURL(/\/anlagen\/[0-9a-f-]{36}$/);
-  await expect(page.getByRole("region", { name: "Abschreibungsplan" })).not.toContainText("Erinnerungswert");
+  await expect(page.getByRole("region", { name: "Abschreibungsplan", exact: true })).not.toContainText("Erinnerungswert");
 });
 
 test("Anlage: Eingaben direkt nach dem Speichern bleiben erhalten (#1793)", async () => {

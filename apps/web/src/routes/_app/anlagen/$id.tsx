@@ -19,6 +19,7 @@ import { useSubmitCheck } from "../../../lib/use-submit-check.ts";
 import { useAction } from "../../../lib/use-action.ts";
 import { deleteAssetFn, getAssetDetail, updateAssetFn } from "../../../server/functions/assets.ts";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
+import { ScrollBox } from "../../../components/ScrollTable.tsx";
 import { Status } from "../../../components/Status.tsx";
 
 export const Route = createFileRoute("/_app/anlagen/$id")({
@@ -94,31 +95,33 @@ function AssetPage() {
               `übernommen zum ${formatDate(asset.openingDate!)}`
             )}
           </p>
-          <div className="table">
-            <div className="table-row head plan-cols">
-              <div>Jahr (€)</div>
-              <div className="num">Buchwert Anfang</div>
-              <div className="num">Zugang</div>
-              <div className="num">AfA</div>
-              <div className="num">Abgang</div>
-              <div className="num">Buchwert Ende</div>
-              <div />
-            </div>
-            {schedule.map((row) => (
-              <div key={row.year} className="table-row plan-cols">
-                <div className="mono">{row.year}</div>
-                <div className="num">{formatDecimal(row.opening)}</div>
-                <div className="num">{formatDecimal(row.addition)}</div>
-                <div className="num">
-                  {formatDecimal(row.depreciation)}
-                  {row.specialDepreciation ? <div className="small">+ {formatDecimal(row.specialDepreciation)} Sonder-AfA</div> : null}
-                </div>
-                <div className="num">{formatDecimal(row.disposal)}</div>
-                <div className="num">{formatDecimal(row.closing)}</div>
-                <div>{bookedYears.includes(row.year) ? <Status tone="ok">Gebucht</Status> : null}</div>
+          <ScrollBox label="Jahresbeträge im Abschreibungsplan">
+            <div className="table">
+              <div className="table-row head plan-cols">
+                <div>Jahr (€)</div>
+                <div className="num">Buchwert Anfang</div>
+                <div className="num">Zugang</div>
+                <div className="num">AfA</div>
+                <div className="num">Abgang</div>
+                <div className="num">Buchwert Ende</div>
+                <div />
               </div>
-            ))}
-          </div>
+              {schedule.map((row) => (
+                <div key={row.year} className="table-row plan-cols">
+                  <div className="mono">{row.year}</div>
+                  <div className="num">{formatDecimal(row.opening)}</div>
+                  <div className="num">{formatDecimal(row.addition)}</div>
+                  <div className="num">
+                    {formatDecimal(row.depreciation)}
+                    {row.specialDepreciation ? <div className="small">+ {formatDecimal(row.specialDepreciation)} Sonder-AfA</div> : null}
+                  </div>
+                  <div className="num">{formatDecimal(row.disposal)}</div>
+                  <div className="num">{formatDecimal(row.closing)}</div>
+                  <div>{bookedYears.includes(row.year) ? <Status tone="ok">Gebucht</Status> : null}</div>
+                </div>
+              ))}
+            </div>
+          </ScrollBox>
         </section>
 
         <section className="card stack" aria-labelledby="edit-heading">
