@@ -52,7 +52,7 @@ Wer mitbauen will, sucht sich eine Aufgabe im [Project „Roadmap Haben“](http
     - Pull Request mit `Umgesetzt` gemergt → „Im nächsten Release“.
     - Eine fertige Version (kein Release Candidate) schließt diese Issues mit Link auf das Release (Job `issues-schliessen` in `release.yml`) → „Erledigt“.
 
-    Fehlt danach etwas, kommt es in ein neues Issue mit Verweis auf das alte. Die Workflows brauchen das Secret `PROJECT_TOKEN` (klassisches Token mit Scope `project`). Was die Automatik nicht sieht, also neue Issues einordnen, offene Gespräche und Übernahme-Wünsche finden und aufräumen, erledigt der Skill [`board-pflegen`](https://github.com/Speicherstadt/haben/blob/main/.claude/skills/board-pflegen/SKILL.md); jedes Issue bekommt dabei einen kurzen Kommentar mit dem Ergebnis.
+    Fehlt danach etwas, kommt es in ein neues Issue mit Verweis auf das alte. Die Workflows brauchen das Secret `PROJECT_TOKEN` (klassisches Token mit Scope `project`). Ein anderes Repository mit eigenem Board setzt dessen Nummer als Variable `BOARD_NUMMER` (am Repository, nicht an der Organisation); Haben braucht sie nicht. Was die Automatik nicht sieht, also neue Issues einordnen, offene Gespräche und Übernahme-Wünsche finden und aufräumen, erledigt der Skill [`board-pflegen`](https://github.com/Speicherstadt/haben/blob/main/.claude/skills/board-pflegen/SKILL.md); jedes Issue bekommt dabei einen kurzen Kommentar mit dem Ergebnis.
 
 - **Commits im Pull Request:** gern im Stil von [Conventional Commits](https://www.conventionalcommits.org/de/) auf Deutsch, etwa `fix(belege): Fremdwährung in der Rechnungswährung vergleichen` (Empfehlung, keine Prüfung).
 
@@ -99,6 +99,7 @@ Was sich sicher entscheiden lässt, prüft ein Skript; was nicht, erscheint als 
 | Kein Feld einer Version fällt weg, wird umbenannt oder wechselt den Typ | `layout-schema.test.ts` gegen `layout-schema.v<n>.json` | Fehler |
 | Alte Layouts ergeben mit heutigen Daten ein PDF | `layout-kompatibel.test.ts` mit `templates/kompatibel/` | Fehler |
 | Skill `belegvorlage` und Feldtabellen aktuell | `layout-anleitung.test.ts` | Fehler |
+| Eyebrow der Menüseiten ist `menueGruppe(…)`, nicht von Hand getippt | `menue-gruppe.test.ts` in `bun run test` | Fehler |
 | Doku baut ohne Warnung | Workflow „Docs“ auch im Pull Request | Fehler |
 | Jede Seite in `docs/` mit `description:` im Front Matter | Workflow „Docs“ (`docs.yml`) | Fehler |
 | Leerzeile vor jeder Liste in `docs/` ([Seiten der Doku](entwicklung.md#befehle), „Listen“) | `scripts/doku-listen/` im Workflow „Docs“ | Fehler |

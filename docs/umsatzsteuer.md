@@ -34,6 +34,25 @@ Bist du in den Einstellungen als Kleinunternehmer eingetragen, zeigt die Seite o
 
 Vor jedem Prüfen oder Senden speichert Haben den Entwurf, falls er neu oder geändert ist. Mit **Entwurf speichern** geht das auch ohne Prüfung.
 
+Oben auf der Seite zeigt eine Leiste, wo du stehst:
+
+- **Zahlen prüfen**, bis ein unveränderter Entwurf gespeichert ist.
+- **Abgeben**, sobald er gespeichert ist.
+- **Zahlen**, nach dem Festschreiben, bis keine Zahllast mehr offen ist. Eine ausstehende Erstattung hält ihn nicht offen.
+
+Darunter sagt ein Satz, was Kz 83 für dich heißt, auch bei von Hand geänderten Werten:
+
+- „Du zahlst 1.234,00 € bis 10.12.2026.“; nach der Frist: „Die Zahllast von 1.234,00 € war am 10.12.2026 fällig.“
+- „Du bekommst 123,00 € zurück, sobald das Finanzamt zustimmt.“
+- „Diesmal ist nichts zu zahlen.“
+
+Der Satz entfällt:
+
+- solange von Hand ein Wert nicht lesbar ist,
+- bei einer berichtigten Anmeldung, denn zu zahlen oder zu erstatten ist nur der Unterschied zur ersten Anmeldung (siehe [berichtigte Anmeldung](#berichtigte-anmeldung)),
+- wenn der Zeitraum nicht zur Voranmeldung passt (siehe [Voranmeldungszeitraum](#voranmeldungszeitraum)),
+- nach dem Festschreiben; dort zeigen Status und **Zahlung an das Finanzamt** den Stand.
+
 ## Voranmeldungszeitraum
 
 Der Voranmeldungszeitraum ist nach § 18 Abs. 2 UStG das Kalendervierteljahr. Monatlich gibst du ab, wenn die Steuer des Vorjahres mehr als 9.000 € betrug. Bei höchstens 2.000 € kann dich das Finanzamt von den Voranmeldungen befreien; dann gibst du nur die Jahreserklärung ab. Festgelegt wird der Zeitraum vom Finanzamt, meist mit der Steuernummer oder nach der Jahreserklärung. Haben übernimmt, was du einträgst, und schlägt nur vor.
@@ -383,6 +402,8 @@ Hast du die Voranmeldung außerhalb von Haben abgegeben, per XML-Import in Mein 
 | Kz 83 laut Protokoll | die verbleibende Vorauszahlung bzw. der Überschuss, wie gemeldet |
 | Übermittlungsprotokoll (PDF) | das Protokoll aus Mein ELSTER |
 
+Den Bereich findest du in der rechten Spalte unter **Schon anders abgegeben?**: mit eingerichtetem ERiC und eigener Hersteller-ID zugeklappt, sonst offen, denn dann ist Mein ELSTER der Hauptweg und der Vermerk der nächste Schritt.
+
 **Abgabe vermerken** fragt in einem Dialog nach, der Tag, Transferticket und Kz 83 noch einmal zeigt, und schreibt die Anmeldung dann fest wie eine Übermittlung über ERiC: Status „Abgegeben … (vermerkt)“, die [Frist](fristen.md) ist erledigt, eine Berichtigung geht wie nach dem Senden über **Berichtigte Anmeldung anlegen**, und die Zahllast wird ein [offener Posten](#zahlung-an-das-finanzamt). Ein berechneter Entwurf wird vorher auf den Stand der Buchungen gebracht, wie vor dem Senden.
 
 Weicht Kz 83 laut Protokoll von der Anmeldung in Haben ab, lehnt Haben den Vermerk ab: Dann ist beim Finanzamt etwas anderes angekommen, als Haben gespeichert hat, etwa weil sich Buchungen nach dem Herunterladen des XML geändert haben oder du in Mein ELSTER Werte geändert hast. Prüfe die Abweichung; stimmen die Werte des Finanzamts, überschreibst du die Kennzahlen von Hand mit Begründung und vermerkst dann. Verglichen wird nur Kz 83, weil sie über Zahllast und Zahlung entscheidet; die übrigen Kennzahlen stehen im Protokoll.
@@ -447,16 +468,19 @@ Das Zertifikat lädst du unter Einstellungen hoch. Es wird mit `HABEN_ENCRYPTION
 
 ## Simulierter Modus
 
-Ist weder `ERIC_HOME` gesetzt noch ERiC unter Einstellungen › ELSTER › ERiC heruntergeladen, zeigt die Seite „ERiC ist nicht eingerichtet. Prüfen und Senden laufen simuliert, nichts geht an das Finanzamt.“ mit einem Link zu Einstellungen › ELSTER. Derselbe Hinweis steht auf diesen Seiten:
+Ist weder `ERIC_HOME` gesetzt noch ERiC unter Einstellungen › ELSTER › ERiC heruntergeladen, zeigt die Seite „Senden ist noch nicht eingerichtet: Prüfen und Senden laufen nur simuliert, nichts geht an das Finanzamt.“ und den Link „ERiC einrichten“ zu Einstellungen › ELSTER. Derselbe Hinweis steht auf diesen Seiten:
 
 - Übersicht (nur bei Umsatzsteuerpflicht)
 - Voranmeldung
 - Zusammenfassende Meldung (mit „Bundeszentralamt für Steuern“ statt „Finanzamt“)
 - Jahreserklärung
+- Jahresabschluss (E-Bilanz, nur bei GmbH und UG)
 - Lohnsteuer-Anmeldung
+- Lohnsteuerbescheinigung (nur in Jahren, die ERiC sendet)
+- Ausschüttungen (Kapitalertragsteuer-Anmeldung, nur bei GmbH und UG)
 - Finanzamt
 
-Ein Ersatz-Client prüft dann nur, ob das XML wohlgeformt ist und Kz 83 enthält. Übermittlungen bekommen ein erfundenes Ticket (`fake-…`) und ein Protokoll-PDF mit dem Text „Testprotokoll – keine echte Übermittlung“.
+Ein Ersatz-Client prüft dann nur, ob das XML wohlgeformt ist (bei der Voranmeldung auch, ob Kz 83 gesetzt ist). Übermittlungen bekommen ein erfundenes Ticket (`fake-…`) und ein Protokoll-PDF mit dem Text „Testprotokoll – keine echte Übermittlung“; Lohnsteuerbescheinigungen und was du auf der Seite Finanzamt sendest, haben kein Protokoll-PDF.
 
 Eine Echtübermittlung ist im simulierten Modus nicht möglich: Der Haken **Nur Testübermittlung** bleibt gesetzt, und Haben lehnt eine Echtübermittlung ab, solange kein ERiC eingerichtet ist. So wird keine Anmeldung als gesendet festgeschrieben, die nie beim Finanzamt war.
 
