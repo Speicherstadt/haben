@@ -32,11 +32,11 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Dauerbelege und wiederk
 
   async function dauerbeleg(
     name: string,
-    felder: { status?: string; payment?: string; taxShown?: boolean; privateShare?: number; amounts: object[] } & Record<string, unknown>,
+    felder: { status?: string; payment?: string; taxShown?: boolean; privateShare?: number; category?: string; amounts: object[] } & Record<string, unknown>,
   ) {
     const [row] = await sql<{ id: string }[]>`insert into recurring_documents (name, status, supplier_name, category, payment, private_share,
         amounts, tax_shown, recurrence, anchor_day, start_date, next_date, end_date, due_days, sha256, filename, mime_type, size)
-      values (${name}, ${felder.status ?? "aktiv"}, 'Vermieter', 'miete', ${felder.payment ?? "bank"}, ${felder.privateShare ?? 0},
+      values (${name}, ${felder.status ?? "aktiv"}, 'Vermieter', ${felder.category ?? "miete"}, ${felder.payment ?? "bank"}, ${felder.privateShare ?? 0},
               ${JSON.stringify(felder.amounts)}::jsonb, ${felder.taxShown ?? false}, ${String(felder.recurrence ?? "P1M")}, ${Number(felder.anchor ?? 1)},
               '2026-01-01', ${String(felder.next ?? "2026-12-01")}, ${(felder.end as string | undefined) ?? null}, ${Number(felder.dueDays ?? 0)},
               ${"b".repeat(64)}, 'vertrag.pdf', 'application/pdf', 1)
@@ -89,12 +89,20 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Dauerbelege und wiederk
         { taxRate: 700, net: 143, tax: 10 },
       ],
     });
+    // Zollbescheid: der ganze Betrag ist Vorsteuer (Kz 62), auch ohne Steuerausweis (einfuhrumsatzsteuerPosting)
+    const zoll = await dauerbeleg("Zoll", {
+      next: "2026-12-01",
+      end: "2026-12-31",
+      category: "einfuhrumsatzsteuer",
+      amounts: [{ taxRate: 0, net: 38_000, tax: 0 }],
+    });
     const vorsteuer = async () =>
       new Map((await dauerbelege.dauerbelegPosten(await kontext.ladeKontext("2026-11-20", "13w"))).map((p) => [p.quelle.id, p.steuer?.betrag ?? 0]));
     expect(await vorsteuer()).toEqual(
       new Map([
         [halb, -7],
         [zwei, -14],
+        [zoll, -38_000],
       ]),
     );
 
@@ -104,6 +112,7 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Dauerbelege und wiederk
       new Map([
         [halb, 0],
         [zwei, 0],
+        [zoll, 0],
       ]),
     );
   });
