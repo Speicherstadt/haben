@@ -1,5 +1,5 @@
 {
-  "id": "3079914b-be80-4f6f-9472-c1d7658d009e",
+  "id": "705ca697-bb87-403f-bab7-1f650a50d1e9",
   "prevId": "91f74910-d54c-4f81-8578-44ea09686059",
   "version": "7",
   "dialect": "postgresql",
@@ -5620,13 +5620,6 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
-        },
-        "private_share": {
-          "name": "private_share",
-          "type": "smallint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
         }
       },
       "indexes": {
@@ -5683,12 +5676,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "document_splits_private_share_range": {
-          "name": "document_splits_private_share_range",
-          "value": "\"document_splits\".\"private_share\" between 0 and 100"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.documents": {
@@ -15420,6 +15408,18 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
+        "external_source": {
+          "name": "external_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "status": {
           "name": "status",
           "type": "invoice_status",
@@ -15688,6 +15688,27 @@
         }
       },
       "indexes": {
+        "quotes_external_ref": {
+          "name": "quotes_external_ref",
+          "columns": [
+            {
+              "expression": "external_source",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "external_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "quotes_number_trgm_idx": {
           "name": "quotes_number_trgm_idx",
           "columns": [
@@ -15846,6 +15867,10 @@
         "quotes_final_has_number": {
           "name": "quotes_final_has_number",
           "value": "\"quotes\".\"status\" = 'draft' or (\"quotes\".\"number\" is not null and \"quotes\".\"locked_at\" is not null)"
+        },
+        "quotes_external_ref_pair": {
+          "name": "quotes_external_ref_pair",
+          "value": "(\"quotes\".\"external_source\" is null) = (\"quotes\".\"external_id\" is null)"
         },
         "quotes_decision_final": {
           "name": "quotes_decision_final",
