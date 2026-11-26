@@ -71,7 +71,7 @@ export function ContactForm({
    */
   saved?: boolean;
   onUpdated?: () => void;
-  /** Weitere Bankverbindungen (#1887) zur Auswahl als Vorgabe des Kunden */
+  /** Weitere Zahlungskonten (#1887) zur Auswahl des bevorzugten am Kontakt */
   bankverbindungen?: { liste: readonly BankverbindungOption[]; standardIban: string };
 }) {
   const [ustId, setUstId] = useState(contact?.ustId ?? prefill?.ustId ?? "");
@@ -237,7 +237,7 @@ function kontaktEingaben(form: FormData, ownSkonto: boolean, skontoRows: SkontoR
     debitorNr: debitor.value,
     kreditorNr: kreditor.value,
     hourlyRateCents: rate,
-    // Ohne weitere Bankverbindungen steht das Feld nicht da; dann bleibt die Vorgabe, wie sie ist
+    // Ohne weitere Zahlungskonten steht das Feld nicht da; dann bleibt die Vorgabe, wie sie ist
     ...(form.has("bankverbindungId") ? { bankverbindungId: text("bankverbindungId") || null } : {}),
   } satisfies ContactInput;
 }

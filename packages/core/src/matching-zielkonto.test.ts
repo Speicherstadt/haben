@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { suggestMatches, type OpenItem } from "./matching.ts";
 
-// Weitere Bankverbindungen (#1887): Zwei Rechnungen über denselben Betrag an denselben Kunden, je auf ein anderes Konto
+// Weitere Zahlungskonten (#1887): Zwei Rechnungen über denselben Betrag an denselben Kunden, je auf ein anderes Konto
 const rechnung = (id: string, zielIban: string | undefined): OpenItem => ({
   type: "invoice",
   id,
@@ -29,6 +29,12 @@ describe("suggestMatches mit Zielkonto der Rechnung", () => {
     expect(erste?.reasons).toContain("Auf das Konto der Rechnung");
     expect(zweite?.reasons).not.toContain("Auf das Konto der Rechnung");
     expect(erste!.score).toBe(zweite!.score + 10);
+  });
+
+  it("hebt keinen schwachen Posten über die Schwelle: das Konto ordnet nur unter den Vorschlägen", () => {
+    // Teilzahlung ohne Nummer und ohne Namen: 5 Punkte, mit dem Konto der Rechnung 15, beides unter 40
+    const teil = { ...zahlung, amount: 50_000, counterpartyName: "Unbekannt" };
+    expect(suggestMatches(teil, [rechnung("002", "DE02120300000000202051")])).toEqual([]);
   });
 
   it("ohne Zielkonto oder ohne Konto des Umsatzes wie bisher", () => {

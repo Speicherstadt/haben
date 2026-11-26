@@ -79,7 +79,7 @@ export const quoteDraftSchema = z
     contactId: z.uuid().nullable(),
     /** Ansprechpartner des Kunden (#424); der Stand beim Festschreiben steht im Käufer des Angebots */
     contactPersonId: z.uuid().nullable().default(null),
-    /** Weitere Bankverbindung (#1887); null = Standard, fehlt = bisherige bzw. Vorgabe des Kontakts (bankverbindungFuerEntwurf) */
+    /** Zahlungskonto (#1887); null = Standard, fehlt = bisheriges bzw. bevorzugtes des Kontakts (bankverbindungFuerEntwurf) */
     bankverbindungId: z.uuid().nullable().optional(),
     issueDate: isoDate,
     validUntil: isoDate,

@@ -173,7 +173,7 @@ function editorProps({
 function useKopfFelder(initial: InvoiceEditorProps["initial"]) {
   const [contactId, setContactId] = useState(initial.contactId ?? "");
   const [contactPersonId, setContactPersonId] = useState(initial.contactPersonId ?? "");
-  /** Weitere Bankverbindung (#1887); leer = Standard aus den Firmendaten */
+  /** Zahlungskonto (#1887); leer = Standard aus den Firmendaten */
   const [bankverbindungId, setBankverbindungId] = useState(initial.bankverbindungId ?? "");
   /** Offener Dialog „Neuer Kunde“ mit dem vorgetragenen Namen; null = geschlossen */
   const [newContactName, setNewContactName] = useState<string | null>(null);

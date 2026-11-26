@@ -159,7 +159,7 @@ describe.skipIf(!testDatabaseUrl)("Weitere Zahlungskonten an Rechnung, Angebot u
     expect(konto(invoice.xml)).toContain(`<ram:IBANID>${STANDARD}</ram:IBANID>`);
   });
 
-  it("Bankabgleich: offene Rechnungen nennen ihr Zielkonto, sobald eine auf eine weitere Bankverbindung lautet", async () => {
+  it("Bankabgleich: offene Rechnungen nennen ihr Zielkonto, sobald eine auf ein weiteres Zahlungskonto lautet", async () => {
     const { openItems } = await import("../bank/offene-posten.ts");
     const standard = await invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, draftInput())).id, kleinunternehmerStand);
     expect((await openItems()).find((i) => i.id === standard.id)?.zielIban).toBeUndefined();

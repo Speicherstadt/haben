@@ -84,7 +84,7 @@ export const documentPreviewSchema = z.object({
   contactId: z.uuid().nullable(),
   /** Ansprechpartner des Kunden (#424), für die Zeile „z. Hd.“ in der Vorschau */
   contactPersonId: z.uuid().nullable().default(null),
-  /** Gewählte weitere Bankverbindung (#1887); null = Standard aus den Firmendaten */
+  /** Gewähltes Zahlungskonto (#1887); null = Standard aus den Firmendaten */
   bankverbindungId: z.uuid().nullable().default(null),
   ...referenceFieldsSchema,
   lines: z
