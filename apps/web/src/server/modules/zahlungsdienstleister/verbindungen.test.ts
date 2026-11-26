@@ -20,6 +20,7 @@ const KONTEN: Record<string, { acct: string; txn: string; betrag: number }> = {
   rk_live_shopdeaaaaaaaa: { acct: "acct_shop", txn: "txn_shop1", betrag: 11900 },
   rk_live_kurseaaaaaaaaa: { acct: "acct_kurse", txn: "txn_kurse1", betrag: 4900 },
   rk_live_wechselaaaaaaa: { acct: "acct_wechsel", txn: "txn_wechsel1", betrag: 2500 },
+  rk_live_neuverbundenaa: { acct: "acct_neuverbunden", txn: "txn_neuverbunden1", betrag: 1500 },
 };
 
 function zahlung(txn: string, betrag: number): StripeBalanceTransaction {
@@ -206,6 +207,19 @@ describe.skipIf(!testDatabaseUrl)("Verbindungen zu Zahlungsdienstleistern (Postg
       "Dieses Stripe-Konto ist schon mit dem Konto Stripe Wechsel A verbunden",
     );
     expect((await psp.abrufen(actor, id, new Date(HEUTE.getTime() + 60 * 60 * 1000))).error).toBeNull();
+  });
+
+  it("nimmt bei „Automatisch“ das Konto, an das der Abruf schon gebunden ist, auch nach dem Entfernen", async () => {
+    // Das älteste freie Konto wäre ein anderes als das der Quellenbindung; die Verbindung schriebe sonst nie wieder
+    await konto("Stripe Neu Älter", "stripe", 7);
+    const gebunden = await konto("Stripe Neu Gebunden", "stripe", 8);
+    const eingabe = { apiKey: "rk_live_neuverbundenaa" };
+    const erste = await psp.speichereVerbindung(actor, { provider: "stripe", name: "Neu", bankAccountId: gebunden, eingabe, fetchFrom: "2026-11-01" });
+    expect((await psp.abrufen(actor, erste, HEUTE)).error).toBeNull();
+    await psp.entferneVerbindung(actor, erste);
+    const zweite = await psp.speichereVerbindung(actor, { provider: "stripe", name: "Neu", bankAccountId: null, eingabe, fetchFrom: "2026-11-01" });
+    expect((await psp.ladeVerbindung(zweite))!.row.bankAccountId).toBe(gebunden);
+    expect((await psp.abrufen(actor, zweite, new Date(HEUTE.getTime() + 2 * 60 * 60 * 1000))).error).toBeNull();
   });
 
   it("schreibt Änderungen ins Protokoll, ohne den Zugang", async () => {
