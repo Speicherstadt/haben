@@ -11,7 +11,7 @@ Unter **Bank** holst du die Umsätze automatisch über Enable Banking oder FinTS
 
 ## Konten und Verbindungen
 
-Oben stehen alle Konten als Karten: Name, Saldo, offene Umsätze und Weg mit Zeit („FinTS · heute 06:00“) oder ein Status wie **Fehlgeschlagen**, **Konflikt** oder **Läuft ab**. Ein Klick wählt das Konto. **⋯** auf der Karte bietet **Jetzt abrufen** (ohne Verbindung **Datei importieren**), **Name und Zweck …**, **Verbindung bearbeiten** und **Alle Verbindungen**. Ein negativer Saldo steht rot. Hat das gewählte Konto einen Status, steht darunter ein Hinweis mit dem vollen Text und dem Knopf, der ihn löst (**Klären**, **Neu anmelden**, **Zugang ändern**, **Jetzt abrufen**, **Datei importieren**). Die erste Zeile der Liste nennt Weg und Stand des Kontos, rechts daneben **Jetzt abrufen**; darunter stehen die Filter und die Suche. Am Handy werden die Karten zu einer schmalen Zeile, die beim Rollen stehen bleibt.
+Oben stehen alle Konten als Karten: Name, Saldo, offene Umsätze und Weg mit Zeit („FinTS · heute 06:00“) oder ein Status wie **Fehlgeschlagen**, **Konflikt** oder **Läuft ab**. Ein Klick wählt das Konto. **⋯** auf der Karte bietet **Jetzt abrufen** (ohne Verbindung **Datei importieren**), **Name und Zweck …**, **Verbindung bearbeiten** und **Alle Verbindungen**. Ein negativer Saldo steht rot. Hat das gewählte Konto einen Status, steht darunter ein Hinweis mit dem vollen Text und dem Knopf, der ihn löst (**Klären**, **Neu anmelden**, **Zugang ändern**, **Jetzt abrufen**, **Datei importieren**). Die erste Zeile der Liste nennt Weg und Stand des Kontos, rechts daneben **Jetzt abrufen**; darunter stehen die Filter und die Suche. Im schmalen Fenster und am Handy werden die Karten zu einer Zeile kleiner Karten, die beim Rollen unter dem Kopf stehen bleibt: Name und darunter der Status mit Punkt in seiner Farbe, ohne Status die Zahl offener Umsätze.
 
 ### Verbindungen
 
@@ -158,8 +158,6 @@ Wählst du ein Konto aus und die Datei nennt eine andere IBAN, bricht der Import
 | Freigabe nötig | Die Bank wartet bei FinTS auf eine TAN oder Freigabe in der App. |
 | Konflikt | Der Abruf hat [Konflikte](#welche-umsätze-abgerufen-werden), die auf deine Entscheidung warten. |
 | Veraltet | Der letzte Import oder Abruf ist älter als sieben Tage. |
-
-Im schmalen Fenster und am Handy werden die Karten zu einer Zeile aus Namen mit der Zahl offener Umsätze, die beim Rollen unter dem Kopf stehen bleibt; der Punkt davor hat die Farbe des Status.
 
 ### Privates Konto: Geschäftsvorfälle gegen Entnahme und Einlage
 
