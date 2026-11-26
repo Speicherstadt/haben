@@ -161,9 +161,9 @@ export function ownerAccount(kontenrahmen: Kontenrahmen, rechtsform: Rechtsform,
  *   Wirtschaftsgut für das Anlagenverzeichnis, Einfuhrumsatzsteuer für den Bescheid des Zolls, Bewirtung für den
  *   Bewirtungsbeleg (§ 4 Abs. 5 Satz 1 Nr. 2 Satz 2 EStG), Geschenke für die Empfänger (§ 4 Abs. 7 EStG); und nicht bei
  *   Kontoführung und Gebühren, die „Direkt buchen“ schon als eigenen Eintrag hat.
- * - `eigenesKonto`: Elternkategorie eines eigenen Sachkontos (#270). Nicht ohne Aufwandsbuchung (Anlagegut, Einfuhrumsatzsteuer),
- *   mit eigener Behandlung (geringwertiges Wirtschaftsgut, Kontoführung, Kfz-Steuer) oder als Wareneinsatz (Wareneinkauf,
- *   Fremdleistungen). Zusätzlich muss das Konto in der Aufwandsklasse liegen (ownAccountParents).
+ * - `eigenesKonto`: Elternkategorie eines eigenen Sachkontos (#270). Nicht bei Kategorien ohne Aufwandsbuchung, mit eigener
+ *   Behandlung oder als Wareneinsatz: Anlagegut, Hardware, Einfuhrumsatzsteuer, Kontoführung, Wareneinkauf, Fremdleistungen
+ *   und Kfz-Steuer. Zusätzlich muss das Konto in der Aufwandsklasse liegen (ownAccountParents).
  * - `dauerbeleg`: Vorlage für wiederkehrende Belege. Nicht beim Anlagegut, das je Anschaffung eine eigene Anlage wird.
  */
 export type KategorieEigenschaft = "aufwand" | "direkt" | "eigenesKonto" | "dauerbeleg";
