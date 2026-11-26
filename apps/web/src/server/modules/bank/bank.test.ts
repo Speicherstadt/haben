@@ -892,6 +892,8 @@ describe.skipIf(!testDatabaseUrl)("Bankabgleich (Postgres)", () => {
       null,
     );
     await expect(bank.importStatement(actor, file, dkb.accountId)).rejects.toThrow(/Export eines Zahlungsdienstleisters/);
+    // In ein Bankkonto gewählt (etwa über „Datei importieren“ im Menü der Karte): die Meldung fragt nach dem Konto (#1951)
+    await expect(bank.importStatement(actor, file, dkb.accountId)).rejects.toBeInstanceOf(bank.KontoWaehlenError);
     expect(await bank.importStatement(actor, file, paypal.id)).toMatchObject({ added: 3 });
 
     const [payment] = await sql`select id from bank_transactions where amount = 476000`;

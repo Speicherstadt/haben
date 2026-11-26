@@ -42,6 +42,12 @@ describe("hinweisText", () => {
     );
   });
 
+  it("wiederholt „fehlgeschlagen“ nicht, wenn der Fehler schon so beginnt (FinTS und Zahlungsdienstleister schreiben „Abruf fehlgeschlagen: …“)", () => {
+    expect(hinweisText({ ...karte, status: status("Fehlgeschlagen", { tone: "danger" }), fehler: "Abruf fehlgeschlagen: Schlüssel abgelehnt" })).toBe(
+      "Der letzte Abruf ist fehlgeschlagen: Schlüssel abgelehnt",
+    );
+  });
+
   it("Ablauf: Zustimmung bei Enable Banking, sonst der Zugang", () => {
     expect(hinweisText({ ...karte, zugang: bank, status: status("Läuft ab", { detail: "in 12 Tagen" }) })).toBe(
       "Die Zustimmung bei der Bank läuft in 12 Tagen ab. Danach ruft Haben nichts mehr ab.",
