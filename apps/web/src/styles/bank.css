@@ -45,7 +45,7 @@
 .tx-stand > .btn { margin-left: auto; }
 .tx-stand > .tx-stand-grund { order: 3; flex-basis: 100%; white-space: normal; }
 .tx-toolbar { flex-wrap: nowrap; justify-content: flex-start; gap: 12px; padding: 8px 20px 12px; }
-.tx-filter { display: flex; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.tx-filter { display: flex; gap: 8px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .tx-filter > .chip { flex: none; min-height: 32px; padding: 0 12px; }
 .tx-toolbar > .search-box { flex: 1 1 160px; min-width: 160px; max-width: 280px; margin-left: auto; }
 @media (max-width: 760px) {
