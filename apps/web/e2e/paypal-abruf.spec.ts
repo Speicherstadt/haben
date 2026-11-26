@@ -113,7 +113,7 @@ test("Einrichtung", async () => {
 
 test("Falsche Zugangsdaten: PayPal lehnt beim Prüfen ab, nichts wird gespeichert, das Secret steht in keiner Meldung", async () => {
   await gehe(page, "/bank");
-  await kontoVerbinden(page, "Zahlungsdienstleister verbinden");
+  await kontoVerbinden(page, "Zahlungsdienstleister hinzufügen");
   const dialog = page.getByRole("dialog", { name: "Anbieter wählen" });
   await dialog.getByRole("radio", { name: "PayPal" }).check();
   await expect(dialog.getByRole("radio", { name: "PayPal" })).toHaveAccessibleDescription("Client-ID und Secret · 3 Schritte · noch nicht verbunden");

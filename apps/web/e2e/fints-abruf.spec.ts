@@ -8,7 +8,7 @@ import { axeVerstoesse, bankVerbinden, bestaetigen, durchlaufSeite, einrichten, 
  * Kontoabruf über FinTS (#654) in eigener, leerer Datenbank (Projekt „fints-abruf“, e2e/durchlaeufe.ts). Der Server
  * des Durchlaufs hat als einziger FINTS_PRODUKT_ID (playwright.config.ts); die Bank baut @haben/import/fints-testbank
  * nach: FinTS 3.0 mit PIN/TAN, chipTAN und pushTAN, zwei Konten, Umsätze als MT940. Verbunden wird über „Konto
- * verbinden › Bank verbinden › FinTS“; im Bereich „Automatischer Abruf“ steht die Verbindung des gewählten Kontos und jede,
+ * verbinden › Bank hinzufügen › FinTS“; im Bereich „Automatischer Abruf“ steht die Verbindung des gewählten Kontos und jede,
  * an der gerade ein Schritt der Bank offen ist oder eine Anfrage läuft (#1951).
  */
 
@@ -71,13 +71,13 @@ test.afterEach(() => {
 const abruf = () => page.getByRole("region", { name: "Automatischer Abruf" });
 const freigabe = () => page.getByRole("form", { name: "Freigabe bei der Bank" });
 const kontenwahl = () => page.getByRole("form", { name: "Konten wählen" });
-/** „Konto verbinden › Bank verbinden › FinTS (PIN/TAN)“ öffnet das Formular „Über FinTS verbinden“ */
+/** „Konto verbinden › Bank hinzufügen › FinTS (PIN/TAN)“ öffnet das Formular „Über FinTS verbinden“ */
 const fintsVerbinden = () => bankVerbinden(page, "FinTS (PIN/TAN)");
 const FINTS_HINWEIS = "Vor allem für Sparkassen, Volks- und Raiffeisenbanken: Haben meldet sich mit Anmeldename und PIN an.";
 
 /** Der Weg FinTS im Dialog „Wie verbinden?“: mit grund gesperrt und der Grund zu sehen, ohne frei; der Dialog schließt wieder */
 async function fintsWahl(grund: string | null) {
-  await kontoVerbinden(page, "Bank verbinden");
+  await kontoVerbinden(page, "Bank hinzufügen");
   const dialog = page.getByRole("dialog", { name: "Wie verbinden?" });
   const wahl = dialog.getByRole("radio", { name: "FinTS (PIN/TAN)" });
   if (grund) {
@@ -120,7 +120,7 @@ test("Einrichtung", async () => {
 test("Einstellungen › Bank zeigt, dass FinTS eingerichtet ist, ohne die Nummer", async () => {
   await gehe(page, "/einstellungen?bereich=bank");
   const karte = page.getByRole("region", { name: "Kontoabruf über FinTS" });
-  await expect(karte.getByRole("status")).toHaveText("Eingerichtet. Unter Bank verbindest du deine Bank mit „Konto verbinden › Bank verbinden“.");
+  await expect(karte.getByRole("status")).toHaveText("Eingerichtet. Unter Bank verbindest du deine Bank mit „Konto verbinden › Bank hinzufügen“.");
   await expect(page.getByText(FINTS_PRODUKT_E2E)).toHaveCount(0);
 });
 
@@ -192,7 +192,7 @@ test("„Jetzt abrufen“ fragt die TAN ab, wenn die Bank sie verlangt", async (
 });
 
 // Bis #1951 klappte der Knopf „Über FinTS verbinden“ oben das Formular auch zu; das tut jetzt „Abbrechen“ im Formular
-test("„Bank verbinden › FinTS“ öffnet nach abgebrochenem „Zugang ändern“ ein leeres Formular", async () => {
+test("„Bank hinzufügen › FinTS“ öffnet nach abgebrochenem „Zugang ändern“ ein leeres Formular", async () => {
   await gehe(page, "/bank");
   const form = page.getByRole("form", { name: "Über FinTS verbinden" });
   await abruf().getByRole("button", { name: "Zugang ändern" }).click();
@@ -215,7 +215,7 @@ test("„Bank verbinden › FinTS“ öffnet nach abgebrochenem „Zugang änder
   await expect(form).toHaveCount(0);
 });
 
-test("„Bank verbinden › FinTS“ bei offenem „Zugang ändern“ öffnet ein leeres Formular für eine neue Bank (Review #1951)", async () => {
+test("„Bank hinzufügen › FinTS“ bei offenem „Zugang ändern“ öffnet ein leeres Formular für eine neue Bank (Review #1951)", async () => {
   // Bis #1951 klappte „Über FinTS verbinden“ das Formular von „Zugang ändern“ zu; das Menü darf nicht die Angaben der
   // bestehenden Verbindung als neue Bank anbieten
   await gehe(page, "/bank");

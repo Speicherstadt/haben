@@ -10,7 +10,7 @@ import { addBankAccount, addProviderAccount } from "../../server/functions/bank.
 import { hatMarktplatzKonto, type Data } from "./-bank-daten.ts";
 
 /**
- * Formular „Konto hinzufügen“: Bankkonto oder Zahlungsdienstleister, ohne Abruf; über „Bank verbinden › Kontoauszüge als
+ * Formular „Konto hinzufügen“: Bankkonto oder Zahlungsdienstleister, ohne Abruf; über „Bank hinzufügen › Kontoauszüge als
  * Datei“ (datei) mit dem Hinweis auf den Import. Für einen Marktplatz, für den es schon ein Amazon-
  * Konto gibt, fragt es vorher nach (zwei Verkäuferkonten am selben Marktplatz sind möglich, aber dann sieht die
  * Marktplatzprüfung beide als passend an).

@@ -26,7 +26,7 @@ export type FintsOffen = { fuer: string; schritt: Offen } | null;
 /**
  * Was die Bankseite für FinTS führt, damit der Dialog „Wie verbinden?“ es kennt (#1951): Formular „Über FinTS verbinden“ offen
  * (verbinden) samt Vorlage von „Zugang ändern“, offener Schritt der Bank und die Zeile mit laufender Anfrage (busy: ihre ID
- * beim Abruf, `x-<ID>` beim Trennen). Zugeklappt und mit neuVerbinden („Bank verbinden › FinTS“) gilt keine Vorlage mehr
+ * beim Abruf, `x-<ID>` beim Trennen). Zugeklappt und mit neuVerbinden („Bank hinzufügen › FinTS“) gilt keine Vorlage mehr
  */
 export function useFintsZustand() {
   const [verbinden, setFormular] = useState(false);

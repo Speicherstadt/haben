@@ -50,7 +50,7 @@ Vorbild sind die Tests von Stripe in `modules/zahlungsdienstleister/` und `packa
 - `<anbieter>.test.ts` mit Postgres über die Client-Factory: Speichern mit Prüfung, falscher und Test-Zugang abgelehnt, Abruf legt Umsätze an, zweiter Abruf keine Dubletten, Fehler des Anbieters landet in `last_error` ohne Geheimnis, Stand nach Fehler.
 - `<anbieter>-csv-zuerst.test.ts`, wenn es eine Datei gibt.
 - `<anbieter>-regeln.test.ts` für Fenster und nächsten Start.
-- `e2e/<anbieter>-abruf.spec.ts`: über „Konto verbinden › Zahlungsdienstleister verbinden“ und die Schritte der Einrichtung verbinden, Zugang prüfen, erster Abruf, Umsatz auf der Bankseite, axe.
+- `e2e/<anbieter>-abruf.spec.ts`: über „Konto verbinden › Zahlungsdienstleister hinzufügen“ und die Schritte der Einrichtung verbinden, Zugang prüfen, erster Abruf, Umsatz auf der Bankseite, axe.
 
 ## 5. Oberfläche
 

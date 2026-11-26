@@ -489,7 +489,7 @@ test("Belege per E-Mail: Postfach einrichten, Fehler beim Abruf sichtbar", async
 test("Kontoabruf: Enable Banking in den Einstellungen, ein falscher Schlüssel wird abgelehnt", async () => {
   await go("/bank");
   // Ohne Zugang zu Enable Banking steht der Weg im Dialog ausgegraut, mit Grund und Link zu den Einstellungen (#1951)
-  await kontoVerbinden(page, "Bank verbinden");
+  await kontoVerbinden(page, "Bank hinzufügen");
   const wie = page.getByRole("dialog", { name: "Wie verbinden?" });
   const enableBanking = wie.getByRole("radio", { name: "Online-Banking über Enable Banking (PSD2)" });
   await expect(enableBanking).toBeDisabled();

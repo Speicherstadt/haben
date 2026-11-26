@@ -9,7 +9,7 @@ import type { Data } from "./-bank-daten.ts";
 
 /*
  * „Konto verbinden ▾“ im Kopf der Bankseite (#1951): ein Menü für Bank, Zahlungsdienstleister und ein Konto ohne Abruf.
- * „Bank verbinden“ fragt im Dialog, wie (Enable Banking, FinTS oder Datei), „Zahlungsdienstleister verbinden“ nach dem
+ * „Bank hinzufügen“ fragt im Dialog, wie (Enable Banking, FinTS oder Datei), „Zahlungsdienstleister hinzufügen“ nach dem
  * Anbieter und führt dann zur Einrichtung in Schritten. Was auf dieser Installation nicht geht, steht ausgegraut mit Grund.
  */
 
@@ -176,8 +176,8 @@ export function KontoVerbinden({
       <MoreActionsMenu
         text="Konto verbinden"
         items={[
-          { key: "bank", label: "Bank verbinden", onSelect: () => setDialog("bank") },
-          { key: "anbieter", label: "Zahlungsdienstleister verbinden", onSelect: () => setDialog("anbieter") },
+          { key: "bank", label: "Bank hinzufügen", onSelect: () => setDialog("bank") },
+          { key: "anbieter", label: "Zahlungsdienstleister hinzufügen", onSelect: () => setDialog("anbieter") },
           { key: "ohne", label: "Konto ohne Abruf anlegen", onSelect: onOhneAbruf },
         ]}
       />

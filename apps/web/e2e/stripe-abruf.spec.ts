@@ -107,9 +107,9 @@ test("Einrichtung", async () => {
   await einrichten(page);
 });
 
-test("„Konto verbinden › Zahlungsdienstleister verbinden“: Anbieter wählen, die ohne Abruf ausgegraut mit Grund", async () => {
+test("„Konto verbinden › Zahlungsdienstleister hinzufügen“: Anbieter wählen, die ohne Abruf ausgegraut mit Grund", async () => {
   await gehe(page, "/bank");
-  await kontoVerbinden(page, "Zahlungsdienstleister verbinden");
+  await kontoVerbinden(page, "Zahlungsdienstleister hinzufügen");
   const dialog = page.getByRole("dialog", { name: "Anbieter wählen" });
   const stripeWahl = dialog.getByRole("radio", { name: "Stripe" });
   await expect(stripeWahl).toBeChecked();
@@ -195,7 +195,7 @@ test("Zugang prüfen nennt das Konto bei Stripe und speichert nichts; Name und Z
 });
 
 test("Ein schon verbundenes Konto erkennt die Prüfung, mit dem Namen der Verbindung", async () => {
-  await kontoVerbinden(page, "Zahlungsdienstleister verbinden");
+  await kontoVerbinden(page, "Zahlungsdienstleister hinzufügen");
   const dialog = page.getByRole("dialog", { name: "Anbieter wählen" });
   await expect(dialog.getByRole("radio", { name: "Stripe" })).toHaveAccessibleDescription("API-Schlüssel · 3 Schritte · verbunden: „Shop DE“");
   await dialog.getByRole("button", { name: "Weiter" }).click();

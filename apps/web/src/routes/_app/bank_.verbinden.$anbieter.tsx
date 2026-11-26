@@ -7,7 +7,7 @@ import bankStyles from "../../styles/bank.css?url";
 import { AbrufSchritt, EinstellungenSchritt, type Pruefung, Schrittleiste, useSpeichern, ZugangSchritt } from "./-bank-einrichtung.tsx";
 
 /*
- * Geführte Einrichtung eines Zahlungsdienstleisters (#1951): „Konto verbinden › Zahlungsdienstleister verbinden“ auf der
+ * Geführte Einrichtung eines Zahlungsdienstleisters (#1951): „Konto verbinden › Zahlungsdienstleister hinzufügen“ auf der
  * Bankseite führt hierher. Die Schritte nennt der Adapter (#1729); Stripe und PayPal haben drei: Zugang, Name und Zeitraum,
  * erster Abruf. Der Zugang bleibt bis zum Speichern im Browser; neu laden beginnt von vorn.
  */

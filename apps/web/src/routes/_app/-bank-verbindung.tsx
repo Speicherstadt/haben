@@ -24,7 +24,7 @@ type Meldung = { tone: "ok" | "danger" | "info"; text: string };
  * Automatischer Abruf des gewählten Kontos über der Liste (#1951): seine Verbindung über Enable Banking, FinTS oder zum
  * Zahlungsdienstleister mit Stand, Fehler und Aktionen. Bei „Alle Konten“ steht hier nur eine Verbindung ohne Konto in der
  * Kartenleiste, die es bei jedem Konto tut. Die Formulare zum
- * Verbinden („Konto verbinden › Bank verbinden“) erscheinen hier auch ohne gewähltes Konto, ebenso eine FinTS-Verbindung,
+ * Verbinden („Konto verbinden › Bank hinzufügen“) erscheinen hier auch ohne gewähltes Konto, ebenso eine FinTS-Verbindung,
  * an der gerade ein Schritt der Bank offen ist oder ein Abruf läuft. Ohne Inhalt ist der Bereich leer und unsichtbar
  * (bank.css); er bleibt im Dokument, damit Meldungen nach dem Verbinden nicht mit ihm verschwinden.
  */

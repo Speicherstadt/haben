@@ -85,7 +85,7 @@ Ausrichtung: auf der Seite linksbündig an der Kante der Felder, im Dialog recht
 
 ### Menüknopf
 
-Gibt es zu einer Aktion mehrere Wege, steht statt mehrerer Knöpfe ein Menüknopf mit Text und `chevron-down`, etwa „Konto verbinden ▾“ auf der Bankseite mit „Bank verbinden“, „Zahlungsdienstleister verbinden“ und „Konto ohne Abruf anlegen“. Er ist derselbe `MoreActionsMenu` wie `⋯`, mit `text` statt Symbol (Menu Button nach WAI-ARIA APG); sein Text ist der Name des Menüs. Ein Punkt, der eine Wahl braucht, öffnet einen Dialog mit Auswahl (siehe Auswahl im Dialog), statt das Menü zu verschachteln.
+Gibt es zu einer Aktion mehrere Wege, steht statt mehrerer Knöpfe ein Menüknopf mit Text und `chevron-down`, etwa „Konto verbinden ▾“ auf der Bankseite mit „Bank hinzufügen“, „Zahlungsdienstleister hinzufügen“ und „Konto ohne Abruf anlegen“. Er ist derselbe `MoreActionsMenu` wie `⋯`, mit `text` statt Symbol (Menu Button nach WAI-ARIA APG); sein Text ist der Name des Menüs. Ein Punkt, der eine Wahl braucht, öffnet einen Dialog mit Auswahl (siehe Auswahl im Dialog), statt das Menü zu verschachteln.
 
 ### Symbole
 

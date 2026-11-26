@@ -14,7 +14,7 @@ Unter **Bank** holst du die Umsätze automatisch über Enable Banking oder FinTS
 
 ## Automatischer Abruf
 
-Im Kopf der Seite **Bank** öffnet **Konto verbinden** ein Menü: **Bank verbinden**, **Zahlungsdienstleister verbinden** ([geführte Einrichtung](bank-zahlungsdienstleister.md#verbindungen-über-die-api)) und **Konto ohne Abruf anlegen**. **Bank verbinden** fragt **Wie verbinden?**:
+Im Kopf der Seite **Bank** öffnet **Konto verbinden** ein Menü: **Bank hinzufügen**, **Zahlungsdienstleister hinzufügen** ([geführte Einrichtung](bank-zahlungsdienstleister.md#verbindungen-über-die-api)) und **Konto ohne Abruf anlegen**. **Bank verbinden** fragt **Wie verbinden?**:
 
 - **Online-Banking über Enable Banking (PSD2):** für die meisten Banken in Europa; braucht den Zugang zu Enable Banking unter **Einstellungen › Bank** ([Anbindungen](installation-anbindungen.md#kontoabruf-enable-banking)).
 - **FinTS (PIN/TAN):** vor allem für Sparkassen, Volks- und Raiffeisenbanken; braucht die Produktnummer der Installation, siehe [Abruf über FinTS](#abruf-über-fints).
