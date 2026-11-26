@@ -827,7 +827,9 @@ test("Eine Verbindung über Enable Banking ohne Konto in der Leiste bleibt sicht
     await sql.end();
   }
   await gehe(page, "/bank");
-  const leer = abruf().locator(".history-row").filter({ has: page.getByText("Leerbank", { exact: true }) });
+  const leer = abruf()
+    .locator(".history-row")
+    .filter({ has: page.getByText("Leerbank", { exact: true }) });
   await expect(leer).toBeVisible();
   await expect(leer.getByText(fehler)).toBeVisible();
   await leer.getByRole("button", { name: "Trennen" }).click();
