@@ -24,6 +24,28 @@ Freiberuflern und kleinen GmbHs beim Buchen am meisten fehlt. Wünsche kommen al
 Kommentar, ob und wo es ins Board kommt, oder eine Rückfrage; was umgesetzt ist, steht im jeweiligen
 Kapitel der Doku und in den [Releases](https://github.com/Speicherstadt/haben/releases).
 
+## Vorschlag zur Abstimmung: Ist-Kosten je Kostenstelle
+
+Externe Projektwerkzeuge sollen gebuchte Kosten aus Haben lesen und mit ihrer Planung vergleichen können. Die
+Projektplanung bleibt im Projektwerkzeug. Grundlage sind die Kostenstellen aus
+[#313](https://github.com/Speicherstadt/haben/issues/313). Die Schnittstelle ist in
+[#1957](https://github.com/Speicherstadt/haben/issues/1957) vorgeschlagen. Sie ist noch nicht verfügbar.
+
+- Ein eigener Lesebereich für API-Schlüssel erlaubt die Abfrage nach Kostenstellen-ID und Buchungszeitraum.
+  Einträge werden seitenweise nach Buchungsdatum und stabiler ID geliefert.
+- Ein Eintrag entspricht einer gebuchten Kostenzuordnung. Er enthält die Zuordnungs-ID, die Buchungs-ID, das
+  Buchungsdatum, den vorzeichenbehafteten Betrag in Cent und die Währung des Betrags. Die Auswertung verwendet
+  dieselbe Betragsgrundlage wie die Kostenstellenauswertung in Haben. Bei einer Aufteilung zählt nur der gebuchte
+  Anteil der Kostenstelle. Soweit vorhanden verweist die Beleg-ID auf den Beleg in Haben. Sie erteilt kein
+  zusätzliches Leserecht für den Beleg oder sein Original.
+- Storno und Korrektur erscheinen mit ihren gebuchten Beträgen und einem Verweis auf die ursprüngliche Zuordnung.
+  Entwürfe erscheinen erst nach der Buchung. Ein Zahlungsvorgang erscheint nicht zusätzlich, wenn die Kosten
+  bereits in der Kostenstellenauswertung enthalten sind.
+
+Ein Abnahmetest vergleicht eine auf zwei Kostenstellen aufgeteilte Buchung mit ihrer Gegenbuchung in der
+Kostenstellenauswertung. Für jede Kostenstelle müssen API-Summe und Auswertung übereinstimmen. Welche Buchungen
+Kosten zugeordnet bekommen und wie Gegenbuchungen referenziert werden, wird mit #313 abgestimmt.
+
 ## Bewusst nicht
 
 | Thema | Grund |
