@@ -53,11 +53,31 @@ export function parseSplitRows(
 
 /**
  * Privatanteil einer Zeile nach dem Wechsel ihrer Kategorie (#1914): die Vorgabe der neuen Kategorie aus den
- * Firmendaten, ohne Vorgabe 0, damit kein alter Wert stehen bleibt. Wo es kein Feld gibt (GmbH und UG), bleibt er, wie er war.
+ * Firmendaten, ohne Vorgabe leer (das zählt als 0), damit kein alter Wert stehen bleibt und das Feld keine 0 vortäuscht.
+ * Wo es kein Feld gibt (GmbH und UG), bleibt er, wie er war.
  */
 export function anteilBeimKategorieWechsel(shares: Partial<Record<string, number>>, kategorie: ExpenseCategory | "", bisher: string, sichtbar = true): string {
   if (!sichtbar) return bisher;
-  return privatanteilVorgabe(shares, kategorie) || "0";
+  return privatanteilVorgabe(shares, kategorie);
+}
+
+/**
+ * Anteil für den Beleg beim Aufheben der Aufteilung (#1914): Mit Zeilen zählt der Anteil der Zeile; die erste Zeile gibt
+ * ihn an den Beleg zurück, statt ihn stumm zu verlieren.
+ */
+export function anteilBeimAufheben(rows: SplitRowState[]): string {
+  return rows[0]?.privateShare ?? "";
+}
+
+/**
+ * Trägt eine Zeile einen lesbaren Privatanteil über 0 (#1914)? Eine ungültige Eingabe zählt nicht, sonst verschwände der
+ * Hinweis, dass die Vorschau auf eine gültige Eingabe wartet.
+ */
+export function privatanteilInZeilen(rows: SplitRowState[]): boolean {
+  return rows.some((row) => {
+    const anteil = parsePrivatanteil(row.privateShare);
+    return anteil !== null && anteil > 0;
+  });
 }
 
 const percent = (rate: number) => `${rate / 100} %`;
@@ -73,6 +93,8 @@ export function DocumentSplits({
   taxLabel = "Vorsteuer",
   /** Privatanteil je Zeile (#1914): nur im Einzelunternehmen, wie am Beleg ohne Aufteilung */
   privatanteil = false,
+  /** Hinweis am Privatanteil der Zeile (#1914), gebildet wie privatanteilHinweis am Beleg: ohne Abzug nur die Ausgabe */
+  anteilHinweis,
   /** Vorgaben der Firmendaten je Kategorie, die eine neue Kategorie in ihre Zeile übernimmt */
   privateShares = {},
   error = () => undefined,
@@ -90,6 +112,8 @@ export function DocumentSplits({
   onDissolve: () => void;
   /** Privatanteil je Zeile (#1914) anzeigen: nur im Einzelunternehmen */
   privatanteil?: boolean;
+  /** Text am Privatanteil der Zeile (#1914), gebildet wie privatanteilHinweis am Beleg */
+  anteilHinweis: string;
   /** Vorgaben der Firmendaten je Kategorie (Prozent), die eine gewählte Kategorie übernimmt */
   privateShares?: Partial<Record<string, number>>;
   /** Fehler je Zeile aus der Prüfung beim Buchen (useSubmitCheck), erst danach zu sehen */
@@ -173,12 +197,7 @@ export function DocumentSplits({
               style={{ flex: "1 1 240px", minWidth: 0 }}
             />
             {privatanteil && (
-              <Field
-                label="Privatanteil in %"
-                hint="Nur der betriebliche Teil dieser Zeile ist Ausgabe und Vorsteuer."
-                error={error("privatanteil", row.key)}
-                style={{ flex: "0 0 140px" }}
-              >
+              <Field label="Privatanteil in %" hint={anteilHinweis} error={error("privatanteil", row.key)} style={{ flex: "0 0 140px" }}>
                 {(control) => (
                   <input
                     {...control}

@@ -56,7 +56,14 @@ describe.skipIf(!testDatabaseUrl)("EÜR-Teilabzug: Journal und Nebenbücher (Pos
 
   type Amount = { taxRate: 1900 | 700 | 0; net: number; tax: number; vorsteuerAnteil?: number | null };
   async function book(
-    options: { amounts?: Amount[]; vorsteuerAnteil?: number; privateShare?: number; payment?: "bank" | "privat"; reverseCharge?: "eu" | "ig_erwerb" } = {},
+    options: {
+      amounts?: Amount[];
+      vorsteuerAnteil?: number;
+      privateShare?: number;
+      payment?: "bank" | "privat";
+      reverseCharge?: "eu" | "ig_erwerb";
+      splits?: { category: "telefon" | "internet" | "software" | "buero"; taxRate: 1900 | 700 | 0; net: number; privateShare?: number }[];
+    } = {},
   ) {
     seq++;
     const { id } = await documents.uploadDocument(actor, {
@@ -76,6 +83,7 @@ describe.skipIf(!testDatabaseUrl)("EÜR-Teilabzug: Journal und Nebenbücher (Pos
       privateShare: options.privateShare ?? 0,
       reverseCharge: options.reverseCharge ?? null,
       amounts: options.amounts ?? [{ taxRate: 1900, net: 10_000, tax: 1_900 }],
+      ...(options.splits ? { splits: options.splits } : {}),
     });
     await documents.bookDocument(actor, id);
     return id;
@@ -155,4 +163,55 @@ describe.skipIf(!testDatabaseUrl)("EÜR-Teilabzug: Journal und Nebenbücher (Pos
     expect(amount(journal, "gezahlteUst")).toBe(950);
     await compare(2026, 10_000, 0);
   });
+
+  // Review #1924: Bei aufgeteilten Belegen ist der Anteil am Beleg 0, der Privatanteil steht in den Zeilen. Der
+  // Nebenbuchpfad übersprang solche Belege bei vollem Vorsteuerabzug, deshalb wich die DATEV-Formel um einen Cent ab.
+  for (const [kr, art] of [
+    ["SKR03", "ist"],
+    ["SKR04", "soll"],
+  ] as const) {
+    it(`Vodafone-Mischbeleg, zwei Teilzahlungen: DATEV-Formel und EÜR stimmen (${kr}, ${art})`, async () => {
+      await reset(kr, art);
+      const id = await book({
+        vorsteuerAnteil: 10_000,
+        amounts: [{ taxRate: 1900, net: 4_213, tax: 801 }],
+        splits: [
+          { category: "telefon", taxRate: 1900, net: 853, privateShare: 40 },
+          { category: "internet", taxRate: 1900, net: 3_360, privateShare: 25 },
+        ],
+      });
+      for (const date of ["24.11.26", "25.11.26"]) {
+        const t = await transaction(date, "-16,71");
+        await bank.allocate(actor, { kind: "document", documentId: id, transactionId: t.id, amount: t.amount });
+      }
+      const euer = await reports.euerForYear(2026);
+      // Zusammen 20,20 € Aufwand und 3,84 € Vorsteuer; wie die Rundung der Zeilenanteile sie auf Telefon und Internet
+      // verteilt, ist offen, der Abgleich hängt an ihrer Summe.
+      expect(amount(euer, "ausgabe:telefon") + amount(euer, "ausgabe:internet")).toBe(2_020);
+      expect(amount(euer, "vorsteuer")).toBe(384);
+      const zeile = (await abgleich.euerAbgleich(2026)).zeilen.find((z) => z.posten === "EÜR: Gewinn nach der DATEV-Formel");
+      expect(zeile).toMatchObject({ journal: -2_404, quelle: -2_404 });
+      expect(abgleich.abweichungen((await abgleich.euerAbgleich(2026)).zeilen)).toEqual([]);
+    }, 60_000);
+  }
+
+  // § 13b + Zeilenanteil bleibt beim Belegpfad: Der Nebenbuchpfad setzt die Zeilensteuer für den Zahlbetrag auf 0 und
+  // verlöre damit den privaten Teil der selbst geschuldeten Steuer in Zeile 17 (Vorschlag im Review: in euer-beleg.ts).
+  it("§ 13b mit Privatanteil je Zeile: Zeile 17 bleibt der private Teil der selbst geschuldeten Steuer", async () => {
+    await reset("SKR03", "ist");
+    const id = await book({
+      vorsteuerAnteil: 10_000,
+      reverseCharge: "eu",
+      amounts: [{ taxRate: 1900, net: 10_000, tax: 1_900 }],
+      splits: [
+        { category: "telefon", taxRate: 1900, net: 5_000, privateShare: 25 },
+        { category: "internet", taxRate: 1900, net: 5_000, privateShare: 0 },
+      ],
+    });
+    const t = await transaction("24.11.26", "-100,00");
+    await bank.allocate(actor, { kind: "document", documentId: id, transactionId: t.id, amount: t.amount });
+    const euer = await reports.euerForYear(2026);
+    expect(euer.einnahmen.find((l) => l.key === "vereinnahmteUst")?.amount ?? 0).toBe(238);
+    expect(abgleich.abweichungen((await abgleich.euerAbgleich(2026)).zeilen)).toEqual([]);
+  }, 60_000);
 });

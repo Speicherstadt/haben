@@ -61,7 +61,13 @@ describe.skipIf(!testDatabaseUrl)("Vorsteuer aus Gutschriften erst mit der Ersta
   async function beleg(
     date: string,
     amounts: BelegBetrag[],
-    extra: { payment?: "bank" | "kasse"; currency?: string; exchangeRate?: string; erstattetBezahltes?: boolean } = {},
+    extra: {
+      payment?: "bank" | "kasse";
+      currency?: string;
+      exchangeRate?: string;
+      erstattetBezahltes?: boolean;
+      splits?: { category: "internet" | "telefon"; taxRate: 1900; net: number; privateShare: number }[];
+    } = {},
   ) {
     const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ++lauf, 16, 74, 70]);
     const { id } = await documents.uploadDocument(actor, { bytes, filename: `beleg-${lauf}.jpg` });
@@ -71,13 +77,15 @@ describe.skipIf(!testDatabaseUrl)("Vorsteuer aus Gutschriften erst mit der Ersta
       invoiceNumber: `GUT-${lauf}`,
       documentDate: date,
       dueDate: null,
-      category: "telefon",
+      // Mit Aufteilung zählt die Kategorie des Belegs nicht; sie wird geleert
+      category: extra.splits ? "sonstiges" : "telefon",
       payment: extra.payment ?? "bank",
       note: "",
       // Eine Gutschrift über die Bank trägt die Angabe „erstattet bereits Bezahltes“; nur dann parkt Haben die Vorsteuer
       erstattetBezahltes: extra.erstattetBezahltes ?? (amounts.some((a) => a.net < 0) && (extra.payment ?? "bank") === "bank"),
       ...(extra.currency ? { currency: extra.currency, exchangeRate: extra.exchangeRate } : {}),
       amounts,
+      ...(extra.splits ? { splits: extra.splits } : {}),
     });
     await documents.bookDocument(actor, id);
     return id;
@@ -277,5 +285,30 @@ describe.skipIf(!testDatabaseUrl)("Vorsteuer aus Gutschriften erst mit der Ersta
     // Die Vorsteuer einer Gutschrift hängt am Ausgleich, nicht an der Versteuerungsart: die betrifft nur eigene Umsätze
     expect((await figures.computeVatFigures(februar)).kz66).toBe(0);
     expect((await figures.computeVatFigures(maerz)).kz66).toBe(-7_018);
+  }, 60_000);
+
+  it("Aufteilung mit Privatanteil je Zeile: die Erstattung zieht genau die betriebliche Vorsteuer vom Zwischenkonto", async () => {
+    // Gutschrift 50,14 € brutto: Internet 33,60 € netto und 6,39 € Steuer (25 % privat), Telefon 8,53 € und 1,62 €
+    // (40 % privat). Betrieblich bleiben 30,32 € netto und 5,76 € Vorsteuer; die restlichen 14,06 € sind Entnahme und
+    // stehen nicht auf dem Zwischenkonto.
+    const gutschrift = await beleg("2026-02-16", [{ taxRate: 1900, net: -4_213, tax: -801 }], {
+      erstattetBezahltes: true,
+      splits: [
+        { category: "internet", taxRate: 1900, net: -3_360, privateShare: 25 },
+        { category: "telefon", taxRate: 1900, net: -853, privateShare: 40 },
+      ],
+    });
+    const [gebucht] = await sql`select coalesce(sum(debit - credit), 0)::int as saldo from journal_lines where account = '1548'`;
+    expect(gebucht!.saldo).toBe(-576);
+
+    await zahle("15.03.26", "Erstattung Stadtwerke", 5_014, gutschrift);
+    const maerz = await figures.computeVatFigures({ year: 2026, month: 3 });
+    expect(maerz.kz66).toBe(-576);
+    expect(maerz.inputTax.map(({ number: _nummer, ...rest }) => rest)).toEqual([
+      { documentId: gutschrift, date: "2026-03-15", supplier: "Musterlieferant GmbH", rate: 1900, base: -3_032, tax: -576 },
+    ]);
+    // Das Zwischenkonto geht auf null auf: Es standen 5,76 € darauf, nicht 8,01 €
+    const [ausgeglichen] = await sql`select coalesce(sum(debit - credit), 0)::int as saldo from journal_lines where account = '1548'`;
+    expect(ausgeglichen!.saldo).toBe(0);
   }, 60_000);
 });

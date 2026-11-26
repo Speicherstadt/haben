@@ -284,6 +284,34 @@ describe.skipIf(!testDatabaseUrl)("Vorsteuer nach Leistungsdatum: Nebenbücher (
     expect((await monat(1, 2027)).kz66).toBe(0);
   });
 
+  /*
+   * #1914: Auch die Zahlung vor der Ausführung rechnet je Zeile. Von 2.380 € (halber Beleg) entfallen betrieblich
+   * 1.750 € netto und 332 € Vorsteuer auf November, nicht 2.000 € und 380 €: Internet ist zu 25 % privat, Telefon nicht.
+   * Der Rest mit der Ausführung ergibt zusammen 3.500 € und 665 €, und das Zwischenkonto geht auf null.
+   */
+  it("Aufteilung mit Privatanteil je Zeile und Zahlung vor der Ausführung: der betriebliche Anteil der Zahlung", async () => {
+    await firma();
+    const id = await beleg({
+      datum: "2026-11-20",
+      von: "2026-12-01",
+      bis: "2026-12-31",
+      amounts: [{ taxRate: 1900, net: 4_000, tax: 760 }],
+      splits: [
+        { category: "internet", taxRate: 1900, net: 2_000, privateShare: 25 },
+        { category: "telefon", taxRate: 1900, net: 2_000, privateShare: 0 },
+      ],
+    });
+    await zahlung(id, -2_380, "2026-11-25");
+
+    expect((await monat(11)).kz66).toBe(332);
+    expect((await monat(11)).zeilen).toEqual([{ date: "2026-11-25", tax: 332, base: 1_750 }]);
+    // Der Rest mit der Ausführung: zusammen 3.500 € und 665 €
+    expect((await monat(12)).kz66).toBe(333);
+    expect((await monat(11)).kz66 + (await monat(12)).kz66).toBe(665);
+    const [saldo] = await sql`select coalesce(sum(debit - credit), 0)::int as saldo from journal_lines where account = '1548'`;
+    expect(saldo!.saldo).toBe(0);
+  });
+
   // Beispiel aus #693, Vorschlag 4: Wartung 15.11. bis 14.12., Rechnung 20.11., bezahlt 10.01. → Vorsteuer im Dezember
   it("Leistungszeitraum beginnt vor dem Belegdatum und endet danach, nach der Ausführung bezahlt: Vorsteuer im Monat der Ausführung", async () => {
     await firma();

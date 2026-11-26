@@ -374,6 +374,31 @@ describe("Privatanteil je Zeile (#1914)", () => {
       expect(sumOf(lines.map((l) => l.debit))).toBe(sumOf(lines.map((l) => l.credit)));
     });
 
+    it("voller Abzug: die betriebliche Steuer bleibt je Zeile, keine Phantomzeile keineVSt", () => {
+      // Drei Zeilen zu je 33,33 € netto, 19 %: 19,00 € Steuer, der eine Cent Rest liegt auf der ersten Zeile (6,34 €).
+      // Internet und Büro sind betrieblich, Telefon ist zur Hälfte privat. Betrieblich bleiben 6,34 + 3,16 + 6,33 = 15,83 €
+      // Steuer. Eine Verteilung nach betrieblichem Netto ergäbe 6,33 + 3,17 + 6,33 und damit je einen Cent keineVSt auf
+      // 4925 und 4920; bei vollem Abzug zählt wie in euer-beleg.ts die Steuer der Zeile selbst.
+      const amounts = [{ taxRate: 1900 as const, net: 9_999, tax: 1_900 }];
+      const splits: DocumentSplitLine[] = [
+        { category: "internet", taxRate: 1900, net: 3_333, privateShare: 0 },
+        { category: "telefon", taxRate: 1900, net: 3_333, privateShare: 50 },
+        { category: "buero", taxRate: 1900, net: 3_333, privateShare: 0 },
+      ];
+      const totals = totalsFromTaxes(amounts.map((a) => ({ rate: a.taxRate, base: a.net, tax: a.tax })));
+      const lines = documentSplitPosting(totals, allocateSplitTax(splits, amounts), kontenrahmen, "einzelunternehmen", "bank");
+      expect(lines.filter((l) => l.taxCode === "keineVSt")).toEqual([]);
+      expect(lines).toEqual([
+        { account: k.internet, debit: 3_333, credit: 0, taxCode: "VSt19" },
+        { account: k.telefon, debit: 1_666, credit: 0, taxCode: "VSt19" },
+        { account: k.buero, debit: 3_333, credit: 0, taxCode: "VSt19" },
+        // Telefon: 1.667 € netto und 317 € Steuer privat
+        { account: k.entnahme, debit: 1_984, credit: 0, taxCode: null },
+        { account: k.vorsteuer19, debit: 1_583, credit: 0, taxCode: "VSt19" },
+        { account: k.verbindlichkeiten, debit: 0, credit: 11_899, taxCode: null },
+      ]);
+    });
+
     it("ohne Anteil bucht die Aufteilung wie bisher, ohne Entnahme", () => {
       const ohne: DocumentSplitLine[] = privatLines.map(({ category, taxRate, net }) => ({ category, taxRate, net }));
       const lines = documentSplitPosting(privatTotals, allocateSplitTax(ohne, privatAmounts), kontenrahmen, "einzelunternehmen", "bank");

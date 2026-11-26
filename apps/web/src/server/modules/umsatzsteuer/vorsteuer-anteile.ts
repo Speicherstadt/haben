@@ -1,17 +1,16 @@
 import {
   ACCOUNTS,
   abziehbareSteuer,
+  betrieblicheZahlungsanteile,
   gespeicherterAnteil,
   leistungsdatum,
-  paidTaxShares,
-  splitPrivateShare,
-  type Cents,
   type InvoiceTotals,
   type TaxShare,
   type Prozent,
 } from "@haben/core";
 import { and, eq, sql } from "drizzle-orm";
 import { schema, type Tx } from "../../db/index.ts";
+import { belegZeilen, splitZeilen } from "./beleg-zeilen.ts";
 
 /*
  * Wie viel Vorsteuer eines Belegs gerade abziehbar wird, wenn er seine Steuer auf dem Zwischenkonto (SKR03 1548, SKR04
@@ -34,11 +33,6 @@ export async function belegTotals(tx: Tx, doc: { id: string; net: number; tax: n
   const rows = await tx.select().from(schema.documentAmounts).where(eq(schema.documentAmounts.documentId, doc.id));
   const taxes = rows.map((r) => ({ rate: r.taxRate, base: r.net, tax: r.tax, vorsteuerAnteil: r.vorsteuerAnteil })).sort((a, b) => b.rate - a.rate);
   return { net: doc.net, tax: doc.tax, gross: doc.gross, taxes };
-}
-
-/** Der geschäftliche Teil eines Betrags, gerundet wie beim Buchen (splitPrivateShare) */
-export function geschaeftlich(betrag: Cents, privateShare: Prozent): Cents {
-  return privateShare === 0 ? betrag : splitPrivateShare(betrag, privateShare).business;
 }
 
 /** Steuersatz zum Steuerschlüssel der Vorsteuer; das Zwischenkonto trägt nur 19 % und 7 % */
@@ -169,12 +163,18 @@ export async function vorsteuerAnteile(
   if (kursdifferenz && ausfuehrung !== null && datum < ausfuehrung) return [];
   const bisher = await bisherUmgebucht(tx, doc.id, ausfuehrung);
   // Der Privatanteil und der nicht abziehbare Teil (§ 15 Abs. 4 UStG) stehen schon beim Buchen nicht auf dem
-  // Zwischenkonto: Das Ziel wird deshalb vor dem Abzug der bisherigen Umbuchungen auf den geschäftlichen, abziehbaren
-  // Teil gebracht, kumuliert gerundet. So endet das Konto bei null statt um diese Teile im Soll.
-  const ziel = paidTaxShares(totals, (await steuerlichAusgeglichen(tx, doc.id, ausfuehrung)) + amount).map((s) => ({
+  // Zwischenkonto: Das Ziel wird deshalb vor dem Abzug der bisherigen Umbuchungen auf den betrieblichen Teil gebracht,
+  // je Zeile und kumuliert gerundet. So endet das Konto bei null statt um diese Teile im Soll.
+  const zeilen = belegZeilen(
+    doc.id,
+    totals.taxes.map((t) => ({ rate: t.rate, base: t.base, tax: t.tax })),
+    doc.privateShare,
+    await splitZeilen([doc.id], tx),
+  );
+  const ziel = betrieblicheZahlungsanteile(zeilen, (await steuerlichAusgeglichen(tx, doc.id, ausfuehrung)) + amount).map((s) => ({
     rate: s.rate,
-    base: geschaeftlich(s.base, doc.privateShare),
-    tax: abziehbareSteuer(geschaeftlich(s.tax, doc.privateShare), gespeicherterAnteil({}, totals.taxes.find((t) => t.rate === s.rate)?.vorsteuerAnteil)),
+    base: s.base,
+    tax: abziehbareSteuer(s.tax, gespeicherterAnteil({}, totals.taxes.find((t) => t.rate === s.rate)?.vorsteuerAnteil)),
   }));
   return ziel.map((t) => {
     const recorded = bisher.filter((r) => r.rate === t.rate);

@@ -1,17 +1,19 @@
 import {
   ACCOUNTS,
   abziehbareSteuer,
+  betrieblicheSaetze,
   gespeicherterAnteil,
   paidTaxShares,
   periodRange,
   splitPrivateShare,
   type Cents,
+  type TaxShare,
   type VatPeriod,
   type Prozent,
 } from "@haben/core";
 import { and, eq, gte, inArray, isNull, lt } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
-import { splitBusinessByRate } from "../buchhaltung/index.ts";
+import { belegZeilen, splitZeilen } from "./beleg-zeilen.ts";
 import { gutschriftAnteile } from "./gutschrift.ts";
 import { ZWISCHENKONTEN } from "./vorsteuer-anteile.ts";
 import { vorsteuerNachLeistungsdatum } from "./vorsteuer-leistungsdatum.ts";
@@ -25,9 +27,20 @@ export async function vorsteuerAusBelegen(period: VatPeriod, q: Db | Tx) {
   // kommen aus vorsteuer-leistungsdatum.ts; die gewöhnliche Abfrage lässt die Belege aus, sonst zählten sie doppelt
   const nachLeistungsdatum = await vorsteuerNachLeistungsdatum(period, q);
   // Mit Privatanteil zählt nur der betriebliche Teil (beim Storno derselbe wie beim Buchen); Kleinunternehmer ziehen keine Vorsteuer ab.
-  // Mit Aufteilung trägt jede Zeile ihren Anteil (#1914): Dann zählt der betriebliche Teil der Zeilen des Satzes.
+  // Mit Aufteilung trägt jede Zeile ihren Anteil (#1914): Der betriebliche Teil eines Satzes ist die Summe seiner Zeilen.
   const business = (amount: Cents, privateShare: Prozent, sign: number) => sign * splitPrivateShare(amount, privateShare).business;
-  const jeSatz = await splitBusinessByRate([...new Set(amounts.map((a) => a.documentId))], q);
+  const jeZeilen = await splitZeilen([...new Set(amounts.map((a) => a.documentId))], q);
+  const gruppen = new Map<string, { saetze: { rate: number; base: number; tax: number }[]; privateShare: Prozent }>();
+  for (const a of amounts) {
+    const gruppe = gruppen.get(a.documentId) ?? { saetze: [], privateShare: a.privateShare };
+    gruppe.saetze.push({ rate: a.rate, base: a.base, tax: a.tax });
+    gruppen.set(a.documentId, gruppe);
+  }
+  const jeSatz = new Map<string, Map<number, TaxShare>>();
+  for (const [documentId, gruppe] of gruppen) {
+    const saetze = betrieblicheSaetze(belegZeilen(documentId, gruppe.saetze, gruppe.privateShare, jeZeilen));
+    jeSatz.set(documentId, new Map(saetze.map((s) => [s.rate, s])));
+  }
   const eigeneZeilen = (documentId: string, rate: number) => jeSatz.get(documentId)?.get(rate);
   // Eine Gutschrift „erstattet bereits Bezahltes“ mindert die Vorsteuer erst mit dem Ausgleich (#690, #786, gutschrift.ts);
   // ohne die Angabe gilt wie bei jedem Beleg das Belegdatum

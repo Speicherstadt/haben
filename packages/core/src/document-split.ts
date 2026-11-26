@@ -17,7 +17,7 @@ import {
   vatRate,
 } from "./posting.ts";
 import { isKapitalgesellschaft, type Rechtsform } from "./rechtsform.ts";
-import { abziehbareSteuer, buchungsAnteil } from "./vorsteuerabzug.ts";
+import { abziehbareSteuer, buchungsAnteil, VOLLER_ABZUG } from "./vorsteuerabzug.ts";
 
 /*
  * Aufteilung eines Eingangsbelegs auf mehrere Kontierungszeilen (#271): Ein Beleg, eine Zahlung, ein offener Posten, aber
@@ -109,8 +109,9 @@ export function splitIssues(lines: AllocatedSplitLine[], amounts: DocumentRateAm
 
 /**
  * Abziehbarer Anteil je Zeile. Ohne Privatanteil wird der Abzug des Satzes gerundet und nach Netto auf seine Zeilen
- * verteilt (`allocateSplitTax`), den Rundungsrest trägt die größte. Mit Privatanteil zählt das betriebliche Netto der
- * Zeilen, und die betriebliche Steuer des Satzes wird ebenso verteilt: Buchung und EÜR (euer-beleg.ts) bleiben gleich.
+ * verteilt (`allocateSplitTax`), den Rundungsrest trägt die größte. Mit Privatanteil zählt die betriebliche Steuer der
+ * Zeilen: Bei vollem Abzug bleibt sie je Zeile stehen (wie in euer-beleg.ts), sonst wird der abziehbare Teil des Satzes
+ * nach betrieblichem Netto verteilt. So entsteht bei 100 % keine Phantomzeile keineVSt, und Buchung und EÜR bleiben gleich.
  */
 function splitDeductibles(lines: AllocatedSplitLine[], totals: InvoiceTotals, vorsteuerAbzug: boolean | BasisPoints, mitPrivat: boolean): Cents[] {
   if (!mitPrivat)
@@ -122,17 +123,27 @@ function splitDeductibles(lines: AllocatedSplitLine[], totals: InvoiceTotals, vo
     net: splitPrivateShare(line.net, line.privateShare ?? 0).business,
     tax: splitPrivateShare(line.tax, line.privateShare ?? 0).business,
   }));
-  return allocateSplitTax(
-    lines.map((line, i) => ({ category: line.category, taxRate: line.taxRate, net: betrieblich[i]!.net })),
-    totals.taxes.map((t) => ({
-      taxRate: t.rate,
-      net: 0,
-      tax: abziehbareSteuer(
-        lines.reduce((s, line, i) => (line.taxRate === t.rate ? s + betrieblich[i]!.tax : s), 0),
-        buchungsAnteil(vorsteuerAbzug, t.vorsteuerAnteil),
-      ),
-    })),
-  ).map((line) => line.tax);
+  const result = lines.map(() => 0);
+  for (const t of totals.taxes) {
+    const indexes = lines.flatMap((line, i) => (line.taxRate === t.rate ? [i] : []));
+    if (indexes.length === 0) continue;
+    const anteil = buchungsAnteil(vorsteuerAbzug, t.vorsteuerAnteil);
+    // Voller Abzug: jede Zeile behält ihre betriebliche Steuer; die Summe ist die des Satzes, ohne Verteilung
+    if (anteil === VOLLER_ABZUG) {
+      for (const i of indexes) result[i] = betrieblich[i]!.tax;
+      continue;
+    }
+    const steuer = abziehbareSteuer(
+      indexes.reduce((s, i) => s + betrieblich[i]!.tax, 0),
+      anteil,
+    );
+    const verteilt = allocateSplitTax(
+      indexes.map((i) => ({ category: lines[i]!.category, taxRate: lines[i]!.taxRate, net: betrieblich[i]!.net })),
+      [{ taxRate: t.rate, net: 0, tax: steuer }],
+    );
+    for (const [k, i] of indexes.entries()) result[i] = verteilt[k]!.tax;
+  }
+  return result;
 }
 
 /** Steuerzeilen des Belegs: je Satz eine Vorsteuerzeile, bei § 13b eine Umsatzsteuerzeile und die Vorsteuer dazu (#1914) */

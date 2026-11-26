@@ -176,7 +176,8 @@ function documentRow(
     money(doc.net),
     money(doc.tax),
     money(doc.gross),
-    doc.privateShare,
+    // Privatanteil je Zeile in derselben Reihenfolge wie die Kategorien (#1924); ohne Aufteilung der des Belegs
+    split.length > 0 ? split.map((l) => l.privateShare).join(" | ") : doc.privateShare,
     doc.currency,
     // Fremdwährung: Kurs (1 EUR = …) und Bruttobetrag laut Beleg; die Beträge davor sind in Euro umgerechnet
     doc.exchangeRate ? formatExchangeRate(doc.exchangeRate) : null,

@@ -77,10 +77,10 @@ describe("Privatanteil beim Kategorienwechsel", () => {
     expect(anteilBeimKategorieWechsel({ internet: 25 }, "internet", "40")).toBe("25");
   });
 
-  it("setzt 0, wenn die neue Kategorie keine Vorgabe hat", () => {
-    expect(anteilBeimKategorieWechsel({ internet: 25 }, "telefon", "25")).toBe("0");
-    expect(anteilBeimKategorieWechsel({ internet: 0 }, "internet", "40")).toBe("0");
-    expect(anteilBeimKategorieWechsel({}, "", "40")).toBe("0");
+  it("lässt das Feld leer, wenn die neue Kategorie keine Vorgabe hat", () => {
+    expect(anteilBeimKategorieWechsel({ internet: 25 }, "telefon", "25")).toBe("");
+    expect(anteilBeimKategorieWechsel({ internet: 0 }, "internet", "40")).toBe("");
+    expect(anteilBeimKategorieWechsel({}, "", "40")).toBe("");
   });
 
   it("lässt den Wert stehen, wo es kein Feld gibt (GmbH und UG)", () => {

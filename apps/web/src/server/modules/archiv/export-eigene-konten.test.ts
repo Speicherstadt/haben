@@ -52,12 +52,12 @@ describe.skipIf(!testDatabaseUrl)("Jahresarchiv mit eigenen Konten (Postgres, #2
       } as never);
       await documents.bookDocument(actor, id);
     };
-    await beleg("Mobilfunk Nord", { category: "telefon", ownAccountId: telefon });
+    await beleg("Mobilfunk Nord", { category: "telefon", ownAccountId: telefon, privateShare: 25 });
     await beleg("Ohne Konto", { category: "buero" });
     await beleg("Aufgeteilt AG", {
       splits: [
-        { category: "software", ownAccountId: software, taxRate: 1900, net: 6_000 },
-        { category: "buero", taxRate: 1900, net: 4_000 },
+        { category: "software", ownAccountId: software, taxRate: 1900, net: 6_000, privateShare: 40 },
+        { category: "buero", taxRate: 1900, net: 4_000, privateShare: 25 },
       ],
     });
 
@@ -92,5 +92,14 @@ describe.skipIf(!testDatabaseUrl)("Jahresarchiv mit eigenen Konten (Postgres, #2
     const aufgeteilt = zeile("Aufgeteilt AG");
     expect(aufgeteilt.Kategorie).toBe("software 19 % 60,00 | buero 19 % 40,00");
     expect(aufgeteilt["Eigenes Konto"]).toBe("4999 | –");
+  });
+
+  it("Privatanteil % nennt bei einer Aufteilung die Zeilenanteile in derselben Reihenfolge (#1924)", () => {
+    expect(zeile("Aufgeteilt AG")["Privatanteil %"]).toBe("40 | 25");
+  });
+
+  it("Privatanteil % bleibt bei Belegen ohne Aufteilung der Anteil des Belegs", () => {
+    expect(zeile("Mobilfunk Nord")["Privatanteil %"]).toBe("25");
+    expect(zeile("Ohne Konto")["Privatanteil %"]).toBe("0");
   });
 });

@@ -15,7 +15,7 @@ import {
   type DocumentEuerEffect,
   type Prozent,
 } from "@haben/core";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, gt, inArray } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
 import { splitsByDocument } from "../belege/index.ts";
 import { invoiceTotalsById } from "../rechnungen/index.ts";
@@ -56,13 +56,29 @@ export async function belegNebenbuecher(q: Db | Tx, ids: string[]): Promise<Map<
       })
       .from(d)
       .where(inArray(d.id, block));
+    // Aufgeteilte Belege tragen den Privatanteil in den Zeilen; documents.private_share ist dort 0 (#1914)
+    const zeilenanteil = new Set(
+      (
+        await q
+          .selectDistinct({ id: schema.documentSplits.documentId })
+          .from(schema.documentSplits)
+          .where(and(inArray(schema.documentSplits.documentId, block), gt(schema.documentSplits.privateShare, 0)))
+      ).map((row) => row.id),
+    );
     const amounts = new Map<string, (typeof schema.documentAmounts.$inferSelect)[]>();
     for (const a of await q.select().from(schema.documentAmounts).where(inArray(schema.documentAmounts.documentId, block)))
       amounts.set(a.documentId, [...(amounts.get(a.documentId) ?? []), a]);
     // Teilabzug braucht die ursprüngliche Steuer je Satz: Der Betrag der Aufwandszeile enthält auch den nicht
     // abziehbaren Teil. Ein neuer Satzoverride darf deshalb nicht vom Boolean am Beleg übergangen werden.
+    // Mit einem Privatanteil in einer Zeile braucht die Teilzahlung die Zeilen, auch bei vollem Vorsteuerabzug: Der
+    // Anteil am Beleg ist bei aufgeteilten Belegen 0, die Steuer der Zeile rundet aber je Zeile (Review #1924).
+    // § 13b bleibt beim Belegpfad, bis euer-beleg.ts die Zeilensteuer selbst auf 0 setzt: Hier wird sie vorab genullt,
+    // damit fehlte der private Teil der selbst geschuldeten Steuer in Zeile 17.
     const noetig = docs.filter(
-      (doc) => doc.privateShare !== 0 || (amounts.get(doc.id) ?? []).some((a) => gespeicherterAnteil(doc, a.vorsteuerAnteil) !== 10_000),
+      (doc) =>
+        doc.privateShare !== 0 ||
+        (doc.reverseCharge === null && zeilenanteil.has(doc.id)) ||
+        (amounts.get(doc.id) ?? []).some((a) => gespeicherterAnteil(doc, a.vorsteuerAnteil) !== 10_000),
     );
     if (noetig.length === 0) continue;
     const noetigIds = noetig.map((doc) => doc.id);

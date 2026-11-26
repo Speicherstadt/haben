@@ -3,11 +3,11 @@ import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { ConfirmDialog } from "../../../components/ConfirmDialog.tsx";
-import { DocumentSplits } from "../../../components/DocumentSplits.tsx";
+import { DocumentSplits, anteilBeimAufheben } from "../../../components/DocumentSplits.tsx";
 import { SOURCE_LABEL } from "../../../components/DocumentStatus.tsx";
 import { Icon } from "../../../components/Icon.tsx";
 import { UstIdVorBuchen } from "../../../components/UstIdVorFestschreiben.tsx";
-import { steuerSpalte } from "../../../components/VorsteuerAnteil.tsx";
+import { privatanteilHinweis, steuerSpalte } from "../../../components/VorsteuerAnteil.tsx";
 import { formatDate, formatDateTime } from "../../../lib/format.ts";
 import { checkSameInvoiceNumber } from "../../../server/functions/documents.ts";
 import { BelegAktionen, useBelegAktionen } from "./-beleg-aktionen.tsx";
@@ -127,7 +127,22 @@ function BelegHinweise({ data, locked, running }: { data: Detail; locked: boolea
 
 /** Aufteilung auf mehrere Kategorien (#271) */
 function BelegAufteilung({ f, data }: { f: DocumentFormState; data: Detail }) {
-  const { fieldsDisabled, reverseCharge, rows, splitRows, setSplitRows, parsed, vorsteuerBeleg, foreign, error, touch, setCategory, setOwnAccountId } = f;
+  const {
+    fieldsDisabled,
+    reverseCharge,
+    rows,
+    splitRows,
+    setSplitRows,
+    setPrivateShare,
+    parsed,
+    vorsteuerBeleg,
+    foreign,
+    error,
+    touch,
+    setCategory,
+    setOwnAccountId,
+  } = f;
+  const privatanteil = !isKapitalgesellschaft(data.rechtsform);
   return (
     <div id="aufteilung">
       <DocumentSplits
@@ -140,13 +155,16 @@ function BelegAufteilung({ f, data }: { f: DocumentFormState; data: Detail }) {
         disabled={fieldsDisabled}
         onChange={touch(setSplitRows)}
         taxLabel={steuerSpalte(reverseCharge, vorsteuerBeleg, rows)}
-        privatanteil={!isKapitalgesellschaft(data.rechtsform)}
+        privatanteil={privatanteil}
+        anteilHinweis={privatanteilHinweis(vorsteuerBeleg, rows)}
         privateShares={data.privateShares}
         error={(feld, key) => error(`${feld === "netto" ? "aufteilung" : feld}-${key}`)}
         onDissolve={() => {
-          // Zurück zu einer Kategorie: die der ersten Zeile
+          // Zurück zu einer Kategorie: die der ersten Zeile. Ihren Privatanteil übernimmt der Beleg, sonst ginge er verloren.
           touch(setCategory)(splitRows[0]?.category ?? "");
           setOwnAccountId(splitRows[0]?.ownAccountId ?? "");
+          // GmbH und UG kennen kein Feld; dort bleibt der Beleg betrieblich
+          if (privatanteil) touch(setPrivateShare)(anteilBeimAufheben(splitRows));
           setSplitRows([]);
         }}
       />

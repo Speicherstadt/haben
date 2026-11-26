@@ -1,6 +1,6 @@
 import { formatDecimal, formatEuro, isKapitalgesellschaft } from "@haben/core";
 import { BelegUmsatzsteuer } from "../../../components/BelegUmsatzsteuer.tsx";
-import { parsePrivatanteil } from "../../../lib/anteil.ts";
+import { privatanteilInZeilen } from "../../../components/DocumentSplits.tsx";
 import { betragszeileAus } from "../../../lib/betragszeile.ts";
 import { Field } from "../../../components/Field.tsx";
 import { VorsteuerAnteil, privatanteilHinweis, steuerSpalte } from "../../../components/VorsteuerAnteil.tsx";
@@ -96,7 +96,7 @@ export function Betraege({ f, data }: { f: DocumentFormState; data: Detail }) {
       <VorsteuerAnteil
         {...vorsteuerBeleg}
         privateShare={privateShareValue}
-        privateShareJeZeile={splitRows.some((row) => parsePrivatanteil(row.privateShare) !== 0)}
+        privateShareJeZeile={privatanteilInZeilen(splitRows)}
         asset={category === "anlage"}
         importVat={category === "einfuhrumsatzsteuer"}
         onChange={touch(setVorsteuerAnteil)}

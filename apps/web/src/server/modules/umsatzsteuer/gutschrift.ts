@@ -1,9 +1,8 @@
 import {
   abziehbareSteuer,
+  betrieblicheZahlungsanteile,
   gespeicherterAnteil,
-  paidTaxShares,
   periodRange,
-  splitPrivateShare,
   type Cents,
   type TaxShare,
   type VatPeriod,
@@ -11,6 +10,7 @@ import {
 } from "@haben/core";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
+import { belegZeilen, splitZeilen } from "./beleg-zeilen.ts";
 
 /*
  * Vorsteuer aus einer Gutschrift „erstattet bereits Bezahltes“ (#690, #786). Eine solche Gutschrift erstattet ein schon
@@ -154,6 +154,7 @@ export async function gutschriftAnteile(period: VatPeriod, q: Db | Tx = db): Pro
     .select()
     .from(schema.documentAmounts)
     .where(inArray(schema.documentAmounts.documentId, [...new Set(vorgaenge.map((v) => v.documentId))]));
+  const zeilenJeBeleg = await splitZeilen([...new Set(vorgaenge.map((v) => v.documentId))], q);
   // Stand je Gutschrift: der Betrag, der schon ausgeglichen ist, und die dafür erfassten Anteile
   const ausgeglichen = new Map<string, Cents>();
   const erfasst = new Map<string, TaxShare[]>();
@@ -164,27 +165,32 @@ export async function gutschriftAnteile(period: VatPeriod, q: Db | Tx = db): Pro
       .filter((a) => a.documentId === v.documentId)
       .map((a) => ({ rate: a.taxRate, base: a.net, tax: a.tax, vorsteuerAnteil: a.vorsteuerAnteil }))
       .sort((a, b) => b.rate - a.rate);
-    const totals = { net: v.net, tax: v.tax, gross: v.gross, taxes };
     // Der Vorgang ist eine Zahlung auf die Gutschrift (positiv); mit dem Vorzeichen des Belegs ist das -amount.
     // Eine Erstattung von 9025 Cent mindert die Vorsteuer damit um 1441 Cent.
     const betrag = -v.amount;
     const vorher = ausgeglichen.get(v.documentId) ?? 0;
     const bisher = erfasst.get(v.documentId) ?? [];
-    // Fortgeschrieben wird der geschäftliche Teil des kumulierten Anteils, wie die Umbuchung im Journal
+    // Fortgeschrieben wird der betriebliche Teil des kumulierten Anteils, je Zeile und wie die Umbuchung im Journal
     // (vorsteuer-ausgleich.ts): Den Privatanteil je Vorgang zu runden ließe über mehrere Teilerstattungen einen Cent
     // neben der Vorsteuer, die beim Buchen auf dem Zwischenkonto steht (drei Drittel bei 50 %: 316 + 317 + 316 statt 950).
     // Eine Gegenzeile (Aufhebung) nimmt genau den Anteil ihres Vorgangs zurück, wie die Gegenbuchung im Journal
     // (reverseLines); neu gerechnet läge er bei einer früheren Teilerstattung einen Cent daneben.
+    const jeZeile = belegZeilen(
+      v.documentId,
+      taxes.map((t) => ({ rate: t.rate, base: t.base, tax: t.tax })),
+      v.privateShare,
+      zeilenJeBeleg,
+    );
     const aufgehoben = v.reversesId ? jeVorgang.get(v.reversesId) : undefined;
     const neu =
       aufgehoben?.map((t) => ({ rate: t.rate, base: -t.base, tax: -t.tax })) ??
-      paidTaxShares(totals, vorher + betrag).map((t) => {
+      betrieblicheZahlungsanteile(jeZeile, vorher + betrag).map((t) => {
         const recorded = bisher.filter((r) => r.rate === t.rate);
         return {
           rate: t.rate,
-          base: splitPrivateShare(t.base, v.privateShare).business - recorded.reduce((sum, r) => sum + r.base, 0),
+          base: t.base - recorded.reduce((sum, r) => sum + r.base, 0),
           tax:
-            abziehbareSteuer(splitPrivateShare(t.tax, v.privateShare).business, gespeicherterAnteil(v, taxes.find((a) => a.rate === t.rate)?.vorsteuerAnteil)) -
+            abziehbareSteuer(t.tax, gespeicherterAnteil(v, taxes.find((a) => a.rate === t.rate)?.vorsteuerAnteil)) -
             recorded.reduce((sum, r) => sum + r.tax, 0),
         };
       });
