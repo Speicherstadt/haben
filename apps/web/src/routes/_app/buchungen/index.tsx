@@ -118,19 +118,6 @@ function ReverseButton({ entry, busy, onConfirm }: { entry: Entry; busy: boolean
   );
 }
 
-/** Buchungen, deren Zeilen aufgeklappt sind; ein Klick auf den Pfeil klappt sie auf oder zu */
-function useAufgeklappt() {
-  const [open, setOpen] = useState<Set<string>>(new Set());
-  const toggle = (id: string) =>
-    setOpen((prevOpen) => {
-      const nextOpen = new Set(prevOpen);
-      if (nextOpen.has(id)) nextOpen.delete(id);
-      else nextOpen.add(id);
-      return nextOpen;
-    });
-  return { open, toggle };
-}
-
 function JournalPage() {
   const { period, entries } = Route.useLoaderData();
   const { rechtsform, user } = Route.useRouteContext();
@@ -345,4 +332,17 @@ function JournalPage() {
       </section>
     </>
   );
+}
+
+/** Buchungen, deren Zeilen aufgeklappt sind; ein Klick auf den Pfeil klappt sie auf oder zu */
+function useAufgeklappt() {
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setOpen((prevOpen) => {
+      const nextOpen = new Set(prevOpen);
+      if (nextOpen.has(id)) nextOpen.delete(id);
+      else nextOpen.add(id);
+      return nextOpen;
+    });
+  return { open, toggle };
 }
