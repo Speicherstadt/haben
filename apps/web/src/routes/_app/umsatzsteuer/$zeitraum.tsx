@@ -16,6 +16,7 @@ import { type FieldKey, KennzahlenTabelle } from "./-zeitraum-kennzahlen.tsx";
 import { AbgabeSpalte, anmeldbar, useVoranmeldungAktionen, ZeitraumAblauf } from "./-zeitraum-abgabe.tsx";
 import { ZeitraumHinweise } from "./-zeitraum-hinweise.tsx";
 import { useFokusUeberWechsel } from "../../../lib/use-fokus-ueber-wechsel.ts";
+import { useFokusNachSperre } from "../../../lib/use-fokus-nach-sperre.ts";
 
 export const Route = createFileRoute("/_app/umsatzsteuer/$zeitraum")({
   loader: ({ params }) => {
@@ -65,12 +66,15 @@ function sameFigures(a: Figures, b: Figures, fields: readonly FieldKey[] = FIELD
 }
 
 /**
- * Weicht die heutige Rechnung von der gesendeten Anmeldung ab? Kz 48 gilt auch ohne die Umsätze als Kleinunternehmer als
- * gleich, so hat Haben sie vor #1268 gemeldet (wie gesendet-pruefen.ts)
+ * Weicht die heutige Rechnung von der gesendeten Anmeldung ab? Bei einer vor #1811 gerechneten Anmeldung (ohne
+ * `smallBusinessRule`) gilt Kz 48 auch ohne die Umsätze als Kleinunternehmer als gleich, so hat Haben sie vor #1268
+ * gemeldet (wie gesendet-pruefen.ts)
  */
 function seitGesendetGeaendert(gesendet: Figures, computed: Figures, data: PageData): boolean {
+  if (sameFigures(gesendet, computed, GESENDET_VERGLEICHEN)) return false;
+  if (data.current?.smallBusinessRule) return true;
   const vor1268 = computeUstva({ ...data.figures, kz48: data.figures.kz48 - data.figures.kz48Kleinunternehmer, kz39: data.kz39 });
-  return !sameFigures(gesendet, computed, GESENDET_VERGLEICHEN) && !sameFigures(gesendet, vor1268, GESENDET_VERGLEICHEN);
+  return !sameFigures(gesendet, vor1268, GESENDET_VERGLEICHEN);
 }
 
 /** „Kz 81 1.000,00 €, Kz 86 0,00 € und Kz 66 12,00 €“; Kz 21/45/48 nur, wenn belegt */
@@ -131,9 +135,10 @@ function VatPeriodPage() {
 
       <ZeitraumHinweise data={data} />
 
-      {/* key: Formular bei Wechsel der Anmeldung (Berichtigung) und nach dem Speichern neu aufsetzen */}
+      {/* key: Formular bei Wechsel der Anmeldung (Berichtigung) und nach dem Speichern neu aufsetzen, auf die Millisekunde,
+          damit auch zwei Speichervorgänge in derselben Sekunde es neu aufsetzen (#1804) */}
       <VatReturnEditor
-        key={`${data.current?.id ?? "neu"}-${data.current?.updatedAt ?? ""}`}
+        key={`${data.current?.id ?? "neu"}-${data.current?.updatedAt.toISOString() ?? ""}`}
         data={data}
         notice={notice}
         setNotice={setNotice}
@@ -193,6 +198,7 @@ function VatReturnEditor({
   const { busy, onSave, onSubmit, onCorrect } = useVoranmeldungAktionen(data, { mode, manualFigures, reason, dirty, setDirty }, setNotice);
   // Prüfung beim Speichern statt gesperrtem Knopf (#1270)
   const { pruefung, check, speichern } = usePruefungBeimSpeichern(parsed, reason, mode, onSave);
+  useFokusNachSperre(busy);
 
   const editable = !locked && mode === "manuell";
 
@@ -226,39 +232,43 @@ function VatReturnEditor({
           <p className="small muted" style={{ margin: 0 }}>
             Kz = Kennzahl, die Nummer des Felds im ELSTER-Formular.
           </p>
-          <KennzahlenTabelle
-            data={data}
-            shown={shown}
-            computed={computed}
-            eingabe={{ locked, editable, values, fehler: (f) => pruefung.error(f), update, openSources, toggleSources }}
-          />
-          {!locked && (
-            <p className="small" style={{ margin: 0 }}>
-              <button type="button" className="link-button" onClick={() => switchMode(editable ? "berechnet" : "manuell")}>
-                {editable ? "Zurück zu den berechneten Werten" : "Werte von Hand ändern (nur in Ausnahmen)"}
-              </button>
-            </p>
-          )}
-          {editable && (
-            <Field
-              label="Begründung der Abweichung (Pflicht)"
-              hint={<>Mindestens 10 Zeichen. Berechnet wären {describe(computed)}.</>}
-              error={pruefung.error("reason")}
-            >
-              {(control) => (
-                <textarea
-                  {...control}
-                  value={reason}
-                  onChange={(event) => {
-                    setReason(event.target.value);
-                    setDirty(true);
-                  }}
-                  maxLength={1000}
-                  placeholder="z. B. Zahlung vom 30.09. erst im Oktober zugeordnet"
-                />
-              )}
-            </Field>
-          )}
+          {/* Gesperrt, solange gespeichert, gesendet oder berichtigt wird: Danach baut die Seite das Formular mit dem neuen
+              `updatedAt` im `key` neu auf, und was man bis dahin tippt, ginge verloren (#1824). Abstand wie in der Karte */}
+          <fieldset className="stack fieldset-plain" style={{ gap: 12 }} disabled={busy}>
+            <KennzahlenTabelle
+              data={data}
+              shown={shown}
+              computed={computed}
+              eingabe={{ locked, editable, values, fehler: (f) => pruefung.error(f), update, openSources, toggleSources }}
+            />
+            {!locked && (
+              <p className="small" style={{ margin: 0 }}>
+                <button type="button" className="link-button" onClick={() => switchMode(editable ? "berechnet" : "manuell")}>
+                  {editable ? "Zurück zu den berechneten Werten" : "Werte von Hand ändern (nur in Ausnahmen)"}
+                </button>
+              </p>
+            )}
+            {editable && (
+              <Field
+                label="Begründung der Abweichung (Pflicht)"
+                hint={<>Mindestens 10 Zeichen. Berechnet wären {describe(computed)}.</>}
+                error={pruefung.error("reason")}
+              >
+                {(control) => (
+                  <textarea
+                    {...control}
+                    value={reason}
+                    onChange={(event) => {
+                      setReason(event.target.value);
+                      setDirty(true);
+                    }}
+                    maxLength={1000}
+                    placeholder="z. B. Zahlung vom 30.09. erst im Oktober zugeordnet"
+                  />
+                )}
+              </Field>
+            )}
+          </fieldset>
           {locked && current?.source === "manuell" && current.overrideReason && (
             <p className="small muted" style={{ margin: 0 }}>
               Manuell überschrieben: {current.overrideReason}

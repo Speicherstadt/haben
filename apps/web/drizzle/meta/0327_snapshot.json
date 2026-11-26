@@ -1,5 +1,5 @@
 {
-  "id": "01dea4f1-6982-4d17-b151-c37a5281f5a2",
+  "id": "91f74910-d54c-4f81-8578-44ea09686059",
   "prevId": "e10e0748-71ac-4548-9f27-7503eb28fb88",
   "version": "7",
   "dialect": "postgresql",
@@ -15408,18 +15408,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "external_source": {
-          "name": "external_source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "external_id": {
-          "name": "external_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "status": {
           "name": "status",
           "type": "invoice_status",
@@ -15688,27 +15676,6 @@
         }
       },
       "indexes": {
-        "quotes_external_ref": {
-          "name": "quotes_external_ref",
-          "columns": [
-            {
-              "expression": "external_source",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "external_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "quotes_number_trgm_idx": {
           "name": "quotes_number_trgm_idx",
           "columns": [
@@ -15867,10 +15834,6 @@
         "quotes_final_has_number": {
           "name": "quotes_final_has_number",
           "value": "\"quotes\".\"status\" = 'draft' or (\"quotes\".\"number\" is not null and \"quotes\".\"locked_at\" is not null)"
-        },
-        "quotes_external_ref_pair": {
-          "name": "quotes_external_ref_pair",
-          "value": "(\"quotes\".\"external_source\" is null) = (\"quotes\".\"external_id\" is null)"
         },
         "quotes_decision_final": {
           "name": "quotes_decision_final",
@@ -20284,6 +20247,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "small_business_rule": {
+          "name": "small_business_rule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "computed": {
           "name": "computed",
           "type": "jsonb",
@@ -20375,6 +20344,10 @@
         "vat_returns_month": {
           "name": "vat_returns_month",
           "value": "\"vat_returns\".\"month\" between 1 and 12 or \"vat_returns\".\"month\" between 41 and 44"
+        },
+        "vat_returns_small_business_rule": {
+          "name": "vat_returns_small_business_rule",
+          "value": "\"vat_returns\".\"small_business_rule\" is null or \"vat_returns\".\"small_business_rule\" = 'leistung'"
         }
       },
       "isRLSEnabled": false
