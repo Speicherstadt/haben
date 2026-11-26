@@ -1,231 +1,297 @@
-import { splitPrivateShare, taxIncluded, taxOf, type BasisPoints, type Cents, type Prozent } from "./money.ts";
+import { allocateSplitTax, type DocumentRateAmount, type DocumentSplitLine } from "./document-split.ts";
+import { formatEuro, splitPrivateShare, taxIncluded, taxOf, type BasisPoints, type Cents, type Prozent } from "./money.ts";
+import type { ExpenseCategory } from "./posting.ts";
+import { netOf } from "./rabatt.ts";
+import { isKapitalgesellschaft, type Rechtsform } from "./rechtsform.ts";
 import type { TaxShare } from "./steueranteile.ts";
 
 /*
- * Beleg aus Positionen statt Beträgen je Steuersatz plus Aufteilung (#1975). Jede Position trägt ihren Steuersatz,
- * Netto, Steuer und ihren Privatanteil; daraus rechnet diese Schicht den betrieblichen Teil, die Summen je Satz und die
- * Entnahme. Sie nimmt die Positionen als Werte und kennt keine Tabelle, damit Datenmodell, Migration und Oberfläche
- * darauf aufsetzen können, ohne dass die Rechnung an einer von ihnen hängt.
+ * Beleg aus Positionen statt Beträgen je Steuersatz (#1975). Maßgeblich ist die Steuer je Satz laut Rechnung
+ * (§ 14 Abs. 4 Nr. 8 UStG): Sie wird zuerst festgelegt, korrigierbar auf den Wert der Rechnung, und dann über
+ * allocateSplitTax nach Netto auf die Positionen des Satzes verteilt. Netto × Satz je Position zu runden liefe
+ * gegen die Steuer der Rechnung auseinander und damit gegen Kz 66.
+ *
+ * Eine Position „Privat“ ist betrieblich genau 0, in Netto und Steuer. Sie entsteht entweder aus einem Prozentsatz
+ * ihrer Ausgangsposition, dann bekommt sie den Anteil an deren Netto und deren zugeteilter Steuer, oder als eigener
+ * fester Betrag (#1926).
+ *
+ * Brutto-Eingabe wird je Satz zusammengezählt und wie in computeInvoice in Netto und Steuer geteilt (§ 35 Abs. 1
+ * UStDV), erst danach auf die Positionen verteilt.
  *
  * Abziehbar ist nur der betriebliche Teil (§ 15 Abs. 1 Satz 1 Nr. 1 UStG), bei gemischter Nutzung wird er aufgeteilt
- * (§ 15 Abs. 4 UStG); der private Teil ist eine Entnahme (§ 4 Abs. 1 Satz 2 und § 12 Nr. 1 EStG). Maßgeblich für die
- * Steuer je Satz ist der Betrag laut Rechnung (§ 14 Abs. 4 Nr. 8 UStG), deshalb lässt sich die Steuer einer Position
- * auf ihn korrigieren.
+ * (§ 15 Abs. 4 UStG); der private Teil ist eine Entnahme (§ 4 Abs. 1 Satz 2 und § 12 Nr. 1 EStG).
  *
- * Alles in Cent, ohne Gleitkomma und ohne Seiteneffekte. Dieselben Rechenwege wie in beleg-anteile.ts (#1924, #1926).
+ * Alles in Cent, ohne Gleitkomma und ohne Seiteneffekte.
  */
 
-/** Basis eines festen Privatanteils: netto = der Betrag ist netto, brutto = er enthält die Steuer der Position */
+/** Basis eines festen Privatbetrags: netto = der Betrag ist netto, brutto = er enthält die Steuer des Satzes */
 export type PrivateAmountBasis = "netto" | "brutto";
 
+/** Normal heißt betrieblich, privat heißt vollständig Entnahme */
+export type PositionArt = "normal" | "privat";
+
 /**
- * Eine Position eines Belegs als Wert: Steuersatz, Netto und Steuer in Cent, dazu der Privatanteil. Kategorie,
- * Beschreibung und eigenes Konto werden nur mitgeführt; die Rechnung liest sie nicht, damit sie ohne Datenmodell
- * funktioniert (#1975).
+ * Eine Position eines Belegs als Wert: Kategorie, Steuersatz, Netto und Art. Kategorie, Beschreibung und eigenes
+ * Konto werden nur mitgeführt; die Rechnung liest davon nichts, damit sie ohne Datenmodell und ohne Tabelle
+ * funktioniert (#1975). Die Steuer trägt die Position nicht selbst, sie kommt aus der Steuer ihres Satzes.
  */
-export interface BelegPosition {
+export interface Position {
+  kategorie: string;
   rate: BasisPoints;
   net: Cents;
-  tax: Cents;
-  /** Position „Privat“: der ganze Betrag ist privat, betrieblich bleibt 0 */
-  privat?: boolean;
-  /** Privatanteil in Prozent (100 = alles privat) */
-  privateShare?: Prozent | null;
-  /** Fester Privatanteil in Cent; hat Vorrang vor privateShare */
-  privateAmount?: Cents | null;
+  art: PositionArt;
+  /** Privatposition aus Prozent: Index ihrer normalen Ausgangsposition */
+  privatVon?: number;
+  /** Privatanteil in Prozent (100 = alles privat), nur mit privatVon */
+  prozent?: Prozent;
+  /** Fester Privatbetrag in Cent als eigene Position (#1926) */
+  privateAmount?: Cents;
   /** Basis von privateAmount; fehlt sie, gilt netto */
-  privateAmountBasis?: PrivateAmountBasis | null;
-  /** Index der Ausgangsposition, aus der eine Privat-Position per Prozent entstand */
-  privateOf?: number | null;
-  kategorie?: string;
+  privateAmountBasis?: PrivateAmountBasis;
   beschreibung?: string;
   konto?: string;
 }
 
-/** Betrieblicher Teil einer Position, in Cent */
-export interface BetrieblichePosition {
-  net: Cents;
-  tax: Cents;
+/** Bruttobetrag je Steuersatz, wie er auf der Rechnung steht */
+export interface BruttoBetrag {
+  rate: BasisPoints;
+  gross: Cents;
 }
 
-/** Betrieblicher Teil einer Position mit ihrem Index in der Liste */
-export interface BetrieblicheZeile extends BetrieblichePosition {
+/** Betrieblicher und privater Teil einer Position mit ihrem Index in der Liste */
+export interface PositionenZeile {
   index: number;
+  kategorie: string;
   rate: BasisPoints;
+  art: PositionArt;
+  /** Betriebliches Netto, bei einer Privatposition 0 */
+  net: Cents;
+  /** Betriebliche, aus dem Satz zugeteilte Steuer, bei einer Privatposition 0 */
+  tax: Cents;
+  /** Entnahme dieser Position in Netto */
+  privatNet: Cents;
+  /** Entnahme dieser Position in Steuer */
+  privatTax: Cents;
 }
 
 /** Summen eines Belegs aus Positionen */
 export interface PositionenSummen {
-  /** Betrieblicher Teil je Position, in der Reihenfolge der Eingabe */
-  zeilen: BetrieblicheZeile[];
+  /** Je Position, in der Reihenfolge der Eingabe */
+  zeilen: PositionenZeile[];
   /** Betrieblich je Steuersatz, absteigend nach Satz */
   saetze: TaxShare[];
   net: Cents;
   tax: Cents;
   gross: Cents;
-  /** Entnahme: der private Anteil aller Positionen, Netto und Steuer getrennt */
-  privat: { net: Cents; tax: Cents; gross: Cents };
+  /** Entnahme: Netto, Steuer und Brutto insgesamt, dazu je Steuersatz */
+  privat: { net: Cents; tax: Cents; gross: Cents; saetze: TaxShare[] };
 }
 
-/** Begrenzt einen Anteil auf den Betrag der Position, mit demselben Vorzeichen */
-function begrenzt(anteil: Cents, hoechstens: Cents): Cents {
-  return hoechstens >= 0 ? Math.min(anteil, hoechstens) : Math.max(anteil, hoechstens);
+const summe = (werte: readonly Cents[]) => werte.reduce((sum, wert) => sum + wert, 0);
+
+/** Eine aus Prozent abgeleitete Privatposition; ihre Werte stehen in ihrer Ausgangsposition, nicht in ihr selbst */
+function abgeleitet(position: Position): boolean {
+  return position.art === "privat" && position.privatVon !== undefined;
 }
 
 /**
- * Privater Anteil einer Position in Netto und Steuer, in Cent.
- *
- * Eine Position „Privat“ ist ganz privat. Sonst gilt: ein gesetzter Betrag vor einem Prozentwert. Der Betrag ist die
- * genauere Angabe (etwa 12,99 € von der Rechnung abgelesen), der Prozentwert nur die Vorgabe der Kategorie; bleibt
- * beim Umschalten beides stehen, gewinnt der Betrag, damit die Rechnung eindeutig bleibt. Dieselbe Regel wie
- * privaterAnteil in #1926.
- *
- * Bei Basis brutto steckt die Steuer im Betrag und wird herausgerechnet, bei netto kommt sie hinzu; der Anteil ist auf
- * Netto und Steuer der Position begrenzt. Mehr privat als netto vorhanden gibt es nicht.
+ * Teilt Brutto je Steuersatz in Netto und Steuer (§ 35 Abs. 1 UStDV). Beträge desselben Satzes werden zuerst
+ * zusammengezählt, dann wird die enthaltene Steuer herausgerechnet und das Netto ist der Rest, genau wie in
+ * computeInvoice bei Bruttopreisen. So ergibt Netto plus Steuer wieder centgenau das Brutto.
  */
-export function privaterAnteil(position: BelegPosition): { net: Cents; tax: Cents } {
-  if (position.privat) return { net: position.net, tax: position.tax };
-  const amount = position.privateAmount;
-  if (amount !== null && amount !== undefined) {
-    const brutto = position.privateAmountBasis === "brutto";
-    const net = brutto ? amount - taxIncluded(amount, position.rate) : amount;
-    const tax = brutto ? amount - net : taxOf(net, position.rate);
-    return { net: begrenzt(net, position.net), tax: begrenzt(tax, position.tax) };
+export function saetzeAusBrutto(betraege: readonly BruttoBetrag[]): TaxShare[] {
+  const je = new Map<BasisPoints, Cents>();
+  for (const betrag of betraege) je.set(betrag.rate, (je.get(betrag.rate) ?? 0) + betrag.gross);
+  return [...je.entries()].sort(([a], [b]) => b - a).map(([rate, gross]) => ({ rate, base: netOf(gross, rate, "brutto"), tax: taxIncluded(gross, rate) }));
+}
+
+/**
+ * Setzt die Steuer eines Satzes auf den Betrag der Rechnung (§ 14 Abs. 4 Nr. 8 UStG). Plausibel bleibt sie nur mit
+ * demselben Vorzeichen wie der Satz (Storno bleibt negativ) und höchstens in Höhe seines Bruttobetrags; sonst null.
+ */
+export function steuerKorrektur(satz: TaxShare, steuer: Cents): TaxShare | null {
+  if (!Number.isSafeInteger(steuer)) return null;
+  const brutto = satz.base + satz.tax;
+  if (steuer !== 0 && Math.sign(steuer) !== Math.sign(brutto)) return null;
+  if (Math.abs(steuer) > Math.abs(brutto)) return null;
+  return { ...satz, tax: steuer };
+}
+
+/** Vorgabe je Satz, ergänzt um Sätze, für die keine Steuer angegeben ist: dann gilt Netto × Satz */
+function vorgabeJeSatz(positionen: readonly Position[], saetze: readonly TaxShare[]): DocumentRateAmount[] {
+  const echte = positionen.filter((position) => !abgeleitet(position));
+  const vorgabe: DocumentRateAmount[] = saetze.map((satz) => ({ taxRate: satz.rate, net: satz.base, tax: satz.tax }));
+  const bekannt = new Set(vorgabe.map((satz) => satz.taxRate));
+  for (const rate of new Set(echte.map((position) => position.rate))) {
+    if (bekannt.has(rate)) continue;
+    const net = summe(echte.filter((position) => position.rate === rate).map((position) => position.net));
+    vorgabe.push({ taxRate: rate, net, tax: taxOf(net, rate) });
   }
-  const share = position.privateShare ?? 0;
-  return { net: splitPrivateShare(position.net, share).private, tax: splitPrivateShare(position.tax, share).private };
+  return vorgabe;
 }
 
-/**
- * Betrieblicher Teil einer Position: Netto und Steuer abzüglich ihres privaten Anteils. Nur dieser Teil ist Aufwand
- * und vorsteuerabziehbar (§ 15 Abs. 1 Satz 1 Nr. 1 UStG), der private Teil ist Entnahme (§ 4 Abs. 1 Satz 2 EStG).
- */
-export function betrieblichePosition(position: BelegPosition): BetrieblichePosition {
-  const privat = privaterAnteil(position);
-  return { net: position.net - privat.net, tax: position.tax - privat.tax };
-}
-
-type Zeile = BetrieblicheZeile & { privatNet: Cents; privatTax: Cents };
-
-/** Setzt die Summe eines Feldes je Satz auf den Zielwert; den Rest trägt die betragsmäßig größte Position */
-function aufZiel(zeilen: Zeile[], feld: "net" | "tax", ziel: Cents): void {
-  const summe = zeilen.reduce((s, z) => s + z[feld], 0);
-  if (summe === ziel) return;
-  const groesste = zeilen.reduce((best, z) => (Math.abs(z.net) > Math.abs(best.net) ? z : best), zeilen[0]!);
-  groesste[feld] += ziel - summe;
-}
-
-/**
- * Summen eines Belegs aus Positionen: betrieblich je Steuersatz und insgesamt, dazu die Entnahme in Netto und Steuer.
- *
- * Ohne vorgabe ist jede Summe die Summe der betrieblichen Teile ihrer Positionen, und betrieblich plus privat ergibt
- * genau die Positionen. Mit vorgabe (Netto und Steuer laut Rechnung je Satz, inklusive privatem Anteil) gilt deren
- * Betrag: betrieblich ist dann der Rest nach der Entnahme des Satzes. Die Differenz zu den Positionen trägt die
- * betragsmäßig größte Position des Satzes, wie beim Verteilen der Vorsteuer in allocateSplitTax und beim Steueranteil
- * einer Teilzahlung in paidTaxShares, damit die Summe centgenau aufgeht (§ 14 Abs. 4 Nr. 8 UStG).
- */
-export function positionenSummen(positionen: readonly BelegPosition[], vorgabe: readonly TaxShare[] = []): PositionenSummen {
-  const zeilen: Zeile[] = positionen.map((position, index) => {
-    const betrieblich = betrieblichePosition(position);
+/** Privater Anteil jeder Position in Netto und Steuer; für normale Positionen 0 */
+function privatAnteile(positionen: readonly Position[], steuer: ReadonlyMap<number, Cents>): { net: Cents; tax: Cents }[] {
+  return positionen.map((position, index) => {
+    if (position.art !== "privat") return { net: 0, tax: 0 };
+    if (!abgeleitet(position)) return { net: position.net, tax: steuer.get(index) ?? 0 };
+    const ausgangsIndex = position.privatVon!;
+    const ausgang = positionen[ausgangsIndex];
+    if (ausgang?.art !== "normal") throw new RangeError(`Position ${index} verweist als Privatposition auf keine normale Ausgangsposition`);
+    const prozent = position.prozent ?? 0;
     return {
-      index,
-      rate: position.rate,
-      net: betrieblich.net,
-      tax: betrieblich.tax,
-      privatNet: position.net - betrieblich.net,
-      privatTax: position.tax - betrieblich.tax,
+      net: splitPrivateShare(ausgang.net, prozent).private,
+      tax: splitPrivateShare(steuer.get(ausgangsIndex) ?? 0, prozent).private,
     };
   });
-  const je = new Map<BasisPoints, Zeile[]>();
+}
+
+/**
+ * Verteilt die Steuer je Satz über allocateSplitTax auf die Positionen, die in der Rechnung stehen (normale und
+ * feste Privatpositionen). Eine aus Prozent abgeleitete Privatposition zählt nicht mit, ihr Betrag steckt schon in
+ * ihrer Ausgangsposition. Danach bekommt jede Privatposition ihren Anteil: aus Prozent vom Netto und von der
+ * zugeteilten Steuer der Ausgangsposition, als fester Betrag ihr ganzer Betrag.
+ */
+function verteilung(
+  positionen: readonly Position[],
+  saetze: readonly TaxShare[],
+): {
+  steuer: Map<number, Cents>;
+  privat: { net: Cents; tax: Cents }[];
+} {
+  const echte = positionen.flatMap((position, index) => (abgeleitet(position) ? [] : [index]));
+  const lines: DocumentSplitLine[] = echte.map((index) => {
+    const position = positionen[index]!;
+    // allocateSplitTax liest nur Satz und Netto; die Kategorie reicht es unverändert durch
+    return { category: position.kategorie as ExpenseCategory, taxRate: position.rate, net: position.net };
+  });
+  const verteilt = allocateSplitTax(lines, vorgabeJeSatz(positionen, saetze));
+  const steuer = new Map<number, Cents>();
+  echte.forEach((index, i) => {
+    steuer.set(index, verteilt[i]!.tax);
+  });
+  return { steuer, privat: privatAnteile(positionen, steuer) };
+}
+
+/** Summen je Steuersatz aus einem Feld der Zeilen, absteigend nach Satz; leere Sätze fallen weg */
+function jeSatz(zeilen: readonly PositionenZeile[], feld: (zeile: PositionenZeile) => { net: Cents; tax: Cents }): TaxShare[] {
+  const je = new Map<BasisPoints, TaxShare>();
   for (const zeile of zeilen) {
-    const liste = je.get(zeile.rate);
-    if (liste) liste.push(zeile);
-    else je.set(zeile.rate, [zeile]);
+    const { net, tax } = feld(zeile);
+    const satz = je.get(zeile.rate) ?? { rate: zeile.rate, base: 0, tax: 0 };
+    je.set(zeile.rate, { rate: zeile.rate, base: satz.base + net, tax: satz.tax + tax });
   }
-  for (const ziel of vorgabe) {
-    const liste = je.get(ziel.rate);
-    if (!liste) continue;
-    aufZiel(liste, "net", ziel.base - liste.reduce((s, z) => s + z.privatNet, 0));
-    aufZiel(liste, "tax", ziel.tax - liste.reduce((s, z) => s + z.privatTax, 0));
-  }
-  const saetze = [...je.entries()]
-    .map(([rate, liste]) => ({
-      rate,
-      base: liste.reduce((s, z) => s + z.net, 0),
-      tax: liste.reduce((s, z) => s + z.tax, 0),
-    }))
-    .sort((a, b) => b.rate - a.rate);
-  const net = saetze.reduce((s, satz) => s + satz.base, 0);
-  const tax = saetze.reduce((s, satz) => s + satz.tax, 0);
-  const privatNet = zeilen.reduce((s, z) => s + z.privatNet, 0);
-  const privatTax = zeilen.reduce((s, z) => s + z.privatTax, 0);
+  return [...je.values()].filter((satz) => satz.base !== 0 || satz.tax !== 0).sort((a, b) => b.rate - a.rate);
+}
+
+/**
+ * Summen eines Belegs aus Positionen: betrieblich je Steuersatz und insgesamt, dazu die Entnahme in Netto und
+ * Steuer. Maßgeblich ist die Steuer je Satz aus saetze; fehlt ein Satz dort, gilt Netto × Satz. Betrieblich plus
+ * Entnahme ergibt wieder die Positionen, die in der Rechnung stehen, denn die Verteilung nimmt keinen Cent weg.
+ *
+ * Eine aus Prozent abgeleitete Privatposition ist ein Ausschnitt ihrer Ausgangsposition: Sie trägt die Entnahme,
+ * und dieselbe Entnahme geht beim Netto und bei der zugeteilten Steuer der Ausgangsposition ab. Sonst zählte der
+ * Beleg sie doppelt.
+ */
+export function positionenSummen(positionen: readonly Position[], saetze: readonly TaxShare[]): PositionenSummen {
+  const { steuer, privat } = verteilung(positionen, saetze);
+  const abzug = positionen.map(() => ({ net: 0, tax: 0 }));
+  privat.forEach((anteil, index) => {
+    if (!abgeleitet(positionen[index]!)) return;
+    const ausgang = positionen[index]!.privatVon!;
+    abzug[ausgang] = { net: abzug[ausgang]!.net + anteil.net, tax: abzug[ausgang]!.tax + anteil.tax };
+  });
+  const zeilen: PositionenZeile[] = positionen.map((position, index) => {
+    const anteil = privat[index]!;
+    const betrieblich = abgeleitet(position)
+      ? { net: 0, tax: 0 }
+      : { net: position.net - anteil.net - abzug[index]!.net, tax: (steuer.get(index) ?? 0) - anteil.tax - abzug[index]!.tax };
+    return {
+      index,
+      kategorie: position.kategorie,
+      rate: position.rate,
+      art: position.art,
+      net: betrieblich.net,
+      tax: betrieblich.tax,
+      privatNet: anteil.net,
+      privatTax: anteil.tax,
+    };
+  });
+  const betrieblich = jeSatz(zeilen, (zeile) => ({ net: zeile.net, tax: zeile.tax }));
+  const entnahme = jeSatz(zeilen, (zeile) => ({ net: zeile.privatNet, tax: zeile.privatTax }));
+  const net = summe(zeilen.map((zeile) => zeile.net));
+  const tax = summe(zeilen.map((zeile) => zeile.tax));
+  const privatNet = summe(zeilen.map((zeile) => zeile.privatNet));
+  const privatTax = summe(zeilen.map((zeile) => zeile.privatTax));
   return {
-    zeilen: zeilen.map(({ index, rate, net: zeileNet, tax: zeileTax }) => ({ index, rate, net: zeileNet, tax: zeileTax })),
-    saetze,
+    zeilen,
+    saetze: betrieblich,
     net,
     tax,
     gross: net + tax,
-    privat: { net: privatNet, tax: privatTax, gross: privatNet + privatTax },
+    privat: { net: privatNet, tax: privatTax, gross: privatNet + privatTax, saetze: entnahme },
   };
 }
 
 /**
- * Setzt die Steuer einer Position auf den Betrag der Rechnung. Maßgeblich ist der Steuerbetrag je Steuersatz laut
- * Rechnung (§ 14 Abs. 4 Nr. 8 UStG); die Summe gerundeter Zeilen weicht davon um Cents ab. Plausibel bleibt die Steuer
- * nur mit demselben Vorzeichen wie die Position (Storno bleibt negativ) und höchstens in Höhe ihres Bruttobetrags;
- * sonst null.
+ * Summenprobe gegen die Vorgabe je Satz: betrieblich plus Entnahme muss je Steuersatz Netto und Steuer der Rechnung
+ * ergeben. Leere Liste = der Beleg geht centgenau auf.
  */
-export function steuerKorrektur(position: BelegPosition, steuer: Cents): BelegPosition | null {
-  if (!Number.isSafeInteger(steuer)) return null;
-  const brutto = position.net + position.tax;
-  if (steuer !== 0 && Math.sign(steuer) !== Math.sign(brutto)) return null;
-  if (Math.abs(steuer) > Math.abs(brutto)) return null;
-  return { ...position, tax: steuer };
+export function summenProbe(summen: PositionenSummen, vorgabe: readonly TaxShare[]): string[] {
+  const issues: string[] = [];
+  for (const satz of vorgabe) {
+    const betrieblich = summen.saetze.find((zeile) => zeile.rate === satz.rate);
+    const privat = summen.privat.saetze.find((zeile) => zeile.rate === satz.rate);
+    const net = (betrieblich?.base ?? 0) + (privat?.base ?? 0);
+    const tax = (betrieblich?.tax ?? 0) + (privat?.tax ?? 0);
+    if (net !== satz.base) issues.push(`Summenprobe ${satz.rate / 100} %: Netto ${formatEuro(net)}, Vorgabe ${formatEuro(satz.base)}`);
+    if (tax !== satz.tax) issues.push(`Summenprobe ${satz.rate / 100} %: Steuer ${formatEuro(tax)}, Vorgabe ${formatEuro(satz.tax)}`);
+  }
+  return issues;
+}
+
+/** Ob die Position „Privat“ in dieser Rechtsform zulässig ist; GmbH und UG kennen kein Privat */
+export function privatZulaessig(rechtsform: Rechtsform): boolean {
+  return !isKapitalgesellschaft(rechtsform);
+}
+
+/** Weist Privatpositionen bei GmbH und UG ab; leere Liste = zulässig */
+export function pruefePrivatpositionen(positionen: readonly Position[], rechtsform: Rechtsform): string[] {
+  if (privatZulaessig(rechtsform) || !positionen.some((position) => position.art === "privat")) return [];
+  return ["Privatpositionen gibt es nur im Einzelunternehmen; GmbH und UG kennen kein Privat"];
 }
 
 /**
- * Legt aus einer Ausgangsposition die Position „Privat“ an: der Prozentsatz wird auf Netto und Steuer der
- * Ausgangsposition angewandt (wie splitPrivateShare beim Buchen). Die Privat-Position trägt den Index ihrer
- * Ausgangsposition und den Prozentsatz, damit sie bei Änderungen nachgerechnet werden kann.
+ * Legt aus einer normalen Ausgangsposition die Privatposition aus Prozent an. Ihr Netto ist der Anteil am Netto der
+ * Ausgangsposition; die Steuer kommt bei jeder Rechnung aus deren zugeteilter Steuer, damit sie nicht veraltet.
  */
-export function privatPositionAusProzent(position: BelegPosition, prozent: Prozent, ausgangsIndex: number): BelegPosition {
-  const anteil = (betrag: Cents) => splitPrivateShare(betrag, prozent).private;
+export function privatPositionAusProzent(ausgang: Position, prozent: Prozent, index: number): Position {
+  if (ausgang.art !== "normal") throw new RangeError("Eine Privatposition entsteht nur aus einer normalen Position");
+  if (!Number.isInteger(prozent) || prozent < 0 || prozent > 100) throw new RangeError("Der Privatanteil muss ein ganzer Prozentsatz zwischen 0 und 100 sein");
+  if (!Number.isInteger(index) || index < 0) throw new RangeError("Die Ausgangsposition braucht ihren Index in der Liste");
   return {
-    rate: position.rate,
-    net: anteil(position.net),
-    tax: anteil(position.tax),
-    privat: true,
-    privateShare: prozent,
-    privateOf: ausgangsIndex,
-    ...(position.beschreibung === undefined ? {} : { beschreibung: `${prozent} % von ${position.beschreibung}` }),
+    kategorie: ausgang.kategorie,
+    rate: ausgang.rate,
+    net: splitPrivateShare(ausgang.net, prozent).private,
+    art: "privat",
+    privatVon: index,
+    prozent,
+    ...(ausgang.beschreibung === undefined ? {} : { beschreibung: `${prozent} % von ${ausgang.beschreibung}` }),
   };
 }
 
 /**
- * Rechnet eine per Prozent abgeleitete Privat-Position auf ihre geänderte Ausgangsposition nach. null, wenn die
- * Ausgangsposition wegfällt (dann fällt die Privat-Position mit weg) oder die Position keinen Verweis trägt (fester
- * Betrag, siehe privatPositionFesterBetrag).
+ * Position „Privat“ mit festem Betrag ohne Ausgangsposition (#1926): Netflix vollständig privat auf derselben
+ * Rechnung wie das anteilig genutzte Internet. Bei Basis brutto wird die Steuer herausgerechnet, das Netto ist der
+ * Rest; die Steuer der Position kommt bei der Rechnung aus ihrem Satz.
  */
-export function privatPositionNachrechnen(position: BelegPosition, neueAusgangsposition: BelegPosition | null | undefined): BelegPosition | null {
-  if (!neueAusgangsposition || position.privateOf === null || position.privateOf === undefined) return null;
-  const prozent = position.privateShare;
-  if (prozent === null || prozent === undefined) return null;
-  const anteil = (betrag: Cents) => splitPrivateShare(betrag, prozent).private;
+export function privatPositionFesterBetrag(betrag: Cents, basis: PrivateAmountBasis, satz: BasisPoints, kategorie = "privat"): Position {
   return {
-    ...position,
-    rate: neueAusgangsposition.rate,
-    net: anteil(neueAusgangsposition.net),
-    tax: anteil(neueAusgangsposition.tax),
+    kategorie,
+    rate: satz,
+    net: basis === "brutto" ? netOf(betrag, satz, "brutto") : betrag,
+    art: "privat",
+    privateAmount: betrag,
+    privateAmountBasis: basis,
   };
-}
-
-/**
- * Position „Privat“ mit festem Betrag ohne Verweis (#1926): Netflix vollständig privat auf derselben Rechnung wie das
- * anteilig genutzte Internet. Bei Basis brutto ist die Steuer der Rest, damit brutto centgenau aufgeht.
- */
-export function privatPositionFesterBetrag(betrag: Cents, basis: PrivateAmountBasis, satz: BasisPoints): BelegPosition {
-  const brutto = basis === "brutto";
-  const net = brutto ? betrag - taxIncluded(betrag, satz) : betrag;
-  const tax = brutto ? betrag - net : taxOf(net, satz);
-  return { rate: satz, net, tax, privat: true, privateAmount: betrag, privateAmountBasis: basis };
 }
