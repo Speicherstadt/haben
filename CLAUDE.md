@@ -27,6 +27,7 @@ the change before starting.
 | Roadmap board (GitHub Project) | `mitwirken.md`: Etwas übernehmen, Vom Issue zum Release | `board-pflegen` |
 | Releasing a version | `entwicklung.md`: Veröffentlichen, Release Candidates | `release` |
 | Yearly official values (PAP, social insurance, ERiC, taxonomy, laws) | `entwicklung.md`: Jahreswerte | `jahreswerte` |
+| New bank or payment provider (API adapter, file format) | `entwicklung.md`: Neues Bankformat, Neuer Zahlungsdienstleister | `anbindung-hinzufuegen` |
 | Quick search (command palette): new group or field | `architektur.md`: Schnellsuche, `suche.md` | `schnellsuche-erweitern` |
 | Writing or changing a skill (description, `references/`) | `entwicklung.md`: Befehle, „Skills“ | |
 | Who may merge what | `mitwirken.md`: Wer mergt was | |
@@ -46,6 +47,7 @@ Modules, the audit hash chain and seals: `docs/architektur.md`, tables: `docs/ar
   test as passed.
 - Push to `main` (only exception: repairing a red `main`, by or on instruction of the maintainer, `mitwirken.md`: Wer mergt was), rewrite a contributor's commits, merge (only a maintainer, or a collaborator with the maintainer's approval), review your own code.
 - Create or comment on issues and pull requests without being asked.
+- Add a dependency (any `package.json`) without trying own code first and naming the reason per package under „## Neue Abhängigkeiten“ in the pull request (`entwicklung.md`: Konventionen).
 - Stop the user's processes or touch their `haben-dev` compose project; work around `sudo`.
 
 ## With every change

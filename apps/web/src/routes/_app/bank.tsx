@@ -1,4 +1,6 @@
 import { formatEuro } from "@haben/core";
+import type { StatementFormat } from "@haben/import";
+import { FORMAT_NAMEN } from "@haben/import/format-namen";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { z } from "zod/mini";
@@ -11,11 +13,13 @@ import { ExcludedAccounts } from "../../components/BankKontoAusschliessen.tsx";
 import { isDialogOpen } from "../../components/ConfirmDialog.tsx";
 import { BestaetigenLeiste, useBestaetigen, useLeertasteMarkiert, ZeilenMarkierung } from "../../components/BankBestaetigen.tsx";
 import { BankSortierKopf } from "../../components/BankSortierKopf.tsx";
-import type { Data } from "./-bank-daten.ts";
+import { type Data, gezeigteKonten, nextOpenAfter } from "./-bank-daten.ts";
+import { Fortschritt, LeereListe } from "./-bank-fortschritt.tsx";
 import { AllocationPanel } from "./-bank-zuordnung.tsx";
 import { BankSync } from "./-bank-verbindung.tsx";
 import { AccountSettings, ImportControls, SearchBox } from "./-bank-konto.tsx";
 import { ExterneQuelle } from "../../components/ExterneQuelle.tsx";
+import { menueGruppe } from "../../lib/menue-gruppe.ts";
 
 const searchSchema = z.object({
   /** Ein Konto oder „alle“ (#617) */
@@ -62,36 +66,8 @@ export const Route = createFileRoute("/_app/bank")({
   component: BankPage,
 });
 
-const FORMAT_LABEL = (format: string) =>
-  format === "enablebanking" || format === "fints"
-    ? "Abruf"
-    : format.startsWith("importvertrag")
-      ? "REST-Import"
-      : format.startsWith("camt")
-        ? "CAMT.053"
-        : format === "paypal-csv"
-          ? "PayPal"
-          : format === "paypal-api"
-            ? "PayPal (Abruf)"
-            : format === "stripe-csv"
-              ? "Stripe"
-              : format === "stripe-api"
-                ? "Stripe (Abruf)"
-                : format === "shopify-payments-csv"
-                  ? "Shopify"
-                  : format === "ebay-csv"
-                    ? "eBay"
-                    : format === "etsy-csv"
-                      ? "Etsy"
-                      : format === "etsy-ledger"
-                        ? "Etsy (Abruf)"
-                        : format === "googleplay-earnings"
-                          ? "Google Play"
-                          : format === "appstore-finance"
-                            ? "App Store"
-                            : format === "store-payout"
-                              ? "Auszahlung"
-                              : "CSV";
+/** Quelle des letzten Imports in der Kontenliste; unbekannte Formate (aus älteren Versionen) als „Datei“ */
+const FORMAT_LABEL = (format: string) => FORMAT_NAMEN[format as StatementFormat] ?? "Datei";
 
 /** J/K springen zum nächsten bzw. vorigen Umsatz */
 function useUmsatzTasten(transactions: Data["transactions"], index: number) {
@@ -126,7 +102,7 @@ function BankPage() {
   const selectedAccount = data.accounts.find((a) => a.id === data.accountId);
   // „Alle Konten“ zeigt die Umsätze aller Konten, etwa für „Alle anzeigen“ der Schnellsuche (#617)
   const konto = data.allAccounts ? ("alle" as const) : (data.accountId ?? undefined);
-  const openCount = data.allAccounts ? data.accounts.reduce((sum, a) => sum + a.openCount, 0) : (selectedAccount?.openCount ?? 0);
+  const openCount = gezeigteKonten(data).reduce((sum, a) => sum + a.openCount, 0);
   const accountName = new Map(data.accounts.map((a) => [a.id, a.name]));
 
   const bestaetigen = useBestaetigen(sichtbar);
@@ -137,11 +113,14 @@ function BankPage() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Umsätze zuordnen</div>
+          <div className="eyebrow">{menueGruppe("/bank")}</div>
           <h1>Bank</h1>
         </div>
         <ImportControls data={data} />
       </div>
+      <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
+        Hier ordnest du die Umsätze deiner Konten Belegen und Rechnungen zu.
+      </p>
 
       <BankSync sync={data.sync} fints={data.fints} result={search.abruf ? { ok: search.abruf === "ok", message: search.meldung ?? "" } : null} />
 
@@ -215,13 +194,10 @@ function BankPage() {
                 {/* key: beim Kontowechsel leer neu aufsetzen, sonst trägt die Suche ins neue Konto */}
                 <SearchBox key={konto ?? ""} initial={search.suche ?? ""} />
               </div>
+              <Fortschritt data={data} sichtbar={sichtbar} selectedId={selectedId} />
               <BestaetigenLeiste b={bestaetigen} />
               <BankSortierKopf sort={sortierung} dir={richtung} />
-              {data.transactions.length === 0 && (
-                <p className="muted" style={{ margin: 0, padding: "16px 20px" }}>
-                  {filter === "offen" ? "Alles zugeordnet." : filter === "vorschlag" ? "Keine Umsätze mit Vorschlag." : "Keine Umsätze."}
-                </p>
-              )}
+              <LeereListe data={data} filter={filter} />
               {zeilen.map(({ umsatz: tx, gebuehr }) => (
                 <div key={tx.id} className="tx-wrap">
                   {bestaetigen.markierbar.length > 0 && <ZeilenMarkierung id={tx.id} b={bestaetigen} label={tx.counterpartyName || "Umsatz"} />}
@@ -280,11 +256,4 @@ function BankPage() {
       <ExcludedAccounts accounts={data.excludedAccounts} />
     </>
   );
-}
-
-/** Nächster offener Umsatz nach dem gewählten, am Ende der Liste wieder von vorn */
-function nextOpenAfter(transactions: Data["transactions"], id: string): string | undefined {
-  const index = transactions.findIndex((t) => t.id === id);
-  const after = [...transactions.slice(index + 1), ...transactions.slice(0, Math.max(index, 0))];
-  return after.find((t) => t.open !== 0 && t.id !== id)?.id;
 }

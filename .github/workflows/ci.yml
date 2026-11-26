@@ -75,10 +75,11 @@ jobs:
           if grep -Eq "^deploy/|^apps/web/drizzle/|$always" <<< "$changed"; then deploy=true; else deploy=false; fi
           echo "einvoice=$einvoice" >> "$GITHUB_OUTPUT"
           echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
-          # container und dev-compose im Pull Request nur, wenn Image, Compose oder Abhängigkeiten sich ändern; auf main
-          # immer (Ausgabe leer), dort fällt ein Build-Fehler aus dem App-Code spätestens auf
+          # container und dev-compose im Pull Request nur, wenn Image (mit scripts/container/: Inhalt und Prüfungen),
+          # Compose oder Abhängigkeiten sich ändern; auf main immer (Ausgabe leer), dort fällt ein Build-Fehler aus dem
+          # App-Code spätestens auf
           if [ "${EREIGNIS:-}" != push ]; then
-            if grep -Eq "Containerfile$|(^|/)compose[^/]*\.ya?ml$|^deploy/|$always" <<< "$changed"; then bild=true; else bild=false; fi
+            if grep -Eq "Containerfile$|(^|/)compose[^/]*\.ya?ml$|^deploy/|^scripts/container/|$always" <<< "$changed"; then bild=true; else bild=false; fi
             echo "bild=$bild" >> "$GITHUB_OUTPUT"
           fi
         # Als Umgebung statt ${{ }} im Skript, damit scripts/ci/doku-filter.test.ts den Block unverändert ausführen kann
@@ -176,9 +177,11 @@ jobs:
         env:
           TEST_DATABASE_URL: postgres://haben:haben@localhost:5432/haben_test
 
-  # Ein Ergebnis für die Regeln auf main (geforderter Check „test“), egal in wie viele Teile die Tests zerfallen
+  # Ein Ergebnis für die Regeln auf main (geforderter Check „test“), egal in wie viele Teile die Tests zerfallen.
+  # always() auch nach einem Abbruch, damit ein abgebrochener Pull-Request-Lauf nicht als übersprungen = grün zählt;
+  # auf main (push) gibt es kein Merge-Gate, dort bleibt ein abgebrochener Lauf grau statt rot. Gilt auch für e2e
   test:
-    if: ${{ always() && !github.event.pull_request.draft && needs.changes.outputs.code != 'false' }}
+    if: ${{ always() && (github.event_name != 'push' || !cancelled()) && !github.event.pull_request.draft && needs.changes.outputs.code != 'false' }}
     needs: [changes, test-teil, sollbestand-postgres]
     runs-on: ubuntu-latest
     steps:
@@ -314,7 +317,7 @@ jobs:
 
   # Ein Ergebnis für die Regeln auf main (geforderter Check „e2e“), egal in wie viele Teile die Tests zerfallen
   e2e:
-    if: ${{ always() && !github.event.pull_request.draft && needs.changes.outputs.code != 'false' }}
+    if: ${{ always() && (github.event_name != 'push' || !cancelled()) && !github.event.pull_request.draft && needs.changes.outputs.code != 'false' }}
     needs: [changes, e2e-teil]
     runs-on: ubuntu-latest
     steps:
@@ -458,9 +461,11 @@ jobs:
           docker tag haben:ci tristanteu/haben:latest
           bun deploy/instanzen/haben-instanzen.ts neu firma1 firma1.haben.test
           # Die zweite Instanz baut den gemeinsamen Caddy nicht neu auf (#1013): derselbe Container, und er antwortet für
-          # firma1 durchgehend. Ohne Zertifikat leitet er HTTP auf HTTPS um (308); 000 hieße: keine Verbindung
+          # firma1 durchgehend. Ohne Zertifikat leitet er HTTP auf HTTPS um (308); 000 hieße: keine Verbindung.
+          # `|| true`: Die Schleife erbt `bash -e`; ohne es beendet ein einziger Timeout sie still, und `kill` scheitert,
+          # statt dass die 000 unten in der Auswertung als Aussetzer auffällt
           caddy_id="$(cd "$HABEN_INSTANZEN/proxy" && docker compose ps -q caddy)"
-          (set +x; while :; do curl -s -o /dev/null -m 2 -w '%{http_code}\n' -H 'Host: firma1.haben.test' http://127.0.0.1/; sleep 0.1; done) > "$RUNNER_TEMP/antworten.txt" &
+          (set +x; while :; do curl -s -o /dev/null -m 2 -w '%{http_code}\n' -H 'Host: firma1.haben.test' http://127.0.0.1/ || true; sleep 0.1; done) > "$RUNNER_TEMP/antworten.txt" &
           schleife=$!
           bun deploy/instanzen/haben-instanzen.ts neu firma2 firma2.haben.test
           kill "$schleife"

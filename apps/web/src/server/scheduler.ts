@@ -5,16 +5,16 @@ import { erklaerteAbweichungsZeilen } from "./modules/jahreserklaerung/index.ts"
 import { runDueBankSyncs, runDueFintsSyncs, runExistingDuplicateCheck } from "./modules/bank/index.ts";
 import { elsterClient, elsterMode } from "./modules/elster/index.ts";
 import { env } from "./env.ts";
+import { withLogComponent } from "./log-kontext.ts";
 import { type Job, recordJobRun } from "./metriken.ts";
 import { applyPublishedRates, runDueDauerbelege, runDueInboxFetch } from "./modules/belege/index.ts";
 import { runDueExchangeRates } from "./modules/stammdaten/index.ts";
 import { runDueFristenMails, runDuePostfachFetch } from "./modules/finanzamt/index.ts";
 import { applyPublishedRatesToDrafts, runDueBaseRate, runDueRecurring } from "./modules/rechnungen/index.ts";
 import { runDueEtsySyncs } from "./modules/etsy/index.ts";
-import { runDuePayPalSyncs } from "./modules/paypal/index.ts";
-import { runDueStripeSyncs } from "./modules/stripe/index.ts";
 import { runDueStoreSyncs } from "./modules/stores/index.ts";
 import { runDueUstIdPruefung } from "./modules/umsatzsteuer/index.ts";
+import { runDuePspSyncs } from "./modules/zahlungsdienstleister/index.ts";
 import { today } from "./today.ts";
 
 const HOUR = 60 * 60 * 1000;
@@ -31,13 +31,20 @@ interface ScheduledJob {
 
 /** Ein Job nach dem anderen; ein Fehler landet im Log und hält die übrigen nicht auf, der nächste Lauf versucht es erneut */
 async function runJob({ task, label, run }: ScheduledJob): Promise<void> {
-  let ok = false;
-  try {
-    ok = await run();
-  } catch (error) {
-    console.error(label, error);
-  }
-  recordJobRun(task, ok);
+  // Jede Logzeile des Jobs trägt seinen Namen als Bereich (log-kontext.ts), wie in /api/metrics, auch die von lib-fints
+  await withLogComponent(task, async () => {
+    const started = performance.now();
+    console.debug(`${label}: gestartet`);
+    let ok = false;
+    try {
+      ok = await run();
+    } catch (error) {
+      console.error(label, error);
+    }
+    recordJobRun(task, ok);
+    // Auch ein Lauf ohne Ergebnis, damit bei debug sichtbar ist, dass der Job lief und wie lange
+    console.debug(`${label}: ${ok ? "fertig" : "gescheitert"}`, { ok, durationMs: Math.round(performance.now() - started) });
+  });
 }
 
 /** Meldet die Fehler eines Abrufs einzeln im Log; ok, wenn es keine gab */
@@ -125,23 +132,13 @@ const JOBS: ScheduledJob[] = [
     },
   },
   {
-    task: "paypal_sync",
-    label: "PayPal",
+    task: "psp_sync",
+    label: "Zahlungsdienstleister",
     run: async () => {
-      const result = await runDuePayPalSyncs();
-      if (result.added > 0) console.log(`PayPal: ${result.added} neue Umsätze aus der Transaction Search`);
-      // Hinweise wie eine Lücke im Zeitraum sind kein Fehler
-      for (const message of result.messages) console.warn(`PayPal: ${message}`);
-      return warnAll(result.errors);
-    },
-  },
-  {
-    task: "stripe_sync",
-    label: "Stripe",
-    run: async () => {
-      const result = await runDueStripeSyncs();
-      if (result.added > 0) console.log(`Stripe: ${result.added} neue Umsätze aus den Balance Transactions`);
-      for (const message of result.messages) console.warn(`Stripe: ${message}`);
+      const result = await runDuePspSyncs();
+      if (result.added > 0) console.log(`Zahlungsdienstleister: ${result.added} neue Umsätze`);
+      // Hinweise wie eine Lücke im Zeitraum sind kein Fehler; jede Meldung nennt ihre Verbindung
+      for (const message of result.messages) console.warn(message);
       return warnAll(result.errors);
     },
   },

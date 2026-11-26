@@ -254,6 +254,7 @@ button.nav-foot-link { width: 100%; background: none; border: 0; font: inherit; 
 .nav-flyout-title { padding-top: 8px; }
 /* Die eigene Firma unter „Firma wechseln“, in der Schrift der Menüpunkte */
 .nav-flyout-title[data-zusatz]::after { content: attr(data-zusatz); display: block; margin-top: 4px; color: var(--nav-ink-strong); font-size: 13px; overflow-wrap: anywhere; }
+.nav-flyout-hinweis { margin: 0; padding: 0 12px 8px; font-size: 12px; line-height: 1.4; color: var(--nav-ink); opacity: 0.85; }
 .nav-flyout-links { display: flex; flex-direction: column; gap: 2px; }
 .nav-flyout .nav-link { min-height: 36px; }
 .nav-flyout .nav-theme { margin: 8px 4px 4px; }
@@ -367,6 +368,9 @@ button.nav-foot-link { width: 100%; background: none; border: 0; font: inherit; 
   .action-bar .split-btn-solo > .btn { flex: 1 1 auto; justify-content: center; }
 }
 .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+/* Knopf mit Erklärung darunter (KorrekturAktionen); zwei Spalten, wo die Karte breit genug ist, sonst untereinander. Am Handy füllt der Knopf die Zeile wie in `.actions` */
+.korrektur-aktion { flex: 1 1 200px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+@media (max-width: 720px) { .korrektur-aktion > .btn { align-self: stretch; } }
 .doc-actions > .banner { flex: 0 0 100%; }
 /* Knopfzeilen (#394, DESIGN.md): Hauptaktion zuletzt im Markup; im Dialog rechtsbündig, sonst an der Kante der Felder */
 dialog .form-footer, .form-dialog > form > .actions:last-child { justify-content: flex-end; }
@@ -608,7 +612,20 @@ textarea.autogrow { field-sizing: content; min-height: 8lh; max-height: 70vh; }
 .form-section-zu > details > summary > h3 { margin: 0; font-size: 13px; font-weight: 500; color: var(--muted); }
 .form-section-kurz { font-size: 13px; color: var(--ink); }
 /* Einklappabschnitt unmittelbar auf der Seite (Voranmeldung, #1253): bündig mit den Karten, ohne Einzug des Formulars */
-.main > .form-section-zu > details > summary, .main > .form-section-zu .form-section-inhalt { padding-left: 0; padding-right: 0; }
+.main > .form-section-zu > details > summary, .main > .form-section-zu .form-section-inhalt,
+.stack > .form-section-zu > details > summary, .stack > .form-section-zu .form-section-inhalt { padding-left: 0; padding-right: 0; }
+.stack > .form-section-zu { border-top: 0; }
+/* In der schmalen Spalte steht die Auskunft unter der Überschrift, bündig mit ihr (12px Pfeil plus 12px Abstand) */
+.stack > .form-section-zu > details > summary > .form-section-kurz { flex-basis: 100%; padding-left: 24px; }
+/* Ablauf der Voranmeldung (#1253): drei Schritte in einer Zeile, der aktuelle fett, Erledigtes mit Haken, darunter das Ergebnis */
+.ablauf-schritte { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; padding: 0; list-style: none; font-size: 14px; color: var(--muted); }
+.ablauf-schritte > li { display: flex; align-items: center; gap: 8px; }
+.ablauf-schritte > li[aria-current="step"] { color: var(--ink); font-weight: 600; }
+.ablauf-marke { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1px solid var(--muted); border-radius: 50%; font-size: 12px; }
+.ablauf-schritte > li[aria-current="step"] .ablauf-marke { border-color: var(--accent); }
+.ablauf-erledigt .ablauf-marke { border-color: transparent; background: var(--accent-soft); color: var(--accent-ink); }
+.ablauf-satz { margin: 0; font-size: 16px; font-weight: 500; }
+@media (max-width: 640px) { .ablauf-schritte { gap: 8px 16px; } }
 .form-section-inhalt { display: flex; flex-direction: column; gap: 16px; padding: 0 24px 20px; }
 @media (max-width: 640px) {
   .form-section-zu > details > summary { padding-left: 16px; padding-right: 16px; }
@@ -643,7 +660,7 @@ textarea.autogrow { field-sizing: content; min-height: 8lh; max-height: 70vh; }
 .status-urgent .status-label { padding: 2px 8px 2px 6px; line-height: 16px; border-radius: 6px; background: var(--status-soft); color: var(--status-ink); font-weight: 500; }
 /* In Listen ragt die Fläche nach links in den Spaltenabstand, damit der Punkt mit den ruhigen Punkten darüber fluchtet;
    im Seitenkopf und in Fließtext bleibt sie bündig mit Titel und Knöpfen */
-.table-row .status-urgent:not(.status-inline) .status-label { margin-left: -6px; }
+:is(.table-row, .csv-preview) .status-urgent:not(.status-inline) .status-label { margin-left: -6px; }
 .status-urgent .status-detail { color: var(--status-ink); }
 /* Im Seitenkopf und in Fließtext eine Zeile, die Auskunft daneben */
 .title-with-status .status, .status-inline { flex-direction: row; align-items: center; gap: 12px; }
@@ -724,7 +741,6 @@ textarea.autogrow { field-sizing: content; min-height: 8lh; max-height: 70vh; }
 .vergleich-table .num { text-align: right; }
 .vergleich-table td.num { white-space: nowrap; }
 .kz-row input { width: 100%; min-height: 40px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 8px; font-family: var(--mono); font-size: 14px; text-align: right; color: var(--ink); background-color: var(--surface); }
-.kz-row input:read-only { border-color: transparent; background: transparent; }
 .kz-row input[aria-invalid="true"] { border-color: var(--danger-ink); }
 @media (max-width: 640px) {
   /* Handy: Bezeichnung über die volle Breite, darunter Bemessung und Steuer nebeneinander mit Beschriftung (#376).
@@ -765,12 +781,15 @@ a.table-row:hover { background: var(--ground); color: var(--ink); }
 .cash-cols { grid-template-columns: 48px 96px minmax(0, 1fr) 120px 120px 150px; padding-top: 8px; padding-bottom: 8px; }
 .article-cols { grid-template-columns: minmax(0, 1fr) 160px 60px auto; }
 .service-cols { grid-template-columns: 90px minmax(0, 1fr) 90px 90px 100px 184px; }
+/* Abrechnen (#1933): vorn die Spalte für das Kästchen, wie bei den Überweisungen */
+.service-cols.service-pick { grid-template-columns: 28px 90px minmax(0, 1fr) 90px 90px 100px 184px; }
 .proof-cols { grid-template-columns: 90px minmax(0, 1fr) 90px; }
 .own-account-cols { grid-template-columns: 70px minmax(0, 1fr) minmax(0, 0.8fr) auto; }
 .own-account-rename input { flex: 1 1 140px; min-width: 0; }
 .contact-cols { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 1fr) 200px; }
 .table-row .row-title { font-weight: 500; color: var(--accent-ink); }
-.plan-cols { grid-template-columns: 60px repeat(5, minmax(0, 1fr)) 80px; }
+.card > .table-scroll { overflow-x: auto; }
+.plan-cols { grid-template-columns: 60px repeat(5, minmax(100px, 1fr)) 80px; }
 .dunning-cols { grid-template-columns: 100px minmax(0, 1.4fr) 110px 120px minmax(0, 1.4fr) 170px; }
 .recurring-cols { grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) 120px 110px 120px; }
 .recurring-history-cols { grid-template-columns: 110px minmax(0, 1fr) 120px; }
@@ -824,6 +843,13 @@ a.table-row:hover { background: var(--ground); color: var(--ink); }
   .service-cols > :nth-child(1), .service-cols > :nth-child(2), .service-cols > :nth-child(6) { grid-column: 1 / -1; }
   .service-cols > :nth-child(6) { justify-content: flex-start !important; }
   .table-row.head.service-cols { display: none; }
+  .service-cols.service-pick { grid-template-columns: 28px repeat(3, minmax(0, 1fr)); }
+  .service-pick > :nth-child(1) { grid-column: 1; grid-row: 1 / span 2; align-self: start; padding-top: 4px; }
+  .service-pick > :nth-child(2), .service-pick > :nth-child(3), .service-pick > :nth-child(7) { grid-column: 2 / -1; }
+  .service-pick > :nth-child(4) { grid-column: 2; }
+  .service-pick > :nth-child(5) { grid-column: 3; }
+  .service-pick > :nth-child(6) { grid-column: 4; }
+  .service-pick > :nth-child(7) { justify-content: flex-start !important; }
   .own-account-cols { grid-template-columns: 70px minmax(0, 1fr); row-gap: 6px; }
   .own-account-cols > :nth-child(3), .own-account-cols > :nth-child(4) { grid-column: 1 / -1; }
   .own-account-cols > :nth-child(4) { justify-content: flex-start !important; }
@@ -1146,6 +1172,7 @@ textarea { font: inherit; font-size: 14px; padding: 10px 12px; border: 1px solid
   .card:has(.tx-check) .tx-cols { grid-template-columns: 84px minmax(0, 1fr) 112px 112px; }
 }
 .tx-confirm-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 4px 20px 8px; }
+.tx-fortschritt { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0; padding: 4px 20px 8px; }
 .tx-row.selected { background: var(--accent-tint); box-shadow: inset 3px 0 0 var(--accent); }
 .tx-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .section-label { font-size: 13px; color: var(--muted); }

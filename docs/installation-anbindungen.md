@@ -30,7 +30,7 @@ Lieber von Hand? Entpacke das Paket auf dem Host nach `/opt/eric`, sodass `/opt/
 | Variable | `ERIC_HOME=/opt/eric` in `.env` | `ERIC_HOME=/opt/eric` in `haben.env` einkommentieren |
 | Neu starten | `docker compose up -d` | `systemctl --user daemon-reload && systemctl --user restart haben-app` |
 
-ERiC läuft nie im App-Prozess. Jede Prüfung und jede Übermittlung startet einen kurzlebigen Kindprozess, der die Bibliothek lädt. Ohne ERiC nutzt Haben einen simulierten Client; die Oberfläche zeigt dann „ERiC ist nicht eingerichtet“ an, und nichts geht an das Finanzamt.
+ERiC läuft nie im App-Prozess. Jede Prüfung und jede Übermittlung startet einen kurzlebigen Kindprozess, der die Bibliothek lädt. Ohne ERiC nutzt Haben einen simulierten Client; die Oberfläche zeigt dann „Senden ist noch nicht eingerichtet“ an, und nichts geht an das Finanzamt.
 
 ### ELSTER auf arm64
 
@@ -196,7 +196,11 @@ Was an Enable Banking geht: beim Verbinden die gewählte Bank und die Rückleitu
 
 ## PayPal-Abruf
 
-Der Abruf der PayPal-Umsätze braucht auf dem Server nichts Eigenes: keine Umgebungsvariable und kein Secret für PayPal. Die Zugangsdaten verschlüsselt Haben wie alle anderen mit dem vorhandenen Schlüssel der Installation; wechselst du ihn, musst du sie neu eintragen. Client-ID und Secret der PayPal-App trägst du in Haben ein (Einstellungen › Bank › PayPal, siehe [PayPal-Umsätze über die API](bank-zahlungsdienstleister.md#paypal-umsätze-über-die-api)); sie liegen verschlüsselt in der Datenbank. Der Server muss `api-m.paypal.com` (Sandbox: `api-m.sandbox.paypal.com`) auf Port 443 erreichen.
+Der Abruf der PayPal-Umsätze braucht auf dem Server nichts Eigenes: keine Umgebungsvariable und kein Secret für PayPal. Die Zugangsdaten verschlüsselt Haben wie alle anderen mit dem vorhandenen Schlüssel der Installation; wechselst du ihn, musst du sie neu eintragen. Client-ID und Secret der PayPal-App trägst du in Haben ein (Einstellungen › Bank › Zahlungsdienstleister, siehe [PayPal-Umsätze über die API](bank-zahlungsdienstleister.md#paypal-umsätze-über-die-api)); sie liegen verschlüsselt in der Datenbank. Der Server muss `api-m.paypal.com` (Sandbox: `api-m.sandbox.paypal.com`) auf Port 443 erreichen.
+
+## Stripe-Abruf
+
+Wie bei PayPal braucht der Abruf der Stripe-Umsätze keine Umgebungsvariable und kein Secret auf dem Server. Den API-Schlüssel trägst du in Haben ein (Einstellungen › Bank › Zahlungsdienstleister, siehe [Stripe-Umsätze über die API](bank-zahlungsdienstleister.md#stripe-umsätze-über-die-api)); er liegt verschlüsselt in der Datenbank. Der Server muss `api.stripe.com` auf Port 443 erreichen.
 
 ## Kontoabruf über FinTS
 

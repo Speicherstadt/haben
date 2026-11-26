@@ -8,6 +8,8 @@ description: >-
 
 **Die App zeigt nur einen Fehler, im Log steht ein Zod-Fehler zu einer Variablen.** Die Umgebung besteht die Prüfung in `env.ts` nicht. Häufig: `ELSTER_HERSTELLER_ID` hat nicht genau fünf Ziffern, `HABEN_ENCRYPTION_KEY` ist nicht genau 32 Byte base64 oder `BETTER_AUTH_SECRET` ist kürzer als 32 Zeichen.
 
+**„Interner Fehler (Fehler-ID 3f9a1c07). Details stehen im Server-Log.“** Haben ist auf einen Fehler gestoßen, den es nicht erwartet hat. Die Zeile im Log trägt dieselbe Fehler-ID: Mit `docker compose logs app | grep -A 20 3f9a1c07` bzw. `journalctl --user -u haben-app | grep -A 20 3f9a1c07` findest du sie, im Textformat mit Fehlermeldung und Stack in den Zeilen darunter. Beides gehört in ein Issue, wenn du den Fehler meldest.
+
 **`haben-app` startet nicht, Fehler beim Mount von `/opt/eric`.** Podman bricht ab, wenn das Quellverzeichnis eines Bind-Mounts fehlt. Lege ERiC dort ab oder lass die `Volume`-Zeile auskommentiert.
 
 **„DATABASE_URL fehlt“ oder Verbindungsfehler beim Start.** Prüfe die Adresse und das Passwort der darin genannten Datenbankrolle. Bei Quadlets enthält `haben-database-url` den App-Zugang; bei getrennten Rollen enthält `haben-migration-database-url` den Eigentümerzugang mit dem Passwort aus `haben-db-password`. Beachte: Postgres übernimmt `POSTGRES_PASSWORD` nur beim ersten Anlegen des Volumes. Ein später geändertes Secret ändert das Passwort in der Datenbank nicht.
@@ -16,7 +18,7 @@ description: >-
 
 **„Haben ist bereits eingerichtet.“** Im Standardmodus hat Haben genau einen Inhaber. Ein zweites Konto entsteht nur über einen Einladungslink für die [Steuerberatung](steuerberatung.md), weder mit dem Einrichtungscode noch über die API.
 
-**Die Oberfläche meldet „ERiC ist nicht eingerichtet“.** Unter **Einstellungen › ELSTER › ERiC** herunterladen. Hast du ERiC von Hand eingebunden, ist `ERIC_HOME` in der App nicht gesetzt; prüfe `.env` bzw. `haben.env` und starte die App neu.
+**Die Oberfläche meldet „Senden ist noch nicht eingerichtet“.** Unter **Einstellungen › ELSTER › ERiC** herunterladen. Hast du ERiC von Hand eingebunden, ist `ERIC_HOME` in der App nicht gesetzt; prüfe `.env` bzw. `haben.env` und starte die App neu.
 
 **Der ERiC-Download scheitert.** Die Meldung steht unter **Einstellungen › ELSTER › ERiC**. „Gibt es nicht (mehr)“ heißt: Die Version ist zu alt oder vertippt; die aktuelle steht auf der Infoseite. Der Server muss `download.elster.de` per HTTPS erreichen und während der Installation rund 800 MB im Volume `eric` bzw. `haben-eric` frei haben (siehe [ERiC einbinden](installation-anbindungen.md#eric-einbinden)).
 

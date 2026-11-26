@@ -118,7 +118,7 @@ siehst, dass alles da ist.
 |---|---|---|
 | Lexware Office (früher lexoffice) | Buchhaltung und Rechnungen als Cloud-Dienst im Abo | Über die Public API, eine Sicherung aus der Web-Oberfläche oder den DATEV-Export ([Umzug](https://haben.app/lexoffice.html)) |
 | sevDesk | Buchhaltung und Rechnungen als Cloud-Dienst im Abo | Mit API-Token oder über die Exporte, samt Anlagen ([Umzug](https://haben.app/sevdesk.html)) |
-| FastBill | Rechnungen und Buchhaltung online im Abo | Rechnungen, Gutschriften, Ausgaben, Kunden und Artikel über die API ([Umzug](https://haben.app/fastbill.html)) |
+| FastBill | Rechnungen und Buchhaltung online im Abo | Rechnungen, Gutschriften, Ausgaben, Einnahmen, Angebote, Kunden und Artikel über die API ([Umzug](https://haben.app/fastbill.html)) |
 | BuchhaltungsButler · Accountable | Online-Buchhaltung im Abo | Aus den Exportdateien (DATEV-Buchungsstapel und Belege) ([BuchhaltungsButler](https://haben.app/buchhaltungsbutler.html), [Accountable](https://haben.app/accountable.html)) |
 | DATEV | Software und Datenformat der Steuerberatung | Kein Umzug nötig: Du buchst in Haben, die Steuerberatung bekommt einen [Lesezugang](https://haben.app/steuerberatung.html) oder den DATEV-Buchungsstapel |
 
@@ -167,7 +167,7 @@ Podman Quadlets stehen in [Installation](https://haben.app/installation.html), E
 > sind ELSTER-Zertifikat und die Schlüssel für Lexoffice und sevDesk nach einer Wiederherstellung nicht mehr lesbar,
 > ohne das Passwort lässt sich das Backup nicht öffnen.
 
-Keinen eigenen Server oder keine eigene IT? Haben gibt es auf [Anfrage](https://haben.app/gehostet.html) gehostet oder über einen IT-Dienstleister aus dem [Partnerprogramm](https://speicherstadt.org/partner/).
+Keinen eigenen Server oder keine eigene IT? Haben gibt es [gehostet zum Buchen](https://haben.app/gehostet.html) oder über einen IT-Dienstleister aus dem [Partnerprogramm](https://speicherstadt.org/partner/).
 
 ## FAQ
 
@@ -323,7 +323,7 @@ Weitere Open-Source-Apps für deinen eigenen Server, etwa für Mail, Office-Doku
 
 ## Mitwirken
 
-Fehler und Ideen gern als Issue. Wer mitbauen will, sucht sich eine Aufgabe im [Project „Roadmap“](https://github.com/orgs/Speicherstadt/projects/3) aus, etwa mit dem Label `einstieg`, und kommentiert im Issue `/übernehmen`. Wie es dann bis zum Merge weitergeht, zeigt [Agentic Engineering bei Haben](https://haben.app/agentic-engineering.html).
+Fehler und Ideen gern als Issue. Wer mitbauen will, sucht sich eine Aufgabe im [Project „Roadmap Haben“](https://github.com/orgs/Speicherstadt/projects/3) aus, etwa mit dem Label `einstieg`, und kommentiert im Issue `/übernehmen`. Wie es dann bis zum Merge weitergeht, zeigt [Agentic Engineering bei Haben](https://haben.app/agentic-engineering.html).
 Was vor einem Pull Request laufen muss und was er enthält, steht unter [Mitwirken](https://haben.app/mitwirken.html). Programmieren musst du dafür nicht: Wissen zu Steuern und Buchhaltung hilft genauso.
 
 ## Sterne im Verlauf

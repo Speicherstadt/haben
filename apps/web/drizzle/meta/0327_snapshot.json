@@ -1,5 +1,5 @@
 {
-  "id": "8e15b81d-7559-4edd-a8ae-9fa977979242",
+  "id": "91f74910-d54c-4f81-8578-44ea09686059",
   "prevId": "e10e0748-71ac-4548-9f27-7503eb28fb88",
   "version": "7",
   "dialect": "postgresql",
@@ -3071,82 +3071,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.bankverbindungen": {
-      "name": "bankverbindungen",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "bezeichnung": {
-          "name": "bezeichnung",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "iban": {
-          "name": "iban",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "bic": {
-          "name": "bic",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "bank": {
-          "name": "bank",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "kontoinhaber": {
-          "name": "kontoinhaber",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "bankverbindungen_iban": {
-          "name": "bankverbindungen_iban",
-          "columns": [
-            {
-              "expression": "iban",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.beleg_layouts": {
       "name": "beleg_layouts",
       "schema": "",
@@ -4466,12 +4390,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "bankverbindung_id": {
-          "name": "bankverbindung_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "hourly_rate_cents": {
           "name": "hourly_rate_cents",
           "type": "integer",
@@ -4643,21 +4561,7 @@
           "with": {}
         }
       },
-      "foreignKeys": {
-        "contacts_bankverbindung_id_bankverbindungen_id_fk": {
-          "name": "contacts_bankverbindung_id_bankverbindungen_id_fk",
-          "tableFrom": "contacts",
-          "tableTo": "bankverbindungen",
-          "columnsFrom": [
-            "bankverbindung_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "contacts_lexoffice_id_unique": {
@@ -9935,12 +9839,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "bankverbindung_id": {
-          "name": "bankverbindung_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "recurring_id": {
           "name": "recurring_id",
           "type": "uuid",
@@ -10282,19 +10180,6 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "invoices_bankverbindung_id_bankverbindungen_id_fk": {
-          "name": "invoices_bankverbindung_id_bankverbindungen_id_fk",
-          "tableFrom": "invoices",
-          "tableTo": "bankverbindungen",
-          "columnsFrom": [
-            "bankverbindung_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
         "invoices_corrects_fk": {
           "name": "invoices_corrects_fk",
           "tableFrom": "invoices",
@@ -10370,10 +10255,6 @@
         "invoices_payment_method": {
           "name": "invoices_payment_method",
           "value": "\"invoices\".\"payment_method\" in ('ueberweisung', 'lastschrift', 'bereits_bezahlt')"
-        },
-        "invoices_bankverbindung_entwurf": {
-          "name": "invoices_bankverbindung_entwurf",
-          "value": "\"invoices\".\"status\" = 'draft' or \"invoices\".\"bankverbindung_id\" is null"
         },
         "invoices_paid_payment": {
           "name": "invoices_paid_payment",
@@ -15577,12 +15458,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "bankverbindung_id": {
-          "name": "bankverbindung_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "issue_date": {
           "name": "issue_date",
           "type": "date",
@@ -15930,19 +15805,6 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "quotes_bankverbindung_id_bankverbindungen_id_fk": {
-          "name": "quotes_bankverbindung_id_bankverbindungen_id_fk",
-          "tableFrom": "quotes",
-          "tableTo": "bankverbindungen",
-          "columnsFrom": [
-            "bankverbindung_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
         "quotes_invoice_id_invoices_id_fk": {
           "name": "quotes_invoice_id_invoices_id_fk",
           "tableFrom": "quotes",
@@ -15972,10 +15834,6 @@
         "quotes_final_has_number": {
           "name": "quotes_final_has_number",
           "value": "\"quotes\".\"status\" = 'draft' or (\"quotes\".\"number\" is not null and \"quotes\".\"locked_at\" is not null)"
-        },
-        "quotes_bankverbindung_entwurf": {
-          "name": "quotes_bankverbindung_entwurf",
-          "value": "\"quotes\".\"status\" = 'draft' or \"quotes\".\"bankverbindung_id\" is null"
         },
         "quotes_decision_final": {
           "name": "quotes_decision_final",
@@ -20389,6 +20247,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "small_business_rule": {
+          "name": "small_business_rule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "computed": {
           "name": "computed",
           "type": "jsonb",
@@ -20480,6 +20344,10 @@
         "vat_returns_month": {
           "name": "vat_returns_month",
           "value": "\"vat_returns\".\"month\" between 1 and 12 or \"vat_returns\".\"month\" between 41 and 44"
+        },
+        "vat_returns_small_business_rule": {
+          "name": "vat_returns_small_business_rule",
+          "value": "\"vat_returns\".\"small_business_rule\" is null or \"vat_returns\".\"small_business_rule\" = 'leistung'"
         }
       },
       "isRLSEnabled": false

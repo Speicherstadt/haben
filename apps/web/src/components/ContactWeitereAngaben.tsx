@@ -13,6 +13,7 @@ export interface KontaktWeitereWerte {
   kreditorNr: string;
   hourlyRate: string;
   leitwegId: string;
+  unsereLieferantennummer: string;
   defaultFormat: InvoiceFormat | "";
   /** Skonto: false = wie in den Einstellungen, true = eigene Stufen (leer = ohne Skonto) */
   ownSkonto: boolean;
@@ -33,17 +34,27 @@ export function kontaktWeitereKurz(werte: KontaktWeitereWerte): string {
     werte.kreditorNr.trim() && `DATEV-Kreditor ${werte.kreditorNr.trim()}`,
     werte.hourlyRate.trim() && `Stundensatz ${werte.hourlyRate.trim()} €`,
     werte.leitwegId.trim() && "Leitweg-ID gesetzt",
+    werte.unsereLieferantennummer.trim() && `Unsere Lieferantennummer ${werte.unsereLieferantennummer.trim()}`,
     werte.defaultFormat && `Format ${FORMAT_LABEL[werte.defaultFormat].split(" · ")[0]}`,
     skonto,
     werte.bankverbindung && `Zahlungskonto ${werte.bankverbindung}`,
   ]
     .filter(Boolean)
     .join(" · ");
-  return gesetzt || "optional: DATEV-Konten, Skonto, Stundensatz, Leitweg-ID, Rechnungsformat";
+  return gesetzt || "optional: DATEV-Konten, Skonto, Stundensatz, Leitweg-ID, Unsere Lieferantennummer, Rechnungsformat";
 }
 
 /** Die Felder im Bereich, benannt wie im Formular und in `contactSchema`; ein Fehler nennt sie in `felder` (UserError, Pfad der Zod-Prüfung) */
-const WEITERE_FELDER = ["debitorNr", "kreditorNr", "hourlyRateCents", "leitwegId", "defaultFormat", "skonto", "bankverbindungId"] as const;
+const WEITERE_FELDER = [
+  "debitorNr",
+  "kreditorNr",
+  "hourlyRateCents",
+  "leitwegId",
+  "unsereLieferantennummer",
+  "defaultFormat",
+  "skonto",
+  "bankverbindungId",
+] as const;
 
 /** Das erste Feld im Bereich, an dem ein Fehler liegt; die Seite klappt ihn dann auf und setzt den Fokus dorthin */
 export const weitereAngabenFeld = (error: unknown) => fehlerFelder(error).find((feld) => (WEITERE_FELDER as readonly string[]).includes(feld));
@@ -52,7 +63,7 @@ export const weitereAngabenFeld = (error: unknown) => fehlerFelder(error).find((
 export const feldFehler = (feld: (typeof WEITERE_FELDER)[number], message: string) => Object.assign(new Error(message), { felder: [feld] });
 
 /**
- * Das Seltene am Kontakt eingeklappt (#1253): DATEV-Konten, Stundensatz, Leitweg-ID, Rechnungsformat und Skonto. Die Felder
+ * Das Seltene am Kontakt eingeklappt (#1253): DATEV-Konten, Stundensatz, Leitweg-ID, Lieferantennummer beim Kunden, Rechnungsformat und Skonto. Die Felder
  * bleiben im Formular, auch zugeklappt, und gehen wie zuvor mit dem Speichern an den Server. Den Skonto-Zustand hält die
  * Seite, weil sie ihn beim Speichern prüft; `offen` auch, damit sie den Bereich bei einem Fehler darin aufklappen kann.
  */
@@ -80,6 +91,7 @@ export function ContactWeitereAngaben({
   const [kreditorNr, setKreditorNr] = useState(String(initial.kreditorNr ?? ""));
   const [hourlyRate, setHourlyRate] = useState(initial.hourlyRateCents == null ? "" : formatDecimal(initial.hourlyRateCents));
   const [leitwegId, setLeitwegId] = useState(initial.leitwegId);
+  const [unsereLieferantennummer, setUnsereLieferantennummer] = useState(initial.unsereLieferantennummer ?? "");
   const [defaultFormat, setDefaultFormat] = useState<InvoiceFormat | "">(initial.defaultFormat ?? "");
   const [bankverbindungId, setBankverbindungId] = useState(initial.bankverbindungId ?? "");
   const bankverbindung = bankverbindungen.liste.find((b) => b.id === bankverbindungId)?.bezeichnung ?? "";
@@ -88,6 +100,7 @@ export function ContactWeitereAngaben({
     kreditorNr,
     hourlyRate,
     leitwegId,
+    unsereLieferantennummer,
     defaultFormat,
     ownSkonto,
     skonto: parseSkontoRows(skontoRows).stufen,
@@ -139,6 +152,21 @@ export function ContactWeitereAngaben({
         </Field>
         <Field label="Leitweg-ID (öffentliche Auftraggeber)" hint="Nur bei Rechnungen an Behörden nötig; steht in deren Auftrag.">
           {(control) => <input {...control} name="leitwegId" value={leitwegId} onChange={(e) => setLeitwegId(e.target.value)} className="mono" />}
+        </Field>
+        {/* Die Nummer, unter der uns der Kunde führt (#711); nicht die Lieferantennummer unter „Allgemein“, die meint die Gegenrichtung */}
+        <Field
+          label="Unsere Lieferantennummer bei diesem Kunden"
+          hint="Vom Kunden vergeben. Steht im Kopf der Rechnung und in der E-Rechnung als Verkäuferkennung (BT-29)."
+        >
+          {(control) => (
+            <input
+              {...control}
+              name="unsereLieferantennummer"
+              value={unsereLieferantennummer}
+              onChange={(e) => setUnsereLieferantennummer(e.target.value)}
+              placeholder="optional"
+            />
+          )}
         </Field>
         <Field label="Standardformat für Rechnungen">
           {(control) => (

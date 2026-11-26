@@ -34,6 +34,25 @@ Bist du in den Einstellungen als Kleinunternehmer eingetragen, zeigt die Seite o
 
 Vor jedem Prüfen oder Senden speichert Haben den Entwurf, falls er neu oder geändert ist. Mit **Entwurf speichern** geht das auch ohne Prüfung.
 
+Oben auf der Seite zeigt eine Leiste, wo du stehst:
+
+- **Zahlen prüfen**, bis ein unveränderter Entwurf gespeichert ist.
+- **Abgeben**, sobald er gespeichert ist.
+- **Zahlen**, nach dem Festschreiben, bis keine Zahllast mehr offen ist. Eine ausstehende Erstattung hält ihn nicht offen.
+
+Darunter sagt ein Satz, was Kz 83 für dich heißt, auch bei von Hand geänderten Werten:
+
+- „Du zahlst 1.234,00 € bis 10.12.2026.“; nach der Frist: „Die Zahllast von 1.234,00 € war am 10.12.2026 fällig.“
+- „Du bekommst 123,00 € zurück, sobald das Finanzamt zustimmt.“
+- „Diesmal ist nichts zu zahlen.“
+
+Der Satz entfällt:
+
+- solange von Hand ein Wert nicht lesbar ist,
+- bei einer berichtigten Anmeldung, denn zu zahlen oder zu erstatten ist nur der Unterschied zur ersten Anmeldung (siehe [berichtigte Anmeldung](#berichtigte-anmeldung)),
+- wenn der Zeitraum nicht zur Voranmeldung passt (siehe [Voranmeldungszeitraum](#voranmeldungszeitraum)),
+- nach dem Festschreiben; dort zeigen Status und **Zahlung an das Finanzamt** den Stand.
+
 ## Voranmeldungszeitraum
 
 Der Voranmeldungszeitraum ist nach § 18 Abs. 2 UStG das Kalendervierteljahr. Monatlich gibst du ab, wenn die Steuer des Vorjahres mehr als 9.000 € betrug. Bei höchstens 2.000 € kann dich das Finanzamt von den Voranmeldungen befreien; dann gibst du nur die Jahreserklärung ab. Festgelegt wird der Zeitraum vom Finanzamt, meist mit der Steuernummer oder nach der Jahreserklärung. Haben übernimmt, was du einträgst, und schlägt nur vor.
@@ -157,8 +176,8 @@ Haben fasst alles je USt-IdNr. des Kunden und Umsatzart zusammen (in Großbuchst
 | --- | --- |
 | Eigene USt-IdNr. fehlt oder hat eine falsche Prüfziffer | Senden gesperrt; in den Firmendaten eintragen. Die ZM geht nur mit USt-IdNr., nicht mit der Steuernummer |
 | Anschrift unvollständig (Straße, fünfstellige PLZ, Ort) | Senden gesperrt |
-| USt-IdNr. eines Kunden fehlt, ist deutsch, britisch (seit dem Brexit; für Nordirland XI) oder hat kein Länderkennzeichen eines anderen Mitgliedstaats, oder nach dem Kennzeichen nicht 5 bis 12 Buchstaben, Ziffern, + oder * | Senden gesperrt, mit Rechnung und Kunde. Nordirische Nummern (XI) gelten nur für Lieferungen |
-| USt-IdNr. eines Kunden passt nicht zum Aufbau in ihrem Land, etwa `ATU` und acht Ziffern in Österreich ([Übersicht des BZSt](https://www.bzst.de/SharedDocs/Downloads/DE/Merkblaetter/ust_idnr_aufbau.html); wo sie die Art der Stellen offenlässt, wie hier nach dem `U`, die [FAQ der EU-Kommission zu VIES](https://ec.europa.eu/taxation_customs/vies/#/faq), Frage 11) | Warnung, mit Rechnung und Kunde. Senden geht trotzdem: Die Rechnung ist festgeschrieben, und eine schon gemeldete Nummer muss sich mit einer Berichtigung zurücknehmen lassen. Eine innergemeinschaftliche Lieferung mit einer solchen Nummer lässt sich gar nicht erst [festschreiben](rechnungen.md#umsatzsteuer-auf-der-rechnung) |
+| USt-IdNr. eines Kunden fehlt, ist deutsch, britisch (seit dem Brexit; für Nordirland XI) oder hat kein Länderkennzeichen eines anderen Mitgliedstaats, oder nach dem Kennzeichen nicht 5 bis 12 Buchstaben, Ziffern, + oder * | Senden gesperrt, mit Rechnung und Kunde. Nordirische Nummern (XI) gelten nur für Lieferungen. Eine Rechnung mit Reverse Charge oder innergemeinschaftlicher Lieferung mit einer solchen Nummer lässt sich nicht [festschreiben](rechnungen.md#was-vor-dem-festschreiben-geprüft-wird) |
+| USt-IdNr. eines Kunden passt nicht zum Aufbau in ihrem Land, etwa `ATU` und acht Ziffern in Österreich ([Übersicht des BZSt](https://www.bzst.de/SharedDocs/Downloads/DE/Merkblaetter/ust_idnr_aufbau.html); wo sie die Art der Stellen offenlässt, wie hier nach dem `U`, die [FAQ der EU-Kommission zu VIES](https://ec.europa.eu/taxation_customs/vies/#/faq), Frage 11) | Warnung, mit Rechnung und Kunde. Senden geht trotzdem: Die Rechnung ist festgeschrieben, und eine schon gemeldete Nummer muss sich mit einer Berichtigung zurücknehmen lassen. Eine Rechnung mit Reverse Charge oder innergemeinschaftlicher Lieferung mit einer solchen Nummer lässt sich gar nicht erst [festschreiben](rechnungen.md#was-vor-dem-festschreiben-geprüft-wird) |
 | Zu einer gemeldeten USt-IdNr. fehlt die [Bestätigung des BZSt](kontakte.md#ust-idnr-beim-bzst-bestätigen), oder ihre letzte Antwort ist nicht „gültig“ (`evatr-0000`) | Warnung mit der Antwort des BZSt, bei „gültig“ mit Besonderheit (`evatr-2008`) nur ein Hinweis. **Beim BZSt bestätigen** in der Karte **Meldezeilen** fragt jede Nummer, deren letzte Antwort nicht gültig oder älter als 30 Tage ist, einfach ab; der Nachweis steht am Kontakt der Rechnung. Nach einer Antwort ohne Ergebnis fragt er die übrigen Nummern nicht mehr, das BZSt bittet dann um eine spätere Anfrage. Senden geht trotzdem. Geprüft wird nur, was als Nächstes gesendet würde, nicht ein schon gemeldetes Quartal: Rückwirkend bestätigt das BZSt nichts. Abgeschaltet (`HABEN_EVATR=off`) oder ohne eigene USt-IdNr. entfällt die Prüfung |
 | Voranmeldungen des Quartals noch nicht alle gesendet | Hinweis; der Abgleich mit Kz 21 folgt danach |
 | Summe der Meldung weicht von Kz 21 der gesendeten Voranmeldungen ab, bei Lieferungen von Kz 41 | Warnung. Bis zu einem Euro je Zeile und Voranmeldung ist Rundung. Eine größere Abweichung heißt: Die Voranmeldung oder die Meldung braucht eine Berichtigung |
@@ -228,7 +247,7 @@ Bei neuen Bilanz-Anzahlungs-/Schlussketten von GmbH und UG gehen reine Anforderu
 
 Bei Reverse Charge ist der Monat der Leistung maßgeblich, nicht die Zahlung ([§ 18b Satz 3 UStG](https://www.gesetze-im-internet.de/ustg_1980/__18b.html)). Innergemeinschaftliche Lieferungen gehören in den Voranmeldungszeitraum, in dem die Rechnung ausgestellt ist, spätestens in den Monat nach der Lieferung (§ 18b UStG); Haben nimmt das Rechnungsdatum. Nicht steuerbare Leistungen ins Drittland meldet Haben wie DATEV mit der Rechnung: Bei Ist-Versteuerung weist DATEV nur steuerpflichtige und steuerfreie inländische Umsätze erst mit der Zahlung aus, andere Steuersachverhalte wie nicht steuerbare Umsätze im Drittland schon mit der Rechnung ([DATEV-Dok. 1080673](https://help-center.apps.datev.de/documents/1080673)). Bis Version 0.6.6 zählte Kz 45 bei Ist-Versteuerung im Monat der Zahlung. Gesendete Voranmeldungen bleiben, wie sie gesendet wurden; die Steuer (Kz 83) war darin richtig, nur die Bemessungsgrundlage in Kz 45 steht im Monat der Zahlung statt der Rechnung. Kz 41 und 43 sind steuerfreie Umsätze **mit** Vorsteuerabzug: Die Vorsteuer aus den Einkäufen dafür bleibt abziehbar.
 
-Für Kz 43 und 48 sagt die [Anleitung zur UStVA 2026](https://www.elster.de/eportal/helpGlobal?themaGlobal=help_ustva_2026#kz43) in beiden Abschnitten: „Anzahlungen zu steuerfreien Umsätzen tragen Sie bitte nicht ein. Den Gesamtbetrag (Anzahlungen und Restzahlung) geben Sie bitte im Voranmeldungszeitraum der Leistungsausführung an.“ Eine Ausnahme für die Ist-Versteuerung nennt sie nicht. Das gilt auch für Umsätze als Kleinunternehmer ([§ 19 Abs. 1 UStG](https://www.gesetze-im-internet.de/ustg_1980/__19.html)), die die Anleitung unter [Kz 48](https://www.elster.de/eportal/helpGlobal?themaGlobal=help_ustva_2026#kz48) nennt; Entgeltminderungen gehören laut Anleitung in die Bemessungsgrundlage. Umsätze als Kleinunternehmer meldet Haben erst ab 2025: Seitdem sind sie steuerfrei, und Kz 48 nennt im ERiC-Schema (UStVA-2025.xsd) erstmals § 19 Abs. 1, für 2024 nur § 4 Nr. 8 bis 29. Storno, Korrektur und Ausbuchung einer Leistung vor 2025 zählen deshalb auch später nicht. Bis Version 0.12.0 standen diese Umsätze in keiner Kennzahl; eine so gesendete Voranmeldung zeigt deshalb keinen Hinweis „Seit der Übermittlung haben sich die Buchungen dieses Monats geändert“, und der [Abgleich](buchhaltung.md#abgleich-im-journal) meldet sie nicht.
+Für Kz 43 und 48 sagt die [Anleitung zur UStVA 2026](https://www.elster.de/eportal/helpGlobal?themaGlobal=help_ustva_2026#kz43) in beiden Abschnitten: „Anzahlungen zu steuerfreien Umsätzen tragen Sie bitte nicht ein. Den Gesamtbetrag (Anzahlungen und Restzahlung) geben Sie bitte im Voranmeldungszeitraum der Leistungsausführung an.“ Eine Ausnahme für die Ist-Versteuerung nennt sie nicht. Das gilt auch für Umsätze als Kleinunternehmer ([§ 19 Abs. 1 UStG](https://www.gesetze-im-internet.de/ustg_1980/__19.html)), die die Anleitung unter [Kz 48](https://www.elster.de/eportal/helpGlobal?themaGlobal=help_ustva_2026#kz48) nennt; Entgeltminderungen gehören laut Anleitung in die Bemessungsgrundlage. Umsätze als Kleinunternehmer meldet Haben erst ab 2025: Seitdem sind sie steuerfrei, und Kz 48 nennt im ERiC-Schema (UStVA-2025.xsd) erstmals § 19 Abs. 1, für 2024 nur § 4 Nr. 8 bis 29. Storno, Korrektur und Ausbuchung einer Leistung vor 2025 zählen deshalb auch später nicht. Bis Version 0.12.0 standen diese Umsätze in keiner Kennzahl. Ob Kz 48 einer bis Version 0.14.0 berechneten Voranmeldung sie enthält, weiß Haben nicht: Unterscheidet sich Kz 48 nur um diese Umsätze, zeigt die Voranmeldung keinen Hinweis „Seit der Übermittlung haben sich die Buchungen dieses Monats geändert“, und der [Abgleich](buchhaltung.md#abgleich-im-journal) meldet das nicht.
 
 Rechnungen über § 4 und Ausfuhr, die bis Version 0.13.0-rc.1 festgeschrieben wurden, zählen samt Storno, Korrektur und Zahlungen weiter wie Kz 81: bei Ist mit der Zahlung, Anzahlungen darauf bei Ist und Soll mit ihrer Zahlung, und eine spätere Schlussrechnung zählt eine solche Anzahlung nicht noch einmal. So ändert sich keine vor dem Update gesendete Voranmeldung, und kein Umsatz bleibt ungemeldet. Eine danach festgeschriebene Rechnung mit Leistung in einem schon gesendeten Zeitraum meldet der [Abgleich](buchhaltung.md#abgleich-im-journal), dazu der Hinweis an der Rechnung ([Leistungstag](#leistungstag-bei-soll-versteuerung)).
 
@@ -314,7 +333,7 @@ Unter jeder Kennzahl steht, wie viele Zahlungseingänge, Rechnungen oder Belege 
 
 ## Werte von Hand ändern
 
-Unter der Tabelle steht der kleine Link **Werte von Hand ändern (nur in Ausnahmen)**. Mit ihm gibst du Kz 81, 86, 21, 41, 43, 45, 48, 50, 89, 93, 66, 61, 46/47, 84/85 und 67 selbst ein, Kz 62 und 39, wenn sie einen Wert haben. Dann ist eine **Begründung der Abweichung** Pflicht (mindestens 10 Zeichen). Darunter stehen die berechneten Werte zum Vergleich. Gespeichert werden die eingegebenen Werte, die Begründung und die berechneten Werte zum Zeitpunkt des Speicherns. Nach dem Senden zeigt die Seite „Manuell überschrieben: …“ mit der Begründung.
+Unter der Tabelle steht der kleine Link **Werte von Hand ändern (nur in Ausnahmen)**. Mit ihm gibst du Kz 81, 86, 21, 41, 43, 45, 48, 50, 89, 93, 66, 61, 46/47, 84/85 und 67 selbst ein, Kz 62 und 39, wenn sie einen Wert haben. Dann ist eine **Begründung der Abweichung** Pflicht (mindestens 10 Zeichen). Darunter stehen die berechneten Werte zum Vergleich. Gespeichert werden die eingegebenen Werte, die Begründung und die berechneten Werte zum Zeitpunkt des Speicherns. Während gespeichert, geprüft oder gesendet wird, sind die Felder kurz gesperrt, damit keine Eingabe verloren geht. Nach dem Senden zeigt die Seite „Manuell überschrieben: …“ mit der Begründung.
 
 Manuelle Werte außer Kz 50 dürfen auch negativ sein, etwa wenn im Monat Gutschriften überwiegen. Mit **Zurück zu den berechneten Werten** kehrst du an derselben Stelle zu den berechneten Werten zurück. Ein von Hand überschriebener Entwurf öffnet mit den Eingabefeldern.
 
@@ -383,6 +402,8 @@ Hast du die Voranmeldung außerhalb von Haben abgegeben, per XML-Import in Mein 
 | Kz 83 laut Protokoll | die verbleibende Vorauszahlung bzw. der Überschuss, wie gemeldet |
 | Übermittlungsprotokoll (PDF) | das Protokoll aus Mein ELSTER |
 
+Den Bereich findest du in der rechten Spalte unter **Schon anders abgegeben?**: mit eingerichtetem ERiC und eigener Hersteller-ID zugeklappt, sonst offen, denn dann ist Mein ELSTER der Hauptweg und der Vermerk der nächste Schritt.
+
 **Abgabe vermerken** fragt in einem Dialog nach, der Tag, Transferticket und Kz 83 noch einmal zeigt, und schreibt die Anmeldung dann fest wie eine Übermittlung über ERiC: Status „Abgegeben … (vermerkt)“, die [Frist](fristen.md) ist erledigt, eine Berichtigung geht wie nach dem Senden über **Berichtigte Anmeldung anlegen**, und die Zahllast wird ein [offener Posten](#zahlung-an-das-finanzamt). Ein berechneter Entwurf wird vorher auf den Stand der Buchungen gebracht, wie vor dem Senden.
 
 Weicht Kz 83 laut Protokoll von der Anmeldung in Haben ab, lehnt Haben den Vermerk ab: Dann ist beim Finanzamt etwas anderes angekommen, als Haben gespeichert hat, etwa weil sich Buchungen nach dem Herunterladen des XML geändert haben oder du in Mein ELSTER Werte geändert hast. Prüfe die Abweichung; stimmen die Werte des Finanzamts, überschreibst du die Kennzahlen von Hand mit Begründung und vermerkst dann. Verglichen wird nur Kz 83, weil sie über Zahllast und Zahlung entscheidet; die übrigen Kennzahlen stehen im Protokoll.
@@ -447,16 +468,19 @@ Das Zertifikat lädst du unter Einstellungen hoch. Es wird mit `HABEN_ENCRYPTION
 
 ## Simulierter Modus
 
-Ist weder `ERIC_HOME` gesetzt noch ERiC unter Einstellungen › ELSTER › ERiC heruntergeladen, zeigt die Seite „ERiC ist nicht eingerichtet. Prüfen und Senden laufen simuliert, nichts geht an das Finanzamt.“ mit einem Link zu Einstellungen › ELSTER. Derselbe Hinweis steht auf diesen Seiten:
+Ist weder `ERIC_HOME` gesetzt noch ERiC unter Einstellungen › ELSTER › ERiC heruntergeladen, zeigt die Seite „Senden ist noch nicht eingerichtet: Prüfen und Senden laufen nur simuliert, nichts geht an das Finanzamt.“ und den Link „ERiC einrichten“ zu Einstellungen › ELSTER. Derselbe Hinweis steht auf diesen Seiten:
 
 - Übersicht (nur bei Umsatzsteuerpflicht)
 - Voranmeldung
 - Zusammenfassende Meldung (mit „Bundeszentralamt für Steuern“ statt „Finanzamt“)
 - Jahreserklärung
+- Jahresabschluss (E-Bilanz, nur bei GmbH und UG)
 - Lohnsteuer-Anmeldung
+- Lohnsteuerbescheinigung (nur in Jahren, die ERiC sendet)
+- Ausschüttungen (Kapitalertragsteuer-Anmeldung, nur bei GmbH und UG)
 - Finanzamt
 
-Ein Ersatz-Client prüft dann nur, ob das XML wohlgeformt ist und Kz 83 enthält. Übermittlungen bekommen ein erfundenes Ticket (`fake-…`) und ein Protokoll-PDF mit dem Text „Testprotokoll – keine echte Übermittlung“.
+Ein Ersatz-Client prüft dann nur, ob das XML wohlgeformt ist (bei der Voranmeldung auch, ob Kz 83 gesetzt ist). Übermittlungen bekommen ein erfundenes Ticket (`fake-…`) und ein Protokoll-PDF mit dem Text „Testprotokoll – keine echte Übermittlung“; Lohnsteuerbescheinigungen und was du auf der Seite Finanzamt sendest, haben kein Protokoll-PDF.
 
 Eine Echtübermittlung ist im simulierten Modus nicht möglich: Der Haken **Nur Testübermittlung** bleibt gesetzt, und Haben lehnt eine Echtübermittlung ab, solange kein ERiC eingerichtet ist. So wird keine Anmeldung als gesendet festgeschrieben, die nie beim Finanzamt war.
 
