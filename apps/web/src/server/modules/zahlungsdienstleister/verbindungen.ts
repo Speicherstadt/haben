@@ -214,10 +214,11 @@ export async function speichereVerbindung(actor: string, input: z.input<typeof v
     );
   }
   if (gewaehlt && !gebunden) await ohneFremdeQuelle(adapter, gewaehlt, accountId);
-  const bankAccountId = gewaehlt ?? gebunden?.id ?? existing?.row.bankAccountId ?? (await freiesKonto(db, adapter.provider, id, accountId))?.id ?? null;
+  const anderesKonto = existing !== null && existing.row.accountId !== accountId;
+  const bankAccountId =
+    gewaehlt ?? gebunden?.id ?? (anderesKonto ? null : existing?.row.bankAccountId) ?? (await freiesKonto(db, adapter.provider, id, accountId))?.id ?? null;
   // Ein Konto, eine Quelle (#306): hat das Konto des Abrufs schon eine externe Quelle, keine Verbindung
   if (bankAccountId) await keineExterneQuelle(db, [bankAccountId]);
-  const anderesKonto = existing !== null && existing.row.accountId !== accountId;
   const startGeaendert = existing?.row.abrufStart !== data.fetchFrom;
   const values = {
     provider: adapter.provider,
