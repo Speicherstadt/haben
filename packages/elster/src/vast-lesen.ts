@@ -11,14 +11,15 @@ export type XmlKnoten = Record<string, unknown>;
 
 const parser = new XMLParser({ ignoreAttributes: true, removeNSPrefix: true, parseTagValue: false, trimValues: true });
 
+const liste = (wert: unknown): unknown[] => (wert === undefined || wert === null || wert === "" ? [] : Array.isArray(wert) ? wert : [wert]);
+
 /** Wurzelelement des Belegs, z. B. der Inhalt von <VaSt_LStB> */
 export function belegWurzel(xml: string, belegart: string): XmlKnoten | null {
   const doc = parser.parse(xml.replace(/^\s*<\?xml[^>]*\?>/, "")) as XmlKnoten;
-  const wurzel = doc[belegart];
+  // Eine Hülle <Belege> wie in parseVastBeleg: der erste Beleg der Art darin
+  const wurzel = doc[belegart] ?? liste((doc.Belege as XmlKnoten | undefined)?.[belegart])[0];
   return wurzel && typeof wurzel === "object" ? (wurzel as XmlKnoten) : null;
 }
-
-const liste = (wert: unknown): unknown[] => (wert === undefined || wert === null || wert === "" ? [] : Array.isArray(wert) ? wert : [wert]);
 
 /** Alle Knoten unter dem Pfad; jede Stufe darf wiederholt sein */
 export function alle(knoten: unknown, ...pfad: string[]): XmlKnoten[] {

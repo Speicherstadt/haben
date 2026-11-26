@@ -42,7 +42,7 @@ export interface VastVorschlag {
   /** Vorsorgeaufwand je Person, mit den Belegen hinter jedem Wert */
   vorsorge: JePerson<{ werte: Partial<EstVorsorgePerson>; herkunft: Partial<Record<keyof EstVorsorgePerson, string[]>> }>;
   /** Einkommensersatzleistungen, eine je Leistung */
-  ersatzleistungen: JePerson<{ herkunft: string; leistung: EstErsatzleistung }[]>;
+  ersatzleistungen: JePerson<{ herkunft: string[]; leistung: EstErsatzleistung }[]>;
   /** Gezahlte Kirchensteuer laut Lohnsteuerbescheinigungen beider Personen (Sonderausgaben, Berechne_E0108004) */
   sonderausgaben?: { werte: { kirchensteuerGezahlt: Cents }; herkunft: { kirchensteuerGezahlt: string[] } };
   /** Was Haben nicht übernimmt, mit Grund */
@@ -116,7 +116,9 @@ interface Sammlung {
   /** Zahlungsdaten der Zuschüsse nach § 10 Abs. 4b EStG mit dem Beleg dahinter */
   zuschuss: JePerson<{ knoten: XmlKnoten; id: string }[]>;
   /** Kirchensteuer je Lohnsteuerbescheinigung, für die Sonderausgaben */
-  kirchensteuer: { c: Cents; id: string }[];
+  kirchensteuer: { person: Person; c: Cents; id: string }[];
+  /** Lohnersatzleistungen je Beleg, in Belegreihenfolge; ohne Nullbeträge */
+  lohnersatz: JePerson<{ id: string; leistungen: { art?: string; c: Cents }[] }[]>;
   /** Steuerfreie Arbeitgeberzuschüsse je Lohnsteuerbescheinigung: Element, Betrag, Beleg */
   agZuschuss: JePerson<{ element: string; c: Cents; id: string }[]>;
 }
@@ -148,7 +150,7 @@ function lohnsteuerbescheinigung(s: Sammlung, person: Person, q: VastQuelle, roo
     if (c) eintrag(s.agZuschuss, person, () => []).push({ element, c, id: q.id });
   }
   const kirchensteuer = kirchensteuerLstb(g, s.year);
-  if (kirchensteuer) s.kirchensteuer.push({ c: kirchensteuer, id: q.id });
+  if (kirchensteuer) s.kirchensteuer.push({ person, c: kirchensteuer, id: q.id });
   const b = bescheinigung(root);
   if (!b) {
     s.vorschlag.hinweise.push(
@@ -164,14 +166,41 @@ function lohnsteuerbescheinigung(s: Sammlung, person: Person, q: VastQuelle, roo
 }
 
 function lohnersatz(s: Sammlung, person: Person, q: VastQuelle, root: XmlKnoten) {
-  // Berechne_E0104113: je Leistung mit Betrag ≠ 0, abgerundet; Art wie bescheinigt (Berechne_E0104110)
-  for (const l of alle(root, "Leistung")) {
+  const leistungen = alle(root, "Leistung").flatMap((l) => {
     const c = betrag(l, "Betrag");
-    if (!c) continue;
-    eintrag(s.vorschlag.ersatzleistungen, person, () => []).push({
-      herkunft: q.id,
-      leistung: { art: wert(l, "Art") ?? "Angabe aus Bescheinigungen", betrag: abrunden(c) },
-    });
+    return c ? [{ art: wert(l, "Art"), c }] : [];
+  });
+  eintrag(s.lohnersatz, person, () => []).push({ id: q.id, leistungen });
+}
+
+/** Höchstzahl der Einkommensersatzleistungen je Person (Berechne_Platz_PersonA/B) */
+const LOHNERSATZ_PLAETZE = 20;
+
+/**
+ * Einkommensersatzleistungen (Berechne_E0104113, E0104110): je Leistung abgerundet, Art wie bescheinigt. Über 20 Leistungen
+ * bekommt ein Beleg Platz, solange die Leistungen bis einschließlich seiner weniger als 20 sind; der erste Beleg ohne Platz
+ * trägt die abgerundete Summe aus sich und allen folgenden als „Angabe aus Bescheinigungen“
+ */
+function lohnersatzAbschliessen(s: Sammlung, person: Person) {
+  const belege = s.lohnersatz[person] ?? [];
+  const gesamt = belege.reduce((n, b) => n + b.leistungen.length, 0);
+  let bisher = 0;
+  const rest: typeof belege = [];
+  for (const b of belege) {
+    bisher += b.leistungen.length;
+    if (gesamt <= LOHNERSATZ_PLAETZE || bisher < LOHNERSATZ_PLAETZE) {
+      for (const l of b.leistungen) {
+        eintrag(s.vorschlag.ersatzleistungen, person, () => []).push({
+          herkunft: [b.id],
+          leistung: { art: l.art ?? "Angabe aus Bescheinigungen", betrag: abrunden(l.c) },
+        });
+      }
+    } else rest.push(b);
+  }
+  const summe = abrunden(rest.reduce((t, b) => t + b.leistungen.reduce((u, l) => u + l.c, 0), 0));
+  if (summe !== 0) {
+    const herkunft = rest.filter((b) => b.leistungen.length > 0).map((b) => b.id);
+    eintrag(s.vorschlag.ersatzleistungen, person, () => []).push({ herkunft, leistung: { art: "Angabe aus Bescheinigungen", betrag: summe } });
   }
 }
 
@@ -241,11 +270,15 @@ function basisrenteAbschliessen(s: Sammlung, person: Person) {
   else if (summe !== 0) s.vorschlag.hinweise.push("Basisrente: Summe über 99.999 €, nicht übernommen.");
 }
 
-/** Gezahlte Kirchensteuer laut Lohnsteuerbescheinigungen (Berechne_E0108004): Summe beider Personen mit Cent, nur ≥ 0 */
+/**
+ * Gezahlte Kirchensteuer laut Lohnsteuerbescheinigungen (Berechne_E0108004): je Person die Summe mit Cent, nur wenn ≥ 0; Haben
+ * hat ein Feld für beide Personen
+ */
 function kirchensteuerAbschliessen(s: Sammlung) {
-  const summe = s.kirchensteuer.reduce((t, k) => t + k.c, 0);
+  const jePerson = (["a", "b"] as const).map((person) => s.kirchensteuer.filter((k) => k.person === person)).filter((l) => l.reduce((t, k) => t + k.c, 0) > 0);
+  const summe = jePerson.flat().reduce((t, k) => t + k.c, 0);
   if (summe <= 0) return;
-  s.vorschlag.sonderausgaben = { werte: { kirchensteuerGezahlt: summe }, herkunft: { kirchensteuerGezahlt: [...new Set(s.kirchensteuer.map((k) => k.id))] } };
+  s.vorschlag.sonderausgaben = { werte: { kirchensteuerGezahlt: summe }, herkunft: { kirchensteuerGezahlt: [...new Set(jePerson.flat().map((k) => k.id))] } };
 }
 
 /** Prüft einen Beleg und liefert Person und Wurzel, sonst den Grund als Hinweis */
@@ -274,7 +307,7 @@ function zuordnen(s: Sammlung, q: VastQuelle, year: number): { person: Person; r
     const vn = root && q.belegart === "VaSt_KRV" ? wert(root, "BetroffenerFall", "BetroffenePerson", "WeiterePerson", "NatPerson", "IdNr") : undefined;
     s.vorschlag.hinweise.push(
       vn !== undefined && paar(s).includes(vn)
-        ? `${label} ${q.id}: Beiträge für ein Kind (Anlage Kind) übernimmt Haben noch nicht.`
+        ? `${label} ${q.id}: Beiträge für eine weitere versicherte Person, etwa ein Kind (Anlage Kind), übernimmt Haben noch nicht.`
         : `${label} ${q.id}: gehört keiner Person der Erklärung, nicht übernommen.`,
     );
     return null;
@@ -293,7 +326,7 @@ export function vastVorschlag(input: { year: number; idnr: { a: string; b?: stri
     vorschlag.hinweise.push(`Für ${input.year} gibt es noch keine amtliche Zuordnung der Belege; Haben schlägt nichts vor.`);
     return vorschlag;
   }
-  const s: Sammlung = { vorschlag, year: input.year, idnr: input.idnr, krv: {}, rue: {}, zuschuss: {}, agZuschuss: {}, kirchensteuer: [] };
+  const s: Sammlung = { vorschlag, year: input.year, idnr: input.idnr, krv: {}, rue: {}, zuschuss: {}, agZuschuss: {}, kirchensteuer: [], lohnersatz: {} };
   for (const q of input.belege) {
     const z = zuordnen(s, q, input.year);
     if (z) sammeln(s, z.person, q, z.root);
@@ -302,6 +335,7 @@ export function vastVorschlag(input: { year: number; idnr: { a: string; b?: stri
     zuschuesseAbschliessen(s, person);
     krvAbschliessen(s, person);
     basisrenteAbschliessen(s, person);
+    lohnersatzAbschliessen(s, person);
   }
   kirchensteuerAbschliessen(s);
   vorschlag.hinweise = [...new Set(vorschlag.hinweise)];

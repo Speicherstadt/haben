@@ -206,8 +206,8 @@ describe("Vorschläge aus den ELSTER-Belegen (VaSt)", () => {
     ]);
     const v = vastVorschlag({ year: 2023, idnr, belege: [l] });
     expect(v.ersatzleistungen.b).toEqual([
-      { herkunft: l.id, leistung: { art: "Elterngeld", betrag: 540_000 } },
-      { herkunft: l.id, leistung: { art: "Arbeitslosengeld", betrag: 123_400 } },
+      { herkunft: [l.id], leistung: { art: "Elterngeld", betrag: 540_000 } },
+      { herkunft: [l.id], leistung: { art: "Arbeitslosengeld", betrag: 123_400 } },
     ]);
   });
 
@@ -336,5 +336,42 @@ describe("Vorschläge aus den ELSTER-Belegen (VaSt)", () => {
     expect(xml).toContain("<E2001805>2400</E2001805>");
     expect(xml).toContain("<E0104110>Elterngeld</E0104110>");
     expect(xml).toContain("<E0104113>5400</E0104113>");
+  });
+});
+
+// TDD-Review von #1954
+describe("Vorschläge aus den ELSTER-Belegen: Review", () => {
+  it("Kranken- und Pflegeversicherung des Ehegatten bei Einzelveranlagung, Person A Versicherungsnehmer: kein Hinweis auf ein Kind", () => {
+    const ehegatte = krv(2025, B, [["01", "2", "600.00"]], [{ idnr: A }]);
+    const text = vastVorschlag({ year: 2025, idnr: { a: A }, belege: [ehegatte] }).hinweise.join(" ");
+    expect(text).not.toContain("für ein Kind");
+  });
+
+  it("Kirchensteuer: „nur ≥ 0“ gilt je Person (Berechne_E0108004), nicht für die Summe beider", () => {
+    const a = lstb(2024, A, "4", { BruttoArbLohn: "40000.00", ArbnKiSteuer: "-50.00" });
+    const b = lstb(2024, B, "4", { BruttoArbLohn: "30000.00", ArbnKiSteuer: "200.00" });
+    expect(vastVorschlag({ year: 2024, idnr, belege: [a, b] }).sonderausgaben).toEqual({
+      werte: { kirchensteuerGezahlt: 20_000 },
+      herkunft: { kirchensteuerGezahlt: [b.id] },
+    });
+  });
+
+  it("Lohnersatzleistungen über 20: Platz je Beleg, der erste Beleg ohne Platz trägt die Summe aus sich und den folgenden (Berechne_Platz_PersonA, Berechne_E0104113)", () => {
+    const leistungen = (art: string, betrag: string, n: number) => Array.from({ length: n }, (_, i): [string, string] => [`${art} ${i + 1}`, betrag]);
+    const l1 = lersl(2025, A, leistungen("Krankengeld", "100.00", 11));
+    const l2 = lersl(2025, A, leistungen("Elterngeld", "10.60", 6));
+    const l3 = lersl(2025, A, leistungen("Arbeitslosengeld", "1.25", 5));
+    const e = vastVorschlag({ year: 2025, idnr, belege: [l1, l2, l3] }).ersatzleistungen.a ?? [];
+    // 22 Leistungen: l1 (11) und l2 (17 bis dahin) haben Platz, l3 (22) nicht; 5 × 1,25 = 6,25, abgerundet 6
+    expect(e).toHaveLength(18);
+    expect(e.at(-1)).toEqual({ herkunft: [l3.id], leistung: { art: "Angabe aus Bescheinigungen", betrag: 600 } });
+    // Bis 20 Leistungen hat jeder Beleg Platz
+    expect(vastVorschlag({ year: 2025, idnr, belege: [l1, l2] }).ersatzleistungen.a).toHaveLength(17);
+  });
+
+  it("liest einen Beleg auch in der Hülle <Belege>", () => {
+    const b = lstb(2025, A, "1", { BruttoArbLohn: "1000.00" });
+    const gehuellt = { ...b, xml: `<Belege>${b.xml.replace(/^<\?xml[^>]*\?>/, "")}</Belege>` };
+    expect(vastVorschlag({ year: 2025, idnr, belege: [gehuellt] }).arbeitnehmer.a?.[0]?.bescheinigung.brutto).toBe(100_000);
   });
 });
