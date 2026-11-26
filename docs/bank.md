@@ -145,7 +145,7 @@ Auf einem Privatkonto bietet der Abgleich Kontoführung und Bankgebühren, Zinse
 
 Jedes Konto hat einen Zweck. Außer auf einem privaten Konto bucht Haben auf das eine Bankkonto (1200 bzw. 1800); welche IBAN auf Rechnungen steht, bestimmen die Firmendaten.
 
-N26-Exporte enthalten keine eigene IBAN. Dafür legst du das Konto vorher mit **Konto verbinden › Konto ohne Abruf anlegen** an (Name und IBAN) und wählst es vor dem Import in der Auswahl **Konto** aus. Steht die Auswahl auf „aus der Datei“, lehnt Haben eine Datei ohne IBAN ab.
+N26-Exporte enthalten keine eigene IBAN. Dafür legst du das Konto vorher mit **Konto verbinden › Konto ohne Abruf anlegen** an (Name und IBAN) und importierst die Datei in dieses Konto ([So gehst du vor](#so-gehst-du-vor)).
 
 Wählst du ein Konto aus und die Datei nennt eine andere IBAN, bricht der Import mit einer Meldung ab.
 

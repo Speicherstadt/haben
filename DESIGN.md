@@ -204,7 +204,7 @@ Eine leere Liste, die man von Hand füllt, nennt kurz, was hier entsteht:
 
 - Hat der Seitenkopf einen Knopf zum Anlegen, steht derselbe Knopf noch einmal im Leerzustand, nur für den, der ihn im Kopf sieht, und nicht, wenn ein Filter (Rolle, Archiv, Suche) die Liste leert; Jahr und Monat zählen nicht als Filter.
 - Hat der Kopf keinen, nennt der Satz den Ort (Formular, Karte, Tab oder Link); bei den Belegen kommt für den Inhaber ohne Postfach der Knopf „Postfach für Belege einrichten“ dazu.
-- Ausnahme Bank: Der Kopf hat „Konto verbinden ▾“ und „CSV / CAMT importieren“, der Leerzustand erklärt den Weg ohne Knopf.
+- Ausnahme Bank: Der Kopf hat „Datei importieren“ und „Konto verbinden ▾“, der Leerzustand erklärt den Weg ohne Knopf.
 
 ### Rückfragen
 
