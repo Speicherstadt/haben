@@ -3,6 +3,7 @@ import type { KontoZugang } from "./kontenkarten.ts";
 /* Zugänge der Zahlungsdienstleister für die Kartenleiste (#1951), ohne Serverfunktionen, damit Tests sie laden können */
 
 type Verbindung = {
+  id: string;
   provider: string;
   bankAccountId: string | null;
   lastSyncAt: Date | string | null;
@@ -27,6 +28,8 @@ export function anbieterZugaenge(
     return [
       {
         bankAccountId: v.bankAccountId,
+        art: "psp" as const,
+        verbindungId: v.id,
         weg: name.get(v.provider) ?? v.provider,
         lastSyncAt: v.lastSyncAt,
         fehler: v.lastError,

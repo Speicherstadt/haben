@@ -16,6 +16,9 @@ const DRINGEND_TAGE = 7;
  */
 export type KontoZugang = {
   bankAccountId: string;
+  /** Art und ID der Verbindung, damit Karte und Seite Verbindungen sie abrufen oder bearbeiten können */
+  art: ZugangArt;
+  verbindungId: string;
   /** Wie der Weg auf der Karte heißt: „FinTS“, „Abruf“, „Stripe“, „PayPal“ */
   weg: string;
   /** Letzter erfolgreicher Abruf */
@@ -29,6 +32,8 @@ export type KontoZugang = {
   /** Ende der Zustimmung, nur wenn es bald kommt (Enable Banking) */
   laeuftAbAm?: string | Date | null;
 };
+
+export type ZugangArt = "enablebanking" | "fints" | "psp";
 
 export type KontoEingabe = {
   id: string;
@@ -51,6 +56,10 @@ export type Kontokarte = {
   /** Leise Zeile im Normalfall: Weg und Zeit, etwa „FinTS · heute 06:00“ */
   quelle: string;
   status: KartenStatus | null;
+  /** Verbindung, die das Konto abruft; null bei einem Konto, das nur Dateien bekommt */
+  zugang: { art: ZugangArt; verbindungId: string } | null;
+  /** Fehler des letzten Abrufs im Wortlaut, für den Hinweis zum gewählten Konto */
+  fehler: string | null;
 };
 
 export type Kontenkarten = {
@@ -124,6 +133,8 @@ export function kontenkarten(input: {
       offen: account.openCount,
       quelle: weg ? (stand ? `${weg} · ${zeitText(stand, input.jetzt)}` : weg) : "Noch kein Import",
       status: kartenStatus(zugang, konflikte, stand, input.jetzt),
+      zugang: zugang ? { art: zugang.art, verbindungId: zugang.verbindungId } : null,
+      fehler: zugang?.fehler ?? null,
     };
   });
   const sortiert = [...karten.filter((k) => k.gruppe === "banken"), ...karten.filter((k) => k.gruppe === "zahlungsdienstleister")];

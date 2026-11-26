@@ -1,3 +1,4 @@
+import { ACCOUNT_PURPOSES, PAYMENT_PROVIDERS, paymentProviderAccount } from "@haben/core";
 import { anbieterZugaenge } from "../../lib/kontenkarten-zugaenge.ts";
 import { type KontoEingabe, type KontoZugang, kontenkarten } from "../../lib/kontenkarten.ts";
 import {
@@ -10,6 +11,7 @@ import {
   openConflicts,
   RENEW_WARNING_DAYS,
 } from "../modules/bank/index.ts";
+import { loadCompany } from "../modules/stammdaten/index.ts";
 import { verbindungenUebersicht } from "../modules/zahlungsdienstleister/index.ts";
 
 /*
@@ -25,6 +27,8 @@ function bankZugaenge(connections: Awaited<ReturnType<typeof listConnections>>, 
   const abruf = connections.flatMap((c) =>
     c.accounts.map((a) => ({
       bankAccountId: a.bankAccountId,
+      art: "enablebanking" as const,
+      verbindungId: c.id,
       weg: "Abruf",
       lastSyncAt: c.lastSyncAt,
       fehler: c.status === "fehler" ? (c.lastError ?? "Fehler") : null,
@@ -35,6 +39,8 @@ function bankZugaenge(connections: Awaited<ReturnType<typeof listConnections>>, 
   const perFints = fints.flatMap((c) =>
     c.accounts.map((a) => ({
       bankAccountId: a.bankAccountId,
+      art: "fints" as const,
+      verbindungId: c.id,
       weg: "FinTS",
       lastSyncAt: c.lastSyncAt,
       fehler: c.status === "fehler" ? (c.lastError ?? "Fehler") : null,
@@ -67,5 +73,17 @@ export async function abrufUndKarten(accounts: readonly Konto[]) {
     /** Verbindungen zu Zahlungsdienstleistern mit Abruf (#1729), für die Aktionen am gewählten Konto und die Einrichtung */
     zahlungsdienstleister,
     karten: kontenkarten({ accounts, zugaenge, konflikte, jetzt }),
+  };
+}
+
+/** Zwecke und Arten für „Name und Zweck“ und „Konto hinzufügen“, dazu das Sachkonto je Zahlungsdienstleister zur Anzeige */
+export async function kontenAngaben(accounts: readonly { id: string; ledgerIndex: number | null }[]) {
+  const { kontenrahmen } = await loadCompany();
+  return {
+    purposes: Object.entries(ACCOUNT_PURPOSES).map(([value, label]) => ({ value, label })),
+    providers: Object.entries(PAYMENT_PROVIDERS).map(([value, p]) => ({ value, label: p.label })),
+    ledgers: Object.fromEntries(
+      accounts.filter((a) => a.ledgerIndex !== null).map((a) => [a.id, paymentProviderAccount(kontenrahmen, a.ledgerIndex!)] as const),
+    ),
   };
 }

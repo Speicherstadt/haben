@@ -54,12 +54,19 @@ describe("kartenStatus", () => {
   });
 
   it("fehlgeschlagener Abruf ist dringend und geht Konflikt und Alter vor", () => {
-    const zugang = { bankAccountId: "a", weg: "Stripe", lastSyncAt: "2026-11-01T05:00:00Z", fehler: "Schlüssel abgelehnt" };
+    const zugang = {
+      bankAccountId: "a",
+      art: "psp" as const,
+      verbindungId: "v-a",
+      weg: "Stripe",
+      lastSyncAt: "2026-11-01T05:00:00Z",
+      fehler: "Schlüssel abgelehnt",
+    };
     expect(kartenStatus(zugang, 2, "2026-11-01T05:00:00Z", jetzt)).toEqual({ text: "Fehlgeschlagen", tone: "danger", emphasis: "urgent", detail: null });
   });
 
   it("Ablauf der Zustimmung: ab 7 Tagen vorher dringend, abgelaufen immer", () => {
-    const zugang = { bankAccountId: "a", weg: "Abruf", lastSyncAt: frisch, fehler: null };
+    const zugang = { bankAccountId: "a", art: "enablebanking" as const, verbindungId: "v-a", weg: "Abruf", lastSyncAt: frisch, fehler: null };
     expect(kartenStatus({ ...zugang, laeuftAbAm: "2026-12-07T10:00:00Z" }, 0, frisch, jetzt)).toEqual({
       text: "Läuft ab",
       tone: "warn",
@@ -71,7 +78,15 @@ describe("kartenStatus", () => {
   });
 
   it("wartet die Bank auf eine Freigabe (TAN), nennt die Karte das vor Konflikt und Alter", () => {
-    const zugang = { bankAccountId: "a", weg: "FinTS", lastSyncAt: "2026-11-01T05:00:00Z", fehler: null, freigabe: true };
+    const zugang = {
+      bankAccountId: "a",
+      art: "fints" as const,
+      verbindungId: "v-a",
+      weg: "FinTS",
+      lastSyncAt: "2026-11-01T05:00:00Z",
+      fehler: null,
+      freigabe: true,
+    };
     expect(kartenStatus(zugang, 2, "2026-11-01T05:00:00Z", jetzt)).toEqual({ text: "Freigabe nötig", tone: "warn", emphasis: "notice", detail: null });
   });
 });
@@ -87,7 +102,9 @@ describe("kontenkarten", () => {
   it("Banken vor Zahlungsdienstleistern, Saldo je Art, Weg und Zeit aus Zugang oder Import", () => {
     const { karten } = kontenkarten({
       accounts,
-      zugaenge: [{ bankAccountId: "paypal", weg: "PayPal", lastSyncAt: new Date("2026-11-26T05:00:00Z"), fehler: null }],
+      zugaenge: [
+        { bankAccountId: "paypal", art: "psp" as const, verbindungId: "v-paypal", weg: "PayPal", lastSyncAt: new Date("2026-11-26T05:00:00Z"), fehler: null },
+      ],
       konflikte: [],
       jetzt,
     });
@@ -104,8 +121,8 @@ describe("kontenkarten", () => {
       accounts,
       // Der Abruf lief heute ohne neue Umsätze: nicht veraltet, obwohl der letzte Import älter ist
       zugaenge: [
-        { bankAccountId: "steuer", weg: "FinTS", lastSyncAt: "2026-11-26T05:00:00Z", fehler: null },
-        { bankAccountId: "paypal", weg: "PayPal", lastSyncAt: null, fehler: "PayPal lehnt den Zugang ab." },
+        { bankAccountId: "steuer", art: "fints" as const, verbindungId: "v-steuer", weg: "FinTS", lastSyncAt: "2026-11-26T05:00:00Z", fehler: null },
+        { bankAccountId: "paypal", art: "psp" as const, verbindungId: "v-paypal", weg: "PayPal", lastSyncAt: null, fehler: "PayPal lehnt den Zugang ab." },
       ],
       konflikte: [{ bankAccountId: "giro" }, { bankAccountId: "giro" }],
       jetzt,
@@ -120,12 +137,19 @@ describe("kontenkarten", () => {
     const { karten } = kontenkarten({
       accounts: [accounts[1]!],
       zugaenge: [
-        { bankAccountId: "giro", weg: "Abruf", lastSyncAt: "2026-11-26T05:00:00Z", fehler: null },
-        { bankAccountId: "giro", weg: "FinTS", lastSyncAt: "2026-11-20T05:00:00Z", fehler: "PIN ungültig" },
+        { bankAccountId: "giro", art: "enablebanking" as const, verbindungId: "v-giro", weg: "Abruf", lastSyncAt: "2026-11-26T05:00:00Z", fehler: null },
+        { bankAccountId: "giro", art: "fints" as const, verbindungId: "v-giro", weg: "FinTS", lastSyncAt: "2026-11-20T05:00:00Z", fehler: "PIN ungültig" },
       ],
       konflikte: [],
       jetzt,
     });
     expect(karten[0]?.status?.text).toBe("Fehlgeschlagen");
+    // Die Karte nennt den fehlgeschlagenen Zugang und seinen Fehler, damit der Hinweis ihn lösen kann
+    expect(karten[0]).toMatchObject({ zugang: { art: "fints", verbindungId: "v-giro" }, fehler: "PIN ungültig" });
+  });
+
+  it("ein Konto ohne Zugang hat weder Verbindung noch Fehler", () => {
+    const { karten } = kontenkarten({ accounts: [accounts[2]!], zugaenge: [], konflikte: [], jetzt });
+    expect(karten[0]).toMatchObject({ zugang: null, fehler: null });
   });
 });
