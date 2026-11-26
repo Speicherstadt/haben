@@ -149,6 +149,13 @@ test("Hochgeladen warten die Belege, der neueste oben; Fortsetzen liest sie von 
   await expect(zeilen.nth(1)).toContainText("beleg-2.jpg");
   await expect(zeilen.nth(2)).toContainText("Lieferant 1");
   await expect(leiste()).toContainText("KI-Auslesung · 1 fehlgeschlagen");
+
+  // Am Handy steht „Prüfen“ ganz da, ohne „…“: Die Spalte des Status ist so breit wie das Wort mit seiner Fläche
+  await page.setViewportSize({ width: 375, height: 812 });
+  const wort = zeile("beleg-2.jpg").locator(".status-text");
+  await expect(wort).toHaveText("Prüfen");
+  expect(await wort.evaluate((e) => e.scrollWidth - e.clientWidth)).toBe(0);
+  await page.setViewportSize({ width: 1440, height: 900 });
 });
 
 test("Fehlgeschlagene neu auslesen: nur der fehlgeschlagene Beleg, kein zweiter Versuch von selbst", async () => {
