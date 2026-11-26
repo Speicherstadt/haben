@@ -11,8 +11,9 @@ type AnthropicConfig = Extract<ExtractionConfig, { provider: "anthropic" }>;
 let client: Anthropic | undefined;
 
 function getClient(apiKey: string): Anthropic {
-  // Der Schlüssel kommt aus der Umgebung und ändert sich zur Laufzeit nicht
-  client ??= new Anthropic({ apiKey });
+  // Der Schlüssel kommt aus der Umgebung und ändert sich zur Laufzeit nicht. Ohne Wiederholungen des SDK: Jede Anfrage
+  // geht durch das Tor der Grenzen (#1735), und bei „ausgelastet“ fragt Haben nicht von selbst erneut
+  client ??= new Anthropic({ apiKey, maxRetries: 0 });
   return client;
 }
 
