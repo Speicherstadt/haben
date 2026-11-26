@@ -7,7 +7,7 @@ description: >-
 
 # Rechnungen und E-Rechnung
 
-Haben schreibt Ausgangsrechnungen als E-Rechnung: ZUGFeRD (PDF/A-3 mit eingebettetem XML, Profil EN 16931) oder XRechnung 3.0 in CII- oder UBL-Syntax. Eine Rechnung ist zuerst ein Entwurf, den du beliebig ändern kannst. Mit dem Festschreiben bekommt sie ihre Nummer, PDF und XML werden erzeugt, sie wird gebucht und ist danach unveränderlich.
+Haben schreibt Ausgangsrechnungen als E-Rechnung: ZUGFeRD (PDF/A-3 mit eingebettetem XML, Profil EN 16931) oder XRechnung 3.0 in CII- oder UBL-Syntax. Eine Rechnung ist zuerst ein Entwurf, den du beliebig ändern kannst. Mit dem Festschreiben bekommt sie ihre Nummer, PDF und XML werden erzeugt, sie wird gebucht, und sie ist danach unveränderlich. Gebucht wird dabei nicht jede Rechnung, etwa eine Anzahlungsanforderung von GmbH und UG: Sie bleibt bis zur Schlussleistung ohne Buchungssatz ([Abschlags- und Schlussrechnung](#abschlags--und-schlussrechnung)).
 
 <img src="screenshot-rechnung.png" alt="Rechnungseditor mit Kunde, Leistungszeitraum, Positionen und Live-Vorschau der Rechnung rechts daneben" width="900">
 
@@ -338,7 +338,7 @@ Alles läuft in einer einzigen Datenbanktransaktion. Schlägt ein Schritt fehl, 
 3. **PDF erzeugen.** Die sichtbare Rechnung entsteht mit Typst als PDF/A-3b, aus dem Layout, das der Rechnung zugeordnet ist ([Eigene Belegvorlagen](belegvorlagen.md)). Als Erstellungszeit steht das Rechnungsdatum im PDF.
 4. **XML erzeugen.** Haben schreibt je nach Format Factur-X EN 16931 (und bettet es ins PDF ein), XRechnung CII oder XRechnung UBL. Unbekannte Länder- oder Währungscodes lehnt Haben vorher mit einer Meldung ab.
 5. **Prüfsummen.** Von PDF und XML wird je ein SHA-256 gespeichert. Die ersten Zeichen des PDF-Hashes stehen auf der Detailseite.
-6. **Buchen.** Haben legt den Buchungssatz an (siehe unten) und schreibt ihn fest.
+6. **Buchen.** Haben legt den Buchungssatz an (siehe unten) und schreibt ihn fest. Im Bilanzverfahren von GmbH und UG endet dieser Schritt ohne Buchungssatz: bei einer Anzahlungsanforderung vor der Schlussleistung und ihrem Storno, bei einem Storno der Schlussrechnung und bei einem betragsgleichen Ersatz nach Storno. Dazu kommt die Schlussrechnung, deren Rest durch Abschläge vollständig gedeckt ist, auch außerhalb des Bilanzverfahrens ([Abschlags- und Schlussrechnung](#abschlags--und-schlussrechnung)).
 7. **Sperren.** Die Rechnung bekommt einen Festschreibungszeitpunkt. Ab dann lehnen Datenbank-Trigger jede Änderung oder Löschung der Rechnung, ihrer Positionen und ihrer [zusätzlichen Anhänge](#zusätzliche-anhänge) ab. Das Siegel der Rechnung schließt die Anhänge ein.
 
 ## Pflichtangaben einer GmbH oder UG
@@ -516,7 +516,7 @@ Bezug ist der Leistungszeitraum, ohne Leistungszeitraum das Rechnungsdatum. „W
 
 Scheitert das Festschreiben, etwa weil in den Firmendaten die IBAN fehlt, bleibt die Rechnung als Entwurf stehen. Scheitert nur der E-Mail-Versand (kein E-Mail-Zugang, keine Adresse beim Kunden, Server nicht erreichbar), ist die Rechnung festgeschrieben und du schickst sie auf ihrer Seite von Hand. Die Vorlage zeigt den Fehler, bis du sie das nächste Mal speicherst.
 
-Die Seite einer Vorlage listet alle daraus erzeugten Rechnungen. Löschen lässt sich eine Vorlage nur, solange daraus keine Rechnung entstanden ist; sonst deaktivierst du sie.
+Die Seite einer Vorlage listet alle noch vorhandenen Rechnungen und Entwürfe, die daraus entstanden sind. Solange diese Liste Einträge enthält, kannst du die Vorlage deaktivieren. Ist sie leer, kannst du die Vorlage löschen.
 
 Vorlagen aus sevDesk und FastBill kommen pausiert an, siehe [Umzug aus sevDesk](sevdesk.md#wiederkehrende-rechnungen) und [Umzug aus FastBill](fastbill.md#wiederkehrende-rechnungen).
 
@@ -542,7 +542,7 @@ Unter dem Status steht in Grau, was er für diese Rechnung gerade heißt. Überf
 
 ## Festgeschriebene Rechnung
 
-Die Detailseite zeigt das PDF, die Eckdaten (Kunde, Rechnungsdatum, Fälligkeit, Netto, Umsatzsteuer, Brutto, Format, Zeitpunkt der Festschreibung, bei Rechnungen ohne Steuerausweis die Umsatzsteuer-Behandlung) und den Anfang des SHA-256 des PDFs.
+Die Detailseite zeigt das PDF, die Eckdaten (Kunde, Rechnungsdatum, Fälligkeit, Netto, Umsatzsteuer, Brutto, Format, Zeitpunkt der Festschreibung, bei Rechnungen ohne Steuerausweis die Umsatzsteuer-Behandlung, unter **Im Journal** die Buchungen der Rechnung) und den Anfang des SHA-256 des PDFs.
 
 - **PDF herunterladen** liefert `Rechnung-<Nummer>.pdf`.
 - **XML herunterladen** liefert `Rechnung-<Nummer>-cii.xml` bzw. `-ubl.xml`. Bei ZUGFeRD ist das dasselbe XML, das im PDF steckt.
@@ -553,7 +553,7 @@ Beide Dateien werden aus der Datenbank ausgeliefert, so wie sie beim Festschreib
 
 Ist eine [Ablage im Dokumentenarchiv](dokumentenarchiv.md) eingerichtet, steht unter den Eckdaten **Archiv**: „Wird übertragen“, „Übertragen“ mit Zeitpunkt, HTTP-Status und, falls das Archiv eine Kennung nennt, **Im Archiv öffnen**, oder „Fehlgeschlagen“ mit der Zahl der Versuche und dem Grund (HTTP-Status und Anfang der Antwort).
 
-Unter **Zahlungen** stehen die Zahlungen auf die Rechnung mit Datum und Betrag: „Bank“ für eine Zuordnung im [Bankabgleich](bank.md), „bar“ mit der Nummer im [Kassenbuch](kasse.md#rechnung-bar-bezahlt) für eine Bareinnahme. Aufgehobene und stornierte Zahlungen sind durchgestrichen. Solange die Rechnung offen ist, führt **Barzahlung in der Kasse erfassen** ins Kassenbuch, mit der Rechnung und dem offenen Betrag vorbelegt.
+Unter **Zahlungen** stehen die Zahlungen auf die Rechnung mit Datum und Betrag: „Bank“ für eine Zuordnung im [Bankabgleich](bank.md) (der Link öffnet den Umsatz, dort steht ihre Buchung), „bar“ mit der Nummer im [Kassenbuch](kasse.md#rechnung-bar-bezahlt) für eine Bareinnahme. Aufgehobene und stornierte Zahlungen sind durchgestrichen. Solange die Rechnung offen ist, führt **Barzahlung in der Kasse erfassen** ins Kassenbuch, mit der Rechnung und dem offenen Betrag vorbelegt.
 
 ## Zusätzliche Anhänge
 

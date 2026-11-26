@@ -18,7 +18,7 @@ Die API **bucht nichts, schreibt nichts fest und versendet nichts**. Ein Entwurf
 | --- | --- |
 | Kontakte | auflisten und suchen, lesen, anlegen, ändern (nicht löschen: Kontakte sind versioniert) |
 | Rechnungen | alle lesen, auch festgeschriebene; Entwürfe anlegen, ändern und löschen, solange sie Entwurf sind |
-| Wiederkehrende Rechnungen | [Vorlagen anlegen](#wiederkehrende-rechnungen) |
+| Wiederkehrende Rechnungen | [Vorlagen anlegen, ändern und löschen](#wiederkehrende-rechnungen) |
 | Angebote | alle lesen, auch festgeschriebene, mit der Antwort des Kunden und der Rechnung daraus; [Entwürfe](#angebotsentwürfe) anlegen, ändern und löschen, solange sie Entwurf sind |
 | Belege | hochladen (landen als „Zu prüfen“), auflisten und lesen, ob sie schon geprüft und gebucht sind; nicht ändern oder löschen |
 | Artikel | Katalogartikel auflisten, suchen, lesen, anlegen und ändern |
@@ -42,6 +42,7 @@ Es sind dieselben Tokens wie für die [KI-Assistenten](ki-assistenten.md); was e
 | `rechnungen:lesen` | `GET /rechnungen`, `GET /rechnungen/{id}` |
 | `rechnungen:entwuerfe` | dazu `POST /rechnungen`, `PATCH /rechnungen/{id}`, `DELETE /rechnungen/{id}` |
 | `rechnungen:vorlagen-anlegen` | `POST /rechnungen/wiederkehrend` |
+| `rechnungen:vorlagen-bearbeiten` | `PATCH /rechnungen/wiederkehrend/{id}`, `DELETE /rechnungen/wiederkehrend/{id}` |
 | `angebote:lesen` | `GET /angebote`, `GET /angebote/{id}` |
 | `angebote:entwuerfe` | dazu `POST /angebote`, `PATCH /angebote/{id}`, `DELETE /angebote/{id}` |
 | `belege:lesen` | `GET /belege`, `GET /belege/{id}` |
@@ -239,6 +240,10 @@ Ist die Rechnung schon festgeschrieben, antworten Ändern und Löschen mit `409`
 
 `recurrence` ist das Intervall als Dauer nach ISO 8601: `P1W`, `P2W` oder `P4W` für jede, jede zweite oder vierte Woche, `P1M`, `P2M`, `P3M` oder `P6M` für Monate und `P1Y` für jährlich. Die Antwort `201 Created` enthält die ID und unter `url` den Link zur Vorlage. Öffne die pausierte Vorlage in Haben, prüfe die Daten und aktiviere sie dort. Nach der Aktivierung legt Haben zu jedem Termin einen Rechnungsentwurf an. Pro erfolgreichem Aufruf entsteht eine Vorlage.
 
+`PATCH /rechnungen/wiederkehrend/{id}` ändert eine pausierte Vorlage. Sende die Felder, die du ändern willst, etwa `{"name":"Neuer Name"}`. `lines` ersetzt alle Positionen, `"endDate": null` entfernt das Enddatum. Je nach Steuerbehandlung leitet Haben die Preisart und den Befreiungshinweis ab. Ablaufmodus und E-Mail-Versand stellst du in Haben ein. Die Antwort `200 OK` enthält `id`, `active: false` und `url`. Für eine aktive Vorlage meldet Haben `409 Conflict`.
+
+`DELETE /rechnungen/wiederkehrend/{id}` löscht eine Vorlage und antwortet mit `204 No Content`. Solange eine daraus erzeugte Rechnung oder ein Entwurf vorhanden ist, meldet Haben `409 Conflict`. Fehlt die Vorlage, antworten beide Endpunkte mit `404 Not Found`.
+
 ## Angebote
 
 `GET /angebote` listet alle Angebote, Entwürfe zuerst, dann nach Nummer absteigend; `status` (`draft` oder `final`), `contactId` und `number` grenzen die Liste ein. Mit `number` prüft etwa eine Auftragsverwaltung die Angebotsnummer an einem Auftrag. `GET /angebote/{id}` liefert das Angebot mit Positionen.
@@ -249,7 +254,9 @@ Die Antwort des Kunden und die Rechnung aus dem Angebot bleiben ein Klick in [An
 
 ### Angebotsentwürfe
 
-Mit `angebote:entwuerfe` legt `POST /angebote` einen Entwurf an, etwa aus einer Kalkulation oder einer Notiz, die ein KI-Assistent ausgelesen hat. Pflicht sind nur die Positionen (`lines`), aufgebaut wie bei der Rechnung. `kind` (`optional` oder `alternative`) macht eine Position zur [Wahlmöglichkeit](angebote.md#optionale-und-alternative-positionen); ohne `kind` zählt sie zur Summe. Was fehlt, nimmt die Vorgaben eines neuen Angebots in Haben: `issueDate` heute, `validUntil` 30 Tage nach dem Angebotsdatum, Einleitung und Hinweis aus den [Standard-Textbausteinen](rechnungen.md#standard-je-belegart) für Angebote, die Steuer aus den Firmendaten, die Sprache des Kunden und die [Standardanhänge](angebote.md#anhänge). `contactId` muss ein Kunde sein. Jeder Aufruf legt einen Entwurf an; eine externe Referenz wie bei Rechnungen gibt es hier nicht.
+Mit `angebote:entwuerfe` legt `POST /angebote` einen Entwurf an, etwa aus einer Kalkulation oder einer Notiz, die ein KI-Assistent ausgelesen hat. Pflicht sind nur die Positionen (`lines`), aufgebaut wie bei der Rechnung. `kind` (`optional` oder `alternative`) macht eine Position zur [Wahlmöglichkeit](angebote.md#optionale-und-alternative-positionen); ohne `kind` zählt sie zur Summe. Was fehlt, nimmt die Vorgaben eines neuen Angebots in Haben: `issueDate` heute, `validUntil` 30 Tage nach dem Angebotsdatum, Einleitung und Hinweis aus den [Standard-Textbausteinen](rechnungen.md#standard-je-belegart) für Angebote, die Steuer aus den Firmendaten, die Sprache des Kunden und die [Standardanhänge](angebote.md#anhänge). `contactId` muss ein Kunde sein.
+
+Mit `externalSource` (z. B. `desk`) und `externalId` (stabile Vorgangs-ID) legst du je Referenz ein Angebot an. Beide Felder gehören zusammen. Beim Anlegen antwortet Haben mit `201`. Wiederholungen liefern mit `200` dasselbe Angebot in seinem aktuellen Stand zurück, auch nach dem Festschreiben. Beide Antworten haben einen `Location`-Header. Eine Wiederholung ändert das Angebot nicht. Wurde der Entwurf bewusst gelöscht, kann die Referenz erneut verwendet werden. Ohne Referenz legt jeder Aufruf einen eigenen Entwurf an.
 
 `PATCH /angebote/{id}` ändert nur die genannten Felder, `lines` ersetzt alle Positionen. Rabatte, Zahlungsplan und Ansprechpartner setzt nur Haben: Ein Gesamtrabatt und ein Zahlungsplan bleiben bei einem `PATCH` stehen, Positionsrabatte gehen mit den alten Positionen, und wechselt der Kunde, entfällt der Ansprechpartner. Passen Gesamtrabatt oder Zahlungsplan nicht zu den neuen Positionen, etwa ein fester Rabatt über der neuen Summe, antwortet die API mit `409`, und der Entwurf bleibt, bis du sie in Haben anpasst. `DELETE /angebote/{id}` löscht den Entwurf mit seinen Anhängen. Ein festgeschriebenes Angebot lässt sich über die API weder ändern noch löschen (`409`).
 

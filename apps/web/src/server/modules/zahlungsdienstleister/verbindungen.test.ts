@@ -158,9 +158,9 @@ describe.skipIf(!testDatabaseUrl)("Verbindungen zu Zahlungsdienstleistern (Postg
       values ('acct_alt', 'aaaa', ${schluessel}, '2026-10-20', '2026-01-01', 'stuendlich', 'Abruf fehlgeschlagen: alt')`;
     await sql`insert into paypal_connections (account_id, key_hint, sandbox, ciphertext, zeitzone, fetch_from, abruf_start, rhythmus)
       values ('HAENDLERALT', '-alt', true, ${paypalZugang}, 'Europe/Vienna', '2026-10-15', '2026-02-01', 'woechentlich')`;
-    // Nur der Umzug: Tabelle und Trigger stehen schon (0327 und der Anfang von 0328)
-    for (const s of statements(drizzle("0328_psp_verbindungen_umzug.sql")).filter((s) => /^(--.*\n)*INSERT/m.test(s))) await sql.unsafe(s);
-    for (const s of statements(drizzle("0329_psp_verbindungen_alte_tabellen.sql"))) await sql.unsafe(s);
+    // Nur der Umzug: Tabelle und Trigger stehen schon (0331 und der Anfang von 0332)
+    for (const s of statements(drizzle("0332_psp_verbindungen_umzug.sql")).filter((s) => /^(--.*\n)*INSERT/m.test(s))) await sql.unsafe(s);
+    for (const s of statements(drizzle("0333_psp_verbindungen_alte_tabellen.sql"))) await sql.unsafe(s);
 
     const rows =
       await sql`select provider, name, bank_account_id, account_id, key_hint, config, fetch_from::text as f, abruf_start::text as a, rhythmus, last_error

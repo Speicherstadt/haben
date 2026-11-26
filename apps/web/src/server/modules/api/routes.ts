@@ -11,7 +11,7 @@ import { createServiceEntryHandler, deleteServiceEntryHandler, getServiceEntryHa
 import { serviceEntryQuerySchema } from "./leistungen-schemas.ts";
 import { createQuoteHandler, deleteQuoteHandler, getQuoteHandler, listQuotesHandler, updateQuoteHandler } from "./quotes.ts";
 import { quoteQuerySchema } from "./quotes-schemas.ts";
-import { createRecurringInvoiceHandler } from "./recurring-invoices.ts";
+import { RECURRING_INVOICE_ROUTES } from "./recurring-invoices.ts";
 import { documentQuerySchema } from "./belege-schemas.ts";
 import { contactQuerySchema, invoiceQuerySchema } from "./schemas.ts";
 
@@ -112,17 +112,7 @@ export const API_ROUTES: ApiRoute[] = [
     },
     handler: createInvoiceHandler,
   },
-  {
-    method: "POST",
-    path: "/rechnungen/wiederkehrend",
-    scope: "rechnungen:vorlagen-anlegen",
-    tag: "Rechnungen",
-    summary: "Vorlage für wiederkehrende Rechnungen anlegen",
-    description: "Legt eine pausierte Vorlage im Entwurfsmodus an. Prüfung und Aktivierung erfolgen in Haben.",
-    requestBody: "RecurringInvoiceCreate",
-    responses: { 201: { schema: "RecurringInvoiceCreated", description: "Vorlage angelegt; Location führt zur Vorlage in Haben" } },
-    handler: createRecurringInvoiceHandler,
-  },
+  ...RECURRING_INVOICE_ROUTES,
   {
     method: "GET",
     path: "/rechnungen/{id}",
@@ -176,9 +166,12 @@ export const API_ROUTES: ApiRoute[] = [
     description:
       "Legt einen Entwurf an; festgeschrieben und versendet wird in Haben. Nicht angegebene Felder nehmen die Vorgaben eines neuen Angebots in Haben: " +
       "Gültigkeit ab dem Angebotsdatum, Kopf- und Fußtext aus den Standard-Textbausteinen, Steuer aus den Firmendaten, die Sprache die des Kontakts; " +
-      "dazu die Standardanhänge. Jeder Aufruf legt einen Entwurf an.",
+      "dazu die Standardanhänge. Mit externalSource und externalId liefert eine Wiederholung das vorhandene Angebot.",
     requestBody: "QuoteDraftCreate",
-    responses: { 201: { schema: "Quote", description: "Entwurf angelegt; Location zeigt auf ihn" } },
+    responses: {
+      200: { schema: "Quote", description: "Angebot zur externen Referenz vorhanden; Location zeigt auf das Angebot" },
+      201: { schema: "Quote", description: "Entwurf angelegt; Location zeigt auf ihn" },
+    },
     errors: { 422: "Den Kontakt gibt es nicht, oder er ist kein Kunde" },
     handler: createQuoteHandler,
   },

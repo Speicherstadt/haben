@@ -1,6 +1,6 @@
 {
-  "id": "1a7d3473-d8b9-41ae-a896-bd2563d4d3da",
-  "prevId": "b314b4f9-6ac1-429d-9421-b93fe2ea5c62",
+  "id": "0d73b885-9951-47f2-aa67-a153647715d8",
+  "prevId": "705ca697-bb87-403f-bab7-1f650a50d1e9",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1553,6 +1553,13 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "special_depreciation": {
+          "name": "special_depreciation",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
         "disposal_date": {
           "name": "disposal_date",
@@ -14020,6 +14027,106 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.paypal_connections": {
+      "name": "paypal_connections",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "'paypal'"
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key_hint": {
+          "name": "key_hint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "sandbox": {
+          "name": "sandbox",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "ciphertext": {
+          "name": "ciphertext",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "zeitzone": {
+          "name": "zeitzone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Europe/Berlin'"
+        },
+        "fetch_from": {
+          "name": "fetch_from",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "abruf_start": {
+          "name": "abruf_start",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rhythmus": {
+          "name": "rhythmus",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'taeglich'"
+        },
+        "last_sync_at": {
+          "name": "last_sync_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "paypal_connections_id": {
+          "name": "paypal_connections_id",
+          "value": "\"paypal_connections\".\"id\" = 'paypal'"
+        },
+        "paypal_connections_rhythmus": {
+          "name": "paypal_connections_rhythmus",
+          "value": "\"paypal_connections\".\"rhythmus\" in ('stuendlich', 'taeglich', 'woechentlich')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.payroll_runs": {
       "name": "payroll_runs",
       "schema": "",
@@ -14880,181 +14987,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.psp_connections": {
-      "name": "psp_connections",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "provider": {
-          "name": "provider",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "bank_account_id": {
-          "name": "bank_account_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "account_id": {
-          "name": "account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "key_hint": {
-          "name": "key_hint",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "config": {
-          "name": "config",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
-        },
-        "ciphertext": {
-          "name": "ciphertext",
-          "type": "bytea",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "zugang_gueltig_bis": {
-          "name": "zugang_gueltig_bis",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "fetch_from": {
-          "name": "fetch_from",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "abruf_start": {
-          "name": "abruf_start",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "rhythmus": {
-          "name": "rhythmus",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'taeglich'"
-        },
-        "last_sync_at": {
-          "name": "last_sync_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_error": {
-          "name": "last_error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "psp_connections_konto_beim_anbieter": {
-          "name": "psp_connections_konto_beim_anbieter",
-          "columns": [
-            {
-              "expression": "provider",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "account_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "psp_connections_konto": {
-          "name": "psp_connections_konto",
-          "columns": [
-            {
-              "expression": "bank_account_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "psp_connections_bank_account_id_bank_accounts_id_fk": {
-          "name": "psp_connections_bank_account_id_bank_accounts_id_fk",
-          "tableFrom": "psp_connections",
-          "tableTo": "bank_accounts",
-          "columnsFrom": [
-            "bank_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "psp_connections_provider": {
-          "name": "psp_connections_provider",
-          "value": "\"psp_connections\".\"provider\" ~ '^[a-z][a-z0-9]*$'"
-        },
-        "psp_connections_rhythmus": {
-          "name": "psp_connections_rhythmus",
-          "value": "\"psp_connections\".\"rhythmus\" in ('stuendlich', 'taeglich', 'woechentlich')"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.quote_attachments": {
       "name": "quote_attachments",
       "schema": "",
@@ -15483,6 +15415,18 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
+        "external_source": {
+          "name": "external_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "status": {
           "name": "status",
           "type": "invoice_status",
@@ -15751,6 +15695,27 @@
         }
       },
       "indexes": {
+        "quotes_external_ref": {
+          "name": "quotes_external_ref",
+          "columns": [
+            {
+              "expression": "external_source",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "external_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "quotes_number_trgm_idx": {
           "name": "quotes_number_trgm_idx",
           "columns": [
@@ -15909,6 +15874,10 @@
         "quotes_final_has_number": {
           "name": "quotes_final_has_number",
           "value": "\"quotes\".\"status\" = 'draft' or (\"quotes\".\"number\" is not null and \"quotes\".\"locked_at\" is not null)"
+        },
+        "quotes_external_ref_pair": {
+          "name": "quotes_external_ref_pair",
+          "value": "(\"quotes\".\"external_source\" is null) = (\"quotes\".\"external_id\" is null)"
         },
         "quotes_decision_final": {
           "name": "quotes_decision_final",
@@ -18566,6 +18535,92 @@
       },
       "isRLSEnabled": false
     },
+    "public.stripe_connections": {
+      "name": "stripe_connections",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "'stripe'"
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key_hint": {
+          "name": "key_hint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "ciphertext": {
+          "name": "ciphertext",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fetch_from": {
+          "name": "fetch_from",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "abruf_start": {
+          "name": "abruf_start",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rhythmus": {
+          "name": "rhythmus",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'taeglich'"
+        },
+        "last_sync_at": {
+          "name": "last_sync_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "stripe_connections_id": {
+          "name": "stripe_connections_id",
+          "value": "\"stripe_connections\".\"id\" = 'stripe'"
+        },
+        "stripe_connections_rhythmus": {
+          "name": "stripe_connections_rhythmus",
+          "value": "\"stripe_connections\".\"rhythmus\" in ('stuendlich', 'taeglich', 'woechentlich')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.sv_portal_filings": {
       "name": "sv_portal_filings",
       "schema": "",
@@ -20236,6 +20291,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "small_business_rule": {
+          "name": "small_business_rule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "computed": {
           "name": "computed",
           "type": "jsonb",
@@ -20327,6 +20388,10 @@
         "vat_returns_month": {
           "name": "vat_returns_month",
           "value": "\"vat_returns\".\"month\" between 1 and 12 or \"vat_returns\".\"month\" between 41 and 44"
+        },
+        "vat_returns_small_business_rule": {
+          "name": "vat_returns_small_business_rule",
+          "value": "\"vat_returns\".\"small_business_rule\" is null or \"vat_returns\".\"small_business_rule\" = 'leistung'"
         }
       },
       "isRLSEnabled": false
