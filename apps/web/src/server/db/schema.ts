@@ -68,6 +68,7 @@ import {
   type KirchensteuerSatz,
   type Millis,
   type Prozent,
+  PAYMENT_PROVIDER_KEYS,
   RECURRENCE_KEYS,
 } from "@haben/core";
 import type { LstbWerte } from "@haben/core";
@@ -2395,7 +2396,7 @@ export const bankAccounts = pgTable(
       .notNull()
       .default("geschaeft"),
     /** Nur Zahlungsdienstleister: Anbieter (PAYMENT_PROVIDERS) und Nummer des Verrechnungskontos (1361 … bzw. 1461 …) */
-    provider: text("provider", { enum: ["paypal", "stripe", "shopify", "etsy", "ebay", "amazon", "sumup", "googleplay", "appstore", "sonstige"] }),
+    provider: text("provider", { enum: PAYMENT_PROVIDER_KEYS }),
     /** Nur Amazon: Marktplatz der Abrechnung (marketplace-name, z. B. „Amazon.de“); Pflicht beim Anlegen, nur solange das Konto keine Umsätze hat änderbar */
     marketplace: text("marketplace"),
     ledgerIndex: smallint("ledger_index").unique(),

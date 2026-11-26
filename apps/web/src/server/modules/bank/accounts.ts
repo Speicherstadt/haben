@@ -1,7 +1,7 @@
 // Bankkonten und Konten der Zahlungsdienstleister: anlegen, ändern, auflisten
 
 import { BankError } from "./bank-error.ts";
-import { AMAZON_MARKETPLACES, gruppiereGebuehren, type OwnAccount } from "@haben/core";
+import { AMAZON_MARKETPLACES, gruppiereGebuehren, type OwnAccount, PAYMENT_PROVIDER_KEYS } from "@haben/core";
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { withActor } from "../../db/actor.ts";
@@ -156,7 +156,7 @@ export async function updateAccount(actor: string, input: z.infer<typeof account
 export const providerAccountSchema = z
   .object({
     name: z.string().trim().min(1, "Name fehlt").max(100),
-    provider: z.enum(["paypal", "stripe", "shopify", "etsy", "ebay", "amazon", "sumup", "googleplay", "appstore", "sonstige"]),
+    provider: z.enum(PAYMENT_PROVIDER_KEYS),
     marketplace: z.string().trim().max(40).optional(),
   })
   .superRefine((value, ctx) => {
