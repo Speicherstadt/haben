@@ -118,7 +118,7 @@ test("„Konto verbinden › Zahlungsdienstleister hinzufügen“: Anbieter wäh
   await expect(stripeWahl).toHaveAccessibleDescription("API-Schlüssel · 3 Schritte · noch nicht verbunden");
   await expect(dialog.getByRole("radio", { name: "PayPal" })).toBeEnabled();
   await expect(dialog.getByRole("radio", { name: "Etsy Payments" })).toBeDisabled();
-  await expect(dialog.getByRole("radio", { name: "Etsy Payments" })).toHaveAccessibleDescription("Etsy verbindest du unter Bank › Verbindungen.");
+  await expect(dialog.getByRole("radio", { name: "Etsy Payments" })).toHaveAccessibleDescription("Etsy verbindest du unter Geld › Verbindungen.");
   await expect(dialog.getByRole("radio", { name: "Shopify Payments" })).toHaveAccessibleDescription(
     "Noch kein Abruf; die Umsätze kommen als Datei über „Datei importieren“.",
   );
@@ -222,6 +222,15 @@ test("Jetzt abrufen über der Liste und im Menü der Karte legt nichts doppelt a
   await page.getByRole("button", { name: "Aktionen für Shop DE" }).click();
   const menue = page.getByRole("menu", { name: "Aktionen für Shop DE" });
   await expect(menue.getByRole("menuitem")).toHaveText(["Jetzt abrufen", "Name und Zweck …", "Verbindung bearbeiten", "Alle Verbindungen"]);
+  // Das Menü schwebt über der Seite und wird von der rollbaren Leiste nicht abgeschnitten: auch der letzte Punkt liegt obenauf
+  const letzter = menue.getByRole("menuitem", { name: "Alle Verbindungen" });
+  await expect(letzter).toBeInViewport({ ratio: 1 });
+  expect(
+    await letzter.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest("[role=menuitem]") === el;
+    }),
+  ).toBe(true);
   expect(await axeVerstoesse(page), "Menü einer Karte").toEqual([]);
   await menue.getByRole("menuitem", { name: "Jetzt abrufen" }).click();
   await expect(abrufBereich().getByText("Shop DE: Abruf durchgelaufen.")).toBeVisible();
@@ -286,7 +295,7 @@ test("Verbindung entfernen löscht den Schlüssel, die Umsätze bleiben", async 
   await gehe(page, "/einstellungen?bereich=bank");
   const hinweis = page.getByRole("region", { name: "Zahlungsdienstleister und Stores", exact: true });
   await expect(hinweis).toContainText(
-    "Stripe und PayPal, Etsy Payments und die Berichte von Google Play und App Store verbindest du unter Bank › Verbindungen.",
+    "Stripe und PayPal, Etsy Payments und die Berichte von Google Play und App Store verbindest du unter Geld › Verbindungen.",
   );
   await expect(hinweis.getByRole("button")).toHaveCount(0);
 });

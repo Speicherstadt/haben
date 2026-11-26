@@ -262,20 +262,23 @@ function VerbindungsZeile({
               {z.art === "enablebanking" ? "Neu anmelden" : "Zugang ändern"}
             </button>
           )}
-          {z && (
-            <button
-              type="button"
-              className="btn btn-ghost btn-icon"
-              aria-label={`${zeile.name} jetzt abrufen`}
-              title={abruf.laeuft(z) ? "Rufe ab …" : undefined}
-              aria-describedby={geht?.grund ? beschreibung : undefined}
-              disabled={!geht?.geht || abruf.laeuft(z)}
-              onClick={() => void abruf.abrufen(z)}
-            >
-              <Icon name="refresh" size={16} />
-            </button>
-          )}
-          {menue.length > 0 && <MoreActionsMenu label={`Weitere Aktionen für ${zeile.name}`} items={menue} ghost />}
+          {/* Abruf und `⋯` zusammen: am Handy stehen sie rechts neben dem Namen, der Knopf zum Status unten (bank.css) */}
+          <span className="verbindung-symbole">
+            {z && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-icon"
+                aria-label={`${zeile.name} jetzt abrufen`}
+                title={abruf.laeuft(z) ? "Rufe ab …" : undefined}
+                aria-describedby={geht?.grund ? beschreibung : undefined}
+                disabled={!geht?.geht || abruf.laeuft(z)}
+                onClick={() => void abruf.abrufen(z)}
+              >
+                <Icon name="refresh" size={16} />
+              </button>
+            )}
+            {menue.length > 0 && <MoreActionsMenu label={`Weitere Aktionen für ${zeile.name}`} items={menue} ghost schwebend />}
+          </span>
         </div>
       </td>
     </tr>

@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type RefObject, useEffect, useId, useRef, useState } from "react";
+import { type CSSProperties, type KeyboardEvent, type RefObject, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "./Icon.tsx";
 
 export type ActionMenuItem = {
@@ -19,6 +19,38 @@ function enabledMenuItems(menu: HTMLElement | null): HTMLElement[] {
 }
 
 /**
+ * Lage eines schwebenden Menüs: fest über der Seite, bündig mit der rechten Kante des Auslösers, links und rechts 8px
+ * Abstand zum Fenster. Rollen außerhalb des Menüs und eine Größenänderung schließen es, weil es sonst vom Auslöser abrückte.
+ */
+function useSchwebendeLage(
+  aktiv: boolean,
+  ausloeser: RefObject<HTMLButtonElement | null>,
+  menu: RefObject<HTMLDivElement | null>,
+  schliessen: () => void,
+): CSSProperties | undefined {
+  const [lage, setLage] = useState<CSSProperties | undefined>(undefined);
+  const zu = useRef(schliessen);
+  zu.current = schliessen;
+  useLayoutEffect(() => {
+    if (!aktiv) return setLage(undefined);
+    const knopf = ausloeser.current?.getBoundingClientRect();
+    if (!knopf) return;
+    const breite = menu.current?.offsetWidth ?? 0;
+    setLage({ position: "fixed", top: knopf.bottom + 4, left: Math.max(8, Math.min(knopf.right - breite, window.innerWidth - breite - 8)), right: "auto" });
+    const weg = (e: Event) => {
+      if (!menu.current?.contains(e.target as Node)) zu.current();
+    };
+    window.addEventListener("scroll", weg, { capture: true, passive: true });
+    window.addEventListener("resize", weg);
+    return () => {
+      window.removeEventListener("scroll", weg, { capture: true });
+      window.removeEventListener("resize", weg);
+    };
+  }, [aktiv, ausloeser, menu]);
+  return lage;
+}
+
+/**
  * Menüknopf `⋯` für weitere Aktionen in der Aktionsleiste am Handy (#396, Variante E), nach dem Muster „Menu Button“
  * der WAI-ARIA APG: öffnet mit Enter, Leertaste oder Pfeil nach unten/oben, hält die Pfeiltasten im Menü und setzt den
  * Fokus bei Escape zurück auf den Auslöser. Mit `text` ist der Auslöser ein Knopf mit Text und `chevron-down`
@@ -31,6 +63,7 @@ export function MoreActionsMenu({
   triggerRef,
   primary = false,
   ghost = false,
+  schwebend = false,
 }: {
   label?: string;
   text?: string;
@@ -40,6 +73,12 @@ export function MoreActionsMenu({
   primary?: boolean;
   /** Auslöser ohne Rahmen, etwa `⋯` auf einer Karte oder am Ende einer Zeile */
   ghost?: boolean;
+  /**
+   * Das Menü schwebt fest über der Seite statt im Fluss seines Behälters: für einen Auslöser in einer Fläche, die
+   * überlaufenden Inhalt abschneidet (rollbare Kartenleiste, Karte mit Tabelle). Bündig mit der rechten Kante des
+   * Auslösers, so weit der Platz reicht; Rollen und Größenänderung schließen es.
+   */
+  schwebend?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [initialFocus, setInitialFocus] = useState<"first" | "last">("first");
@@ -57,6 +96,8 @@ export function MoreActionsMenu({
     setOpen(false);
     if (focusTrigger) ownTrigger.current?.focus();
   };
+
+  const lage = useSchwebendeLage(schwebend && open, ownTrigger, menu, () => setOpen(false));
 
   useEffect(() => {
     if (!open) return;
@@ -130,7 +171,7 @@ export function MoreActionsMenu({
         )}
       </button>
       {open && (
-        <div ref={menu} id={menuId} role="menu" aria-label={text ?? label} className="split-menu" onKeyDown={onMenuKey}>
+        <div ref={menu} id={menuId} role="menu" aria-label={text ?? label} className="split-menu" style={lage} onKeyDown={onMenuKey}>
           {items.map((item) => [
             item.trenner && <hr key={`${item.key}-trenner`} className="split-menu-trenner" />,
             <button

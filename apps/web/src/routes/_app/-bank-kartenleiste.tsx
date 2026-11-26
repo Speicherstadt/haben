@@ -117,7 +117,7 @@ function Rahmen({ name, aktionen, children }: { name: string; aktionen: ActionMe
   return (
     <div className="konto-karte-rahmen">
       {children}
-      <MoreActionsMenu label={`Aktionen für ${name}`} items={aktionen} ghost />
+      <MoreActionsMenu label={`Aktionen für ${name}`} items={aktionen} ghost schwebend />
     </div>
   );
 }

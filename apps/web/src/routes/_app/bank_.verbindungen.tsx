@@ -1,8 +1,9 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, useLocation, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { z } from "zod/mini";
 import { ExcludedAccounts, KontoAusschliessenDialog } from "../../components/BankKontoAusschliessen.tsx";
 import { EtsyPaymentsCard } from "../../components/EtsyPaymentsCard.tsx";
+import { EinklappAbschnitt } from "../../components/firma/EinklappAbschnitt.tsx";
 import { QuelleFreigebenDialog } from "../../components/ExterneQuelle.tsx";
 import { useFintsZustand } from "../../components/FintsAbruf.tsx";
 import { NoticeBanner } from "../../components/NoticeBanner.tsx";
@@ -132,8 +133,7 @@ function VerbindungenPage() {
         zeilen={zeilenDerGruppe(data, "zahlungsdienstleister")}
         {...gruppe}
       />
-      <StoreReportsCard connections={data.stores.connections} contacts={data.stores.contacts} />
-      <EtsyPaymentsCard data={data.etsy} />
+      <StoresUndMarktplaetze stores={data.stores} etsy={data.etsy} />
       <ExcludedAccounts accounts={data.excludedAccounts} />
 
       {dialog?.art === "name" && konto && (
@@ -142,5 +142,54 @@ function VerbindungenPage() {
       {dialog?.art === "quelle" && konto && <QuelleFreigebenDialog account={konto} onClose={() => setDialog(null)} />}
       {dialog?.art === "ausschliessen" && konto && <KontoAusschliessenDialog account={konto} onClose={() => setDialog(null)} />}
     </>
+  );
+}
+
+/**
+ * Store-Berichte und Etsy Payments (#1951, aus den Einstellungen hierher): je ein eingeklappter Abschnitt mit dem Stand
+ * in der Überschrift, weil ihre Formulare lang sind und die meisten Firmen keins von beiden nutzen. Offen steht ein
+ * Abschnitt, solange sein Abruf fehlschlägt oder ein Anker ihn anspringt.
+ */
+function StoresUndMarktplaetze({
+  stores,
+  etsy,
+}: {
+  stores: Awaited<ReturnType<typeof getStoreConnections>>;
+  etsy: Awaited<ReturnType<typeof getEtsySettings>>;
+}) {
+  const store = (art: "googleplay" | "appstore") => stores.connections.find((c) => c.store === art);
+  const storeFehler = stores.connections.some((c) => c.lastError);
+  const [offen, setOffen] = useState({ stores: storeFehler, etsy: Boolean(etsy.lastError) });
+  // Die Rückleitung von Etsy und Links mit Anker (`#etsy`, `#stores`) klappen ihren Abschnitt auf; erst im Browser, der Server kennt den Anker nicht
+  const anker = useLocation({ select: (l) => l.hash });
+  useEffect(() => {
+    if (anker === "etsy" || anker === "stores") setOffen((o) => ({ ...o, [anker]: true }));
+  }, [anker]);
+  const storesKurz = [
+    `Google Play ${store("googleplay") ? "verbunden" : "nicht verbunden"}`,
+    `App Store ${store("appstore") ? "verbunden" : "nicht verbunden"}`,
+  ].join(" · ");
+  return (
+    <section className="card verbindungen-weitere" aria-labelledby="weitere-heading">
+      <h2 id="weitere-heading">Stores und Marktplätze</h2>
+      <EinklappAbschnitt
+        id="stores"
+        titel="Google Play und App Store"
+        kurz={storesKurz}
+        offen={offen.stores}
+        onOffen={(neu) => setOffen((o) => ({ ...o, stores: neu }))}
+      >
+        <StoreReportsCard connections={stores.connections} contacts={stores.contacts} />
+      </EinklappAbschnitt>
+      <EinklappAbschnitt
+        id="etsy"
+        titel="Etsy Payments"
+        kurz={etsy.connected ? `verbunden mit ${etsy.shopName || "dem Shop"}` : "nicht verbunden"}
+        offen={offen.etsy}
+        onOffen={(neu) => setOffen((o) => ({ ...o, etsy: neu }))}
+      >
+        <EtsyPaymentsCard data={etsy} />
+      </EinklappAbschnitt>
+    </section>
   );
 }

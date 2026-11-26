@@ -64,7 +64,7 @@ import { getUnits } from "../../server/functions/units.ts";
 import { TaxpayerForm } from "./-einstellungen-steuerpflichtige.tsx";
 import { CertificateForm, EricCard } from "./-einstellungen-elster.tsx";
 
-/** Anbindungen unter Bank: Zugang der Installation zu Enable Banking und FinTS; die Verbindungen selbst stehen unter Bank › Verbindungen */
+/** Anbindungen unter Bank: Zugang der Installation zu Enable Banking und FinTS; die Verbindungen selbst stehen unter Geld › Verbindungen */
 async function loadBankConnections() {
   const [enableBanking, zahlungsdienstleister] = await Promise.all([getEnableBankingSettings(), getPspSettings()]);
   return { enableBanking, zahlungsdienstleister };
@@ -266,7 +266,7 @@ function SettingsPage() {
                 <h2 id="psp-heading">Zahlungsdienstleister und Stores</h2>
                 <p className="small muted" style={{ margin: 0 }}>
                   {anbieterAufzaehlung(zahlungsdienstleister.anbieter.map((a) => a.name))}, Etsy Payments und die Berichte von Google Play und App Store
-                  verbindest du unter <Link to="/bank/verbindungen">Bank › Verbindungen</Link>.
+                  verbindest du unter <Link to="/bank/verbindungen">Geld › Verbindungen</Link>.
                 </p>
               </section>
             </>

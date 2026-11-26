@@ -105,6 +105,12 @@ test.afterEach(() => {
 });
 
 const karte = () => page.getByRole("region", { name: "Etsy Payments" });
+/** Etsy steht auf der Seite Verbindungen eingeklappt unter „Stores und Marktplätze“ (#1951) */
+async function aufklappen() {
+  const abschnitt = page.locator("details", { has: page.getByRole("heading", { name: "Etsy Payments" }) });
+  if ((await abschnitt.getAttribute("open")) === null) await abschnitt.locator("summary").click();
+  await expect(abschnitt).toHaveAttribute("open", "");
+}
 
 test("Einrichtung", async () => {
   await einrichten(page);
@@ -112,6 +118,8 @@ test("Einrichtung", async () => {
 
 test("Zugangsdaten speichern: Schlüssel gespeichert, Freigabe fehlt noch", async () => {
   await gehe(page, "/bank/verbindungen");
+  await expect(page.getByRole("heading", { name: "Etsy Payments" }).locator("..")).toContainText("nicht verbunden");
+  await aufklappen();
   await expect(karte().getByText("Nicht eingerichtet.")).toBeVisible();
   await expect(karte().getByRole("button", { name: "Verbinden" })).toBeDisabled();
 
@@ -134,7 +142,9 @@ test("Zugangsdaten speichern: Schlüssel gespeichert, Freigabe fehlt noch", asyn
 
 test("Verbinden: Etsy gibt frei, die Karte nennt den Shop", async () => {
   await karte().getByRole("button", { name: "Verbinden" }).click();
-  await page.waitForURL("**/bank/verbindungen");
+  // Die Rückleitung springt den Abschnitt an und klappt ihn auf
+  await page.waitForURL("**/bank/verbindungen#etsy");
+  await expect(page.locator("details", { has: page.getByRole("heading", { name: "Etsy Payments" }) })).toHaveAttribute("open", "");
   await expect(karte().getByText(`Verbunden mit Werkstatt Nord (${SHOP}).`)).toBeVisible();
 
   const freigabe = anfragen.find((a) => a.startsWith("GET /oauth/connect"));
@@ -153,6 +163,7 @@ test("Jetzt abrufen: der Verkauf kommt mit dem Betrag ohne Sales Tax ins Konto d
       { name: "Etsy", purpose: "zahlungsdienstleister", provider: "etsy" },
     ]);
     await gehe(page, "/bank/verbindungen");
+    await aufklappen();
     await karte().getByRole("button", { name: "Jetzt abrufen" }).click();
     await expect(karte().getByText("Abruf durchgelaufen.")).toBeVisible();
     await expect(karte().getByText(/Letzter Abruf: /)).toBeVisible();

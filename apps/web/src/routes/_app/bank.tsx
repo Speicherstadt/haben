@@ -240,8 +240,9 @@ function UmsatzListe({
   return (
     <div className="grid-main">
       <section className="card" style={{ padding: "8px 0 12px" }} aria-label="Umsätze">
+        <AbrufStand karte={karte} alle={data.allAccounts} hatVerbindungen={hatVerbindungen} abruf={abruf} dateiFuer={dateiFuer} />
         <div className="tx-toolbar">
-          <div role="group" aria-label="Filter" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div role="group" aria-label="Filter" className="tx-filter">
             {(["alle", "offen", "zugeordnet", "vorschlag"] as const).map((f) => (
               <Link
                 key={f}
@@ -256,7 +257,6 @@ function UmsatzListe({
           </div>
           {/* key: beim Kontowechsel leer neu aufsetzen, sonst trägt die Suche ins neue Konto */}
           <SearchBox key={konto ?? ""} initial={search.suche ?? ""} />
-          <AbrufStand karte={karte} alle={data.allAccounts} hatVerbindungen={hatVerbindungen} abruf={abruf} dateiFuer={dateiFuer} />
         </div>
         <Fortschritt data={data} sichtbar={sichtbar} selectedId={selectedId} />
         <BestaetigenLeiste b={bestaetigen} />
@@ -318,7 +318,7 @@ function UmsatzListe({
 }
 
 /**
- * Rechts in der Werkzeugzeile: Weg und Stand des gewählten Kontos und sein Abruf, bei einem Konto ohne Verbindung der
+ * Erste Zeile der Liste, über Filter und Suche: links Weg und Stand des gewählten Kontos, rechts sein Abruf, bei einem Konto ohne Verbindung der
  * Import einer Datei, bei „Alle Konten“ „Alle abrufen“
  */
 function AbrufStand({

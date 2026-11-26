@@ -21,7 +21,7 @@ export const Route = createFileRoute("/api/etsy/callback")({
           // Der Zustand der Verbindung steht auf ihrer Karte; ein unerwarteter Fehler darf die Rückleitung nicht sprengen
           if (!(error instanceof EtsyError)) throw error;
         }
-        return new Response(null, { status: 303, headers: { location: "/bank/verbindungen" } });
+        return new Response(null, { status: 303, headers: { location: "/bank/verbindungen#etsy" } });
       },
     },
   },

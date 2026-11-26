@@ -661,6 +661,8 @@ const FILE_PICKER_PAGES = [
 test("Dateiwähler: Ein Klick auf „Datei wählen“ öffnet an jeder Stelle den Dialog und der Feldname benennt das Feld", async ({ page }) => {
   for (const path of FILE_PICKER_PAGES) {
     await open(page, path);
+    // Eingeklappte Abschnitte aufklappen, etwa „Google Play und App Store“ auf der Seite Verbindungen
+    for (const zu of await page.locator("details:not([open]) > summary").all()) await zu.click();
     const pickers = page.locator(".file-picker");
     expect(await pickers.count(), `${path} hat einen Dateiwähler`).toBeGreaterThan(0);
     for (let i = 0; i < (await pickers.count()); i++) {

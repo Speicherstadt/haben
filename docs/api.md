@@ -386,7 +386,7 @@ Verwende beim Nachversand dieselben Werte für `externalSource` und `externalId`
 
 Ein eigener Dienst, der Zahlungen bei einem Anbieter abholt, liefert sie mit `POST /bankimporte` als Umsätze an Haben. Die Lieferung folgt dem Importvertrag aus [#306](https://github.com/Speicherstadt/haben/issues/306) (Schema `BankImport` in der OpenAPI-Beschreibung). Haben legt die Umsätze an; zugeordnet wird wie bei jedem Import im Bankabgleich.
 
-1. **Quelle freigeben:** in Haben unter **Bank › Verbindungen** an der Zeile des Kontos [Externe Quelle hinzufügen](bank.md#externe-quelle). Anbieter und Kennung dort sind `provider` und `externalAccountId` jeder Lieferung. Ein Token allein legt keine Quelle an; ohne Freigabe antwortet die API mit `404`.
+1. **Quelle freigeben:** in Haben unter **Geld › Verbindungen** an der Zeile des Kontos [Externe Quelle hinzufügen](bank.md#externe-quelle). Anbieter und Kennung dort sind `provider` und `externalAccountId` jeder Lieferung. Ein Token allein legt keine Quelle an; ohne Freigabe antwortet die API mit `404`.
 2. **Token** mit dem Recht „Bankumsätze in freigegebene Quellen liefern“ (`bank:importieren`).
 3. **Liefern** wie unten.
 

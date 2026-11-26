@@ -25,7 +25,7 @@ const EINSTELLUNGEN_BANK = (
   </Link>
 );
 
-const VERBINDUNGEN = <Link to="/bank/verbindungen">Bank › Verbindungen</Link>;
+const VERBINDUNGEN = <Link to="/bank/verbindungen">Geld › Verbindungen</Link>;
 
 /** Die drei Wege zur Bank; FinTS wartet wie bisher auf einen offenen Schritt oder Abruf an einer Zeile (#1647, #1660) */
 export function bankWege(data: Pick<Data, "sync" | "fints">, fintsZustand: Pick<FintsZustand, "offen" | "busy">): Wahl<BankWeg>[] {
