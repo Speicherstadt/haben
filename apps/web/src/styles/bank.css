@@ -87,11 +87,11 @@
 .verbindungen-kopf > h2 { margin: 0; }
 /* Feste Spalten, damit die Tabellen der Gruppen untereinander bündig stehen */
 .verbindungen-tabelle { width: 100%; border-collapse: collapse; font-size: 14px; table-layout: fixed; }
-.verbindungen-tabelle .spalte-konto { width: 26%; }
-.verbindungen-tabelle .spalte-abruf { width: 18%; }
-.verbindungen-tabelle .spalte-saldo { width: 12%; }
+.verbindungen-tabelle .spalte-konto { width: 24%; }
+.verbindungen-tabelle .spalte-abruf { width: 16%; }
+.verbindungen-tabelle .spalte-saldo { width: 11%; }
 .verbindungen-tabelle .spalte-offen { width: 6%; }
-.verbindungen-tabelle .spalte-aktionen { width: 240px; }
+.verbindungen-tabelle .spalte-aktionen { width: 212px; }
 .verbindungen-tabelle th { padding: 8px 12px; font-size: 12px; font-weight: 500; color: var(--muted); text-align: left; border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); }
 .verbindungen-tabelle td { padding: 12px; border-bottom: 1px solid var(--line-soft); vertical-align: baseline; }
 .verbindungen-tabelle tr:last-child > td { border-bottom: 0; }
@@ -117,7 +117,9 @@
 /* Schmal und am Handy: jede Zeile als Liste. Oben Name und rechts Abruf und `⋯`, darunter Weg und Saldo, unten Status und
    rechts der Knopf, der ihn löst; ohne Status bleibt die letzte Zeile leer und nimmt keinen Platz */
 @media (max-width: 1100px) {
-  .verbindungen-kopf { flex-wrap: wrap; }
+  /* Der Knopf zum Hinzufügen bricht nie um; passt er nicht neben die Überschrift, steht er darunter */
+  .verbindungen-kopf { flex-wrap: wrap; justify-content: flex-start; column-gap: 16px; }
+  .verbindungen-kopf > h2 { flex: 1 1 auto; }
   .verbindungen-kopf > .btn { white-space: nowrap; }
   .verbindungen-tabelle thead { display: none; }
   .verbindungen-tabelle, .verbindungen-tabelle tbody { display: block; }
