@@ -1,5 +1,5 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod/mini";
 import { TransactionStatus } from "../../components/BankStatus.tsx";
 import { UmsatzBetrag, useGebuehrZeilen } from "../../components/BankGebuehr.tsx";
@@ -14,6 +14,7 @@ import { type Data, gezeigteKonten, nextOpenAfter } from "./-bank-daten.ts";
 import { Fortschritt, LeereListe } from "./-bank-fortschritt.tsx";
 import { AllocationPanel } from "./-bank-zuordnung.tsx";
 import { BankSync } from "./-bank-verbindung.tsx";
+import { useFintsZustand } from "../../components/FintsAbruf.tsx";
 import { AccountSettings, ImportControls, SearchBox } from "./-bank-konto.tsx";
 import { ExterneQuelle } from "../../components/ExterneQuelle.tsx";
 import { menueGruppe } from "../../lib/menue-gruppe.ts";
@@ -101,9 +102,27 @@ function BankPage() {
   const openCount = gezeigteKonten(data).reduce((sum, a) => sum + a.openCount, 0);
   const accountName = new Map(data.accounts.map((a) => [a.id, a.name]));
 
+  // Formulare zum Verbinden (Enable Banking, FinTS): „Konto verbinden“ im Kopf öffnet sie im Bereich „Automatischer Abruf“
+  const [connecting, setConnecting] = useState(false);
+  const fintsZustand = useFintsZustand();
+
   const bestaetigen = useBestaetigen(sichtbar);
   useLeertasteMarkiert(bestaetigen);
   useUmsatzTasten(sichtbar, index);
+
+  // Derselbe Schlüssel in beiden Zweigen unten: Mit dem ersten Konto, etwa nach dem Verbinden über FinTS, bleibt der
+  // Bereich stehen, samt seiner Meldungen
+  const abruf = (
+    <BankSync
+      key="abruf"
+      data={data}
+      kontoId={data.allAccounts ? null : (data.accountId ?? null)}
+      connecting={connecting}
+      setConnecting={setConnecting}
+      fintsZustand={fintsZustand}
+      result={search.abruf ? { ok: search.abruf === "ok", message: search.meldung ?? "" } : null}
+    />
+  );
 
   return (
     <>
@@ -112,22 +131,27 @@ function BankPage() {
           <div className="eyebrow">{menueGruppe("/bank")}</div>
           <h1>Bank</h1>
         </div>
-        <ImportControls data={data} />
+        <ImportControls
+          data={data}
+          fintsZustand={fintsZustand}
+          onBankWeg={(weg) => (weg === "enablebanking" ? setConnecting(true) : fintsZustand.setVerbinden(true))}
+        />
       </div>
       <p className="muted small" style={{ margin: 0, maxWidth: 760 }}>
         Hier ordnest du die Umsätze deiner Konten Belegen und Rechnungen zu.
       </p>
 
-      <BankSync sync={data.sync} fints={data.fints} result={search.abruf ? { ok: search.abruf === "ok", message: search.meldung ?? "" } : null} />
-
       {data.accounts.length === 0 ? (
-        <section className="card">
-          <h2>Noch kein Konto</h2>
-          <p className="muted" style={{ margin: 0 }}>
-            Verbinde dein Konto für den automatischen Abruf oder exportiere bei deiner Bank die Umsätze als CSV oder CAMT.053 und importiere die Datei.
-            DKB-Dateien und CAMT nennen die IBAN, das Konto wird dann automatisch angelegt; für N26 lege das Konto vorher an.
-          </p>
-        </section>
+        <>
+          {abruf}
+          <section className="card">
+            <h2>Noch kein Konto</h2>
+            <p className="muted" style={{ margin: 0 }}>
+              Verbinde dein Konto für den automatischen Abruf oder exportiere bei deiner Bank die Umsätze als CSV oder CAMT.053 und importiere die Datei.
+              DKB-Dateien und CAMT nennen die IBAN, das Konto wird dann automatisch angelegt; für N26 lege das Konto vorher an.
+            </p>
+          </section>
+        </>
       ) : (
         <>
           <Kartenleiste data={data} filter={filter} />
@@ -142,6 +166,7 @@ function BankPage() {
             />
           )}
           {selectedAccount && <ExterneQuelle key={`quelle-${selectedAccount.id}`} account={selectedAccount} daten={data} />}
+          {abruf}
 
           <div className="grid-main">
             <section className="card" style={{ padding: "8px 0 12px" }} aria-label="Umsätze">

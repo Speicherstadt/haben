@@ -5,7 +5,17 @@ import { expect, type Page, test } from "@playwright/test";
 import postgres from "postgres";
 import { day, YEAR } from "./daten.ts";
 import { type Durchlauf, databaseUrlFuer } from "./durchlaeufe.ts";
-import { bestaetigen, dkb, durchlaufSeite, gehe, lieferantWaehlen, neuenLieferantenOeffnen, ohneAxeVerstoesse, axeVerstoesse } from "./einrichtung.ts";
+import {
+  bestaetigen,
+  kontoVerbinden,
+  dkb,
+  durchlaufSeite,
+  gehe,
+  lieferantWaehlen,
+  neuenLieferantenOeffnen,
+  ohneAxeVerstoesse,
+  axeVerstoesse,
+} from "./einrichtung.ts";
 import { LAPTOP } from "./kopfzeile.ts";
 import { abzugEinspielen } from "./abzug.ts";
 import { receiptJpeg } from "./belegbild.ts";
@@ -1028,7 +1038,7 @@ test("Sammelrechnung des Dienstleisters: an der Gebührenzeile als bester Treffe
   await expect(page.locator(".page-head").getByText("Gebucht", { exact: true })).toBeVisible();
 
   await go("/bank");
-  await page.getByRole("button", { name: "Konto hinzufügen" }).click();
+  await kontoVerbinden(page, "Konto ohne Abruf anlegen");
   const neuesKonto = page.locator("form", { has: page.getByRole("button", { name: "Konto anlegen" }) });
   await neuesKonto.getByLabel("Art", { exact: true }).selectOption("provider");
   await neuesKonto.getByLabel("Dienstleister", { exact: true }).selectOption("etsy");
@@ -1067,7 +1077,7 @@ test("Unbekannte Bank-CSV: Spalten zuordnen, importieren, der nächste Export ge
   // Erfundene Bank mit Kopfblock, Soll und Haben in eigenen Spalten und dem Kontostand in der letzten Zeile
   const datei = readFileSync(new URL("../../../packages/import/test-fixtures/unbekannte-bank-soll-haben.csv", import.meta.url));
   await go("/bank");
-  await page.getByRole("button", { name: "Konto hinzufügen" }).click();
+  await kontoVerbinden(page, "Konto ohne Abruf anlegen");
   const neuesKonto = page.locator("form", { has: page.getByRole("button", { name: "Konto anlegen" }) });
   await neuesKonto.getByLabel("Name", { exact: true }).fill("Konto ohne Format");
   await neuesKonto.getByLabel("IBAN", { exact: true }).fill("DE75 5121 0800 1245 1261 99");

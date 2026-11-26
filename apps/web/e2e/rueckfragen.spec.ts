@@ -2,7 +2,18 @@ import { expect, type Locator, test, type Page } from "@playwright/test";
 import postgres from "postgres";
 import { currentDay, day, USER } from "./daten.ts";
 import { databaseUrlFuer } from "./durchlaeufe.ts";
-import { bestaetigen, fragenUeberspringen, dkb, durchlaufSeite, faktenZeigen, gehe, kontaktAnlegen, rechnungFestschreiben, SETUP_CODE } from "./einrichtung.ts";
+import {
+  bestaetigen,
+  kontoVerbinden,
+  fragenUeberspringen,
+  dkb,
+  durchlaufSeite,
+  faktenZeigen,
+  gehe,
+  kontaktAnlegen,
+  rechnungFestschreiben,
+  SETUP_CODE,
+} from "./einrichtung.ts";
 
 /**
  * Rückfragen vor Aktionen, die früher mit einem Klick auslösten (#404), in eigener, leerer Datenbank (Projekt
@@ -699,7 +710,7 @@ test("Bank: ein zweites Konto für denselben Marktplatz fragt vorher nach (#1779
   await go("/bank");
   const form = page.locator("form", { has: page.getByRole("button", { name: "Konto anlegen" }) });
   const anlegen = async (name: string) => {
-    await page.getByRole("button", { name: "Konto hinzufügen" }).click();
+    await kontoVerbinden(page, "Konto ohne Abruf anlegen");
     await form.getByLabel("Art", { exact: true }).selectOption("provider");
     await form.getByLabel("Dienstleister", { exact: true }).selectOption("amazon");
     await form.getByLabel("Marktplatz", { exact: true }).selectOption("Amazon.de");
@@ -732,6 +743,8 @@ test("Bank: Konten als Kartenleiste in Gruppen, im schmalen Fenster als Chips un
   const alle = leiste.getByRole("group", { name: "Gesamt" }).getByRole("link", { name: /Alle Konten/ });
   await expect(alle).toHaveAttribute("aria-current", "page");
   await expect(alle).toContainText("4 Konten");
+  // Kein Konto braucht etwas: leise „Alles aktuell“ statt eines Status
+  await expect(alle).toContainText("Alles aktuell");
   const banken = leiste.getByRole("group", { name: "Banken" }).getByRole("link");
   await expect(banken).toHaveCount(2);
   // Normalfall leise: Weg und Zeit des letzten Imports, ohne Status
@@ -766,6 +779,8 @@ test("Bank: Konten als Kartenleiste in Gruppen, im schmalen Fenster als Chips un
     await expect(chips.getByRole("group")).toHaveCount(0);
     await expect(chips.getByRole("link")).toHaveCount(5);
     await expect(chips.getByRole("link", { name: /Amazon DE 2/ })).toHaveAttribute("aria-current", "page");
+    // Ohne offene Umsätze steht keine 0 am Chip
+    await expect(chips.getByRole("link", { name: "Amazon DE 2", exact: true })).toHaveCount(1);
     const alleChip = chips.getByRole("link", { name: /^Alle/ });
     await alleChip.click();
     await expect(alleChip).toHaveAttribute("aria-current", "page");

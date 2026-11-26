@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useId, useState } from "react";
 import { formatDate, formatDateTime } from "../lib/format.ts";
 import { useAction } from "../lib/use-action.ts";
-import { anbieterAufzaehlung, zugangGueltigBisText } from "../lib/zahlungsdienstleister-text.ts";
+import { zugangGueltigBisText } from "../lib/zahlungsdienstleister-text.ts";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { KonfliktKlaeren } from "./ImportKonflikt.tsx";
 import { quelleZuAnbieter } from "../lib/import-quelle.ts";
@@ -11,57 +11,27 @@ import { NoticeBanner } from "./NoticeBanner.tsx";
 import { type PspDaten, type PspVerbindung, VerbindungFormular } from "./ZahlungsdienstleisterFormular.tsx";
 import { removePspConnectionFn, syncPspNow } from "../server/functions/zahlungsdienstleister.ts";
 
-/**
- * Verbindungen zu Zahlungsdienstleistern über ihre API (Einstellungen › Bank, #1729): Stripe, PayPal und jeder weitere Anbieter
- * mit Adapter, auch mehrere beim selben Anbieter. Haben holt Zahlungen, Erstattungen, Gebühren und Auszahlungen selbst und legt
- * sie im Konto des Zahlungsdienstleisters an; der Export des Anbieters bleibt der Weg für ältere Zeiträume.
+/*
+ * Verbindung zu einem Zahlungsdienstleister über seine API (#1729) auf der Bankseite über der Liste ihres Kontos (#1951):
+ * Stand, Fehler, Konflikte, „Jetzt abrufen“, „Bearbeiten“ und „Entfernen“. Neu verbunden wird über die geführte
+ * Einrichtung (routes/_app/bank_.verbinden.$anbieter.tsx).
  */
-export function ZahlungsdienstleisterCard({ daten }: { daten: PspDaten }) {
-  const [neu, setNeu] = useState(false);
-  // Meldungen nach dem Anlegen und Entfernen stehen an der Karte: Formular und Zeile sind danach weg
-  const meldung = useAction();
-  return (
-    <section className="card" aria-labelledby="psp-heading">
-      <h2 id="psp-heading">Zahlungsdienstleister</h2>
-      <p className="small muted" style={{ margin: 0 }}>
-        Haben holt die Umsätze von {anbieterAufzaehlung(daten.anbieter.map((a) => a.name))} über deren Schnittstelle und legt sie im Konto des
-        Zahlungsdienstleisters an. Je Verbindung ein Konto; mehrere Konten beim selben Anbieter gehen, jedes mit eigenem Namen.
-      </p>
-      {daten.verbindungen.length === 0 && !neu && (
-        <p className="small" style={{ margin: "0.5rem 0 0" }}>
-          <strong>Nicht eingerichtet.</strong>
-        </p>
-      )}
-      {daten.verbindungen.map((v) => (
-        <VerbindungZeile key={v.id} daten={daten} verbindung={v} entfernen={meldung.run} />
-      ))}
-      <NoticeBanner notice={meldung.notice} />
-      {neu ? (
-        <div style={TRENNUNG}>
-          <VerbindungFormular
-            daten={daten}
-            onFertig={(gespeichert) => {
-              setNeu(false);
-              if (gespeichert) meldung.setNotice({ tone: "ok", text: "Verbindung gespeichert." });
-            }}
-          />
-        </div>
-      ) : (
-        <div className="actions">
-          <button type="button" className="btn btn-primary" onClick={() => setNeu(true)}>
-            Verbindung hinzufügen
-          </button>
-        </div>
-      )}
-    </section>
-  );
-}
 
-/** Jede Verbindung und das Formular einer neuen stehen unter einer Linie, ohne Karte in der Karte (DESIGN.md › Karten) */
-const TRENNUNG = { borderTop: "1px solid var(--line)", paddingTop: 16, display: "flex", flexDirection: "column", gap: 8 } as const;
+const SPALTE = { display: "flex", flexDirection: "column", gap: 8 } as const;
 
-/** Eine Verbindung: Stand, Meldungen, Konflikte und Aktionen; „Bearbeiten“ öffnet das Formular an ihrer Stelle */
-function VerbindungZeile({ daten, verbindung: v, entfernen }: { daten: PspDaten; verbindung: PspVerbindung; entfernen: ReturnType<typeof useAction>["run"] }) {
+/**
+ * Eine Verbindung: Stand, Meldungen, Konflikte und Aktionen; „Bearbeiten“ öffnet das Formular an ihrer Stelle. Die
+ * Meldung nach dem Entfernen zeigt, wer entfernen übergibt: Die Zeile ist danach weg.
+ */
+export function VerbindungZeile({
+  daten,
+  verbindung: v,
+  entfernen,
+}: {
+  daten: PspDaten;
+  verbindung: PspVerbindung;
+  entfernen: ReturnType<typeof useAction>["run"];
+}) {
   const router = useRouter();
   const remove = useServerFn(removePspConnectionFn);
   const sync = useServerFn(syncPspNow);
@@ -72,7 +42,7 @@ function VerbindungZeile({ daten, verbindung: v, entfernen }: { daten: PspDaten;
   const headingId = useId();
   const anbieter = daten.anbieter.find((a) => a.provider === v.provider);
   return (
-    <section aria-labelledby={headingId} style={TRENNUNG}>
+    <section aria-labelledby={headingId} style={SPALTE}>
       <h3 id={headingId} style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>
         {v.name}
       </h3>

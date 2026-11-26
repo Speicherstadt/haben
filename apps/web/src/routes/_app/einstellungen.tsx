@@ -1,12 +1,11 @@
 import { currentFilingPeriod, isKapitalgesellschaft } from "@haben/core";
-import { redirect, createFileRoute } from "@tanstack/react-router";
+import { Link, redirect, createFileRoute } from "@tanstack/react-router";
 import { BackupCard } from "../../components/BackupCard.tsx";
 import { BereicheCard } from "../../components/BereicheCard.tsx";
 import { ArchiveSearchCard } from "../../components/ArchiveSearchCard.tsx";
 import { ArchiveTargetCard } from "../../components/ArchiveTargetCard.tsx";
 import { DatevCard } from "../../components/DatevCard.tsx";
 import { EtsyPaymentsCard } from "../../components/EtsyPaymentsCard.tsx";
-import { ZahlungsdienstleisterCard } from "../../components/ZahlungsdienstleisterCard.tsx";
 import { KontoabrufKarten } from "../../components/FintsCard.tsx";
 import { StoreReportsCard } from "../../components/StoreReportsCard.tsx";
 import { ExchangeRatesCard } from "../../components/ExchangeRatesCard.tsx";
@@ -44,6 +43,7 @@ import { getEnableBankingSettings } from "../../server/functions/bank.ts";
 import { getStoreConnections } from "../../server/functions/stores.ts";
 import { getEtsySettings } from "../../server/functions/etsy.ts";
 import { getPspSettings } from "../../server/functions/zahlungsdienstleister.ts";
+import { anbieterAufzaehlung } from "../../lib/zahlungsdienstleister-text.ts";
 import { SETTINGS_AREAS, settingsAreas, type SettingsArea } from "../../lib/settings-areas.ts";
 import { getCompany, getExchangeRates } from "../../server/functions/company.ts";
 import reportStyles from "../../styles/auswertungen.css?url";
@@ -275,7 +275,13 @@ function SettingsPage() {
               <KontoabrufKarten data={enableBanking} />
               <StoreReportsCard connections={stores.connections} contacts={stores.contacts} />
               <EtsyPaymentsCard data={etsy} />
-              <ZahlungsdienstleisterCard daten={zahlungsdienstleister} />
+              <section className="card" aria-labelledby="psp-heading">
+                <h2 id="psp-heading">Zahlungsdienstleister</h2>
+                <p className="small muted" style={{ margin: 0 }}>
+                  {anbieterAufzaehlung(zahlungsdienstleister.anbieter.map((a) => a.name))} verbindest du auf der <Link to="/bank">Seite Bank</Link> mit „Konto
+                  verbinden“; dort stehen die Verbindungen auch über der Liste ihres Kontos.
+                </p>
+              </section>
             </>
           )}
           {bereich === "zugaenge" && zugaenge.mode === "sso" && <SsoZugaengeCard accounts={zugaenge.ssoAccounts} providerName={oidc.name} />}

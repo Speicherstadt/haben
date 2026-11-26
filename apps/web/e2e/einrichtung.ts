@@ -226,6 +226,21 @@ export async function rechnungFestschreiben(page: Page, rechnung: Rechnung): Pro
 }
 
 /** Die Rückfrage im ConfirmDialog mit dem Knopf der Aktion bestätigen */
+/** Bankseite: ein Punkt im Menü „Konto verbinden“ (#1951), etwa „Konto ohne Abruf anlegen“ oder „Bank verbinden“ */
+export async function kontoVerbinden(page: Page, punkt: string): Promise<void> {
+  await page.getByRole("button", { name: "Konto verbinden" }).click();
+  await page.getByRole("menu", { name: "Konto verbinden" }).getByRole("menuitem", { name: punkt }).click();
+}
+
+/** Bankseite: „Bank verbinden“ und im Dialog „Wie verbinden?“ einen Weg, etwa „FinTS (PIN/TAN)“ */
+export async function bankVerbinden(page: Page, weg: string): Promise<void> {
+  await kontoVerbinden(page, "Bank verbinden");
+  const dialog = page.getByRole("dialog", { name: "Wie verbinden?" });
+  await dialog.getByRole("radio", { name: weg }).check();
+  await dialog.getByRole("button", { name: "Weiter" }).click();
+  await expect(dialog).toHaveCount(0);
+}
+
 export async function bestaetigen(page: Page, aktion: string): Promise<void> {
   await page.getByRole("dialog").getByRole("button", { name: aktion, exact: true }).click();
 }

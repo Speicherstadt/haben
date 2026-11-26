@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { day } from "./daten.ts";
-import { axeVerstoesse, CUSTOMERS, durchlaufSeite, einrichten, gehe, INVOICES, kontaktAnlegen, rechnungFestschreiben } from "./einrichtung.ts";
+import { axeVerstoesse, kontoVerbinden, CUSTOMERS, durchlaufSeite, einrichten, gehe, INVOICES, kontaktAnlegen, rechnungFestschreiben } from "./einrichtung.ts";
 
 /**
  * Eigener Durchlauf zu #1417: Zahlung und Gebühr eines Zahlungsdienstleisters stehen in der Bankliste in einer Zeile und
@@ -33,7 +33,7 @@ test("Einrichtung mit einer festgeschriebenen Rechnung und einem Stripe-Konto mi
   rechnungPfad = new URL(page.url()).pathname;
 
   await gehe(page, "/bank");
-  await page.getByRole("button", { name: "Konto hinzufügen" }).click();
+  await kontoVerbinden(page, "Konto ohne Abruf anlegen");
   const neuesKonto = page.locator("form", { has: page.getByRole("button", { name: "Konto anlegen" }) });
   await neuesKonto.getByLabel("Art", { exact: true }).selectOption("provider");
   await neuesKonto.getByLabel("Dienstleister", { exact: true }).selectOption("stripe");

@@ -17,14 +17,17 @@ function enabledMenuItems(menu: HTMLElement | null): HTMLElement[] {
 /**
  * Menüknopf `⋯` für weitere Aktionen in der Aktionsleiste am Handy (#396, Variante E), nach dem Muster „Menu Button“
  * der WAI-ARIA APG: öffnet mit Enter, Leertaste oder Pfeil nach unten/oben, hält die Pfeiltasten im Menü und setzt den
- * Fokus bei Escape zurück auf den Auslöser.
+ * Fokus bei Escape zurück auf den Auslöser. Mit `text` ist der Auslöser ein Knopf mit Text und `chevron-down`
+ * („Konto verbinden ▾“ auf der Bankseite, #1951); sein Text ist dann auch der Name des Menüs.
  */
 export function MoreActionsMenu({
   label = "Weitere Aktionen",
+  text,
   items,
   triggerRef,
 }: {
   label?: string;
+  text?: string;
   items: ActionMenuItem[];
   triggerRef?: RefObject<HTMLButtonElement | null>;
 }) {
@@ -96,8 +99,8 @@ export function MoreActionsMenu({
       <button
         ref={setTriggerRef}
         type="button"
-        className="btn btn-icon"
-        aria-label={label}
+        className={text ? "btn" : "btn btn-icon"}
+        aria-label={text ? undefined : label}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
@@ -107,10 +110,17 @@ export function MoreActionsMenu({
         }}
         onKeyDown={onTriggerKey}
       >
-        <Icon name="more" size={16} />
+        {text ? (
+          <>
+            {text}
+            <Icon name="chevron-down" size={16} />
+          </>
+        ) : (
+          <Icon name="more" size={16} />
+        )}
       </button>
       {open && (
-        <div ref={menu} id={menuId} role="menu" aria-label={label} className="split-menu" onKeyDown={onMenuKey}>
+        <div ref={menu} id={menuId} role="menu" aria-label={text ?? label} className="split-menu" onKeyDown={onMenuKey}>
           {items.map((item) => (
             <button
               key={item.key}

@@ -12,7 +12,9 @@ import { ExcludeAccountButton } from "../../components/BankKontoAusschliessen.ts
 import { Field } from "../../components/Field.tsx";
 import { UploadButton } from "../../components/UploadButton.tsx";
 import { ImportMeldungen, importMessages, type ImportMessage } from "../../components/BankImportMeldungen.tsx";
+import type { FintsZustand } from "../../components/FintsAbruf.tsx";
 import { NeuesKontoForm } from "./-bank-konto-neu.tsx";
+import { type BankWeg, KontoVerbinden } from "./-bank-verbinden.tsx";
 import { type Data, offenerEntwurf, suchziel } from "./-bank-daten.ts";
 
 /** Name und Zweck des gewählten Kontos, etwa „Geschäftskonto“ und „Steuerkonto“ bei derselben Bank */
@@ -183,11 +185,25 @@ function importErgebnisse(results: Awaited<ReturnType<typeof importStatements>>,
   );
 }
 
-export function ImportControls({ data }: { data: Data }) {
+/**
+ * Kopf der Bankseite: Konto für den Import, „Konto verbinden ▾“ und „CSV / CAMT importieren“. Enable Banking und FinTS
+ * öffnet die Seite über onBankWeg im Bereich „Automatischer Abruf“; der Weg über Dateien und „Konto ohne Abruf anlegen“
+ * öffnen hier das Formular „Konto hinzufügen“
+ */
+export function ImportControls({
+  data,
+  fintsZustand,
+  onBankWeg,
+}: {
+  data: Data;
+  fintsZustand: Pick<FintsZustand, "offen" | "busy">;
+  onBankWeg: (weg: Exclude<BankWeg, "datei">) => void;
+}) {
   const router = useRouter();
   const importFiles = useServerFn(importStatements);
   const [busy, setBusy] = useState(false);
-  const [showAccount, setShowAccount] = useState(false);
+  /** Formular „Konto hinzufügen“: über den Weg „Datei“ mit Hinweis auf den Import */
+  const [showAccount, setShowAccount] = useState<"datei" | "ohne" | null>(null);
   const [targetAccount, setTargetAccount] = useState("");
   const [messages, setMessages] = useState<ImportMessage[]>([]);
 
@@ -226,9 +242,12 @@ export function ImportControls({ data }: { data: Data }) {
             )}
           </Field>
         )}
-        <button type="button" className="btn" onClick={() => setShowAccount((v) => !v)} disabled={busy}>
-          Konto hinzufügen
-        </button>
+        <KontoVerbinden
+          data={data}
+          fintsZustand={fintsZustand}
+          onBankWeg={(weg) => (weg === "datei" ? setShowAccount("datei") : onBankWeg(weg))}
+          onOhneAbruf={() => setShowAccount("ohne")}
+        />
         <UploadButton
           className="btn btn-primary"
           multiple
@@ -240,7 +259,9 @@ export function ImportControls({ data }: { data: Data }) {
           {busy ? "Importiere …" : "CSV / CAMT importieren"}
         </UploadButton>
       </div>
-      {showAccount && <NeuesKontoForm data={data} onClose={() => setShowAccount(false)} onCreated={setTargetAccount} onMessage={setMessages} />}
+      {showAccount && (
+        <NeuesKontoForm data={data} datei={showAccount === "datei"} onClose={() => setShowAccount(null)} onCreated={setTargetAccount} onMessage={setMessages} />
+      )}
       <ImportMeldungen
         messages={messages}
         accounts={data.accounts.filter((a) => a.purpose !== "zahlungsdienstleister")}

@@ -48,3 +48,21 @@
 .konto-chip-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .konto-chip-zahl { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; }
 .konten-chips-trenner { flex: none; width: 1px; height: 20px; background: var(--line); }
+
+/* Automatischer Abruf des gewählten Kontos über der Liste (#1951); ohne Inhalt unsichtbar, bleibt aber im Dokument */
+.bank-abruf { gap: 12px; margin-bottom: 16px; }
+.bank-abruf:empty { display: none; }
+
+/* „Wie verbinden?“ und „Anbieter wählen“: ein Weg, der hier nicht geht, steht ausgegraut mit seinem Grund */
+.verbinden-wahl > [data-gesperrt] > .checkbox { color: var(--muted); cursor: default; }
+
+/* Geführte Einrichtung: Schrittleiste über der Karte des Schritts */
+.einrichtung-schritte { display: flex; gap: 12px; margin: 0 0 16px; padding: 0; list-style: none; max-width: 960px; }
+.einrichtung-schritte > li { flex: 1; min-width: 0; padding-top: 8px; border-top: 4px solid var(--line); font-size: 13px; color: var(--muted); }
+.einrichtung-schritte > li[data-erledigt] { border-top-color: var(--accent); }
+.einrichtung-schritte > li[aria-current="step"] { color: var(--accent-ink); font-weight: 600; }
+.einrichtung-schritt { max-width: 960px; gap: 16px; }
+.einrichtung-schritt-kopf { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.einrichtung-ergebnis { display: flex; flex-direction: column; gap: 8px; padding: 16px 0 0; border-top: 1px solid var(--line); }
+.einrichtung-ergebnis-kopf { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+@media (max-width: 640px) { .einrichtung-schritte { gap: 8px; } .einrichtung-schritte > li { font-size: 12px; } }

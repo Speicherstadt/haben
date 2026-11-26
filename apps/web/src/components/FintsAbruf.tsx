@@ -5,7 +5,7 @@ import { defaultFetchFrom, fetchFromForConnect } from "../lib/bank-connect.ts";
 import { errorMessage, formatDate, formatDateTime } from "../lib/format.ts";
 import { useSubmitCheck } from "../lib/use-submit-check.ts";
 import type { getBankOverview } from "../server/functions/bank.ts";
-import { cancelFints, connectFints, disconnectFints, syncFints } from "../server/functions/fints.ts";
+import { connectFints, disconnectFints, syncFints } from "../server/functions/fints.ts";
 import { today as todayInGermany } from "../server/today.ts";
 import { FintsStatus } from "./BankStatus.tsx";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
@@ -24,7 +24,7 @@ type Meldung = { tone: "ok" | "danger" | "info"; text: string };
 export type FintsOffen = { fuer: string; schritt: Offen } | null;
 
 /**
- * Was die Bankseite für FinTS führt, damit der Kopf des Bereichs es kennt: Formular „Über FinTS verbinden“ offen
+ * Was die Bankseite für FinTS führt, damit der Dialog „Wie verbinden?“ es kennt (#1951): Formular „Über FinTS verbinden“ offen
  * (verbinden), offener Schritt der Bank und die Zeile mit laufender Anfrage (busy: ihre ID beim Abruf, `x-<ID>` beim Trennen)
  */
 export function useFintsZustand() {
@@ -240,9 +240,14 @@ function Angaben({ c, grund, grundId }: { c: Verbindung; grund: string | undefin
   );
 }
 
-/** FinTS im Bereich „Automatischer Abruf“: Formular zum Verbinden (verbinden), die Verbindungen und der offene Schritt der Bank */
+/**
+ * FinTS im Bereich „Automatischer Abruf“: Formular zum Verbinden (verbinden), die Verbindungen und der offene Schritt der
+ * Bank. Zu sehen sind nur die Verbindungen, die zeigen nennt (die des gewählten Kontos, #1951); die Gründe gesperrter
+ * Knöpfe zählen alle mit
+ */
 export function FintsAbruf({
   fints,
+  zeigen,
   verbinden,
   setVerbinden,
   offen,
@@ -251,6 +256,7 @@ export function FintsAbruf({
   setBusy,
 }: {
   fints: Fints;
+  zeigen: (c: Verbindung) => boolean;
   verbinden: boolean;
   setVerbinden: (v: boolean) => void;
   offen: FintsOffen;
@@ -261,7 +267,6 @@ export function FintsAbruf({
   const router = useRouter();
   const sync = useServerFn(syncFints);
   const disconnect = useServerFn(disconnectFints);
-  const verwerfen = useServerFn(cancelFints);
   const [vorlage, setVorlage] = useState<Verbindung | null>(null);
   const grundId = useId();
   const grundVon = (c: Verbindung) => zeilenGrund(c, fints.connections, { verbinden, offen, busy }, fints.configured);
@@ -315,17 +320,12 @@ export function FintsAbruf({
   // Erst neu laden, dann schließen; solange ein Schritt offen ist, sind die Knöpfe an den Zeilen gesperrt
   const schrittAbbrechen = () => void router.invalidate({ sync: true }).then(schliessen);
 
-  // Jedes Zuklappen des Formulars setzt hier die Vorlage zurück, auch oben über „Über FinTS verbinden“: Nach „Zugang ändern“
-  // öffnet der Knopf danach ein leeres Formular. Wartet die Bank beim Verbinden auf einen Schritt, gilt das Zuklappen oben
-  // wie „Abbrechen“ und verwirft den Vorgang; sonst blieben die Knöpfe an den Zeilen gesperrt, ohne dass ein Schritt zu
-  // sehen ist
-  // biome-ignore lint/correctness/useExhaustiveDependencies: nur, wenn das Formular zuklappt oder ein Schritt kommt
+  // Jedes Zuklappen des Formulars setzt hier die Vorlage zurück: Nach „Zugang ändern“ öffnet „Bank verbinden › FinTS“
+  // danach ein leeres Formular. Ein offener Schritt beim Verbinden schließt nur über seine eigenen Knöpfe; kommt die Antwort
+  // der Bank erst nach dem Verlassen der Seite, verwirft useAntwort den Vorgang
   useEffect(() => {
     if (!verbinden) setVorlage(null);
-    if (verbinden || offen?.fuer !== "neu") return;
-    void verwerfen({ data: offen.schritt.vorgang }).catch(() => undefined);
-    schrittAbbrechen();
-  }, [verbinden, offen]);
+  }, [verbinden]);
 
   return (
     <>
@@ -340,7 +340,7 @@ export function FintsAbruf({
 
       <TrennenDialog verbindung={trennt} onTrennen={trennen} onClose={() => setTrennt(null)} />
 
-      {fints.connections.map((c) => (
+      {fints.connections.filter(zeigen).map((c) => (
         <div key={c.id} className="history-row" style={{ alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
           <Angaben c={c} grund={grundVon(c)?.text} grundId={grundZeile(c)} />
           <div className="actions">

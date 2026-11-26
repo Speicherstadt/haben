@@ -111,6 +111,7 @@ import { Route as ApiV1SplatRouteImport } from './routes/api/v1/$'
 import { Route as ApiVastIdRouteImport } from './routes/api/vast/$id'
 import { Route as AppArchivAuftragIdRouteImport } from './routes/_app/archiv/auftrag.$id'
 import { Route as AppArchivBelegIdRouteImport } from './routes/_app/archiv/beleg.$id'
+import { Route as AppBankVerbindenAnbieterRouteImport } from './routes/_app/bank_.verbinden.$anbieter'
 import { Route as AppLohnAnmeldungIndexRouteImport } from './routes/_app/lohn/anmeldung.index'
 import { Route as AppLohnAnmeldungZeitraumRouteImport } from './routes/_app/lohn/anmeldung.$zeitraum'
 import { Route as AppLohnBescheinigungJahrRouteImport } from './routes/_app/lohn/bescheinigung.$jahr'
@@ -649,6 +650,12 @@ const AppArchivBelegIdRoute = AppArchivBelegIdRouteImport.update({
   path: '/archiv/beleg/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBankVerbindenAnbieterRoute =
+  AppBankVerbindenAnbieterRouteImport.update({
+    id: '/bank_/verbinden/$anbieter',
+    path: '/bank/verbinden/$anbieter',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppLohnAnmeldungIndexRoute = AppLohnAnmeldungIndexRouteImport.update({
   id: '/lohn/anmeldung/',
   path: '/lohn/anmeldung/',
@@ -876,6 +883,7 @@ export interface FileRoutesByFullPath {
   '/umsatzsteuer/': typeof AppUmsatzsteuerIndexRoute
   '/archiv/auftrag/$id': typeof AppArchivAuftragIdRoute
   '/archiv/beleg/$id': typeof AppArchivBelegIdRoute
+  '/bank/verbinden/$anbieter': typeof AppBankVerbindenAnbieterRoute
   '/lohn/anmeldung/$zeitraum': typeof AppLohnAnmeldungZeitraumRoute
   '/lohn/bescheinigung/$jahr': typeof AppLohnBescheinigungJahrRoute
   '/lohn/mitarbeiter/$id': typeof AppLohnMitarbeiterIdRoute
@@ -1001,6 +1009,7 @@ export interface FileRoutesByTo {
   '/umsatzsteuer': typeof AppUmsatzsteuerIndexRoute
   '/archiv/auftrag/$id': typeof AppArchivAuftragIdRoute
   '/archiv/beleg/$id': typeof AppArchivBelegIdRoute
+  '/bank/verbinden/$anbieter': typeof AppBankVerbindenAnbieterRoute
   '/lohn/anmeldung/$zeitraum': typeof AppLohnAnmeldungZeitraumRoute
   '/lohn/bescheinigung/$jahr': typeof AppLohnBescheinigungJahrRoute
   '/lohn/mitarbeiter/$id': typeof AppLohnMitarbeiterIdRoute
@@ -1128,6 +1137,7 @@ export interface FileRoutesById {
   '/_app/umsatzsteuer/': typeof AppUmsatzsteuerIndexRoute
   '/_app/archiv/auftrag/$id': typeof AppArchivAuftragIdRoute
   '/_app/archiv/beleg/$id': typeof AppArchivBelegIdRoute
+  '/_app/bank_/verbinden/$anbieter': typeof AppBankVerbindenAnbieterRoute
   '/_app/lohn/anmeldung/$zeitraum': typeof AppLohnAnmeldungZeitraumRoute
   '/_app/lohn/bescheinigung/$jahr': typeof AppLohnBescheinigungJahrRoute
   '/_app/lohn/mitarbeiter/$id': typeof AppLohnMitarbeiterIdRoute
@@ -1255,6 +1265,7 @@ export interface FileRouteTypes {
     | '/umsatzsteuer/'
     | '/archiv/auftrag/$id'
     | '/archiv/beleg/$id'
+    | '/bank/verbinden/$anbieter'
     | '/lohn/anmeldung/$zeitraum'
     | '/lohn/bescheinigung/$jahr'
     | '/lohn/mitarbeiter/$id'
@@ -1380,6 +1391,7 @@ export interface FileRouteTypes {
     | '/umsatzsteuer'
     | '/archiv/auftrag/$id'
     | '/archiv/beleg/$id'
+    | '/bank/verbinden/$anbieter'
     | '/lohn/anmeldung/$zeitraum'
     | '/lohn/bescheinigung/$jahr'
     | '/lohn/mitarbeiter/$id'
@@ -1506,6 +1518,7 @@ export interface FileRouteTypes {
     | '/_app/umsatzsteuer/'
     | '/_app/archiv/auftrag/$id'
     | '/_app/archiv/beleg/$id'
+    | '/_app/bank_/verbinden/$anbieter'
     | '/_app/lohn/anmeldung/$zeitraum'
     | '/_app/lohn/bescheinigung/$jahr'
     | '/_app/lohn/mitarbeiter/$id'
@@ -2307,6 +2320,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppArchivBelegIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/bank_/verbinden/$anbieter': {
+      id: '/_app/bank_/verbinden/$anbieter'
+      path: '/bank/verbinden/$anbieter'
+      fullPath: '/bank/verbinden/$anbieter'
+      preLoaderRoute: typeof AppBankVerbindenAnbieterRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/lohn/anmeldung/': {
       id: '/_app/lohn/anmeldung/'
       path: '/lohn/anmeldung'
@@ -2519,6 +2539,7 @@ interface AppRouteChildren {
   AppUmsatzsteuerIndexRoute: typeof AppUmsatzsteuerIndexRoute
   AppArchivAuftragIdRoute: typeof AppArchivAuftragIdRoute
   AppArchivBelegIdRoute: typeof AppArchivBelegIdRoute
+  AppBankVerbindenAnbieterRoute: typeof AppBankVerbindenAnbieterRoute
   AppLohnAnmeldungZeitraumRoute: typeof AppLohnAnmeldungZeitraumRoute
   AppLohnBescheinigungJahrRoute: typeof AppLohnBescheinigungJahrRoute
   AppLohnMitarbeiterIdRoute: typeof AppLohnMitarbeiterIdRoute
@@ -2588,6 +2609,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppUmsatzsteuerIndexRoute: AppUmsatzsteuerIndexRoute,
   AppArchivAuftragIdRoute: AppArchivAuftragIdRoute,
   AppArchivBelegIdRoute: AppArchivBelegIdRoute,
+  AppBankVerbindenAnbieterRoute: AppBankVerbindenAnbieterRoute,
   AppLohnAnmeldungZeitraumRoute: AppLohnAnmeldungZeitraumRoute,
   AppLohnBescheinigungJahrRoute: AppLohnBescheinigungJahrRoute,
   AppLohnMitarbeiterIdRoute: AppLohnMitarbeiterIdRoute,

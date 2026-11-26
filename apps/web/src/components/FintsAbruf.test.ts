@@ -77,6 +77,7 @@ describe("Grund beim Trennen ohne FINTS_PRODUKT_ID (Review #1693)", () => {
     const html = renderToStaticMarkup(
       createElement(FintsAbruf, {
         fints: { configured: false, connections: [zweiterZugang, zweitbank, giro] } as never,
+        zeigen: () => true,
         verbinden: false,
         setVerbinden: () => {},
         offen: null,

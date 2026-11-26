@@ -18,6 +18,7 @@ import {
   gehe,
   INVOICES,
   kontaktAnlegen,
+  kontoVerbinden,
   kundeWaehlen,
   rechnungFestschreiben,
   lieferantWaehlen,
@@ -585,7 +586,7 @@ test("Überweisung als SEPA-Datei: offenen Beleg wählen, Datei herunterladen, V
   // Ohne Bankkonto gibt es kein Auftraggeberkonto
   await expect(page.getByText(/braucht Haben das Konto, von dem sie abgeht/)).toBeVisible();
   await go("/bank");
-  await page.getByRole("button", { name: "Konto hinzufügen" }).click();
+  await kontoVerbinden(page, "Konto ohne Abruf anlegen");
   const accountForm = page.locator("form").filter({ has: page.getByRole("button", { name: "Konto anlegen" }) });
   await accountForm.getByRole("textbox", { name: "Name" }).fill("Girokonto");
   await accountForm.getByRole("textbox", { name: "IBAN" }).fill("DE45 1203 0000 1234 5678 90");
