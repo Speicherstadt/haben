@@ -87,8 +87,8 @@
 .verbindungen-kopf > h2 { margin: 0; }
 /* Feste Spalten, damit die Tabellen der Gruppen untereinander bündig stehen */
 .verbindungen-tabelle { width: 100%; border-collapse: collapse; font-size: 14px; table-layout: fixed; }
-.verbindungen-tabelle .spalte-konto { width: 24%; }
-.verbindungen-tabelle .spalte-abruf { width: 16%; }
+.verbindungen-tabelle .spalte-konto { width: 22%; }
+.verbindungen-tabelle .spalte-abruf { width: 18%; }
 .verbindungen-tabelle .spalte-saldo { width: 11%; }
 .verbindungen-tabelle .spalte-offen { width: 6%; }
 .verbindungen-tabelle .spalte-aktionen { width: 212px; }

@@ -137,10 +137,17 @@ test("Handy: kleine Knöpfe in Listen wie Tabellen (div.table) bleiben so breit 
   expect(breite).toBeLessThanOrEqual(noetig + 2);
 });
 
-test("Desktop: Statuswort in Karten zuerst", async ({ page }) => {
+test("Desktop: Statuswort in Karten zuerst, in der Tabelle der Verbindungen über der Auskunft", async ({ page }) => {
   await page.setViewportSize(DESKTOP);
-  for (const finden of [bankZeile, mandatZeile]) {
-    const { zeile, status } = await finden(page);
-    expect((await reihenfolge(status, zeile)).wortZuerst).toBe(true);
-  }
+  const mandat = await mandatZeile(page);
+  expect((await reihenfolge(mandat.status, mandat.zeile)).wortZuerst).toBe(true);
+  // In Tabellen Punkt über Punkt, die Auskunft darunter (DESIGN.md › Status › Anordnung)
+  const { status } = await bankZeile(page);
+  await expect(status.locator(".status-detail")).toBeVisible();
+  const lage = await status.evaluate((e) => {
+    const wort = e.querySelector(".status-label")!.getBoundingClientRect();
+    const auskunft = e.querySelector(".status-detail")!.getBoundingClientRect();
+    return { darunter: auskunft.top >= wort.bottom - 1, buendig: Math.abs(auskunft.left - wort.left) <= 1 };
+  });
+  expect(lage).toEqual({ darunter: true, buendig: true });
 });
