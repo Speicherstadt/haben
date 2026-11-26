@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   positionenSummen,
-  privatPositionAusProzent,
-  privatPositionFesterBetrag,
+  privatanteilAbspalten,
   privatZulaessig,
   pruefePrivatpositionen,
   saetzeAusBrutto,
@@ -16,10 +15,12 @@ import {
  * 8,01 € Steuer aus 50,14 € brutto. Internet ist zu 25 % privat, Telefon zu 40 %. Betrieblich bleiben 30,32 € netto
  * und 5,76 € Vorsteuer; die Entnahme ist 11,81 € netto und 2,25 € Steuer, also 14,06 € brutto.
  */
-const internet: Position = { kategorie: "internet", rate: 1900, net: 3_360, art: "normal", beschreibung: "Internet" };
-const telefon: Position = { kategorie: "telefon", rate: 1900, net: 853, art: "normal" };
+const internet: Position = { kategorie: "internet", rate: 1900, net: 3_360, beschreibung: "Internet" };
+const telefon: Position = { kategorie: "telefon", rate: 1900, net: 853 };
 const telefonSteuer = [{ rate: 1900, base: 4_213, tax: 801 }];
-const telefonrechnung: Position[] = [internet, telefon, privatPositionAusProzent(internet, 25, 0), privatPositionAusProzent(telefon, 40, 1)];
+const internetTeile = privatanteilAbspalten(internet, 25);
+const telefonTeile = privatanteilAbspalten(telefon, 40);
+const telefonrechnung: Position[] = [internetTeile.betrieblich, telefonTeile.betrieblich, internetTeile.privat, telefonTeile.privat];
 
 describe("betrieblicher Teil je Position", () => {
   it("rechnet die Telefonrechnung centgenau in betrieblich und Entnahme", () => {
@@ -29,72 +30,79 @@ describe("betrieblicher Teil je Position", () => {
     expect(summen.tax).toBe(576);
     expect(summen.gross).toBe(3_608);
     expect(summen.privat).toEqual({ net: 1_181, tax: 225, gross: 1_406, saetze: [{ rate: 1900, base: 1_181, tax: 225 }] });
-    // Die Privatpositionen tragen ihre Entnahme, betrieblich bleibt bei ihnen exakt 0
+    // Die Entnahmepositionen tragen ihre Entnahme, betrieblich bleibt bei ihnen exakt 0
     expect(summen.zeilen[2]).toMatchObject({ net: 0, tax: 0, privatNet: 840, privatTax: 160 });
     expect(summen.zeilen[3]).toMatchObject({ net: 0, tax: 0, privatNet: 341, privatTax: 65 });
   });
 
   it("lässt eine Rechnung ohne Privatanteil, wie sie ist", () => {
-    const ohne: Position[] = [{ kategorie: "hardware", rate: 1900, net: 4_213, art: "normal" }];
+    const ohne: Position[] = [{ kategorie: "hardware", rate: 1900, net: 4_213 }];
     const summen = positionenSummen(ohne, [{ rate: 1900, base: 4_213, tax: 801 }]);
     expect(summen).toMatchObject({ net: 4_213, tax: 801, gross: 5_014 });
     expect(summen.privat).toEqual({ net: 0, tax: 0, gross: 0, saetze: [] });
   });
 
   it("nimmt einen festen Betrag auf Netto-Basis unverändert und ganz als Entnahme", () => {
-    const netto = privatPositionFesterBetrag(1_000, "netto", 1900);
-    expect(netto).toMatchObject({ net: 1_000, art: "privat", privateAmount: 1_000, privateAmountBasis: "netto" });
+    const netto: Position = { kategorie: "privatentnahme", rate: 1900, net: 1_000 };
     const summen = positionenSummen([netto], [{ rate: 1900, base: 1_000, tax: 190 }]);
     expect(summen.net).toBe(0);
     expect(summen.tax).toBe(0);
     expect(summen.privat).toEqual({ net: 1_000, tax: 190, gross: 1_190, saetze: [{ rate: 1900, base: 1_000, tax: 190 }] });
   });
 
-  it("bucht 12,99 € brutto als eigene Privat-Position ohne betrieblichen Anteil", () => {
-    const netflix = privatPositionFesterBetrag(1_299, "brutto", 1900);
-    expect(netflix).toMatchObject({ net: 1_092, art: "privat", privateAmount: 1_299, privateAmountBasis: "brutto" });
-    const summen = positionenSummen([netflix], [{ rate: 1900, base: 1_092, tax: 207 }]);
+  it("bucht 12,99 € brutto als eigene Privatentnahme ohne betrieblichen Anteil", () => {
+    const saetze = saetzeAusBrutto([{ rate: 1900, gross: 1_299 }]);
+    expect(saetze).toEqual([{ rate: 1900, base: 1_092, tax: 207 }]);
+    const netflix: Position = { kategorie: "privatentnahme", rate: 1900, net: 1_092 };
+    const summen = positionenSummen([netflix], saetze);
     expect(summen.zeilen[0]).toMatchObject({ net: 0, tax: 0, privatNet: 1_092, privatTax: 207 });
     expect(summen.privat).toEqual({ net: 1_092, tax: 207, gross: 1_299, saetze: [{ rate: 1900, base: 1_092, tax: 207 }] });
   });
 });
 
-describe("Privat als eigene Position", () => {
-  it("legt aus 25 % auf Internet eine Privat-Position an", () => {
-    const privat = privatPositionAusProzent(internet, 25, 0);
-    expect(privat).toMatchObject({
-      kategorie: "internet",
-      rate: 1900,
-      net: 840,
-      art: "privat",
-      privatVon: 0,
-      prozent: 25,
-      beschreibung: "25 % von Internet",
-    });
+describe("Privatanteil abspalten", () => {
+  it("teilt 33,60 € zu 25 % in 25,20 € betrieblich und 8,40 € privat", () => {
+    expect(internetTeile.betrieblich).toEqual({ kategorie: "internet", rate: 1900, net: 2_520, beschreibung: "Internet" });
+    expect(internetTeile.privat).toEqual({ kategorie: "privatentnahme", rate: 1900, net: 840, beschreibung: "25 % von Internet" });
   });
 
-  it("rechnet die Privat-Position aus der geänderten Ausgangsposition neu", () => {
-    // Internet ändert sich: 42,00 € netto zu 19 % sind 7,98 € Steuer; 25 % davon sind 10,50 € und 2,00 €
-    const geaendert: Position[] = [{ ...internet, net: 4_200 }, privatPositionAusProzent(internet, 25, 0)];
-    const summen = positionenSummen(geaendert, [{ rate: 1900, base: 4_200, tax: 798 }]);
-    expect(summen.zeilen[1]).toMatchObject({ net: 0, tax: 0, privatNet: 1_050, privatTax: 200 });
-    expect(summen).toMatchObject({ net: 3_150, tax: 598 });
+  it("rundet betrieblich und rechnet das Private als Differenz, damit kein Cent verloren geht", () => {
+    // 3,34 € zu 25 %: beide Hälften enden auf 0,5 Cent. Getrennt gerundet ergäben sich 2,51 € und 0,84 €, zusammen
+    // 3,35 €; mit der Differenz bleiben es 2,51 € und 0,83 €, zusammen genau 3,34 €.
+    const { betrieblich, privat } = privatanteilAbspalten({ kategorie: "telefon", rate: 1900, net: 334 }, 25);
+    expect(betrieblich.net).toBe(251);
+    expect(privat.net).toBe(83);
+    expect(betrieblich.net + privat.net).toBe(334);
   });
 
-  it("weist eine Privat-Position ohne normale Ausgangsposition ab", () => {
-    const verwaist: Position = { ...privatPositionAusProzent(internet, 25, 0), privatVon: 7 };
-    expect(() => positionenSummen([verwaist], telefonSteuer)).toThrow(RangeError);
-    const aufSichSelbst: Position = { ...privatPositionAusProzent(internet, 25, 0), privatVon: 0 };
-    expect(() => positionenSummen([aufSichSelbst], telefonSteuer)).toThrow(/keine normale Ausgangsposition/);
+  it("lässt das Konto nur am betrieblichen Teil und nimmt sonst die Kategorie in die Beschreibung", () => {
+    const { betrieblich, privat } = privatanteilAbspalten({ kategorie: "telefon", rate: 1900, net: 853, konto: "4920" }, 40);
+    expect(betrieblich).toMatchObject({ net: 512, konto: "4920" });
+    expect(privat).toEqual({ kategorie: "privatentnahme", rate: 1900, net: 341, beschreibung: "40 % von telefon" });
+  });
+
+  it("rechnet die Entnahme nicht nach, wenn sich die Ausgangsposition später ändert", () => {
+    const { privat } = privatanteilAbspalten(internet, 25);
+    const summen = positionenSummen([{ ...internet, net: 4_200 }, privat], [{ rate: 1900, base: 5_040, tax: 958 }]);
+    expect(summen.zeilen[1]).toMatchObject({ net: 0, tax: 0, privatNet: 840, privatTax: 160 });
+  });
+
+  it("weist 0 und 100 Prozent ab", () => {
+    expect(() => privatanteilAbspalten(internet, 0)).toThrow(RangeError);
+    expect(() => privatanteilAbspalten(internet, 100)).toThrow(RangeError);
+  });
+
+  it("weist das Abspalten von der Privatentnahme ab", () => {
+    expect(() => privatanteilAbspalten({ kategorie: "privatentnahme", rate: 1900, net: 840 }, 25)).toThrow(/Privatentnahme/);
   });
 });
 
 describe("Steuer je Satz", () => {
   it("verteilt die Steuer des Satzes über allocateSplitTax und summiert exakt 8,01 €", () => {
     const positionen: Position[] = [
-      { kategorie: "ware", rate: 1900, net: 1_000, art: "normal" },
-      { kategorie: "ware", rate: 1900, net: 1_000, art: "normal" },
-      { kategorie: "ware", rate: 1900, net: 2_213, art: "normal" },
+      { kategorie: "ware", rate: 1900, net: 1_000 },
+      { kategorie: "ware", rate: 1900, net: 1_000 },
+      { kategorie: "ware", rate: 1900, net: 2_213 },
     ];
     const summen = positionenSummen(positionen, [{ rate: 1900, base: 4_213, tax: 801 }]);
     // Je Position gerundet ergäben 19 % nur 1,90 € + 1,90 € + 4,20 € = 8,00 €
@@ -108,8 +116,8 @@ describe("Steuer je Satz", () => {
     expect(saetze).toEqual([{ rate: 1900, base: 4_213, tax: 801 }]);
     const summen = positionenSummen(
       [
-        { kategorie: "ware", rate: 1900, net: 3_000, art: "normal" },
-        { kategorie: "versand", rate: 1900, net: 1_213, art: "normal" },
+        { kategorie: "ware", rate: 1900, net: 3_000 },
+        { kategorie: "versand", rate: 1900, net: 1_213 },
       ],
       saetze,
     );
@@ -141,9 +149,9 @@ describe("Steuer je Satz", () => {
 
   it("summiert zwei Steuersätze getrennt und legt den Rest auf die größte Position", () => {
     const gemischt: Position[] = [
-      { kategorie: "ware", rate: 1900, net: 3_000, art: "normal" },
-      { kategorie: "ware", rate: 1900, net: 10_000, art: "normal" },
-      { kategorie: "buch", rate: 700, net: 5_000, art: "normal" },
+      { kategorie: "ware", rate: 1900, net: 3_000 },
+      { kategorie: "ware", rate: 1900, net: 10_000 },
+      { kategorie: "buch", rate: 700, net: 5_000 },
     ];
     const vorgabe = [
       { rate: 1900, base: 13_000, tax: 2_471 },
@@ -157,8 +165,8 @@ describe("Steuer je Satz", () => {
 });
 
 describe("Rechtsform", () => {
-  it("weist Privat-Positionen bei GmbH und UG ab", () => {
-    const privat = privatPositionFesterBetrag(1_299, "brutto", 1900);
+  it("weist Privatentnahmen bei GmbH und UG ab", () => {
+    const privat: Position = { kategorie: "privatentnahme", rate: 1900, net: 1_092 };
     expect(privatZulaessig("einzelunternehmen")).toBe(true);
     expect(privatZulaessig("gmbh")).toBe(false);
     expect(privatZulaessig("ug")).toBe(false);
@@ -170,7 +178,7 @@ describe("Rechtsform", () => {
 
 describe("Summenprobe", () => {
   it("betrieblich plus Entnahme ergibt genau die Positionen", () => {
-    const netflix = privatPositionFesterBetrag(1_299, "brutto", 1900);
+    const netflix: Position = { kategorie: "privatentnahme", rate: 1900, net: 1_092 };
     const positionen = [...telefonrechnung, netflix];
     const vorgabe = [{ rate: 1900, base: 5_305, tax: 1_008 }];
     const summen = positionenSummen(positionen, vorgabe);
