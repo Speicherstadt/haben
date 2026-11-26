@@ -216,9 +216,9 @@ describe.skipIf(!testDatabaseUrl)("USt-IdNr. des Lieferanten vor dem Buchen best
     const london = (await kontakt("GB", "GB123456789")).id;
     const ohneNummer = (await kontakt("GB", "")).id;
     const mitNummer =
-      "GB123456789: britische USt-IdNr.; Großbritannien ist seit 2021 Drittland. Für eine Leistung aus Großbritannien passt § 13b Drittland (Kz 84/85).";
+      "GB123456789: britische USt-IdNr.; das Vereinigte Königreich ist seit 2021 Drittland. Für eine Leistung von dort passt § 13b Drittland (Kz 84/85).";
     const nurLand =
-      "Der Lieferant sitzt laut Kontakt in Großbritannien, seit 2021 Drittland. Für eine Leistung aus Großbritannien passt § 13b Drittland (Kz 84/85).";
+      "Am Lieferanten-Kontakt steht das Land GB (Vereinigtes Königreich), seit 2021 Drittland. Für eine Leistung von dort passt § 13b Drittland (Kz 84/85).";
     const ohneAntworten = dienst();
     // Nummer vom Beleg (klein, mit Leerzeichen), vom Kontakt, ohne Kontakt und mit HABEN_EVATR=off
     expect(await modul.ustIdVorBuchen(actor, { contactId: lieferant, ustId: "gb 123 456 789", behandlung: "eu" }, AM_TAG, ohneAntworten.via)).toEqual({

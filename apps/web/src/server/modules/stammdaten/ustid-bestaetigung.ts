@@ -61,7 +61,7 @@ const verbindung = (): EvatrVerbindung => ({ fetch, url: env().EVATR_API_URL ?? 
 
 export const evatrAbgeschaltet = () => process.env.HABEN_EVATR === "off";
 
-const GB_13B_DRITTLAND = "Für eine Leistung aus Großbritannien passt § 13b Drittland (Kz 84/85).";
+const GB_13B_DRITTLAND = "Für eine Leistung von dort passt § 13b Drittland (Kz 84/85).";
 
 const ZUSTAND_TEXT: Record<Exclude<UstIdBestaetigungsZustand["art"], "bereit">, string> = {
   aus: "Die Bestätigung beim BZSt ist auf dieser Installation abgeschaltet (HABEN_EVATR=off).",
@@ -318,7 +318,7 @@ export async function ustIdVorBuchen(
   // (Betriebsstätte in der EU, § 13b Abs. 7 UStG) prüft Haben weiter wie jede andere
   if (lieferant.behandlung === "eu" && (nummer.startsWith("GB") || (!nummer && contact?.land === "GB")))
     return {
-      hinweis: `${nummer ? `${nummer}: britische USt-IdNr.; Großbritannien ist` : "Der Lieferant sitzt laut Kontakt in Großbritannien,"} seit 2021 Drittland. ${GB_13B_DRITTLAND}`,
+      hinweis: `${nummer ? `${nummer}: britische USt-IdNr.; das Vereinigte Königreich ist` : "Am Lieferanten-Kontakt steht das Land GB (Vereinigtes Königreich),"} seit 2021 Drittland. ${GB_13B_DRITTLAND}`,
     };
   if (evatrAbgeschaltet()) return { hinweis: null };
   // Bei § 1a sperrt „Vor dem Buchen“ eine fehlende oder falsch aufgebaute Nummer selbst (igErwerbIssues). Bei § 13b ist sie
