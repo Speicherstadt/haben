@@ -796,3 +796,30 @@ test("Bank: Konten als Kartenleiste in Gruppen, im schmalen Fenster als Chips un
     await page.setViewportSize(groesse);
   }
 });
+
+test("Bank: Beim Laden mit einem Konto, dessen Karte ganz zu sehen ist, rollt die Leiste sie nicht aus dem Blick (Review #1951)", async () => {
+  // Viele Konten, damit die Leiste weit rollen kann; ihre Namen sortieren hinter die bisherigen
+  await sql.begin(async (tx) => {
+    await tx`select set_config('haben.actor', 'e2e', true)`;
+    for (let i = 1; i <= 14; i++) {
+      const nummer = String(i).padStart(2, "0");
+      await tx`insert into bank_accounts (name, iban) values (${`Zusatzkonto ${nummer}`}, ${`DE990000000000000000${nummer}`})`;
+    }
+  });
+  await go("/bank?konto=alle");
+  const leiste = page.getByRole("navigation", { name: "Konten" });
+  // Die letzte Karte, die ohne Rollen ganz in der Leiste steht
+  const href = await leiste.evaluate((nav) => {
+    const rahmen = nav.getBoundingClientRect();
+    const ganz = [...nav.querySelectorAll("a")].filter((a) => {
+      const r = a.getBoundingClientRect();
+      return r.left >= rahmen.left && r.right <= rahmen.right;
+    });
+    return ganz.at(-1)?.getAttribute("href") ?? null;
+  });
+  expect(href).not.toBeNull();
+  await go(href!);
+  const gewaehlt = leiste.locator("[aria-current='page']");
+  await expect(gewaehlt).toHaveAttribute("href", href!);
+  await expect(gewaehlt).toBeInViewport({ ratio: 1 });
+});

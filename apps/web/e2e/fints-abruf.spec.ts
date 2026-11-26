@@ -215,6 +215,22 @@ test("„Bank verbinden › FinTS“ öffnet nach abgebrochenem „Zugang änder
   await expect(form).toHaveCount(0);
 });
 
+test("„Bank verbinden › FinTS“ bei offenem „Zugang ändern“ öffnet ein leeres Formular für eine neue Bank (Review #1951)", async () => {
+  // Bis #1951 klappte „Über FinTS verbinden“ das Formular von „Zugang ändern“ zu; das Menü darf nicht die Angaben der
+  // bestehenden Verbindung als neue Bank anbieten
+  await gehe(page, "/bank");
+  const form = page.getByRole("form", { name: "Über FinTS verbinden" });
+  await abruf().getByRole("button", { name: "Zugang ändern" }).click();
+  await expect(form.getByLabel("Bankleitzahl")).toHaveValue("12030000");
+  await fintsVerbinden();
+  await expect(form).toHaveCount(1);
+  await expect(form.getByLabel("Bankleitzahl")).toHaveValue("");
+  await expect(form.getByLabel("FinTS-Adresse der Bank")).toHaveValue("");
+  await expect(form.getByLabel("Anmeldename")).toHaveValue("");
+  await form.getByRole("button", { name: "Abbrechen" }).click();
+  await expect(form).toHaveCount(0);
+});
+
 test("nach einer abgelehnten PIN den Zugang ändern und dabei ein Konto dazunehmen", async () => {
   // Wie nach einer neuen PIN bei der Bank: der Abruf im Hintergrund hat aufgehört, die Verbindung steht auf „Fehler“
   const sql = postgres(databaseUrlFuer("fints-abruf"), { max: 1, onnotice: () => {} });
@@ -794,4 +810,27 @@ test("Läuft „Trennen“ an einer Zeile, nennen die übrigen den Grund ihrer g
       await expect(z.getByRole("button", { name: knopf })).toHaveAccessibleDescription("");
     }
   }
+});
+
+test("Eine Verbindung über Enable Banking ohne Konto in der Leiste bleibt sichtbar und lässt sich trennen (Review #1951)", async () => {
+  // Bestätigt die Bank die Freigabe nicht oder gibt kein Euro-Konto mit IBAN frei, steht die Verbindung ohne Konto auf
+  // „Fehler“ (bank-sync.ts). Ohne Karte, die sie wählt, muss sie trotzdem mit Fehler und „Trennen“ zu sehen sein
+  const sql = postgres(databaseUrlFuer("fints-abruf"), { max: 1, onnotice: () => {} });
+  const fehler = "Die Bank hat kein Konto mit IBAN freigegeben.";
+  try {
+    await sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'e2e', true)`;
+      await tx`insert into bank_connections (aspsp_name, aspsp_country, psu_type, status, accounts, last_error)
+        values ('Leerbank', 'DE', 'business', 'fehler', '[]', ${fehler})`;
+    });
+  } finally {
+    await sql.end();
+  }
+  await gehe(page, "/bank");
+  const leer = abruf().locator(".history-row").filter({ has: page.getByText("Leerbank", { exact: true }) });
+  await expect(leer).toBeVisible();
+  await expect(leer.getByText(fehler)).toBeVisible();
+  await leer.getByRole("button", { name: "Trennen" }).click();
+  await bestaetigen(page, "Trennen");
+  await expect(leer).toHaveCount(0);
 });
