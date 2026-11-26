@@ -774,7 +774,7 @@ export async function bookDocumentIn(tx: Tx, id: string): Promise<void> {
   const issues = vorab.map((issue) => issue.text);
   // GmbH und UG: privat Genutztes ist Arbeitslohn oder verdeckte Gewinnausschüttung, keine Entnahme; mit Aufteilung
   // trägt jede Zeile ihren Anteil (#1914)
-  if ((doc.privateShare > 0 || splits.some((s) => s.privateShare > 0)) && isKapitalgesellschaft(company.rechtsform))
+  if ((doc.privateShare > 0 || splits.some((s) => s.privateShare > 0 || s.privateAmount != null)) && isKapitalgesellschaft(company.rechtsform))
     issues.push("Einen Privatanteil gibt es nur im Einzelunternehmen");
   if (doc.category === "anlage" && doc.asset?.method === "elektro" && !elektroAvailable(company.rechtsform)) issues.push(ELEKTRO_NUR_EINZELUNTERNEHMEN);
   issues.push(

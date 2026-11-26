@@ -1,5 +1,6 @@
 import type { EuerPayment } from "./euer.ts";
-import { allocateSplitTax } from "./document-split.ts";
+import { betrieblicherAnteil, privaterAnteil } from "./beleg-anteile.ts";
+import { allocateSplitTax, type AllocatedSplitLine } from "./document-split.ts";
 import { roundHalfAwayFromZero, splitPrivateShare, type BasisPoints, type Cents, type Prozent } from "./money.ts";
 import { paidTaxShares, type ExpenseCategory, type TaxShare } from "./posting.ts";
 import { abziehbareSteuer, gespeicherterAnteil } from "./vorsteuerabzug.ts";
@@ -7,6 +8,16 @@ import { abziehbareSteuer, gespeicherterAnteil } from "./vorsteuerabzug.ts";
 type DocumentPayment = Extract<EuerPayment, { kind: "document" }>;
 /** Anteil einer Zeile an der Zahlung, getrennt nach betrieblichem und privatem Teil */
 type Share = { category: ExpenseCategory; share: TaxShare; business: { base: Cents; tax: Cents }; deductible: Cents };
+
+/** Kontierungszeile in der Form, die die gemeinsame Rechnung in beleg-anteile.ts erwartet */
+const anteilZeile = (line: AllocatedSplitLine) => ({
+  rate: line.taxRate,
+  base: line.net,
+  tax: line.tax,
+  privateShare: line.privateShare ?? 0,
+  privateAmount: line.privateAmount ?? null,
+  privateAmountBasis: line.privateAmountBasis ?? null,
+});
 
 export interface DocumentEuerEffect {
   expenses: { category: ExpenseCategory; amount: Cents }[];
@@ -53,10 +64,11 @@ function documentShares(p: DocumentPayment, paid: Cents): Share[] {
   }
   const lines = p.splits;
   const shares = paidTaxShares({ ...p.totals, taxes: lines.map((l) => ({ rate: l.taxRate, base: l.net, tax: l.tax })) }, paid);
-  const business = shares.map((share, i) => ({
-    base: splitPrivateShare(share.base, privat(lines[i])).business,
-    tax: splitPrivateShare(share.tax, privat(lines[i])).business,
-  }));
+  // Der private Anteil der Zeile gilt auch für ihren Anteil an einer Teilzahlung; je Zeile ein Prozentwert oder ein Betrag (#1926)
+  const business = shares.map((share, i) => {
+    const b = betrieblicherAnteil(anteilZeile(lines[i]!), share.base, share.tax);
+    return { base: b.base, tax: b.tax };
+  });
   // Der Abzug wird je Satz aus der betrieblichen Steuer gerundet und nach dem betrieblichen Netto auf die
   // Kontierungszeilen verteilt, wie die Buchung (documentSplitPosting): Zwei kleine Zeilen dürfen zusammen keinen
   // zusätzlichen Cent Vorsteuer bekommen. Die größte Zeile trägt den Rundungsrest.
@@ -109,7 +121,10 @@ function documentTarget(p: DocumentPayment, paid: Cents): DocumentEuerEffect {
   const privat = !p.selbstGeschuldet
     ? 0
     : p.splits?.length
-      ? p.splits.reduce((sum, line) => sum + splitPrivateShare(line.tax, line.privateShare ?? 0).private, 0)
+      ? p.splits.reduce((sum, line) => {
+          const betrag = privaterAnteil(anteilZeile(line));
+          return sum + (betrag ? betrag.tax : splitPrivateShare(line.tax, line.privateShare ?? 0).private);
+        }, 0)
       : p.selbstGeschuldet.reduce((sum, steuer) => sum + splitPrivateShare(steuer, p.privateShare ?? 0).private, 0);
   const privateUst = p.totals.gross === 0 ? 0 : roundHalfAwayFromZero((privat * paid) / p.totals.gross);
   return { expenses, vorsteuer, bewirtungNichtAbziehbar, privateUst };

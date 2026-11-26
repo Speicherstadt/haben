@@ -1,4 +1,5 @@
 import type { InvoiceTotals } from "./invoice.ts";
+import { privaterAnteil, type PrivateAmountBasis } from "./beleg-anteile.ts";
 import { splitPrivateShare, type BasisPoints, type Cents, type Prozent } from "./money.ts";
 import { isKapitalgesellschaft, type Rechtsform } from "./rechtsform.ts";
 import { abziehbareSteuer, buchungsAnteil } from "./vorsteuerabzug.ts";
@@ -132,17 +133,23 @@ export function documentRateExpenses(
     kontenrahmen: Kontenrahmen;
     vorsteuerAbzug: boolean | BasisPoints;
     privateShare: Prozent;
+    /** Absoluter Privatanteil in Cent (#1926); hat Vorrang vor privateShare */
+    privateAmount?: Cents | null;
+    /** Basis von privateAmount; ohne Angabe gilt netto */
+    privateAmountBasis?: PrivateAmountBasis | null;
     reverseCharge: SelfAssessedTax | null;
     /** Schon verteilter abziehbarer Anteil; documentSplitPosting verteilt ihn je Satz nach betrieblichem Netto (#1914) */
     deductible?: Cents;
   },
 ): RateExpenseResult {
-  const { expense, kontenrahmen, vorsteuerAbzug, privateShare, reverseCharge } = options;
+  const { expense, kontenrahmen, vorsteuerAbzug, privateShare, privateAmount, privateAmountBasis, reverseCharge } = options;
   const accounts = ACCOUNTS[kontenrahmen];
   const lines: RateExpenseLine[] = [];
   let privatePart = 0;
-  const baseSplit = splitPrivateShare(row.base, privateShare);
-  const taxSplit = splitPrivateShare(row.tax, privateShare);
+  // Ein absoluter Anteil (#1926) teilt Netto und Steuer der Zeile genauer als ein Prozentwert, auf den sie begrenzt ist
+  const privat = privaterAnteil({ rate: row.rate, base: row.base, tax: row.tax, privateAmount, privateAmountBasis });
+  const baseSplit = privat ? { business: row.base - privat.net, private: privat.net } : splitPrivateShare(row.base, privateShare);
+  const taxSplit = privat ? { business: row.tax - privat.tax, private: privat.tax } : splitPrivateShare(row.tax, privateShare);
   if (reverseCharge && row.rate !== 0) {
     // § 13b und Erwerb: Die Bemessungsgrundlage zählt in Kz 46/84 bzw. 89/93 voll, auch der private Teil. Er steht
     // deshalb mit dem Steuerschlüssel auf den Entnahmen, damit das Journal die ganze Bemessungsgrundlage trägt (#542).
@@ -186,6 +193,10 @@ export function documentRatePosting(
     kontenrahmen: Kontenrahmen;
     vorsteuerAbzug: boolean | BasisPoints;
     privateShare: Prozent;
+    /** Absoluter Privatanteil in Cent (#1926); hat Vorrang vor privateShare */
+    privateAmount?: Cents | null;
+    /** Basis von privateAmount; ohne Angabe gilt netto */
+    privateAmountBasis?: PrivateAmountBasis | null;
     reverseCharge: SelfAssessedTax | null;
     /** Vorsteuer auf das Zwischenkonto, siehe vorsteuerParken */
     parken: boolean;

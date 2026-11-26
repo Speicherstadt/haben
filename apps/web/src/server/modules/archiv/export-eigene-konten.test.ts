@@ -60,6 +60,13 @@ describe.skipIf(!testDatabaseUrl)("Jahresarchiv mit eigenen Konten (Postgres, #2
         { category: "buero", taxRate: 1900, net: 4_000, privateShare: 25 },
       ],
     });
+    await beleg("Telekom AG", {
+      amounts: [{ taxRate: 1900, net: 4_452, tax: 846 }],
+      splits: [
+        { category: "internet", taxRate: 1900, net: 3_360, privateShare: 25 },
+        { category: "software", taxRate: 1900, net: 1_092, privateAmount: 1_299, privateAmountBasis: "brutto" },
+      ],
+    });
 
     const chunks: Uint8Array[] = [];
     for await (const chunk of exporter.exportYear(2026, new Date("2026-10-02T10:00:00Z"))) chunks.push(chunk);
@@ -101,5 +108,9 @@ describe.skipIf(!testDatabaseUrl)("Jahresarchiv mit eigenen Konten (Postgres, #2
   it("Privatanteil % bleibt bei Belegen ohne Aufteilung der Anteil des Belegs", () => {
     expect(zeile("Mobilfunk Nord")["Privatanteil %"]).toBe("25");
     expect(zeile("Ohne Konto")["Privatanteil %"]).toBe("0");
+  });
+
+  it("Privatanteil % nennt einen absoluten Anteil mit seiner Basis (#1926)", () => {
+    expect(zeile("Telekom AG")["Privatanteil %"]).toBe("25 | 12,99 brutto");
   });
 });

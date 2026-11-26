@@ -69,6 +69,9 @@ describe.skipIf(!testDatabaseUrl)("Beleg aufteilen (Postgres)", () => {
       net: number;
       /** Privatanteil der Zeile (#1914); fehlt er, gilt die Vorgabe der Firmendaten */
       privateShare?: number;
+      /** Absoluter Privatanteil der Zeile in Cent (#1926), statt privateShare */
+      privateAmount?: number;
+      privateAmountBasis?: "netto" | "brutto";
     }[];
     privateShare?: number;
     reverseCharge?: "eu" | null;
@@ -363,6 +366,63 @@ describe.skipIf(!testDatabaseUrl)("Beleg aufteilen (Postgres)", () => {
     expect(ausgabe(euer, "vorsteuer")).toBe(1_254);
     expect((await abgleich.euerAbgleich(2026)).zeilen.filter((z) => z.journal !== z.quelle)).toEqual([]);
     expect((await abgleich.vatAbgleich({ year: 2026, month: 9 })).zeilen.filter((z) => z.journal !== z.quelle)).toEqual([]);
+  });
+
+  it("Privatbetrag je Zeile: Internet anteilig, Netflix komplett privat", async () => {
+    await reset("SKR03", "soll");
+    const id = await draft({
+      payment: "privat",
+      amounts: [{ taxRate: 1900, net: 4_452, tax: 846 }],
+      splits: [
+        { category: "internet", taxRate: 1900, net: 3_360, privateShare: 25 },
+        { category: "software", taxRate: 1900, net: 1_092, privateAmount: 1_299, privateAmountBasis: "brutto" },
+      ],
+    });
+    const saved = (await documents.getDocument(id))!;
+    // Der Betrag steht neben dem Prozentwert der anderen Zeile, ohne Vorgabe der Kategorie
+    expect(saved.splits.map((s) => ({ share: s.privateShare, amount: s.privateAmount, basis: s.privateAmountBasis }))).toEqual([
+      { share: 25, amount: null, basis: null },
+      { share: 0, amount: 1_299, basis: "brutto" },
+    ]);
+    await documents.bookDocument(actor, id);
+    // Internet 25,20 € netto und 4,79 € Vorsteuer betrieblich; Netflix ist ganz privat (22,99 € Entnahme)
+    expect(await entryLines(id)).toEqual(
+      byAccount([
+        { account: "4925", debit: 2_520, credit: 0, tax_code: "VSt19" },
+        { account: "1576", debit: 479, credit: 0, tax_code: "VSt19" },
+        { account: "1800", debit: 2_299, credit: 0, tax_code: null },
+        { account: "1890", debit: 0, credit: 5_298, tax_code: null },
+      ]),
+    );
+    const september = await vat.computeVatFigures({ year: 2026, month: 9 });
+    expect(september.kz66).toBe(479);
+    expect((await abgleich.vatAbgleich({ year: 2026, month: 9 })).zeilen.filter((z) => z.journal !== z.quelle)).toEqual([]);
+    const euer = await reports.euerForYear(2026);
+    expect(ausgabe(euer, "ausgabe:internet")).toBe(2_520);
+    expect(ausgabe(euer, "ausgabe:software")).toBe(0);
+    expect(ausgabe(euer, "vorsteuer")).toBe(479);
+    expect(euer.totalAusgaben).toBe(2_999);
+    expect((await abgleich.euerAbgleich(2026)).zeilen.filter((z) => z.journal !== z.quelle)).toEqual([]);
+  });
+
+  it("Privatbetrag je Zeile: unmögliche Angaben weist die Prüfung ab", async () => {
+    await reset("SKR03", "soll");
+    const internet = { category: "internet" as const, taxRate: 1900 as const, net: 3_360 };
+    const netflix = { category: "software" as const, taxRate: 1900 as const, net: 1_092 };
+    type Extra = Partial<{ privateAmount: number; privateAmountBasis: "netto" | "brutto"; privateShare: number }>;
+    const splitsWith = (extra: Extra) => [internet, { ...netflix, ...extra }];
+    await expect(draft({ splits: splitsWith({ privateAmount: 1_299, privateAmountBasis: "brutto", privateShare: 25 }) })).rejects.toThrow(/schließen sich aus/);
+    await expect(draft({ splits: splitsWith({ privateAmount: 1_299 }) })).rejects.toThrow(/Basis/);
+    await expect(draft({ splits: splitsWith({ privateAmountBasis: "brutto" }) })).rejects.toThrow(/auch den Betrag/);
+    await expect(draft({ splits: splitsWith({ privateAmount: 1_093, privateAmountBasis: "netto" }) })).rejects.toThrow(/größer als der Nettobetrag/);
+    await expect(draft({ splits: splitsWith({ privateAmount: 1_300, privateAmountBasis: "brutto" }) })).rejects.toThrow(/größer als der Bruttobetrag/);
+    // Genau das Brutto der Zeile ist erlaubt; der Prozentwert bleibt dann 0
+    const id = await draft({ splits: splitsWith({ privateAmount: 1_299, privateAmountBasis: "brutto" }) });
+    const saved = (await documents.getDocument(id))!;
+    expect(saved.splits.map((s) => [s.privateShare, s.privateAmount, s.privateAmountBasis])).toEqual([
+      [0, null, null],
+      [0, 1_299, "brutto"],
+    ]);
   });
 
   it("ohne Anteil in der Zeile gilt die Vorgabe der Firmendaten für die Kategorie", async () => {

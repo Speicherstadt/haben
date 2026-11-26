@@ -2393,10 +2393,23 @@ export const documentSplits = pgTable(
     tax: integer("tax").$type<Cents>().notNull(),
     /** Privatanteil dieser Zeile in Prozent (#1914): nur der betriebliche Teil ist Aufwand und Vorsteuer */
     privateShare: smallint("private_share").$type<Prozent>().notNull().default(0),
+    /**
+     * Absoluter Privatanteil dieser Zeile in Cent (#1926), etwa Netflix komplett privat auf einer Telekom-Rechnung.
+     * Entweder er oder privateShare; der Betrag hat Vorrang, die Prüfung unten lässt beides zusammen nicht zu.
+     */
+    privateAmount: integer("private_amount").$type<Cents>(),
+    /** Basis des absoluten Anteils: netto = der Betrag ist netto, brutto = er enthält die Steuer der Zeile */
+    privateAmountBasis: text("private_amount_basis", { enum: ["netto", "brutto"] }),
   },
   (t) => [
     uniqueIndex("document_splits_position").on(t.documentId, t.position),
     check("document_splits_private_share_range", sql`${t.privateShare} between 0 and 100`),
+    check("document_splits_private_amount_nicht_negativ", sql`${t.privateAmount} >= 0`),
+    check("document_splits_private_amount_basis", sql`${t.privateAmountBasis} in ('netto', 'brutto')`),
+    // Betrag und Basis gehören zusammen; ein CHECK sieht keine andere Spalte, deshalb die Paarung hier
+    check("document_splits_private_amount_paar", sql`(${t.privateAmount} is null) = (${t.privateAmountBasis} is null)`),
+    // Höchstens eine Angabe je Zeile; 0 gilt als nicht gesetzt, damit bestehende Zeilen mit 0 weiterlaufen
+    check("document_splits_privat_eine_angabe", sql`not (${t.privateShare} > 0 and ${t.privateAmount} is not null)`),
   ],
 );
 

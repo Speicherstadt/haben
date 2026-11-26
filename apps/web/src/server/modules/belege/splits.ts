@@ -2,7 +2,9 @@ import {
   allocateSplitTax,
   EXPENSE_CATEGORY_KEYS,
   splitIssues,
+  taxOf,
   type AllocatedSplitLine,
+  type Cents,
   type ExpenseCategory,
   inCents,
   inBasisPoints,
@@ -25,15 +27,47 @@ import { UserError } from "../../errors.ts";
 
 export type DocumentSplit = typeof schema.documentSplits.$inferSelect;
 
-export const splitInputSchema = z.object({
-  category: z.enum(EXPENSE_CATEGORY_KEYS),
-  /** Eigenes Sachkonto (#270) der Kategorie; fehlt = das Konto der Kategorie */
-  ownAccountId: z.uuid().nullable().default(null),
-  taxRate: inBasisPoints(z.union([z.literal(1900), z.literal(700), z.literal(0)])),
-  net: inCents(z.number().int().min(-100_000_000_00).max(100_000_000_00)),
-  /** Privatanteil dieser Zeile in Prozent (#1914); fehlt er, gilt die Vorgabe der Kategorie aus den Firmendaten */
-  privateShare: inProzent(z.number().int().min(0).max(100)).optional(),
-});
+export const splitInputSchema = z
+  .object({
+    category: z.enum(EXPENSE_CATEGORY_KEYS),
+    /** Eigenes Sachkonto (#270) der Kategorie; fehlt = das Konto der Kategorie */
+    ownAccountId: z.uuid().nullable().default(null),
+    taxRate: inBasisPoints(z.union([z.literal(1900), z.literal(700), z.literal(0)])),
+    net: inCents(z.number().int().min(-100_000_000_00).max(100_000_000_00)),
+    /** Privatanteil dieser Zeile in Prozent (#1914); fehlt er, gilt die Vorgabe der Kategorie aus den Firmendaten */
+    privateShare: inProzent(z.number().int().min(0).max(100)).optional(),
+    /** Absoluter Privatanteil dieser Zeile in Cent (#1926), etwa Netflix komplett privat; statt privateShare */
+    privateAmount: inCents(z.number().int().min(0).max(100_000_000_00)).optional(),
+    /** Basis von privateAmount: netto = der Betrag ist netto, brutto = er enthält die Steuer der Zeile */
+    privateAmountBasis: z.enum(["netto", "brutto"]).optional(),
+  })
+  .superRefine((split, ctx) => {
+    const amount = split.privateAmount;
+    if (amount === undefined) {
+      if (split.privateAmountBasis !== undefined)
+        ctx.addIssue({ code: "custom", message: "Trag zum Privatbetrag auch den Betrag ein.", path: ["privateAmount"] });
+      return;
+    }
+    if (split.privateAmountBasis === undefined) {
+      ctx.addIssue({ code: "custom", message: "Trag zum Privatbetrag auch die Basis an, netto oder brutto.", path: ["privateAmountBasis"] });
+      return;
+    }
+    if ((split.privateShare ?? 0) > 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Privatbetrag und Privatanteil in Prozent schließen sich aus; trag nur eines von beidem ein.",
+        path: ["privateAmount"],
+      });
+    }
+    // Brutto der Zeile: ihr Netto mit der Steuer ihres Satzes; den genauen Steueranteil verteilt allocateSplitTax erst beim
+    // Speichern, deshalb ist das hier die Grenze aus den Eingabewerten der Zeile
+    const brutto = split.net + taxOf(split.net, split.taxRate);
+    const hoechstens = split.privateAmountBasis === "brutto" ? brutto : split.net;
+    if (amount > hoechstens) {
+      const was = split.privateAmountBasis === "brutto" ? "Bruttobetrag" : "Nettobetrag";
+      ctx.addIssue({ code: "custom", message: `Der Privatbetrag ist größer als der ${was} der Zeile.`, path: ["privateAmount"] });
+    }
+  });
 
 /** Höchstwert der int4-Spalten net und tax */
 const MAX_SPLIT_CENTS = 2_147_483_647;
@@ -45,12 +79,26 @@ export type SplitInput = z.output<typeof splitInputSchema>;
  * Zeile auf ihr eigenes Sachkonto (#270); ohne gilt das Konto der Kategorie.
  */
 export function splitLines(
-  splits: (Pick<DocumentSplit, "category" | "taxRate" | "net" | "tax"> & { ownAccountId?: string | null; privateShare?: Prozent })[],
+  splits: (Pick<DocumentSplit, "category" | "taxRate" | "net" | "tax"> & {
+    ownAccountId?: string | null;
+    privateShare?: Prozent;
+    privateAmount?: Cents | null;
+    privateAmountBasis?: "netto" | "brutto" | null;
+  })[],
   eigene: ReadonlyMap<string, string> = new Map(),
 ): AllocatedSplitLine[] {
-  return splits.map(({ category, taxRate, net, tax, ownAccountId, privateShare }) => {
+  return splits.map(({ category, taxRate, net, tax, ownAccountId, privateShare, privateAmount, privateAmountBasis }) => {
     const account = ownAccountId ? eigene.get(ownAccountId) : undefined;
-    return { category: category as ExpenseCategory, ...(account ? { account } : {}), taxRate, net, tax, privateShare: privateShare ?? 0 };
+    return {
+      category: category as ExpenseCategory,
+      ...(account ? { account } : {}),
+      taxRate,
+      net,
+      tax,
+      privateShare: privateShare ?? 0,
+      privateAmount: privateAmount ?? null,
+      privateAmountBasis: privateAmountBasis ?? null,
+    };
   });
 }
 
@@ -78,7 +126,10 @@ export async function replaceSplits(
       position: i + 1,
       ...line,
       ownAccountId: splits[i]!.ownAccountId,
-      privateShare: splits[i]!.privateShare ?? vorgaben[splits[i]!.category] ?? 0,
+      // Ein Betrag schließt den Prozentwert aus (#1926); die Vorgabe der Kategorie gilt nur, wenn die Zeile keinen Betrag trägt
+      privateShare: splits[i]!.privateAmount != null ? 0 : (splits[i]!.privateShare ?? vorgaben[splits[i]!.category] ?? 0),
+      privateAmount: splits[i]!.privateAmount ?? null,
+      privateAmountBasis: splits[i]!.privateAmountBasis ?? null,
     })),
   );
 }

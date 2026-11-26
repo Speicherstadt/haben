@@ -96,6 +96,15 @@ describe("Zeilen der Aufteilung mit eigenem Konto", () => {
       { category: "buero", taxRate: 1900, net: 4000, ownAccountId: null, privateShare: 0 },
     ]);
   });
+
+  it("gibt einen Privatbetrag mit seiner Basis weiter, ohne Prozentwert", () => {
+    // Ein Betrag schließt den Prozentwert aus (#1926); das eigene Konto bleibt daneben stehen
+    const rows = [splitRow("software", 1900, "12,99", "a", "", "12,99", "brutto"), splitRow("buero", 1900, "40,00", "a", "", "5,00")];
+    expect(parseSplitRows(rows)).toEqual([
+      { category: "software", taxRate: 1900, net: 1299, ownAccountId: "a", privateShare: 0, privateAmount: 1299, privateAmountBasis: "brutto" },
+      { category: "buero", taxRate: 1900, net: 4000, ownAccountId: "a", privateShare: 0, privateAmount: 500, privateAmountBasis: "netto" },
+    ]);
+  });
 });
 
 /*

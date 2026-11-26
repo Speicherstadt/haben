@@ -176,8 +176,11 @@ function documentRow(
     money(doc.net),
     money(doc.tax),
     money(doc.gross),
-    // Privatanteil je Zeile in derselben Reihenfolge wie die Kategorien (#1924); ohne Aufteilung der des Belegs
-    split.length > 0 ? split.map((l) => l.privateShare).join(" | ") : doc.privateShare,
+    // Privatanteil je Zeile in derselben Reihenfolge wie die Kategorien (#1924); ohne Aufteilung der des Belegs.
+    // Ein absoluter Anteil (#1926) steht mit seiner Basis statt des Prozentwerts, z. B. „25 | 12,99 € brutto“
+    split.length > 0
+      ? split.map((l) => (l.privateAmount != null ? `${money(l.privateAmount)} ${l.privateAmountBasis ?? "netto"}` : l.privateShare)).join(" | ")
+      : doc.privateShare,
     doc.currency,
     // Fremdwährung: Kurs (1 EUR = …) und Bruttobetrag laut Beleg; die Beträge davor sind in Euro umgerechnet
     doc.exchangeRate ? formatExchangeRate(doc.exchangeRate) : null,

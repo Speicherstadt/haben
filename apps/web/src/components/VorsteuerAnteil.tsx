@@ -166,7 +166,7 @@ export function VorsteuerAnteil(props: Props) {
       )}
       <p className="small" role="status" aria-label="Vorsteuervorschau" style={{ margin: 0 }}>
         {privateShareJeZeile ? (
-          "Privatanteile stehen in den Zeilen der Aufteilung; Ausgabe und Vorsteuer kürzt Haben je Zeile."
+          "Privatanteile stehen in den Zeilen der Aufteilung, als Prozent oder als Betrag, netto oder brutto; Ausgabe und Vorsteuer kürzt Haben je Zeile."
         ) : preview && (!importVat || importVatReady) ? (
           <>
             Abziehbare Vorsteuer <strong className="amount">{formatEuro(totals.deductible)}</strong>

@@ -1,6 +1,7 @@
 import type { InvoiceTotals } from "./invoice.ts";
+import { betrieblicheZeile, type PrivateAmountBasis } from "./beleg-anteile.ts";
 import { documentRateExpenses } from "./document-posting.ts";
-import { formatEuro, roundHalfAwayFromZero, splitPrivateShare, type BasisPoints, type Cents, type Prozent } from "./money.ts";
+import { formatEuro, roundHalfAwayFromZero, type BasisPoints, type Cents, type Prozent } from "./money.ts";
 import {
   ACCOUNTS,
   EXPENSE_CATEGORIES,
@@ -40,6 +41,10 @@ export interface DocumentSplitLine {
   net: Cents;
   /** Privatanteil dieser Zeile in Prozent (#1914); fehlt er, gilt die Zeile als betrieblich */
   privateShare?: Prozent;
+  /** Absoluter Privatanteil dieser Zeile in Cent (#1926), statt eines Prozentwerts; hat Vorrang davor */
+  privateAmount?: Cents | null;
+  /** Basis von privateAmount; ohne Angabe gilt netto */
+  privateAmountBasis?: PrivateAmountBasis | null;
 }
 
 /** Kontierungszeile mit ihrem Anteil an der Vorsteuer des Satzes */
@@ -77,6 +82,9 @@ export function allocateSplitTax(lines: DocumentSplitLine[], amounts: DocumentRa
 }
 
 const percent = (rate: BasisPoints) => `${rate / 100} %`;
+
+/** Trägt die Zeile einen Privatanteil, in Prozent oder als Betrag (#1926)? */
+const hatPrivatanteil = (line: AllocatedSplitLine) => (line.privateShare ?? 0) !== 0 || line.privateAmount != null;
 
 /**
  * Was gegen die Aufteilung spricht; leere Liste = sie passt zum Beleg. Geprüft wird je Steuersatz: Netto der Zeilen
@@ -119,10 +127,16 @@ function splitDeductibles(lines: AllocatedSplitLine[], totals: InvoiceTotals, vo
       lines,
       totals.taxes.map((t) => ({ taxRate: t.rate, net: t.base, tax: abziehbareSteuer(t.tax, buchungsAnteil(vorsteuerAbzug, t.vorsteuerAnteil)) })),
     ).map((line) => line.tax);
-  const betrieblich = lines.map((line) => ({
-    net: splitPrivateShare(line.net, line.privateShare ?? 0).business,
-    tax: splitPrivateShare(line.tax, line.privateShare ?? 0).business,
-  }));
+  const betrieblich = lines.map((line) =>
+    betrieblicheZeile({
+      rate: line.taxRate,
+      base: line.net,
+      tax: line.tax,
+      privateShare: line.privateShare ?? 0,
+      privateAmount: line.privateAmount ?? null,
+      privateAmountBasis: line.privateAmountBasis ?? null,
+    }),
+  );
   const result = lines.map(() => 0);
   for (const t of totals.taxes) {
     const indexes = lines.flatMap((line, i) => (line.taxRate === t.rate ? [i] : []));
@@ -138,7 +152,7 @@ function splitDeductibles(lines: AllocatedSplitLine[], totals: InvoiceTotals, vo
       anteil,
     );
     const verteilt = allocateSplitTax(
-      indexes.map((i) => ({ category: lines[i]!.category, taxRate: lines[i]!.taxRate, net: betrieblich[i]!.net })),
+      indexes.map((i) => ({ category: lines[i]!.category, taxRate: lines[i]!.taxRate, net: betrieblich[i]!.base })),
       [{ taxRate: t.rate, net: 0, tax: steuer }],
     );
     for (const [k, i] of indexes.entries()) result[i] = verteilt[k]!.tax;
@@ -212,9 +226,8 @@ export function documentSplitPosting(
   const rcCode = reverseCharge ? REVERSE_CHARGE_IN[reverseCharge].code : null;
   if (rcCode && totals.taxes.some((t) => t.rate !== 1900 && t.rate !== 700)) throw new RangeError("§ 13b: Steuersatz muss 19 % oder 7 % sein");
   // Privat genutzt ist bei einer GmbH keine Entnahme, sondern Arbeitslohn oder verdeckte Gewinnausschüttung
-  if (lines.some((line) => (line.privateShare ?? 0) !== 0) && isKapitalgesellschaft(rechtsform))
-    throw new RangeError("Privatanteil gibt es nur im Einzelunternehmen");
-  const mitPrivat = lines.some((line) => (line.privateShare ?? 0) !== 0);
+  if (lines.some(hatPrivatanteil) && isKapitalgesellschaft(rechtsform)) throw new RangeError("Privatanteil gibt es nur im Einzelunternehmen");
+  const mitPrivat = lines.some(hatPrivatanteil);
   const expenses = new Map<string, { account: string; amount: Cents; code: TaxCode | null }>();
   // Der nicht abziehbare Anteil (§ 15 Abs. 4 UStG) bleibt eine eigene Zeile: Zusammen mit einer Position zu 0 % oder einem
   // Satz ohne Abzug auf demselben Konto (beide auch keineVSt) erkennte die Verprobung den Teilabzug sonst nicht (#1230)
@@ -257,6 +270,8 @@ export function documentSplitPosting(
         kontenrahmen,
         vorsteuerAbzug: anteil,
         privateShare: line.privateShare ?? 0,
+        privateAmount: line.privateAmount ?? null,
+        privateAmountBasis: line.privateAmountBasis ?? null,
         reverseCharge: rcCode ? reverseCharge : null,
         deductible: abzug,
       },

@@ -1,5 +1,5 @@
 import { amountError, convertForeignAmounts, CURRENCY_CODE, parseEuro, parseExchangeRate, usesUsefulLife, type ExpenseCategory } from "@haben/core";
-import { parseSplitRows, type SplitRowState } from "../../../components/DocumentSplits.tsx";
+import { parseSplitRows, privatanteilFehler, type SplitRowState } from "../../../components/DocumentSplits.tsx";
 import { passendesKonto } from "../../../components/EigenesKontoWahl.tsx";
 import { parseVorsteuerAnteil } from "../../../components/VorsteuerAnteil.tsx";
 import { isEuVatId, leistungsendeFehler } from "../../../components/WeitereAngaben.tsx";
@@ -104,7 +104,7 @@ export function documentFieldErrors(
       splitRows.flatMap((r) => [
         [`kategorie-${r.key}`, r.category === "" ? "Wähle die Kategorie." : null],
         [`aufteilung-${r.key}`, parseEuro(r.net || "0") === null ? BETRAG_FEHLER : null],
-        [`privatanteil-${r.key}`, parsePrivatanteil(r.privateShare) === null ? PRIVATANTEIL_FEHLER : null],
+        [`privatanteil-${r.key}`, privatanteilFehler(r)],
       ]),
     ),
     privatanteil: figures.privateShareValid ? null : PRIVATANTEIL_FEHLER,

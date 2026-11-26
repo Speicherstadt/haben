@@ -70,13 +70,22 @@ export async function splitZeilen(ids: string[], q: Db | Tx = db): Promise<Map<s
       base: schema.documentSplits.net,
       tax: schema.documentSplits.tax,
       privateShare: schema.documentSplits.privateShare,
+      privateAmount: schema.documentSplits.privateAmount,
+      privateAmountBasis: schema.documentSplits.privateAmountBasis,
     })
     .from(schema.documentSplits)
     .where(inArray(schema.documentSplits.documentId, ids))
     .orderBy(schema.documentSplits.documentId, schema.documentSplits.position);
   for (const row of rows) {
     const zeilen = result.get(row.documentId) ?? [];
-    zeilen.push({ rate: row.rate, base: row.base, tax: row.tax, privateShare: row.privateShare });
+    zeilen.push({
+      rate: row.rate,
+      base: row.base,
+      tax: row.tax,
+      privateShare: row.privateShare,
+      privateAmount: row.privateAmount,
+      privateAmountBasis: row.privateAmountBasis,
+    });
     result.set(row.documentId, zeilen);
   }
   return result;

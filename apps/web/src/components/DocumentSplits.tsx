@@ -1,5 +1,5 @@
-import { allocateSplitTax, formatDecimal, formatEuro, parseEuro, type ExpenseCategory } from "@haben/core";
-import { parsePrivatanteil, privatanteilVorgabe } from "../lib/anteil.ts";
+import { allocateSplitTax, amountError, formatDecimal, formatEuro, parseEuro, taxOf, type ExpenseCategory } from "@haben/core";
+import { PRIVATANTEIL_FEHLER, parsePrivatanteil, privatanteilVorgabe } from "../lib/anteil.ts";
 import { CategoryCombobox } from "./CategoryCombobox.tsx";
 import { EigenesKontoWahl, passendesKonto, type OwnAccountChoice } from "./EigenesKontoWahl.tsx";
 import { Field } from "./Field.tsx";
@@ -8,10 +8,13 @@ import { Field } from "./Field.tsx";
  * Aufteilung eines Belegs auf mehrere Kategorien (#271): Zeilen mit Kategorie, Steuersatz und Netto. Die Vorsteuer je
  * Zeile verteilt Haben aus der Vorsteuer des Satzes (wie beim Speichern, allocateSplitTax); die Summen je Satz werden
  * laufend gegen die Beträge des Belegs geprüft. Seit #1914 trägt jede Zeile ihren eigenen Privatanteil, etwa Internet
- * 25 % und Telefon 40 % auf einem Beleg.
+ * 25 % und Telefon 40 % auf einem Beleg. Seit #1926 geht das auch als fester Betrag, wahlweise netto oder brutto.
  */
 
 type Rate = 1900 | 700 | 0;
+
+/** Art des Privatanteils einer Zeile (#1926): Prozent oder ein Betrag, netto oder brutto */
+export type PrivateModus = "prozent" | "netto" | "brutto";
 
 export interface SplitRowState {
   key: number;
@@ -20,35 +23,99 @@ export interface SplitRowState {
   net: string;
   /** Eigenes Sachkonto der Zeile (#270); leer = das Konto der Kategorie */
   ownAccountId: string;
-  /** Privatanteil der Zeile in Prozent (#1914); leer = 0 */
+  /** Privatanteil der Zeile in Prozent (#1914); leer = 0, bei einem Betrag immer 0 */
   privateShare: string;
+  /** Absoluter Privatanteil der Zeile in Euro (#1926); leer = keiner */
+  privateAmount: string;
+  /** Prozent oder Betrag (#1926); Prozent und Betrag schließen sich aus */
+  privateModus: PrivateModus;
 }
 
 let nextSplitKey = 1;
 
-export function splitRow(category: ExpenseCategory | "", taxRate: Rate, net: string, ownAccountId = "", privateShare = ""): SplitRowState {
-  return { key: nextSplitKey++, category, taxRate, net, ownAccountId, privateShare };
+export function splitRow(
+  category: ExpenseCategory | "",
+  taxRate: Rate,
+  net: string,
+  ownAccountId = "",
+  privateShare = "",
+  privateAmount = "",
+  privateAmountBasis: Exclude<PrivateModus, "prozent"> = "netto",
+): SplitRowState {
+  return {
+    key: nextSplitKey++,
+    category,
+    taxRate,
+    net,
+    ownAccountId,
+    privateShare,
+    privateAmount,
+    privateModus: privateAmount.trim() === "" ? "prozent" : privateAmountBasis,
+  };
+}
+
+/** Höchstwert eines Privatbetrags: das Netto der Zeile oder ihr Brutto; null, solange das Netto nicht lesbar ist */
+export function privatbetragGrenze(row: Pick<SplitRowState, "net" | "taxRate">, modus: PrivateModus): number | null {
+  const net = parseEuro(row.net || "0");
+  if (net === null) return null;
+  return modus === "brutto" ? net + taxOf(net, row.taxRate) : net;
+}
+
+/**
+ * Fehler am Privatanteil einer Zeile (#1914, #1926): bei Prozent ein ganzer Wert von 0 bis 100, bei einem Betrag ein
+ * lesbarer Betrag bis zur Grenze der Zeile. Leer ist bei beidem 0.
+ */
+export function privatanteilFehler(row: SplitRowState): string | null {
+  if (row.privateModus === "prozent") return parsePrivatanteil(row.privateShare) === null ? PRIVATANTEIL_FEHLER : null;
+  const text = row.privateAmount.trim();
+  if (text === "") return null;
+  const betrag = parseEuro(text);
+  if (betrag === null) return amountError("den Privatbetrag", 12_050);
+  if (betrag < 0) return "Trag einen Betrag von 0 oder mehr ein.";
+  const grenze = privatbetragGrenze(row, row.privateModus);
+  if (grenze !== null && betrag > grenze)
+    return `Der Privatbetrag ist größer als der ${row.privateModus === "brutto" ? "Bruttobetrag" : "Nettobetrag"} der Zeile.`;
+  return null;
+}
+
+/**
+ * Wechsel der Art des Privatanteils (#1926): Prozent und Betrag schließen sich aus. Auf einen Betrag fällt der
+ * Prozentwert auf 0, zurück auf Prozent der Betrag; sonst schickte das Formular beides, und die Prüfung schlüge zu.
+ */
+export function wechslePrivatmodus(row: SplitRowState, modus: PrivateModus): Partial<SplitRowState> {
+  if (modus === row.privateModus) return {};
+  if (modus === "prozent") return { privateModus: modus, privateAmount: "" };
+  return { privateModus: modus, privateShare: "0" };
+}
+
+/** Eine Zeile der Aufteilung als Daten; der Privatanteil steht je nach Art in Prozent oder als Betrag darin */
+export interface SplitZeile {
+  category: ExpenseCategory;
+  taxRate: Rate;
+  net: number;
+  ownAccountId: string | null;
+  privateShare: number;
+  /** Absoluter Privatanteil in Cent (#1926); fehlt, wenn die Zeile keinen trägt */
+  privateAmount?: number;
+  privateAmountBasis?: "netto" | "brutto";
 }
 
 /** Eingegebene Zeilen als Daten; null, wenn eine Zeile noch keine Kategorie, kein lesbares Netto oder keinen gültigen Anteil hat */
-export function parseSplitRows(
-  rows: SplitRowState[],
-): { category: ExpenseCategory; taxRate: Rate; net: number; ownAccountId: string | null; privateShare: number }[] | null {
-  const parsed = rows.map((row) => ({
-    category: row.category,
-    taxRate: row.taxRate,
-    net: parseEuro(row.net || "0"),
-    ownAccountId: row.ownAccountId || null,
-    privateShare: parsePrivatanteil(row.privateShare),
-  }));
-  if (parsed.some((p) => p.category === "" || p.net === null || p.privateShare === null)) return null;
-  return parsed.map((p) => ({
-    category: p.category as ExpenseCategory,
-    taxRate: p.taxRate,
-    net: p.net!,
-    ownAccountId: p.ownAccountId,
-    privateShare: p.privateShare!,
-  }));
+export function parseSplitRows(rows: SplitRowState[]): SplitZeile[] | null {
+  const parsed: SplitZeile[] = [];
+  for (const row of rows) {
+    const net = parseEuro(row.net || "0");
+    if (row.category === "" || net === null || privatanteilFehler(row) !== null) return null;
+    const basis = { category: row.category, taxRate: row.taxRate, net, ownAccountId: row.ownAccountId || null };
+    if (row.privateModus === "prozent") {
+      parsed.push({ ...basis, privateShare: parsePrivatanteil(row.privateShare)! });
+      continue;
+    }
+    // Ein Betrag schließt den Prozentwert aus (#1926); 0 schickt nur den Prozentwert, damit keine Vorgabe dazwischenfunkt
+    const betrag = parseEuro(row.privateAmount.trim() || "0")!;
+    parsed.push({ ...basis, privateShare: 0, ...(betrag > 0 ? { privateAmount: betrag, privateAmountBasis: row.privateModus } : {}) });
+  }
+  return parsed;
 }
 
 /**
@@ -63,24 +130,85 @@ export function anteilBeimKategorieWechsel(shares: Partial<Record<string, number
 
 /**
  * Anteil für den Beleg beim Aufheben der Aufteilung (#1914): Mit Zeilen zählt der Anteil der Zeile; die erste Zeile gibt
- * ihn an den Beleg zurück, statt ihn stumm zu verlieren.
+ * ihn an den Beleg zurück, statt ihn stumm zu verlieren. Einen Betrag übernimmt der Beleg nicht, denn am Beleg gibt es
+ * keinen (#1926); dort steht dann 0 Prozent.
  */
 export function anteilBeimAufheben(rows: SplitRowState[]): string {
-  return rows[0]?.privateShare ?? "";
+  const first = rows[0];
+  if (!first) return "";
+  return first.privateModus === "prozent" ? first.privateShare : "0";
 }
 
 /**
- * Trägt eine Zeile einen lesbaren Privatanteil über 0 (#1914)? Eine ungültige Eingabe zählt nicht, sonst verschwände der
- * Hinweis, dass die Vorschau auf eine gültige Eingabe wartet.
+ * Trägt eine Zeile einen lesbaren Privatanteil über 0 (#1914, #1926)? Eine ungültige Eingabe zählt nicht, sonst
+ * verschwände der Hinweis, dass die Vorschau auf eine gültige Eingabe wartet.
  */
 export function privatanteilInZeilen(rows: SplitRowState[]): boolean {
   return rows.some((row) => {
+    if (row.privateModus !== "prozent") {
+      const betrag = parseEuro(row.privateAmount.trim() || "0");
+      return betrag !== null && betrag > 0;
+    }
     const anteil = parsePrivatanteil(row.privateShare);
     return anteil !== null && anteil > 0;
   });
 }
 
 const percent = (rate: number) => `${rate / 100} %`;
+
+/** Privatanteil einer Zeile: Auswahl der Art neben dem Wert, Standard Prozent (#1926) */
+function PrivatanteilFeld({
+  row,
+  index,
+  hint,
+  errorText,
+  onChange,
+}: {
+  row: SplitRowState;
+  index: number;
+  hint: string;
+  errorText: string | undefined;
+  onChange: (patch: Partial<SplitRowState>) => void;
+}) {
+  return (
+    <Field label="Privatanteil" hint={hint} error={errorText} style={{ flex: "0 0 250px" }}>
+      {(control) => (
+        <div style={{ display: "flex", gap: 6 }}>
+          <select
+            aria-label={`Art des Privatanteils in Zeile ${index + 1}`}
+            value={row.privateModus}
+            onChange={(e) => onChange(wechslePrivatmodus(row, e.target.value as PrivateModus))}
+            style={{ flex: "0 0 118px" }}
+          >
+            <option value="prozent">Prozent</option>
+            <option value="netto">Betrag netto</option>
+            <option value="brutto">Betrag brutto</option>
+          </select>
+          {row.privateModus === "prozent" ? (
+            <input
+              {...control}
+              inputMode="numeric"
+              value={row.privateShare}
+              placeholder="0"
+              onChange={(e) => onChange({ privateShare: e.target.value })}
+              style={{ flex: 1, minWidth: 0 }}
+            />
+          ) : (
+            <input
+              {...control}
+              className="mono"
+              inputMode="decimal"
+              value={row.privateAmount}
+              placeholder="0,00"
+              onChange={(e) => onChange({ privateAmount: e.target.value, privateShare: "0" })}
+              style={{ flex: 1, minWidth: 0 }}
+            />
+          )}
+        </div>
+      )}
+    </Field>
+  );
+}
 
 export function DocumentSplits({
   rows,
@@ -149,8 +277,11 @@ export function DocumentSplits({
                   update(row.key, {
                     category: next as ExpenseCategory | "",
                     ownAccountId: passendesKonto(ownAccounts, next, row.ownAccountId),
-                    // Vorgabe aus den Firmendaten, z. B. Internet 25 %; ohne Vorgabe 0
-                    privateShare: anteilBeimKategorieWechsel(privateShares, next as ExpenseCategory | "", row.privateShare, privatanteil),
+                    // Vorgabe aus den Firmendaten, z. B. Internet 25 %; ohne Vorgabe 0. Ein Betrag bleibt ohne Prozentwert
+                    privateShare:
+                      row.privateModus === "prozent"
+                        ? anteilBeimKategorieWechsel(privateShares, next as ExpenseCategory | "", row.privateShare, privatanteil)
+                        : "0",
                   })
                 }
               />
@@ -197,17 +328,13 @@ export function DocumentSplits({
               style={{ flex: "1 1 240px", minWidth: 0 }}
             />
             {privatanteil && (
-              <Field label="Privatanteil in %" hint={anteilHinweis} error={error("privatanteil", row.key)} style={{ flex: "0 0 140px" }}>
-                {(control) => (
-                  <input
-                    {...control}
-                    inputMode="numeric"
-                    value={row.privateShare}
-                    placeholder="0"
-                    onChange={(e) => update(row.key, { privateShare: e.target.value })}
-                  />
-                )}
-              </Field>
+              <PrivatanteilFeld
+                row={row}
+                index={index}
+                hint={anteilHinweis}
+                errorText={error("privatanteil", row.key)}
+                onChange={(patch) => update(row.key, patch)}
+              />
             )}
           </div>
         </div>
