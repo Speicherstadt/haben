@@ -52,12 +52,26 @@ export function splitLines(
 export async function replaceSplits(tx: Tx, documentId: string, splits: SplitInput[], amounts: { taxRate: number; net: number; tax: number }[]): Promise<void> {
   await tx.delete(schema.documentSplits).where(eq(schema.documentSplits.documentId, documentId));
   if (splits.length === 0) return;
-  const allocated = allocateSplitTax(splits, amounts);
+  // Die Entnahme-Markierung entsteht aus der Kategorie; gespeichert wird sie nicht (#1976)
+  const allocated = allocateSplitTax(
+    splits.map((zeile) => ({ ...zeile, ...(istPrivat(zeile.category) ? { privat: true } : {}) })),
+    amounts,
+  );
   // Netto und verteilte Vorsteuer stehen in int4-Spalten; die Eingabe erlaubt wie bei den Beträgen mehr
   if (allocated.some((line) => Math.abs(line.net) > MAX_SPLIT_CENTS || Math.abs(line.tax) > MAX_SPLIT_CENTS)) {
     throw new UserError("Ein Betrag der Aufteilung ist zu groß. Stimmen die Nettobeträge der Zeilen?");
   }
-  await tx.insert(schema.documentSplits).values(allocated.map((line, i) => ({ documentId, position: i + 1, ...line, ownAccountId: splits[i]!.ownAccountId })));
+  await tx.insert(schema.documentSplits).values(
+    allocated.map((line, i) => ({
+      documentId,
+      position: i + 1,
+      category: line.category,
+      taxRate: line.taxRate,
+      net: line.net,
+      tax: line.tax,
+      ownAccountId: splits[i]!.ownAccountId,
+    })),
+  );
 }
 
 export async function loadSplits(documentId: string, q: Db | Tx = db): Promise<DocumentSplit[]> {

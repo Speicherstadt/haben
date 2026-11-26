@@ -60,25 +60,21 @@ export interface DocumentRateAmount {
 const sum = (values: Cents[]) => values.reduce((s, v) => s + v, 0);
 
 /**
- * Teilt einen Steuerbetrag nach Netto auf Zeilen, deren Teile zusammen exakt den Betrag ergeben. Gerechnet wird mit
- * Beträgen: Eine Gutschrift (alles negativ) bekommt so dieselben Anteile wie die Rechnung, statt den Rest gegen das
- * Vorzeichen zu legen. Den Rest trägt die Zeile mit dem größten Bruchteil, bei Gleichstand die mit dem größten Netto und
- * dann die erste — dieselbe Regel wie beim Netto einer Bruttorechnung.
+ * Teilt einen Steuerbetrag nach Netto auf die Zeilen einer Gruppe, deren Teile zusammen exakt den Betrag ergeben. Je
+ * Zeile wird kaufmännisch gerundet, den Rest trägt die betragsmäßig größte Zeile, bei Gleichstand die erste — das
+ * bisherige Verfahren. So behalten gespeicherte Aufteilungen ohne Entnahme ihre Werte; Abrunden nach dem größten
+ * Bruchteil verschöbe einzelne Cent auf andere Kategorien (#1976). Gerechnet wird mit Beträgen, damit eine Gutschrift
+ * dieselben Anteile ergibt wie die Rechnung.
  */
 function verteileSteuer(betrag: Cents, nettos: readonly Cents[]): Cents[] {
   const gewicht = sum(nettos.map((net) => Math.abs(net)));
   if (betrag === 0 || gewicht === 0) return nettos.map(() => 0);
-  const vorzeichen = Math.sign(betrag);
-  const anteile = nettos.map((net) => (Math.abs(betrag) * Math.abs(net)) / gewicht);
-  const teile = anteile.map((anteil) => Math.floor(anteil));
-  const reihenfolge = anteile
-    .map((anteil, i) => ({ i, bruch: anteil - Math.floor(anteil), netto: Math.abs(nettos[i]!) }))
-    .sort((a, b) => b.bruch - a.bruch || b.netto - a.netto || a.i - b.i);
-  for (let rest = Math.abs(betrag) - sum(teile), k = 0; rest > 0; rest -= 1, k = (k + 1) % reihenfolge.length) {
-    const ziel = reihenfolge[k]!.i;
-    teile[ziel] = (teile[ziel] ?? 0) + 1;
-  }
-  return teile.map((teil) => teil * vorzeichen);
+  const richtung = Math.sign(betrag);
+  const teile = nettos.map((net) => richtung * roundHalfAwayFromZero((Math.abs(betrag) * Math.abs(net)) / gewicht));
+  const rest = betrag - sum(teile);
+  const groesste = nettos.reduce((best, net, i) => (Math.abs(net) > Math.abs(nettos[best]!) ? i : best), 0);
+  teile[groesste] = (teile[groesste] ?? 0) + rest;
+  return teile;
 }
 
 /**

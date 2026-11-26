@@ -213,32 +213,33 @@ describe("Steuer je Satz", () => {
     ]);
   });
 
-  it("teilt die Steuer je Satz zuerst zwischen Betrieb und Entnahme, unabhängig von der Reihenfolge (#1976)", () => {
-    // Fünf Positionen zu je 3 ct netto, Steuer der Rechnung 3 ct. Vorher trug die erste Zeile den Rundungsrest: Stand
-    // die Entnahme vorn, blieben betrieblich 4 ct und bei ihr −1 ct; stand sie hinten, waren es 2 ct und 1 ct.
+  it("Restcent vorn: fünf Positionen zu 3 ct netto, Entnahme als erste Zeile, betrieblich 2 ct und privat 1 ct", () => {
+    // Steuer des Satzes 3 ct. Vorher trug die erste Zeile den Rundungsrest: 4 ct betrieblich und −1 ct bei der Entnahme.
     const betrieb: Position[] = Array.from({ length: 4 }, () => ({ kategorie: "ware", rate: 1900, net: 3 }));
-    const entnahme: Position = { kategorie: "privatentnahme", rate: 1900, net: 3 };
-    const steuer = [{ rate: 1900, base: 15, tax: 3 }];
-    for (const positionen of [
-      [entnahme, ...betrieb],
-      [...betrieb, entnahme],
-    ]) {
-      const summen = positionenSummen(positionen, steuer);
-      expect(summen.tax).toBe(2);
-      expect(summen.privat.tax).toBe(1);
-      expect(summen.tax + summen.privat.tax).toBe(3);
-    }
+    const positionen: Position[] = [{ kategorie: "privatentnahme", rate: 1900, net: 3 }, ...betrieb];
+    const summen = positionenSummen(positionen, [{ rate: 1900, base: 15, tax: 3 }]);
+    expect(summen.tax).toBe(2);
+    expect(summen.privat.tax).toBe(1);
+    expect(summen.tax + summen.privat.tax).toBe(3);
   });
 
-  it("geht auch als Gutschrift auf: alles negativ, die Steuer bleibt negativ (#1976)", () => {
+  it("Restcent hinten: derselbe Fall mit der Entnahme als letzter Zeile, dieselben Anteile", () => {
+    const betrieb: Position[] = Array.from({ length: 4 }, () => ({ kategorie: "ware", rate: 1900, net: 3 }));
+    const positionen: Position[] = [...betrieb, { kategorie: "privatentnahme", rate: 1900, net: 3 }];
+    const summen = positionenSummen(positionen, [{ rate: 1900, base: 15, tax: 3 }]);
+    expect(summen.tax).toBe(2);
+    expect(summen.privat.tax).toBe(1);
+    expect(summen.tax + summen.privat.tax).toBe(3);
+  });
+
+  it("Gutschrift: negative Beträge ergeben dieselben Anteile mit umgekehrtem Vorzeichen", () => {
     const betrieb: Position[] = Array.from({ length: 4 }, () => ({ kategorie: "ware", rate: 1900, net: -3 }));
     const entnahme: Position = { kategorie: "privatentnahme", rate: 1900, net: -3 };
-    const steuer = [{ rate: 1900, base: -15, tax: -3 }];
     for (const positionen of [
       [entnahme, ...betrieb],
       [...betrieb, entnahme],
     ]) {
-      const summen = positionenSummen(positionen, steuer);
+      const summen = positionenSummen(positionen, [{ rate: 1900, base: -15, tax: -3 }]);
       expect(summen.tax).toBe(-2);
       expect(summen.privat.tax).toBe(-1);
       expect(summen.tax + summen.privat.tax).toBe(-3);
@@ -309,13 +310,15 @@ describe("Summenprobe", () => {
     expect(issues.some((issue) => issue.includes("7 %"))).toBe(true);
   });
 
-  it("weist Plus und Minus im selben Satz ab, auch wenn sie sich zu Netto 0 aufheben (#1976)", () => {
+  it("weist gemischte Vorzeichen im selben Satz ab, auch wenn sie sich zu Netto 0 aufheben (#1976)", () => {
+    // +100,00 € betrieblich und −100,00 € Privatentnahme gegen 0 / 0 dürfen nicht als „geht auf“ durchgehen
     const positionen: Position[] = [
       { kategorie: "ware", rate: 1900, net: 10_000 },
       { kategorie: "privatentnahme", rate: 1900, net: -10_000 },
     ];
     const vorgabe = [{ rate: 1900, base: 0, tax: 0 }];
-    const issues = summenProbe(positionenSummen(positionen, vorgabe), vorgabe);
-    expect(issues.some((issue) => issue.includes("Plus und Minus"))).toBe(true);
+    expect(summenProbe(positionenSummen(positionen, vorgabe), vorgabe)).toEqual([
+      "Summenprobe 19 %: Netto mit Plus und Minus gemischt; eine Gutschrift hat nur negative Beträge",
+    ]);
   });
 });

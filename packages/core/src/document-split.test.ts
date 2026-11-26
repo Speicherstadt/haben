@@ -63,6 +63,20 @@ describe("allocateSplitTax", () => {
     expect(allocated.map((l) => l.tax)).toEqual([210, 380, 0, 70]);
   });
 
+  it("ohne Entnahme bleibt die Verteilung wie bisher: kaufmännisch gerundet, Rest auf die größte Zeile (#1976)", () => {
+    // Beispiel des Maintainers: 0,40 / 29,98 / 0,15 / 41,94 € netto zu 19 %, Steuer 13,77 €. Bisher 0,08 / 5,70 /
+    // 0,03 / 7,96 €; Abrunden nach größtem Bruchteil ergäbe 0,07 / 5,70 / 0,03 / 7,97 €.
+    const lines: DocumentSplitLine[] = [
+      { category: "wareneinkauf", taxRate: 1900, net: 40 },
+      { category: "software", taxRate: 1900, net: 2_998 },
+      { category: "buero", taxRate: 1900, net: 15 },
+      { category: "sonstiges", taxRate: 1900, net: 4_194 },
+    ];
+    const allocated = allocateSplitTax(lines, [{ taxRate: 1900, net: 7_247, tax: 1_377 }]);
+    expect(allocated.map((l) => l.tax)).toEqual([8, 570, 3, 796]);
+    expect(sumOf(allocated.map((l) => l.tax))).toBe(1_377);
+  });
+
   it("Gutschrift: negative Zeilen bekommen negative Steuer, exakt gespiegelt", () => {
     const negated = issueLines.map((l) => ({ ...l, net: -l.net }));
     expect(allocateSplitTax(negated, [{ taxRate: 1900, net: -17_000, tax: -3_230 }]).map((l) => l.tax)).toEqual([-1_900, -950, -380]);
