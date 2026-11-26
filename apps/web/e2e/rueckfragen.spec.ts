@@ -757,8 +757,17 @@ test("Bank: Konten als Kartenleiste in Gruppen, im schmalen Fenster als Chips un
     await nachRechts.click();
     await expect(nachLinks).toBeEnabled();
 
-    // Eine Karte ist ein Link: sie wählt das Konto, „Alle Konten“ ist dann nicht mehr gewählt
+    // Eine Karte ist ein Link: sie wählt das Konto, „Alle Konten“ ist dann nicht mehr gewählt. Auch solange die Daten des
+    // neuen Kontos noch laden, ist genau eine Karte gewählt (die Adresse ist schon weiter, die Daten noch nicht)
+    await page.route("**/_serverFn/**", async (route) => {
+      await new Promise((r) => setTimeout(r, 1_500));
+      await route.continue();
+    });
     await amazon2.click();
+    await page.waitForURL((u) => u.searchParams.get("konto") !== "alle");
+    expect(await leiste.locator('[aria-current="page"]').count()).toBe(1);
+    // Erst weiter, wenn die zurückgehaltenen Anfragen durch sind; sonst liefe ihr continue() in den nächsten Test
+    await page.unrouteAll({ behavior: "wait" });
     await expect(amazon2).toHaveAttribute("aria-current", "page");
     await expect(alle).not.toHaveAttribute("aria-current", "page");
 
