@@ -18,6 +18,10 @@ test.describe.configure({ mode: "serial" });
 const HANDY = { width: 375, height: 812 };
 const DESKTOP = { width: 1440, height: 900 };
 const BANK = "Statusbank Musterstadt";
+/** Konto der Bankverbindung: Die Bankseite zeigt eine Verbindung über der Liste ihres Kontos (#1951) */
+const KONTO = "Statuskonto Musterstadt";
+const KONTO_IBAN = "DE89370400440532013000";
+let kontoId = "";
 const ARTIKEL = "Statusartikel Listenknopf";
 
 test.beforeAll(async () => {
@@ -25,9 +29,13 @@ test.beforeAll(async () => {
   await sql.begin(async (tx) => {
     await tx`select set_config('haben.actor', 'e2e', true)`;
     await tx`delete from bank_connections where aspsp_name = ${BANK}`;
+    const [konto] = await tx<{ id: string }[]>`insert into bank_accounts (name, iban) values (${KONTO}, ${KONTO_IBAN})
+      on conflict (iban) do update set name = excluded.name returning id`;
+    kontoId = konto!.id;
+    const konten = [{ uid: "u-status", iban: KONTO_IBAN, name: KONTO, bankAccountId: kontoId, identificationHash: "hash-status" }];
     // Läuft in 5 Tagen ab: dringend, mit langer Auskunft
     await tx`insert into bank_connections (aspsp_name, aspsp_country, psu_type, status, valid_until, accounts, last_sync_at)
-      values (${BANK}, 'DE', 'business', 'aktiv', now() + interval '5 days', '[]', now())`;
+      values (${BANK}, 'DE', 'business', 'aktiv', now() + interval '5 days', ${tx.json(konten)}, now())`;
     // Ein Artikel, damit die Liste unter /artikel eine Zeile mit kleinen Knöpfen hat
     await tx`delete from articles where description = ${ARTIKEL}`;
     await tx`insert into articles (description, unit, unit_price, tax_rate) values (${ARTIKEL}, 'Stück', 1000, 1900)`;
@@ -48,7 +56,7 @@ async function reihenfolge(status: Locator, zeile: Locator) {
 }
 
 async function bankZeile(page: Page) {
-  await page.goto("/bank");
+  await page.goto(`/bank?konto=${kontoId}`);
   await page.waitForLoadState("networkidle");
   const zeile = page.getByRole("region", { name: "Automatischer Abruf" }).locator(".history-row", { hasText: BANK });
   return { zeile, status: zeile.locator(".status") };
