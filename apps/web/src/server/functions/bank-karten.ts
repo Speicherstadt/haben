@@ -60,6 +60,7 @@ function bankZugaenge(connections: Awaited<ReturnType<typeof listConnections>>, 
       weg: "FinTS",
       lastSyncAt: c.lastSyncAt,
       fehler: c.status === "fehler" ? (c.lastError ?? "Fehler") : null,
+      freigabe: c.status === "tan",
     })),
   );
   return [...abruf, ...perFints];

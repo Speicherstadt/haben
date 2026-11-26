@@ -69,6 +69,11 @@ describe("kartenStatus", () => {
     expect(kartenStatus({ ...zugang, laeuftAbAm: "2026-12-03T10:00:00Z" }, 0, frisch, jetzt)?.emphasis).toBe("urgent");
     expect(kartenStatus({ ...zugang, abgelaufen: true }, 0, frisch, jetzt)).toMatchObject({ text: "Abgelaufen", emphasis: "urgent" });
   });
+
+  it("wartet die Bank auf eine Freigabe (TAN), nennt die Karte das vor Konflikt und Alter", () => {
+    const zugang = { bankAccountId: "a", weg: "FinTS", lastSyncAt: "2026-11-01T05:00:00Z", fehler: null, freigabe: true };
+    expect(kartenStatus(zugang, 2, "2026-11-01T05:00:00Z", jetzt)).toEqual({ text: "Freigabe nötig", tone: "warn", emphasis: "notice", detail: null });
+  });
 });
 
 describe("kontenkarten", () => {

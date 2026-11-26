@@ -153,15 +153,17 @@ function Chip({
       {status !== undefined && <span className="konto-chip-punkt" aria-hidden="true" />}
       <span className="konto-chip-name">{name}</span>
       {status && <span className="visually-hidden">, {status.text}</span>}
-      <span className="konto-chip-zahl">
-        {offen}
-        <span className="visually-hidden"> offen</span>
-      </span>
+      {offen > 0 && (
+        <span className="konto-chip-zahl">
+          {offen}
+          <span className="visually-hidden"> offen</span>
+        </span>
+      )}
     </Link>
   );
 }
 
-/** Schmale Zeile: Punkt in der Farbe des Status, Name und Zahl offener Umsätze; das Wort des Status liest der Screenreader */
+/** Schmale Zeile: Punkt in der Farbe des Status, Name und Zahl offener Umsätze (fehlt bei null); das Wort des Status liest der Screenreader */
 function KontenChips({ data, filter }: Props) {
   const { karten, alle } = data.karten;
   return (

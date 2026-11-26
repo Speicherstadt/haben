@@ -22,6 +22,8 @@ export type KontoZugang = {
   lastSyncAt: string | Date | null;
   /** Fehler des letzten Abrufs; nur ein echter Fehlschlag, kein Konflikt */
   fehler: string | null;
+  /** Die Bank wartet auf eine Freigabe, etwa eine TAN (FinTS) */
+  freigabe?: boolean;
   /** Zustimmung abgelaufen (Enable Banking) */
   abgelaufen?: boolean;
   /** Ende der Zustimmung, nur wenn es bald kommt (Enable Banking) */
@@ -82,10 +84,11 @@ const spaeter = (a: string | Date | null | undefined, b: string | Date | null | 
   return new Date(a).getTime() >= new Date(b).getTime() ? a : b;
 };
 
-/** Status bei Abweichung, das Dringendste zuerst: Fehlschlag, Ablauf der Zustimmung, Konflikt, bald Ablauf, veraltet */
+/** Status bei Abweichung, das Dringendste zuerst: Fehlschlag, Ablauf der Zustimmung, Freigabe, Konflikt, bald Ablauf, veraltet */
 export function kartenStatus(zugang: KontoZugang | undefined, konflikte: number, letzterStand: string | Date | null, jetzt: Date): KartenStatus | null {
   if (zugang?.fehler) return { text: "Fehlgeschlagen", tone: "danger", emphasis: "urgent", detail: null };
   if (zugang?.abgelaufen) return { text: "Abgelaufen", tone: "warn", emphasis: "urgent", detail: null };
+  if (zugang?.freigabe) return { text: "Freigabe nötig", tone: "warn", emphasis: "notice", detail: null };
   if (konflikte > 0) return { text: "Konflikt", tone: "warn", emphasis: "notice", detail: `${konflikte} ${konflikte === 1 ? "Umsatz" : "Umsätze"}` };
   if (zugang?.laeuftAbAm) {
     const tage = Math.max(daysUntil(zugang.laeuftAbAm, jetzt), 0);
