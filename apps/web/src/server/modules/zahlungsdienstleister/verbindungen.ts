@@ -140,6 +140,16 @@ async function gebundenesKonto(provider: string, accountId: string) {
   return quelle ?? null;
 }
 
+/** Gibt es außer dieser schon eine Verbindung zum Anbieter? */
+async function weitereVerbindung(provider: string, id: string | null): Promise<boolean> {
+  const [andere] = await db
+    .select({ id: schema.pspConnections.id })
+    .from(schema.pspConnections)
+    .where(and(eq(schema.pspConnections.provider, provider), id ? ne(schema.pspConnections.id, id) : sql`true`))
+    .limit(1);
+  return Boolean(andere);
+}
+
 /**
  * Speichert eine Verbindung. Ein neuer Zugang wird beim Anbieter geprüft und liefert die Kontokennung; gehört er zu einem
  * anderen Konto, beginnt der Abruf wieder am gewählten Tag, weil der Stand des alten Kontos nichts über das neue sagt.
@@ -165,11 +175,21 @@ export async function speichereVerbindung(actor: string, input: z.input<typeof v
   // Schreibt der Abruf schon in ein Konto, bleibt es dabei: „Automatisch“ nimmt es, eine andere Wahl wird abgelehnt
   const gebunden = await gebundenesKonto(adapter.provider, accountId);
   if (gebunden && gewaehlt && gewaehlt !== gebunden.id) {
-    throw new ZahlungsdienstleisterError(`Dieses ${adapter.name}-Konto ist schon mit dem Konto ${gebunden.name} verbunden; der Abruf schreibt weiter dorthin.`, {
-      felder: ["bankAccountId"],
-    });
+    throw new ZahlungsdienstleisterError(
+      `Dieses ${adapter.name}-Konto ist schon mit dem Konto ${gebunden.name} verbunden; der Abruf schreibt weiter dorthin.`,
+      {
+        felder: ["bankAccountId"],
+      },
+    );
   }
   const bankAccountId = gewaehlt ?? gebunden?.id ?? existing?.row.bankAccountId ?? (await freiesKonto(db, adapter.provider, id))?.id ?? null;
+  // Die erste Verbindung geht wie vor #1729 auch vor dem Konto; jede weitere braucht ihr eigenes (Grenze von neun Konten)
+  if (!bankAccountId && (await weitereVerbindung(adapter.provider, id))) {
+    throw new ZahlungsdienstleisterError(
+      `Für eine weitere Verbindung zu ${adapter.name} fehlt ein freies Konto der Art Zahlungsdienstleister. Lege es unter Bank › Konto hinzufügen an.`,
+      { felder: ["bankAccountId"] },
+    );
+  }
   // Ein Konto, eine Quelle (#306): hat das Konto des Abrufs schon eine externe Quelle, keine Verbindung
   if (bankAccountId) await keineExterneQuelle(db, [bankAccountId]);
   const anderesKonto = existing !== null && existing.row.accountId !== accountId;

@@ -231,6 +231,20 @@ describe.skipIf(!testDatabaseUrl)("Verbindungen zu Zahlungsdienstleistern (Postg
     expect((await psp.abrufen(actor, zweite, new Date(HEUTE.getTime() + 2 * 60 * 60 * 1000))).error).toBeNull();
   });
 
+  it("lehnt eine weitere Verbindung ohne freies Konto des Anbieters ab; die erste nimmt das frei gewordene", async () => {
+    // Das Konto „PayPal“ nutzt schon die umgezogene Verbindung; eine zweite bekäme keins und schriebe nie (#1729, Grenze)
+    psp.setPayPalClientFactory(() => ({ accountId: async () => "HAENDLERNEU", transactions: async () => [] }) as unknown as PayPalClient);
+    const eingabe = { clientId: "client-neu", clientSecret: "geheim-neu" };
+    await expect(psp.speichereVerbindung(actor, { provider: "paypal", name: "PayPal Zwei", eingabe, fetchFrom: "2026-11-01" })).rejects.toThrow(
+      "Für eine weitere Verbindung zu PayPal fehlt ein freies Konto",
+    );
+    expect(await sql`select name from psp_connections where provider = 'paypal'`).toEqual([{ name: "PayPal" }]);
+    // Ohne andere Verbindung des Anbieters ist das Konto wieder frei (ganz ohne Konto: wie vor #1729, paypal.test.ts)
+    await sql`delete from psp_connections where provider = 'paypal'`;
+    const erste = await psp.speichereVerbindung(actor, { provider: "paypal", name: "PayPal Zwei", eingabe, fetchFrom: "2026-11-01" });
+    expect((await psp.ladeVerbindung(erste))!.row.bankAccountId).not.toBeNull();
+  });
+
   it("schreibt Änderungen ins Protokoll, ohne den Zugang", async () => {
     const audit = await sql`select new_value::text as v from audit_log where table_name = 'psp_connections'`;
     expect(audit.length).toBeGreaterThan(0);
