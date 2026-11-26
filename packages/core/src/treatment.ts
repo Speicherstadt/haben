@@ -141,9 +141,11 @@ export function treatmentIssues(
   const territory = vatTerritory(country, input.buyerPostalCode);
   if (treatment === "reverse_charge") {
     if (!input.sellerUstId?.trim()) issues.push("Reverse Charge braucht deine USt-IdNr. in den Firmendaten");
-    // § 14a Abs. 1 Satz 3 UStG: die USt-IdNr. des Leistungsempfängers auf der Rechnung; die Leistung geht mit Art S in die
-    // Zusammenfassende Meldung. Geprüft wie dort und nach dem Aufbau je Mitgliedstaat (#1433), solange sich die Nummer noch
-    // berichtigen lässt. Storno und Korrektur nicht: Vor #1433 ließ sich jede Nummer festschreiben.
+    // § 14a Abs. 1 Satz 3 UStG: die USt-IdNr. des Leistungsempfängers auf der Rechnung; die Leistung geht mit Art S und der
+    // ihm in einem anderen Mitgliedstaat erteilten Nummer in die Zusammenfassende Meldung (§ 18a Abs. 7 Satz 1 Nr. 3 Buchst. a),
+    // eine nordirische gilt nur im Warenverkehr (UStAE 1.10 Abs. 3). Geprüft wie dort und nach dem Aufbau je Mitgliedstaat
+    // (#1433), solange sich die Nummer noch berichtigen lässt. Storno und Korrektur nur, ob sie da ist: Vor #1433 ließ sich
+    // jede Nummer festschreiben.
     const buyerUstId = normalizeUstId(input.buyerUstId ?? "");
     if (!buyerUstId) issues.push("Reverse Charge braucht die USt-IdNr. des Kunden");
     else if (!input.correctsInvoice) {
