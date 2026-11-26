@@ -84,6 +84,24 @@ describe.skipIf(!testDatabaseUrl)("REST-API: Angebotsentwürfe anlegen, ändern 
     };
   }
 
+  it("legt dieselbe externe Referenz auch parallel nur einmal an und liefert danach den festgeschriebenen Stand", async () => {
+    const t = await token(["angebote:entwuerfe"]);
+    const reference = { externalSource: "desk", externalId: "projekt-42-angebot-1" };
+    const input = { contactId, ...reference, lines: [line()] };
+    const results = await Promise.all([call(t, "POST", "/angebote", input), call(t, "POST", "/angebote", input)]);
+    expect(results.map(({ status }) => status).sort()).toEqual([200, 201]);
+    const id = String(results[0]!.json!.id);
+    expect(results[1]!.json).toMatchObject({ id, ...reference });
+    expect(await sql`select id from quotes`).toEqual([{ id }]);
+    expect((await call(t, "PATCH", `/angebote/${id}`, { externalId: "anders" })).status).toBe(400);
+    expect((await call(t, "POST", "/angebote", { ...input, externalId: undefined })).status).toBe(400);
+    await rechnungen.finalizeQuote(actor, id);
+    const retry = await call(t, "POST", "/angebote", { ...input, lines: [line({ unitPrice: 1_000 })] });
+    expect(retry.status).toBe(200);
+    expect(retry.headers.get("location")).toBe(`/api/v1/angebote/${id}`);
+    expect(retry.json).toMatchObject({ id, ...reference, status: "final", net: 76_000 });
+  });
+
   it("legt einen Entwurf mit den Vorgaben eines neuen Angebots an: gültig 30 Tage ab Angebotsdatum, Standardtexte, Sprache des Kunden", async () => {
     await stammdaten.createTextBlock(actor, {
       name: "Angebot Kopf",
