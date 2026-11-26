@@ -42,17 +42,21 @@ function lstb(year: number, person: string, klasse: string, werte: Record<string
   );
 }
 
-/** Kranken- und Pflegeversicherung: Beitragsdaten [BetragArt, MerkmalBeitragArt, Betrag], Versicherungsnehmer */
+/** Kranken- und Pflegeversicherung: Beitragsdaten [BetragArt, MerkmalBeitragArt, Betrag], Versicherungsnehmer (WeiterePerson) */
 function krv(
   year: number,
   versichert: string,
   beitraege: [string, string, string][],
-  vn: { idnr?: string; firma?: string } = { idnr: versichert },
+  vn: { idnr?: string; firma?: string }[] = [{ idnr: versichert }],
   merkmal = "3",
 ) {
-  const weitere = vn.firma
-    ? `<WeiterePerson><NNPers><Firmenname>${vn.firma}</Firmenname></NNPers></WeiterePerson>`
-    : `<WeiterePerson><NatPerson><IdNr>${vn.idnr}</IdNr></NatPerson></WeiterePerson>`;
+  const weitere = vn
+    .map((v) =>
+      v.firma
+        ? `<WeiterePerson><NNPers><Firmenname>${v.firma}</Firmenname></NNPers></WeiterePerson>`
+        : `<WeiterePerson><NatPerson><IdNr>${v.idnr}</IdNr></NatPerson></WeiterePerson>`,
+    )
+    .join("");
   const daten = beitraege
     .map(
       ([art, merkmalArt, betrag]) =>
@@ -63,6 +67,18 @@ function krv(
     "VaSt_KRV",
     `${year}01`,
     `<BetroffenerFall><Meldejahr>${year}</Meldejahr><BetroffenePerson><NatPerson><IdNr>${versichert}</IdNr></NatPerson>${weitere}</BetroffenePerson></BetroffenerFall><Versicherung><Name>Techniker Krankenkasse</Name></Versicherung><Vertragsdaten>${daten}</Vertragsdaten>`,
+  );
+}
+
+/** Zuschüsse nach § 10 Abs. 4b EStG: Zahlungsdaten [Zahlungsart, Betrag] */
+function zus(year: number, person: string, zahlungen: [string, string][]) {
+  const z = zahlungen
+    .map(([art, b]) => `<Zahlungsdaten><Zahlungsart>${art}</Zahlungsart><Betrag>${b}</Betrag><Waehrung>EUR</Waehrung></Zahlungsdaten>`)
+    .join("");
+  return beleg(
+    "VaSt_ZUS",
+    `${year}01`,
+    `<BetroffenerFall><Meldejahr>${year}</Meldejahr><BetroffenePerson><NatPerson><IdNr>${person}</IdNr></NatPerson></BetroffenePerson></BetroffenerFall>${z}`,
   );
 }
 
@@ -166,8 +182,8 @@ describe("Vorschläge aus den ELSTER-Belegen (VaSt)", () => {
   });
 
   it("Kranken- und Pflegeversicherung: Beiträge Dritter zählen nur mit einer Firma als Versicherungsnehmer", () => {
-    const dritte = krv(2025, A, [["01", "1", "1000.00"]], { idnr: A }, "1");
-    const firma = krv(2025, A, [["01", "1", "500.00"]], { firma: "Nordwerk GmbH" }, "1");
+    const dritte = krv(2025, A, [["01", "1", "1000.00"]], [{ idnr: A }], "1");
+    const firma = krv(2025, A, [["01", "1", "500.00"]], [{ firma: "Nordwerk GmbH" }], "1");
     const v = vastVorschlag({ year: 2025, idnr, belege: [dritte, firma] });
     expect(v.vorsorge.a?.werte).toEqual({ gkv: 50_000 });
     expect(v.vorsorge.a?.herkunft.gkv).toEqual([firma.id]);
@@ -215,12 +231,70 @@ describe("Vorschläge aus den ELSTER-Belegen (VaSt)", () => {
 
   it("nennt Werte, die Haben noch nicht übernimmt: Lohnersatz in der Lohnsteuerbescheinigung, Zuschüsse nach § 10 Abs. 4b EStG, andere Belegarten", () => {
     const b = lstb(2025, A, "1", { BruttoArbLohn: "1000.00", LeistungenProgVorbeh: "500.00" });
-    const zus = beleg("VaSt_ZUS", "202501", `<BetroffenerFall><BetroffenePerson><NatPerson><IdNr>${A}</IdNr></NatPerson></BetroffenePerson></BetroffenerFall>`);
+    const z = zus(2025, A, [["04", "100.00"]]);
     const rbm = beleg("VaSt_RBM", "202501", "");
-    const text = vastVorschlag({ year: 2025, idnr, belege: [b, zus, rbm] }).hinweise.join(" ");
+    const text = vastVorschlag({ year: 2025, idnr, belege: [b, z, rbm] }).hinweise.join(" ");
     expect(text).toContain("Lohnersatz");
     expect(text).toContain("§ 10 Abs. 4b EStG");
     expect(text).toContain("Rentenbezugsmitteilung");
+    expect(text).toContain("Anteil an Kranken- und Pflegeversicherung");
+  });
+
+  // Aus der Selbstprüfung von #1954
+  it("2025: Zuschüsse zur Basisrente (Zahlungsart 02/03) mindern sie, Rückforderungen (22/23) erhöhen sie (Berechne_E2000701)", () => {
+    const r = rue(2025, A, ["2400.00"]);
+    const z = zus(2025, A, [
+      ["02", "500.00"],
+      ["22", "100.00"],
+    ]);
+    const v = vastVorschlag({ year: 2025, idnr, belege: [r, z] });
+    expect(v.vorsorge.a?.werte).toEqual({ basisrente: 200_000 });
+    expect(v.vorsorge.a?.herkunft.basisrente).toEqual([r.id, z.id]);
+    // Ohne Basisrentenvertrag zählt ein solcher Zuschuss hier nicht
+    expect(vastVorschlag({ year: 2025, idnr, belege: [z] }).vorsorge.a).toBeUndefined();
+  });
+
+  it("2024: Kirchensteuer laut Lohnsteuerbescheinigung als gezahlte Kirchensteuer (Berechne_E0108004), beider Personen, mit Cent", () => {
+    const a = lstb(2024, A, "4", { BruttoArbLohn: "40000.00", ArbnKiSteuer: "601.00", EhegKiSteuer: "50.00", KiSteuerArbnMKalJahr: "20.00" });
+    const b = lstb(2024, B, "4", { BruttoArbLohn: "30000.00", ArbnKiSteuer: "100.10" });
+    const v = vastVorschlag({ year: 2024, idnr, belege: [a, b] });
+    expect(v.sonderausgaben).toEqual({ werte: { kirchensteuerGezahlt: 77_110 }, herkunft: { kirchensteuerGezahlt: [a.id, b.id] } });
+  });
+
+  it("2025: ohne die Felder für mehrere Kalenderjahre", () => {
+    const a = lstb(2025, A, "1", { BruttoArbLohn: "40000.00", ArbnKiSteuer: "601.00", KiSteuerArbnMKalJahr: "20.00" });
+    expect(vastVorschlag({ year: 2025, idnr, belege: [a] }).sonderausgaben?.werte).toEqual({ kirchensteuerGezahlt: 60_100 });
+  });
+
+  it("Versicherungsnehmer: erste IdNr über alle, Firma in irgendeinem; Beiträge Dritter zählen mit Firma auch neben der Person", () => {
+    const k = krv(2025, A, [["01", "1", "800.00"]], [{ idnr: A }, { firma: "Nordwerk GmbH" }], "1");
+    expect(vastVorschlag({ year: 2025, idnr, belege: [k] }).vorsorge.a?.werte).toEqual({ gkv: 80_000 });
+  });
+
+  it("Herkunft je Feld der Kranken- und Pflegeversicherung", () => {
+    const k1 = krv(2025, A, [["01", "1", "1000.00"]]);
+    const k2 = krv(2025, A, [["05", "1", "200.00"]]);
+    const v = vastVorschlag({ year: 2025, idnr, belege: [k1, k2] });
+    expect(v.vorsorge.a?.herkunft).toEqual({ gkv: [k1.id], gpv: [k2.id] });
+  });
+
+  it("Lohnsteuerbescheinigung ohne Steuerklasse: keine Spalte der Anlage N, die Zuschüsse zählen trotzdem", () => {
+    const ohne = beleg(
+      "VaSt_LStB",
+      "202501",
+      `<Allgemein><IdNr>${A}</IdNr></Allgemein><Besteuerungsgrund><BruttoArbLohn>1000.00</BruttoArbLohn><StFreiGeKrankVers>120.00</StFreiGeKrankVers></Besteuerungsgrund>`,
+    );
+    const v = vastVorschlag({ year: 2025, idnr, belege: [ohne] });
+    expect(v.arbeitnehmer.a).toBeUndefined();
+    expect(v.vorsorge.a?.werte).toEqual({ agZuschussGkv: 12_000 });
+    expect(v.hinweise.join(" ")).toContain("ohne Steuerklasse");
+  });
+
+  it("Kranken- und Pflegeversicherung eines Kindes: Hinweis auf die Anlage Kind statt „keiner Person“", () => {
+    const kind = krv(2025, "57286403713", [["01", "2", "600.00"]], [{ idnr: A }]);
+    const text = vastVorschlag({ year: 2025, idnr, belege: [kind] }).hinweise.join(" ");
+    expect(text).toContain("Kind");
+    expect(text).not.toContain("keiner Person");
   });
 
   it("passt in die Angaben der Erklärung: buildEstXml schreibt die Werte in Anlage N, Vorsorgeaufwand und Hauptvordruck", () => {

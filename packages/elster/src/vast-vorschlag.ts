@@ -2,7 +2,7 @@ import type { Cents } from "@haben/core";
 import type { EstErsatzleistung, EstLohnsteuerbescheinigung, EstVorsorgePerson } from "./est.ts";
 import { vastBelegartLabel } from "./vast.ts";
 import { abrunden, alle, aufrunden, belegWurzel, betrag, wert, type XmlKnoten } from "./vast-lesen.ts";
-import { krvBeitraege, krvOhneFeld, krvSumme } from "./vast-vorschlag-krv.ts";
+import { type KrvBeitrag, krvBeitraege, krvOhneFeld, krvSumme } from "./vast-vorschlag-krv.ts";
 
 /*
  * Vorschläge für die Einkommensteuererklärung aus den Belegen der vorausgefüllten Steuererklärung (#1328), nach der
@@ -43,6 +43,8 @@ export interface VastVorschlag {
   vorsorge: JePerson<{ werte: Partial<EstVorsorgePerson>; herkunft: Partial<Record<keyof EstVorsorgePerson, string[]>> }>;
   /** Einkommensersatzleistungen, eine je Leistung */
   ersatzleistungen: JePerson<{ herkunft: string; leistung: EstErsatzleistung }[]>;
+  /** Gezahlte Kirchensteuer laut Lohnsteuerbescheinigungen beider Personen (Sonderausgaben, Berechne_E0108004) */
+  sonderausgaben?: { werte: { kirchensteuerGezahlt: Cents }; herkunft: { kirchensteuerGezahlt: string[] } };
   /** Was Haben nicht übernimmt, mit Grund */
   hinweise: string[];
 }
@@ -106,11 +108,15 @@ function belegIdnr(belegart: string, root: XmlKnoten): string | undefined {
 
 interface Sammlung {
   vorschlag: VastVorschlag;
+  year: number;
   idnr: { a: string; b?: string };
-  /** Je Person die Beiträge aller KRV-Belege und die Belege dahinter */
-  krv: JePerson<{ daten: XmlKnoten[]; ids: string[] }>;
+  /** Je Person die Beiträge aller KRV-Belege mit dem Beleg dahinter */
+  krv: JePerson<KrvBeitrag[]>;
   rue: JePerson<{ summe: Cents; ids: string[] }>;
-  zuschuss: JePerson<string[]>;
+  /** Zahlungsdaten der Zuschüsse nach § 10 Abs. 4b EStG mit dem Beleg dahinter */
+  zuschuss: JePerson<{ knoten: XmlKnoten; id: string }[]>;
+  /** Kirchensteuer je Lohnsteuerbescheinigung, für die Sonderausgaben */
+  kirchensteuer: { c: Cents; id: string }[];
   /** Steuerfreie Arbeitgeberzuschüsse je Lohnsteuerbescheinigung: Element, Betrag, Beleg */
   agZuschuss: JePerson<{ element: string; c: Cents; id: string }[]>;
 }
@@ -128,18 +134,29 @@ function vorsorgeWert(s: Sammlung, person: Person, feld: keyof EstVorsorgePerson
   v.herkunft[feld] = ids;
 }
 
+/** Kirchensteuer einer Lohnsteuerbescheinigung für die Sonderausgaben; bis 2024 samt der Beträge für mehrere Kalenderjahre */
+function kirchensteuerLstb(g: XmlKnoten | undefined, year: number): Cents | undefined {
+  const felder = ["ArbnKiSteuer", "EhegKiSteuer", ...(year <= 2024 ? ["KiSteuerArbnMKalJahr", "KiSteuerEhegMKalJahr"] : [])];
+  return plus(...felder.map((f) => betrag(g, f)));
+}
+
 function lohnsteuerbescheinigung(s: Sammlung, person: Person, q: VastQuelle, root: XmlKnoten) {
-  const b = bescheinigung(root);
-  if (!b) {
-    s.vorschlag.hinweise.push(`${vastBelegartLabel(q.belegart)} ${q.id}: ohne Steuerklasse, nicht übernommen.`);
-    return;
-  }
-  eintrag(s.vorschlag.arbeitnehmer, person, () => []).push({ herkunft: q.id, bescheinigung: b });
   const g = alle(root, "Besteuerungsgrund")[0];
+  // Summen je Person filtern nur nach der Person (VaSt_LStB_Gesamt - Regeln), nicht nach der Steuerklasse
   for (const [, element] of AG_ZUSCHUSS) {
     const c = betrag(g, element);
     if (c) eintrag(s.agZuschuss, person, () => []).push({ element, c, id: q.id });
   }
+  const kirchensteuer = kirchensteuerLstb(g, s.year);
+  if (kirchensteuer) s.kirchensteuer.push({ c: kirchensteuer, id: q.id });
+  const b = bescheinigung(root);
+  if (!b) {
+    s.vorschlag.hinweise.push(
+      `${vastBelegartLabel(q.belegart)} ${q.id}: ohne Steuerklasse, keine Spalte der Anlage N; Renten-, Kranken-, Pflege- und Arbeitslosenversicherung daraus fehlen im Vorschlag.`,
+    );
+    return;
+  }
+  eintrag(s.vorschlag.arbeitnehmer, person, () => []).push({ herkunft: q.id, bescheinigung: b });
   const ohneFeld = Object.entries(LSTB_OHNE_FELD).filter(([name]) => alle(g, name).length > 0 || wert(g, name) !== undefined);
   if (ohneFeld.length > 0) {
     s.vorschlag.hinweise.push(`${vastBelegartLabel(q.belegart)} ${q.id}: ${ohneFeld.map(([, label]) => label).join(", ")} übernimmt Haben noch nicht.`);
@@ -170,53 +187,65 @@ function sammeln(s: Sammlung, person: Person, q: VastQuelle, root: XmlKnoten) {
     return;
   }
   if (q.belegart === "VaSt_ZUS") {
-    eintrag(s.zuschuss, person, () => []).push(q.id);
+    eintrag(s.zuschuss, person, () => []).push(...alle(root, "Zahlungsdaten").map((knoten) => ({ knoten, id: q.id })));
     return;
   }
-  const paar = [s.idnr.a, ...(s.idnr.b ? [s.idnr.b] : [])];
-  const k = eintrag(s.krv, person, () => ({ daten: [], ids: [] }));
-  const daten = krvBeitraege(root, s.idnr[person]!, paar);
-  if (daten.length > 0) {
-    k.daten.push(...daten);
-    k.ids.push(q.id);
-  }
+  eintrag(s.krv, person, () => []).push(...krvBeitraege(root, q.id, paar(s)));
 }
 
-/** Summen je Person: Arbeitgeberzuschüsse, Kranken- und Pflegeversicherung, Basisrente */
-function abschliessen(s: Sammlung, person: Person) {
-  // VaSt_LStB_Gesamt - Regeln, Berechne_E2003705/E2003807/E2003907: Summe der Belege, abgerundet
+const paar = (s: Sammlung) => [s.idnr.a, ...(s.idnr.b ? [s.idnr.b] : [])];
+
+/** Steuerfreie Arbeitgeberzuschüsse (VaSt_LStB_Gesamt - Regeln, Berechne_E2003705/E2003807/E2003907): Summe, abgerundet */
+function zuschuesseAbschliessen(s: Sammlung, person: Person) {
   for (const [feld, element] of AG_ZUSCHUSS) {
     const mit = (s.agZuschuss[person] ?? []).filter((z) => z.element === element);
     const summe = abrunden(mit.reduce((t, m) => t + m.c, 0));
-    if (summe > 0 && summe <= 99_999_00)
-      vorsorgeWert(
-        s,
-        person,
-        feld,
-        summe,
-        mit.map((m) => m.id),
-      );
+    if (summe > 0 && summe <= 99_999_00) vorsorgeWert(s, person, feld, summe, [...new Set(mit.map((m) => m.id))]);
   }
+}
 
-  const krv = s.krv[person];
-  if (krv && krv.daten.length > 0) {
-    const { werte, ueberGrenze } = krvSumme(krv.daten);
-    for (const [feld, w] of Object.entries(werte)) vorsorgeWert(s, person, feld as keyof EstVorsorgePerson, w, krv.ids);
-    if (ueberGrenze.length > 0)
-      s.vorschlag.hinweise.push(`Kranken- und Pflegeversicherung: Summe über der Grenze der Zuordnung, nicht übernommen (${ueberGrenze.join(", ")}).`);
-    const ohne = krvOhneFeld(krv.daten);
-    if (ohne.erstattungGesetzlich) s.vorschlag.hinweise.push("Erstattungen der gesetzlichen Kranken- und Pflegeversicherung übernimmt Haben noch nicht.");
-    if (ohne.zuschuss) s.vorschlag.hinweise.push("Zuschüsse zur Kranken- und Pflegeversicherung aus der Bescheinigung übernimmt Haben noch nicht.");
+function krvAbschliessen(s: Sammlung, person: Person) {
+  const daten = s.krv[person] ?? [];
+  if (daten.length === 0) return;
+  const { werte, herkunft, ueberGrenze } = krvSumme(daten);
+  for (const [feld, w] of Object.entries(werte)) {
+    const f = feld as keyof typeof werte;
+    vorsorgeWert(s, person, f, w, herkunft[f] ?? []);
   }
+  if (ueberGrenze.length > 0) {
+    s.vorschlag.hinweise.push(`Kranken- und Pflegeversicherung: Summe über der Grenze der Zuordnung, nicht übernommen (${ueberGrenze.join(", ")}).`);
+  }
+  const ohne = krvOhneFeld(daten);
+  if (ohne.erstattungGesetzlich) s.vorschlag.hinweise.push("Erstattungen der gesetzlichen Kranken- und Pflegeversicherung übernimmt Haben noch nicht.");
+  if (ohne.zuschuss) s.vorschlag.hinweise.push("Zuschüsse zur Kranken- und Pflegeversicherung aus der Bescheinigung übernimmt Haben noch nicht.");
+}
 
-  // VaSt_Gesamt - Regeln, Berechne_E2000701: aufgerundet, nur bis 99.999 €
+/** Zahlungsarten der Zuschüsse zur Basisrente (02, 03) und ihrer Rückforderung (22, 23) laut Schema VaSt_ZUS */
+const ZUSCHUSS_BASISRENTE = ["02", "03"];
+const RUECKFORDERUNG_BASISRENTE = ["22", "23"];
+
+/**
+ * Basisrente (VaSt_RUE_Gesamt und VaSt_ZUS_Gesamt, Berechne_E2000701_Ungeprueft; VaSt_Gesamt, Berechne_E2000701): Beiträge,
+ * mit Basisrentenvertrag abzüglich der Zuschüsse 02/03 und zuzüglich ihrer Rückforderung 22/23, aufgerundet, bis 99.999 €
+ */
+function basisrenteAbschliessen(s: Sammlung, person: Person) {
   const rue = s.rue[person];
-  if (rue) {
-    const summe = aufrunden(rue.summe);
-    if (summe !== 0 && Math.abs(summe) <= 99_999_00) vorsorgeWert(s, person, "basisrente", summe, rue.ids);
-    else if (summe !== 0) s.vorschlag.hinweise.push("Basisrente: Summe über 99.999 €, nicht übernommen.");
-  }
-  if (s.zuschuss[person]) s.vorschlag.hinweise.push("Zuschüsse nach § 10 Abs. 4b EStG (VaSt_ZUS) übernimmt Haben noch nicht.");
+  const zuschuss = s.zuschuss[person] ?? [];
+  const art = (z: { knoten: XmlKnoten }) => wert(z.knoten, "Zahlungsart") ?? "";
+  const zurBasisrente = rue ? zuschuss.filter((z) => [...ZUSCHUSS_BASISRENTE, ...RUECKFORDERUNG_BASISRENTE].includes(art(z))) : [];
+  if (zuschuss.some((z) => !zurBasisrente.includes(z))) s.vorschlag.hinweise.push("Zuschüsse nach § 10 Abs. 4b EStG (VaSt_ZUS) übernimmt Haben noch nicht.");
+  if (!rue) return;
+  const anteil = zurBasisrente.reduce((t, z) => t + (ZUSCHUSS_BASISRENTE.includes(art(z)) ? -1 : 1) * (betrag(z.knoten, "Betrag") ?? 0), 0);
+  const summe = aufrunden(rue.summe + anteil);
+  if (summe !== 0 && Math.abs(summe) <= 99_999_00) vorsorgeWert(s, person, "basisrente", summe, [...new Set([...rue.ids, ...zurBasisrente.map((z) => z.id)])]);
+  else if (summe !== 0) s.vorschlag.hinweise.push("Basisrente: Summe über 99.999 €, nicht übernommen.");
+}
+
+/** Gezahlte Kirchensteuer laut Lohnsteuerbescheinigungen (Berechne_E0108004): Summe beider Personen mit Cent, nur ≥ 0 */
+function kirchensteuerAbschliessen(s: Sammlung) {
+  const summe = s.kirchensteuer.reduce((t, k) => t + k.c, 0);
+  if (summe <= 0) return;
+  s.vorschlag.sonderausgaben = { werte: { kirchensteuerGezahlt: summe }, herkunft: { kirchensteuerGezahlt: [...new Set(s.kirchensteuer.map((k) => k.id))] } };
 }
 
 /** Prüft einen Beleg und liefert Person und Wurzel, sonst den Grund als Hinweis */
@@ -227,7 +256,10 @@ function zuordnen(s: Sammlung, q: VastQuelle, year: number): { person: Person; r
     return null;
   }
   if (!["VaSt_LStB", "VaSt_KRV", "VaSt_LErsL", "VaSt_RUE", "VaSt_ZUS"].includes(q.belegart)) {
-    if (!q.belegart.startsWith("VaSt_Pers")) s.vorschlag.hinweise.push(`${label}: übernimmt Haben noch nicht.`);
+    // Stammdaten (Pers1 bis Pers3) nimmt Haben aus den Einstellungen
+    if (q.belegart === "VaSt_RBM") {
+      s.vorschlag.hinweise.push(`${label}: übernimmt Haben noch nicht; ihr Anteil an Kranken- und Pflegeversicherung fehlt deshalb auch im Vorschlag.`);
+    } else if (!q.belegart.startsWith("VaSt_Pers")) s.vorschlag.hinweise.push(`${label}: übernimmt Haben noch nicht.`);
     return null;
   }
   if (q.schemaversion !== versionFuer(year)) {
@@ -238,25 +270,40 @@ function zuordnen(s: Sammlung, q: VastQuelle, year: number): { person: Person; r
   const idnr = root ? belegIdnr(q.belegart, root) : undefined;
   const person: Person | null = idnr === s.idnr.a ? "a" : idnr !== undefined && idnr === s.idnr.b ? "b" : null;
   if (!root || !person) {
-    s.vorschlag.hinweise.push(`${label} ${q.id}: gehört keiner Person der Erklärung, nicht übernommen.`);
+    // KRV eines Kindes geht laut Zuordnung in die Anlage Kind (VaSt_KRV - Regeln, Berechne_I_E0500406)
+    const vn = root && q.belegart === "VaSt_KRV" ? wert(root, "BetroffenerFall", "BetroffenePerson", "WeiterePerson", "NatPerson", "IdNr") : undefined;
+    s.vorschlag.hinweise.push(
+      vn !== undefined && paar(s).includes(vn)
+        ? `${label} ${q.id}: Beiträge für ein Kind (Anlage Kind) übernimmt Haben noch nicht.`
+        : `${label} ${q.id}: gehört keiner Person der Erklärung, nicht übernommen.`,
+    );
     return null;
   }
   return { person, root };
 }
 
-/** Vorschläge aus den Belegen eines Steuerjahres; idnr der Person A und bei Zusammenveranlagung des Ehegatten */
+/**
+ * Vorschläge aus den Belegen eines Steuerjahres; idnr der Person A und bei Zusammenveranlagung des Ehegatten. `belege` sind
+ * die Belege der letzten Abfrage: Ein geänderter Beleg kommt bei ELSTER mit neuer ID, und ältere Stände (vast_belege
+ * behält sie) würden sonst doppelt zählen.
+ */
 export function vastVorschlag(input: { year: number; idnr: { a: string; b?: string }; belege: readonly VastQuelle[] }): VastVorschlag {
   const vorschlag: VastVorschlag = { arbeitnehmer: {}, vorsorge: {}, ersatzleistungen: {}, hinweise: [] };
   if (!(VAST_JAHRE as readonly number[]).includes(input.year)) {
     vorschlag.hinweise.push(`Für ${input.year} gibt es noch keine amtliche Zuordnung der Belege; Haben schlägt nichts vor.`);
     return vorschlag;
   }
-  const s: Sammlung = { vorschlag, idnr: input.idnr, krv: {}, rue: {}, zuschuss: {}, agZuschuss: {} };
+  const s: Sammlung = { vorschlag, year: input.year, idnr: input.idnr, krv: {}, rue: {}, zuschuss: {}, agZuschuss: {}, kirchensteuer: [] };
   for (const q of input.belege) {
     const z = zuordnen(s, q, input.year);
     if (z) sammeln(s, z.person, q, z.root);
   }
-  for (const person of ["a", "b"] as const) abschliessen(s, person);
+  for (const person of ["a", "b"] as const) {
+    zuschuesseAbschliessen(s, person);
+    krvAbschliessen(s, person);
+    basisrenteAbschliessen(s, person);
+  }
+  kirchensteuerAbschliessen(s);
   vorschlag.hinweise = [...new Set(vorschlag.hinweise)];
   return vorschlag;
 }
