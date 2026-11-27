@@ -163,7 +163,7 @@ Nur im Einzelunternehmen; in GmbH und UG wäre es eine verdeckte Gewinnausschüt
 | Feld | Bedeutung |
 |---|---|
 | Entnahmewert netto | Was der Gegenstand zum Zeitpunkt der Entnahme im Einkauf kosten würde ([§ 10 Abs. 4 Satz 1 Nr. 1 UStG](https://www.gesetze-im-internet.de/ustg_1980/__10.html), UStAE 10.6 Abs. 1). Für die EÜR gilt der Teilwert ([§ 6 Abs. 1 Nr. 4 Satz 1 EStG](https://www.gesetze-im-internet.de/estg/__6.html)), bei gebrauchten beweglichen Gegenständen in der Regel derselbe Betrag. |
-| Beim Kauf Vorsteuer gezogen | Vorbelegt aus dem Anschaffungsbeleg, bei übernommenen Anlagen aus. |
+| Beim Kauf Vorsteuer gezogen | Auch bei teilweisem Abzug. Vorbelegt aus dem Anschaffungsbeleg, bei übernommenen Anlagen aus. |
 
 Die **Umsatzsteuer** fällt im Monat der Entnahme an, bei Ist- und Soll-Versteuerung gleich ([§ 13 Abs. 1 Nr. 2 UStG](https://www.gesetze-im-internet.de/ustg_1980/__13.html): Sie entsteht mit Ablauf des Voranmeldungszeitraums, in dem entnommen wird):
 
@@ -189,7 +189,7 @@ In der **EÜR** steht der Entnahmewert als „Veräußerung oder Entnahme von An
 |---|---|---|
 | mit Umsatzsteuer, Buchgewinn | 8820 / 2315 | 4845 / 4855 |
 | mit Umsatzsteuer, Buchverlust | 8801 / 2310 | 6885 / 6895 |
-| ohne Umsatzsteuer, Buchgewinn | 8829 / 2315 | 4849 / 4855 |
+| ohne Umsatzsteuer (Kleinunternehmer oder ohne Vorsteuer beim Kauf), Buchgewinn | 8829 / 2315 | 4849 / 4855 |
 | ohne Umsatzsteuer, Buchverlust | 8800 / 2310 | 6889 / 6895 |
 
 ## Private Nutzung von Firmenwagen
