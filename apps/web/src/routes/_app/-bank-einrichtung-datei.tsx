@@ -85,7 +85,8 @@ export function WegSchritt({
         </fieldset>
         {wege.includes("api") && wege.includes("datei") && (
           <p className="small muted" style={{ margin: 0 }}>
-            Beides geht auch nacheinander: erst die Datei für die Zeit davor, dann der Abruf. Haben erkennt dieselbe Zahlung wieder.
+            Beides geht nacheinander: die Datei für die Zeit davor, den Abruf ab dem Tag nach dem letzten Tag der Datei. Überschneiden sich beide, kann eine
+            Zahlung doppelt ankommen.
           </p>
         )}
         <div className="actions" style={{ justifyContent: "flex-start" }}>
