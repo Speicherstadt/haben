@@ -72,7 +72,7 @@ Bei Kontakten zählt auch der Name, wie beim [Abruf aus Lexware Office](lexoffic
 | Kreditor | Kreditorennummer, Kreditor, Kreditorenkonto | DATEV-Personenkonto, nur Ziffern, 70000 bis 99999; macht wie die Lieferantennummer zum Lieferanten |
 | Firma | Firmenname, Firma, Unternehmen, Name | Fehlt sie, gilt „Vorname Nachname“; ohne beides ist die Zeile fehlerhaft |
 | Vorname, Nachname | Vorname, Nachname | |
-| Adresszusatz, Straße, PLZ, Ort, Land | Adresszusatz, Zusatz, Straße, PLZ, Ort, Land, auch „Straße (Rechnungsadresse)“ … und „Straße 1“ … wie bei Lexware Office | In Deutschland hat die PLZ fünf Ziffern, wie im Formular. Land siehe [Werte](#werte). Die Lieferadresse („… (Lieferadresse)“, „Straße 2“ …) übernimmt Haben nicht |
+| Adresszusatz, Straße, PLZ, Ort, Land | Adresszusatz, Zusatz, Straße, PLZ, Ort, Land, auch „Straße (Rechnungsadresse)“ … und „Straße 1“ … wie bei Lexware Office | In Deutschland, also auch bei leerem Land, hat die PLZ fünf Ziffern, wie im Formular; sonst ist die Zeile fehlerhaft. Land siehe [Werte](#werte). Die Lieferadresse („… (Lieferadresse)“, „Straße 2“ …) übernimmt Haben nicht |
 | E-Mail | E-Mail, Email, E-Mail-Adresse, Geschäftlich (E-Mail), E-Mail 1 | Mehrere Adressen mit Komma oder Semikolon, höchstens fünf, wie im Formular |
 | Telefon | Telefon, Telefonnummer, Rufnummer, Geschäftlich (Rufnummer), Telefon 1 | Ziffern, Leerzeichen und `+ ( ) / - .`, wie im Formular |
 | USt-IdNr. | USt-IdNr., USt-ID, Umsatzsteuer-ID, Umsatzsteuer ID, Umsatzsteuernummer | Form wie `DE123456789`; die deutsche auch mit Prüfziffer (ISO 7064). Ob sie erteilt ist, bestätigt das BZSt auf der [Detailseite des Kontakts](kontakte.md#ust-idnr-beim-bzst-bestätigen); der Import fragt nicht an |

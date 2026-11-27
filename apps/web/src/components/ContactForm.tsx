@@ -2,7 +2,6 @@ import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { amountError, evatrPruefbar, parseEuro, parsePersonenkonto, plzProblem } from "@haben/core";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { flushSync } from "react-dom";
 import { UstIdHinweis } from "./UstIdHinweis.tsx";
 import { saveContact } from "../server/functions/contacts.ts";
 import type { Contact, ContactInput } from "../server/modules/stammdaten/index.ts";
@@ -11,6 +10,7 @@ import { ContactBasics, ContactInvoices, ContactTax, type IbanSuggestion } from 
 import { ContactWeitereAngaben, feldFehler, weitereAngabenFeld } from "./ContactWeitereAngaben.tsx";
 import { parseSkontoRows, type SkontoRow, toSkontoRows } from "./SkontoFields.tsx";
 import { useAction } from "../lib/use-action.ts";
+import { useSubmitCheck } from "../lib/use-submit-check.ts";
 import { ContactAddressFields } from "./ContactAddressFields.tsx";
 import type { BankverbindungOption } from "./BankverbindungField.tsx";
 import { useFokusNachSperre } from "../lib/use-fokus-nach-sperre.ts";
@@ -81,16 +81,28 @@ export function ContactForm({
   const [ownSkonto, setOwnSkonto] = useState(contact?.skonto != null);
   const [skontoRows, setSkontoRows] = useState(() => toSkontoRows(contact?.skonto ?? []));
   const [weitereOffen, setWeitereOffen] = useState(false);
-  const { busy, notice, form, onSubmit, pruefen } = useKontaktSpeichern({ contact, onSaved, onUpdated, ownSkonto, skontoRows, setWeitereOffen });
   const initial = initialValues(contact, prefill);
+  // PLZ und Land hier, weil die Prüfung beim Speichern beide braucht (#914)
+  const [plz, setPlz] = useState(initial.plz);
+  const [land, setLand] = useState(initial.land);
+  const pruefung = useSubmitCheck({ plz: plzFehler(contact, land, plz) });
+  const { busy, notice, form, onSubmit } = useKontaktSpeichern({ contact, onSaved, onUpdated, ownSkonto, skontoRows, setWeitereOffen, check: pruefung.check });
 
   return (
-    <form ref={form} className="card form-card contact-form" onSubmit={onSubmit} aria-label="Kontakt">
+    <form
+      ref={(element) => {
+        form.current = element;
+        pruefung.form(element);
+      }}
+      className="card form-card contact-form"
+      onSubmit={onSubmit}
+      aria-label="Kontakt"
+    >
       {/* Gesperrt, solange gespeichert wird: Danach baut die Seite das Formular mit der neuen Version im `key` neu auf, und
           was man bis dahin tippt, ginge verloren (#1824) */}
       <fieldset className="fieldset-plain" disabled={busy}>
         <ContactBasics initial={initial} isNew={!contact} nextNumber={nextNumber} />
-        <ContactAddressFields initial={initial} pruefen={pruefen} />
+        <ContactAddressFields initial={initial} plz={plz} onPlz={setPlz} land={land} onLand={setLand} plzFehler={pruefung.error("plz")} />
         <ContactTax initial={initial} ustId={ustId} onUstId={setUstId} ibanSuggestion={ibanSuggestion} />
         <ContactInvoices initial={initial} />
         <ContactWeitereAngaben
@@ -155,6 +167,7 @@ function useKontaktSpeichern({
   ownSkonto,
   skontoRows,
   setWeitereOffen,
+  check,
 }: {
   contact: Contact | null;
   onSaved: ((saved: SavedContact) => void) | undefined;
@@ -162,6 +175,8 @@ function useKontaktSpeichern({
   ownSkonto: boolean;
   skontoRows: SkontoRow[];
   setWeitereOffen: (offen: boolean) => void;
+  /** Prüfung am Feld (useSubmitCheck); false heißt: nicht speichern, der Fokus steht im ersten Feld mit Fehler */
+  check: () => boolean;
 }) {
   const router = useRouter();
   const navigate = useNavigate();
@@ -185,19 +200,10 @@ function useKontaktSpeichern({
     setFehlerFeld(feld);
   }
 
-  // Nach dem ersten Speichern zeigt die Anschrift den Fehler an der PLZ (#914)
-  const [pruefen, setPruefen] = useState(false);
-
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const daten = new FormData(event.currentTarget);
-    if (plzProblem(String(daten.get("land") ?? ""), String(daten.get("plz") ?? ""))) {
-      // Sofort rendern, damit das Feld den Fehler trägt, wenn der Screenreader es mit dem Fokus vorliest
-      flushSync(() => setPruefen(true));
-      (form.current?.elements.namedItem("plz") as HTMLElement | null)?.focus();
-      return;
-    }
-    const eingaben = kontaktEingaben(daten, ownSkonto, skontoRows);
+    if (!check()) return;
+    const eingaben = kontaktEingaben(new FormData(event.currentTarget), ownSkonto, skontoRows);
     if (eingaben instanceof Error) {
       setNotice({ tone: "danger", text: eingaben.message });
       feldZeigen(eingaben);
@@ -221,7 +227,13 @@ function useKontaktSpeichern({
     });
   }
 
-  return { busy, notice, form, onSubmit, pruefen };
+  return { busy, notice, form, onSubmit };
+}
+
+/** Wie der Server (assertPlz): Eine gespeicherte PLZ, die nicht passt, hält das Speichern anderer Felder nicht auf (#914) */
+function plzFehler(contact: Contact | null, land: string, plz: string): string | null {
+  if (contact && contact.plz === plz.trim() && contact.land === land) return null;
+  return plzProblem(land, plz);
 }
 
 /** Die Eingaben des Formulars, wie sie gespeichert werden, oder der erste Fehler, den schon der Browser erkennt */

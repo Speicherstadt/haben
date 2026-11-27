@@ -1,34 +1,39 @@
-import { plzProblem, vatTerritory } from "@haben/core";
-import { useId, useState } from "react";
+import { vatTerritory } from "@haben/core";
+import { useId } from "react";
 import { Field } from "./Field.tsx";
 import { LandCombobox } from "./LandCombobox.tsx";
 import { VatTerritoryHint } from "./VatTerritoryHint.tsx";
 
 /**
  * Anschrift mit unverbindlichem Sondergebiets-Hinweis, auch im Dialog für einen neuen Kontakt. Das Land ist eine Auswahl
- * (#914); die PLZ prüft das Formular je Land (`plzProblem`), den Fehler zeigt das Feld erst nach dem ersten Speichern
- * (`pruefen`) und nimmt ihn weg, sobald die PLZ stimmt.
+ * (#914). PLZ und Land hält das Formular, weil es die PLZ je Land beim Speichern prüft (useSubmitCheck); `plzFehler`
+ * ist der Fehler, den es am Feld zeigt.
  */
 export function ContactAddressFields({
   initial,
-  pruefen = false,
+  plz,
+  onPlz,
+  land,
+  onLand,
+  plzFehler,
 }: {
-  initial: { adresszusatz?: string; strasse: string; plz: string; ort: string; land: string };
-  pruefen?: boolean;
+  initial: { adresszusatz?: string; strasse: string; ort: string };
+  plz: string;
+  onPlz: (plz: string) => void;
+  land: string;
+  onLand: (land: string) => void;
+  plzFehler: string | undefined;
 }) {
-  const [postalCode, setPostalCode] = useState(initial.plz);
-  const [country, setCountry] = useState(initial.land);
   const hintId = useId();
-  const describedBy = vatTerritory(country, postalCode) ? hintId : undefined;
-  const plzFehler = pruefen ? plzProblem(country, postalCode) : null;
+  const describedBy = vatTerritory(land, plz) ? hintId : undefined;
   return (
     <section className="form-section" aria-labelledby="contact-address">
       <h2 id="contact-address">Anschrift</h2>
       <Field label="Adresszusatz" hint="Abteilung, c/o, Gebäude">
-        {(control) => <input {...control} name="adresszusatz" defaultValue={initial.adresszusatz ?? ""} maxLength={100} />}
+        {(control) => <input {...control} name="adresszusatz" defaultValue={initial.adresszusatz ?? ""} maxLength={100} autoComplete="address-line2" />}
       </Field>
       <Field label="Straße und Hausnummer">
-        {(control) => <input {...control} name="strasse" defaultValue={initial.strasse} autoComplete="street-address" />}
+        {(control) => <input {...control} name="strasse" defaultValue={initial.strasse} autoComplete="address-line1" />}
       </Field>
       <div className="form-row cols-address">
         <Field label="PLZ" describedBy={describedBy} error={plzFehler}>
@@ -36,20 +41,20 @@ export function ContactAddressFields({
             <input
               {...control}
               name="plz"
-              value={postalCode}
-              onChange={(event) => setPostalCode(event.target.value)}
+              value={plz}
+              onChange={(event) => onPlz(event.target.value)}
               autoComplete="postal-code"
               // Ziffernblock nur für deutsche PLZ; britische und niederländische haben Buchstaben
-              inputMode={country === "DE" ? "numeric" : "text"}
+              inputMode={land === "DE" ? "numeric" : "text"}
             />
           )}
         </Field>
         <Field label="Ort">{(control) => <input {...control} name="ort" defaultValue={initial.ort} autoComplete="address-level2" />}</Field>
         <Field label="Land" describedBy={describedBy}>
-          {(control) => <LandCombobox {...control} name="land" value={country} onChoose={setCountry} />}
+          {(control) => <LandCombobox {...control} name="land" value={land} onChoose={onLand} />}
         </Field>
       </div>
-      <VatTerritoryHint id={hintId} country={country} postalCode={postalCode} />
+      <VatTerritoryHint id={hintId} country={land} postalCode={plz} />
     </section>
   );
 }

@@ -256,8 +256,11 @@ function clean(input: ContactInput) {
 /**
  * PLZ je Land (#914) für Formular und API. Nicht in insertContact: Die Übernahme aus einer anderen Instanz und die
  * Umzüge nehmen die PLZ, wie sie dort stand; der CSV-Import meldet sie schon in der Vorschau (contactCandidates).
+ * Beim Ändern nur, wenn PLZ oder Land sich ändern: Eine alte PLZ hält das Speichern anderer Felder nicht auf, auch
+ * nicht ein PATCH der API.
  */
-function assertPlz(input: ContactInput) {
+function assertPlz(input: ContactInput, bisher?: { plz: string; land: string }) {
+  if (bisher && bisher.plz === input.plz.trim() && bisher.land === input.land) return;
   const problem = plzProblem(input.land, input.plz);
   if (problem) throw new ContactError(problem, { felder: ["plz"] });
 }
@@ -309,11 +312,14 @@ async function samePersonenkonto<T>(tx: Tx, write: () => Promise<T>): Promise<T>
 
 /** Änderungen erhöhen per Trigger die Version; alte Stände bleiben in contact_versions. */
 export async function updateContact(actor: string, id: string, input: ContactInput): Promise<Contact> {
-  assertPlz(input);
   return withActor(actor, async (tx) => {
     const values = clean(input);
-    const [current] = await tx.select({ kundennummer: schema.contacts.kundennummer }).from(schema.contacts).where(eq(schema.contacts.id, id));
+    const [current] = await tx
+      .select({ kundennummer: schema.contacts.kundennummer, plz: schema.contacts.plz, land: schema.contacts.land })
+      .from(schema.contacts)
+      .where(eq(schema.contacts.id, id));
     if (!current) throw new ContactError("Kontakt nicht gefunden.");
+    assertPlz(input, current);
     await assertBankverbindungWaehlbar(tx, values.bankverbindungId);
     if (current.kundennummer !== values.kundennummer && (await customerNumberLocked(tx, id))) {
       throw new ContactError(

@@ -173,7 +173,7 @@ Die Antwort der API wird je Beleg vollständig gespeichert, zum Nachweis. Beträ
 
 ### Kontakte verknüpfen
 
-Gibt es in Haben schon einen Kontakt mit demselben Namen (Groß- und Kleinschreibung egal) und ohne Lexoffice-Herkunft, verknüpft Haben ihn statt einen zweiten anzulegen. Der Fortschritt zeigt das unter „verknüpft“. Kontakte, die schon aus einem früheren Abruf stammen, überspringt Haben.
+Gibt es in Haben schon einen Kontakt mit demselben Namen (Groß- und Kleinschreibung egal) und ohne Lexoffice-Herkunft, verknüpft Haben ihn statt einen zweiten anzulegen. Der Fortschritt zeigt das unter „verknüpft“. Kontakte, die schon aus einem früheren Abruf stammen, überspringt Haben. Stammen sie aus einem Abruf, der den Adresszusatz noch in Klammern hinter die Straße schrieb, bleibt er dort, bis du den Kontakt änderst.
 
 ### Rate-Limit, Abbruch und Fortsetzen
 

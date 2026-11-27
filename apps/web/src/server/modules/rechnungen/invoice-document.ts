@@ -78,14 +78,16 @@ export function withCurrentSeller(seller: Seller, company: Company): Seller {
 }
 
 /**
- * Käufer eines festgeschriebenen Belegs in einem neuen Brief: Name und Anschrift des Kontakts von heute, Ansprechpartner
- * und Kundennummer bleiben wie auf dem Beleg. Fehlt der Kontakt, gilt der Käufer des Belegs.
+ * Käufer eines festgeschriebenen Belegs in einem neuen Brief: Name und Anschrift des Kontakts von heute, samt Adresszusatz
+ * (#914), Ansprechpartner und Kundennummer bleiben wie auf dem Beleg. Fehlt der Kontakt, gilt der Käufer des Belegs.
  */
 export async function withCurrentBuyer(q: Db | Tx, buyer: Buyer, contactId: string | null): Promise<Buyer> {
   const [contact] = contactId ? await q.select().from(schema.contacts).where(eq(schema.contacts.id, contactId)) : [];
   if (!contact) return buyer;
-  const { name, strasse, plz, ort, land } = contact;
-  return { ...buyer, name, strasse, plz, ort, land };
+  const { name, adresszusatz, strasse, plz, ort, land } = contact;
+  // Der Zusatz vom Festschreiben gehört zur alten Anschrift und fällt mit ihr weg
+  const { adresszusatz: _damals, ...ohneZusatz } = buyer;
+  return { ...ohneZusatz, name, ...(adresszusatz ? { adresszusatz } : {}), strasse, plz, ort, land };
 }
 
 /** Käufer eines Belegs aus dem Kontakt; mit Ansprechpartner (Stand der Person beim Festschreiben, #424) */

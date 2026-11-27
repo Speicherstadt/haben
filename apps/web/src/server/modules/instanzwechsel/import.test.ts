@@ -561,6 +561,17 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     expect(await sql`select description, arbeitskosten from articles`).toEqual([{ description: "Jahreslizenz", arbeitskosten: false }]);
   });
 
+  it("liest eine Datei der Version 5: Kontakte ohne Adresszusatz bekommen einen leeren (#914)", async () => {
+    await testinstanz();
+    const zip = await exportierenUndNeu();
+    const { sha256: _, ...inhalt } = einstellungen(zip);
+    expect(inhalt.contacts).toContainEqual(expect.objectContaining({ adresszusatz: "Abteilung Einkauf" }));
+    const kontakte = inhalt.contacts.map(({ adresszusatz: _z, ...rest }: Record<string, unknown>) => rest);
+    const alt = withChecksum({ ...inhalt, version: 5, contacts: kontakte });
+    await instanzwechsel.importSettings(actor, neuGepackt(unzipSync(zip), { "einstellungen.json": strToU8(JSON.stringify(alt)) }), HEUTE);
+    expect(await sql`select adresszusatz from contacts where id = ${KUNDE}`).toEqual([{ adresszusatz: "" }]);
+  });
+
   it("lehnt ein verändertes oder beschädigtes ZIP ab, bevor es etwas schreibt", async () => {
     await testinstanz();
     const zip = await exportierenUndNeu();

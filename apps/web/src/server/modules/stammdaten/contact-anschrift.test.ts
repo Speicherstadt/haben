@@ -64,10 +64,16 @@ describe.skipIf(!testDatabaseUrl)("Anschrift am Kontakt (Postgres, #914)", () =>
     await expect(contacts.updateContact(actor, nl.id, input({ plz: "1015 CJ" }))).rejects.toMatchObject({ felder: ["plz"] });
   });
 
-  it("die Übernahme aus einer anderen Instanz nimmt eine alte PLZ, wie sie war", async () => {
+  it("die Übernahme nimmt eine alte PLZ, wie sie war; sie hält das Speichern anderer Felder nicht auf, erst eine Änderung an PLZ oder Land prüft", async () => {
     const { withActor } = await import("../../db/actor.ts");
     const alt = await withActor(actor, (tx) => contacts.insertContact(tx, input({ plz: "D-20457" })));
     expect(alt.plz).toBe("D-20457");
+    const geaendert = await contacts.updateContact(actor, alt.id, input({ plz: "D-20457", email: "neu@nordwerk.example" }));
+    expect(geaendert.email).toBe("neu@nordwerk.example");
+    await expect(contacts.updateContact(actor, alt.id, input({ plz: "D-20458" }))).rejects.toMatchObject({ felder: ["plz"] });
+    // Wechselt das Land nach Deutschland, gilt die Prüfung auch für eine unveränderte PLZ
+    const wien = await contacts.createContact(actor, input({ name: "Wien GmbH", plz: "1010", land: "AT" }));
+    await expect(contacts.updateContact(actor, wien.id, input({ name: "Wien GmbH", plz: "1010", land: "DE" }))).rejects.toMatchObject({ felder: ["plz"] });
   });
 
   it("steht beim Festschreiben im Käufer und in der XML als BT-51; spätere Änderungen am Kontakt berühren die Rechnung nicht", async () => {
