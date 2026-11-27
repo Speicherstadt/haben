@@ -1,10 +1,13 @@
+import { belegAnteile } from "./beleg-anteile.ts";
 import type { InvoiceTotals } from "./invoice.ts";
-import { formatEuro, roundHalfAwayFromZero, type BasisPoints, type Cents } from "./money.ts";
+import { formatEuro, roundHalfAwayFromZero, type BasisPoints, type Cents, type Prozent } from "./money.ts";
 import {
   ACCOUNTS,
   EXPENSE_CATEGORIES,
   inputTaxCode,
+  istPrivatentnahme,
   ownerAccount,
+  PRIVATENTNAHME,
   REVERSE_CHARGE_IN,
   side,
   type ReverseChargeIn,
@@ -15,6 +18,7 @@ import {
   type TaxCode,
   vatRate,
 } from "./posting.ts";
+import { distribute } from "./rabatt.ts";
 import type { Rechtsform } from "./rechtsform.ts";
 import { abziehbareSteuer, buchungsAnteil } from "./vorsteuerabzug.ts";
 
@@ -26,7 +30,7 @@ import { abziehbareSteuer, buchungsAnteil } from "./vorsteuerabzug.ts";
  * wird wie bisher nicht nachgerechnet. Die Zeilen tragen Kategorie, Steuersatz und Netto; ihr Netto muss je Satz genau
  * das Netto des Belegs ergeben. Die Vorsteuer eines Satzes teilt Haben zuerst nach Netto zwischen Betrieb und Entnahme
  * und dann innerhalb jeder Gruppe auf ihre Zeilen, damit der abziehbare Teil nicht davon abhängt, an welcher Stelle die
- * Entnahme steht (#1976). Gerechnet wird mit Beträgen, damit eine Gutschrift dieselben Anteile ergibt wie die Rechnung.
+ * Entnahme steht (#1976). Gewichtet wird mit dem vorzeichenbehafteten Netto; eine Gutschrift ergibt gespiegelte Anteile.
  * So ergeben die Zeilen je Satz exakt Netto und Vorsteuer des Belegs.
  */
 
@@ -58,33 +62,12 @@ export interface DocumentRateAmount {
 
 const sum = (values: Cents[]) => values.reduce((s, v) => s + v, 0);
 
-/**
- * Teilt einen Steuerbetrag nach Netto auf die Zeilen einer Gruppe, deren Teile zusammen exakt den Betrag ergeben. Je
- * Zeile wird kaufmännisch gerundet, den Rest trägt die betragsmäßig größte Zeile, bei Gleichstand die erste — das
- * bisherige Verfahren. So behalten gespeicherte Aufteilungen ohne Entnahme ihre Werte; Abrunden nach dem größten
- * Bruchteil verschöbe einzelne Cent auf andere Kategorien (#1976). Gewichtet wird mit dem vorzeichenbehafteten Netto,
- * wie bisher: Eine Gutschrift hat nur negative Zeilen und ergibt damit dieselben Anteile wie die Rechnung.
- */
-function verteileSteuer(betrag: Cents, nettos: readonly Cents[]): Cents[] {
-  const basis = nettos.reduce((a, b) => a + b, 0);
-  if (betrag === 0 || basis === 0) return nettos.map(() => 0);
-  const teile = nettos.map((net) => roundHalfAwayFromZero((betrag * net) / basis));
-  const rest = betrag - sum(teile);
-  const groesste = nettos.reduce((best, net, i) => (Math.abs(net) > Math.abs(nettos[best]!) ? i : best), 0);
-  teile[groesste] = (teile[groesste] ?? 0) + rest;
-  return teile;
+/** Plus und Minus im selben Satz; eine Gutschrift hat nur negative Zeilen */
+function gemischteVorzeichen(nettos: readonly Cents[]): boolean {
+  return nettos.some((net) => net > 0) && nettos.some((net) => net < 0);
 }
 
-/**
- * Kategorie der Privatentnahme. Sie ist die einzige Wahrheit darüber, was privat ist: Ein Kennzeichen am Feld müsste
- * jeder Schreiber setzen, und die Buchung, die EÜR und die Anzeige bekommen die Zeilen auf verschiedenen Wegen.
- * Privatentnahme ist im Kontenplan (EXPENSE_CATEGORIES) nicht freigeschaltet, über das Formular also nicht wählbar.
- * Als Position.kategorie kommt sie trotzdem vor: positionenSummen reicht sie unverändert an allocateSplitTax durch,
- * der Vergleich greift dort also schon.
- */
-const PRIVATENTNAHME_KATEGORIE = "privatentnahme";
-
-const istPrivatentnahme = (line: DocumentSplitLine) => String(line.category) === PRIVATENTNAHME_KATEGORIE;
+const istEntnahmezeile = (line: DocumentSplitLine) => istPrivatentnahme(line.category);
 
 /**
  * Verteilt die Vorsteuer je Satz auf die Zeilen: zuerst nach Netto zwischen Betrieb und Entnahme, dann innerhalb jeder
@@ -102,27 +85,24 @@ export function allocateSplitTax(lines: DocumentSplitLine[], amounts: DocumentRa
     const indexes = lines.flatMap((line, i) => (line.taxRate === amount.taxRate ? [i] : []));
     const base = sum(indexes.map((i) => lines[i]!.net));
     if (indexes.length === 0 || base === 0) continue;
-    const betrieb = indexes.filter((i) => !istPrivatentnahme(lines[i]!));
-    const entnahme = indexes.filter((i) => istPrivatentnahme(lines[i]!));
+    const betrieb = indexes.filter((i) => !istEntnahmezeile(lines[i]!));
+    const entnahme = indexes.filter((i) => istEntnahmezeile(lines[i]!));
     // Riegel vor der Verteilung (#1976): Mit Entnahme hebt sich im Nenner ihres Anteils Plus und Minus auf, bei Netto 0
     // fiele die Steuer des Satzes still auf 0. Ohne Entnahme bleibt es beim bisherigen Verfahren über das ganze Netto.
-    const gemischt = indexes.some((i) => lines[i]!.net > 0) && indexes.some((i) => lines[i]!.net < 0);
-    if (gemischt && entnahme.length > 0) continue;
-    const entnahmeNetto = sum(entnahme.map((i) => lines[i]!.net));
-    // Die Entnahme trägt ihren gerundeten Anteil, der Betrieb den Rest: zusammen genau die Steuer des Belegs
-    const entnahmeSteuer =
-      entnahme.length === 0 ? 0 : Math.sign(amount.tax) * roundHalfAwayFromZero((Math.abs(amount.tax) * Math.abs(entnahmeNetto)) / Math.abs(base));
-    const gruppen: { indexes: number[]; steuer: Cents }[] = [
-      { indexes: betrieb, steuer: amount.tax - entnahmeSteuer },
-      { indexes: entnahme, steuer: entnahmeSteuer },
-    ];
-    for (const gruppe of gruppen) {
-      if (gruppe.indexes.length === 0) continue;
-      const teile = verteileSteuer(
-        gruppe.steuer,
-        gruppe.indexes.map((i) => lines[i]!.net),
+    if (entnahme.length > 0 && gemischteVorzeichen(indexes.map((i) => lines[i]!.net))) continue;
+    // Die Entnahme trägt ihren kaufmännisch gerundeten Anteil, der Betrieb den Rest: zusammen genau die Steuer des Belegs.
+    // Dieselbe Regel wie beim Privatanteil am Beleg (belegAnteile): privat gerundet, betrieblich der Rest.
+    const entnahmeSteuer = entnahme.length === 0 ? 0 : roundHalfAwayFromZero((amount.tax * sum(entnahme.map((i) => lines[i]!.net))) / base);
+    for (const [gruppe, steuer] of [
+      [betrieb, amount.tax - entnahmeSteuer],
+      [entnahme, entnahmeSteuer],
+    ] as const) {
+      // Innerhalb der Gruppe das bisherige Verfahren: kaufmännisch gerundet, Rest auf die betragsmäßig größte Zeile
+      const teile = distribute(
+        steuer,
+        gruppe.map((i) => lines[i]!.net),
       );
-      gruppe.indexes.forEach((i, k) => {
+      gruppe.forEach((i, k) => {
         result[i]!.tax = teile[k]!;
       });
     }
@@ -148,7 +128,7 @@ export function splitIssues(lines: AllocatedSplitLine[], amounts: DocumentRateAm
     const own = lines.filter((line) => line.taxRate === rate);
     const net = sum(own.map((line) => line.net));
     // Vor dem Betragsvergleich: Hebt sich der Satz zu 0 auf, faellt er sonst durch und die Buchung ginge still durch
-    if (own.some((line) => line.net > 0) && own.some((line) => line.net < 0)) {
+    if (gemischteVorzeichen(own.map((line) => line.net))) {
       issues.push(`Aufteilung ${percent(rate)}: Zeilen mit Plus und Minus gemischt; eine Gutschrift hat nur negative Zeilen`);
     }
     if (net !== amount.net) {
@@ -159,6 +139,29 @@ export function splitIssues(lines: AllocatedSplitLine[], amounts: DocumentRateAm
     if (tax !== amount.tax) issues.push(`Aufteilung ${percent(rate)}: Vorsteuer der Zeilen ${formatEuro(tax)}, Beleg ${formatEuro(amount.tax)}`);
   }
   return issues;
+}
+
+/**
+ * Teilt eine Zeile einmalig in den betrieblichen Teil und die Privatentnahme (#1975), nach der Regel für den
+ * Privatanteil (belegAnteile): der private Teil kaufmännisch gerundet, der betriebliche der Rest. Danach sind es zwei
+ * gewöhnliche Zeilen; gespeichert wird kein Prozentsatz und kein Verweis. Wer korrigieren will, löscht die Entnahme,
+ * stellt den Betrag richtig und spaltet neu ab. Das eigene Konto bleibt am betrieblichen Teil.
+ */
+export function privatanteilAbspalten(line: DocumentSplitLine, prozent: Prozent): { betrieblich: DocumentSplitLine; privat: DocumentSplitLine } {
+  if (istEntnahmezeile(line)) throw new RangeError("Von einer Privatentnahme lässt sich kein Anteil abspalten");
+  if (!Number.isInteger(prozent) || prozent <= 0 || prozent >= 100)
+    throw new RangeError("Der Privatanteil muss ein ganzer Prozentsatz über 0 und unter 100 sein");
+  const { business, private: privat } = belegAnteile(line.net, prozent);
+  // Eine Zeile mit Netto 0 meldete splitIssues erst beim Buchen als fehlenden Nettobetrag
+  if (privat === 0 || business === 0) {
+    throw new RangeError(`${prozent} % von ${formatEuro(line.net)} ergeben gerundet eine Zeile mit 0 Cent; dafür lässt sich nichts abspalten`);
+  }
+  // Bis die Privatentnahme mit der Buchung in EXPENSE_CATEGORIES steht, ist sie keine ExpenseCategory
+  const { account: _konto, ...ohneKonto } = line;
+  return {
+    betrieblich: { ...line, net: business },
+    privat: { ...ohneKonto, category: PRIVATENTNAHME as ExpenseCategory, net: privat },
+  };
 }
 
 /**

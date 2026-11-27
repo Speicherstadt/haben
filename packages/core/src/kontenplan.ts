@@ -235,6 +235,17 @@ export type ExpenseCategory = keyof typeof EXPENSE_CATEGORIES;
 
 export const EXPENSE_CATEGORY_KEYS = Object.keys(EXPENSE_CATEGORIES) as [ExpenseCategory, ...ExpenseCategory[]];
 
+/**
+ * Kategorie der Privatentnahme (#1975): eine Zeile einer Aufteilung, deren Betrag ganz zur Entnahme gehört, ohne
+ * Vorsteuer. Sie steht noch nicht in EXPENSE_CATEGORIES; wählbar wird sie erst mit der Buchung und den Auswertungen.
+ */
+export const PRIVATENTNAHME = "privatentnahme";
+
+/** Ob eine Kategorie die Privatentnahme ist; die eine Stelle, an der das entschieden wird */
+export function istPrivatentnahme(kategorie: string): boolean {
+  return kategorie === PRIVATENTNAHME;
+}
+
 /** Ob die Kategorie die Eigenschaft hat (KategorieEigenschaft); eine unbekannte Kategorie hat keine */
 export function hatEigenschaft(kategorie: string, eigenschaft: KategorieEigenschaft): boolean {
   if (!Object.hasOwn(EXPENSE_CATEGORIES, kategorie)) return false;
