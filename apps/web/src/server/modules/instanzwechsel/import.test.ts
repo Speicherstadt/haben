@@ -121,7 +121,7 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     // Weitere Zahlungskonten (#1887): eins als bevorzugtes des Kunden, eins ohne Kontakt
     await sql`insert into bankverbindungen(id, bezeichnung, iban, bank) values (${NORD}, 'Objekt Nord', 'DE02120300000000202051', 'Deutsche Kreditbank')`;
     await sql`insert into bankverbindungen(bezeichnung, iban) values ('Rücklage', 'DE75512108001245126199')`;
-    await sql`insert into contacts(id, kundennummer, name, ort, email, debitor_nr, lexoffice_id, bankverbindung_id) values (${KUNDE}, 'K-0041', 'Nordwerk GmbH', 'Hamburg', 'einkauf@nordwerk.example', 10041, 'lx-41', ${NORD})`;
+    await sql`insert into contacts(id, kundennummer, name, adresszusatz, ort, email, debitor_nr, lexoffice_id, bankverbindung_id) values (${KUNDE}, 'K-0041', 'Nordwerk GmbH', 'Abteilung Einkauf', 'Hamburg', 'einkauf@nordwerk.example', 10041, 'lx-41', ${NORD})`;
     await sql`insert into contacts(id, is_customer, is_supplier, name, archived_at) values (${LIEFERANT}, false, true, 'Altlieferant KG', now())`;
     await sql`insert into contact_persons(contact_id, name, funktion, created_by) values (${KUNDE}, 'Jana Peters', 'Einkauf', 'test-user')`;
     await sql`insert into text_blocks(name, kind, text, contact_id) values ('Rahmenvertrag', 'kopf', 'Gemäß Rahmenvertrag RV-17 berechnen wir:', ${KUNDE})`;
@@ -188,7 +188,10 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
       [LIEFERANT, null, "Altlieferant KG", null, null, true],
       [KUNDE, "K-0041", "Nordwerk GmbH", 10041, "lx-41", false],
     ]);
-    expect((await sql`select bankverbindung_id from contacts where id = ${KUNDE}`)[0]!.bankverbindung_id).toBe(NORD);
+    expect((await sql`select bankverbindung_id, adresszusatz from contacts where id = ${KUNDE}`)[0]).toEqual({
+      bankverbindung_id: NORD,
+      adresszusatz: "Abteilung Einkauf",
+    });
     const bankverbindungen = await sql`select id, bezeichnung, iban, bank from bankverbindungen order by bezeichnung`;
     expect(bankverbindungen.map((b) => [b.bezeichnung, b.iban, b.bank])).toEqual([
       ["Objekt Nord", "DE02120300000000202051", "Deutsche Kreditbank"],

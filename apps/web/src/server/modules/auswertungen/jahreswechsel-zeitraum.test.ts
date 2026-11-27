@@ -102,7 +102,8 @@ describe.skipIf(!testDatabaseUrl)("Jahreswechsel 2026/2027: Umsätze ohne Steuer
         kundennummer: "",
         name: `Kunde ${behandlung}`,
         strasse: "Ring 1",
-        plz: "1010",
+        // Eine deutsche PLZ hat fünf Ziffern (#914)
+        plz: KUNDE[behandlung].land === "DE" ? "10115" : "1010",
         ort: "Stadt",
         email: "a@b.example",
         iban: "",

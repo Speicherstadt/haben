@@ -139,6 +139,7 @@ export const FELDER = {
       "isSupplier",
       "lieferantennummer",
       "name",
+      "adresszusatz",
       "strasse",
       "plz",
       "ort",

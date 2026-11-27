@@ -2367,6 +2367,13 @@
       "when": 1795773643421,
       "tag": "0337_dauerbeleg_kleinbetrag",
       "breakpoints": true
+    },
+    {
+      "idx": 338,
+      "version": "7",
+      "when": 1795782507790,
+      "tag": "0338_kontakt_adresszusatz",
+      "breakpoints": true
     }
   ]
 }

@@ -29,6 +29,7 @@ describe("Kontakte", () => {
       kundennummer: "10001",
       lieferantennummer: "",
       name: "Müller & Söhne GmbH",
+      adresszusatz: "",
       strasse: "Hauptstraße 5",
       plz: "50667",
       ort: "Köln",
@@ -70,6 +71,7 @@ describe("Kontakte", () => {
       vorname: "Vorname",
       nachname: "Nachname",
       strasse: "Straße (Rechnungsadresse)",
+      adresszusatz: "Adresszusatz (Rechnungsadresse)",
       plz: "PLZ (Rechnungsadresse)",
       ort: "Ort (Rechnungsadresse)",
       land: "Land (Rechnungsadresse)",
@@ -124,15 +126,16 @@ describe("Kontakte", () => {
     ];
     const mapping = suggestMapping(header, CONTACT_FIELDS);
     const column = (key: string) => (mapping[key] === null || mapping[key] === undefined ? null : header[mapping[key]!]);
-    expect([column("strasse"), column("plz"), column("ort"), column("land"), column("email"), column("telefon"), column("ustId")]).toEqual([
-      "Straße 1",
-      "PLZ 1",
-      "Ort 1",
-      "Land 1",
-      "E-Mail 1",
-      "Telefon 1",
-      "Umsatzsteuernummer",
-    ]);
+    expect([
+      column("strasse"),
+      column("adresszusatz"),
+      column("plz"),
+      column("ort"),
+      column("land"),
+      column("email"),
+      column("telefon"),
+      column("ustId"),
+    ]).toEqual(["Straße 1", "Adresszusatz 1", "PLZ 1", "Ort 1", "Land 1", "E-Mail 1", "Telefon 1", "Umsatzsteuernummer"]);
   });
 
   it("meldet je Zeile falsche IBAN, falsche Prüfziffer der USt-IdNr., fehlenden Namen und Formeln", () => {
@@ -447,5 +450,20 @@ describe("Anlagen", () => {
       ["dublette", "Wie Zeile 2 (Bezeichnung, Anschaffung und Kosten pkw · 15.03.2024 · 36.000,00 €)"],
       ["neu", null],
     ]);
+  });
+});
+
+describe("Kontakte: Adresszusatz und PLZ je Land (#914)", () => {
+  it("übernimmt den Adresszusatz; eine deutsche PLZ braucht fünf Ziffern, eine ausländische ist frei", () => {
+    const { t, mapping } = mapped(
+      "Firma;Adresszusatz;Straße;PLZ;Ort;Land\nA GmbH;c/o Büro Nord;Hafenweg 3;20457;Hamburg;DE\nB GmbH;;Hafenweg 4;2045;Hamburg;DE\nC BV;;Keizersgracht 1;1015 CJ;Amsterdam;NL\n",
+      CONTACT_FIELDS,
+    );
+    const [a, b, c] = contactCandidates(t, mapping);
+    expect(a!.errors).toEqual([]);
+    expect(a!.value).toMatchObject({ adresszusatz: "c/o Büro Nord", plz: "20457" });
+    expect(b!.value).toBeNull();
+    expect(b!.errors).toEqual(["PLZ: Eine deutsche PLZ hat fünf Ziffern, etwa 93047."]);
+    expect(c!.errors).toEqual([]);
   });
 });

@@ -7,6 +7,7 @@ import {
   PERSONENKONTO_LABEL,
   type PersonenkontoRolle,
   personenkontoProblem,
+  plzProblem,
   skontoProblem,
   skontoStufenSchema,
   sortSkonto,
@@ -37,6 +38,8 @@ function personenkonto(rolle: PersonenkontoRolle) {
 export const contactSchema = z.object({
   kundennummer: z.string().trim().max(40),
   name: z.string().trim().min(1, "Name fehlt").max(200),
+  /** Abteilung, c/o, Gebäude oder Stockwerk (#914); fehlt = leer */
+  adresszusatz: z.string().trim().max(100).default(""),
   strasse: z.string().trim().max(200),
   plz: z.string().trim().max(10),
   ort: z.string().trim().max(100),
@@ -250,12 +253,22 @@ function clean(input: ContactInput) {
   };
 }
 
+/**
+ * PLZ je Land (#914) für Formular und API. Nicht in insertContact: Die Übernahme aus einer anderen Instanz und die
+ * Umzüge nehmen die PLZ, wie sie dort stand; der CSV-Import meldet sie schon in der Vorschau (contactCandidates).
+ */
+function assertPlz(input: ContactInput) {
+  const problem = plzProblem(input.land, input.plz);
+  if (problem) throw new ContactError(problem, { felder: ["plz"] });
+}
+
 export async function createContact(actor: string, input: ContactInput): Promise<Contact> {
+  assertPlz(input);
   return withActor(actor, (tx) => insertContact(tx, input));
 }
 
-/** Legt einen Kontakt in der laufenden Transaktion an; auch für den CSV-Import, der alle Zeilen in einer Transaktion anlegt */
 /**
+ * Legt einen Kontakt in der laufenden Transaktion an; auch für den CSV-Import, der alle Zeilen in einer Transaktion anlegt.
  * `id` und `vergeben: false` nur für die Übernahme aus einer anderen Instanz (#488): Ansprechpartner und Textbausteine
  * behalten ihren Kontakt, und ein Kunde ohne Nummer bleibt ohne, wie er dort war.
  */
@@ -296,6 +309,7 @@ async function samePersonenkonto<T>(tx: Tx, write: () => Promise<T>): Promise<T>
 
 /** Änderungen erhöhen per Trigger die Version; alte Stände bleiben in contact_versions. */
 export async function updateContact(actor: string, id: string, input: ContactInput): Promise<Contact> {
+  assertPlz(input);
   return withActor(actor, async (tx) => {
     const values = clean(input);
     const [current] = await tx.select({ kundennummer: schema.contacts.kundennummer }).from(schema.contacts).where(eq(schema.contacts.id, id));

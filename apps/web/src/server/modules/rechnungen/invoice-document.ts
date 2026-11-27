@@ -92,6 +92,7 @@ export async function withCurrentBuyer(q: Db | Tx, buyer: Buyer, contactId: stri
 export function buyerFrom(contact: Contact, ansprechpartner?: Buyer["ansprechpartner"]): Buyer {
   return {
     name: contact.name,
+    ...(contact.adresszusatz ? { adresszusatz: contact.adresszusatz } : {}),
     strasse: contact.strasse,
     plz: contact.plz,
     ort: contact.ort,

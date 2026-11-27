@@ -1141,6 +1141,8 @@ export const contacts = pgTable(
     /** Nummer beim Lieferanten bzw. eigene Lieferantennummer, frei */
     lieferantennummer: text("lieferantennummer"),
     name: text("name").notNull(),
+    /** Adresszusatz (Abteilung, c/o, Gebäude): im PDF eine eigene Zeile, in der E-Rechnung BT-51 (#914) */
+    adresszusatz: text("adresszusatz").notNull().default(""),
     strasse: text("strasse").notNull().default(""),
     plz: text("plz").notNull().default(""),
     ort: text("ort").notNull().default(""),

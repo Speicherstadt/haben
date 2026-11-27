@@ -75,6 +75,7 @@ function contactRow(rows: DatevGpRow[]): ContactRow {
     kundennummer: debitor?.kundennummer ?? "",
     lieferantennummer: "",
     name: field("name"),
+    adresszusatz: address.adresszusatz,
     strasse: address.strasse,
     plz: address.plz,
     ort: address.ort,

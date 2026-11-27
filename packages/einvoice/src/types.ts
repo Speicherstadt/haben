@@ -27,6 +27,8 @@ export interface Address {
   ort: string;
   /** ISO 3166-1 alpha-2, z. B. "DE" */
   land: string;
+  /** Adresszusatz (Abteilung, c/o, Gebäude), beim Käufer BT-51 bzw. in der Lieferanschrift BT-76; leer = keiner (#914) */
+  adresszusatz?: string;
 }
 
 export interface Seller extends Address {

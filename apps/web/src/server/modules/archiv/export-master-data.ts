@@ -21,6 +21,7 @@ export async function* masterDataFiles(
       [
         "Kundennummer",
         "Name",
+        "Adresszusatz",
         "Straße",
         "PLZ",
         "Ort",
@@ -40,6 +41,7 @@ export async function* masterDataFiles(
       contacts.map((c) => [
         c.kundennummer,
         c.name,
+        c.adresszusatz,
         c.strasse,
         c.plz,
         c.ort,

@@ -3,7 +3,7 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 import postgres from "postgres";
 import { day, YEAR } from "./daten.ts";
 import { databaseUrlFuer } from "./durchlaeufe.ts";
-import { bestaetigen, durchlaufSeite, einrichten, gehe, kundeWaehlen } from "./einrichtung.ts";
+import { bestaetigen, durchlaufSeite, einrichten, gehe, kundeWaehlen, landWaehlen } from "./einrichtung.ts";
 import { HANDY, sichtbar } from "./kopfzeile.ts";
 
 /**
@@ -43,7 +43,7 @@ test.beforeAll(async ({ browser }) => {
   await page.getByLabel("Straße und Hausnummer").fill("Beispielweg 7");
   await page.getByLabel("PLZ", { exact: true }).fill("1010");
   await page.getByLabel("Ort", { exact: true }).fill("Wien");
-  await page.getByLabel("Land (z. B. DE)").fill("AT");
+  await landWaehlen(page, "AT");
   await page.getByRole("button", { name: "Kontakt anlegen", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Versionen" })).toBeVisible();
 });

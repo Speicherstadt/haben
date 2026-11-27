@@ -1,0 +1,1 @@
+ALTER TABLE "contacts" ADD COLUMN "adresszusatz" text DEFAULT '' NOT NULL;

@@ -15,6 +15,7 @@ import {
   fristenOeffnen,
   gehe,
   kundeWaehlen,
+  landWaehlen,
   neuenLieferantenOeffnen,
   weitereAngabenOeffnen,
   ohneAxeVerstoesse,
@@ -350,7 +351,7 @@ test("Zusammenfassende Meldung: Leistung ins EU-Ausland, Quartal prüfen und tes
   await page.getByLabel("Straße und Hausnummer").fill("Praterstraße 3");
   await page.getByLabel("PLZ").fill("1020");
   await page.getByLabel("Ort").fill("Wien");
-  await page.getByLabel("Land (z. B. DE)").fill("AT");
+  await landWaehlen(page, "AT");
   await page.getByLabel("USt-IdNr.").fill("ATU12345678");
   await page.getByRole("button", { name: "Kontakt anlegen" }).click();
   await expect(page.getByRole("heading", { name: "Versionen" })).toBeVisible();

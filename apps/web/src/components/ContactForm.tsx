@@ -1,7 +1,8 @@
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { amountError, evatrPruefbar, parseEuro, parsePersonenkonto } from "@haben/core";
+import { amountError, evatrPruefbar, parseEuro, parsePersonenkonto, plzProblem } from "@haben/core";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { flushSync } from "react-dom";
 import { UstIdHinweis } from "./UstIdHinweis.tsx";
 import { saveContact } from "../server/functions/contacts.ts";
 import type { Contact, ContactInput } from "../server/modules/stammdaten/index.ts";
@@ -17,6 +18,7 @@ import { useFokusNachSperre } from "../lib/use-fokus-nach-sperre.ts";
 const EMPTY: ContactInput = {
   kundennummer: "",
   name: "",
+  adresszusatz: "",
   strasse: "",
   plz: "",
   ort: "",
@@ -79,7 +81,7 @@ export function ContactForm({
   const [ownSkonto, setOwnSkonto] = useState(contact?.skonto != null);
   const [skontoRows, setSkontoRows] = useState(() => toSkontoRows(contact?.skonto ?? []));
   const [weitereOffen, setWeitereOffen] = useState(false);
-  const { busy, notice, form, onSubmit } = useKontaktSpeichern({ contact, onSaved, onUpdated, ownSkonto, skontoRows, setWeitereOffen });
+  const { busy, notice, form, onSubmit, pruefen } = useKontaktSpeichern({ contact, onSaved, onUpdated, ownSkonto, skontoRows, setWeitereOffen });
   const initial = initialValues(contact, prefill);
 
   return (
@@ -88,7 +90,7 @@ export function ContactForm({
           was man bis dahin tippt, ginge verloren (#1824) */}
       <fieldset className="fieldset-plain" disabled={busy}>
         <ContactBasics initial={initial} isNew={!contact} nextNumber={nextNumber} />
-        <ContactAddressFields initial={initial} countryLabel={onSaved ? undefined : "Land (z. B. DE)"} />
+        <ContactAddressFields initial={initial} pruefen={pruefen} />
         <ContactTax initial={initial} ustId={ustId} onUstId={setUstId} ibanSuggestion={ibanSuggestion} />
         <ContactInvoices initial={initial} />
         <ContactWeitereAngaben
@@ -183,9 +185,19 @@ function useKontaktSpeichern({
     setFehlerFeld(feld);
   }
 
+  // Nach dem ersten Speichern zeigt die Anschrift den Fehler an der PLZ (#914)
+  const [pruefen, setPruefen] = useState(false);
+
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const eingaben = kontaktEingaben(new FormData(event.currentTarget), ownSkonto, skontoRows);
+    const daten = new FormData(event.currentTarget);
+    if (plzProblem(String(daten.get("land") ?? ""), String(daten.get("plz") ?? ""))) {
+      // Sofort rendern, damit das Feld den Fehler trägt, wenn der Screenreader es mit dem Fokus vorliest
+      flushSync(() => setPruefen(true));
+      (form.current?.elements.namedItem("plz") as HTMLElement | null)?.focus();
+      return;
+    }
+    const eingaben = kontaktEingaben(daten, ownSkonto, skontoRows);
     if (eingaben instanceof Error) {
       setNotice({ tone: "danger", text: eingaben.message });
       feldZeigen(eingaben);
@@ -209,7 +221,7 @@ function useKontaktSpeichern({
     });
   }
 
-  return { busy, notice, form, onSubmit };
+  return { busy, notice, form, onSubmit, pruefen };
 }
 
 /** Die Eingaben des Formulars, wie sie gespeichert werden, oder der erste Fehler, den schon der Browser erkennt */
@@ -242,11 +254,12 @@ function kontaktEingaben(form: FormData, ownSkonto: boolean, skontoRows: SkontoR
   } satisfies ContactInput;
 }
 
-/** Die Textfelder des Formulars, wie sie gespeichert werden: USt-IdNr. und IBAN ohne Leerzeichen, Land in Großbuchstaben */
+/** Die Textfelder des Formulars, wie sie gespeichert werden: USt-IdNr. und IBAN ohne Leerzeichen, Land als Code aus der Auswahl */
 function textFields(text: (name: keyof ContactInput) => string) {
   return {
     kundennummer: text("kundennummer"),
     name: text("name"),
+    adresszusatz: text("adresszusatz"),
     strasse: text("strasse"),
     plz: text("plz"),
     ort: text("ort"),
