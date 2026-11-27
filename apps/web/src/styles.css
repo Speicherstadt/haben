@@ -143,6 +143,9 @@ h2 { margin: 0; font-size: 16px; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .seitenladen { animation: none; } }
 .small { font-size: 13px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Tabellen, die seitlich rollen, sind Bezugsrahmen für versteckten Text darin (.visually-hidden ist absolut): sonst
+   steht er an seiner Stelle in der breiten Tabelle außerhalb des Rollbereichs und macht die Seite breiter (Archiv, 320 px) */
+.table-scroll, .data-table, .report-table { position: relative; }
 
 /* Shell */
 .shell { display: flex; min-height: 100vh; }
@@ -349,10 +352,12 @@ button.nav-foot-link { width: 100%; background: none; border: 0; font: inherit; 
 @media (max-height: 300px) { .page-head { position: static; } }
 .shell[data-scrolled] .page-head { box-shadow: 0 1px 0 var(--line), 0 6px 12px -10px rgb(0 0 0 / 0.3); }
 .page-head > .actions, .page-head > .field { align-self: flex-end; }
-/* Bricht der Kopf um, bleiben die Aktionen rechts. Am Handy (bis 720 px) füllen sie die Spalte in voller Breite */
+/* Bricht der Kopf um, bleiben die Aktionen rechts. Brechen die Aktionen selbst in mehrere Reihen um (Tablet mit Seitenleiste,
+   Auswertungen), füllt ihr Block die Breite und seine Reihen beginnen an der Kante des Titels, statt rechtsbündig mit Lücke
+   links zu flattern. Am Handy (bis 720 px) füllen sie die Spalte in voller Breite */
 @media (min-width: 721px) {
   .page-head > .actions, .page-head > .stack { margin-left: auto; }
-  .page-head > .actions, .page-head > .stack > .actions { justify-content: flex-end; }
+  .page-head > .stack > .actions { justify-content: flex-end; }
 }
 .page-head .eyebrow { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
 /* Feste Aktionsleiste am unteren Fensterrand am Handy (< 861 px) für alle Aktionen (#396, Variante E) */
@@ -1293,7 +1298,7 @@ fieldset.card > legend + * { clear: both; }
 /* Tablet mit ausgeklappter Seitenleiste (861–1024 px): die Arbeitsfläche ist schmaler als 760 px;
    breite Tabellen scrollen in der Karte, feste Listenspalten rücken zusammen statt zu überlappen */
 @media (min-width: 721px) and (max-width: 1024px) {
-  .card > .report-table:not(:has(.account-combobox)) { display: block; overflow-x: auto; }
+  :is(.card, .card > details) > .report-table:not(:has(.account-combobox)) { display: block; overflow-x: auto; }
 }
 @media (min-width: 861px) and (max-width: 1024px) {
   :where(:root:not([data-nav="collapsed"])) .document-cols { grid-template-columns: 84px minmax(0, 1.1fr) minmax(0, 1fr) 88px 116px; }

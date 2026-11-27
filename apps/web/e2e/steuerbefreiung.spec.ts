@@ -273,6 +273,10 @@ test("Gesamtumsatz: bekannte Einnahme, eigene Befreiungen und unbekannter histor
   for (const id of exemptInvoices) {
     await expect(card.getByRole("row").filter({ has: page.locator(`a[href="/rechnungen/${id}"]`) })).toContainText("Ausgenommen");
   }
-  await page.setViewportSize(HANDY);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  // Tablet mit ausgeklappter Seitenleiste: die aufgeklappte Tabelle rollt in der Karte, statt die Seite zu verbreitern
+  for (const viewport of [{ width: 861, height: 1100 }, HANDY]) {
+    await page.setViewportSize(viewport);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `§ 19 aufgeklappt bei ${viewport.width}px ohne Seitenüberlauf`).toBeLessThanOrEqual(1);
+  }
 });
