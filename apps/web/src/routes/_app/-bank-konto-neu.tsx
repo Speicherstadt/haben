@@ -3,12 +3,13 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState, type FormEvent } from "react";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Field } from "../../components/Field.tsx";
+import { FormDialog } from "../../components/FormDialog.tsx";
 import type { ImportMessage } from "../../components/BankImportMeldungen.tsx";
 import { errorMessage } from "../../lib/format.ts";
 import { addBankAccount } from "../../server/functions/bank.ts";
 
 /**
- * Formular „Konto hinzufügen“: ein Bankkonto ohne Abruf; über „Bank hinzufügen › Kontoauszüge als Datei“ (datei) mit dem
+ * Dialog „Konto hinzufügen“: ein Bankkonto ohne Abruf; über „Bank hinzufügen › Kontoauszüge als Datei“ (datei) mit dem
  * Hinweis auf den Import. Zahlungsdienstleister legt die Einrichtung unter „Zahlungsdienstleister hinzufügen“ an (#2008).
  */
 export function NeuesKontoForm({
@@ -51,30 +52,33 @@ export function NeuesKontoForm({
   }
 
   return (
-    <form className="card" onSubmit={onSubmit} style={{ width: "100%", maxWidth: 420 }} aria-label="Konto hinzufügen">
-      {datei && (
+    // Als Dialog, damit das Formular den Seitenkopf nicht aufschiebt (DESIGN.md, Dialoge)
+    <FormDialog open title={datei ? "Konto für Kontoauszüge anlegen" : "Konto ohne Abruf anlegen"} onClose={onClose}>
+      <form onSubmit={onSubmit} aria-label="Konto hinzufügen">
+        {datei && (
+          <p className="small muted" style={{ marginBottom: 0 }}>
+            Danach importierst du die Kontoauszüge mit „Datei importieren“. DKB-Dateien und CAMT nennen die IBAN; dafür legt der Import das Konto auch selbst
+            an.
+          </p>
+        )}
+        <Field label="Name">{(control) => <input {...control} name="name" required placeholder="N26 Business" />}</Field>
+        <Field label="IBAN">{(control) => <input {...control} name="iban" required />}</Field>
         <p className="small muted" style={{ margin: 0 }}>
-          Danach importierst du die Kontoauszüge mit „CSV / CAMT importieren“. DKB-Dateien und CAMT nennen die IBAN; dafür legt der Import das Konto auch selbst
-          an.
+          PayPal, Stripe, Amazon und andere Zahlungsdienstleister:{" "}
+          <button type="button" className="link-button" onClick={onZahlungsdienstleister}>
+            Zahlungsdienstleister hinzufügen
+          </button>
         </p>
-      )}
-      <Field label="Name">{(control) => <input {...control} style={{ width: "100%", minWidth: 0 }} name="name" required placeholder="N26 Business" />}</Field>
-      <Field label="IBAN">{(control) => <input {...control} style={{ width: "100%", minWidth: 0 }} name="iban" required />}</Field>
-      <p className="small muted" style={{ margin: 0 }}>
-        PayPal, Stripe, Amazon und andere Zahlungsdienstleister:{" "}
-        <button type="button" className="link-button" onClick={onZahlungsdienstleister}>
-          Zahlungsdienstleister hinzufügen
-        </button>
-      </p>
-      <div className="actions">
-        <button type="button" className="btn" onClick={onClose} disabled={busy}>
-          Abbrechen
-        </button>
-        <button type="submit" className="btn btn-primary" disabled={busy}>
-          Konto anlegen
-        </button>
-      </div>
-    </form>
+        <div className="actions">
+          <button type="button" className="btn" onClick={onClose} disabled={busy}>
+            Abbrechen
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={busy}>
+            Konto anlegen
+          </button>
+        </div>
+      </form>
+    </FormDialog>
   );
 }
 
