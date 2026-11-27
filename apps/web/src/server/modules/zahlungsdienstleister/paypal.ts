@@ -22,6 +22,9 @@ import { minusDays } from "./regeln.ts";
 
 export class PayPalError extends UserError {}
 
+/** Fehler an den Zugangsdaten: die Einrichtung zeigt ihn am ersten Feld, der Client-ID */
+const AM_ZUGANG = { felder: ["clientId"] };
+
 /** Für Tests austauschbar: baut den API-Client */
 let clientFactory = (options: PayPalClientOptions): PayPalClient => new PayPalClient(options);
 
@@ -115,11 +118,11 @@ export const paypalAdapter: PspAdapter<PayPalZugang, PayPalConfig> = {
   zugangAusEingabe(eingabe, config, bisher) {
     const clientId = eingabe.clientId?.trim();
     const clientSecret = eingabe.clientSecret?.trim();
-    if (Boolean(clientId) !== Boolean(clientSecret)) throw new PayPalError("Client-ID und Secret gehören zusammen: Trage beide ein oder keines.");
+    if (Boolean(clientId) !== Boolean(clientSecret)) throw new PayPalError("Client-ID und Secret gehören zusammen: Trage beide ein oder keines.", AM_ZUGANG);
     if (!clientId || !clientSecret) {
-      if (!bisher) throw new PayPalError("Client-ID und Secret der PayPal-App fehlen.");
+      if (!bisher) throw new PayPalError("Client-ID und Secret der PayPal-App fehlen.", AM_ZUGANG);
       if (bisher.config.sandbox !== config.sandbox) {
-        throw new PayPalError("Live und Sandbox haben verschiedene Zugangsdaten: Trage die Client-ID und das Secret der gewählten Umgebung ein.");
+        throw new PayPalError("Live und Sandbox haben verschiedene Zugangsdaten: Trage die Client-ID und das Secret der gewählten Umgebung ein.", AM_ZUGANG);
       }
       return null;
     }
@@ -129,7 +132,7 @@ export const paypalAdapter: PspAdapter<PayPalZugang, PayPalConfig> = {
     try {
       return { accountId: await clientFor(zugang, config).accountId(), keyHint: zugang.clientId.slice(-4) };
     } catch (error) {
-      throw new PayPalError(`PayPal nimmt die Zugangsdaten nicht an: ${error instanceof Error ? error.message : String(error)}`);
+      throw new PayPalError(`PayPal nimmt die Zugangsdaten nicht an: ${error instanceof Error ? error.message : String(error)}`, AM_ZUGANG);
     }
   },
   einstellungFehler({ fetchFrom }, heute) {
