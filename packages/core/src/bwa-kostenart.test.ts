@@ -58,6 +58,7 @@ describe("Kostenart der BWA (DATEV-Kontenrahmen 2026)", () => {
     ["3100", "5900", "fremdleistungen"],
     ["4120", "6020", "personal"],
     ["4210", "6310", "raum"],
+    ["4287", "6347", "raum"],
     ["4288", "6348", "raum"],
     // Grundstücksaufwendungen: betrieblich bei den Raumkosten, „sonstige (neutral)“ neutral
     ["4290", "6350", "raum"],

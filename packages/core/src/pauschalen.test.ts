@@ -60,4 +60,10 @@ describe("Pauschalen", () => {
     expect(PAUSCHALE_KONTEN.entfernung.SKR04.konto).toBe("6688");
     expect(PAUSCHALE_KONTEN.entfernung.SKR03.name).toMatch(/Wohnung und Betriebsstätte.*abziehbarer Anteil/);
   });
+
+  it("Homeoffice auf dem Konto der Tagespauschale, nicht auf dem des Arbeitszimmers (#2015)", () => {
+    // DATEV-Kontenrahmen 2026: SKR03 4287 bzw. SKR04 6347; 4288 bzw. 6348 ist das häusliche Arbeitszimmer (abziehbarer Anteil)
+    const name = "Tagespauschale für die Tätigkeit in der häuslichen Wohnung";
+    expect(PAUSCHALE_KONTEN.homeoffice).toEqual({ SKR03: { konto: "4287", name }, SKR04: { konto: "6347", name } });
+  });
 });
