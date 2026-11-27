@@ -26,6 +26,8 @@ type Fall = {
   gutschrift: boolean;
   erstattet?: boolean;
   spaeter?: boolean;
+  /** Kleinunternehmer: kein Vorsteuerabzug, § 13b schuldet er trotzdem */
+  klein?: boolean;
 };
 
 describe.skipIf(!testDatabaseUrl)("Privatentnahme in allen Kombinationen (Postgres)", () => {
@@ -55,7 +57,7 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in allen Kombinationen (Postgr
     await leeren(sql)`truncate document_cancellations, vat_returns, write_offs, allocations, bank_transactions, bank_imports, bank_accounts, cash_entries,
       asset_depreciations, assets, journal_lines, journal_entries, document_splits, document_amounts, documents, year_closings, company cascade`;
     await sql`insert into company (id, name, strasse, plz, ort, email, steuernummer, bundesland, versteuerung, kontenrahmen, kleinunternehmer, rechtsform)
-      values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '198/113/10010', 'BY', ${f.versteuerung}, ${f.kontenrahmen}, false, 'einzelunternehmen')`;
+      values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '198/113/10010', 'BY', ${f.versteuerung}, ${f.kontenrahmen}, ${f.klein ?? false}, 'einzelunternehmen')`;
   }
 
   async function beleg(f: Fall, mitAufteilung: boolean) {
@@ -178,6 +180,7 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in allen Kombinationen (Postgr
   }
 
   const faelle: Fall[] = [];
+  for (const rc of [null, "eu"] as const) faelle.push({ kontenrahmen: "SKR03", versteuerung: "ist", rc, anteil: null, gutschrift: false, klein: true });
   for (const kontenrahmen of ["SKR03", "SKR04"] as const)
     for (const versteuerung of ["ist", "soll"] as const)
       for (const rc of [null, "eu"] as const)
@@ -224,7 +227,7 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in allen Kombinationen (Postgr
   });
 
   it.each(faelle)(
-    "$kontenrahmen $versteuerung rc=$rc anteil=$anteil gutschrift=$gutschrift erstattet=$erstattet spaeter=$spaeter: Aufteilung mit Entnahme wie 25 % Privatanteil am Beleg",
+    "$kontenrahmen $versteuerung rc=$rc anteil=$anteil gutschrift=$gutschrift erstattet=$erstattet spaeter=$spaeter klein=$klein: Aufteilung mit Entnahme wie 25 % Privatanteil am Beleg",
     async (f) => {
       const privatanteil = await durchlauf(f, false);
       const aufteilung = await durchlauf(f, true);
