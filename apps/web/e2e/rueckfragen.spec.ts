@@ -747,6 +747,9 @@ test("Bank: Konten als Kartenleiste in Gruppen, im schmalen Fenster als Chips un
   const nachRechts = page.getByRole("button", { name: "Konten nach rechts" });
   await expect(nachLinks).toBeHidden();
   await expect(nachRechts).toBeHidden();
+  // Ohne Pfeile steht die erste Karte bündig mit dem Titel der Seite, nicht um die Breite eines Pfeils eingerückt
+  const [titel, ersteKarte] = await Promise.all([page.locator(".page-head h1").boundingBox(), alle.boundingBox()]);
+  expect(Math.abs((ersteKarte?.x ?? 0) - (titel?.x ?? 0))).toBeLessThanOrEqual(1);
 
   const groesse = page.viewportSize()!;
   try {
