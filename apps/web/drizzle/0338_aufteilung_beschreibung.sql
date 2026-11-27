@@ -1,0 +1,1 @@
+ALTER TABLE "document_splits" ADD COLUMN "description" text;

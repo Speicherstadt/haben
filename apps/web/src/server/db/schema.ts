@@ -2458,6 +2458,8 @@ export const documentSplits = pgTable(
     /** Reihenfolge wie eingegeben, ab 1 */
     position: smallint("position").notNull(),
     category: text("category").notNull(),
+    /** Freie Beschreibung der Zeile (#1975): nullable, kein Default; bestehende Zeilen bleiben null */
+    description: text("description"),
     /** Eigenes Sachkonto (#270) der Kategorie der Zeile */
     ownAccountId: uuid("own_account_id").references(() => ownAccounts.id),
     taxRate: smallint("tax_rate").$type<BasisPoints>().notNull(),
