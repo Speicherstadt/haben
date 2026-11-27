@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { allocateSplitTax, documentSplitPosting, splitIssues, type DocumentSplitLine } from "./document-split.ts";
+import type { ExpenseCategory } from "./posting.ts";
 import { computeEuer } from "./euer.ts";
 import { totalsFromTaxes } from "./invoice.ts";
 import { documentPosting, paidTaxShares } from "./posting.ts";
@@ -10,6 +11,14 @@ import { documentPosting, paidTaxShares } from "./posting.ts";
  */
 
 const issueAmounts = [{ taxRate: 1900, net: 17_000, tax: 3_230 }];
+
+/**
+ * Was privat ist, entscheidet die Kategorie. Bis die Kategorie im Kontenplan freigeschaltet ist (Punkt 4), steht sie
+ * in den Tests als Zeichenkette; der Vergleich läuft über String, damit die Union sie nicht kennen muss.
+ */
+const PRIVAT = "privatentnahme";
+const istPrivat = (line: { category: unknown }) => String(line.category) === PRIVAT;
+const entnahmeKategorie = PRIVAT as unknown as ExpenseCategory;
 const issueLines: DocumentSplitLine[] = [
   { category: "wareneinkauf", taxRate: 1900, net: 10_000 },
   { category: "software", taxRate: 1900, net: 5_000 },
@@ -86,25 +95,25 @@ describe("allocateSplitTax", () => {
     // Fünf Zeilen zu je 3 ct netto bei 19 %, Steuer des Belegs 3 ct: Vorher trug die erste Zeile den Rundungsrest,
     // betrieblich waren es dann 4 ct (Entnahme vorn) oder 2 ct (hinten) — der abziehbare Teil hing an der Reihenfolge.
     const betrieb: DocumentSplitLine[] = Array.from({ length: 4 }, () => ({ category: "wareneinkauf", taxRate: 1900, net: 3 }));
-    const entnahme: DocumentSplitLine = { category: "sonstiges", taxRate: 1900, net: 3, privat: true };
+    const entnahme: DocumentSplitLine = { category: entnahmeKategorie, taxRate: 1900, net: 3 };
     const amounts = [{ taxRate: 1900, net: 15, tax: 3 }];
     for (const lines of [
       [entnahme, ...betrieb],
       [...betrieb, entnahme],
     ]) {
       const allocated = allocateSplitTax(lines, amounts);
-      expect(sumOf(allocated.filter((line) => line.privat).map((line) => line.tax))).toBe(1);
-      expect(sumOf(allocated.filter((line) => !line.privat).map((line) => line.tax))).toBe(2);
+      expect(sumOf(allocated.filter((line) => istPrivat(line)).map((line) => line.tax))).toBe(1);
+      expect(sumOf(allocated.filter((line) => !istPrivat(line)).map((line) => line.tax))).toBe(2);
       expect(sumOf(allocated.map((line) => line.tax))).toBe(3);
     }
   });
 
   it("Gutschrift: die Entnahme bekommt ihren negativen Anteil, der Betrieb bleibt negativ (#1976)", () => {
     const betrieb: DocumentSplitLine[] = Array.from({ length: 4 }, () => ({ category: "wareneinkauf", taxRate: 1900, net: -3 }));
-    const entnahme: DocumentSplitLine = { category: "sonstiges", taxRate: 1900, net: -3, privat: true };
+    const entnahme: DocumentSplitLine = { category: entnahmeKategorie, taxRate: 1900, net: -3 };
     const allocated = allocateSplitTax([entnahme, ...betrieb], [{ taxRate: 1900, net: -15, tax: -3 }]);
-    expect(allocated.filter((line) => line.privat).map((line) => line.tax)).toEqual([-1]);
-    expect(sumOf(allocated.filter((line) => !line.privat).map((line) => line.tax))).toBe(-2);
+    expect(allocated.filter((line) => istPrivat(line)).map((line) => line.tax)).toEqual([-1]);
+    expect(sumOf(allocated.filter((line) => !istPrivat(line)).map((line) => line.tax))).toBe(-2);
     expect(sumOf(allocated.map((line) => line.tax))).toBe(-3);
   });
 });

@@ -52,11 +52,8 @@ export function splitLines(
 export async function replaceSplits(tx: Tx, documentId: string, splits: SplitInput[], amounts: { taxRate: number; net: number; tax: number }[]): Promise<void> {
   await tx.delete(schema.documentSplits).where(eq(schema.documentSplits.documentId, documentId));
   if (splits.length === 0) return;
-  // Die Entnahme-Markierung entsteht aus der Kategorie; gespeichert wird sie nicht (#1976)
-  const allocated = allocateSplitTax(
-    splits.map((zeile) => ({ ...zeile, ...(istPrivat(zeile.category) ? { privat: true } : {}) })),
-    amounts,
-  );
+  // Was privat ist, entscheidet allocateSplitTax an der Kategorie; gespeichert wird nur die Kategorie (#1976)
+  const allocated = allocateSplitTax(splits, amounts);
   // Netto und verteilte Vorsteuer stehen in int4-Spalten; die Eingabe erlaubt wie bei den Beträgen mehr
   if (allocated.some((line) => Math.abs(line.net) > MAX_SPLIT_CENTS || Math.abs(line.tax) > MAX_SPLIT_CENTS)) {
     throw new UserError("Ein Betrag der Aufteilung ist zu groß. Stimmen die Nettobeträge der Zeilen?");

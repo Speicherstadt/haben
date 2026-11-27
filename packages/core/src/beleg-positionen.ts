@@ -121,13 +121,8 @@ function verteilung(
   privat: { net: Cents; tax: Cents }[];
 } {
   const lines: DocumentSplitLine[] = positionen.map((position) => {
-    // allocateSplitTax liest Satz, Netto und die Entnahme-Markierung; die Kategorie reicht es unverändert durch
-    return {
-      category: position.kategorie as ExpenseCategory,
-      taxRate: position.rate,
-      net: position.net,
-      ...(istPrivatentnahme(position) ? { privat: true } : {}),
-    };
+    // allocateSplitTax liest Satz, Netto und die Kategorie; was privat ist, erkennt es an privatentnahme
+    return { category: position.kategorie as ExpenseCategory, taxRate: position.rate, net: position.net };
   });
   const verteilt = allocateSplitTax(lines, vorgabeJeSatz(positionen, saetze));
   const steuer = new Map<number, Cents>();

@@ -41,7 +41,6 @@ export interface DocumentSplitLine {
    * Zeile gehört zur Entnahme (#1976): Ihr Anteil an der Steuer des Satzes ist nicht abziehbar. Die Steuer des Satzes
    * wird dann zuerst nach Netto zwischen Betrieb und Entnahme geteilt, nicht über alle Zeilen hinweg.
    */
-  privat?: boolean;
 }
 
 /** Kontierungszeile mit ihrem Anteil an der Vorsteuer des Satzes */
@@ -83,14 +82,23 @@ function verteileSteuer(betrag: Cents, nettos: readonly Cents[]): Cents[] {
  * Steuer des Belegs (#1976); die Summe je Satz bleibt exakt die Steuer des Belegs. Stimmt das Netto der Zeilen (noch)
  * nicht, wird nach ihrem eigenen Netto verteilt; ohne Netto bleibt die Steuer bei 0, das meldet splitIssues.
  */
+/**
+ * Kategorie der Privatentnahme. Sie ist die einzige Wahrheit darüber, was privat ist: Ein Kennzeichen am Feld müsste
+ * jeder Schreiber setzen, und die Buchung, die EÜR und die Anzeige bekommen die Zeilen auf verschiedenen Wegen.
+ * Privatentnahme ist im Kontenplan noch nicht freigeschaltet; bis dahin ist der Vergleich immer falsch.
+ */
+const PRIVATENTNAHME_KATEGORIE = "privatentnahme";
+
+const istPrivatentnahme = (line: DocumentSplitLine) => String(line.category) === PRIVATENTNAHME_KATEGORIE;
+
 export function allocateSplitTax(lines: DocumentSplitLine[], amounts: DocumentRateAmount[]): AllocatedSplitLine[] {
   const result: AllocatedSplitLine[] = lines.map((line) => ({ ...line, tax: 0 }));
   for (const amount of amounts) {
     const indexes = lines.flatMap((line, i) => (line.taxRate === amount.taxRate ? [i] : []));
     const base = sum(indexes.map((i) => lines[i]!.net));
     if (indexes.length === 0 || base === 0) continue;
-    const betrieb = indexes.filter((i) => lines[i]!.privat !== true);
-    const entnahme = indexes.filter((i) => lines[i]!.privat === true);
+    const betrieb = indexes.filter((i) => !istPrivatentnahme(lines[i]!));
+    const entnahme = indexes.filter((i) => istPrivatentnahme(lines[i]!));
     const entnahmeNetto = sum(entnahme.map((i) => lines[i]!.net));
     // Die Entnahme trägt ihren gerundeten Anteil, der Betrieb den Rest: zusammen genau die Steuer des Belegs
     const entnahmeSteuer =
