@@ -240,6 +240,7 @@ Bei neuen Bilanz-Anzahlungs-/Schlussketten von GmbH und UG gehen reine Anforderu
 | 41 | Warenlieferung in die EU (innergemeinschaftliche Lieferung) | immer das Rechnungsdatum, auch bei Ist-Versteuerung (§ 18b Satz 1 Nr. 1 und Satz 2 UStG) |
 | 43 | Warenlieferung ins Nicht-EU-Ausland (Ausfuhrlieferung) | Rechnung: [Leistungstag](#leistungstag-bei-soll-versteuerung), unabhängig von Ist/Soll; Anzahlungen nicht, die Schlussrechnung mit der ganzen Leistung. Storno und Korrektur: Monat ihres Datums, auf schon bezahltes Entgelt erst mit der [Rückzahlung](rechnungen.md#bereits-bezahlte-rechnung), bei einer Schlussrechnung mehr unter der Tabelle. Skonto und Forderungsausfall: Monat der Ausbuchung bzw. ihrer Aufhebung. Bis Version 0.13.0-rc.1 festgeschriebene Rechnungen: wie bisher, siehe unter der Tabelle |
 | 45 | Nicht-EU-Ausland: Dienstleistung oder Nutzungsrecht | immer das Rechnungsdatum, auch bei Ist-Versteuerung |
+| 60 | Inland, Bauleistung: Kunde schuldet die Steuer | immer das Rechnungsdatum, auch bei Ist-Versteuerung: Beim Kunden entsteht die Steuer mit der Rechnung, spätestens mit Ablauf des Monats nach der Leistung ([§ 13b Abs. 2 UStG](https://www.gesetze-im-internet.de/ustg_1980/__13b.html)) |
 | 48 | Steuerfreie Leistung, z. B. Heilbehandlung oder Unterricht (§ 4 UStG, ohne Vorsteuerabzug) | wie Kz 43; Bareinnahme ohne Rechnung: Tag der Zahlung |
 | 48 | Umsatz als Kleinunternehmer (§ 19 Abs. 1 UStG) | wie Kz 43, auch für Rechnungen bis Version 0.13.0-rc.1; Bareinnahme und Direktbuchung: Tag der Zahlung |
 

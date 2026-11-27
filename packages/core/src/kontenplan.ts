@@ -20,6 +20,7 @@ export const ACCOUNTS = {
     erloese: { 1900: "8400", 700: "8300", 0: "8200" },
     erloeseSonder: {
       reverse_charge: "8336",
+      bauleistung_13b: "8337",
       drittland: "8338",
       eu_sonstige: "8339",
       ig_lieferung: "8125",
@@ -93,6 +94,7 @@ export const ACCOUNTS = {
     erloese: { 1900: "4400", 700: "4300", 0: "4200" },
     erloeseSonder: {
       reverse_charge: "4336",
+      bauleistung_13b: "4337",
       drittland: "4338",
       eu_sonstige: "4339",
       ig_lieferung: "4125",
@@ -340,6 +342,7 @@ export const ACCOUNT_NAMES: Record<Kontenrahmen, Record<string, string>> = {
     "8200": "Erlöse",
     "8300": "Erlöse 7 % USt",
     "8336": "Erlöse aus im anderen EU-Land steuerpflichtigen sonstigen Leistungen (Reverse Charge)",
+    "8337": "Erlöse aus Leistungen, für die der Leistungsempfänger die Steuer nach § 13b UStG schuldet",
     "8338": "Erlöse aus im Drittland steuerbaren Leistungen",
     "8339": "Erlöse aus im anderen EU-Land steuerbaren Leistungen, im Inland nicht steuerbare Umsätze",
     "8400": "Erlöse 19 % USt",
@@ -382,6 +385,7 @@ export const ACCOUNT_NAMES: Record<Kontenrahmen, Record<string, string>> = {
     "4200": "Erlöse",
     "4300": "Erlöse 7 % USt",
     "4336": "Erlöse aus im anderen EU-Land steuerpflichtigen sonstigen Leistungen (Reverse Charge)",
+    "4337": "Erlöse aus Leistungen, für die der Leistungsempfänger die Steuer nach § 13b UStG schuldet",
     "4338": "Erlöse aus im Drittland steuerbaren Leistungen",
     "4339": "Erlöse aus im anderen EU-Land steuerbaren Leistungen, im Inland nicht steuerbare Umsätze",
     "4400": "Erlöse 19 % USt",

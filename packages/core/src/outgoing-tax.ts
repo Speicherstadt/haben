@@ -62,6 +62,7 @@ export function outgoingTaxClassification(treatment: TaxTreatment, details: Outg
     case "ig_lieferung":
       return { kind: "section4", provision: { number: "1", letter: "b" }, ancillary: null };
     case "regulaer":
+    case "bauleistung_13b":
     case "kleinunternehmer":
       return { kind: "domestic" };
   }

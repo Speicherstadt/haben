@@ -156,6 +156,7 @@ export async function ustYear(year: number): Promise<UstYear> {
     // Auch hier Bemessungsgrundlagen in vollen Euro; die Steuerbeträge bleiben centgenau
     kz21: toWholeEuros(total("kz21")),
     kz45: toWholeEuros(total("kz45")),
+    kz60: toWholeEuros(total("kz60")),
     // Kz 650 (E3106101): die Kz 50 der Voranmeldungen aus denselben Journalzeilen, in Kz 81/86 schon enthalten
     kz50: toWholeEuros(await kz50DerVoranmeldungen(year, months, frequencies)),
     kz41: toWholeEuros(total("kz41")),

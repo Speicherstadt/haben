@@ -6,7 +6,7 @@ import { turnoverRange, unknownTurnover, type GesamtumsatzItem } from "./gesamtu
 
 type JournalLine = typeof schema.journalLines.$inferSelect;
 type Journal = typeof schema.journalEntries.$inferSelect & { lines: JournalLine[] };
-const outgoingCodes = new Set(["USt19", "USt7", "frei", "KU", "Steuerfrei", "RC", "Drittland", "NichtSteuerbar", "IGL", "Ausfuhr"]);
+const outgoingCodes = new Set(["USt19", "USt7", "frei", "KU", "Steuerfrei", "RC", "RC13bBau", "Drittland", "NichtSteuerbar", "IGL", "Ausfuhr"]);
 const incomingCodes = new Set(["VSt19", "VSt7", "keineVSt", "RC13bEU", "RC13bDrittland", "VSt13b", "IGE19", "IGE7", "VStIGE", "EUSt"]);
 
 async function journalRows(q: Db | Tx, where: SQL) {

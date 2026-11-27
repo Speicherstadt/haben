@@ -90,6 +90,13 @@ describe("buildUstvaXml", () => {
     expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 
+  it("schreibt Bauleistungen, für die der Kunde die Steuer schuldet, in Kz 60 in vollen Euro (#1934)", () => {
+    const xml = buildUstvaXml({ ...base, figures: { kz81: 0, kz86: 0, kz60: 1_234_599, kz66: 0, kz83: 0 } });
+    expect(tag(xml, "Kz60")).toBe("12345");
+    const order = [...xml.matchAll(/<Kz(\d+)>/g)].map((m) => Number(m[1]));
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+
   it("schreibt § 13b als Leistungsempfänger: Kz 46/84 in Euro, Steuer 47/85 und Vorsteuer 67 in Cent", () => {
     const xml = buildUstvaXml({
       ...base,

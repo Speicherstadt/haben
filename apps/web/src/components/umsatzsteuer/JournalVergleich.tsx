@@ -5,6 +5,7 @@ const KENNZAHLEN = [
   "kz81",
   "kz86",
   "kz21",
+  "kz60",
   "kz45",
   "kz50",
   "kz48",

@@ -62,6 +62,8 @@ describe.skipIf(!testDatabaseUrl)("Belegimport: fünfte unabhängige Reviewrunde
     { taxType: "thirdPartyCountryService", treatment: "drittland", kz: "kz45" },
     { taxType: "intraCommunitySupply", treatment: "ig_lieferung", kz: null },
     { taxType: "externalService13b", treatment: "reverse_charge", kz: null },
+    // § 13b im Inland (#1934): Kz 60 mit der Rechnung, wie legacy-vat.ts das Quellprogramm nachrechnet
+    { taxType: "constructionService13b", treatment: "bauleistung_13b", kz: null },
   ] as const;
   for (const { taxType, treatment, kz } of cases)
     for (const chart of ["SKR03", "SKR04"] as const)
@@ -93,7 +95,7 @@ describe.skipIf(!testDatabaseUrl)("Belegimport: fünfte unabhängige Reviewrunde
           }
         });
 
-  for (const taxType of ["constructionService13b", "photovoltaicEquipment"])
+  for (const taxType of ["photovoltaicEquipment"])
     it(`übernimmt eine Rechnung mit der Steuerart ${taxType} ohne native Behandlung nicht als reguläre Forderung`, async () => {
       const imported = await imports.runExternalImport(
         "review-user",

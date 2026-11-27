@@ -78,6 +78,7 @@ const taxCodes = [
   "USt7",
   "frei",
   "RC",
+  "RC13bBau",
   "Drittland",
   "NichtSteuerbar",
   "Steuerfrei",

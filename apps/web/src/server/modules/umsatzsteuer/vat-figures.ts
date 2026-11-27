@@ -76,8 +76,10 @@ export interface IgErwerbSource extends InputTaxSource {
  * spätestens im Folgemonat der Leistung (§ 18b Satz 1 und 2 UStG); Haben nimmt das Rechnungsdatum. Ebenso nicht steuerbare
  * Leistungen ins Drittland (Kz 45): DATEV weist bei Ist-Versteuerung nur steuerpflichtige und steuerfreie inländische
  * Umsätze mit der Zahlung aus, nicht steuerbare Umsätze im Drittland schon mit der Rechnung (DATEV-Dok. 1080673).
+ * Bauleistungen nach § 13b Abs. 5 UStG (Kz 60): Beim Kunden entsteht die Steuer mit der Rechnung, spätestens mit Ablauf
+ * des Folgemonats (§ 13b Abs. 2 UStG), auch der Umzugsimport meldet Kz 60 nach dem Belegdatum (legacy-vat.ts).
  */
-export const NACH_RECHNUNGSDATUM = ["reverse_charge", "ig_lieferung", "drittland", "eu_sonstige"] as const satisfies readonly TaxTreatment[];
+export const NACH_RECHNUNGSDATUM = ["reverse_charge", "bauleistung_13b", "ig_lieferung", "drittland", "eu_sonstige"] as const satisfies readonly TaxTreatment[];
 
 /**
  * Kennzahlen der Voranmeldung aus dem Journal (#542, #1116, docs/adr/journal-als-quelle.md). Die Listen (revenue,
@@ -96,6 +98,8 @@ export interface VatFigures {
   /** Reverse Charge im EU-Ausland, nicht steuerbar (Drittland), steuerfrei ohne Vorsteuerabzug */
   kz21: Cents;
   kz45: Cents;
+  /** Bauleistungen, für die der Kunde die Steuer schuldet (§ 13b Abs. 5 UStG, Kz 60) */
+  kz60: Cents;
   kz48: Cents;
   kz66: Cents;
   /** § 13b als Leistungsempfänger: EU (46/47), Drittland (84/85), Vorsteuer daraus (67) */

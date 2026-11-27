@@ -292,10 +292,9 @@ function kontenOf(kontenrahmen: Kontenrahmen): Record<string, EbilanzZiel> {
     [a.erloese[1900], [`${GS}.generalRateVAT`]],
     [a.erloese[700], [`${GS}.reducedRateVAT`]],
     [a.erloese[0], [`${GS}.unknownVAT`]],
-    // Leistungsort im Ausland: in Deutschland nicht steuerbar
-    [a.erloeseSonder.reverse_charge, [`${GS}.untaxable`]],
-    [a.erloeseSonder.drittland, [`${GS}.untaxable`]],
-    [a.erloeseSonder.eu_sonstige, [`${GS}.untaxable`]],
+    // Leistungsort im Ausland: in Deutschland nicht steuerbar; Bauleistung im Inland, der Kunde schuldet die Steuer (§ 13b UStG)
+    ...(["reverse_charge", "drittland", "eu_sonstige"] as const).map((k): [string, EbilanzZiel] => [a.erloeseSonder[k], [`${GS}.untaxable`]]),
+    [a.erloeseSonder.bauleistung_13b, [`${GS}.UStG13b`]],
     // Steuerfreie Lieferungen mit Vorsteuerabzug: innergemeinschaftlich an Abnehmer mit USt-IdNr. und Ausfuhr
     [a.erloeseSonder.ig_lieferung, [`${GS}.taxExemptUStG4_1b.VIES_ID`]],
     [a.erloeseSonder.ausfuhr, [`${GS}.taxExemptUStG4_1a`]],

@@ -75,6 +75,35 @@ describe("treatmentIssues", () => {
   });
 });
 
+describe("Bauleistung nach § 13b im Inland (#1934)", () => {
+  const rechnung = { rates: [0], buyerUstId: "DE123456788", buyerCountry: "DE" };
+
+  it("trägt den Pflichthinweis nach § 14a Abs. 5 UStG und in der E-Rechnung Kategorie AE mit VATEX-EU-AE", () => {
+    expect(TAX_TREATMENTS.bauleistung_13b).toMatchObject({ category: "AE", reasonCode: "VATEX-EU-AE" });
+    expect(treatmentNote("bauleistung_13b")).toBe("Steuerschuldnerschaft des Leistungsempfängers.");
+  });
+
+  it("braucht einen Kunden in Deutschland mit USt-IdNr., aber nicht die eigene USt-IdNr.", () => {
+    // EN 16931 BR-AE-02: Kategorie AE verlangt beim Käufer BT-48 (oder BT-47); beim Verkäufer genügt die Steuernummer
+    // (BT-32), geprüft mit dem KoSIT-Validator in #1934
+    expect(treatmentIssues("bauleistung_13b", rechnung)).toEqual([]);
+    expect(treatmentIssues("bauleistung_13b", { rates: [1900], buyerCountry: "AT" })).toEqual([
+      "Bei der gewählten Umsatzsteuer müssen alle Positionen 0 % haben",
+      "Bauleistung im Inland braucht die USt-IdNr. des Kunden (für die E-Rechnung)",
+      "Bauleistung im Inland nur an Kunden in Deutschland",
+    ]);
+  });
+
+  it("prüft die deutsche USt-IdNr. samt Prüfziffer, bei Storno und Korrektur nur, ob sie da ist", () => {
+    for (const id of ["DE1234", "DE123456789", "ATU12345678"]) {
+      expect(treatmentIssues("bauleistung_13b", { ...rechnung, buyerUstId: id }), id).toEqual([
+        `${id}: keine gültige deutsche USt-IdNr. (DE und neun Ziffern mit Prüfziffer)`,
+      ]);
+    }
+    expect(treatmentIssues("bauleistung_13b", { ...rechnung, buyerUstId: "DE1234", correctsInvoice: true })).toEqual([]);
+  });
+});
+
 describe("Namen in der Auswahl", () => {
   it("unterscheiden sich in den ersten 30 Zeichen (am Handy sieht man nicht mehr), sind kurz und ohne Paragrafen (die stehen im Hinweis unter der Auswahl)", () => {
     const labels = Object.values(TAX_TREATMENTS).map((treatment) => treatment.label);

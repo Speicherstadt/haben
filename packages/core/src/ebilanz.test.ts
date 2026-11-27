@@ -87,6 +87,9 @@ describe("ebilanzPosition", () => {
     ["SKR03", "1548", -1_900, "bs.eqLiab.liab.other.theroffTax.vat"],
     ["SKR04", "1434", 1_900, "bs.ass.currAss.receiv.other.vat"],
     ["SKR04", "1434", -1_900, "bs.eqLiab.liab.other.theroffTax.vat"],
+    // Bauleistung, für die der Kunde die Steuer schuldet (#1934): eigene Position der Taxonomie
+    ["SKR03", "8337", -1_000, "is.netIncome.regular.operatingTC.grossTradingProfit.totalOutput.netSales.grossSales.UStG13b"],
+    ["SKR04", "4337", -1_000, "is.netIncome.regular.operatingTC.grossTradingProfit.totalOutput.netSales.grossSales.UStG13b"],
     // Anlagevermögen ohne Anlagenspiegel und Steuern ohne Art: keine
     ["SKR04", "0010", 1, null],
     ["SKR04", "7640", 1, null],
