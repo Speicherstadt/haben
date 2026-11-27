@@ -165,7 +165,7 @@ Nur im Einzelunternehmen; in GmbH und UG wäre es eine verdeckte Gewinnausschüt
 | Entnahmewert netto | Was der Gegenstand zum Zeitpunkt der Entnahme im Einkauf kosten würde ([§ 10 Abs. 4 Satz 1 Nr. 1 UStG](https://www.gesetze-im-internet.de/ustg_1980/__10.html), UStAE 10.6 Abs. 1). Für die EÜR gilt der Teilwert ([§ 6 Abs. 1 Nr. 4 Satz 1 EStG](https://www.gesetze-im-internet.de/estg/__6.html)), bei gebrauchten beweglichen Gegenständen in der Regel derselbe Betrag. |
 | Beim Kauf Vorsteuer gezogen | Vorbelegt aus dem Anschaffungsbeleg, bei übernommenen Anlagen aus. |
 
-Die **Umsatzsteuer** fällt im Monat der Entnahme an, bei Ist- und Soll-Versteuerung gleich:
+Die **Umsatzsteuer** fällt im Monat der Entnahme an, bei Ist- und Soll-Versteuerung gleich ([§ 13 Abs. 1 Nr. 2 UStG](https://www.gesetze-im-internet.de/ustg_1980/__13.html): Sie entsteht mit Ablauf des Voranmeldungszeitraums, in dem entnommen wird):
 
 | Beim Kauf | Voranmeldung |
 |---|---|
