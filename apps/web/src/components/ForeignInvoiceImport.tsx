@@ -187,11 +187,11 @@ function ForeignInvoiceForm({ file, read, onClose }: { file: File; read: Read; o
           onRows={setRows}
         />
         <div className="actions form-footer">
-          <button type="submit" className="btn btn-primary" disabled={busy}>
-            Übernehmen
-          </button>
           <button type="button" className="btn" onClick={onClose}>
             Abbrechen
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={busy}>
+            Übernehmen
           </button>
         </div>
       </form>

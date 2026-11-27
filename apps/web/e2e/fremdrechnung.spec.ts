@@ -206,7 +206,7 @@ test("Storno aus dem Fremdsystem: E-Rechnung mit Bezug (BT-25) auf eine übernom
   await formularOeffnen(page);
   await page.locator("input[type=file]").setInputFiles({ name: "SHOP-S1.pdf", mimeType: "application/pdf", buffer: stornoPdf });
   const form = page.getByRole("form", { name: "Storno aus dem Fremdsystem" });
-  await expect(form.getByRole("status")).toContainText("Die Datei storniert die Rechnung SHOP-R1");
+  await expect(form.getByRole("status").filter({ hasText: "Die Datei storniert" })).toContainText("Die Datei storniert die Rechnung SHOP-R1");
   await expect(form).toContainText("SHOP-S1");
   // Kein Rechnungsformular mit negativen Beträgen
   await expect(page.getByRole("form", { name: "Angaben zur Rechnung" })).toHaveCount(0);

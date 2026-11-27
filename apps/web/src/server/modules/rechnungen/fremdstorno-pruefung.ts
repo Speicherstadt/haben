@@ -20,14 +20,17 @@ const byRate = (taxes: Rate[]) => {
 /** Was an der E-Rechnung des Stornos nicht zur Rechnung und zu den Angaben passt, oder null */
 export function cancellationMismatch(
   xml: IncomingInvoice,
-  original: { number: string; taxes: Rate[] },
+  original: { number: string; issueDate: string; taxes: Rate[] },
   input: { number: string; issueDate: string },
 ): string | null {
   if (!isCancellation(xml)) return "die E-Rechnung ist keine Gutschrift und hat keinen negativen Betrag";
   if (xml.currency !== "EUR") return `sie lautet auf ${xml.currency}`;
   if (xml.number !== input.number) return `Nummer ${xml.number} statt ${input.number}`;
   if (xml.issueDate !== input.issueDate) return `Datum ${xml.issueDate} statt ${input.issueDate}`;
-  if (!(xml.precedingInvoices ?? []).some((ref) => ref.number === original.number)) return `sie nennt die Rechnung ${original.number} nicht (BT-25)`;
+  const ref = (xml.precedingInvoices ?? []).find((r) => r.number === original.number);
+  if (!ref) return `sie nennt die Rechnung ${original.number} nicht (BT-25)`;
+  if (ref.issueDate && ref.issueDate !== original.issueDate)
+    return `sie nennt die Rechnung ${original.number} vom ${ref.issueDate} statt vom ${original.issueDate} (BT-26)`;
   const expected = byRate(original.taxes.map((t) => ({ rate: t.rate, base: -t.base, tax: -t.tax })));
   const given = byRate(xml.taxes);
   const same =

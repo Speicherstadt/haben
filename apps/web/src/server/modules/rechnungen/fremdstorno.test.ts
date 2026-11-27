@@ -11,7 +11,7 @@ import { cancellationMismatch } from "./fremdstorno-pruefung.ts";
  * ZUGFeRD aus einem anderen Programm, das Storno nennt die Rechnung in BT-25. Haben bucht das Storno zum Datum der
  * Gutschrift; danach steht nichts mehr offen. SKR03 und SKR04, Ist und Soll.
  */
-const rechnung = { number: "2026-034", taxes: [{ rate: 1900, base: 1_462_990, tax: 277_968 }] };
+const rechnung = { number: "2026-034", issueDate: "2026-10-02", taxes: [{ rate: 1900, base: 1_462_990, tax: 277_968 }] };
 
 describe("Storno aus dem Fremdsystem prüfen", () => {
   const xml = (over: Partial<IncomingInvoice> = {}) =>
@@ -41,6 +41,9 @@ describe("Storno aus dem Fremdsystem prüfen", () => {
     expect(cancellationMismatch(xml({ currency: "USD" }), rechnung, input)).toMatch(/USD/);
     expect(cancellationMismatch(xml({ number: "2026-036" }), rechnung, input)).toMatch(/Nummer 2026-036/);
     expect(cancellationMismatch(xml({ isCreditNote: false, gross: 1_740_958 }), rechnung, input)).toMatch(/keine Gutschrift/);
+    // BT-26: nennt die Datei ein Datum der Rechnung, muss es stimmen; ohne Datum genügt die Nummer
+    expect(cancellationMismatch(xml({ precedingInvoices: [{ number: "2026-034", issueDate: "2026-09-30" }] }), rechnung, input)).toMatch(/BT-26/);
+    expect(cancellationMismatch(xml({ precedingInvoices: [{ number: "2026-034", issueDate: "2026-10-02" }] }), rechnung, input)).toBeNull();
   });
 });
 
@@ -54,6 +57,7 @@ describe.skipIf(!testDatabaseUrl)("Storno aus dem Fremdsystem übernehmen (Postg
   const actor = "test-user";
   let rechnungPdf: Uint8Array;
   let stornoPdf: Uint8Array;
+  let teilstornoPdf: Uint8Array;
 
   beforeAll(async () => {
     sql = await setupTestDb();
@@ -63,7 +67,15 @@ describe.skipIf(!testDatabaseUrl)("Storno aus dem Fremdsystem übernehmen (Postg
     contacts = await import("../stammdaten/contacts.ts");
     vat = await import("../umsatzsteuer/index.ts");
     rechnungPdf = (await buildEInvoice(sampleDocument())).pdf;
-    stornoPdf = (await buildEInvoice(sampleDocument({ kind: "storno" }))).pdf;
+    // Das Beispiel-Storno nennt die Rechnung mit dem Datum aus samples.ts; hier das der Beispiel-Rechnung (BT-26)
+    const stornoDoc = { ...sampleDocument({ kind: "storno" }), corrects: { number: "2026-034", issueDate: "2026-10-02" } };
+    stornoPdf = (await buildEInvoice(stornoDoc)).pdf;
+    teilstornoPdf = (
+      await buildEInvoice({
+        ...sampleDocument({ kind: "storno", lines: [{ description: "Teil", quantity: 1000, unit: "Psch.", unitPrice: 10_000, taxRate: 1900 }] }),
+        corrects: stornoDoc.corrects,
+      })
+    ).pdf;
   }, 60_000);
 
   afterAll(async () => {
@@ -106,7 +118,7 @@ describe.skipIf(!testDatabaseUrl)("Storno aus dem Fremdsystem übernehmen (Postg
   async function stornoUebernehmen() {
     const proposal = await foreign.foreignInvoiceProposal(datei(stornoPdf, "2026-035.pdf"));
     expect(proposal.warnings).toEqual([]);
-    expect(proposal.cancels).toMatchObject({ number: "2026-034", issueDate: "2026-10-02", gross: 1_740_958 });
+    expect(proposal.cancels).toMatchObject({ number: "2026-034", issueDate: "2026-10-02", gross: 1_740_958, problem: null });
     return storno.adoptForeignCancellationFile(
       actor,
       { invoiceId: proposal.cancels!.invoiceId, number: proposal.number, issueDate: proposal.issueDate },
@@ -195,6 +207,10 @@ describe.skipIf(!testDatabaseUrl)("Storno aus dem Fremdsystem übernehmen (Postg
     expect(ohne.warnings).toEqual(["Das ist eine Gutschrift zu 2026-034; eine solche Rechnung aus dem Fremdsystem gibt es in Haben nicht."]);
 
     const { id: rechnungId } = await rechnungUebernehmen(contactId);
+    // Ein Teilstorno erkennt der Vorschlag, meldet aber schon beim Einlesen, dass Haben es nicht übernimmt
+    const teil = await foreign.foreignInvoiceProposal(datei(teilstornoPdf, "teil.pdf"));
+    expect(teil.cancels).toMatchObject({ number: "2026-034" });
+    expect(teil.cancels!.problem).toMatch(/nur das volle Storno/);
     const korrektur = await invoices.createCorrection(actor, rechnungId, "2026-10-05");
     await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand);
     await expect(

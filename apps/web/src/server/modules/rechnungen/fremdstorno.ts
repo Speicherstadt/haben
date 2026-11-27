@@ -61,6 +61,36 @@ export async function cancelledForeignInvoice(preceding: IncomingInvoice["preced
   return found.length === 1 ? found[0]! : null;
 }
 
+/** Steuer je Satz einer festgeschriebenen Rechnung */
+const taxesOf = (q: Db | Tx, id: string) =>
+  q
+    .select({ rate: schema.invoiceTaxes.rate, base: schema.invoiceTaxes.base, tax: schema.invoiceTaxes.tax })
+    .from(schema.invoiceTaxes)
+    .where(eq(schema.invoiceTaxes.invoiceId, id));
+
+/**
+ * Vorschlag beim Einlesen: die Rechnung, die die Gutschrift aufhebt, und was schon jetzt gegen die Übernahme spricht
+ * (Beträge, BT-26), damit der Dialog es vor dem Klick zeigt. Ob die Rechnung storniert, korrigiert oder ausgebucht ist,
+ * prüft erst die Übernahme unter Sperre.
+ */
+export async function cancellationProposal(xml: IncomingInvoice, q: Db | Tx = db) {
+  const invoice = await cancelledForeignInvoice(xml.precedingInvoices, q);
+  if (!invoice) return null;
+  const problem = cancellationMismatch(
+    xml,
+    { number: invoice.number!, issueDate: invoice.issueDate, taxes: await taxesOf(q, invoice.id) },
+    { number: xml.number, issueDate: xml.issueDate },
+  );
+  return {
+    invoiceId: invoice.id,
+    number: invoice.number!,
+    issueDate: invoice.issueDate,
+    gross: invoice.gross,
+    contactName: invoice.buyer?.name ?? null,
+    problem: problem && `Die E-Rechnung passt nicht: ${problem}.`,
+  };
+}
+
 /** Die übernommene Rechnung, gesperrt, wenn sie sich stornieren lässt; sonst der Grund als InvoiceError */
 async function cancellableOriginal(tx: Tx, id: string, issueDate: string) {
   await lockInvoice(tx, id);
@@ -81,11 +111,7 @@ async function cancellableOriginal(tx: Tx, id: string, issueDate: string) {
     );
   await assertNichtAusgebucht(tx, [id]);
   if (issueDate < original.issueDate) throw new InvoiceError(`Das Storno ist älter als die Rechnung ${original.number}.`);
-  const taxes = await tx
-    .select({ rate: schema.invoiceTaxes.rate, base: schema.invoiceTaxes.base, tax: schema.invoiceTaxes.tax })
-    .from(schema.invoiceTaxes)
-    .where(eq(schema.invoiceTaxes.invoiceId, id));
-  return { original, lines: data.lines, taxes };
+  return { original, lines: data.lines, taxes: await taxesOf(tx, id) };
 }
 
 /**
@@ -105,7 +131,7 @@ export async function adoptForeignCancellationFile(
     return await withActor(actor, async (tx) => {
       const company = await openBooks(tx);
       const { original, lines, taxes } = await cancellableOriginal(tx, input.invoiceId, input.issueDate);
-      const problem = cancellationMismatch(read.invoice, { number: original.number!, taxes }, input);
+      const problem = cancellationMismatch(read.invoice, { number: original.number!, issueDate: original.issueDate, taxes }, input);
       if (problem) throw new InvoiceError(`Die E-Rechnung in der Datei passt nicht: ${problem}.`);
       const issues = await versteuerungIssues(company, input.issueDate, tx);
       if (issues.length > 0) throw new InvoiceError(`Noch nicht bereit: ${issues.join(", ")}.`);

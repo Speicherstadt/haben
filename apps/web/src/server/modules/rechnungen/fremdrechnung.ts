@@ -26,7 +26,7 @@ import { rebuildInvoiceLines } from "./positionen-nachbilden.ts";
 import { createTakenOverInvoice } from "./rechnung-uebernehmen.ts";
 import { outgoingTaxDetailsSchema } from "./tax-details.ts";
 import { FREMDSYSTEM, fremdNummerSchema, looksLikePdf } from "./fremdsystem.ts";
-import { cancelledForeignInvoice } from "./fremdstorno.ts";
+import { cancellationProposal } from "./fremdstorno.ts";
 import { isCancellation } from "./fremdstorno-pruefung.ts";
 
 /*
@@ -227,8 +227,11 @@ export interface ForeignInvoiceProposal {
   buyerName: string | null;
   /** Hinweise zum Prüfen, etwa dass der Verkäufer nicht die eigene Firma ist */
   warnings: string[];
-  /** Storno einer übernommenen Rechnung (#1900): die Rechnung, auf die sich die Gutschrift mit BT-25 bezieht */
-  cancels: { invoiceId: string; number: string; issueDate: string; gross: number; contactName: string | null } | null;
+  /**
+   * Storno einer übernommenen Rechnung (#1900): die Rechnung, auf die sich die Gutschrift mit BT-25 bezieht, und was schon
+   * beim Einlesen gegen die Übernahme spricht (`problem`)
+   */
+  cancels: Awaited<ReturnType<typeof cancellationProposal>>;
 }
 
 /** Liest, was die Datei selbst über die Rechnung sagt; ohne E-Rechnung bleibt der Vorschlag leer */
@@ -260,7 +263,7 @@ export async function foreignInvoiceProposal(file: { bytes: Uint8Array; filename
   const sellerUst = invoice.seller.ustId?.replace(/\s/g, "").toUpperCase();
   if (sellerUst && company.ustId && sellerUst !== company.ustId.replace(/\s/g, "").toUpperCase())
     warnings.push(`Die Rechnung nennt die USt-IdNr. ${sellerUst}, in den Firmendaten steht eine andere. Ist es wirklich deine Rechnung?`);
-  const cancelled = isCancellation(invoice) ? await cancelledForeignInvoice(invoice.precedingInvoices) : null;
+  const cancelled = isCancellation(invoice) ? await cancellationProposal(invoice) : null;
   if (isCancellation(invoice) && !cancelled)
     warnings.push(
       invoice.precedingInvoices?.length
@@ -290,13 +293,7 @@ export async function foreignInvoiceProposal(file: { bytes: Uint8Array; filename
     contactId: matches.length === 1 ? matches[0]!.id : null,
     buyerName,
     warnings,
-    cancels: cancelled && {
-      invoiceId: cancelled.id,
-      number: cancelled.number!,
-      issueDate: cancelled.issueDate,
-      gross: cancelled.gross,
-      contactName: cancelled.buyer?.name ?? null,
-    },
+    cancels: cancelled,
   };
 }
 

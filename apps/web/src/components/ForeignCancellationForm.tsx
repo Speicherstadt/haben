@@ -2,6 +2,7 @@ import { formatEuro } from "@haben/core";
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { formatDate } from "../lib/format.ts";
+import { Icon } from "./Icon.tsx";
 import { adoptForeignCancellationFn, type readForeignInvoice } from "../server/functions/fremdrechnung.ts";
 
 type Proposal = Awaited<ReturnType<typeof readForeignInvoice>>["proposal"];
@@ -44,9 +45,19 @@ export function ForeignCancellationForm({
   return (
     <form onSubmit={(e) => void submit(e)} aria-label="Storno aus dem Fremdsystem" style={{ display: "flex", flexDirection: "column" }}>
       <div className="form-section">
-        <div className="banner" role="status">
-          Die Datei storniert die Rechnung {cancels.number} vom {formatDate(cancels.issueDate)} über {formatEuro(cancels.gross)}
-          {cancels.contactName ? ` an ${cancels.contactName}` : ""}. Haben bucht das Storno zum Datum der Gutschrift; Nummer und PDF bleiben wie im Fremdsystem.
+        {[...proposal.warnings, ...(cancels.problem ? [cancels.problem] : [])].map((w) => (
+          <div key={w} className="banner banner-warn" role="status">
+            <Icon name="alert" />
+            <span>{w}</span>
+          </div>
+        ))}
+        <div className="banner banner-info" role="status">
+          <Icon name="info" />
+          <span>
+            Die Datei storniert die Rechnung {cancels.number} vom {formatDate(cancels.issueDate)} über {formatEuro(cancels.gross)}
+            {cancels.contactName ? ` an ${cancels.contactName}` : ""}. Haben bucht das Storno zum Datum der Gutschrift; Nummer und PDF bleiben wie im
+            Fremdsystem.
+          </span>
         </div>
         {error && (
           <div className="banner banner-danger" role="alert">
@@ -58,16 +69,16 @@ export function ForeignCancellationForm({
           <dd style={{ margin: 0 }}>{proposal.number}</dd>
           <dt className="muted">Datum</dt>
           <dd style={{ margin: 0 }}>{formatDate(proposal.issueDate)}</dd>
-          <dt className="muted">Betrag</dt>
-          <dd style={{ margin: 0 }}>{formatEuro(-cancels.gross)}</dd>
+          <dt className="muted">Betrag laut Datei</dt>
+          <dd style={{ margin: 0 }}>{formatEuro(proposal.taxes.reduce((sum, t) => sum + t.net + t.tax, 0))}</dd>
         </dl>
       </div>
       <div className="actions form-footer">
-        <button type="submit" className="btn btn-primary" disabled={busy}>
-          Storno übernehmen
-        </button>
         <button type="button" className="btn" onClick={onClose}>
           Abbrechen
+        </button>
+        <button type="submit" className="btn btn-primary" disabled={busy}>
+          Storno übernehmen
         </button>
       </div>
     </form>
