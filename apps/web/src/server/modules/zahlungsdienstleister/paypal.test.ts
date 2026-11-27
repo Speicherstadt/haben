@@ -152,6 +152,8 @@ describe.skipIf(!testDatabaseUrl)("PayPal-Abruf (Postgres)", () => {
 
   it("lehnt unvollständige oder unbrauchbare Eingaben ab und behält sonst die gespeicherten Zugangsdaten", async () => {
     await expect(paypal.savePayPalConnection(actor, { clientId: ID, fetchFrom: "2026-10-01" })).rejects.toThrow("gehören zusammen");
+    // Die Einrichtung zeigt einen Fehler an den Zugangsdaten am Feld der Client-ID
+    await expect(paypal.savePayPalConnection(actor, { clientId: ID, fetchFrom: "2026-10-01" })).rejects.toMatchObject({ felder: ["clientId"] });
     await expect(speichern({ fetchFrom: "2999-01-01" })).rejects.toThrow("Zukunft");
     await expect(speichern({ fetchFrom: "2019-01-01" })).rejects.toThrow("drei Jahre");
     await expect(speichern({ zeitzone: "Mars/Olympus" })).rejects.toThrow("keine Zeitzone");

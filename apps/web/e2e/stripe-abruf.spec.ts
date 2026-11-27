@@ -136,7 +136,12 @@ test("„Konto verbinden › Zahlungsdienstleister hinzufügen“: Anbieter wäh
 test("Ein Schlüssel des Testmodus wird beim Prüfen abgelehnt, ohne Stripe zu fragen", async () => {
   await zugang().getByLabel("API-Schlüssel").fill(["rk", "test", "e2eBeispielSchluessel4711"].join("_"));
   await zugang().getByRole("button", { name: "Zugang prüfen" }).click();
-  await expect(zugang().getByRole("alert")).toContainText("Haben ruft nur Live-Umsätze ab; bitte einen Live-Schlüssel mit Leserechten eintragen.");
+  // Die Meldung steht am Feld, das sie betrifft, und das Feld bekommt den Fokus (DESIGN.md, Formulare)
+  const feld = zugang().getByLabel("API-Schlüssel");
+  await expect(feld).toHaveAttribute("aria-invalid", "true");
+  await expect(feld).toHaveAccessibleDescription(/Haben ruft nur Live-Umsätze ab; bitte einen Live-Schlüssel mit Leserechten eintragen\./);
+  await expect(feld).toBeFocused();
+  await expect(zugang().locator(".banner")).toHaveCount(0);
   await expect(zugang().getByRole("button", { name: "Weiter" })).toHaveCount(0);
   expect(anfragen).toEqual([]);
 });
