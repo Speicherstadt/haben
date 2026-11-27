@@ -13,29 +13,44 @@ import { NAV_GROUPS, STEUERBERATUNG_NAV, navLinkSichtbar } from "../lib/navigati
 import { readNavCollapsed, saveNavCollapsed, subscribeNavCollapsed } from "../lib/nav-rail.ts";
 import { NavMarkSymbol } from "../components/NavMarkSymbol.tsx";
 import { usePageHeadHeight, useScrolled } from "../lib/use-page-head.ts";
+import { SeitenLaden } from "../components/Fehlerseiten.tsx";
+import { appContextCache, navigationZustand } from "../lib/app-navigation.ts";
 import { ROLLEN_LABEL, STEUERBERATUNG_START, siehtSeite } from "../lib/rollen.ts";
 
+async function loadAppContext(pathname: string) {
+  const state = await getAuthState();
+  if (!state.initialized) throw redirect({ to: "/setup" });
+  if (!state.user) throw redirect({ to: "/login" });
+  // Die Steuerberatung sieht nur ihre Seiten; die Server Functions prüfen das unabhängig davon selbst
+  if (!siehtSeite(state.user.role, pathname)) throw redirect({ to: STEUERBERATUNG_START });
+  const context = {
+    user: state.user,
+    oidc: state.oidc,
+    rechtsform: state.rechtsform ?? "einzelunternehmen",
+    kontenrahmen: state.kontenrahmen ?? "SKR03",
+    eigeneSeiten: state.eigeneSeiten,
+    hatMitarbeiter: state.hatMitarbeiter,
+    ausgeblendet: state.ausgeblendet,
+    einrichtung: state.einrichtung,
+    firma: state.firma,
+    zeichen: state.zeichen,
+    firmen: state.firmen,
+    firmenportal: state.firmenportal,
+  };
+  appContextCache.seed(context);
+  return context;
+}
+
+type AppContext = Awaited<ReturnType<typeof loadAppContext>>;
+
 export const Route = createFileRoute("/_app")({
-  beforeLoad: async ({ location }) => {
-    const state = await getAuthState();
-    if (!state.initialized) throw redirect({ to: "/setup" });
-    if (!state.user) throw redirect({ to: "/login" });
-    // Die Steuerberatung sieht nur ihre Seiten; die Server Functions prüfen das unabhängig davon selbst
-    if (!siehtSeite(state.user.role, location.pathname)) throw redirect({ to: STEUERBERATUNG_START });
-    return {
-      user: state.user,
-      oidc: state.oidc,
-      rechtsform: state.rechtsform ?? "einzelunternehmen",
-      kontenrahmen: state.kontenrahmen ?? "SKR03",
-      eigeneSeiten: state.eigeneSeiten,
-      hatMitarbeiter: state.hatMitarbeiter,
-      ausgeblendet: state.ausgeblendet,
-      einrichtung: state.einrichtung,
-      firma: state.firma,
-      zeichen: state.zeichen,
-      firmen: state.firmen,
-      firmenportal: state.firmenportal,
-    };
+  beforeLoad: async ({ location, cause }): Promise<AppContext> => {
+    const cached = appContextCache.read(cause) as AppContext | undefined;
+    if (cached) {
+      if (!siehtSeite(cached.user.role, location.pathname)) throw redirect({ to: STEUERBERATUNG_START });
+      return cached;
+    }
+    return loadAppContext(location.pathname);
   },
   component: AppLayout,
 });
@@ -164,7 +179,11 @@ function useMobileMenuEscape(menuOpen: boolean, paletteOpen: boolean, onClose: (
 }
 
 function AppLayout() {
-  const { user, rechtsform, eigeneSeiten, hatMitarbeiter, ausgeblendet, firmen, firmenportal, firma, oidc } = Route.useRouteContext();
+  const appContext = Route.useRouteContext();
+  const { user, rechtsform, eigeneSeiten, hatMitarbeiter, ausgeblendet, firmen, firmenportal, firma, oidc } = appContext;
+  useEffect(() => {
+    appContextCache.seed(appContext);
+  }, [appContext]);
   const gesellschaft = isKapitalgesellschaft(rechtsform);
   const inhaber = user.role === "inhaber";
   const groups = inhaber ? NAV_GROUPS : STEUERBERATUNG_NAV;
@@ -174,11 +193,17 @@ function AppLayout() {
   const { collapsed, openFlyout, setOpenFlyout } = useRailState();
   useNavTipEscape();
   useEinklappKuerzel();
-  // Erst wenn die neue Seite steht (resolvedLocation): solange der Loader läuft, ist noch die alte Seite mit dem geklickten Link zu sehen
-  const pathname = useRouterState({ select: (state) => (state.resolvedLocation ?? state.location).pathname });
+  const { resolvedPathname, navPathname, wechseltSeite } = useRouterState({
+    select: (state) =>
+      navigationZustand({
+        status: state.status,
+        locationPathname: state.location.pathname,
+        resolvedPathname: state.resolvedLocation?.pathname,
+      }),
+  });
   const main = useRef<HTMLElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
-  const firstPath = useRef(pathname);
+  const firstPath = useRef(resolvedPathname);
   const sichtbareGruppen = groups
     .map((group) => ({ ...group, links: group.links.filter((link) => navLinkSichtbar(link, { gesellschaft, hatMitarbeiter, ausgeblendet })) }))
     .filter((group) => group.links.length > 0);
@@ -188,11 +213,11 @@ function AppLayout() {
   // Nach dem Seitenwechsel steht der Fokus am Anfang des Inhalts, nicht mehr auf dem geklickten Link;
   // Filter und Suche (nur Suchparameter) lassen ihn, wo er ist
   useEffect(() => {
-    if (pathname === firstPath.current) return;
-    firstPath.current = pathname;
+    if (resolvedPathname === firstPath.current) return;
+    firstPath.current = resolvedPathname;
     setOpenFlyout(null);
     if (!main.current?.contains(document.activeElement)) main.current?.focus({ preventScroll: true });
-  }, [pathname, setOpenFlyout]);
+  }, [resolvedPathname, setOpenFlyout]);
 
   useMobileMenuEscape(menuOpen, paletteOpen, () => setMenuOpen(false), toggle);
 
@@ -200,6 +225,7 @@ function AppLayout() {
     // Erst beim Abmelden laden: der Auth-Client bringt den Passkey-Code mit, den nur Anmeldung und Einstellungen brauchen
     const { authClient } = await import("../lib/auth-client.ts");
     await authClient.signOut();
+    router.clearCache();
     await router.navigate({ to: "/login" });
   }
 
@@ -227,7 +253,7 @@ function AppLayout() {
             collapsed={collapsed}
             onToggleCollapse={() => saveNavCollapsed(!collapsed)}
             inhaber={inhaber}
-            pathname={pathname}
+            pathname={navPathname}
             firma={firma ?? null}
             firmen={firmen}
             firmenportal={firmenportal ?? null}
@@ -244,7 +270,7 @@ function AppLayout() {
         </div>
       </nav>
       <main className="main" id="inhalt" ref={main} tabIndex={-1}>
-        <Outlet />
+        {wechseltSeite ? <SeitenLaden /> : <Outlet />}
       </main>
       <CommandPalette
         open={paletteOpen}
