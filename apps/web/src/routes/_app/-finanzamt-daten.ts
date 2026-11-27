@@ -1,4 +1,5 @@
 import { formatEuro } from "@haben/core";
+import type { VorauszahlungQuartal } from "@haben/elster";
 import { formatZeitraumAbJahresanfang } from "../../lib/format.ts";
 import type { getFinanzamt } from "../../server/functions/finanzamt.ts";
 
@@ -43,14 +44,55 @@ export function vorauszahlungHinweis(keineVorauszahlungen: boolean): string | nu
   );
 }
 
-/** Formloser Antrag nach § 37 Abs. 3 EStG mit den Zahlen aus der Buchhaltung */
-export function prepaymentLetter(data: Data, b: Basis, current: number | null, wanted: number | null, reason: string, usePrognose: boolean) {
+/** Fälligkeit je Quartal (§ 37 Abs. 1 EStG) */
+const FAELLIG = { Q1: "10.3.", Q2: "10.6.", Q3: "10.9.", Q4: "10.12." } as const;
+
+export const QUARTAL_LABEL: Record<VorauszahlungQuartal, string> = {
+  Q1: `1. Quartal (fällig ${FAELLIG.Q1})`,
+  Q2: `2. Quartal (fällig ${FAELLIG.Q2})`,
+  Q3: `3. Quartal (fällig ${FAELLIG.Q3})`,
+  Q4: `4. Quartal (fällig ${FAELLIG.Q4})`,
+  nVz: "Nachträgliche Vorauszahlung",
+};
+
+/** Quartal des nächsten Fälligkeitstermins im Jahr von heute; nach dem 10.12. bleibt es beim 4. */
+export function naechstesQuartal(heute: string): Exclude<VorauszahlungQuartal, "nVz"> {
+  const tag = heute.slice(5);
+  if (tag <= "03-10") return "Q1";
+  if (tag <= "06-10") return "Q2";
+  if (tag <= "09-10") return "Q3";
+  return "Q4";
+}
+
+/** Jahre, die ELSTER im Antrag annimmt: eins voraus bis drei zurück (Regel eEing_144, wie vorauszahlungJahre in @haben/elster) */
+export function antragJahre(heute: string): number[] {
+  const jahr = Number(heute.slice(0, 4));
+  return [jahr + 1, jahr, jahr - 1, jahr - 2, jahr - 3];
+}
+
+/** Ab wann der Antrag gilt, als Teil des Satzes „die Vorauszahlungen … herabzusetzen“ */
+function antragZeitraum(quartal: VorauszahlungQuartal, jahr: number): string {
+  return quartal === "nVz"
+    ? `die nachträgliche Vorauszahlung zur Einkommensteuer für ${jahr}`
+    : `die Vorauszahlungen zur Einkommensteuer für ${jahr} ab dem ${quartal.slice(1)}. Quartal (fällig ${FAELLIG[quartal]}${jahr})`;
+}
+
+/** Begründung des Antrags nach § 37 Abs. 3 EStG mit den Zahlen aus der Buchhaltung */
+export function prepaymentLetter(
+  data: Data,
+  b: Basis,
+  zeitraum: { quartal: VorauszahlungQuartal; jahr: number },
+  current: number | null,
+  wanted: number | null,
+  reason: string,
+  usePrognose: boolean,
+): string {
   const art = b.einkunftsart === "gewerbe" ? "Gewerbebetrieb" : "selbständiger Arbeit";
   const lines = [
     "Sehr geehrte Damen und Herren,",
     "",
-    `hiermit beantrage ich, die Vorauszahlungen zur Einkommensteuer für ${b.year} ab dem nächsten Fälligkeitstermin` +
-      (wanted !== null ? ` auf ${formatEuro(wanted)} je Quartal` : "") +
+    `hiermit beantrage ich, ${antragZeitraum(zeitraum.quartal, zeitraum.jahr)}` +
+      (wanted !== null && zeitraum.quartal !== "nVz" ? ` auf ${formatEuro(wanted)} je Quartal` : "") +
       " herabzusetzen (§ 37 Abs. 3 EStG).",
     "",
     `Mein Gewinn aus ${art} beträgt nach meiner Buchführung für ${formatZeitraumAbJahresanfang(b.until)} ${formatEuro(b.profitSoFar)}. ` +
@@ -74,5 +116,5 @@ export function prepaymentLetter(data: Data, b: Basis, current: number | null, w
     "Mit freundlichen Grüßen",
     data.company.name,
   ];
-  return { betreff: `Antrag auf Herabsetzung der Einkommensteuer-Vorauszahlungen ${b.year}`, text: lines.join("\n") };
+  return lines.join("\n");
 }

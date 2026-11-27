@@ -83,7 +83,7 @@ ERiC 45.1.5.0 ist ein BETA-Release: Damit gehen nur Testübermittlungen mit Test
 | Was | ab ERiC |
 | --- | --- |
 | Voranmeldung, Dauerfristverlängerung und Sondervorauszahlung 2027, Kapitalertragsteuer-Anmeldung 2027, Anlage EÜR und Einkommensteuer 2026 | 45 |
-| Sonstige Nachricht als Echtfall (Version 22) | 43.5 |
+| Sonstige Nachricht und Antrag auf Anpassung der Vorauszahlungen als Echtfall (Version 22) | 43.5 |
 | E-Bilanz ohne rechtsformfremde Angaben | jede; ERiC prüft das ab 43.5 |
 | Postfach und Belegabruf (Datenabholung Version 32) | 43.4 |
 

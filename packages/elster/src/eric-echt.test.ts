@@ -8,6 +8,7 @@ import { buildEstXml, type EstAngaben, type EstArbeitnehmer, type EstXmlInput } 
 import { checkFormats, ericMeldungen } from "./formatprobe.ts";
 import { ericHomeIn } from "./install.ts";
 import { buildNachrichtXml } from "./nachricht.ts";
+import { buildVorauszahlungXml } from "./vorauszahlung.ts";
 import { EricProcessClient } from "./process-client.ts";
 import { parseWorkerCommand } from "./factory.ts";
 import { ericTestTimeout } from "../test-fixtures/eric-zeit.ts";
@@ -685,6 +686,54 @@ const faelle: [string, () => string][] = [
         absender: { ...absender, strasse: "Am Ring 12-14" },
         betreff: "Test",
         text: "x".repeat(1000),
+        herstellerId,
+        produktVersion: "0.1.0",
+        test: true,
+      }),
+  ],
+  [
+    "Sonstige Nachricht mit Gedankenstrich, Mittelpunkt und Anführungszeichen",
+    () =>
+      buildNachrichtXml({
+        steuernummer13: stnr,
+        bundesland: "BW",
+        absender: { ...absender, name: "Muster IT · Max Muster" },
+        betreff: "Antrag „Vorauszahlungen“",
+        text: "Gewinn 01.01.2026–30.06.2026 … rund 5.000\u00a0€",
+        herstellerId,
+        produktVersion: "0.1.0",
+        test: true,
+      }),
+  ],
+  [
+    "Antrag auf Anpassung der Vorauszahlungen (AnpassungVorauszahlung 22)",
+    () =>
+      buildVorauszahlungXml({
+        steuernummer13: stnr,
+        bundesland: "BW",
+        absender: { ...absender, name: "Muster IT · Max Muster" },
+        telefon: "0711 123456",
+        quartal: "Q4",
+        jahr: new Date().getFullYear(),
+        begruendung: "Sehr geehrte Damen und Herren,\n\nGewinn 01.01.–30.06.: 5.000,00\u00a0€.",
+        heute: new Date().toISOString().slice(0, 10),
+        herstellerId,
+        produktVersion: "0.1.0",
+        test: true,
+      }),
+  ],
+  [
+    "Antrag auf Anpassung der Vorauszahlungen als natürliche Person, nachträgliche Vorauszahlung",
+    () =>
+      buildVorauszahlungXml({
+        steuernummer13: stnr,
+        bundesland: "BW",
+        absender,
+        person: { idnr: idA, vorname: "Max", name: "Muster" },
+        quartal: "nVz",
+        jahr: new Date().getFullYear() - 3,
+        begruendung: "Bitte herabsetzen.",
+        heute: new Date().toISOString().slice(0, 10),
         herstellerId,
         produktVersion: "0.1.0",
         test: true,

@@ -60,6 +60,8 @@ export function datenartVersionFromXml(xml: string): string | undefined {
   if (kapest?.[1]) return `KapEStA_${kapest[1]}`;
   const nachricht = /<DatenArt>(SonstigeNachrichten)<\/DatenArt>[\s\S]*<Nachricht\b[^>]*\bversion="(\d+)"/.exec(xml);
   if (nachricht?.[1] && nachricht[2]) return `${nachricht[1]}_${nachricht[2]}`;
+  const vorauszahlung = /<Vorauszahlung\b[^>]*elsternachricht\/anpassungvorauszahlung\/v\d+"[^>]*\bversion="(\d+)"/.exec(xml);
+  if (vorauszahlung?.[1]) return `AnpassungVorauszahlung_${vorauszahlung[1]}`;
   const bank = /<AenderungBankverbindung\b[^>]*\bversion="(\d+)"/.exec(xml);
   if (bank?.[1]) return `AenderungBankverbindung_${bank[1]}`;
   const abholung = /<DatenArt>(PostfachAnfrage|PostfachBestaetigung)<\/DatenArt>[\s\S]*<Datenabholung\b[^>]*\bversion="(\d+)"/.exec(xml);
