@@ -30,17 +30,17 @@ import { abziehbareSteuer, buchungsAnteil } from "./vorsteuerabzug.ts";
  * So ergeben die Zeilen je Satz exakt Netto und Vorsteuer des Belegs.
  */
 
-/** Eine Kontierungszeile, wie sie eingegeben wird */
+/**
+ * Eine Kontierungszeile, wie sie eingegeben wird. Zur Entnahme gehört eine Zeile über ihre Kategorie privatentnahme
+ * (#1976): Ihr Anteil an der Steuer des Satzes ist dann nicht abziehbar, die Steuer des Satzes wird zuerst nach Netto
+ * zwischen Betrieb und Entnahme geteilt, nicht über alle Zeilen hinweg.
+ */
 export interface DocumentSplitLine {
   category: ExpenseCategory;
   /** Eigenes Sachkonto (#270) der Kategorie: gebucht wird auf dessen Nummer statt auf das Konto der Kategorie */
   account?: string;
   taxRate: BasisPoints;
   net: Cents;
-  /**
-   * Zeile gehört zur Entnahme (#1976): Ihr Anteil an der Steuer des Satzes ist nicht abziehbar. Die Steuer des Satzes
-   * wird dann zuerst nach Netto zwischen Betrieb und Entnahme geteilt, nicht über alle Zeilen hinweg.
-   */
 }
 
 /** Kontierungszeile mit ihrem Anteil an der Vorsteuer des Satzes */

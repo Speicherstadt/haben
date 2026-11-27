@@ -1,5 +1,6 @@
+import { belegAnteile } from "./beleg-anteile.ts";
 import { allocateSplitTax, type DocumentRateAmount, type DocumentSplitLine } from "./document-split.ts";
-import { formatEuro, splitPrivateShare, taxIncluded, taxOf, type BasisPoints, type Cents, type Prozent } from "./money.ts";
+import { formatEuro, taxIncluded, taxOf, type BasisPoints, type Cents, type Prozent } from "./money.ts";
 import type { ExpenseCategory } from "./posting.ts";
 import { netOf } from "./rabatt.ts";
 import { isKapitalgesellschaft, type Rechtsform } from "./rechtsform.ts";
@@ -223,7 +224,7 @@ export function pruefePrivatpositionen(positionen: readonly Position[], rechtsfo
 }
 
 /**
- * Teilt eine Position einmalig in den betrieblichen Teil und die Privatentnahme (#1975) über splitPrivateShare: Der
+ * Teilt eine Position einmalig in den betrieblichen Teil und die Privatentnahme (#1975) über belegAnteile: Der
  * private Teil wird gerundet, der betriebliche ist die Differenz zum Ausgangsnetto; so ergeben beide zusammen centgenau
  * wieder das Netto, und der gerundete Betrag ist der, den die Beschreibung mit dem Prozentsatz nennt.
  * Gespeichert wird kein Prozentsatz und kein Verweis: Wer korrigieren will, löscht die Entnahme, stellt den Betrag
@@ -233,7 +234,7 @@ export function privatanteilAbspalten(position: Position, prozent: Prozent): { b
   if (istPrivatentnahme(position)) throw new RangeError("Von einer Privatentnahme lässt sich kein Anteil abspalten");
   if (!Number.isInteger(prozent) || prozent <= 0 || prozent >= 100)
     throw new RangeError("Der Privatanteil muss ein ganzer Prozentsatz über 0 und unter 100 sein");
-  const { business, private: privat } = splitPrivateShare(position.net, prozent);
+  const { business, private: privat } = belegAnteile(position.net, prozent);
   return {
     betrieblich: { ...position, net: business },
     privat: {
