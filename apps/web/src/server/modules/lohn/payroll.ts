@@ -174,6 +174,14 @@ function veraltet(p: Payslip, e: Employee): boolean {
 }
 
 /**
+ * Barentgelt, mit dem der Entwurf gerechnet wurde. Das gespeicherte Brutto enthält die Privatnutzung. Die Prüfung beim
+ * Festschreiben rechnet mit diesem Barentgelt, sonst käme der Sachbezug ein zweites Mal dazu.
+ */
+function barentgeltDesEntwurfs(p: Payslip): number {
+  return p.brutto - (p.mitarbeiter.lohn.privatnutzungDienstwagen ?? 0);
+}
+
+/**
  * Der Entwurf hat die Werte, die die Rechnung jetzt mit seinem Entgelt ergibt. Das Bundesland der Firma (Kirchensteuer,
  * Pflegeversicherung in Sachsen) steht nicht in der Abrechnung; ändert es sich nach dem Entwurf, fiele das sonst nicht auf.
  */
@@ -274,7 +282,7 @@ export async function festschreiben(actor: string, input: z.input<typeof festsch
   await withActor(actor, async (tx) => {
     const { p, e } = await entwurfZumAendern(tx, id);
     if (veraltet(p, e)) throw new LohnError("Die Stammdaten haben sich seit dem Entwurf geändert. Den Entwurf neu berechnen und prüfen.");
-    const r = berechne(e, p.year, p.month, await bundesland(tx), p.brutto);
+    const r = berechne(e, p.year, p.month, await bundesland(tx), barentgeltDesEntwurfs(p));
     if (!r.ok) throw new LohnError(r.meldung);
     if (!wieGerechnet(p, r)) {
       throw new LohnError("Mit den aktuellen Firmendaten (etwa dem Bundesland) ergibt sich ein anderes Ergebnis. Den Entwurf neu berechnen und prüfen.");
