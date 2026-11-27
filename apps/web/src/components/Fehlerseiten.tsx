@@ -20,3 +20,12 @@ export function NichtGefunden() {
 export function SeitenFehler() {
   return <Fehlerseite titel="Seite konnte nicht geladen werden" text="Die Adresse ist ungültig, oder beim Laden ist ein Fehler aufgetreten." />;
 }
+
+/** Ruhige Ladeansicht für den Wechsel auf eine noch nicht geladene Seite; der Text blendet verzögert ein, damit schnelle Wechsel nicht flackern */
+export function SeitenLaden() {
+  return (
+    <div className="seitenladen" role="status" aria-live="polite">
+      <p className="muted">Seite wird geladen …</p>
+    </div>
+  );
+}

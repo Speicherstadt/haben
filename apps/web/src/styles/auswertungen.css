@@ -83,6 +83,9 @@
 /* Kacheln über der Saldenliste */
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .kpi-grid .card { padding: 16px; }
+@media (min-width: 861px) and (max-width: 1024px) {
+  :root:not([data-nav="collapsed"]) .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 /* Journal: eine Zeile je Buchung */
 .journal-table td { vertical-align: top; }
@@ -124,6 +127,19 @@
   .csv-preview td.csv-status { grid-column: 3; grid-row: 1; padding-left: 0 !important; }
   .csv-preview td.csv-status .status-urgent:not(.status-inline) .status-label { margin-left: 0; margin-right: -8px; }
   .csv-preview td:nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* Buchungszeilen mit Kontosuche (/buchungen/neu): auch auf Tablet-Breiten als Karten, damit kein Scrollcontainer die Trefferliste abschneidet */
+@media (min-width: 721px) and (max-width: 1024px) {
+  .stack-table:has(.account-combobox) thead { display: none; }
+  .stack-table:has(.account-combobox), .stack-table:has(.account-combobox) :is(tbody, tfoot, tr, td, th) { display: block; width: 100%; }
+  .stack-table:has(.account-combobox) tr { border-top: 1px solid var(--line); padding: 8px 0; }
+  .stack-table:has(.account-combobox) tbody:first-of-type tr:first-child { border-top: 0; }
+  .stack-table:has(.account-combobox) :is(td, th) { border-top: 0 !important; padding: 4px 0 !important; text-align: left !important; }
+  .stack-table:has(.account-combobox) td[data-label] { position: relative; padding-left: 108px !important; }
+  .stack-table:has(.account-combobox) td[data-label]::before { content: attr(data-label); position: absolute; left: 0; width: 100px; color: var(--muted); font-family: var(--sans); font-weight: 400; font-size: 12px; line-height: 1.6; }
+  .stack-table:has(.account-combobox) td:empty { display: none; }
+  .stack-table:has(.account-combobox) tr.zeilen-meldungen { border-top: 0; padding-top: 0; }
 }
 
 @media (max-width: 720px) {
