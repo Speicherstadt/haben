@@ -24,7 +24,11 @@ const deutsch = (iso: string) => iso.split("-").reverse().join(".");
 /** Bucht eine festgeschriebene Abrechnung; gibt die Buchung zurück */
 export async function bucheAbrechnung(tx: Tx, p: Abrechnung): Promise<string> {
   const books = await openBooks(tx);
-  const r = lohnBuchung({ ...p, art: p.mitarbeiter.lohn.art }, books.kontenrahmen, books.rechtsform);
+  const r = lohnBuchung(
+    { ...p, art: p.mitarbeiter.lohn.art, privatnutzung: p.mitarbeiter.lohn.privatnutzungDienstwagen ?? 0 },
+    books.kontenrahmen,
+    books.rechtsform,
+  );
   if (!r.ok) throw new LohnError(`Die Abrechnung lässt sich nicht buchen: ${r.meldung}`);
   return post(tx, books, {
     date: monatsgrenzen(p.year, p.month).letzter,

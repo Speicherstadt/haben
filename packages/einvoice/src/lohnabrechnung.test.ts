@@ -1,4 +1,4 @@
-import { lohnabrechnung, lohnkonto, type LohnStammdaten } from "@haben/core";
+import { formatEuro, lohnabrechnung, lohnkonto, type LohnStammdaten } from "@haben/core";
 import { describe, expect, it } from "vitest";
 import { buildLohnabrechnungPdf, type LohnabrechnungDocument, lohnabrechnungPdfData } from "./lohnabrechnung.ts";
 import { buildLohnkontoPdf, lohnkontoPdfData } from "./lohnkonto.ts";
@@ -7,6 +7,7 @@ import { draftLayers } from "./test-pdf.ts";
 const GGF: LohnStammdaten = {
   art: "ggf",
   monatsgehalt: 6000_00,
+  privatnutzungDienstwagen: 0,
   eintritt: "2024-01-01",
   austritt: null,
   steuerklasse: 1,
@@ -99,6 +100,19 @@ describe("Entgeltabrechnung als PDF (§ 108 GewO, EntgBV)", () => {
     expect(data.auszahlung.label).toBe("Auszahlungsbetrag");
   });
 
+  it("Privatnutzung Dienstwagen: zweiter Bezug, vom Netto abgezogen", () => {
+    const stamm = { ...GGF, privatnutzungDienstwagen: 500_00 };
+    const data = lohnabrechnungPdfData(dokument(stamm));
+    const r = lohnabrechnung({ jahr: 2026, monat: 10, stammdaten: stamm, bundesland: "HB" });
+    if (!r.ok) throw new Error(r.meldung);
+    expect(data.bezuege.map((b) => b.label)).toEqual(["Geschäftsführergehalt", "Privatnutzung Dienstwagen"]);
+    expect(data.bezuege[1]).toMatchObject({ art: "laufend", steuer: "ja", sv: "nein", gesamt: "ja", value: formatEuro(500_00) });
+    expect(data.brutto.at(-1)).toEqual({ label: "Gesamtbrutto", value: formatEuro(6500_00) });
+    expect(data.sachbezug).toEqual({ label: "Privatnutzung Dienstwagen", value: formatEuro(-500_00) });
+    expect(data.netto.value).toBe(formatEuro(r.netto));
+    expect(data.auszahlung.value).toBe(formatEuro(r.auszahlung));
+  });
+
   it("Minijob: pauschal besteuert, Abzug nur der RV-Anteil, Abgaben des Arbeitgebers zur Information", () => {
     const data = lohnabrechnungPdfData(
       dokument({ ...GGF, art: "minijob", monatsgehalt: 603_00, konfession: null, kv: { art: "gesetzlich", zusatzbeitrag: 0 } }),
@@ -114,9 +128,10 @@ describe("Entgeltabrechnung als PDF (§ 108 GewO, EntgBV)", () => {
     expect(lohnabrechnungPdfData(dokument(GGF, { entwurf: true, gegenpruefen: true })).entwurf).toMatch(/gegenprüfen/);
   });
 
-  it("erzeugt ein PDF/A-3b, auch als Entwurf", () => {
-    for (const entwurf of [false, true]) {
-      const text = Buffer.from(buildLohnabrechnungPdf(dokument(GGF, { entwurf }))).toString("latin1");
+  it("erzeugt ein PDF/A-3b, auch als Entwurf und mit Privatnutzung", () => {
+    const faelle = [dokument(GGF), dokument(GGF, { entwurf: true }), dokument({ ...GGF, privatnutzungDienstwagen: 500_00 })];
+    for (const doc of faelle) {
+      const text = Buffer.from(buildLohnabrechnungPdf(doc)).toString("latin1");
       expect(text.slice(0, 5)).toBe("%PDF-");
       expect(text).toContain("<pdfaid:part>3</pdfaid:part>");
     }

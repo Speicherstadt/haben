@@ -4475,8 +4475,10 @@ export const employees = pgTable(
     /** Kirchensteuermerkmal (ELStAM), null ohne */
     konfession: text("konfession", { enum: Object.keys(KONFESSIONEN) as [Konfession, ...Konfession[]] }),
     art: text("art", { enum: Object.keys(BESCHAEFTIGUNGSARTEN) as [Beschaeftigungsart, ...Beschaeftigungsart[]] }).notNull(),
-    /** Vereinbartes Monatsgehalt, das regelmäßige Entgelt */
+    /** Vereinbartes Monatsgehalt, das regelmäßige Barentgelt */
     monatsgehalt: integer("monatsgehalt").$type<Cents>().notNull(),
+    /** Laufende Privatnutzung eines Dienstwagens in Cent; 0 ohne. Im Minijob immer 0 */
+    privatnutzungDienstwagen: integer("privatnutzung_dienstwagen").$type<Cents>().notNull().default(0),
     krankenversicherung: text("krankenversicherung", { enum: ["gesetzlich", "privat"] })
       .notNull()
       .default("gesetzlich"),
@@ -4513,6 +4515,8 @@ export const employees = pgTable(
   (t) => [
     check("employees_steuerklasse", sql`${t.steuerklasse} between 1 and 6`),
     check("employees_austritt", sql`${t.austritt} is null or ${t.austritt} >= ${t.eintritt}`),
+    check("employees_privatnutzung_nicht_negativ", sql`${t.privatnutzungDienstwagen} >= 0`),
+    check("employees_privatnutzung_minijob", sql`${t.art} <> 'minijob' or ${t.privatnutzungDienstwagen} = 0`),
     index("employees_vorname_trgm_idx").using("gin", sql`haben_unaccent(${t.vorname}) gin_trgm_ops`),
     index("employees_nachname_trgm_idx").using("gin", sql`haben_unaccent(${t.nachname}) gin_trgm_ops`),
   ],

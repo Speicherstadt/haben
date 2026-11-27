@@ -95,7 +95,7 @@ export function lohnkontoPdfData({ lohnkonto: k, arbeitgeber: a, heute }: Lohnko
     ],
     leer: k.zeilen.length === 0 ? `Im Jahr ${k.jahr} ist keine Abrechnung festgeschrieben.` : null,
     hinweise: [
-      "Beträge in Euro. Ein Storno steht mit negativen Beträgen am Tag des Stornos. Sachbezüge, steuerfreie Bezüge, Freibeträge und Versorgungsbezüge rechnet Haben nicht; die Spalte „Steuerfrei“ bleibt daher 0.",
+      "Beträge in Euro. Ein Storno steht mit negativen Beträgen am Tag des Stornos. Die laufende Privatnutzung eines Dienstwagens steht im Bruttoarbeitslohn und in „Steuerpflichtig“. Andere Sachbezüge, steuerfreie Bezüge, Freibeträge und Versorgungsbezüge rechnet Haben nicht; die Spalte „Steuerfrei“ bleibt daher 0.",
       k.aufbewahrenBis
         ? `Aufbewahren bis ${formatDate(k.aufbewahrenBis)} (Ablauf des sechsten Kalenderjahres nach der letzten Lohnzahlung, § 41 Abs. 1 Satz 9 EStG).`
         : "",

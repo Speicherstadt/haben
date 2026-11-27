@@ -144,6 +144,7 @@
     stroke: (x, y) => (top: if y == 0 { 0.6pt + accent } else { none }, bottom: 0.4pt + rule),
     inset: (x: 1.2mm, y: 1.8mm),
     semibold(d.netto.label), semibold(d.netto.value),
+    ..if d.sachbezug != none { (d.sachbezug.label, d.sachbezug.value) } else { () },
     ..if d.zuschuss != none { (d.zuschuss.label, d.zuschuss.value) } else { () },
     semibold(d.auszahlung.label), semibold(d.auszahlung.value),
   )

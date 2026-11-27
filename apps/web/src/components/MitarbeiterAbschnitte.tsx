@@ -87,6 +87,15 @@ export function Beschaeftigung({ w, set, text, error, arten }: AbschnittProps & 
         <Field label="Monatsgehalt brutto in Euro" error={error("monatsgehalt")}>
           {(control) => <input {...control} {...text("monatsgehalt")} inputMode="decimal" placeholder="0,00" required />}
         </Field>
+        {w.art !== "minijob" && (
+          <Field
+            label="Privatnutzung Dienstwagen in Euro"
+            error={error("privatnutzungDienstwagen")}
+            hint="Fester monatlicher Sachbezug. Er erhöht den steuerpflichtigen Arbeitslohn und bei sozialversicherungspflichtig Beschäftigten das SV-Brutto. Von der Auszahlung wird er abgezogen. Leer oder 0, wenn kein Dienstwagen privat genutzt wird."
+          >
+            {(control) => <input {...control} {...text("privatnutzungDienstwagen")} inputMode="decimal" placeholder="0,00" />}
+          </Field>
+        )}
         <Field label="Eintritt" error={error("eintritt")}>
           {(control) => <input {...control} type="date" value={w.eintritt} onChange={(e) => set("eintritt", e.target.value)} required />}
         </Field>

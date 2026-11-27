@@ -32,6 +32,8 @@ export interface MitarbeiterWerte {
   konfession: Konfession | null;
   art: Beschaeftigungsart;
   monatsgehalt: number;
+  /** Laufende Privatnutzung eines Dienstwagens in Cent; 0 ohne. Im Minijob immer 0 */
+  privatnutzungDienstwagen: number;
   krankenversicherung: "gesetzlich" | "privat";
   krankenkasse: string;
   krankenkasseBetriebsnummer: string;
@@ -68,6 +70,7 @@ export const NEUER_MITARBEITER: MitarbeiterWerte = {
   konfession: null,
   art: "ggf",
   monatsgehalt: 0,
+  privatnutzungDienstwagen: 0,
   krankenversicherung: "gesetzlich",
   krankenkasse: "",
   krankenkasseBetriebsnummer: "",
@@ -102,13 +105,23 @@ export function parseTausendstel(text: string): number | null {
 
 /** Felder, die als Text bearbeitet und erst beim Speichern gelesen werden */
 export type Texte = Record<
-  "monatsgehalt" | "zusatzbeitrag" | "pkvBasisbeitrag" | "pkvZuschuss" | "u1Satz" | "u2Satz" | "faktor" | "kinderfreibetraege" | "kinderUnter25",
+  | "monatsgehalt"
+  | "privatnutzungDienstwagen"
+  | "zusatzbeitrag"
+  | "pkvBasisbeitrag"
+  | "pkvZuschuss"
+  | "u1Satz"
+  | "u2Satz"
+  | "faktor"
+  | "kinderfreibetraege"
+  | "kinderUnter25",
   string
 >;
 
 export function texte(w: MitarbeiterWerte): Texte {
   return {
     monatsgehalt: w.monatsgehalt ? formatDecimal(w.monatsgehalt) : "",
+    privatnutzungDienstwagen: w.privatnutzungDienstwagen ? formatDecimal(w.privatnutzungDienstwagen) : "",
     zusatzbeitrag: formatHundredths(w.zusatzbeitrag),
     pkvBasisbeitrag: formatDecimal(w.pkvBasisbeitrag),
     pkvZuschuss: formatDecimal(w.pkvZuschuss),
@@ -127,6 +140,7 @@ export type MitarbeiterFeld =
   | "geburtsdatum"
   | "iban"
   | "monatsgehalt"
+  | "privatnutzungDienstwagen"
   | "eintritt"
   | "austritt"
   | "steuerId"
@@ -200,6 +214,8 @@ function zahlenLesen(w: MitarbeiterWerte, t: Texte) {
   const faktor = parseTausendstel(t.faktor);
   return {
     monatsgehalt: monatsgehaltLesen(t.monatsgehalt, w.monatsgehalt),
+    // Im Minijob gibt es den Sachbezug nicht; ein stehen gebliebener Betrag würde der Server ablehnen
+    privatnutzungDienstwagen: w.art === "minijob" ? { wert: 0, fehler: null } : beitragLesen(t.privatnutzungDienstwagen, w.privatnutzungDienstwagen),
     zusatzbeitrag: nurSichtbar(gesetzlich, satzLesen(t.zusatzbeitrag, w.zusatzbeitrag, "2,9", 0)),
     pkvBasisbeitrag: nurSichtbar(!gesetzlich, beitragLesen(t.pkvBasisbeitrag, w.pkvBasisbeitrag)),
     pkvZuschuss: nurSichtbar(!gesetzlich, beitragLesen(t.pkvZuschuss, w.pkvZuschuss)),

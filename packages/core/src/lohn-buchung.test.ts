@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ASSET_ACCOUNTS } from "./afa.ts";
 import { ebilanzPosition } from "./ebilanz.ts";
 import { postenForSaldo, postenOf } from "./hgb.ts";
+import { euerAusZeilen } from "./journal-euer.ts";
 import { lohnabrechnung, type LohnStammdaten } from "./lohnabrechnung/index.ts";
 import { LOHN_KONTEN, lohnBuchung, lohnStornoBuchung, type LohnBuchungsAbrechnung } from "./lohn-buchung.ts";
 import { ledgerManagedAccounts, manualPostingIssues } from "./manual.ts";
@@ -18,6 +19,7 @@ import { carriesForward } from "./vortrag.ts";
 const GGF: LohnStammdaten = {
   art: "ggf",
   monatsgehalt: 6000_00,
+  privatnutzungDienstwagen: 0,
   eintritt: "2024-01-01",
   austritt: null,
   steuerklasse: 1,
@@ -54,6 +56,7 @@ function abrechnung(stammdaten: LohnStammdaten): LohnBuchungsAbrechnung {
     pauschsteuer: r.sv.pauschsteuer,
     netto: r.netto,
     auszahlung: r.auszahlung,
+    privatnutzung: stammdaten.privatnutzungDienstwagen,
   };
 }
 
@@ -153,6 +156,42 @@ describe("Lohnbuchung je Abrechnung", () => {
     expect(r).toEqual({ ok: false, meldung: expect.stringMatching(/Gesellschafter-Geschäftsführer.*GmbH und UG/) });
   });
 
+  it("SKR03: Privatnutzung erhöht den Gehaltsaufwand und wird auf 8590 verrechnet, ohne Steuerschlüssel", () => {
+    const a = abrechnung({ ...GGF, privatnutzungDienstwagen: 500_00 });
+    expect(a.brutto).toBe(6500_00);
+    expect(a.auszahlung).toBe(a.netto - 500_00);
+    const lines = buche(a, "SKR03");
+    expect(zeilen(lines)).toEqual([
+      ["4124", 6500_00, 0],
+      ["1740", 0, a.auszahlung],
+      ["1741", 0, a.lohnsteuer + a.soli + a.kirchensteuer],
+      ["8590", 0, 500_00],
+    ]);
+    expect(lines.every((l) => l.taxCode === null)).toBe(true);
+  });
+
+  it("SKR04: derselbe Sachbezug auf 4940, nicht auf der Entnahme mit Umsatzsteuer", () => {
+    const lines = buche(abrechnung({ ...GGF, privatnutzungDienstwagen: 500_00 }), "SKR04");
+    expect(lines).toContainEqual({ account: "4940", debit: 0, credit: 500_00, taxCode: null });
+    expect(lines.some((l) => l.account === "4645" || l.account === "8921")).toBe(false);
+  });
+
+  it("Beschäftigter: der Sachbezug steht im Gehalt, die Beiträge bleiben auf ihrem Konto", () => {
+    const a = abrechnung({ ...ANGESTELLT, privatnutzungDienstwagen: 200_00 });
+    const lines = buche(a, "SKR04", "einzelunternehmen");
+    expect(lines).toContainEqual({ account: "6020", debit: 4200_00, credit: 0, taxCode: null });
+    expect(lines).toContainEqual({ account: "4940", debit: 0, credit: 200_00, taxCode: null });
+    expect(lines).toContainEqual({ account: "3720", debit: 0, credit: a.auszahlung, taxCode: null });
+    expect(lines.reduce((sum, l) => sum + l.debit - l.credit, 0)).toBe(0);
+  });
+
+  it("die Abgrenzung hebt sich in der EÜR auf", () => {
+    for (const kr of ["SKR03", "SKR04"] as const) {
+      const lines = buche(abrechnung({ ...ANGESTELLT, privatnutzungDienstwagen: 400_00 }), kr);
+      expect(euerAusZeilen(kr, lines).zeilen.personal ?? 0).toBe(0);
+    }
+  });
+
   it("Zuschuss zur privaten Krankenversicherung (Auszahlung über Netto) ist nicht unterstützt", () => {
     const a = { ...abrechnung(ANGESTELLT), auszahlung: abrechnung(ANGESTELLT).netto + 100_00 };
     expect(lohnBuchung(a, "SKR03", "gmbh")).toEqual({ ok: false, meldung: expect.stringMatching(/nicht unterstützt/) });
@@ -189,6 +228,9 @@ describe("Lohnkonten im Kontenrahmen", () => {
       expect(postenOf(kr, konto), konto).toBe("personalaufwand");
       expect(carriesForward(kr, konto), konto).toBe(false);
     }
+    expect(postenOf(kr, k.sachbezug), k.sachbezug).toBe("sonstigeErtraege");
+    expect(carriesForward(kr, k.sachbezug), k.sachbezug).toBe(false);
+    expect(ebilanzPosition(kr, k.sachbezug, -100)).toBe("is.netIncome.regular.operatingTC.otherOpRevenue.nonAllocable");
     for (const konto of [k.verbLohn, k.verbLohnsteuer, k.verbSv]) {
       expect(postenForSaldo(kr, konto, -100), konto).toBe("passiva.C");
       // Überzahlt (Soll-Saldo): sonstiger Vermögensgegenstand (DATEV „Sonstige Verbindlichkeiten oder Sonstige Vermögensgegenstände“)

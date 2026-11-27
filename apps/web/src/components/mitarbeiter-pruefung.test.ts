@@ -52,6 +52,16 @@ describe("Prüfung des Mitarbeiterformulars", () => {
     expect(pruefen({}, { monatsgehalt: "3.000 €" }).werte.monatsgehalt).toBe(300000);
   });
 
+  it("Privatnutzung des Dienstwagens darf leer bleiben; im Minijob wird sie 0", () => {
+    const meldung = "Trag einen Betrag von 0 bis 10.000.000,00 ein, etwa 1.234,56, oder lass das Feld leer.";
+    expect(pruefen({}, { privatnutzungDienstwagen: "" }).werte.privatnutzungDienstwagen).toBe(0);
+    expect(pruefen({}, { privatnutzungDienstwagen: "500,00" }).werte.privatnutzungDienstwagen).toBe(500_00);
+    expect(pruefen({}, { privatnutzungDienstwagen: "10.000.000,00" }).werte.privatnutzungDienstwagen).toBe(10_000_000_00);
+    expect(pruefen({}, { privatnutzungDienstwagen: "-1" }).fehler.privatnutzungDienstwagen).toBe(meldung);
+    const minijob = pruefen({ art: "minijob", privatnutzungDienstwagen: 500_00 }, { privatnutzungDienstwagen: "500,00" });
+    expect([minijob.fehler.privatnutzungDienstwagen, minijob.werte.privatnutzungDienstwagen]).toEqual([null, 0]);
+  });
+
   it("Beiträge der privaten Versicherung dürfen leer bleiben, nicht negativ, bis 10.000.000,00", () => {
     const privat = { krankenversicherung: "privat" as const };
     expect(pruefen(privat, { pkvBasisbeitrag: "", pkvZuschuss: "" }).werte).toMatchObject({ pkvBasisbeitrag: 0, pkvZuschuss: 0 });

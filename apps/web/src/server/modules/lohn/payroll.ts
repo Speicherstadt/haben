@@ -160,7 +160,7 @@ export async function monatsuebersicht(year: number, month: number) {
         vorschau:
           vorschau &&
           (vorschau.ok
-            ? { ok: true as const, netto: vorschau.netto, brutto: vorschau.brutto }
+            ? { ok: true as const, netto: vorschau.netto, brutto: vorschau.brutto, auszahlung: vorschau.auszahlung }
             : { ok: false as const, grund: vorschau.grund, meldung: vorschau.meldung }),
       };
     });

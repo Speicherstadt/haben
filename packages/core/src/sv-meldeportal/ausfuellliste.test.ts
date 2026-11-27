@@ -17,6 +17,7 @@ import {
 const LOHN: LohnStammdaten = {
   art: "beschaeftigt",
   monatsgehalt: 4000_00,
+  privatnutzungDienstwagen: 0,
   eintritt: "2026-01-01",
   austritt: null,
   steuerklasse: 1,

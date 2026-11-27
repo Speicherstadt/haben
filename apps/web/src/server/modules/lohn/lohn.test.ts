@@ -88,6 +88,7 @@ describe.skipIf(!testDatabaseUrl)("Lohnabrechnung (Postgres)", () => {
       stammdaten: {
         art: "ggf",
         monatsgehalt: 6000_00,
+        privatnutzungDienstwagen: 0,
         eintritt: "2024-01-01",
         austritt: null,
         steuerklasse: 1,
