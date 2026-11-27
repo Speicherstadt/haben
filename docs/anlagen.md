@@ -173,7 +173,7 @@ Die **Umsatzsteuer** fällt im Monat der Entnahme an, bei Ist- und Soll-Versteue
 | mit Vorsteuer, als Kleinunternehmer (vor dem Wechsel gekauft) | ab 2025 Entnahmewert in Kz 48, steuerfrei nach § 19 Abs. 1 UStG ([Umsätze ohne Steuer](umsatzsteuer.md#umsätze-ohne-steuer-kz-21-41-43-45-und-48)); im [Gesamtumsatz](auswertungen.md#gesamtumsatz-nach--19-ustg) zählt er nicht (UStAE 19.2 Abs. 4) |
 | ohne Vorsteuer | nicht steuerbar (§ 3 Abs. 1b Satz 2 UStG), keine Kennzahl |
 
-In der **EÜR** steht der Entnahmewert als „Veräußerung oder Entnahme von Anlagevermögen“ (Zeile 19), die Umsatzsteuer darauf als „Umsatzsteuer auf unentgeltliche Wertabgaben“, der Restbuchwert wie bei jedem Abgang.
+In der **EÜR** steht der Entnahmewert als „Veräußerung oder Entnahme von Anlagevermögen“ (Zeile 19), die Umsatzsteuer darauf als „Umsatzsteuer auf unentgeltliche Wertabgaben“ (Zeile 17), der Restbuchwert wie bei jedem Abgang ([amtliche Anleitung EÜR 2025, Zeilen 17 und 19](https://www.elster.de/eportal/helpGlobal?themaGlobal=help_euer_ufa_77_2025)).
 
 **Buchung:** Mit **AfA … buchen** bucht Haben zum Abgangsdatum zusätzlich die Entnahme auf „Erlöse aus Verkäufen Sachanlagevermögen“. Ist der Entnahmewert mindestens so hoch wie der Restbuchwert, ist es ein Buchgewinn, sonst ein Buchverlust; der Restbuchwert folgt derselben Unterscheidung. Beispiel mit 800 € Entnahmewert und 450 € Restbuchwert:
 
