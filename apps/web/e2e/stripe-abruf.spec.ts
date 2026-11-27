@@ -36,7 +36,13 @@ function bewegungen() {
       fee: 400,
       net: 11500,
       reporting_category: "charge",
-      source: { id: "ch_e2eZahlung", object: "charge", billing_details: { name: "Studio Süd", email: null }, description: "Rechnung 2026-101" },
+      source: {
+        id: "ch_e2eZahlung",
+        object: "charge",
+        billing_details: { name: "Studio Süd", email: null },
+        description: "Rechnung 2026-101",
+        metadata: { invoice_id: "1042", invoice_number: "RE-2026-0117" },
+      },
       status: "available",
       type: "charge",
     },
@@ -69,6 +75,8 @@ async function stripeAttrappe(): Promise<Server> {
     if (request.headers.authorization !== `Bearer ${SCHLUESSEL}`)
       return json(401, { error: { message: "Invalid API Key provided", type: "invalid_request_error" } });
     if (url.pathname === "/v1/account") return json(200, { id: KONTO, object: "account" });
+    // Der Schlüssel darf Zahlungen nicht auflisten: Mit gewählten Metadaten sagt das schon die Prüfung
+    if (url.pathname === "/v1/charges") return json(403, { error: { message: "The provided key does not have the required permissions" } });
     if (url.pathname === "/v1/balance_transactions") return json(200, { object: "list", data: bewegungen(), has_more: false });
     json(404, { error: { message: "nicht nachgebaut" } });
   });
@@ -136,8 +144,28 @@ test("„Konto verbinden › Zahlungsdienstleister hinzufügen“: Anbieter wäh
 test("Ein Schlüssel des Testmodus wird beim Prüfen abgelehnt, ohne Stripe zu fragen", async () => {
   await zugang().getByLabel("API-Schlüssel").fill(["rk", "test", "e2eBeispielSchluessel4711"].join("_"));
   await zugang().getByRole("button", { name: "Zugang prüfen" }).click();
-  await expect(zugang().getByRole("alert")).toContainText("Haben ruft nur Live-Umsätze ab; bitte einen Live-Schlüssel mit Leserechten eintragen.");
+  // Die Meldung steht am Feld, das sie betrifft, und das Feld bekommt den Fokus (DESIGN.md, Felder)
+  const feld = zugang().getByLabel("API-Schlüssel");
+  await expect(feld).toHaveAttribute("aria-invalid", "true");
+  await expect(feld).toHaveAccessibleDescription(/Haben ruft nur Live-Umsätze ab; bitte einen Live-Schlüssel mit Leserechten eintragen\./);
+  await expect(feld).toBeFocused();
+  await expect(zugang().locator(".banner")).toHaveCount(0);
   await expect(zugang().getByRole("button", { name: "Weiter" })).toHaveCount(0);
+  expect(anfragen).toEqual([]);
+});
+
+test("Mit Enter im Feld abgeschickt, bleibt der Fokus dort: Der Fehler am Feld wird vorgelesen und verschwindet bei der nächsten Eingabe", async () => {
+  const feld = zugang().getByLabel("API-Schlüssel");
+  await feld.fill(["rk", "test", "e2eAndererSchluessel0815"].join("_"));
+  await expect(feld).not.toHaveAttribute("aria-invalid");
+  await feld.press("Enter");
+  await expect(feld).toHaveAttribute("aria-invalid", "true");
+  await expect(feld).toBeFocused();
+  // Der Fokus wandert nicht ins Feld, der Screenreader liest den Fehler also nur über role="alert" (DESIGN.md, Field: announceError)
+  await expect(zugang().getByRole("alert")).toHaveText("Haben ruft nur Live-Umsätze ab; bitte einen Live-Schlüssel mit Leserechten eintragen.");
+  await feld.press("Backspace");
+  await expect(feld).not.toHaveAttribute("aria-invalid");
+  await expect(zugang().getByRole("alert")).toHaveCount(0);
   expect(anfragen).toEqual([]);
 });
 
@@ -145,10 +173,12 @@ test("Zugang prüfen nennt das Konto bei Stripe und speichert nichts; Name und Z
   await zugang().getByLabel("API-Schlüssel").fill(SCHLUESSEL);
   // Die Eingabe nimmt die Meldung der letzten Prüfung weg
   await expect(zugang().getByRole("alert")).toHaveCount(0);
+  await zugang().getByLabel("Metadaten im Verwendungszweck").fill(" invoice_number,, invoice_id, invoice_number");
   await zugang().getByRole("button", { name: "Zugang prüfen" }).click();
   await expect(geprueft()).toContainText(`Stripe-Konto ${KONTO} (Schlüssel …4711).`);
   await expect(geprueft()).toContainText("OK");
-  expect(anfragen.map((a) => a.pfad)).toEqual(["GET /v1/account"]);
+  await expect(geprueft()).toContainText("Der Schlüssel darf Zahlungen nicht lesen");
+  expect(anfragen.map((a) => a.pfad)).toEqual(["GET /v1/account", "GET /v1/charges?limit=1"]);
   expect(await mitDatenbank((sql) => sql`select count(*)::int as n from psp_connections`)).toEqual([{ n: 0 }]);
   await zugang().getByRole("button", { name: "Weiter" }).click();
 
@@ -185,6 +215,7 @@ test("Zugang prüfen nennt das Konto bei Stripe und speichert nichts; Name und Z
       ["txn_e2eZahlung-gebuehr", -400],
     ]);
     expect(umsaetze.find((u) => u.bank_reference === "txn_e2eZahlung")?.counterparty_name).toBe("Studio Süd");
+    expect(await sql`select purpose from bank_transactions where bank_reference = 'txn_e2eZahlung'`).toEqual([{ purpose: "RE-2026-0117 1042" }]);
   });
 
   // „Zum Konto“: die Bankseite mit der Karte des neuen Kontos gewählt; Weg und Stand stehen über der Liste, ohne Karte
@@ -267,7 +298,7 @@ test("Ein fehlgeschlagener Abruf: Hinweis unter der Leiste mit „Zugang ändern
   await mitDatenbank((sql) => sql`update psp_connections set last_error = null`);
 });
 
-test("Verbindungen: Jetzt abrufen an der Zeile, Bearbeiten im Dialog zeigt den Schlüssel nicht", async () => {
+test("Verbindungen: Jetzt abrufen an der Zeile, Bearbeiten im Dialog zeigt den Schlüssel nicht und meldet fehlende Rechte für neue Metadaten", async () => {
   await gehe(page, "/bank/verbindungen");
   await zeile().getByRole("button", { name: "Shop DE jetzt abrufen" }).click();
   await expect(abrufBereich().getByText("Shop DE: Abruf durchgelaufen.")).toBeVisible();
@@ -277,8 +308,15 @@ test("Verbindungen: Jetzt abrufen an der Zeile, Bearbeiten im Dialog zeigt den S
   await page.getByRole("menuitem", { name: "Bearbeiten …" }).click();
   const dialog = page.getByRole("dialog", { name: "Shop DE bearbeiten" });
   await expect(dialog.getByLabel("API-Schlüssel (leer lassen zum Behalten)")).toHaveValue("");
-  await dialog.getByRole("button", { name: "Abbrechen" }).click();
+  // Das Feld zeigt die gespeicherten Schlüssel: bereinigt, ohne Doppelte
+  await expect(dialog.getByLabel("Metadaten im Verwendungszweck")).toHaveValue("invoice_number, invoice_id");
+  // Andere Schlüssel ohne neuen Zugang: Stripe prüft mit dem gespeicherten, die Meldung nennt das fehlende Recht (#1915)
+  await dialog.getByLabel("Metadaten im Verwendungszweck").fill("invoice_id");
+  anfragen.length = 0;
+  await dialog.getByRole("button", { name: "Speichern" }).click();
   await expect(dialog).toHaveCount(0);
+  await expect(abrufBereich().getByRole("status")).toContainText("Verbindung gespeichert. Der Schlüssel darf Zahlungen nicht lesen");
+  expect(anfragen.map((a) => a.pfad)).toEqual(["GET /v1/account", "GET /v1/charges?limit=1"]);
 });
 
 test("Verbindung entfernen löscht den Schlüssel, die Umsätze bleiben", async () => {

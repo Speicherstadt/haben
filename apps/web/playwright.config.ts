@@ -10,6 +10,7 @@ import {
   ETSY_PORT,
   EVATR_PORT,
   FINTS_PRODUKT_E2E,
+  KI_PORT,
   habenFirmen,
   LAYOUT_PAKETE_PORT,
   PAYPAL_PORT,
@@ -70,7 +71,9 @@ function webServer(durchlauf?: Durchlauf) {
       ELSTER_HERSTELLER_ID: "",
       ANTHROPIC_API_KEY: "",
       EXTRACTION_PROVIDER: "",
-      EXTRACTION_BASE_URL: "",
+      // KI-Auslesung (#1735) nur im Durchlauf „ki-warteschlange“ gegen den nachgebauten Dienst; sonst ist sie aus
+      EXTRACTION_BASE_URL: durchlauf === "ki-warteschlange" ? `http://127.0.0.1:${KI_PORT}/v1` : "",
+      EXTRACTION_MODEL: durchlauf === "ki-warteschlange" ? "e2e-modell" : "",
       // Nachgebaute API in belege-steuern-einstellungen.spec.ts; ohne gespeicherten Zugang fragt kein Server dort an
       ENABLE_BANKING_API_URL: `http://127.0.0.1:${ENABLE_BANKING_PORT}`,
       ENABLE_BANKING_APP_ID: "",
@@ -130,6 +133,7 @@ const gruppen: Record<(typeof MIT_DATEN)[number], { testMatch: string[]; grepInv
     testMatch: [
       "barrierefreiheit.spec.ts",
       "bank-sortierung.spec.ts",
+      "bankverbindungen.spec.ts",
       "basiszinssatz.spec.ts",
       "bestaetigung.spec.ts",
       "layouts.spec.ts",

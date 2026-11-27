@@ -50,7 +50,7 @@ Nach dem ersten Konto stellt Haben ein paar Fragen in drei Schritten:
 
 - **Dein Unternehmen:** freiberuflich (Einkunftsart selbständige Arbeit), mit Gewerbe (Gewerbebetrieb), GmbH oder UG; Kleinunternehmer; ohne Kleinunternehmer Ist- oder Soll-Versteuerung und ob du die Voranmeldung monatlich oder vierteljährlich abgibst; nur steuerfreie Umsätze ohne Vorsteuerabzug; mit Steuerberatung deren Kontenrahmen.
 - **Start in Haben:** Wer von einem anderen Programm wechselt, findet hier den Weg zum Umzug im Archiv.
-- **Bereiche:** ob du Angebote schreibst, Angestellte hast, Bargeld einnimmst, per Lastschrift einziehst und Anlagen oder Darlehen hast.
+- **Bereiche:** ob du deine Rechnungen mit Haben schreibst und mahnst, Artikel, Zeiteinträge und Textbausteine nutzt, Angebote schreibst, Angestellte hast, Bargeld einnimmst, per Lastschrift einziehst und Anlagen oder Darlehen hast.
 
 Jede Frage hat „Weiß ich nicht“, und „Später“ überspringt alles; dann erinnert die Übersicht daran, bis du die Fragen beantwortest oder die Firmendaten speicherst. Die Antworten schreiben die vorhandenen Angaben der [Firmendaten](#firmendaten) und den [Voranmeldungszeitraum](umsatzsteuer.md#voranmeldungszeitraum) ab Januar des laufenden Jahres, mit denselben [Sperren](#wann-sich-die-einstellungen-ändern-lassen) wie dort. „Weiß ich nicht“ lässt die bisherige Angabe stehen, beim ersten Mal die Vorgabe (Einzelunternehmen, kein Kleinunternehmer). Bleiben Rechtsform oder Kleinunternehmer so offen, erinnert die Übersicht daran, bis du sie in den Fragen beantwortest oder die Firmendaten speicherst.
 
@@ -58,11 +58,17 @@ Unter **Einstellungen › Bereiche** öffnet „Fragen erneut durchgehen“ die 
 
 ### Bereiche ausblenden
 
-Die Menüpunkte eines Bereichs, den du mit „Nein“ beantwortest, verschwinden aus dem Menü und aus den Seiten der [Schnellsuche](suche.md): Angebote; Personal mit Lohn und SV-Meldeportal; Kasse; Lastschriften; Anlagen und Darlehen. Mehr passiert nicht: Daten, Buchungen, Auswertungen, Treffer der Schnellsuche, API und direkte Links bleiben, wie sie sind. Unter **Einstellungen › Bereiche** schaltest du jeden Bereich mit einem Haken wieder ein oder aus. Rechnungen, Belege, Bank, Umsatzsteuer und Jahreserklärung stehen immer im Menü. Instanzen von vor dem Update zeigen alle Bereiche.
+Unter **Einstellungen › Bereiche** blendest du Funktionen mit einem Haken ein oder aus. Im Einrichtungsassistenten blendet die Antwort „Nein“ den jeweiligen Bereich aus.
+
+- **Angebote, Personal, Kasse, Lastschriften, Anlagen und Darlehen, Artikel, Zeiteinträge und Textbausteine:** Haben blendet die jeweiligen Menüpunkte und Seiten in der [Schnellsuche](suche.md) aus. Das betrifft auch den Knopf „Zeiteinträge“ am Kontakt und den Link zu den Textbausteinen in den Firmendaten.
+- **Rechnungen schreiben:** Die Knöpfe zum Schreiben, Abrechnen und Kopieren entfallen. Wiederkehrende Rechnungen, Storno, Korrektur, Ersatzrechnung und das Hochladen von Ausgangsrechnungen bleiben verfügbar.
+- **Mahnwesen:** Haben blendet den Reiter und die Einstiege zum Mahnen aus. Überfällige Rechnungen führen von der Übersicht zur Rechnungsliste.
+
+Daten, Buchungen, Auswertungen, Datentreffer der Schnellsuche, API und direkte Links bleiben verfügbar. Rechnungen, Belege, Bank, Umsatzsteuer und Jahreserklärung stehen immer im Menü. Die fünf neuen Schalter sind auch nach einem Update zunächst eingeschaltet.
 
 ## Die Übersicht
 
-**Zu erledigen** steht oben auf der Übersicht und zeigt die drei dringendsten Aufgaben: erst Fristen der nächsten zwei Wochen wie Voranmeldung, Zahllast ohne Deckung auf dem Steuerkonto, Einspruch oder Zertifikat (auch überfällige), die nächste zuerst, dann Warnungen vor Hinweisen vor Anstehendem. Die übrigen stehen unter **Weitere (n)**. Steht die Voranmeldung nicht unter den drei, führt im Seitenkopf ein Link zum Zeitraum; bei Kleinunternehmern und Befreiten nur, wenn es dazu eine Voranmeldung oder Zahlen gibt. Die Kennzahlen darunter erscheinen, sobald es Rechnungen, offene Posten, Umsatz im Vormonat, eine Zahllast oder Voranmeldung oder einen Kontostand gibt. Solange keine Rechnung festgeschrieben ist, führt **Erste Rechnung schreiben** unter **Letzte Rechnungen** zur ersten Rechnung.
+**Zu erledigen** steht oben auf der Übersicht und zeigt die drei dringendsten Aufgaben: erst Fristen der nächsten zwei Wochen wie Voranmeldung, Zahllast ohne Deckung auf dem Steuerkonto, Einspruch oder Zertifikat (auch überfällige), die nächste zuerst, dann Warnungen vor Hinweisen vor Anstehendem. Die übrigen stehen unter **Weitere (n)**. Steht die Voranmeldung nicht unter den drei, führt im Seitenkopf ein Link zum Zeitraum; bei Kleinunternehmern und Befreiten nur, wenn es dazu eine Voranmeldung oder Zahlen gibt. Die Kennzahlen darunter erscheinen, sobald es Rechnungen, offene Posten, Umsatz im Vormonat, eine Zahllast oder Voranmeldung oder einen Kontostand gibt. Wenn „Rechnungen schreiben“ eingeschaltet und noch keine Rechnung festgeschrieben ist, führt **Erste Rechnung schreiben** unter **Letzte Rechnungen** zur ersten Rechnung.
 
 Endete der Zeitraum einer Voranmeldung vor deinem ersten Buchungsmonat, steht sie weder unter **Zu erledigen** (auch nicht als fehlende Deckung auf dem Steuerkonto) noch bei den Kennzahlen als fällig, und der Link im Seitenkopf entfällt: Was davor lag, hast du nicht in Haben gebucht, wie bei den [Fristen](fristen.md). War dein Unternehmen in dem Zeitraum schon tätig, bleibt sie beim Finanzamt abzugeben (§ 18 Abs. 1 UStG). Mit einer gespeicherten Voranmeldung (auch Entwurf) zu dem Zeitraum zeigt Haben Aufgabe, Link und Kennzahl wie sonst.
 
@@ -72,7 +78,7 @@ Deine Steuerberatung bekommt auf Wunsch einen eigenen Zugang, der nur lesen kann
 
 ## Einstellungen und Darstellung
 
-Die **Einstellungen** (unten links in der Navigation) sind in Bereiche geteilt: **Firma**, **Persönliche Angaben**, **Bereiche** ([Menüpunkte ein- und ausblenden](#bereiche-ausblenden)), **Rechnungen** (Nummernkreis, Nummernformat, Einheiten, Vorlagen für den Zahlungsplan, Standardanhänge für Angebote, Kundennummern), **[Beleggestaltung](beleggestaltung.md)**, **ELSTER** (Zertifikat, ERiC), **E-Mail** (Versand, Belege-Postfach), **Bank** (Zugang für den Kontoabruf über Enable Banking und FinTS), **Eigene Konten** ([Sachkonten mit eigener Nummer](buchhaltung.md#eigene-konten)), **Sicherheit** (Passkeys, Passwort, Zugänge), **Fremdwährung** (Umrechnungskurse), **KI-Assistenten und API** (MCP, [REST-API](api.md), Belegauslesung), **Eigene Seiten** ([eigene Werkzeuge im Menü](eigene-seiten.md)) und **Export** (Jahresarchiv, [Einstellungen für eine neue Instanz](einrichtung-echtbetrieb.md), DATEV, Änderungsprotokoll prüfen, Backup). Links aus der App, etwa „Zertifikat hochladen“ in der Übersicht, führen direkt in den passenden Bereich; die Adresse lautet dann z. B. `/einstellungen?bereich=elster`. Darunter öffnet **Dokumentation** diese Seiten in einem neuen Tab. Am Handy zeigt **Einstellungen** zuerst die Liste der Bereiche, „‹ Einstellungen“ oben führt aus einem Bereich zurück.
+Die **Einstellungen** (unten links in der Navigation) sind in Bereiche geteilt: **Firma**, **Persönliche Angaben**, **Bereiche** ([Funktionen ein- und ausblenden](#bereiche-ausblenden)), **Rechnungen** (Nummernkreis, Nummernformat, Einheiten, Vorlagen für den Zahlungsplan, Standardanhänge für Angebote, Kundennummern), **[Beleggestaltung](beleggestaltung.md)**, **ELSTER** (Zertifikat, ERiC), **E-Mail** (Versand, Belege-Postfach), **Bank** (Zugang für den Kontoabruf über Enable Banking und FinTS), **Eigene Konten** ([Sachkonten mit eigener Nummer](buchhaltung.md#eigene-konten)), **Sicherheit** (Passkeys, Passwort, Zugänge), **Fremdwährung** (Umrechnungskurse), **KI-Assistenten und API** (MCP, [REST-API](api.md), Belegauslesung), **Eigene Seiten** ([eigene Werkzeuge im Menü](eigene-seiten.md)) und **Export** (Jahresarchiv, [Einstellungen für eine neue Instanz](einrichtung-echtbetrieb.md), DATEV, Änderungsprotokoll prüfen, Backup). Links aus der App, etwa „Zertifikat hochladen“ in der Übersicht, führen direkt in den passenden Bereich; die Adresse lautet dann z. B. `/einstellungen?bereich=elster`. Darunter öffnet **Dokumentation** diese Seiten in einem neuen Tab. Am Handy zeigt **Einstellungen** zuerst die Liste der Bereiche, „‹ Einstellungen“ oben führt aus einem Bereich zurück.
 
 Ebenfalls unten links wählst du **Farbe** und **Modus**: Wald (Grün, Standard), Ozean, Pflaume oder Graphit, jeweils hell, dunkel oder **System**, das der Einstellung deines Geräts folgt. Die Wahl gilt für diesen Browser und wird dort gespeichert, nicht auf dem Server; auf einem anderen Gerät wählst du sie neu. Rechnungen und PDFs bleiben in jeder Farbe gleich.
 
@@ -110,7 +116,7 @@ Seltenes steht eingeklappt, mit dem Gesetzten in der Überschrift: **Handelsregi
 | USt-IdNr. | Auf Rechnungen und im E-Rechnungs-XML. Form `DE123456789` |
 | Finanzamt | Name des Finanzamts, steht auf der [Lohnsteuerbescheinigung](lohn.md#lohnsteuerbescheinigung). Das Empfänger-Finanzamt der Voranmeldung leitet Haben aus der Steuernummer ab |
 | Telefon | Auf der Rechnung; für XRechnung Pflicht; mit dem [Antrag auf Anpassung der Vorauszahlungen](finanzamt.md#vorauszahlungen-herabsetzen) an das Finanzamt für Rückfragen |
-| Bank, IBAN, BIC | Zahlungsangaben auf der Rechnung. Die IBAN ist Pflicht zum Festschreiben; Eingabe ohne Leerzeichen, Haben entfernt sie aber auch selbst |
+| Bank, IBAN, BIC | Zahlungsangaben auf der Rechnung. Die IBAN ist Pflicht zum Festschreiben; Eingabe ohne Leerzeichen, Haben entfernt sie aber auch selbst. Weitere Konten für einzelne Rechnungen oder Kunden: [Zahlungskonto](rechnungen-zahlung.md#zahlungskonto) |
 | Kontoinhaber | Nur nötig, wenn das Konto nicht auf den Firmennamen läuft. Steht im GiroCode, in der Fußzeile und in der E-Rechnung (BT-85); leer = Firmenname. Höchstens 70 Zeichen, siehe [GiroCode](rechnungen-zahlung.md#girocode) |
 | Gläubiger-ID | Nur für [SEPA-Lastschriften](kontakte.md#sepa-lastschriftmandate) nötig. Die Bundesbank vergibt sie auf Antrag; 18 Stellen wie `DE98ZZZ09999999999`. Haben prüft die Prüfziffer nach EPC262-08 und speichert sie ohne Leerzeichen |
 | Rechtsform | Einzelunternehmen, GmbH oder UG (haftungsbeschränkt), siehe [unten](#rechtsform-einzelunternehmen-gmbh-oder-ug) |
@@ -122,7 +128,7 @@ Seltenes steht eingeklappt, mit dem Gesetzten in der Überschrift: **Handelsregi
 | Standard-Zahlungsziel in Tagen | Vorgabe für neue Rechnungen (0 bis 120 Tage) |
 | Skonto | Vorgabe für neue Rechnungen, bis zu drei Stufen aus Satz und Frist in Tagen, z. B. 2 % in 10 Tagen; am Kunden und in der Rechnung änderbar (siehe [Skonto](rechnungen-zahlung.md#skonto)) |
 | Standardformat für Rechnungen | ZUGFeRD (PDF mit eingebettetem XML), XRechnung (CII) oder XRechnung (UBL). Vorgabe für neue Rechnungen |
-| Standard-Texte | Einleitung und Hinweis neuer Rechnungen und Angebote, Einleitung und Schluss von Mahnungen je Stufe und die Texte von Auftragsbestätigung und Lieferschein legst du als [Standard-Textbaustein](rechnungen.md#standard-je-belegart) unter **Textbausteine** fest, etwa eine Anrede oder „Für die erbrachten Leistungen berechne ich Ihnen:“. Die Firmendaten verweisen dorthin. |
+| Standard-Texte | Einleitung und Hinweis neuer Rechnungen und Angebote, Einleitung und Schluss von Mahnungen je Stufe und die Texte von Auftragsbestätigung und Lieferschein legst du als [Standard-Textbaustein](rechnungen.md#standard-je-belegart) unter **Textbausteine** fest, etwa eine Anrede oder „Für die erbrachten Leistungen berechne ich Ihnen:“. Bei [sichtbaren Textbausteinen](#bereiche-ausblenden) verweisen die Firmendaten dorthin. |
 | Versteuerung | Ist oder Soll, siehe unten |
 | Kleinunternehmer nach § 19 UStG | Haken setzen, wenn du die Kleinunternehmerregelung nutzt, siehe unten |
 | Gründungsdatum | Datum der tatsächlichen Aufnahme deiner unternehmerischen Tätigkeit, siehe [Kleinunternehmer](#kleinunternehmer) |
@@ -424,7 +430,7 @@ Optional. E-Rechnungen (ZUGFeRD, Factur-X, XRechnung) liest Haben immer selbst a
 | Kosten | ein paar Cent je Beleg | Rechenzeit auf deinem Server, mit CPU leicht ein bis mehrere Minuten je Beleg | nach Preisliste des Anbieters und Modells |
 | Genauigkeit | sehr gut, auch bei Fotos und Kassenzetteln | gut bei sauberen PDFs, schwächer bei Fotos und Kassenzetteln | je nach gewähltem Vision-Modell |
 
-Es gilt immer genau ein Dienst: Ist `EXTRACTION_BASE_URL` gesetzt, gehen Belege nur an diese Adresse, auch wenn zusätzlich `ANTHROPIC_API_KEY` gesetzt ist, und bei einem Fehler weicht Haben auf keinen anderen Anbieter aus. Welcher Weg gerade gilt, zeigt **Einstellungen › KI-Assistenten und API › Belegauslesung**. Ohne beides bleibt alles lokal, und du füllst die Felder von Hand aus. In jedem Fall bucht Haben einen Beleg erst, wenn du die Felder bestätigt hast. Weicht die Summe vom Gesamtbetrag ab oder ist die Währung nicht Euro, zeigt Haben einen Hinweis. Mehr in [Belege](belege.md).
+Es gilt immer genau ein Dienst: Ist `EXTRACTION_BASE_URL` gesetzt, gehen Belege nur an diese Adresse, auch wenn zusätzlich `ANTHROPIC_API_KEY` gesetzt ist, und bei einem Fehler weicht Haben auf keinen anderen Anbieter aus. Welcher Weg gerade gilt, zeigt **Einstellungen › KI-Assistenten und API › Belegauslesung**; darunter stellst du die Grenzen deines Anbieters ein, etwa Tokens pro Minute ([Warteschlange und Grenzen](belege.md#warteschlange-und-grenzen)). Ohne beides bleibt alles lokal, und du füllst die Felder von Hand aus. In jedem Fall bucht Haben einen Beleg erst, wenn du die Felder bestätigt hast. Weicht die Summe vom Gesamtbetrag ab oder ist die Währung nicht Euro, zeigt Haben einen Hinweis. Mehr in [Belege](belege.md).
 
 ### Beispiel: Ollama mit Qwen-VL
 
@@ -448,7 +454,7 @@ Läuft Haben mit Docker Compose und Ollama auf demselben Server:
     ```
 
 4. `docker compose up -d`, dann unter **Einstellungen › KI-Assistenten und API** prüfen, dass „Eigener Dienst (OpenAI-kompatibel)“ mit dem Modell angezeigt wird.
-5. Einen Beleg als Foto hochladen. Er zeigt „Wird ausgelesen“ und danach die Felder; ein Fehler (nicht erreichbar, Zeitüberschreitung, falsches Antwortformat) steht am Beleg.
+5. Einen Beleg als Foto hochladen. Er zeigt „Wartet auf Auslesung“ oder „Wird ausgelesen“ und danach die Felder; ein Fehler (nicht erreichbar, Zeitüberschreitung, falsches Antwortformat) steht am Beleg.
 
 Mit Podman heißt die Adresse `http://host.containers.internal:11434/v1`. Ollama als eigenen Container neben Haben, Schlüssel und Wartezeit beschreibt [Anbindungen](installation-anbindungen.md#ki-auslesung-über-openai-kompatible-schnittstelle).
 

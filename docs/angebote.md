@@ -22,6 +22,7 @@ Einleitung, Texte zu Positionen und Hinweis unterstützen [fett, kursiv und unte
 - optional **Bestellnummer**, **Eigene Auftragsnummer** und **Lieferscheinnummer**; sie stehen im Kopfblock des PDFs und gehen in die Rechnung aus dem Angebot über ([wie bei der Rechnung](rechnungen.md#bestellnummer-auftrag-und-lieferschein))
 - Umsatzsteuer: dieselbe Auswahl und ausdrückliche Zuordnung wie bei der [Rechnung](rechnungen.md#umsatzsteuer-auf-der-rechnung), auch eine eigene §-4-Befreiung neben § 19 oder ein geklärter ausländischer Leistungsort. Die Rechnung übernimmt die gespeicherte Zuordnung.
 - Sprache, vorbelegt vom Kunden (siehe [Rechnungen auf Englisch](rechnungen.md#rechnungen-auf-englisch))
+- mit weiteren Zahlungskonten das **Zahlungskonto**, vorbelegt mit dem bevorzugten des Kunden; die Rechnung aus dem Angebot übernimmt es ([Zahlungskonto](rechnungen-zahlung.md#zahlungskonto))
 - Preise netto oder brutto inklusive Umsatzsteuer, wie bei der [Rechnung](rechnungen.md#nettopreise-oder-bruttopreise)
 - Einleitung über den Positionen, Positionen und ein Hinweis, beide auch aus [Textbausteinen](rechnungen.md#textbausteine) und mit [Platzhaltern](rechnungen.md#platzhalter-in-einleitung-und-hinweis) wie `{nummer}` oder `{gueltig}`; Einleitung und Hinweis sind mit dem [Standard-Textbaustein](rechnungen.md#standard-je-belegart) für Angebote vorbelegt, wenn es einen gibt
 - zu jeder Position optional ein mehrzeiliger **Text zur Position** wie bei der [Rechnung](rechnungen.md#positionen); er steht im PDF unter der Bezeichnung und geht in die Rechnung aus dem Angebot über
@@ -108,7 +109,7 @@ Auf der Seite des Angebots hältst du die Antwort des Kunden fest:
 | Abgelehnt | als abgelehnt markiert | – |
 | Abgerechnet | aus dem Angebot ist eine Rechnung entstanden | Nummer der Rechnung, sobald sie festgeschrieben ist |
 
-**Rechnung erstellen** legt einen Rechnungsentwurf an und markiert das Angebot als angenommen. Der Entwurf übernimmt:
+Bei eingeschaltetem **Rechnungen schreiben** unter [Einstellungen › Bereiche](einrichtung.md#bereiche-ausblenden) kannst du Angebote abrechnen. **Rechnung erstellen** legt einen Rechnungsentwurf an und markiert das Angebot als angenommen. Der Entwurf übernimmt:
 
 - Kunde, Einleitung, Positionen mit ihrem Text, Leistungszeitraum und Umsatzsteuer aus dem Angebot,
 - Bestell- und Lieferscheinnummer aus dem Angebot, als eigene Auftragsnummer (in der E-Rechnung BT-14) die des Angebots, sonst die Angebotsnummer,

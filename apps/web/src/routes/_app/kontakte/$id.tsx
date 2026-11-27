@@ -13,6 +13,8 @@ import { UstIdBestaetigungCard } from "../../../components/UstIdBestaetigungCard
 import { formatDateTime } from "../../../lib/format.ts";
 import { ERSTES_JAHR, LETZTES_JAHR } from "../../../lib/jahre.ts";
 import { useAction } from "../../../lib/use-action.ts";
+import { useBereichAktiv } from "../../../lib/use-bereich.ts";
+import { getBankverbindungAuswahl } from "../../../server/functions/bankverbindungen.ts";
 import { archiveContact, getContactDetail, getContactHistory } from "../../../server/functions/contacts.ts";
 import { getContactPersons } from "../../../server/functions/contact-persons.ts";
 import { getCustomerNumbering } from "../../../server/functions/invoices.ts";
@@ -31,7 +33,7 @@ export const Route = createFileRoute("/_app/kontakte/$id")({
   }),
   loaderDeps: ({ search }) => ({ jahr: search.jahr }),
   loader: async ({ params, deps }) => {
-    const [detail, mandates, personen, history, ustid, kreise, service] = await Promise.all([
+    const [detail, mandates, personen, history, ustid, kreise, service, bankverbindungen] = await Promise.all([
       getContactDetail({ data: params.id }),
       getMandates({ data: params.id }),
       getContactPersons({ data: params.id }),
@@ -39,8 +41,9 @@ export const Route = createFileRoute("/_app/kontakte/$id")({
       getUstIdBestaetigungen({ data: params.id }),
       getCustomerNumbering({ data: { contactId: params.id } }),
       getContactServiceSummary({ data: params.id }),
+      getBankverbindungAuswahl(),
     ]);
-    return { ...detail, ...mandates, ...personen, history, ustid, kreise, service };
+    return { ...detail, ...mandates, ...personen, history, ustid, kreise, service, bankverbindungen };
   },
   head: ({ loaderData }) => ({
     meta: [{ title: `${loaderData?.contact.name ?? "Kontakt"} · Haben` }],
@@ -54,7 +57,7 @@ export const Route = createFileRoute("/_app/kontakte/$id")({
 });
 
 function ContactPage() {
-  const { contact, history, service } = Route.useLoaderData();
+  const { contact, history, service, bankverbindungen } = Route.useLoaderData();
   const { bestaetigen } = Route.useSearch();
   const router = useRouter();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -64,6 +67,8 @@ function ContactPage() {
   const [saved, setSaved] = useState(false);
   // Nach dem Anlegen (Suchparameter) oder Speichern einmal beim BZSt nachfragen
   const [pruefen, setPruefen] = useState(false);
+  const schreiben = useBereichAktiv("rechnungserstellung");
+  const zeiteintraege = useBereichAktiv("zeiteintraege");
   // Den Suchparameter gleich nehmen, solange die Seite den Kontakt zeigt; später träfe die Navigation die Seite, auf der man dann ist
   useEffect(() => {
     if (!bestaetigen) return;
@@ -81,14 +86,16 @@ function ContactPage() {
         </div>
         <div className="actions">
           {/* Zeiteinträge bei Kunden und bei jedem Kontakt mit Einträgen (#1557); offene führen gleich zum Stand „offen“ */}
-          {(contact.isCustomer || service.entries > 0) && (
+          {zeiteintraege && (contact.isCustomer || service.entries > 0) && (
             <Link to="/leistungen" search={{ kunde: contact.id, stand: service.openMinutes > 0 ? "offen" : undefined }} className="btn">
               Zeiteinträge{service.openMinutes > 0 && ` · ${formatDuration(service.openMinutes)} offen`}
             </Link>
           )}
-          <Link to="/rechnungen/neu" search={contact.isCustomer && !contact.archivedAt ? { kunde: contact.id } : {}} className="btn">
-            Rechnung schreiben
-          </Link>
+          {schreiben && (
+            <Link to="/rechnungen/neu" search={contact.isCustomer && !contact.archivedAt ? { kunde: contact.id } : {}} className="btn">
+              Rechnung schreiben
+            </Link>
+          )}
           <button
             type="button"
             className="btn"
@@ -110,6 +117,7 @@ function ContactPage() {
           key={contact.version}
           contact={contact}
           saved={saved}
+          bankverbindungen={bankverbindungen}
           onUpdated={() => {
             setSaved(true);
             setPruefen(true);

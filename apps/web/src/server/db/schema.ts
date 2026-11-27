@@ -11,6 +11,7 @@ import {
   jsonb,
   numeric,
   pgEnum,
+  pgSequence,
   pgTable,
   primaryKey,
   smallint,
@@ -224,13 +225,50 @@ export const company = pgTable(
     navLogo: boolean("nav_logo").notNull().default(false),
     /** Archiv aus dem Umzug in der Schnellsuche mitdurchsuchen (#617); Vorgabe an */
     archiveSearch: boolean("archive_search").notNull().default(true),
+    /**
+     * KI-Auslesung (#1735): Warteschlange angehalten, und die Grenzen des Dienstes; null = keine Grenze. Haben schickt die
+     * nächste Anfrage erst, wenn sie alle gesetzten Grenzen einhält.
+     */
+    extractionPaused: boolean("extraction_paused").notNull().default(false),
+    extractionMaxTokensPerRequest: integer("extraction_max_tokens_per_request"),
+    extractionRequestsPerMinute: integer("extraction_requests_per_minute"),
+    extractionTokensPerMinute: integer("extraction_tokens_per_minute"),
+    /** Höchstens so viele Belege liest Haben gleichzeitig aus */
+    extractionMaxParallel: smallint("extraction_max_parallel").notNull().default(4),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     check("company_single_row", sql`${t.id} = 1`),
     check("company_rechtsform", sql`${t.rechtsform} in ('einzelunternehmen', 'gmbh', 'ug')`),
     check("company_nav_color", sql`${t.navColor} ~ '^#[0-9A-F]{6}$'`),
+    check("company_extraction_max_parallel", sql`${t.extractionMaxParallel} between 1 and 20`),
+    check(
+      "company_extraction_limits",
+      sql`coalesce(${t.extractionMaxTokensPerRequest}, 1) > 0 and coalesce(${t.extractionRequestsPerMinute}, 1) > 0 and coalesce(${t.extractionTokensPerMinute}, 1) > 0`,
+    ),
   ],
+);
+
+/**
+ * Weitere Zahlungskonten für Rechnungen und Angebote (#1887); das Standardkonto bleibt in `company`. Wählbar je Entwurf
+ * und als Vorgabe am Kontakt. Festgeschriebene Belege tragen eine Kopie im Verkäufer (seller) und keinen Verweis, darum
+ * lässt sich jedes löschen; Entwürfe und Kontakte fallen dann auf den Standard zurück.
+ */
+export const bankverbindungen = pgTable(
+  "bankverbindungen",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Kurzbezeichnung für die Auswahl, z. B. „Objekt Nord“; steht nicht auf dem Beleg */
+    bezeichnung: text("bezeichnung").notNull(),
+    /** Ohne Leerzeichen, in Großbuchstaben */
+    iban: text("iban").notNull(),
+    bic: text("bic").notNull().default(""),
+    bank: text("bank").notNull().default(""),
+    /** Inhaber des Kontos, wenn nicht der Firmenname; leer = Firmenname (GiroCode, BT-85) */
+    kontoinhaber: text("kontoinhaber").notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("bankverbindungen_iban").on(t.iban)],
 );
 
 /**
@@ -1134,6 +1172,8 @@ export const contacts = pgTable(
      */
     debitorNr: integer("debitor_nr").unique(),
     kreditorNr: integer("kreditor_nr").unique(),
+    /** Bevorzugtes Zahlungskonto für Rechnungen und Angebote an diesen Kunden (#1887); null = Standard aus den Firmendaten */
+    bankverbindungId: uuid("bankverbindung_id").references(() => bankverbindungen.id, { onDelete: "set null" }),
     /** Stundensatz für Leistungseinträge (#417); null = keiner hinterlegt */
     hourlyRateCents: integer("hourly_rate_cents").$type<Cents>(),
     version: integer("version").notNull().default(1),
@@ -1520,6 +1560,11 @@ export const invoices = pgTable(
     sepaMandateId: uuid("sepa_mandate_id").references(() => sepaMandates.id),
     /** Gewählter Ansprechpartner des Kunden (#424); der festgeschriebene Stand steht im Käufer */
     contactPersonId: uuid("contact_person_id").references(() => contactPersons.id),
+    /**
+     * Zahlungskonto des Entwurfs (#1887); null = Standard aus den Firmendaten. Bei Lastschrift gilt immer der Standard,
+     * auf ihn lautet das Gläubigerkonto. Beim Festschreiben geleert: Dann gilt die Kopie im Verkäufer (seller).
+     */
+    bankverbindungId: uuid("bankverbindung_id").references(() => bankverbindungen.id, { onDelete: "set null" }),
     recurringId: uuid("recurring_id"),
     recurringDate: date("recurring_date", { mode: "string" }),
     /** Offene Rechnung aus Lexoffice übernommen: Original-PDF, Eröffnungsbuchung statt Erlösbuchung */
@@ -1537,6 +1582,9 @@ export const invoices = pgTable(
   },
   (t) => [
     check("invoices_payment_method", sql`${t.paymentMethod} in ('ueberweisung', 'lastschrift', 'bereits_bezahlt')`),
+    // Zahlungskonto nur im Entwurf (#1887): festgeschrieben gilt die Kopie im Verkäufer. So berührt ON DELETE SET NULL nie
+    // eine gesperrte, versiegelte Zeile, und versiegelt ist hier immer NULL
+    check("invoices_bankverbindung_entwurf", sql`${t.status} = 'draft' or ${t.bankverbindungId} is null`),
     check(
       "invoices_paid_payment",
       sql`case when ${t.paymentMethod} = 'bereits_bezahlt'
@@ -1710,6 +1758,11 @@ export const quotes = pgTable(
     contactVersion: integer("contact_version"),
     /** Gewählter Ansprechpartner des Kunden (#424); der festgeschriebene Stand steht im Käufer */
     contactPersonId: uuid("contact_person_id").references(() => contactPersons.id),
+    /**
+     * Zahlungskonto des Entwurfs (#1887); null = Standard aus den Firmendaten. Beim Festschreiben geleert: Dann gilt die
+     * Kopie im Verkäufer (seller).
+     */
+    bankverbindungId: uuid("bankverbindung_id").references(() => bankverbindungen.id, { onDelete: "set null" }),
     issueDate: date("issue_date", { mode: "string" }).notNull(),
     validUntil: date("valid_until", { mode: "string" }).notNull(),
     serviceFrom: date("service_from", { mode: "string" }),
@@ -1761,6 +1814,8 @@ export const quotes = pgTable(
   },
   (t) => [
     check("quotes_final_has_number", sql`${t.status} = 'draft' or (${t.number} is not null and ${t.lockedAt} is not null)`),
+    // Zahlungskonto nur im Entwurf (#1887), wie bei Rechnungen
+    check("quotes_bankverbindung_entwurf", sql`${t.status} = 'draft' or ${t.bankverbindungId} is null`),
     check("quotes_external_ref_pair", sql`(${t.externalSource} is null) = (${t.externalId} is null)`),
     uniqueIndex("quotes_external_ref").on(t.externalSource, t.externalId),
     check("quotes_decision_final", sql`${t.decision} is null or ${t.status} = 'final'`),
@@ -2207,7 +2262,11 @@ export const recurringDocuments = pgTable(
 );
 
 export const documentStatusEnum = pgEnum("document_status", ["neu", "gebucht"]);
-export const extractionStatusEnum = pgEnum("extraction_status", ["keine", "laeuft", "fertig", "fehler"]);
+/** wartet: in der Warteschlange der KI-Auslesung (#1735) */
+export const extractionStatusEnum = pgEnum("extraction_status", ["keine", "laeuft", "fertig", "fehler", "wartet"]);
+
+/** Reihenfolge der Warteschlange der KI-Auslesung (#1735); ein vorgezogener Beleg bekommt den negativen Wert */
+export const documentsExtractionQueueSeq = pgSequence("documents_extraction_queue_seq");
 
 /**
  * Belege (Eingangsrechnungen, Quittungen). Die Datei liegt im Dateisystem unter ihrem SHA-256;
@@ -2227,6 +2286,8 @@ export const documents = pgTable(
     extractedBy: text("extracted_by", { enum: ["zugferd", "xrechnung", "ki", "manuell"] }),
     extractionStatus: extractionStatusEnum("extraction_status").notNull().default("keine"),
     extractionError: text("extraction_error"),
+    /** Platz in der Warteschlange der KI-Auslesung (#1735), kleiner kommt zuerst; null, solange der Beleg nicht wartet oder ausgelesen wird */
+    extractionQueuePosition: bigint("extraction_queue_position", { mode: "number" }),
     /** Rohdaten der Auslesung zum Nachvollziehen */
     extraction: jsonb("extraction").$type<Record<string, unknown>>(),
     supplierName: text("supplier_name").notNull().default(""),
@@ -2310,6 +2371,7 @@ export const documents = pgTable(
     index("documents_invoice_number_trgm_idx").using("gin", sql`haben_unaccent(${t.invoiceNumber}) gin_trgm_ops`),
     index("documents_filename_trgm_idx").using("gin", sql`haben_unaccent(${t.filename}) gin_trgm_ops`),
     index("documents_gross_search_idx").on(t.gross),
+    index("documents_extraction_queue_idx").on(t.extractionQueuePosition).where(sql`${t.extractionQueuePosition} is not null`),
     check("documents_private_share_range", sql`${t.privateShare} between 0 and 100`),
     check("documents_vorsteuer_anteil_range", sql`${t.vorsteuerAnteil} between 0 and 10000`),
     foreignKey({ name: "documents_lexoffice_voucher_fk", columns: [t.lexofficeVoucherId], foreignColumns: [lexofficeVouchers.id] }),

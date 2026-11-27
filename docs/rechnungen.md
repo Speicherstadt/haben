@@ -21,6 +21,8 @@ Bevor du die erste Rechnung festschreibst, brauchst du:
 
 ## So gehst du vor
 
+Um eine Rechnung anzulegen, schalte **Rechnungen schreiben** unter [Einstellungen › Bereiche](einrichtung.md#bereiche-ausblenden) ein.
+
 1. Unter **Rechnungen** auf **Neue Rechnung** klicken.
 2. **Kunde** wählen: Das Feld sucht beim Tippen nach Name, Kundennummer und Ort (Serienrechnungen haben dieselbe Auswahl; bei Textbausteinen bedeutet ein leeres Feld „für alle Kunden“); Pfeiltasten und Enter wählen einen Treffer, Escape schließt die Liste. Ohne Auswahl bleibt der bisherige Kunde, ein geleertes Feld nimmt ihn weg. Hat der Kontakt ein Standardformat, wird es übernommen; hat er eine Leitweg-ID und kein Standardformat, stellt Haben auf XRechnung 3.0 (CII) um. Fehlt der Kunde noch, legst du ihn über den letzten Eintrag der Trefferliste an: **Neuen Kontakt anlegen**, oder nach dem Tippen **„…“ als neuen Kunden anlegen** mit dem getippten Namen. Beides geht, ohne den Entwurf zu verlassen: Im Dialog ist die Rolle **Kunde** angehakt, nach dem Speichern ist er gewählt, und die Eingaben im Entwurf bleiben stehen, auch wenn du abbrichst. Gibt es schon einen Kontakt mit derselben USt-IdNr., weist der Dialog darauf hin: Ist er ein Kunde und nicht archiviert, kannst du ihn wählen, statt eine Dublette anzulegen; sonst verweist der Hinweis auf den Kontakt, um dort die Rolle zu ergänzen oder ihn wiederherzustellen. Das gilt ebenso im Angebot.
 3. **Rechnungsdatum** und **Zahlungsziel in Tagen** (0 bis 120) eintragen. Darunter steht das errechnete Fälligkeitsdatum (siehe [Fälligkeit](rechnungen-zahlung.md#fälligkeit)). Vorgabe für das Zahlungsziel ist der Wert aus den Firmendaten.
@@ -137,6 +139,8 @@ Der Gesamtbetrag stimmt damit auf den Cent mit den Endpreisen überein. Weil die
 
 ### Artikelkatalog
 
+Den Menüpunkt **Artikel** blendest du unter [Einstellungen › Bereiche](einrichtung.md#bereiche-ausblenden) ein oder aus.
+
 Unter **Artikel** (Seitenleiste, Bereich Verkauf) legst du Positionen an, die du oft brauchst: Stundensatz, Tagessatz, Wartungspauschale.
 
 - Jeder Artikel hat eine Bezeichnung (eine Zeile), eine Einheit, einen Preis und einen Steuersatz, dazu optional einen **Text zur Position** (mehrzeilig, bis 2000 Zeichen), eine Artikelnummer, die Vorgabe **Kosten für § 35a EStG** ([Arbeits-, Maschinen- und Fahrtkosten](#arbeits--maschinen--und-fahrtkosten--35a-estg)) und eine interne Notiz. Unter **Preis ist** legst du fest, ob der Preis netto oder brutto inklusive Umsatzsteuer gilt; in der Liste steht bei Bruttopreisen „brutto“.
@@ -175,6 +179,8 @@ Die Formatierung gilt auch im Angebot, in eingefügten Textbausteinen und in der
 Die Zeichen zählen bei der Grenze von 2000 Zeichen mit. Bereits festgeschriebene PDFs und XML-Dateien werden nicht neu erzeugt.
 
 ### Textbausteine
+
+Den Menüpunkt **Textbausteine** blendest du unter [Einstellungen › Bereiche](einrichtung.md#bereiche-ausblenden) ein oder aus.
 
 Unter **Textbausteine** (Seitenleiste, Bereich Verkauf) legst du Kopf- und Fußtexte an, die du immer wieder brauchst: Pflichtangaben eines Kunden wie Bestellnummer oder Rahmenvertrag, eine Einleitung je Projekt, einen Dank zum Schluss.
 
@@ -220,7 +226,7 @@ In Einleitung und Hinweis von Rechnung und Angebot, auch aus einem Textbaustein,
 | `{leistungszeitraum}` | Leistungszeitraum („01.10.2026 – 31.10.2026“) oder Leistungsdatum, leer ohne Angabe |
 | `{kunde}` | Name des Kunden |
 | `{firma}` | dein Firmenname |
-| `{iban}`, `{bic}` | IBAN (in Vierergruppen) und BIC deines Bankkontos aus den Firmendaten, etwa um sie größer als in der Fußzeile auf die Rechnung zu setzen |
+| `{iban}`, `{bic}` | IBAN (in Vierergruppen) und BIC des [Zahlungskontos](rechnungen-zahlung.md#zahlungskonto) der Rechnung, etwa um sie größer als in der Fußzeile auf die Rechnung zu setzen |
 
 Kopierst du eine Rechnung oder ein Angebot oder machst aus einem Angebot eine Rechnung, kommen Einleitung und Hinweis mit den Platzhaltern mit, nicht mit den Werten des Originals; die Auftragsbestätigung setzt die Werte der gewählten Positionen ein.
 
@@ -714,13 +720,21 @@ Die Rechnung steht danach festgeschrieben in der Liste, mit Nummer und PDF aus d
 
 Anders als bei [übernommenen Rechnungen](#übernommene-rechnungen) aus dem Umzug gibt es keinen Stichtag: Der Erlös steht in Haben, nicht in alten Büchern. Übernimm eine Rechnung deshalb nur, wenn sie in keinem anderen Programm mehr verbucht wird. Es gelten dieselben Prüfungen wie beim Festschreiben: vollständige Firmendaten, die Versteuerungsart des Jahres und bei Kleinunternehmern die Umsatzgrenze. Könnte sie überschritten werden oder lag der Vorjahresumsatz schon über der Grenze, fragt Haben nach und übernimmt die Rechnung erst nach deiner Bestätigung.
 
-- Nur Rechnungen in Euro über mehr als 0 €, mit 19 %, 7 % oder 0 %. Eine E-Rechnung als Gutschrift, als Anzahlungsrechnung oder in Fremdwährung warnt Haben beim Einlesen und lehnt sie beim Übernehmen ab. Ohne E-Rechnung erkennt Haben eine Anzahlungsrechnung nicht: Übernimm hier nur Rechnungen über erbrachte Leistungen.
+- Nur Rechnungen in Euro über mehr als 0 €, mit 19 %, 7 % oder 0 %. Eine E-Rechnung als Anzahlungsrechnung oder in Fremdwährung warnt Haben beim Einlesen und lehnt sie beim Übernehmen ab, ebenso eine Gutschrift, die kein Storno einer aus dem Fremdsystem übernommenen Rechnung ist (siehe unten). Ohne E-Rechnung erkennt Haben eine Anzahlungsrechnung nicht: Übernimm hier nur Rechnungen über erbrachte Leistungen.
 - Das Zahlungsziel beträgt höchstens 365 Tage, die Fälligkeit liegt nicht vor dem Rechnungsdatum, die Datei ist höchstens 20 MB groß.
 - Bei „Regulär“ trägst du Netto und Steuer je Satz wie auf der Rechnung ein, jeden Satz einmal (nennt eine E-Rechnung denselben Satz in mehreren Zeilen, rechnet Haben sie im Vorschlag zusammen); lässt sich die Steuer nicht centgenau nachbilden, lehnt Haben ab. Das gilt auch, wenn das Fremdsystem die Steuer je Position rundet. Bei jeder anderen Behandlung gilt 0 %, und du trägst nur den Nettobetrag ein; Beträge mehrerer Sätze rechnet Haben beim Wechsel der Behandlung zusammen.
 - Eine Rechnungsnummer, die es in Haben schon gibt, lässt sich nicht übernehmen; ein Schrägstrich, ein Rückstrich oder ein Sonderzeichen wie ein Zeilenumbruch in der Nummer lehnt Haben ab. Gleicht die fremde Nummer dem Muster deiner eigenen, meldet Haben später beim Festschreiben, dass die Nummer vergeben ist; wähle dann ein anderes Nummernformat.
 - Margenbesteuerung (§ 25 UStG), Dreiecksgeschäfte, inländische Leistungen mit Steuerschuld des Leistungsempfängers (§ 13b UStG) und Rechnungen mit steuerpflichtigen und steuerfreien Positionen zugleich (etwa Gutachten zu 19 % und Heilbehandlung nach § 4 Nr. 14 UStG) bildet das Formular nicht ab; solche Rechnungen erfasst du von Hand. Als Kleinunternehmer übernimmst du hier Rechnungen nach § 19 UStG und Leistungen ins Ausland; eine eigene Befreiung (§ 4 Nr. 14 Buchst. a oder Nr. 21 UStG, siehe [Umsatzsteuer auf der Rechnung](#umsatzsteuer-auf-der-rechnung)) erfasst du im Editor.
 
 Rechtsgrundlagen: Entstehung der Steuer nach [§ 13 UStG](https://www.gesetze-im-internet.de/ustg_1980/__13.html), Aufbewahrung der Rechnung in der ausgestellten Form nach [§ 14b UStG](https://www.gesetze-im-internet.de/ustg_1980/__14b.html) und § 147 AO.
+
+### Storno aus dem Fremdsystem
+
+Storniert das andere Programm eine hier übernommene Rechnung, lädst du das Storno auf demselben Weg hoch (**Ausgangsrechnung hochladen**). Es muss eine E-Rechnung im PDF sein, als Gutschrift oder mit negativem Betrag, die die Rechnung als vorausgegangene Rechnung nennt (BT-25). Haben erkennt das Storno, nennt die Rechnung mit Datum, Betrag und Kunde und übernimmt es mit **Storno übernehmen**: festgeschrieben, mit Nummer und PDF aus dem Fremdsystem, gebucht wie ein [Storno](#storno-und-rechnungskorrektur) in Haben zum Datum der Gutschrift. Die Rechnung gilt danach als storniert.
+
+Haben übernimmt nur das volle Storno: Netto und Steuer je Satz müssen die Rechnung genau aufheben. Abgelehnt wird auch, wenn die Rechnung schon storniert ist, eine festgeschriebene Korrektur hat, teilweise ausgebucht oder mit einer Korrektur verrechnet ist, oder wenn das Storno älter ist als die Rechnung. Ein Teilstorno und ein Storno ohne E-Rechnung bildet Haben noch nicht ab.
+
+Rechtsgrundlage: Berichtigung der Steuer im Zeitraum der Änderung nach [§ 17 Abs. 1 UStG](https://www.gesetze-im-internet.de/ustg_1980/__17.html), bei schon Bezahltem erst mit der Rückzahlung (siehe [Bereits bezahlte Rechnung](#bereits-bezahlte-rechnung)); vorausgegangene Rechnung BT-25 und Gutschrift (Code 381) nach EN 16931.
 
 ## Übernommene Rechnungen
 
