@@ -47,6 +47,10 @@ describe("Antrag auf Anpassung der Vorauszahlungen (AnpassungVorauszahlung v22)"
     );
   });
 
+  it("Kopf: DatenLieferant im Zeichensatz des TransferHeaders (th000011_extern.xsd)", () => {
+    expect(buildVorauszahlungXml(input)).toContain("<DatenLieferant>Mustermann IT - Max Mustermann</DatenLieferant>");
+  });
+
   it("stellt ihn als natürliche Person mit IdNr und Telefon", () => {
     const xml = nutzdaten(
       buildVorauszahlungXml({

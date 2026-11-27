@@ -1,5 +1,6 @@
 import { germanDay, filingPeriodSchema, finanzamtsnummer, type Cents, type UstvaFigures, type VatPeriod } from "@haben/core";
 import { encodeIso885915 } from "./iso8859-15.ts";
+import { zeichenErsetzen } from "./zeichensatz.ts";
 
 /** Fehlende oder ungültige Angaben für eine ELSTER-Nachricht; die Meldung ist für den Nutzer bestimmt */
 export class ElsterEingabeError extends Error {}
@@ -170,7 +171,8 @@ export function elsterXml(kopf: TransferKopf, bloecke: Nutzdatenblock[]): string
     ...(kopf.testmerker ? [element("Testmerker", kopf.testmerker)] : []),
     ...(kopf.ziel !== undefined ? [`<Empfaenger id="L">${element("Ziel", kopf.ziel)}</Empfaenger>`] : []),
     element("HerstellerID", kopf.herstellerId),
-    element("DatenLieferant", kopf.datenlieferant),
+    // Der TransferHeader erlaubt nur den Zeichensatz der Datenarten (th000011_extern.xsd); ein „·“ im Firmennamen machte das XML ungültig
+    element("DatenLieferant", zeichenErsetzen(kopf.datenlieferant)),
     `<Datei>`,
     element("Verschluesselung", "CMSEncryptedData"),
     element("Kompression", "GZIP"),

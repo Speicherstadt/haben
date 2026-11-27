@@ -1,7 +1,6 @@
 import { finanzamtsnummer } from "@haben/core";
-import { NACHRICHT_TEXT_MAX, steuerpflichtigerXml, type NachrichtAbsender, type NachrichtPerson } from "./nachricht.ts";
+import { elsterZeichen, NACHRICHT_TEXT_MAX, steuerpflichtigerXml, type NachrichtAbsender, type NachrichtPerson } from "./nachricht.ts";
 import { checkSteuernummer13, ElsterEingabeError, elsterXml, escapeXml, TESTMERKER } from "./xml.ts";
-import { elsterZeichen } from "./zeichensatz.ts";
 
 /**
  * Antrag auf Anpassung der Vorauszahlungen (Verfahren ElsterNachricht, Datenart AnpassungVorauszahlung, Version 22,

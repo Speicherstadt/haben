@@ -1,6 +1,6 @@
 import { finanzamtsnummer } from "@haben/core";
 import { checkSteuernummer13, ElsterEingabeError, elsterXml, escapeXml, TESTMERKER } from "./xml.ts";
-import { elsterZeichen } from "./zeichensatz.ts";
+import { ungueltigesZeichen, zeichenErsetzen } from "./zeichensatz.ts";
 
 /**
  * Sonstige Nachricht an das Finanzamt (Verfahren ElsterNachricht, Datenart SonstigeNachrichten,
@@ -118,4 +118,12 @@ export function steuerpflichtigerXml(absender: NachrichtAbsender, person: Nachri
     `</Adresse>`,
     `</Steuerpflichtiger>`,
   ];
+}
+
+/** Text im Zeichensatz der Nachrichten: typografische Zeichen ersetzt, andere Zeichen außerhalb mit Feld abgelehnt */
+export function elsterZeichen(text: string, feld: string): string {
+  const ersetzt = zeichenErsetzen(text);
+  const falsch = ungueltigesZeichen(ersetzt);
+  if (falsch) throw new ElsterEingabeError(`${feld}: Das Zeichen „${falsch}“ nimmt ELSTER nicht an.`);
+  return ersetzt;
 }
