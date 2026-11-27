@@ -129,6 +129,19 @@
   .csv-preview td:nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
 }
 
+/* Buchungszeilen mit Kontosuche (/buchungen/neu): auch auf Tablet-Breiten als Karten, damit kein Scrollcontainer die Trefferliste abschneidet */
+@media (min-width: 721px) and (max-width: 1024px) {
+  .stack-table:has(.account-combobox) thead { display: none; }
+  .stack-table:has(.account-combobox), .stack-table:has(.account-combobox) :is(tbody, tfoot, tr, td, th) { display: block; width: 100%; }
+  .stack-table:has(.account-combobox) tr { border-top: 1px solid var(--line); padding: 8px 0; }
+  .stack-table:has(.account-combobox) tbody:first-of-type tr:first-child { border-top: 0; }
+  .stack-table:has(.account-combobox) :is(td, th) { border-top: 0 !important; padding: 2px 0 !important; text-align: left !important; }
+  .stack-table:has(.account-combobox) td[data-label] { position: relative; padding-left: 108px !important; }
+  .stack-table:has(.account-combobox) td[data-label]::before { content: attr(data-label); position: absolute; left: 0; width: 100px; color: var(--muted); font-family: var(--sans); font-weight: 400; font-size: 12px; line-height: 1.6; }
+  .stack-table:has(.account-combobox) td:empty { display: none; }
+  .stack-table:has(.account-combobox) tr.zeilen-meldungen { border-top: 0; padding-top: 0; }
+}
+
 @media (max-width: 720px) {
   .journal-table td:first-child { display: none; }
   .journal-table td[data-label="Datum"], .journal-table td[data-label="Herkunft"] { display: inline-block; width: auto; margin-right: 8px; padding-left: 0 !important; }

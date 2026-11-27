@@ -429,8 +429,9 @@ code { overflow-wrap: anywhere; }
 /* In Tabellenzellen gilt sonst .report-table td input (auswertungen.css): Platz für den Pfeil, Fokusring auf dem Rahmen (DESIGN.md) */
 .report-table td .combobox input { padding: 0 36px 0 12px; }
 .report-table td .combobox input:focus-visible { outline-offset: -1px; border-color: var(--accent); }
-/* Am Handy steht die Zeile als Karte (stack-table): Feld und Liste so breit wie die Spalte des Werts */
-@media (max-width: 720px) { .account-combobox { min-width: 0; } .account-combobox .combobox-popup { min-width: 0; right: 0; } }.combobox-popup { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0; display: flex; flex-direction: column; max-height: min(320px, 50dvh); overflow: hidden; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 24px rgb(0 0 0 / 0.18); }
+/* Am Handy und Tablet steht die Zeile als Karte (stack-table): Feld und Liste so breit wie die Spalte des Werts */
+@media (max-width: 1024px) { .account-combobox { min-width: 0; } .account-combobox .combobox-popup { min-width: 0; right: 0; } }
+.combobox-popup { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0; display: flex; flex-direction: column; max-height: min(320px, 50dvh); overflow: hidden; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 24px rgb(0 0 0 / 0.18); }
 .combobox-popup [role="listbox"] { padding: 4px; overflow-y: auto; }
 .combobox-option { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: var(--control-h); padding: 6px 10px; border-radius: 6px; font-size: 14px; color: var(--ink); cursor: pointer; overflow-wrap: anywhere; }
 .combobox-option:hover { background: var(--ground); }
@@ -1290,14 +1291,15 @@ fieldset.card > legend + * { clear: both; }
 /* Tablet mit ausgeklappter Seitenleiste (861–1024 px): die Arbeitsfläche ist schmaler als 760 px;
    breite Tabellen scrollen in der Karte, feste Listenspalten rücken zusammen statt zu überlappen */
 @media (min-width: 721px) and (max-width: 1024px) {
-  .card > .report-table { display: block; overflow-x: auto; }
+  .card > .report-table:not(:has(.account-combobox)) { display: block; overflow-x: auto; }
 }
 @media (min-width: 861px) and (max-width: 1024px) {
   :where(:root:not([data-nav="collapsed"])) .document-cols { grid-template-columns: 84px minmax(0, 1.1fr) minmax(0, 1fr) 88px 116px; }
-  :where(:root:not([data-nav="collapsed"])) .document-cols > * { min-width: 0; }
+  :where(:root:not([data-nav="collapsed"])) .document-cols > * { min-width: 0; overflow-wrap: anywhere; }
   :where(:root:not([data-nav="collapsed"])) .recurring-cols { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 88px 92px 88px; }
   :where(:root:not([data-nav="collapsed"])) .recurring-cols > * { min-width: 0; overflow-wrap: anywhere; }
-  :where(:root:not([data-nav="collapsed"])) .invoice-cols { grid-template-columns: 88px minmax(0, 1fr) 84px 96px 132px; }
+  :where(:root:not([data-nav="collapsed"])) .invoice-cols { grid-template-columns: 84px minmax(0, 1fr) 76px 84px 108px; column-gap: 8px; }
+  :where(:root:not([data-nav="collapsed"])) .invoice-cols > * { min-width: 0; overflow-wrap: anywhere; }
 }
 
 /* Senden-Karte neben langen Formularen bleibt beim Scrollen sichtbar */
