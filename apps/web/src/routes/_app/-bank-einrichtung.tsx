@@ -120,6 +120,7 @@ function PruefErgebnis({ anbieter, pruefung }: { anbieter: PspAnbieter; pruefung
 export function ZugangSchritt({
   anbieter,
   von,
+  vorher = 0,
   config,
   setConfig,
   pruefung,
@@ -128,6 +129,8 @@ export function ZugangSchritt({
 }: {
   anbieter: PspAnbieter;
   von: number;
+  /** Schritte vor diesem, etwa „Weg“ (#2008) */
+  vorher?: number;
   config: Config;
   setConfig: (c: Config) => void;
   pruefung: Pruefung | null;
@@ -146,7 +149,7 @@ export function ZugangSchritt({
   }
 
   return (
-    <SchrittKarte nummer={1} von={von} titel="Zugang">
+    <SchrittKarte nummer={1 + vorher} von={von} titel="Zugang">
       <AnbieterHinweis anbieter={anbieter} />
       {/* Jede Eingabe macht die Prüfung ungültig; onInput, nicht onChange: Das change beim Verlassen des Felds nähme die
           Meldung erst beim Klick auf „Zugang prüfen“ weg, der Knopf rückte unter dem Zeiger weg, und der Klick ginge daneben */}
@@ -188,6 +191,7 @@ export function EinstellungenSchritt({
   anbieter,
   daten,
   von,
+  vorher = 0,
   pruefung,
   speichern,
   onZurueck,
@@ -196,6 +200,8 @@ export function EinstellungenSchritt({
   anbieter: PspAnbieter;
   daten: PspDaten;
   von: number;
+  /** Schritte vor diesem, etwa „Weg“ (#2008) */
+  vorher?: number;
   pruefung: Pruefung;
   speichern: (werte: Einstellungen) => Promise<string>;
   onZurueck: () => void;
@@ -217,7 +223,7 @@ export function EinstellungenSchritt({
   }
 
   return (
-    <SchrittKarte nummer={2} von={von} titel="Name und Zeitraum">
+    <SchrittKarte nummer={2 + vorher} von={von} titel="Name und Zeitraum">
       <form ref={check.form} className="stack" onSubmit={onSubmit} aria-label="Name und Zeitraum" noValidate>
         <EinstellungFelder werte={werte} setWerte={setWerte} konten={konten} automatisch={automatisch} heute={daten.heute} fehler={check.error} />
         <p className="small" style={{ margin: 0 }}>
@@ -243,7 +249,19 @@ type Ergebnis = Awaited<ReturnType<typeof syncPspNow>>;
  * Schritt „Erster Abruf“: läuft beim Öffnen an. Der Server meldet keinen Fortschritt, deshalb steht die Phase als Text da,
  * ohne Ladekreis und ohne Balken (DESIGN.md: keine Endlos-Animationen); das Ergebnis folgt im selben Schritt
  */
-export function AbrufSchritt({ daten, von, verbindungId, werte }: { daten: PspDaten; von: number; verbindungId: string; werte: Einstellungen }) {
+export function AbrufSchritt({
+  daten,
+  von,
+  vorher = 0,
+  verbindungId,
+  werte,
+}: {
+  daten: PspDaten;
+  von: number;
+  vorher?: number;
+  verbindungId: string;
+  werte: Einstellungen;
+}) {
   const router = useRouter();
   const abrufen = useServerFn(syncPspNow);
   const [ergebnis, setErgebnis] = useState<Ergebnis | null>(null);
@@ -284,7 +302,7 @@ export function AbrufSchritt({ daten, von, verbindungId, werte }: { daten: PspDa
   );
 
   return (
-    <SchrittKarte nummer={3} von={von} titel="Erster Abruf" zusatz={zusatz}>
+    <SchrittKarte nummer={3 + vorher} von={von} titel="Erster Abruf" zusatz={zusatz}>
       <p className="small muted" style={{ margin: 0 }}>
         „{werte.name}“ ab {formatDate(werte.fetchFrom)}, {RHYTHMUS_LABELS[werte.rhythmus].toLowerCase()}
       </p>

@@ -224,6 +224,13 @@
 .est-block-schaetzung > summary::before { flex: none; font-size: 18px; line-height: 1; text-align: center; }
 .est-block-schaetzung .est-block-title { flex: 1 1 0; min-width: 0; }
 .est-block-schaetzung .est-block-wert { flex: 0 0 100%; padding-left: 24px; }
+/* Am Handy steht der Kurzwert jedes Blocks so unter dem Titel; lange Wörter im Titel trennt der Browser nach Silben,
+   statt den Kurzwert aus dem Block zu schieben (320 px, „Einkommensersatzleistungen“) */
+@media (max-width: 720px) {
+  .est-block > summary { flex-wrap: wrap; justify-content: flex-start; gap: 0 12px; padding-block: 8px; }
+  .est-block-title { min-width: 0; hyphens: auto; overflow-wrap: anywhere; }
+  .est-block > summary > .est-block-title + * { flex: 0 0 100%; padding-left: 24px; }
+}
 .est-sub { margin: 4px 0 0; font-size: 13px; font-weight: 600; color: var(--muted); }
 .form-sticky-footer { position: sticky; bottom: 0; z-index: 4; display: flex; flex-direction: column; gap: 8px; margin: 0 -20px -20px; padding: 12px 20px; background: var(--surface); border-top: 1px solid var(--line); border-radius: 0 0 12px 12px; }
 
@@ -246,3 +253,7 @@
 .liq-aufgeklappt > td { padding: 0 0 12px 20px; }
 .liq-posten { font-size: 13px; }
 .liq-hinweise { margin: 0; padding-left: 20px; }
+
+/* Gesamtumsatz nach § 19: lange Dateinamen als Quelle (DATEV-Stapel ohne Leerzeichen) brechen um, statt die Spalte so
+   breit zu machen, dass die Begründung der Einordnung in einer schmalen Spalte viele Zeilen hoch wird */
+.gesamtumsatz-quelle { overflow-wrap: anywhere; min-width: 12ch; }

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { expect, type Page, test } from "@playwright/test";
 import postgres from "postgres";
@@ -102,7 +103,7 @@ const zugang = () => page.getByRole("form", { name: "Zugang" });
 const geprueft = () => page.getByRole("status", { name: "Zugang geprüft" });
 const abrufBereich = () => page.getByRole("region", { name: "Automatischer Abruf" });
 /** Zeile von Shop DE auf der Seite Verbindungen (#1951) */
-const zeile = () => page.getByRole("region", { name: "Zahlungsdienstleister", exact: true }).getByRole("row").filter({ hasText: "Shop DE" });
+const zeile = (name = "Shop DE") => page.getByRole("region", { name: "Zahlungsdienstleister", exact: true }).getByRole("row").filter({ hasText: name });
 
 async function mitDatenbank<T>(arbeit: (sql: postgres.Sql) => Promise<T>): Promise<T> {
   const sql = postgres(databaseUrlFuer("stripe-abruf"), { max: 1, onnotice: () => {} });
@@ -117,27 +118,38 @@ test("Einrichtung", async () => {
   await einrichten(page);
 });
 
-test("„Konto verbinden › Zahlungsdienstleister hinzufügen“: Anbieter wählen, die ohne Abruf ausgegraut mit Grund", async () => {
+test("„Konto verbinden › Zahlungsdienstleister hinzufügen“: jeder Anbieter wählbar, mit seinem Weg (#2008)", async () => {
   await gehe(page, "/bank");
   await kontoVerbinden(page, "Zahlungsdienstleister hinzufügen");
-  const dialog = page.getByRole("dialog", { name: "Anbieter wählen" });
+  const dialog = page.getByRole("dialog", { name: "Zahlungsdienstleister hinzufügen" });
   const stripeWahl = dialog.getByRole("radio", { name: "Stripe" });
   await expect(stripeWahl).toBeChecked();
-  await expect(stripeWahl).toHaveAccessibleDescription("API-Schlüssel · 3 Schritte · noch nicht verbunden");
-  await expect(dialog.getByRole("radio", { name: "PayPal" })).toBeEnabled();
-  await expect(dialog.getByRole("radio", { name: "Etsy Payments" })).toBeDisabled();
-  await expect(dialog.getByRole("radio", { name: "Etsy Payments" })).toHaveAccessibleDescription("Etsy verbindest du unter Geld › Verbindungen.");
-  await expect(dialog.getByRole("radio", { name: "Shopify Payments" })).toHaveAccessibleDescription(
-    "Noch kein Abruf; die Umsätze kommen als Datei über „Datei importieren“.",
+  await expect(stripeWahl).toHaveAccessibleDescription("Abruf mit API-Schlüssel oder Saldenverlauf (CSV) als Datei · noch nicht verbunden");
+  await expect(dialog.getByRole("radio")).toHaveCount(10);
+  for (const radio of await dialog.getByRole("radio").all()) await expect(radio).toBeEnabled();
+  await expect(dialog.getByRole("radio", { name: "Etsy Payments" })).toHaveAccessibleDescription(
+    "Abruf über Etsy unter Verbindungen oder Monatsabrechnung (CSV) als Datei · noch kein Konto",
   );
-  expect(await axeVerstoesse(page), "Dialog „Anbieter wählen“").toEqual([]);
+  await expect(dialog.getByRole("radio", { name: "Amazon" })).toHaveAccessibleDescription("Settlement Report (Flatfile V2) als Datei · noch kein Konto");
+  await expect(dialog.getByRole("radio", { name: "SumUp" })).toHaveAccessibleDescription("nur Konto, Umsätze per Hand · noch kein Konto");
+  expect(await axeVerstoesse(page), "Dialog „Zahlungsdienstleister hinzufügen“").toEqual([]);
   await dialog.getByRole("button", { name: "Weiter" }).click();
 
   await page.waitForURL(/\/bank\/verbinden\/stripe$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Stripe verbinden");
   const schritte = page.getByRole("list", { name: "Schritte" }).getByRole("listitem");
-  await expect(schritte).toHaveText(["1 · Zugang", "2 · Name und Zeitraum", "3 · Erster Abruf"]);
-  await expect(schritte.first()).toHaveAttribute("aria-current", "step");
+  await expect(schritte).toHaveText(["1 · Weg", "2 · Zugang", "3 · Name und Zeitraum", "4 · Erster Abruf"]);
+  const weg = page.getByRole("form", { name: "Weg" });
+  await expect(weg.getByRole("radio", { name: "Über die API (empfohlen)" })).toBeChecked();
+  // Mit Exportdatei werden es Konto, Datei und Ergebnis; zurück zur API
+  await weg.getByRole("radio", { name: "Mit Exportdatei" }).check();
+  await weg.getByRole("button", { name: "Weiter" }).click();
+  await expect(schritte).toHaveText(["1 · Weg", "2 · Konto", "3 · Datei", "4 · Ergebnis"]);
+  await page.getByRole("form", { name: "Konto" }).getByRole("button", { name: "Zurück" }).click();
+  await weg.getByRole("radio", { name: "Über die API (empfohlen)" }).check();
+  await weg.getByRole("button", { name: "Weiter" }).click();
+  await expect(schritte).toHaveText(["1 · Weg", "2 · Zugang", "3 · Name und Zeitraum", "4 · Erster Abruf"]);
+  await expect(schritte.nth(1)).toHaveAttribute("aria-current", "step");
   expect(await axeVerstoesse(page), "Einrichtung, Schritt Zugang").toEqual([]);
 });
 
@@ -183,7 +195,7 @@ test("Zugang prüfen nennt das Konto bei Stripe und speichert nichts; Name und Z
   await zugang().getByRole("button", { name: "Weiter" }).click();
 
   const einstellungen = page.getByRole("form", { name: "Name und Zeitraum" });
-  await expect(page.getByRole("listitem").filter({ hasText: "2 · Name und Zeitraum" })).toHaveAttribute("aria-current", "step");
+  await expect(page.getByRole("listitem").filter({ hasText: "3 · Name und Zeitraum" })).toHaveAttribute("aria-current", "step");
   await expect(einstellungen.getByLabel("Name")).toHaveValue("Stripe");
   // Ohne Namen: Fehler am Feld, der Fokus steht im Feld (DESIGN.md, Gesperrte Knöpfe)
   await einstellungen.getByLabel("Name").fill("");
@@ -233,9 +245,13 @@ test("Zugang prüfen nennt das Konto bei Stripe und speichert nichts; Name und Z
 
 test("Ein schon verbundenes Konto erkennt die Prüfung, mit dem Namen der Verbindung", async () => {
   await kontoVerbinden(page, "Zahlungsdienstleister hinzufügen");
-  const dialog = page.getByRole("dialog", { name: "Anbieter wählen" });
-  await expect(dialog.getByRole("radio", { name: "Stripe" })).toHaveAccessibleDescription("API-Schlüssel · 3 Schritte · verbunden: „Shop DE“");
+  const dialog = page.getByRole("dialog", { name: "Zahlungsdienstleister hinzufügen" });
+  await expect(dialog.getByRole("radio", { name: "Stripe" })).toHaveAccessibleDescription(
+    "Abruf mit API-Schlüssel oder Saldenverlauf (CSV) als Datei · verbunden: „Shop DE“",
+  );
   await dialog.getByRole("button", { name: "Weiter" }).click();
+  // Der erste Schritt fragt nach dem Weg; vorgewählt ist der Abruf über die API (#2008)
+  await page.getByRole("form", { name: "Weg" }).getByRole("button", { name: "Weiter" }).click();
   await zugang().getByLabel("API-Schlüssel").fill(SCHLUESSEL);
   await zugang().getByRole("button", { name: "Zugang prüfen" }).click();
   await expect(geprueft()).toContainText("Schon verbunden");
@@ -308,6 +324,7 @@ test("Ein fehlgeschlagener Abruf: Hinweis unter der Leiste mit „Zugang ändern
 
 test("Verbindungen: Jetzt abrufen an der Zeile, Bearbeiten im Dialog zeigt den Schlüssel nicht und meldet fehlende Rechte für neue Metadaten", async () => {
   await gehe(page, "/bank/verbindungen");
+  await expect(zeile().locator(".verbindung-kennung")).toHaveText(`Stripe · API · ${KONTO}`);
   await zeile().getByRole("button", { name: "Shop DE jetzt abrufen" }).click();
   await expect(abrufBereich().getByText("Shop DE: Abruf durchgelaufen.")).toBeVisible();
   await expect(zeile().getByRole("cell").nth(4)).toHaveText("Aktiv");
@@ -344,4 +361,109 @@ test("Verbindung entfernen löscht den Schlüssel, die Umsätze bleiben", async 
     "Stripe und PayPal, Etsy Payments und die Berichte von Google Play und App Store verbindest du unter Geld › Verbindungen.",
   );
   await expect(hinweis.getByRole("button")).toHaveCount(0);
+});
+
+// Zahlungsdienstleister mit Exportdatei oder nur als Konto, über dieselbe Einrichtung (#2008)
+
+const settlement = () => readFileSync(new URL("../../../packages/import/test-fixtures/amazon-settlement.txt", import.meta.url));
+
+test("Amazon mit Datei: Konto mit Marktplatz, Anleitung, Import, Ergebnis und zum Konto", async () => {
+  await gehe(page, "/bank");
+  await kontoVerbinden(page, "Zahlungsdienstleister hinzufügen");
+  const dialog = page.getByRole("dialog", { name: "Zahlungsdienstleister hinzufügen" });
+  await dialog.getByRole("radio", { name: "Amazon" }).check();
+  await dialog.getByRole("button", { name: "Weiter" }).click();
+  await page.waitForURL(/\/bank\/verbinden\/amazon$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Amazon verbinden");
+  // Nur ein Weg: kein Schritt „Weg“
+  const schritte = page.getByRole("list", { name: "Schritte" }).getByRole("listitem");
+  await expect(schritte).toHaveText(["1 · Konto", "2 · Datei", "3 · Ergebnis"]);
+  const konto = page.getByRole("form", { name: "Konto" });
+  // Ohne Marktplatz geht es nicht weiter
+  await konto.getByRole("button", { name: "Weiter" }).click();
+  await expect(konto.getByRole("alert")).toHaveText("Wähle den Marktplatz.");
+  await konto.getByLabel("Marktplatz").selectOption("Amazon.de");
+  await expect(konto.getByLabel("Name", { exact: true })).toHaveValue("Amazon.de");
+  expect(await axeVerstoesse(page), "Einrichtung mit Datei, Schritt Konto").toEqual([]);
+  await konto.getByRole("button", { name: "Weiter" }).click();
+
+  const datei = page.getByRole("region", { name: "Settlement Report (Flatfile V2) importieren" });
+  await expect(datei.getByRole("listitem").first()).toContainText("Berichte › Zahlungen");
+  await expect(datei.getByRole("link", { name: "Amazon Seller Central" })).toHaveAttribute("href", "https://sellercentral.amazon.de");
+  expect(await axeVerstoesse(page), "Einrichtung mit Datei, Schritt Datei").toEqual([]);
+  // Das Konto entsteht erst mit der Datei
+  expect(await mitDatenbank((sql) => sql`select count(*)::int as n from bank_accounts where provider = 'amazon'`)).toEqual([{ n: 0 }]);
+  await datei
+    .getByLabel("Settlement Report (Flatfile V2) für Amazon.de")
+    .setInputFiles([{ name: "settlement.txt", mimeType: "text/plain", buffer: settlement() }]);
+
+  const ergebnis = page.getByRole("region", { name: "Ergebnis" });
+  await expect(ergebnis.getByText("Konto „Amazon.de“ angelegt.")).toBeVisible({ timeout: 30_000 });
+  await expect(ergebnis.getByText(/settlement\.txt: \d+ neue Umsätze für Amazon\.de/)).toBeVisible();
+  await expect(schritte.nth(2)).toHaveAttribute("aria-current", "step");
+  expect(await axeVerstoesse(page), "Einrichtung mit Datei, Ergebnis").toEqual([]);
+  await ergebnis.getByRole("link", { name: "Zum Konto" }).click();
+  await expect(page.getByRole("navigation", { name: "Konten" }).getByRole("link", { name: /^Amazon\.de/ })).toHaveAttribute("aria-current", "page");
+});
+
+test("Datei importieren an der Zeile unter Verbindungen: Format vom Konto, Anleitung eingeklappt, nichts doppelt", async () => {
+  await gehe(page, "/bank/verbindungen");
+  // Unterzeile je Weg gleich gebaut: Anbieter · Weg · Kennung
+  await expect(zeile("Amazon.de").locator(".verbindung-kennung")).toHaveText("Amazon · Datei");
+  await zeile("Amazon.de").getByRole("button", { name: "Weitere Aktionen für Amazon.de" }).click();
+  await page.getByRole("menuitem", { name: "Datei importieren …" }).click();
+  const dialog = page.getByRole("dialog", { name: "Datei importieren: Amazon.de" });
+  await expect(dialog).toContainText("Settlement Report (Flatfile V2)");
+  await expect(dialog.getByRole("link", { name: "Amazon Seller Central" })).toBeHidden();
+  await dialog.getByText("So bekommst du die Datei").click();
+  await expect(dialog.getByRole("link", { name: "Amazon Seller Central" })).toBeVisible();
+  expect(await axeVerstoesse(page), "Dialog Datei importieren").toEqual([]);
+  await dialog
+    .getByLabel("Settlement Report (Flatfile V2) für Amazon.de")
+    .setInputFiles([{ name: "settlement.txt", mimeType: "text/plain", buffer: settlement() }]);
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText(/settlement\.txt: 0 neue Umsätze für Amazon\.de, \d+ schon vorhanden/)).toBeVisible({ timeout: 30_000 });
+  // Shop DE hat keine Verbindung mehr, ist aber an die Quelle des früheren Abrufs gebunden (#306): keine Datei hinein (#1988)
+  await zeile().getByRole("button", { name: "Weitere Aktionen für Shop DE" }).click();
+  await expect(page.getByRole("menuitem", { name: "Name und Zweck …" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Datei importieren …" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+});
+
+test("SumUp: nur das Konto, mit Hinweis; Google Play legt das Konto an und führt zu seinem Abschnitt", async () => {
+  await gehe(page, "/bank");
+  await kontoVerbinden(page, "Zahlungsdienstleister hinzufügen");
+  let dialog = page.getByRole("dialog", { name: "Zahlungsdienstleister hinzufügen" });
+  await dialog.getByRole("radio", { name: "SumUp" }).check();
+  await dialog.getByRole("button", { name: "Weiter" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("SumUp hinzufügen");
+  await expect(page.getByRole("list", { name: "Schritte" }).getByRole("listitem")).toHaveText(["1 · Konto"]);
+  const konto = page.getByRole("form", { name: "Konto" });
+  await expect(konto).toContainText("Für SumUp liest Haben keine Datei und ruft nichts ab.");
+  await konto.getByRole("button", { name: "Konto anlegen" }).click();
+  await expect(page.getByRole("navigation", { name: "Konten" }).getByRole("link", { name: /^SumUp/ })).toHaveAttribute("aria-current", "page");
+
+  await kontoVerbinden(page, "Zahlungsdienstleister hinzufügen");
+  dialog = page.getByRole("dialog", { name: "Zahlungsdienstleister hinzufügen" });
+  await dialog.getByRole("radio", { name: "Google Play" }).check();
+  await dialog.getByRole("button", { name: "Weiter" }).click();
+  // Der Store-Abruf schreibt in ein Konto: erst das Konto, dann der Zugang unter Verbindungen
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Google Play verbinden");
+  const store = page.getByRole("form", { name: "Konto" });
+  await expect(store).toContainText("über den Zugang unter Geld › Verbindungen");
+  await store.getByRole("button", { name: "Konto anlegen" }).click();
+  await page.waitForURL(/\/bank\/verbindungen#stores$/);
+  expect(await mitDatenbank((sql) => sql`select name from bank_accounts where provider = 'googleplay'`)).toEqual([{ name: "Google Play" }]);
+  await expect(page.locator("details").filter({ hasText: "Google Play und App Store" })).toHaveAttribute("open", "");
+});
+
+test("Konto ohne Abruf anlegen: nur Bankkonten, der Link führt zu den Zahlungsdienstleistern", async () => {
+  await gehe(page, "/bank");
+  await kontoVerbinden(page, "Konto ohne Abruf anlegen");
+  const form = page.getByRole("form", { name: "Konto hinzufügen" });
+  await expect(form.getByLabel("Art")).toHaveCount(0);
+  await expect(form.getByLabel("IBAN")).toBeVisible();
+  await form.getByRole("button", { name: "Zahlungsdienstleister hinzufügen" }).click();
+  await expect(page.getByRole("dialog", { name: "Zahlungsdienstleister hinzufügen" })).toBeVisible();
+  await expect(form).toHaveCount(0);
 });

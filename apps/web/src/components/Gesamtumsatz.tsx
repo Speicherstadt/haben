@@ -61,7 +61,7 @@ export function Gesamtumsatz({ result }: { result: GesamtumsatzResult }) {
           <tbody>
             {rows.map((item) => (
               <tr key={`${item.source}:${item.sourceId}`}>
-                <td>
+                <td className="gesamtumsatz-quelle">
                   {item.invoiceId ? (
                     <Link to="/rechnungen/$id" params={{ id: item.invoiceId }}>
                       {item.label}

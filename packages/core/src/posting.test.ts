@@ -460,6 +460,33 @@ describe("Rundung bei Storno", () => {
       expect(zurueck.map((r) => [r.base, r.tax])).toEqual(hin.map((r) => [-r.base, -r.tax]));
     }
   });
+
+  it("legt den Steuer-Rundungsrest nie auf einen 0-%-Satz ohne Steuer (#2026)", () => {
+    // 50 € zu 19 % (9,50 €), 30 € zu 7 % (2,10 €), 90 € zu 0 % (größter Basisposten): bei 11,00 € sind 70 ct Steuer gezahlt,
+    // einzeln gerundet 58 + 13 = 71 ct; der Rest von −1 ct muss in einen besteuerten Satz, nicht auf 0 %
+    const totals = computeInvoiceTotals([
+      { quantity: 1000, unitPrice: 5_000, taxRate: 1900 },
+      { quantity: 1000, unitPrice: 3_000, taxRate: 700 },
+      { quantity: 1000, unitPrice: 9_000, taxRate: 0 },
+    ]);
+    for (const paid of [1_100, -1_100, 500, 12_345]) {
+      const shares = paidTaxShares(totals, paid);
+      const nullSatz = shares.find((s) => s.rate === 0)!;
+      expect(nullSatz.tax, `paid=${paid}`).toBe(0);
+      expect(
+        shares.reduce((s, r) => s + r.base + r.tax, 0),
+        `paid=${paid}`,
+      ).toBe(paid);
+      expect(
+        shares.reduce((s, r) => s + r.tax, 0),
+        `paid=${paid}`,
+      ).toBe(Math.sign(paid) * Math.round((totals.tax * Math.abs(paid)) / totals.gross));
+    }
+    // Auch bei einer Ist-Rechnung mit 0-%-Posten: die umgebuchte Umsatzsteuer bei 11,00 € ist exakt 70 ct (nicht 71 ct)
+    const buchung = invoicePaymentPosting(totals, 1_100, "SKR03", "ist");
+    const ust = buchung.filter((l) => l.account === ACCOUNTS.SKR03.ust[1900] || l.account === ACCOUNTS.SKR03.ust[700]).reduce((s, l) => s + l.credit, 0);
+    expect(ust).toBe(70);
+  });
 });
 
 describe("settlementTaxShares", () => {

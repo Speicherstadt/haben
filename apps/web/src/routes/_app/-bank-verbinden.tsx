@@ -4,13 +4,15 @@ import { type FormEvent, type ReactNode, useId, useState } from "react";
 import { FINTS_ANLEITUNG, type FintsZustand, wartetAuf } from "../../components/FintsAbruf.tsx";
 import { FormDialog } from "../../components/FormDialog.tsx";
 import { MoreActionsMenu } from "../../components/MoreActionsMenu.tsx";
-import { verbundenText, zugangArt } from "../../lib/psp-einrichtung.ts";
+import { kontenText, verbundenText, zugangArt } from "../../lib/psp-einrichtung.ts";
+import { wegText, wegeVon } from "../../lib/psp-wege.ts";
 import type { Data } from "./-bank-daten.ts";
 
 /*
  * „Konto verbinden ▾“ im Kopf der Bankseite (#1951): ein Menü für Bank, Zahlungsdienstleister und ein Konto ohne Abruf.
  * „Bank hinzufügen“ fragt im Dialog, wie (Enable Banking, FinTS oder Datei), „Zahlungsdienstleister hinzufügen“ nach dem
- * Anbieter und führt dann zur Einrichtung in Schritten. Was auf dieser Installation nicht geht, steht ausgegraut mit Grund.
+ * Anbieter und führt dann zur Einrichtung in Schritten, für jeden Anbieter (#2008). Was auf dieser Installation nicht geht,
+ * steht ausgegraut mit Grund.
  */
 
 export type BankWeg = "enablebanking" | "fints" | "datei";
@@ -24,8 +26,6 @@ const EINSTELLUNGEN_BANK = (
     Einstellungen › Bank
   </Link>
 );
-
-const VERBINDUNGEN = <Link to="/bank/verbindungen">Geld › Verbindungen</Link>;
 
 /** Die drei Wege zur Bank; FinTS wartet wie bisher auf einen offenen Schritt oder Abruf an einer Zeile (#1647, #1660) */
 export function bankWege(data: Pick<Data, "sync" | "fints">, fintsZustand: Pick<FintsZustand, "offen" | "busy">): Wahl<BankWeg>[] {
@@ -62,23 +62,26 @@ export function bankWege(data: Pick<Data, "sync" | "fints">, fintsZustand: Pick<
   ];
 }
 
-/** Grund, aus dem ein Anbieter ohne Adapter nicht wählbar ist */
-function ohneAdapter(provider: string): ReactNode {
-  if (provider === "etsy") return <>Etsy verbindest du unter {VERBINDUNGEN}.</>;
-  if (provider === "googleplay" || provider === "appstore") return <>Die Finanzberichte holst du unter {VERBINDUNGEN}.</>;
-  return "Noch kein Abruf; die Umsätze kommen als Datei über „Datei importieren“.";
-}
-
-/** Anbieter mit Adapter zuerst, dann die übrigen ausgegraut; „Anderer Zahlungsdienstleister“ ist kein Anbieter zum Verbinden */
-export function anbieterWahl(daten: Pick<Data["zahlungsdienstleister"], "anbieter" | "verbindungen">): Wahl<string>[] {
-  const mitAdapter = daten.anbieter.map((a) => {
-    const namen = daten.verbindungen.filter((v) => v.provider === a.provider).map((v) => v.name);
-    return { wert: a.provider, label: a.name, hint: `${zugangArt(a.felder)} · ${a.schritte.length} Schritte · ${verbundenText(namen)}`, gesperrt: null };
+/**
+ * Alle Zahlungsdienstleister (#2008), die mit Abruf über die API zuerst; unter jedem sein Weg (API, Datei, unter
+ * Verbindungen, nur Konto) und die Konten bzw. Verbindungen, die es schon gibt
+ */
+export function anbieterWahl(daten: Pick<Data["zahlungsdienstleister"], "anbieter" | "verbindungen" | "alleKonten">): Wahl<string>[] {
+  const mitAdapter = (p: string) => daten.anbieter.some((a) => a.provider === p);
+  const reihenfolge = [...daten.anbieter.map((a) => a.provider), ...Object.keys(PAYMENT_PROVIDERS).filter((p) => !mitAdapter(p))];
+  return reihenfolge.map((provider) => {
+    const adapter = daten.anbieter.find((a) => a.provider === provider);
+    const label = adapter?.name ?? PAYMENT_PROVIDERS[provider as keyof typeof PAYMENT_PROVIDERS].label;
+    const verbindungen = daten.verbindungen.filter((v) => v.provider === provider);
+    const gebunden = new Set(verbindungen.map((v) => v.bankAccountId));
+    // Konten, an denen keine Verbindung hängt (aus Dateien oder ohne Import), heißen nicht „verbunden“
+    const konten = daten.alleKonten.filter((k) => k.provider === provider && !gebunden.has(k.id)).map((k) => k.name);
+    const weg = wegText(provider, wegeVon(provider, adapter !== undefined), adapter ? zugangArt(adapter.felder) : null);
+    const bestehend = adapter
+      ? [verbundenText(verbindungen.map((v) => v.name)), ...(konten.length > 0 ? [kontenText(konten)] : [])].join(" · ")
+      : kontenText(konten);
+    return { wert: provider, label, hint: `${weg} · ${bestehend}`, gesperrt: null };
   });
-  const uebrige = Object.entries(PAYMENT_PROVIDERS)
-    .filter(([key]) => key !== "sonstige" && !daten.anbieter.some((a) => a.provider === key))
-    .map(([key, p]) => ({ wert: key, label: p.label, hint: "", gesperrt: ohneAdapter(key) }));
-  return [...mitAdapter, ...uebrige];
 }
 
 /** Optionsfelder mit Hinweis und Grund darunter; ein gesperrter Weg zeigt per aria-describedby auf seinen Grund */
@@ -199,8 +202,8 @@ export function KontoVerbinden({
       )}
       {dialog === "anbieter" && (
         <WahlDialog
-          titel="Anbieter wählen"
-          legend="Zahlungsdienstleister"
+          titel="Zahlungsdienstleister hinzufügen"
+          legend="Anbieter"
           wahlen={anbieterWahl(data.zahlungsdienstleister)}
           onWeiter={(anbieter) => void navigate({ to: "/bank/verbinden/$anbieter", params: { anbieter } })}
           onClose={() => setDialog(null)}

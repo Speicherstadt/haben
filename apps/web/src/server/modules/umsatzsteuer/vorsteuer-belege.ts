@@ -144,11 +144,12 @@ function gebuchteSkontoSteuer(
   recorded: { account: string; debit: number; credit: number; code: string | null; kontenrahmen: keyof typeof ACCOUNTS }[],
   rate: number,
 ): number {
+  // § 17 Abs. 1 Satz 2 UStG: 0-%-Posten tragen keine Vorsteuerminderung und dürfen nicht auf VSt7 fallen (#2033)
+  const code = rate === 1900 ? "VSt19" : rate === 700 ? "VSt7" : null;
+  if (code === null) return 0;
   return recorded
     .filter(
-      (l) =>
-        (Object.values(ACCOUNTS[l.kontenrahmen].vorsteuer).some((konto) => konto === l.account) || ZWISCHENKONTEN.includes(l.account)) &&
-        l.code === (rate === 1900 ? "VSt19" : "VSt7"),
+      (l) => (Object.values(ACCOUNTS[l.kontenrahmen].vorsteuer).some((konto) => konto === l.account) || ZWISCHENKONTEN.includes(l.account)) && l.code === code,
     )
     .reduce((sum, l) => sum + l.credit - l.debit, 0);
 }

@@ -11,8 +11,19 @@ export const zugangArt = (felder: readonly { label: string; art: string }[]) => 
 /** Bestehende Verbindungen eines Anbieters in der Auswahl */
 export const verbundenText = (namen: readonly string[]) => (namen.length ? `verbunden: ${UND.format(namen.map((n) => `„${n}“`))}` : "noch nicht verbunden");
 
+/** Bestehende Konten eines Anbieters ohne Abruf in der Auswahl */
+export const kontenText = (namen: readonly string[]) => (namen.length ? `Konto: ${UND.format(namen.map((n) => `„${n}“`))}` : "noch kein Konto");
+
 /** Wie die Schrittleiste einen Schritt des Adapters nennt */
-export const SCHRITT_TITEL: Record<string, string> = { zugang: "Zugang", einstellungen: "Name und Zeitraum", abruf: "Erster Abruf" };
+export const SCHRITT_TITEL: Record<string, string> = {
+  weg: "Weg",
+  zugang: "Zugang",
+  einstellungen: "Name und Zeitraum",
+  abruf: "Erster Abruf",
+  konto: "Konto",
+  datei: "Datei",
+  ergebnis: "Ergebnis",
+};
 
 /**
  * Welches Konto in Haben die Verbindung bekommt: das gewählte, bei „Automatisch“ das, was die Prüfung genannt hat (an den

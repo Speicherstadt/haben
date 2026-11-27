@@ -253,12 +253,15 @@ test("Tablet (768 px, 861 px) und schmales Handy (320 px): kein Überlauf und ke
   });
   expect(planUeberlappungen, "Zahlungsplan-Vorlagen bei 861px ohne Überlappung").toEqual([]);
 
-  // Schmales Handy (320 px, WCAG 1.4.10): lange Code-URLs laufen nicht aus dem Bild
+  // Schmales Handy (320 px, WCAG 1.4.10): lange Code-URLs laufen nicht aus dem Bild, versteckte Spaltenköpfe breiter
+  // Tabellen (Archiv › Offene Posten) nicht aus ihrem Rollbereich, Kurzwerte der Jahreserklärung nicht aus ihrem Block
   await page.setViewportSize({ width: 320, height: 640 });
-  await page.goto("/einstellungen?bereich=bank");
-  await page.waitForLoadState("networkidle");
-  const overflow320 = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-  expect(overflow320, "/einstellungen?bereich=bank bei 320px ohne Seitenüberlauf").toBeLessThanOrEqual(1);
+  for (const pfad of ["/einstellungen?bereich=bank", "/archiv", `/jahreserklaerung/${YEAR - 1}`]) {
+    await page.goto(pfad);
+    await page.waitForLoadState("networkidle");
+    const overflow320 = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect.soft(overflow320, `${pfad} bei 320px ohne Seitenüberlauf`).toBeLessThanOrEqual(1);
+  }
 });
 
 test("Kontosuche auf /buchungen/neu wird bei Tablet-Breite nicht abgeschnitten", async ({ page }) => {
@@ -304,5 +307,26 @@ test("Spalten in /rechnungen, /belege, /dauerbelege bei 861 px ohne Überlappung
       return out;
     });
     expect(fehler, `${pfad} bei 861px ohne überlaufende Spaltenzellen`).toEqual([]);
+  }
+});
+
+test("Beleg am Handy: Blättern in einer Zeile, Position mittig, nichts ragt aus dem Bild", async ({ page }) => {
+  const beleg = await firstLink(page, "/belege", /^\/belege\/[0-9a-f-]{36}$/);
+  for (const width of [320, 375]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto(beleg!);
+    const blaettern = page.getByRole("group", { name: "Zwischen Belegen wechseln" });
+    await expect(blaettern.getByRole("button", { name: /Nächster/ })).toBeVisible();
+    const [vor, position, weiter] = await Promise.all([
+      blaettern.getByRole("button", { name: /Vorheriger/ }).boundingBox(),
+      blaettern.getByText(/^\d+ von \d+$/).boundingBox(),
+      blaettern.getByRole("button", { name: /Nächster/ }).boundingBox(),
+    ]);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `Beleg bei ${width}px ohne Seitenüberlauf`).toBeLessThanOrEqual(1);
+    expect(weiter!.x + weiter!.width, `„Nächster“ bei ${width}px im Bild`).toBeLessThanOrEqual(width - 16 + 1);
+    // Eine Zeile: Zurück, Position und Weiter auf einer Höhe; die Position steht in der Mitte der Seite
+    expect(Math.abs(vor!.y - weiter!.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(position!.x + position!.width / 2 - width / 2), `Position bei ${width}px mittig`).toBeLessThanOrEqual(2);
   }
 });

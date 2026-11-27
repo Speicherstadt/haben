@@ -143,6 +143,9 @@ h2 { margin: 0; font-size: 16px; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .seitenladen { animation: none; } }
 .small { font-size: 13px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Tabellen, die seitlich rollen, sind Bezugsrahmen für versteckten Text darin (.visually-hidden ist absolut): sonst
+   steht er an seiner Stelle in der breiten Tabelle außerhalb des Rollbereichs und macht die Seite breiter (Archiv, 320 px) */
+.table-scroll, .data-table, .report-table { position: relative; }
 
 /* Shell */
 .shell { display: flex; min-height: 100vh; }
@@ -1259,6 +1262,12 @@ fieldset.card > legend + * { clear: both; }
   .page-head .actions > .field { flex: 1 1 140px; }
   /* Ein Feld direkt im Kopf (Zeitraum, Jahr) nimmt wie die Aktionszeile die ganze Breite, statt halb breit am Rand zu stehen */
   .page-head > .field { align-self: stretch; }
+  /* Blättern in der Beleg-Ansicht: eine eigene Zeile, „Vorheriger“ links, die Position genau in der Mitte, „Nächster“ rechts;
+     mit dem Innenabstand eines Knopfs passten die drei bei 320 px nicht in die Zeile */
+  .page-head .actions > .doc-nav { flex: 1 1 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; }
+  .doc-nav > .btn { min-width: 0; padding-inline: 8px; }
+  .doc-nav > .btn:first-child { justify-self: start; }
+  .doc-nav > .btn:last-child { justify-self: end; }
   /* Belegeditor: Vorschau, Entwurf als PDF, Entwurf speichern und Festschreiben passen nicht in eine Zeile (#357);
      seitlich gescrollt verschwänden Speichern und Festschreiben. Dort zwei Zeilen zu je zwei Knöpfen */
   .page-head .editor-actions { flex-wrap: wrap; overflow: visible; }
@@ -1293,7 +1302,7 @@ fieldset.card > legend + * { clear: both; }
 /* Tablet mit ausgeklappter Seitenleiste (861–1024 px): die Arbeitsfläche ist schmaler als 760 px;
    breite Tabellen scrollen in der Karte, feste Listenspalten rücken zusammen statt zu überlappen */
 @media (min-width: 721px) and (max-width: 1024px) {
-  .card > .report-table:not(:has(.account-combobox)) { display: block; overflow-x: auto; }
+  :is(.card, .card > details) > .report-table:not(:has(.account-combobox)) { display: block; overflow-x: auto; }
 }
 @media (min-width: 861px) and (max-width: 1024px) {
   :where(:root:not([data-nav="collapsed"])) .document-cols { grid-template-columns: 84px minmax(0, 1.1fr) minmax(0, 1fr) 88px 116px; }

@@ -132,7 +132,7 @@ export async function importEtsyLedger(actor: string, entries: EtsyLedgerEntry[]
       accountName: null,
       added: 0,
       messages: [
-        "Für Etsy gibt es noch kein Konto. Lege unter Bank ein Konto der Art Zahlungsdienstleister mit Anbieter Etsy an; dann übernimmt Haben den Zahlungsverlauf.",
+        "Für Etsy gibt es noch kein Konto. Lege es unter Bank › Konto verbinden › Zahlungsdienstleister hinzufügen › Etsy Payments an; dann übernimmt Haben den Zahlungsverlauf.",
       ],
     };
   }

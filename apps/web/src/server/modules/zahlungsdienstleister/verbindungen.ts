@@ -6,9 +6,10 @@ import { withActor } from "../../db/actor.ts";
 import { db, schema, type Tx } from "../../db/index.ts";
 import { UserError } from "../../errors.ts";
 import { today } from "../../today.ts";
-import { keineExterneQuelle, openConflicts, providerKontoAnlegen } from "../bank/index.ts";
+import { boundAccountIds, keineExterneQuelle, openConflicts, providerKontoAnlegen } from "../bank/index.ts";
 import { type PspAdapter, STANDARD_SCHRITTE } from "./adapter.ts";
 import { ANBIETER, adapterFuer } from "./anbieter.ts";
+import { configHinweise, gleicheConfig } from "./config-hinweise.ts";
 import { RHYTHMEN, type Rhythmus } from "./regeln.ts";
 
 /*
@@ -263,25 +264,6 @@ export async function speichereVerbindung(actor: string, input: z.input<typeof v
 }
 
 /**
- * Hinweise zu geänderten Einstellungen mit dem gespeicherten Zugang. Nur Hinweise: Lehnt der Anbieter ab oder ist er nicht
- * erreichbar, speichert „Bearbeiten“ trotzdem und sagt, dass nicht geprüft wurde; der nächste Abruf meldet den Fehler.
- */
-async function configHinweise(adapter: PspAdapter, zugang: unknown, config: unknown): Promise<string[]> {
-  try {
-    return (await adapter.pruefen(zugang, config)).hinweise ?? [];
-  } catch (error) {
-    return [`Ob der gespeicherte Zugang zu den Einstellungen passt, ließ sich nicht prüfen (${error instanceof Error ? error.message : String(error)}).`];
-  }
-}
-
-/** Gleiche Einstellungen, unabhängig von der Reihenfolge der Schlüssel (jsonb ordnet sie anders als das Schema) */
-function gleicheConfig(alt: unknown, neu: unknown): boolean {
-  const a = alt as Record<string, unknown>;
-  const b = neu as Record<string, unknown>;
-  return [...new Set([...Object.keys(a), ...Object.keys(b)])].every((k) => a[k] === b[k]);
-}
-
-/**
  * Prüft einen neuen Zugang beim Anbieter, ohne etwas zu speichern (Schritt „Zugang“ der Einrichtung, #1951): erkannte
  * Kontokennung, ob dieses Konto beim Anbieter schon als Verbindung besteht, und das Konto in Haben, das „Automatisch“
  * nähme. Hält die Quellenbindung (#306) das Konto beim Anbieter schon an einem Konto in Haben, ist es dieses (gebunden).
@@ -353,14 +335,20 @@ function configHinweis(row: Row): string | null {
 
 /** Für Bankseite und Einrichtung: alle Verbindungen ohne Zugang, die Anbieter mit ihren Feldern und die Konten zur Auswahl */
 export async function verbindungenUebersicht() {
-  const [rows, konten, konflikte] = await Promise.all([
+  const [rows, konten, konflikte, abgerufen] = await Promise.all([
     alleVerbindungen(),
     db
-      .select({ id: schema.bankAccounts.id, name: schema.bankAccounts.name, provider: schema.bankAccounts.provider })
+      .select({
+        id: schema.bankAccounts.id,
+        name: schema.bankAccounts.name,
+        provider: schema.bankAccounts.provider,
+        marketplace: schema.bankAccounts.marketplace,
+      })
       .from(schema.bankAccounts)
       .where(eq(schema.bankAccounts.purpose, "zahlungsdienstleister"))
       .orderBy(asc(schema.bankAccounts.createdAt)),
     openConflicts(),
+    boundAccountIds(),
   ]);
   const kontoName = new Map(konten.map((k) => [k.id, k.name]));
   return {
@@ -368,6 +356,10 @@ export async function verbindungenUebersicht() {
     heute: today(),
     anbieter: ANBIETER.map(anbieterFuerOberflaeche),
     konten: konten.filter((k) => ANBIETER.some((a) => a.provider === k.provider)),
+    /** Alle Konten der Art Zahlungsdienstleister, auch ohne Adapter: Einrichtung mit Datei (#2008) */
+    alleKonten: konten,
+    /** Konten mit einer Quelle (Abruf in Haben, auch Etsy, oder externe Quelle): keine Datei hinein (#1988) */
+    abgerufeneKonten: abgerufen,
     verbindungen: rows.map((row) => ({
       id: row.id,
       provider: row.provider,

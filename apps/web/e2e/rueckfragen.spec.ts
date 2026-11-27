@@ -4,7 +4,6 @@ import { currentDay, day, USER } from "./daten.ts";
 import { databaseUrlFuer } from "./durchlaeufe.ts";
 import {
   bestaetigen,
-  kontoVerbinden,
   fragenUeberspringen,
   dkb,
   durchlaufSeite,
@@ -13,6 +12,8 @@ import {
   kontaktAnlegen,
   rechnungFestschreiben,
   SETUP_CODE,
+  zahlungsdienstleisterKonto,
+  zahlungsdienstleisterKontoSchritt,
 } from "./einrichtung.ts";
 
 /**
@@ -697,32 +698,28 @@ test("Umzug: Die Frage eines inzwischen beendeten Abrufs kommt beim nächsten Ab
 
 test("Bank: ein zweites Konto für denselben Marktplatz fragt vorher nach (#1779)", async () => {
   await go("/bank");
-  const form = page.locator("form", { has: page.getByRole("button", { name: "Konto anlegen" }) });
-  const anlegen = async (name: string) => {
-    await kontoVerbinden(page, "Konto ohne Abruf anlegen");
-    await form.getByLabel("Art", { exact: true }).selectOption("provider");
-    await form.getByLabel("Dienstleister", { exact: true }).selectOption("amazon");
-    await form.getByLabel("Marktplatz", { exact: true }).selectOption("Amazon.de");
-    await form.getByLabel("Name", { exact: true }).fill(name);
-    await form.getByRole("button", { name: "Konto anlegen" }).click();
-  };
   const konten = page.getByRole("navigation", { name: "Konten" }).getByRole("link");
   const zweites = konten.filter({ hasText: "Amazon DE 2" });
 
-  await anlegen("Amazon DE");
-  await expect(page.getByText("Konto angelegt.")).toBeVisible();
+  await zahlungsdienstleisterKonto(page, { anbieter: "Amazon", name: "Amazon DE", marktplatz: "Amazon.de" });
 
   // Zweites Konto für denselben Marktplatz: erst fragen; Abbrechen legt nichts an
-  await anlegen("Amazon DE 2");
+  const konto = await zahlungsdienstleisterKontoSchritt(page, "Amazon");
+  await konto.getByLabel("Konto in Haben").selectOption("");
+  await konto.getByLabel("Marktplatz").selectOption("Amazon.de");
+  await konto.getByLabel("Name", { exact: true }).fill("Amazon DE 2");
+  await konto.getByRole("button", { name: "Weiter" }).click();
   const titel = "Noch ein Konto für Amazon.de anlegen?";
   await expect(rueckfrage(titel)).toContainText("gibt es schon ein Konto");
   await abbrechen(titel);
-  await expect(zweites).toHaveCount(0);
+  await expect(konto).toBeVisible();
 
-  // Erneut abschicken, jetzt bestätigen: das zweite Konto entsteht
-  await form.getByRole("button", { name: "Konto anlegen" }).click();
+  // Erneut abschicken, jetzt bestätigen: das zweite Konto entsteht mit dem nächsten Schritt
+  await konto.getByRole("button", { name: "Weiter" }).click();
   await expect(rueckfrage(titel)).toBeVisible();
   await bestaetigen(page, "Konto trotzdem anlegen");
+  await page.getByRole("button", { name: "Nur Konto anlegen, Datei später" }).click();
+  await page.getByRole("link", { name: "Zum Konto" }).click();
   await expect(zweites).toHaveCount(1);
 });
 

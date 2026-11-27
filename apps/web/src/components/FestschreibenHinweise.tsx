@@ -11,11 +11,14 @@ export function FestschreibenHinweise({
   earlierThanLast,
   numberDate,
   ustId,
+  onSperre,
 }: {
   open: boolean;
   earlierThanLast: { number: string; issueDate: string } | null;
   numberDate: string;
   ustId: { contactId: string; behandlung: "reverse_charge" | "ig_lieferung" } | null;
+  /** Sperrt die USt-IdNr. des Kunden das Festschreiben (UstIdVorFestschreiben) */
+  onSperre?: (sperrt: boolean) => void;
 }) {
   return (
     <>
@@ -25,7 +28,7 @@ export function FestschreibenHinweise({
           {formatDate(earlierThanLast.issueDate)}.
         </div>
       )}
-      {ustId && <UstIdVorFestschreiben open={open} contactId={ustId.contactId} behandlung={ustId.behandlung} />}
+      {ustId && <UstIdVorFestschreiben open={open} contactId={ustId.contactId} behandlung={ustId.behandlung} onSperre={onSperre} />}
     </>
   );
 }
