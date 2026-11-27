@@ -34,8 +34,8 @@ export function StorePayoutBox({
   if (!view.accountName) {
     return (
       <div className="banner banner-info" role="status">
-        Eingang von {view.label}: Lege unter Bank ein Konto der Art Zahlungsdienstleister mit Anbieter {view.label} an, dann übernimmt Haben die Monatsberichte
-        und diese Auszahlung.
+        Eingang von {view.label}: Lege unter Konto verbinden › Zahlungsdienstleister hinzufügen das Konto für {view.label} an, dann übernimmt Haben die
+        Monatsberichte und diese Auszahlung.
       </div>
     );
   }

@@ -214,7 +214,7 @@ export async function takeOverStorePayout(actor: string, input: z.input<typeof s
     const { bank, store } = await storeInflow(tx, data.transactionId);
     const label = STORE_LABELS[store];
     const account = await storeAccount(tx, store);
-    if (!account) throw new BankError(`Für ${label} gibt es noch kein Konto. Lege es unter Bank als Zahlungsdienstleister an.`);
+    if (!account) throw new BankError(`Für ${label} gibt es noch kein Konto. Lege es unter Bank › Konto verbinden › Zahlungsdienstleister hinzufügen an.`);
     const chosen = await chosenMonths(tx, store, account.id, data.monthIds);
     const sum = chosen.reduce((s, m) => s + m.amount, 0);
     const difference = bank.amount - sum;

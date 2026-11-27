@@ -74,6 +74,7 @@ function VerbindungenPage() {
       ausschliessen,
       kannQuelle: zeile.kontoId !== null && !data.gebundeneKonten.includes(zeile.kontoId) && !data.quellen.some((q) => q.accountId === zeile.kontoId),
       istBank: data.accounts.some((a) => a.id === zeile.kontoId && a.purpose !== "zahlungsdienstleister"),
+      gebunden: zeile.kontoId !== null && (data.gebundeneKonten.includes(zeile.kontoId) || data.quellen.some((q) => q.accountId === zeile.kontoId)),
     });
   // Der Name öffnet, was die Verbindung einrichtet: Zugang und Zeitraum, ohne Verbindung Name und Zweck
   const onName = (zeile: Zeile) => {

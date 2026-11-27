@@ -138,6 +138,7 @@ export function zeilenMenue(
     ausschliessen,
     kannQuelle,
     istBank,
+    gebunden,
     dateiFuer,
   }: {
     abruf: KontoAbruf;
@@ -147,6 +148,8 @@ export function zeilenMenue(
     ausschliessen: (id: string) => void;
     kannQuelle: boolean;
     istBank: boolean;
+    /** Ein Abruf in Haben oder eine externe Quelle schreibt ins Konto */
+    gebunden: boolean;
   },
 ): ActionMenuItem[] {
   const z = zeile.zugang;
@@ -156,8 +159,8 @@ export function zeilenMenue(
   // Grund steht in der Zeile (grundId)
   const f = z?.art === "fints" ? abruf.finde(z).fints : undefined;
   const grund = (mitTrennen: boolean) => (f && abruf.fints.grund(f, mitTrennen) ? grundId(f, zeile, abruf) : undefined);
-  // Konten ohne Abruf bekommen Dateien; in ein abgerufenes Konto nicht, solange #1988 offen ist
-  if (id && !z) items.push({ key: "datei", label: "Datei importieren …", onSelect: () => dateiFuer(id) });
+  // Konten ohne Abruf bekommen Dateien; in ein abgerufenes (auch Etsy) oder eines mit externer Quelle nicht, solange #1988 offen ist
+  if (id && !z && !gebunden) items.push({ key: "datei", label: "Datei importieren …", onSelect: () => dateiFuer(id) });
   if (id) items.push({ key: "name", label: "Name und Zweck …", onSelect: () => nameUndZweck(id) });
   if (z) {
     const label = z.art === "psp" ? "Bearbeiten …" : z.art === "fints" ? "Zugang ändern" : "Neu anmelden";

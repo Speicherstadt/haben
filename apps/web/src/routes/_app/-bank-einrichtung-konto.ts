@@ -8,14 +8,14 @@ export type KontoWahl = { name: string; marketplace: string; kontoId: string | n
 type Konto = { id: string; name: string; provider: string | null; marketplace: string | null };
 
 /**
- * Konten des Anbieters, in die eine Datei gehen darf: nicht die, die Haben über die API abruft, solange ein Dateiimport
- * dort Umsätze ab dem Stichtag doppelt anlegen könnte (#1988)
+ * Konten des Anbieters, in die eine Datei gehen darf: nicht die, in die ein Abruf in Haben schreibt (Verbindung oder
+ * Etsy) oder die eine externe Quelle haben, solange ein Dateiimport dort Umsätze doppelt anlegen könnte (#1988)
  */
 export function vorhandeneKonten(
-  daten: { alleKonten: readonly Konto[]; verbindungen: readonly { bankAccountId: string | null }[] },
+  daten: { alleKonten: readonly Konto[]; verbindungen: readonly { bankAccountId: string | null }[]; abgerufeneKonten: readonly string[] },
   provider: string,
 ): Konto[] {
-  const abgerufen = new Set(daten.verbindungen.map((v) => v.bankAccountId));
+  const abgerufen = new Set<string | null>([...daten.verbindungen.map((v) => v.bankAccountId), ...daten.abgerufeneKonten]);
   return daten.alleKonten.filter((k) => k.provider === provider && !abgerufen.has(k.id));
 }
 

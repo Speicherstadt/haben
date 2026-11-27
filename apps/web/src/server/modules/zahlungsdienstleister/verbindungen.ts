@@ -6,7 +6,7 @@ import { withActor } from "../../db/actor.ts";
 import { db, schema, type Tx } from "../../db/index.ts";
 import { UserError } from "../../errors.ts";
 import { today } from "../../today.ts";
-import { keineExterneQuelle, openConflicts, providerKontoAnlegen } from "../bank/index.ts";
+import { boundAccountIds, keineExterneQuelle, openConflicts, providerKontoAnlegen } from "../bank/index.ts";
 import { type PspAdapter, STANDARD_SCHRITTE } from "./adapter.ts";
 import { ANBIETER, adapterFuer } from "./anbieter.ts";
 import { RHYTHMEN, type Rhythmus } from "./regeln.ts";
@@ -353,7 +353,7 @@ function configHinweis(row: Row): string | null {
 
 /** Für Bankseite und Einrichtung: alle Verbindungen ohne Zugang, die Anbieter mit ihren Feldern und die Konten zur Auswahl */
 export async function verbindungenUebersicht() {
-  const [rows, konten, konflikte] = await Promise.all([
+  const [rows, konten, konflikte, abgerufen] = await Promise.all([
     alleVerbindungen(),
     db
       .select({
@@ -366,6 +366,7 @@ export async function verbindungenUebersicht() {
       .where(eq(schema.bankAccounts.purpose, "zahlungsdienstleister"))
       .orderBy(asc(schema.bankAccounts.createdAt)),
     openConflicts(),
+    boundAccountIds(),
   ]);
   const kontoName = new Map(konten.map((k) => [k.id, k.name]));
   return {
@@ -375,6 +376,8 @@ export async function verbindungenUebersicht() {
     konten: konten.filter((k) => ANBIETER.some((a) => a.provider === k.provider)),
     /** Alle Konten der Art Zahlungsdienstleister, auch ohne Adapter: Einrichtung mit Datei (#2008) */
     alleKonten: konten,
+    /** Konten mit einer Quelle (Abruf in Haben, auch Etsy, oder externe Quelle): keine Datei hinein (#1988) */
+    abgerufeneKonten: abgerufen,
     verbindungen: rows.map((row) => ({
       id: row.id,
       provider: row.provider,

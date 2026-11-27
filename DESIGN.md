@@ -222,7 +222,7 @@ Rot (`danger`) sind Löschen, Stornieren, Entfernen, Widerrufen, Trennen, endgü
 
 ### Auswahl im Dialog
 
-Fragt ein Dialog, welcher Weg oder Anbieter (Bankseite: „Wie verbinden?“, „Anbieter wählen“), stehen die Möglichkeiten als Optionsfelder in einer `choice-group`, je mit einem Satz, wann sie passt, als `field-hint`, und „Weiter“ als Hauptaktion. Vorgewählt ist die erste, die geht. Was auf der Installation nicht eingerichtet ist oder gerade nicht geht, steht ausgegraut da, nicht versteckt, damit klar bleibt, was es gibt; der Grund steht darunter und hängt per `aria-describedby` am Optionsfeld. Für den Grund gilt dasselbe wie bei gesperrten Knöpfen: fehlt etwas außerhalb, verlinkt er dorthin (Einstellungen › Bank, Anleitung); wartet ein anderer Vorgang, nennt er ihn ohne Link.
+Fragt ein Dialog, welcher Weg oder Anbieter (Bankseite: „Wie verbinden?“, „Zahlungsdienstleister hinzufügen“), stehen die Möglichkeiten als Optionsfelder in einer `choice-group`, je mit einem Satz, wann sie passt, als `field-hint`, und „Weiter“ als Hauptaktion. Vorgewählt ist die erste, die geht. Was auf der Installation nicht eingerichtet ist oder gerade nicht geht, steht ausgegraut da, nicht versteckt, damit klar bleibt, was es gibt; der Grund steht darunter und hängt per `aria-describedby` am Optionsfeld. Für den Grund gilt dasselbe wie bei gesperrten Knöpfen: fehlt etwas außerhalb, verlinkt er dorthin (Einstellungen › Bank, Anleitung); wartet ein anderer Vorgang, nennt er ihn ohne Link.
 
 ### Einrichtung in Schritten
 

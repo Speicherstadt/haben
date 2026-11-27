@@ -118,7 +118,7 @@ export function KontoSchritt({
 }: {
   provider: string;
   name: string;
-  daten: Pick<PspDaten, "alleKonten" | "verbindungen">;
+  daten: Pick<PspDaten, "alleKonten" | "verbindungen" | "abgerufeneKonten">;
   nummer: number;
   von: number;
   /** Ohne Datei: der Schritt legt das Konto an und führt zu ihm */

@@ -9,6 +9,7 @@ describe("Einrichtung mit Datei: Konto in Haben (#2008)", () => {
       { id: "k3", provider: "amazon", name: "Amazon.de", marketplace: "Amazon.de" },
     ],
     verbindungen: [{ provider: "stripe", name: "Shop DE", bankAccountId: "k1" }],
+    abgerufeneKonten: [],
   } as unknown as Parameters<typeof vorhandeneKonten>[0];
 
   it("bietet kein Konto an, das Haben über die API abruft (#1988)", () => {

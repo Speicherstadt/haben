@@ -66,7 +66,7 @@ async function abrufenEinmal(actor: string, id: string, now: Date): Promise<Abru
     const konto = await kontoDerVerbindung(actor, row);
     if (!konto) {
       result.messages.push(
-        `Für ${adapter.name} gibt es noch kein Konto. Lege unter Bank ein Konto der Art Zahlungsdienstleister mit Anbieter ${adapter.name} an; dann übernimmt Haben die Umsätze.`,
+        `Für ${adapter.name} gibt es noch kein Konto. Lege es unter Bank › Konto verbinden › Zahlungsdienstleister hinzufügen an; dann übernimmt Haben die Umsätze.`,
       );
     } else {
       result.accountName = konto.name;
