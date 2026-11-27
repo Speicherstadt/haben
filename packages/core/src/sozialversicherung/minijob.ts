@@ -6,15 +6,20 @@ import type { Cents } from "../money.ts";
 /**
  * Rentenversicherung im Minijob. Der Arbeitgeber trägt 15 % des tatsächlichen Entgelts, ohne Befreiung der
  * Beschäftigte den Rest (§ 168 Abs. 1 Nr. 1b SGB VI); beitragspflichtig ist mindestens 175 € (§ 163 Abs. 8 SGB VI).
- * Über 175 € sind die Anteile getrennt gerundet (§ 2 Abs. 1 Satz 3 BVV), der des Beschäftigten also 3,6 % des
- * Entgelts. Bis 175 € ist der Beitrag der volle Satz auf 175 €, gerundet, und der Beschäftigte trägt ihn abzüglich
- * des gerundeten Arbeitgeberanteils (§ 2 Abs. 1 Satz 5 BVV); Beispiel der Minijob-Zentrale: 100 € → 32,55 € −
- * 15,00 € = 17,55 €.
+ * Über 175 € rundet die Minijob-Zentrale den vollen Beitrag (18,6 %) und den Anteil des Beschäftigten (3,6 %); der
+ * Arbeitgeber trägt die Differenz. Beispiel aus ihrem Minijob-Rechner (#1619): 542,10 € → 100,83 € − 19,52 € =
+ * 81,31 €, nicht 15 % = 81,32 €. So stimmt die Beitragsgruppe 0100 im Beitragsnachweis mit dem gerundeten vollen
+ * Beitrag überein. Bis 175 € ist der Beitrag der volle Satz auf 175 €, gerundet, und der Beschäftigte trägt ihn
+ * abzüglich des gerundeten Arbeitgeberanteils (§ 2 Abs. 1 Satz 5 BVV); Beispiel der Minijob-Zentrale: 100 € →
+ * 32,55 € − 15,00 € = 17,55 €. Mit Befreiung zahlt nur der Arbeitgeber seine 15 %.
  */
 function rente(e: Minijob, w: SvJahreswerte): { bemessung: Cents; an: Cents; ag: Cents } {
   const ag = beitrag(e.entgelt, w.minijobRvAg);
   if (e.rvBefreit) return { bemessung: e.entgelt, an: 0, ag };
-  if (e.entgelt > w.minijobRvMindestbemessung) return { bemessung: e.entgelt, an: beitrag(e.entgelt, w.rv - w.minijobRvAg), ag };
+  if (e.entgelt > w.minijobRvMindestbemessung) {
+    const an = beitrag(e.entgelt, w.rv - w.minijobRvAg);
+    return { bemessung: e.entgelt, an, ag: beitrag(e.entgelt, w.rv) - an };
+  }
   return { bemessung: w.minijobRvMindestbemessung, an: beitrag(w.minijobRvMindestbemessung, w.rv) - ag, ag };
 }
 
