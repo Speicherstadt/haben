@@ -375,7 +375,8 @@ button.nav-foot-link { width: 100%; background: none; border: 0; font: inherit; 
 /* Knopfzeilen (#394, DESIGN.md): Hauptaktion zuletzt im Markup; im Dialog rechtsbündig, sonst an der Kante der Felder */
 dialog .form-footer, .form-dialog > form > .actions:last-child { justify-content: flex-end; }
 /* Ein Hauch Schatten hebt die Karte vom Grund ab; auf Dunkel trägt ihn kaum etwas, dort hält die Linie die Kante */
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow-xs); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow-xs); min-width: 0; }
+code { overflow-wrap: anywhere; }
 /* Kachel als Link (Übersicht): sieht aus wie eine Karte, der Rahmen zeigt beim Überfahren, dass sie klickbar ist */
 .card-link { color: inherit; text-decoration: none; }
 .card-link:hover { border-color: var(--line-strong); }
@@ -391,7 +392,7 @@ dialog .form-footer, .form-dialog > form > .actions:last-child { justify-content
   .grid-3 .kpi-value, .grid-4 .kpi-value, .grid-5 .kpi-value { font-size: 18px !important; white-space: normal; overflow-wrap: anywhere; }
 }
 .grid-main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: start; }
-.stack { display: flex; flex-direction: column; gap: 16px; }
+.stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 /* Übersicht: Fehlt „Letzte Voranmeldungen“ (Kleinunternehmer, Befreite), nimmt „Letzte Rechnungen“ die ganze Breite */
 .uebersicht-listen > :only-child { grid-column: 1 / -1; }
 @media (max-width: 1100px) { .grid-main { grid-template-columns: minmax(0, 1fr); } }
@@ -1284,7 +1285,19 @@ fieldset.card > legend + * { clear: both; }
   /* Übrige Tabellen: Text darf umbrechen (Beträge bleiben dank geschütztem Leerzeichen zusammen),
      was dann noch zu breit ist, scrollt in der Karte statt die Seite zu verbreitern */
   .report-table:not(.stack-table) { display: block; overflow-x: auto; }
-  .card { min-width: 0; }
+}
+
+/* Tablet mit ausgeklappter Seitenleiste (861–1024 px): die Arbeitsfläche ist schmaler als 760 px;
+   breite Tabellen scrollen in der Karte, feste Listenspalten rücken zusammen statt zu überlappen */
+@media (min-width: 721px) and (max-width: 1024px) {
+  .card > .report-table { display: block; overflow-x: auto; }
+}
+@media (min-width: 861px) and (max-width: 1024px) {
+  :where(:root:not([data-nav="collapsed"])) .document-cols { grid-template-columns: 84px minmax(0, 1.1fr) minmax(0, 1fr) 88px 116px; }
+  :where(:root:not([data-nav="collapsed"])) .document-cols > * { min-width: 0; }
+  :where(:root:not([data-nav="collapsed"])) .recurring-cols { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 88px 92px 88px; }
+  :where(:root:not([data-nav="collapsed"])) .recurring-cols > * { min-width: 0; overflow-wrap: anywhere; }
+  :where(:root:not([data-nav="collapsed"])) .invoice-cols { grid-template-columns: 88px minmax(0, 1fr) 84px 96px 132px; }
 }
 
 /* Senden-Karte neben langen Formularen bleibt beim Scrollen sichtbar */
@@ -1367,6 +1380,10 @@ summary { cursor: pointer; min-height: 24px; }
 @media (max-width: 720px) {
   .plan-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .plan-amount { grid-column: 1 / -1; }
+}
+@media (min-width: 861px) and (max-width: 1100px) {
+  :where(:root:not([data-nav="collapsed"])) .plan-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  :where(:root:not([data-nav="collapsed"])) .plan-amount { grid-column: 1 / -1; }
 }
 
 /* Kontakt im Beleg oder Rechnungsentwurf anlegen (NewContactDialog) */

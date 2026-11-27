@@ -199,3 +199,58 @@ test("Jahres- und Monatswechsel enden an den Grenzen der gültigen Jahre", async
   await page.goto("/buchungen?jahr=2100&monat=12");
   await expect(page.getByRole("link", { name: /2101/ })).toHaveCount(0);
 });
+
+test("Tablet (768 px, 861 px) und schmales Handy (320 px): kein Überlauf und keine Überlappung", async ({ page }) => {
+  const month = Number(day(-12).slice(5, 7));
+  const tabletSeiten = [
+    "/rechnungen",
+    "/belege",
+    "/dauerbelege",
+    `/buchungen?jahr=${YEAR}&monat=${month}`,
+    "/buchungen/neu",
+    `/konten/1200?jahr=${YEAR}`,
+    `/auswertungen/bwa?jahr=${YEAR}&zeitraum=jahr`,
+    "/auswertungen/liquiditaet?horizont=12m",
+    "/einstellungen?bereich=rechnungen",
+  ];
+  for (const viewport of [
+    { width: 768, height: 1024 },
+    { width: 861, height: 1100 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const pfad of tabletSeiten) {
+      await page.goto(pfad);
+      await page.waitForLoadState("networkidle");
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect.soft(overflow, `${pfad} bei ${viewport.width}px ohne Seitenüberlauf`).toBeLessThanOrEqual(1);
+    }
+  }
+  // Zahlungsplan-Vorlagen in Einstellungen › Rechnungen: Auswahl „%/€ netto“ überlappt kein Nachbarfeld
+  await page.setViewportSize({ width: 861, height: 1100 });
+  await page.goto("/einstellungen?bereich=rechnungen");
+  await page.waitForLoadState("networkidle");
+  const planUeberlappungen = await page.evaluate(() => {
+    const treffer: string[] = [];
+    for (const row of document.querySelectorAll(".plan-row")) {
+      const felder = [...row.querySelectorAll<HTMLElement>("input, select")].filter((el) => el.getBoundingClientRect().width > 0);
+      for (let i = 0; i < felder.length; i++) {
+        const a = felder[i]!.getBoundingClientRect();
+        for (let j = i + 1; j < felder.length; j++) {
+          const b = felder[j]!.getBoundingClientRect();
+          if (Math.min(a.right, b.right) - Math.max(a.left, b.left) > 3 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 3) {
+            treffer.push(`${felder[i]!.tagName} überlappt ${felder[j]!.tagName}`);
+          }
+        }
+      }
+    }
+    return treffer;
+  });
+  expect(planUeberlappungen, "Zahlungsplan-Vorlagen bei 861px ohne Überlappung").toEqual([]);
+
+  // Schmales Handy (320 px, WCAG 1.4.10): lange Code-URLs laufen nicht aus dem Bild
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto("/einstellungen?bereich=bank");
+  await page.waitForLoadState("networkidle");
+  const overflow320 = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow320, "/einstellungen?bereich=bank bei 320px ohne Seitenüberlauf").toBeLessThanOrEqual(1);
+});

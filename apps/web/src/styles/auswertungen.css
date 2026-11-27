@@ -83,6 +83,9 @@
 /* Kacheln über der Saldenliste */
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .kpi-grid .card { padding: 16px; }
+@media (min-width: 861px) and (max-width: 1024px) {
+  :root:not([data-nav="collapsed"]) .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 /* Journal: eine Zeile je Buchung */
 .journal-table td { vertical-align: top; }

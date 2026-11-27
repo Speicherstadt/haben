@@ -19,7 +19,7 @@
 /* Aufladung ohne Bezug: eigene Gruppe im Abgleich, kein offener Punkt (#1356) */
 .data-table tr.aufladung td { background: var(--accent-soft); }
 .data-table a { color: var(--accent-ink); }
-.table-scroll { overflow-x: auto; }
+.table-scroll { overflow-x: auto; max-width: 100%; }
 .archive-fingerprint { overflow-wrap: anywhere; }
 .archive-proof { white-space: pre-wrap; overflow-wrap: anywhere; }
 .legacy-cols { grid-template-columns: 96px 140px minmax(0, 1fr) 110px 110px 112px; }
@@ -27,9 +27,11 @@
 .legacy-flag { grid-column: 3 / 4; margin-top: -8px; padding-bottom: 10px; }
 .archive-file-cols { grid-template-columns: 60px 170px minmax(0, 1fr) 90px 150px; }
 .archive-filter { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.year-block { display: flex; flex-direction: column; gap: 16px; }
+.year-block { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.year-block details { min-width: 0; }
 .upload-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 2fr); gap: 12px; align-items: end; }
 @media (max-width: 760px) {
+  .data-table { display: block; overflow-x: auto; }
   .checks li { grid-template-columns: 22px minmax(0, 1fr); }
   .checks li > :last-child { grid-column: 2; text-align: left; }
   .upload-row { grid-template-columns: minmax(0, 1fr); }
