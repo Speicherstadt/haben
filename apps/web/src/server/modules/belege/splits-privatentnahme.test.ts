@@ -128,7 +128,7 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in einer Aufteilung (Postgres)
           byAccount([
             { account: k.internet, debit: 2_520, credit: 0, tax_code: "VSt19" },
             { account: k.telefon, debit: 512, credit: 0, tax_code: "VSt19" },
-            { account: k.entnahme, debit: 1_406, credit: 0, tax_code: "keineVSt" },
+            { account: k.entnahme, debit: 1_406, credit: 0, tax_code: null },
             { account: k.vorsteuer, debit: 576, credit: 0, tax_code: "VSt19" },
             { account: k.verbindlichkeiten, debit: 0, credit: 5_014, tax_code: null },
           ]),
