@@ -28,7 +28,13 @@ function status(p: Abrechnung): StatusLook & { detail: string | null } {
   return { text: "Entwurf", draft: true, detail: null };
 }
 
+/** Privatnutzung aus dem festgehaltenen Stand; alte Abrechnungen ohne das Feld zählen als 0 */
+function privatnutzung(p: Abrechnung): number {
+  return p.mitarbeiter.lohn.privatnutzungDienstwagen ?? 0;
+}
+
 function Betraege({ p }: { p: Abrechnung }) {
+  const vorteil = privatnutzung(p);
   const zeilen: [string, number][] = [
     ["Brutto", p.brutto],
     ["Lohnsteuer", -p.lohnsteuer],
@@ -36,6 +42,7 @@ function Betraege({ p }: { p: Abrechnung }) {
     ["Kirchensteuer", -p.kirchensteuer],
     ["Sozialversicherung (Anteil Beschäftigte)", -p.svArbeitnehmer],
     ["Netto", p.netto],
+    ...(vorteil > 0 ? [["Privatnutzung Dienstwagen", -vorteil] as [string, number]] : []),
     ["Auszahlung", p.auszahlung],
     ["Arbeitgeber zusätzlich (Anteile, Umlagen, Pauschsteuer)", p.svArbeitgeber],
   ];
@@ -74,6 +81,7 @@ function EntwurfAktionen({ p, name, aktion }: { p: Abrechnung; name: string; akt
   const [geprueft, setGeprueft] = useState(false);
   const [bestaetigen, setBestaetigen] = useState(false);
   const [loeschenFragen, setLoeschenFragen] = useState(false);
+  const vorteil = privatnutzung(p);
   const sperre = p.fehlend.length > 0 || p.veraltet || (p.gegenpruefen && !geprueft);
   return (
     <div className="stack" style={{ gap: 10 }}>
@@ -95,9 +103,12 @@ function EntwurfAktionen({ p, name, aktion }: { p: Abrechnung; name: string; akt
           }, "Entwurf neu berechnet.");
         }}
       >
-        <Field label="Entgelt dieses Monats (leer: Monatsgehalt)">
+        <Field
+          label="Entgelt dieses Monats (leer: Monatsgehalt)"
+          hint={vorteil > 0 ? "Nur das Barentgelt. Die Privatnutzung aus den Stammdaten bleibt und wird von der Auszahlung abgezogen." : undefined}
+        >
           {(control) => (
-            <input {...control} inputMode="decimal" value={entgelt} onChange={(e) => setEntgelt(e.target.value)} placeholder={formatEuro(p.brutto)} />
+            <input {...control} inputMode="decimal" value={entgelt} onChange={(e) => setEntgelt(e.target.value)} placeholder={formatEuro(p.brutto - vorteil)} />
           )}
         </Field>
         <button type="submit" className="btn btn-sm" disabled={busy}>

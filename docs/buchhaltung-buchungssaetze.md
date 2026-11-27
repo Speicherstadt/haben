@@ -180,6 +180,7 @@ Beim Festschreiben einer [Lohnabrechnung](lohn.md#buchung), gebucht auf den letz
 | 1740 Verbindlichkeiten aus Lohn und Gehalt | 3720 | | Auszahlung |
 | 1741 Verbindlichkeiten aus Lohn- und Kirchensteuer | 3730 | | Lohnsteuer, Soli, Kirchensteuer |
 | 1742 Verbindlichkeiten im Rahmen der sozialen Sicherheit | 3740 | | Anteile beider Seiten, Umlagen, im Minijob die Pauschsteuer |
+| 8590 Verrechnete sonstige Sachbezüge (keine Waren) | 4940 | | Privatnutzung Dienstwagen, nur wenn ein Betrag hinterlegt ist |
 
 Beispiel Beschäftigter mit 4.000,00 € im Oktober 2026 (Steuerklasse I ohne Kinderfreibetrag, vier Kinder unter 25 in der Pflegeversicherung, Zusatzbeitrag 3,1 %, Umlagen 1,6 % und 0,44 %), SKR04:
 
@@ -191,8 +192,8 @@ Beispiel Beschäftigter mit 4.000,00 € im Oktober 2026 (Steuerklasse I ohne Ki
 | 3730 Verbindlichkeiten aus Lohn- und Kirchensteuer | | 539,83 |
 | 3740 Verbindlichkeiten im Rahmen der sozialen Sicherheit | | 1.757,60 |
 
-Achtung bei 3730: Im SKR04 ist das die Lohnsteuer, im SKR03 „Erhaltene Skonti“. Ein Storno der Abrechnung ist eine Gegenbuchung am selben Tag. Bezahlt werden die Verbindlichkeiten im Bankabgleich ([Bankumsätze ohne Rechnung oder Beleg](#bankumsätze-ohne-rechnung-oder-beleg)).
+Achtung bei 3730: Im SKR04 ist das die Lohnsteuer, im SKR03 „Erhaltene Skonti“. Eine Privatnutzung des Dienstwagens steht in diesem Beispiel nicht. Ist ein Betrag hinterlegt, erhöht er den Soll-Betrag auf dem Gehaltskonto, mindert die Auszahlung um denselben Betrag und steht im Haben auf 8590 bzw. 4940, ohne Steuerschlüssel. Das sind nicht die Konten der privaten Kfz-Nutzung im Einzelunternehmen (8921 bzw. 4645), und es ist keine Umsatzsteuer. Ein Storno der Abrechnung ist eine Gegenbuchung am selben Tag. Bezahlt werden die Verbindlichkeiten im Bankabgleich ([Bankumsätze ohne Rechnung oder Beleg](#bankumsätze-ohne-rechnung-oder-beleg)).
 
 Für Minijobs nennt der DATEV-Kontenrahmen 2026 eigene Konten (4195, 4194, 4144 bzw. 6035, 6036, 6171), nicht die allgemeinen Aushilfslöhne (4190 bzw. 6030); die E-Bilanz fragt Löhne für Minijobs getrennt ab. Beiträge zur Berufsgenossenschaft (4138 bzw. 6120) bucht die Lohnabrechnung nicht; sie kommen jährlich mit dem Bescheid.
 
-In der EÜR eines Einzelunternehmens zählt nicht diese Buchung, sondern die Zahlung: Lohn, Lohnsteuer und Beiträge sind am Tag der Zuordnung im Bankabgleich „Ausgaben für eigenes Personal“ (Anlage EÜR, Kennzahl E6001801).
+In der EÜR eines Einzelunternehmens zählt nicht diese Buchung, sondern die Zahlung: Lohn, Lohnsteuer und Beiträge sind am Tag der Zuordnung im Bankabgleich „Ausgaben für eigenes Personal“ (Anlage EÜR, Kennzahl E6001801). Das Verrechnungskonto des Sachbezugs ist mit den übrigen Lohnkonten denselben Personalausgaben zugeordnet. Soll und Haben der Abrechnung heben sich auf, auch der Sachbezug.

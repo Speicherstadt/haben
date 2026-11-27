@@ -137,7 +137,7 @@ function MitarbeiterMonat({ zeile }: { zeile: Zeile }) {
       )}
       {vorschau?.ok && (
         <p className="small muted" style={{ margin: 0 }}>
-          Noch nicht abgerechnet; voraussichtlich {formatEuro(vorschau.brutto)} brutto, {formatEuro(vorschau.netto)} netto.
+          {`Noch nicht abgerechnet; voraussichtlich ${formatEuro(vorschau.brutto)} brutto, ${formatEuro(vorschau.netto)} netto${vorschau.auszahlung === vorschau.netto ? "" : `, Auszahlung ${formatEuro(vorschau.auszahlung)}`}.`}
         </p>
       )}
       {payslips.map((p, i) => <AbrechnungKarte key={p.id} p={p} nummer={i + 1} name={employee.name} />).reverse()}
@@ -196,6 +196,12 @@ function MitarbeiterListe({ data }: { data: Data }) {
                 <td data-label="Beschäftigung">{BESCHAEFTIGUNGSARTEN[e.art]}</td>
                 <td className="num" data-label="Monatsgehalt">
                   {formatEuro(e.monatsgehalt)}
+                  {e.privatnutzungDienstwagen > 0 && (
+                    <>
+                      <br />
+                      <span className="small muted">zuzüglich Privatnutzung Dienstwagen {formatEuro(e.privatnutzungDienstwagen)}</span>
+                    </>
+                  )}
                 </td>
                 <td data-label="Zeitraum">{e.austritt ? `${formatDate(e.eintritt)} – ${formatDate(e.austritt)}` : `seit ${formatDate(e.eintritt)}`}</td>
                 <td data-label={`Lohnkonto ${jahr}`}>

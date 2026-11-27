@@ -27,7 +27,7 @@ Stand: 5. November 2026. PR 1 bis 6 und die Lohnsteuerbescheinigung aus PR 7 sin
 - **Stufen nach Risiko:** A) Gesellschafter-Geschäftsführer ohne SV-Pflicht (nur Lohnsteuer), B) Minijob, C) Angestellte mit Sozialversicherung erst, wenn ein echter Fall gegen ein Lohnprogramm oder die Steuerberatung gegengerechnet ist; bis dahin als Entwurf gekennzeichnet.
 - **Sozialversicherung dauerhaft als Ausfüllliste** für das SV-Meldeportal, keine eigene ITSG-Zertifizierung: Pilotphase, laufende Prüfung und Haftung passen nicht zu einem Open-Source-Projekt ohne Firma dahinter.
 - **Jahreswerte von Tests erzwungen:** Lohnsteuer aus dem PAP-XML erzeugt und gegen die amtlichen Prüffälle getestet; SV-Werte als Tabelle je Jahr mit Quelle. Ohne Werte für ein Jahr sperrt Haben die Abrechnung, statt mit Vorjahreswerten zu rechnen. Ein CI-Test schlägt ab Dezember fehl, wenn die Werte für das nächste Jahr fehlen.
-- **Zunächst ausgeschlossen:** Sachbezüge, Dienstwagen, Betriebsrente, Kurzarbeit, Pfändungen, Mehrfachbeschäftigung, Steuerklasse VI.
+- **Ausgeschlossen:** andere Sachbezüge, Betriebsrente, Kurzarbeit, Pfändungen, Mehrfachbeschäftigung, Steuerklasse VI. Die laufende Privatnutzung eines Dienstwagens ist ein fester monatlicher Betrag in den Stammdaten und wird abgerechnet: Lohnsteuer und bei Beschäftigten die Sozialversicherung auf das Gesamtbrutto, Abzug von der Auszahlung.
 - **ELStAM** zunächst von Hand aus dem ELSTER-Portal eintragen; Abruf über ERiC später prüfen.
 
 ## Pull Requests
@@ -54,7 +54,7 @@ Stand: 5. November 2026. PR 1 bis 6 und die Lohnsteuerbescheinigung aus PR 7 sin
 
 **Erledigt:** Tabellen `employees`, `payroll_runs`, `payslips` und `payslip_cancellations` (englische Namen wie die übrigen Tabellen), Modul `apps/web/src/server/modules/lohn/`, Seite **Personal › Lohn** ([Lohn](lohn.md)). Gerechnet wird in `lohnabrechnung()` in `packages/core/src/lohnabrechnung/` nur mit `lohnsteuer`, `lohnkirchensteuer` und `sozialversicherung`. Abweichungen vom Plan:
 
-- **Regelmäßiges Entgelt:** Die Abrechnung gibt das Monatsgehalt der Stammdaten als `regelmaessigesEntgelt` an `sozialversicherung()`. Liegt das Entgelt des Monats in einem anderen Bereich (bis 603 €, Übergangsbereich, darüber), rechnet Haben nicht („nicht unterstützt“); die Bemessung nach § 2 Abs. 2 Satz 2 und 5 BVV bleibt offen, bis ein Rechenbeispiel sie belegt.
+- **Regelmäßiges Entgelt:** Die Abrechnung gibt das Monatsgehalt zuzüglich der Privatnutzung des Dienstwagens als `regelmaessigesEntgelt` an `sozialversicherung()`. Das Entgelt des Monats ist das Barentgelt desselben Monats zuzüglich derselben Privatnutzung. Liegt es in einem anderen Bereich (bis 603 €, Übergangsbereich, darüber), rechnet Haben nicht („nicht unterstützt“); die Bemessung nach § 2 Abs. 2 Satz 2 und 5 BVV bleibt offen, bis ein Rechenbeispiel sie belegt.
 - **Stufe C** (Beschäftigte mit SV) rechnet Haben, schreibt sie aber erst fest, wenn der Nutzer bestätigt, dass er sie gegengeprüft hat; die Spalte `gegengeprueft` hält das fest. Privat versicherte Beschäftigte und der Zuschuss zur PKV des Geschäftsführers sind nicht unterstützt.
 - **Nur ganze Monate:** Eintritt oder Austritt im Monat ist nicht unterstützt (anteilige BBG, Lohnsteuer nach Kalendertagen).
 - **Festschreiben** setzt voraus, dass alle Angaben für die Entgeltbescheinigung da sind (§ 1 Abs. 1 EntgBV) und die Stammdaten seit dem Entwurf unverändert sind. Ein Storno legt gleich den Entwurf der neuen Abrechnung an.
@@ -175,7 +175,7 @@ Stand: 5. November 2026. PR 1 bis 6 und die Lohnsteuerbescheinigung aus PR 7 sin
 2. **SV-Umfang:** Nur Ausfüllliste (empfohlen) oder später ITSG-Systemprüfung? Kosten nicht öffentlich gefunden; Anfrage bei der ITSG nötig.
 3. **ELStAM:** Braucht die Hersteller-ID eine Freischaltung für ElsterLohn2? Frage im ELSTER-Entwicklerforum.
 4. **Jährliche Pflege:** PAP (meist November), Rechengrößen, Minijob-Grenze, Faktor F, Zusatzbeiträge. Wer pflegt das, und sperrt Haben ein Jahr ohne Werte? Umgesetzt: Ohne Werte sperrt Haben die Abrechnung („nicht hinterlegt“), ein Test schlägt ab Dezember fehl, wenn die Werte des nächsten Jahres fehlen.
-5. **Abgrenzung:** keine Sachbezüge, Dienstwagen, bAV, Kurzarbeit, Mehrfachbeschäftigung, Baulohn im ersten Schritt?
+5. **Abgrenzung:** Die laufende Privatnutzung eines Dienstwagens als fester monatlicher Betrag ist abgerechnet. Andere Sachbezüge, bAV, Kurzarbeit, Mehrfachbeschäftigung und Baulohn bleiben draußen.
 6. **Kosten für Nutzer:** SV-Meldeportal 36 € zuzüglich Umsatzsteuer für drei Jahre (99 € mit mehreren Betriebsnummern); ELSTER-Organisationszertifikat nötig, ausnahmsweise BundID (am Portal belegt, siehe Kurzfazit).
 7. **Rechtsstand:** Der Pauschalbeitrag KV für Minijobs soll ab 2027 steigen; Werte vor dem Release prüfen.
 

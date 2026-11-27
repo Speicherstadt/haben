@@ -64,15 +64,17 @@ function nichtUnterstuetzt(s: LohnStammdaten): string | null {
     [s.art === "ggf" && s.kv.art === "privat" && s.kv.arbeitgeberzuschuss > 0, "einem Zuschuss zur Krankenversicherung für Gesellschafter-Geschäftsführer"],
     [s.art === "minijob" && !s.minijob.pauschsteuer, "einem Minijob mit Lohnsteuer nach den ELStAM statt Pauschsteuer"],
     [s.art === "beschaeftigt" && s.kv.art === "privat", "privat krankenversicherten Beschäftigten (Zuschuss nach § 257 SGB V)"],
+    [s.art === "minijob" && s.privatnutzungDienstwagen > 0, "einer Privatnutzung des Dienstwagens im Minijob"],
   ];
   const offen = pruefungen.find(([gilt]) => gilt)?.[1];
   return offen ? `Die Abrechnung mit ${offen} ist nicht unterstützt.` : null;
 }
 
-function pruefeBetraege(s: LohnStammdaten, entgelt: Cents): string | null {
+function pruefeBetraege(s: LohnStammdaten, barlohn: Cents): string | null {
   const pruefungen: [boolean, string][] = [
     [ganzNichtNegativ(s.monatsgehalt) && s.monatsgehalt > 0, "Das Monatsgehalt muss ein positiver Betrag in Cent sein"],
-    [ganzNichtNegativ(entgelt) && entgelt > 0, "Das Entgelt des Monats muss ein positiver Betrag in Cent sein"],
+    [ganzNichtNegativ(barlohn) && barlohn > 0, "Das Entgelt des Monats muss ein positiver Betrag in Cent sein"],
+    [ganzNichtNegativ(s.privatnutzungDienstwagen), "Die Privatnutzung des Dienstwagens muss ein ganzer, nicht negativer Betrag in Cent sein"],
     [
       s.kv.art === "gesetzlich" || (ganzNichtNegativ(s.kv.basisbeitrag) && ganzNichtNegativ(s.kv.arbeitgeberzuschuss)),
       "Die Beiträge zur privaten Versicherung müssen ganze Beträge in Cent sein",
@@ -111,7 +113,7 @@ function lohnsteuerEingabe(e: LohnabrechnungEingabe, entgelt: Cents): Lohnsteuer
   };
 }
 
-function svEingabe(e: LohnabrechnungEingabe, entgelt: Cents): SvEingabe {
+function svEingabe(e: LohnabrechnungEingabe, entgelt: Cents, regelmaessig: Cents): SvEingabe {
   const s = e.stammdaten;
   if (s.art === "ggf") return { personengruppe: "ggf", entgelt };
   if (s.art === "minijob") {
@@ -127,7 +129,7 @@ function svEingabe(e: LohnabrechnungEingabe, entgelt: Cents): SvEingabe {
   return {
     personengruppe: "beschaeftigt",
     entgelt,
-    regelmaessigesEntgelt: s.monatsgehalt,
+    regelmaessigesEntgelt: regelmaessig,
     kv: s.kv.art === "gesetzlich" ? { art: "gesetzlich", zusatzbeitrag: s.kv.zusatzbeitrag } : { art: "privat" },
     pflege: s.pflege,
     sachsen: e.bundesland === "SN",
@@ -136,18 +138,37 @@ function svEingabe(e: LohnabrechnungEingabe, entgelt: Cents): SvEingabe {
 }
 
 const BEZEICHNUNG = { ggf: "Geschäftsführergehalt", minijob: "Lohn Minijob", beschaeftigt: "Gehalt" } as const;
+const DIENSTWAGEN = "Privatnutzung Dienstwagen";
 
-function bestandteil(s: LohnStammdaten, entgelt: Cents): Bestandteil {
+function gehalt(s: LohnStammdaten, barlohn: Cents): Bestandteil {
   const pauschal = s.art === "minijob";
   return {
     bezeichnung: BEZEICHNUNG[s.art],
-    betrag: entgelt,
+    betrag: barlohn,
     laufend: true,
     steuerpflichtig: !pauschal,
     pauschalBesteuert: pauschal,
     svPflichtig: s.art !== "ggf",
     gesamtbrutto: true,
   };
+}
+
+/** Barlohn und, wenn ein Betrag hinterlegt ist, die laufende Privatnutzung des Dienstwagens */
+function bestandteile(s: LohnStammdaten, barlohn: Cents): Bestandteil[] {
+  const lohn = gehalt(s, barlohn);
+  if (s.privatnutzungDienstwagen === 0) return [lohn];
+  return [
+    lohn,
+    {
+      bezeichnung: DIENSTWAGEN,
+      betrag: s.privatnutzungDienstwagen,
+      laufend: true,
+      steuerpflichtig: true,
+      pauschalBesteuert: false,
+      svPflichtig: s.art === "beschaeftigt",
+      gesamtbrutto: true,
+    },
+  ];
 }
 
 /** Steuern auf den Arbeitslohn; im Minijob mit Pauschsteuer keine (die trägt der Arbeitgeber, `sv.pauschsteuer`) */
@@ -162,39 +183,46 @@ function steuern(e: LohnabrechnungEingabe, entgelt: Cents): Fehler | { lohnsteue
 const STUFE = { ggf: "A", minijob: "B", beschaeftigt: "C" } as const;
 
 /**
- * Abrechnung eines ganzen Monats mit laufendem Entgelt. Sonstige Bezüge, Sachbezüge, Dienstwagen, Teilmonate und die
- * übrigen Fälle aus `nichtUnterstuetzt` gibt es nicht; die Rechenkerne lehnen ihre eigenen Fälle selbst ab.
+ * Abrechnung eines ganzen Monats mit laufendem Barlohn. Die Privatnutzung eines Dienstwagens ist ein fester Betrag aus
+ * den Stammdaten: sie zählt zum Gesamtbrutto, zur Lohnsteuer und bei Beschäftigten zum SV-Brutto und zum regelmäßigen
+ * Entgelt, und sie wird von der Auszahlung abgezogen. Andere Sachbezüge, Sonstige Bezüge, Teilmonate und die übrigen
+ * Fälle aus `nichtUnterstuetzt` gibt es nicht; die Rechenkerne lehnen ihre eigenen Fälle selbst ab.
  */
 export function lohnabrechnung(e: LohnabrechnungEingabe): LohnabrechnungErgebnis {
   const s = e.stammdaten;
-  const entgelt = e.entgelt ?? s.monatsgehalt;
+  const barlohn = e.entgelt ?? s.monatsgehalt;
+  const vorteil = s.privatnutzungDienstwagen;
+  const gesamt = barlohn + vorteil;
   const zeitraum = pruefeZeitraum(e);
   if (zeitraum) return zeitraum;
-  const ungueltig = pruefeBetraege(s, entgelt);
+  const ungueltig = pruefeBetraege(s, barlohn);
   if (ungueltig) return fehler("ungueltig", `${ungueltig}.`);
   const offen = nichtUnterstuetzt(s);
   if (offen) return fehler("nicht-unterstuetzt", offen);
-  const sv = sozialversicherung(e.jahr, svEingabe(e, entgelt));
+  // Im Minijob ist der Vorteil abgelehnt. Beim Gesellschafter-Geschäftsführer bleibt das SV-Entgelt ohne Wirkung.
+  const svEntgelt = s.art === "beschaeftigt" ? gesamt : barlohn;
+  const sv = sozialversicherung(e.jahr, svEingabe(e, svEntgelt, s.monatsgehalt + vorteil));
   if (!sv.ok) return sv;
-  const st = steuern(e, entgelt);
+  const st = steuern(e, s.art === "minijob" ? barlohn : gesamt);
   if ("ok" in st) return st;
   const { ok: _, ...beitraege } = sv;
   const pauschal = s.art === "minijob";
-  const netto = entgelt - st.lohnsteuer - st.soli - st.kirchensteuer - beitraege.arbeitnehmer;
+  const brutto = pauschal ? barlohn : gesamt;
+  const netto = brutto - st.lohnsteuer - st.soli - st.kirchensteuer - beitraege.arbeitnehmer;
   const zuschuss = s.kv.art === "privat" ? s.kv.arbeitgeberzuschuss : 0;
   return {
     ok: true,
     stufe: STUFE[s.art],
     gegenpruefen: s.art === "beschaeftigt",
-    bestandteile: [bestandteil(s, entgelt)],
-    brutto: entgelt,
-    steuerBrutto: pauschal ? 0 : entgelt,
-    svBrutto: s.art === "ggf" ? 0 : entgelt,
-    pauschalBrutto: pauschal ? entgelt : 0,
+    bestandteile: bestandteile(s, barlohn),
+    brutto,
+    steuerBrutto: pauschal ? 0 : brutto,
+    svBrutto: s.art === "ggf" ? 0 : brutto,
+    pauschalBrutto: pauschal ? barlohn : 0,
     ...st,
     sv: beitraege,
     netto,
-    auszahlung: netto + zuschuss,
+    auszahlung: netto - (pauschal ? 0 : vorteil) + zuschuss,
     steuertage: 30,
     svTage: s.art === "ggf" ? 0 : 30,
     hinweise:

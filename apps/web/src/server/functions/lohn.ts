@@ -37,6 +37,7 @@ export const getLohn = createServerFn({ method: "GET" })
         name: `${e.vorname} ${e.nachname}`,
         art: e.art,
         monatsgehalt: e.monatsgehalt,
+        privatnutzungDienstwagen: e.privatnutzungDienstwagen,
         eintritt: e.eintritt,
         austritt: e.austritt,
       })),

@@ -13,6 +13,7 @@ import { lohnabrechnung, type LohnabrechnungEingabe, type LohnStammdaten, monats
 const GGF: LohnStammdaten = {
   art: "ggf",
   monatsgehalt: 6000_00,
+  privatnutzungDienstwagen: 0,
   eintritt: "2024-01-01",
   austritt: null,
   steuerklasse: 1,
@@ -183,6 +184,80 @@ describe("Stufe C: versicherungspflichtig beschäftigt, als Entwurf zum Gegenpr�
   });
 });
 
+describe("Privatnutzung Dienstwagen", () => {
+  const vorteil = 500_00;
+
+  it("erhöht beim Geschäftsführer den steuerpflichtigen Arbeitslohn und fehlt in der Auszahlung", () => {
+    const r = rechne(eingabe({ ...GGF, privatnutzungDienstwagen: vorteil }));
+    const pap = lohnsteuer(2026, { LZZ: 2, RE4: 6000_00 + vorteil, STKL: 1, KRV: 1, ALV: 1, KVZ: 290, PVS: 0, PVZ: 1, PVA: 0, R: 1 });
+    expect(pap.ok && [pap.LSTLZZ, pap.SOLZLZZ]).toEqual([r.lohnsteuer, r.soli]);
+    expect(r).toMatchObject({ brutto: 6500_00, steuerBrutto: 6500_00, svBrutto: 0 });
+    expect(r.sv.arbeitnehmer).toBe(0);
+    expect(r.netto).toBe(6500_00 - r.lohnsteuer - r.soli - r.kirchensteuer);
+    expect(r.auszahlung).toBe(r.netto - vorteil);
+    expect(r.bestandteile).toEqual([
+      {
+        bezeichnung: "Geschäftsführergehalt",
+        betrag: 6000_00,
+        laufend: true,
+        steuerpflichtig: true,
+        pauschalBesteuert: false,
+        svPflichtig: false,
+        gesamtbrutto: true,
+      },
+      {
+        bezeichnung: "Privatnutzung Dienstwagen",
+        betrag: vorteil,
+        laufend: true,
+        steuerpflichtig: true,
+        pauschalBesteuert: false,
+        svPflichtig: false,
+        gesamtbrutto: true,
+      },
+    ]);
+  });
+
+  it("lässt einen anderen Barlohn des Monats den Sachbezug unberührt", () => {
+    const r = rechne(eingabe({ ...GGF, privatnutzungDienstwagen: vorteil }, { entgelt: 7000_00 }));
+    expect(r.brutto).toBe(7500_00);
+    expect(r.bestandteile[0]?.betrag).toBe(7000_00);
+    expect(r.bestandteile[1]?.betrag).toBe(vorteil);
+    expect(r.auszahlung).toBe(r.netto - vorteil);
+  });
+
+  it("zählt bei Beschäftigten zum SV-Brutto und zum regelmäßigen Entgelt", () => {
+    const stamm = { ...ANGESTELLT, privatnutzungDienstwagen: vorteil };
+    const r = rechne(eingabe(stamm));
+    const sv = sozialversicherung(2026, {
+      personengruppe: "beschaeftigt",
+      entgelt: 4000_00 + vorteil,
+      regelmaessigesEntgelt: 4000_00 + vorteil,
+      kv: { art: "gesetzlich", zusatzbeitrag: 310 },
+      pflege: { kinderlosenzuschlag: false, kinderUnter25: 4 },
+      sachsen: false,
+      umlagen: { u1: 160, u2: 44 },
+    });
+    expect({ ok: true, ...r.sv }).toEqual(sv);
+    expect(r).toMatchObject({ brutto: 4500_00, steuerBrutto: 4500_00, svBrutto: 4500_00 });
+    expect(r.auszahlung).toBe(r.netto - vorteil);
+    expect(r.bestandteile[1]).toMatchObject({ bezeichnung: "Privatnutzung Dienstwagen", svPflichtig: true, betrag: vorteil });
+  });
+
+  it("hält Barlohn und Sachbezug im selben Bereich, sonst rechnet es nicht", () => {
+    // 1.800 € lägen im Übergangsbereich, mit 300 € Sachbezug liegen beide darüber
+    const midijob = { ...ANGESTELLT, monatsgehalt: 1800_00, privatnutzungDienstwagen: 300_00 };
+    expect(rechne(eingabe(midijob)).svBrutto).toBe(2100_00);
+    expect(lohnabrechnung(eingabe(midijob, { entgelt: 1500_00 }))).toMatchObject({ ok: false, grund: "nicht-unterstuetzt" });
+  });
+
+  it("gibt es im Minijob nicht", () => {
+    expect(lohnabrechnung(eingabe({ ...MINIJOB, privatnutzungDienstwagen: 100_00 }))).toMatchObject({
+      ok: false,
+      grund: "nicht-unterstuetzt",
+    });
+  });
+});
+
 describe("Fehlerwerte statt Rechnung", () => {
   it.each([
     ["Eintritt im Monat", { ...GGF, eintritt: "2026-10-15" }, "nicht-unterstuetzt"],
@@ -198,6 +273,7 @@ describe("Fehlerwerte statt Rechnung", () => {
     ],
     ["Monatsgehalt in Euro", { ...GGF, monatsgehalt: 6000.5 }, "ungueltig"],
     ["kein Gehalt", { ...GGF, monatsgehalt: 0 }, "ungueltig"],
+    ["Privatnutzung negativ", { ...GGF, privatnutzungDienstwagen: -1 }, "ungueltig"],
   ])("%s", (_, stammdaten, grund) => {
     expect(lohnabrechnung(eingabe(stammdaten))).toMatchObject({ ok: false, grund });
   });

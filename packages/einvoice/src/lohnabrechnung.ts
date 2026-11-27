@@ -71,6 +71,7 @@ const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "A
 const STEUERKLASSEN = ["", "I", "II", "III", "IV", "V", "VI"];
 
 const ja = (b: boolean) => (b ? "ja" : "nein");
+const DIENSTWAGEN = "Privatnutzung Dienstwagen";
 
 /** „01.10.2026 – 31.10.2026“ */
 function abrechnungszeitraum(jahr: number, monat: number): string {
@@ -115,6 +116,12 @@ function bezuege(d: LohnabrechnungDocument) {
     gesamt: ja(b.gesamtbrutto),
     value: formatEuro(b.betrag),
   }));
+}
+
+/** Abzug der Privatnutzung vom Netto; null ohne Betrag. Der Bezug selbst steht in `bezuege`. */
+function sachbezug(d: LohnabrechnungDocument) {
+  const betrag = d.bestandteile.find((b) => b.bezeichnung === DIENSTWAGEN)?.betrag ?? 0;
+  return betrag > 0 ? row(DIENSTWAGEN, minus(betrag)) : null;
 }
 
 /** Gesetzliche Abzüge (§ 1 Abs. 2 Nr. 3 EntgBV), laufend; Zeilen mit 0 nur, wo sie zur Art gehören */
@@ -202,6 +209,7 @@ export function lohnabrechnungPdfData(d: LohnabrechnungDocument) {
     ],
     abzuege: abzuege(d),
     netto: row("Nettoentgelt", formatEuro(b.netto)),
+    sachbezug: sachbezug(d),
     zuschuss: b.zuschuss > 0 ? row("Zuschuss zur privaten Kranken- und Pflegeversicherung", formatEuro(b.zuschuss)) : null,
     auszahlung: row("Auszahlungsbetrag", formatEuro(b.auszahlung)),
     ueberweisung: n.iban ? `Überwiesen auf IBAN ${formatIban(n.iban)}` : null,

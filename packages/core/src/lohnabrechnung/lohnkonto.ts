@@ -5,8 +5,10 @@ import { type Cents, toCsv } from "../money.ts";
  * mit den Einzelangaben aus § 4 LStDV (https://www.gesetze-im-internet.de/lstdv/__4.html):
  * - Abs. 1 Nr. 1: Vorname, Familienname, Tag der Geburt, Wohnort, Wohnung und die allgemeinen Besteuerungsmerkmale;
  *   ändern sie sich im Jahr, auch ab wann. Haben hält die Merkmale je Abrechnung fest, die Änderung steht so in der Zeile.
- * - Abs. 2 Nr. 1 und 3: je Lohnabrechnung Tag der Lohnzahlung, Lohnzahlungszeitraum, Arbeitslohn (Barlohn; Sachbezüge
- *   rechnet Haben nicht) und die einbehaltene Lohnsteuer; dazu Soli und Kirchensteuer.
+ * - Abs. 2 Nr. 1 und 3: je Lohnabrechnung Tag der Lohnzahlung, Lohnzahlungszeitraum, Arbeitslohn (Barlohn und, wenn in
+ *   den Stammdaten hinterlegt, die laufende Privatnutzung eines Dienstwagens; andere Sachbezüge rechnet Haben nicht)
+ *   und die einbehaltene Lohnsteuer; dazu Soli und Kirchensteuer. Die Privatnutzung steht im Bruttoarbeitslohn und in
+ *   der steuerpflichtigen Spalte, nicht in einer eigenen. Die Spalte Netto ist der Verdienst vor ihrem Abzug.
  * - Abs. 2 Nr. 4: steuerfreie Bezüge; Haben rechnet keine, die Spalte bleibt 0.
  * - Abs. 2 Nr. 8: pauschal besteuerte Bezüge (§ 40a Abs. 2 EStG, Minijob) und die Pauschsteuer.
  * Freibeträge (Nr. 2), Freistellungsbescheinigungen (Nr. 3), Versorgungsbezüge (Nr. 4) und der Großbuchstabe U

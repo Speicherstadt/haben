@@ -79,6 +79,7 @@ export const employeeSchema = z
       .default(null),
     art: z.enum(Object.keys(BESCHAEFTIGUNGSARTEN) as [Beschaeftigungsart, ...Beschaeftigungsart[]]),
     monatsgehalt: cents("Monatsgehalt").min(1, "Monatsgehalt fehlt"),
+    privatnutzungDienstwagen: cents("Privatnutzung Dienstwagen").default(0),
     krankenversicherung: z.enum(["gesetzlich", "privat"]).default("gesetzlich"),
     krankenkasse: z.string().trim().max(100).default(""),
     krankenkasseBetriebsnummer: digits(8, "Die Betriebsnummer der Krankenkasse").default(""),
@@ -114,6 +115,10 @@ export const employeeSchema = z
   .refine((e) => !(e.kinderlosenzuschlag && e.kinderUnter25 > 0), {
     message: "Mit Kindern fällt kein Zuschlag für Kinderlose an",
     path: ["kinderlosenzuschlag"],
+  })
+  .refine((e) => e.art !== "minijob" || e.privatnutzungDienstwagen === 0, {
+    message: "Eine Privatnutzung des Dienstwagens gibt es im Minijob nicht",
+    path: ["privatnutzungDienstwagen"],
   });
 
 export type EmployeeInput = z.input<typeof employeeSchema>;
@@ -167,6 +172,7 @@ export function lohnStammdaten(e: Employee): LohnStammdaten {
   return {
     art: e.art,
     monatsgehalt: e.monatsgehalt,
+    privatnutzungDienstwagen: e.privatnutzungDienstwagen,
     eintritt: e.eintritt,
     austritt: e.austritt,
     steuerklasse: e.steuerklasse as LohnStammdaten["steuerklasse"],

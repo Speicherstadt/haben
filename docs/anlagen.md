@@ -157,7 +157,7 @@ Den Verkaufserlös stellst du als normale [Rechnung](rechnungen.md) mit Umsatzst
 
 ## Private Nutzung von Firmenwagen
 
-Nur im Einzelunternehmen. Fährt der Gesellschafter einen Wagen der GmbH oder UG privat, ist das Arbeitslohn (Sachbezug) in der Lohnabrechnung; das Feld fehlt dann.
+Nur im Einzelunternehmen rechnet das Anlagenverzeichnis die Privatnutzung nach der Listenpreismethode und bucht sie als Entnahme. Fährt ein Gesellschafter-Geschäftsführer oder eine sozialversicherungspflichtig beschäftigte Person einen Wagen der GmbH oder UG privat, trägst du den feststehenden monatlichen Betrag in den [Stammdaten des Mitarbeiters](lohn.md#mitarbeiter-anlegen) ein. Die Lohnabrechnung versteuert ihn und zieht ihn von der Auszahlung ab. Das Anlagenverzeichnis rechnet ihn nicht, und das Feld „Auch privat genutzt“ fehlt dort.
 
 Für Fahrzeuge ohne Fahrtenbuch rechnet Haben die private Nutzung nach der Listenpreismethode (§ 6 Abs. 1 Nr. 4 EStG). Auf der Seite der Anlage hakst du **Auch privat genutzt** an und trägst ein:
 

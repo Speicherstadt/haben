@@ -88,6 +88,7 @@ describe.skipIf(!testDatabaseUrl)("Lohnabrechnung (Postgres)", () => {
       stammdaten: {
         art: "ggf",
         monatsgehalt: 6000_00,
+        privatnutzungDienstwagen: 0,
         eintritt: "2024-01-01",
         austritt: null,
         steuerklasse: 1,
@@ -267,6 +268,18 @@ describe.skipIf(!testDatabaseUrl)("Lohnabrechnung (Postgres)", () => {
     await expect(lohn.festschreiben(actor, { id: p!.id }, heute)).rejects.toThrow(/neu berechnen/);
     await lohn.entwurfNeuBerechnen(actor, { id: p!.id });
     await lohn.festschreiben(actor, { id: p!.id }, heute);
+  });
+
+  it("schreibt einen Entwurf mit Privatnutzung fest, ohne den Sachbezug noch einmal auf das Barentgelt zu legen", async () => {
+    const id = await lohn.saveEmployee(actor, null, { ...GGF, privatnutzungDienstwagen: 500_00 });
+    await lohn.abrechnen(actor, oktober);
+    const [entwurf] = await payslipsOf(id);
+    expect(entwurf!.brutto).toBe(6500_00);
+    await lohn.entwurfNeuBerechnen(actor, { id: entwurf!.id, entgelt: 7000_00 });
+    await lohn.festschreiben(actor, { id: entwurf!.id }, heute);
+    const [fest] = await payslipsOf(id);
+    expect(fest!.locked_at).not.toBeNull();
+    expect(fest!.brutto).toBe(7500_00);
   });
 
   it("Lohnkonto: die Pauschsteuer steht nur in ihrer Spalte, nicht auch in den Beiträgen des Arbeitgebers", async () => {

@@ -13,8 +13,9 @@ import type { Bundesland } from "./steuernummer.ts";
  * und den Elementen der Schnittstelle Lohnsteuerbescheinigung 2025 (lstb202501.xsd im ERiC-Paket).
  *
  * Bescheinigt werden nur Fälle, die Haben abrechnet; was darüber hinausginge, ist „nicht unterstützt“ statt still falsch:
- * - Zeile 3 ist der steuerpflichtige Arbeitslohn der Abrechnungen (Sachbezüge, sonstige Bezüge und steuerfreie Bezüge
- *   rechnet Haben nicht; Zeilen 8 bis 21 bleiben leer).
+ * - Zeile 3 ist der steuerpflichtige Arbeitslohn der Abrechnungen, einschließlich der laufenden Privatnutzung eines
+ *   Dienstwagens. Andere Sachbezüge, sonstige Bezüge und steuerfreie Bezüge rechnet Haben nicht; Zeilen 8 bis 21
+ *   bleiben leer.
  * - Zeilen 22a und 23a: Anteile zur gesetzlichen Rentenversicherung; 25 bis 27: die vom Lohn einbehaltenen Beiträge zur
  *   Kranken-, Pflege- und Arbeitslosenversicherung. Zeile 24 (steuerfreie Zuschüsse nach § 3 Nr. 62 EStG) kommt nicht vor:
  *   Haben rechnet keinen Zuschuss. Liegt das Entgelt über der Beitragsbemessungsgrenze der Krankenversicherung, kann die

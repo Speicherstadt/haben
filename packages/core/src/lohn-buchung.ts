@@ -18,6 +18,10 @@ import { isKapitalgesellschaft, type Rechtsform } from "./rechtsform.ts";
  * - SKR03 1740 / SKR04 3720 „Verbindlichkeiten aus Lohn und Gehalt“, 1741 / 3730 „Verbindlichkeiten aus Lohn- und
  *   Kirchensteuer“, 1742 / 3740 „Verbindlichkeiten im Rahmen der sozialen Sicherheit“. Achtung: SKR03 3730 ist
  *   „Erhaltene Skonti“ (ACCOUNTS.skontiErhalten), nur SKR04 3730 ist die Lohnsteuer.
+ * - Privatnutzung Dienstwagen: SKR03 8590 / SKR04 4940 „Verrechnete sonstige Sachbezüge (keine Waren)“, sonstige
+ *   betriebliche Erträge, ohne Steuerschlüssel. Der Aufwand auf dem Gehaltskonto enthält den Sachbezug mit; die Haben-Seite
+ *   verrechnet ihn. Nicht die Konten der privaten Fahrzeugnutzung im Einzelunternehmen (SKR03 8921 / SKR04 4645).
+ *   In der EÜR steht die ganze Abgrenzung auf „Personal“ und hebt sich auf; gezahlt wird später nur die Verbindlichkeit.
  *
  * Die einheitliche Pauschsteuer im Minijob zieht die Deutsche Rentenversicherung Knappschaft-Bahn-See mit den Beiträgen ein
  * (§ 40a Abs. 6 Satz 1 EStG, https://www.gesetze-im-internet.de/estg/__40a.html); sie steht deshalb mit den Beiträgen auf
@@ -35,6 +39,7 @@ export const LOHN_KONTEN = {
     verbLohn: "1740",
     verbLohnsteuer: "1741",
     verbSv: "1742",
+    sachbezug: "8590",
   },
   SKR04: {
     gehaelter: "6020",
@@ -46,6 +51,7 @@ export const LOHN_KONTEN = {
     verbLohn: "3720",
     verbLohnsteuer: "3730",
     verbSv: "3740",
+    sachbezug: "4940",
   },
 } as const satisfies Record<Kontenrahmen, Record<string, string>>;
 
@@ -60,6 +66,7 @@ export const LOHN_KONTO_NAMEN: Record<Kontenrahmen, Record<string, string>> = {
     "1740": "Verbindlichkeiten aus Lohn und Gehalt",
     "1741": "Verbindlichkeiten aus Lohn- und Kirchensteuer",
     "1742": "Verbindlichkeiten im Rahmen der sozialen Sicherheit",
+    "8590": "Verrechnete sonstige Sachbezüge (keine Waren)",
   },
   SKR04: {
     "6020": "Gehälter",
@@ -71,6 +78,7 @@ export const LOHN_KONTO_NAMEN: Record<Kontenrahmen, Record<string, string>> = {
     "3720": "Verbindlichkeiten aus Lohn und Gehalt",
     "3730": "Verbindlichkeiten aus Lohn- und Kirchensteuer",
     "3740": "Verbindlichkeiten im Rahmen der sozialen Sicherheit",
+    "4940": "Verrechnete sonstige Sachbezüge (keine Waren)",
   },
 };
 
@@ -89,6 +97,8 @@ export interface LohnBuchungsAbrechnung {
   pauschsteuer: Cents;
   netto: Cents;
   auszahlung: Cents;
+  /** Privatnutzung Dienstwagen in Cent, im Brutto enthalten und von der Auszahlung abgezogen; 0 ohne */
+  privatnutzung: Cents;
 }
 
 export type LohnBuchungErgebnis = { ok: true; lines: PostingLine[] } | { ok: false; meldung: string };
@@ -99,16 +109,20 @@ const betrag = (n: number) => Number.isSafeInteger(n) && n >= 0;
 
 /** Was sich an der Abrechnung nicht buchen lässt; null = buchbar */
 function nichtBuchbar(a: LohnBuchungsAbrechnung, rechtsform: Rechtsform): string | null {
-  const werte = [a.brutto, a.lohnsteuer, a.soli, a.kirchensteuer, a.svArbeitnehmer, a.svArbeitgeber, a.pauschsteuer, a.netto, a.auszahlung];
+  const werte = [a.brutto, a.lohnsteuer, a.soli, a.kirchensteuer, a.svArbeitnehmer, a.svArbeitgeber, a.pauschsteuer, a.netto, a.auszahlung, a.privatnutzung];
   if (!werte.every(betrag)) return "Die Abrechnung enthält ungültige Beträge.";
   if (a.brutto - a.lohnsteuer - a.soli - a.kirchensteuer - a.svArbeitnehmer !== a.netto)
     return "Brutto, Abzüge und Netto der Abrechnung passen nicht zusammen.";
   if (a.pauschsteuer > a.svArbeitgeber || (a.pauschsteuer > 0 && a.art !== "minijob")) return "Eine Pauschsteuer gibt es nur im Minijob.";
+  if (a.privatnutzung > 0 && a.art === "minijob") return "Eine Privatnutzung des Dienstwagens gibt es im Minijob nicht.";
   if (a.art === "ggf" && !isKapitalgesellschaft(rechtsform)) {
     return "Einen Gesellschafter-Geschäftsführer gibt es nur in GmbH und UG; im Einzelunternehmen ist der Lohn des Inhabers eine Entnahme.";
   }
-  // Ein Zuschuss zur privaten Kranken- und Pflegeversicherung gehört auf ein eigenes Konto; rechnen kann Haben ihn noch nicht
-  if (a.auszahlung !== a.netto) return "Eine Auszahlung über das Netto hinaus (Zuschuss zur Krankenversicherung) ist in der Buchung nicht unterstützt.";
+  // Ein Zuschuss zur privaten Kranken- und Pflegeversicherung gehört auf ein eigenes Konto; rechnen kann Haben ihn noch nicht.
+  // Die Privatnutzung wird nicht ausgezahlt: Auszahlung = Netto − Sachbezug.
+  if (a.auszahlung !== a.netto - a.privatnutzung) {
+    return "Die Auszahlung muss das Netto abzüglich der Privatnutzung sein. Ein Zuschuss über das Netto hinaus ist in der Buchung nicht unterstützt.";
+  }
   return null;
 }
 
@@ -129,6 +143,7 @@ export function lohnBuchung(a: LohnBuchungsAbrechnung, kontenrahmen: Kontenrahme
     haben(k.verbLohn, a.auszahlung),
     haben(k.verbLohnsteuer, a.lohnsteuer + a.soli + a.kirchensteuer),
     haben(k.verbSv, a.svArbeitnehmer + a.svArbeitgeber),
+    haben(k.sachbezug, a.privatnutzung),
   ];
   return { ok: true, lines: lines.filter((l) => l.debit !== 0 || l.credit !== 0) };
 }

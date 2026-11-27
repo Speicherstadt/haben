@@ -160,7 +160,7 @@ export async function monatsuebersicht(year: number, month: number) {
         vorschau:
           vorschau &&
           (vorschau.ok
-            ? { ok: true as const, netto: vorschau.netto, brutto: vorschau.brutto }
+            ? { ok: true as const, netto: vorschau.netto, brutto: vorschau.brutto, auszahlung: vorschau.auszahlung }
             : { ok: false as const, grund: vorschau.grund, meldung: vorschau.meldung }),
       };
     });
@@ -171,6 +171,14 @@ export async function monatsuebersicht(year: number, month: number) {
 function veraltet(p: Payslip, e: Employee): boolean {
   // jsonb ordnet die Schlüssel neu; verglichen wird der Inhalt
   return !isDeepStrictEqual(p.mitarbeiter, payslipMitarbeiter(e));
+}
+
+/**
+ * Barentgelt, mit dem der Entwurf gerechnet wurde. Das gespeicherte Brutto enthält die Privatnutzung. Die Prüfung beim
+ * Festschreiben rechnet mit diesem Barentgelt, sonst käme der Sachbezug ein zweites Mal dazu.
+ */
+function barentgeltDesEntwurfs(p: Payslip): number {
+  return p.brutto - (p.mitarbeiter.lohn.privatnutzungDienstwagen ?? 0);
 }
 
 /**
@@ -274,7 +282,7 @@ export async function festschreiben(actor: string, input: z.input<typeof festsch
   await withActor(actor, async (tx) => {
     const { p, e } = await entwurfZumAendern(tx, id);
     if (veraltet(p, e)) throw new LohnError("Die Stammdaten haben sich seit dem Entwurf geändert. Den Entwurf neu berechnen und prüfen.");
-    const r = berechne(e, p.year, p.month, await bundesland(tx), p.brutto);
+    const r = berechne(e, p.year, p.month, await bundesland(tx), barentgeltDesEntwurfs(p));
     if (!r.ok) throw new LohnError(r.meldung);
     if (!wieGerechnet(p, r)) {
       throw new LohnError("Mit den aktuellen Firmendaten (etwa dem Bundesland) ergibt sich ein anderes Ergebnis. Den Entwurf neu berechnen und prüfen.");

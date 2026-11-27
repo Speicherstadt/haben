@@ -1,0 +1,3 @@
+ALTER TABLE "employees" ADD COLUMN "privatnutzung_dienstwagen" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "employees" ADD CONSTRAINT "employees_privatnutzung_nicht_negativ" CHECK ("employees"."privatnutzung_dienstwagen" >= 0);--> statement-breakpoint
+ALTER TABLE "employees" ADD CONSTRAINT "employees_privatnutzung_minijob" CHECK ("employees"."art" <> 'minijob' or "employees"."privatnutzung_dienstwagen" = 0);

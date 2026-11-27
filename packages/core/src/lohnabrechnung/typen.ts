@@ -45,8 +45,14 @@ export type LohnKrankenversicherung =
 /** Was die Abrechnung aus den Stammdaten eines Mitarbeiters braucht */
 export interface LohnStammdaten {
   art: Beschaeftigungsart;
-  /** Vereinbartes Monatsgehalt in Cent: das regelmäßige Entgelt der Beschäftigung */
+  /** Vereinbartes Monatsgehalt in Cent: das regelmäßige Barentgelt der Beschäftigung */
   monatsgehalt: Cents;
+  /**
+   * Laufende Privatnutzung eines Dienstwagens in Cent, an anderer Stelle festgesetzt. 0 heißt keine.
+   * Sie erhöht den steuerpflichtigen Arbeitslohn und bei sozialversicherungspflichtig Beschäftigten das SV-Brutto
+   * und wird von der Auszahlung abgezogen. Im Minijob nicht zulässig.
+   */
+  privatnutzungDienstwagen: Cents;
   /** Beginn und Ende der Beschäftigung, JJJJ-MM-TT */
   eintritt: string;
   austritt: string | null;
@@ -111,7 +117,10 @@ export interface Lohnabrechnung {
   sv: SvBeitraege;
   /** Gesamtbrutto abzüglich Steuern und Anteile des Beschäftigten zur Sozialversicherung (§ 1 Abs. 2 Nr. 4 EBV) */
   netto: Cents;
-  /** Netto zuzüglich Zuschuss zur privaten Kranken- und Pflegeversicherung (§ 1 Abs. 2 Nr. 5 und 7 EBV) */
+  /**
+   * Netto abzüglich der Privatnutzung des Dienstwagens, zuzüglich eines Zuschusses zur privaten Kranken- und
+   * Pflegeversicherung (§ 1 Abs. 2 Nr. 5 und 7 EBV). Den Zuschuss bucht Haben noch nicht.
+   */
   auszahlung: Cents;
   /** Steuer- und Sozialversicherungstage im Abrechnungszeitraum (§ 1 Abs. 1 Nr. 6 EBV) */
   steuertage: number;

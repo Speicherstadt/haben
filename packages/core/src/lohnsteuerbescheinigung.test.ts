@@ -11,6 +11,7 @@ import { lohnsteuerbescheinigung, lstbFrist, lstbKmId, lstbWerteGleich, type Lst
 const GGF: LohnStammdaten = {
   art: "ggf",
   monatsgehalt: 6000_00,
+  privatnutzungDienstwagen: 0,
   eintritt: "2024-01-01",
   austritt: null,
   steuerklasse: 1,
