@@ -102,10 +102,7 @@ Einen unbekannten Code rät der Import nicht. Der Beleg landet unter „Sonstige
 
 Der Zahlungsstatus kommt aus den Spalten „Bezahlt“ und „Zahlungsdatum“ derselben Zeile. Nicht bezahlt heißt offener Posten über den Bruttobetrag. Fehlt `Daten.xlsx`, gilt der Beleg als bezahlt, weil der Stapel zahlungsbasiert über 1200 bucht.
 
-Zwei Konten bleiben anders beschrieben, als Accountable sie meint:
-
-- 4288 ist bei Accountable das häusliche Arbeitszimmer. Haben führt 4288 als Homeoffice-Tagespauschale (`Häusliches Arbeitszimmer, Tagespauschale`). Meint eine Buchung die Jahrespauschale oder tatsächliche Zimmerkosten, ändere sie nach dem Import auf die passende Kategorie und prüfe den Abzug in der EÜR.
-- 4985 gibt es in Haben nicht. Buche die betroffenen Belege auf 4980 (Sonstiger Betriebsbedarf) um. Die Kategorie kommt trotzdem aus `Daten.xlsx`, das Konto bleibt nur als Herkunft im Beleg stehen.
+4985 gibt es in Haben nicht. Buche die betroffenen Belege auf 4980 (Sonstiger Betriebsbedarf) um. Die Kategorie kommt trotzdem aus `Daten.xlsx`, das Konto bleibt nur als Herkunft im Beleg stehen.
 
 Private Zeilen (SKR03 Gegenkonto 1800 bis 1899 und 1360; SKR04 2100 bis 2199, 1460) bleiben Zahlungen ohne Beleg; dazu gehören auch die Privatanteile der Arbeitszimmer-Buchungen und der 20-%-Privatanteil einer Geräterechnung.
 
@@ -165,7 +162,7 @@ selben Händler am selben Tag genauso aussehen.
 - [ ] IDEA-Export und Steuererklärungen getrennt abgelegt
 - [ ] Kontakte angelegt (CSV-Import oder von Hand)
 - [ ] Ausgangsrechnungen, die du weiter brauchst, in Haben geschrieben oder über die Eröffnungsbuchung geführt
-- [ ] Konten 4288 und 4985 geprüft und bei Bedarf auf Homeoffice-Tagespauschale bzw. 4980 geändert
+- [ ] Konto 4985 geprüft und bei Bedarf auf 4980 geändert
 - [ ] Offene Posten übernommen oder die Gründe geklärt
 - [ ] Einnahmen, Ausgaben, Umsatz- und Vorsteuer je Jahr mit Accountable verglichen
 - [ ] Nächste Rechnungsnummer in Haben gesetzt
