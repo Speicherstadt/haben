@@ -24,6 +24,7 @@ const FESTE: EuerLineKey[] = [
   "einnahmenKleinunternehmer",
   "einnahmenSteuerpflichtig",
   "einnahmenSteuerfrei",
+  "anlagenabgang",
   "privateKfz",
   "sachentnahmen",
   "ustEntnahmen",
@@ -70,6 +71,8 @@ describe("Einnahmen-Ausgaben-BWA (DATEV-Form 43)", () => {
   const ERWARTET: [EuerLineKey, Form43Zeile][] = [
     ["einnahmenSteuerpflichtig", "erloese"],
     ["privateKfz", "sonstigeErloese"],
+    // Veräußerung oder Entnahme von Anlagevermögen: neutraler Ertrag wie bei DATEV (#1970)
+    ["anlagenabgang", "sonstigeErloese"],
     ["vereinnahmteUst", "umsatzsteuer"],
     ["erstatteteUst", "ustErstattung"],
     ["ausgabe:wareneinkauf", "material"],
