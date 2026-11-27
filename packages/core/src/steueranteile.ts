@@ -20,12 +20,17 @@ export function paidTaxShares(totals: InvoiceTotals, paid: Cents): TaxShare[] {
   const totalTax = share(totals.tax);
   const totalNet = paid - totalTax;
   const rows = totals.taxes.map((t) => ({ rate: t.rate, base: share(t.base), tax: share(t.tax) }));
-  // Rundungsrest dem größten Posten zuschlagen
-  const largest = rows.reduce((best, row, i) => (Math.abs(row.base) > Math.abs(rows[best]!.base) ? i : best), 0);
-  if (rows[largest]) {
-    rows[largest]!.tax += totalTax - rows.reduce((s, r) => s + r.tax, 0);
-    rows[largest]!.base += totalNet - rows.reduce((s, r) => s + r.base, 0);
-  }
+  // Rundungsrest dem größten Posten zuschlagen. Die Steuer bekommt nur ein Satz, der überhaupt Steuer trägt: Der
+  // 0-%-Posten trüge sonst einen Rest, den die Ausgleichsbuchung verwirft, und der Saldo-Trigger lehnt ab (#2026).
+  const groesster = (kandidaten: number[]) =>
+    kandidaten.reduce((best, i) => (Math.abs(rows[i]!.base) > Math.abs(rows[best]!.base) ? i : best), kandidaten[0] ?? 0);
+  const indizes = rows.map((_row, i) => i);
+  const mitSteuer = indizes.filter((i) => rows[i]!.tax !== 0);
+  const restNetto = totalNet - rows.reduce((s, r) => s + r.base, 0);
+  const restSteuer = totalTax - rows.reduce((s, r) => s + r.tax, 0);
+  const nettoZiel = rows[groesster(indizes)];
+  if (nettoZiel) nettoZiel.base += restNetto;
+  if (mitSteuer.length > 0) rows[groesster(mitSteuer)]!.tax += restSteuer;
   return rows;
 }
 
