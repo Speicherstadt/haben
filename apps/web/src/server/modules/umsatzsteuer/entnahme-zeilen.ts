@@ -21,7 +21,7 @@ export async function entnahmeZeilen(ids: readonly string[], q: Db | Tx): Promis
       tax: schema.documentSplits.tax,
     })
     .from(schema.documentSplits)
-    .where(inArray(schema.documentSplits.documentId, eindeutig));
+    .where(and(inArray(schema.documentSplits.documentId, eindeutig), eq(schema.documentSplits.category, PRIVATENTNAHME)));
   for (const row of rows) {
     const zeile: Anteilszeile = { category: row.category, taxRate: row.taxRate as number, net: row.net, tax: row.tax };
     result.set(row.documentId, [...(result.get(row.documentId) ?? []), zeile]);
@@ -31,10 +31,5 @@ export async function entnahmeZeilen(ids: readonly string[], q: Db | Tx): Promis
 
 /** Kennungen der Belege, deren Aufteilung eine Zeile `privatentnahme` trägt (#1975); für Skonto und die EÜR */
 export async function documentsMitEntnahme(ids: readonly string[], q: Db | Tx = db): Promise<Set<string>> {
-  if (ids.length === 0) return new Set();
-  const rows = await q
-    .select({ documentId: schema.documentSplits.documentId })
-    .from(schema.documentSplits)
-    .where(and(inArray(schema.documentSplits.documentId, [...ids]), eq(schema.documentSplits.category, PRIVATENTNAHME)));
-  return new Set(rows.map((row) => row.documentId));
+  return new Set((await entnahmeZeilen(ids, q)).keys());
 }

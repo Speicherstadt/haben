@@ -1,6 +1,7 @@
 import type { EuerPayment } from "./euer.ts";
-import { allocateSplitTax } from "./document-split.ts";
-import { betrieblicherAnteil, privaterAnteil } from "./beleg-anteile.ts";
+import { allocateSplitTax, type AllocatedSplitLine } from "./document-split.ts";
+import { belegPrivat, betrieblicherAnteil, betrieblichNetto, betrieblichSteuer, privaterAnteil } from "./beleg-anteile.ts";
+import { distribute } from "./rabatt.ts";
 import { PRIVATENTNAHME } from "./kontenplan.ts";
 import { roundHalfAwayFromZero, type BasisPoints, type Cents } from "./money.ts";
 import { inputTaxCode, paidTaxShares, type ExpenseCategory, type TaxShare } from "./posting.ts";
@@ -40,6 +41,34 @@ export function addDocumentEffects(a: DocumentEuerEffect, b: DocumentEuerEffect,
 }
 
 /**
+ * Zahlungsanteil je Zeile eines Belegs mit Entnahmezeile (#1975): je Satz der betriebliche Teil von Netto und Steuer wie
+ * in der Voranmeldung (betrieblichNetto, betrieblichSteuer), die Entnahme den Rest; innerhalb jeder Gruppe nach Netto
+ * verteilt. So rechnen EÜR, Nebenbücher und Zwischenkonto mit derselben Funktion und runden gleich.
+ */
+function entnahmeAnteile(lines: readonly AllocatedSplitLine[], totals: DocumentPayment["totals"], paid: Cents, selbstGeschuldet: boolean): TaxShare[] {
+  const privat = belegPrivat(0, lines);
+  const result: TaxShare[] = lines.map((line) => ({ rate: line.taxRate, base: 0, tax: 0 }));
+  for (const satz of paidTaxShares(totals, paid)) {
+    const gesamt = totals.taxes.find((t) => t.rate === satz.rate)!;
+    const steuer = selbstGeschuldet ? 0 : satz.tax;
+    const betrieb = { base: betrieblichNetto(privat, satz.rate, satz.base, gesamt.base), tax: betrieblichSteuer(privat, satz.rate, steuer, gesamt.tax) };
+    for (const [gruppe, base, tax] of [
+      [false, betrieb.base, betrieb.tax],
+      [true, satz.base - betrieb.base, steuer - betrieb.tax],
+    ] as const) {
+      const idx = lines.flatMap((line, i) => (line.taxRate === satz.rate && (line.category === PRIVATENTNAHME) === gruppe ? [i] : []));
+      const gewichte = idx.map((i) => lines[i]!.net);
+      const basen = distribute(base, gewichte);
+      const steuern = distribute(tax, gewichte);
+      idx.forEach((i, k) => {
+        result[i] = { rate: satz.rate, base: basen[k]!, tax: steuern[k]! };
+      });
+    }
+  }
+  return result;
+}
+
+/**
  * Die Originalsteuer bleibt Grundlage der Zahlungsaufteilung; nur der nach § 15 Abs. 4 UStG zugeordnete Anteil ist
  * gezahlte Vorsteuer. Der Rest gehört zum Aufwand (§ 9b Abs. 1 EStG). Privatanteil und Abzugsanteil sind getrennt.
  * https://www.gesetze-im-internet.de/ustg_1980/__15.html; https://www.gesetze-im-internet.de/estg/__9b.html
@@ -57,18 +86,10 @@ function documentShares(p: DocumentPayment, paid: Cents): Share[] {
   // § 13b und Erwerb: gezahlt ist nur netto, auch je Zeile. Die Steuer der Zeilen bleibt trotzdem in p.splits, weil die
   // Steuer der Entnahmezeilen als Umsatzsteuer auf die Entnahme zählt (documentTarget, #1975)
   const selbstGeschuldet = (p.selbstGeschuldet?.length ?? 0) > 0;
-  const zeilenAnteile = paidTaxShares({ ...p.totals, taxes: lines.map((l) => ({ rate: l.taxRate, base: l.net, tax: selbstGeschuldet ? 0 : l.tax })) }, paid);
-  // Mit Entnahmezeile (#1975) teilt sich die gezahlte Steuer je Satz wie beim Buchen: die Entnahme kaufmännisch gerundet,
-  // der Betrieb den Rest (allocateSplitTax), wie beim Privatanteil am Beleg. Der Rundungsrest des ganzen Belegs fiele
-  // sonst auf die größte Zeile, und der Betrieb bekäme einen Cent Vorsteuer, der zur Entnahme gehört.
   const mitEntnahme = lines.some((line) => line.category === PRIVATENTNAHME);
-  const steuerJeZeile = mitEntnahme
-    ? allocateSplitTax(
-        lines,
-        paidTaxShares(p.totals, paid).map((r) => ({ taxRate: r.rate, net: r.base, tax: selbstGeschuldet ? 0 : r.tax })),
-      )
-    : null;
-  const shares = steuerJeZeile ? zeilenAnteile.map((share, i) => ({ ...share, tax: steuerJeZeile[i]!.tax })) : zeilenAnteile;
+  const shares = mitEntnahme
+    ? entnahmeAnteile(lines, p.totals, paid, selbstGeschuldet)
+    : paidTaxShares({ ...p.totals, taxes: lines.map((l) => ({ rate: l.taxRate, base: l.net, tax: selbstGeschuldet ? 0 : l.tax })) }, paid);
   // Der Abzug wird je Satz gerundet und auf die Kontierungszeilen verteilt, wie die Originalsteuer: Zwei kleine Zeilen
   // dürfen zusammen keinen zusätzlichen Cent Vorsteuer bekommen. Die größte Zeile trägt den Rundungsrest. Abziehbar ist
   // nur die Steuer der betrieblichen Zeilen; die Entnahme (#1975) trägt keine Vorsteuer, wie in documentSplitPosting.

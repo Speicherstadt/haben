@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { allocateSplitTax, type DocumentSplitLine } from "./document-split.ts";
 import { PRIVATENTNAHME } from "./kontenplan.ts";
+import { belegPrivat, betrieblichSteuer } from "./beleg-anteile.ts";
 import { computeEuer, type EuerPayment, type EuerResult } from "./euer.ts";
+import { paidTaxShares } from "./posting.ts";
 
 /*
  * EÜR eines Belegs mit Entnahmezeile (#1975) gegen denselben Beleg mit Privatanteil am Beleg: Die Entnahme trägt ihren
@@ -141,5 +143,61 @@ describe("EÜR mit Entnahmezeile (#1975)", () => {
       if (amount(euer, "ausgabe:bewirtung") !== Math.round((aufwand * 7) / 10)) falsch.push(paid);
     }
     expect(falsch).toEqual([]);
+  });
+
+  it("Teilzahlung: Vorsteuer der EÜR wie in der Voranmeldung (betrieblichSteuer)", () => {
+    const t = { net: 1_000, tax: 190, gross: 1_190, taxes: [{ rate: 1900, base: 1_000, tax: 190 }] };
+    const splits = zeilen(
+      [
+        { category: "telefon", taxRate: 1900, net: 887 },
+        { category: PRIVATENTNAHME, taxRate: 1900, net: 113 },
+      ],
+      t,
+    );
+    const falsch: number[] = [];
+    for (let paid = 1; paid <= t.gross; paid++) {
+      const gezahlt = paidTaxShares(t, paid)[0]!.tax;
+      const ustva = betrieblichSteuer(belegPrivat(0, splits), 1900, gezahlt, t.tax);
+      if (amount(computeEuer(2026, [payment({ totals: t, paid, splits })]), "vorsteuer") !== ustva) falsch.push(paid);
+    }
+    expect(falsch).toEqual([]);
+  });
+
+  it("Teilzahlung mit zwei betrieblichen Zeilen und 50 % Entnahme: Aufwand wie beim Privatanteil am Beleg", () => {
+    const splits = zeilen([
+      { category: "internet", taxRate: 1900, net: 2_500 },
+      { category: "telefon", taxRate: 1900, net: 2_500 },
+      { category: PRIVATENTNAHME, taxRate: 1900, net: 5_000 },
+    ]);
+    const falsch: number[] = [];
+    for (let paid = 1; paid <= totals.gross; paid += 3) {
+      const aufteilung = computeEuer(2026, [payment({ paid, splits })]);
+      const privatanteil = computeEuer(2026, [payment({ paid, privateShare: 50 })]);
+      const aufwand = amount(aufteilung, "ausgabe:internet") + amount(aufteilung, "ausgabe:telefon") + amount(aufteilung, "vorsteuer");
+      if (aufwand !== amount(privatanteil, "ausgabe:telefon") + amount(privatanteil, "vorsteuer")) falsch.push(paid);
+    }
+    expect(falsch).toEqual([]);
+  });
+
+  it("Teilzahlung mit steuerfreier Entnahmezeile: nicht mehr Vorsteuer als gezahlte Steuer", () => {
+    const t = {
+      net: 17_000,
+      tax: 1_160,
+      gross: 18_160,
+      taxes: [
+        { rate: 1900, base: 5_000, tax: 950 },
+        { rate: 700, base: 3_000, tax: 210 },
+        { rate: 0, base: 9_000, tax: 0 },
+      ],
+    };
+    const splits = allocateSplitTax(
+      [
+        { category: "telefon", taxRate: 1900, net: 5_000 },
+        { category: "buero", taxRate: 700, net: 3_000 },
+        { category: PRIVATENTNAHME, taxRate: 0, net: 9_000 },
+      ],
+      t.taxes.map((r) => ({ taxRate: r.rate, net: r.base, tax: r.tax })),
+    );
+    expect(amount(computeEuer(2026, [payment({ totals: t, paid: 1_100, splits })]), "vorsteuer")).toBe(70);
   });
 });
