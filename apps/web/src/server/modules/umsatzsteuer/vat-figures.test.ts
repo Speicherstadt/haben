@@ -284,6 +284,7 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung aus Buchungen (Postgres)", () =>
     land: string,
     ustId: string,
     issueDate: string,
+    serviceFrom: string | null = null,
   ) {
     const contact = await contacts.createContact(actor, {
       kundennummer: "",
@@ -301,7 +302,7 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung aus Buchungen (Postgres)", () =>
     const draft = await invoices.createDraft(actor, {
       contactId: contact.id,
       issueDate,
-      serviceFrom: null,
+      serviceFrom,
       serviceTo: null,
       paymentTermDays: 14,
       format: "zugferd",
@@ -389,6 +390,27 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung aus Buchungen (Postgres)", () =>
     },
     30_000,
   );
+
+  // § 13b Abs. 2 UStG: Beim Kunden entsteht die Steuer mit der Rechnung, spätestens mit Ablauf des Monats nach der Leistung
+  it.each(["ist", "soll"] as const)(
+    "Bauleistung im Inland (%s): späte Rechnung meldet Kz 60 spätestens im Monat nach der Leistung",
+    async (versteuerung) => {
+      await sql`update company set versteuerung = ${versteuerung}`;
+      await specialInvoice("bauleistung_13b", "DE", "DE123456788", "2026-10-20", "2026-07-10");
+      await specialInvoice("bauleistung_13b", "DE", "DE123456788", "2026-09-05", "2026-09-01");
+      const kz60 = await Promise.all([7, 8, 9, 10].map(async (month) => (await figures.computeVatFigures({ year: 2026, month })).kz60));
+      expect(kz60).toEqual([0, 500_000, 500_000, 0]);
+    },
+    30_000,
+  );
+
+  it("Bauleistung im Inland: Storno mindert Kz 60 im Monat des Stornos, die ZM bleibt leer", async () => {
+    const bau = await specialInvoice("bauleistung_13b", "DE", "DE123456788", "2026-09-15");
+    await invoices.cancelInvoice(actor, bau.id, "2026-10-02");
+    expect((await figures.computeVatFigures({ year: 2026, month: 9 })).kz60).toBe(500_000);
+    expect((await figures.computeVatFigures(october)).kz60).toBe(-500_000);
+    expect((await (await import("./zm.ts")).zmOverview({ year: 2026, month: 43 })).zeilen).toEqual([]);
+  }, 30_000);
 
   it("Bauleistung im Inland: Kz 60 in der gespeicherten Anmeldung und im ELSTER-XML", async () => {
     await specialInvoice("bauleistung_13b", "DE", "DE123456788", "2026-10-15");

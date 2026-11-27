@@ -77,7 +77,8 @@ export interface IgErwerbSource extends InputTaxSource {
  * Leistungen ins Drittland (Kz 45): DATEV weist bei Ist-Versteuerung nur steuerpflichtige und steuerfreie inländische
  * Umsätze mit der Zahlung aus, nicht steuerbare Umsätze im Drittland schon mit der Rechnung (DATEV-Dok. 1080673).
  * Bauleistungen nach § 13b Abs. 5 UStG (Kz 60): Beim Kunden entsteht die Steuer mit der Rechnung, spätestens mit Ablauf
- * des Folgemonats (§ 13b Abs. 2 UStG), auch der Umzugsimport meldet Kz 60 nach dem Belegdatum (legacy-vat.ts).
+ * des Monats nach der Leistung (§ 13b Abs. 2 UStG); den Tag setzt invoiceTaxReader().date. Die Anleitung zur UStVA nennt
+ * für Kz 60 keinen eigenen Zeitpunkt, Haben folgt der Steuerschuld des Kunden (#1934).
  */
 export const NACH_RECHNUNGSDATUM = ["reverse_charge", "bauleistung_13b", "ig_lieferung", "drittland", "eu_sonstige"] as const satisfies readonly TaxTreatment[];
 

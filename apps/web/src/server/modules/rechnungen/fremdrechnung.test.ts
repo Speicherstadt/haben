@@ -513,7 +513,7 @@ describe.skipIf(!testDatabaseUrl)("Fremde Ausgangsrechnung übernehmen (Postgres
       lines: [{ description: "Dachstuhl abbinden", quantity: 1000, unit: "Psch.", unitPrice: 10_000, taxRate: 0 }],
     });
     const own = await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
-    const xml = own.xml!.replace(own.number, `${own.number}-ALT`);
+    const xml = own.xml!.replace(own.number!, `${own.number}-ALT`);
     const file = { bytes: new TextEncoder().encode(xml), filename: "re.xml", mimeType: "application/xml" };
     const proposal = await foreign.foreignInvoiceProposal(file);
     expect(proposal).toMatchObject({ from: "xrechnung", taxTreatment: "bauleistung_13b", taxes: [{ rate: 0, net: 10_000, tax: 0 }], contactId });

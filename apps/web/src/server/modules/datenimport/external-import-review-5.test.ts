@@ -62,7 +62,7 @@ describe.skipIf(!testDatabaseUrl)("Belegimport: fünfte unabhängige Reviewrunde
     { taxType: "thirdPartyCountryService", treatment: "drittland", kz: "kz45" },
     { taxType: "intraCommunitySupply", treatment: "ig_lieferung", kz: null },
     { taxType: "externalService13b", treatment: "reverse_charge", kz: null },
-    // § 13b im Inland (#1934): Kz 60 mit der Rechnung, wie legacy-vat.ts das Quellprogramm nachrechnet
+    // § 13b im Inland (#1934): bei Ist wie Drittland abgelehnt, siehe unten
     { taxType: "constructionService13b", treatment: "bauleistung_13b", kz: null },
   ] as const;
   for (const { taxType, treatment, kz } of cases)
@@ -75,11 +75,11 @@ describe.skipIf(!testDatabaseUrl)("Belegimport: fünfte unabhängige Reviewrunde
             { version: 2, source: "erfundener-originalexport", kontenrahmen: chart, entries: [invoice({ taxType })] },
             async () => pdf,
           );
-          if (treatment === "drittland" && tax === "ist") {
+          if ((treatment === "drittland" || treatment === "bauleistung_13b") && tax === "ist") {
             // Kz 45 meldet Haben auch bei Ist mit der Rechnung; ob das Quellprogramm ebenso oder mit der Zahlung gemeldet hat,
             // ist nicht belegt (#1402). Im zweiten Fall stünde eine am Stichtag offene Drittlandsleistung in keiner
             // Voranmeldung. Sie wird deshalb nicht übernommen.
-            await expect(archive.takeOverLegacyItem("review-user", imported.items[0]!.id, "2025-12-31")).rejects.toThrow(/Drittland bei Ist/);
+            await expect(archive.takeOverLegacyItem("review-user", imported.items[0]!.id, "2025-12-31")).rejects.toThrow(/bei Ist-Versteuerung/);
             expect(await sql`select id from invoices`, "Eine abgelehnte Übernahme legt keine Rechnung an").toHaveLength(0);
             expect(await sql`select id from journal_entries where source_type = 'eroeffnung'`).toHaveLength(0);
             return;

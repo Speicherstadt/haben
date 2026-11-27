@@ -375,6 +375,12 @@ async function takeOverInvoice(
       throw new TakeoverError(
         "Leistung ins Drittland bei Ist-Versteuerung: Haben meldet Kz 45 mit der Rechnung, das Quellprogramm womöglich erst mit der Zahlung. Den Posten von Hand erfassen.",
       );
+    // Ebenso Kz 60 (#1934): Haben meldet die Bauleistung mit der Rechnung; ob das Quellprogramm bei Ist ebenso gemeldet hat, ist
+    // nicht belegt
+    if (taxTreatment === "bauleistung_13b" && company.versteuerung === "ist")
+      throw new TakeoverError(
+        "Bauleistung nach § 13b bei Ist-Versteuerung: Haben meldet Kz 60 mit der Rechnung, das Quellprogramm womöglich erst mit der Zahlung. Den Posten von Hand erfassen.",
+      );
     let [contact] = voucher.contactId ? await tx.select().from(schema.contacts).where(eq(schema.contacts.id, voucher.contactId)) : [];
     if (!contact) {
       const raw = voucher.raw as { address?: { name?: string; street?: string; zip?: string; city?: string; countryCode?: string } };

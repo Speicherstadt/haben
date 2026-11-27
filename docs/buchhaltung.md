@@ -169,6 +169,7 @@ Ein Wechsel zum Jahreswechsel gilt nur für künftige Buchungen. Ein noch offene
 | Erlöse 7 % USt | 8300 | 4300 |
 | Erlöse (ohne USt) | 8200 | 4200 |
 | Erlöse aus im anderen EU-Land steuerpflichtigen sonstigen Leistungen (Reverse Charge) | 8336 | 4336 |
+| Erlöse aus Leistungen, für die der Leistungsempfänger die Steuer nach § 13b UStG schuldet (Bauleistung im Inland) | 8337 | 4337 |
 | Erlöse aus im Drittland steuerbaren Leistungen | 8338 | 4338 |
 | Steuerfreie innergemeinschaftliche Lieferungen § 4 Nr. 1b UStG | 8125 | 4125 |
 | Steuerfreie Umsätze § 4 Nr. 1a UStG (Ausfuhr) | 8120 | 4120 |
