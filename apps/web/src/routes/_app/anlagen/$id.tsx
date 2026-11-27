@@ -32,11 +32,8 @@ function AssetPage() {
   const { asset, schedule, bookedYears, documentInputVat } = Route.useLoaderData();
   const { rechtsform } = Route.useRouteContext();
   const router = useRouter();
-  const navigate = useNavigate();
   const update = useServerFn(updateAssetFn);
-  const remove = useServerFn(deleteAssetFn);
   const { busy, notice, run } = useAction();
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const booked = bookedYears.length > 0 || asset.openingEntryId !== null;
   const fromDocument = asset.documentId !== null;
@@ -55,28 +52,7 @@ function AssetPage() {
           </div>
           <h1>{asset.name}</h1>
         </div>
-        {!booked && !fromDocument && (
-          <div className="actions">
-            <button type="button" className="btn btn-danger" disabled={busy} onClick={() => setConfirmingDelete(true)}>
-              Löschen
-            </button>
-            <ConfirmDialog
-              open={confirmingDelete}
-              title={`${asset.name} löschen?`}
-              confirmLabel="Anlage löschen"
-              danger
-              onConfirm={() =>
-                run(async () => {
-                  await remove({ data: asset.id });
-                  await navigate({ to: "/anlagen" });
-                })
-              }
-              onClose={() => setConfirmingDelete(false)}
-            >
-              <p>Die Anlage wird endgültig entfernt. Das lässt sich nicht rückgängig machen.</p>
-            </ConfirmDialog>
-          </div>
-        )}
+        {!booked && !fromDocument && <DeleteAsset asset={asset} busy={busy} run={run} />}
       </div>
       <NoticeBanner notice={notice} />
 
@@ -192,6 +168,35 @@ function AssetPage() {
         </section>
       </div>
     </>
+  );
+}
+
+/** Löschen im Seitenkopf, nur für übernommene Anlagen ohne Buchung */
+function DeleteAsset({ asset, busy, run }: { asset: { id: string; name: string }; busy: boolean; run: ReturnType<typeof useAction>["run"] }) {
+  const navigate = useNavigate();
+  const remove = useServerFn(deleteAssetFn);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  return (
+    <div className="actions">
+      <button type="button" className="btn btn-danger" disabled={busy} onClick={() => setConfirmingDelete(true)}>
+        Löschen
+      </button>
+      <ConfirmDialog
+        open={confirmingDelete}
+        title={`${asset.name} löschen?`}
+        confirmLabel="Anlage löschen"
+        danger
+        onConfirm={() =>
+          run(async () => {
+            await remove({ data: asset.id });
+            await navigate({ to: "/anlagen" });
+          })
+        }
+        onClose={() => setConfirmingDelete(false)}
+      >
+        <p>Die Anlage wird endgültig entfernt. Das lässt sich nicht rückgängig machen.</p>
+      </ConfirmDialog>
+    </div>
   );
 }
 
