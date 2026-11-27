@@ -160,11 +160,10 @@ export function privatanteilAbspalten(line: DocumentSplitLine, prozent: Prozent)
   if (privat === 0 || business === 0) {
     throw new RangeError(`${prozent} % von ${formatEuro(line.net)} ergeben gerundet eine Zeile mit 0 Cent; dafür lässt sich nichts abspalten`);
   }
-  // Bis die Privatentnahme mit der Buchung in EXPENSE_CATEGORIES steht, ist sie keine ExpenseCategory
   const { account: _konto, ...ohneKonto } = line;
   return {
     betrieblich: { ...line, net: business },
-    privat: { ...ohneKonto, category: PRIVATENTNAHME as ExpenseCategory, net: privat },
+    privat: { ...ohneKonto, category: PRIVATENTNAHME, net: privat },
   };
 }
 
@@ -233,7 +232,7 @@ export function documentSplitPosting(
     totals.taxes.map((t) => ({ taxRate: t.rate, net: t.base - entnahme(t.rate, "net"), tax: abziehbar.get(t.rate)! })),
   );
   const deductible = new Map(betrieb.map((i, k) => [i, betriebAbzug[k]!.tax]));
-  let privateRcSteuer = 0;
+  let entnahmeOhneSchluessel = 0;
   for (const [i, line] of lines.entries()) {
     const account = line.account ?? EXPENSE_CATEGORIES[line.category][kontenrahmen];
     const anteil = buchungsAnteil(vorsteuerAbzug, totals.taxes.find((t) => t.rate === line.taxRate)?.vorsteuerAnteil);
@@ -244,10 +243,12 @@ export function documentSplitPosting(
       // das Netto den Steuerschlüssel, damit die Bemessungsgrundlage (Kz 46/84) bleibt (#542); die Steuer darauf steht
       // ohne Steuerschlüssel wie beim Privatanteil am Beleg (documentPosting): Sie geht mit der Voranmeldung ans
       // Finanzamt und zählt in der EÜR als Umsatzsteuer auf die Entnahme (journal-euer.ts).
+      // Ohne § 13b steht sie brutto ohne Steuerschlüssel wie in documentPosting: Mit keineVSt hielte die Verprobung sie
+      // für nicht abziehbare Vorsteuer und übersähe eine fehlende Vorsteuerbuchung (ust-verprobung.ts)
       if (rcCode) {
         add(accounts.privatentnahmen, rcCode, line.net);
-        privateRcSteuer += line.tax;
-      } else add(accounts.privatentnahmen, "keineVSt", line.net + line.tax);
+        entnahmeOhneSchluessel += line.tax;
+      } else entnahmeOhneSchluessel += line.net + line.tax;
       continue;
     }
     if (anteil > 0) {
@@ -261,7 +262,7 @@ export function documentSplitPosting(
     } else add(account, "keineVSt", line.net + line.tax);
   }
   const result: PostingLine[] = [...expenses.values()].map((e) => side(e.account, e.amount, true, e.code));
-  if (privateRcSteuer !== 0) result.push(side(accounts.privatentnahmen, privateRcSteuer, true, null));
+  if (entnahmeOhneSchluessel !== 0) result.push(side(accounts.privatentnahmen, entnahmeOhneSchluessel, true, null));
   for (const row of totals.taxes) {
     const { rate, tax } = row;
     // Der Anteil der Entnahmezeilen ist nicht abziehbar; er steht brutto auf dem Entnahmekonto

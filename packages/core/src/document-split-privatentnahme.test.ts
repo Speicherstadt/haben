@@ -4,6 +4,7 @@ import { totalsFromTaxes } from "./invoice.ts";
 import { documentPosting } from "./document-posting.ts";
 import { euerAusZeilen } from "./journal-euer.ts";
 import { documentEuerEffects } from "./euer-beleg.ts";
+import { verprobeBuchung } from "./ust-verprobung.ts";
 
 /*
  * Privatentnahme als Zeile einer Aufteilung (#1975). Beispiel aus dem Issue: Telefon und Internet auf einer Rechnung,
@@ -86,7 +87,7 @@ describe("documentSplitPosting mit Privatentnahme", () => {
         posting.map(({ account, debit, credit, taxCode }) => ({ account, debit, credit, taxCode })).sort((a, b) => a.account.localeCompare(b.account)),
       ).toEqual(
         [
-          { account: k.entnahme, debit: 1_406, credit: 0, taxCode: "keineVSt" },
+          { account: k.entnahme, debit: 1_406, credit: 0, taxCode: null },
           { account: k.internet, debit: 2_520, credit: 0, taxCode: "VSt19" },
           { account: k.telefon, debit: 512, credit: 0, taxCode: "VSt19" },
           { account: k.verbindlichkeiten, debit: 0, credit: telefonBrutto, taxCode: null },
@@ -153,5 +154,25 @@ describe("documentSplitPosting mit Privatentnahme", () => {
       [{ id: "z", paid: 1_000, reversesId: null }],
     ).get("z")!;
     expect({ journal: euerAusZeilen("SKR03", aufgeteilt).zeilen.vereinnahmteUst ?? 0, zahlungen: effekt.privateUst }).toEqual({ journal: 38, zahlungen: 38 });
+  });
+});
+
+describe("Entnahmezeile ohne Steuerschlüssel (#1975)", () => {
+  const lines: DocumentSplitLine[] = [
+    { category: "telefon", taxRate: 1900, net: 9_000 },
+    { category: "privatentnahme", taxRate: 1900, net: 1_000 },
+  ];
+  const totals = totalsFromTaxes([{ rate: 1900, base: 10_000, tax: 1_900 }]);
+  const posting = documentSplitPosting(totals, allocateSplitTax(lines, [{ taxRate: 1900, net: 10_000, tax: 1_900 }]), "SKR03", "einzelunternehmen", "bank");
+
+  it("bucht die Entnahme brutto ohne Steuerschlüssel, wie den Privatanteil am Beleg", () => {
+    expect(posting.find((l) => l.account === "1800")).toMatchObject({ debit: 1_190, taxCode: null });
+  });
+
+  it("die Verprobung erkennt eine fehlende Vorsteuer trotz Entnahmezeile", () => {
+    const manipuliert = posting.map((l) =>
+      l.account === "1576" ? { ...l, debit: l.debit - 1_190 } : l.account === "1600" ? { ...l, credit: l.credit - 1_190 } : l,
+    );
+    expect(verprobeBuchung("SKR03", "ist", manipuliert as Parameters<typeof verprobeBuchung>[2])).not.toEqual([]);
   });
 });
