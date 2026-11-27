@@ -35,8 +35,11 @@ export interface TakenOverInvoice extends RebuiltInvoice {
   xml: string | null;
   /** Wo die Rechnung herkommt: ein Fremdsystem (externe Referenz) oder der Beleg des Quellprogramms beim Umzug */
   origin: { externalSource: string; externalId: string } | { lexofficeVoucherId: string };
-  /** Storno aus dem Fremdsystem (#1900): hebt die Rechnung `correctsId` auf; sonst eine Rechnung */
-  storno?: { correctsId: string };
+  /**
+   * Storno aus dem Fremdsystem (#1900): hebt die Rechnung `correctsId` auf und trägt deren Käufer, wie ein Storno in Haben
+   * (buyerForFinalization); sonst eine Rechnung mit dem Käufer von heute
+   */
+  storno?: { correctsId: string; buyer: Invoice["buyer"] };
 }
 
 /**
@@ -85,7 +88,7 @@ export async function createTakenOverInvoice(
       ...p.origin,
       contactVersion: p.contact.version,
       seller: sellerFrom(p.company),
-      buyer: buyerFrom(p.contact),
+      buyer: p.storno ? p.storno.buyer : buyerFrom(p.contact),
       ...(p.serviceDate ? { serviceDate: p.serviceDate } : {}),
       pdf: Buffer.from(p.pdf),
       pdfSha256: p.pdfSha256,

@@ -77,21 +77,23 @@ describe.skipIf(!testDatabaseUrl)("Storno aus dem Fremdsystem übernehmen (Postg
                                    payment_term_days, skonto)
       values (1, 'Erika Mustermann', 'Lindenstraße 12', '10969', 'Berlin', 'rechnung@mustermann.example', '+49 30 1234567', '13/345/67890',
               'DE123456789', 'BE', 'DE89370400440532013000', ${versteuerung}, ${kontenrahmen}, 14, '[]'::jsonb)`;
-    const { id } = await contacts.createContact(actor, {
-      kundennummer: "",
-      name: "Musterkunde GmbH",
-      strasse: "Marktplatz 3",
-      plz: "93047",
-      ort: "Regensburg",
-      land: "DE",
-      email: "",
-      ustId: "",
-      iban: "",
-      leitwegId: "",
-      defaultFormat: null,
-    });
+    const { id } = await contacts.createContact(actor, kunde);
     return id;
   }
+
+  const kunde = {
+    kundennummer: "",
+    name: "Musterkunde GmbH",
+    strasse: "Marktplatz 3",
+    plz: "93047",
+    ort: "Regensburg",
+    land: "DE",
+    email: "",
+    ustId: "",
+    iban: "",
+    leitwegId: "",
+    defaultFormat: null,
+  };
 
   const datei = (bytes: Uint8Array, filename: string) => ({ bytes, filename, mimeType: "application/pdf" });
 
@@ -170,6 +172,20 @@ describe.skipIf(!testDatabaseUrl)("Storno aus dem Fremdsystem übernehmen (Postg
     },
     60_000,
   );
+
+  it("Käufer des Stornos ist der der Rechnung, wie beim Storno in Haben (buyerForFinalization), auch wenn der Kontakt sich seither geändert hat (Review #1993)", async () => {
+    const contactId = await company("SKR03", "soll");
+    const { id: rechnungId } = await rechnungUebernehmen(contactId);
+    await contacts.updateContact(actor, contactId, { ...kunde, name: "Musterkunde Neu GmbH", ort: "München", plz: "80331" });
+    const { id } = await storno.adoptForeignCancellationFile(
+      actor,
+      { invoiceId: rechnungId, number: "2026-035", issueDate: "2026-10-02" },
+      datei(stornoPdf, "2026-035.pdf"),
+    );
+    const [rechnung] = await sql`select buyer from invoices where id = ${rechnungId}`;
+    const [beleg] = await sql`select buyer from invoices where id = ${id}`;
+    expect(beleg!.buyer).toEqual(rechnung!.buyer);
+  }, 60_000);
 
   it("lehnt ab, wenn die Rechnung eine Korrektur hat, und ohne übernommene Rechnung gibt es keinen Vorschlag", async () => {
     const contactId = await company("SKR03", "soll");

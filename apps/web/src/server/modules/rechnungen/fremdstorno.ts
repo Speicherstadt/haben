@@ -148,7 +148,7 @@ export async function adoptForeignCancellationFile(
         pdfSha256: sha256(file.bytes),
         xml: read.xml,
         origin: { externalSource: FREMDSYSTEM, externalId: input.number },
-        storno: { correctsId: original.id },
+        storno: { correctsId: original.id, buyer: original.buyer },
       });
       await postInvoice(tx, storno, totals, company, original, `Storno ${input.number} aus dem Fremdsystem · ${contact.name}`);
       return { id: storno.id };
