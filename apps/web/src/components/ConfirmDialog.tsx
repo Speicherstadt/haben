@@ -60,7 +60,17 @@ export function ConfirmDialog({ open, ...props }: ConfirmDialogProps) {
   return createPortal(<OpenConfirmDialog {...props} />, document.body);
 }
 
-function OpenConfirmDialog({ title, confirmLabel, danger = false, onConfirm, onClose, facts, acknowledge, gesperrt = false, children }: Omit<ConfirmDialogProps, "open">) {
+function OpenConfirmDialog({
+  title,
+  confirmLabel,
+  danger = false,
+  onConfirm,
+  onClose,
+  facts,
+  acknowledge,
+  gesperrt = false,
+  children,
+}: Omit<ConfirmDialogProps, "open">) {
   const titleId = useId();
   const bodyId = useId();
   const dialog = useRef<HTMLDialogElement>(null);

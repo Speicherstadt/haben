@@ -62,13 +62,7 @@ export function InvoiceEditorDialogs({ editor }: { editor: InvoiceEditorModel })
           </>
         ) : (
           <>
-            <FestschreibenHinweise
-              open={confirming}
-              earlierThanLast={earlierThanLast}
-              numberDate={numberDate}
-              ustId={ustIdPruefen}
-              onSperre={setUstIdSperrt}
-            />
+            <FestschreibenHinweise open={confirming} earlierThanLast={earlierThanLast} numberDate={numberDate} ustId={ustIdPruefen} onSperre={setUstIdSperrt} />
             <p>{FINALIZE_DIALOG_TEXT}</p>
             <p>Danach ist die Rechnung nicht mehr änderbar; Korrekturen laufen über Storno oder Rechnungskorrektur.</p>
           </>
