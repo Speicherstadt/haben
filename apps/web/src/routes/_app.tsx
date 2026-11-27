@@ -14,43 +14,30 @@ import { readNavCollapsed, saveNavCollapsed, subscribeNavCollapsed } from "../li
 import { NavMarkSymbol } from "../components/NavMarkSymbol.tsx";
 import { usePageHeadHeight, useScrolled } from "../lib/use-page-head.ts";
 import { SeitenLaden } from "../components/Fehlerseiten.tsx";
-import { appContextCache, navigationZustand } from "../lib/app-navigation.ts";
+import { navigationZustand } from "../lib/app-navigation.ts";
 import { ROLLEN_LABEL, STEUERBERATUNG_START, siehtSeite } from "../lib/rollen.ts";
 
-async function loadAppContext(pathname: string) {
-  const state = await getAuthState();
-  if (!state.initialized) throw redirect({ to: "/setup" });
-  if (!state.user) throw redirect({ to: "/login" });
-  // Die Steuerberatung sieht nur ihre Seiten; die Server Functions prüfen das unabhängig davon selbst
-  if (!siehtSeite(state.user.role, pathname)) throw redirect({ to: STEUERBERATUNG_START });
-  const context = {
-    user: state.user,
-    oidc: state.oidc,
-    rechtsform: state.rechtsform ?? "einzelunternehmen",
-    kontenrahmen: state.kontenrahmen ?? "SKR03",
-    eigeneSeiten: state.eigeneSeiten,
-    hatMitarbeiter: state.hatMitarbeiter,
-    ausgeblendet: state.ausgeblendet,
-    einrichtung: state.einrichtung,
-    firma: state.firma,
-    zeichen: state.zeichen,
-    firmen: state.firmen,
-    firmenportal: state.firmenportal,
-  };
-  appContextCache.seed(context);
-  return context;
-}
-
-type AppContext = Awaited<ReturnType<typeof loadAppContext>>;
-
 export const Route = createFileRoute("/_app")({
-  beforeLoad: async ({ location, cause }): Promise<AppContext> => {
-    const cached = appContextCache.read(cause) as AppContext | undefined;
-    if (cached) {
-      if (!siehtSeite(cached.user.role, location.pathname)) throw redirect({ to: STEUERBERATUNG_START });
-      return cached;
-    }
-    return loadAppContext(location.pathname);
+  beforeLoad: async ({ location }) => {
+    const state = await getAuthState();
+    if (!state.initialized) throw redirect({ to: "/setup" });
+    if (!state.user) throw redirect({ to: "/login" });
+    // Die Steuerberatung sieht nur ihre Seiten; die Server Functions prüfen das unabhängig davon selbst
+    if (!siehtSeite(state.user.role, location.pathname)) throw redirect({ to: STEUERBERATUNG_START });
+    return {
+      user: state.user,
+      oidc: state.oidc,
+      rechtsform: state.rechtsform ?? "einzelunternehmen",
+      kontenrahmen: state.kontenrahmen ?? "SKR03",
+      eigeneSeiten: state.eigeneSeiten,
+      hatMitarbeiter: state.hatMitarbeiter,
+      ausgeblendet: state.ausgeblendet,
+      einrichtung: state.einrichtung,
+      firma: state.firma,
+      zeichen: state.zeichen,
+      firmen: state.firmen,
+      firmenportal: state.firmenportal,
+    };
   },
   component: AppLayout,
 });
@@ -179,11 +166,7 @@ function useMobileMenuEscape(menuOpen: boolean, paletteOpen: boolean, onClose: (
 }
 
 function AppLayout() {
-  const appContext = Route.useRouteContext();
-  const { user, rechtsform, eigeneSeiten, hatMitarbeiter, ausgeblendet, firmen, firmenportal, firma, oidc } = appContext;
-  useEffect(() => {
-    appContextCache.seed(appContext);
-  }, [appContext]);
+  const { user, rechtsform, eigeneSeiten, hatMitarbeiter, ausgeblendet, firmen, firmenportal, firma, oidc } = Route.useRouteContext();
   const gesellschaft = isKapitalgesellschaft(rechtsform);
   const inhaber = user.role === "inhaber";
   const groups = inhaber ? NAV_GROUPS : STEUERBERATUNG_NAV;
@@ -193,6 +176,7 @@ function AppLayout() {
   const { collapsed, openFlyout, setOpenFlyout } = useRailState();
   useNavTipEscape();
   useEinklappKuerzel();
+  // Die Navigation markiert das Ziel sofort; solange eine andere Seite lädt, zeigt <main> die Ladeansicht statt der alten Seite
   const { resolvedPathname, navPathname, wechseltSeite } = useRouterState({
     select: (state) =>
       navigationZustand({
@@ -225,6 +209,7 @@ function AppLayout() {
     // Erst beim Abmelden laden: der Auth-Client bringt den Passkey-Code mit, den nur Anmeldung und Einstellungen brauchen
     const { authClient } = await import("../lib/auth-client.ts");
     await authClient.signOut();
+    // Vorgeladene Seiten gehören zur beendeten Sitzung
     router.clearCache();
     await router.navigate({ to: "/login" });
   }

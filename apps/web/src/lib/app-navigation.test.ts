@@ -1,36 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createAppContextCache, navigationZustand } from "./app-navigation.ts";
-
-describe("createAppContextCache", () => {
-  const daten = { user: { role: "inhaber" } };
-
-  it("lädt auf dem Server (SSR) immer frisch", () => {
-    const cache = createAppContextCache<typeof daten>(() => false);
-    cache.seed(daten);
-    expect(cache.read("stay")).toBeUndefined();
-    expect(cache.read("preload")).toBeUndefined();
-  });
-
-  it("lädt beim frischen Betreten von /_app (z. B. nach /login) immer frisch", () => {
-    const cache = createAppContextCache<typeof daten>(() => true);
-    cache.seed(daten);
-    expect(cache.read("enter")).toBeUndefined();
-  });
-
-  it("nutzt den gespeicherten Kontext beim Seitenwechsel und Vorladen innerhalb von /_app", () => {
-    const cache = createAppContextCache<typeof daten>(() => true);
-    cache.seed(daten);
-    expect(cache.read("stay")).toBe(daten);
-    expect(cache.read("preload")).toBe(daten);
-  });
-
-  it("lädt nach clear() (router.invalidate / Abmelden) neu", () => {
-    const cache = createAppContextCache<typeof daten>(() => true);
-    cache.seed(daten);
-    cache.clear();
-    expect(cache.read("stay")).toBeUndefined();
-  });
-});
+import { navigationZustand } from "./app-navigation.ts";
 
 describe("navigationZustand", () => {
   it("meldet wechseltSeite beim Wechsel auf eine andere Route", () => {
