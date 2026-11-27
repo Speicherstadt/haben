@@ -300,4 +300,3 @@ test("Spalten in /rechnungen, /belege, /dauerbelege bei 861 px ohne Überlappung
     expect(fehler, `${pfad} bei 861px ohne überlaufende Spaltenzellen`).toEqual([]);
   }
 });
-
