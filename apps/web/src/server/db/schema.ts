@@ -2458,8 +2458,11 @@ export const documentSplits = pgTable(
     /** Reihenfolge wie eingegeben, ab 1 */
     position: smallint("position").notNull(),
     category: text("category").notNull(),
-    /** Freie Beschreibung der Zeile (#1975): nullable, kein Default; bestehende Zeilen bleiben null */
-    description: text("description"),
+    /**
+     * Freie Beschreibung der Zeile (#1975). Leer ist der leere Text, nie null: `0310` prüft eine Spalte, die einem
+     * alten Siegel fehlt, gegen den Katalog-Default, deshalb bleibt der Default für immer `''`.
+     */
+    description: text("description").notNull().default(""),
     /** Eigenes Sachkonto (#270) der Kategorie der Zeile */
     ownAccountId: uuid("own_account_id").references(() => ownAccounts.id),
     taxRate: smallint("tax_rate").$type<BasisPoints>().notNull(),

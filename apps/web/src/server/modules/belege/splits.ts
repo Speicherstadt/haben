@@ -31,8 +31,8 @@ export const splitInputSchema = z.object({
   ownAccountId: z.uuid().nullable().default(null),
   taxRate: inBasisPoints(z.union([z.literal(1900), z.literal(700), z.literal(0)])),
   net: inCents(z.number().int().min(-100_000_000_00).max(100_000_000_00)),
-  /** Freie Beschreibung der Zeile (#1975); nicht angegeben oder null = keine Beschreibung */
-  description: z.string().trim().max(200).nullable().default(null),
+  /** Freie Beschreibung der Zeile (#1975); nicht angegeben oder leer = keine Beschreibung */
+  description: z.string().trim().max(200).default(""),
 });
 
 /** Höchstwert der int4-Spalten net und tax */

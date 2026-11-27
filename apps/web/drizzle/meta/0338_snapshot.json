@@ -1,5 +1,5 @@
 {
-  "id": "6b0fec0f-8448-4918-8dc7-a6ebd60c4afd",
+  "id": "6a499e90-7f9b-415c-8da8-c452f444cb9e",
   "prevId": "fdc620d7-a7a3-45b1-8c28-d552618f2ed2",
   "version": "7",
   "dialect": "postgresql",
@@ -5744,7 +5744,8 @@
           "name": "description",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": "''"
         },
         "own_account_id": {
           "name": "own_account_id",

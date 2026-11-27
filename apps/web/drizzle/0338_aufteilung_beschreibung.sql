@@ -1,1 +1,1 @@
-ALTER TABLE "document_splits" ADD COLUMN "description" text;
+ALTER TABLE "document_splits" ADD COLUMN "description" text DEFAULT '' NOT NULL;

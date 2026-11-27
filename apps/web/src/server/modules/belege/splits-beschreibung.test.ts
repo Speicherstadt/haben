@@ -3,9 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
 /*
- * Freie Beschreibung je Zeile einer Aufteilung (#1975, Etappe A): Sie ist nullable, wird gespeichert und mit den Zeilen
- * ausgeliefert, steckt aber nicht in der Kontierungszeile — Buchung, EÜR und splitIssues lesen sie nicht. Alle Daten
- * sind erfunden.
+ * Freie Beschreibung je Zeile einer Aufteilung (#1975, Etappe A): Sie ist nie null, leer ist der leere Text, wird
+ * gespeichert und mit den Zeilen ausgeliefert, steckt aber nicht in der Kontierungszeile — Buchung, EÜR und
+ * splitIssues lesen sie nicht. Alle Daten sind erfunden.
  */
 
 const KONTEN_SKR03 = { software: "4964", buero: "4930", vorsteuer: "1576", verbindlichkeiten: "1600" };
@@ -34,10 +34,13 @@ describe.skipIf(!testDatabaseUrl)("Aufteilung mit Beschreibung (#1975, Postgres)
       values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '198/113/10010', 'BY', 'soll', 'SKR03', false)`;
   }
 
-  it("Eingabe: freiwillig, getrimmt, leer null, höchstens 200 Zeichen", () => {
+  it("Eingabe: freiwillig, getrimmt, leer der leere Text, höchstens 200 Zeichen", () => {
     const zeile = { category: "software" as const, taxRate: 1900 as const, net: 10_000 };
-    expect(splits.splitInputSchema.parse(zeile).description).toBeNull();
-    expect(splits.splitInputSchema.parse({ ...zeile, description: null }).description).toBeNull();
+    expect(splits.splitInputSchema.parse(zeile).description).toBe("");
+    expect(splits.splitInputSchema.parse({ ...zeile, description: "" }).description).toBe("");
+    expect(splits.splitInputSchema.parse({ ...zeile, description: "   " }).description).toBe("");
+    // null ist kein gültiger Zustand der Spalte: not null default '' ist die abgestimmte Form (#1975)
+    expect(() => splits.splitInputSchema.parse({ ...zeile, description: null })).toThrow();
     expect(splits.splitInputSchema.parse({ ...zeile, description: "  Lizenzen  " }).description).toBe("Lizenzen");
     expect(splits.splitInputSchema.parse({ ...zeile, description: "x".repeat(200) }).description).toHaveLength(200);
     expect(() => splits.splitInputSchema.parse({ ...zeile, description: "x".repeat(201) })).toThrow();
@@ -46,7 +49,7 @@ describe.skipIf(!testDatabaseUrl)("Aufteilung mit Beschreibung (#1975, Postgres)
   it("Kontierungszeile: splitLines liefert dieselben Zeilen mit und ohne Beschreibung", () => {
     const mit = [
       { category: "software" as const, taxRate: 1900 as const, net: 10_000, tax: 1_900, description: "Lizenzen" },
-      { category: "buero" as const, taxRate: 1900 as const, net: 7_000, tax: 1_330, description: null },
+      { category: "buero" as const, taxRate: 1900 as const, net: 7_000, tax: 1_330, description: "" },
     ];
     const ohne = mit.map(({ description: _beschreibung, ...zeile }) => zeile);
     expect(splits.splitLines(mit)).toEqual(splits.splitLines(ohne));
@@ -83,15 +86,16 @@ describe.skipIf(!testDatabaseUrl)("Aufteilung mit Beschreibung (#1975, Postgres)
     return id;
   }
 
-  it("speichert die Beschreibung je Zeile, die Zeile ohne bleibt null, und bucht wie ohne Beschreibung", async () => {
+  it("speichert die Beschreibung je Zeile, die Zeile ohne bleibt leer, und bucht wie ohne Beschreibung", async () => {
     await reset();
     const id = await belegMitBeschreibung();
 
-    // Die Belegseite liest die Zeilen über getDocument (#1975: die Anzeige bekommt die Beschreibung mit)
+    // Die Belegseite liest die Zeilen über getDocument (#1975: der Lader gibt die Beschreibung mit, die Anzeige in
+    // -beleg-felder.ts lässt sie noch fallen — das ist Etappe B)
     const gelesen = (await documents.getDocument(id))!;
     expect(gelesen.splits.map(({ position, category, taxRate, net, tax, description }) => ({ position, category, taxRate, net, tax, description }))).toEqual([
       { position: 1, category: "software", taxRate: 1900, net: 10_000, tax: 1_900, description: "Lizenzen" },
-      { position: 2, category: "buero", taxRate: 1900, net: 7_000, tax: 1_330, description: null },
+      { position: 2, category: "buero", taxRate: 1900, net: 7_000, tax: 1_330, description: "" },
     ]);
 
     // Die Kontierungszeilen sind die von vorher: Kategorie, Satz, Netto, Steuer — keine Beschreibung
