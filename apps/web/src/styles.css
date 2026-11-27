@@ -1259,6 +1259,12 @@ fieldset.card > legend + * { clear: both; }
   .page-head .actions > .field { flex: 1 1 140px; }
   /* Ein Feld direkt im Kopf (Zeitraum, Jahr) nimmt wie die Aktionszeile die ganze Breite, statt halb breit am Rand zu stehen */
   .page-head > .field { align-self: stretch; }
+  /* Blättern in der Beleg-Ansicht: eine eigene Zeile, „Vorheriger“ links, die Position genau in der Mitte, „Nächster“ rechts;
+     mit dem Innenabstand eines Knopfs passten die drei bei 320 px nicht in die Zeile */
+  .page-head .actions > .doc-nav { flex: 1 1 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; }
+  .doc-nav > .btn { min-width: 0; padding-inline: 8px; }
+  .doc-nav > .btn:first-child { justify-self: start; }
+  .doc-nav > .btn:last-child { justify-self: end; }
   /* Belegeditor: Vorschau, Entwurf als PDF, Entwurf speichern und Festschreiben passen nicht in eine Zeile (#357);
      seitlich gescrollt verschwänden Speichern und Festschreiben. Dort zwei Zeilen zu je zwei Knöpfen */
   .page-head .editor-actions { flex-wrap: wrap; overflow: visible; }

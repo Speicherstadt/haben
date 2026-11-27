@@ -306,3 +306,24 @@ test("Spalten in /rechnungen, /belege, /dauerbelege bei 861 px ohne Überlappung
     expect(fehler, `${pfad} bei 861px ohne überlaufende Spaltenzellen`).toEqual([]);
   }
 });
+
+test("Beleg am Handy: Blättern in einer Zeile, Position mittig, nichts ragt aus dem Bild", async ({ page }) => {
+  const beleg = await firstLink(page, "/belege", /^\/belege\/[0-9a-f-]{36}$/);
+  for (const width of [320, 375]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto(beleg!);
+    const blaettern = page.getByRole("group", { name: "Zwischen Belegen wechseln" });
+    await expect(blaettern.getByRole("button", { name: /Nächster/ })).toBeVisible();
+    const [vor, position, weiter] = await Promise.all([
+      blaettern.getByRole("button", { name: /Vorheriger/ }).boundingBox(),
+      blaettern.getByText(/^\d+ von \d+$/).boundingBox(),
+      blaettern.getByRole("button", { name: /Nächster/ }).boundingBox(),
+    ]);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `Beleg bei ${width}px ohne Seitenüberlauf`).toBeLessThanOrEqual(1);
+    expect(weiter!.x + weiter!.width, `„Nächster“ bei ${width}px im Bild`).toBeLessThanOrEqual(width - 16 + 1);
+    // Eine Zeile: Zurück, Position und Weiter auf einer Höhe; die Position steht in der Mitte der Seite
+    expect(Math.abs(vor!.y - weiter!.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(position!.x + position!.width / 2 - width / 2), `Position bei ${width}px mittig`).toBeLessThanOrEqual(2);
+  }
+});
