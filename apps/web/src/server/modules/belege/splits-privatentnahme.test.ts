@@ -58,7 +58,9 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in einer Aufteilung (Postgres)
       values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '198/113/10010', 'BY', ${versteuerung}, ${kontenrahmen}, false, ${rechtsform})`;
   }
 
-  async function draft() {
+  async function draft(
+    options: { splits?: typeof SPLITS; amounts?: { taxRate: 1900; net: number; tax: number }[]; vorsteuerAnteil?: number | null } = {},
+  ) {
     fileSeq++;
     const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, fileSeq % 256, Math.floor(fileSeq / 256), 71]);
     const { id } = await documents.uploadDocument(actor, { bytes, filename: `privat-${fileSeq}.jpg` });
@@ -75,9 +77,10 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in einer Aufteilung (Postgres)
       reverseCharge: null,
       currency: "EUR",
       exchangeRate: null,
-      amounts: [{ taxRate: 1900, net: 4_213, tax: 801 }],
-      splits: SPLITS,
-    });
+      amounts: options.amounts ?? [{ taxRate: 1900, net: 4_213, tax: 801 }],
+      splits: options.splits ?? SPLITS,
+      ...(options.vorsteuerAnteil !== undefined ? { vorsteuerAnteil: options.vorsteuerAnteil } : {}),
+    } as Parameters<typeof documents.updateDocument>[2]);
     return id;
   }
 
@@ -159,6 +162,101 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in einer Aufteilung (Postgres)
       });
     }
   }
+
+  it("schlägt dem Lieferanten nicht privatentnahme als Kategorie vor (#1975)", async () => {
+    await reset("SKR03", "soll");
+    const internet = await draft({
+      splits: [
+        { category: "internet", taxRate: 1900, net: 3_000 },
+        { category: "privatentnahme", taxRate: 1900, net: 1_213 },
+      ] as typeof SPLITS,
+    });
+    await documents.bookDocument(actor, internet);
+    const telefon = await draft({
+      splits: [
+        { category: "telefon", taxRate: 1900, net: 3_000 },
+        { category: "privatentnahme", taxRate: 1900, net: 1_213 },
+      ] as typeof SPLITS,
+    });
+    await documents.bookDocument(actor, telefon);
+    const { supplierCategory } = await import("./vorschlaege.ts");
+    const vorschlag = await supplierCategory({ supplierName: "Telekom Deutschland GmbH", supplierUstId: "", supplierContactId: null });
+    expect(vorschlag?.category).not.toBe("privatentnahme");
+  });
+
+  it("Teilabzug nach § 15 Abs. 4 UStG: Kz 66 aus Journal und Nebenbuch gleich (#1975)", async () => {
+    // 100,00 € netto, 19,00 € Steuer, 25,00 € netto privat, 50 % abziehbar: betrieblich 14,25 € Steuer, davon 7,13 €
+    await reset("SKR03", "soll");
+    const id = await draft({
+      amounts: [{ taxRate: 1900, net: 10_000, tax: 1_900 }],
+      splits: [
+        { category: "telefon", taxRate: 1900, net: 7_500 },
+        { category: "privatentnahme", taxRate: 1900, net: 2_500 },
+      ] as typeof SPLITS,
+      vorsteuerAnteil: 5_000,
+    });
+    await documents.bookDocument(actor, id);
+    const journal = await entryLines(id);
+    const kennzahlen = kennzahlenAusJournal("SKR03", "soll", [
+      journal.map((l) => ({ account: l.account as string, debit: l.debit as number, credit: l.credit as number, taxCode: l.tax_code as string | null })),
+    ]);
+    const september = await vat.computeVatFigures({ year: 2026, month: 9 });
+    // Kz 66 kommt aus dem Journal, die Erläuterung (inputTax) aus dem Nebenbuch: beide müssen dieselbe Vorsteuer tragen
+    expect({ journal: kennzahlen.kz66, kz66: september.kz66, erlaeuterung: sum(september.inputTax.map((z) => z.tax)) }).toEqual({
+      journal: 713,
+      kz66: 713,
+      erlaeuterung: 713,
+    });
+  });
+
+  it("Teilzahlung: EÜR aus dem Journal wie aus den Zahlungen (#1975)", async () => {
+    await reset("SKR03", "ist");
+    const id = await draft();
+    await documents.bookDocument(actor, id);
+    await bank.importStatement(
+      actor,
+      {
+        bytes: dkbCsv([["20.09.26", "20.09.26", "Gebucht", "Testfirma", "Telekom", "TK", "Ausgang", "DE02100100100006820101", "-30,00", "", "", ""]]),
+        filename: `konto-teil-${fileSeq}.csv`,
+      },
+      null,
+    );
+    const [transaction] = await sql`select id, amount from bank_transactions order by booking_date`;
+    await bank.allocate(actor, { kind: "document", transactionId: transaction!.id as string, documentId: id, amount: transaction!.amount as number });
+    const euer = await reports.euerForYear(2026);
+    const { euerAusJournal } = await import("../auswertungen/euer-journal.ts");
+    const ausJournal = (await euerAusJournal(2026)).summe.zeilen;
+    expect({ vorsteuer: ausJournal.vorsteuer ?? 0, internet: ausJournal["ausgabe:internet"] ?? 0, telefon: ausJournal["ausgabe:telefon"] ?? 0 }).toEqual({
+      vorsteuer: ausgabe(euer, "vorsteuer"),
+      internet: ausgabe(euer, "ausgabe:internet"),
+      telefon: ausgabe(euer, "ausgabe:telefon"),
+    });
+    expect((await abgleich.euerAbgleich(2026)).zeilen.filter((z) => z.journal !== z.quelle)).toEqual([]);
+  });
+
+  it("Gutschrift mit Entnahmezeile: Kz 66 aus Journal und Erläuterung gleich (#1975)", async () => {
+    await reset("SKR04", "ist");
+    const id = await draft({
+      amounts: [{ taxRate: 1900, net: -4_213, tax: -801 }],
+      splits: SPLITS.map((z) => ({ ...z, net: -z.net })),
+    });
+    await documents.bookDocument(actor, id);
+    const journal = await entryLines(id);
+    expect(journal.find((l) => l.account === KONTEN.SKR04.vorsteuer)).toMatchObject({ debit: 0, credit: 576 });
+    expect(journal.find((l) => l.account === KONTEN.SKR04.entnahme)).toMatchObject({ debit: 0, credit: 1_406 });
+    const september = await vat.computeVatFigures({ year: 2026, month: 9 });
+    expect({ kz66: september.kz66, erlaeuterung: sum(september.inputTax.map((z) => z.tax)) }).toEqual({ kz66: -576, erlaeuterung: -576 });
+  });
+
+  it("bucht einen Beleg mit Kategorie privatentnahme nicht (wie ihn der Lieferantenvorschlag beim Auslesen setzt) (#1975)", async () => {
+    await reset("SKR03", "soll");
+    const id = await draft({ splits: [] });
+    // applyFields schreibt die vorgeschlagene Kategorie ohne Zod-Prüfung in den Beleg
+    await sql`update documents set category = 'privatentnahme' where id = ${id}`;
+    await documents.bookDocument(actor, id).catch(() => undefined);
+    const lines = await entryLines(id);
+    expect(lines.filter((l) => l.account === KONTEN.SKR03.vorsteuer)).toEqual([]);
+  });
 
   it("weist die Entnahme in einer GmbH ab (#1975)", async () => {
     await reset("SKR03", "ist", "gmbh");
