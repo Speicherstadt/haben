@@ -474,9 +474,7 @@ Eine **Spende** vom Geschäftskonto ist im Einzelunternehmen keine Betriebsausga
 
 Die drei Lohnzahlungen bezahlen, was eine festgeschriebene [Lohnabrechnung](lohn.md#buchung) als Verbindlichkeit gebucht hat, und höchstens so viel, wie auf dem Konto noch offen ist; ohne festgeschriebene Abrechnung lehnt Haben sie ab. Ein Eingang (Rückzahlung, Erstattung) geht nur, soweit das Konto überzahlt ist. Lohnsteuer, Soli und Kirchensteuer überweist du gemeinsam als „Lohnsteuer an das Finanzamt“, im Minijob die Pauschsteuer mit den Beiträgen an die Minijob-Zentrale. Eine Lastschrift des Finanzamts über genau den Gesamtbetrag (Kz 83) einer übermittelten [Lohnsteuer-Anmeldung](lohn.md#lohnsteuer-anmeldung) schlägt Haben als „Lohnsteuer an das Finanzamt“ vor. Im Einzelunternehmen zählen sie in der EÜR am Tag der Zahlung als Ausgaben für Personal.
 
-Im Journal steht als Buchungstext die Gegenseite mit der Art in Kurzform, etwa „Finanzamt Regensburg · USt-Vorauszahlung“ oder in GmbH und UG „Max Muster · Gesellschafter (Verrechnungskonto)“, wie im [Jahresarchiv](archiv.md). Bis Version 0.14 stand dort der interne Name der Art, etwa „ustVorauszahlung“; gebuchte Texte bleiben, wie sie sind.
-
-Als Buchungstext steht im Journal die Gegenseite mit der Art in Kurzform, wie im [Jahresarchiv](auswertungen.md#jahresexport): etwa „Finanzamt Regensburg · USt-Vorauszahlung“, in GmbH und UG „Max Muster · Gesellschafter (Verrechnungskonto)“. Bis Version 0.14 stand dort der interne Name der Art, etwa „ustVorauszahlung“; gebuchte Texte bleiben so.
+Als Buchungstext steht im Journal die Gegenseite mit der Art in Kurzform, etwa „Finanzamt Regensburg · USt-Vorauszahlung“, in GmbH und UG „Max Muster · Gesellschafter (Verrechnungskonto)“. Bis Version 0.14 stand dort der interne Name der Art, etwa „ustVorauszahlung“; gebuchte Texte bleiben so.
 
 Für Ausgaben mit Rechnung gilt: erst den Beleg unter [Belege](belege.md) hochladen und buchen, dann hier zuordnen. Direkt gebuchte Ausgaben haben keine Vorsteuer.
 
