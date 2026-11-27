@@ -15,6 +15,7 @@ describe.skipIf(!testDatabaseUrl)("Stripe-Zugang prüfen mit Metadaten ohne Lese
   let darf = false;
   let stoerung: Error | null = null;
   let gefragt = 0;
+  let ausfall: Error | null = null;
   const actor = "test-user";
 
   beforeAll(async () => {
@@ -23,7 +24,10 @@ describe.skipIf(!testDatabaseUrl)("Stripe-Zugang prüfen mit Metadaten ohne Lese
     psp.setStripeClientFactory(
       () =>
         ({
-          accountId: async () => "acct_rechte",
+          accountId: async () => {
+            if (ausfall) throw ausfall;
+            return "acct_rechte";
+          },
           darfZahlungenLesen: async () => {
             gefragt++;
             if (stoerung) throw stoerung;
@@ -82,5 +86,19 @@ describe.skipIf(!testDatabaseUrl)("Stripe-Zugang prüfen mit Metadaten ohne Lese
     const umbenannt = await psp.speichereVerbindung(actor, { ...verbindung, name: "Shop", id, config: { metadataKeys: "invoice_number" } });
     expect(umbenannt.hinweise).toEqual([]);
     expect(gefragt).toBe(0);
+  });
+
+  it("speichert geänderte Einstellungen auch, wenn Stripe gerade nicht erreichbar ist, und sagt, dass nicht geprüft wurde", async () => {
+    // Die Verbindung aus dem Fall davor, mit gewählten Schlüsseln
+    const { id } = (await psp.verbindungenUebersicht()).verbindungen[0]!;
+    const verbindung = { provider: "stripe", name: "Shop", fetchFrom: "2026-11-01" };
+    ausfall = new Error("fetch failed");
+    const ergebnis = await psp.speichereVerbindung(actor, { ...verbindung, id, config: {} });
+    ausfall = null;
+    expect(ergebnis.hinweise).toHaveLength(1);
+    expect(ergebnis.hinweise[0]).toContain("ließ sich nicht prüfen");
+    expect(ergebnis.hinweise[0]).toContain("fetch failed");
+    const [gespeichert] = await sql`select config from psp_connections where id = ${id}`;
+    expect(gespeichert!.config).toEqual({});
   });
 });

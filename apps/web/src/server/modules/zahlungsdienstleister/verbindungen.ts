@@ -211,9 +211,9 @@ export async function speichereVerbindung(actor: string, input: z.input<typeof v
   const neuerZugang = adapter.zugangAusEingabe(data.eingabe, config, existing ? { zugang: existing.zugang, config: existing.config } : null);
   const zugang = neuerZugang ?? existing!.zugang;
   const pruefung = neuerZugang ? await adapter.pruefen(neuerZugang, config) : null;
-  // Geänderte Einstellungen ohne neuen Zugang: mit dem gespeicherten geprüft, nur für die Hinweise
-  const configPruefung = !pruefung && !gleicheConfig(existing!.config, config) ? await adapter.pruefen(zugang, config) : null;
-  const hinweise = (pruefung ?? configPruefung)?.hinweise ?? [];
+  // Geänderte Einstellungen ohne neuen Zugang: Hinweise mit dem gespeicherten
+  const configGeaendert = !pruefung && !gleicheConfig(existing!.config, config);
+  const hinweise = configGeaendert ? await configHinweise(adapter, zugang, config) : (pruefung?.hinweise ?? []);
   const accountId = pruefung?.accountId ?? existing!.row.accountId;
   await kontoBeimAnbieterFrei(adapter, accountId, id);
   // Schreibt der Abruf schon in ein Konto, bleibt es dabei: „Automatisch“ nimmt es, eine andere Wahl wird abgelehnt
@@ -260,6 +260,18 @@ export async function speichereVerbindung(actor: string, input: z.input<typeof v
     return neu!.id;
   });
   return { id: gespeichert, hinweise };
+}
+
+/**
+ * Hinweise zu geänderten Einstellungen mit dem gespeicherten Zugang. Nur Hinweise: Lehnt der Anbieter ab oder ist er nicht
+ * erreichbar, speichert „Bearbeiten“ trotzdem und sagt, dass nicht geprüft wurde; der nächste Abruf meldet den Fehler.
+ */
+async function configHinweise(adapter: PspAdapter, zugang: unknown, config: unknown): Promise<string[]> {
+  try {
+    return (await adapter.pruefen(zugang, config)).hinweise ?? [];
+  } catch (error) {
+    return [`Ob der gespeicherte Zugang zu den Einstellungen passt, ließ sich nicht prüfen (${error instanceof Error ? error.message : String(error)}).`];
+  }
 }
 
 /** Gleiche Einstellungen, unabhängig von der Reihenfolge der Schlüssel (jsonb ordnet sie anders als das Schema) */
