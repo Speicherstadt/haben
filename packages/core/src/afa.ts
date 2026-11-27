@@ -65,7 +65,12 @@ export const ASSET_ACCOUNTS = {
     sonderAfaKfz: "4852",
     afaGwg: "4855",
     afaSammelposten: "4862",
+    // DATEV 2026: Anlagenabgänge Sachanlagen, Restbuchwert bei Buchverlust (2310) bzw. Buchgewinn (2315); ohne Erlös
+    // (Verschrottung, Verkauf per Rechnung) bucht Haben 2310, bei einer Entnahme entscheidet der Entnahmewert (afa-entnahme.ts)
     restbuchwert: "2310",
+    restbuchwertGewinn: "2315",
+    // Entnahme (#1970): „Erlöse aus Verkäufen Sachanlagevermögen“ mit bzw. ohne 19 % USt, bei Buchgewinn bzw. Buchverlust
+    entnahme: { mitUstGewinn: "8820", mitUstVerlust: "8801", ohneUstGewinn: "8829", ohneUstVerlust: "8800" },
   },
   SKR04: {
     // DATEV-Kontenrahmen SKR04 2026: 0560 „Sonstige Transportmittel“ neben 0520 Pkw und 0540 Lkw
@@ -79,6 +84,8 @@ export const ASSET_ACCOUNTS = {
     afaGwg: "6260",
     afaSammelposten: "6264",
     restbuchwert: "6895",
+    restbuchwertGewinn: "4855",
+    entnahme: { mitUstGewinn: "4845", mitUstVerlust: "6885", ohneUstGewinn: "4849", ohneUstVerlust: "6889" },
   },
 } as const;
 
@@ -90,13 +97,18 @@ export const ASSET_ACCOUNT_NAMES: Record<Kontenrahmen, Record<string, string>> =
     "0480": "Geringwertige Wirtschaftsgüter",
     "0485": "Wirtschaftsgüter Sammelposten",
     "0490": "Sonstige Betriebs- und Geschäftsausstattung",
-    "2310": "Anlagenabgänge Sachanlagen (Restbuchwert)",
+    "2310": "Anlagenabgänge Sachanlagen (Restbuchwert bei Buchverlust)",
+    "2315": "Anlagenabgänge Sachanlagen (Restbuchwert bei Buchgewinn)",
     "4830": "Abschreibungen auf Sachanlagen",
     "4832": "Abschreibungen auf Kfz",
     "4851": "Sonderabschreibungen nach § 7g EStG",
     "4852": "Sonderabschreibungen auf Kfz nach § 7g EStG",
     "4855": "Sofortabschreibung geringwertiger Wirtschaftsgüter",
     "4862": "Abschreibungen auf den Sammelposten",
+    "8800": "Erlöse aus Verkäufen Sachanlagevermögen (bei Buchverlust)",
+    "8801": "Erlöse aus Verkäufen Sachanlagevermögen 19 % USt (bei Buchverlust)",
+    "8820": "Erlöse aus Verkäufen Sachanlagevermögen 19 % USt (bei Buchgewinn)",
+    "8829": "Erlöse aus Verkäufen Sachanlagevermögen (bei Buchgewinn)",
   },
   SKR04: {
     "0520": "Pkw",
@@ -105,13 +117,18 @@ export const ASSET_ACCOUNT_NAMES: Record<Kontenrahmen, Record<string, string>> =
     "0670": "Geringwertige Wirtschaftsgüter",
     "0675": "Wirtschaftsgüter Sammelposten",
     "0690": "Sonstige Betriebs- und Geschäftsausstattung",
+    "4845": "Erlöse aus Verkäufen Sachanlagevermögen 19 % USt (bei Buchgewinn)",
+    "4849": "Erlöse aus Verkäufen Sachanlagevermögen (bei Buchgewinn)",
+    "4855": "Anlagenabgänge Sachanlagen (Restbuchwert bei Buchgewinn)",
     "6220": "Abschreibungen auf Sachanlagen",
     "6222": "Abschreibungen auf Kfz",
     "6241": "Sonderabschreibungen nach § 7g EStG",
     "6242": "Sonderabschreibungen auf Kfz nach § 7g EStG",
     "6260": "Sofortabschreibung geringwertiger Wirtschaftsgüter",
     "6264": "Abschreibungen auf den Sammelposten",
-    "6895": "Anlagenabgänge Sachanlagen (Restbuchwert)",
+    "6885": "Erlöse aus Verkäufen Sachanlagevermögen 19 % USt (bei Buchverlust)",
+    "6889": "Erlöse aus Verkäufen Sachanlagevermögen (bei Buchverlust)",
+    "6895": "Anlagenabgänge Sachanlagen (Restbuchwert bei Buchverlust)",
   },
 };
 

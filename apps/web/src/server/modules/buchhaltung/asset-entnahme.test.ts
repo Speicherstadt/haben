@@ -36,7 +36,8 @@ describe.skipIf(!testDatabaseUrl)("Entnahme einer Anlage (Postgres)", () => {
 
   beforeEach(async () => {
     await leeren(sql)`truncate asset_depreciations, assets, allocations, bank_transactions, bank_imports, bank_accounts,
-      journal_lines, journal_entries, document_amounts, documents, company cascade`;
+      journal_lines, journal_entries, document_amounts, documents, company, seals, audit_log, audit_chain cascade`;
+    await sql`insert into audit_chain (id, seq, hash) values (1, 0, haben_audit_genesis())`;
   });
 
   // Kamera, linear über 4 Jahre ab Januar 2024, zum 01.01.2026 übernommen: 24 Restmonate zu 50 €
@@ -107,9 +108,7 @@ describe.skipIf(!testDatabaseUrl)("Entnahme einer Anlage (Postgres)", () => {
     await expect(
       assets.updateAsset(actor, asset.id, { name: "Kamera", disposalDate: "2027-03-20", disposalWithdrawal: { value: 90_000, inputVat: true } }),
     ).rejects.toThrow("schon gebucht");
-    await expect(sql`update assets set disposal_withdrawal = '{"value": 1, "inputVat": false}'::jsonb where id = ${asset.id}`).rejects.toThrow(
-      "Abgang",
-    );
+    await expect(sql`update assets set disposal_withdrawal = '{"value": 1, "inputVat": false}'::jsonb where id = ${asset.id}`).rejects.toThrow("Abgang");
     await expect(sql`update assets set disposal_date = '2027-04-30' where id = ${asset.id}`).rejects.toThrow("Abgang");
     await sql`update assets set note = 'privat' where id = ${asset.id}`;
   });
@@ -118,6 +117,7 @@ describe.skipIf(!testDatabaseUrl)("Entnahme einer Anlage (Postgres)", () => {
     await firma("SKR04", "soll", true);
     const asset = await assets.createAsset(actor, { ...kamera, disposalDate: "2026-10-15", disposalWithdrawal: { value: 30_000, inputVat: true } });
 
+    // Der Stand als Kleinunternehmer im Monat der Entnahme kommt aus dem Audit-Log der Firmendaten (deshalb oben geleert)
     const oktober = await figures.computeVatFigures({ year: 2026, month: 10 });
     expect(oktober).toMatchObject({ kz81: 0, tax81: 0, kz48: 30_000, kz48Kleinunternehmer: 30_000 });
     // Umsätze von Anlagevermögen bleiben im Gesamtumsatz außer Ansatz, auch bei einer Entnahme (UStAE 19.2 Abs. 4)
@@ -126,14 +126,8 @@ describe.skipIf(!testDatabaseUrl)("Entnahme einer Anlage (Postgres)", () => {
 
     await assets.bookDepreciation(actor, 2026, "2026-12-05");
     // AfA Januar bis Oktober 500 €, Restbuchwert 700 € über dem Entnahmewert
-    expect((await linesOf(asset.id, "2026-10-01")).map((l) => [l.account, l.debit, l.credit])).toEqual([
-      ["6895", 70_000, 0],
-      ["6220", 50_000, 0],
-      ["0690", 0, 70_000],
-      ["0690", 0, 50_000],
-      ["2100", 30_000, 0],
-      ["6889", 0, 30_000],
-    ]);
+    const lines = (await linesOf(asset.id, "2026-10-01")).map((l) => `${l.account} ${l.debit} ${l.credit}`);
+    expect(lines.sort()).toEqual(["0690 0 50000", "0690 0 70000", "2100 30000 0", "6220 50000 0", "6889 0 30000", "6895 70000 0"]);
     const euer = await reports.euerForYear(2026);
     expect([zeile(euer, "anlagenabgang"), zeile(euer, "ustEntnahmen"), zeile(euer, "restbuchwert")]).toEqual([30_000, 0, 70_000]);
     expect(abgleich.abweichungen((await abgleich.euerAbgleich(2026)).zeilen)).toEqual([]);

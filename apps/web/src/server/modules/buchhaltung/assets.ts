@@ -21,6 +21,7 @@ import { withActor } from "../../db/actor.ts";
 // Für Aufrufer, die das Buchen hier suchen (Tests); gebucht wird in assets-buchen.ts
 export { bookDepreciation } from "./assets-buchen.ts";
 import { elektroIssues, methodValues, switchToLinearProblem } from "./asset-methoden.ts";
+import { documentInputVat, sameWithdrawal, withdrawalForYear, withdrawalProblem } from "./asset-entnahme.ts";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 
 import type { AssetInput, assetUpdateSchema } from "./asset-schema.ts";
@@ -81,14 +82,17 @@ function privateUseForYear(asset: Asset, year: number, kleinunternehmer: Kleinun
   };
 }
 
-/** Was im Jahr zu buchen ist: AfA laut Plan und Privatnutzung */
-export function yearPlan(asset: Asset, year: number, kleinunternehmer?: KleinunternehmerInMonth, tax = false) {
+/** Was im Jahr zu buchen ist: AfA laut Plan, Privatnutzung und Entnahme der Anlage */
+export function yearPlan(asset: Asset, year: number, kleinunternehmer: KleinunternehmerInMonth = () => false, tax = false) {
   const row = scheduleOf(asset, year, tax).find((r) => r.year === year) ?? null;
   const privateUse = privateUseForYear(asset, year, kleinunternehmer);
+  const withdrawal = withdrawalForYear(asset, year, kleinunternehmer);
   const hasWork = Boolean(
-    (row && (row.depreciation !== 0 || (row.specialDepreciation ?? 0) !== 0 || row.disposal !== 0)) || (privateUse && privateUse.withdrawal !== 0),
+    (row && (row.depreciation !== 0 || (row.specialDepreciation ?? 0) !== 0 || row.disposal !== 0)) ||
+      (privateUse && privateUse.withdrawal !== 0) ||
+      (withdrawal && withdrawal.value !== 0),
   );
-  return { row, privateUse, hasWork };
+  return { row, privateUse, withdrawal, hasWork };
 }
 
 async function bookedYears(ids: string[], q: Db | Tx = db): Promise<Map<string, number[]>> {
@@ -143,6 +147,7 @@ export async function getAsset(id: string) {
     asset,
     schedule: scheduleOf(asset, currentYear(), !isKapitalgesellschaft((await loadCompany()).rechtsform)),
     bookedYears: booked.sort((a, b) => a - b),
+    documentInputVat: asset.documentId ? await documentInputVat(asset.documentId) : null,
   };
 }
 
@@ -159,8 +164,11 @@ export async function insertAsset(tx: Tx, input: AssetInput): Promise<Asset> {
     ...input,
     ...methodValues(input.method, input),
     privateUse: privateUseValue(input.kind, input.privateUse ?? null, company),
+    disposalWithdrawal: input.disposalWithdrawal ?? null,
     account: assetAccount(input.kind, input.method, company.kontenrahmen),
   };
+  const withdrawal = withdrawalProblem({ disposalDate: input.disposalDate, disposalWithdrawal: values.disposalWithdrawal }, company.rechtsform);
+  if (withdrawal) throw new AssetUserError(withdrawal);
   const issues = [...assetIssues(scheduleInput({ ...values, openingEntryId: null } as Asset)), ...elektroIssues(values, company.rechtsform)];
   if (issues.length > 0) throw new AssetUserError(`${issues.join(", ")}.`);
   const [created] = await tx.insert(schema.assets).values(values).returning();
@@ -187,15 +195,9 @@ export async function updateAsset(actor: string, id: string, input: z.infer<type
       name: input.name,
       note: input.note ?? asset.note,
     };
-    if (input.disposalDate !== undefined) {
-      if (lastBooked !== null && input.disposalDate !== asset.disposalDate) {
-        const changedYear = Math.min(...[input.disposalDate, asset.disposalDate].filter((d): d is string => d !== null).map((d) => Number(d.slice(0, 4))));
-        if (changedYear <= lastBooked) {
-          throw new AssetUserError(`Für ${lastBooked} ist die AfA schon gebucht; der Abgang kann nur in einem späteren Jahr liegen.`);
-        }
-      }
-      next.disposalDate = input.disposalDate;
-    }
+    applyDisposal(next, input, lastBooked);
+    const withdrawal = withdrawalProblem(next, company.rechtsform);
+    if (withdrawal) throw new AssetUserError(withdrawal);
 
     if (!booked) {
       // Grundlagen: bei Belegen stehen Art, Methode, Datum und Kosten durch die Belegbuchung fest
@@ -261,6 +263,22 @@ export async function updateAsset(actor: string, id: string, input: z.infer<type
       .returning();
     return updated!;
   });
+}
+
+/**
+ * Abgang mit Datum und Entnahme: nur in ein Jahr, für das noch keine AfA gebucht ist (der Trigger haben_reject_booked_asset
+ * prüft dasselbe). Ohne Abgangsdatum fällt die Entnahme weg.
+ */
+function applyDisposal(next: Asset, input: z.infer<typeof assetUpdateSchema>, lastBooked: number | null): void {
+  const date = input.disposalDate !== undefined ? input.disposalDate : next.disposalDate;
+  const withdrawal = date === null ? null : input.disposalWithdrawal !== undefined ? input.disposalWithdrawal : next.disposalWithdrawal;
+  const changed = date !== next.disposalDate || !sameWithdrawal(withdrawal, next.disposalWithdrawal);
+  if (changed && lastBooked !== null) {
+    const changedYear = Math.min(...[date, next.disposalDate].filter((d): d is string => d !== null).map((d) => Number(d.slice(0, 4))));
+    if (changedYear <= lastBooked) throw new AssetUserError(`Für ${lastBooked} ist die AfA schon gebucht; der Abgang kann nur in einem späteren Jahr liegen.`);
+  }
+  next.disposalDate = date;
+  next.disposalWithdrawal = withdrawal;
 }
 
 function samePrivateUse(a: CarPrivateUse | null, b: CarPrivateUse | null): boolean {
@@ -334,16 +352,17 @@ export async function pendingDepreciation(today: string): Promise<{ year: number
   return result;
 }
 
-/** Private Kfz-Nutzung eines Jahres für die EÜR */
+/** Private Kfz-Nutzung und entnommene Anlagen eines Jahres für die EÜR, je mit der Umsatzsteuer darauf */
 export async function withdrawalsForEuer(year: number, q: Db | Tx = db): Promise<EuerWithdrawals> {
   const assets = await q.select().from(schema.assets);
-  const result: EuerWithdrawals = { privateKfz: 0, ustEntnahmen: 0 };
+  const result: EuerWithdrawals = { privateKfz: 0, anlagenabgang: 0, ustEntnahmen: 0 };
   const kleinunternehmer = await kleinunternehmerInYear(year, q);
   for (const asset of assets) {
     const use = privateUseForYear(asset, year, kleinunternehmer);
-    if (!use) continue;
-    result.privateKfz += use.withdrawal;
-    result.ustEntnahmen += use.vat;
+    const withdrawal = withdrawalForYear(asset, year, kleinunternehmer);
+    result.privateKfz += use?.withdrawal ?? 0;
+    result.anlagenabgang += withdrawal?.value ?? 0;
+    result.ustEntnahmen += (use?.vat ?? 0) + (withdrawal?.umsatz.vat ?? 0);
   }
   return result;
 }

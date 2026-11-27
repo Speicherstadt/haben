@@ -2367,6 +2367,20 @@
       "when": 1795773643421,
       "tag": "0337_dauerbeleg_kleinbetrag",
       "breakpoints": true
+    },
+    {
+      "idx": 338,
+      "version": "7",
+      "when": 1795807051685,
+      "tag": "0338_entnahme_anlage",
+      "breakpoints": true
+    },
+    {
+      "idx": 339,
+      "version": "7",
+      "when": 1795807053293,
+      "tag": "0339_entnahme_anlage_trigger",
+      "breakpoints": true
     }
   ]
 }

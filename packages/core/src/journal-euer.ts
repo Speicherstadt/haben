@@ -1,4 +1,5 @@
 import { ASSET_ACCOUNTS } from "./afa.ts";
+import { istEntnahmeKonto } from "./afa-entnahme.ts";
 import { DARLEHEN_KONTEN } from "./darlehen.ts";
 import type { EuerLineKey } from "./euer.ts";
 import type { JournalZeile } from "./journal-kennzahlen.ts";
@@ -38,6 +39,7 @@ const EINNAHMEN: ReadonlySet<EuerLineKey> = new Set<EuerLineKey>([
   "einnahmenKleinunternehmer",
   "einnahmenSteuerpflichtig",
   "einnahmenSteuerfrei",
+  "anlagenabgang",
   "privateKfz",
   "sachentnahmen",
   "ustEntnahmen",
@@ -104,7 +106,10 @@ export function euerZuordnung(kontenrahmen: Kontenrahmen, account: string, herku
   if (account === anlage.sonderAfa || account === anlage.sonderAfaKfz) return "sonderAfa";
   if (account === anlage.afaGwg) return "gwg";
   if (account === anlage.afaSammelposten) return "sammelposten";
-  if (account === anlage.restbuchwert) return "restbuchwert";
+  if (account === anlage.restbuchwert || account === anlage.restbuchwertGewinn) return "restbuchwert";
+  // Entnahme einer Anlage (#1970): Zeile 19 „Veräußerung oder Entnahme von Anlagevermögen“ (Anleitung zur EÜR 2025), nur
+  // aus dem Anlagenverzeichnis; Verkaufserlöse auf diesen Konten ordnet #2022 zu
+  if (herkunft === "asset" && istEntnahmeKonto(kontenrahmen, account)) return "anlagenabgang";
   // Steuerzahlungen und Nebenleistungen
   if (abziehbareNebenleistungen(kontenrahmen).includes(account)) return "steuerNebenleistungen";
   if (account === steuer.gewst || account === steuer.gewstVorjahre || nichtAbziehbareNebenleistungen(kontenrahmen).includes(account)) return "nichtAbziehbar";
