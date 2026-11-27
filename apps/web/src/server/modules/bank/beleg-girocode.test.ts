@@ -271,6 +271,28 @@ describe.skipIf(!testDatabaseUrl)("GiroCode am Beleg (Postgres, #1967)", () => {
       problemImKontakt: false,
       varianten: [],
     });
+    // E-Rechnung mit ungültiger IBAN (BT-84), am Beleg bestätigt: Der Fehler steckt in der E-Rechnung, der Kontakt hilft nicht
+    const falsch = "DE00120300000000202051";
+    const xml = new TextDecoder().decode(einvoice()).replace("DE02 1203 0000 0000 2020 51", falsch);
+    const { id: ungültig } = await documents.uploadDocument(actor, { bytes: new TextEncoder().encode(xml), filename: "RE-2026-0817.xml" });
+    await documents.updateDocument(actor, ungültig, {
+      supplierName: "Netzwerk Hosting GmbH",
+      supplierUstId: "DE987654321",
+      invoiceNumber: "RE-2026/0817",
+      documentDate: "2026-09-15",
+      dueDate: "2026-09-29",
+      category: "software",
+      payment: "bank",
+      note: "",
+      amounts: [{ taxRate: 1900, net: 18_120, tax: 3_443 }],
+    });
+    await documents.bookDocument(actor, ungültig);
+    await bank.decideDocumentIban(actor, ungültig, { wahl: "e-rechnung", kontaktIban: null, rechnungsIban: falsch });
+    expect(await bank.belegGirocode(ungültig, "2026-09-16")).toMatchObject({
+      problem: `IBAN ${falsch} ist ungültig (E-Rechnung)`,
+      problemImKontakt: false,
+      varianten: [],
+    });
   }, 60_000);
 
   it("kein Bereich für bezahlte, privat bezahlte, ungebuchte und stornierte Belege", async () => {
