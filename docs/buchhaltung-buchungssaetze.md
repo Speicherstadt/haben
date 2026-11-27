@@ -59,7 +59,7 @@ Bei Ist-Versteuerung kommt die Umbuchung des Steueranteils dazu:
 | 1766 / 1761 USt nicht fällig | 3816 / 3811 USt nicht fällig | Steueranteil je Satz | |
 | 1776 / 1771 Umsatzsteuer | 3806 / 3801 Umsatzsteuer | | Steueranteil je Satz |
 
-Der Steueranteil ist Zahlbetrag mal Steuer durch Bruttobetrag der Rechnung, je Satz gerundet; ein Rundungsrest geht auf den Satz mit der größten Bemessungsgrundlage. Bezahlt ein Kunde in Raten, wird jede Rate so gebucht.
+Der Steueranteil ist Zahlbetrag mal Steuer durch Bruttobetrag der Rechnung, je Satz gerundet; ein Steuer-Rundungsrest geht auf den steuerpflichtigen Satz mit dem größten Steuerbetrag (nie auf einen 0-%-Posten). Bezahlt ein Kunde in Raten, wird jede Rate so gebucht.
 
 ## Beleg buchen
 
