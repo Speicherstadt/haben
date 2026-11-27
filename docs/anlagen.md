@@ -146,14 +146,51 @@ Die Buchungen sind wie alle anderen sofort festgeschrieben. Danach sind die Bere
 
 ## Abgang
 
-Wird eine Anlage verkauft, entnommen oder verschrottet, trägst du auf der Seite der Anlage unter **Abgang (Verkauf, Entnahme, Verschrottung)** das Datum ein. Haben schreibt bis einschließlich des Abgangsmonats ab und bucht den verbleibenden Buchwert als Aufwand:
+Wird eine Anlage verkauft, entnommen oder verschrottet, trägst du auf der Seite der Anlage unter **Abgang** das Datum ein. Haben schreibt bis einschließlich des Abgangsmonats ab und bucht den verbleibenden Buchwert als Aufwand:
 
 ```
-4832 Abschreibungen auf Kfz              1.500,00   an  0320 Pkw   1.500,00
-2310 Anlagenabgänge (Restbuchwert)      16.500,00   an  0320 Pkw  16.500,00
+4832 Abschreibungen auf Kfz                    1.500,00   an  0320 Pkw   1.500,00
+2310 Anlagenabgänge Sachanlagen
+     (Restbuchwert bei Buchverlust)           16.500,00   an  0320 Pkw  16.500,00
 ```
 
-Den Verkaufserlös stellst du als normale [Rechnung](rechnungen.md) mit Umsatzsteuer. Er zählt in der EÜR als Einnahme. Der Abgang lässt sich nur in ein Jahr legen, für das die AfA noch nicht gebucht ist.
+Den Verkaufserlös stellst du als normale [Rechnung](rechnungen.md) mit Umsatzsteuer. Er zählt in der EÜR als Einnahme. Der Abgang lässt sich nur in ein Jahr legen, für das die AfA noch nicht gebucht ist; ist sie gebucht, sind Datum und Entnahme gesperrt, auch in der Datenbank.
+
+### Entnahme
+
+Nur im Einzelunternehmen; in GmbH und UG wäre es eine verdeckte Gewinnausschüttung, die Haben nicht abbildet. Nimmst du eine Anlage ins Privatvermögen, wählst du unter **Art des Abgangs** „Entnahme ins Privatvermögen“ und trägst ein:
+
+| Feld | Bedeutung |
+|---|---|
+| Entnahmewert netto | Was der Gegenstand zum Zeitpunkt der Entnahme im Einkauf kosten würde ([§ 10 Abs. 4 Satz 1 Nr. 1 UStG](https://www.gesetze-im-internet.de/ustg_1980/__10.html), UStAE 10.6 Abs. 1). Für die EÜR gilt der Teilwert ([§ 6 Abs. 1 Nr. 4 Satz 1 EStG](https://www.gesetze-im-internet.de/estg/__6.html)), bei gebrauchten beweglichen Gegenständen in der Regel derselbe Betrag. |
+| Beim Kauf Vorsteuer gezogen | Vorbelegt aus dem Anschaffungsbeleg, bei übernommenen Anlagen aus. |
+
+Die **Umsatzsteuer** fällt im Monat der Entnahme an, bei Ist- und Soll-Versteuerung gleich:
+
+| Beim Kauf | Voranmeldung |
+|---|---|
+| mit Vorsteuer, regelbesteuert | 19 % auf den Entnahmewert in Kz 81 ([§ 3 Abs. 1b Satz 1 Nr. 1 UStG](https://www.gesetze-im-internet.de/ustg_1980/__3.html)) |
+| mit Vorsteuer, als Kleinunternehmer (vor dem Wechsel gekauft) | Entnahmewert in Kz 48, steuerfrei nach § 19 Abs. 1 UStG; im [Gesamtumsatz](auswertungen.md#gesamtumsatz-nach--19-ustg) zählt er nicht (UStAE 19.2 Abs. 4) |
+| ohne Vorsteuer | nicht steuerbar (§ 3 Abs. 1b Satz 2 UStG), keine Kennzahl |
+
+In der **EÜR** steht der Entnahmewert als „Veräußerung oder Entnahme von Anlagevermögen“ (Zeile 19), die Umsatzsteuer darauf als „Umsatzsteuer auf unentgeltliche Wertabgaben“, der Restbuchwert wie bei jedem Abgang.
+
+**Buchung:** Mit **AfA … buchen** bucht Haben zum Abgangsdatum zusätzlich die Entnahme auf „Erlöse aus Verkäufen Sachanlagevermögen“. Ist der Entnahmewert mindestens so hoch wie der Restbuchwert, ist es ein Buchgewinn, sonst ein Buchverlust; der Restbuchwert folgt derselben Unterscheidung. Beispiel mit 800 € Entnahmewert und 450 € Restbuchwert:
+
+```
+1800 Privatentnahmen                    952,00   an  8820 Erlöse aus Verkäufen
+                                                          Sachanlagevermögen 19 % USt   800,00
+                                                     1776 Umsatzsteuer 19 %             152,00
+2315 Anlagenabgänge Sachanlagen
+     (Restbuchwert bei Buchgewinn)      450,00   an  0490 Sonstige BGA                  450,00
+```
+
+| | SKR03 Erlös / Restbuchwert | SKR04 Erlös / Restbuchwert |
+|---|---|---|
+| mit Umsatzsteuer, Buchgewinn | 8820 / 2315 | 4845 / 4855 |
+| mit Umsatzsteuer, Buchverlust | 8801 / 2310 | 6885 / 6895 |
+| ohne Umsatzsteuer, Buchgewinn | 8829 / 2315 | 4849 / 4855 |
+| ohne Umsatzsteuer, Buchverlust | 8800 / 2310 | 6889 / 6895 |
 
 ## Private Nutzung von Firmenwagen
 
@@ -198,7 +235,7 @@ Ist schon gebucht, lässt sich die Privatnutzung nicht mehr ändern.
 
 ## In der EÜR
 
-Die [EÜR](auswertungen.md) bekommt je nach Bedarf die Zeilen **AfA auf bewegliche Wirtschaftsgüter**, **Sonderabschreibungen nach § 7g EStG**, **Sofortabschreibung geringwertiger Wirtschaftsgüter**, **Auflösung Sammelposten** und **Restbuchwert ausgeschiedener Anlagegüter**. Solange die AfA des Jahres nicht gebucht ist, kommen die Werte aus dem Abschreibungsplan. Danach kommen sie aus dem Journal ([EÜR nach Zufluss und Abfluss](auswertungen.md#eür-nach-zufluss-und-abfluss)); der [Abgleich](buchhaltung.md#abgleich-im-journal) prüft, dass gebuchte AfA und Plan übereinstimmen.
+Die [EÜR](auswertungen.md) bekommt je nach Bedarf die Zeilen **AfA auf bewegliche Wirtschaftsgüter**, **Sonderabschreibungen nach § 7g EStG**, **Sofortabschreibung geringwertiger Wirtschaftsgüter**, **Auflösung Sammelposten** und **Restbuchwert ausgeschiedener Anlagegüter**, bei einer [Entnahme](#entnahme) dazu **Veräußerung oder Entnahme von Anlagevermögen**. Solange die AfA des Jahres nicht gebucht ist, kommen die Werte aus dem Abschreibungsplan. Danach kommen sie aus dem Journal ([EÜR nach Zufluss und Abfluss](auswertungen.md#eür-nach-zufluss-und-abfluss)); der [Abgleich](buchhaltung.md#abgleich-im-journal) prüft, dass gebuchte AfA und Plan übereinstimmen.
 
 Im Jahresexport liegt `anlagen/anlagenverzeichnis.csv` mit Buchwert am Jahresanfang, Zugang, AfA, Sonder-AfA, Abgang und Buchwert am Jahresende je Anlage.
 
