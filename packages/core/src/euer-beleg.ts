@@ -52,17 +52,23 @@ function documentShares(p: DocumentPayment, paid: Cents): Share[] {
   const lines = p.splits;
   const shares = paidTaxShares({ ...p.totals, taxes: lines.map((l) => ({ rate: l.taxRate, base: l.net, tax: l.tax })) }, paid);
   // Der Abzug wird je Satz gerundet und auf die Kontierungszeilen verteilt, wie die Originalsteuer: Zwei kleine Zeilen
-  // dürfen zusammen keinen zusätzlichen Cent Vorsteuer bekommen. Die größte Zeile trägt den Rundungsrest.
+  // dürfen zusammen keinen zusätzlichen Cent Vorsteuer bekommen. Die größte Zeile trägt den Rundungsrest. Abziehbar ist
+  // nur die Steuer der betrieblichen Zeilen; die Entnahme (#1975) trägt keine Vorsteuer, wie in documentSplitPosting.
+  const betrieb = lines.flatMap((line, i) => (line.category === PRIVATENTNAHME ? [] : [i]));
   const amounts = p.totals.taxes.map((t) => ({
     taxRate: t.rate,
-    net: t.base,
+    net: betrieb.filter((i) => lines[i]!.taxRate === t.rate).reduce((sum, i) => sum + lines[i]!.net, 0),
     tax: abziehbareSteuer(
-      shares.filter((s) => s.rate === t.rate).reduce((sum, s) => sum + s.tax, 0),
+      betrieb.filter((i) => shares[i]!.rate === t.rate).reduce((sum, i) => sum + shares[i]!.tax, 0),
       anteil(t.rate),
     ),
   }));
-  const deductible = allocateSplitTax(lines, amounts);
-  return shares.map((share, i) => ({ category: lines[i]!.category, share, deductible: anteil(share.rate) === 10_000 ? share.tax : deductible[i]!.tax }));
+  const betriebAbzug = allocateSplitTax(
+    betrieb.map((i) => lines[i]!),
+    amounts,
+  );
+  const deductible = new Map(betrieb.map((i, k) => [i, betriebAbzug[k]!.tax]));
+  return shares.map((share, i) => ({ category: lines[i]!.category, share, deductible: anteil(share.rate) === 10_000 ? share.tax : (deductible.get(i) ?? 0) }));
 }
 
 /** Wirkung eines kumulierten Zahlbetrags, ohne AfA und Zahlungen ans Finanzamt */

@@ -218,17 +218,25 @@ export function documentSplitPosting(
     if (seen) seen.amount += amount;
     else expenses.set(key, { account, amount, code });
   };
-  // Erst je Satz runden, danach auf die Zeilen verteilen: deren Summe bleibt exakt die abziehbare Steuer.
-  const deductible = allocateSplitTax(
-    lines,
-    totals.taxes.map((t) => ({ taxRate: t.rate, net: t.base, tax: abziehbareSteuer(t.tax, buchungsAnteil(vorsteuerAbzug, t.vorsteuerAnteil)) })),
+  // Abziehbar ist die Steuer des betrieblichen Teils (§ 15 Abs. 1 Satz 1 Nr. 1 UStG), davon der zugeordnete Anteil
+  // (§ 15 Abs. 4 UStG): erst die Entnahme heraus, dann der Anteil, wie beim Privatanteil am Beleg und in den Nebenbüchern
+  // (betrieblichSteuer). Je Satz gerundet, danach auf die betrieblichen Zeilen verteilt: deren Summe bleibt exakt die
+  // abziehbare Steuer.
+  const entnahme = (rate: BasisPoints, feld: "net" | "tax") =>
+    sum(lines.filter((line) => line.category === PRIVATENTNAHME && line.taxRate === rate).map((line) => line[feld]));
+  const abziehbar = new Map(
+    totals.taxes.map((t) => [t.rate, abziehbareSteuer(t.tax - entnahme(t.rate, "tax"), buchungsAnteil(vorsteuerAbzug, t.vorsteuerAnteil))] as const),
   );
-  // Steuer, die die Entnahmezeilen je Satz tragen: Sie mindert die abziehbare Vorsteuer des Satzes
-  const entnahmeSteuer = new Map<BasisPoints, Cents>();
+  const betrieb = lines.flatMap((line, i) => (line.category === PRIVATENTNAHME ? [] : [i]));
+  const betriebAbzug = allocateSplitTax(
+    betrieb.map((i) => lines[i]!),
+    totals.taxes.map((t) => ({ taxRate: t.rate, net: t.base - entnahme(t.rate, "net"), tax: abziehbar.get(t.rate)! })),
+  );
+  const deductible = new Map(betrieb.map((i, k) => [i, betriebAbzug[k]!.tax]));
   for (const [i, line] of lines.entries()) {
     const account = line.account ?? EXPENSE_CATEGORIES[line.category][kontenrahmen];
     const anteil = buchungsAnteil(vorsteuerAbzug, totals.taxes.find((t) => t.rate === line.taxRate)?.vorsteuerAnteil);
-    const tax = deductible[i]!.tax;
+    const tax = deductible.get(i) ?? 0;
     if (line.category === PRIVATENTNAHME) {
       // Entnahme und keine Betriebsausgabe (§ 4 Abs. 1 Satz 2, § 12 Nr. 1 EStG): brutto auf das Entnahmekonto, ohne
       // Vorsteuer, denn abziehbar ist nur die betriebliche Verwendung (§ 15 Abs. 1 Satz 1 Nr. 1 UStG). Bei § 13b trägt
@@ -237,7 +245,6 @@ export function documentSplitPosting(
         add(accounts.privatentnahmen, rcCode, line.net);
         add(accounts.privatentnahmen, "keineVSt", line.tax);
       } else add(accounts.privatentnahmen, "keineVSt", line.net + line.tax);
-      entnahmeSteuer.set(line.taxRate, (entnahmeSteuer.get(line.taxRate) ?? 0) + tax);
       continue;
     }
     if (anteil > 0) {
@@ -254,7 +261,7 @@ export function documentSplitPosting(
   for (const row of totals.taxes) {
     const { rate, tax } = row;
     // Der Anteil der Entnahmezeilen ist nicht abziehbar; er steht brutto auf dem Entnahmekonto
-    const abzugsfaehig = abziehbareSteuer(tax, buchungsAnteil(vorsteuerAbzug, row.vorsteuerAnteil)) - (entnahmeSteuer.get(rate) ?? 0);
+    const abzugsfaehig = abziehbar.get(rate)!;
     if (tax === 0) continue;
     const satz = vatRate(rate);
     if (rcCode) {

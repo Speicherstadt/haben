@@ -85,11 +85,11 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in einer Aufteilung (Postgres)
   }
 
   /** Die Zahlung des Belegs über die Bank, damit die EÜR sie mit dem Zahlbetrag sieht */
-  async function pay(documentId: string) {
+  async function pay(documentId: string, betrag = "-50,14") {
     await bank.importStatement(
       actor,
       {
-        bytes: dkbCsv([["20.09.26", "20.09.26", "Gebucht", "Testfirma", "Telekom", "TK", "Ausgang", "DE02100100100006820101", "-50,14", "", "", ""]]),
+        bytes: dkbCsv([["20.09.26", "20.09.26", "Gebucht", "Testfirma", "Telekom", "TK", "Ausgang", "DE02100100100006820101", betrag, "", "", ""]]),
         filename: `konto-${fileSeq}.csv`,
       },
       null,
@@ -207,6 +207,10 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in einer Aufteilung (Postgres)
       kz66: 713,
       erlaeuterung: 713,
     });
+    // EÜR: dieselbe Vorsteuer, der nicht abziehbare Rest der betrieblichen Steuer (7,12 €) ist Aufwand
+    await pay(id, "-119,00");
+    const euer = await reports.euerForYear(2026);
+    expect({ vorsteuer: ausgabe(euer, "vorsteuer"), telefon: ausgabe(euer, "ausgabe:telefon") }).toEqual({ vorsteuer: 713, telefon: 7_500 + 712 });
   });
 
   it("Teilzahlung: EÜR aus dem Journal wie aus den Zahlungen (#1975)", async () => {
