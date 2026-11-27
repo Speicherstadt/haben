@@ -1,4 +1,4 @@
-import { classify, PayPalClient, type PayPalClientOptions, paypalBatch, paypalEventOf, paypalStatement } from "@haben/import";
+import { classify, PayPalApiError, PayPalClient, type PayPalClientOptions, paypalBatch, paypalEventOf, paypalStatement } from "@haben/import";
 import { z } from "zod";
 import { env } from "../../env.ts";
 import { UserError } from "../../errors.ts";
@@ -132,7 +132,9 @@ export const paypalAdapter: PspAdapter<PayPalZugang, PayPalConfig> = {
     try {
       return { accountId: await clientFor(zugang, config).accountId(), keyHint: zugang.clientId.slice(-4) };
     } catch (error) {
-      throw new PayPalError(`PayPal nimmt die Zugangsdaten nicht an: ${error instanceof Error ? error.message : String(error)}`, AM_ZUGANG);
+      // Am Feld nur bei abgelehnter Anmeldung (401); das fehlende Recht der App (403) und Netzfehler liegen nicht an der Eingabe
+      const amZugang = error instanceof PayPalApiError && error.status === 401;
+      throw new PayPalError(`PayPal nimmt die Zugangsdaten nicht an: ${error instanceof Error ? error.message : String(error)}`, amZugang ? AM_ZUGANG : {});
     }
   },
   einstellungFehler({ fetchFrom }, heute) {

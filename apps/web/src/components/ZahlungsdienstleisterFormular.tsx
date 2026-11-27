@@ -200,11 +200,14 @@ export function AnbieterHinweis({ anbieter }: { anbieter: PspAnbieter }) {
   );
 }
 
-/** Fachfehler des Servers an einem Feld des Adapters (`felder` am UserError) */
-export type ZugangFehler = { feld: string; text: string } | null;
+/**
+ * Fachfehler des Servers an einem Feld des Adapters (`felder` am UserError); `ansagen`, wenn der Fokus schon im Feld stand
+ * (mit Enter abgeschickt): Dann liest ihn nur `role="alert"` vor (DESIGN.md, Felder: `announceError`)
+ */
+export type ZugangFehler = { feld: string; text: string; ansagen: boolean } | null;
 
 /**
- * Fehler des Servers am Feld des Adapters statt als Meldung unter dem Formular (DESIGN.md, Formulare): `abfangen` nimmt
+ * Fehler des Servers am Feld des Adapters statt als Meldung unter dem Formular (DESIGN.md, Felder): `abfangen` nimmt
  * einen Fehler, der ein Feld des Adapters nennt, und gibt jeden anderen an `useAction` weiter. Ist die Aktion durch, bekommt
  * das Feld den Fokus; gesperrt nähme es ihn nicht an. `form` an das Formular hängen, `zuruecksetzen` bei jeder Eingabe.
  */
@@ -224,7 +227,8 @@ export function useZugangFehler(anbieter: PspAnbieter | undefined, busy: boolean
     } catch (error) {
       const feld = fehlerFelder(error).find((name) => anbieter?.felder.some((f) => f.name === name));
       if (!feld) throw error;
-      setFehler({ feld, text: errorMessage(error) });
+      const ansagen = form.current?.elements.namedItem(feld) === document.activeElement;
+      setFehler({ feld, text: errorMessage(error), ansagen });
       setFokus(true);
     }
   }
@@ -246,12 +250,19 @@ export function ZugangFelder({
   fehler?: ZugangFehler;
 }) {
   const fehlerAm = (name: string) => (fehler?.feld === name ? fehler.text : undefined);
+  const ansagen = (name: string) => fehler?.feld === name && fehler.ansagen;
   return (
     <>
       {anbieter.felder.map((feld) => {
         if (feld.art === "geheim") {
           return (
-            <Field key={feld.name} label={gespeichert ? `${feld.label} (leer lassen zum Behalten)` : feld.label} hint={feld.hint} error={fehlerAm(feld.name)}>
+            <Field
+              key={feld.name}
+              label={gespeichert ? `${feld.label} (leer lassen zum Behalten)` : feld.label}
+              hint={feld.hint}
+              error={fehlerAm(feld.name)}
+              announceError={ansagen(feld.name)}
+            >
               {(control) => <input {...control} name={feld.name} type="password" autoComplete="off" />}
             </Field>
           );
@@ -260,7 +271,7 @@ export function ZugangFelder({
           const optionen = feld.optionen ?? [];
           const aktuell = String(config[feld.name] ?? optionen[0]?.wert ?? "");
           return (
-            <Field key={feld.name} label={feld.label} hint={feld.hint} error={fehlerAm(feld.name)}>
+            <Field key={feld.name} label={feld.label} hint={feld.hint} error={fehlerAm(feld.name)} announceError={ansagen(feld.name)}>
               {(control) => (
                 <select
                   {...control}
@@ -279,7 +290,7 @@ export function ZugangFelder({
           );
         }
         return (
-          <Field key={feld.name} label={feld.label} hint={feld.hint} error={fehlerAm(feld.name)}>
+          <Field key={feld.name} label={feld.label} hint={feld.hint} error={fehlerAm(feld.name)} announceError={ansagen(feld.name)}>
             {(control) => (
               <input
                 {...control}

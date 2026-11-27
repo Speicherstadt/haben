@@ -1,5 +1,6 @@
 import {
   type StripeBalanceTransaction,
+  StripeApiError,
   StripeClient,
   type StripeClientOptions,
   STRIPE_NICHT_UNTERSTUETZT,
@@ -86,7 +87,12 @@ export const stripeAdapter: PspAdapter<StripeZugang, Record<string, never>> = {
     try {
       return { accountId: await clientFor(zugang.apiKey).accountId(), keyHint: zugang.apiKey.slice(-4) };
     } catch (error) {
-      throw new StripeError(`Stripe nimmt den Schlüssel nicht an: ${error instanceof Error ? error.message : String(error)}`, AM_SCHLUESSEL);
+      // Am Feld nur, wenn Stripe den Schlüssel ablehnt (401) oder ihm das Recht fehlt (403), nicht bei Netz- oder Serverfehlern
+      const amSchluessel = error instanceof StripeApiError && (error.status === 401 || error.status === 403);
+      throw new StripeError(
+        `Stripe nimmt den Schlüssel nicht an: ${error instanceof Error ? error.message : String(error)}`,
+        amSchluessel ? AM_SCHLUESSEL : {},
+      );
     }
   },
   // Der gewählte Start ist ein Tag in Deutschland, das Fenster läuft in UTC: Zwischen 0 und 2 Uhr deutscher Zeit liegt der
