@@ -102,6 +102,8 @@ Einen unbekannten Code rät der Import nicht. Der Beleg landet unter „Sonstige
 
 Der Zahlungsstatus kommt aus den Spalten „Bezahlt“ und „Zahlungsdatum“ derselben Zeile. Nicht bezahlt heißt offener Posten über den Bruttobetrag. Fehlt `Daten.xlsx`, gilt der Beleg als bezahlt, weil der Stapel zahlungsbasiert über 1200 bucht.
 
+Belege mit Code 4288 (Arbeitszimmer) landen bei `miete` und in der Anlage EÜR unter „Miete/Pacht für Geschäftsräume und betrieblich genutzte Grundstücke“. Abziehbar ist das Arbeitszimmer nur als Mittelpunkt deiner Arbeit ([§ 4 Abs. 5 Satz 1 Nr. 6b EStG](https://www.gesetze-im-internet.de/estg/__4.html)), sonst gilt die [Tagespauschale](pauschalen.md#homeoffice-tagespauschale); Haben prüft das nicht. Prüfe diese Belege nach dem Import und den Abzug in der EÜR.
+
 4985 gibt es in Haben nicht. Buche die betroffenen Belege auf 4980 (Sonstiger Betriebsbedarf) um. Die Kategorie kommt trotzdem aus `Daten.xlsx`, das Konto bleibt nur als Herkunft im Beleg stehen.
 
 Private Zeilen (SKR03 Gegenkonto 1800 bis 1899 und 1360; SKR04 2100 bis 2199, 1460) bleiben Zahlungen ohne Beleg; dazu gehören auch die Privatanteile der Arbeitszimmer-Buchungen und der 20-%-Privatanteil einer Geräterechnung.
@@ -162,7 +164,7 @@ selben Händler am selben Tag genauso aussehen.
 - [ ] IDEA-Export und Steuererklärungen getrennt abgelegt
 - [ ] Kontakte angelegt (CSV-Import oder von Hand)
 - [ ] Ausgangsrechnungen, die du weiter brauchst, in Haben geschrieben oder über die Eröffnungsbuchung geführt
-- [ ] Konto 4985 geprüft und bei Bedarf auf 4980 geändert
+- [ ] Belege mit Code 4288 (Arbeitszimmer) und Konto 4985 geprüft, 4985 bei Bedarf auf 4980 geändert
 - [ ] Offene Posten übernommen oder die Gründe geklärt
 - [ ] Einnahmen, Ausgaben, Umsatz- und Vorsteuer je Jahr mit Accountable verglichen
 - [ ] Nächste Rechnungsnummer in Haben gesetzt
