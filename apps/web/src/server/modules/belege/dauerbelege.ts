@@ -50,6 +50,8 @@ export const dauerbelegInputSchema = z.object({
     .min(1, "Beträge fehlen")
     .max(3),
   taxShown: z.boolean(),
+  /** Kleinbetragsrechnung: Endbetrag mit Steuersatz, höchstens 250 € je Termin (§ 33 UStDV, #1101) */
+  kleinbetrag: z.boolean().default(false),
   note: z.string().max(2000).default(""),
   /** Abstand als Dauer nach ISO 8601, etwa P1W oder P1M (#1691) */
   recurrence: z.enum(RECURRENCE_KEYS, { error: "Intervall nicht unterstützt." }),

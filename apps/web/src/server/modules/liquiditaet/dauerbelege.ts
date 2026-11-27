@@ -27,14 +27,18 @@ import type { Kontext } from "./kontext.ts";
  * `anteil` aus den Firmendaten (abziehbarerAnteil) am Termin.
  * - Zollbescheid: der ganze Betrag ist Vorsteuer (Kz 62), buchbar nur mit vollem Abzug und ohne Privatanteil
  *   (einfuhrumsatzsteuerPosting); einen Steuerausweis hat ein Bescheid nicht.
- * - Sonst nur mit ausgewiesener Steuer (§ 15 Abs. 1 Satz 1 Nr. 1 UStG): je Satz der private Teil gerundet und der
+ * - Sonst nur mit ausgewiesener Steuer (§ 15 Abs. 1 Satz 1 Nr. 1 UStG) oder aus einer Kleinbetragsrechnung: je Satz der private Teil gerundet und der
  *   betriebliche als Rest, davon der abziehbare Anteil (documentRatePosting in packages/core/src/document-posting.ts).
  */
-function erwarteteVorsteuer(vorlage: { category: string; amounts: DauerbelegBetrag[]; privateShare: Prozent; taxShown: boolean }, anteil: BasisPoints): Cents {
+function erwarteteVorsteuer(
+  vorlage: { category: string; amounts: DauerbelegBetrag[]; privateShare: Prozent; taxShown: boolean; kleinbetrag: boolean },
+  anteil: BasisPoints,
+): Cents {
   if (vorlage.category === "einfuhrumsatzsteuer") {
     return anteil === VOLLER_ABZUG && vorlage.privateShare === 0 ? dauerbelegSummen(vorlage.amounts).gross : 0;
   }
-  if (!vorlage.taxShown) return 0;
+  // Eine Kleinbetragsrechnung gibt die Vorsteuer aus der Aufteilung des Endbetrags (§ 35 Abs. 1 UStDV, #1101)
+  if (!vorlage.taxShown && !vorlage.kleinbetrag) return 0;
   return vorlage.amounts.reduce((sum, a) => sum + abziehbareSteuer(betrieblicherAnteil(a.tax, vorlage.privateShare), anteil), 0);
 }
 

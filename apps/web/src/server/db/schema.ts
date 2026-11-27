@@ -2216,6 +2216,11 @@ export const recurringDocuments = pgTable(
     amounts: jsonb("amounts").$type<{ taxRate: BasisPoints; net: Cents; tax: Cents }[]>().notNull(),
     /** Das Dokument weist die Umsatzsteuer gesondert aus (Dauerrechnung, Vertrag mit Steuerbetrag); sonst keine Vorsteuer */
     taxShown: boolean("tax_shown").notNull().default(false),
+    /**
+     * Das Dokument nennt nur Endbetrag und Steuersatz, höchstens 250 € je Termin: Kleinbetragsrechnung nach § 33 UStDV,
+     * Vorsteuer aus der Aufteilung (§ 35 Abs. 1 UStDV, #1101). Nie zusammen mit `taxShown`.
+     */
+    kleinbetrag: boolean("kleinbetrag").notNull().default(false),
     note: text("note").notNull().default(""),
     /** Abstand zweier Belege als Dauer nach ISO 8601 wie bei wiederkehrenden Rechnungen: P1W … P1Y (#1691) */
     recurrence: text("recurrence", { enum: RECURRENCE_KEYS }).notNull(),
@@ -2254,6 +2259,7 @@ export const recurringDocuments = pgTable(
       sql`(${t.sha256} is null) = (${t.filename} is null) and (${t.sha256} is null) = (${t.mimeType} is null) and (${t.sha256} is null) = (${t.size} is null)`,
     ),
     check("recurring_documents_active_file", sql`${t.status} <> 'aktiv' or ${t.sha256} is not null`),
+    check("recurring_documents_kleinbetrag", sql`not (${t.taxShown} and ${t.kleinbetrag})`),
     index("recurring_documents_sha256").on(t.sha256),
     index("recurring_documents_name_trgm_idx").using("gin", sql`haben_unaccent(${t.name}) gin_trgm_ops`),
     index("recurring_documents_supplier_name_trgm_idx").using("gin", sql`haben_unaccent(${t.supplierName}) gin_trgm_ops`),

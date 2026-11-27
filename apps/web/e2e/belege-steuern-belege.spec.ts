@@ -417,7 +417,7 @@ test("Dauerbeleg: Pausieren, Fortsetzen und Beenden fragen bei ungespeicherten �
   await page
     .locator("input[type=file]")
     .setInputFiles([{ name: "lagervertrag.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n% Lagervertrag Rückfrage\n%%EOF\n") }]);
-  await page.getByLabel(/^Das Dokument weist die Umsatzsteuer gesondert aus/).check();
+  await page.getByLabel(/^Weist die Umsatzsteuer gesondert aus/).check();
   await page.getByLabel("Netto 1").fill("80,00");
   await page.getByRole("button", { name: "Dauerbeleg anlegen" }).click();
   await page.waitForURL(/\/dauerbelege\/[0-9a-f-]{36}$/);
@@ -868,7 +868,7 @@ test("Dauerbeleg mit Bruttobetrag: Netto und Umsatzsteuer vorgerechnet, ohne aus
   await expect(page.getByLabel("Brutto 1", { exact: true })).toHaveCount(0);
   // Ein neuer Dauerbeleg beginnt mit 0 %; der Haken setzt den Satz auf 19 % (#1100)
   await expect(page.getByLabel("Steuersatz 1", { exact: true })).toHaveValue("0");
-  await page.getByLabel(/^Das Dokument weist die Umsatzsteuer gesondert aus/).check();
+  await page.getByLabel(/^Weist die Umsatzsteuer gesondert aus/).check();
   await expect(page.getByLabel("Steuersatz 1", { exact: true })).toHaveValue("1900");
   await page.getByLabel("Brutto 1", { exact: true }).fill("119,00");
   await expect(page.getByLabel("Netto 1", { exact: true })).toHaveValue("100,00");
@@ -889,32 +889,48 @@ test("Dauerbeleg mit Bruttobetrag: Netto und Umsatzsteuer vorgerechnet, ohne aus
   await expect(page).toHaveURL(/\/dauerbelege\/neu$/);
   // Haken aus nach einem Brutto: Grundlage ist wieder das Netto; ein anderer Satz rechnet es nicht aus dem verborgenen Brutto neu
   await page.getByLabel("Brutto 1", { exact: true }).fill("119,00");
-  await page.getByLabel(/^Das Dokument weist die Umsatzsteuer gesondert aus/).uncheck();
+  await page.getByLabel("Weist keine Umsatzsteuer aus").check();
   await page.getByLabel("Steuersatz 1", { exact: true }).selectOption("1900");
   await expect(page.getByLabel("Netto 1", { exact: true })).toHaveValue("111,21");
   // Haken wieder an: die nicht von Hand geänderte Steuer folgt dem Netto
-  await page.getByLabel(/^Das Dokument weist die Umsatzsteuer gesondert aus/).check();
+  await page.getByLabel(/^Weist die Umsatzsteuer gesondert aus/).check();
   await expect(page.getByLabel("Umsatzsteuer 1", { exact: true })).toHaveValue("21,13");
   // Haken aus und wieder an ändert ein eingegebenes Brutto nicht: 45,00 € zu 19 % sind 37,82 € + 7,18 € (aus dem Netto wären es 7,19 €)
   await page.getByLabel("Brutto 1", { exact: true }).fill("45,00");
   await expect(page.getByLabel("Umsatzsteuer 1", { exact: true })).toHaveValue("7,18");
-  await page.getByLabel(/^Das Dokument weist die Umsatzsteuer gesondert aus/).uncheck();
-  await page.getByLabel(/^Das Dokument weist die Umsatzsteuer gesondert aus/).check();
+  await page.getByLabel("Weist keine Umsatzsteuer aus").check();
+  await page.getByLabel(/^Weist die Umsatzsteuer gesondert aus/).check();
   await expect(page.getByLabel("Umsatzsteuer 1", { exact: true })).toHaveValue("7,18");
   await expect(page.getByLabel("Brutto 1", { exact: true })).toHaveValue("45,00");
   // Ohne Haken 100,00 € zu 0 %, dann Haken: 19 % und die Steuer aus dem Netto (#1100)
-  await page.getByLabel(/^Das Dokument weist die Umsatzsteuer gesondert aus/).uncheck();
+  await page.getByLabel("Weist keine Umsatzsteuer aus").check();
   await page.getByLabel("Steuersatz 1", { exact: true }).selectOption("0");
   await page.getByLabel("Netto 1", { exact: true }).fill("100,00");
-  await page.getByLabel(/^Das Dokument weist die Umsatzsteuer gesondert aus/).check();
+  await page.getByLabel(/^Weist die Umsatzsteuer gesondert aus/).check();
   await expect(page.getByLabel("Steuersatz 1", { exact: true })).toHaveValue("1900");
   await expect(page.getByLabel("Umsatzsteuer 1", { exact: true })).toHaveValue("19,00");
   await expect(page.getByLabel("Brutto 1", { exact: true })).toHaveValue("119,00");
   // 0 % bleibt mit Haken wählbar; Haken aus ändert den Satz nicht
   await page.getByLabel("Steuersatz 1", { exact: true }).selectOption("0");
   await expect(page.getByLabel("Umsatzsteuer 1", { exact: true })).toHaveValue("0,00");
-  await page.getByLabel(/^Das Dokument weist die Umsatzsteuer gesondert aus/).uncheck();
+  await page.getByLabel("Weist keine Umsatzsteuer aus").check();
   await expect(page.getByLabel("Steuersatz 1", { exact: true })).toHaveValue("0");
+});
+
+test("Dauerbeleg als Kleinbetragsrechnung: nur Endbetrag je Satz, höchstens 250 € je Termin (#1101)", async () => {
+  await go("/dauerbelege/neu");
+  await page.getByLabel(/^Nennt nur Endbetrag und Steuersatz/).check();
+  // Wie beim Steuerausweis springt 0 % auf 19 %; Netto und Steuer rechnet Haben aus dem Endbetrag (§ 35 Abs. 1 UStDV)
+  await expect(page.getByLabel("Steuersatz 1", { exact: true })).toHaveValue("1900");
+  await expect(page.getByLabel("Netto 1", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Umsatzsteuer 1", { exact: true })).toHaveCount(0);
+  await page.getByLabel("Brutto 1", { exact: true }).fill("11,90");
+  await expect(page.locator(".dauerbeleg-summe")).toContainText(/10,00\s€ netto \+ 1,90\s€ Umsatzsteuer = 11,90\s€/);
+  // Über 250 € je Termin keine Kleinbetragsrechnung (§ 33 UStDV): die Meldung steht am Endbetrag
+  await page.getByLabel("Brutto 1", { exact: true }).fill("250,01");
+  await page.getByRole("button", { name: "Dauerbeleg anlegen" }).click();
+  await expect(page.getByLabel("Brutto 1", { exact: true })).toHaveAccessibleDescription(/nur bis 250 € brutto je Termin \(§ 33 UStDV\)/);
+  await expect(page).toHaveURL(/\/dauerbelege\/neu$/);
 });
 
 test("Beleg auf mehrere Kategorien aufteilen: Zeilen hinzufügen und entfernen, Summen gegen den Beleg", async ({ browser }) => {

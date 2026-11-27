@@ -1,11 +1,28 @@
-import { amountError, dauerbelegSummen, parseEuro, type Recurrence, type Rechtsform, type Prozent } from "@haben/core";
+import { amountError, dauerbelegSummen, KLEINBETRAG_GRENZE, KLEINBETRAG_HINWEIS, parseEuro, type Recurrence, type Rechtsform, type Prozent } from "@haben/core";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { savedAsChoice, type ContactChoice } from "./ContactCombobox.tsx";
 import { NewContactDialog } from "./NewContactDialog.tsx";
-import { aendereBetragszeile, betragszeileAus, betragszeileAusVorlage, bruttoLesbar, steuerausweisUmschalten, type Betragszeile } from "../lib/betragszeile.ts";
+import {
+  aendereBetragszeile,
+  betragszeileAus,
+  betragszeileAusVorlage,
+  bruttoLesbar,
+  bruttoZerlegen,
+  steuerausweisUmschalten,
+  type Betragszeile,
+} from "../lib/betragszeile.ts";
 import { useFokusNachSperre } from "../lib/use-fokus-nach-sperre.ts";
 import { useSubmitCheck } from "../lib/use-submit-check.ts";
-import { DauerbelegAllgemein, DauerbelegBetraege, DauerbelegDokument, type DauerbelegState, DauerbelegTermine, RATES, type Rate } from "./DauerbelegTeile.tsx";
+import {
+  DauerbelegAllgemein,
+  DauerbelegBetraege,
+  DauerbelegDokument,
+  type DauerbelegState,
+  DauerbelegTermine,
+  RATES,
+  type Rate,
+  type SteuerNachweis,
+} from "./DauerbelegTeile.tsx";
 
 export interface DauerbelegValues {
   name: string;
@@ -18,6 +35,8 @@ export interface DauerbelegValues {
   privateShare: Prozent;
   amounts: { taxRate: Rate; net: number; tax: number }[];
   taxShown: boolean;
+  /** Kleinbetragsrechnung: Endbetrag mit Steuersatz bis 250 € je Termin (§ 33 UStDV, #1101) */
+  kleinbetrag: boolean;
   note: string;
   recurrence: Recurrence;
   nextDate: string;
@@ -62,35 +81,33 @@ export function DauerbelegForm({
   const set = (patch: Partial<DauerbelegState>) => setV((prev) => ({ ...prev, ...patch }));
   /** Getippter Name, wenn der Dialog für einen neuen Lieferanten offen ist; null = geschlossen */
   const [newSupplierName, setNewSupplierName] = useState<string | null>(null);
-  const [taxShown, setTaxShown] = useState(initial.taxShown);
-  const [amounts, setAmounts] = useState<Betragszeile[]>(() => initial.amounts.map((a) => betragszeileAusVorlage(nextKey++, a, initial.taxShown)));
+  const [nachweis, setNachweis] = useState<SteuerNachweis>(initial.taxShown ? "ausweis" : initial.kleinbetrag ? "kleinbetrag" : "keine");
+  const [amounts, setAmounts] = useState<Betragszeile[]>(() =>
+    initial.amounts.map((a) => betragszeileAusVorlage(nextKey++, a, initial.taxShown || initial.kleinbetrag)),
+  );
   const fileRef = useRef<HTMLInputElement>(null);
   // Ob eine Datei gewählt ist, für die Prüfung beim Speichern; die Datei selbst liest submit aus fileRef
   const [hasFile, setHasFile] = useState(false);
   const pickSupplier = (supplier: ContactChoice | null) =>
     set(supplier ? { supplierContactId: supplier.id, supplierName: supplier.name, supplierUstId: supplier.ustId } : { supplierContactId: null });
 
-  const parsed = amounts.map((a) => {
-    const net = parseEuro(a.net);
-    const tax = taxShown ? parseEuro(a.tax) : 0;
-    return { taxRate: a.taxRate, net: net ?? 0, tax: tax ?? 0, valid: net !== null && net >= 0 && tax !== null && tax >= 0 };
-  });
+  const parsed = amounts.map((a) => betragAus(a, nachweis));
   const sums = dauerbelegSummen(parsed);
-  const { form, error, check } = useSubmitCheck(dauerbelegErrors(v, amounts, taxShown, parsed, sums.gross, isNew && !hasFile));
+  const { form, error, check } = useSubmitCheck(dauerbelegErrors(v, amounts, nachweis, parsed, sums.gross, isNew && !hasFile));
   // Nach einem Fehler beim Speichern steht der Fokus wieder im gesperrten Feld
   useFokusNachSperre(busy);
   // Ob die Steuer von Hand kam und welcher Betrag zuletzt eingegeben wurde, speichert Haben nicht: Zurückgetippt ist nichts offen
   const betraege = amounts.map(({ key: _key, taxTouched: _taxTouched, basis: _basis, ...a }) => a);
-  useAenderungenMelden({ v, taxShown, betraege }, hasFile, onDirtyChange);
+  useAenderungenMelden({ v, nachweis, betraege }, hasFile, onDirtyChange);
 
   // Selbst geschuldete Steuer (§ 13b) gibt es am Dauerbeleg nicht
   function updateAmount(key: number, patch: Partial<Omit<Betragszeile, "key">>) {
     setAmounts((prev) => prev.map((a) => (a.key === key ? aendereBetragszeile(a, patch, false) : a)));
   }
 
-  function chooseTaxShown(an: boolean) {
-    setTaxShown(an);
-    setAmounts((prev) => steuerausweisUmschalten(prev, an));
+  function chooseNachweis(neu: SteuerNachweis) {
+    setNachweis(neu);
+    setAmounts((prev) => steuerausweisUmschalten(prev, neu !== "keine"));
   }
 
   function addRate() {
@@ -110,7 +127,8 @@ export function DauerbelegForm({
       reference: v.reference.trim(),
       privateShare: initial.privateShare,
       amounts: parsed.map(({ valid: _valid, ...a }) => a),
-      taxShown,
+      taxShown: nachweis === "ausweis",
+      kleinbetrag: nachweis === "kleinbetrag",
       endDate: v.endDate || null,
       dueDays: Number(v.dueDays),
     };
@@ -140,8 +158,8 @@ export function DauerbelegForm({
             withoutFile={withoutFile}
             fileRef={fileRef}
             setHasFile={setHasFile}
-            taxShown={taxShown}
-            chooseTaxShown={chooseTaxShown}
+            nachweis={nachweis}
+            chooseNachweis={chooseNachweis}
             kleinunternehmer={kleinunternehmer}
           />
           <DauerbelegBetraege
@@ -149,7 +167,7 @@ export function DauerbelegForm({
             set={set}
             error={error}
             amounts={amounts}
-            taxShown={taxShown}
+            nachweis={nachweis}
             sums={sums}
             updateAmount={updateAmount}
             removeAmount={(key) => setAmounts((prev) => prev.filter((x) => x.key !== key))}
@@ -182,7 +200,13 @@ function useAenderungenMelden(stand: unknown, hasFile: boolean, onDirtyChange?: 
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 }
 
-function dauerbelegState({ amounts: _amounts, taxShown: _taxShown, privateShare: _privateShare, ...values }: DauerbelegValues): DauerbelegState {
+function dauerbelegState({
+  amounts: _amounts,
+  taxShown: _taxShown,
+  kleinbetrag: _kleinbetrag,
+  privateShare: _privateShare,
+  ...values
+}: DauerbelegValues): DauerbelegState {
   return { ...values, endDate: values.endDate ?? "", dueDays: String(values.dueDays) };
 }
 
@@ -190,24 +214,33 @@ function dauerbelegState({ amounts: _amounts, taxShown: _taxShown, privateShare:
 function dauerbelegErrors(
   v: DauerbelegState,
   amounts: Betragszeile[],
-  taxShown: boolean,
+  nachweis: SteuerNachweis,
   parsed: { valid: boolean }[],
   gross: number,
   fileMissing: boolean,
 ): Record<string, string | null> {
   const BETRAG = amountError("den Betrag", 85_000);
   const due = Number(v.dueDays);
+  const taxShown = nachweis === "ausweis";
+  const nurBrutto = nachweis === "kleinbetrag";
+  const kein = (text: string) => parseEuro(text) === null || parseEuro(text)! < 0;
   return {
     ...Object.fromEntries(
       amounts.flatMap((a, i) => [
-        [`netto-${a.key}`, parseEuro(a.net) === null || parseEuro(a.net)! < 0 ? BETRAG : null],
-        [`steuer-${a.key}`, taxShown && (parseEuro(a.tax) === null || parseEuro(a.tax)! < 0) ? BETRAG : null],
+        [`netto-${a.key}`, !nurBrutto && kein(a.net) ? BETRAG : null],
+        [`steuer-${a.key}`, taxShown && kein(a.tax) ? BETRAG : null],
         // Ein vertipptes Brutto lässt die vorigen Beträge stehen; gespeichert würde dann etwas anderes als eingegeben
-        [`brutto-${a.key}`, taxShown && !bruttoLesbar(a) ? BETRAG : null],
+        [`brutto-${a.key}`, (taxShown && !bruttoLesbar(a)) || (nurBrutto && kein(a.gross)) ? BETRAG : null],
         [`satz-${a.key}`, amounts.findIndex((x) => x.taxRate === a.taxRate) < i ? "Diesen Satz gibt es schon in einer Zeile darüber." : null],
       ]),
     ),
-    summe: parsed.every((a) => a.valid) && gross <= 0 ? "Der Betrag je Termin muss über 0 liegen." : null,
+    summe: !parsed.every((a) => a.valid)
+      ? null
+      : gross <= 0
+        ? "Der Betrag je Termin muss über 0 liegen."
+        : nurBrutto && gross > KLEINBETRAG_GRENZE
+          ? KLEINBETRAG_HINWEIS
+          : null,
     name: v.name.trim() === "" ? "Trag eine Bezeichnung ein, etwa Büromiete Hafenstraße." : null,
     supplier: v.supplierName.trim() === "" ? "Trag den Lieferanten ein." : null,
     category: v.category === "" ? "Wähle die Kategorie." : null,
@@ -216,4 +249,20 @@ function dauerbelegErrors(
     due: Number.isInteger(due) && due >= 0 && due <= 120 ? null : "Trag ganze Tage von 0 bis 120 ein.",
     file: fileMissing ? "Wähle den Vertrag oder die Dauerrechnung." : null,
   };
+}
+
+/**
+ * Betrag einer Zeile in Cent. Mit Steuerausweis Netto und Steuer wie eingegeben, ohne Steuer nur das Netto. Bei der
+ * Kleinbetragsrechnung zählt nur der Endbetrag: Haben teilt ihn auf wie am Beleg (`bruttoZerlegen`, § 35 Abs. 1 UStDV), so
+ * wie es der Server nachrechnet.
+ */
+function betragAus(a: Betragszeile, nachweis: SteuerNachweis) {
+  if (nachweis === "kleinbetrag") {
+    const gross = parseEuro(a.gross);
+    if (gross === null || gross < 0) return { taxRate: a.taxRate, net: 0, tax: 0, valid: false };
+    return { taxRate: a.taxRate, ...bruttoZerlegen(gross, a.taxRate), valid: true };
+  }
+  const net = parseEuro(a.net);
+  const tax = nachweis === "ausweis" ? parseEuro(a.tax) : 0;
+  return { taxRate: a.taxRate, net: net ?? 0, tax: tax ?? 0, valid: net !== null && net >= 0 && tax !== null && tax >= 0 };
 }

@@ -1239,7 +1239,7 @@ test("Dauerbeleg: Miete mit Vertrag anlegen, Beleg zu prüfen, im Bankabgleich b
   // Ohne Steuerausweis gibt es keine Vorsteuer; der Vertrag weist sie hier aus (Option nach § 9 UStG)
   await expect(page.getByText(/Vorsteuer nur mit einem Dokument/)).toBeVisible();
   await page.getByLabel("Steuersatz 1").selectOption("1900");
-  await page.getByLabel(/weist die Umsatzsteuer gesondert aus/).check();
+  await page.getByLabel(/^Weist die Umsatzsteuer gesondert aus/).check();
   await page.getByLabel("Netto 1").fill("500,00");
   await expect(page.getByLabel("Umsatzsteuer 1")).toHaveValue("95,00");
   await expect(page.getByText("Je Termin: 500,00 € netto + 95,00 € Umsatzsteuer = 595,00 €")).toBeVisible();

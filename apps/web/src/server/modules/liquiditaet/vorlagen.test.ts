@@ -32,12 +32,20 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Dauerbelege und wiederk
 
   async function dauerbeleg(
     name: string,
-    felder: { status?: string; payment?: string; taxShown?: boolean; privateShare?: number; category?: string; amounts: object[] } & Record<string, unknown>,
+    felder: {
+      status?: string;
+      payment?: string;
+      taxShown?: boolean;
+      kleinbetrag?: boolean;
+      privateShare?: number;
+      category?: string;
+      amounts: object[];
+    } & Record<string, unknown>,
   ) {
     const [row] = await sql<{ id: string }[]>`insert into recurring_documents (name, status, supplier_name, category, payment, private_share,
-        amounts, tax_shown, recurrence, anchor_day, start_date, next_date, end_date, due_days, sha256, filename, mime_type, size)
+        amounts, tax_shown, kleinbetrag, recurrence, anchor_day, start_date, next_date, end_date, due_days, sha256, filename, mime_type, size)
       values (${name}, ${felder.status ?? "aktiv"}, 'Vermieter', ${felder.category ?? "miete"}, ${felder.payment ?? "bank"}, ${felder.privateShare ?? 0},
-              ${JSON.stringify(felder.amounts)}::jsonb, ${felder.taxShown ?? false}, ${String(felder.recurrence ?? "P1M")}, ${Number(felder.anchor ?? 1)},
+              ${JSON.stringify(felder.amounts)}::jsonb, ${felder.taxShown ?? false}, ${felder.kleinbetrag ?? false}, ${String(felder.recurrence ?? "P1M")}, ${Number(felder.anchor ?? 1)},
               '2026-01-01', ${String(felder.next ?? "2026-12-01")}, ${(felder.end as string | undefined) ?? null}, ${Number(felder.dueDays ?? 0)},
               ${"b".repeat(64)}, 'vertrag.pdf', 'application/pdf', 1)
       returning id`;
@@ -69,6 +77,18 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Dauerbelege und wiederk
       { ...miet, datum: "2026-12-04", steuer: { betrag: -15_200, datum: "2026-12-01" } },
       { ...miet, datum: "2027-01-04", steuer: { betrag: -15_200, datum: "2027-01-01" } },
     ]);
+  });
+
+  it("Kleinbetragsrechnung: Vorsteuer aus der Aufteilung wie mit Steuerausweis (#1101)", async () => {
+    await firma(sql, { kontenrahmen: "SKR03", versteuerung: "ist" });
+    const abo = await dauerbeleg("Cloud-Abo", {
+      amounts: [{ taxRate: 1900, net: 1_000, tax: 190 }],
+      kleinbetrag: true,
+      category: "software",
+      next: "2026-12-01",
+    });
+    const posten = await dauerbelege.dauerbelegPosten(await kontext.ladeKontext("2026-11-20", "13w"));
+    expect(posten.find((p) => p.quelle.id === abo && p.datum === "2026-12-01")).toMatchObject({ betrag: 1_190, steuer: { betrag: -190, datum: "2026-12-01" } });
   });
 
   it.each([

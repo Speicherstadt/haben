@@ -14,7 +14,10 @@ export type Rate = 1900 | 700 | 0;
 export const RATES: Rate[] = [1900, 700, 0];
 
 /** Bearbeitbarer Stand ohne Beträge; Fälligkeit und Ende als Text */
-export type DauerbelegState = Omit<DauerbelegValues, "amounts" | "taxShown" | "privateShare" | "endDate" | "dueDays"> & { endDate: string; dueDays: string };
+export type DauerbelegState = Omit<DauerbelegValues, "amounts" | "taxShown" | "kleinbetrag" | "privateShare" | "endDate" | "dueDays"> & {
+  endDate: string;
+  dueDays: string;
+};
 
 type Fehler = (key: string) => string | undefined;
 type TeilProps = { v: DauerbelegState; set: (patch: Partial<DauerbelegState>) => void; error: Fehler };
@@ -150,17 +153,29 @@ export function DauerbelegTermine({ v, set, error, isNew }: TeilProps & { isNew:
   );
 }
 
+/**
+ * Was das Dokument zur Umsatzsteuer sagt: Steuer gesondert ausgewiesen (§ 14 Abs. 4 Nr. 8 UStG), nur Endbetrag und Steuersatz
+ * bis 250 € je Termin (Kleinbetragsrechnung, § 33 UStDV, #1101) oder keine Steuer
+ */
+export type SteuerNachweis = "ausweis" | "kleinbetrag" | "keine";
+
+const NACHWEIS_LABEL: Record<SteuerNachweis, string> = {
+  ausweis: "Weist die Umsatzsteuer gesondert aus (Dauerrechnung oder Vertrag mit Steuerbetrag)",
+  kleinbetrag: "Nennt nur Endbetrag und Steuersatz, höchstens 250 € je Termin (Kleinbetragsrechnung)",
+  keine: "Weist keine Umsatzsteuer aus",
+};
+
 export function DauerbelegDokument(props: {
   error: Fehler;
   isNew: boolean;
   withoutFile: boolean;
   fileRef: RefObject<HTMLInputElement | null>;
   setHasFile: (has: boolean) => void;
-  taxShown: boolean;
-  chooseTaxShown: (an: boolean) => void;
+  nachweis: SteuerNachweis;
+  chooseNachweis: (nachweis: SteuerNachweis) => void;
   kleinunternehmer: boolean;
 }) {
-  const { error, isNew, withoutFile, fileRef, setHasFile, taxShown, chooseTaxShown, kleinunternehmer } = props;
+  const { error, isNew, withoutFile, fileRef, setHasFile, nachweis, chooseNachweis, kleinunternehmer } = props;
   return (
     <section className="form-section" aria-labelledby="dauerbeleg-dokument">
       <h2 id="dauerbeleg-dokument">Dokument</h2>
@@ -185,11 +200,16 @@ export function DauerbelegDokument(props: {
           />
         )}
       </Field>
-      <label className="checkbox">
-        <input type="checkbox" checked={taxShown} onChange={(e) => chooseTaxShown(e.target.checked)} />
-        Das Dokument weist die Umsatzsteuer gesondert aus (Dauerrechnung oder Vertrag mit Steuerbetrag)
-      </label>
-      {!taxShown && (
+      <fieldset className="field" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+        <legend>Umsatzsteuer im Dokument</legend>
+        {(Object.keys(NACHWEIS_LABEL) as SteuerNachweis[]).map((n) => (
+          <label key={n} className="checkbox">
+            <input type="radio" name="steuer-nachweis" checked={nachweis === n} onChange={() => chooseNachweis(n)} />
+            {NACHWEIS_LABEL[n]}
+          </label>
+        ))}
+      </fieldset>
+      {nachweis === "keine" && (
         <p className="small banner banner-info" style={{ margin: 0 }}>
           {VORSTEUER_HINWEIS} Wohnraum- und viele Gewerbemieten sind steuerfrei (§ 4 Nr. 12 UStG), Versicherungen ebenso.
         </p>
@@ -204,13 +224,16 @@ export function DauerbelegBetraege(props: {
   set: (patch: Partial<DauerbelegState>) => void;
   error: Fehler;
   amounts: Betragszeile[];
-  taxShown: boolean;
+  nachweis: SteuerNachweis;
   sums: { net: number; tax: number; gross: number };
   updateAmount: (key: number, patch: Partial<Omit<Betragszeile, "key">>) => void;
   removeAmount: (key: number) => void;
   addRate: () => void;
 }) {
-  const { v, set, error, amounts, taxShown, sums, updateAmount, addRate } = props;
+  const { v, set, error, amounts, nachweis, sums, updateAmount, addRate } = props;
+  const taxShown = nachweis === "ausweis";
+  // Kleinbetragsrechnung: nur der Endbetrag je Satz, Haben teilt ihn auf (§ 35 Abs. 1 UStDV)
+  const nurBrutto = nachweis === "kleinbetrag";
   const usedRates = new Set(amounts.map((a) => a.taxRate));
   return (
     <section className="form-section" aria-labelledby="dauerbeleg-betraege">
@@ -228,11 +251,13 @@ export function DauerbelegBetraege(props: {
               </select>
             )}
           </Field>
-          <Field label={<>Netto {index + 1}</>} error={error(`netto-${a.key}`) ?? (index === amounts.length - 1 ? error("summe") : undefined)}>
-            {(control) => (
-              <input {...control} inputMode="decimal" className="num" value={a.net} onChange={(e) => updateAmount(a.key, { net: e.target.value })} />
-            )}
-          </Field>
+          {!nurBrutto && (
+            <Field label={<>Netto {index + 1}</>} error={error(`netto-${a.key}`) ?? (index === amounts.length - 1 ? error("summe") : undefined)}>
+              {(control) => (
+                <input {...control} inputMode="decimal" className="num" value={a.net} onChange={(e) => updateAmount(a.key, { net: e.target.value })} />
+              )}
+            </Field>
+          )}
           {taxShown && (
             <Field label={<>Umsatzsteuer {index + 1}</>} error={error(`steuer-${a.key}`)}>
               {(control) => (
@@ -246,8 +271,8 @@ export function DauerbelegBetraege(props: {
               )}
             </Field>
           )}
-          {taxShown && (
-            <Field label={<>Brutto {index + 1}</>} error={error(`brutto-${a.key}`)}>
+          {(taxShown || nurBrutto) && (
+            <Field label={<>Brutto {index + 1}</>} error={error(`brutto-${a.key}`) ?? (nurBrutto && index === amounts.length - 1 ? error("summe") : undefined)}>
               {(control) => (
                 <input {...control} inputMode="decimal" className="num" value={a.gross} onChange={(e) => updateAmount(a.key, { gross: e.target.value })} />
               )}
@@ -268,7 +293,8 @@ export function DauerbelegBetraege(props: {
         </div>
       )}
       <p className="dauerbeleg-summe">
-        Je Termin: {formatEuro(sums.net)} netto{taxShown ? ` + ${formatEuro(sums.tax)} Umsatzsteuer` : ""} = <strong>{formatEuro(sums.gross)}</strong>
+        Je Termin: {formatEuro(sums.net)} netto{nachweis !== "keine" ? ` + ${formatEuro(sums.tax)} Umsatzsteuer` : ""} ={" "}
+        <strong>{formatEuro(sums.gross)}</strong>
       </p>
       <Field label="Notiz an jedem Beleg (optional)">
         {(control) => <textarea {...control} value={v.note} onChange={(e) => set({ note: e.target.value })} maxLength={2000} rows={2} />}

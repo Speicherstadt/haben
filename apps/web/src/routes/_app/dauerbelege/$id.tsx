@@ -44,6 +44,7 @@ function DauerbelegDetailPage() {
     privateShare: vorlage.privateShare,
     amounts: vorlage.amounts.map((a) => ({ ...a, taxRate: a.taxRate as 1900 | 700 | 0 })),
     taxShown: vorlage.taxShown,
+    kleinbetrag: vorlage.kleinbetrag,
     note: vorlage.note,
     recurrence: vorlage.recurrence,
     nextDate: vorlage.nextDate,

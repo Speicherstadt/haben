@@ -6,6 +6,8 @@ import {
   dauerbelegSummen,
   faelligeTermine,
   folgeTermin,
+  KLEINBETRAG_AUFTEILUNG,
+  KLEINBETRAG_HINWEIS,
   terminAbStichtag,
   VORSTEUER_HINWEIS,
   vorschauTermine,
@@ -95,7 +97,32 @@ describe("Dauerbelege: Prüfung der Vorlage", () => {
     category: "sonstiges",
     amounts: [{ taxRate: 1900, net: 100000, tax: 19000 }],
     taxShown: true,
+    kleinbetrag: false,
   };
+
+  it("Kleinbetragsrechnung (#1101): Endbetrag mit Steuersatz bis 250 € je Termin, Haben teilt ihn auf (§ 33, § 35 Abs. 1 UStDV)", () => {
+    const klein = { ...vorlage, taxShown: false, kleinbetrag: true };
+    // 11,90 € zu 19 % → 10,00 € + 1,90 €
+    expect(dauerbelegProbleme({ ...klein, amounts: [{ taxRate: 1900, net: 1000, tax: 190 }] })).toEqual([]);
+    // Genau 250,00 € brutto ist erlaubt, ein Cent mehr nicht; die Grenze gilt für den Termin, über alle Sätze
+    expect(dauerbelegProbleme({ ...klein, amounts: [{ taxRate: 1900, net: 21008, tax: 3992 }] })).toEqual([]);
+    expect(dauerbelegProbleme({ ...klein, amounts: [{ taxRate: 1900, net: 21009, tax: 3992 }] })).toEqual([KLEINBETRAG_HINWEIS]);
+    expect(
+      dauerbelegProbleme({
+        ...klein,
+        amounts: [
+          { taxRate: 1900, net: 16807, tax: 3193 },
+          { taxRate: 700, net: 4674, tax: 327 },
+        ],
+      }),
+    ).toEqual([KLEINBETRAG_HINWEIS]);
+    // Netto und Steuer müssen die Aufteilung des Endbetrags sein, nicht frei gewählt
+    expect(dauerbelegProbleme({ ...klein, amounts: [{ taxRate: 1900, net: 1100, tax: 90 }] })).toEqual([KLEINBETRAG_AUFTEILUNG]);
+    // Nur eins von beidem: Steuerausweis oder Kleinbetragsrechnung
+    expect(dauerbelegProbleme({ ...klein, taxShown: true, amounts: [{ taxRate: 1900, net: 1000, tax: 190 }] })).toEqual([
+      "Entweder weist das Dokument die Steuer aus, oder es ist eine Kleinbetragsrechnung.",
+    ]);
+  });
 
   it("Vorsteuer nur mit Dokument mit Steuerausweis", () => {
     expect(dauerbelegProbleme(vorlage)).toEqual([]);

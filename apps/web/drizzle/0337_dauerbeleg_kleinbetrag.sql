@@ -1,0 +1,2 @@
+ALTER TABLE "recurring_documents" ADD COLUMN "kleinbetrag" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "recurring_documents" ADD CONSTRAINT "recurring_documents_kleinbetrag" CHECK (not ("recurring_documents"."tax_shown" and "recurring_documents"."kleinbetrag"));

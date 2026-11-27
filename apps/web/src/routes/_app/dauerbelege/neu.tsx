@@ -48,6 +48,7 @@ function NewDauerbelegPage() {
           privateShare: 0,
           amounts: [{ taxRate: 0, net: 0, tax: 0 }],
           taxShown: false,
+          kleinbetrag: false,
           note: "",
           recurrence: "P1M",
           nextDate: nextMonthStart(today),

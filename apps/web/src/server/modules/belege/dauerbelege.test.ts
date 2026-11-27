@@ -258,6 +258,41 @@ describe.skipIf(!testDatabaseUrl)("Dauerbelege (Postgres)", () => {
     expect(note).toMatch(/keine Umsatzsteuer aus/);
   });
 
+  it.each([
+    ["SKR03", "ist", "4964", "1576", "1600"],
+    ["SKR04", "soll", "6837", "1406", "3300"],
+  ] as const)(
+    "%s, %s: Kleinbetragsrechnung, Endbetrag 11,90 € mit 19 % → 10,00 € + 1,90 € Vorsteuer (§ 33, § 35 Abs. 1 UStDV, #1101)",
+    async (kontenrahmen, versteuerung, aufwand, vorsteuer, verb) => {
+      await reset(kontenrahmen, versteuerung);
+      const abo = { name: "Cloud-Abo", category: "software" as const, taxShown: false, kleinbetrag: true, nextDate: "2026-10-15" };
+      const vorlage = await dauer.createDauerbeleg(actor, miete({ ...abo, amounts: [{ taxRate: 1900, net: 1_000, tax: 190 }] }), vertrag("Abo"));
+      await lauf.runDueDauerbelege("2026-10-20");
+      const [beleg] = await belege(vorlage.id);
+      expect(beleg!.gross).toBe(1_190);
+      const [{ note }] = (await sql`select note from documents where id = ${beleg!.id}`) as unknown as [{ note: string }];
+      expect(note).toMatch(/Kleinbetragsrechnung \(§ 33 UStDV\).*§ 35 Abs\. 1 UStDV/);
+      await documents.bookDocument(actor, beleg!.id as string);
+      const lines = await sql`select l.account, l.debit, l.credit from journal_lines l order by l.debit desc, l.account`;
+      expect(lines.map((l) => ({ ...l }))).toEqual([
+        { account: aufwand, debit: 1_000, credit: 0 },
+        { account: vorsteuer, debit: 190, credit: 0 },
+        { account: verb, debit: 0, credit: 1_190 },
+      ]);
+      expect((await vat.computeVatFigures({ year: 2026, month: 10 })).kz66).toBe(190);
+
+      // Über 250 € brutto je Termin keine Kleinbetragsrechnung; Netto und Steuer müssen die Aufteilung sein
+      await expect(dauer.createDauerbeleg(actor, miete({ ...abo, amounts: [{ taxRate: 1900, net: 21_009, tax: 3_992 }] }), vertrag("Groß"))).rejects.toThrow(
+        /§ 33 UStDV/,
+      );
+      await expect(dauer.createDauerbeleg(actor, miete({ ...abo, amounts: [{ taxRate: 1900, net: 1_100, tax: 90 }] }), vertrag("Krumm"))).rejects.toThrow(
+        /§ 35 Abs\. 1 UStDV/,
+      );
+      // Steuerausweis und Kleinbetragsrechnung zugleich lehnt auch die Datenbank ab
+      await expect(sql`update recurring_documents set tax_shown = true where id = ${vorlage.id}`).rejects.toThrow(/recurring_documents_kleinbetrag/);
+    },
+  );
+
   it("ohne Dokument kein Dauerbeleg; nur leere Vorlagen lassen sich löschen, der Vertrag bleibt für die Belege", async () => {
     await reset();
     await expect(dauer.createDauerbeleg(actor, miete(), { bytes: new Uint8Array(), filename: "leer.pdf" })).rejects.toThrow("leer");

@@ -2360,6 +2360,13 @@
       "when": 1795771882747,
       "tag": "0336_bankverbindungen_trigger",
       "breakpoints": true
+    },
+    {
+      "idx": 337,
+      "version": "7",
+      "when": 1795773643421,
+      "tag": "0337_dauerbeleg_kleinbetrag",
+      "breakpoints": true
     }
   ]
 }
