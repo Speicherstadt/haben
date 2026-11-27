@@ -111,4 +111,35 @@ describe("EÜR mit Entnahmezeile (#1975)", () => {
     // 75,02 € + 35,09 € (32,79 € + 2,30 € nicht abziehbar) = 110,11 €, davon 70 %
     expect(amount(euer, "ausgabe:bewirtung")).toBe(7_708);
   });
+
+  it("Teilzahlung mit Teilabzug: eine Bewirtungszeile zu 0 % rundet als eine Journalzeile, auch wenn ein Steuercent auf sie fällt", () => {
+    const t = {
+      net: 13_000,
+      tax: 640,
+      gross: 13_640,
+      taxes: [
+        { rate: 0, base: 9_000, tax: 0, vorsteuerAnteil: 3_000 },
+        { rate: 1900, base: 3_000, tax: 570, vorsteuerAnteil: 3_000 },
+        { rate: 700, base: 1_000, tax: 70, vorsteuerAnteil: 3_000 },
+      ],
+    };
+    const lines: DocumentSplitLine[] = [
+      { category: "bewirtung", taxRate: 0, net: 9_000 },
+      { category: "telefon", taxRate: 1900, net: 2_000 },
+      { category: PRIVATENTNAHME, taxRate: 1900, net: 1_000 },
+      { category: "buero", taxRate: 700, net: 1_000 },
+    ];
+    const splits = allocateSplitTax(
+      lines,
+      t.taxes.map((r) => ({ taxRate: r.rate, net: r.base, tax: r.tax })),
+    );
+    const falsch: number[] = [];
+    for (let paid = 1; paid <= t.gross; paid += 1) {
+      const euer = computeEuer(2026, [payment({ totals: t, paid, category: "bewirtung", splits })]);
+      // Eine Bewirtungszeile, eine Journalzeile: 70 % auf ihren ganzen Aufwand
+      const aufwand = amount(euer, "ausgabe:bewirtung") + euer.bewirtungNichtAbziehbar;
+      if (amount(euer, "ausgabe:bewirtung") !== Math.round((aufwand * 7) / 10)) falsch.push(paid);
+    }
+    expect(falsch).toEqual([]);
+  });
 });

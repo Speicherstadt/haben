@@ -93,12 +93,16 @@ function documentShares(p: DocumentPayment, paid: Cents): Share[] {
     // bei § 13b Netto und Steuer getrennt, sonst brutto mit keineVSt
     const konto = lines[i]!.account ?? lines[i]!.category;
     const code = selbstGeschuldet ? "rc" : inputTaxCode(share.rate);
+    // Eine gebuchte Zeile ohne Steuer hat keine Zeile für den nicht abziehbaren Teil; ein Rundungscent der Teilzahlung
+    // bleibt dann bei ihrem Aufwand
     const journal =
       anteil(share.rate) > 0
-        ? [
-            { key: `${konto}|${code}|false`, amount: share.base },
-            { key: `${konto}|keineVSt|true`, amount: share.tax - abzug },
-          ]
+        ? lines[i]!.tax === 0
+          ? [{ key: `${konto}|${code}|false`, amount: share.base + share.tax - abzug }]
+          : [
+              { key: `${konto}|${code}|false`, amount: share.base },
+              { key: `${konto}|keineVSt|true`, amount: share.tax - abzug },
+            ]
         : selbstGeschuldet
           ? [
               { key: `${konto}|rc|false`, amount: share.base },
