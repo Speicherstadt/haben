@@ -15,7 +15,7 @@ import {
   rateMonth,
   periodRange,
   type VatPeriod,
-  isKapitalgesellschaft,
+  privatZulaessig,
   SELF_ASSESSED_TAX_KEYS,
   taxOf,
   VOLLER_ABZUG,
@@ -774,7 +774,7 @@ export async function bookDocumentIn(tx: Tx, id: string): Promise<void> {
   const vorab = bookingIssueList(doc, amounts, today(), splits);
   const issues = vorab.map((issue) => issue.text);
   // GmbH und UG: privat Genutztes ist Arbeitslohn oder verdeckte Gewinnausschüttung, keine Entnahme
-  if (doc.privateShare > 0 && isKapitalgesellschaft(company.rechtsform)) issues.push("Einen Privatanteil gibt es nur im Einzelunternehmen");
+  if (doc.privateShare > 0 && !privatZulaessig(company.rechtsform)) issues.push("Einen Privatanteil gibt es nur im Einzelunternehmen");
   if (doc.category === "anlage" && doc.asset?.method === "elektro" && !elektroAvailable(company.rechtsform)) issues.push(ELEKTRO_NUR_EINZELUNTERNEHMEN);
   issues.push(
     ...igErwerbFirmaIssues(

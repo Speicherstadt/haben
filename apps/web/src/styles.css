@@ -1245,17 +1245,16 @@ fieldset.card > legend + * { clear: both; }
      ganze Breite statt nur die ihrer Knöpfe */
   .actions > .btn:not(:where(table, .table, .banner) .btn-sm) { flex: 1 1 auto; }
   .history-row > .actions { width: 100%; }
-  /* Kopf kompakt, weil er stehen bleibt: Titel oben, Aktionen darunter in einer Zeile, die seitlich scrollt, statt
-     mehrerer Zeilen voller Knöpfe. Wenige Knöpfe füllen die Breite wie bisher. 4px Innenabstand halten den Fokusrahmen
-     in der scrollenden Zeile sichtbar */
-  /* nowrap: eine Spalte ist eine Zeile so breit wie der Kopf; mit wrap richtete sie sich nach der ungebrochenen Aktionszeile */
+  /* Kopf-Aktionen brechen am Handy um, statt seitlich aus dem Bild zu laufen (#1790);
+     Knöpfe füllen die Zeile, die Hauptaktion bleibt rechts (DESIGN.md, Reihenfolge der Knöpfe) */
   .page-head { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 8px; margin-block: -8px; padding-block: 8px; }
   .page-head h1 { font-size: 24px; }
   .page-head .eyebrow { margin-bottom: 2px; }
-  .page-head .actions { display: flex; flex-wrap: nowrap; gap: 8px; align-self: stretch; overflow: auto hidden; scrollbar-width: none; margin: -4px; padding: 4px; }
-  .page-head .actions > * { flex: 0 0 auto; }
-  .page-head .actions > .btn, .page-head .actions > .split-btn-solo > .btn { flex: 1 0 auto; justify-content: center; }
-  .page-head .actions > .field { flex: 1 0 140px; }
+  .page-head .actions { display: flex; flex-wrap: wrap; gap: 8px; align-self: stretch; }
+  .page-head .actions > * { flex: 0 1 auto; min-width: 0; }
+  .page-head .actions > .btn:not(:where(.btn-icon)), .page-head .actions > .split-btn-solo > .btn, .page-head .actions > .more-actions-menu:has(> .btn:not(.btn-icon)), .page-head .actions > .more-actions-menu > .btn:not(.btn-icon) { flex: 1 1 auto; justify-content: center; }
+  .page-head .actions > .more-actions-menu:has(> .btn:not(.btn-icon)) { display: flex; }
+  .page-head .actions > .field { flex: 1 1 140px; }
   /* Ein Feld direkt im Kopf (Zeitraum, Jahr) nimmt wie die Aktionszeile die ganze Breite, statt halb breit am Rand zu stehen */
   .page-head > .field { align-self: stretch; }
   /* Belegeditor: Vorschau, Entwurf als PDF, Entwurf speichern und Festschreiben passen nicht in eine Zeile (#357);

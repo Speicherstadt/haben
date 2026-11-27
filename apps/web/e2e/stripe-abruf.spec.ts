@@ -285,6 +285,14 @@ test("Ein fehlgeschlagener Abruf: Hinweis unter der Leiste mit „Zugang ändern
   const dialog = page.getByRole("dialog", { name: "Shop DE bearbeiten" });
   await expect(dialog).toContainText(`Stripe: verbunden mit ${KONTO} (Schlüssel …4711).`);
   await expect(dialog.getByLabel("API-Schlüssel (leer lassen zum Behalten)")).toHaveValue("");
+  // Stand, Felder und Knöpfe stehen mit dem Innenabstand des Dialogs, nicht an seinem Rand
+  const [rahmen, stand, feld] = await Promise.all([
+    dialog.boundingBox(),
+    dialog.getByText(/^Stripe: verbunden mit/).boundingBox(),
+    dialog.getByLabel("Name", { exact: true }).boundingBox(),
+  ]);
+  expect(stand!.x - rahmen!.x).toBeGreaterThanOrEqual(16);
+  expect(feld!.x - rahmen!.x).toBeGreaterThanOrEqual(16);
   await dialog.getByRole("button", { name: "Abbrechen" }).click();
 
   await gehe(page, "/bank/verbindungen");

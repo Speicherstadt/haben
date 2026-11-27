@@ -1,9 +1,9 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import type { KeyboardEvent, ReactNode } from "react";
 import { EINKLAPP_KUERZEL } from "../lib/nav-rail.ts";
 import { ariaKuerzel } from "../lib/tastatur.ts";
 import type { Firma } from "../lib/firmen.ts";
-import type { EigeneSeiteNav as EigeneSeite, NavGroup } from "../lib/navigation.ts";
+import { aktiverNavLink, type EigeneSeiteNav as EigeneSeite, type NavGroup, type NavLink } from "../lib/navigation.ts";
 import { releaseNotesUrl } from "../lib/release-notes.ts";
 import { STEUERBERATUNG_START } from "../lib/rollen.ts";
 import { FirmaListe, FirmaWechsler, ZumFirmenportal } from "./FirmaWechsler.tsx";
@@ -75,6 +75,27 @@ interface NavBodyProps extends CollapseButtonProps {
 
 function routeAktiv(pathname: string, to: string): boolean {
   return pathname === to || pathname.startsWith(`${to}/`);
+}
+
+/**
+ * Link der Navigation; aktiv ist nur der eine, der am genauesten zur Adresse passt (aktiverNavLink). Der Router markiert
+ * selbst nur den genauen Pfad, sonst stünde auf /bank/verbindungen auch „Bank“ als aktiv. Wie beim Router zählt die
+ * Adresse, zu der es geht, damit nie zwei Links zugleich markiert sind.
+ */
+function NavEintrag({ link, gruppen }: { link: NavLink; gruppen: readonly NavGroup[] }) {
+  const aktiv = useRouterState({ select: (state) => aktiverNavLink(state.location.pathname, gruppen) === link.to });
+  return (
+    <Link
+      to={link.to}
+      className="nav-link"
+      activeOptions={{ exact: true, includeSearch: false }}
+      data-status={aktiv ? "active" : undefined}
+      aria-current={aktiv ? "page" : undefined}
+    >
+      <Icon name={link.icon} />
+      {link.label}
+    </Link>
+  );
 }
 
 function EigeneSeitenLinks({ seiten }: { seiten: readonly EigeneSeite[] }) {
@@ -171,10 +192,7 @@ export function NavRailBody({
           {...flyout(group.label)}
         >
           {group.links.map((link) => (
-            <Link key={link.to} to={link.to} className="nav-link">
-              <Icon name={link.icon} />
-              {link.label}
-            </Link>
+            <NavEintrag key={link.to} link={link} gruppen={sichtbareGruppen} />
           ))}
         </NavFlyout>
       ))}
@@ -246,10 +264,7 @@ export function NavExpandedBody({
             {group.label}
           </div>
           {group.links.map((link) => (
-            <Link key={link.to} to={link.to} className="nav-link">
-              <Icon name={link.icon} />
-              {link.label}
-            </Link>
+            <NavEintrag key={link.to} link={link} gruppen={sichtbareGruppen} />
           ))}
         </div>
       ))}

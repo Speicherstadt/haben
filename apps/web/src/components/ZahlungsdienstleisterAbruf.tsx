@@ -54,25 +54,30 @@ export function usePspAbruf(daten: PspDaten) {
     <>
       <FormDialog open={bearbeiten !== null} title={bearbeiten ? `${bearbeiten.name} bearbeiten` : ""} onClose={() => setBearbeiten(null)}>
         {bearbeiten && (
-          <div className="stack" style={{ gap: 12 }}>
-            <p className="small" style={{ margin: 0 }}>
-              {verbindungStand(daten, bearbeiten)}
-            </p>
-            {bearbeiten.hinweis && (
-              <div className="banner banner-warn" role="note">
-                {bearbeiten.hinweis}
-              </div>
-            )}
-            <VerbindungFormular
-              daten={daten}
-              verbindung={bearbeiten}
-              onFertig={(hinweise) => {
-                setBearbeiten(null);
-                // Hinweise der Prüfung, etwa ein fehlendes Recht für neue Metadaten, stehen in der Meldung (#1915)
-                if (hinweise) setNotice({ tone: hinweise.length > 0 ? "info" : "ok", text: ["Verbindung gespeichert.", ...hinweise].join(" ") });
-              }}
-            />
-          </div>
+          // Stand und Hinweis stehen im Formular: Nur ein Formular direkt im Dialog bekommt dessen Innenabstand und die
+          // stehende Knopfzeile (styles.css, .form-dialog > form)
+          <VerbindungFormular
+            daten={daten}
+            verbindung={bearbeiten}
+            kopf={
+              <>
+                {/* Oben der Abstand zur Überschrift wie bei jedem ersten Element im Dialog, unten der Abstand des Formulars */}
+                <p className="small" style={{ marginBottom: 0 }}>
+                  {verbindungStand(daten, bearbeiten)}
+                </p>
+                {bearbeiten.hinweis && (
+                  <div className="banner banner-warn" role="note">
+                    {bearbeiten.hinweis}
+                  </div>
+                )}
+              </>
+            }
+            onFertig={(hinweise) => {
+              setBearbeiten(null);
+              // Hinweise der Prüfung, etwa ein fehlendes Recht für neue Metadaten, stehen in der Meldung (#1915)
+              if (hinweise) setNotice({ tone: hinweise.length > 0 ? "info" : "ok", text: ["Verbindung gespeichert.", ...hinweise].join(" ") });
+            }}
+          />
         )}
       </FormDialog>
       <ConfirmDialog

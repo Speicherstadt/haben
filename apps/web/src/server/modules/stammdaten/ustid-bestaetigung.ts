@@ -15,6 +15,7 @@ import {
   evatrQualifizierbar,
   evatrZeitpunkt,
   isValidGermanUstId,
+  kundenUstIdSperre,
   normalizeUstId,
   XI_NUR_LIEFERUNGEN,
 } from "@haben/core";
@@ -248,7 +249,8 @@ export async function bestaetigeNummer(
  * Vor dem Festschreiben einer Rechnung mit Reverse Charge oder innergemeinschaftlicher Lieferung (#1385): Ist die Nummer des
  * Kontakts frisch bestätigt, gibt es nichts zu sagen; sonst fragt Haben das BZSt neu. Bei der Lieferung reicht die Gültigkeit
  * (§ 6a Abs. 1 Satz 1 Nr. 4 UStG), bei Reverse Charge braucht es auch Name und Ort (evatrQualifiziertBestaetigt), ohne Ort
- * die einfache. Zurück kommt ein Hinweis für die Rückfrage oder null; das Festschreiben sperrt er nie. Abgeschaltet wie vorher.
+ * die einfache. Zurück kommt ein Hinweis für die Rückfrage oder null; das Festschreiben sperrt er nicht. Abgeschaltet wie vorher.
+ * Sperrt die Nummer selbst das Festschreiben (kundenUstIdSperre), kommt diese Meldung mit `sperrt`.
  */
 export async function ustIdVorFestschreiben(
   actor: string,
@@ -256,9 +258,13 @@ export async function ustIdVorFestschreiben(
   behandlung: "reverse_charge" | "ig_lieferung",
   jetzt = new Date(),
   via: EvatrVerbindung = verbindung(),
-): Promise<{ hinweis: string | null }> {
+): Promise<{ hinweis: string | null; sperrt?: true }> {
   const contact = await ladeKontakt(contactId);
   const nummer = normalizeUstId(contact.ustId);
+  // Was das Festschreiben selbst sperrt (treatmentIssues), etwa ATU1234, nennt die Rückfrage als Sperre und nicht als
+  // Hinweis, nach dem es trotzdem ginge; ohne Abfrage und auch abgeschaltet
+  const sperre = nummer ? kundenUstIdSperre(behandlung, nummer) : null;
+  if (sperre) return { hinweis: `${sperre}.`, sperrt: true };
   const qualifiziert = behandlung === "reverse_charge" && evatrQualifizierbar(contact);
   const zurNummer = async () => (await listUstIdBestaetigungen(contactId)).filter((b) => b.angefragteUstid === nummer);
   const vorher = await zurNummer();

@@ -111,10 +111,16 @@ for (const [device, viewport] of [
         // Erst wenn das Netz ruht, ist die Seite hydriert; sonst entgingen späte Fehler im Browser (pageerror)
         await page.waitForLoadState("networkidle");
         await expect(page.getByRole("heading", { level: 1 }).first(), `${path} hat eine Überschrift`).toBeVisible();
-        // Kein waagrechtes Scrollen der ganzen Seite auf dem Handy
+        // Kein waagrechtes Scrollen der ganzen Seite und keine abgeschnittenen Kopf-Aktionen auf dem Handy (#1790)
         if (device === "mobil") {
           const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
           expect.soft(overflow, `${path} ist nicht breiter als das Handy`).toBeLessThanOrEqual(1);
+          const kopfUeberlauf = await page.evaluate(() => {
+            const act = document.querySelector(".page-head .actions");
+            if (!act || getComputedStyle(act).display === "none") return 0;
+            return act.scrollWidth - act.clientWidth;
+          });
+          expect.soft(kopfUeberlauf, `${path}: Aktionen im Seitenkopf ragen nicht aus dem Bild`).toBeLessThanOrEqual(1);
         }
       }
       if (device === "mobil" && half === 1) {

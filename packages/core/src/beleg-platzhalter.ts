@@ -14,6 +14,7 @@ export const BELEG_PLATZHALTER = {
   leistungszeitraum: "Leistungszeitraum bzw. Leistungsdatum, leer ohne Angabe",
   kunde: "Name des Kunden",
   firma: "dein Firmenname",
-  iban: "IBAN deines Bankkontos aus den Firmendaten, in Vierergruppen",
-  bic: "BIC deines Bankkontos aus den Firmendaten",
+  // Das Zahlungskonto des Belegs (#1888), ohne Auswahl der Standard aus den Firmendaten (rechnungen/beleg-platzhalter.ts, doc.seller)
+  iban: "IBAN des gewählten Zahlungskontos, sonst aus den Firmendaten, in Vierergruppen",
+  bic: "BIC des gewählten Zahlungskontos, sonst aus den Firmendaten",
 } as const;

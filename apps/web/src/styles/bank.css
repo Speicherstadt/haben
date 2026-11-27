@@ -2,7 +2,9 @@
 
 /* Breit: alle Konten als Karten in einer Zeile, seitlich rollbar, Pfeile links und rechts */
 .konten-leiste { display: flex; align-items: center; gap: 4px; }
-.konten-leiste:not([data-rollbar]) > .btn-icon { visibility: hidden; }
+.konten-leiste:not([data-rollbar]) > .btn-icon { display: none; }
+/* Ohne Pfeile steht die erste Karte bündig mit Seitenkopf und Hinweis; der Innenabstand der Rollfläche bleibt für den Fokusring */
+.konten-leiste:not([data-rollbar]) > .konten-karten { margin-inline: -4px; }
 /* Innenabstand, damit Fokusring und Rand der gewählten Karte nicht am Rand der Rollfläche abgeschnitten werden */
 .konten-karten { flex: 1; min-width: 0; display: flex; gap: 16px; overflow-x: auto; padding: 4px 4px 8px; scrollbar-width: thin; scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { .konten-karten { scroll-behavior: auto; } }

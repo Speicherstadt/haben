@@ -747,6 +747,9 @@ test("Bank: Konten als Kartenleiste in Gruppen, im schmalen Fenster als Chips un
   const nachRechts = page.getByRole("button", { name: "Konten nach rechts" });
   await expect(nachLinks).toBeHidden();
   await expect(nachRechts).toBeHidden();
+  // Ohne Pfeile steht die erste Karte bündig mit dem Titel der Seite, nicht um die Breite eines Pfeils eingerückt
+  const [titel, ersteKarte] = await Promise.all([page.locator(".page-head h1").boundingBox(), alle.boundingBox()]);
+  expect(Math.abs((ersteKarte?.x ?? 0) - (titel?.x ?? 0))).toBeLessThanOrEqual(1);
 
   const groesse = page.viewportSize()!;
   try {
@@ -820,4 +823,20 @@ test("Bank: Beim Laden mit einem Konto, dessen Karte ganz zu sehen ist, rollt di
   const gewaehlt = leiste.locator("[aria-current='page']");
   await expect(gewaehlt).toHaveAttribute("href", href!);
   await expect(gewaehlt).toBeInViewport({ ratio: 1 });
+});
+
+test("Navigation: auf den Verbindungen ist nur „Verbindungen“ markiert, nicht auch „Bank“", async () => {
+  const nav = page.getByRole("navigation", { name: "Hauptnavigation" });
+  const bank = nav.getByRole("link", { name: "Bank", exact: true });
+  const verbindungen = nav.getByRole("link", { name: "Verbindungen", exact: true });
+  await go("/bank?konto=alle");
+  await expect(bank).toHaveAttribute("aria-current", "page");
+  await expect(verbindungen).not.toHaveAttribute("aria-current", "page");
+  await go("/bank/verbindungen");
+  await expect(verbindungen).toHaveAttribute("aria-current", "page");
+  await expect(bank).not.toHaveAttribute("aria-current", "page");
+  // Die geführte Einrichtung gehört zu den Verbindungen
+  await go("/bank/verbinden/stripe");
+  await expect(verbindungen).toHaveAttribute("aria-current", "page");
+  await expect(bank).not.toHaveAttribute("aria-current", "page");
 });
