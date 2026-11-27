@@ -183,6 +183,7 @@ function AppLayout() {
         status: state.status,
         locationPathname: state.location.pathname,
         resolvedPathname: state.resolvedLocation?.pathname,
+        matchPathname: state.matches.at(-1)?.pathname,
       }),
   });
   const main = useRef<HTMLElement>(null);
