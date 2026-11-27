@@ -1,5 +1,5 @@
 import { notFound } from "@tanstack/react-router";
-import { EXPENSE_CATEGORIES, kategorieMitKonto, type Kontenrahmen } from "@haben/core";
+import { BELEGKATEGORIEN, kategorieMitKonto, type Kontenrahmen } from "@haben/core";
 import { loadInboxSettings } from "../modules/belege/index.ts";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -55,8 +55,7 @@ import { detailId } from "./schemas.ts";
 const inBackground = (work: Promise<void>) => void work.catch((error) => console.error("Belegauslesung", error));
 
 /** Kategorien zur Auswahl, die Bezeichnung mit der Nummer des Kontos im Kontenrahmen der Firma (#1438) */
-const categoryOptions = (kontenrahmen: Kontenrahmen) =>
-  Object.keys(EXPENSE_CATEGORIES).map((value) => ({ value, label: kategorieMitKonto(kontenrahmen, value) }));
+const categoryOptions = (kontenrahmen: Kontenrahmen) => BELEGKATEGORIEN.map((value) => ({ value, label: kategorieMitKonto(kontenrahmen, value) }));
 
 export const getDocuments = createServerFn({ method: "GET" })
   .middleware([readMiddleware])
@@ -110,7 +109,7 @@ export const getDocumentDetail = createServerFn({ method: "GET" })
       amounts: result.amounts,
       splits: result.splits,
       // Je Hinweis das Feld, an dem er liegt: Die Seite klappt „Weitere Angaben“ dafür auf
-      issues: result.document.lockedAt ? [] : bookingIssueList(result.document, result.amounts, today(), result.splits),
+      issues: result.document.lockedAt ? [] : bookingIssueList(result.document, result.amounts, today(), result.splits, company.rechtsform),
       // Andere Belege desselben Lieferanten mit derselben Rechnungsnummer: Hinweis auf eine mögliche Dublette (#1314)
       gleicheNummer: await belegeMitGleicherNummer(result.document),
       // Bisherige Kategorie und Bezahlung des Lieferanten als Hinweis am Feld, nur solange der Beleg offen ist (#295)

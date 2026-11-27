@@ -1,16 +1,20 @@
 import {
   ACCOUNTS,
   abziehbareSteuer,
-  betrieblicherAnteil,
+  belegPrivat,
+  betrieblichNetto,
+  betrieblichSteuer,
   gespeicherterAnteil,
   paidTaxShares,
   periodRange,
+  type BelegPrivat,
   type Cents,
-  type VatPeriod,
   type Prozent,
+  type VatPeriod,
 } from "@haben/core";
 import { and, eq, gte, inArray, isNull, lt } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
+import { entnahmeZeilen } from "./entnahme-zeilen.ts";
 import { gutschriftAnteile } from "./gutschrift.ts";
 import { ZWISCHENKONTEN } from "./vorsteuer-anteile.ts";
 import { vorsteuerNachLeistungsdatum } from "./vorsteuer-leistungsdatum.ts";
@@ -19,21 +23,31 @@ import type { InputTaxSource, ReverseChargeSource, IgErwerbSource } from "./vat-
 /** Vorsteuer-Nebenbuch: Originalsteuer und historisch festgehaltene Abzugsanteile, unabhängig von heutigen Firmendaten. */
 export async function vorsteuerAusBelegen(period: VatPeriod, q: Db | Tx) {
   const amounts = await belegBetraege(period, q);
+  // Ein Beleg mit Zeilen privatentnahme trägt seinen Privatanteil dort, nicht in documents.private_share (#1975)
+  const entnahme = await entnahmeZeilen(
+    amounts.map((a) => a.documentId),
+    q,
+  );
+  const privat = (documentId: string, privateShare: Prozent) => belegPrivat(privateShare, entnahme.get(documentId));
   // Leistungsdatum nach dem Belegdatum (#693): Die Vorsteuer zählt im Monat der Ausführung, ein vorher gezahlter Anteil
   // im Monat der Zahlung, frühestens in dem der Rechnung (§ 15 Abs. 1 Satz 1 Nr. 1 UStG, UStAE 15.3). Diese Zeilen
   // kommen aus vorsteuer-leistungsdatum.ts; die gewöhnliche Abfrage lässt die Belege aus, sonst zählten sie doppelt
   const nachLeistungsdatum = await vorsteuerNachLeistungsdatum(period, q);
   // Mit Privatanteil zählt nur der betriebliche Teil (beim Storno derselbe wie beim Buchen); Kleinunternehmer ziehen keine Vorsteuer ab
-  const business = (amount: Cents, privateShare: Prozent, sign: number) => sign * betrieblicherAnteil(amount, privateShare);
+  const business = (amount: Cents, p: BelegPrivat, rate: number, art: "netto" | "steuer", sign: number) =>
+    sign * (art === "netto" ? betrieblichNetto(p, rate, amount) : betrieblichSteuer(p, rate, amount));
   // Eine Gutschrift „erstattet bereits Bezahltes“ mindert die Vorsteuer erst mit dem Ausgleich (#690, #786, gutschrift.ts);
   // ohne die Angabe gilt wie bei jedem Beleg das Belegdatum
   const inputTax = amounts
     .filter((a) => a.vorsteuerAbzug && !a.reverseCharge && !a.erstattetBezahltes && !nachLeistungsdatum.belege.has(a.documentId))
-    .map(({ privateShare, vorsteuerAbzug, vorsteuerAnteil, satzAnteil, reverseCharge: _rc, erstattetBezahltes: _e, sign, category: _category, ...a }) => ({
-      ...a,
-      base: business(a.base, privateShare, sign),
-      tax: abziehbareSteuer(business(a.tax, privateShare, sign), gespeicherterAnteil({ vorsteuerAbzug, vorsteuerAnteil }, satzAnteil)),
-    }))
+    .map(({ privateShare, vorsteuerAbzug, vorsteuerAnteil, satzAnteil, reverseCharge: _rc, erstattetBezahltes: _e, sign, category: _category, ...a }) => {
+      const p = privat(a.documentId, privateShare);
+      return {
+        ...a,
+        base: business(a.base, p, a.rate, "netto", sign),
+        tax: abziehbareSteuer(business(a.tax, p, a.rate, "steuer", sign), gespeicherterAnteil({ vorsteuerAbzug, vorsteuerAnteil }, satzAnteil)),
+      };
+    })
     .filter((a) => a.tax !== 0);
   inputTax.push(...nachLeistungsdatum.zeilen);
   inputTax.push(...(await skontoVorsteuerAnteile(period, q, nachLeistungsdatum.skontoOhneMinderung)));
@@ -48,7 +62,10 @@ export async function vorsteuerAusBelegen(period: VatPeriod, q: Db | Tx) {
       base: sign * a.base,
       tax: sign * a.tax,
       reverseCharge: rc,
-      deductible: abziehbareSteuer(business(a.tax, privateShare, sign), gespeicherterAnteil({ vorsteuerAbzug, vorsteuerAnteil }, satzAnteil)),
+      deductible: abziehbareSteuer(
+        business(a.tax, privat(a.documentId, privateShare), a.rate, "steuer", sign),
+        gespeicherterAnteil({ vorsteuerAbzug, vorsteuerAnteil }, satzAnteil),
+      ),
     }));
   // Innergemeinschaftlicher Erwerb ebenso, nach Belegdatum auch bei Ist-Versteuerung: Die Steuer entsteht mit Ausstellung
   // der Rechnung, spätestens mit Ablauf des Folgemonats (§ 13 Abs. 1 Nr. 6 UStG), nicht mit der Zahlung
@@ -58,7 +75,10 @@ export async function vorsteuerAusBelegen(period: VatPeriod, q: Db | Tx) {
       ...a,
       base: sign * a.base,
       tax: sign * a.tax,
-      deductible: abziehbareSteuer(business(a.tax, privateShare, sign), gespeicherterAnteil({ vorsteuerAbzug, vorsteuerAnteil }, satzAnteil)),
+      deductible: abziehbareSteuer(
+        business(a.tax, privat(a.documentId, privateShare), a.rate, "steuer", sign),
+        gespeicherterAnteil({ vorsteuerAbzug, vorsteuerAnteil }, satzAnteil),
+      ),
     }));
   // Einfuhrumsatzsteuer (§ 15 Abs. 1 Satz 1 Nr. 2 UStG): der Betrag des Bescheids ist die Steuer, abziehbar nach Belegdatum
   const einfuhr: InputTaxSource[] = amounts

@@ -1,4 +1,5 @@
-import { allocateSplitTax, formatDecimal, formatEuro, parseEuro, type ExpenseCategory } from "@haben/core";
+import { allocateSplitTax, belegAnteile, EXPENSE_CATEGORIES, formatDecimal, formatEuro, PRIVATENTNAHME, parseEuro, type ExpenseCategory } from "@haben/core";
+import { useState } from "react";
 import { CategoryCombobox } from "./CategoryCombobox.tsx";
 import { EigenesKontoWahl, passendesKonto, type OwnAccountChoice } from "./EigenesKontoWahl.tsx";
 import { Field } from "./Field.tsx";
@@ -7,6 +8,10 @@ import { Field } from "./Field.tsx";
  * Aufteilung eines Belegs auf mehrere Kategorien (#271): Zeilen mit Kategorie, Steuersatz und Netto. Die Vorsteuer je
  * Zeile verteilt Haben aus der Vorsteuer des Satzes (wie beim Speichern, allocateSplitTax); die Summen je Satz werden
  * laufend gegen die Beträge des Belegs geprüft.
+ *
+ * „Privatanteil abspalten“ an einer Zeile (#1975): Prozent eingeben, danach stehen zwei gewöhnliche Zeilen — der
+ * betriebliche Teil und die Privatentnahme. Die Rechnung ist die eine Stelle aus #1982 (belegAnteile); gespeichert wird
+ * kein Prozentsatz und kein Verweis, wer korrigieren will, löscht die Entnahme und spaltet neu ab.
  */
 
 type Rate = 1900 | 700 | 0;
@@ -66,10 +71,28 @@ export function DocumentSplits({
   const lines = parseSplitRows(rows);
   const allocated = lines && amounts ? allocateSplitTax(lines, amounts) : null;
   const rates = [...new Set([...(amounts ?? []).map((a) => a.taxRate), ...rows.map((r) => r.taxRate)])].sort((a, b) => b - a);
-  // Anlagegüter werden über das Anlagenverzeichnis abgeschrieben und lassen sich nicht aufteilen
-  const options = categories.filter((c) => c.value !== "anlage");
+  // Anlagegüter werden über das Anlagenverzeichnis abgeschrieben und lassen sich nicht aufteilen. Die Privatentnahme
+  // steht nur in einer Aufteilung, deshalb hier, nicht in der Kategorie des Belegs (#1975).
+  const options = [
+    ...categories.filter((c) => c.value !== "anlage" && c.value !== PRIVATENTNAHME),
+    { value: PRIVATENTNAHME as string, label: EXPENSE_CATEGORIES.privatentnahme.label },
+  ];
 
   const update = (key: number, patch: Partial<SplitRowState>) => onChange(rows.map((row) => (row.key === key ? { ...row, ...patch } : row)));
+
+  // Abspalten (#1975): die Zeile wird einmalig geteilt, das Ergebnis sind zwei gewöhnliche Zeilen ohne Prozentsatz
+  const [abspalten, setAbspalten] = useState<{ key: number; prozent: string } | null>(null);
+
+  const privatAbspalten = (row: SplitRowState) => {
+    const netto = parseEuro(row.net || "0");
+    const prozent = Number((abspalten?.prozent ?? "").replace(",", "."));
+    if (netto === null || netto === 0 || !Number.isInteger(prozent) || prozent <= 0 || prozent >= 100) return;
+    const { business, private: privat } = belegAnteile(netto, prozent);
+    const betrieblich: SplitRowState = { ...row, net: formatDecimal(business) };
+    const entnahme = splitRow(PRIVATENTNAHME, row.taxRate, formatDecimal(privat));
+    onChange(rows.flatMap((r) => (r.key === row.key ? [betrieblich, entnahme] : [r])));
+    setAbspalten(null);
+  };
 
   return (
     <fieldset className="card" style={{ margin: 0 }} disabled={disabled} aria-describedby="split-hint">
@@ -116,6 +139,15 @@ export function DocumentSplits({
               />
             )}
           </Field>
+          {row.category !== "" && row.category !== PRIVATENTNAHME && (
+            <button
+              type="button"
+              className="btn btn-dashed"
+              onClick={() => setAbspalten({ key: row.key, prozent: abspalten?.key === row.key ? abspalten.prozent : "20" })}
+            >
+              Privatanteil abspalten
+            </button>
+          )}
           <button
             type="button"
             className="icon-btn"
@@ -134,6 +166,32 @@ export function DocumentSplits({
             onChange={(ownAccountId) => update(row.key, { ownAccountId })}
             style={{ gridColumn: "1 / -1" }}
           />
+          {abspalten?.key === row.key && (
+            <div
+              style={{ display: "flex", gap: 8, alignItems: "end", gridColumn: "1 / -1" }}
+              role="group"
+              aria-label={`Privatanteil von Zeile ${index + 1} abspalten`}
+            >
+              <Field label="Privatanteil in Prozent" hint="Danach zwei Zeilen: betrieblich und Privatentnahme">
+                {(control) => (
+                  <input
+                    {...control}
+                    className="mono"
+                    inputMode="numeric"
+                    value={abspalten.prozent}
+                    onChange={(e) => setAbspalten({ key: row.key, prozent: e.target.value })}
+                    style={{ width: 88 }}
+                  />
+                )}
+              </Field>
+              <button type="button" className="btn btn-primary" onClick={() => privatAbspalten(row)}>
+                Abspalten
+              </button>
+              <button type="button" className="btn" onClick={() => setAbspalten(null)}>
+                Abbrechen
+              </button>
+            </div>
+          )}
         </div>
       ))}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>

@@ -1,6 +1,7 @@
 import type { EuerPayment } from "./euer.ts";
 import { allocateSplitTax } from "./document-split.ts";
 import { betrieblicherAnteil, privaterAnteil } from "./beleg-anteile.ts";
+import { PRIVATENTNAHME } from "./kontenplan.ts";
 import { roundHalfAwayFromZero, type BasisPoints, type Cents } from "./money.ts";
 import { paidTaxShares, type ExpenseCategory, type TaxShare } from "./posting.ts";
 import { abziehbareSteuer, gespeicherterAnteil } from "./vorsteuerabzug.ts";
@@ -70,6 +71,9 @@ function documentTarget(p: DocumentPayment, paid: Cents): DocumentEuerEffect {
   let vorsteuer = 0;
   let bewirtungNichtAbziehbar = 0;
   for (const { category, share, deductible } of documentShares(p, paid)) {
+    // Die Privatentnahme ist keine Betriebsausgabe (#1975): brutto auf dem Entnahmekonto, ohne Vorsteuer und ohne
+    // EÜR-Zeile. Sie steckt im Zahlbetrag, aber nicht im Aufwand.
+    if (category === PRIVATENTNAHME) continue;
     const base = betrieblicherAnteil(share.base, p.privateShare ?? 0);
     const tax = betrieblicherAnteil(share.tax, p.privateShare ?? 0);
     // Die reine Bescheidkategorie verlangt vollen Abzug; nicht abziehbare Einfuhrumsatzsteuer gehört zur Ware/Anlage.

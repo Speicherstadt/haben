@@ -9,6 +9,7 @@ import {
   WRITE_OFF_KINDS,
   invoiceOpen,
   hatPrivatanteil,
+  PRIVATENTNAHME,
   type PostingLine,
   type TaxShare,
   inCents,
@@ -101,7 +102,13 @@ async function skontoErhalten(
   if (doc.payment !== "bank") throw new BankError("Der Beleg ist privat oder bar bezahlt; dort gibt es nichts auszubuchen.");
   await assertNotCancelled(tx, doc.id);
   if (doc.reverseCharge) throw new BankError("Skonto auf Belege mit § 13b oder innergemeinschaftlichem Erwerb wird nicht unterstützt.");
-  if (hatPrivatanteil(doc.privateShare)) throw new BankError("Skonto auf Belege mit Privatanteil wird nicht unterstützt.");
+  // Auch eine Entnahmezeile ist ein Privatanteil, auch wenn am Beleg kein Prozentwert steht (#1975)
+  const [entnahme] = await tx
+    .select({ id: schema.documentSplits.id })
+    .from(schema.documentSplits)
+    .where(and(eq(schema.documentSplits.documentId, doc.id), eq(schema.documentSplits.category, PRIVATENTNAHME)))
+    .limit(1);
+  if (hatPrivatanteil(doc.privateShare) || entnahme) throw new BankError("Skonto auf Belege mit Privatanteil wird nicht unterstützt.");
   if (doc.category === "anlage") throw new BankError("Skonto auf Anlagegüter mindert die Anschaffungskosten und wird nicht unterstützt.");
   const open = documentOpen(doc.gross, await settledOn(tx, "document_id", doc.id));
   const amount = input.amount ?? open;

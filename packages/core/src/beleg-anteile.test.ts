@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { belegPrivat, betrieblichNetto, betrieblichSteuer, hatEntnahme, type Anteilszeile } from "./beleg-anteile.ts";
 import { belegAnteile, betrieblicherAnteil, hatPrivatanteil, privaterAnteil } from "./beleg-anteile.ts";
 
 describe("Anteile eines Belegs", () => {
@@ -45,5 +46,37 @@ describe("Anteile eines Belegs", () => {
     expect(hatPrivatanteil(undefined)).toBe(false);
     expect(hatPrivatanteil(1)).toBe(true);
     expect(hatPrivatanteil(100)).toBe(true);
+  });
+
+  it("liest ein Beleg mit Entnahmezeilen aus den Zeilen statt aus dem Prozentwert (#1975)", () => {
+    // Telefon-Beispiel des Issues: Internet 33,60 € netto zu 25 % privat, Telefon 8,53 € netto zu 40 % privat
+    const zeilen: Anteilszeile[] = [
+      { category: "internet", taxRate: 1900, net: 2_520, tax: 479 },
+      { category: "privatentnahme", taxRate: 1900, net: 840, tax: 160 },
+      { category: "telefon", taxRate: 1900, net: 512, tax: 97 },
+      { category: "privatentnahme", taxRate: 1900, net: 341, tax: 65 },
+    ];
+    const privat = belegPrivat(0, zeilen);
+    expect(privat.entnahme).toEqual([{ rate: 1900, base: 1_181, tax: 225 }]);
+    expect(privat.privateShare).toBe(0);
+    expect(hatEntnahme(privat)).toBe(true);
+    expect(betrieblichNetto(privat, 1900, 4_213)).toBe(3_032);
+    expect(betrieblichSteuer(privat, 1900, 801)).toBe(576);
+    // eine Teilzahlung trägt ihren Anteil an der Entnahme mit
+    expect(betrieblichSteuer(privat, 1900, 400, 801)).toBe(400 - 112);
+  });
+
+  it("ohne Entnahmezeilen gilt der Prozentwert am Beleg wie bisher", () => {
+    const privat = belegPrivat(25);
+    expect(hatEntnahme(privat)).toBe(false);
+    expect(betrieblichNetto(privat, 1900, 2_000)).toBe(1_500);
+    expect(betrieblichSteuer(privat, 1900, 380)).toBe(285);
+    expect(betrieblichSteuer(belegPrivat(100), 1900, 380)).toBe(0);
+  });
+
+  it("hatPrivatanteil erkennt auch eine Entnahmezeile ohne Prozentwert am Beleg", () => {
+    expect(hatPrivatanteil(0, [])).toBe(false);
+    expect(hatPrivatanteil(0, [{ category: "telefon", taxRate: 1900, net: 100, tax: 19 }])).toBe(false);
+    expect(hatPrivatanteil(0, [{ category: "privatentnahme", taxRate: 1900, net: 100, tax: 19 }])).toBe(true);
   });
 });

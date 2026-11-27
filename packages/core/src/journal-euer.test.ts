@@ -69,7 +69,8 @@ describe.each(KONTENRAHMEN)("EÜR-Zeilen aus dem Journal wie computeEuer (%s)", 
   });
 
   describe("Belege, voll bezahlt", () => {
-    const KATEGORIEN = EXPENSE_CATEGORY_KEYS.filter((k) => k !== "anlage" && k !== "einfuhrumsatzsteuer");
+    // Die Privatentnahme bucht nur als Zeile einer Aufteilung und steht nie als Ausgabe in der EÜR (#1975)
+    const KATEGORIEN = EXPENSE_CATEGORY_KEYS.filter((k) => k !== "anlage" && k !== "einfuhrumsatzsteuer" && k !== "privatentnahme");
 
     it.each(KATEGORIEN)("%s mit Vorsteuer", (category) => {
       const t = totals({ rate: 1900, base: 10_000 }, { rate: 700, base: 2_000 });
