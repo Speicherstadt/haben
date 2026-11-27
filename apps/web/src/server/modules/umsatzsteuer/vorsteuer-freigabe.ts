@@ -258,7 +258,8 @@ export async function freigabeNachziehen(tx: Tx, documentId: string, books: Book
   const tag = datum > doc.documentDate ? datum : doc.documentDate;
   if (!(await jahrGeschlossen(tx, tag))) {
     const unterschied = await anteilZumRechnungsdatum(tx, doc, await belegTotals(tx, doc), tag);
-    if (unterschied.some((a) => a.tax !== 0)) {
+    // Wie vorsteuerAusgleichPosting: Sätze ohne Steuer (0 %) ergeben keine Buchungszeile (#2026)
+    if (unterschied.some((a) => a.rate !== 0 && a.tax !== 0)) {
       await freigabeBuchen(tx, books, doc, tag, unterschied, true);
     }
   }
