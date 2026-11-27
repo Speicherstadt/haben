@@ -14,7 +14,6 @@ export function zuordnungNachladen(
   bearbeitet: boolean,
 ): ZuordnungStart {
   if (bearbeitet && bisher) return bisher;
-  if (bisher?.saved) return bisher;
   if (bisher && (!stored || findSavedHeader(records, stored.header) < 0)) return bisher;
   return initialMapping(records, stored);
 }
