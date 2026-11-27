@@ -43,4 +43,18 @@ describe("zuordnungNachladen", () => {
     const danach = zuordnungNachladen(anfang, RECORDS, fremd, false);
     expect(danach).toBe(anfang);
   });
+
+  it("übernimmt eine aktualisierte gespeicherte Zuordnung, wenn der Dialog vor router.invalidate() noch den alten Stand sah", () => {
+    const alt = zuordnungNachladen(null, RECORDS, STORED, false);
+    expect(alt.saved).toBe(true);
+    expect(alt.mapping.columns.purpose).toBe(2);
+
+    const aktualisiert: BankCsvMapping = {
+      ...STORED,
+      columns: { ...STORED.columns, purpose: null },
+    };
+    const danach = zuordnungNachladen(alt, RECORDS, aktualisiert, false);
+    expect(danach.saved).toBe(true);
+    expect(danach.mapping.columns.purpose).toBeNull();
+  });
 });
