@@ -550,10 +550,6 @@ async function updateDocumentIn(tx: Tx, id: string, input: DocumentInput): Promi
       );
     }
   }
-  await tx.delete(schema.documentAmounts).where(eq(schema.documentAmounts.documentId, id));
-  if (amounts.length > 0) {
-    await tx.insert(schema.documentAmounts).values(amounts.map((a) => ({ documentId: id, ...a })));
-  }
   // Aufgeteilt: Kategorie und Anlage stehen in den Zeilen bzw. gibt es nicht (Anlagegüter lassen sich nicht aufteilen)
   await replaceSplits(tx, id, parsed.splits, amounts);
   const { amounts: _amounts, splits, asset, ...fields } = parsed;
@@ -572,6 +568,12 @@ async function updateDocumentIn(tx: Tx, id: string, input: DocumentInput): Promi
       updatedAt: new Date(),
     })
     .where(eq(schema.documents.id, id));
+  // Beträge zuletzt: Ihr Audit-Eintrag sperrt die Hash-Kette, Zeilen und Beleg prüfen davor ihre eigenen Konten
+  // (Fremdschlüssel). Sonst wartete das Speichern mit der Kette auf ein Konto, das gerade jemand umbenennt (Deadlock).
+  await tx.delete(schema.documentAmounts).where(eq(schema.documentAmounts.documentId, id));
+  if (amounts.length > 0) {
+    await tx.insert(schema.documentAmounts).values(amounts.map((a) => ({ documentId: id, ...a })));
+  }
 }
 
 export async function getDocument(id: string) {
