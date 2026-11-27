@@ -255,6 +255,18 @@ describe.each(KONTENRAHMEN)("EÜR-Zeilen aus dem Journal wie computeEuer (%s)", 
       expect(ausJournal(kr, lines, "pauschale")).toEqual(erwartet([{ kind: "pauschale", date: DATUM, amount: 4_560, art }]));
     });
 
+    it("Homeoffice-Pauschale auf dem früheren Konto des Arbeitszimmers zählt weiter als Tagespauschale (#2015)", () => {
+      // Bis #2015 buchte Haben die Tagespauschale auf SKR03 4288 bzw. SKR04 6348; diese Buchungen bleiben festgeschrieben
+      const frueher = { SKR03: "4288", SKR04: "6348" }[kr];
+      const lines: PostingLine[] = [
+        { account: frueher, debit: 6_000, credit: 0, taxCode: null },
+        { account: ACCOUNTS[kr].privateinlagen, debit: 0, credit: 6_000, taxCode: null },
+      ];
+      expect(ausJournal(kr, lines, "pauschale")).toEqual(erwartet([{ kind: "pauschale", date: DATUM, amount: 6_000, art: "homeoffice" }]));
+      // Eine andere Buchung auf dem Konto, etwa eine manuelle für das Arbeitszimmer, bleibt, wie sie war
+      expect(euerZuordnung(kr, frueher)).toBeNull();
+    });
+
     it("Privatnutzung eines Firmenwagens mit Umsatzsteuer (Herkunft Anlage)", () => {
       const lines = privateUsePosting({ withdrawal: 50_000, vatBase: 40_000, vat: 7_600 }, kr);
       expect(ausJournal(kr, lines, "asset")).toEqual(erwartet([], undefined, { privateKfz: 50_000, ustEntnahmen: 7_600 }));

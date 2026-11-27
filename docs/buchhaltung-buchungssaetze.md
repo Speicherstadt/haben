@@ -161,12 +161,12 @@ Homeoffice-Tage, Fahrten mit dem Privatfahrzeug, Verpflegungsmehraufwand und Weg
 
 | Pauschale | SKR03 | SKR04 |
 | --- | --- | --- |
-| Homeoffice-Tagespauschale | 4288 | 6348 |
+| Homeoffice-Tagespauschale | 4287 | 6347 |
 | Fahrten mit dem Privatfahrzeug | 4673 | 6673 |
 | Verpflegungsmehraufwand | 4674 | 6674 |
 | Wege zwischen Wohnung und Betriebsstätte (Entfernungspauschale) | 4678 | 6688 |
 
-Ein Storno ist eine Gegenbuchung am selben Tag. Sätze und Grenzen stehen unter [Pauschalen](pauschalen.md).
+Homeoffice-Pauschalen bis Version 0.15.0 stehen auf 4288 bzw. 6348 und zählen weiter als Tagespauschale. Ein Storno ist eine Gegenbuchung am selben Tag auf die Konten der ursprünglichen Buchung. Sätze und Grenzen stehen unter [Pauschalen](pauschalen.md).
 
 ## Lohnabrechnung
 
