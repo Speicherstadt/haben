@@ -714,6 +714,8 @@ export function bookingIssueList(
   if (!doc.documentDate) add("Belegdatum fehlt");
   if (splits.length > 0) add(...splitBookingIssues(doc, amounts, splits, rechtsform));
   else if (!doc.category) add("Kategorie fehlt");
+  // Die Privatentnahme gibt es nur als Zeile einer Aufteilung (#1975); am ganzen Beleg zöge sie die volle Vorsteuer
+  else if (!(BELEGKATEGORIEN as readonly string[]).includes(doc.category)) add("Eine Privatentnahme gibt es nur als Zeile einer Aufteilung");
   const foreign = doc.currency !== "EUR";
   if (foreign && !doc.exchangeRate) issues.push({ text: missingRateIssue(doc, todayDate), feld: "exchangeRate" });
   if (foreign && amounts.some((a) => a.originalNet === null || a.originalTax === null)) add(`Beträge in ${doc.currency} fehlen`);
