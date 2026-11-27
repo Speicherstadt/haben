@@ -244,4 +244,22 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in allen Kombinationen (Postgr
       });
     },
   );
+
+  it("Ist, voller Abzug, drei Raten: die EÜR rundet kumuliert wie beim Privatanteil am Beleg", async () => {
+    // Je Rate einzeln gerundet ergäben drei Raten zusammen einen Cent mehr oder weniger als die Vollzahlung
+    const f: Fall = { kontenrahmen: "SKR03", versteuerung: "ist", rc: null, anteil: null, gutschrift: false };
+    const raten = async (mitAufteilung: boolean) => {
+      await reset(f);
+      const id = await beleg(f, mitAufteilung);
+      await documents.bookDocument(actor, id);
+      await zahlung(id, "20.09.26", -3_966);
+      await zahlung(id, "21.09.26", -3_967);
+      await zahlung(id, "22.09.26", -3_967);
+      return { stand: await stand(), diff: await abweichungen() };
+    };
+    const privatanteil = await raten(false);
+    const aufteilung = await raten(true);
+    expect(aufteilung.diff).toEqual({ vat: [], euer: [] });
+    expect(aufteilung.stand).toEqual(privatanteil.stand);
+  });
 });
