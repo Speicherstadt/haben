@@ -310,7 +310,7 @@ Kimai merkt sich, was schon abgerechnet ist, mit dem Kennzeichen `exported` (`PA
 Ein Dokumentenarchiv, ein Scanner mit eigenem Skript oder ein Werkzeug, das Rechnungen aus einem Postfach oder Kundenportal holt, schickt Eingangsbelege mit `POST /belege` an Haben. Der Beleg geht denselben Weg wie ein Upload unter **Belege**:
 
 - **Formate und Größe** wie beim Upload: PDF, JPEG, PNG, WebP, HEIC und E-Rechnungs-XML (XRechnung, ZUGFeRD), höchstens 20 MB. Haben erkennt das Format am Inhalt, nicht am Dateinamen. Genau eine Datei je Anfrage, im Feld `datei` oder `file` (für Werkzeuge mit festem Feldnamen wie [Paperless-ngx](#paperless-ngx)); beide zugleich lehnt die API mit `400` ab.
-- **Auslesen:** Eine E-Rechnung liest Haben sofort, die Antwort enthält dann schon Lieferant, Nummer, Datum und Beträge. Andere PDFs und Fotos liest die [KI-Auslesung](belege.md#ki-auslesung) im Hintergrund, wenn sie eingerichtet ist; bis dahin steht `extractionStatus` auf `laeuft`.
+- **Auslesen:** Eine E-Rechnung liest Haben sofort, die Antwort enthält dann schon Lieferant, Nummer, Datum und Beträge. Andere PDFs und Fotos liest die [KI-Auslesung](belege.md#ki-auslesung) im Hintergrund, wenn sie eingerichtet ist, der Reihe nach ([Warteschlange](belege.md#warteschlange-und-grenzen)); bis dahin steht `extractionStatus` auf `wartet` und dann auf `laeuft`.
 - **Nichts wird gebucht.** Der Beleg steht unter Belege als „Zu prüfen“ (`status: "neu"`). Kategorie, Zahlungsweg und Buchen bleiben in Haben.
 - **Anzeigename:** Schickt die Quelle die Datei unter einem festen Namen und kennt den richtigen daneben, gibt sie ihn im Feld `dateiname` mit (optional, höchstens 200 Zeichen); Haben nimmt ihn statt des Namens aus dem Upload, lässt Pfadanteile und Steuerzeichen weg und ergänzt die Endung des erkannten Formats, wenn der Name auf keine der angenommenen endet. Bleibt kein Name übrig (leer oder nur `.pdf`), gilt der aus dem Upload.
 - **Vorbelegen** lässt sich nur eine Notiz (`note`). Lieferant, Nummer, Datum und Beträge nimmt die API bewusst nicht an: Sie kommen aus der E-Rechnung oder der Auslesung, die sie sonst überschriebe, und geprüft werden sie ohnehin in Haben.
@@ -386,7 +386,7 @@ Verwende beim Nachversand dieselben Werte für `externalSource` und `externalId`
 
 Ein eigener Dienst, der Zahlungen bei einem Anbieter abholt, liefert sie mit `POST /bankimporte` als Umsätze an Haben. Die Lieferung folgt dem Importvertrag aus [#306](https://github.com/Speicherstadt/haben/issues/306) (Schema `BankImport` in der OpenAPI-Beschreibung). Haben legt die Umsätze an; zugeordnet wird wie bei jedem Import im Bankabgleich.
 
-1. **Quelle freigeben:** in Haben unter **Bank** das Konto wählen und [Externe Quelle hinzufügen](bank.md#externe-quelle). Anbieter und Kennung dort sind `provider` und `externalAccountId` jeder Lieferung. Ein Token allein legt keine Quelle an; ohne Freigabe antwortet die API mit `404`.
+1. **Quelle freigeben:** in Haben unter **Geld › Verbindungen** an der Zeile des Kontos [Externe Quelle hinzufügen](bank.md#externe-quelle). Anbieter und Kennung dort sind `provider` und `externalAccountId` jeder Lieferung. Ein Token allein legt keine Quelle an; ohne Freigabe antwortet die API mit `404`.
 2. **Token** mit dem Recht „Bankumsätze in freigegebene Quellen liefern“ (`bank:importieren`).
 3. **Liefern** wie unten.
 
@@ -395,7 +395,7 @@ Jede Bewegung hat eine feste Kennung beim Anbieter (`sourceEventId`) und eine Ko
 - **Gebühren und Auszahlungen:** Die Gebühr wird ein eigener Umsatz mit „Gebühr“ vorn im Verwendungszweck, eine Auszahlung (`kind: "payout"`) schlägt der Abgleich als Geldtransit zum Eingang auf der Bank vor. Bezug einer Erstattung (`relatedEventId`) und Bestellung (`orderId`) stehen im Verwendungszweck.
 - **Wiederholen:** Dieselbe Lieferung (gleicher `idempotencyKey`, gleicher Inhalt) noch einmal gibt das bisherige Ergebnis mit `200` zurück, ohne etwas anzulegen; derselbe Schlüssel mit anderem Inhalt ist ein Konflikt. Bekannte Bewegungen in einem überlappenden Fenster überspringt Haben.
 - **Seiten:** höchstens 1.000 Bewegungen je Lieferung. Mehr kommen als Teile desselben Abrufs: gleiche `part.fetchId`, `part.index` ab 0, beim letzten `part.last: true`. Erst mit allen Teilen gilt der Zeitraum als vollständig; Ereignisse unter `unsupported` halten ihn offen, außer mit `final: true` (Endzustand wie storniert oder abgelehnt).
-- **Konflikt:** Kommt eine schon übernommene Bewegung mit anderem Betrag, Tag oder anderer Art, überschreibt Haben nichts, antwortet mit `409` und nimmt aus der Quelle nichts mehr an, bis du am Konto **Konflikt klären** wählst.
+- **Konflikt:** Kommt eine schon übernommene Bewegung mit anderem Betrag, Tag oder anderer Art, überschreibt Haben nichts, antwortet mit `409` und nimmt aus der Quelle nichts mehr an, bis du ihn am Konto mit **Klären** löst ([Externe Quelle](bank.md#externe-quelle)).
 - **Stand:** `GET /bankquellen` nennt je Quelle Stichtag, bis wann vollständig geliefert ist (`checkpoint`) und offene Konflikte.
 
 Eine Zahlung mit Gebühr liefern (erfundene Daten):

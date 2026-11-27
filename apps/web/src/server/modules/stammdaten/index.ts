@@ -44,6 +44,7 @@ export {
   type CompanyInput,
 } from "./company.ts";
 export { setContactIbanIfEmpty } from "./contact-iban.ts";
+export { extractionLimitsSchema, saveExtractionLimits, setExtractionPaused, type ExtractionLimitsInput } from "./ki-grenzen.ts";
 export { editorContext } from "./editor-context.ts";
 export {
   bankverbindungAuswahl,

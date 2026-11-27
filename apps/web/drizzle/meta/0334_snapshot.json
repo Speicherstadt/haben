@@ -1,5 +1,5 @@
 {
-  "id": "27baf69e-5128-4f4c-a199-c93a9293a056",
+  "id": "e0a2c00a-9ba4-460c-a0de-797777222f7c",
   "prevId": "44ab36fe-aa01-4794-a284-900b57e7f4bd",
   "version": "7",
   "dialect": "postgresql",
@@ -3078,82 +3078,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.bankverbindungen": {
-      "name": "bankverbindungen",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "bezeichnung": {
-          "name": "bezeichnung",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "iban": {
-          "name": "iban",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "bic": {
-          "name": "bic",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "bank": {
-          "name": "bank",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "kontoinhaber": {
-          "name": "kontoinhaber",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "bankverbindungen_iban": {
-          "name": "bankverbindungen_iban",
-          "columns": [
-            {
-              "expression": "iban",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.beleg_layouts": {
       "name": "beleg_layouts",
       "schema": "",
@@ -4014,6 +3938,38 @@
           "notNull": true,
           "default": true
         },
+        "extraction_paused": {
+          "name": "extraction_paused",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "extraction_max_tokens_per_request": {
+          "name": "extraction_max_tokens_per_request",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "extraction_requests_per_minute": {
+          "name": "extraction_requests_per_minute",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "extraction_tokens_per_minute": {
+          "name": "extraction_tokens_per_minute",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "extraction_max_parallel": {
+          "name": "extraction_max_parallel",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 4
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamp with time zone",
@@ -4039,6 +3995,14 @@
         "company_nav_color": {
           "name": "company_nav_color",
           "value": "\"company\".\"nav_color\" ~ '^#[0-9A-F]{6}$'"
+        },
+        "company_extraction_max_parallel": {
+          "name": "company_extraction_max_parallel",
+          "value": "\"company\".\"extraction_max_parallel\" between 1 and 20"
+        },
+        "company_extraction_limits": {
+          "name": "company_extraction_limits",
+          "value": "coalesce(\"company\".\"extraction_max_tokens_per_request\", 1) > 0 and coalesce(\"company\".\"extraction_requests_per_minute\", 1) > 0 and coalesce(\"company\".\"extraction_tokens_per_minute\", 1) > 0"
         }
       },
       "isRLSEnabled": false
@@ -4473,12 +4437,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "bankverbindung_id": {
-          "name": "bankverbindung_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "hourly_rate_cents": {
           "name": "hourly_rate_cents",
           "type": "integer",
@@ -4650,21 +4608,7 @@
           "with": {}
         }
       },
-      "foreignKeys": {
-        "contacts_bankverbindung_id_bankverbindungen_id_fk": {
-          "name": "contacts_bankverbindung_id_bankverbindungen_id_fk",
-          "tableFrom": "contacts",
-          "tableTo": "bankverbindungen",
-          "columnsFrom": [
-            "bankverbindung_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "contacts_lexoffice_id_unique": {
@@ -5845,6 +5789,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "extraction_queue_position": {
+          "name": "extraction_queue_position",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
         "extraction": {
           "name": "extraction",
           "type": "jsonb",
@@ -6127,6 +6077,22 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "documents_extraction_queue_idx": {
+          "name": "documents_extraction_queue_idx",
+          "columns": [
+            {
+              "expression": "extraction_queue_position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"documents\".\"extraction_queue_position\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -9942,12 +9908,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "bankverbindung_id": {
-          "name": "bankverbindung_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "recurring_id": {
           "name": "recurring_id",
           "type": "uuid",
@@ -10289,19 +10249,6 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "invoices_bankverbindung_id_bankverbindungen_id_fk": {
-          "name": "invoices_bankverbindung_id_bankverbindungen_id_fk",
-          "tableFrom": "invoices",
-          "tableTo": "bankverbindungen",
-          "columnsFrom": [
-            "bankverbindung_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
         "invoices_corrects_fk": {
           "name": "invoices_corrects_fk",
           "tableFrom": "invoices",
@@ -10377,10 +10324,6 @@
         "invoices_payment_method": {
           "name": "invoices_payment_method",
           "value": "\"invoices\".\"payment_method\" in ('ueberweisung', 'lastschrift', 'bereits_bezahlt')"
-        },
-        "invoices_bankverbindung_entwurf": {
-          "name": "invoices_bankverbindung_entwurf",
-          "value": "\"invoices\".\"status\" = 'draft' or \"invoices\".\"bankverbindung_id\" is null"
         },
         "invoices_paid_payment": {
           "name": "invoices_paid_payment",
@@ -15671,12 +15614,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "bankverbindung_id": {
-          "name": "bankverbindung_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "issue_date": {
           "name": "issue_date",
           "type": "date",
@@ -16045,19 +15982,6 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "quotes_bankverbindung_id_bankverbindungen_id_fk": {
-          "name": "quotes_bankverbindung_id_bankverbindungen_id_fk",
-          "tableFrom": "quotes",
-          "tableTo": "bankverbindungen",
-          "columnsFrom": [
-            "bankverbindung_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
         "quotes_invoice_id_invoices_id_fk": {
           "name": "quotes_invoice_id_invoices_id_fk",
           "tableFrom": "quotes",
@@ -16087,10 +16011,6 @@
         "quotes_final_has_number": {
           "name": "quotes_final_has_number",
           "value": "\"quotes\".\"status\" = 'draft' or (\"quotes\".\"number\" is not null and \"quotes\".\"locked_at\" is not null)"
-        },
-        "quotes_bankverbindung_entwurf": {
-          "name": "quotes_bankverbindung_entwurf",
-          "value": "\"quotes\".\"status\" = 'draft' or \"quotes\".\"bankverbindung_id\" is null"
         },
         "quotes_external_ref_pair": {
           "name": "quotes_external_ref_pair",
@@ -21038,7 +20958,8 @@
         "keine",
         "laeuft",
         "fertig",
-        "fehler"
+        "fehler",
+        "wartet"
       ]
     },
     "public.invoice_format": {
@@ -21093,7 +21014,18 @@
     }
   },
   "schemas": {},
-  "sequences": {},
+  "sequences": {
+    "public.documents_extraction_queue_seq": {
+      "name": "documents_extraction_queue_seq",
+      "schema": "public",
+      "increment": "1",
+      "startWith": "1",
+      "minValue": "1",
+      "maxValue": "9223372036854775807",
+      "cache": "1",
+      "cycle": false
+    }
+  },
   "roles": {},
   "policies": {},
   "views": {},

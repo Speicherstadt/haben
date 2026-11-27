@@ -72,7 +72,7 @@ Deine Steuerberatung bekommt auf Wunsch einen eigenen Zugang, der nur lesen kann
 
 ## Einstellungen und Darstellung
 
-Die **Einstellungen** (unten links in der Navigation) sind in Bereiche geteilt: **Firma**, **Persönliche Angaben**, **Bereiche** ([Menüpunkte ein- und ausblenden](#bereiche-ausblenden)), **Rechnungen** (Nummernkreis, Nummernformat, Einheiten, Vorlagen für den Zahlungsplan, Standardanhänge für Angebote, Kundennummern), **[Beleggestaltung](beleggestaltung.md)**, **ELSTER** (Zertifikat, ERiC), **E-Mail** (Versand, Belege-Postfach), **Bank** (Kontoabruf, Google Play, App Store), **Eigene Konten** ([Sachkonten mit eigener Nummer](buchhaltung.md#eigene-konten)), **Sicherheit** (Passkeys, Passwort, Zugänge), **Fremdwährung** (Umrechnungskurse), **KI-Assistenten und API** (MCP, [REST-API](api.md), Belegauslesung), **Eigene Seiten** ([eigene Werkzeuge im Menü](eigene-seiten.md)) und **Export** (Jahresarchiv, [Einstellungen für eine neue Instanz](einrichtung-echtbetrieb.md), DATEV, Änderungsprotokoll prüfen, Backup). Links aus der App, etwa „Zertifikat hochladen“ in der Übersicht, führen direkt in den passenden Bereich; die Adresse lautet dann z. B. `/einstellungen?bereich=elster`. Darunter öffnet **Dokumentation** diese Seiten in einem neuen Tab. Am Handy zeigt **Einstellungen** zuerst die Liste der Bereiche, „‹ Einstellungen“ oben führt aus einem Bereich zurück.
+Die **Einstellungen** (unten links in der Navigation) sind in Bereiche geteilt: **Firma**, **Persönliche Angaben**, **Bereiche** ([Menüpunkte ein- und ausblenden](#bereiche-ausblenden)), **Rechnungen** (Nummernkreis, Nummernformat, Einheiten, Vorlagen für den Zahlungsplan, Standardanhänge für Angebote, Kundennummern), **[Beleggestaltung](beleggestaltung.md)**, **ELSTER** (Zertifikat, ERiC), **E-Mail** (Versand, Belege-Postfach), **Bank** (Zugang für den Kontoabruf über Enable Banking und FinTS), **Eigene Konten** ([Sachkonten mit eigener Nummer](buchhaltung.md#eigene-konten)), **Sicherheit** (Passkeys, Passwort, Zugänge), **Fremdwährung** (Umrechnungskurse), **KI-Assistenten und API** (MCP, [REST-API](api.md), Belegauslesung), **Eigene Seiten** ([eigene Werkzeuge im Menü](eigene-seiten.md)) und **Export** (Jahresarchiv, [Einstellungen für eine neue Instanz](einrichtung-echtbetrieb.md), DATEV, Änderungsprotokoll prüfen, Backup). Links aus der App, etwa „Zertifikat hochladen“ in der Übersicht, führen direkt in den passenden Bereich; die Adresse lautet dann z. B. `/einstellungen?bereich=elster`. Darunter öffnet **Dokumentation** diese Seiten in einem neuen Tab. Am Handy zeigt **Einstellungen** zuerst die Liste der Bereiche, „‹ Einstellungen“ oben führt aus einem Bereich zurück.
 
 Ebenfalls unten links wählst du **Farbe** und **Modus**: Wald (Grün, Standard), Ozean, Pflaume oder Graphit, jeweils hell, dunkel oder **System**, das der Einstellung deines Geräts folgt. Die Wahl gilt für diesen Browser und wird dort gespeichert, nicht auf dem Server; auf einem anderen Gerät wählst du sie neu. Rechnungen und PDFs bleiben in jeder Farbe gleich.
 
@@ -424,7 +424,7 @@ Optional. E-Rechnungen (ZUGFeRD, Factur-X, XRechnung) liest Haben immer selbst a
 | Kosten | ein paar Cent je Beleg | Rechenzeit auf deinem Server, mit CPU leicht ein bis mehrere Minuten je Beleg | nach Preisliste des Anbieters und Modells |
 | Genauigkeit | sehr gut, auch bei Fotos und Kassenzetteln | gut bei sauberen PDFs, schwächer bei Fotos und Kassenzetteln | je nach gewähltem Vision-Modell |
 
-Es gilt immer genau ein Dienst: Ist `EXTRACTION_BASE_URL` gesetzt, gehen Belege nur an diese Adresse, auch wenn zusätzlich `ANTHROPIC_API_KEY` gesetzt ist, und bei einem Fehler weicht Haben auf keinen anderen Anbieter aus. Welcher Weg gerade gilt, zeigt **Einstellungen › KI-Assistenten und API › Belegauslesung**. Ohne beides bleibt alles lokal, und du füllst die Felder von Hand aus. In jedem Fall bucht Haben einen Beleg erst, wenn du die Felder bestätigt hast. Weicht die Summe vom Gesamtbetrag ab oder ist die Währung nicht Euro, zeigt Haben einen Hinweis. Mehr in [Belege](belege.md).
+Es gilt immer genau ein Dienst: Ist `EXTRACTION_BASE_URL` gesetzt, gehen Belege nur an diese Adresse, auch wenn zusätzlich `ANTHROPIC_API_KEY` gesetzt ist, und bei einem Fehler weicht Haben auf keinen anderen Anbieter aus. Welcher Weg gerade gilt, zeigt **Einstellungen › KI-Assistenten und API › Belegauslesung**; darunter stellst du die Grenzen deines Anbieters ein, etwa Tokens pro Minute ([Warteschlange und Grenzen](belege.md#warteschlange-und-grenzen)). Ohne beides bleibt alles lokal, und du füllst die Felder von Hand aus. In jedem Fall bucht Haben einen Beleg erst, wenn du die Felder bestätigt hast. Weicht die Summe vom Gesamtbetrag ab oder ist die Währung nicht Euro, zeigt Haben einen Hinweis. Mehr in [Belege](belege.md).
 
 ### Beispiel: Ollama mit Qwen-VL
 
@@ -448,7 +448,7 @@ Läuft Haben mit Docker Compose und Ollama auf demselben Server:
     ```
 
 4. `docker compose up -d`, dann unter **Einstellungen › KI-Assistenten und API** prüfen, dass „Eigener Dienst (OpenAI-kompatibel)“ mit dem Modell angezeigt wird.
-5. Einen Beleg als Foto hochladen. Er zeigt „Wird ausgelesen“ und danach die Felder; ein Fehler (nicht erreichbar, Zeitüberschreitung, falsches Antwortformat) steht am Beleg.
+5. Einen Beleg als Foto hochladen. Er zeigt „Wartet auf Auslesung“ oder „Wird ausgelesen“ und danach die Felder; ein Fehler (nicht erreichbar, Zeitüberschreitung, falsches Antwortformat) steht am Beleg.
 
 Mit Podman heißt die Adresse `http://host.containers.internal:11434/v1`. Ollama als eigenen Container neben Haben, Schlüssel und Wartezeit beschreibt [Anbindungen](installation-anbindungen.md#ki-auslesung-über-openai-kompatible-schnittstelle).
 
@@ -473,11 +473,11 @@ Der Beleg geht dann an OpenRouter und an den Anbieter des Modells. Wie lange sie
 
 Bankkonten musst du meist nicht von Hand anlegen. Mit dem automatischen Abruf über Enable Banking oder FinTS legt Haben beim Verbinden die freigegebenen Konten an, bei FinTS die gewählten (Einrichtung in [Anbindungen](installation-anbindungen.md#kontoabruf-enable-banking) und [Kontoabruf über FinTS](installation-anbindungen.md#kontoabruf-über-fints), Ablauf in [Bank](bank.md#automatischer-abruf)). Beim ersten Import eines DKB-CSV oder CAMT.053-Auszugs legt Haben das Konto über die IBAN aus der Datei an. N26-CSV-Dateien enthalten keine eigene IBAN. Dafür legst du das Konto vorher an:
 
-1. Auf der Seite **Bank** „Konto hinzufügen“ wählen.
+1. Auf der Seite **Bank** **Konto verbinden › Konto ohne Abruf anlegen** wählen.
 2. Name (z. B. „N26 Business“) und IBAN eintragen und „Konto anlegen“.
-3. Beim Import das Konto in der Auswahl „Konto“ wählen und die Datei hochladen.
+3. Auf der Karte des neuen Kontos **⋯ › Datei importieren** wählen und die Datei hochladen.
 
-Name und Zweck eines Kontos (Geschäftskonto, Steuerkonto, Rücklagen, Privatkonto) änderst du auf der Seite **Bank** mit **Name und Zweck**, auch für automatisch angelegte Konten (siehe [Bank](bank.md#name-und-zweck)). Jede IBAN gibt es nur einmal. Alle Bankkonten buchen auf dasselbe Finanzkonto (1200 bei SKR03, 1800 bei SKR04). Import, Abgleich und Buchungen sind in [Bank](bank.md) beschrieben.
+Name und Zweck eines Kontos (Geschäftskonto, Steuerkonto, Rücklagen, Privatkonto) änderst du auf der Seite **Bank** mit **⋯ › Name und Zweck …** auf der Karte des Kontos, auch für automatisch angelegte Konten (siehe [Bank](bank.md#name-und-zweck)). Jede IBAN gibt es nur einmal. Alle Bankkonten buchen auf dasselbe Finanzkonto (1200 bei SKR03, 1800 bei SKR04). Import, Abgleich und Buchungen sind in [Bank](bank.md) beschrieben.
 
 ## Wie es weitergeht
 
