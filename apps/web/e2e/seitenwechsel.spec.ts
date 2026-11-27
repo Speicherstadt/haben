@@ -20,7 +20,8 @@ async function anhalten(page: Page): Promise<() => Promise<void>> {
   });
   return async () => {
     freigeben();
-    await page.unroute("**/_serverFn/**");
+    // Erst wenn die angehaltenen Anfragen weitergelaufen sind; sonst trifft route.continue() eine schon abgemeldete Route
+    await page.unrouteAll({ behavior: "wait" });
   };
 }
 
@@ -36,8 +37,10 @@ test("Handy: nach dem Klick im Menü steht die Ladeansicht statt der alten Seite
 
   await expect(page.locator("#inhalt").getByRole("status")).toContainText("Seite wird geladen");
   await expect(page.getByRole("heading", { name: "Übersicht", level: 1 })).toBeHidden();
-  // Die Navigation markiert das Ziel schon, während die Seite lädt
+  // Die Navigation markiert das Ziel schon, während die Seite lädt; der Link ist erst im wieder geöffneten Menü sichtbar
+  await page.getByRole("button", { name: "Menü" }).click();
   await expect(link).toHaveAttribute("aria-current", "page");
+  await expect(page.locator("#inhalt").getByRole("status")).toContainText("Seite wird geladen");
 
   await weiter();
   await expect(page.getByRole("heading", { name: "Rechnungen", level: 1 })).toBeVisible();
