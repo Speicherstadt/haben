@@ -62,26 +62,19 @@ const sum = (values: Cents[]) => values.reduce((s, v) => s + v, 0);
  * Teilt einen Steuerbetrag nach Netto auf die Zeilen einer Gruppe, deren Teile zusammen exakt den Betrag ergeben. Je
  * Zeile wird kaufmännisch gerundet, den Rest trägt die betragsmäßig größte Zeile, bei Gleichstand die erste — das
  * bisherige Verfahren. So behalten gespeicherte Aufteilungen ohne Entnahme ihre Werte; Abrunden nach dem größten
- * Bruchteil verschöbe einzelne Cent auf andere Kategorien (#1976). Gerechnet wird mit Beträgen, damit eine Gutschrift
- * dieselben Anteile ergibt wie die Rechnung.
+ * Bruchteil verschöbe einzelne Cent auf andere Kategorien (#1976). Gewichtet wird mit dem vorzeichenbehafteten Netto,
+ * wie bisher: Eine Gutschrift hat nur negative Zeilen und ergibt damit dieselben Anteile wie die Rechnung.
  */
 function verteileSteuer(betrag: Cents, nettos: readonly Cents[]): Cents[] {
-  const gewicht = sum(nettos.map((net) => Math.abs(net)));
-  if (betrag === 0 || gewicht === 0) return nettos.map(() => 0);
-  const richtung = Math.sign(betrag);
-  const teile = nettos.map((net) => richtung * roundHalfAwayFromZero((Math.abs(betrag) * Math.abs(net)) / gewicht));
+  const basis = nettos.reduce((a, b) => a + b, 0);
+  if (betrag === 0 || basis === 0) return nettos.map(() => 0);
+  const teile = nettos.map((net) => roundHalfAwayFromZero((betrag * net) / basis));
   const rest = betrag - sum(teile);
   const groesste = nettos.reduce((best, net, i) => (Math.abs(net) > Math.abs(nettos[best]!) ? i : best), 0);
   teile[groesste] = (teile[groesste] ?? 0) + rest;
   return teile;
 }
 
-/**
- * Verteilt die Vorsteuer je Satz auf die Zeilen: zuerst nach Netto zwischen Betrieb und Entnahme, dann innerhalb jeder
- * Gruppe anteilig nach Netto. So hängt der abziehbare Teil nicht davon ab, wo die Entnahme steht, und übersteigt nie die
- * Steuer des Belegs (#1976); die Summe je Satz bleibt exakt die Steuer des Belegs. Stimmt das Netto der Zeilen (noch)
- * nicht, wird nach ihrem eigenen Netto verteilt; ohne Netto bleibt die Steuer bei 0, das meldet splitIssues.
- */
 /**
  * Kategorie der Privatentnahme. Sie ist die einzige Wahrheit darüber, was privat ist: Ein Kennzeichen am Feld müsste
  * jeder Schreiber setzen, und die Buchung, die EÜR und die Anzeige bekommen die Zeilen auf verschiedenen Wegen.
@@ -91,6 +84,16 @@ const PRIVATENTNAHME_KATEGORIE = "privatentnahme";
 
 const istPrivatentnahme = (line: DocumentSplitLine) => String(line.category) === PRIVATENTNAHME_KATEGORIE;
 
+/**
+ * Verteilt die Vorsteuer je Satz auf die Zeilen: zuerst nach Netto zwischen Betrieb und Entnahme, dann innerhalb jeder
+ * Gruppe anteilig nach Netto. So hängt der abziehbare Teil nicht davon ab, wo die Entnahme steht, und übersteigt nie die
+ * Steuer des Belegs (#1976); die Summe je Satz bleibt exakt die Steuer des Belegs. Stimmt das Netto der Zeilen (noch)
+ * nicht, wird nach ihrem eigenen Netto verteilt; ohne Netto bleibt die Steuer bei 0, das meldet splitIssues.
+ *
+ * Ein Satz mit Entnahme und gemischten Vorzeichen bekommt keine Zuteilung: Der Anteil der Entnahme hätte einen
+ * Nenner, in dem sich Plus und Minus aufheben, und bei Netto 0 fiele die Steuer des Satzes still auf 0. splitIssues
+ * weist einen solchen Satz ab, bevor gebucht oder ein Entwurf gespeichert wird.
+ */
 export function allocateSplitTax(lines: DocumentSplitLine[], amounts: DocumentRateAmount[]): AllocatedSplitLine[] {
   const result: AllocatedSplitLine[] = lines.map((line) => ({ ...line, tax: 0 }));
   for (const amount of amounts) {
@@ -99,6 +102,10 @@ export function allocateSplitTax(lines: DocumentSplitLine[], amounts: DocumentRa
     if (indexes.length === 0 || base === 0) continue;
     const betrieb = indexes.filter((i) => !istPrivatentnahme(lines[i]!));
     const entnahme = indexes.filter((i) => istPrivatentnahme(lines[i]!));
+    // Riegel vor der Verteilung (#1976): Mit Entnahme hebt sich im Nenner ihres Anteils Plus und Minus auf, bei Netto 0
+    // fiele die Steuer des Satzes still auf 0. Ohne Entnahme bleibt es beim bisherigen Verfahren über das ganze Netto.
+    const gemischt = indexes.some((i) => lines[i]!.net > 0) && indexes.some((i) => lines[i]!.net < 0);
+    if (gemischt && entnahme.length > 0) continue;
     const entnahmeNetto = sum(entnahme.map((i) => lines[i]!.net));
     // Die Entnahme trägt ihren gerundeten Anteil, der Betrieb den Rest: zusammen genau die Steuer des Belegs
     const entnahmeSteuer =
@@ -138,16 +145,16 @@ export function splitIssues(lines: AllocatedSplitLine[], amounts: DocumentRateAm
     const amount = amounts.find((a) => a.taxRate === rate) ?? { taxRate: rate, net: 0, tax: 0 };
     const own = lines.filter((line) => line.taxRate === rate);
     const net = sum(own.map((line) => line.net));
+    // Vor dem Betragsvergleich: Hebt sich der Satz zu 0 auf, faellt er sonst durch und die Buchung ginge still durch
+    if (own.some((line) => line.net > 0) && own.some((line) => line.net < 0)) {
+      issues.push(`Aufteilung ${percent(rate)}: Zeilen mit Plus und Minus gemischt; eine Gutschrift hat nur negative Zeilen`);
+    }
     if (net !== amount.net) {
       issues.push(`Aufteilung ${percent(rate)}: Zeilen zusammen ${formatEuro(net)} netto, Beleg ${formatEuro(amount.net)}`);
       continue;
     }
     const tax = sum(own.map((line) => line.tax));
     if (tax !== amount.tax) issues.push(`Aufteilung ${percent(rate)}: Vorsteuer der Zeilen ${formatEuro(tax)}, Beleg ${formatEuro(amount.tax)}`);
-    // Nicht am Vorzeichen des Belegs gemessen: In einem Satz, den der Beleg nicht hat (Netto 0), höben sich +x und −x sonst auf
-    if (own.some((line) => line.net > 0) && own.some((line) => line.net < 0)) {
-      issues.push(`Aufteilung ${percent(rate)}: Zeilen mit Plus und Minus gemischt; eine Gutschrift hat nur negative Zeilen`);
-    }
   }
   return issues;
 }

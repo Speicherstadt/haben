@@ -188,10 +188,27 @@ export function positionenSummen(positionen: readonly Position[], saetze: readon
  */
 export function summenProbe(summen: PositionenSummen, vorgabe: readonly TaxShare[]): string[] {
   const issues: string[] = [];
+  // Ein Satz zweimal in der Vorgabe: allocateSplitTax ueberschreibt je Betrag die Zuteilung, die Probe faende mit find
+  // nur den ersten Eintrag. Doppelt genannte Saetze werden deshalb abgewiesen statt geprueft (#1976).
+  const doppelt = new Set<BasisPoints>();
+  const gesehen = new Set<BasisPoints>();
+  for (const satz of vorgabe) {
+    if (gesehen.has(satz.rate)) {
+      doppelt.add(satz.rate);
+      issues.push(`Summenprobe ${satz.rate / 100} %: der Satz steht zweimal in der Vorgabe`);
+    }
+    gesehen.add(satz.rate);
+  }
   const saetze = [
-    ...new Set([...vorgabe.map((satz) => satz.rate), ...summen.saetze.map((satz) => satz.rate), ...summen.privat.saetze.map((satz) => satz.rate)]),
+    ...new Set([
+      ...vorgabe.map((satz) => satz.rate),
+      ...summen.saetze.map((satz) => satz.rate),
+      ...summen.privat.saetze.map((satz) => satz.rate),
+      ...summen.zeilen.map((zeile) => zeile.rate),
+    ]),
   ].sort((a, b) => b - a);
   for (const rate of saetze) {
+    if (doppelt.has(rate)) continue;
     const betrieblich = summen.saetze.find((zeile) => zeile.rate === rate);
     const privat = summen.privat.saetze.find((zeile) => zeile.rate === rate);
     const net = (betrieblich?.base ?? 0) + (privat?.base ?? 0);
@@ -203,7 +220,10 @@ export function summenProbe(summen: PositionenSummen, vorgabe: readonly TaxShare
     }
     const satz = vorgabe.find((zeile) => zeile.rate === rate);
     if (!satz) {
-      issues.push(`Summenprobe ${rate / 100} %: Netto ${formatEuro(net)} und Steuer ${formatEuro(tax)} stehen nicht in der Vorgabe`);
+      // Ein Satz, den nur die Zeilen kennen und der sich zu 0 aufhebt, steht oben schon als gemischt; eine zweite
+      // Meldung über 0,00 € verwirrt nur (#1976)
+      if (net !== 0 || tax !== 0)
+        issues.push(`Summenprobe ${rate / 100} %: Netto ${formatEuro(net)} und Steuer ${formatEuro(tax)} stehen nicht in der Vorgabe`);
       continue;
     }
     if (net !== satz.base) issues.push(`Summenprobe ${rate / 100} %: Netto ${formatEuro(net)}, Vorgabe ${formatEuro(satz.base)}`);
@@ -235,13 +255,16 @@ export function privatanteilAbspalten(position: Position, prozent: Prozent): { b
   if (!Number.isInteger(prozent) || prozent <= 0 || prozent >= 100)
     throw new RangeError("Der Privatanteil muss ein ganzer Prozentsatz über 0 und unter 100 sein");
   const { business, private: privat } = belegAnteile(position.net, prozent);
+  // Eine Entnahme mit Netto 0 waere keine Entnahme; splitIssues meldete sie erst spaeter als fehlenden Nettobetrag
+  if (privat === 0)
+    throw new RangeError(`Der Anteil von ${prozent} % ist bei ${formatEuro(position.net)} gerundet 0 Cent; dafür lässt sich keine Entnahme abspalten`);
   return {
     betrieblich: { ...position, net: business },
     privat: {
       kategorie: PRIVATENTNAHME,
       rate: position.rate,
       net: privat,
-      beschreibung: `${prozent} % von ${position.beschreibung ?? position.kategorie}`,
+      beschreibung: `${prozent} % von ${position.beschreibung?.trim() || position.kategorie}`,
     },
   };
 }

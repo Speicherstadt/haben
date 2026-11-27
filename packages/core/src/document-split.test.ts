@@ -368,3 +368,41 @@ describe("documentSplitPosting mit eigenem Konto (#270)", () => {
     });
   });
 });
+
+describe("Gemischte Vorzeichen (#1976)", () => {
+  it("ohne Entnahme wie bisher: Gewicht ist das vorzeichenbehaftete Netto", () => {
+    // +100,00 € und −50,00 € zu 19 % mit 9,50 € Steuer: 19,00 € und −9,50 €, nicht 6,33 € und 3,17 € wie mit Σ|Netto|
+    const lines: DocumentSplitLine[] = [
+      { category: "buero", taxRate: 1900, net: 10_000 },
+      { category: "software", taxRate: 1900, net: -5_000 },
+    ];
+    expect(allocateSplitTax(lines, [{ taxRate: 1900, net: 5_000, tax: 950 }]).map((line) => line.tax)).toEqual([1_900, -950]);
+  });
+
+  it("weist einen Satz mit Entnahme und gemischten Vorzeichen ab, statt ihn zu verteilen", () => {
+    // −200,00 € betrieblich und +300,00 € Entnahme zu 19 %, Steuer 19,00 €: der Nenner der Entnahme verrechnet die
+    // Vorzeichen und ergäbe −38,00 € / +57,00 €. Ohne Zuteilung bleibt es bei 0 und splitIssues meldet den Satz.
+    const amounts = [{ taxRate: 1900, net: 10_000, tax: 1_900 }];
+    const lines: DocumentSplitLine[] = [
+      { category: "buero", taxRate: 1900, net: -20_000 },
+      { category: entnahmeKategorie, taxRate: 1900, net: 30_000 },
+    ];
+    const allocated = allocateSplitTax(lines, amounts);
+    expect(allocated.map((line) => line.tax)).toEqual([0, 0]);
+    expect(splitIssues(allocated, amounts)).toEqual([
+      "Aufteilung 19 %: Zeilen mit Plus und Minus gemischt; eine Gutschrift hat nur negative Zeilen",
+      "Aufteilung 19 %: Vorsteuer der Zeilen 0,00\u00a0€, Beleg 19,00\u00a0€",
+    ]);
+  });
+
+  it("hebt sich das Netto des Satzes auf, bleibt es nicht still bei 0", () => {
+    const amounts = [{ taxRate: 1900, net: 0, tax: 0 }];
+    const lines: DocumentSplitLine[] = [
+      { category: "buero", taxRate: 1900, net: -20_000 },
+      { category: entnahmeKategorie, taxRate: 1900, net: 20_000 },
+    ];
+    const allocated = allocateSplitTax(lines, amounts);
+    expect(allocated.map((line) => line.tax)).toEqual([0, 0]);
+    expect(splitIssues(allocated, amounts)).toEqual(["Aufteilung 19 %: Zeilen mit Plus und Minus gemischt; eine Gutschrift hat nur negative Zeilen"]);
+  });
+});

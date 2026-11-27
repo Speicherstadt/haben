@@ -322,3 +322,58 @@ describe("Summenprobe", () => {
     ]);
   });
 });
+
+describe("Summenprobe: Sätze nur in den Zeilen und doppelte Vorgabe (#1976)", () => {
+  it("meldet gemischte Vorzeichen in einem Satz, den die Vorgabe nicht kennt", () => {
+    // 7 % steht in keiner Vorgabe; +50,00 € und −50,00 € heben sich in den Summen zu 0 auf und fielen aus jeSatz heraus
+    const positionen: Position[] = [
+      { kategorie: "ware", rate: 1900, net: 4_213 },
+      { kategorie: "literatur", rate: 700, net: 5_000 },
+      { kategorie: "buero", rate: 700, net: -5_000 },
+    ];
+    const vorgabe: TaxShare[] = [{ rate: 1900, base: 4_213, tax: 801 }];
+    expect(summenProbe(positionenSummen(positionen, vorgabe), vorgabe)).toEqual([
+      "Summenprobe 7 %: Netto mit Plus und Minus gemischt; eine Gutschrift hat nur negative Beträge",
+    ]);
+  });
+
+  it("dasselbe für zwei Entnahmezeilen, die sich im Satz aufheben", () => {
+    const positionen: Position[] = [
+      { kategorie: "ware", rate: 1900, net: 4_213 },
+      { kategorie: "privatentnahme", rate: 700, net: 5_000 },
+      { kategorie: "privatentnahme", rate: 700, net: -5_000 },
+    ];
+    const vorgabe: TaxShare[] = [{ rate: 1900, base: 4_213, tax: 801 }];
+    expect(summenProbe(positionenSummen(positionen, vorgabe), vorgabe)).toEqual([
+      "Summenprobe 7 %: Netto mit Plus und Minus gemischt; eine Gutschrift hat nur negative Beträge",
+    ]);
+  });
+
+  it("weist einen Satz ab, der zweimal in der Vorgabe steht", () => {
+    // allocateSplitTax überschreibt je Betrag die Zuteilung, find liest nur den ersten Eintrag
+    const positionen: Position[] = [{ kategorie: "buero", rate: 1900, net: 10_000 }];
+    const summen = positionenSummen(positionen, [{ rate: 1900, base: 10_000, tax: 1_900 }]);
+    expect(
+      summenProbe(summen, [
+        { rate: 1900, base: 10_000, tax: 1_900 },
+        { rate: 1900, base: 15_000, tax: 2_850 },
+      ]),
+    ).toEqual(["Summenprobe 19 %: der Satz steht zweimal in der Vorgabe"]);
+  });
+});
+
+describe("privatanteilAbspalten: Beschreibung und zu kleiner Anteil (#1976)", () => {
+  it("nimmt die Kategorie, wenn die Beschreibung leer oder nur Leerraum ist", () => {
+    for (const beschreibung of ["", "   "]) {
+      const { privat } = privatanteilAbspalten({ kategorie: "telefon", rate: 1900, net: 1_000, beschreibung }, 40);
+      expect(privat.beschreibung).toBe("40 % von telefon");
+    }
+    const { privat } = privatanteilAbspalten({ kategorie: "telefon", rate: 1900, net: 1_000, beschreibung: "  Mobilfunk  " }, 40);
+    expect(privat.beschreibung).toBe("40 % von Mobilfunk");
+  });
+
+  it("weist einen Privatanteil ab, der gerundet 0 Cent ergibt", () => {
+    // 25 % von 1 ct sind gerundet 0 ct; eine Entnahme mit Netto 0 meldete splitIssues erst beim Buchen
+    expect(() => privatanteilAbspalten({ kategorie: "telefon", rate: 1900, net: 1 }, 25)).toThrow(/0 Cent/);
+  });
+});
