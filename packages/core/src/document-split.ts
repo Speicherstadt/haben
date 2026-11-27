@@ -78,7 +78,9 @@ function verteileSteuer(betrag: Cents, nettos: readonly Cents[]): Cents[] {
 /**
  * Kategorie der Privatentnahme. Sie ist die einzige Wahrheit darüber, was privat ist: Ein Kennzeichen am Feld müsste
  * jeder Schreiber setzen, und die Buchung, die EÜR und die Anzeige bekommen die Zeilen auf verschiedenen Wegen.
- * Privatentnahme ist im Kontenplan noch nicht freigeschaltet; bis dahin ist der Vergleich immer falsch.
+ * Privatentnahme ist im Kontenplan (EXPENSE_CATEGORIES) nicht freigeschaltet, über das Formular also nicht wählbar.
+ * Als Position.kategorie kommt sie trotzdem vor: positionenSummen reicht sie unverändert an allocateSplitTax durch,
+ * der Vergleich greift dort also schon.
  */
 const PRIVATENTNAHME_KATEGORIE = "privatentnahme";
 
