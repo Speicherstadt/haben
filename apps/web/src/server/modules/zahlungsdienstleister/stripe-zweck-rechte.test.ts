@@ -5,7 +5,8 @@ import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
 /*
  * Darf der Schlüssel Zahlungen nicht lesen, sagt das schon „Zugang prüfen“, wenn Schlüssel der Metadaten gewählt sind (#1915):
- * Nach dem ersten Abruf wären die Umsätze ohne Metadaten übernommen und bekämen sie nicht mehr.
+ * Nach dem ersten Abruf wären die Umsätze ohne Metadaten übernommen und bekämen sie nicht mehr. Ebenso beim Speichern
+ * geänderter Einstellungen in „Bearbeiten“ ohne neuen Schlüssel.
  */
 
 describe.skipIf(!testDatabaseUrl)("Stripe-Zugang prüfen mit Metadaten ohne Leserecht (Postgres)", () => {
@@ -14,6 +15,7 @@ describe.skipIf(!testDatabaseUrl)("Stripe-Zugang prüfen mit Metadaten ohne Lese
   let darf = false;
   let stoerung: Error | null = null;
   let gefragt = 0;
+  const actor = "test-user";
 
   beforeAll(async () => {
     sql = await setupTestDb();
@@ -65,6 +67,20 @@ describe.skipIf(!testDatabaseUrl)("Stripe-Zugang prüfen mit Metadaten ohne Lese
     gefragt = 0;
     expect((await pruefen({})).hinweise).toEqual([]);
     expect((await pruefen({ metadataKeys: " , " })).hinweise).toEqual([]);
+    expect(gefragt).toBe(0);
+  });
+
+  it("meldet das fehlende Recht auch, wenn „Bearbeiten“ Schlüssel ohne neuen Zugang setzt, und fragt bei gleicher config nicht", async () => {
+    darf = false;
+    const verbindung = { provider: "stripe", name: "Stripe", fetchFrom: "2026-11-01" };
+    const { id, hinweise: ohne } = await psp.speichereVerbindung(actor, { ...verbindung, eingabe: { apiKey: "rk_live_abcdefghijklmnop" } });
+    expect(ohne).toEqual([]);
+    const { hinweise } = await psp.speichereVerbindung(actor, { ...verbindung, id, config: { metadataKeys: "invoice_number" } });
+    expect(hinweise).toHaveLength(1);
+    expect(hinweise[0]).toContain("Lesezugriff auf Zahlungen und Erstattungen");
+    gefragt = 0;
+    const umbenannt = await psp.speichereVerbindung(actor, { ...verbindung, name: "Shop", id, config: { metadataKeys: "invoice_number" } });
+    expect(umbenannt.hinweise).toEqual([]);
     expect(gefragt).toBe(0);
   });
 });
