@@ -37,6 +37,10 @@ export type AssetState = {
   openingDate: string;
   openingBookValue: string;
   disposalDate: string;
+  /** Art des Abgangs (#1970): Verkauf oder Verschrottung, oder Entnahme ins Privatvermögen (nur Einzelunternehmen) */
+  disposalKind: "abgang" | "entnahme";
+  withdrawalValue: string;
+  withdrawalInputVat: boolean;
   note: string;
   privateUsed: boolean;
   listPrice: string;
@@ -47,7 +51,8 @@ export type AssetState = {
   vat: boolean;
 };
 
-export function assetState(initial: AssetFormValues): AssetState {
+/** `inputVatDefault`: Vorbelegung „Beim Kauf Vorsteuer gezogen“ für eine neue Entnahme, aus dem Anschaffungsbeleg */
+export function assetState(initial: AssetFormValues, inputVatDefault = false): AssetState {
   return {
     name: initial.name,
     kind: initial.kind,
@@ -61,6 +66,9 @@ export function assetState(initial: AssetFormValues): AssetState {
     openingDate: initial.openingDate,
     openingBookValue: initial.openingDate ? formatDecimal(initial.openingBookValue) : "",
     disposalDate: initial.disposalDate ?? "",
+    disposalKind: initial.disposalWithdrawal ? "entnahme" : "abgang",
+    withdrawalValue: initial.disposalWithdrawal ? formatDecimal(initial.disposalWithdrawal.value) : "",
+    withdrawalInputVat: initial.disposalWithdrawal?.inputVat ?? inputVatDefault,
     note: initial.note,
     privateUsed: initial.privateUse !== null,
     listPrice: initial.privateUse ? formatDecimal(initial.privateUse.listPrice) : "",
@@ -71,7 +79,7 @@ export function assetState(initial: AssetFormValues): AssetState {
   };
 }
 
-export type AssetErrorKey = "name" | "acquisitionDate" | "cost" | "years" | "rate" | "linearFrom" | "openingDate" | "opening" | "listPrice";
+export type AssetErrorKey = "name" | "acquisitionDate" | "cost" | "years" | "rate" | "linearFrom" | "openingDate" | "opening" | "listPrice" | "withdrawalValue";
 
 function privateUseOf(v: AssetState) {
   const parsedListPrice = parseEuro(v.listPrice);
@@ -84,6 +92,13 @@ function privateUseOf(v: AssetState) {
   return { suggestion, effectiveRate, privateUse, privateUseValid, monthly: privateUse ? privateUseMonth(privateUse) : null };
 }
 
+/** Entnahme nur mit Abgangsdatum; `valid` ist false, solange der Entnahmewert fehlt */
+function withdrawalOf(v: AssetState) {
+  if (!v.disposalDate || v.disposalKind !== "entnahme") return { withdrawal: null, valid: true };
+  const value = parseEuro(v.withdrawalValue);
+  return value !== null && value >= 0 ? { withdrawal: { value, inputVat: v.withdrawalInputVat }, valid: true } : { withdrawal: null, valid: false };
+}
+
 /** Alles, was das Formular aus dem Stand braucht; `values` ist null, solange ein Feld nicht stimmt */
 export function readAsset(v: AssetState, showOpening: boolean) {
   const parsedCost = parseEuro(v.cost);
@@ -94,6 +109,7 @@ export function readAsset(v: AssetState, showOpening: boolean) {
   const linearFrom = v.linearFrom.trim();
   const parsedLinearFrom = /^\d{4}$/.test(linearFrom) ? Number(linearFrom) : linearFrom ? Number.NaN : null;
   const privat = privateUseOf(v);
+  const entnahme = withdrawalOf(v);
   // Über dem Höchstsatz (§ 7 Abs. 2 EStG) ist ein Fehler am Satz, wie der Hinweis darunter sagt
   const maxRate = v.method === "degressiv" && v.acquisitionDate && lifeMonths ? maxDegressiveRate(v.acquisitionDate, lifeMonths) : null;
   const rateAboveMax =
@@ -108,10 +124,12 @@ export function readAsset(v: AssetState, showOpening: boolean) {
     openingDate: showOpening && !v.openingDate ? "Wähle den Übernahmestichtag." : null,
     opening: showOpening && (parsedOpening === null || parsedOpening < 0) ? amountError("den Restbuchwert", 85_000) : null,
     listPrice: privat.privateUseValid ? null : amountError("den Bruttolistenpreis", 4_500_000),
+    withdrawalValue: entnahme.valid ? null : amountError("den Entnahmewert netto", 80_000),
   };
   const degressiveValid = v.method !== "degressiv" || (!Number.isNaN(parsedRate) && !Number.isNaN(parsedLinearFrom));
   const valid =
     privat.privateUseValid &&
+    entnahme.valid &&
     v.name.trim() !== "" &&
     Boolean(v.acquisitionDate) &&
     parsedCost !== null &&
@@ -134,6 +152,7 @@ export function readAsset(v: AssetState, showOpening: boolean) {
         openingDate: v.openingDate,
         openingBookValue: parsedOpening ?? 0,
         disposalDate: v.disposalDate || null,
+        disposalWithdrawal: entnahme.withdrawal,
         privateUse: privat.privateUse,
         note: v.note,
       }

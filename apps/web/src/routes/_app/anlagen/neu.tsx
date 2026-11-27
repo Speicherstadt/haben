@@ -45,6 +45,7 @@ function NewAssetPage() {
               openingDate: `${year}-01-01`,
               openingBookValue: 0,
               disposalDate: null,
+              disposalWithdrawal: null,
               privateUse: null,
               note: "",
             }}
