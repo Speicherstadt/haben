@@ -6,7 +6,7 @@ import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 /*
  * Nur anhängbare Tabellen ohne Siegel (#861): Ihr Audit-Trigger schreibt jede Zeile beim Einfügen ins Audit-Log. Ändern
  * oder löschen geht nur mit abgeschalteten Triggern; haben_integrity_problems (0338) vergleicht deshalb jede Zeile mit
- * ihrem letzten Eintrag dort.
+ * dem Eintrag, mit dem sie dorthin kam.
  */
 describe.skipIf(!testDatabaseUrl)("Nur anhängbare Tabellen gegen das Audit-Log (Postgres)", () => {
   let sql: postgres.Sql;

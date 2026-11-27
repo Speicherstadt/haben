@@ -6,7 +6,12 @@
 -- 2. Zeilen dieser Tabellen ohne Eintrag im Audit-Log trägt die Migration nachträglich ein, mit einem Hinweis in der Kette
 --    wie in 0063. Auf einer frischen Installation ist das nur die Zeile in vat_items_since, die 0138 vor ihrem Audit-Trigger
 --    anlegt.
--- 3. haben_integrity_problems wie in 0318, dazu der Abgleich jeder dieser Tabellen mit ihren Einträgen im Audit-Log.
+-- 3. haben_append_only_problems gleicht jede dieser Tabellen mit ihren Einträgen im Audit-Log ab; haben_integrity_problems
+--    wie in 0318 ruft sie zusätzlich auf.
+--
+-- Quelle: § 146 Abs. 4 AO (eine Aufzeichnung darf nicht so verändert werden, dass der ursprüngliche Inhalt nicht mehr
+-- feststellbar ist); GoBD, BMF-Schreiben vom 28.11.2019, Rz. 108 (keine Änderung ohne Kenntlichmachung) und Rz. 111
+-- (auch die Änderungshistorie nicht nachträglich veränderbar), am Original gelesen in #861.
 --
 -- An bestehenden Zeilen, Einträgen und Siegeln ändert die Migration nichts.
 SELECT set_config('haben.actor', 'system:migration', true);
@@ -102,6 +107,84 @@ BEGIN
 END;
 $$;
 --> statement-breakpoint
+-- Abgleich der nur anhängbaren Tabellen ohne Siegel mit dem Audit-Log, als eigene Funktion, damit eine spätere Änderung
+-- daran nicht den ganzen Rumpf von haben_integrity_problems ersetzen muss. Befunde wie dort: Art, Tabelle, Zeile, Nummer des
+-- Eintrags, Befund; höchstens max_rows je Tabelle.
+CREATE FUNCTION haben_append_only_problems(max_rows integer DEFAULT 100)
+RETURNS TABLE (art text, tabelle text, zeile text, seq bigint, befund text)
+LANGUAGE plpgsql STABLE AS $$
+DECLARE
+  tbl text;
+  pk_match text;
+  pk_key text;
+  zeile_t text;
+  zeile_l text;
+  abweichung text;
+BEGIN
+  -- Nur anhängbare Tabellen ohne Siegel (#861): Jede Zeile steht so im Audit-Log, wie sie in der Tabelle steht. Ihr
+  -- Audit-Trigger schreibt beim Einfügen den ganzen Wert, und ändern oder löschen lässt haben_append_only sie nur mit
+  -- abgeschalteten Triggern; das hinterlässt keinen Eintrag. Maßgeblich ist der erste INSERT-Eintrag je Primärschlüssel:
+  -- Einen weiteren Eintrag, etwa ein DELETE oder ein INSERT mit dem geänderten Wert, kann jeder mit eingeschalteten
+  -- Triggern anhängen, ohne die Kette zu brechen.
+  -- jsonb_populate_record wandelt den Wert in den Zeilentyp, damit etwa Zeitpunkte unabhängig von der Zeitzone der
+  -- schreibenden Sitzung verglichen werden. Spalten, die eine spätere Migration ergänzt hat, fehlen in älteren Einträgen
+  -- und bleiben dort ungeprüft; die Spalten, die haben_audit weglässt (PDF, XML), prüft der Abgleich nicht.
+  FOREACH tbl IN ARRAY haben_audited_append_only_tables() LOOP
+    IF to_regclass(tbl) IS NULL THEN
+      RETURN QUERY SELECT 'siegel'::text, tbl, NULL::text, NULL::bigint, 'Tabelle fehlt'::text;
+      CONTINUE;
+    END IF;
+    SELECT string_agg(format('(l.p).%1$I = t.%1$I', a.attname), ' AND ' ORDER BY k.nr),
+           string_agg(format('(e.p).%I', a.attname), ', ' ORDER BY k.nr),
+           format('concat_ws(%L, %s)', ':', string_agg(format('t.%I', a.attname), ', ' ORDER BY k.nr)),
+           format('concat_ws(%L, %s)', ':', string_agg(format('(l.p).%I', a.attname), ', ' ORDER BY k.nr))
+      INTO pk_match, pk_key, zeile_t, zeile_l
+      FROM pg_index i
+     CROSS JOIN LATERAL unnest(i.indkey::int2[]) WITH ORDINALITY k(attnum, nr)
+      JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = k.attnum
+     WHERE i.indrelid = to_regclass(tbl) AND i.indisprimary;
+    IF pk_match IS NULL THEN
+      RETURN QUERY SELECT 'siegel'::text, tbl, NULL::text, NULL::bigint, 'Ohne Primärschlüssel kein Abgleich mit dem Audit-Log'::text;
+      CONTINUE;
+    END IF;
+    SELECT coalesce(string_agg(format('(l.v ? %1$L AND (l.p).%1$I IS DISTINCT FROM t.%1$I)', a.attname), ' OR ' ORDER BY a.attnum), 'false')
+      INTO abweichung
+      FROM pg_attribute a
+     WHERE a.attrelid = to_regclass(tbl) AND a.attnum > 0 AND NOT a.attisdropped
+       AND a.attname <> ALL (haben_audit_omitted_columns());
+    BEGIN
+      RETURN QUERY EXECUTE format($q$
+        WITH e AS (
+          SELECT a.seq, a.new_value AS v, jsonb_populate_record(NULL::%1$I, a.new_value) AS p
+            FROM audit_log a
+           WHERE a.table_name = %1$L AND a.action = 'INSERT'
+        ), l AS (
+          SELECT DISTINCT ON (%3$s) e.* FROM e ORDER BY %3$s, e.seq
+        )
+        SELECT 'siegel'::text, %1$L::text, x.zeile, x.eintrag, x.befund
+          FROM (SELECT CASE WHEN t._haben_da THEN %4$s ELSE %5$s END AS zeile,
+                       l.seq AS eintrag,
+                       CASE
+                         WHEN t._haben_da IS NULL THEN 'Zeile fehlt, steht aber im Audit-Log'
+                         WHEN l.seq IS NULL THEN 'Zeile steht nicht im Audit-Log'
+                         ELSE 'Zeile weicht vom Audit-Log ab'
+                       END AS befund
+                  FROM l
+                  FULL JOIN (SELECT true AS _haben_da, * FROM %1$I) t ON %2$s
+                 WHERE t._haben_da IS NULL OR l.seq IS NULL OR (%6$s)) x
+         ORDER BY x.eintrag NULLS LAST, x.zeile
+         LIMIT $1
+      $q$, tbl, pk_match, pk_key, zeile_t, zeile_l, abweichung) USING max_rows;
+    EXCEPTION WHEN OTHERS THEN
+      -- Etwa ein älterer Wert, der sich nicht mehr in den heutigen Spaltentyp wandeln lässt: ein Befund an der Tabelle statt
+      -- eines Abbruchs der ganzen Prüfung, wie bei den Standardwerten (#1716)
+      RETURN QUERY SELECT 'siegel'::text, tbl, NULL::text, NULL::bigint,
+        format('Abgleich mit dem Audit-Log nicht möglich: %s', SQLERRM);
+    END;
+  END LOOP;
+END;
+$$;
+--> statement-breakpoint
 CREATE OR REPLACE FUNCTION haben_integrity_problems(max_rows integer DEFAULT 100)
 RETURNS TABLE (art text, tabelle text, zeile text, seq bigint, befund text)
 LANGUAGE plpgsql STABLE AS $$
@@ -119,11 +202,6 @@ DECLARE
   standard jsonb;
   werte text;
   unauswertbar text[];
-  pk_match text;
-  pk_key text;
-  zeile_t text;
-  zeile_l text;
-  abweichung text;
 BEGIN
   RETURN QUERY
   SELECT 'kette'::text, 'audit_log'::text, c.id::text, c.seq,
@@ -262,67 +340,7 @@ BEGIN
     END LOOP;
   END LOOP;
 
-  -- Nur anhängbare Tabellen ohne Siegel (#861): Jede Zeile steht so im Audit-Log, wie sie in der Tabelle steht. Ihr
-  -- Audit-Trigger schreibt beim Einfügen den ganzen Wert, und ändern oder löschen lässt haben_append_only sie nur mit
-  -- abgeschalteten Triggern; das hinterlässt keinen Eintrag. Maßgeblich ist der erste INSERT-Eintrag je Primärschlüssel:
-  -- Einen weiteren Eintrag, etwa ein DELETE oder ein INSERT mit dem geänderten Wert, kann jeder mit eingeschalteten
-  -- Triggern anhängen, ohne die Kette zu brechen.
-  -- jsonb_populate_record wandelt den Wert in den Zeilentyp, damit etwa Zeitpunkte unabhängig von der Zeitzone der
-  -- schreibenden Sitzung verglichen werden. Spalten, die eine spätere Migration ergänzt hat, fehlen in älteren Einträgen
-  -- und bleiben dort ungeprüft; die Spalten, die haben_audit weglässt (PDF, XML), prüft der Abgleich nicht.
-  FOREACH tbl IN ARRAY haben_audited_append_only_tables() LOOP
-    IF to_regclass(tbl) IS NULL THEN
-      RETURN QUERY SELECT 'siegel'::text, tbl, NULL::text, NULL::bigint, 'Tabelle fehlt'::text;
-      CONTINUE;
-    END IF;
-    SELECT string_agg(format('(l.p).%1$I = t.%1$I', a.attname), ' AND ' ORDER BY k.nr),
-           string_agg(format('(e.p).%I', a.attname), ', ' ORDER BY k.nr),
-           format('concat_ws(%L, %s)', ':', string_agg(format('t.%I', a.attname), ', ' ORDER BY k.nr)),
-           format('concat_ws(%L, %s)', ':', string_agg(format('(l.p).%I', a.attname), ', ' ORDER BY k.nr))
-      INTO pk_match, pk_key, zeile_t, zeile_l
-      FROM pg_index i
-     CROSS JOIN LATERAL unnest(i.indkey::int2[]) WITH ORDINALITY k(attnum, nr)
-      JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = k.attnum
-     WHERE i.indrelid = to_regclass(tbl) AND i.indisprimary;
-    IF pk_match IS NULL THEN
-      RETURN QUERY SELECT 'siegel'::text, tbl, NULL::text, NULL::bigint, 'Ohne Primärschlüssel kein Abgleich mit dem Audit-Log'::text;
-      CONTINUE;
-    END IF;
-    SELECT coalesce(string_agg(format('(l.v ? %1$L AND (l.p).%1$I IS DISTINCT FROM t.%1$I)', a.attname), ' OR ' ORDER BY a.attnum), 'false')
-      INTO abweichung
-      FROM pg_attribute a
-     WHERE a.attrelid = to_regclass(tbl) AND a.attnum > 0 AND NOT a.attisdropped
-       AND a.attname <> ALL (haben_audit_omitted_columns());
-    BEGIN
-      RETURN QUERY EXECUTE format($q$
-        WITH e AS (
-          SELECT a.seq, a.new_value AS v, jsonb_populate_record(NULL::%1$I, a.new_value) AS p
-            FROM audit_log a
-           WHERE a.table_name = %1$L AND a.action = 'INSERT'
-        ), l AS (
-          SELECT DISTINCT ON (%3$s) e.* FROM e ORDER BY %3$s, e.seq
-        )
-        SELECT 'siegel'::text, %1$L::text, x.zeile, x.eintrag, x.befund
-          FROM (SELECT CASE WHEN t._haben_da THEN %4$s ELSE %5$s END AS zeile,
-                       l.seq AS eintrag,
-                       CASE
-                         WHEN t._haben_da IS NULL THEN 'Zeile fehlt, steht aber im Audit-Log'
-                         WHEN l.seq IS NULL THEN 'Zeile steht nicht im Audit-Log'
-                         ELSE 'Zeile weicht vom Audit-Log ab'
-                       END AS befund
-                  FROM l
-                  FULL JOIN (SELECT true AS _haben_da, * FROM %1$I) t ON %2$s
-                 WHERE t._haben_da IS NULL OR l.seq IS NULL OR (%6$s)) x
-         ORDER BY x.eintrag NULLS LAST, x.zeile
-         LIMIT $1
-      $q$, tbl, pk_match, pk_key, zeile_t, zeile_l, abweichung) USING max_rows;
-    EXCEPTION WHEN OTHERS THEN
-      -- Etwa ein älterer Wert, der sich nicht mehr in den heutigen Spaltentyp wandeln lässt: ein Befund an der Tabelle statt
-      -- eines Abbruchs der ganzen Prüfung, wie bei den Standardwerten (#1716)
-      RETURN QUERY SELECT 'siegel'::text, tbl, NULL::text, NULL::bigint,
-        format('Abgleich mit dem Audit-Log nicht möglich: %s', SQLERRM);
-    END;
-  END LOOP;
+  RETURN QUERY SELECT * FROM haben_append_only_problems(max_rows);
 
   -- Jedes Siegel aus der Kette gibt es noch: Wer einen festgeschriebenen Datensatz samt Siegel löscht, hinterlässt keine
   -- Zeile, von der die Prüfungen oben ausgehen. Der Eintrag des Siegels im Audit-Log bleibt aber stehen; ihn zu löschen reißt

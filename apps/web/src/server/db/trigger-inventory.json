@@ -3345,6 +3345,14 @@
       "definitionHash": "4f7325bd8acafb9bf3652c807b77981f2bd344fad035efe47a82f75054cac615"
     },
     {
+      "name": "public.haben_append_only_problems(max_rows integer)",
+      "config": [],
+      "language": "plpgsql",
+      "securityDefiner": false,
+      "sourceHash": "75a7971a80052089062f7b6c6b22b2484f34302f0fcb792e711753b7a5000356",
+      "definitionHash": "a5306a56eff616d7e09392e4e999212b4ba887bfff1ad763b3589fe41e514c31"
+    },
+    {
       "name": "public.haben_audit()",
       "config": [],
       "language": "plpgsql",
@@ -3709,8 +3717,8 @@
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "0f2c15316da89ee2e4e8641b824d9492f5eb67f7405e4bec1f6dcadf89aca93e",
-      "definitionHash": "36f9fe90775b66113cff79ac8018cfc241cf8c06c46c78bd35afea2bad7400e2"
+      "sourceHash": "e493b2fa7f9903ba7374cadff19443ed3e03511c32fb06ad68669fa8f6eb2e97",
+      "definitionHash": "24364f4fce64cf0103d8e4f3c967b94bece9f48671faea9dc50b312e999354a4"
     },
     {
       "name": "public.haben_loan_fixed()",
