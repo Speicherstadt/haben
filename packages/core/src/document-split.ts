@@ -91,8 +91,8 @@ const istPrivatentnahme = (line: DocumentSplitLine) => String(line.category) ===
  * nicht, wird nach ihrem eigenen Netto verteilt; ohne Netto bleibt die Steuer bei 0, das meldet splitIssues.
  *
  * Ein Satz mit Entnahme und gemischten Vorzeichen bekommt keine Zuteilung: Der Anteil der Entnahme hätte einen
- * Nenner, in dem sich Plus und Minus aufheben, und bei Netto 0 fiele die Steuer des Satzes still auf 0. splitIssues
- * weist einen solchen Satz ab, bevor gebucht oder ein Entwurf gespeichert wird.
+ * Nenner, in dem sich Plus und Minus aufheben, und bei Netto 0 fiele die Steuer des Satzes still auf 0. Gespeichert
+ * wird so keine erfundene Zuteilung; splitIssues weist den Satz beim Buchen ab.
  */
 export function allocateSplitTax(lines: DocumentSplitLine[], amounts: DocumentRateAmount[]): AllocatedSplitLine[] {
   const result: AllocatedSplitLine[] = lines.map((line) => ({ ...line, tax: 0 }));
