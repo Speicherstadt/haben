@@ -400,6 +400,33 @@ describe.skipIf(!testDatabaseUrl)("REST-API /api/v1/belege (Postgres)", () => {
   });
 
   describe("Lesen", () => {
+    it("meldet bei GmbH und UG eine Entnahmezeile wie das Buchen (#1975)", async () => {
+      await sql`update company set rechtsform = 'gmbh' where id = 1`;
+      const t = await token(["belege:anlegen"]);
+      const a = (await upload(t, jpeg(44))).json!;
+      await belege.updateDocument(
+        actor,
+        a.id as string,
+        {
+          supplierName: "Telekom",
+          supplierUstId: "",
+          invoiceNumber: "T-2",
+          documentDate: "2026-09-15",
+          dueDate: null,
+          category: null,
+          payment: "bank",
+          note: "",
+          amounts: [{ taxRate: 1900, net: 10_000, tax: 1_900 }],
+          splits: [
+            { category: "telefon", taxRate: 1900, net: 7_500 },
+            { category: "privatentnahme", taxRate: 1900, net: 2_500 },
+          ],
+        } as Parameters<typeof belege.updateDocument>[2],
+      );
+      const gelesen = await send(t, "GET", `/belege/${a.id}`);
+      expect(gelesen.json!.issues).toContain("Einen Privatanteil gibt es nur im Einzelunternehmen");
+    });
+
     it("listet mit Filter nach Status und Referenz; ein gebuchter Beleg zeigt gebucht und bleibt gesperrt", async () => {
       const t = await token(["belege:anlegen"]);
       const a = (await upload(t, jpeg(40), { externalSource: "archiv", externalId: "100" })).json!;
