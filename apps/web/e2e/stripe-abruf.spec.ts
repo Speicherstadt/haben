@@ -324,6 +324,7 @@ test("Ein fehlgeschlagener Abruf: Hinweis unter der Leiste mit „Zugang ändern
 
 test("Verbindungen: Jetzt abrufen an der Zeile, Bearbeiten im Dialog zeigt den Schlüssel nicht und meldet fehlende Rechte für neue Metadaten", async () => {
   await gehe(page, "/bank/verbindungen");
+  await expect(zeile().locator(".verbindung-kennung")).toHaveText(`Stripe · API · ${KONTO}`);
   await zeile().getByRole("button", { name: "Shop DE jetzt abrufen" }).click();
   await expect(abrufBereich().getByText("Shop DE: Abruf durchgelaufen.")).toBeVisible();
   await expect(zeile().getByRole("cell").nth(4)).toHaveText("Aktiv");
@@ -407,6 +408,8 @@ test("Amazon mit Datei: Konto mit Marktplatz, Anleitung, Import, Ergebnis und zu
 
 test("Datei importieren an der Zeile unter Verbindungen: Format vom Konto, Anleitung eingeklappt, nichts doppelt", async () => {
   await gehe(page, "/bank/verbindungen");
+  // Unterzeile je Weg gleich gebaut: Anbieter · Weg · Kennung
+  await expect(zeile("Amazon.de").locator(".verbindung-kennung")).toHaveText("Amazon · Datei");
   await zeile("Amazon.de").getByRole("button", { name: "Weitere Aktionen für Amazon.de" }).click();
   await page.getByRole("menuitem", { name: "Datei importieren …" }).click();
   const dialog = page.getByRole("dialog", { name: "Datei importieren: Amazon.de" });

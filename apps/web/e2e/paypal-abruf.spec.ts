@@ -169,7 +169,7 @@ test("Zugang prüfen, speichern und erster Abruf: Zahlung, Gebühr und Abbuchung
   await gehe(page, "/bank?konto=alle&filter=alle");
   await expect(page.getByRole("navigation", { name: "Konten" }).getByRole("link", { name: /^PayPal/ })).toHaveAttribute("aria-current", "page");
   await gehe(page, "/bank/verbindungen");
-  await expect(verbindung().getByText(`PayPal · ${KONTO}`)).toBeVisible();
+  await expect(verbindung().getByText(`PayPal · API · ${KONTO}`)).toBeVisible();
 });
 
 const umsaetze = () => mitDatenbank((sql) => sql`select amount, counterparty_name from bank_transactions order by amount`);
