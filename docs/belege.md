@@ -303,8 +303,6 @@ Die Kategorie bestimmt das Aufwandskonto. Die Zuordnung steht in `packages/core/
 
 Mit **Anlagegut** wird der Beleg nicht zum Aufwand, sondern legt beim Buchen eine Anlage im Verzeichnis an, die über die Nutzungsdauer abgeschrieben wird. Das Formular fragt dann nach Bezeichnung, Art, Abschreibung und Nutzungsdauer. Mehr unter [Anlagen und AfA](anlagen.md).
 
-**Privatentnahme** (SKR03 1800, SKR04 2100) steht nicht in der Kategorieauswahl eines Belegs: Ein Beleg nur mit Entnahme hätte keinen Betriebsanteil. Sie entsteht als eigene Zeile, wenn du in einer [Aufteilung](#privatanteil-in-einer-aufteilung) einen Privatanteil abspaltest, und wird brutto auf das Entnahmekonto gebucht, ohne Vorsteuer.
-
 > [!IMPORTANT]
 > Kategorien und Konten sind ein Vorschlag für typische Freiberufler-Ausgaben. Gleiche sie vor dem Echtbetrieb mit deiner Steuerberatung ab, besonders Hardware (GWG-Grenze) und Reisekosten.
 
@@ -363,7 +361,7 @@ Beispiel, alles zu 19 %: 100,00 € Handelsware, 50,00 € Software und 20,00 �
 
 Ohne Vorsteuerabzug (etwa als Kleinunternehmer oder mit steuerfreien Umsätzen: die Steuer nach § 13b schuldest du trotzdem) fehlt die Vorsteuerzeile, und neben jedem Netto steht auf demselben Konto sein Anteil an der Steuer als Aufwand (Steuerschlüssel `keineVSt`), im Beispiel 22,80 €, 11,40 €, 3,80 € und 9,50 €; zusammen genau Netto und Steuer des Belegs. So trägt das Journal die Bemessungsgrundlage (Kz 46 bzw. 84) netto, wie die Voranmeldung. Die Voranmeldung (Kz 46/47 bzw. 84/85 und 67) kommt wie ohne Aufteilung aus den Beträgen je Satz. In der [EÜR](auswertungen.md) zählt die Zahlung je Zeile mit ihrem Netto; die Summe ist dieselbe wie ohne Aufteilung, denn gezahlt ist nur netto, und die Steuer nach § 13b geht mit der Voranmeldung ans Finanzamt. Wie ohne Aufteilung gilt § 13b nicht für Wareneinkäufe und nur zu 19 % oder 7 %. Die Gebühren im Konto des Dienstleisters ordnest du dem aufgeteilten Beleg wie jedem anderen mit [Alle offenen Gebühren … diesem Beleg zuordnen](bank-zahlungsdienstleister.md) zu.
 
-**Noch nicht mit Aufteilung:** innergemeinschaftlicher Erwerb, Fremdwährung und Anlagegüter. Haben lehnt das Buchen dann mit Grund ab („Innergemeinschaftlicher Erwerb mit Aufteilung wird nicht unterstützt“ usw.); solche Teile erfasst du als eigenen Beleg. Bei innergemeinschaftlichem Erwerb und Fremdwährung ist der Knopf zum Aufteilen gesperrt. Einen Privatanteil am ganzen Beleg gibt es weiterhin (siehe [Privatanteil](#privatanteil)); in einer Aufteilung steht er dagegen als eigene Zeile, siehe unten.
+**Noch nicht mit Aufteilung:** innergemeinschaftlicher Erwerb, Privatanteil, Fremdwährung und Anlagegüter. Haben lehnt das Buchen dann mit Grund ab („Innergemeinschaftlicher Erwerb mit Aufteilung wird nicht unterstützt“ usw.); solche Teile erfasst du als eigenen Beleg. Bei innergemeinschaftlichem Erwerb und Fremdwährung ist der Knopf zum Aufteilen gesperrt, mit Aufteilung fehlt das Feld **Privatanteil in %**.
 
 ## Privatanteil
 
@@ -378,24 +376,6 @@ Den Privatanteil gibt es nur im Einzelunternehmen; bei einer GmbH oder UG fehlt 
 [Ohne Vorsteuerabzug](#ohne-vorsteuerabzug) wird der betriebliche Teil samt Steuer Ausgabe, im Beispiel 38,08 €.
 
 Vorgaben je Kategorie stellst du in den [Einstellungen](einrichtung.md#privatanteile) ein (Telefon, Internet). Sie werden beim Wählen der Kategorie und beim Auslesen übernommen. Bei Anlagegütern gibt es keinen Privatanteil; für Firmenwagen gilt die [Listenpreismethode](anlagen.md#private-nutzung-von-firmenwagen).
-
-### Privatanteil in einer Aufteilung
-
-Sind mehrere Kategorien auf einem Beleg und nur ein Teil davon privat genutzt, spaltest du den Privatanteil an der Zeile ab: **Privatanteil abspalten**, Prozent eingeben, **Abspalten**. Aus der Zeile werden zwei gewöhnliche Zeilen, der betriebliche Teil und die **Privatentnahme**; die Zeile „Privatentnahme“ trägt danach Netto und Steuer, die auf sie entfallen. Ein Prozentsatz wird nicht gespeichert und nichts rechnet später nach: Wer korrigieren will, löscht die Entnahme, stellt das Netto der Ausgangszeile richtig und spaltet neu ab.
-
-Gebucht wird die Entnahme brutto auf **1800 Privatentnahmen** (SKR04 **2100**), ohne Vorsteuer: Sie ist keine Betriebsausgabe (§ 4 Abs. 1 Satz 2, § 12 Nr. 1 EStG), und abziehbar ist nur die betriebliche Verwendung (§ 15 Abs. 1 Satz 1 Nr. 1 UStG). Die Vorsteuer des Steuersatzes teilt Haben zuerst nach Netto zwischen Betrieb und Entnahme und dann auf die einzelnen Zeilen; der abziehbare Teil hängt so nicht davon ab, an welcher Stelle die Entnahme steht. Das Telefon-Beispiel aus dem Issue, alles zu 19 %, SKR03 (SKR04 in Klammern):
-
-| Konto | Soll | Haben |
-| --- | ---: | ---: |
-| 4925 (6810) Internet, betrieblich 75 % | 25,20 | |
-| 4920 (6805) Telefon, betrieblich 60 % | 5,12 | |
-| 1800 (2100) Privatentnahmen | 14,06 | |
-| 1576 (1406) Vorsteuer 19 % | 5,76 | |
-| 1600 (3300) Verbindlichkeiten | | 50,14 |
-
-Die Entnahme sind 14,06 € (11,81 € netto und 2,25 € Steuer); Aufwand und Vorsteuer sind 30,32 € und 5,76 €. Die Vorsteuer steht so im Journal und in Kz 66 der Voranmeldung, bei Ist- wie bei Soll-Versteuerung. In der [EÜR](auswertungen.md) erscheint nur der betriebliche Aufwand.
-
-**Grenzen.** Eine Entnahme gibt es nur im Einzelunternehmen; bei GmbH und UG lehnt Haben das Buchen ab. Eine Aufteilung aus lauter Privatentnahmen hat keinen Betriebsanteil und wird ebenfalls abgelehnt — ein ganz privater Beleg bleibt beim [Privatanteil am Beleg](#privatanteil) von 100 %. Auf einem Beleg mit Entnahmezeile gibt es kein [Skonto](bank.md): Es mindert sonst die Vorsteuer auch für den privaten Teil. Bei § 13b trägt die Entnahmezeile ihr Netto mit dem Steuerschlüssel, damit die Bemessungsgrundlage (Kz 46/84) bleibt; Vorsteuer zieht sie nie, und die Steuer darauf zählt in der EÜR als Umsatzsteuer auf die Entnahme. Mit einem Teilabzug nach § 15 Abs. 4 UStG gilt der Anteil für die Steuer des betrieblichen Teils.
 
 ## Belege aus dem Ausland
 
