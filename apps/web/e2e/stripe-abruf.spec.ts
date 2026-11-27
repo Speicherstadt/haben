@@ -146,6 +146,21 @@ test("Ein Schlüssel des Testmodus wird beim Prüfen abgelehnt, ohne Stripe zu f
   expect(anfragen).toEqual([]);
 });
 
+test("Mit Enter im Feld abgeschickt, bleibt der Fokus dort: Der Fehler am Feld wird vorgelesen und verschwindet bei der nächsten Eingabe", async () => {
+  const feld = zugang().getByLabel("API-Schlüssel");
+  await feld.fill(["rk", "test", "e2eAndererSchluessel0815"].join("_"));
+  await expect(feld).not.toHaveAttribute("aria-invalid");
+  await feld.press("Enter");
+  await expect(feld).toHaveAttribute("aria-invalid", "true");
+  await expect(feld).toBeFocused();
+  // Der Fokus wandert nicht ins Feld, der Screenreader liest den Fehler also nur über role="alert" (DESIGN.md, Field: announceError)
+  await expect(zugang().getByRole("alert")).toHaveText("Haben ruft nur Live-Umsätze ab; bitte einen Live-Schlüssel mit Leserechten eintragen.");
+  await feld.press("Backspace");
+  await expect(feld).not.toHaveAttribute("aria-invalid");
+  await expect(zugang().getByRole("alert")).toHaveCount(0);
+  expect(anfragen).toEqual([]);
+});
+
 test("Zugang prüfen nennt das Konto bei Stripe und speichert nichts; Name und Zeitraum; der erste Abruf läuft im letzten Schritt", async () => {
   await zugang().getByLabel("API-Schlüssel").fill(SCHLUESSEL);
   // Die Eingabe nimmt die Meldung der letzten Prüfung weg
