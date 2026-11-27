@@ -19,7 +19,7 @@ import {
   vatRate,
 } from "./posting.ts";
 import { distribute } from "./rabatt.ts";
-import { isKapitalgesellschaft, type Rechtsform } from "./rechtsform.ts";
+import { privatZulaessig, type Rechtsform } from "./rechtsform.ts";
 import { abziehbareSteuer, buchungsAnteil } from "./vorsteuerabzug.ts";
 
 /*
@@ -197,7 +197,7 @@ export function documentSplitPosting(
   const accounts = ACCOUNTS[kontenrahmen];
   // Eine Entnahme gibt es nur im Einzelunternehmen: In GmbH und UG ist privat Genutztes Arbeitslohn oder verdeckte
   // Gewinnausschüttung (§ 12 Nr. 1 EStG gilt dort nicht)
-  if (lines.some((line) => line.category === PRIVATENTNAHME) && isKapitalgesellschaft(rechtsform))
+  if (lines.some((line) => line.category === PRIVATENTNAHME) && !privatZulaessig(rechtsform))
     throw new RangeError("Privatentnahmen gibt es nur im Einzelunternehmen; GmbH und UG kennen kein Privat");
   if (erstattetBezahltes) {
     if (totals.gross >= 0) throw new RangeError("„Erstattet bereits Bezahltes“ gibt es nur an einer Gutschrift, also an einem negativen Beleg");

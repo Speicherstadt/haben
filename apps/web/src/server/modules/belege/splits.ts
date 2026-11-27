@@ -1,8 +1,8 @@
 import {
   allocateSplitTax,
   EXPENSE_CATEGORY_KEYS,
-  isKapitalgesellschaft,
   PRIVATENTNAHME,
+  privatZulaessig,
   splitIssues,
   type AllocatedSplitLine,
   type ExpenseCategory,
@@ -98,8 +98,8 @@ export function splitBookingIssues(
 ): string[] {
   const issues: string[] = [];
   // Eine Entnahme gibt es nur im Einzelunternehmen; in GmbH und UG ist privat Genutztes Arbeitslohn oder verdeckte
-  // Gewinnausschüttung (#1975)
-  if (rechtsform && isKapitalgesellschaft(rechtsform) && splits.some((s) => s.category === PRIVATENTNAHME))
+  // Gewinnausschüttung (#1975). Dieselbe Regel wie am Beleg und in der Buchung: privatZulaessig
+  if (rechtsform && !privatZulaessig(rechtsform) && splits.some((s) => s.category === PRIVATENTNAHME))
     issues.push("Einen Privatanteil gibt es nur im Einzelunternehmen");
   if (doc.reverseCharge === "ig_erwerb") issues.push("Innergemeinschaftlicher Erwerb mit Aufteilung wird nicht unterstützt");
   // § 13b Abs. 1 und Abs. 2 Nr. 1 UStG: nur sonstige Leistungen und Werklieferungen, wie ohne Aufteilung (bookingIssues)

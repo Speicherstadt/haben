@@ -7,7 +7,7 @@ import {
   glaeubigerIdProblem,
   normalizeGlaeubigerId,
   RECHTSFORM_KEYS,
-  isKapitalgesellschaft,
+  privatZulaessig,
   legalInfoGaps,
   MAX_DUNNING_FEE,
   skontoProblem,
@@ -117,7 +117,7 @@ export const companySchema = z
       .default({ baseRate: null, fees: { "1": 0, "2": 0, "3": 0 }, deadlineDays: 10 }),
   })
   // Eine Kapitalgesellschaft hat kein Privat: privat Genutztes ist dort Arbeitslohn oder verdeckte Gewinnausschüttung
-  .refine((c) => !isKapitalgesellschaft(c.rechtsform) || Object.values(c.privateShares).every((share) => !share), {
+  .refine((c) => privatZulaessig(c.rechtsform) || Object.values(c.privateShares).every((share) => !share), {
     message: "Privatanteile gibt es nur im Einzelunternehmen",
     path: ["privateShares"],
   })
