@@ -6,10 +6,11 @@ import type { Cents } from "../money.ts";
 /**
  * Rentenversicherung im Minijob. Der Arbeitgeber trägt 15 % des tatsächlichen Entgelts, ohne Befreiung der
  * Beschäftigte den Rest (§ 168 Abs. 1 Nr. 1b SGB VI); beitragspflichtig ist mindestens 175 € (§ 163 Abs. 8 SGB VI).
- * Über 175 € rundet die Minijob-Zentrale den vollen Beitrag (18,6 %) und den Anteil des Beschäftigten (3,6 %); der
- * Arbeitgeber trägt die Differenz. Beispiel aus ihrem Minijob-Rechner (#1619): 542,10 € → 100,83 € − 19,52 € =
- * 81,31 €, nicht 15 % = 81,32 €. So stimmt die Beitragsgruppe 0100 im Beitragsnachweis mit dem gerundeten vollen
- * Beitrag überein. Bis 175 € ist der Beitrag der volle Satz auf 175 €, gerundet, und der Beschäftigte trägt ihn
+ * Über 175 € rundet Haben den vollen Beitrag (18,6 %) und den Anteil des Beschäftigten (3,6 %); der Arbeitgeber
+ * trägt die Differenz. So rechnen der Minijob-Rechner der Minijob-Zentrale und DATEV Lohn in der Beitragsgruppe 0100
+ * (#1619): 542,10 € → 100,83 € − 19,52 € = 81,31 €. Nach dem Wortlaut von § 2 Abs. 1 Satz 3 BVV wäre der Beitrag
+ * die Summe der getrennt gerundeten Anteile (81,32 € + 19,52 € = 100,84 €); Haben folgt bewusst der Praxis der
+ * Einzugsstelle. Bis 175 € ist der Beitrag der volle Satz auf 175 €, gerundet, und der Beschäftigte trägt ihn
  * abzüglich des gerundeten Arbeitgeberanteils (§ 2 Abs. 1 Satz 5 BVV); Beispiel der Minijob-Zentrale: 100 € →
  * 32,55 € − 15,00 € = 17,55 €. Mit Befreiung zahlt nur der Arbeitgeber seine 15 %.
  */
