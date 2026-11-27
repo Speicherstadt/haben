@@ -2,6 +2,7 @@ import { documentEuerEffects, EXPENSE_CATEGORIES, type DocumentEuerEffect, type 
 import { inArray, sql } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
 import { splitsByDocument } from "../belege/index.ts";
+import { loadOwnAccountNumbers } from "../eigene-konten/index.ts";
 import { documentsMitEntnahme } from "../umsatzsteuer/index.ts";
 import { documentTotalsById } from "./euer-belege.ts";
 
@@ -22,7 +23,8 @@ export async function belegZahlungsWirkungen(q: Db | Tx, ids: string[]): Promise
   if (partial.length === 0) return result;
   const d = schema.documents;
   const docs = await q.select({ id: d.id, category: d.category, privateShare: d.privateShare }).from(d).where(inArray(d.id, partial));
-  const splits = await splitsByDocument(partial, q);
+  // Mit Kontonummer der eigenen Sachkonten: Die EÜR rundet Bewirtung je Journalzeile wie die Buchung (#1975)
+  const splits = await splitsByDocument(partial, q, await loadOwnAccountNumbers(q));
   // Wie das bestehende Journalmodell (#864): Gegenzeilen wirken an a.date, sonst gilt der Bankbuchungstag.
   // § 11 Abs. 2 EStG betrifft das Abflussjahr; spätere Aufhebungen dürfen frühere Zahlungsanteile nicht neu runden.
   // Quelle: https://www.gesetze-im-internet.de/estg/__11.html

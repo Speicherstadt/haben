@@ -7,8 +7,26 @@ import { paidTaxShares, type ExpenseCategory, type TaxShare } from "./posting.ts
 import { abziehbareSteuer, gespeicherterAnteil } from "./vorsteuerabzug.ts";
 
 type DocumentPayment = Extract<EuerPayment, { kind: "document" }>;
-/** `buchungszeile`: Konto und Satz der Zeile, wenn das Journal gleiche Zeilen zusammenfasst (Entnahmezeile, #1975) */
-type Share = { category: ExpenseCategory; share: TaxShare; deductible: Cents; buchungszeile?: string };
+/**
+ * `journal`: der Aufwand der Zeile, aufgeteilt wie documentSplitPosting ihn bucht (Schlüssel aus Konto, Steuerschlüssel
+ * und „nicht abziehbar“); nur mit Entnahmezeile (#1975), damit die 70-%-Grenze der Bewirtung je Journalzeile gilt.
+ */
+type Share = { category: ExpenseCategory; share: TaxShare; deductible: Cents; journal?: { key: string; amount: Cents }[] };
+
+/** Gezahlte Steuer je Satz; der Rundungsrest geht nur an Sätze mit Steuer, nie an einen steuerfreien */
+function gezahlteSteuerJeSatz(totals: DocumentPayment["totals"], paid: Cents): TaxShare[] {
+  const rows = paidTaxShares(totals, paid);
+  const besteuert = (rate: BasisPoints) => (totals.taxes.find((t) => t.rate === rate)?.tax ?? 0) !== 0;
+  const ziel = rows.reduce<number>((best, row, i) => (besteuert(row.rate) && (best < 0 || Math.abs(row.base) > Math.abs(rows[best]!.base)) ? i : best), -1);
+  if (ziel < 0) return rows;
+  return rows.map((row, i) =>
+    i === ziel
+      ? { ...row, tax: row.tax + rows.filter((r) => !besteuert(r.rate)).reduce((sum, r) => sum + r.tax, 0) }
+      : besteuert(row.rate)
+        ? row
+        : { ...row, tax: 0 },
+  );
+}
 
 export interface DocumentEuerEffect {
   expenses: { category: ExpenseCategory; amount: Cents }[];
@@ -62,7 +80,7 @@ function documentShares(p: DocumentPayment, paid: Cents): Share[] {
   const steuerJeZeile = mitEntnahme
     ? allocateSplitTax(
         lines,
-        paidTaxShares(p.totals, paid).map((r) => ({ taxRate: r.rate, net: r.base, tax: selbstGeschuldet ? 0 : r.tax })),
+        gezahlteSteuerJeSatz(p.totals, paid).map((r) => ({ taxRate: r.rate, net: r.base, tax: selbstGeschuldet ? 0 : r.tax })),
       )
     : null;
   const shares = steuerJeZeile ? zeilenAnteile.map((share, i) => ({ ...share, tax: steuerJeZeile[i]!.tax })) : zeilenAnteile;
@@ -83,12 +101,27 @@ function documentShares(p: DocumentPayment, paid: Cents): Share[] {
     amounts,
   );
   const deductible = new Map(betrieb.map((i, k) => [i, betriebAbzug[k]!.tax]));
-  return shares.map((share, i) => ({
-    category: lines[i]!.category,
-    share,
-    deductible: anteil(share.rate) === 10_000 ? share.tax : (deductible.get(i) ?? 0),
-    ...(mitEntnahme ? { buchungszeile: `${lines[i]!.account ?? lines[i]!.category}|${lines[i]!.taxRate}` } : {}),
-  }));
+  return shares.map((share, i) => {
+    const abzug = anteil(share.rate) === 10_000 ? share.tax : (deductible.get(i) ?? 0);
+    if (!mitEntnahme) return { category: lines[i]!.category, share, deductible: abzug };
+    // Wie documentSplitPosting: mit Abzug Netto mit Steuerschlüssel und der nicht abziehbare Teil eigens, ohne Abzug
+    // bei § 13b Netto und Steuer getrennt, sonst brutto mit keineVSt
+    const konto = lines[i]!.account ?? lines[i]!.category;
+    const code = selbstGeschuldet ? "rc" : `vst${share.rate}`;
+    const journal =
+      anteil(share.rate) > 0
+        ? [
+            { key: `${konto}|${code}|false`, amount: share.base },
+            { key: `${konto}|keineVSt|true`, amount: share.tax - abzug },
+          ]
+        : selbstGeschuldet
+          ? [
+              { key: `${konto}|rc|false`, amount: share.base },
+              { key: `${konto}|keineVSt|false`, amount: share.tax },
+            ]
+          : [{ key: `${konto}|keineVSt|false`, amount: share.base + share.tax }];
+    return { category: lines[i]!.category, share, deductible: abzug, journal };
+  });
 }
 
 /** Wirkung eines kumulierten Zahlbetrags, ohne AfA und Zahlungen ans Finanzamt */
@@ -96,10 +129,10 @@ function documentTarget(p: DocumentPayment, paid: Cents): DocumentEuerEffect {
   const expenses: { category: ExpenseCategory; amount: Cents }[] = [];
   let vorsteuer = 0;
   let bewirtungNichtAbziehbar = 0;
-  // Bewirtung je Buchungszeile: Fasst das Journal Zeilen gleichen Kontos und Satzes zusammen, gilt die 70-%-Grenze für
-  // die Summe, nicht je Zeile der Aufteilung (§ 4 Abs. 5 Satz 1 Nr. 2 EStG)
+  // Bewirtung je Journalzeile: Fasst das Journal Zeilen gleichen Kontos und Schlüssels zusammen, gilt die 70-%-Grenze
+  // für die Summe, nicht je Zeile der Aufteilung (§ 4 Abs. 5 Satz 1 Nr. 2 EStG)
   const bewirtung = new Map<string, Cents>();
-  for (const { category, share, deductible, buchungszeile } of documentShares(p, paid)) {
+  for (const { category, share, deductible, journal } of documentShares(p, paid)) {
     // Die Privatentnahme ist keine Betriebsausgabe (#1975): brutto auf dem Entnahmekonto, ohne Vorsteuer und ohne
     // EÜR-Zeile. Sie steckt im Zahlbetrag, aber nicht im Aufwand.
     if (category === PRIVATENTNAHME) continue;
@@ -114,8 +147,8 @@ function documentTarget(p: DocumentPayment, paid: Cents): DocumentEuerEffect {
     // Der nicht abziehbare Teil einer Anlage gehört in die Anschaffungskosten und wirkt über die AfA.
     if (category === "anlage") continue;
     const ausgabe = base + tax - deductible;
-    if (category === "bewirtung" && buchungszeile) {
-      bewirtung.set(buchungszeile, (bewirtung.get(buchungszeile) ?? 0) + ausgabe);
+    if (category === "bewirtung" && journal) {
+      for (const { key, amount } of journal) bewirtung.set(key, (bewirtung.get(key) ?? 0) + amount);
       continue;
     }
     // § 4 Abs. 5 Satz 1 Nr. 2 EStG: Bei Bewirtung sind 70 % des Aufwands abziehbar.

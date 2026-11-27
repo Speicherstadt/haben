@@ -19,6 +19,7 @@ import {
 import { eq, inArray } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
 import { splitsByDocument } from "../belege/index.ts";
+import { loadOwnAccountNumbers } from "../eigene-konten/index.ts";
 import { documentsMitEntnahme } from "../umsatzsteuer/index.ts";
 import { invoiceTotalsById } from "../rechnungen/index.ts";
 import { bloecke, offenerPosten, type Zeile } from "./euer-journal-buchungen.ts";
@@ -73,7 +74,8 @@ export async function belegNebenbuecher(q: Db | Tx, ids: string[]): Promise<Map<
     );
     if (noetig.length === 0) continue;
     const noetigIds = noetig.map((doc) => doc.id);
-    const splitsJe = await splitsByDocument(noetigIds, q);
+    // Mit Kontonummer der eigenen Sachkonten: Die EÜR rundet Bewirtung je Journalzeile wie die Buchung (#1975)
+    const splitsJe = await splitsByDocument(noetigIds, q, await loadOwnAccountNumbers(q));
     const effects = await belegZahlungsWirkungen(q, noetigIds);
     for (const doc of noetig) {
       // § 13b und Erwerb: gezahlt ist nur netto (wie reports.ts); die Zeilen der Aufteilung behalten ihre Steuer, die
