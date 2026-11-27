@@ -2,7 +2,7 @@
 import { insertAllocation } from "./settlement-store.ts";
 import { reassignmentSource } from "./allocation-reassignment.ts";
 import { BankError } from "./bank-error.ts";
-import { providerMatcher, type ProviderMatcher, directPosting, findTransferCounterpart, payoutKey, aufKontoAngeboten } from "@haben/core";
+import { providerMatcher, type ProviderMatcher, directPosting, directBookingText, findTransferCounterpart, payoutKey, aufKontoAngeboten } from "@haben/core";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { withActor } from "../../db/actor.ts";
@@ -155,7 +155,7 @@ export async function allocateTransferIn(tx: Tx, input: z.infer<typeof transferS
       });
       await post(tx, company, {
         date: source?.date ?? bank.bookingDate,
-        description: `${bank.counterpartyName || "Bankumsatz"} · geldtransit`,
+        description: directBookingText("geldtransit", company.rechtsform, bank.counterpartyName),
         sourceType: "allocation",
         sourceId: allocation!.id,
         lines: onLedger(directPosting("geldtransit", bank.amount, company.kontenrahmen, company.rechtsform), company.kontenrahmen, bank.ledgerIndex),

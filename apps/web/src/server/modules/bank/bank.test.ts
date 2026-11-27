@@ -1467,10 +1467,10 @@ describe.skipIf(!testDatabaseUrl)("Bankabgleich (Postgres)", () => {
       const lines = await sql`select e.description, l.account, l.debit, l.credit from journal_lines l join journal_entries e on e.id = l.entry_id
       where e.source_type = 'allocation' order by e.date, l.debit desc`;
       expect(lines.map((l) => ({ ...l }))).toEqual([
-        { description: "Max Muster · gesellschafter", account: gesellschafter, debit: 30_000, credit: 0 },
-        { description: "Max Muster · gesellschafter", account: bankKonto, debit: 0, credit: 30_000 },
-        { description: "Max Muster · gesellschafter", account: bankKonto, debit: 100_000, credit: 0 },
-        { description: "Max Muster · gesellschafter", account: gesellschafter, debit: 0, credit: 100_000 },
+        { description: "Max Muster · Gesellschafter (Verrechnungskonto)", account: gesellschafter, debit: 30_000, credit: 0 },
+        { description: "Max Muster · Gesellschafter (Verrechnungskonto)", account: bankKonto, debit: 0, credit: 30_000 },
+        { description: "Max Muster · Gesellschafter (Verrechnungskonto)", account: bankKonto, debit: 100_000, credit: 0 },
+        { description: "Max Muster · Gesellschafter (Verrechnungskonto)", account: gesellschafter, debit: 0, credit: 100_000 },
       ]);
     },
     30_000,
