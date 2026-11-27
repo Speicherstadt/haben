@@ -9,11 +9,17 @@ import {
   SACHENTNAHME_KONTO_NAMEN,
   STEUER_KONTO_NAMEN,
   DARLEHEN_KONTO_NAMEN,
+  PRIVATENTNAHME,
   type Kontenrahmen,
 } from "@haben/core";
 import { and, asc, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { db, schema } from "../../db/index.ts";
 import { ownAccountName, ownAccountNames, refreshOwnAccountNames } from "../eigene-konten/index.ts";
+
+/** Die Privatentnahme hat als Kategorie die Einzahl, ihr Konto heißt weiter „Privatentnahmen“ (#1975) */
+const KATEGORIEN_MIT_KONTONAME = Object.entries(EXPENSE_CATEGORIES)
+  .filter(([key]) => key !== PRIVATENTNAHME)
+  .map(([, kategorie]) => kategorie);
 
 const EXTRA_NAMES: Record<Kontenrahmen, Record<string, string>> = {
   SKR03: {
@@ -26,7 +32,7 @@ const EXTRA_NAMES: Record<Kontenrahmen, Record<string, string>> = {
     [ACCOUNTS.SKR03.spenden]: "Zuwendungen, Spenden",
     [ACCOUNTS.SKR03.geldtransit]: "Geldtransit",
     [ACCOUNTS.SKR03.ustVorauszahlung]: "Umsatzsteuer-Vorauszahlungen",
-    ...Object.fromEntries(Object.values(EXPENSE_CATEGORIES).map((c) => [c.SKR03, c.label])),
+    ...Object.fromEntries(KATEGORIEN_MIT_KONTONAME.map((c) => [c.SKR03, c.label])),
     ...ASSET_ACCOUNT_NAMES.SKR03,
     ...PRIVATE_USE_ACCOUNT_NAMES.SKR03,
     ...SACHENTNAHME_KONTO_NAMEN.SKR03,
@@ -45,7 +51,7 @@ const EXTRA_NAMES: Record<Kontenrahmen, Record<string, string>> = {
     [ACCOUNTS.SKR04.spenden]: "Zuwendungen, Spenden",
     [ACCOUNTS.SKR04.geldtransit]: "Geldtransit",
     [ACCOUNTS.SKR04.ustVorauszahlung]: "Umsatzsteuer-Vorauszahlungen",
-    ...Object.fromEntries(Object.values(EXPENSE_CATEGORIES).map((c) => [c.SKR04, c.label])),
+    ...Object.fromEntries(KATEGORIEN_MIT_KONTONAME.map((c) => [c.SKR04, c.label])),
     ...ASSET_ACCOUNT_NAMES.SKR04,
     ...PRIVATE_USE_ACCOUNT_NAMES.SKR04,
     ...SACHENTNAHME_KONTO_NAMEN.SKR04,
