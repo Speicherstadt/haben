@@ -7,7 +7,8 @@ import { paidTaxShares, type ExpenseCategory, type TaxShare } from "./posting.ts
 import { abziehbareSteuer, gespeicherterAnteil } from "./vorsteuerabzug.ts";
 
 type DocumentPayment = Extract<EuerPayment, { kind: "document" }>;
-type Share = { category: ExpenseCategory; share: TaxShare; deductible: Cents };
+/** `buchungszeile`: Konto und Satz der Zeile, wenn das Journal gleiche Zeilen zusammenfasst (Entnahmezeile, #1975) */
+type Share = { category: ExpenseCategory; share: TaxShare; deductible: Cents; buchungszeile?: string };
 
 export interface DocumentEuerEffect {
   expenses: { category: ExpenseCategory; amount: Cents }[];
@@ -53,7 +54,18 @@ function documentShares(p: DocumentPayment, paid: Cents): Share[] {
   // § 13b und Erwerb: gezahlt ist nur netto, auch je Zeile. Die Steuer der Zeilen bleibt trotzdem in p.splits, weil die
   // Steuer der Entnahmezeilen als Umsatzsteuer auf die Entnahme zählt (documentTarget, #1975)
   const selbstGeschuldet = (p.selbstGeschuldet?.length ?? 0) > 0;
-  const shares = paidTaxShares({ ...p.totals, taxes: lines.map((l) => ({ rate: l.taxRate, base: l.net, tax: selbstGeschuldet ? 0 : l.tax })) }, paid);
+  const zeilenAnteile = paidTaxShares({ ...p.totals, taxes: lines.map((l) => ({ rate: l.taxRate, base: l.net, tax: selbstGeschuldet ? 0 : l.tax })) }, paid);
+  // Mit Entnahmezeile (#1975) teilt sich die gezahlte Steuer je Satz wie beim Buchen: die Entnahme kaufmännisch gerundet,
+  // der Betrieb den Rest (allocateSplitTax), wie beim Privatanteil am Beleg. Der Rundungsrest des ganzen Belegs fiele
+  // sonst auf die größte Zeile, und der Betrieb bekäme einen Cent Vorsteuer, der zur Entnahme gehört.
+  const mitEntnahme = lines.some((line) => line.category === PRIVATENTNAHME);
+  const steuerJeZeile = mitEntnahme
+    ? allocateSplitTax(
+        lines,
+        paidTaxShares(p.totals, paid).map((r) => ({ taxRate: r.rate, net: r.base, tax: selbstGeschuldet ? 0 : r.tax })),
+      )
+    : null;
+  const shares = steuerJeZeile ? zeilenAnteile.map((share, i) => ({ ...share, tax: steuerJeZeile[i]!.tax })) : zeilenAnteile;
   // Der Abzug wird je Satz gerundet und auf die Kontierungszeilen verteilt, wie die Originalsteuer: Zwei kleine Zeilen
   // dürfen zusammen keinen zusätzlichen Cent Vorsteuer bekommen. Die größte Zeile trägt den Rundungsrest. Abziehbar ist
   // nur die Steuer der betrieblichen Zeilen; die Entnahme (#1975) trägt keine Vorsteuer, wie in documentSplitPosting.
@@ -71,7 +83,12 @@ function documentShares(p: DocumentPayment, paid: Cents): Share[] {
     amounts,
   );
   const deductible = new Map(betrieb.map((i, k) => [i, betriebAbzug[k]!.tax]));
-  return shares.map((share, i) => ({ category: lines[i]!.category, share, deductible: anteil(share.rate) === 10_000 ? share.tax : (deductible.get(i) ?? 0) }));
+  return shares.map((share, i) => ({
+    category: lines[i]!.category,
+    share,
+    deductible: anteil(share.rate) === 10_000 ? share.tax : (deductible.get(i) ?? 0),
+    ...(mitEntnahme ? { buchungszeile: `${lines[i]!.account ?? lines[i]!.category}|${lines[i]!.taxRate}` } : {}),
+  }));
 }
 
 /** Wirkung eines kumulierten Zahlbetrags, ohne AfA und Zahlungen ans Finanzamt */
@@ -79,7 +96,10 @@ function documentTarget(p: DocumentPayment, paid: Cents): DocumentEuerEffect {
   const expenses: { category: ExpenseCategory; amount: Cents }[] = [];
   let vorsteuer = 0;
   let bewirtungNichtAbziehbar = 0;
-  for (const { category, share, deductible } of documentShares(p, paid)) {
+  // Bewirtung je Buchungszeile: Fasst das Journal Zeilen gleichen Kontos und Satzes zusammen, gilt die 70-%-Grenze für
+  // die Summe, nicht je Zeile der Aufteilung (§ 4 Abs. 5 Satz 1 Nr. 2 EStG)
+  const bewirtung = new Map<string, Cents>();
+  for (const { category, share, deductible, buchungszeile } of documentShares(p, paid)) {
     // Die Privatentnahme ist keine Betriebsausgabe (#1975): brutto auf dem Entnahmekonto, ohne Vorsteuer und ohne
     // EÜR-Zeile. Sie steckt im Zahlbetrag, aber nicht im Aufwand.
     if (category === PRIVATENTNAHME) continue;
@@ -94,10 +114,19 @@ function documentTarget(p: DocumentPayment, paid: Cents): DocumentEuerEffect {
     // Der nicht abziehbare Teil einer Anlage gehört in die Anschaffungskosten und wirkt über die AfA.
     if (category === "anlage") continue;
     const ausgabe = base + tax - deductible;
+    if (category === "bewirtung" && buchungszeile) {
+      bewirtung.set(buchungszeile, (bewirtung.get(buchungszeile) ?? 0) + ausgabe);
+      continue;
+    }
     // § 4 Abs. 5 Satz 1 Nr. 2 EStG: Bei Bewirtung sind 70 % des Aufwands abziehbar.
     const nichtAbziehbar = category === "bewirtung" ? ausgabe - roundHalfAwayFromZero((ausgabe * 7) / 10) : 0;
     bewirtungNichtAbziehbar += nichtAbziehbar;
     expenses.push({ category, amount: ausgabe - nichtAbziehbar });
+  }
+  for (const ausgabe of bewirtung.values()) {
+    const nichtAbziehbar = ausgabe - roundHalfAwayFromZero((ausgabe * 7) / 10);
+    bewirtungNichtAbziehbar += nichtAbziehbar;
+    expenses.push({ category: "bewirtung", amount: ausgabe - nichtAbziehbar });
   }
   // Selbst geschuldete Steuer steckt nicht im Zahlbetrag an den Lieferanten; sie wirkt mit der Finanzamtszahlung.
   // Nur der private Teil zählt wie bisher als Umsatzsteuer auf die Entnahme (Anlage EÜR, Zeile 17).
