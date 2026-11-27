@@ -48,7 +48,7 @@ Mit einem Vergleich steht darüber „Warum?“: die Abweichung der Zeile nach K
 
 Grenzen:
 
-- Abschreibungen, Restbuchwerte und die Privatnutzung von Fahrzeugen zeigt die BWA erst, wenn das Jahr im [Anlagenverzeichnis](anlagen.md) gebucht ist. Die EÜR rechnet sie vorher schon aus dem Anlagenverzeichnis; bis dahin weicht der Gewinn ab, und die BWA weist darauf hin.
+- Abschreibungen, Restbuchwerte, die Entnahme von Anlagen und die Privatnutzung von Fahrzeugen zeigt die BWA erst, wenn das Jahr im [Anlagenverzeichnis](anlagen.md) gebucht ist. Die EÜR rechnet sie vorher schon aus dem Anlagenverzeichnis; bis dahin weicht der Gewinn ab, und die BWA weist darauf hin.
 - Im Einzelunternehmen stehen Zinserträge und andere steuerfreie Einnahmen bei den Erlösen, weil die EÜR sie in einer Zeile mit den steuerfreien Umsätzen führt.
 
 ## BWA für GmbH und UG
