@@ -8,8 +8,6 @@ import {
   invoiceWriteOffPosting,
   WRITE_OFF_KINDS,
   invoiceOpen,
-  hatPrivatanteil,
-  PRIVATENTNAHME,
   type PostingLine,
   type TaxShare,
   inCents,
@@ -22,6 +20,7 @@ import { db, schema, type Tx } from "../../db/index.ts";
 import { invoicePaymentPostingMode, invoiceTotalsById, invoicePostingMode, lockInvoice, unbilledAdvanceRequest } from "../rechnungen/index.ts";
 import { belegTotals, freigabeNachziehen } from "../umsatzsteuer/index.ts";
 import { belegSkontoPosting } from "./skonto-vorsteuer.ts";
+import { hatEntnahmezeile, skontoMoeglich } from "./skonto-moeglich.ts";
 import { vorsteuerAusgleich } from "./vorsteuer-ausgleich.ts";
 import { assertNotCancelled } from "./payment-booking.ts";
 import { invoiceTaxShares, negatedShares, settledOn } from "./settled-amounts.ts";
@@ -101,15 +100,15 @@ async function skontoErhalten(
   if (doc?.status !== "gebucht") throw new BankError("Der Beleg muss erst gebucht sein.");
   if (doc.payment !== "bank") throw new BankError("Der Beleg ist privat oder bar bezahlt; dort gibt es nichts auszubuchen.");
   await assertNotCancelled(tx, doc.id);
-  if (doc.reverseCharge) throw new BankError("Skonto auf Belege mit § 13b oder innergemeinschaftlichem Erwerb wird nicht unterstützt.");
-  // Auch eine Entnahmezeile ist ein Privatanteil, auch wenn am Beleg kein Prozentwert steht (#1975)
-  const [entnahme] = await tx
-    .select({ id: schema.documentSplits.id })
-    .from(schema.documentSplits)
-    .where(and(eq(schema.documentSplits.documentId, doc.id), eq(schema.documentSplits.category, PRIVATENTNAHME)))
-    .limit(1);
-  if (hatPrivatanteil(doc.privateShare) || entnahme) throw new BankError("Skonto auf Belege mit Privatanteil wird nicht unterstützt.");
-  if (doc.category === "anlage") throw new BankError("Skonto auf Anlagegüter mindert die Anschaffungskosten und wird nicht unterstützt.");
+  // Dieselbe Prüfung wie in der Überweisungsliste (sepa-transfers.ts): Beide Stellen fragen skontoMoeglich (#1975), damit
+  // ein angebotenes Skonto sich auch ausbuchen lässt. Eine Entnahmezeile ist ein Privatanteil, auch ohne Prozentwert am Beleg.
+  const skonto = skontoMoeglich({
+    reverseCharge: doc.reverseCharge,
+    privateShare: doc.privateShare,
+    entnahmezeile: await hatEntnahmezeile(doc.id, tx),
+    category: doc.category,
+  });
+  if (!skonto.moeglich) throw new BankError(skonto.grund ?? "Skonto auf diesen Beleg wird nicht unterstützt.");
   const open = documentOpen(doc.gross, await settledOn(tx, "document_id", doc.id));
   const amount = input.amount ?? open;
   if (open === 0 || Math.sign(open) !== Math.sign(amount) || Math.abs(amount) > Math.abs(open)) {
