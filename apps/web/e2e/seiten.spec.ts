@@ -254,3 +254,50 @@ test("Tablet (768 px, 861 px) und schmales Handy (320 px): kein Überlauf und ke
   const overflow320 = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow320, "/einstellungen?bereich=bank bei 320px ohne Seitenüberlauf").toBeLessThanOrEqual(1);
 });
+
+test("Kontosuche auf /buchungen/neu wird bei Tablet-Breite nicht abgeschnitten", async ({ page }) => {
+  await page.setViewportSize({ width: 861, height: 1100 });
+  await page.goto("/buchungen/neu");
+  await page.waitForLoadState("networkidle");
+  const input = page.locator(".account-combobox input[role='combobox']").first();
+  await input.click();
+  const popup = page.locator(".account-combobox .combobox-popup").first();
+  await expect(popup).toBeVisible();
+  const clip = await page.evaluate(() => {
+    const p = document.querySelector<HTMLElement>(".account-combobox .combobox-popup");
+    const t = p?.closest("table");
+    if (!p || !t) return null;
+    const pRect = p.getBoundingClientRect();
+    const tRect = t.getBoundingClientRect();
+    const cs = getComputedStyle(t);
+    return {
+      overflowY: cs.overflowY,
+      popupBottom: Math.round(pRect.bottom),
+      tableBottom: Math.round(tRect.bottom),
+      clippedPx: cs.overflowY !== "visible" ? Math.round(pRect.bottom - tRect.bottom) : 0,
+    };
+  });
+  expect(clip?.clippedPx ?? 0, `Combobox-Liste abgeschnitten: ${JSON.stringify(clip)}`).toBeLessThanOrEqual(0);
+});
+
+test("Spalten in /rechnungen, /belege, /dauerbelege bei 861 px ohne Überlappung", async ({ page }) => {
+  await page.setViewportSize({ width: 861, height: 1100 });
+  for (const pfad of ["/rechnungen", "/belege", "/dauerbelege"]) {
+    await page.goto(pfad);
+    await page.waitForLoadState("networkidle");
+    const fehler = await page.evaluate(() => {
+      const out: string[] = [];
+      for (const row of document.querySelectorAll<HTMLElement>(".table-row")) {
+        const zellen = [...row.children].filter((el): el is HTMLElement => el instanceof HTMLElement && el.getBoundingClientRect().width > 0);
+        for (const z of zellen) {
+          if (z.scrollWidth > z.clientWidth + 2 && getComputedStyle(z).overflowX === "visible") {
+            out.push(`Zelle läuft über (${z.scrollWidth} > ${z.clientWidth}): "${z.textContent?.trim().slice(0, 30)}"`);
+          }
+        }
+      }
+      return out;
+    });
+    expect(fehler, `${pfad} bei 861px ohne überlaufende Spaltenzellen`).toEqual([]);
+  }
+});
+
