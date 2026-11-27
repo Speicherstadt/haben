@@ -260,6 +260,17 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in einer Aufteilung (Postgres)
     expect(lines.filter((l) => l.account === KONTEN.SKR03.vorsteuer)).toEqual([]);
   });
 
+  it("lässt eine unbekannte Kategorie aus einem Import buchbar, nur privatentnahme am ganzen Beleg nicht (#1975)", async () => {
+    await reset("SKR03", "soll");
+    const id = await draft({ splits: [] });
+    // Übernommene Belege tragen die Kategorie als Text, auch eine, die Haben nicht kennt (kategorieMitKonto)
+    await sql`update documents set category = 'Altkategorie aus dem Import' where id = ${id}`;
+    const saved = (await documents.getDocument(id))!;
+    expect(documents.bookingIssues(saved.document, saved.amounts, "2026-09-20", saved.splits)).not.toContain(
+      "Eine Privatentnahme gibt es nur als Zeile einer Aufteilung",
+    );
+  });
+
   it("weist die Entnahme in einer GmbH ab (#1975)", async () => {
     await reset("SKR03", "ist", "gmbh");
     const id = await draft();
