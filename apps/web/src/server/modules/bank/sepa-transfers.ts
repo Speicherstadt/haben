@@ -77,8 +77,8 @@ function payeeAccount(
   return { iban, ibanSource, problem, warning, ibanDecisionNeeded: false };
 }
 
-/** Offene Belege, die per Bank bezahlt werden, mit Konto des Lieferanten; älteste Fälligkeit zuerst */
-export async function transferCandidates(): Promise<TransferCandidate[]> {
+/** Offene Belege, die per Bank bezahlt werden, mit Konto des Lieferanten; älteste Fälligkeit zuerst. Mit ids nur diese Belege (GiroCode am Beleg, #1967) */
+export async function transferCandidates(ids?: string[]): Promise<TransferCandidate[]> {
   const documents = await db
     .select({
       id: schema.documents.id,
@@ -93,9 +93,21 @@ export async function transferCandidates(): Promise<TransferCandidate[]> {
       category: schema.documents.category,
     })
     .from(schema.documents)
-    .where(and(eq(schema.documents.status, "gebucht"), eq(schema.documents.payment, "bank"), documentNotCancelled()));
-  const ids = documents.map((d) => d.id);
-  const [paid, payees, transfers, decisions] = await Promise.all([documentPayments(ids), documentPayees(ids), transfersByDocument(ids), ibanDecisions(ids)]);
+    .where(
+      and(
+        eq(schema.documents.status, "gebucht"),
+        eq(schema.documents.payment, "bank"),
+        documentNotCancelled(),
+        ids ? inArray(schema.documents.id, ids) : undefined,
+      ),
+    );
+  const found = documents.map((d) => d.id);
+  const [paid, payees, transfers, decisions] = await Promise.all([
+    documentPayments(found),
+    documentPayees(found),
+    transfersByDocument(found),
+    ibanDecisions(found),
+  ]);
   return documents
     .map((doc) => {
       const paidSoFar = paid.get(doc.id) ?? 0;
@@ -171,7 +183,7 @@ const berlinTime = new Intl.DateTimeFormat("sv-SE", {
 });
 
 /** Verwendungszweck: Rechnungsnummer des Lieferanten, sonst das Datum; mit Skonto der Abzug, damit der Lieferant ihn sieht */
-function remittanceFor(c: TransferCandidate, skonto: { percent: number; amount: Cents } | null): string {
+export function remittanceFor(c: TransferCandidate, skonto: { percent: number; amount: Cents } | null): string {
   const [year, month, day] = (c.documentDate ?? "").split("-");
   const reference = c.invoiceNumber.trim() || (c.documentDate ? `Rechnung vom ${day}.${month}.${year}` : "Rechnung");
   if (!skonto) return reference;

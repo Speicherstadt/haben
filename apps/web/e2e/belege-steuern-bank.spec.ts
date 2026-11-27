@@ -777,6 +777,11 @@ test("Abweichende IBAN der E-Rechnung: Warnung am Beleg, gesperrt unter Überwei
   const pruefen = page.getByRole("region", { name: "Bankverbindung prüfen" });
   await expect(pruefen).toContainText("DE75 5121 0800 1245 1261 99");
   await expect(pruefen).toContainText("DE02 1203 0000 0000 2020 51");
+  // Zum Überweisen: ohne Entscheidung kein GiroCode, sondern der Grund (#1967)
+  const ueberweisen = page.locator("details").filter({ has: page.locator("summary", { hasText: "Zum Überweisen" }) });
+  await ueberweisen.locator("summary").click();
+  await expect(ueberweisen).toContainText("Die E-Rechnung nennt eine andere IBAN als der Kontakt: am Beleg entscheiden, welche gilt.");
+  await expect(ueberweisen.getByRole("img")).toHaveCount(0);
 
   // Ohne Entscheidung nicht auswählbar, auch nicht über „Alle auswählen“
   await go("/ueberweisungen");
@@ -794,6 +799,12 @@ test("Abweichende IBAN der E-Rechnung: Warnung am Beleg, gesperrt unter Überwei
   // Am gebuchten Beleg entscheiden: die IBAN der E-Rechnung nur für diesen Beleg
   await pruefen.getByRole("button", { name: "IBAN der E-Rechnung nur für diesen Beleg" }).click();
   await expect(pruefen).toContainText("Es gilt die IBAN der E-Rechnung, nur für diesen Beleg. Entschieden von");
+  // Danach der GiroCode an die entschiedene IBAN über den offenen Betrag, mit den Angaben zum Gegenlesen (#1967)
+  await page.reload();
+  await ueberweisen.locator("summary").click();
+  await expect(ueberweisen.getByRole("img", { name: /^GiroCode: 215,63\s€ an Netzwerk Hosting GmbH$/ })).toBeVisible();
+  await expect(ueberweisen).toContainText("DE02 1203 0000 0000 2020 51");
+  await expect(ueberweisen).toContainText("RE-2026/0815");
   await go("/ueberweisungen");
   await expect(zeile.getByRole("checkbox")).toBeEnabled();
   await expect(zeile).toContainText("DE02 1203 0000 0000 2020 51");
