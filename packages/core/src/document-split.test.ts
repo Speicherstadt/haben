@@ -386,8 +386,8 @@ describe("Gemischte Vorzeichen (#1976)", () => {
     const allocated = allocateSplitTax(lines, amounts);
     expect(allocated.map((line) => line.tax)).toEqual([0, 0]);
     expect(splitIssues(allocated, amounts)).toEqual([
-      "Aufteilung 19 %: Zeilen mit Plus und Minus gemischt; eine Gutschrift hat nur negative Zeilen",
       "Aufteilung 19 %: Vorsteuer der Zeilen 0,00\u00a0€, Beleg 19,00\u00a0€",
+      "Aufteilung 19 %: Zeilen mit Plus und Minus gemischt; eine Gutschrift hat nur negative Zeilen",
     ]);
   });
 

@@ -127,16 +127,16 @@ export function splitIssues(lines: AllocatedSplitLine[], amounts: DocumentRateAm
     const amount = amounts.find((a) => a.taxRate === rate) ?? { taxRate: rate, net: 0, tax: 0 };
     const own = lines.filter((line) => line.taxRate === rate);
     const net = sum(own.map((line) => line.net));
-    // Vor dem Betragsvergleich: Hebt sich der Satz zu 0 auf, faellt er sonst durch und die Buchung ginge still durch
-    if (gemischteVorzeichen(own.map((line) => line.net))) {
-      issues.push(`Aufteilung ${percent(rate)}: Zeilen mit Plus und Minus gemischt; eine Gutschrift hat nur negative Zeilen`);
-    }
     if (net !== amount.net) {
       issues.push(`Aufteilung ${percent(rate)}: Zeilen zusammen ${formatEuro(net)} netto, Beleg ${formatEuro(amount.net)}`);
       continue;
     }
     const tax = sum(own.map((line) => line.tax));
     if (tax !== amount.tax) issues.push(`Aufteilung ${percent(rate)}: Vorsteuer der Zeilen ${formatEuro(tax)}, Beleg ${formatEuro(amount.tax)}`);
+    // Nicht am Vorzeichen des Belegs gemessen: In einem Satz, den der Beleg nicht hat (Netto 0), höben sich +x und −x sonst auf
+    if (gemischteVorzeichen(own.map((line) => line.net))) {
+      issues.push(`Aufteilung ${percent(rate)}: Zeilen mit Plus und Minus gemischt; eine Gutschrift hat nur negative Zeilen`);
+    }
   }
   return issues;
 }
