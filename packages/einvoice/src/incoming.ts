@@ -333,12 +333,7 @@ function parseCii(root: unknown): IncomingInvoice {
     paymentReference: textAt(settlement, "PaymentReference"),
     iban,
     paymentTerms: textsAt(settlement, "SpecifiedTradePaymentTerms", "Description"),
-    precedingInvoices: preceding(
-      all(settlement, "InvoiceReferencedDocument").map((ref) => ({
-        number: textAt(ref, "IssuerAssignedID"),
-        issueDate: isoDate(textAt(ref, "FormattedIssueDateTime", "DateTimeString")),
-      })),
-    ),
+    precedingInvoices: ciiPreceding(settlement),
   };
 }
 
@@ -424,13 +419,25 @@ function parseUbl(root: unknown, creditNote: boolean): IncomingInvoice {
     paymentReference: paymentMeans.map((m) => textAt(m, "PaymentID")).find(Boolean),
     iban,
     paymentTerms: textsAt(root, "PaymentTerms", "Note"),
-    precedingInvoices: preceding(
-      all(root, "BillingReference", "InvoiceDocumentReference").map((ref) => ({
-        number: textAt(ref, "ID"),
-        issueDate: isoDate(textAt(ref, "IssueDate")),
-      })),
-    ),
+    precedingInvoices: ublPreceding(root),
   };
+}
+
+/** BG-3 in CII: InvoiceReferencedDocument mit IssuerAssignedID (BT-25) und FormattedIssueDateTime (BT-26) */
+function ciiPreceding(settlement: unknown): IncomingInvoice["precedingInvoices"] {
+  return preceding(
+    all(settlement, "InvoiceReferencedDocument").map((ref) => ({
+      number: textAt(ref, "IssuerAssignedID"),
+      issueDate: isoDate(textAt(ref, "FormattedIssueDateTime", "DateTimeString")),
+    })),
+  );
+}
+
+/** BG-3 in UBL: cac:BillingReference/cac:InvoiceDocumentReference mit cbc:ID (BT-25) und cbc:IssueDate (BT-26) */
+function ublPreceding(root: unknown): IncomingInvoice["precedingInvoices"] {
+  return preceding(
+    all(root, "BillingReference", "InvoiceDocumentReference").map((ref) => ({ number: textAt(ref, "ID"), issueDate: isoDate(textAt(ref, "IssueDate")) })),
+  );
 }
 
 /** BG-3 ohne Einträge ohne Nummer; fehlt BG-3, bleibt das Feld weg */
