@@ -35,6 +35,8 @@ export interface TakenOverInvoice extends RebuiltInvoice {
   xml: string | null;
   /** Wo die Rechnung herkommt: ein Fremdsystem (externe Referenz) oder der Beleg des Quellprogramms beim Umzug */
   origin: { externalSource: string; externalId: string } | { lexofficeVoucherId: string };
+  /** Storno aus dem Fremdsystem (#1900): hebt die Rechnung `correctsId` auf; sonst eine Rechnung */
+  storno?: { correctsId: string };
 }
 
 /**
@@ -53,7 +55,8 @@ export async function createTakenOverInvoice(
   const [draft] = await tx
     .insert(schema.invoices)
     .values({
-      kind: "rechnung",
+      kind: p.storno ? "storno" : "rechnung",
+      correctsId: p.storno?.correctsId ?? null,
       contactId: p.contact.id,
       issueDate: p.issueDate,
       serviceFrom: p.serviceFrom,
@@ -90,10 +93,12 @@ export async function createTakenOverInvoice(
       xmlSha256: p.xml ? sha256(p.xml) : null,
       // Fremdrechnungen zählen wie eigene nach der Leistung; aus Lexoffice übernommene meldet die Voranmeldung nicht (#1312)
       exemptRule: exemptRule({
-        kind: "rechnung",
+        kind: p.storno ? "storno" : "rechnung",
         taxTreatment: p.taxTreatment,
         lexofficeVoucherId: "lexofficeVoucherId" in p.origin ? p.origin.lexofficeVoucherId : null,
       }),
+      // Ein Storno mindert schon Vereinnahmtes erst mit der Rückzahlung, wie beim Festschreiben (procedureColumns, #853)
+      ...(p.storno ? { reductionRule: "rueckgewaehr" as const } : {}),
       lockedAt: now,
       updatedAt: now,
     })
