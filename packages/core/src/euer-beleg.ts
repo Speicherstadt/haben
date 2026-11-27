@@ -98,7 +98,11 @@ function documentTarget(p: DocumentPayment, paid: Cents): DocumentEuerEffect {
   }
   // Selbst geschuldete Steuer steckt nicht im Zahlbetrag an den Lieferanten; sie wirkt mit der Finanzamtszahlung.
   // Nur der private Teil zählt wie bisher als Umsatzsteuer auf die Entnahme (Anlage EÜR, Zeile 17).
-  const privat = (p.selbstGeschuldet ?? []).reduce((sum, steuer) => sum + privaterAnteil(steuer, p.privateShare ?? 0), 0);
+  // Mit Aufteilung ist es die Steuer der Entnahmezeilen (#1975)
+  const entnahmeSteuer = p.selbstGeschuldet?.length
+    ? (p.splits ?? []).filter((line) => line.category === PRIVATENTNAHME).reduce((sum, line) => sum + line.tax, 0)
+    : 0;
+  const privat = (p.selbstGeschuldet ?? []).reduce((sum, steuer) => sum + privaterAnteil(steuer, p.privateShare ?? 0), 0) + entnahmeSteuer;
   const privateUst = p.totals.gross === 0 ? 0 : roundHalfAwayFromZero((privat * paid) / p.totals.gross);
   return { expenses, vorsteuer, bewirtungNichtAbziehbar, privateUst };
 }

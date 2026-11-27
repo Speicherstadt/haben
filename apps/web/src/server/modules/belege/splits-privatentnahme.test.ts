@@ -58,9 +58,7 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in einer Aufteilung (Postgres)
       values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '198/113/10010', 'BY', ${versteuerung}, ${kontenrahmen}, false, ${rechtsform})`;
   }
 
-  async function draft(
-    options: { splits?: typeof SPLITS; amounts?: { taxRate: 1900; net: number; tax: number }[]; vorsteuerAnteil?: number | null } = {},
-  ) {
+  async function draft(options: { splits?: typeof SPLITS; amounts?: { taxRate: 1900; net: number; tax: number }[]; vorsteuerAnteil?: number | null } = {}) {
     fileSeq++;
     const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, fileSeq % 256, Math.floor(fileSeq / 256), 71]);
     const { id } = await documents.uploadDocument(actor, { bytes, filename: `privat-${fileSeq}.jpg` });

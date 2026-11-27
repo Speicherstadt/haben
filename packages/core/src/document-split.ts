@@ -233,6 +233,7 @@ export function documentSplitPosting(
     totals.taxes.map((t) => ({ taxRate: t.rate, net: t.base - entnahme(t.rate, "net"), tax: abziehbar.get(t.rate)! })),
   );
   const deductible = new Map(betrieb.map((i, k) => [i, betriebAbzug[k]!.tax]));
+  let privateRcSteuer = 0;
   for (const [i, line] of lines.entries()) {
     const account = line.account ?? EXPENSE_CATEGORIES[line.category][kontenrahmen];
     const anteil = buchungsAnteil(vorsteuerAbzug, totals.taxes.find((t) => t.rate === line.taxRate)?.vorsteuerAnteil);
@@ -240,10 +241,12 @@ export function documentSplitPosting(
     if (line.category === PRIVATENTNAHME) {
       // Entnahme und keine Betriebsausgabe (§ 4 Abs. 1 Satz 2, § 12 Nr. 1 EStG): brutto auf das Entnahmekonto, ohne
       // Vorsteuer, denn abziehbar ist nur die betriebliche Verwendung (§ 15 Abs. 1 Satz 1 Nr. 1 UStG). Bei § 13b trägt
-      // die Zeile Netto und Steuer mit dem Steuerschlüssel, damit die Bemessungsgrundlage (Kz 46/84) bleibt (#542).
+      // das Netto den Steuerschlüssel, damit die Bemessungsgrundlage (Kz 46/84) bleibt (#542); die Steuer darauf steht
+      // ohne Steuerschlüssel wie beim Privatanteil am Beleg (documentPosting): Sie geht mit der Voranmeldung ans
+      // Finanzamt und zählt in der EÜR als Umsatzsteuer auf die Entnahme (journal-euer.ts).
       if (rcCode) {
         add(accounts.privatentnahmen, rcCode, line.net);
-        add(accounts.privatentnahmen, "keineVSt", line.tax);
+        privateRcSteuer += line.tax;
       } else add(accounts.privatentnahmen, "keineVSt", line.net + line.tax);
       continue;
     }
@@ -258,6 +261,7 @@ export function documentSplitPosting(
     } else add(account, "keineVSt", line.net + line.tax);
   }
   const result: PostingLine[] = [...expenses.values()].map((e) => side(e.account, e.amount, true, e.code));
+  if (privateRcSteuer !== 0) result.push(side(accounts.privatentnahmen, privateRcSteuer, true, null));
   for (const row of totals.taxes) {
     const { rate, tax } = row;
     // Der Anteil der Entnahmezeilen ist nicht abziehbar; er steht brutto auf dem Entnahmekonto

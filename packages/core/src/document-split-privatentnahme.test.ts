@@ -118,7 +118,8 @@ describe("documentSplitPosting mit Privatentnahme", () => {
     const byKonto = new Map(posting.map((l) => [`${l.account}|${l.taxCode}`, l.debit]));
     expect(byKonto.get("4964|RC13bEU")).toBe(1_000);
     expect(byKonto.get("1800|RC13bEU")).toBe(200);
-    expect(byKonto.get("1800|keineVSt")).toBe(38);
+    // Die Steuer auf die Entnahme ohne Steuerschlüssel, wie beim Privatanteil am Beleg (documentPosting)
+    expect(byKonto.get("1800|null")).toBe(38);
     expect(byKonto.get("1577|VSt13b")).toBe(190);
     expect(sumOf(posting.map((l) => l.debit))).toBe(sumOf(posting.map((l) => l.credit)));
   });
@@ -140,7 +141,15 @@ describe("documentSplitPosting mit Privatentnahme", () => {
     expect(euerAusZeilen("SKR03", ganzerBeleg).zeilen.vereinnahmteUst ?? 0).toBe(38);
     // Die EÜR aus dem Journal und die aus den Zahlungen ebenso
     const effekt = documentEuerEffects(
-      { kind: "document", date: "2026-09-20", paid: 1_000, totals: { ...totals, tax: 0, taxes: [{ rate: 1900, base: 1_000, tax: 0 }] }, category: "software", splits: lines, selbstGeschuldet: [190] },
+      {
+        kind: "document",
+        date: "2026-09-20",
+        paid: 1_000,
+        totals: { ...totals, tax: 0, taxes: [{ rate: 1900, base: 1_000, tax: 0 }] },
+        category: "software",
+        splits: lines,
+        selbstGeschuldet: [190],
+      },
       [{ id: "z", paid: 1_000, reversesId: null }],
     ).get("z")!;
     expect({ journal: euerAusZeilen("SKR03", aufgeteilt).zeilen.vereinnahmteUst ?? 0, zahlungen: effekt.privateUst }).toEqual({ journal: 38, zahlungen: 38 });

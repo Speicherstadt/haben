@@ -395,7 +395,7 @@ Gebucht wird die Entnahme brutto auf **1800 Privatentnahmen** (SKR04 **2100**), 
 
 Die Entnahme sind 14,06 € (11,81 € netto und 2,25 € Steuer); Aufwand und Vorsteuer sind 30,32 € und 5,76 €. Die Vorsteuer steht so im Journal und in Kz 66 der Voranmeldung, bei Ist- wie bei Soll-Versteuerung. In der [EÜR](auswertungen.md) erscheint nur der betriebliche Aufwand.
 
-**Grenzen.** Eine Entnahme gibt es nur im Einzelunternehmen; bei GmbH und UG lehnt Haben das Buchen ab. Eine Aufteilung aus lauter Privatentnahmen hat keinen Betriebsanteil und wird ebenfalls abgelehnt — ein ganz privater Beleg bleibt beim [Privatanteil am Beleg](#privatanteil) von 100 %. Auf einem Beleg mit Entnahmezeile gibt es kein [Skonto](bank.md): Es mindert sonst die Vorsteuer auch für den privaten Teil. Bei § 13b trägt die Entnahmezeile Netto und Steuer mit dem Steuerschlüssel, damit die Bemessungsgrundlage (Kz 46/84) bleibt; Vorsteuer zieht sie nie.
+**Grenzen.** Eine Entnahme gibt es nur im Einzelunternehmen; bei GmbH und UG lehnt Haben das Buchen ab. Eine Aufteilung aus lauter Privatentnahmen hat keinen Betriebsanteil und wird ebenfalls abgelehnt — ein ganz privater Beleg bleibt beim [Privatanteil am Beleg](#privatanteil) von 100 %. Auf einem Beleg mit Entnahmezeile gibt es kein [Skonto](bank.md): Es mindert sonst die Vorsteuer auch für den privaten Teil. Bei § 13b trägt die Entnahmezeile ihr Netto mit dem Steuerschlüssel, damit die Bemessungsgrundlage (Kz 46/84) bleibt; Vorsteuer zieht sie nie, und die Steuer darauf zählt in der EÜR als Umsatzsteuer auf die Entnahme. Mit einem Teilabzug nach § 15 Abs. 4 UStG gilt der Anteil für die Steuer des betrieblichen Teils.
 
 ## Belege aus dem Ausland
 
