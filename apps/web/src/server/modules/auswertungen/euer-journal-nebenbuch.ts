@@ -70,14 +70,15 @@ export async function belegNebenbuecher(q: Db | Tx, ids: string[]): Promise<Map<
     const splitsJe = await splitsByDocument(noetigIds, q);
     const effects = await belegZahlungsWirkungen(q, noetigIds);
     for (const doc of noetig) {
-      // § 13b und Erwerb: gezahlt ist nur netto, auch je Zeile der Aufteilung (wie reports.ts)
+      // § 13b und Erwerb: gezahlt ist nur netto (wie reports.ts); die Zeilen der Aufteilung behalten ihre Steuer, die
+      // EÜR rechnet sie mit selbstGeschuldet heraus und braucht sie für die Umsatzsteuer auf die Entnahme (#1975)
       const rows = (amounts.get(doc.id) ?? []).map((a) => ({
         rate: a.taxRate,
         base: a.net,
         tax: doc.reverseCharge ? 0 : a.tax,
         vorsteuerAnteil: gespeicherterAnteil(doc, a.vorsteuerAnteil),
       }));
-      const splits = splitsJe.get(doc.id)?.map((line) => (doc.reverseCharge ? { ...line, tax: 0 } : line));
+      const splits = splitsJe.get(doc.id);
       const category = doc.category && doc.category in EXPENSE_CATEGORIES ? (doc.category as ExpenseCategory) : "sonstiges";
       result.set(doc.id, {
         totals: totalsFromTaxes(rows),

@@ -11,7 +11,7 @@ import { documentTotalsById } from "./euer-belege.ts";
 export async function belegZahlungsWirkungen(q: Db | Tx, ids: string[]): Promise<Map<string, DocumentEuerEffect>> {
   const result = new Map<string, DocumentEuerEffect>();
   if (ids.length === 0) return result;
-  const { totals, reverseCharge, selbstGeschuldet } = await documentTotalsById(ids, q);
+  const { totals, selbstGeschuldet } = await documentTotalsById(ids, q);
   const partial = ids.filter((id) => totals.get(id)?.taxes.some((t) => (t.vorsteuerAnteil ?? 0) > 0 && (t.vorsteuerAnteil ?? 10_000) < 10_000));
   if (partial.length === 0) return result;
   const d = schema.documents;
@@ -33,7 +33,8 @@ export async function belegZahlungsWirkungen(q: Db | Tx, ids: string[]): Promise
        where ${inArray(schema.writeOffs.documentId, partial)} and kind = 'kursdifferenz'
     ) zahlungen order by datum, created_at, id`);
   for (const doc of docs) {
-    const lines = splits.get(doc.id)?.map((line) => (reverseCharge.has(doc.id) ? { ...line, tax: 0 } : line));
+    // § 13b: die Zeilen behalten ihre Steuer; die EÜR rechnet mit selbstGeschuldet nur netto (euer-beleg.ts, #1975)
+    const lines = splits.get(doc.id);
     const payment: Extract<EuerPayment, { kind: "document" }> = {
       kind: "document",
       date: "",
