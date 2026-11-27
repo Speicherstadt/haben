@@ -58,3 +58,24 @@ test("Filter auf derselben Seite lassen die Seite stehen", async ({ page }) => {
   await expect(page.getByText("Seite wird geladen")).toHaveCount(0);
   await weiter();
 });
+
+test("Zurück stellt die Rollposition der vorigen Seite wieder her", async ({ page }) => {
+  await page.goto("/einstellungen", { waitUntil: "networkidle" });
+  await expect(page.getByRole("heading", { name: "Einstellungen", level: 1 })).toBeVisible();
+  // Erst nach dem scroll-Ereignis merkt sich der Router die Position
+  const vorher = await page.evaluate(
+    () =>
+      new Promise<number>((fertig) => {
+        addEventListener("scroll", () => fertig(scrollY), { once: true });
+        scrollTo(0, 700);
+      }),
+  );
+  expect(vorher).toBe(700);
+
+  await page.getByRole("navigation", { name: "Hauptnavigation" }).getByRole("link", { name: "Rechnungen", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Rechnungen", level: 1 })).toBeVisible();
+  await page.goBack();
+
+  await expect(page.getByRole("heading", { name: "Einstellungen", level: 1 })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(vorher);
+});
