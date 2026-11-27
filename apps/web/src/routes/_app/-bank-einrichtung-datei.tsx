@@ -14,15 +14,15 @@ import { hatMarktplatzKonto } from "./-bank-daten.ts";
 import { SchrittKarte } from "./-bank-einrichtung.tsx";
 import { importErgebnisse } from "./-bank-konto.tsx";
 import { MarktplatzRueckfrage } from "./-bank-konto-neu.tsx";
+import { type KontoWahl, kontoWaehlen, vorhandeneKonten } from "./-bank-einrichtung-konto.ts";
+
+export type { KontoWahl };
 
 /*
  * Einrichtung eines Zahlungsdienstleisters mit Exportdatei oder nur als Konto (#2008): Weg wählen (wenn es mehrere gibt),
  * Konto, Datei mit der Anleitung des Formats, Ergebnis. Den Rahmen und die Schrittleiste stellt die Route
  * (bank_.verbinden.$anbieter.tsx); den Weg über die API die Schritte in -bank-einrichtung.tsx.
  */
-
-/** Was der Schritt „Konto“ festlegt; `kontoId` null: Haben legt ein neues an */
-export type KontoWahl = { name: string; marketplace: string; kontoId: string | null };
 
 const WEG_LABEL: Record<PspWeg, string> = {
   api: "Über die API",
@@ -118,7 +118,7 @@ export function KontoSchritt({
 }: {
   provider: string;
   name: string;
-  daten: Pick<PspDaten, "alleKonten">;
+  daten: Pick<PspDaten, "alleKonten" | "verbindungen">;
   nummer: number;
   von: number;
   /** Ohne Datei: der Schritt legt das Konto an und führt zu ihm */
@@ -127,7 +127,7 @@ export function KontoSchritt({
   onZurueck: (() => void) | null;
   onWeiter: (wahl: KontoWahl) => void;
 }) {
-  const vorhanden = daten.alleKonten.filter((k) => k.provider === provider);
+  const vorhanden = vorhandeneKonten(daten, provider);
   const [werte, setWerte] = useState<KontoWahl>(wahl ?? { name, marketplace: "", kontoId: null });
   const [rueckfrage, setRueckfrage] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
@@ -168,7 +168,7 @@ export function KontoSchritt({
         {vorhanden.length > 0 && (!nurKonto || istStore(provider)) && (
           <Field label="Konto in Haben" hint="Hast du schon ein Konto für diesen Anbieter, nimmt Haben es.">
             {(control) => (
-              <select {...control} value={werte.kontoId ?? ""} onChange={(e) => setWerte({ ...werte, kontoId: e.target.value || null })}>
+              <select {...control} value={werte.kontoId ?? ""} onChange={(e) => setWerte(kontoWaehlen(werte, vorhanden, e.target.value, name))}>
                 <option value="">Neues Konto anlegen</option>
                 {vorhanden.map((k) => (
                   <option key={k.id} value={k.id}>
