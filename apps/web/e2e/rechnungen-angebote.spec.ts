@@ -731,9 +731,10 @@ test("Festschreiben direkt nach „Entwurf speichern“: erst nach dem Neuladen,
 
 /**
  * Nach „Entwurf speichern“ baut die Seite den Editor mit dem gespeicherten Stand neu auf: beim ersten Speichern auf der
- * Adresse des neuen Entwurfs, danach mit dem neuen `updatedAt` im `key`. Was man bis dahin tippt, ginge verloren; deshalb
- * sind die Felder so lange gesperrt, und die Eingabe landet erst im neu aufgebauten Editor (#1148). Das Neuladen ist
- * verzögert, damit die Lücke sicher entsteht.
+ * Adresse des neuen Entwurfs, danach mit dem neuen `updatedAt` im `key`. Was man bis dahin tippt, ginge verloren (#1148):
+ * Beim ersten Speichern steht bis dahin die Ladeansicht statt des Editors (Seitenwechsel, `routes/_app.tsx`), beim weiteren
+ * sind die Felder gesperrt. Die Eingabe landet erst im neu aufgebauten Editor. Das Neuladen ist verzögert, damit die Lücke
+ * sicher entsteht.
  */
 async function eingabeNachDemSpeichern(bereich: "rechnungen" | "angebote") {
   await go(`/${bereich}/neu`);
@@ -752,9 +753,9 @@ async function eingabeNachDemSpeichern(bereich: "rechnungen" | "angebote") {
   });
   const speichern = page.getByRole("button", { name: "Entwurf speichern", exact: true });
 
-  // Erstes Speichern: Wechsel von „neu“ auf den Entwurf
+  // Erstes Speichern: Wechsel von „neu“ auf den Entwurf, dazwischen die Ladeansicht ohne Editor
   await speichern.click();
-  await expect(beschreibung).toBeDisabled();
+  await expect(page.locator("#inhalt").getByRole("status")).toContainText("Seite wird geladen");
   await beschreibung.fill("Gleich danach getippt");
   // „Entwurf löschen“ gibt es erst im Editor des gespeicherten Entwurfs
   await expect(page.getByRole("button", { name: "Entwurf löschen", exact: true })).toBeVisible();
