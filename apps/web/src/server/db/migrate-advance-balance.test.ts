@@ -76,7 +76,8 @@ describe.skipIf(!testDatabaseUrl)("Migration des Anzahlungs-Bilanzverfahrens: Al
         entries: await sql`select to_jsonb(e)::text as bytes from journal_entries e order by id`,
         lines: await sql`select to_jsonb(l)::text as bytes from journal_lines l order by id`,
         seals: await sql`select to_jsonb(s)::text as bytes from seals s order by id`,
-        audit: await sql`select to_jsonb(a)::text as bytes from audit_log a where table_name not in ('journal_umstellung', 'letterhead_profiles') order by seq`,
+        audit:
+          await sql`select to_jsonb(a)::text as bytes from audit_log a where table_name not in ('journal_umstellung', 'letterhead_profiles', 'vat_items_since') and not (table_name = 'audit_chain' and new_value ? 'tabellen') order by seq`,
       });
       const old = await snapshot();
       expect(old.entries).toHaveLength(1);
@@ -93,11 +94,14 @@ describe.skipIf(!testDatabaseUrl)("Migration des Anzahlungs-Bilanzverfahrens: Al
       expect(await sql`select tax_details from invoices where id=${invoiceId}`).toEqual([{ tax_details: null }]);
       expect(await sql`select paid_via, paid_on from invoices where id=${invoiceId}`).toEqual([{ paid_via: null, paid_on: null }]);
       expect(await sql`select reduction_rule from invoices where id=${invoiceId}`).toEqual([{ reduction_rule: null }]);
-      // Neu im Audit-Log sind nur die Zeile der Prüfung beim Update (Migration 0275, #1116) und das Briefkopf-Profil mit dem
-      // bisherigen Layout für die eingerichtete Firma (Migration 0312, #113)
+      // Neu im Audit-Log sind nur die Zeile der Prüfung beim Update (Migration 0275, #1116), das Briefkopf-Profil mit dem
+      // bisherigen Layout für die eingerichtete Firma (Migration 0312, #113) und der Nachtrag von vat_items_since, das 0138
+      // vor seinem Audit-Trigger anlegt, mit Hinweis (Migration 0338, #861)
       expect(await sql`select table_name, action from audit_log where seq > ${auditHead!.seq} order by seq`).toEqual([
         { table_name: "journal_umstellung", action: "INSERT" },
         { table_name: "letterhead_profiles", action: "INSERT" },
+        { table_name: "vat_items_since", action: "INSERT" },
+        { table_name: "audit_chain", action: "INSERT" },
       ]);
       expect(await sql`select status,advance_type,advance_accounting,replaces_invoice_id from invoices where id=${invoiceId}`).toEqual([
         { status: "final", advance_type: "anzahlung", advance_accounting: null, replaces_invoice_id: null },

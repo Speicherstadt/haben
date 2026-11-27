@@ -4,7 +4,8 @@
 --
 -- 1. Audit-Trigger für die fünf nur anhängbaren Tabellen, die keinen hatten; Bankumsätze stehen damit im Audit-Log.
 -- 2. Zeilen dieser Tabellen ohne Eintrag im Audit-Log trägt die Migration nachträglich ein, mit einem Hinweis in der Kette
---    wie in 0063. Auf einer frischen Installation gibt es keine.
+--    wie in 0063. Auf einer frischen Installation ist das nur die Zeile in vat_items_since, die 0138 vor ihrem Audit-Trigger
+--    anlegt.
 -- 3. haben_integrity_problems wie in 0318, dazu der Abgleich jeder dieser Tabellen mit ihren Einträgen im Audit-Log.
 --
 -- An bestehenden Zeilen, Einträgen und Siegeln ändert die Migration nichts.

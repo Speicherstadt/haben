@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { unzipSync } from "fflate";
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { auditNachtragen, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 const renderer = vi.hoisted(() => ({ pause: null as (() => Promise<void>) | null }));
@@ -61,6 +61,8 @@ describe.skipIf(!testDatabaseUrl)("Belegimport: Regressionen aus der ersten Revi
       await tx`set local session_replication_role = replica`;
       await tx`truncate seals, audit_log, audit_chain, company, contacts, quotes, invoices, journal_entries, external_imports, lexoffice_imports, invoice_number_counters, quote_number_counters cascade`;
       await tx`insert into audit_chain (id, seq, hash) values (1, 0, haben_audit_genesis())`;
+      await tx`set local session_replication_role = origin`;
+      await auditNachtragen(tx);
     });
     await sql`insert into company (id,name,strasse,plz,ort,email,steuernummer,bundesland,iban,kleinunternehmer,rechtsform,kontenrahmen,invoice_number_format)
       values (1,'Erfundener Testbetrieb','Musterstraße 1','93047','Regensburg','review@example.com','198/113/10010','BY','DE89370400440532013000',true,'einzelunternehmen','SKR03','RE-{JJJJ}-{NNNN}')`;
