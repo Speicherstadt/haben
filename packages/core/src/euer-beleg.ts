@@ -3,7 +3,7 @@ import { allocateSplitTax } from "./document-split.ts";
 import { betrieblicherAnteil, privaterAnteil } from "./beleg-anteile.ts";
 import { PRIVATENTNAHME } from "./kontenplan.ts";
 import { roundHalfAwayFromZero, type BasisPoints, type Cents } from "./money.ts";
-import { paidTaxShares, type ExpenseCategory, type TaxShare } from "./posting.ts";
+import { inputTaxCode, paidTaxShares, type ExpenseCategory, type TaxShare } from "./posting.ts";
 import { abziehbareSteuer, gespeicherterAnteil } from "./vorsteuerabzug.ts";
 
 type DocumentPayment = Extract<EuerPayment, { kind: "document" }>;
@@ -12,21 +12,6 @@ type DocumentPayment = Extract<EuerPayment, { kind: "document" }>;
  * und „nicht abziehbar“); nur mit Entnahmezeile (#1975), damit die 70-%-Grenze der Bewirtung je Journalzeile gilt.
  */
 type Share = { category: ExpenseCategory; share: TaxShare; deductible: Cents; journal?: { key: string; amount: Cents }[] };
-
-/** Gezahlte Steuer je Satz; der Rundungsrest geht nur an Sätze mit Steuer, nie an einen steuerfreien */
-function gezahlteSteuerJeSatz(totals: DocumentPayment["totals"], paid: Cents): TaxShare[] {
-  const rows = paidTaxShares(totals, paid);
-  const besteuert = (rate: BasisPoints) => (totals.taxes.find((t) => t.rate === rate)?.tax ?? 0) !== 0;
-  const ziel = rows.reduce<number>((best, row, i) => (besteuert(row.rate) && (best < 0 || Math.abs(row.base) > Math.abs(rows[best]!.base)) ? i : best), -1);
-  if (ziel < 0) return rows;
-  return rows.map((row, i) =>
-    i === ziel
-      ? { ...row, tax: row.tax + rows.filter((r) => !besteuert(r.rate)).reduce((sum, r) => sum + r.tax, 0) }
-      : besteuert(row.rate)
-        ? row
-        : { ...row, tax: 0 },
-  );
-}
 
 export interface DocumentEuerEffect {
   expenses: { category: ExpenseCategory; amount: Cents }[];
@@ -80,7 +65,7 @@ function documentShares(p: DocumentPayment, paid: Cents): Share[] {
   const steuerJeZeile = mitEntnahme
     ? allocateSplitTax(
         lines,
-        gezahlteSteuerJeSatz(p.totals, paid).map((r) => ({ taxRate: r.rate, net: r.base, tax: selbstGeschuldet ? 0 : r.tax })),
+        paidTaxShares(p.totals, paid).map((r) => ({ taxRate: r.rate, net: r.base, tax: selbstGeschuldet ? 0 : r.tax })),
       )
     : null;
   const shares = steuerJeZeile ? zeilenAnteile.map((share, i) => ({ ...share, tax: steuerJeZeile[i]!.tax })) : zeilenAnteile;
@@ -107,7 +92,7 @@ function documentShares(p: DocumentPayment, paid: Cents): Share[] {
     // Wie documentSplitPosting: mit Abzug Netto mit Steuerschlüssel und der nicht abziehbare Teil eigens, ohne Abzug
     // bei § 13b Netto und Steuer getrennt, sonst brutto mit keineVSt
     const konto = lines[i]!.account ?? lines[i]!.category;
-    const code = selbstGeschuldet ? "rc" : `vst${share.rate}`;
+    const code = selbstGeschuldet ? "rc" : inputTaxCode(share.rate);
     const journal =
       anteil(share.rate) > 0
         ? [

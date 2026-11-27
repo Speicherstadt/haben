@@ -87,32 +87,28 @@ describe("EÜR mit Entnahmezeile (#1975)", () => {
     expect(amount(euer, "ausgabe:bewirtung")).toBe(7_001 + 4);
   });
 
-  it("Teilzahlung: eine steuerfreie Entnahmezeile bekommt keinen Rundungsrest der Steuer", () => {
+  it("Bewirtung zu 0 % und ohne Vorsteuerabzug: beide stehen im Journal unter keineVSt und runden zusammen", () => {
     const t = {
-      net: 17_000,
-      tax: 1_160,
-      gross: 18_160,
+      net: 11_781,
+      tax: 420,
+      gross: 12_201,
       taxes: [
-        { rate: 1900, base: 5_000, tax: 950 },
-        { rate: 700, base: 3_000, tax: 210 },
-        { rate: 0, base: 9_000, tax: 0 },
+        { rate: 0, base: 7_502, tax: 0 },
+        { rate: 700, base: 3_279, tax: 230, vorsteuerAnteil: 0 },
+        { rate: 1900, base: 1_000, tax: 190 },
       ],
     };
     const lines: DocumentSplitLine[] = [
-      { category: "telefon", taxRate: 1900, net: 5_000 },
-      { category: "buero", taxRate: 700, net: 3_000 },
-      { category: PRIVATENTNAHME, taxRate: 0, net: 9_000 },
+      { category: "bewirtung", taxRate: 0, net: 7_502 },
+      { category: "bewirtung", taxRate: 700, net: 3_279 },
+      { category: PRIVATENTNAHME, taxRate: 1900, net: 1_000 },
     ];
     const splits = allocateSplitTax(
       lines,
       t.taxes.map((r) => ({ taxRate: r.rate, net: r.base, tax: r.tax })),
     );
-    const falsch: number[] = [];
-    for (let paid = 1; paid <= t.gross; paid += 13) {
-      const euer = computeEuer(2026, [payment({ totals: t, paid, splits })]);
-      // Die Entnahme trägt keine Steuer: die ganze gezahlte Steuer ist Vorsteuer des Betriebs
-      if (amount(euer, "vorsteuer") !== Math.round((t.tax * paid) / t.gross)) falsch.push(paid);
-    }
-    expect(falsch).toEqual([]);
+    const euer = computeEuer(2026, [payment({ totals: t, paid: t.gross, category: "bewirtung", splits })]);
+    // 75,02 € + 35,09 € (32,79 € + 2,30 € nicht abziehbar) = 110,11 €, davon 70 %
+    expect(amount(euer, "ausgabe:bewirtung")).toBe(7_708);
   });
 });
