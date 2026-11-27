@@ -420,10 +420,10 @@ test("Datei importieren an der Zeile unter Verbindungen: Format vom Konto, Anlei
     .setInputFiles([{ name: "settlement.txt", mimeType: "text/plain", buffer: settlement() }]);
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText(/settlement\.txt: 0 neue Umsätze für Amazon\.de, \d+ schon vorhanden/)).toBeVisible({ timeout: 30_000 });
-  // Shop DE hat keine Verbindung mehr: auch dort Datei importieren, mit dem Format von Stripe
+  // Shop DE hat keine Verbindung mehr, ist aber an die Quelle des früheren Abrufs gebunden (#306): keine Datei hinein (#1988)
   await zeile().getByRole("button", { name: "Weitere Aktionen für Shop DE" }).click();
-  await page.getByRole("menuitem", { name: "Datei importieren …" }).click();
-  await expect(page.getByRole("dialog", { name: "Datei importieren: Shop DE" })).toContainText("Saldenverlauf (CSV)");
+  await expect(page.getByRole("menuitem", { name: "Name und Zweck …" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Datei importieren …" })).toHaveCount(0);
   await page.keyboard.press("Escape");
 });
 
