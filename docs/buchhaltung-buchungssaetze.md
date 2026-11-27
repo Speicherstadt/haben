@@ -166,7 +166,7 @@ Homeoffice-Tage, Fahrten mit dem Privatfahrzeug, Verpflegungsmehraufwand und Weg
 | Verpflegungsmehraufwand | 4674 | 6674 |
 | Wege zwischen Wohnung und Betriebsstätte (Entfernungspauschale) | 4678 | 6688 |
 
-Homeoffice-Pauschalen bis Version 0.15 stehen auf 4288 bzw. 6348 und zählen weiter als Tagespauschale. Ein Storno ist eine Gegenbuchung am selben Tag auf die Konten der ursprünglichen Buchung. Sätze und Grenzen stehen unter [Pauschalen](pauschalen.md).
+Homeoffice-Pauschalen bis Version 0.15.0 stehen auf 4288 bzw. 6348 und zählen weiter als Tagespauschale. Ein Storno ist eine Gegenbuchung am selben Tag auf die Konten der ursprünglichen Buchung. Sätze und Grenzen stehen unter [Pauschalen](pauschalen.md).
 
 ## Lohnabrechnung
 
