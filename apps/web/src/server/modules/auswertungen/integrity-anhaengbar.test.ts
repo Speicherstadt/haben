@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import postgres from "postgres";
+import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
@@ -20,8 +20,7 @@ describe.skipIf(!testDatabaseUrl)("Nur anhängbare Tabellen gegen das Audit-Log 
   });
 
   type Problem = { art: string; tabelle: string; zeile: string | null; seq: string | null; befund: string };
-  const problems = (tx: postgres.Sql | postgres.TransactionSql = sql) =>
-    tx<Problem[]>`select art, tabelle, zeile, seq, befund from haben_integrity_problems()`;
+  const problems = (tx: postgres.Sql | postgres.TransactionSql = sql) => tx<Problem[]>`select art, tabelle, zeile, seq, befund from haben_integrity_problems()`;
 
   /** Führt work in einer Transaktion aus, die danach zurückgerollt wird; liefert ihr Ergebnis */
   async function rolledBack<T>(work: (tx: postgres.TransactionSql) => Promise<T>): Promise<T> {
@@ -73,7 +72,8 @@ describe.skipIf(!testDatabaseUrl)("Nur anhängbare Tabellen gegen das Audit-Log 
   /** Bankumsatz wie aus einem Import, mit Konto und Abruf */
   async function bankTransaction() {
     nr += 1;
-    const [konto] = await sql`insert into bank_accounts (name, iban) values (${`Giro ${nr}`}, ${`DE893704004405320130${String(nr).padStart(2, "0")}`}) returning id`;
+    const [konto] =
+      await sql`insert into bank_accounts (name, iban) values (${`Giro ${nr}`}, ${`DE893704004405320130${String(nr).padStart(2, "0")}`}) returning id`;
     const [abruf] = await sql`insert into bank_imports (bank_account_id, filename, sha256, format, added, skipped)
       values (${konto!.id}, ${`Auszug ${nr}`}, ${String(nr % 10).repeat(64)}, 'camt', 1, 0) returning id`;
     const [umsatz] = await sql`insert into bank_transactions (bank_account_id, import_id, booking_date, amount, purpose, dedup_hash)
@@ -101,7 +101,13 @@ describe.skipIf(!testDatabaseUrl)("Nur anhängbare Tabellen gegen das Audit-Log 
       return problems(tx);
     });
     expect(found).toEqual([
-      { art: "siegel", tabelle: "invoice_settlements", zeile: id, seq: await eintrag("invoice_settlements", id), befund: "Zeile fehlt, steht aber im Audit-Log" },
+      {
+        art: "siegel",
+        tabelle: "invoice_settlements",
+        zeile: id,
+        seq: await eintrag("invoice_settlements", id),
+        befund: "Zeile fehlt, steht aber im Audit-Log",
+      },
     ]);
   });
 
@@ -137,7 +143,9 @@ describe.skipIf(!testDatabaseUrl)("Nur anhängbare Tabellen gegen das Audit-Log 
       await tamper(tx, () => tx`delete from bank_import_transactions where transaction_id = ${id}`);
       return problems(tx);
     });
-    expect(found).toEqual([expect.objectContaining({ tabelle: "bank_import_transactions", zeile: `${importId}:${id}`, befund: "Zeile fehlt, steht aber im Audit-Log" })]);
+    expect(found).toEqual([
+      expect.objectContaining({ tabelle: "bank_import_transactions", zeile: `${importId}:${id}`, befund: "Zeile fehlt, steht aber im Audit-Log" }),
+    ]);
   });
 
   it("schreibt neue Kontaktversionen ins Audit-Log", async () => {
