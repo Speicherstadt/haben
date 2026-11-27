@@ -82,7 +82,11 @@ describe.skipIf(!testDatabaseUrl)("Positionen und Steuerzeilen einer Rechnung im
         from audit_log where table_name = ${table} and coalesce(new_value, old_value) ->> 'invoice_id' = ${id} order by seq`;
   }
 
-  const befunde = async () => (await integrity.checkIntegrity()).problems;
+  /** Kette, Siegel und Sollbestand: Befunde und Hinweise der Prüfung (ein Trigger außerhalb des Sollbestands ist ein Hinweis) */
+  const befunde = async () => {
+    const { problems, triggerHints } = await integrity.checkIntegrity();
+    return [...problems, ...triggerHints];
+  };
 
   it("Entwurf: geänderte Positionen und Steuerzeilen stehen mit Akteur im Audit-Log", async () => {
     await reset("SKR04", "ist");

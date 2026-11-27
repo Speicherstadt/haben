@@ -69,7 +69,11 @@ describe.skipIf(!testDatabaseUrl)("Beträge eines Belegs im Audit-Log (Postgres)
        where table_name = 'document_amounts' and coalesce(new_value, old_value) ->> 'document_id' = ${id} order by seq`;
   }
 
-  const befunde = async () => (await integrity.checkIntegrity()).problems;
+  /** Kette, Siegel und Sollbestand: Befunde und Hinweise der Prüfung (ein Trigger außerhalb des Sollbestands ist ein Hinweis) */
+  const befunde = async () => {
+    const { problems, triggerHints } = await integrity.checkIntegrity();
+    return [...problems, ...triggerHints];
+  };
 
   it("Entwurf: angelegte, ersetzte und gelöschte Beträge stehen mit Akteur und Zeilenkennung im Audit-Log", async () => {
     await reset("SKR04", "ist");
