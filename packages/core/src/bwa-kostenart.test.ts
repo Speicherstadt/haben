@@ -44,7 +44,9 @@ describe("Kostenart der BWA (DATEV-Kontenrahmen 2026)", () => {
 
   it.each(RAHMEN)("%s: jede Ausgabenkategorie auf einem Erfolgskonto hat eine Kostenart", (kr) => {
     for (const [kategorie, konten] of Object.entries(EXPENSE_CATEGORIES)) {
-      if (["anlage", "hardware", "einfuhrumsatzsteuer"].includes(kategorie)) continue;
+      // Kein Erfolgskonto: Anlagegut, Hardware (GWG) und Einfuhrumsatzsteuer; die Privatentnahme steht auf dem
+      // Entnahmekonto und wird nie Aufwand (#1975)
+      if (["anlage", "hardware", "einfuhrumsatzsteuer", "privatentnahme"].includes(kategorie)) continue;
       expect(kostenartOf(kr, konten[kr]), kategorie).not.toBeNull();
     }
   });

@@ -3,7 +3,6 @@ import {
   documentOpen,
   formatDecimal,
   geltendeIban,
-  hatPrivatanteil,
   type IbanEntscheidung,
   isEwrIban,
   isValidIban,
@@ -24,6 +23,8 @@ import { loadCompany } from "../stammdaten/index.ts";
 import { BankError } from "./bank-error.ts";
 import { documentPayments } from "./settled-amounts.ts";
 import { documentPayees, ibanDecisions, type DocumentPayee } from "./document-payees.ts";
+import { documentsMitEntnahme } from "../umsatzsteuer/index.ts";
+import { skontoMoeglich } from "./skonto-moeglich.ts";
 
 /** Ein offener Beleg, der sich überweisen lässt, oder warum nicht */
 export interface TransferCandidate {
@@ -95,16 +96,29 @@ export async function transferCandidates(): Promise<TransferCandidate[]> {
     .from(schema.documents)
     .where(and(eq(schema.documents.status, "gebucht"), eq(schema.documents.payment, "bank"), documentNotCancelled()));
   const ids = documents.map((d) => d.id);
-  const [paid, payees, transfers, decisions] = await Promise.all([documentPayments(ids), documentPayees(ids), transfersByDocument(ids), ibanDecisions(ids)]);
+  const [paid, payees, transfers, decisions, entnahme] = await Promise.all([
+    documentPayments(ids),
+    documentPayees(ids),
+    transfersByDocument(ids),
+    ibanDecisions(ids),
+    documentsMitEntnahme(ids),
+  ]);
   return documents
     .map((doc) => {
       const paidSoFar = paid.get(doc.id) ?? 0;
       const open = -documentOpen(doc.gross, paidSoFar);
       const payee = payees.get(doc.id);
       const account = payeeAccount(payee, decisions.get(doc.id) ?? []);
-      // Erhaltenes Skonto bucht Haben nur ohne § 13b, Privatanteil und Anlagegut (write-offs.ts, writeOff); angeboten nur auf einen noch ganz offenen Beleg
+      // Erhaltenes Skonto nur, wo writeOff es ausbuchen darf (skontoMoeglich, #1975), und nur auf einen noch ganz offenen Beleg
       const skontoAllowed =
-        paidSoFar === 0 && doc.reverseCharge === null && !hatPrivatanteil(doc.privateShare) && doc.category !== "anlage" && doc.documentDate !== null;
+        paidSoFar === 0 &&
+        doc.documentDate !== null &&
+        skontoMoeglich({
+          reverseCharge: doc.reverseCharge,
+          privateShare: doc.privateShare,
+          entnahmezeile: entnahme.has(doc.id),
+          category: doc.category,
+        }).moeglich;
       return {
         documentId: doc.id,
         supplierName: doc.supplierName,

@@ -2,21 +2,29 @@ import { documentEuerEffects, EXPENSE_CATEGORIES, type DocumentEuerEffect, type 
 import { inArray, sql } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
 import { splitsByDocument } from "../belege/index.ts";
+import { loadOwnAccountNumbers } from "../eigene-konten/index.ts";
+import { documentsMitEntnahme } from "../umsatzsteuer/index.ts";
 import { documentTotalsById } from "./euer-belege.ts";
 
 /**
- * Teilabzüge über alle bisherigen Zahlungen fortschreiben, auch über den Jahreswechsel. Gelesen werden ausschließlich
+ * Teilabzüge und Belege mit Entnahmezeile über alle bisherigen Zahlungen fortschreiben, auch über den Jahreswechsel. Gelesen werden ausschließlich
  * vorhandene Zuordnungen, Verrechnungen und Kursdifferenzen; Skonto ist keine EÜR-Zahlung. Es wird nichts gespeichert.
  */
 export async function belegZahlungsWirkungen(q: Db | Tx, ids: string[]): Promise<Map<string, DocumentEuerEffect>> {
   const result = new Map<string, DocumentEuerEffect>();
   if (ids.length === 0) return result;
-  const { totals, reverseCharge, selbstGeschuldet } = await documentTotalsById(ids, q);
-  const partial = ids.filter((id) => totals.get(id)?.taxes.some((t) => (t.vorsteuerAnteil ?? 0) > 0 && (t.vorsteuerAnteil ?? 10_000) < 10_000));
+  const { totals, selbstGeschuldet } = await documentTotalsById(ids, q);
+  // Kumuliert fortgeschrieben werden Teilabzüge und Belege mit Entnahmezeile (#1975): Je Zahlung gerundet ergäben ihre
+  // Zeilen über mehrere Raten einen Cent mehr oder weniger Aufwand als die Vollzahlung.
+  const mitEntnahme = await documentsMitEntnahme(ids, q);
+  const partial = ids.filter(
+    (id) => mitEntnahme.has(id) || totals.get(id)?.taxes.some((t) => (t.vorsteuerAnteil ?? 0) > 0 && (t.vorsteuerAnteil ?? 10_000) < 10_000),
+  );
   if (partial.length === 0) return result;
   const d = schema.documents;
   const docs = await q.select({ id: d.id, category: d.category, privateShare: d.privateShare }).from(d).where(inArray(d.id, partial));
-  const splits = await splitsByDocument(partial, q);
+  // Mit Kontonummer der eigenen Sachkonten: Die EÜR rundet Bewirtung je Journalzeile wie die Buchung (#1975)
+  const splits = await splitsByDocument(partial, q, await loadOwnAccountNumbers(q));
   // Wie das bestehende Journalmodell (#864): Gegenzeilen wirken an a.date, sonst gilt der Bankbuchungstag.
   // § 11 Abs. 2 EStG betrifft das Abflussjahr; spätere Aufhebungen dürfen frühere Zahlungsanteile nicht neu runden.
   // Quelle: https://www.gesetze-im-internet.de/estg/__11.html
@@ -33,7 +41,8 @@ export async function belegZahlungsWirkungen(q: Db | Tx, ids: string[]): Promise
        where ${inArray(schema.writeOffs.documentId, partial)} and kind = 'kursdifferenz'
     ) zahlungen order by datum, created_at, id`);
   for (const doc of docs) {
-    const lines = splits.get(doc.id)?.map((line) => (reverseCharge.has(doc.id) ? { ...line, tax: 0 } : line));
+    // § 13b: die Zeilen behalten ihre Steuer; die EÜR rechnet mit selbstGeschuldet nur netto (euer-beleg.ts, #1975)
+    const lines = splits.get(doc.id);
     const payment: Extract<EuerPayment, { kind: "document" }> = {
       kind: "document",
       date: "",

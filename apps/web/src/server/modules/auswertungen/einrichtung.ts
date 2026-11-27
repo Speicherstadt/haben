@@ -1,4 +1,4 @@
-import { frequencyAt, isKapitalgesellschaft } from "@haben/core";
+import { frequencyAt, privatZulaessig } from "@haben/core";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { BEREICH_IDS } from "../../../lib/bereiche.ts";
@@ -65,7 +65,7 @@ export async function einrichtungSpeichern(actor: string, antworten: Antworten, 
     const current = await loadCompany(tx);
     const locked = lockedChange(current, nachher, await settingsLocks(today, tx));
     if (locked) throw new UserError(locked);
-    if (isKapitalgesellschaft(nachher.rechtsform) && Object.values(current.privateShares).some(Boolean)) {
+    if (!privatZulaessig(nachher.rechtsform) && Object.values(current.privateShares).some(Boolean)) {
       throw new UserError("Privatanteile gibt es nur im Einzelunternehmen. Erst in den Firmendaten entfernen, dann die Rechtsform ändern.");
     }
     const { voranmeldung, ...firma } = nachher;
