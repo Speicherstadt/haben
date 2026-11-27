@@ -72,12 +72,14 @@ export function anbieterWahl(daten: Pick<Data["zahlungsdienstleister"], "anbiete
   return reihenfolge.map((provider) => {
     const adapter = daten.anbieter.find((a) => a.provider === provider);
     const label = adapter?.name ?? PAYMENT_PROVIDERS[provider as keyof typeof PAYMENT_PROVIDERS].label;
-    const namen = [
-      ...new Set([...daten.verbindungen.filter((v) => v.provider === provider), ...daten.alleKonten.filter((k) => k.provider === provider)].map((v) => v.name)),
-    ];
+    const verbindungen = daten.verbindungen.filter((v) => v.provider === provider);
+    const gebunden = new Set(verbindungen.map((v) => v.bankAccountId));
+    // Konten, an denen keine Verbindung hängt (aus Dateien oder ohne Import), heißen nicht „verbunden“
+    const konten = daten.alleKonten.filter((k) => k.provider === provider && !gebunden.has(k.id)).map((k) => k.name);
     const weg = wegText(provider, wegeVon(provider, adapter !== undefined), adapter ? zugangArt(adapter.felder) : null);
-    // Mit Abruf sind es Verbindungen, ohne nur Konten
-    const bestehend = adapter ? verbundenText(namen) : kontenText(namen);
+    const bestehend = adapter
+      ? [verbundenText(verbindungen.map((v) => v.name)), ...(konten.length > 0 ? [kontenText(konten)] : [])].join(" · ")
+      : kontenText(konten);
     return { wert: provider, label, hint: `${weg} · ${bestehend}`, gesperrt: null };
   });
 }

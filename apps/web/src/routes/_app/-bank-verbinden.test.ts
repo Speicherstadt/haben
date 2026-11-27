@@ -36,10 +36,10 @@ describe("„Zahlungsdienstleister hinzufügen“ (#1951, #2008)", () => {
   };
   const wahl = anbieterWahl({
     anbieter: [stripe],
-    verbindungen: [{ provider: "stripe", name: "Shop DE" }],
+    verbindungen: [{ provider: "stripe", name: "Shop DE", bankAccountId: "k1" }],
     alleKonten: [
-      { provider: "stripe", name: "Shop DE" },
-      { provider: "amazon", name: "Amazon.de" },
+      { id: "k1", provider: "stripe", name: "Shop DE" },
+      { id: "k2", provider: "amazon", name: "Amazon.de" },
     ],
   } as unknown as Parameters<typeof anbieterWahl>[0]);
   const zu = (wert: string) => wahl.find((w) => w.wert === wert);
@@ -51,6 +51,18 @@ describe("„Zahlungsdienstleister hinzufügen“ (#1951, #2008)", () => {
       hint: "Abruf mit API-Schlüssel oder Saldenverlauf (CSV) als Datei · verbunden: „Shop DE“",
       gesperrt: null,
     });
+  });
+
+  it("Konten ohne Verbindung heißen bei Anbietern mit Abruf nicht „verbunden“", () => {
+    const [mitDatei] = anbieterWahl({
+      anbieter: [stripe],
+      verbindungen: [{ provider: "stripe", name: "Shop DE", bankAccountId: "k1" }],
+      alleKonten: [
+        { id: "k1", provider: "stripe", name: "Stripe Konto" },
+        { id: "k2", provider: "stripe", name: "Stripe CSV" },
+      ],
+    } as unknown as Parameters<typeof anbieterWahl>[0]);
+    expect(mitDatei?.hint).toBe("Abruf mit API-Schlüssel oder Saldenverlauf (CSV) als Datei · verbunden: „Shop DE“ · Konto: „Stripe CSV“");
   });
 
   it("jeder Anbieter ist wählbar, auch „Anderer Zahlungsdienstleister“, mit seinem Weg und Konten ohne Verbindung", () => {
