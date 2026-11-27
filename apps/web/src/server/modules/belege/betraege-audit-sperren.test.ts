@@ -89,14 +89,14 @@ describe.skipIf(!testDatabaseUrl)("Beleg speichern und eigenes Konto ändern gle
       const umbenennen = andere
         .begin(async (tx) => {
           await tx`select set_config('haben.actor', 'test:andere', true)`;
-          const [{ pid }] = await tx<{ pid: number }[]>`select pg_backend_pid() as pid`;
+          const [backend] = await tx<{ pid: number }[]>`select pg_backend_pid() as pid`;
           // Wie renameOwnAccount: erst die Zeile sperren, dann ändern (Audit-Eintrag, also Sperre der Kette)
           await tx`select id from own_accounts where id = ${konto} for update`;
           speichern = documents.updateDocument(actor, id, eingabe(wahl(konto))).then(
             () => "gespeichert",
             (e: unknown) => e,
           );
-          await warteAufSperre(pid);
+          await warteAufSperre(backend!.pid);
           await tx`update own_accounts set name = 'Software: Lizenzen', updated_at = now() where id = ${konto}`;
         })
         .then(
