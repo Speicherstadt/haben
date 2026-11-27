@@ -1,5 +1,5 @@
 import { formatEuro } from "@haben/core";
-import type { VorauszahlungQuartal } from "@haben/elster";
+import type { VorauszahlungQuartal } from "@haben/elster/vorauszahlung-zeitraum";
 import { formatZeitraumAbJahresanfang } from "../../lib/format.ts";
 import type { getFinanzamt } from "../../server/functions/finanzamt.ts";
 
@@ -55,21 +55,6 @@ export const QUARTAL_LABEL: Record<VorauszahlungQuartal, string> = {
   nVz: "Nachträgliche Vorauszahlung",
 };
 
-/** Quartal des nächsten Fälligkeitstermins im Jahr von heute; nach dem 10.12. bleibt es beim 4. */
-export function naechstesQuartal(heute: string): Exclude<VorauszahlungQuartal, "nVz"> {
-  const tag = heute.slice(5);
-  if (tag <= "03-10") return "Q1";
-  if (tag <= "06-10") return "Q2";
-  if (tag <= "09-10") return "Q3";
-  return "Q4";
-}
-
-/** Jahre, die ELSTER im Antrag annimmt: eins voraus bis drei zurück (Regel eEing_144, wie vorauszahlungJahre in @haben/elster) */
-export function antragJahre(heute: string): number[] {
-  const jahr = Number(heute.slice(0, 4));
-  return [jahr + 1, jahr, jahr - 1, jahr - 2, jahr - 3];
-}
-
 /** Ab wann der Antrag gilt, als Teil des Satzes „die Vorauszahlungen … herabzusetzen“ */
 function antragZeitraum(quartal: VorauszahlungQuartal, jahr: number): string {
   return quartal === "nVz"
@@ -96,13 +81,13 @@ export function prepaymentLetter(
       " herabzusetzen (§ 37 Abs. 3 EStG).",
     "",
     `Mein Gewinn aus ${art} beträgt nach meiner Buchführung für ${formatZeitraumAbJahresanfang(b.until)} ${formatEuro(b.profitSoFar)}. ` +
-      `Auf das Jahr hochgerechnet erwarte ich einen Gewinn von rund ${formatEuro(b.profitForecast)} (Vorjahr: ${formatEuro(b.profitLastYear)}).` +
+      `Auf das Jahr ${b.year} hochgerechnet erwarte ich einen Gewinn von rund ${formatEuro(b.profitForecast)} (${b.year - 1}: ${formatEuro(b.profitLastYear)}).` +
       (current !== null ? ` Die bisher festgesetzten Vorauszahlungen von ${formatEuro(current)} je Quartal sind deshalb zu hoch.` : ""),
     ...(usePrognose
       ? [
           "",
           `Nach meiner Berechnung ergibt sich daraus nach Abzug der Vorsorgeaufwendungen und Sonderausgaben eine voraussichtliche ` +
-            `Einkommensteuer von ${formatEuro(b.prognose.einkommensteuer)}` +
+            `Einkommensteuer ${b.year} von ${formatEuro(b.prognose.einkommensteuer)}` +
             (b.prognose.soli || b.prognose.kirchensteuer
               ? ` zuzüglich ${[b.prognose.soli ? `${formatEuro(b.prognose.soli)} Solidaritätszuschlag` : "", b.prognose.kirchensteuer ? `${formatEuro(b.prognose.kirchensteuer)} Kirchensteuer` : ""].filter(Boolean).join(" und ")}`
               : "") +

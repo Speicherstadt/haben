@@ -1,5 +1,5 @@
 import { formatDecimal } from "@haben/core";
-import type { VorauszahlungQuartal } from "@haben/elster";
+import { naechsterTermin, vorauszahlungJahre, type VorauszahlungQuartal } from "@haben/elster/vorauszahlung-zeitraum";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -8,7 +8,7 @@ import { finanzamtFakten } from "../../lib/elster.ts";
 import { sendFinanzamtMessage } from "../../server/functions/finanzamt.ts";
 import { Field } from "../../components/Field.tsx";
 import { vorauszahlungBetrag } from "./-finanzamt-betrag.ts";
-import { antragJahre, type Basis, type Data, naechstesQuartal, prepaymentLetter, QUARTAL_LABEL, TOPIC_LABEL } from "./-finanzamt-daten.ts";
+import { type Basis, type Data, prepaymentLetter, QUARTAL_LABEL, TOPIC_LABEL } from "./-finanzamt-daten.ts";
 import { AnFinanzamt, SendPanel } from "./-finanzamt-nachrichten.tsx";
 import { Schaetzung } from "./-finanzamt-schaetzung.tsx";
 
@@ -18,8 +18,9 @@ export function PrepaymentForm({ data, basis: b }: { data: Data; basis: Basis })
   const [wanted, setWanted] = useState(p.jeQuartal > 0 ? formatDecimal(p.jeQuartal) : "");
   const [reason, setReason] = useState("");
   const [usePrognose, setUsePrognose] = useState(true);
-  const [quartal, setQuartal] = useState<VorauszahlungQuartal>(() => naechstesQuartal(b.until));
-  const [jahr, setJahr] = useState(b.year);
+  const vorschlag = naechsterTermin(b.until);
+  const [quartal, setQuartal] = useState<VorauszahlungQuartal>(vorschlag.quartal);
+  const [jahr, setJahr] = useState(vorschlag.jahr);
   const bisher = vorauszahlungBetrag(current);
   const gewuenscht = vorauszahlungBetrag(wanted);
   const currentCents = bisher.cents;
@@ -84,7 +85,8 @@ export function PrepaymentForm({ data, basis: b }: { data: Data; basis: Basis })
       <AntragForm
         data={data}
         zeitraum={{ quartal, jahr, setQuartal, setJahr }}
-        jahre={antragJahre(b.until)}
+        jahre={vorauszahlungJahre(b.until)}
+        zahlenJahr={b.year}
         initial={letter}
         figures={{ ...b, current: currentCents, wanted: wantedCents }}
       />
@@ -100,12 +102,15 @@ function AntragForm({
   data,
   zeitraum,
   jahre,
+  zahlenJahr,
   initial,
   figures,
 }: {
   data: Data;
   zeitraum: { quartal: VorauszahlungQuartal; jahr: number; setQuartal: (q: VorauszahlungQuartal) => void; setJahr: (j: number) => void };
   jahre: number[];
+  /** Jahr, aus dem die Zahlen der Begründung stammen */
+  zahlenJahr: number;
   initial: string;
   figures: Record<string, unknown>;
 }) {
@@ -144,7 +149,7 @@ function AntragForm({
               </select>
             )}
           </Field>
-          <Field label="Jahr">
+          <Field label="Jahr" hint={jahr !== zahlenJahr ? `Die Zahlen in der Begründung sind die von ${zahlenJahr}; passe sie an.` : undefined}>
             {(control) => (
               <select {...control} value={jahr} onChange={(e) => zeitraum.setJahr(Number(e.target.value))}>
                 {jahre.map((j) => (

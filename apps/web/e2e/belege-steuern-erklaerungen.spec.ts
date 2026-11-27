@@ -2,6 +2,7 @@ import { waehleKategorie } from "./kategorie.ts";
 import { filePickerPruefen } from "./dateiauswahl.ts";
 import AxeBuilder from "@axe-core/playwright";
 import { periodKey, periodLabel } from "@haben/core";
+import { naechsterTermin } from "@haben/elster/vorauszahlung-zeitraum";
 import { expect, type Page, test } from "@playwright/test";
 import postgres from "postgres";
 import { currentDay, day, YEAR } from "./daten.ts";
@@ -189,8 +190,12 @@ test("Finanzamt: Antrag mit Quartal und Jahr als ELSTER-Datenart AnpassungVoraus
   const karte = page.getByRole("region", { name: "Herabsetzung der Vorauszahlungen" });
   const begruendung = karte.getByLabel("Begründung", { exact: true });
   await expect(karte.getByRole("textbox", { name: "Betreff" })).toHaveCount(0);
-  await expect(karte.getByLabel("Jahr")).toHaveValue(String(jahr));
-  await expect(begruendung).toHaveValue(new RegExp(`die Vorauszahlungen zur Einkommensteuer für ${jahr} ab dem \\d\\. Quartal`));
+  // Vorschlag: Quartal des nächsten Fälligkeitstermins, nach dem 10.12. das 1. Quartal des Folgejahres
+  const vorschlag = naechsterTermin(currentDay());
+  await expect(karte.getByLabel("Jahr")).toHaveValue(String(vorschlag.jahr));
+  await expect(begruendung).toHaveValue(
+    new RegExp(`die Vorauszahlungen zur Einkommensteuer für ${vorschlag.jahr} ab dem ${vorschlag.quartal.slice(1)}\\. Quartal`),
+  );
   // ELSTER nimmt das laufende Jahr, das nächste und die drei davor (Regel eEing_144)
   await expect(karte.getByLabel("Jahr").locator("option")).toHaveText([jahr + 1, jahr, jahr - 1, jahr - 2, jahr - 3].map(String));
   await karte.getByLabel("Ab Quartal").selectOption({ label: "Nachträgliche Vorauszahlung" });

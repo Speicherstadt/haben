@@ -1,16 +1,17 @@
 import { finanzamtsnummer } from "@haben/core";
+import { VORAUSZAHLUNG_QUARTALE, vorauszahlungJahre, type VorauszahlungQuartal } from "./vorauszahlung-zeitraum.ts";
 import { elsterZeichen, NACHRICHT_TEXT_MAX, steuerpflichtigerXml, type NachrichtAbsender, type NachrichtPerson } from "./nachricht.ts";
 import { checkSteuernummer13, ElsterEingabeError, elsterXml, escapeXml, TESTMERKER } from "./xml.ts";
 
+export { naechsterTermin, VORAUSZAHLUNG_QUARTALE, vorauszahlungJahre, type VorauszahlungQuartal } from "./vorauszahlung-zeitraum.ts";
+
 /**
  * Antrag auf Anpassung der Vorauszahlungen (Verfahren ElsterNachricht, Datenart AnpassungVorauszahlung, Version 22,
- * Eing_Vorauszlg-22.xsd der ERiC-Dokumentation 44.3.6.0; Echtfälle ab ERiC 43.5, ERiC-Releasenotes 6.1.4). Haben stellt
+ * Eing_Vorauszlg-22.xsd der ERiC-Dokumentation 44.3.6.0; Echtfälle ab ERiC 43.5, ERiC-Releasenotes.pdf der Dokumentation 44.3.6.0, Kap. 6.1.4). Haben stellt
  * ihn nur für die Einkommensteuer (Steuerart 0030). Beträge kennt die Datenart nicht, sie stehen in der Begründung.
  * Mit einer Steuerart greifen die Regeln zu mehreren Zeilen nicht (eEing_136, 136b, 141), die Kirchensteuer in Bayern
  * auch nicht (eEing_129); das Quartal ist bei 0030 Pflicht (eEing_127).
  */
-export const VORAUSZAHLUNG_QUARTALE = ["Q1", "Q2", "Q3", "Q4", "nVz"] as const;
-export type VorauszahlungQuartal = (typeof VORAUSZAHLUNG_QUARTALE)[number];
 
 export interface VorauszahlungXmlInput {
   steuernummer13: string;
@@ -28,12 +29,6 @@ export interface VorauszahlungXmlInput {
   herstellerId: string;
   produktVersion: string;
   test: boolean;
-}
-
-/** Jahre, die ELSTER annimmt: drei zurück bis eins voraus (eEing_144) */
-export function vorauszahlungJahre(heute: string): number[] {
-  const jahr = Number(heute.slice(0, 4));
-  return [jahr + 1, jahr, jahr - 1, jahr - 2, jahr - 3];
 }
 
 export function buildVorauszahlungXml(input: VorauszahlungXmlInput): string {

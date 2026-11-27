@@ -67,6 +67,27 @@ describe("Antrag auf Anpassung der Vorauszahlungen (AnpassungVorauszahlung v22)"
     expect(xml).toContain("<Quartal>nVz</Quartal><Jahr>2024</Jahr>");
   });
 
+  it("Zeichensatz: zerlegte Umlaute (NFD), weicher Trennstrich und Null-Breite-Leerzeichen aus kopiertem Text (Review #1987)", () => {
+    const zerlegt = "Gewinn laut Bescheid von Herrn Mu\u0308ller";
+    expect(buildVorauszahlungXml({ ...input, begruendung: zerlegt })).toContain("<Begruendung>Gewinn laut Bescheid von Herrn Müller</Begruendung>");
+    expect(buildVorauszahlungXml({ ...input, begruendung: "Vorauszahlungs\u00adbescheid vom\u200b 10.03." })).toContain(
+      "<Begruendung>Vorauszahlungsbescheid vom 10.03.</Begruendung>",
+    );
+    // Im Kopf steht der Firmenname auch dann, wenn als natürliche Person gesendet wird
+    expect(buildVorauszahlungXml({ ...input, absender: { ...input.absender, name: "Mu\u0308ller IT" } })).toContain(
+      "<DatenLieferant>Müller IT</DatenLieferant>",
+    );
+  });
+
+  it("Telefon: „(0)“ nach der Landesvorwahl fällt weg (Review #1987)", () => {
+    expect(buildVorauszahlungXml({ ...input, telefon: "+49 (0)941 123456" })).toContain("<Telefon>+49941123456</Telefon>");
+  });
+
+  it("Name: erst ersetzen, dann auf 72 Zeichen kürzen (Review #1987)", () => {
+    const name = `${"x".repeat(70)}…`;
+    expect(buildVorauszahlungXml({ ...input, absender: { ...input.absender, name } })).toContain(`<Name>${"x".repeat(70)}..</Name>`);
+  });
+
   it("lässt eine Telefonnummer weg, die nicht ins Muster passt", () => {
     expect(nutzdaten(buildVorauszahlungXml({ ...input, telefon: "0941 123456 Durchwahl 7" }))).not.toContain("<Telefon>");
     expect(nutzdaten(buildVorauszahlungXml({ ...input, telefon: "+49 941 1234567890123456" }))).not.toContain("<Telefon>");

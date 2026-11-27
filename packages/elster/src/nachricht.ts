@@ -95,17 +95,20 @@ export function steuerpflichtigerXml(absender: NachrichtAbsender, person: Nachri
   const adresse = splitStrasse(elsterZeichen(absender.strasse, "Straße"));
   if (!adresse) throw new ElsterEingabeError("In der Anschrift fehlt die Hausnummer.");
   const e = (text: string) => escapeXml(elsterZeichen(text, "Anschrift und Name"));
-  const nummer = telefon?.replace(/[\s()]/g, "") ?? "";
+  // Höchstens 72 Zeichen erst nach dem Ersetzen: aus „…“ werden drei
+  const name = (text: string) => escapeXml(elsterZeichen(text, "Name").slice(0, 72));
+  // „+49 (0)941 …“: die 0 in Klammern gehört nicht zur internationalen Nummer
+  const nummer = telefon?.replace(/\(0\)/g, "").replace(/[\s()]/g, "") ?? "";
   return [
     `<Steuerpflichtiger>`,
     ...(person
       ? [
           `<SteuerpflichtigerTyp>NatPerson</SteuerpflichtigerTyp>`,
           `<IdNr>${e(person.idnr)}</IdNr>`,
-          `<Name>${e(person.name.slice(0, 72))}</Name>`,
-          `<Vorname>${e(person.vorname.slice(0, 72))}</Vorname>`,
+          `<Name>${name(person.name)}</Name>`,
+          `<Vorname>${name(person.vorname)}</Vorname>`,
         ]
-      : [`<SteuerpflichtigerTyp>NichtNatPerson</SteuerpflichtigerTyp>`, `<Name>${e(absender.name.slice(0, 72))}</Name>`]),
+      : [`<SteuerpflichtigerTyp>NichtNatPerson</SteuerpflichtigerTyp>`, `<Name>${name(absender.name)}</Name>`]),
     ...(/^[0-9+\-/]{1,20}$/.test(nummer) ? [`<Telefon>${nummer}</Telefon>`] : []),
     `<Adresse>`,
     `<StrAdrInl>`,

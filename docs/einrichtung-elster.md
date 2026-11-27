@@ -87,6 +87,8 @@ ERiC 45.1.5.0 ist ein BETA-Release: Damit gehen nur Testübermittlungen mit Test
 | E-Bilanz ohne rechtsformfremde Angaben | jede; ERiC prüft das ab 43.5 |
 | Postfach und Belegabruf (Datenabholung Version 32) | 43.4 |
 
+Den Firmennamen samt Anschrift im Kopf jeder Übermittlung und im Datenlieferanten von Voranmeldung, Dauerfristverlängerung und Lohnsteuer-Anmeldung lässt ELSTER nur im Zeichensatz der Datenarten zu. Gedankenstriche und Mittelpunkte („Mustermann IT · Max Mustermann“) schreibt Haben dort als `-`, typografische Anführungszeichen als `"` und `'`; bis Version 0.14 lehnte ERiC eine Übermittlung mit solchen Zeichen im Firmennamen ab. Mehr unter [Finanzamt](finanzamt.md#verlauf).
+
 Mit dem Mindestversionswechsel im April sperrt ELSTER die Versionen 43 und 44 für den Versand (ERiC-Entwicklerhandbuch, Kap. 2.3); bis dahin brauchst du die 45.
 
 Wie du Voranmeldungen erstellst und was die Vorprüfung meldet, steht in [Umsatzsteuer](umsatzsteuer.md). Gibst du nicht monatlich ab, stellst du dort den [Voranmeldungszeitraum](umsatzsteuer.md#voranmeldungszeitraum) ein: vierteljährlich oder keine Voranmeldung, so wie es das Finanzamt festgelegt hat.

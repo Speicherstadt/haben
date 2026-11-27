@@ -357,6 +357,14 @@ const faelle: [string, () => string][] = [
   ["UStVA 2027 einfach (ERiC 45)", ustva(2027, { kz81: 100_000, kz86: 50_000, kz66: 1_745 })],
   ["UStVA 2027 alle Kennzahlen", ustva(2027, alleKennzahlen)],
   ["UStVA 2026 einfach", ustva(2026, { kz81: 100_000, kz86: 50_000, kz66: 1_745 })],
+  [
+    "UStVA 2026 mit Mittelpunkt und Gedankenstrich im Firmennamen (#1329)",
+    ustva(
+      2026,
+      { kz81: 100_000, kz86: 50_000, kz66: 1_745 },
+      { datenlieferant: { name: "Mustermann IT · Max Mustermann", strasse: "Haupt–straße 1", plz: "10115", ort: "Berlin" } },
+    ),
+  ],
   ["UStVA 2025 einfach", ustva(2025, { kz81: 100_000, kz86: 50_000, kz66: 1_745 })],
   ["UStVA 2026 alle Kennzahlen", ustva(2026, alleKennzahlen)],
   ["UStVA 2025 alle Kennzahlen", ustva(2025, alleKennzahlen)],

@@ -9,6 +9,8 @@ const UNGUELTIG = /[^\n\r\x20-\x7e\xa1-\xa3\xa5\xa7\xaa-\xac\xae-\xb3\xb5\xb9-\x
 
 const ERSATZ: Record<string, string> = {
   "\t": " ",
+  "\u00ad": "", // weicher Trennstrich, unsichtbar aus kopiertem Text
+  "\u200b": "", // Null-Breite-Leerzeichen, ebenso
   " ": " ", // geschütztes Leerzeichen (formatEuro vor €)
   " ": " ", // schmales geschütztes Leerzeichen
   " ": " ", // schmales Leerzeichen
@@ -28,9 +30,12 @@ const ERSATZ: Record<string, string> = {
   "…": "...",
 };
 
-/** Ersetzt typografische Zeichen durch ihre einfache Form */
+/**
+ * Ersetzt typografische Zeichen durch ihre einfache Form. Zuerst NFC: Ein Umlaut aus Buchstabe und Trema (U+0308), wie ihn
+ * macOS beim Kopieren oft liefert, wird so zum einen Zeichen, das der Zeichensatz kennt.
+ */
 export function zeichenErsetzen(text: string): string {
-  return [...text].map((zeichen) => ERSATZ[zeichen] ?? zeichen).join("");
+  return [...text.normalize("NFC")].map((zeichen) => ERSATZ[zeichen] ?? zeichen).join("");
 }
 
 /** Das erste Zeichen außerhalb des Zeichensatzes, sonst undefined */

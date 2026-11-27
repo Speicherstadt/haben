@@ -1,20 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { antragJahre, type Basis, type Data, naechstesQuartal, prepaymentLetter } from "./-finanzamt-daten.ts";
+import { naechsterTermin, vorauszahlungJahre } from "@haben/elster/vorauszahlung-zeitraum";
+import { type Basis, type Data, prepaymentLetter } from "./-finanzamt-daten.ts";
 
 /* #1329: Der Antrag geht als ELSTER-Datenart AnpassungVorauszahlung mit Quartal und Jahr; der Brief wird zur Begründung. */
 describe("Antrag auf Anpassung der Vorauszahlungen", () => {
-  it("schlägt das Quartal des nächsten Fälligkeitstermins vor (10.3., 10.6., 10.9., 10.12.)", () => {
-    expect(naechstesQuartal("2026-01-02")).toBe("Q1");
-    expect(naechstesQuartal("2026-03-10")).toBe("Q1");
-    expect(naechstesQuartal("2026-03-11")).toBe("Q2");
-    expect(naechstesQuartal("2026-06-10")).toBe("Q2");
-    expect(naechstesQuartal("2026-09-10")).toBe("Q3");
-    expect(naechstesQuartal("2026-11-27")).toBe("Q4");
-    expect(naechstesQuartal("2026-12-31")).toBe("Q4");
+  it("schlägt das Quartal des nächsten Fälligkeitstermins vor (10.3., 10.6., 10.9., 10.12.), danach das 1. Quartal des Folgejahres", () => {
+    expect(naechsterTermin("2026-01-02")).toEqual({ quartal: "Q1", jahr: 2026 });
+    expect(naechsterTermin("2026-03-10")).toEqual({ quartal: "Q1", jahr: 2026 });
+    expect(naechsterTermin("2026-03-11")).toEqual({ quartal: "Q2", jahr: 2026 });
+    expect(naechsterTermin("2026-06-10")).toEqual({ quartal: "Q2", jahr: 2026 });
+    expect(naechsterTermin("2026-09-10")).toEqual({ quartal: "Q3", jahr: 2026 });
+    expect(naechsterTermin("2026-11-27")).toEqual({ quartal: "Q4", jahr: 2026 });
+    expect(naechsterTermin("2026-12-10")).toEqual({ quartal: "Q4", jahr: 2026 });
+    expect(naechsterTermin("2026-12-11")).toEqual({ quartal: "Q1", jahr: 2027 });
   });
 
   it("bietet die Jahre an, die ELSTER annimmt: eins voraus, drei zurück", () => {
-    expect(antragJahre("2026-11-27")).toEqual([2027, 2026, 2025, 2024, 2023]);
+    expect(vorauszahlungJahre("2026-11-27")).toEqual([2027, 2026, 2025, 2024, 2023]);
   });
 
   const data = { company: { name: "Mustermann IT" } } as Data;
@@ -34,6 +36,13 @@ describe("Antrag auf Anpassung der Vorauszahlungen", () => {
     expect(ersterAbsatz(text)).toBe(
       "hiermit beantrage ich, die Vorauszahlungen zur Einkommensteuer für 2026 ab dem 4. Quartal (fällig 10.12.2026) auf 2.500,00\u00a0€ je Quartal herabzusetzen (§ 37 Abs. 3 EStG).",
     );
+  });
+
+  it("nennt das Jahr der Zahlen, auch wenn der Antrag ein anderes Jahr betrifft", () => {
+    const text = prepaymentLetter(data, basis, { quartal: "Q1", jahr: 2027 }, null, null, "", true);
+    expect(text).toContain("Auf das Jahr 2026 hochgerechnet");
+    expect(text).toContain("(2025: 20.000,00\u00a0€)");
+    expect(text).toContain("voraussichtliche Einkommensteuer 2026 von");
   });
 
   it("nachträgliche Vorauszahlung: ohne Betrag je Quartal", () => {
