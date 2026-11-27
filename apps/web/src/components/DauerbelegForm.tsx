@@ -81,15 +81,7 @@ export function DauerbelegForm({
   const set = (patch: Partial<DauerbelegState>) => setV((prev) => ({ ...prev, ...patch }));
   /** Getippter Name, wenn der Dialog für einen neuen Lieferanten offen ist; null = geschlossen */
   const [newSupplierName, setNewSupplierName] = useState<string | null>(null);
-  const [nachweis, setNachweis] = useState<SteuerNachweis>(initial.taxShown ? "ausweis" : initial.kleinbetrag ? "kleinbetrag" : "keine");
-  // Bei der Kleinbetragsrechnung ist der Endbetrag die einzige Eingabe: Ein anderer Satz teilt ihn neu auf, statt die Steuer
-  // aus dem verborgenen Netto zu rechnen (10,00 € + 1,90 € folgt auch aus dem Netto, Review #1996)
-  const [amounts, setAmounts] = useState<Betragszeile[]>(() =>
-    initial.amounts.map((a) => {
-      const zeile = betragszeileAusVorlage(nextKey++, a, initial.taxShown || initial.kleinbetrag);
-      return initial.kleinbetrag ? { ...zeile, basis: "gross" as const } : zeile;
-    }),
-  );
+  const { nachweis, amounts, setAmounts, chooseNachweis, updateAmount, addRate } = useBetraege(initial);
   const fileRef = useRef<HTMLInputElement>(null);
   // Ob eine Datei gewählt ist, für die Prüfung beim Speichern; die Datei selbst liest submit aus fileRef
   const [hasFile, setHasFile] = useState(false);
@@ -104,28 +96,6 @@ export function DauerbelegForm({
   // Ob die Steuer von Hand kam und welcher Betrag zuletzt eingegeben wurde, speichert Haben nicht: Zurückgetippt ist nichts offen
   const betraege = amounts.map(({ key: _key, taxTouched: _taxTouched, basis: _basis, ...a }) => a);
   useAenderungenMelden({ v, nachweis, betraege }, hasFile, onDirtyChange);
-
-  // Selbst geschuldete Steuer (§ 13b) gibt es am Dauerbeleg nicht
-  function updateAmount(key: number, patch: Partial<Omit<Betragszeile, "key">>) {
-    setAmounts((prev) => prev.map((a) => (a.key === key ? aendereBetragszeile(a, patch, false) : a)));
-  }
-
-  function chooseNachweis(neu: SteuerNachweis) {
-    const bisher = nachweis;
-    setNachweis(neu);
-    setAmounts((prev) => {
-      const umgeschaltet = steuerausweisUmschalten(prev, neu !== "keine");
-      if (neu !== "kleinbetrag") return umgeschaltet;
-      // Der bisher sichtbare Betrag bleibt der Endbetrag: ohne Steuer war das das Netto, mit Steuerausweis das Brutto
-      return umgeschaltet.map((zeile, i) => aendereBetragszeile(zeile, { gross: bisher === "keine" ? prev[i]!.net : prev[i]!.gross }, false));
-    });
-  }
-
-  function addRate() {
-    const used = new Set(amounts.map((a) => a.taxRate));
-    const rate = RATES.find((r) => !used.has(r));
-    if (rate !== undefined) setAmounts((prev) => [...prev, betragszeileAus(nextKey++, rate, 0, 0, true, false)]);
-  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -276,4 +246,43 @@ function betragAus(a: Betragszeile, nachweis: SteuerNachweis) {
   const net = parseEuro(a.net);
   const tax = nachweis === "ausweis" ? parseEuro(a.tax) : 0;
   return { taxRate: a.taxRate, net: net ?? 0, tax: tax ?? 0, valid: net !== null && net >= 0 && tax !== null && tax >= 0 };
+}
+
+/**
+ * Beträge je Satz und was das Dokument zur Steuer sagt. Bei der Kleinbetragsrechnung ist der Endbetrag die einzige Eingabe:
+ * Ein anderer Satz teilt ihn neu auf, statt die Steuer aus dem verborgenen Netto zu rechnen (10,00 € + 1,90 € folgt auch aus
+ * dem Netto, Review #1996); beim Wechsel bleibt der bisher sichtbare Betrag der Endbetrag.
+ */
+function useBetraege(initial: DauerbelegValues) {
+  const [nachweis, setNachweis] = useState<SteuerNachweis>(initial.taxShown ? "ausweis" : initial.kleinbetrag ? "kleinbetrag" : "keine");
+  const [amounts, setAmounts] = useState<Betragszeile[]>(() =>
+    initial.amounts.map((a) => {
+      const zeile = betragszeileAusVorlage(nextKey++, a, initial.taxShown || initial.kleinbetrag);
+      return initial.kleinbetrag ? { ...zeile, basis: "gross" as const } : zeile;
+    }),
+  );
+
+  // Selbst geschuldete Steuer (§ 13b) gibt es am Dauerbeleg nicht
+  function updateAmount(key: number, patch: Partial<Omit<Betragszeile, "key">>) {
+    setAmounts((prev) => prev.map((a) => (a.key === key ? aendereBetragszeile(a, patch, false) : a)));
+  }
+
+  function chooseNachweis(neu: SteuerNachweis) {
+    const bisher = nachweis;
+    setNachweis(neu);
+    setAmounts((prev) => {
+      const umgeschaltet = steuerausweisUmschalten(prev, neu !== "keine");
+      if (neu !== "kleinbetrag") return umgeschaltet;
+      // Ohne Steuer war das Netto sichtbar, mit Steuerausweis das Brutto
+      return umgeschaltet.map((zeile, i) => aendereBetragszeile(zeile, { gross: bisher === "keine" ? prev[i]!.net : prev[i]!.gross }, false));
+    });
+  }
+
+  function addRate() {
+    const used = new Set(amounts.map((a) => a.taxRate));
+    const rate = RATES.find((r) => !used.has(r));
+    if (rate !== undefined) setAmounts((prev) => [...prev, betragszeileAus(nextKey++, rate, 0, 0, true, false)]);
+  }
+
+  return { nachweis, amounts, setAmounts, chooseNachweis, updateAmount, addRate };
 }
