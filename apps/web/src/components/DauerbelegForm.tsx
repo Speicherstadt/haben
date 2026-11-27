@@ -82,8 +82,13 @@ export function DauerbelegForm({
   /** Getippter Name, wenn der Dialog für einen neuen Lieferanten offen ist; null = geschlossen */
   const [newSupplierName, setNewSupplierName] = useState<string | null>(null);
   const [nachweis, setNachweis] = useState<SteuerNachweis>(initial.taxShown ? "ausweis" : initial.kleinbetrag ? "kleinbetrag" : "keine");
+  // Bei der Kleinbetragsrechnung ist der Endbetrag die einzige Eingabe: Ein anderer Satz teilt ihn neu auf, statt die Steuer
+  // aus dem verborgenen Netto zu rechnen (10,00 € + 1,90 € folgt auch aus dem Netto, Review #1996)
   const [amounts, setAmounts] = useState<Betragszeile[]>(() =>
-    initial.amounts.map((a) => betragszeileAusVorlage(nextKey++, a, initial.taxShown || initial.kleinbetrag)),
+    initial.amounts.map((a) => {
+      const zeile = betragszeileAusVorlage(nextKey++, a, initial.taxShown || initial.kleinbetrag);
+      return initial.kleinbetrag ? { ...zeile, basis: "gross" as const } : zeile;
+    }),
   );
   const fileRef = useRef<HTMLInputElement>(null);
   // Ob eine Datei gewählt ist, für die Prüfung beim Speichern; die Datei selbst liest submit aus fileRef
@@ -106,8 +111,14 @@ export function DauerbelegForm({
   }
 
   function chooseNachweis(neu: SteuerNachweis) {
+    const bisher = nachweis;
     setNachweis(neu);
-    setAmounts((prev) => steuerausweisUmschalten(prev, neu !== "keine"));
+    setAmounts((prev) => {
+      const umgeschaltet = steuerausweisUmschalten(prev, neu !== "keine");
+      if (neu !== "kleinbetrag") return umgeschaltet;
+      // Der bisher sichtbare Betrag bleibt der Endbetrag: ohne Steuer war das das Netto, mit Steuerausweis das Brutto
+      return umgeschaltet.map((zeile, i) => aendereBetragszeile(zeile, { gross: bisher === "keine" ? prev[i]!.net : prev[i]!.gross }, false));
+    });
   }
 
   function addRate() {

@@ -94,7 +94,7 @@ Für Ausgaben, die in festen Abständen mit gleichem Betrag anfallen, etwa Büro
 1. **Neuer Dauerbeleg** öffnen.
 2. **Bezeichnung**, **Lieferant** (aus den Kontakten, mit Suche und Anlegen wie am Beleg, oder frei), optional **USt-IdNr.** und **Vertrags- oder Kundennummer**, **Kategorie** (mit Suche wie am Beleg) und **Bezahlung** eintragen.
 3. Unter **Termine** das **Intervall** (wöchentlich, alle 2 oder 4 Wochen, monatlich, alle 2 Monate, vierteljährlich, halbjährlich, jährlich), **Erster Beleg am**, optional **Endet nach dem** und **Fällig Tage nach dem Termin** wählen.
-4. Unter **Dokument** den **Vertrag oder die Dauerrechnung** hochladen (PDF, Foto oder E-Rechnung wie beim Hochladen eines Belegs, bis 20 MB) und angeben, ob das Dokument die Umsatzsteuer gesondert ausweist; unter **Beträge je Termin** die Beträge je Steuersatz eintragen.
+4. Unter **Dokument** den **Vertrag oder die Dauerrechnung** hochladen (PDF, Foto oder E-Rechnung wie beim Hochladen eines Belegs, bis 20 MB) und angeben, was es zur Umsatzsteuer sagt (siehe unten); unter **Beträge je Termin** die Beträge je Steuersatz eintragen.
 5. **Dauerbeleg anlegen**.
 
 | Feld | Bedeutung |
@@ -115,15 +115,18 @@ Der Server prüft kurz nach dem Start und danach stündlich, ob ein Termin fäll
 
 Einen ungebuchten Beleg aus einem Dauerbeleg kannst du [löschen](#löschen), etwa für einen mietfreien Monat; Haben legt ihn nicht neu an. Die Datei bleibt, solange die Vorlage sie nutzt.
 
-### Vorsteuer nur mit Steuerausweis
+### Vorsteuer nur mit Steuerausweis oder als Kleinbetragsrechnung
 
-Vorsteuer ziehst du nur aus einer Rechnung ab, die die Umsatzsteuer gesondert ausweist (§ 15 Abs. 1 Nr. 1 und § 14 Abs. 4 Nr. 8 UStG). Ein Vertrag gilt als Rechnung, wenn er die Pflichtangaben enthält, bei Miete etwa ein Mietvertrag mit Steuerbetrag nach einer Option zur Umsatzsteuer (§ 9 UStG), oder eine Dauerrechnung des Leasinggebers.
+Vorsteuer ziehst du nur aus einer Rechnung ab, die die Umsatzsteuer gesondert ausweist (§ 15 Abs. 1 Nr. 1 und § 14 Abs. 4 Nr. 8 UStG); bei einer Kleinbetragsrechnung bis 250 € wirkt der angegebene Steuersatz wie der gesonderte Ausweis (§ 33 UStDV, UStAE 14c.2 Abs. 1 Satz 10). Ein Vertrag gilt als Rechnung, wenn er die Pflichtangaben enthält, bei Miete etwa ein Mietvertrag mit Steuerbetrag nach einer Option zur Umsatzsteuer (§ 9 UStG), oder eine Dauerrechnung des Leasinggebers.
 
 Unter **Umsatzsteuer im Dokument** wählst du, was das Dokument zur Steuer sagt:
 
-- **Weist die Umsatzsteuer gesondert aus:** Du trägst Netto und Umsatzsteuer je Satz ein; die Steuer rechnet Haben aus dem Netto vor. Gibt es noch keine Zeile mit 19 %, springt die Zeile mit 0 % auf 19 %; einen steuerfreien Teil stellst du danach wieder auf 0 %. Zurück auf „keine Umsatzsteuer“ ändert keinen Satz. Statt des Netto kannst du das **Brutto** eintragen; Haben teilt es wie am Beleg auf (siehe [Beträge](#beträge)).
-- **Nennt nur Endbetrag und Steuersatz, höchstens 250 € je Termin:** etwa ein Abo „11,90 € monatlich inkl. 19 % USt“. Das ist eine Kleinbetragsrechnung (§ 33 UStDV): Der Vertrag ist zusammen mit dem Zahlungsbeleg die Rechnung über den einzelnen Termin (§ 31 Abs. 1 UStDV, UStAE 14.5 Abs. 17), die Grenze gilt deshalb je Termin, über alle Sätze. Du trägst je Satz nur das **Brutto** ein; Haben teilt es wie am Beleg in Netto und Vorsteuer auf (§ 35 Abs. 1 UStDV), 11,90 € zu 19 % in 10,00 € und 1,90 €. Über 250 € je Termin lehnt Haben ab; dann braucht es ein Dokument mit Steuerausweis. Die Notiz am Beleg nennt die Kleinbetragsrechnung.
+- **Weist die Umsatzsteuer gesondert aus:** Du trägst Netto und Umsatzsteuer je Satz ein; die Steuer rechnet Haben aus dem Netto vor. Statt des Netto kannst du das **Brutto** eintragen; Haben teilt es wie am Beleg auf (siehe [Beträge](#beträge)).
+- **Nennt nur Endbetrag und Steuersatz, höchstens 250 € je Termin (Kleinbetragsrechnung):** etwa ein Abo „11,90 € monatlich inkl. 19 % USt“. Der Vertrag ist zusammen mit dem Zahlungsbeleg die Rechnung über den einzelnen Termin (§ 31 Abs. 1 UStDV, entsprechend nach UStAE 14.6 Abs. 2); die Grenze gilt deshalb je Termin, über alle Sätze. Du trägst je Satz nur das **Brutto** ein, Haben teilt es auf wie am Beleg (siehe [Beträge](#beträge)); ein anderer Satz teilt denselben Endbetrag neu auf. Über 250 € lehnt Haben ab, dann braucht es ein Dokument mit Steuerausweis. Die Notiz am Beleg nennt die Kleinbetragsrechnung.
 - **Weist keine Umsatzsteuer aus:** Es gibt kein Feld für die Steuer, und Haben lehnt eine Vorlage mit Steuer ab: „Vorsteuer nur mit einem Dokument, das die Umsatzsteuer gesondert ausweist …“. Den Betrag erfasst du mit 0 %, etwa für steuerfreie Miete (§ 4 Nr. 12 UStG) oder Versicherungsbeiträge. Die Notiz am Beleg sagt, dass das Dokument keine Steuer ausweist.
+
+Wählst du Steuerausweis oder Kleinbetragsrechnung und gibt es noch keine Zeile mit 19 %, springt die Zeile mit 0 % auf 19 %; einen steuerfreien Teil stellst du danach wieder auf 0 %. Von „Weist keine Umsatzsteuer aus“ zur Kleinbetragsrechnung bleibt der eingetragene Betrag der Endbetrag. Zurück zu „Weist keine Umsatzsteuer aus“ ändert keinen Satz.
+
 - Ohne Vorsteuerabzug bucht Haben wie bei jedem Beleg den Bruttobetrag als Aufwand, ohne Vorsteuer.
 
 Gebucht wird wie jeder Beleg, im Beispiel 1.000 € Miete zuzüglich 19 % mit der Kategorie Miete für Geschäftsräume (SKR04 in Klammern):

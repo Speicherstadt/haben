@@ -138,7 +138,7 @@ function kleinbetragProbleme(vorlage: { taxShown: boolean; amounts: DauerbelegBe
 
 /** Hinweis, wenn das Dokument keine Umsatzsteuer ausweist */
 export const VORSTEUER_HINWEIS =
-  "Vorsteuer nur mit einem Dokument, das die Umsatzsteuer gesondert ausweist (Dauerrechnung oder Vertrag mit Steuerbetrag). Ohne Steuerausweis den Betrag mit 0 % erfassen.";
+  "Vorsteuer nur mit einem Dokument, das die Umsatzsteuer gesondert ausweist (Dauerrechnung oder Vertrag mit Steuerbetrag) oder als Kleinbetragsrechnung bis 250 € je Termin Endbetrag und Steuersatz nennt. Sonst den Betrag mit 0 % erfassen.";
 
 /** Summen der Beträge: Netto, Steuer, Brutto */
 export function dauerbelegSummen(amounts: DauerbelegBetrag[]): { net: Cents; tax: Cents; gross: Cents } {

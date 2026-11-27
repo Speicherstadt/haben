@@ -917,20 +917,42 @@ test("Dauerbeleg mit Bruttobetrag: Netto und Umsatzsteuer vorgerechnet, ohne aus
   await expect(page.getByLabel("Steuersatz 1", { exact: true })).toHaveValue("0");
 });
 
-test("Dauerbeleg als Kleinbetragsrechnung: nur Endbetrag je Satz, höchstens 250 € je Termin (#1101)", async () => {
+test("Dauerbeleg als Kleinbetragsrechnung: nur Endbetrag je Satz, höchstens 250 € je Termin, ein anderer Satz behält ihn (#1101)", async () => {
   await go("/dauerbelege/neu");
+  await page.getByLabel("Bezeichnung").fill("Fachzeitschrift Abo");
+  await page.getByLabel("Lieferant", { exact: true }).fill("Fachverlag GmbH");
+  await waehleKategorie(page.getByLabel("Kategorie"), "software");
+  await page.getByLabel("Erster Beleg am").fill(day(30));
+  await page
+    .locator("input[type=file]")
+    .setInputFiles([{ name: "abo.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n% Fachzeitschrift Abo\n%%EOF\n") }]);
+  // Ohne Steuer eingetippt: Beim Wechsel bleibt der Betrag der Endbetrag; wie beim Steuerausweis springt 0 % auf 19 %
+  await page.getByLabel("Netto 1", { exact: true }).fill("11,90");
   await page.getByLabel(/^Nennt nur Endbetrag und Steuersatz/).check();
-  // Wie beim Steuerausweis springt 0 % auf 19 %; Netto und Steuer rechnet Haben aus dem Endbetrag (§ 35 Abs. 1 UStDV)
+  const brutto = page.getByLabel("Brutto 1", { exact: true });
+  const summe = page.locator(".dauerbeleg-summe");
   await expect(page.getByLabel("Steuersatz 1", { exact: true })).toHaveValue("1900");
   await expect(page.getByLabel("Netto 1", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Umsatzsteuer 1", { exact: true })).toHaveCount(0);
-  await page.getByLabel("Brutto 1", { exact: true }).fill("11,90");
-  await expect(page.locator(".dauerbeleg-summe")).toContainText(/10,00\s€ netto \+ 1,90\s€ Umsatzsteuer = 11,90\s€/);
+  await expect(brutto).toHaveValue("11,90");
+  // Netto und Steuer rechnet Haben aus dem Endbetrag (§ 35 Abs. 1 UStDV)
+  await expect(summe).toContainText(/10,00\s€ netto \+ 1,90\s€ Umsatzsteuer = 11,90\s€/);
   // Über 250 € je Termin keine Kleinbetragsrechnung (§ 33 UStDV): die Meldung steht am Endbetrag
-  await page.getByLabel("Brutto 1", { exact: true }).fill("250,01");
+  await brutto.fill("250,01");
   await page.getByRole("button", { name: "Dauerbeleg anlegen" }).click();
-  await expect(page.getByLabel("Brutto 1", { exact: true })).toHaveAccessibleDescription(/nur bis 250 € brutto je Termin \(§ 33 UStDV\)/);
+  await expect(brutto).toHaveAccessibleDescription(/nur bis 250 € brutto je Termin \(§ 33 UStDV\)/);
   await expect(page).toHaveURL(/\/dauerbelege\/neu$/);
+  await brutto.fill("11,90");
+  await page.getByRole("button", { name: "Dauerbeleg anlegen" }).click();
+  await page.waitForURL(/\/dauerbelege\/[0-9a-f-]{36}$/);
+  // Gespeichert sind 10,00 € + 1,90 €, das folgt auch aus dem Netto; ein anderer Satz teilt trotzdem den Endbetrag neu auf
+  await expect(brutto).toHaveValue("11,90");
+  await page.getByLabel("Steuersatz 1", { exact: true }).selectOption("700");
+  await expect(brutto).toHaveValue("11,90");
+  await expect(summe).toContainText(/11,12\s€ netto \+ 0,78\s€ Umsatzsteuer = 11,90\s€/);
+  await page.getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(page, "Vorlage löschen");
+  await expect(page).toHaveURL(/\/dauerbelege(?:\?.*)?$/);
 });
 
 test("Beleg auf mehrere Kategorien aufteilen: Zeilen hinzufügen und entfernen, Summen gegen den Beleg", async ({ browser }) => {
