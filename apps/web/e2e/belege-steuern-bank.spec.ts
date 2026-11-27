@@ -778,10 +778,12 @@ test("Abweichende IBAN der E-Rechnung: Warnung am Beleg, gesperrt unter Überwei
   await expect(pruefen).toContainText("DE75 5121 0800 1245 1261 99");
   await expect(pruefen).toContainText("DE02 1203 0000 0000 2020 51");
   // Zum Überweisen: ohne Entscheidung kein GiroCode, sondern der Grund (#1967)
-  const ueberweisen = page.locator("details").filter({ has: page.locator("summary", { hasText: "Zum Überweisen" }) });
+  const ueberweisen = page.getByRole("region", { name: "Zum Überweisen" });
   await ueberweisen.locator("summary").click();
   await expect(ueberweisen).toContainText("Die E-Rechnung nennt eine andere IBAN als der Kontakt: am Beleg entscheiden, welche gilt.");
   await expect(ueberweisen.getByRole("img")).toHaveCount(0);
+  // Entschieden wird am Beleg, nicht im Kontakt
+  await expect(ueberweisen.getByRole("link", { name: "Zum Kontakt" })).toHaveCount(0);
 
   // Ohne Entscheidung nicht auswählbar, auch nicht über „Alle auswählen“
   await go("/ueberweisungen");

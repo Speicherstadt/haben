@@ -109,6 +109,8 @@ test("Einladung, lesen ja, ändern nein, sperren", async ({ page: owner, browser
   await stb.goto(beleg!);
   await expect(stb.getByRole("link", { name: "Original herunterladen" })).toBeVisible();
   await expect(stb.getByRole("button", { name: /buchen|Speichern|Löschen|Stornieren/ })).toHaveCount(0);
+  // Bezahlen ist Sache des Inhabers: kein GiroCode zum Überweisen (#1967)
+  await expect(stb.getByRole("region", { name: "Zum Überweisen" })).toHaveCount(0);
   const rechnung = await firstLink(stb, "/rechnungen", /^\/rechnungen\/[0-9a-f-]{36}$/);
   await stb.goto(rechnung!);
   await expect(stb.getByRole("link", { name: "PDF herunterladen" })).toBeVisible();

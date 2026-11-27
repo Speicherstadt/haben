@@ -1,7 +1,7 @@
 ---
 title: "Belege bezahlen: Überweisung per SEPA-Datei, Verrechnen"
 description: >-
-  Eingangsrechnungen in Haben bezahlen: über Geschäftskonto, privat oder Kasse, Überweisungen als SEPA-Datei für die Bank oder per GiroCode, Skonto und Verrechnen ohne Zahlung.
+  Eingangsrechnungen in Haben bezahlen: Geschäftskonto, privat oder Kasse, Überweisung per SEPA-Datei oder GiroCode, Skonto und Verrechnen ohne Zahlung.
 ---
 
 # Belege bezahlen
@@ -74,13 +74,13 @@ Das Format ist pain.001.001.09 nach Anlage 3 des DFÜ-Abkommens der Deutschen Kr
 
 ## Überweisen per GiroCode
 
-Einen einzelnen Beleg bezahlst du auch ohne Datei, etwa unterwegs vom Handy. Ist er gebucht, nicht storniert, über das Geschäftskonto zu bezahlen und noch offen, steht auf der Belegseite oben der Bereich **Zum Überweisen** mit dem offenen Betrag. Aufgeklappt zeigt er einen GiroCode (EPC-QR-Code nach EPC069-12, Version 002). Die Banking-App liest daraus Empfänger, IBAN, Betrag und Verwendungszweck; du prüfst und gibst die Überweisung dort frei. Darunter stehen dieselben Angaben zum Gegenlesen.
+Einen einzelnen Beleg bezahlst du auch ohne Datei, etwa unterwegs vom Handy. Ist er gebucht, nicht storniert, über das Geschäftskonto zu bezahlen und noch offen, steht auf der Belegseite oben der Bereich **Zum Überweisen** mit dem Betrag. Aufgeklappt zeigt er einen [GiroCode](rechnungen-zahlung.md#girocode) (EPC-QR-Code nach EPC069-12, Version 002, wie auf deinen Rechnungen). Die Banking-App liest daraus Empfänger, IBAN, Betrag und Verwendungszweck; du prüfst und gibst die Überweisung dort frei. Darunter stehen dieselben Angaben zum Gegenlesen.
 
-Die Angaben sind dieselben wie in der [SEPA-Datei](#überweisen-sepa-datei): IBAN aus dem Kontakt oder die am Beleg bestätigte bzw. [entschiedene](#abweichende-iban-in-der-e-rechnung) aus der E-Rechnung, der offene Betrag (bei Teilzahlung der Rest), als Verwendungszweck die Rechnungsnummer des Lieferanten und Text im Latin-Zeichensatz des EPC (Umlaute ausgeschrieben, Name auf 70 und Zweck auf 140 Zeichen gekürzt). Läuft eine [Skontofrist](#skonto), wählst du zwischen dem offenen Betrag und **Mit 2 % Skonto bis …**; maßgeblich ist der heutige Tag. Der Verwendungszweck nennt dann den Abzug, den Rest buchst du nach der Abbuchung im Bankabgleich als erhaltenes Skonto aus.
+Empfänger, IBAN, Betrag und Verwendungszweck sind dieselben wie in der [SEPA-Datei](#überweisen-sepa-datei), auch im Latin-Zeichensatz des EPC. Läuft eine [Skontofrist](#skonto), wählst du zwischen dem offenen Betrag (vorgewählt) und **Mit 2 % Skonto bis …**; maßgeblich ist der heutige Tag. Der Verwendungszweck nennt dann den Abzug, den Rest buchst du nach der Abbuchung im Bankabgleich als erhaltenes Skonto aus ([Rest ausbuchen](bank.md#rest-ausbuchen-skonto-und-forderungsausfall)).
 
-Kann Haben den Beleg nicht überweisen, steht im Bereich statt des Codes der Grund, wie unter **Überweisungen**: IBAN fehlt oder ist ungültig, liegt außerhalb des EWR, Fremdwährung, Lieferant fehlt oder die abweichende IBAN der E-Rechnung ist noch nicht entschieden. Fehlt die IBAN und ist am Beleg ein Kontakt gewählt, führt **Zum Kontakt** dorthin. Bezahlte, privat oder bar bezahlte Belege haben den Bereich nicht. Ihn sieht nur der Inhaber, nicht die [Steuerberatung](steuerberatung.md).
+Kann Haben aus dem Beleg keine Überweisung machen, steht im Bereich statt des Codes derselbe Grund wie unter [**Überweisungen**](#überweisen-sepa-datei). Fehlt die IBAN oder ist die IBAN im Kontakt ungültig und ist am Beleg ein Kontakt gewählt, führt **Zum Kontakt** dorthin; über eine abweichende IBAN der E-Rechnung entscheidest du dagegen am Beleg. Den Bereich sieht nur der Inhaber, nicht die [Steuerberatung](steuerberatung.md).
 
-Haben bucht und vermerkt dabei nichts, denn ob du wirklich überweist, weiß es nicht. Bezahlt ist der Beleg, sobald der [Bankabgleich](bank.md) die Abbuchung zuordnet. Anders als in der SEPA-Datei trägt die Überweisung keine Referenz von Haben (der GiroCode kennt keine EndToEndId); der Abgleich schlägt sie wie eine von Hand eingegebene über Betrag, Rechnungsnummer im Verwendungszweck, IBAN des Lieferanten und Name vor ([Vorschläge](bank.md#vorschläge)).
+Haben bucht und vermerkt dabei nichts, denn ob du wirklich überweist, weiß es nicht. Bezahlt ist der Beleg, sobald der [Bankabgleich](bank.md) die Abbuchung zuordnet. Anders als in der SEPA-Datei trägt die Überweisung keine Referenz von Haben (der GiroCode kennt keine EndToEndId); der Abgleich schlägt sie wie eine von Hand eingegebene über Betrag, Rechnungsnummer im Verwendungszweck, IBAN des Lieferanten und Name vor ([Vorschläge](bank.md#vorschläge)). Mit Skonto stimmt der Betrag nicht; der Vorschlag kommt dann über Rechnungsnummer, IBAN und Name zustande.
 
 ## Verrechnen ohne Zahlung
 

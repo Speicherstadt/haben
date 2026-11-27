@@ -1,6 +1,7 @@
 import { formatEuro, formatPercent } from "@haben/core";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { EinklappAbschnitt } from "../../../components/firma/EinklappAbschnitt.tsx";
 import { formatDate } from "../../../lib/format.ts";
 import type { Detail } from "./-beleg-vorschau.tsx";
 
@@ -14,16 +15,23 @@ const groupedIban = (iban: string) => iban.replace(/(.{4})/g, "$1 ").trim();
  * läuft ein Skonto, wahlweise abzüglich Skonto. Kann Haben nicht überweisen, steht dort der Grund statt eines Codes.
  */
 export function BelegGirocode({ code, contactId }: { code: Girocode; contactId: string | null }) {
+  const [offen, setOffen] = useState(false);
   const [mitSkonto, setMitSkonto] = useState(false);
   const variante = (mitSkonto && code.varianten[1]) || code.varianten[0];
+  // Der Betrag in der Überschrift nur mit Code: ohne (etwa bei Fremdwährung) stünde dort ein Betrag, den niemand überweist
   return (
-    <details className="card" style={{ margin: 0 }}>
-      <summary style={{ fontWeight: 600 }}>Zum Überweisen · {formatEuro(variante?.amount ?? code.open)}</summary>
+    <EinklappAbschnitt
+      id="beleg-girocode"
+      titel="Zum Überweisen"
+      kurz={variante ? formatEuro(variante.amount) : undefined}
+      offen={offen}
+      onOffen={setOffen}
+      ebene={2}
+    >
       {variante ? (
-        <div className="stack" style={{ marginTop: 12 }}>
+        <div className="stack">
           {code.varianten.length > 1 && <SkontoWahl code={code} mitSkonto={mitSkonto} onChange={setMitSkonto} />}
-          {/* Schwarz auf Weiß mit Ruhezone, auch im dunklen Modus: sonst lesen manche Banking-Apps den Code nicht */}
-          <div style={{ background: "#fff", padding: 16, alignSelf: "start", lineHeight: 0, borderRadius: 4 }}>
+          <div className="girocode-bild">
             <img
               src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(variante.svg)}`}
               width={200}
@@ -47,9 +55,9 @@ export function BelegGirocode({ code, contactId }: { code: Girocode; contactId: 
           </p>
         </div>
       ) : (
-        <p style={{ margin: "12px 0 0" }}>
+        <p style={{ margin: 0 }}>
           {code.problem}.
-          {code.iban === null && contactId && (
+          {code.problemImKontakt && contactId && (
             <>
               {" "}
               <Link to="/kontakte/$id" params={{ id: contactId }}>
@@ -59,7 +67,7 @@ export function BelegGirocode({ code, contactId }: { code: Girocode; contactId: 
           )}
         </p>
       )}
-    </details>
+    </EinklappAbschnitt>
   );
 }
 

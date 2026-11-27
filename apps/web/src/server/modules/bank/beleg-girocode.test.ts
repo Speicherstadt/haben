@@ -36,6 +36,7 @@ describe.skipIf(!testDatabaseUrl)("GiroCode am Beleg (Postgres, #1967)", () => {
   let bank: typeof import("./index.ts");
   let contacts: typeof import("../stammdaten/contacts.ts");
   let documents: typeof import("../belege/documents.ts");
+  let cancellation: typeof import("../belege/cancellation.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
 
@@ -44,6 +45,7 @@ describe.skipIf(!testDatabaseUrl)("GiroCode am Beleg (Postgres, #1967)", () => {
     bank = await import("./index.ts");
     contacts = await import("../stammdaten/contacts.ts");
     documents = await import("../belege/documents.ts");
+    cancellation = await import("../belege/cancellation.ts");
   }, 30_000);
 
   afterAll(async () => {
@@ -77,7 +79,14 @@ describe.skipIf(!testDatabaseUrl)("GiroCode am Beleg (Postgres, #1967)", () => {
   }
 
   let counter = 0;
-  async function bookedDocument(fields: { supplierName: string; invoiceNumber: string; contactId?: string; net: number; payment?: "bank" | "privat" }) {
+  async function bookedDocument(fields: {
+    supplierName: string;
+    invoiceNumber: string;
+    contactId?: string;
+    net: number;
+    payment?: "bank" | "privat";
+    currency?: string;
+  }) {
     const { id } = await documents.uploadDocument(actor, { bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ++counter]), filename: `beleg-${counter}.jpg` });
     await documents.updateDocument(actor, id, {
       supplierName: fields.supplierName,
@@ -89,7 +98,14 @@ describe.skipIf(!testDatabaseUrl)("GiroCode am Beleg (Postgres, #1967)", () => {
       category: "buero",
       payment: fields.payment ?? "bank",
       note: "",
-      amounts: [{ taxRate: 1900, net: fields.net, tax: Math.round(fields.net * 0.19) }],
+      currency: fields.currency ?? "EUR",
+      exchangeRate: fields.currency ? "1,0812" : null,
+      // Fremdwährung: Originalbeträge, Euro rechnet Haben mit dem Kurs aus
+      amounts: [
+        fields.currency
+          ? { taxRate: 1900, net: 0, tax: 0, originalNet: fields.net, originalTax: Math.round(fields.net * 0.19) }
+          : { taxRate: 1900, net: fields.net, tax: Math.round(fields.net * 0.19) },
+      ],
     });
     await documents.bookDocument(actor, id);
     return id;
@@ -117,12 +133,13 @@ describe.skipIf(!testDatabaseUrl)("GiroCode am Beleg (Postgres, #1967)", () => {
     expect(code!.varianten[0]!.svg).toBe(girocodeSvg({ name: "Buero Mueller + Soehne", iban: OTHER_IBAN, amount: 6_900, text: "BM-1/Ae" }));
   }, 60_000);
 
-  it("Skonto aus der E-Rechnung: zweiter Code mit Abzug und Frist, gerechnet ab heute; nach der letzten Frist nur der offene Betrag", async () => {
+  /** E-Rechnung vom 15.09. über 215,63 € mit Skonto (2 % in 7, 1 % in 14 Tagen), IBAN der E-Rechnung bestätigt */
+  async function eRechnungMitSkonto(invoiceNumber = "RE-2026/0815") {
     const { id } = await documents.uploadDocument(actor, { bytes: einvoice(), filename: "RE-2026-0815.xml" });
     await documents.updateDocument(actor, id, {
       supplierName: "Netzwerk Hosting GmbH",
       supplierUstId: "DE987654321",
-      invoiceNumber: "RE-2026/0815",
+      invoiceNumber,
       documentDate: "2026-09-15",
       dueDate: "2026-09-29",
       category: "software",
@@ -135,7 +152,11 @@ describe.skipIf(!testDatabaseUrl)("GiroCode am Beleg (Postgres, #1967)", () => {
     });
     await documents.bookDocument(actor, id);
     await bank.decideDocumentIban(actor, id, { wahl: "e-rechnung", kontaktIban: null, rechnungsIban: SUPPLIER_IBAN });
+    return id;
+  }
 
+  it("Skonto aus der E-Rechnung: zweiter Code mit Abzug und Frist, gerechnet ab heute; nach der letzten Frist nur der offene Betrag", async () => {
+    const id = await eRechnungMitSkonto();
     // 2 % von 215,63 € = 4,31 €, bis 22.09.
     const früh = await bank.belegGirocode(id, "2026-09-16");
     expect(früh!.varianten.map(({ amount, remittance, skonto }) => ({ amount, remittance, skonto }))).toEqual([
@@ -145,9 +166,26 @@ describe.skipIf(!testDatabaseUrl)("GiroCode am Beleg (Postgres, #1967)", () => {
     expect(früh!.varianten[1]!.svg).toBe(
       girocodeSvg({ name: "Netzwerk Hosting GmbH", iban: SUPPLIER_IBAN, amount: 21_132, text: "RE-2026/0815 abzgl. 2,00 Prozent Skonto 4,31 EUR" }),
     );
+    // Am letzten Tag der Frist gilt sie noch
+    expect((await bank.belegGirocode(id, "2026-09-22"))!.varianten[1]!.skonto).toEqual({ percent: 200, amount: 431, until: "2026-09-22" });
     // Nach dem 22.09. noch 1 % bis 29.09.
     expect((await bank.belegGirocode(id, "2026-09-25"))!.varianten[1]!.skonto).toEqual({ percent: 100, amount: 216, until: "2026-09-29" });
     expect((await bank.belegGirocode(id, "2026-09-30"))!.varianten.map((v) => v.skonto)).toEqual([null]);
+  }, 60_000);
+
+  it("teilweise bezahlt: kein Skonto mehr, nur der Code über den Rest (wie in der Sammelüberweisung)", async () => {
+    const id = await eRechnungMitSkonto();
+    await pay(id, 10_000, "Netzwerk Hosting GmbH", SUPPLIER_IBAN);
+    const code = await bank.belegGirocode(id, "2026-09-16");
+    expect(code!.open).toBe(11_563);
+    expect(code!.varianten.map(({ amount, skonto }) => ({ amount, skonto }))).toEqual([{ amount: 11_563, skonto: null }]);
+  }, 60_000);
+
+  it("Verwendungszweck höchstens 140 Zeichen; der Skonto-Zusatz fällt beim Kürzen zuerst weg, wie in der SEPA-Datei", async () => {
+    const id = await eRechnungMitSkonto(`R-${"Ä".repeat(80)}`);
+    const code = await bank.belegGirocode(id, "2026-09-16");
+    expect(code!.varianten).toHaveLength(2);
+    for (const v of code!.varianten) expect(v.remittance).toBe(`R-${"Ae".repeat(69)}`);
   }, 60_000);
 
   it("kein Code, wenn Haben nicht überweisen kann: der Grund wie in der Sammelüberweisung", async () => {
@@ -156,14 +194,58 @@ describe.skipIf(!testDatabaseUrl)("GiroCode am Beleg (Postgres, #1967)", () => {
       open: 5_950,
       iban: null,
       problem: "IBAN fehlt: im Kontakt des Lieferanten eintragen",
+      problemImKontakt: true,
       varianten: [],
     });
     const typo = await supplier("Tippfehler GmbH", "DE00370400440532013000");
     const ungültig = await bookedDocument({ supplierName: "Tippfehler GmbH", invoiceNumber: "TF-1", contactId: typo.id, net: 2_000 });
-    expect(await bank.belegGirocode(ungültig, "2026-09-16")).toMatchObject({ problem: "IBAN DE00370400440532013000 ist ungültig (Kontakt)", varianten: [] });
+    expect(await bank.belegGirocode(ungültig, "2026-09-16")).toMatchObject({
+      problem: "IBAN DE00370400440532013000 ist ungültig (Kontakt)",
+      problemImKontakt: true,
+      varianten: [],
+    });
+    // Fremdwährung und IBAN außerhalb des EWR: kein Code, und der Kontakt hilft nicht
+    const fremd = await bookedDocument({ supplierName: "US Inc.", invoiceNumber: "US-1", net: 3_000, currency: "USD" });
+    expect(await bank.belegGirocode(fremd, "2026-09-16")).toMatchObject({
+      problem: "Rechnung in USD: SEPA überweist nur Euro",
+      problemImKontakt: false,
+      varianten: [],
+    });
+    const zürich = await supplier("Zürich AG", "CH9300762011623852957");
+    const ch = await bookedDocument({ supplierName: "Zürich AG", invoiceNumber: "ZH-1", contactId: zürich.id, net: 4_000 });
+    expect(await bank.belegGirocode(ch, "2026-09-16")).toMatchObject({
+      iban: "CH9300762011623852957",
+      problem: "IBAN CH9300762011623852957 liegt außerhalb des EWR: bitte direkt im Online-Banking überweisen",
+      problemImKontakt: false,
+      varianten: [],
+    });
   }, 60_000);
 
-  it("kein Bereich für bezahlte, privat bezahlte und ungebuchte Belege", async () => {
+  it("Link zum Kontakt nur, wenn der Kontakt das Problem behebt, nicht bei offener IBAN-Entscheidung (#410)", async () => {
+    const netzwerk = await supplier("Netzwerk Hosting GmbH", OTHER_IBAN);
+    const { id } = await documents.uploadDocument(actor, { bytes: einvoice(), filename: "RE-2026-0815.xml" });
+    await documents.updateDocument(actor, id, {
+      supplierName: "Netzwerk Hosting GmbH",
+      supplierUstId: "DE987654321",
+      supplierContactId: netzwerk.id,
+      invoiceNumber: "RE-2026/0815",
+      documentDate: "2026-09-15",
+      dueDate: "2026-09-29",
+      category: "software",
+      payment: "bank",
+      note: "",
+      amounts: [{ taxRate: 1900, net: 18_120, tax: 3_443 }],
+    });
+    await documents.bookDocument(actor, id);
+    expect(await bank.belegGirocode(id, "2026-09-16")).toMatchObject({
+      iban: null,
+      problem: "Die E-Rechnung nennt eine andere IBAN als der Kontakt: am Beleg entscheiden, welche gilt",
+      problemImKontakt: false,
+      varianten: [],
+    });
+  }, 60_000);
+
+  it("kein Bereich für bezahlte, privat bezahlte, ungebuchte und stornierte Belege", async () => {
     const mueller = await supplier("Büro Müller", OTHER_IBAN);
     const bezahlt = await bookedDocument({ supplierName: "Büro Müller", invoiceNumber: "BM-2", contactId: mueller.id, net: 10_000 });
     await pay(bezahlt, 11_900, "Buero Mueller", OTHER_IBAN);
@@ -174,5 +256,12 @@ describe.skipIf(!testDatabaseUrl)("GiroCode am Beleg (Postgres, #1967)", () => {
 
     const { id: offen } = await documents.uploadDocument(actor, { bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 99]), filename: "neu.jpg" });
     expect(await bank.belegGirocode(offen, "2026-09-16")).toBeNull();
+
+    // Storniert: auch kein Bereich
+    await sql`update company set journal_ab = 2026`;
+    const storniert = await bookedDocument({ supplierName: "Büro Müller", invoiceNumber: "BM-4", contactId: mueller.id, net: 2_000 });
+    expect(await bank.belegGirocode(storniert, "2026-09-16")).not.toBeNull();
+    await cancellation.cancelDocument(actor, storniert, { reason: "falscher Beleg" }, "2026-09-20");
+    expect(await bank.belegGirocode(storniert, "2026-09-20")).toBeNull();
   }, 60_000);
 });

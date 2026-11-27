@@ -1,6 +1,6 @@
 import { sepaText, skontoOffer, type Cents } from "@haben/core";
 import { girocodeSvg } from "@haben/einvoice";
-import { remittanceFor, transferCandidates } from "./sepa-transfers.ts";
+import { transferCandidates, ueberweisung } from "./sepa-transfers.ts";
 
 /** Ein GiroCode zur Wahl: über den offenen Betrag oder, solange eine Skontofrist läuft, abzüglich Skonto */
 export interface GirocodeVariante {
@@ -18,6 +18,8 @@ export interface BelegGirocode {
   name: string;
   iban: string | null;
   problem: string | null;
+  /** Das Problem behebt man im Kontakt des Lieferanten (IBAN fehlt oder ist dort ungültig): Link zum Kontakt */
+  problemImKontakt: boolean;
   varianten: GirocodeVariante[];
 }
 
@@ -34,14 +36,14 @@ export async function belegGirocode(documentId: string, datum: string): Promise<
   const [c] = await transferCandidates([documentId]);
   if (!c) return null;
   const name = sepaText(c.supplierName, NAME_LENGTH);
-  const base = { open: c.open, name, iban: c.iban };
+  const base = { open: c.open, name, iban: c.iban, problemImKontakt: c.problemImKontakt };
   if (c.problem || !c.iban) return { ...base, problem: c.problem ?? "IBAN fehlt", varianten: [] };
   const iban = c.iban;
   const offer = c.documentDate ? skontoOffer(c.skontoTerms, c.documentDate, datum, c.open) : null;
   const skontos = [null, ...(offer ? [{ percent: offer.term.percent, amount: offer.amount, until: offer.until }] : [])];
   const varianten = skontos.flatMap((skonto) => {
-    const amount = c.open - (skonto?.amount ?? 0);
-    const remittance = sepaText(remittanceFor(c, skonto), REMITTANCE_LENGTH);
+    const { amount, remittance: zweck } = ueberweisung(c, skonto);
+    const remittance = sepaText(zweck, REMITTANCE_LENGTH);
     const svg = girocodeSvg({ name, iban, amount, text: remittance });
     return svg ? [{ amount, remittance, svg, skonto }] : [];
   });
