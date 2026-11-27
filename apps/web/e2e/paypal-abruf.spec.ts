@@ -115,10 +115,14 @@ test("Einrichtung", async () => {
 test("Falsche Zugangsdaten: PayPal lehnt beim Prüfen ab, nichts wird gespeichert, das Secret steht in keiner Meldung", async () => {
   await gehe(page, "/bank");
   await kontoVerbinden(page, "Zahlungsdienstleister hinzufügen");
-  const dialog = page.getByRole("dialog", { name: "Anbieter wählen" });
+  const dialog = page.getByRole("dialog", { name: "Zahlungsdienstleister hinzufügen" });
   await dialog.getByRole("radio", { name: "PayPal" }).check();
-  await expect(dialog.getByRole("radio", { name: "PayPal" })).toHaveAccessibleDescription("Client-ID und Secret · 3 Schritte · noch nicht verbunden");
+  await expect(dialog.getByRole("radio", { name: "PayPal" })).toHaveAccessibleDescription(
+    "Abruf mit Client-ID und Secret oder Aktivitäten (CSV) als Datei · noch nicht verbunden",
+  );
   await dialog.getByRole("button", { name: "Weiter" }).click();
+  // Der erste Schritt fragt nach dem Weg; vorgewählt ist der Abruf über die API (#2008)
+  await page.getByRole("form", { name: "Weg" }).getByRole("button", { name: "Weiter" }).click();
   await page.waitForURL(/\/bank\/verbinden\/paypal$/);
   await expect(zugang().getByLabel("Umgebung")).toHaveValue("false");
   await zugang().getByLabel("Client-ID", { exact: true }).fill(CLIENT_ID);

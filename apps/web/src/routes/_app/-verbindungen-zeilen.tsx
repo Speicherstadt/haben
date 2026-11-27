@@ -128,7 +128,7 @@ export function zeilenDerGruppe(data: Seite, gruppe: Kontokarte["gruppe"]): Zeil
   return nachDringlichkeit(zeilen);
 }
 
-/** Menü `⋯` einer Zeile: Name und Zweck, Bearbeiten oder Zugang, Quelle, Ausschließen, Trennen bzw. Entfernen */
+/** Menü `⋯` einer Zeile: Datei importieren, Name und Zweck, Bearbeiten oder Zugang, Quelle, Ausschließen, Trennen bzw. Entfernen */
 export function zeilenMenue(
   zeile: Zeile,
   {
@@ -138,8 +138,10 @@ export function zeilenMenue(
     ausschliessen,
     kannQuelle,
     istBank,
+    dateiFuer,
   }: {
     abruf: KontoAbruf;
+    dateiFuer: (id: string) => void;
     nameUndZweck: (id: string) => void;
     quelleFreigeben: (id: string) => void;
     ausschliessen: (id: string) => void;
@@ -154,6 +156,8 @@ export function zeilenMenue(
   // Grund steht in der Zeile (grundId)
   const f = z?.art === "fints" ? abruf.finde(z).fints : undefined;
   const grund = (mitTrennen: boolean) => (f && abruf.fints.grund(f, mitTrennen) ? grundId(f, zeile, abruf) : undefined);
+  // Konten ohne Abruf bekommen Dateien; in ein abgerufenes Konto nicht, solange #1988 offen ist
+  if (id && !z) items.push({ key: "datei", label: "Datei importieren …", onSelect: () => dateiFuer(id) });
   if (id) items.push({ key: "name", label: "Name und Zweck …", onSelect: () => nameUndZweck(id) });
   if (z) {
     const label = z.art === "psp" ? "Bearbeiten …" : z.art === "fints" ? "Zugang ändern" : "Neu anmelden";

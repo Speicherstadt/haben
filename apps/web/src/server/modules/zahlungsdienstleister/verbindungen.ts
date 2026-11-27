@@ -356,7 +356,12 @@ export async function verbindungenUebersicht() {
   const [rows, konten, konflikte] = await Promise.all([
     alleVerbindungen(),
     db
-      .select({ id: schema.bankAccounts.id, name: schema.bankAccounts.name, provider: schema.bankAccounts.provider })
+      .select({
+        id: schema.bankAccounts.id,
+        name: schema.bankAccounts.name,
+        provider: schema.bankAccounts.provider,
+        marketplace: schema.bankAccounts.marketplace,
+      })
       .from(schema.bankAccounts)
       .where(eq(schema.bankAccounts.purpose, "zahlungsdienstleister"))
       .orderBy(asc(schema.bankAccounts.createdAt)),
@@ -368,6 +373,8 @@ export async function verbindungenUebersicht() {
     heute: today(),
     anbieter: ANBIETER.map(anbieterFuerOberflaeche),
     konten: konten.filter((k) => ANBIETER.some((a) => a.provider === k.provider)),
+    /** Alle Konten der Art Zahlungsdienstleister, auch ohne Adapter: Einrichtung mit Datei (#2008) */
+    alleKonten: konten,
     verbindungen: rows.map((row) => ({
       id: row.id,
       provider: row.provider,

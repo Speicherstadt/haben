@@ -22,7 +22,7 @@ Oben stehen alle Konten als Karten: Name, Saldo, offene Umsätze und Weg mit Zei
 
 ## Automatischer Abruf
 
-Im Kopf der Seiten **Bank** und **Verbindungen** öffnet **Konto verbinden** ein Menü: **Bank hinzufügen**, **Zahlungsdienstleister hinzufügen** ([geführte Einrichtung](bank-zahlungsdienstleister.md#verbindungen-über-die-api)) und **Konto ohne Abruf anlegen**. **Bank hinzufügen** fragt **Wie verbinden?**:
+Im Kopf der Seiten **Bank** und **Verbindungen** öffnet **Konto verbinden** ein Menü: **Bank hinzufügen**, **Zahlungsdienstleister hinzufügen** ([geführte Einrichtung](bank-zahlungsdienstleister.md), für jeden Anbieter, mit API oder Exportdatei) und **Konto ohne Abruf anlegen** (ein Bankkonto mit IBAN). **Bank hinzufügen** fragt **Wie verbinden?**:
 
 - **Online-Banking über Enable Banking (PSD2):** für die meisten Banken in Europa; braucht den Zugang zu Enable Banking unter **Einstellungen › Bank** ([Anbindungen](installation-anbindungen.md#kontoabruf-enable-banking)).
 - **FinTS (PIN/TAN):** vor allem für Sparkassen, Volks- und Raiffeisenbanken; braucht die Produktnummer der Installation, siehe [Abruf über FinTS](#abruf-über-fints).

@@ -68,6 +68,7 @@ function VerbindungenPage() {
   const menue = (zeile: Zeile) =>
     zeilenMenue(zeile, {
       abruf,
+      dateiFuer: datei.oeffnenFuer,
       nameUndZweck: (id) => setDialog({ art: "name", id }),
       quelleFreigeben: (id) => setDialog({ art: "quelle", id }),
       ausschliessen,

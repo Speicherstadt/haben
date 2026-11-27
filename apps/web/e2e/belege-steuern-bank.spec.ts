@@ -15,6 +15,7 @@ import {
   neuenLieferantenOeffnen,
   ohneAxeVerstoesse,
   axeVerstoesse,
+  zahlungsdienstleisterKonto,
 } from "./einrichtung.ts";
 import { LAPTOP } from "./kopfzeile.ts";
 import { abzugEinspielen } from "./abzug.ts";
@@ -1038,13 +1039,7 @@ test("Sammelrechnung des Dienstleisters: an der Gebührenzeile als bester Treffe
   await expect(page.locator(".page-head").getByText("Gebucht", { exact: true })).toBeVisible();
 
   await go("/bank");
-  await kontoVerbinden(page, "Konto ohne Abruf anlegen");
-  const neuesKonto = page.locator("form", { has: page.getByRole("button", { name: "Konto anlegen" }) });
-  await neuesKonto.getByLabel("Art", { exact: true }).selectOption("provider");
-  await neuesKonto.getByLabel("Dienstleister", { exact: true }).selectOption("etsy");
-  await neuesKonto.getByLabel("Name", { exact: true }).fill("Etsy Shop");
-  await neuesKonto.getByRole("button", { name: "Konto anlegen" }).click();
-  await expect(page.getByText("Konto angelegt.")).toBeVisible();
+  await zahlungsdienstleisterKonto(page, { anbieter: "Etsy Payments", name: "Etsy Shop" });
   const csv = [
     `Date,Type,Title,Info,Currency,Amount,"Fees & Taxes",Net,"Tax Details"`,
     `"October 1, ${year}",Fee,"Einstellgebühr","",EUR,--,-€7.44,-€7.44,--`,

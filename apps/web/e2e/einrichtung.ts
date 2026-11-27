@@ -225,7 +225,6 @@ export async function rechnungFestschreiben(page: Page, rechnung: Rechnung): Pro
   await expect(page.getByText(`${rechnung.gross} €`).first()).toBeVisible();
 }
 
-/** Die Rückfrage im ConfirmDialog mit dem Knopf der Aktion bestätigen */
 /** Bankseite: ein Punkt im Menü „Konto verbinden“ (#1951), etwa „Konto ohne Abruf anlegen“ oder „Bank hinzufügen“ */
 export async function kontoVerbinden(page: Page, punkt: string): Promise<void> {
   await page.getByRole("button", { name: "Konto verbinden" }).click();
@@ -306,4 +305,39 @@ export async function kontrasteInThemes(page: Page, paths: string[]): Promise<vo
     localStorage.removeItem("haben-theme");
     localStorage.removeItem("haben-modus");
   });
+}
+
+/**
+ * Einrichtung eines Zahlungsdienstleisters bis zum Schritt „Konto“ (#2008): „Zahlungsdienstleister hinzufügen“, Anbieter
+ * wählen und, wo es mehrere Wege gibt, „Mit Exportdatei“. Gibt das Formular des Schritts zurück.
+ */
+export async function zahlungsdienstleisterKontoSchritt(page: Page, anbieter: string): Promise<Locator> {
+  await kontoVerbinden(page, "Zahlungsdienstleister hinzufügen");
+  const dialog = page.getByRole("dialog", { name: "Zahlungsdienstleister hinzufügen" });
+  await dialog.getByLabel(anbieter, { exact: true }).check();
+  await dialog.getByRole("button", { name: "Weiter" }).click();
+  const weg = page.getByRole("form", { name: "Weg" });
+  const konto = page.getByRole("form", { name: "Konto" });
+  await expect(weg.or(konto)).toBeVisible();
+  if (await weg.isVisible()) {
+    await weg.getByLabel("Mit Exportdatei").check();
+    await weg.getByRole("button", { name: "Weiter" }).click();
+  }
+  await expect(konto).toBeVisible();
+  return konto;
+}
+
+/**
+ * Konto eines Zahlungsdienstleisters ohne Datei anlegen (#2008), mit Marktplatz bei Amazon; endet auf der Bankseite mit
+ * dem neuen Konto
+ */
+export async function zahlungsdienstleisterKonto(page: Page, p: { anbieter: string; name: string; marktplatz?: string }): Promise<void> {
+  const konto = await zahlungsdienstleisterKontoSchritt(page, p.anbieter);
+  if (p.marktplatz) await konto.getByLabel("Marktplatz").selectOption(p.marktplatz);
+  await konto.getByLabel("Name", { exact: true }).fill(p.name);
+  await konto.getByRole("button", { name: "Weiter" }).click();
+  await page.getByRole("button", { name: "Nur Konto anlegen, Datei später" }).click();
+  await expect(page.getByText(`Konto „${p.name}“ angelegt.`)).toBeVisible();
+  await page.getByRole("link", { name: "Zum Konto" }).click();
+  await page.waitForURL(/\/bank\?konto=/);
 }
