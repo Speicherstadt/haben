@@ -51,3 +51,8 @@ export async function belegGirocode(documentId: string, datum: string): Promise<
   if (varianten.length === 0) return { ...base, problem: "Aus diesen Angaben lässt sich kein GiroCode erzeugen", varianten: [] };
   return { ...base, problem: null, varianten };
 }
+
+/** Bezahlen ist Sache des Inhabers: für andere Rollen (Steuerberatung) gibt es den Bereich nicht, er wird nicht einmal berechnet */
+export async function belegGirocodeFuer(rolle: string, documentId: string, datum: string): Promise<BelegGirocode | null> {
+  return rolle === "inhaber" ? belegGirocode(documentId, datum) : null;
+}

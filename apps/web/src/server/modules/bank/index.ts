@@ -72,7 +72,7 @@ export {
   type SepaTransferInput,
   type TransferCandidate,
 } from "./sepa-transfers.ts";
-export { belegGirocode, type BelegGirocode, type GirocodeVariante } from "./beleg-girocode.ts";
+export { belegGirocode, belegGirocodeFuer, type BelegGirocode, type GirocodeVariante } from "./beleg-girocode.ts";
 export {
   cashInvoiceCandidates,
   cashInvoiceInputSchema,

@@ -125,6 +125,9 @@ describe.skipIf(!testDatabaseUrl)("GiroCode am Beleg (Postgres, #1967)", () => {
     await pay(id, 5_000, "Buero Mueller", OTHER_IBAN);
 
     const code = await bank.belegGirocode(id, "2026-09-16");
+    // Nur der Inhaber bekommt den Bereich, die Steuerberatung bezahlt nichts
+    expect(await bank.belegGirocodeFuer("inhaber", id, "2026-09-16")).toEqual(code);
+    expect(await bank.belegGirocodeFuer("steuerberatung", id, "2026-09-16")).toBeNull();
     // 119,00 € brutto, 50,00 € schon bezahlt
     expect(code).toMatchObject({ open: 6_900, name: "Buero Mueller + Soehne", iban: OTHER_IBAN, problem: null });
     expect(code!.varianten).toHaveLength(1);
@@ -240,6 +243,31 @@ describe.skipIf(!testDatabaseUrl)("GiroCode am Beleg (Postgres, #1967)", () => {
     expect(await bank.belegGirocode(id, "2026-09-16")).toMatchObject({
       iban: null,
       problem: "Die E-Rechnung nennt eine andere IBAN als der Kontakt: am Beleg entscheiden, welche gilt",
+      problemImKontakt: false,
+      varianten: [],
+    });
+    // Ohne Kontakt-IBAN: Die IBAN der E-Rechnung bestätigt man am Beleg, nicht im Kontakt
+    await sql`delete from document_iban_decisions`;
+    const { id: unbestätigt } = await documents.uploadDocument(actor, {
+      // Andere Bytes als die erste E-Rechnung, sonst erkennt der Upload sie als dieselbe Datei
+      bytes: new Uint8Array([...einvoice(), ...new TextEncoder().encode("<!-- zweite -->")]),
+      filename: "RE-2026-0816.xml",
+    });
+    await documents.updateDocument(actor, unbestätigt, {
+      supplierName: "Netzwerk Hosting GmbH",
+      supplierUstId: "DE987654321",
+      invoiceNumber: "RE-2026/0816",
+      documentDate: "2026-09-15",
+      dueDate: "2026-09-29",
+      category: "software",
+      payment: "bank",
+      note: "",
+      amounts: [{ taxRate: 1900, net: 18_120, tax: 3_443 }],
+    });
+    await documents.bookDocument(actor, unbestätigt);
+    expect(await bank.belegGirocode(unbestätigt, "2026-09-16")).toMatchObject({
+      iban: null,
+      problem: "Die IBAN aus der E-Rechnung ist noch nicht bestätigt: am Beleg übernehmen",
       problemImKontakt: false,
       varianten: [],
     });
