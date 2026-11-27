@@ -246,4 +246,5 @@ Im Jahresexport liegt `anlagen/anlagenverzeichnis.csv` mit Buchwert am Jahresanf
 - Degressive AfA nur für Anschaffungen ab 2020 in den oben genannten Zeiträumen; ältere degressive Anlagen übernimmst du linear mit Restbuchwert.
 - Private Kfz-Nutzung nur nach der Listenpreismethode: kein Fahrtenbuch, keine Fahrten zwischen Wohnung und Betriebsstätte (0,03 %) und keine Kostendeckelung.
 - Gebuchte AfA lässt sich nicht stornieren.
+- Eine Entnahme versteuert Haben immer mit 19 % und mit einem Wert für Umsatzsteuer und EÜR. Gilt für den Gegenstand der ermäßigte Satz ([§ 12 Abs. 2 UStG](https://www.gesetze-im-internet.de/ustg_1980/__12.html)) oder war nur ein später eingebauter Bestandteil mit Vorsteuer belastet (dann zählt nur dessen Restwert, UStAE 10.6 Abs. 2), klärst du die Werte mit der Steuerberatung.
 - Kontenzuordnung vor dem Echtbetrieb mit dem Steuerberater abgleichen.
