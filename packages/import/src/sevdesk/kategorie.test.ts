@@ -35,7 +35,8 @@ describe("sevAccountCategory", () => {
   });
 
   it("macht keine Ausgabenkategorie neutral", () => {
-    for (const { label } of Object.values(EXPENSE_CATEGORIES)) expect(neutral(label), label).toBeNull();
+    // Die Privatentnahme (#1975) ist keine Ausgabe, sondern das Entnahmekonto, das bei GmbH neutral bleibt (Test oben)
+    for (const [key, { label }] of Object.entries(EXPENSE_CATEGORIES)) if (key !== "privatentnahme") expect(neutral(label), label).toBeNull();
   });
 
   it("lässt Anlagegut und Einfuhrumsatzsteuer aus, sie brauchen Anlagenverzeichnis bzw. Bescheid", () => {
