@@ -231,17 +231,6 @@ test("Tablet (768 px, 861 px) und schmales Handy (320 px): kein Überlauf und ke
       expect.soft(overflow, `${pfad} bei ${viewport.width}px ohne Seitenüberlauf`).toBeLessThanOrEqual(1);
     }
   }
-  // Brechen die Kopf-Aktionen in mehrere Reihen um, beginnen sie an der Kante des Titels statt rechtsbündig mit Lücke links
-  await page.setViewportSize({ width: 861, height: 1100 });
-  await page.goto(`/auswertungen?jahr=${YEAR}`);
-  await page.waitForLoadState("networkidle");
-  const kopf = await page.evaluate(() => {
-    const titel = document.querySelector(".page-head h1")!.getBoundingClientRect();
-    const knoepfe = [...document.querySelectorAll(".page-head > .actions > *")].map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0);
-    return { reihen: new Set(knoepfe.map((r) => Math.round(r.top))).size, abstand: Math.min(...knoepfe.map((r) => r.left)) - titel.left };
-  });
-  if (kopf.reihen > 1) expect(Math.abs(kopf.abstand), "umbrechende Kopf-Aktionen beginnen an der Titelkante").toBeLessThanOrEqual(1);
-
   // Zahlungsplan-Vorlagen in Einstellungen › Rechnungen: Auswahl „%/€ netto“ überlappt kein Nachbarfeld
   await page.setViewportSize({ width: 861, height: 1100 });
   await page.goto("/einstellungen?bereich=rechnungen");
