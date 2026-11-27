@@ -135,7 +135,7 @@
   .stack-table:has(.account-combobox), .stack-table:has(.account-combobox) :is(tbody, tfoot, tr, td, th) { display: block; width: 100%; }
   .stack-table:has(.account-combobox) tr { border-top: 1px solid var(--line); padding: 8px 0; }
   .stack-table:has(.account-combobox) tbody:first-of-type tr:first-child { border-top: 0; }
-  .stack-table:has(.account-combobox) :is(td, th) { border-top: 0 !important; padding: 2px 0 !important; text-align: left !important; }
+  .stack-table:has(.account-combobox) :is(td, th) { border-top: 0 !important; padding: 4px 0 !important; text-align: left !important; }
   .stack-table:has(.account-combobox) td[data-label] { position: relative; padding-left: 108px !important; }
   .stack-table:has(.account-combobox) td[data-label]::before { content: attr(data-label); position: absolute; left: 0; width: 100px; color: var(--muted); font-family: var(--sans); font-weight: 400; font-size: 12px; line-height: 1.6; }
   .stack-table:has(.account-combobox) td:empty { display: none; }
