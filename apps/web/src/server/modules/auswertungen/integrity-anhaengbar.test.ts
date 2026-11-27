@@ -111,6 +111,44 @@ describe.skipIf(!testDatabaseUrl)("Nur anhängbare Tabellen gegen das Audit-Log 
     ]);
   });
 
+  // Ein Eintrag lässt sich mit eingeschalteten Triggern ans Audit-Log anhängen; die Kette bleibt dabei heil, ebenso jeder
+  // Prüfwert von außerhalb. Ändern oder löschen lässt haben_append_only diese Zeilen nie, maßgeblich ist ihr Einfügen.
+  it("meldet eine gelöschte Zeile auch nach einem angehängten DELETE-Eintrag", async () => {
+    const id = await settlement();
+    const found = await rolledBack(async (tx) => {
+      await tamper(tx, () => tx`delete from invoice_settlements where id = ${id}`);
+      await tx`insert into audit_log (actor, table_name, row_id, action, old_value, new_value)
+        select 'test', 'invoice_settlements', ${id}, 'DELETE', new_value, null
+          from audit_log where table_name = 'invoice_settlements' and row_id = ${id} and action = 'INSERT'`;
+      // Den Kopf der Kette setzt ein aufgeschobener Trigger erst beim Commit
+      await tx`set constraints all immediate`;
+      return problems(tx);
+    });
+    expect(found).toEqual([
+      {
+        art: "siegel",
+        tabelle: "invoice_settlements",
+        zeile: id,
+        seq: await eintrag("invoice_settlements", id),
+        befund: "Zeile fehlt, steht aber im Audit-Log",
+      },
+    ]);
+  });
+
+  it("meldet eine geänderte Zeile auch nach einem angehängten Eintrag mit dem neuen Wert", async () => {
+    const id = await settlement();
+    const found = await rolledBack(async (tx) => {
+      await tamper(tx, () => tx`update invoice_settlements set amount = 1 where id = ${id}`);
+      await tx`insert into audit_log (actor, table_name, row_id, action, old_value, new_value)
+        select 'test', 'invoice_settlements', ${id}, 'INSERT', null, to_jsonb(s) from invoice_settlements s where s.id = ${id}`;
+      await tx`set constraints all immediate`;
+      return problems(tx);
+    });
+    expect(found).toEqual([
+      { art: "siegel", tabelle: "invoice_settlements", zeile: id, seq: await eintrag("invoice_settlements", id), befund: "Zeile weicht vom Audit-Log ab" },
+    ]);
+  });
+
   it("meldet eine Zeile, die an den Triggern vorbei eingefügt wurde", async () => {
     const ids = { invoice: await lockedInvoice(), counter: await lockedInvoice() };
     const found = await rolledBack(async (tx) => {
