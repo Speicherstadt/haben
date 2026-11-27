@@ -1,6 +1,6 @@
-import type { Anteilszeile } from "@haben/core";
-import { inArray } from "drizzle-orm";
-import { schema, type Db, type Tx } from "../../db/index.ts";
+import { PRIVATENTNAHME, type Anteilszeile } from "@haben/core";
+import { and, eq, inArray } from "drizzle-orm";
+import { db, schema, type Db, type Tx } from "../../db/index.ts";
 
 /**
  * Netto und Steuer der Zeilen `privatentnahme` je Beleg (#1975). Eine Quelle für alle Leser der Vorsteuer: die
@@ -27,4 +27,14 @@ export async function entnahmeZeilen(ids: readonly string[], q: Db | Tx): Promis
     result.set(row.documentId, [...(result.get(row.documentId) ?? []), zeile]);
   }
   return result;
+}
+
+/** Kennungen der Belege, deren Aufteilung eine Zeile `privatentnahme` trägt (#1975); für Skonto und die EÜR */
+export async function documentsMitEntnahme(ids: readonly string[], q: Db | Tx = db): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const rows = await q
+    .select({ documentId: schema.documentSplits.documentId })
+    .from(schema.documentSplits)
+    .where(and(inArray(schema.documentSplits.documentId, [...ids]), eq(schema.documentSplits.category, PRIVATENTNAHME)));
+  return new Set(rows.map((row) => row.documentId));
 }

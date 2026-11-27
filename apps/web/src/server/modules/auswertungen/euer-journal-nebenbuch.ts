@@ -19,13 +19,14 @@ import {
 import { eq, inArray } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
 import { splitsByDocument } from "../belege/index.ts";
+import { documentsMitEntnahme } from "../umsatzsteuer/index.ts";
 import { invoiceTotalsById } from "../rechnungen/index.ts";
 import { bloecke, offenerPosten, type Zeile } from "./euer-journal-buchungen.ts";
 import { belegZahlungsWirkungen } from "./euer-belegzahlungen.ts";
 
 /*
  * Was die EÜR aus dem Journal (euer-journal.ts) aus dem Nebenbuch braucht, weil die Buchung allein es nicht hergibt: die
- * Rundung von Teilzahlungen auf Belege mit Privatanteil oder ohne Vorsteuerabzug und die Zeilen übernommener
+ * Rundung von Teilzahlungen auf Belege mit Privatanteil, Entnahmezeile oder ohne Vorsteuerabzug und die Zeilen übernommener
  * Lexoffice-Posten, deren Buchung gegen den Saldenvortrag steht.
  */
 
@@ -61,9 +62,14 @@ export async function belegNebenbuecher(q: Db | Tx, ids: string[]): Promise<Map<
     for (const a of await q.select().from(schema.documentAmounts).where(inArray(schema.documentAmounts.documentId, block)))
       amounts.set(a.documentId, [...(amounts.get(a.documentId) ?? []), a]);
     // Teilabzug braucht die ursprüngliche Steuer je Satz: Der Betrag der Aufwandszeile enthält auch den nicht
-    // abziehbaren Teil. Ein neuer Satzoverride darf deshalb nicht vom Boolean am Beleg übergangen werden.
+    // abziehbaren Teil. Ein neuer Satzoverride darf deshalb nicht vom Boolean am Beleg übergangen werden. Eine
+    // Entnahmezeile rundet Teilzahlungen wie der Privatanteil am Beleg kumuliert, auch bei vollem Abzug (#1975).
+    const mitEntnahme = await documentsMitEntnahme(block, q);
     const noetig = docs.filter(
-      (doc) => hatPrivatanteil(doc.privateShare) || (amounts.get(doc.id) ?? []).some((a) => gespeicherterAnteil(doc, a.vorsteuerAnteil) !== 10_000),
+      (doc) =>
+        hatPrivatanteil(doc.privateShare) ||
+        mitEntnahme.has(doc.id) ||
+        (amounts.get(doc.id) ?? []).some((a) => gespeicherterAnteil(doc, a.vorsteuerAnteil) !== 10_000),
     );
     if (noetig.length === 0) continue;
     const noetigIds = noetig.map((doc) => doc.id);

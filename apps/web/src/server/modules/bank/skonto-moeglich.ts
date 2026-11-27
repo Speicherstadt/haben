@@ -1,6 +1,6 @@
-import { and, eq, inArray } from "drizzle-orm";
-import { hatPrivatanteil, PRIVATENTNAHME, type Prozent } from "@haben/core";
-import { db, schema, type Db, type Tx } from "../../db/index.ts";
+import { hatPrivatanteil, type Prozent } from "@haben/core";
+import { db, type Db, type Tx } from "../../db/index.ts";
+import { documentsMitEntnahme } from "../umsatzsteuer/index.ts";
 
 /*
  * Erhaltenes Skonto auf einen Beleg (#1975): Die Überweisungsliste bietet es an, `skontoErhalten` bucht es aus. Prüften
@@ -41,16 +41,6 @@ export function skontoMoeglich(lage: SkontoLage): SkontoMoeglichkeit {
     return { moeglich: false, grund: "Skonto auf Anlagegüter mindert die Anschaffungskosten und wird nicht unterstützt." };
   }
   return { moeglich: true, grund: null };
-}
-
-/** Kennungen der Belege, deren Aufteilung eine Zeile `privatentnahme` trägt (#1975) */
-export async function documentsMitEntnahme(ids: string[], q: Db | Tx = db): Promise<Set<string>> {
-  if (ids.length === 0) return new Set();
-  const rows = await q
-    .select({ documentId: schema.documentSplits.documentId })
-    .from(schema.documentSplits)
-    .where(and(inArray(schema.documentSplits.documentId, ids), eq(schema.documentSplits.category, PRIVATENTNAHME)));
-  return new Set(rows.map((row) => row.documentId));
 }
 
 /** Ob dieser eine Beleg eine Entnahmezeile trägt */

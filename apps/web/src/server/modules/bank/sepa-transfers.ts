@@ -23,7 +23,8 @@ import { loadCompany } from "../stammdaten/index.ts";
 import { BankError } from "./bank-error.ts";
 import { documentPayments } from "./settled-amounts.ts";
 import { documentPayees, ibanDecisions, type DocumentPayee } from "./document-payees.ts";
-import { documentsMitEntnahme, skontoMoeglich } from "./skonto-moeglich.ts";
+import { documentsMitEntnahme } from "../umsatzsteuer/index.ts";
+import { skontoMoeglich } from "./skonto-moeglich.ts";
 
 /** Ein offener Beleg, der sich überweisen lässt, oder warum nicht */
 export interface TransferCandidate {

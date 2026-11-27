@@ -2,17 +2,23 @@ import { documentEuerEffects, EXPENSE_CATEGORIES, type DocumentEuerEffect, type 
 import { inArray, sql } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
 import { splitsByDocument } from "../belege/index.ts";
+import { documentsMitEntnahme } from "../umsatzsteuer/index.ts";
 import { documentTotalsById } from "./euer-belege.ts";
 
 /**
- * Teilabzüge über alle bisherigen Zahlungen fortschreiben, auch über den Jahreswechsel. Gelesen werden ausschließlich
+ * Teilabzüge und Belege mit Entnahmezeile über alle bisherigen Zahlungen fortschreiben, auch über den Jahreswechsel. Gelesen werden ausschließlich
  * vorhandene Zuordnungen, Verrechnungen und Kursdifferenzen; Skonto ist keine EÜR-Zahlung. Es wird nichts gespeichert.
  */
 export async function belegZahlungsWirkungen(q: Db | Tx, ids: string[]): Promise<Map<string, DocumentEuerEffect>> {
   const result = new Map<string, DocumentEuerEffect>();
   if (ids.length === 0) return result;
   const { totals, selbstGeschuldet } = await documentTotalsById(ids, q);
-  const partial = ids.filter((id) => totals.get(id)?.taxes.some((t) => (t.vorsteuerAnteil ?? 0) > 0 && (t.vorsteuerAnteil ?? 10_000) < 10_000));
+  // Kumuliert fortgeschrieben werden Teilabzüge und Belege mit Entnahmezeile (#1975): Je Zahlung gerundet ergäben ihre
+  // Zeilen über mehrere Raten einen Cent mehr oder weniger Aufwand als die Vollzahlung.
+  const mitEntnahme = await documentsMitEntnahme(ids, q);
+  const partial = ids.filter(
+    (id) => mitEntnahme.has(id) || totals.get(id)?.taxes.some((t) => (t.vorsteuerAnteil ?? 0) > 0 && (t.vorsteuerAnteil ?? 10_000) < 10_000),
+  );
   if (partial.length === 0) return result;
   const d = schema.documents;
   const docs = await q.select({ id: d.id, category: d.category, privateShare: d.privateShare }).from(d).where(inArray(d.id, partial));
