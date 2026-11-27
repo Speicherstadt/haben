@@ -1,3 +1,4 @@
+import { XI_NUR_LIEFERUNGEN } from "@haben/core";
 import type postgres from "postgres";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
@@ -97,16 +98,33 @@ describe.skipIf(!testDatabaseUrl)("USt-IdNr. vor dem Festschreiben bestätigen (
     expect(await modul.ustIdVorFestschreiben(actor, contactId, "reverse_charge", AM_TAG, dienst().via)).toEqual({ hinweis: null });
   });
 
-  it("eine Nummer, die sich nicht bestätigen lässt, ergibt einen Hinweis ohne Abfrage", async () => {
-    // Reverse Charge prüft den Aufbau beim Festschreiben nicht (treatmentIssues nur bei der Lieferung)
-    await contacts.updateContact(actor, contactId, kontakt("ATU1234567"));
+  it("eine Nummer, die das Festschreiben sperrt, ergibt die Sperre statt eines Hinweises, ohne Abfrage", async () => {
+    // Seit #1433 sperrt der Aufbau auch bei Reverse Charge (treatmentIssues); die Rückfrage sagt das, nicht „geht trotzdem“
+    await contacts.updateContact(actor, contactId, kontakt("ATU1234"));
     expect(await modul.ustIdVorFestschreiben(actor, contactId, "reverse_charge", AM_TAG, dienst().via)).toEqual({
-      hinweis: "ATU1234567: Bestätigen lässt sich nur die USt-IdNr. eines anderen EU-Mitgliedstaats mit passendem Aufbau.",
+      hinweis: "ATU1234: eine USt-IdNr. aus Österreich hat nach AT ein U und acht Ziffern.",
+      sperrt: true,
+    });
+    expect(await modul.ustIdVorFestschreiben(actor, contactId, "ig_lieferung", AM_TAG, dienst().via)).toEqual({
+      hinweis: "ATU1234: eine USt-IdNr. aus Österreich hat nach AT ein U und acht Ziffern.",
+      sperrt: true,
     });
     await contacts.updateContact(actor, contactId, kontakt("DE123456788"));
-    expect((await modul.ustIdVorFestschreiben(actor, contactId, "reverse_charge", AM_TAG, dienst().via)).hinweis).toContain(
-      "DE123456788: Bestätigen lässt sich nur",
-    );
+    expect(await modul.ustIdVorFestschreiben(actor, contactId, "reverse_charge", AM_TAG, dienst().via)).toEqual({
+      hinweis: "DE123456788: eine deutsche USt-IdNr. gehört nicht in die Zusammenfassende Meldung.",
+      sperrt: true,
+    });
+    // Auch abgeschaltet: Die Sperre kommt nicht vom BZSt. Nordirland sperrt bei einer Leistung, bei einer Lieferung nicht
+    process.env.HABEN_EVATR = "off";
+    await contacts.updateContact(actor, contactId, kontakt("ATU1234"));
+    expect((await modul.ustIdVorFestschreiben(actor, contactId, "reverse_charge", AM_TAG, dienst().via)).sperrt).toBe(true);
+    await contacts.updateContact(actor, contactId, kontakt("XI123456789"));
+    expect(await modul.ustIdVorFestschreiben(actor, contactId, "reverse_charge", AM_TAG, dienst().via)).toEqual({
+      hinweis: `XI123456789: ${XI_NUR_LIEFERUNGEN}.`,
+      sperrt: true,
+    });
+    expect(await modul.ustIdVorFestschreiben(actor, contactId, "ig_lieferung", AM_TAG, dienst().via)).toEqual({ hinweis: null });
+    delete process.env.HABEN_EVATR;
     // Ohne Nummer meldet das Festschreiben selbst, was fehlt
     await contacts.updateContact(actor, contactId, kontakt(""));
     expect(await modul.ustIdVorFestschreiben(actor, contactId, "reverse_charge", AM_TAG, dienst().via)).toEqual({ hinweis: null });

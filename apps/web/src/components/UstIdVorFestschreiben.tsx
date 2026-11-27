@@ -4,10 +4,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { ustIdVorBuchenFn, ustIdVorFestschreibenFn } from "../server/functions/ustid-bestaetigung.ts";
 
-type Stand = "laeuft" | { hinweis: string | null } | null;
+type Stand = "laeuft" | { hinweis: string | null; sperrt?: true } | null;
 
 /** Prüft beim Öffnen der Rückfrage und bei jedem neuen Schlüssel; ohne Schlüssel nichts */
-function usePruefung(open: boolean, schluessel: string | null, pruefe: () => Promise<{ hinweis: string | null }>): Stand {
+function usePruefung(open: boolean, schluessel: string | null, pruefe: () => Promise<{ hinweis: string | null; sperrt?: true }>): Stand {
   const [stand, setStand] = useState<Stand>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: nur das Öffnen und der Schlüssel lösen eine Prüfung aus
   useEffect(() => {
@@ -28,6 +28,13 @@ function usePruefung(open: boolean, schluessel: string | null, pruefe: () => Pro
   return stand;
 }
 
+/**
+ * Nachsatz zum Hinweis: Meist geht die Aktion trotzdem. Sperrt die Nummer das Festschreiben selbst (`sperrt`, etwa ATU1234
+ * bei Reverse Charge), sagt er das, statt „geht trotzdem“ zu versprechen, das der Server dann ablehnt.
+ */
+export const hinweisNachsatz = (sperrt: boolean | undefined, trotzdem: string): string =>
+  sperrt ? "Festschreiben geht erst, wenn die USt-IdNr. am Kontakt stimmt" : trotzdem;
+
 function Hinweis({ stand, wer, trotzdem, contactId }: { stand: Stand; wer: string; trotzdem: string; contactId: string | null }) {
   if (stand === "laeuft") {
     return (
@@ -38,9 +45,9 @@ function Hinweis({ stand, wer, trotzdem, contactId }: { stand: Stand; wer: strin
   }
   if (!stand?.hinweis) return null;
   return (
-    <div className="banner banner-warn" role="status">
+    <div className={stand.sperrt ? "banner banner-danger" : "banner banner-warn"} role="status">
       <span>
-        {stand.hinweis} {trotzdem}
+        {stand.hinweis} {hinweisNachsatz(stand.sperrt, trotzdem)}
         {contactId ? (
           <>
             ; alle Antworten stehen beim{" "}
@@ -60,7 +67,7 @@ function Hinweis({ stand, wer, trotzdem, contactId }: { stand: Stand; wer: strin
 /**
  * Hinweis in der Rückfrage zum Festschreiben einer Rechnung mit Reverse Charge oder innergemeinschaftlicher Lieferung (#1385).
  * Beim Öffnen fragt der Server das BZSt, wenn die Nummer des Kunden nicht frisch bestätigt ist (bei Reverse Charge mit Name und Ort).
- * Ein Hinweis sperrt das Festschreiben nicht.
+ * Ein Hinweis sperrt das Festschreiben nicht; sperrt die Nummer es selbst (treatmentIssues), steht das statt „geht trotzdem“ da.
  */
 export function UstIdVorFestschreiben({ open, contactId, behandlung }: { open: boolean; contactId: string; behandlung: "reverse_charge" | "ig_lieferung" }) {
   const pruefe = useServerFn(ustIdVorFestschreibenFn);
