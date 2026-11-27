@@ -968,7 +968,7 @@ test("Lohn: Gesellschafter-Geschäftsführer anlegen, im laufenden Monat abrechn
   await go(`/konten/3720?jahr=${lohnJahr}&zeitraum=jahr`);
   await expect(page.getByRole("heading", { name: /3720/ })).toContainText("Verbindlichkeiten aus Lohn und Gehalt");
   await expect(page.getByText(lohnText)).toBeVisible();
-  await expect(page.getByText(/Erika Gesellschafter · lohn/)).toBeVisible();
+  await expect(page.getByText(/Erika Gesellschafter · Lohn\/Gehalt/)).toBeVisible();
 
   // Storno: die Abrechnung bleibt, daneben ein neuer Entwurf für denselben Monat; die Buchung wird gegengebucht
   await go(lohnSeite);
