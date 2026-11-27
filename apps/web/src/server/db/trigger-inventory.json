@@ -3709,8 +3709,8 @@
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "10e4eb7c474b920a2ca95243e119b888e008220e04fea3be69bff70916c3cafb",
-      "definitionHash": "ebbf89d411d1ead17ca22f9b53d48c5b6b3b7a00d707f70aaaa1e7f8f4e454e0"
+      "sourceHash": "0f2c15316da89ee2e4e8641b824d9492f5eb67f7405e4bec1f6dcadf89aca93e",
+      "definitionHash": "36f9fe90775b66113cff79ac8018cfc241cf8c06c46c78bd35afea2bad7400e2"
     },
     {
       "name": "public.haben_loan_fixed()",

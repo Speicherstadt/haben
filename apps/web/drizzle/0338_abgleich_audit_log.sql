@@ -58,7 +58,8 @@ $$;
 --> statement-breakpoint
 -- Bestand: jede Zeile ohne Eintrag im Audit-Log nachträglich eintragen, wie haben_audit es beim Einfügen getan hätte, in der
 -- Reihenfolge des Primärschlüssels. Betrifft die fünf Tabellen oben und Zeilen, die vor dem Audit-Trigger ihrer Tabelle
--- entstanden. Ein Eintrag gilt als vorhanden, wenn sein Wert den Primärschlüssel der Zeile trägt, egal mit welcher row_id.
+-- entstanden. Ein INSERT-Eintrag gilt als vorhanden, wenn sein Wert den Primärschlüssel der Zeile trägt, egal mit welcher
+-- row_id; so findet ihn auch der Abgleich in haben_integrity_problems.
 DO $$
 DECLARE
   tbl text;
@@ -82,8 +83,8 @@ BEGIN
         FROM (SELECT to_jsonb(t) - haben_audit_omitted_columns() AS j
                 FROM %1$I t
                WHERE NOT EXISTS (SELECT 1 FROM audit_log a
-                                 CROSS JOIN LATERAL jsonb_populate_record(NULL::%1$I, coalesce(a.new_value, a.old_value)) p
-                                  WHERE a.table_name = %1$L AND %2$s)
+                                 CROSS JOIN LATERAL jsonb_populate_record(NULL::%1$I, a.new_value) p
+                                  WHERE a.table_name = %1$L AND a.action = 'INSERT' AND %2$s)
                ORDER BY %3$s) x
     $q$, tbl, pk_match, pk_order);
     GET DIAGNOSTICS anzahl = ROW_COUNT;
@@ -263,7 +264,9 @@ BEGIN
 
   -- Nur anhängbare Tabellen ohne Siegel (#861): Jede Zeile steht so im Audit-Log, wie sie in der Tabelle steht. Ihr
   -- Audit-Trigger schreibt beim Einfügen den ganzen Wert, und ändern oder löschen lässt haben_append_only sie nur mit
-  -- abgeschalteten Triggern; das hinterlässt keinen Eintrag. Maßgeblich ist der letzte Eintrag je Primärschlüssel.
+  -- abgeschalteten Triggern; das hinterlässt keinen Eintrag. Maßgeblich ist der erste INSERT-Eintrag je Primärschlüssel:
+  -- Einen weiteren Eintrag, etwa ein DELETE oder ein INSERT mit dem geänderten Wert, kann jeder mit eingeschalteten
+  -- Triggern anhängen, ohne die Kette zu brechen.
   -- jsonb_populate_record wandelt den Wert in den Zeilentyp, damit etwa Zeitpunkte unabhängig von der Zeitzone der
   -- schreibenden Sitzung verglichen werden. Spalten, die eine spätere Migration ergänzt hat, fehlen in älteren Einträgen
   -- und bleiben dort ungeprüft; die Spalten, die haben_audit weglässt (PDF, XML), prüft der Abgleich nicht.
@@ -293,26 +296,23 @@ BEGIN
     BEGIN
       RETURN QUERY EXECUTE format($q$
         WITH e AS (
-          SELECT a.seq, a.action, coalesce(a.new_value, a.old_value) AS v,
-                 jsonb_populate_record(NULL::%1$I, coalesce(a.new_value, a.old_value)) AS p
+          SELECT a.seq, a.new_value AS v, jsonb_populate_record(NULL::%1$I, a.new_value) AS p
             FROM audit_log a
-           WHERE a.table_name = %1$L
+           WHERE a.table_name = %1$L AND a.action = 'INSERT'
         ), l AS (
-          SELECT DISTINCT ON (%3$s) e.* FROM e ORDER BY %3$s, e.seq DESC
+          SELECT DISTINCT ON (%3$s) e.* FROM e ORDER BY %3$s, e.seq
         )
         SELECT 'siegel'::text, %1$L::text, x.zeile, x.eintrag, x.befund
           FROM (SELECT CASE WHEN t._haben_da THEN %4$s ELSE %5$s END AS zeile,
-                       CASE WHEN l.action <> 'DELETE' THEN l.seq END AS eintrag,
+                       l.seq AS eintrag,
                        CASE
                          WHEN t._haben_da IS NULL THEN 'Zeile fehlt, steht aber im Audit-Log'
-                         WHEN l.seq IS NULL OR l.action = 'DELETE' THEN 'Zeile steht nicht im Audit-Log'
+                         WHEN l.seq IS NULL THEN 'Zeile steht nicht im Audit-Log'
                          ELSE 'Zeile weicht vom Audit-Log ab'
                        END AS befund
                   FROM l
                   FULL JOIN (SELECT true AS _haben_da, * FROM %1$I) t ON %2$s
-                 WHERE (t._haben_da IS NULL AND l.action <> 'DELETE')
-                    OR (t._haben_da AND (l.seq IS NULL OR l.action = 'DELETE'))
-                    OR (t._haben_da AND l.action <> 'DELETE' AND (%6$s))) x
+                 WHERE t._haben_da IS NULL OR l.seq IS NULL OR (%6$s)) x
          ORDER BY x.eintrag NULLS LAST, x.zeile
          LIMIT $1
       $q$, tbl, pk_match, pk_key, zeile_t, zeile_l, abweichung) USING max_rows;
