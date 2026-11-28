@@ -2,7 +2,7 @@ import type postgres from "postgres";
 import { createHash } from "node:crypto";
 import { sql as query } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { auditNachtragen, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
 describe.skipIf(!testDatabaseUrl)("Belegimport: zweite unabhängige Reviewrunde (Postgres)", () => {
   let sql: postgres.Sql;
@@ -29,6 +29,8 @@ describe.skipIf(!testDatabaseUrl)("Belegimport: zweite unabhängige Reviewrunde 
       await tx`set local session_replication_role = replica`;
       await tx`truncate seals, audit_log, audit_chain, company, contacts, quotes, invoices, cash_entries, journal_entries, external_imports, lexoffice_imports cascade`;
       await tx`insert into audit_chain (id, seq, hash) values (1, 0, haben_audit_genesis())`;
+      await tx`set local session_replication_role = origin`;
+      await auditNachtragen(tx);
     });
     await sql`insert into company (id,name,kleinunternehmer,rechtsform,kontenrahmen,bundesland)
       values (1,'Erfundener Reviewbetrieb',true,'einzelunternehmen','SKR03','NI')`;

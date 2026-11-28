@@ -18,7 +18,7 @@ Alle Tabellen stehen in `apps/web/src/server/db/schema.ts`. Beträge sind ganze 
 | `einrichtung` | [Fragen zur Einrichtung](einrichtung.md#fragen-zur-einrichtung): ausgeblendete Bereiche, wann die Fragen zuletzt durchgegangen sind und ob Rechtsform oder Kleinunternehmer mit „weiß ich nicht“ offen sind; höchstens eine Zeile, angelegt beim ersten Speichern | Audit, kein `TRUNCATE` |
 | `elster_certificates` | ELSTER-Zertifikatsdatei, verschlüsselt; auf Wunsch die PIN für den automatischen Postfachabruf, ebenfalls verschlüsselt | Audit ohne Chiffrat und PIN |
 | `contacts` | Kunden und Lieferanten, mit Herkunft aus Lexoffice; DATEV-Debitor und -Kreditor (`debitor_nr`, `kreditor_nr`, eindeutig, Bereich per CHECK) | nicht löschbar, versioniert, Audit |
-| `contact_versions` | Stand eines Kontakts je Version | nur anhängen |
+| `contact_versions` | Stand eines Kontakts je Version | nur anhängen, Audit |
 | `bankverbindungen` | Weitere Zahlungskonten für Rechnungen und Angebote (#1887): Bezeichnung, IBAN (eindeutig), BIC, Bank, Kontoinhaber; das Standardkonto bleibt in `company`. `contacts.bankverbindung_id` (bevorzugtes Zahlungskonto), `invoices.bankverbindung_id` und `quotes.bankverbindung_id` halten die Auswahl im Entwurf (`ON DELETE SET NULL`); festgeschrieben steht die Kopie der Kontodaten im Verkäufer (`seller`), der Verweis ist dann per CHECK leer (`invoices_bankverbindung_entwurf`, `quotes_bankverbindung_entwurf`) | löschbar, Audit |
 | `contact_persons` | Ansprechpartner eines Kontakts (#424): Name, E-Mail, Telefon, Funktion, `deactivated_at`. Änderbar, nicht löschbar (Trigger vor `DELETE` und `TRUNCATE`), deaktivieren statt löschen. `invoices.contact_person_id` und `quotes.contact_person_id` halten die Auswahl im Entwurf, der festgeschriebene Stand steht als `ansprechpartner` im Käufer des Belegs (`buyer`) | Audit |
 | `sepa_mandates` | SEPA-Lastschriftmandate eines Kunden (#445): Mandatsreferenz (eindeutig ohne Rücksicht auf Groß- und Kleinschreibung), Datum der Unterschrift, CORE oder B2B, Sequenz des ersten Einzugs aus Haben (`FRST` oder `RCUR`), letzter Einzug vor Haben, Kontoinhaber, IBAN, BIC; der Verfall nach 36 Monaten ohne Einzug folgt aus `mandatStatus` in `packages/core` | nur anhängen, Audit |
@@ -74,7 +74,7 @@ Alle Tabellen stehen in `apps/web/src/server/db/schema.ts`. Beträge sind ganze 
 | `bank_duplicate_reviews` | Verdachtspaare ähnlicher Bankumsätze aus Bankabruf oder Bestandsprüfung | nur anhängen, Audit, kein `TRUNCATE` |
 | `bank_duplicate_decisions` | Entscheidungen zu Verdachtsvermerken und Gegenzeilen, die jeweils eine konkrete Entscheidung aufheben | nur anhängen, Audit, kein `TRUNCATE` |
 | `bank_duplicate_check` | Abschluss der einmaligen Prüfung bestehender Bankumsätze auf Dubletten, auch ohne Treffer | nur anhängen, Audit, kein `TRUNCATE` |
-| `bank_transactions` | Importierte Umsätze mit Hash zur Deduplizierung; EndToEndId, soweit der Auszug sie nennt | nur anhängen |
+| `bank_transactions` | Importierte Umsätze mit Hash zur Deduplizierung; EndToEndId, soweit der Auszug sie nennt | nur anhängen, Audit |
 | `import_sources` | Quellenbindung des Importvertrags ([#306](https://github.com/Speicherstadt/haben/issues/306)): Konto, Kennung beim Anbieter und Stichtag (erster Tag, den die Quelle liefert, gesetzt mit der Bindung), eindeutig je Anbieter und Kennung | nur anhängen, Audit |
 | `import_batches` | Angenommene Lieferungen mit Prüfwert, Fenster, offenen Ereignissen, nachweislich mehrfach vergebenen Enable-Banking-Referenzen und dem Abrufstand danach | nur anhängen, Audit |
 | `import_movements` | Quellenidentität: Ereignis und Komponente mit buchungsrelevantem Kern, den gelieferten Referenzen (`refs`) und dem Umsatz in `bank_transactions` | nur anhängen, Audit |
@@ -148,15 +148,15 @@ Alle Tabellen stehen in `apps/web/src/server/db/schema.ts`. Beträge sind ganze 
 | `archive_files` | Originalexporte (DATEV, IDEA, ELSTER-Protokolle, Kontoauszüge) unter SHA-256 | nur anhängen, Audit |
 | `store_reports` | Abgerufene Finanzberichte der App-Stores je Store, Monat und Teil, mit Verweis auf die Originaldatei in `archive_files` | nur anhängen, Audit |
 | `store_payouts` | Übernommene Auszahlungen der App-Stores: Bankeingang, angelegte Auszahlung und Kursdifferenz im Konto des Stores, bezahlte Monatsumsätze | nur anhängen, Audit |
-| `datev_bookings` | Zeilen eines DATEV-Buchungsstapels, unverändert | nur anhängen |
+| `datev_bookings` | Zeilen eines DATEV-Buchungsstapels, unverändert | nur anhängen, Audit |
 | `lexoffice_connection` | API-Schlüssel für Lexware Office, verschlüsselt; eine Zeile | Audit ohne Chiffrat |
 | `sevdesk_connection` | API-Token für sevDesk, verschlüsselt, mit Buchhaltungsversion; eine Zeile | Audit ohne Chiffrat |
 | `fastbill_connection` | Login-E-Mail und API-Schlüssel für FastBill, der Schlüssel verschlüsselt, mit Stundengrenze des Tarifs; eine Zeile | Audit ohne Chiffrat |
 | `fastbill_receipts` | Ausgaben und Einnahmen, deren Beleg FastBill nur im Browser herausgibt, bis zum Archivieren (Kennung die ID aus FastBill, bei Einnahmen mit `einnahme-` davor): wartend, mit Datei aus dem Browser-Skript oder „ohne Beleg“ | kein Audit (Zwischenlager, Download-Links mit eigenem Schlüssel) |
 | `fastbill_recurring_templates` | Aus FastBill übernommene Vorlagen wiederkehrender Rechnungen: Antwort der API ohne Bankdaten, Hinweise zum Prüfen und die pausierte Vorlage in `recurring_invoices`; eindeutig je FastBill-Vorlage | Audit, TRUNCATE gesperrt |
 | `lexoffice_imports` | Läufe der Archivumzüge mit Fortschritt. Unter den in dieser Tabelle geführten Läufen kann höchstens einer den Status `laeuft` haben. Der JSON-Import steht getrennt in `external_imports`. | Audit beim Anlegen |
-| `lexoffice_vouchers` | Rechnungen und Belege aller Umzugsquellen (`source`) mit vollständiger Quellantwort beziehungsweise Originalpaket | nur anhängen |
-| `lexoffice_voucher_files` | Dateiverweise zu archivierten Belegen aller Umzugsquellen | nur anhängen |
+| `lexoffice_vouchers` | Rechnungen und Belege aller Umzugsquellen (`source`) mit vollständiger Quellantwort beziehungsweise Originalpaket | nur anhängen, Audit |
+| `lexoffice_voucher_files` | Dateiverweise zu archivierten Belegen aller Umzugsquellen | nur anhängen, Audit |
 | `legacy_voucher_payments` | Belegte Einzelzahlungen aus sevDesk oder lokalen Paketen mit Datum, Betrag, Konto und Herkunft; eindeutig je Zuordnung | nur anhängen, Audit |
 | `sevdesk_accounting_types` | Kontostamm der Buchungskonten aus sevDesk (`GET /AccountingType/{id}`), unverändert; eindeutig je Konto und Stand | nur anhängen, Audit, TRUNCATE gesperrt |
 | `sevdesk_accounting_type_decisions` | Kontoart einer sevDesk-Gutschrift auf ein Buchungskonto, von Hand festgelegt (Erlös- oder Aufwandskonto); die jüngste gilt | nur anhängen, Audit, TRUNCATE gesperrt |

@@ -936,154 +936,6 @@ test("Auftragsarchiv: suchen, Original-PDF nachreichen und unverändert herunter
   await expect(page.getByRole("row").filter({ hasText: "AN-ARCHIV-1" })).toContainText("1 vorhanden");
 });
 
-// #472: Gutschrift auf ein Buchungskonto aus sevDesk folgt dem Kontostamm; ohne erkannte Kontoart markiert Haben sie. Die Daten
-// stehen in 2019 und werden danach wieder entfernt, damit spätere Tests und Bilder das Archiv wie vorher sehen.
-test("sevDesk-Gutschrift auf Buchungskonto: Ausgabe-Gutschrift, Hinweis „Buchungskonto nicht erkannt“ und Kontoart von Hand", async ({ browser }) => {
-  const sql = postgres(databaseUrlFuer(), { max: 1 });
-  const note = (id: string, accountingTypeId: string) => ({
-    id,
-    bookingCategory: "ACCOUNTING_TYPE",
-    accountingType: { id: accountingTypeId, objectName: "AccountingType" },
-  });
-  let runId = "";
-  try {
-    await sql.begin(async (tx) => {
-      await tx`select set_config('haben.actor', 'e2e', true)`;
-      const [run] = await tx`insert into lexoffice_imports (source, status, progress)
-        values ('sevdesk', 'fertig', '{"phase":"fertig","contacts":0,"contactsLinked":0,"listed":2,"imported":2,"skipped":0,"files":0,"failed":[]}') returning id`;
-      runId = run!.id as string;
-      await tx`insert into sevdesk_accounting_types (import_id, accounting_type_id, raw)
-        values (${runId}, 'E2E-1', '{"id":"E2E-1","objectName":"AccountingType","skr03":"3100","skr04":"5900"}')`;
-      for (const [id, number, accountingTypeId] of [
-        ["901", "GS-E2E-1", "E2E-1"],
-        ["902", "GS-E2E-2", "E2E-2"],
-      ])
-        await tx`insert into lexoffice_vouchers (lexoffice_id, source, import_id, type, direction, number, date, status, contact_name, net, tax, gross, taxes, categories, payment, raw)
-          values (${`creditnote/${id}`}, 'sevdesk', ${runId}, 'creditnote', 'einnahme', ${number}, '2019-03-10', 'open', 'Erfundene Agentur', -10000, -1900, -11900,
-          '[{"rate":1900,"net":-10000,"tax":-1900}]', '[]', '{"status":"open","openAmount":-11900,"paidDate":null,"items":[]}', ${tx.json(note(id!, accountingTypeId!))})`;
-    });
-    await go("/archiv?ansicht=belege&jahr=2019");
-    await expect(page.getByRole("link", { name: /GS-E2E-1/ })).toContainText("Ausgabe-Gutschrift");
-    await expect(page.getByRole("link", { name: /GS-E2E-1/ })).not.toContainText("Buchungskonto nicht erkannt");
-    await expect(page.getByRole("link", { name: /GS-E2E-2/ })).toContainText("Buchungskonto nicht erkannt");
-    await page.getByRole("link", { name: /GS-E2E-2/ }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "GS-E2E-2" })).toBeVisible();
-    await expect(page.getByRole("status").filter({ hasText: "Buchungskonto nicht erkannt" })).toContainText("„Erneut abrufen“");
-    // Markierung und Hinweis prüft axe am Desktop und am Handy (WCAG 2.2 AA wie barrierefreiheit.spec.ts)
-    const context = await browser.newContext({ storageState: await page.context().storageState() });
-    const axePage = await context.newPage();
-    // 320 px ist die schmalste Breite nach WCAG 1.4.10, wie in barrierefreiheit.spec.ts
-    for (const url of ["/archiv?ansicht=belege&jahr=2019", page.url()])
-      for (const width of [1440, 390, 320]) {
-        await axePage.setViewportSize({ width, height: 900 });
-        await axePage.goto(new URL(url, page.url()).toString());
-        await axePage.waitForLoadState("networkidle");
-        // Die Markierung steht ganz in ihrer Spalte, auch am Handy, wo Kontakt und Art schmal sind
-        if (url.startsWith("/archiv?"))
-          expect(
-            await axePage.getByText("Buchungskonto nicht erkannt").evaluate((el) => {
-              const cell = el.closest(".table-row > div")!.getBoundingClientRect();
-              const pill = el.getBoundingClientRect();
-              return pill.left >= cell.left - 0.5 && pill.right <= cell.right + 0.5;
-            }),
-            `Markierung ganz sichtbar bei ${width} px`,
-          ).toBe(true);
-        const { violations } = await new AxeBuilder({ page: axePage })
-          .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"])
-          .analyze();
-        expect(
-          violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`),
-          `${url} bei ${width} px`,
-        ).toEqual([]);
-      }
-    await context.close();
-
-    // #888: Kontoart von Hand festlegen, mit Rückfrage; danach rechnet Haben wie bei einem erkannten Konto
-    await page.getByRole("button", { name: "Als Aufwandskonto festlegen" }).click();
-    const dialog = page.getByRole("dialog", { name: "Kontoart von GS-E2E-2 festlegen?" });
-    await expect(dialog).toContainText("119,00 €");
-    await expect(dialog).toContainText("Kz 66");
-    await expect(dialog.getByRole("button", { name: "Abbrechen" })).toBeFocused();
-    const dialogAxe = await new AxeBuilder({ page })
-      .include(".confirm-dialog")
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"])
-      .analyze();
-    expect(dialogAxe.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
-    await dialog.getByRole("button", { name: "Als Aufwandskonto festlegen" }).click();
-    await expect(page.getByRole("status").filter({ hasText: "Als Aufwandskonto festgelegt." })).toBeFocused();
-    await expect(page.getByText("Aufwandskonto, von Hand festgelegt")).toBeVisible();
-    await expect(page.getByRole("status").filter({ hasText: "Buchungskonto nicht erkannt" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Stattdessen als Erlöskonto festlegen" })).toBeVisible();
-    const vorher = page.viewportSize();
-    for (const width of [1440, 320]) {
-      await page.setViewportSize({ width, height: 900 });
-      const { violations } = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]).analyze();
-      expect(
-        violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`),
-        `von Hand festgelegt bei ${width} px`,
-      ).toEqual([]);
-    }
-    if (vorher) await page.setViewportSize(vorher);
-    await go("/archiv?ansicht=belege&jahr=2019");
-    await expect(page.getByRole("link", { name: /GS-E2E-2/ })).toContainText("Ausgabe-Gutschrift");
-    await expect(page.getByRole("link", { name: /GS-E2E-2/ })).not.toContainText("Buchungskonto nicht erkannt");
-  } finally {
-    if (runId)
-      await sql.begin(async (tx) => {
-        await tx`set local session_replication_role = replica`;
-        await tx`delete from sevdesk_accounting_type_decisions where voucher_id in (select id from lexoffice_vouchers where import_id = ${runId})`;
-        await tx`delete from sevdesk_accounting_types where import_id = ${runId}`;
-        await tx`delete from lexoffice_vouchers where import_id = ${runId}`;
-        await tx`delete from lexoffice_imports where id = ${runId}`;
-      });
-    await sql.end();
-  }
-});
-
-// #888: Widerspricht ein später abgerufener Kontostamm der Entscheidung von Hand, klärt nur noch die Art des Kontostamms;
-// die Rückfrage nennt nur Kennzahlen, die für die Gutschrift stimmen (hier 7 %: Kz 86, nicht Kz 81). Daten in 2018, danach entfernt.
-test("sevDesk-Gutschrift auf Buchungskonto: Widerspruch zum Kontostamm bietet nur dessen Art an, Rückfrage bei 7 %", async () => {
-  const sql = postgres(databaseUrlFuer(), { max: 1 });
-  let runId = "";
-  try {
-    await sql.begin(async (tx) => {
-      await tx`select set_config('haben.actor', 'e2e', true)`;
-      const [run] = await tx`insert into lexoffice_imports (source, status, progress)
-        values ('sevdesk', 'fertig', '{"phase":"fertig","contacts":0,"contactsLinked":0,"listed":1,"imported":1,"skipped":0,"files":0,"failed":[]}') returning id`;
-      runId = run!.id as string;
-      const [voucher] =
-        await tx`insert into lexoffice_vouchers (lexoffice_id, source, import_id, type, direction, number, date, status, contact_name, net, tax, gross, taxes, categories, payment, raw)
-        values ('creditnote/903', 'sevdesk', ${runId}, 'creditnote', 'einnahme', 'GS-E2E-3', '2018-05-14', 'open', 'Erfundener Verlag', -10000, -700, -10700,
-        '[{"rate":700,"net":-10000,"tax":-700}]', '[]', '{"status":"open","openAmount":-10700,"paidDate":null,"items":[]}',
-        ${tx.json({ id: "903", bookingCategory: "ACCOUNTING_TYPE", accountingType: { id: "E2E-3", objectName: "AccountingType" } })}) returning id`;
-      await tx`insert into sevdesk_accounting_type_decisions (voucher_id, kind, decided_by) values (${voucher!.id as string}, 'aufwand', 'e2e')`;
-      await tx`insert into sevdesk_accounting_types (import_id, accounting_type_id, raw)
-        values (${runId}, 'E2E-3', '{"id":"E2E-3","objectName":"AccountingType","skr03":"8300","skr04":"4300"}')`;
-    });
-    await go("/archiv?ansicht=belege&jahr=2018");
-    await page.getByRole("link", { name: /GS-E2E-3/ }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "GS-E2E-3" })).toBeVisible();
-    await expect(page.getByRole("status").filter({ hasText: "von Hand festgelegt ist ein Aufwandskonto" })).toBeVisible();
-    // Aufwand steht schon von Hand fest; ein zweites Aufwand klärt den Widerspruch nicht
-    await expect(page.getByRole("button", { name: "Als Aufwandskonto festlegen" })).toHaveCount(0);
-    await page.getByRole("button", { name: "Als Erlöskonto festlegen" }).click();
-    const dialog = page.getByRole("dialog", { name: "Kontoart von GS-E2E-3 festlegen?" });
-    await expect(dialog).toContainText("107,00 €");
-    await expect(dialog).not.toContainText("Kz 81");
-    await dialog.getByRole("button", { name: "Abbrechen" }).click();
-  } finally {
-    if (runId)
-      await sql.begin(async (tx) => {
-        await tx`set local session_replication_role = replica`;
-        await tx`delete from sevdesk_accounting_type_decisions where voucher_id in (select id from lexoffice_vouchers where import_id = ${runId})`;
-        await tx`delete from sevdesk_accounting_types where import_id = ${runId}`;
-        await tx`delete from lexoffice_vouchers where import_id = ${runId}`;
-        await tx`delete from lexoffice_imports where id = ${runId}`;
-      });
-    await sql.end();
-  }
-});
-
 test("Eigene Seiten: im Menü einhängen, im Rahmen anzeigen, ändern und entfernen", async () => {
   await fakeEigeneSeite(page);
   await page.route("https://lager.example/**", (route) =>
@@ -1395,6 +1247,157 @@ test("Kette prüfen unterscheidet Betreiberhinweise von abgeschalteten und fehle
     await sql.unsafe(original!.definition);
     await sql`drop trigger if exists betreiber_probe on contacts`;
     await sql`drop function if exists betreiber_probe()`;
+    await sql.end();
+  }
+});
+
+// Die beiden sevDesk-Tests räumen ihre Daten an den Triggern vorbei weg (session_replication_role = replica). Danach meldet
+// „Kette prüfen“ die gelöschten Zeilen, weil sie im Audit-Log stehen (Abgleich nur anhängbarer Tabellen, #861). Deshalb
+// laufen sie erst nach den Tests zu „Kette prüfen“.
+// #472: Gutschrift auf ein Buchungskonto aus sevDesk folgt dem Kontostamm; ohne erkannte Kontoart markiert Haben sie. Die Daten
+// stehen in 2019 und werden danach wieder entfernt, damit spätere Tests und Bilder das Archiv wie vorher sehen.
+test("sevDesk-Gutschrift auf Buchungskonto: Ausgabe-Gutschrift, Hinweis „Buchungskonto nicht erkannt“ und Kontoart von Hand", async ({ browser }) => {
+  const sql = postgres(databaseUrlFuer(), { max: 1 });
+  const note = (id: string, accountingTypeId: string) => ({
+    id,
+    bookingCategory: "ACCOUNTING_TYPE",
+    accountingType: { id: accountingTypeId, objectName: "AccountingType" },
+  });
+  let runId = "";
+  try {
+    await sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'e2e', true)`;
+      const [run] = await tx`insert into lexoffice_imports (source, status, progress)
+        values ('sevdesk', 'fertig', '{"phase":"fertig","contacts":0,"contactsLinked":0,"listed":2,"imported":2,"skipped":0,"files":0,"failed":[]}') returning id`;
+      runId = run!.id as string;
+      await tx`insert into sevdesk_accounting_types (import_id, accounting_type_id, raw)
+        values (${runId}, 'E2E-1', '{"id":"E2E-1","objectName":"AccountingType","skr03":"3100","skr04":"5900"}')`;
+      for (const [id, number, accountingTypeId] of [
+        ["901", "GS-E2E-1", "E2E-1"],
+        ["902", "GS-E2E-2", "E2E-2"],
+      ])
+        await tx`insert into lexoffice_vouchers (lexoffice_id, source, import_id, type, direction, number, date, status, contact_name, net, tax, gross, taxes, categories, payment, raw)
+          values (${`creditnote/${id}`}, 'sevdesk', ${runId}, 'creditnote', 'einnahme', ${number}, '2019-03-10', 'open', 'Erfundene Agentur', -10000, -1900, -11900,
+          '[{"rate":1900,"net":-10000,"tax":-1900}]', '[]', '{"status":"open","openAmount":-11900,"paidDate":null,"items":[]}', ${tx.json(note(id!, accountingTypeId!))})`;
+    });
+    await go("/archiv?ansicht=belege&jahr=2019");
+    await expect(page.getByRole("link", { name: /GS-E2E-1/ })).toContainText("Ausgabe-Gutschrift");
+    await expect(page.getByRole("link", { name: /GS-E2E-1/ })).not.toContainText("Buchungskonto nicht erkannt");
+    await expect(page.getByRole("link", { name: /GS-E2E-2/ })).toContainText("Buchungskonto nicht erkannt");
+    await page.getByRole("link", { name: /GS-E2E-2/ }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "GS-E2E-2" })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Buchungskonto nicht erkannt" })).toContainText("„Erneut abrufen“");
+    // Markierung und Hinweis prüft axe am Desktop und am Handy (WCAG 2.2 AA wie barrierefreiheit.spec.ts)
+    const context = await browser.newContext({ storageState: await page.context().storageState() });
+    const axePage = await context.newPage();
+    // 320 px ist die schmalste Breite nach WCAG 1.4.10, wie in barrierefreiheit.spec.ts
+    for (const url of ["/archiv?ansicht=belege&jahr=2019", page.url()])
+      for (const width of [1440, 390, 320]) {
+        await axePage.setViewportSize({ width, height: 900 });
+        await axePage.goto(new URL(url, page.url()).toString());
+        await axePage.waitForLoadState("networkidle");
+        // Die Markierung steht ganz in ihrer Spalte, auch am Handy, wo Kontakt und Art schmal sind
+        if (url.startsWith("/archiv?"))
+          expect(
+            await axePage.getByText("Buchungskonto nicht erkannt").evaluate((el) => {
+              const cell = el.closest(".table-row > div")!.getBoundingClientRect();
+              const pill = el.getBoundingClientRect();
+              return pill.left >= cell.left - 0.5 && pill.right <= cell.right + 0.5;
+            }),
+            `Markierung ganz sichtbar bei ${width} px`,
+          ).toBe(true);
+        const { violations } = await new AxeBuilder({ page: axePage })
+          .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"])
+          .analyze();
+        expect(
+          violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`),
+          `${url} bei ${width} px`,
+        ).toEqual([]);
+      }
+    await context.close();
+
+    // #888: Kontoart von Hand festlegen, mit Rückfrage; danach rechnet Haben wie bei einem erkannten Konto
+    await page.getByRole("button", { name: "Als Aufwandskonto festlegen" }).click();
+    const dialog = page.getByRole("dialog", { name: "Kontoart von GS-E2E-2 festlegen?" });
+    await expect(dialog).toContainText("119,00 €");
+    await expect(dialog).toContainText("Kz 66");
+    await expect(dialog.getByRole("button", { name: "Abbrechen" })).toBeFocused();
+    const dialogAxe = await new AxeBuilder({ page })
+      .include(".confirm-dialog")
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"])
+      .analyze();
+    expect(dialogAxe.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+    await dialog.getByRole("button", { name: "Als Aufwandskonto festlegen" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Als Aufwandskonto festgelegt." })).toBeFocused();
+    await expect(page.getByText("Aufwandskonto, von Hand festgelegt")).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Buchungskonto nicht erkannt" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Stattdessen als Erlöskonto festlegen" })).toBeVisible();
+    const vorher = page.viewportSize();
+    for (const width of [1440, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      const { violations } = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]).analyze();
+      expect(
+        violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`),
+        `von Hand festgelegt bei ${width} px`,
+      ).toEqual([]);
+    }
+    if (vorher) await page.setViewportSize(vorher);
+    await go("/archiv?ansicht=belege&jahr=2019");
+    await expect(page.getByRole("link", { name: /GS-E2E-2/ })).toContainText("Ausgabe-Gutschrift");
+    await expect(page.getByRole("link", { name: /GS-E2E-2/ })).not.toContainText("Buchungskonto nicht erkannt");
+  } finally {
+    if (runId)
+      await sql.begin(async (tx) => {
+        await tx`set local session_replication_role = replica`;
+        await tx`delete from sevdesk_accounting_type_decisions where voucher_id in (select id from lexoffice_vouchers where import_id = ${runId})`;
+        await tx`delete from sevdesk_accounting_types where import_id = ${runId}`;
+        await tx`delete from lexoffice_vouchers where import_id = ${runId}`;
+        await tx`delete from lexoffice_imports where id = ${runId}`;
+      });
+    await sql.end();
+  }
+});
+
+// #888: Widerspricht ein später abgerufener Kontostamm der Entscheidung von Hand, klärt nur noch die Art des Kontostamms;
+// die Rückfrage nennt nur Kennzahlen, die für die Gutschrift stimmen (hier 7 %: Kz 86, nicht Kz 81). Daten in 2018, danach entfernt.
+test("sevDesk-Gutschrift auf Buchungskonto: Widerspruch zum Kontostamm bietet nur dessen Art an, Rückfrage bei 7 %", async () => {
+  const sql = postgres(databaseUrlFuer(), { max: 1 });
+  let runId = "";
+  try {
+    await sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'e2e', true)`;
+      const [run] = await tx`insert into lexoffice_imports (source, status, progress)
+        values ('sevdesk', 'fertig', '{"phase":"fertig","contacts":0,"contactsLinked":0,"listed":1,"imported":1,"skipped":0,"files":0,"failed":[]}') returning id`;
+      runId = run!.id as string;
+      const [voucher] =
+        await tx`insert into lexoffice_vouchers (lexoffice_id, source, import_id, type, direction, number, date, status, contact_name, net, tax, gross, taxes, categories, payment, raw)
+        values ('creditnote/903', 'sevdesk', ${runId}, 'creditnote', 'einnahme', 'GS-E2E-3', '2018-05-14', 'open', 'Erfundener Verlag', -10000, -700, -10700,
+        '[{"rate":700,"net":-10000,"tax":-700}]', '[]', '{"status":"open","openAmount":-10700,"paidDate":null,"items":[]}',
+        ${tx.json({ id: "903", bookingCategory: "ACCOUNTING_TYPE", accountingType: { id: "E2E-3", objectName: "AccountingType" } })}) returning id`;
+      await tx`insert into sevdesk_accounting_type_decisions (voucher_id, kind, decided_by) values (${voucher!.id as string}, 'aufwand', 'e2e')`;
+      await tx`insert into sevdesk_accounting_types (import_id, accounting_type_id, raw)
+        values (${runId}, 'E2E-3', '{"id":"E2E-3","objectName":"AccountingType","skr03":"8300","skr04":"4300"}')`;
+    });
+    await go("/archiv?ansicht=belege&jahr=2018");
+    await page.getByRole("link", { name: /GS-E2E-3/ }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "GS-E2E-3" })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "von Hand festgelegt ist ein Aufwandskonto" })).toBeVisible();
+    // Aufwand steht schon von Hand fest; ein zweites Aufwand klärt den Widerspruch nicht
+    await expect(page.getByRole("button", { name: "Als Aufwandskonto festlegen" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Als Erlöskonto festlegen" }).click();
+    const dialog = page.getByRole("dialog", { name: "Kontoart von GS-E2E-3 festlegen?" });
+    await expect(dialog).toContainText("107,00 €");
+    await expect(dialog).not.toContainText("Kz 81");
+    await dialog.getByRole("button", { name: "Abbrechen" }).click();
+  } finally {
+    if (runId)
+      await sql.begin(async (tx) => {
+        await tx`set local session_replication_role = replica`;
+        await tx`delete from sevdesk_accounting_type_decisions where voucher_id in (select id from lexoffice_vouchers where import_id = ${runId})`;
+        await tx`delete from sevdesk_accounting_types where import_id = ${runId}`;
+        await tx`delete from lexoffice_vouchers where import_id = ${runId}`;
+        await tx`delete from lexoffice_imports where id = ${runId}`;
+      });
     await sql.end();
   }
 });
