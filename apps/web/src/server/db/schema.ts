@@ -226,6 +226,8 @@ export const company = pgTable(
     navLogo: boolean("nav_logo").notNull().default(false),
     /** Archiv aus dem Umzug in der Schnellsuche mitdurchsuchen (#617); Vorgabe an */
     archiveSearch: boolean("archive_search").notNull().default(true),
+    /** Liquiditätsvorschau (#1381): Fällt der erwartete Kontostand darunter, warnen Übersicht und Fristen-Mail; null = keine Warnung */
+    mindestbestand: bigint("mindestbestand", { mode: "number" }).$type<Cents>(),
     /**
      * KI-Auslesung (#1735): Warteschlange angehalten, und die Grenzen des Dienstes; null = keine Grenze. Haben schickt die
      * nächste Anfrage erst, wenn sie alle gesetzten Grenzen einhält.
@@ -243,6 +245,7 @@ export const company = pgTable(
     check("company_rechtsform", sql`${t.rechtsform} in ('einzelunternehmen', 'gmbh', 'ug')`),
     check("company_nav_color", sql`${t.navColor} ~ '^#[0-9A-F]{6}$'`),
     check("company_extraction_max_parallel", sql`${t.extractionMaxParallel} between 1 and 20`),
+    check("company_mindestbestand", sql`${t.mindestbestand} >= 0`),
     check(
       "company_extraction_limits",
       sql`coalesce(${t.extractionMaxTokensPerRequest}, 1) > 0 and coalesce(${t.extractionRequestsPerMinute}, 1) > 0 and coalesce(${t.extractionTokensPerMinute}, 1) > 0`,

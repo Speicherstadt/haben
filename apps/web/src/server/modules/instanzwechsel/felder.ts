@@ -85,6 +85,7 @@ export const FELDER = {
       "navColor",
       "navLogo",
       "archiveSearch",
+      "mindestbestand",
       // Nur ob die Firmendaten bewusst gespeichert waren: Der Import setzt den Zeitpunkt dann neu, sonst bleibt er leer
       "companySavedAt",
     ],
