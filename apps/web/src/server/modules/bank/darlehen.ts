@@ -74,6 +74,26 @@ export async function listLoans(q: Db | Tx = db) {
   }));
 }
 
+/**
+ * Darlehen mit Bestand und den zugeordneten Zahlungen für die Liquiditätsvorschau (#1381): je Zahlung Buchungstag,
+ * Teil und Betrag mit dem Vorzeichen des Bankumsatzes. Der Buchungstag, nicht der Wirktag einer Wiederzuordnung: Der Rhythmus
+ * der Raten ist der der Abbuchungen. Aufgehobene Zuordnungen und ihre Gegenzeilen zählen nicht.
+ */
+export async function darlehenZahlungen(q: Db | Tx = db) {
+  const loans = await listLoans(q);
+  const rows = await q.execute<{ loan_id: string; loan_part: DarlehenTeil; amount: number; datum: string }>(sql`
+    select a.loan_id, a.loan_part, a.amount, t.booking_date::text as datum
+    from allocations a join bank_transactions t on t.id = a.transaction_id
+    where a.kind = 'darlehen' and a.reverses_id is null and not exists (select 1 from allocations r where r.reverses_id = a.id)
+    order by t.booking_date, a.created_at`);
+  return loans.map((l) => ({
+    id: l.id,
+    name: l.name,
+    bestand: l.balance,
+    zahlungen: [...rows].filter((r) => r.loan_id === l.id).map((r) => ({ datum: r.datum, teil: r.loan_part, betrag: Number(r.amount) })),
+  }));
+}
+
 /** Buchung eines Teils eines Bankumsatzes zu einem Darlehen; sperrt das Darlehen, damit zwei Tilgungen es nicht überziehen */
 export async function darlehenBuchung(
   tx: Tx,

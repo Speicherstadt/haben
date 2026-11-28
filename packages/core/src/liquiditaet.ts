@@ -13,7 +13,7 @@ import { addMonthsAnchored } from "./recurring.ts";
  * Wie sicher ein Posten ist: **fest** = Betrag und Termin stehen (abgegebene Voranmeldung, Verbindlichkeit mit
  * Fälligkeit), **erwartet** = der Betrag kommt aus Rechnung, Voranmeldung, Vorlage oder letzter Zahlung, ob und wann er
  * fließt, ist offen (offene Rechnung, Erstattung aus der Voranmeldung, Dauerbeleg, wiederkehrende Rechnung, fortgeschriebene
- * Vorauszahlung), **geschätzt** = der Betrag ist gerechnet (laufende Umsatzsteuer, Vorauszahlung
+ * Vorauszahlung oder Darlehensrate), **geschätzt** = der Betrag ist gerechnet (laufende Umsatzsteuer, Vorauszahlung
  * aus der Prognose, überfällige Forderung).
  */
 export const SICHERHEITEN = { fest: "fest", erwartet: "erwartet", geschaetzt: "geschätzt" } as const;
@@ -29,6 +29,7 @@ export const LIQUIDITAET_QUELLEN = {
   umsatzsteuer: "Umsatzsteuer",
   sondervorauszahlung: "Sondervorauszahlung",
   vorauszahlung: "Vorauszahlung",
+  darlehen: "Darlehen",
 } as const;
 export type LiquiditaetsQuelle = keyof typeof LIQUIDITAET_QUELLEN;
 

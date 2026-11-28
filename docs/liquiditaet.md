@@ -1,8 +1,8 @@
 ---
 title: "Liquiditätsvorschau: Kontostand der nächsten Wochen und Monate"
 description: >-
-  Erwarteter Kontostand aus offenen Posten, Dauerbelegen, wiederkehrenden Rechnungen, Umsatzsteuer und
-  Vorauszahlungen, mit Tiefpunkt und Sicherheit je Posten.
+  Erwarteter Kontostand aus offenen Posten, Dauerbelegen, wiederkehrenden Rechnungen, Umsatzsteuer, Vorauszahlungen
+  und Darlehensraten, mit Tiefpunkt und Sicherheit je Posten.
 ---
 
 # Liquiditätsvorschau
@@ -23,6 +23,7 @@ Die Liquiditätsvorschau (`/auswertungen/liquiditaet`, im Kopf der Auswertungen 
 | Vorauszahlungen zu Einkommensteuer, Soli und Kirchensteuer | wie unter [Fristen](fristen.md#welche-fristen) | wie zuletzt gezahlt erwartet, aus der Prognose geschätzt |
 | Vorauszahlungen zu Körperschaftsteuer und Soli | 10. März, Juni, September, Dezember (§ 31 Abs. 1 KStG) | wie zuletzt gezahlt erwartet |
 | Gewerbesteuer-Vorauszahlung | 15. Februar, Mai, August, November (§ 19 Abs. 1 GewStG) | wie zuletzt gezahlt erwartet |
+| Raten der [Darlehen](bank-steuern-darlehen.md#darlehen) | im Rhythmus der letzten Raten | wie zuletzt gezahlt erwartet, nach nur einer Rate geschätzt |
 
 **Fest** heißt, Betrag und Termin stehen; **erwartet**, der Betrag kommt aus Rechnung, Voranmeldung, Vorlage oder letzter Zahlung, ob und wann er fließt, ist offen; **geschätzt**, Haben hat den Betrag gerechnet. Steuertermine verschieben sich wie unter [Fristen](fristen.md#welche-fristen) auf den nächsten Werktag. Was überfällig ist, steht heute, Forderungen am nächsten Werktag, und trägt den Status „Überfällig“ mit dem eigentlichen Termin („fällig 10.02.2027“).
 
@@ -32,11 +33,24 @@ Die Liquiditätsvorschau (`/auswertungen/liquiditaet`, im Kopf der Auswertungen 
 
 **Überfällige Steuertermine:** Ein Termin vor heute, der nicht gezahlt ist, bleibt mit seiner Sicherheit in der Vorschau: die angemeldete Sondervorauszahlung, bis eine Zahlung als Sondervorauszahlung zugeordnet ist, und eine Vorauszahlung, deren Termin mehr als 30 Tage nach der letzten Zahlung liegt. Umsatzsteuer nicht abgegebener Zeiträume und offener Voranmeldungen steht ohnehin, bis sie gezahlt ist. Ob gezahlt ist, sieht Haben nur an den Bankumsätzen. Deshalb zählt ein Termin nur, wenn er nach dem ersten Umsatz der Konten im Bestand liegt (dieselben Konten wie beim Start); ohne Bankumsätze zählt keiner. So steht im ersten Jahr mit Haben keine längst gezahlte Rate als offen da, nur weil die Auszüge später beginnen. Ohne frühere Zahlung bleiben Vorauszahlungen aus der Prognose und die nur aus dem Vorjahr geschätzte Sondervorauszahlung nach ihrem Termin weg: Ob sie überhaupt festgesetzt bzw. angemeldet sind, weiß Haben dann nicht. Der Schalter „Überfällige Forderungen einrechnen“ betrifft Steuertermine nicht.
 
+**Darlehen:** Rate und Intervall kennt Haben am Darlehen nicht. Es schreibt fort, was du im Bankabgleich als Tilgung und Zinsen zugeordnet hast; Gebühren nicht. Dabei gilt:
+
+- Tilgung und Zinsen laufen je für sich, weil die Bank sie oft getrennt einzieht; was an einem Tag fällig wird, steht als eine Rate.
+- Eine Abbuchung, die nicht zum Tag der übrigen passt, ist eine Sondertilgung und zählt nicht.
+- Der Betrag ist je Teil der häufigste der letzten drei Abbuchungen, sonst der mittlere; eine Sondertilgung am Tag einer Rate geht so nicht in die Vorschau ein.
+- Der Abstand der letzten Abbuchungen, gerundet auf 1, 3, 6 oder 12 Monate, gibt den Rhythmus, der Tag im Monat, zu dem die letzten drei Abbuchungen passen, den Termin. Bucht die Bank wegen eines Wochenendes oder Feiertags später ab, bleibt der Termin, wo er war; eine bis zu drei Tage frühere Abbuchung gehört zu ihm. Ein Monatsende bleibt Monatsende, künftige Termine an einem Wochenende oder Feiertag stehen am nächsten Werktag.
+- Nach nur einer Abbuchung nimmt Haben monatlich an.
+- Die Tilgungen enden mit dem Bestand, die letzte Rate heißt „Schlussrate“, Zinsen danach stehen nicht.
+- Kam zwei Intervalle und 30 Tage lang keine Tilgung oder keine Zinszahlung, ruht dieser Teil und steht nicht in der Vorschau.
+- Eine fällige, nicht zugeordnete Rate bleibt überfällig stehen, wie die Steuertermine nur nach dem ersten Bankumsatz.
+- Hat ein Darlehen Bestand, aber noch keine Rate, nennt der Hinweis oben es.
+- Legst du die Rate zusätzlich als Dauerbeleg an, zählt sie doppelt; ordne sie im Bankabgleich dem Darlehen zu.
+
 **Mindestbestand:** Unten auf der Seite trägst du ein, wie viel mindestens auf den Konten bleiben soll; leer heißt keine Warnung, 0 € warnt vor einem Minus. Die Kurve zeigt ihn als gestrichelte Linie. Fällt der erwartete Stand am Ende eines Tages darunter, nennt ein Hinweis über den Kennzahlen den ersten solchen Tag mit Stand und Fehlbetrag, im gewählten Horizont. Die Meldung nach dem Speichern nennt diesen Tag ebenfalls oder sagt, dass der Stand darüber bleibt. Unabhängig davon prüft Haben die nächsten 13 Wochen mit überfälligen Forderungen, wie die Seite ohne Auswahl: Liegt der Stand dort an einem Tag darunter, steht unter **Zu erledigen** in der [Übersicht](einrichtung.md#die-übersicht) „Kontostand unterschreitet Mindestbestand am …“ mit Stand und Fehlbetrag, und jede [Fristen-Mail](fristen.md#erinnerungen-per-e-mail) nennt es. Kennt Haben für kein Geschäfts-, Steuer- oder Zahlungsdienstleisterkonto einen Kontostand (beim Zahlungsdienstleister: noch keine Umsätze), warnt der Mindestbestand nirgends, weil die Vorschau dann bei 0 € beginnt; der Hinweis oben nennt die Konten ohne Saldo. Die Steuerberatung sieht Linie und Hinweis, ändern kann den Mindestbestand nur der Inhaber.
 
 Grenzen:
 
-- Löhne, Darlehensraten, Privatentnahmen, Zahlungspläne aus Angeboten und das Zahlungsverhalten je Kunde fehlen noch.
+- Löhne, Privatentnahmen, Zahlungspläne aus Angeboten und das Zahlungsverhalten je Kunde fehlen noch.
 - Gewerbesteuer ohne frühere Zahlung fehlt bei jeder Rechtsform, Körperschaftsteuer ohne frühere Zahlung bei GmbH und UG; für sie gibt es keine Prognose des laufenden Jahres.
 - Eine Steuerzahlung, die noch nicht im Bankabgleich zugeordnet ist, lässt ihren Termin überfällig erscheinen.
 - Bei Sollversteuerung steht die Steuer einer Anforderung im Zeitraum der Leistung, nicht im Monat des Zahlungseingangs, in dem sie schon entsteht (§ 13 Abs. 1 Nr. 1 Buchst. a Satz 4 UStG); die Summe stimmt, nur der Monat kann abweichen.
