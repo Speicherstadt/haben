@@ -231,13 +231,13 @@ describe.skipIf(!testDatabaseUrl)("§ 13b mit Aufteilung (Postgres)", () => {
           const reentry = await cancellation.reenterDocument(actor, id);
           const copy = (await documents.getDocument(reentry))!;
           expect(copy.document).toMatchObject({ status: "neu", category: null, reverseCharge: rc, replacesDocumentId: id });
-          expect(copy.splits.map(({ position, category, net, tax }) => ({ position, category, net, tax }))).toEqual([
+          expect(copy.positionen.map(({ position, category, net, tax }) => ({ position, category, net, tax }))).toEqual([
             { position: 1, category: "geldverkehr", net: 12_000, tax: 2_280 },
             { position: 2, category: "fremdleistung", net: 6_000, tax: 1_140 },
             { position: 3, category: "sonstiges", net: 2_000, tax: 380 },
             { position: 4, category: "werbung", net: 5_000, tax: 950 },
           ]);
-          expect(documents.bookingIssues(copy.document, copy.amounts, "2026-10-06", copy.splits)).toEqual([]);
+          expect(documents.bookingIssues(copy.document, copy.amounts, "2026-10-06", copy.positionen)).toEqual([]);
           await documents.bookDocument(actor, reentry);
           expect((await entryLines(reentry)).filter((l) => l.tax_code === "VSt13b")).toEqual([
             { account: k.vorsteuerRc, debit: 4_750, credit: 0, tax_code: "VSt13b" },
@@ -324,10 +324,12 @@ describe.skipIf(!testDatabaseUrl)("§ 13b mit Aufteilung (Postgres)", () => {
 
   it("lehnt weiter ab: innergemeinschaftlicher Erwerb, Privatanteil und Fremdwährung mit Aufteilung, § 13b auf Wareneinkauf", async () => {
     await reset("SKR03", "soll");
-    const ige = await draft({ reverseCharge: "ig_erwerb", splits: GEBUEHREN.map((s) => ({ ...s, category: "software" as const })) });
+    // Zwei Kategorien: Zeilen einer Kategorie sind keine Aufteilung mehr, sondern ein Beleg mit einer Kategorie (#1975)
+    const zweiKategorien = GEBUEHREN.map((s, i) => ({ ...s, category: i === 0 ? ("software" as const) : ("werbung" as const) }));
+    const ige = await draft({ reverseCharge: "ig_erwerb", splits: zweiKategorien });
     await expect(documents.bookDocument(actor, ige)).rejects.toThrow(/Innergemeinschaftlicher Erwerb mit Aufteilung wird nicht unterstützt/);
-    const privat = await draft({ reverseCharge: "eu", privateShare: 20 });
-    await expect(documents.bookDocument(actor, privat)).rejects.toThrow(/Privatanteil mit Aufteilung/);
+    // Der Privatanteil steht nur noch als Zeile (#1975): Mit Aufteilung lehnt schon das Speichern ihn ab
+    await expect(draft({ reverseCharge: "eu", privateShare: 20 })).rejects.toThrow(/Privatanteil mit Aufteilung/);
     const usd = await draft({ reverseCharge: "drittland", currency: "USD" });
     await expect(documents.bookDocument(actor, usd)).rejects.toThrow(/Fremdwährung mit Aufteilung/);
     const ware = await draft({

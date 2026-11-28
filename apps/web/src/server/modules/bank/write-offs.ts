@@ -13,6 +13,7 @@ import {
   inCents,
 } from "@haben/core";
 import { and, asc, eq, isNull } from "drizzle-orm";
+import { belegKategorieSql } from "../../db/beleg-kategorie.ts";
 import { z } from "zod";
 import { withActor } from "../../db/actor.ts";
 import { openBooks, post, reverseLinesIn } from "../buchhaltung/index.ts";
@@ -90,6 +91,15 @@ async function kursdifferenzBeleg(tx: Tx, company: Awaited<ReturnType<typeof ope
   };
 }
 
+/** Die eine Kategorie des Belegs aus seinen Positionen (#1975), beim Altbestand die am Beleg */
+async function belegKategorieVon(tx: Tx, id: string): Promise<string | null> {
+  const [row] = await tx
+    .select({ category: belegKategorieSql(schema.documents.id, schema.documents.category) })
+    .from(schema.documents)
+    .where(eq(schema.documents.id, id));
+  return row?.category ?? null;
+}
+
 /** Erhaltenes Skonto auf einen Beleg samt Minderung der Vorsteuer (§ 17 Abs. 1 Satz 2 UStG) */
 async function skontoErhalten(
   tx: Tx,
@@ -106,7 +116,7 @@ async function skontoErhalten(
     reverseCharge: doc.reverseCharge,
     privateShare: doc.privateShare,
     entnahmezeile: await hatEntnahmezeile(doc.id, tx),
-    category: doc.category,
+    category: await belegKategorieVon(tx, doc.id),
   });
   if (!skonto.moeglich) throw new BankError(skonto.grund ?? "Skonto auf diesen Beleg wird nicht unterstützt.");
   const open = documentOpen(doc.gross, await settledOn(tx, "document_id", doc.id));

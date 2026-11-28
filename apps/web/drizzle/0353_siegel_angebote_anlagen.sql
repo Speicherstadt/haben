@@ -107,7 +107,7 @@ BEGIN
         'asset_depreciations', (SELECT haben_pick(to_jsonb(d), cols -> 'asset_depreciations') FROM asset_depreciations d WHERE d.id = rid));
       -- Werte der Anlage bis zum Jahr dieser AfA, so wie die Sperre sie ab der Buchung festhält: Sonder-AfA bis zu diesem Jahr,
       -- Abgang samt Entnahme und Wechsel zur linearen AfA, wenn sie in diesem Jahr oder früher liegen. Spätere Jahre bleiben
-      -- änderbar und gehen nicht ein. Nur Siegel ab 0351 kennen den Teil; ältere behalten ihren Hash.
+      -- änderbar und gehen nicht ein. Nur Siegel ab 0353 kennen den Teil; ältere behalten ihren Hash.
       IF cols ? 'assets' THEN
         content := content || jsonb_build_object('assets', (
           SELECT haben_pick(jsonb_build_object(
@@ -167,7 +167,7 @@ BEGIN
     OR NEW.opening_date IS DISTINCT FROM OLD.opening_date OR NEW.opening_book_value IS DISTINCT FROM OLD.opening_book_value
     OR NEW.private_use IS DISTINCT FROM OLD.private_use
     OR NEW.degressive_rate IS DISTINCT FROM OLD.degressive_rate OR NEW.memo_value IS DISTINCT FROM OLD.memo_value
-    -- Den Verweis auf die Eröffnungsbuchung setzt die App vor der ersten AfA; danach ist er fest, auch noch leer (0351)
+    -- Den Verweis auf die Eröffnungsbuchung setzt die App vor der ersten AfA; danach ist er fest, auch noch leer (0353)
     OR NEW.opening_entry_id IS DISTINCT FROM OLD.opening_entry_id
   ) THEN
     RAISE EXCEPTION 'Anlage % ist gebucht, die Berechnungsgrundlagen sind unveränderlich', OLD.id USING ERRCODE = 'check_violation';
@@ -339,7 +339,7 @@ BEGIN
     SELECT coalesce(jsonb_agg(DISTINCT s.columns), '[]'::jsonb) INTO listen
       FROM seals s WHERE s.table_name = tbl AND s.columns <> heute;
     FOR teil IN SELECT jsonb_object_keys(heute) LOOP
-      -- Errechneter Teil des Siegels einer AfA (0351), keine Kindtabelle: Ein älteres Siegel ohne ihn deckt die Werte nicht
+      -- Errechneter Teil des Siegels einer AfA (0353), keine Kindtabelle: Ein älteres Siegel ohne ihn deckt die Werte nicht
       -- ab, verglichen mit Standardwerten wird er nicht
       CONTINUE WHEN tbl = 'asset_depreciations' AND teil = 'assets';
       -- Spalte, über die haben_seal_digest die Zeilen des Datensatzes findet. Eine neue Kindtabelle im Siegel fällt

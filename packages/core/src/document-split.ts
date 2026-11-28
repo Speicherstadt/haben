@@ -126,6 +126,16 @@ export function splitIssues(lines: AllocatedSplitLine[], amounts: DocumentRateAm
   // bleibt beim Privatanteil am Beleg
   if (lines.length > 0 && lines.every((line) => line.category === PRIVATENTNAHME))
     issues.push("Eine Aufteilung aus lauter Privatentnahmen hat keinen Betriebsanteil; für einen ganz privaten Beleg gilt der Privatanteil am Beleg");
+  return [...issues, ...satzIssues(lines, amounts)];
+}
+
+/**
+ * Passen die Positionen je Satz zu den Beträgen des Belegs? Netto und Steuer der Positionen gleich denen des Satzes, und
+ * keine Plus- und Minuszeilen gemischt. Für jeden Beleg, auch mit einer Kategorie (#1975); splitIssues prüft dazu, was nur
+ * eine Aufteilung braucht.
+ */
+export function satzIssues(lines: readonly AllocatedSplitLine[], amounts: readonly DocumentRateAmount[]): string[] {
+  const issues: string[] = [];
   const rates = [...new Set([...amounts.map((a) => a.taxRate), ...lines.map((l) => l.taxRate)])].sort((a, b) => b - a);
   for (const rate of rates) {
     const amount = amounts.find((a) => a.taxRate === rate) ?? { taxRate: rate, net: 0, tax: 0 };

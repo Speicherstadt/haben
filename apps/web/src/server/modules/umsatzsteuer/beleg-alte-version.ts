@@ -1,12 +1,13 @@
-import { ACCOUNTS, mitBemessungWieHeute, privatJeErwerbssatz, type Cents, type JournalZeile, type Kontenrahmen } from "@haben/core";
+import { ACCOUNTS, belegPrivat, mitBemessungWieHeute, privatJeErwerbssatz, type Cents, type JournalZeile, type Kontenrahmen } from "@haben/core";
 import { inArray } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
+import { entnahmeZeilen } from "./entnahme-zeilen.ts";
 
 /*
  * Belegbuchungen mit § 13b oder Erwerb aus Versionen vor #551 (#1396, mitBemessungWieHeute in @haben/core): Voranmeldung
  * und Verprobung lesen sie mit der Bemessungsgrundlage, die eine heutige Buchung trüge. Beim Erwerb zu 19 % und 7 % mit
  * Privatanteil steht der private Teil beider Sätze in einer Summe auf den Entnahmen; aufteilen lässt er sich nur mit Beträgen
- * und Privatanteil des Belegs, deshalb lädt diese Funktion sie für genau diese Buchungen (#1502, im Update-Test mit Daten aus
+ * und Privatanteil (oder Entnahmezeilen, #1975) des Belegs, deshalb lädt diese Funktion sie für genau diese Buchungen (#1502, im Update-Test mit Daten aus
  * v0.6.6 gefunden). `alt` setzt der Aufrufer mit belegAusAlterVersion.
  */
 
@@ -38,14 +39,18 @@ export async function belegeWieHeute<B extends BelegBuchung>(buchungen: readonly
       (await q.select({ id: d.id, privateShare: d.privateShare }).from(d).where(inArray(d.id, block))).map((r) => [r.id, r.privateShare]),
     );
     const betraege = await q.select({ documentId: a.documentId, taxRate: a.taxRate, net: a.net, tax: a.tax }).from(a).where(inArray(a.documentId, block));
-    for (const [id, anteil] of anteile)
+    // Mit Positionen steht der private Teil in den Entnahmen (#1975), sonst als Prozentsatz am Beleg
+    const entnahmen = await entnahmeZeilen(block, q);
+    for (const [id, anteil] of anteile) {
+      const beleg = belegPrivat(anteil, entnahmen.get(id) ?? []);
       privat.set(
         id,
         privatJeErwerbssatz(
           betraege.filter((r) => r.documentId === id),
-          anteil,
+          beleg.entnahme.length > 0 ? beleg.entnahme : beleg.privateShare,
         ),
       );
+    }
   }
   return buchungen.map((b) => (b.alt ? { ...b, zeilen: mitBemessungWieHeute(b.kontenrahmen, b.zeilen, privat.get(b.sourceId)) } : b));
 }

@@ -3787,8 +3787,8 @@
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "f98a728a68ddc327922bf8762fe6364ba073ac0c06dbad0f1c35405d454df243",
-      "definitionHash": "4f977caa34ca7cf6034f60fecda5e4b7829f7340d67208fb60a1a3063044dfde"
+      "sourceHash": "34c3e75120ba9eee64157cee70615ee6e9c33235678b61348389720d6863519e",
+      "definitionHash": "fd6c820b676a5d9b32d11a0aa9f188972c9c4492e73d80c0ae7d6077b013bbeb"
     },
     {
       "name": "public.haben_loan_fixed()",
@@ -3851,8 +3851,8 @@
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "44b80e6cd2ebf512142add8b41059563f886298f5e8e1b56ddc63d9ac83b170f",
-      "definitionHash": "9df1e21fe56b2183c75b0acdbca39c19f56f100245df8cc0335556360ee5da3a"
+      "sourceHash": "3187f20b24e52c24b01cf5814fc59e856b03c450b8e88c3543c05a66c96792bf",
+      "definitionHash": "e354bb386c26a5df9a0e1cbe5f31f58ac0ab7d6654a38713e97e91847bfc8679"
     },
     {
       "name": "public.haben_reject_locked()",
@@ -3971,8 +3971,8 @@
       "config": ["IntervalStyle=postgres", "TimeZone=UTC", "bytea_output=hex", "extra_float_digits=1"],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "7b77f0d067bbebf94bfe3e57f21f42665ab96e49498026b4762435eba742390a",
-      "definitionHash": "c7f2c9892ca1754ead4e9fdf2fdb3af0a85cc7dba2d8f3d2aef97ea43cb8f45e"
+      "sourceHash": "0cfe2f2a2bf20a86d5c457173e1b03ffad79ab46a5e59bf9ca14763b3517f617",
+      "definitionHash": "bcf129172dfe377dc251a8e510b8bbb07a68c6bf9b59da9a9cf468e2d356e030"
     },
     {
       "name": "public.haben_unaccent(t text)",

@@ -179,6 +179,9 @@ describe.skipIf(!testDatabaseUrl)("REST-API /api/v1/belege (Postgres)", () => {
         net: 3240,
         gross: 3856,
         amounts: [{ taxRate: 1900, net: 3240, tax: 616 }],
+        // Die Kontierung als Positionen wie bei einer Rechnung (#1975); eine Kategorie bringt die E-Rechnung nicht mit
+        lines: [{ category: null, description: "", taxRate: 1900, net: 3240, tax: 616 }],
+        category: null,
       });
     });
 

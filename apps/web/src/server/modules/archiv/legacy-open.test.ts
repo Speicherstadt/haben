@@ -499,7 +499,8 @@ describe.skipIf(!testDatabaseUrl)("Offene Posten aus Lexoffice (Postgres)", () =
       mime: "image/jpeg",
     });
     await legacy.takeOverAll(actor);
-    const [doc] = await sql`select category from documents where lexoffice_voucher_id = ${id}`;
+    // Die Kategorie steht in der Position je Satz (#1975)
+    const [doc] = await sql`select s.category from document_splits s join documents d on d.id = s.document_id where d.lexoffice_voucher_id = ${id}`;
     expect(doc!.category).toBe(expected);
   });
 
@@ -516,7 +517,8 @@ describe.skipIf(!testDatabaseUrl)("Offene Posten aus Lexoffice (Postgres)", () =
     });
     const results = await legacy.takeOverAll(actor);
     expect(results).toEqual([{ number: "B-77" }]);
-    const [doc] = await sql`select id, status, category, gross, locked_at from documents where lexoffice_voucher_id = ${id}`;
+    const [doc] = await sql`select id, status, (select s.category from document_splits s where s.document_id = d.id) as category, gross, locked_at
+      from documents d where lexoffice_voucher_id = ${id}`;
     expect(doc).toMatchObject({ status: "gebucht", category: "buero", gross: 11_900 });
     expect(doc!.locked_at).not.toBeNull();
     expect((await figures.computeVatFigures({ year: 2026, month: 9 })).kz66).toBe(0);

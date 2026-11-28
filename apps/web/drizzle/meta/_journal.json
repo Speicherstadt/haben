@@ -2462,8 +2462,22 @@
     {
       "idx": 351,
       "version": "7",
-      "when": 1795883872352,
-      "tag": "0351_siegel_angebote_anlagen",
+      "when": 1795884171068,
+      "tag": "0351_belege_positionen_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 352,
+      "version": "7",
+      "when": 1795884182863,
+      "tag": "0352_belege_positionen",
+      "breakpoints": true
+    },
+    {
+      "idx": 353,
+      "version": "7",
+      "when": 1795889202380,
+      "tag": "0353_siegel_angebote_anlagen",
       "breakpoints": true
     }
   ]
