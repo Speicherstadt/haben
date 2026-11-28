@@ -1,6 +1,6 @@
 ---
 name: "design-pruefen"
-description: "Oberfläche von Haben mit zwei isolierten Sichten prüfen: UX-Design-Critique (Nielsen-Heuristiken /40, Cognitive Load, Personas, Craft Floor nach Impeccable) plus technisches Audit (/20) und Web Interface Guidelines (Vercel). Für Projekt-/Bereichs-Audits und UI-Pull-Requests."
+description: "Die Oberfläche von Haben prüfen: Audit von ganz Haben, einem Bereich oder einzelnen Bildschirmen, oder Review eines Pull Requests, der das Aussehen ändert. Neben tdd-review und doku-pruefen, nicht statt ihrer; Screenshots der eigenen Änderung macht pr-screenshots."
 ---
 
 # Design prüfen
