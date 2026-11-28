@@ -1,3 +1,4 @@
+import { heutigesKonto } from "./kontenaenderungen.ts";
 import type { Cents } from "./money.ts";
 import type { Kontenrahmen } from "./posting.ts";
 
@@ -120,27 +121,18 @@ export const PAUSCHALE_KONTEN: Record<PauschaleArt, Record<Kontenrahmen, Pauscha
 };
 
 /**
- * Konten, auf die Haben eine Pauschale früher gebucht hat. Die Buchungen darauf bleiben festgeschrieben, wie sie sind, und
- * zählen in EÜR und BWA weiter als diese Pauschale; ein Storno bucht auf ihr Konto zurück. Die Homeoffice-Pauschale stand
- * bis #2015 auf dem Konto des häuslichen Arbeitszimmers; andere Buchungen dort bleiben Arbeitszimmer.
+ * Die Pauschale, die Haben auf dieses Konto bucht oder früher gebucht hat (kontenaenderungen.ts), sonst null. Die
+ * Homeoffice-Pauschale steht für Jahre bis 2024 und im Bestand von vor #2015 auf dem Konto des häuslichen Arbeitszimmers;
+ * andere Buchungen dort bleiben Arbeitszimmer, deshalb fragt nur, wer eine Pauschale vor sich hat.
  */
-export const PAUSCHALE_FRUEHERE_KONTEN: readonly ({ art: PauschaleArt } & Record<Kontenrahmen, PauschaleKonto>)[] = [
-  {
-    art: "homeoffice",
-    SKR03: { konto: "4288", name: "Aufwendungen für ein häusliches Arbeitszimmer (abziehbarer Anteil)" },
-    SKR04: { konto: "6348", name: "Aufwendungen für ein häusliches Arbeitszimmer (abziehbarer Anteil)" },
-  },
-];
-
-/** Die Pauschale, die Haben auf dieses Konto bucht oder früher gebucht hat, sonst null */
 export function pauschaleArtDesKontos(kontenrahmen: Kontenrahmen, account: string): PauschaleArt | null {
+  const heute = heutigesKonto(kontenrahmen, account, "pauschale");
   for (const [art, konten] of Object.entries(PAUSCHALE_KONTEN) as [PauschaleArt, Record<Kontenrahmen, PauschaleKonto>][])
-    if (konten[kontenrahmen].konto === account) return art;
-  return PAUSCHALE_FRUEHERE_KONTEN.find((k) => k[kontenrahmen].konto === account)?.art ?? null;
+    if (konten[kontenrahmen].konto === heute) return art;
+  return null;
 }
 
-/** Nummer und Name aller Konten der Pauschalen, heutige und frühere */
+/** Nummer und Name der Konten der Pauschalen; die früheren nennt fruehereKontoNamen */
 export function pauschaleKontoNamen(kontenrahmen: Kontenrahmen): Record<string, string> {
-  const konten = [...Object.values(PAUSCHALE_KONTEN), ...PAUSCHALE_FRUEHERE_KONTEN].map((k) => k[kontenrahmen]);
-  return Object.fromEntries(konten.map((k) => [k.konto, k.name]));
+  return Object.fromEntries(Object.values(PAUSCHALE_KONTEN).map((k) => [k[kontenrahmen].konto, k[kontenrahmen].name]));
 }

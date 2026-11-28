@@ -1,9 +1,10 @@
 import { ASSET_ACCOUNTS } from "./afa.ts";
 import { DARLEHEN_KONTEN } from "./darlehen.ts";
 import { LOHN_KONTEN } from "./lohn-buchung.ts";
-import { PAUSCHALE_FRUEHERE_KONTEN, PAUSCHALE_KONTEN } from "./pauschalen.ts";
-import { ACCOUNTS, EXPENSE_CATEGORIES, KLEINUNTERNEHMER_FRUEHERE_KONTEN, type Kontenrahmen } from "./posting.ts";
-import { SACHENTNAHME_FRUEHERE_KONTEN, SACHENTNAHME_KONTEN } from "./manual.ts";
+import { fruehereKonten } from "./kontenaenderungen.ts";
+import { PAUSCHALE_KONTEN } from "./pauschalen.ts";
+import { ACCOUNTS, EXPENSE_CATEGORIES, type Kontenrahmen } from "./posting.ts";
+import { SACHENTNAHME_KONTEN } from "./manual.ts";
 import { PRIVATE_USE_ACCOUNTS } from "./private-use.ts";
 import { STEUER_KONTEN } from "./steuerzahlung.ts";
 
@@ -33,7 +34,7 @@ function allePaare(): Paar[] {
   for (const konten of [ACCOUNTS, ASSET_ACCOUNTS, DARLEHEN_KONTEN, LOHN_KONTEN, STEUER_KONTEN, PRIVATE_USE_ACCOUNTS, SACHENTNAHME_KONTEN])
     paare(konten.SKR03, konten.SKR04, out);
   for (const kategorie of Object.values(EXPENSE_CATEGORIES)) out.push([kategorie.SKR03, kategorie.SKR04]);
-  for (const art of [...Object.values(PAUSCHALE_KONTEN), ...PAUSCHALE_FRUEHERE_KONTEN]) out.push([art.SKR03.konto, art.SKR04.konto]);
+  for (const art of Object.values(PAUSCHALE_KONTEN)) out.push([art.SKR03.konto, art.SKR04.konto]);
   return out;
 }
 
@@ -52,14 +53,16 @@ function tabelle(): Record<Kontenrahmen, Map<string, string | null>> {
     eintragen(nach04, skr03, skr04);
     eintragen(nach03, skr04, skr03);
   }
-  // Frühere Haben-Konten nur in eine Richtung, auf das heutige Konto gleicher Rolle
+  // Frühere Konten (kontenaenderungen.ts) nur in eine Richtung, auf das heutige Konto ihres Zwecks. Hat das frühere Konto
+  // bei DATEV eine eigene Bedeutung (Arbeitszimmer), auf dasselbe Konto im anderen Rahmen
   for (const [von, nach] of [
     ["SKR03", "SKR04"],
     ["SKR04", "SKR03"],
   ] as const) {
-    for (const [konto, satz] of Object.entries(SACHENTNAHME_FRUEHERE_KONTEN[von]))
-      eintragen(von === "SKR03" ? nach04 : nach03, konto, SACHENTNAHME_KONTEN[nach][satz]);
-    eintragen(von === "SKR03" ? nach04 : nach03, KLEINUNTERNEHMER_FRUEHERE_KONTEN[von], ACCOUNTS[nach].erloeseSonder.kleinunternehmer);
+    for (const { konto, aenderung } of fruehereKonten(von)) {
+      const ziel = aenderung.nurHerkunft ? aenderung[nach].frueher?.konto : aenderung[nach].heute;
+      if (ziel) eintragen(von === "SKR03" ? nach04 : nach03, konto, ziel);
+    }
   }
   zuordnung = { SKR03: nach04, SKR04: nach03 };
   return zuordnung;

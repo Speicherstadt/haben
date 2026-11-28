@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { entfernungspauschale } from "./arbeitnehmer.ts";
+import { fruehereKontoNamen } from "./kontenaenderungen.ts";
 import {
   fahrtBetrag,
   homeofficeSatz,
@@ -86,7 +87,8 @@ describe("Pauschalen", () => {
         "homeoffice",
         null,
       ]);
-      expect(pauschaleKontoNamen(kr)).toMatchObject({
+      // Den Namen des früheren Kontos führt die Liste der Kontenänderungen
+      expect({ ...pauschaleKontoNamen(kr), ...fruehereKontoNamen(kr) }).toMatchObject({
         [heute]: "Tagespauschale für die Tätigkeit in der häuslichen Wohnung",
         [frueher]: "Aufwendungen für ein häusliches Arbeitszimmer (abziehbarer Anteil)",
         [PAUSCHALE_KONTEN.fahrt[kr].konto]: PAUSCHALE_KONTEN.fahrt[kr].name,

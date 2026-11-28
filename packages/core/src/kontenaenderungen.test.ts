@@ -2,14 +2,7 @@ import { describe, expect, it } from "vitest";
 import { EBILANZ_KONTEN } from "./ebilanz.ts";
 import { postenOf } from "./hgb.ts";
 import { euerZuordnung } from "./journal-euer.ts";
-import {
-  fruehereKontoNamen,
-  fruehereKonten,
-  heutigesKonto,
-  KONTENAENDERUNGEN,
-  kontoImBuchungsjahr,
-  zeilenImBuchungsjahr,
-} from "./kontenaenderungen.ts";
+import { fruehereKontoNamen, fruehereKonten, heutigesKonto, KONTENAENDERUNGEN, kontoImBuchungsjahr, zeilenImBuchungsjahr } from "./kontenaenderungen.ts";
 import { kontoImKontenrahmen } from "./kontenrahmen-wechsel.ts";
 import { ledgerManagedAccounts, SACHENTNAHME_KONTEN } from "./manual.ts";
 import { heuteBebuchteKonten, reservedAccountNumbers } from "./own-accounts.ts";
@@ -140,11 +133,14 @@ describe("frühere Konten in den Auswertungen", () => {
       expect(euerZuordnung(kr, konto, herkunft ?? "sonst")).toBe(zeile);
     });
 
-    it.skipIf(herkunft !== undefined)("steht in Bilanz, GuV und E-Bilanz und im Nebenbuch wie das heutige Konto", () => {
-      expect(postenOf(kr, konto)).toBe(postenOf(kr, heute));
-      expect(EBILANZ_KONTEN[kr][konto]).toEqual(EBILANZ_KONTEN[kr][heute]);
-      expect(ledgerManagedAccounts(kr).get(konto)).toBe(ledgerManagedAccounts(kr).get(heute));
-    });
+    // Nicht, wo das frühere Konto bei DATEV eine eigene Bedeutung hat (Arbeitszimmer): Dort gilt sie, außer für die Pauschale
+    if (!herkunft) {
+      it("steht in Bilanz, GuV und E-Bilanz und im Nebenbuch wie das heutige Konto", () => {
+        expect(postenOf(kr, konto)).toBe(postenOf(kr, heute));
+        expect(EBILANZ_KONTEN[kr][konto]).toEqual(EBILANZ_KONTEN[kr][heute]);
+        expect(ledgerManagedAccounts(kr).get(konto)).toBe(ledgerManagedAccounts(kr).get(heute));
+      });
+    }
 
     it("wandert beim Wechsel des Kontenrahmens mit", () => {
       const nach = kr === "SKR03" ? "SKR04" : "SKR03";

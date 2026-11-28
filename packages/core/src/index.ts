@@ -17,6 +17,7 @@ export * from "./arbeitskosten.ts";
 export * from "./angebotspositionen.ts";
 export * from "./zahlungsplan.ts";
 export * from "./posting.ts";
+export * from "./kontenaenderungen.ts";
 export * from "./document-split.ts";
 export * from "./kontakt-historie.ts";
 export * from "./rechtsform.ts";

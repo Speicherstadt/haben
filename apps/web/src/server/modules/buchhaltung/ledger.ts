@@ -8,6 +8,7 @@ import {
   type Kontenrahmen,
   type PostingLine,
   type SaldenZeile,
+  zeilenImBuchungsjahr,
 } from "@haben/core";
 import { and, asc, eq, gt, gte, inArray, lt, ne, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -40,6 +41,21 @@ export interface Posting {
   /** Storno: die aufgehobene Buchung */
   reversesId?: string | null;
   lines: PostingLine[];
+}
+
+/** Herkünfte, bei denen der Nutzer oder eine Datei die Konten vorgibt: freie Buchung, Datenimport, Eröffnung */
+const KONTEN_WIE_ANGEGEBEN: ReadonlySet<Posting["sourceType"]> = new Set(["manuell", "import", "eroeffnung"]);
+
+/**
+ * Die Zeilen, wie sie ins Journal kommen (#2043, docs/adr/kontenrahmen-ausgaben.md): DATEV gibt SKR03 und SKR04 je Jahr
+ * heraus, und die Module rechnen mit den Konten der neuesten Ausgabe. Eine Buchung, die Haben selbst kontiert, bekommt hier
+ * die Konten, die in ihrem Buchungsjahr galten (kontenaenderungen.ts), etwa eine für 2024 nachgetragene Homeoffice-Pauschale
+ * das Konto von 2024. Unverändert bleiben eine Gegenbuchung, die die Konten ihrer Ursprungsbuchung spiegelt, und Konten, die
+ * der Nutzer oder eine Datei vorgibt.
+ */
+function zeilenFuersJournal(kontenrahmen: Kontenrahmen, posting: Posting): PostingLine[] {
+  if (posting.reversesId || KONTEN_WIE_ANGEGEBEN.has(posting.sourceType)) return posting.lines;
+  return zeilenImBuchungsjahr(kontenrahmen, Number(posting.date.slice(0, 4)), posting.sourceType, posting.lines);
 }
 
 /**
@@ -106,7 +122,7 @@ export async function post(tx: Tx, books: Books, posting: Posting): Promise<stri
     );
   }
   // Zeilen ohne Betrag fallen weg, außer sie tragen eine Bemessungsgrundlage (Anteil ohne Steuer bei Ist, #542)
-  const lines = posting.lines.filter((line) => line.debit !== 0 || line.credit !== 0 || (line.basis ?? 0) !== 0);
+  const lines = zeilenFuersJournal(books.kontenrahmen, posting).filter((line) => line.debit !== 0 || line.credit !== 0 || (line.basis ?? 0) !== 0);
   if (lines.length > 0) await tx.insert(schema.journalLines).values(lines.map((line) => ({ entryId: entry!.id, ...line })));
   await tx.update(schema.journalEntries).set({ lockedAt: new Date() }).where(eq(schema.journalEntries.id, entry!.id));
   return entry!.id;
