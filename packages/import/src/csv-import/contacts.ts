@@ -1,4 +1,14 @@
-import { isValidGermanUstId, isValidIban, joinEmails, normalizeTelefon, normalizeUstId, parsePersonenkonto, splitEmails, telefonProblem } from "@haben/core";
+import {
+  isValidGermanUstId,
+  isValidIban,
+  joinEmails,
+  normalizeTelefon,
+  normalizeUstId,
+  parsePersonenkonto,
+  plzProblem,
+  splitEmails,
+  telefonProblem,
+} from "@haben/core";
 import { type ColumnMapping, type ImportField, rowReader } from "./mapping.ts";
 import { duplicateKey, type RowCandidate } from "./plan.ts";
 import type { CsvTable } from "./read.ts";
@@ -50,6 +60,12 @@ export const CONTACT_FIELDS = [
     label: "Straße",
     aliases: ["Straße", "Strasse", "Straße und Hausnummer", "Straße Hausnummer", "Straße (Rechnungsadresse)", "Straße 1", "Adresse", "Anschrift", "street"],
   },
+  {
+    key: "adresszusatz",
+    label: "Adresszusatz",
+    hint: "Abteilung, c/o, Gebäude",
+    aliases: ["Adresszusatz", "Zusatz", "Adresszusatz (Rechnungsadresse)", "Adresszusatz 1", "supplement"],
+  },
   { key: "plz", label: "PLZ", aliases: ["PLZ", "Postleitzahl", "PLZ (Rechnungsadresse)", "PLZ 1", "zip"] },
   { key: "ort", label: "Ort", aliases: ["Ort", "Stadt", "Ort (Rechnungsadresse)", "Ort 1", "city"] },
   {
@@ -89,6 +105,7 @@ export interface ContactRow {
   kundennummer: string;
   lieferantennummer: string;
   name: string;
+  adresszusatz: string;
   strasse: string;
   plz: string;
   ort: string;
@@ -144,6 +161,8 @@ export function contactCandidates(table: CsvTable, mapping: ColumnMapping): RowC
     const lieferantennummer = read.text("lieferantennummer");
     const land = parseImportCountry(read.raw("land"));
     if (!land.ok) errors.push(land.error);
+    const plzFehler = land.ok ? plzProblem(land.value, read.text("plz")) : null;
+    if (plzFehler) errors.push(`PLZ: ${plzFehler}`);
     const rawUstId = read.raw("ustId");
     const ustProblem = rawUstId ? ustIdImportProblem(rawUstId) : null;
     if (ustProblem) errors.push(ustProblem);
@@ -168,7 +187,13 @@ export function contactCandidates(table: CsvTable, mapping: ColumnMapping): RowC
     const emails = joinEmails(splitEmails(read.text("email")));
     const ustId = rawUstId ? normalizeUstId(rawUstId) : "";
     // Alle Texte vor der Entscheidung lesen: auch eine Formel in der Straße macht die Zeile fehlerhaft
-    const address = { strasse: read.text("strasse"), plz: read.text("plz"), ort: read.text("ort"), leitwegId: read.text("leitwegId") };
+    const address = {
+      adresszusatz: read.text("adresszusatz"),
+      strasse: read.text("strasse"),
+      plz: read.text("plz"),
+      ort: read.text("ort"),
+      leitwegId: read.text("leitwegId"),
+    };
     const value: ContactRow | null =
       errors.length > 0 || typeof role === "string" || !land.ok || !debitor.ok || !kreditor.ok
         ? null

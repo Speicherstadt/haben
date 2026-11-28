@@ -89,6 +89,13 @@ export const BEISPIELRECHNUNGEN: Record<string, InvoiceDocument> = {
       }),
     ]),
   ),
+  // Adresszusatz (#914): BT-51 am Käufer und, als innergemeinschaftliche Lieferung, BT-76 in der Lieferanschrift
+  ...Object.fromEntries(
+    (["zugferd", "xrechnung-cii", "xrechnung-ubl"] as const).map((format) => [
+      `adresszusatz-${format}`,
+      sampleDocument({ format, buyer: { ...euBuyer, adresszusatz: "Afdeling Inkoop" }, lines: zeroRateLines, taxTreatment: "ig_lieferung" }),
+    ]),
+  ),
   "leitweg-xr-cii": sampleDocument({ format: "xrechnung-cii", buyer: publicBuyer }),
   "leitweg-xr-ubl": sampleDocument({ format: "xrechnung-ubl", buyer: publicBuyer }),
   "leistungsdatum-xr-ubl": { ...sampleDocument({ format: "xrechnung-ubl" }), serviceFrom: "2026-09-30", serviceTo: undefined },

@@ -47,6 +47,7 @@ export interface DatevGpRow {
   rolle: PersonenkontoRolle | null;
   nr: number | null;
   name: string;
+  adresszusatz: string;
   strasse: string;
   plz: string;
   ort: string;
@@ -152,6 +153,7 @@ function readRow(line: number, get: (name: string) => string): DatevGpRow {
     rolle: account?.rolle ?? null,
     nr: account?.nr ?? null,
     name,
+    adresszusatz: text("Adresszusatz"),
     strasse: text("Straße"),
     plz: text("Postleitzahl", "PLZ"),
     ort: text("Ort"),

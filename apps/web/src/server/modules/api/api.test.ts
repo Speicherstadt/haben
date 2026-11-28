@@ -252,6 +252,18 @@ describe.skipIf(!testDatabaseUrl)("REST-API /api/v1 (Postgres)", () => {
       expect(row).toMatchObject({ is_customer: false, is_supplier: true, lieferantennummer: "L-7", kundennummer: null });
     });
 
+    it("liest und schreibt den Adresszusatz; PATCH ohne ihn behält ihn (#914)", async () => {
+      const t = await token(["kontakte:schreiben"]);
+      const created = await call(t, "POST", "/kontakte", { ...kunde, adresszusatz: "c/o Atelier Linde" });
+      expect(created.status).toBe(201);
+      const contact = schemas.contactSchema.parse(created.json);
+      expect(contact.adresszusatz).toBe("c/o Atelier Linde");
+      const patched = await call(t, "PATCH", `/kontakte/${contact.id}`, { email: "einkauf@example.com" });
+      expect(schemas.contactSchema.parse(patched.json).adresszusatz).toBe("c/o Atelier Linde");
+      const falsch = await call(t, "PATCH", `/kontakte/${contact.id}`, { plz: "1011" });
+      expect(falsch.status).toBe(422);
+    });
+
     it("liest und schreibt die Telefonnummer; PATCH ohne Telefon behält sie (#322)", async () => {
       const t = await token(["kontakte:schreiben"]);
       const created = await call(t, "POST", "/kontakte", { ...kunde, telefon: "+49 941 123456" });

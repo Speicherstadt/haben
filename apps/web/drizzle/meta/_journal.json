@@ -2402,6 +2402,13 @@
       "when": 1795852802079,
       "tag": "0342_entnahme_anlage_trigger",
       "breakpoints": true
+    },
+    {
+      "idx": 343,
+      "version": "7",
+      "when": 1795853852378,
+      "tag": "0343_kontakt_adresszusatz",
+      "breakpoints": true
     }
   ]
 }

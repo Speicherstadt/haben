@@ -35,6 +35,7 @@ export function setDelivery(invoice: Invoice, doc: InvoiceDocument): void {
           "cac:DeliveryLocation": {
             "cac:Address": {
               "cbc:StreetName": buyer.strasse,
+              ...(buyer.adresszusatz ? { "cbc:AdditionalStreetName": buyer.adresszusatz } : {}),
               "cbc:CityName": buyer.ort,
               "cbc:PostalZone": buyer.plz,
               "cac:Country": { "cbc:IdentificationCode": buyer.land.toUpperCase() },

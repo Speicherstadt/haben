@@ -14,12 +14,10 @@ export interface ImportedContact {
   name: string;
   kundennummer: string | null;
   lieferantennummer: string | null;
-  /**
-   * Straße der ersten Rechnungsadresse (sonst Lieferadresse). Ein Adresszusatz
-   * (supplement, z. B. "c/o …", "3. OG") wird in Klammern angehängt:
-   * "Hauptstr. 1 (Hinterhaus)"; ohne Straße steht nur der Zusatz da.
-   */
+  /** Straße der ersten Rechnungsadresse (sonst Lieferadresse) */
   strasse: string;
+  /** Adresszusatz derselben Adresse (supplement, z. B. "c/o …", "3. OG"), eigenes Feld seit #914 */
+  adresszusatz: string;
   plz: string;
   ort: string;
   /** ISO-Ländercode, Standard "DE" */
@@ -129,9 +127,8 @@ export function mapContact(c: LexContact): ImportedContact {
   const name = c.company?.name?.trim() || person;
 
   const addr = c.addresses?.billing?.[0] ?? c.addresses?.shipping?.[0];
-  const street = addr?.street?.trim() ?? "";
-  const supplement = addr?.supplement?.trim() ?? "";
-  const strasse = street && supplement ? `${street} (${supplement})` : street || supplement;
+  const strasse = addr?.street?.trim() ?? "";
+  const adresszusatz = addr?.supplement?.trim() ?? "";
 
   const mails = c.emailAddresses;
   const email =
@@ -148,6 +145,7 @@ export function mapContact(c: LexContact): ImportedContact {
     kundennummer: number(c.roles?.customer?.number),
     lieferantennummer: number(c.roles?.vendor?.number),
     strasse,
+    adresszusatz,
     plz: addr?.zip?.trim() ?? "",
     ort: addr?.city?.trim() ?? "",
     land: addr?.countryCode?.trim().toUpperCase() || "DE",

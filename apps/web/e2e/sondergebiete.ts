@@ -1,5 +1,5 @@
 import { expect, type Page } from "@playwright/test";
-import { gehe, kundeWaehlen } from "./einrichtung.ts";
+import { gehe, kundeWaehlen, landWaehlen } from "./einrichtung.ts";
 
 /** Die PLZ erklärt das Sondergebiet; die ausdrücklich gewählte Behandlung bleibt in beiden Editoren erhalten. */
 export async function sondergebietePruefen(page: Page) {
@@ -10,10 +10,10 @@ export async function sondergebietePruefen(page: Page) {
   await page.getByLabel("Straße und Hausnummer").fill("Beispielweg 7");
   await page.getByLabel("PLZ", { exact: true }).fill("38001");
   await page.getByLabel("Ort", { exact: true }).fill("Santa Cruz de Tenerife");
-  await page.getByLabel("Land (z. B. DE)").fill("ES");
+  await landWaehlen(page, "ES");
   await expect(hint).toBeVisible();
   await expect(page.getByLabel("PLZ", { exact: true })).toHaveAccessibleDescription(/Kanarische Inseln: umsatzsteuerlich Drittland/);
-  await expect(page.getByLabel("Land (z. B. DE)")).toHaveAccessibleDescription(/Kanarische Inseln: umsatzsteuerlich Drittland/);
+  await expect(page.getByRole("combobox", { name: "Land", exact: true })).toHaveAccessibleDescription(/Kanarische Inseln: umsatzsteuerlich Drittland/);
   await page.getByRole("button", { name: "Kontakt anlegen", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Versionen" })).toBeVisible();
   const contactUrl = new URL(page.url()).pathname;
