@@ -42,10 +42,11 @@ export async function offeneVorgaenge(start: string, endeAusschl: string, q: Db 
 
 /**
  * Wie weit die Umsätze je Konto reichen: das späteste Ende eines Imports, der letzte Umsatz oder bei einem Zahlungsdienstleister
- * mit Abruf der Tag vor dem letzten erfolgreichen Abruf (in Berlin), je nachdem, was später ist. Der Abruf speichert als Ende
- * nur seinen letzten Umsatz, ohne neue Umsätze gar keinen Import. Nach einem Fehler setzt der Zeitplan last_sync_at trotzdem,
- * deshalb zählt der Abruf nur ohne last_error. Ohne private und ausgeschlossene Konten, die nicht in die Auswertungen fließen;
- * Rücklagekonten zählen mit, sie buchen auf 1200/1800 und ihre Zinsen sind Betriebseinnahmen.
+ * mit Abruf der Tag vor dem letzten Abruf (in Berlin), wenn der gelungen ist, je nachdem, was später ist. Der Abruf speichert
+ * als Ende nur seinen letzten Umsatz, ohne neue Umsätze gar keinen Import. Nach einem Fehler setzt der Zeitplan last_sync_at
+ * trotzdem, deshalb zählt der Abruf nur ohne last_error; ein neuer Zugang danach setzt last_sync_at zurück
+ * (speichereVerbindung). Ohne private und ausgeschlossene Konten, die nicht in die Auswertungen fließen; Rücklagekonten zählen
+ * mit, sie buchen auf 1200/1800 und ihre Zinsen sind Betriebseinnahmen.
  */
 export async function kontoAbdeckung(q: Db | Tx = db): Promise<KontoAbdeckung[]> {
   const a = schema.bankAccounts;

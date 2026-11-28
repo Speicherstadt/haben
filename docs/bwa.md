@@ -56,7 +56,7 @@ Mit einem Vergleich steht darüber „Warum?“: die Abweichung der Zeile nach K
 Grenzen:
 
 - Abschreibungen, Restbuchwerte, die Entnahme von Anlagen und die Privatnutzung von Fahrzeugen zeigt die BWA erst, wenn das Jahr im [Anlagenverzeichnis](anlagen.md) gebucht ist. Die EÜR rechnet sie vorher schon aus dem Anlagenverzeichnis; bis dahin weicht der Gewinn ab, und die BWA weist darauf hin.
-- Ein Konto ohne Import meldet die BWA nicht, ebenso wenig Lücken mitten im Zeitraum. Endet ein Konto mehr als 3 Monate vor dem Zeitraum, gilt es als stillgelegt und fehlt ebenfalls. Nennt ein Kontoauszug keinen Zeitraum, reicht das Konto bis zum letzten Umsatz; ein Konto mit wenigen Umsätzen kann die BWA dann melden, obwohl nichts fehlt. Ruft Haben einen Zahlungsdienstleister selbst ab (Stripe, PayPal …), reicht sein Konto bis zum Tag vor dem letzten erfolgreichen Abruf.
+- Ein Konto ohne Import meldet die BWA nicht, ebenso wenig Lücken mitten im Zeitraum. Endet ein Konto mehr als 3 Monate vor dem Zeitraum, gilt es als stillgelegt und fehlt ebenfalls. Nennt ein Kontoauszug keinen Zeitraum, reicht das Konto bis zum letzten Umsatz; ein Konto mit wenigen Umsätzen kann die BWA dann melden, obwohl nichts fehlt. Ruft Haben einen Zahlungsdienstleister selbst ab (Stripe, PayPal …), reicht sein Konto bis zum Tag vor dem letzten Abruf, wenn der gelungen ist.
 - Im Einzelunternehmen stehen Zinserträge und andere steuerfreie Einnahmen bei den Erlösen, weil die EÜR sie in einer Zeile mit den steuerfreien Umsätzen führt.
 
 ## BWA für GmbH und UG
