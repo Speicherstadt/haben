@@ -72,6 +72,48 @@ describe("PayPal", () => {
     ]);
   });
 
+  it("stornierte oder abgelehnte Bankgutschrift bleibt übersprungen, auch mit Wirkung „Haben“ (#2025)", () => {
+    const declined = [
+      `"Datum","Uhrzeit","Zeitzone","Name","Typ","Status","Währung","Brutto","Gebühr","Netto","Transaktionscode","Auswirkung auf Guthaben"`,
+      `"14.02.2026","10:00:00","MEZ","","Bankgutschrift auf PayPal-Konto","Storniert","EUR","6,99","0,00","6,99","6FF00000FF0000006","Haben"`,
+      `"14.02.2026","10:05:00","MEZ","","Bankgutschrift auf PayPal-Konto","Abgelehnt","EUR","7,00","0,00","7,00","7GG00000GG0000007","Haben"`,
+    ].join("\n");
+    const statement = parseStatement(bytes(declined));
+    expect(brief(statement)).toEqual([]);
+    expect(statement.warnings).toEqual(["2 Zeilen übersprungen: nicht abgeschlossen (ausstehend, abgelehnt, storniert)."]);
+  });
+
+  it("Zahlung aus dem Guthaben: Einbehaltung und Rückbuchung sind nur eine Reservierung und fallen als Paar weg (#2025)", () => {
+    // Juli-Fall aus dem Issue (Zahlen von dort, Namen und Codes erfunden): Die ausstehende Einbehaltung senkt das Guthaben
+    // (116,00 → 110,81), die Rückbuchung hebt sie wieder auf; echt ist nur die Zahlung über 5,19 €.
+    const ausGuthaben = [
+      `"Datum","Uhrzeit","Zeitzone","Name","Typ","Status","Währung","Brutto","Gebühr","Netto","Transaktionscode","Zugehöriger Transaktionscode","Guthaben","Auswirkung auf Guthaben"`,
+      `"15.07.2026","10:41:18","MESZ","Beispiel Versand GmbH","Allgemeine Autorisierung","Ausstehend","EUR","-5,19","0,00","-5,19","8HH00000HH0000008","","116,00","Memo"`,
+      `"15.07.2026","10:41:18","MESZ","","Einbehaltung für offene Autorisierung","Ausstehend","EUR","-5,19","0,00","-5,19","9JJ00000JJ0000009","8HH00000HH0000008","110,81","Soll"`,
+      `"15.07.2026","10:41:21","MESZ","Beispiel Versand GmbH","PayPal Express-Zahlung","Abgeschlossen","EUR","-5,19","0,00","-5,19","0KK00000KK0000010","8HH00000HH0000008","105,62","Soll"`,
+      `"15.07.2026","10:41:21","MESZ","","Rückbuchung allgemeiner Einbehaltung","Abgeschlossen","EUR","5,19","0,00","5,19","1LL00000LL0000011","9JJ00000JJ0000009","110,81","Haben"`,
+      `"15.07.2026","10:41:21","MESZ","Beispiel Versand GmbH","Allgemeine Autorisierung","Abgeschlossen","EUR","-5,19","0,00","-5,19","8HH00000HH0000008","","110,81","Memo"`,
+    ].join("\n");
+    const statement = parseStatement(bytes(ausGuthaben));
+    expect(brief(statement)).toEqual([["2026-07-15", -519, "Beispiel Versand GmbH", "PayPal Express-Zahlung · 0KK00000KK0000010"]]);
+    expect(statement.warnings).toEqual([
+      "2 Zeilen übersprungen: Vormerkung ohne Wirkung auf das Guthaben (Memo).",
+      "2 Zeilen übersprungen: Einbehaltung und ihre Rückbuchung (nur eine Reservierung im Guthaben).",
+    ]);
+  });
+
+  it("eine abgeschlossene Einbehaltung fällt mit ihrer Rückbuchung weg, auch englisch (#2025)", () => {
+    const english = [
+      `"Date","Time","TimeZone","Name","Type","Status","Currency","Gross","Fee","Net","Transaction ID","Balance Impact"`,
+      `"20/07/2026","09:00:00","CEST","","General Account Hold","Completed","EUR","-50.00","0.00","-50.00","2MM00000MM0000012","Debit"`,
+      `"21/07/2026","09:00:00","CEST","","Account Hold for Open Authorization","Pending","EUR","-6.39","0.00","-6.39","3NN00000NN0000013","Debit"`,
+      `"22/07/2026","09:00:00","CEST","","Reversal of General Account Hold","Completed","EUR","50.00","0.00","50.00","4PP00000PP0000014","Credit"`,
+    ].join("\n");
+    const statement = parseStatement(bytes(english));
+    expect(brief(statement)).toEqual([]);
+    expect(statement.warnings).toEqual(["3 Zeilen übersprungen: Einbehaltung und ihre Rückbuchung (nur eine Reservierung im Guthaben)."]);
+  });
+
   it("exportiert PayPal die Bankgutschrift später als abgeschlossen, legt ein erneuter Import sie nicht doppelt an (#2025)", () => {
     const later = lastschrift.replace(`"Bankgutschrift auf PayPal-Konto","Ausstehend"`, `"Bankgutschrift auf PayPal-Konto","Abgeschlossen"`);
     expect(later).not.toBe(lastschrift);
