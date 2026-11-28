@@ -61,8 +61,9 @@ const previewStelle = (design: LetterheadDesign, stellen: readonly Pflichtangabe
 const plain = (lines: readonly string[]): FormattedTextRun[][] => lines.map((text) => [{ text, bold: false, italic: false, underline: false }]);
 
 /**
- * Fußzeile der Belege: automatisch aus den Firmendaten oder eigene Spalten mit Platzhaltern; bei GmbH und UG dazu die Stelle
- * der Registerangaben (#1651). Die Vorschau zeigt sie, wie sie auf der Rechnung stehen.
+ * Fußzeile der Belege: automatisch aus den Firmendaten oder eigene Spalten mit Platzhaltern, die Spalten oben oder unten
+ * bündig (#2046); bei GmbH und UG dazu die Stelle der Registerangaben (#1651). Die Vorschau zeigt sie, wie sie auf der
+ * Rechnung stehen.
  */
 export function FooterCard({
   design,
@@ -80,11 +81,8 @@ export function FooterCard({
   const save = useServerFn(saveLetterheadDesign);
   const router = useRouter();
   const { busy, notice, run } = useAction();
-  const { own, setOwn, texts, setTexts, count, setCount, position, setPosition, align, setAlign } = useFooterDraft(design);
+  const { own, setOwn, shown, edit, setCount, position, setPosition, align, setAlign } = useFooterDraft(design);
   const [focused, setActive] = useState(0);
-
-  // Weniger Spalten behalten den Text der übrigen: Wer zurückschaltet, verliert nichts
-  const shown = Array.from({ length: count }, (_, i) => texts[i] ?? "");
   const kapitalgesellschaft = isKapitalgesellschaft(seller.rechtsform);
   // Registerangaben hat heute jede Rechtsform außer dem Einzelunternehmen (legalInfo); nur dann gibt es ihre Einstellung
   const info = legalInfo(seller);
@@ -94,8 +92,6 @@ export function FooterCard({
   const values = previewValues(seller, info);
   const noBank = own && !shown.some((text) => text.includes("{iban}"));
   const stellen = legalStellen(withPosition);
-  const edit = (index: number, text: string) =>
-    setTexts(Array.from({ length: Math.max(texts.length, index + 1) }, (_, i) => (i === index ? text : (texts[i] ?? ""))));
 
   const onSave = () =>
     run(async () => {
@@ -107,23 +103,7 @@ export function FooterCard({
   return (
     <section className="card design-card" aria-labelledby="footer-heading">
       <h2 id="footer-heading">Fußzeile</h2>
-      {hidden && (
-        <div className="banner banner-info" role="status">
-          Ausgeschaltet: Die Fußzeile steht auf dem Briefpapier. Was du hier einstellst, gilt erst wieder, wenn du das unter „Briefpapier“ änderst.
-        </div>
-      )}
-      <div className="checkbox-hinted">
-        <label className="checkbox">
-          <input type="checkbox" checked={own} onChange={(event) => setOwn(event.target.checked)} aria-describedby={own ? undefined : "footer-own-hint"} />
-          Eigene Fußzeile
-        </label>
-        {!own && (
-          <span id="footer-own-hint" className="field-hint">
-            Haben setzt die Fußzeile aus den Firmendaten zusammen: Kontakt, Bank, Steuernummern
-            {info && " und die Registerangaben der Gesellschaft"}.
-          </span>
-        )}
-      </div>
+      <OwnFooterToggle hidden={hidden} own={own} onChange={setOwn} withLegal={Boolean(info)} />
       {own && (
         <>
           <OwnFooterColumns shown={shown} onCount={setCount} edit={edit} focused={focused} onFocusColumn={setActive} withLegal={Boolean(info)} />
@@ -178,7 +158,36 @@ function useFooterDraft(design: LetterheadDesign) {
     setPosition(design.legalPosition);
     setAlign(design.footerAlign);
   }
-  return { own, setOwn, texts, setTexts, count, setCount, position, setPosition, align, setAlign };
+  // Weniger Spalten behalten den Text der übrigen: Wer zurückschaltet, verliert nichts
+  const shown = Array.from({ length: count }, (_, i) => texts[i] ?? "");
+  const edit = (index: number, text: string) =>
+    setTexts(Array.from({ length: Math.max(texts.length, index + 1) }, (_, i) => (i === index ? text : (texts[i] ?? ""))));
+  return { own, setOwn, shown, edit, setCount, position, setPosition, align, setAlign };
+}
+
+/** Hinweis, wenn das Briefpapier den Fuß trägt, und der Schalter für die eigene Fußzeile */
+function OwnFooterToggle({ hidden, own, onChange, withLegal }: { hidden: boolean; own: boolean; onChange: (own: boolean) => void; withLegal: boolean }) {
+  return (
+    <>
+      {hidden && (
+        <div className="banner banner-info" role="status">
+          Ausgeschaltet: Die Fußzeile steht auf dem Briefpapier. Was du hier einstellst, gilt erst wieder, wenn du das unter „Briefpapier“ änderst.
+        </div>
+      )}
+      <div className="checkbox-hinted">
+        <label className="checkbox">
+          <input type="checkbox" checked={own} onChange={(event) => onChange(event.target.checked)} aria-describedby={own ? undefined : "footer-own-hint"} />
+          Eigene Fußzeile
+        </label>
+        {!own && (
+          <span id="footer-own-hint" className="field-hint">
+            Haben setzt die Fußzeile aus den Firmendaten zusammen: Kontakt, Bank, Steuernummern
+            {withLegal && " und die Registerangaben der Gesellschaft"}.
+          </span>
+        )}
+      </div>
+    </>
+  );
 }
 
 /** Anzahl und Text der eigenen Spalten, darunter die Platzhalter zum Einfügen in die zuletzt fokussierte Spalte */
