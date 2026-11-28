@@ -49,9 +49,17 @@ function leser(reader: Reader): Leser {
   };
 }
 
+/**
+ * Neben den versiegelten Tabellen zählen die Standardwerte von Audit-Log, Kopf der Kette und Siegeln: Ein geänderter
+ * Standardwert dort ist ein Befund, auch wenn die Trigger die Zeitpunkte selbst setzen (0347). Das gilt nur für Haben,
+ * deshalb hier und nicht im Kern.
+ */
+const auchMitStandardwerten = ["public.audit_chain", "public.audit_log", "public.seals"];
+
 /** Der Generator behält sein Format; Laufzeitvorgaben gehören nicht zum ausgelieferten Sollbestand. */
 export async function readTriggerInventory(reader: Reader): Promise<TriggerInventory> {
-  return (await leseMomentaufnahme(leser(reader), { ...optionen, tabellen: sealedTables })).bestand;
+  const tabellen = async (abfrage: Abfrage) => [...new Set([...(await sealedTables(abfrage)), ...auchMitStandardwerten])].sort();
+  return (await leseMomentaufnahme(leser(reader), { ...optionen, tabellen })).bestand;
 }
 
 const ohneSchema = (table: string) => table.replace(/^public\./, "");

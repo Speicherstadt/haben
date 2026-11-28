@@ -12,7 +12,7 @@ export type Standardwert = { table: string; column: string; expression: string }
 export interface Sollbestand {
   triggers: { table: string; name: string; enabled: string; definition: string; function: string }[];
   functions: { name: string; sourceHash: string; definitionHash: string; config: string[]; language: string; securityDefiner: boolean }[];
-  /** Tabellen, deren Standardwerte zum Bestand gehören, bei Haben die versiegelten samt Kindtabellen */
+  /** Tabellen, deren Standardwerte zum Bestand gehören, bei Haben die versiegelten samt Kindtabellen, Audit-Log und Siegel */
   sealedTables: string[];
   /** Standardwerte ihrer Spalten; eine Spalte ohne Standardwert steht nicht darin */
   defaults: Standardwert[];

@@ -10,7 +10,8 @@ import { checkTriggerIntegrity } from "./trigger-inventory.ts";
  * darauf umschreiben, bevor ein Trigger feuert; `ON INSERT TO audit_log DO INSTEAD NOTHING` verwirft jeden Eintrag, und weil
  * dann auch kein Trigger auf audit_log läuft, bleiben Kette und Kopf in sich stimmig. Haben selbst legt keine Regeln an.
  * Zusätzliche Trigger: BEFORE-Trigger einer Tabelle feuern in der Reihenfolge ihrer Namen; einer vor audit_log_chain kann
- * den Eintrag verwerfen oder ändern, bevor er gehasht wird.
+ * den Eintrag verwerfen oder ändern, bevor er gehasht wird. Standardwerte: Die Zeitpunkte von Einträgen und Siegeln setzen
+ * haben_audit_chain und haben_seal selbst; ein geänderter Standardwert wirkt nicht und ist ein Befund.
  * https://www.postgresql.org/docs/18/rules-update.html  https://www.postgresql.org/docs/18/trigger-definition.html
  */
 describe.skipIf(!testDatabaseUrl)("Regeln und Trigger am Audit-Log (Postgres)", () => {
@@ -85,6 +86,35 @@ describe.skipIf(!testDatabaseUrl)("Regeln und Trigger am Audit-Log (Postgres)", 
       expect(await tx.execute(query`select new_value from audit_log order by seq desc limit 1`)).toEqual([{ new_value: { name: "Gefälscht" } }]);
       expect(await tx.execute(query`select art, tabelle, befund from haben_integrity_problems()`)).toEqual([]);
       expect((await checkTriggerIntegrity(tx)).problems).toEqual([zusaetzlich]);
+    });
+  });
+
+  it("datiert keinen Eintrag über den Standardwert von audit_log.at zurück und meldet dessen Änderung", async () => {
+    await rolledBack(async (tx) => {
+      await tx.execute(query.raw("alter table public.audit_log alter column at set default '2020-01-01 00:00:00+00'"));
+      await tx.execute(query`insert into company (id, name) values (1, 'Probe') on conflict (id) do update set name = 'Probe geändert'`);
+      await tx.execute(query`set constraints all immediate`);
+      expect(await tx.execute(query`select at = now() as jetzt from audit_log order by seq desc limit 1`)).toEqual([{ jetzt: true }]);
+      expect(await tx.execute(query`select art, tabelle, befund from haben_integrity_problems()`)).toEqual([]);
+      expect((await checkTriggerIntegrity(tx)).problems).toEqual([befund("audit_log", "Standardwert von audit_log.at wurde verändert")]);
+    });
+  });
+
+  it("nimmt Zeitpunkt und genesis eines Siegels nicht aus den Standardwerten und meldet deren Änderung", async () => {
+    await rolledBack(async (tx) => {
+      await tx.execute(
+        query.raw("alter table public.seals alter column created_at set default '2020-01-01 00:00:00+00', alter column genesis set default true"),
+      );
+      const [kasse] = (await tx.execute(
+        query`insert into cash_entries (number, date, amount, kind, text) values (900001, '2026-03-01', 100, 'einlage', 'Einlage') returning id`,
+      )) as unknown as [{ id: string }];
+      expect(await tx.execute(query`select created_at = now() as jetzt, genesis from seals where row_id = ${kasse.id}`)).toEqual([
+        { jetzt: true, genesis: false },
+      ]);
+      expect((await checkTriggerIntegrity(tx)).problems).toEqual([
+        befund("seals", "Standardwert von seals.created_at wurde verändert"),
+        befund("seals", "Standardwert von seals.genesis wurde verändert"),
+      ]);
     });
   });
 
