@@ -27,7 +27,7 @@ Rechnungen ohne Steuerausweis (siehe [Rechnungen](rechnungen.md#umsatzsteuer-auf
 | 1400 Forderungen | 1200 Forderungen | 1.000,00 | |
 | 8336 Erlöse Reverse Charge | 4336 Erlöse Reverse Charge | | 1.000,00 |
 
-Leistungen ins Drittland gehen auf 8338 bzw. 4338, steuerfreie Umsätze nach § 4 UStG auf 8100 bzw. 4100, Kleinunternehmer-Rechnungen auf 8192 bzw. 4184.
+Leistungen ins Drittland gehen auf 8338 bzw. 4338, steuerfreie Umsätze nach § 4 UStG auf 8100 bzw. 4100, Kleinunternehmer-Rechnungen auf 8192 bzw. 4184, der [Verkauf einer Anlage](anlagen.md#verkauf) auf 8820 bis 8829 bzw. 4844 bis 4849.
 
 ## Stornorechnung und Rechnungskorrektur
 
