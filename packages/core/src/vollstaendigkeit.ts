@@ -72,8 +72,8 @@ export function kontenNurBis(konten: readonly KontoAbdeckung[], zeitraum: Zeitra
 /**
  * Die Hinweise für eine Form der BWA. Form 43 rechnet nach Zahlung: Jeder offene Bankumsatz fehlt in Erlösen oder Kosten,
  * Rechnungsentwürfe ändern nichts. Form 01 rechnet periodengerecht: Ein Zahlungseingang zu einer festgeschriebenen Rechnung
- * ist schon Erlös, eine Zahlung zu einem gebuchten Beleg schon Aufwand, ein Entwurf mit Datum im Zeitraum fehlt vielleicht;
- * alle drei nur als Hinweis.
+ * ist schon Erlös, eine Zahlung zu einem gebuchten Beleg schon Aufwand, ein Entwurf mit Datum im Zeitraum fehlt vielleicht,
+ * und nach dem letzten Umsatz eines Kontos fehlt nur, was erst die Bank bucht (Gebühren, Zinsen); alle nur als Hinweis.
  */
 export function unvollstaendig(offen: OffeneVorgaenge, konten: readonly { id: string; name: string; bis: string }[], form: BwaForm): UnvollstaendigHinweis[] {
   const hinweise: UnvollstaendigHinweis[] = [];
@@ -85,7 +85,7 @@ export function unvollstaendig(offen: OffeneVorgaenge, konten: readonly { id: st
   dazu("eingaenge", offen.eingaenge, bankTon, "/bank");
   dazu("belege", offen.belege, "warn", "/belege");
   if (form === "form01") dazu("rechnungsentwuerfe", offen.rechnungsentwuerfe, "info", "/rechnungen");
-  for (const konto of konten) hinweise.push({ art: "konto", ton: "warn", anzahl: 1, konto, link: "/bank" });
+  for (const konto of konten) hinweise.push({ art: "konto", ton: bankTon, anzahl: 1, konto, link: "/bank" });
   return hinweise;
 }
 
