@@ -95,7 +95,7 @@ export {
   reverseDocumentCashEntry,
   type ImportedCashEntry,
 } from "./cash.ts";
-export { createLoan, DarlehenError, listLoans, loanSchema } from "./darlehen.ts";
+export { createLoan, DarlehenError, darlehenZahlungen, listLoans, loanSchema } from "./darlehen.ts";
 export {
   searchBank,
   type BankTransactionHit,

@@ -31,7 +31,7 @@ export interface Firma {
 
 /** Leert alles, was die Vorschau liest, und legt die Firma in Bayern an */
 export async function firma(sql: postgres.Sql, { rechtsform = "einzelunternehmen", kontenrahmen, versteuerung, taxpayer = {} }: Firma) {
-  await leeren(sql)`truncate allocations, bank_transactions, bank_imports, bank_accounts, journal_lines, journal_entries, document_amounts,
+  await leeren(sql)`truncate allocations, loans, bank_transactions, bank_imports, bank_accounts, journal_lines, journal_entries, document_amounts,
     documents, recurring_documents, recurring_invoices, invoice_lines, invoices, invoice_number_counters, contact_versions, contacts,
     vat_returns, vat_frequencies, vat_extensions, income_tax_inputs, company cascade`;
   await sql`insert into company (id, name, strasse, plz, ort, email, telefon, steuernummer, ust_id, bundesland, iban, versteuerung,
