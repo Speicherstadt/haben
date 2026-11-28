@@ -43,17 +43,30 @@ export function isPayPalHeader(c: Columns): boolean {
 
 type PayPalSkip = "memo" | "pending" | "foreign";
 
+/**
+ * Bankgutschrift zu einer Zahlung per Lastschrift: PayPal lässt sie im Export „Ausstehend“, sie gleicht das Guthaben aber
+ * aus (Wirkung „Haben“) und ist das Gegenstück der Lastschrift auf dem Bankkonto, also Geldtransit (#2025). Beleg: echte
+ * Exporte in hledger (`examples/csv/other/paypal-custom.csv`, „Bank Deposit to PP Account“ mit „Pending“, die Spalte
+ * „Balance“ geht damit von −6,99 auf 0,00 zurück) und das Beispiel im Issue.
+ */
+function isBankFunding(type: string, impact: string): boolean {
+  return /^(haben|credit)$/i.test(impact) && /^(bankgutschrift auf paypal-konto|bank deposit to pp account)/i.test(type);
+}
+
 /** Warum eine Zeile des Aktivitätenexports kein Umsatz ist; `undefined` heißt übernehmen */
-function payPalSkip(impact: string, status: string, currency: string): PayPalSkip | undefined {
+function payPalSkip(type: string, impact: string, status: string, currency: string): PayPalSkip | undefined {
   // „Auswirkung auf Guthaben“ bzw. „Balance Impact“ = Memo: eine Vormerkung, die das Guthaben nicht ändert, etwa die
   // „Allgemeine Autorisierung“ neben der eigentlichen Zahlung (#2025). Fehlt die Spalte, ist der Wert leer.
   if (/^memo$/i.test(impact)) return "memo";
-  if (!/^(abgeschlossen|completed)$/i.test(status)) return "pending";
+  if (!/^(abgeschlossen|completed)$/i.test(status) && !isBankFunding(type, impact)) return "pending";
   if (currency.toUpperCase() !== "EUR") return "foreign";
   return undefined;
 }
 
-/** Aktivitätenexport von PayPal (Spalten deutsch oder englisch), nur abgeschlossene Zeilen in Euro, die das Guthaben ändern */
+/**
+ * Aktivitätenexport von PayPal (Spalten deutsch oder englisch): Zeilen in Euro, die das Guthaben ändern, abgeschlossen oder
+ * die ausstehende Bankgutschrift zu einer Lastschrift
+ */
 export function parsePayPal(rows: string[][], headerRow: number): ParsedStatement {
   const c = new Columns(rows[headerRow]!);
   const german = c.has("brutto");
@@ -75,7 +88,7 @@ export function parsePayPal(rows: string[][], headerRow: number): ParsedStatemen
   rows.slice(headerRow + 1).forEach((row, i) => {
     if (isBlankRow(row)) return;
     const where = `Zeile ${headerRow + i + 2}`;
-    const skip = payPalSkip(impact(row), status(row), currency(row));
+    const skip = payPalSkip(type(row), impact(row), status(row), currency(row));
     if (skip) {
       skipped[skip]++;
       return;

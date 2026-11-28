@@ -49,23 +49,48 @@ describe("PayPal", () => {
     `"12.02.2026","09:14:03","MEZ","Beispiel Versand GmbH","Allgemeine Autorisierung","Abgeschlossen","EUR","-6,99","0,00","-6,99","1AA00000AA0000001","","0,00","Memo"`,
   ].join("\n");
 
-  it("übernimmt Vormerkungen (Memo) nicht als Umsatz und nennt sie im Protokoll (#2025)", () => {
+  it("übernimmt Vormerkungen (Memo) nicht, die ausstehende Bankgutschrift zur Lastschrift aber schon (#2025)", () => {
     const statement = parseStatement(bytes(lastschrift), "paypal.csv");
-    expect(brief(statement)).toEqual([["2026-02-12", -699, "Beispiel Versand GmbH", "PayPal Express-Zahlung · 2BB00000BB0000002"]]);
+    expect(brief(statement)).toEqual([
+      ["2026-02-12", -699, "Beispiel Versand GmbH", "PayPal Express-Zahlung · 2BB00000BB0000002"],
+      ["2026-02-12", 699, "", "Bankgutschrift auf PayPal-Konto · 3CC00000CC0000003"],
+    ]);
+    expect(statement.warnings).toEqual(["2 Zeilen übersprungen: Vormerkung ohne Wirkung auf das Guthaben (Memo)."]);
+  });
+
+  it("andere ausstehende Zeilen bleiben übersprungen, auch mit Wirkung „Haben“ (#2025)", () => {
+    const pending = [
+      `"Datum","Uhrzeit","Zeitzone","Name","Typ","Status","Währung","Brutto","Gebühr","Netto","Transaktionscode","Auswirkung auf Guthaben"`,
+      `"13.02.2026","10:00:00","MEZ","Musterkunde","Website-Zahlung","Ausstehend","EUR","20,00","0,00","20,00","4DD00000DD0000004","Haben"`,
+      `"13.02.2026","10:05:00","MEZ","","Bankgutschrift auf PayPal-Konto","Ausstehend","EUR","5,00","0,00","5,00","5EE00000EE0000005","Memo"`,
+    ].join("\n");
+    const statement = parseStatement(bytes(pending));
+    expect(brief(statement)).toEqual([]);
     expect(statement.warnings).toEqual([
-      "2 Zeilen übersprungen: Vormerkung ohne Wirkung auf das Guthaben (Memo).",
+      "1 Zeile übersprungen: Vormerkung ohne Wirkung auf das Guthaben (Memo).",
       "1 Zeile übersprungen: nicht abgeschlossen (ausstehend, abgelehnt, storniert).",
     ]);
   });
 
-  it("englische Spalten: „Balance Impact“ = Memo wird übersprungen (#2025)", () => {
+  it("exportiert PayPal die Bankgutschrift später als abgeschlossen, legt ein erneuter Import sie nicht doppelt an (#2025)", () => {
+    const later = lastschrift.replace(`"Bankgutschrift auf PayPal-Konto","Ausstehend"`, `"Bankgutschrift auf PayPal-Konto","Abgeschlossen"`);
+    expect(later).not.toBe(lastschrift);
+    const hashes = (text: string) => withDedupHashes(parseStatement(bytes(text)).transactions).map((t) => t.dedupHash);
+    expect(hashes(later)).toEqual(hashes(lastschrift));
+  });
+
+  it("englische Spalten: „Balance Impact“ = Memo wird übersprungen, „Bank Deposit to PP Account“ übernommen (#2025)", () => {
     const english = [
       `"Date","Time","TimeZone","Name","Type","Status","Currency","Gross","Fee","Net","Transaction ID","Balance","Balance Impact"`,
       `"12/02/2026","09:14:02","CET","Example Shipping Ltd","General Authorization","Completed","EUR","-6.99","0.00","-6.99","1AA00000AA0000001","0.00","Memo"`,
       `"12/02/2026","09:14:02","CET","Example Shipping Ltd","Express Checkout Payment","Completed","EUR","-6.99","0.00","-6.99","2BB00000BB0000002","-6.99","Debit"`,
+      `"12/02/2026","09:14:02","CET","","Bank Deposit to PP Account ","Pending","EUR","6.99","0.00","6.99","3CC00000CC0000003","0.00","Credit"`,
     ].join("\n");
     const statement = parseStatement(bytes(english));
-    expect(brief(statement)).toEqual([["2026-02-12", -699, "Example Shipping Ltd", "Express Checkout Payment · 2BB00000BB0000002"]]);
+    expect(brief(statement)).toEqual([
+      ["2026-02-12", -699, "Example Shipping Ltd", "Express Checkout Payment · 2BB00000BB0000002"],
+      ["2026-02-12", 699, "", "Bank Deposit to PP Account · 3CC00000CC0000003"],
+    ]);
     expect(statement.warnings).toEqual(["1 Zeile übersprungen: Vormerkung ohne Wirkung auf das Guthaben (Memo)."]);
   });
 });
