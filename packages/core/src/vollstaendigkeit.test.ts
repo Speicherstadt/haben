@@ -39,11 +39,15 @@ describe("kontenNurBis", () => {
     expect(kontenNurBis([konto("2026-03-01")], maerz, "2026-11-28")).toHaveLength(1);
   });
 
-  it("schweigt bis zum Stichtag, ohne Import und bei einer Abdeckung vor dem Zeitraum", () => {
+  it("schweigt bis zum Stichtag und ohne Import", () => {
     expect(kontenNurBis([konto("2026-03-31")], maerz, "2026-11-28")).toEqual([]);
     expect(kontenNurBis([konto("2026-05-10")], maerz, "2026-11-28")).toEqual([]);
     expect(kontenNurBis([konto(null)], maerz, "2026-11-28")).toEqual([]);
-    expect(kontenNurBis([konto("2026-02-27")], maerz, "2026-11-28")).toEqual([]);
+  });
+
+  it("meldet auch ein Konto, dessen Umsätze vor dem Zeitraum aufhören; stillgelegte schließt man unter Bank aus", () => {
+    expect(kontenNurBis([konto("2026-02-27")], maerz, "2026-11-28")).toEqual([{ id: "k", name: "Girokonto", bis: "2026-02-27" }]);
+    expect(kontenNurBis([konto("2025-10-20")], maerz, "2026-11-28")).toHaveLength(1);
   });
 
   it("verlangt im laufenden Monat nur bis zum letzten Bankarbeitstag vor heute", () => {
@@ -87,7 +91,7 @@ describe("unvollstaendig", () => {
 });
 
 describe("unvollstaendigText", () => {
-  const texte = (offen: OffeneVorgaenge, form: "form43" | "form01") => unvollstaendig(offen, [], form).map(unvollstaendigText);
+  const texte = (offen: OffeneVorgaenge, form: "form43" | "form01") => unvollstaendig(offen, [], form).map((h) => unvollstaendigText(h, maerz));
 
   it("Einzahl und Mehrzahl", () => {
     expect(texte({ ausgaben: 1, eingaenge: 1, belege: 1, rechnungsentwuerfe: 1 }, "form01")).toEqual([
@@ -104,8 +108,18 @@ describe("unvollstaendigText", () => {
     expect(texte({ ...nichts, eingaenge: 1 }, "form43")).toEqual(["1 Zahlungseingang im Zeitraum noch nicht zugeordnet; er fehlt in den Erlösen."]);
   });
 
-  it("nennt Konto und letzten Tag", () => {
-    const [h] = unvollstaendig(nichts, [{ id: "k", name: "Visa", bis: "2026-03-05" }], "form43");
-    expect(unvollstaendigText(h!)).toBe("Umsätze von Konto „Visa“ nur bis 05.03.");
+  const bis = (datum: string, zeitraum: { von: string; bis: string }) =>
+    unvollstaendigText(unvollstaendig(nichts, [{ id: "k", name: "Visa", bis: datum }], "form43")[0]!, zeitraum);
+
+  it("nennt Konto und letzten Tag, ohne Jahr, wenn Zeitraum und Tag im selben Jahr liegen", () => {
+    expect(bis("2026-03-05", maerz)).toBe("Umsätze von Konto „Visa“ nur bis 05.03.");
+    expect(bis("2026-02-27", maerz)).toBe("Umsätze von Konto „Visa“ nur bis 27.02.");
+  });
+
+  it("nennt das Jahr, sobald der Tag in einem anderen Jahr liegt oder der Zeitraum über den Jahreswechsel geht", () => {
+    expect(bis("2025-10-20", maerz)).toBe("Umsätze von Konto „Visa“ nur bis 20.10.2025");
+    const winter = { von: "2025-12-01", bis: "2026-01-31" };
+    expect(bis("2025-12-19", winter)).toBe("Umsätze von Konto „Visa“ nur bis 19.12.2025");
+    expect(bis("2026-01-09", winter)).toBe("Umsätze von Konto „Visa“ nur bis 09.01.2026");
   });
 });

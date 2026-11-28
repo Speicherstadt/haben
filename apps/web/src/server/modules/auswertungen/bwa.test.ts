@@ -277,7 +277,7 @@ describe.skipIf(!testDatabaseUrl)("BWA nach Zufluss und Abfluss (Postgres, #1380
     expect((await bwa.bwaBericht({ von: "2025-07-01", bis: "2026-06-30" }, "keiner")).afaOffen).toEqual([2025, 2026]);
   }, 60_000);
 
-  it("weist auf Unvollständiges im Zeitraum hin: offene Umsätze, ungebuchte Belege, Konto nur bis; ohne Entwürfe (#1635)", async () => {
+  it("weist auf Unvollständiges im Zeitraum hin: offene Umsätze, ungebuchte Belege, Konto nur bis, auch vor dem Zeitraum; ohne Entwürfe (#1635)", async () => {
     await reset("ist", "SKR03");
     await bankumsaetze([umsatz("02.03.26", "Hosting", "-29,00"), umsatz("16.03.26", "Kunde", "500,00"), umsatz("20.03.26", "Kunde", "100,00")]);
     await documents.uploadDocument(actor, { bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]), filename: "neu.jpg" });
@@ -302,9 +302,12 @@ describe.skipIf(!testDatabaseUrl)("BWA nach Zufluss und Abfluss (Postgres, #1380
     // Im laufenden Monat bis gestern: Der Umsatz von gestern (Freitag) reicht, das Konto fehlt nicht
     const laufend = await bwa.bwaBericht(bwaZeitraum("monat", 2026, 3), "keiner", undefined, "2026-03-21");
     expect(laufend.unvollstaendig.hinweise.map((h) => h.art)).toEqual(["ausgaben", "eingaenge", "belege"]);
-    // April: Das Konto endet vor dem Zeitraum, der Beleg ohne Datum bleibt
+    // April: Das Konto endet vor dem Zeitraum und bleibt gemeldet, bis man es unter Bank ausschließt; der Beleg ohne Datum bleibt
     const april = await bwa.bwaBericht(bwaZeitraum("monat", 2026, 4), "keiner", undefined, "2026-11-28");
-    expect(april.unvollstaendig.hinweise.map((h) => h.art)).toEqual(["belege"]);
+    expect(april.unvollstaendig.hinweise.map((h) => [h.art, h.konto?.bis ?? null])).toEqual([
+      ["belege", null],
+      ["konto", "2026-03-20"],
+    ]);
   }, 60_000);
 
   it("GmbH: keine BWA nach Zufluss, sondern Form 01 (bwa-form01.test.ts)", async () => {
