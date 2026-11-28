@@ -11,8 +11,9 @@ describe("Einbindung der Schutzschichten in start.ts", () => {
     expect(requestMiddleware![0]).toBe(bodyLimitMiddleware);
   });
 
-  it("die Antworten bekommen frame-ancestors und die Permissions-Policy", () => {
+  it("die Antworten bekommen frame-ancestors, die Permissions-Policy und Cache-Control", () => {
     const source = readFileSync(new URL("./start.ts", import.meta.url), "utf8");
-    expect(source).toMatch(/withPermissionsPolicy\(withFrameAncestors\(result\.response\)\)/);
+    expect(source).toMatch(/withFrameAncestors\(result\.response, /);
+    expect(source).toMatch(/withCacheControl\(withPermissionsPolicy\(response\)\)/);
   });
 });
