@@ -104,6 +104,23 @@ describe("Darlehensraten fortschreiben", () => {
     expect(kurz(mitte, { heute: "2026-04-20", bis: "2026-07-31" }).map(([datum]) => datum)).toEqual(["2026-05-15", "2026-06-15", "2026-07-15"]);
   });
 
+  it("Feiertage im Bundesland und nur die letzten drei Abbuchungen bestimmen den Tag", () => {
+    // Zum 6.: Heilige Drei Könige ist in Bayern Feiertag, die Bank bucht am 07.01.2026 ab; der 06.04.2026 ist Ostermontag
+    const sechster = darlehen([...rate("2026-01-07", 800_00, 200_00), ...rate("2026-02-06", 800_00, 200_00)]);
+    expect(kurz(sechster, { heute: "2026-02-10", bis: "2026-04-30" }).map(([datum]) => datum)).toEqual(["2026-03-06", "2026-04-07"]);
+    // Früher zum 15., seit April zum Monatsende
+    const gewechselt = darlehen(
+      ["2026-01-15", "2026-02-16", "2026-03-16", "2026-04-30", "2026-06-01", "2026-06-30"].flatMap((datum) => rate(datum, 800_00, 200_00)),
+    );
+    expect(kurz(gewechselt, { heute: "2026-07-10", bis: "2026-08-31" }).map(([datum]) => datum)).toEqual(["2026-07-31", "2026-08-31"]);
+  });
+
+  it("eine bis zu drei Tage vor dem Termin abgebuchte Rate gehört zu ihm", () => {
+    // Zum Monatsende: Den 31.01.2027 (Sonntag) bucht die Bank schon am Freitag, dem 29., ab; keine Rate zum 01.02. steht offen
+    const d = darlehen([...rate("2026-11-30", 800_00, 200_00), ...rate("2026-12-31", 800_00, 200_00), ...rate("2027-01-29", 800_00, 200_00)]);
+    expect(kurz(d, { heute: "2027-02-10", bis: "2027-03-31" }).map(([datum]) => datum)).toEqual(["2027-03-01", "2027-03-31"]);
+  });
+
   it("Tilgungen enden am Bestand, die letzte tilgt den Rest und heißt Schlussrate", () => {
     const d = darlehen([...rate("2026-09-30", 800_00, 20_00), ...rate("2026-10-30", 800_00, 20_00)], 2000_00);
     const liste = posten(d).posten;

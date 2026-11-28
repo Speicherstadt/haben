@@ -42,7 +42,7 @@ export interface DarlehenVerlauf {
 export const DARLEHEN_RHYTHMEN = [1, 3, 6, 12] as const;
 export type DarlehenRhythmus = (typeof DARLEHEN_RHYTHMEN)[number];
 
-/** Tage, die eine Abbuchung nach ihrem Termin liegen darf (Wochenende mit Feiertag) und trotzdem zu ihm gehört */
+/** Tage, die eine Abbuchung vor ihrem Termin liegen darf und trotzdem zu ihm gehört (Monatsende am letzten Werktag davor) */
 const VERSCHIEBUNG_TAGE = 3;
 /** Ruhend nach so vielen Intervallen ohne Rate, plus `RUHEND_TAGE` */
 const RUHEND_INTERVALLE = 2;
@@ -97,7 +97,7 @@ function ankerAus(raten: readonly string[], bundesland: Bundesland | null): numb
     .reduce((bester, anker) => (passend(anker) > passend(bester) ? anker : bester));
 }
 
-/** Termin, zu dem die Abbuchung am Tag `datum` gehört: der letzte Tag `anker` bis `VERSCHIEBUNG_TAGE` vor ihr */
+/** Termin, zu dem die Abbuchung am Tag `datum` gehört: der letzte Tag `anker` vor ihr oder bis `VERSCHIEBUNG_TAGE` danach */
 function terminDer(datum: string, anker: number): string {
   const spaetestens = addDays(datum, VERSCHIEBUNG_TAGE);
   const imMonat = addMonthsAnchored(spaetestens, 0, anker);
