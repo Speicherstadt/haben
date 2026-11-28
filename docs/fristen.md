@@ -52,6 +52,8 @@ Mit einem E-Mail-Zugang (siehe [E-Mail-Versand](einrichtung-email.md)) schickt H
 
 Nennt das BZSt die USt-IdNr. eines EU-Kunden nicht gültig ([monatliche Bestätigung](kontakte.md#ust-idnr-beim-bzst-bestätigen)), steht sie mit Link auf den Kontakt in der Mail, einmal je Antwort, auch wenn gerade keine Frist ansteht.
 
+Fällt der erwartete Kontostand in den nächsten 13 Wochen unter den [Mindestbestand](liquiditaet.md), nennt jede Erinnerung den ersten Tag mit Stand und Link auf die Liquiditätsvorschau; eine eigene Mail schickt Haben dafür nicht.
+
 Jede Frist und Stufe erinnert nur einmal. War der Server aus, holt der nächste Lauf die engste schon erreichte Stufe nach. Scheitert der Versand, steht der Fehler im Protokoll unter Einstellungen › E-Mail › E-Mail-Versand, und der nächste Lauf versucht es erneut. Gesendete Mails stehen unveränderlich im Protokoll.
 
 ## Verantwortung für das Kalender-Abo
