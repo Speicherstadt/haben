@@ -15,4 +15,12 @@ describe("Mindestbestand: Eingabe (#1381)", () => {
     expect(mindestbestandEingabe("viel")).toEqual({ betrag: null, fehler });
     expect(mindestbestandEingabe("-1,00")).toEqual({ betrag: null, fehler });
   });
+
+  it("über 1 Mrd. € meldet das Feld, statt dass der Server die Eingabe ablehnt", () => {
+    expect(mindestbestandEingabe("1.000.000.000,00")).toEqual({ betrag: 100_000_000_000, fehler: null });
+    expect(mindestbestandEingabe("1.000.000.000,01")).toEqual({
+      betrag: null,
+      fehler: "Trag einen Betrag von 0 bis 1.000.000.000,00\u00a0€ ein, etwa 5.000,00, oder lass das Feld leer.",
+    });
+  });
 });
