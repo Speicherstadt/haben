@@ -302,7 +302,7 @@ describe.skipIf(!testDatabaseUrl)("BWA nach Zufluss und Abfluss (Postgres, #1380
     // Im laufenden Monat bis gestern: Der Umsatz von gestern (Freitag) reicht, das Konto fehlt nicht
     const laufend = await bwa.bwaBericht(bwaZeitraum("monat", 2026, 3), "keiner", undefined, "2026-03-21");
     expect(laufend.unvollstaendig.hinweise.map((h) => h.art)).toEqual(["ausgaben", "eingaenge", "belege"]);
-    // April: Das Konto endet vor dem Zeitraum und bleibt gemeldet, bis man es unter Bank ausschließt; der Beleg ohne Datum bleibt
+    // April: Das Konto endet vor dem Zeitraum und bleibt gemeldet; der Beleg ohne Datum bleibt
     const april = await bwa.bwaBericht(bwaZeitraum("monat", 2026, 4), "keiner", undefined, "2026-11-28");
     expect(april.unvollstaendig.hinweise.map((h) => [h.art, h.konto?.bis ?? null])).toEqual([
       ["belege", null],

@@ -54,9 +54,9 @@ export function stichtag(zeitraum: Zeitraum, heute: string): string | null {
 }
 
 /**
- * Konten, deren Umsätze vor dem Stichtag aufhören, auch schon vor dem Zeitraum: Ein stillgelegtes Konto schließt man unter
- * Bank aus, dann zählt es nicht mehr. Ohne Import fehlt nichts Bekanntes, also kein Hinweis. Lücken mitten im Zeitraum
- * erkennt das nicht.
+ * Konten, deren Umsätze vor dem Stichtag aufhören, auch schon vor dem Zeitraum; ein ausgeschlossenes Konto liefert der Server
+ * gar nicht. Ein aufgelöstes Konto mit Zuordnungen lässt sich nicht ausschließen und bleibt gemeldet. Ohne Import fehlt nichts
+ * Bekanntes, also kein Hinweis. Lücken mitten im Zeitraum erkennt das nicht.
  */
 export function kontenNurBis(konten: readonly KontoAbdeckung[], zeitraum: Zeitraum, heute: string): { id: string; name: string; bis: string }[] {
   const tag = stichtag(zeitraum, heute);

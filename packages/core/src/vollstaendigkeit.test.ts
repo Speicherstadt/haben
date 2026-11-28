@@ -45,7 +45,7 @@ describe("kontenNurBis", () => {
     expect(kontenNurBis([konto(null)], maerz, "2026-11-28")).toEqual([]);
   });
 
-  it("meldet auch ein Konto, dessen Umsätze vor dem Zeitraum aufhören; stillgelegte schließt man unter Bank aus", () => {
+  it("meldet auch ein Konto, dessen Umsätze vor dem Zeitraum aufhören", () => {
     expect(kontenNurBis([konto("2026-02-27")], maerz, "2026-11-28")).toEqual([{ id: "k", name: "Girokonto", bis: "2026-02-27" }]);
     expect(kontenNurBis([konto("2025-10-20")], maerz, "2026-11-28")).toHaveLength(1);
   });
