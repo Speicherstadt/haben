@@ -9,6 +9,7 @@
     "./bank-zuordnung": "./src/bank-zuordnung/index.ts",
     "./anbieter": "./src/importvertrag/anbieter.ts",
     "./format-namen": "./src/format-namen.ts",
+    "./entpack-grenze": "./src/entpack-grenze.ts",
     "./fints-testbank": "./src/fints/testbank.ts"
   },
   "scripts": {

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { fileResponse } from "./file-response.ts";
-import { FRAME_ANCESTORS, NO_STORE, withCacheControl, withFrameAncestors } from "./security-headers.ts";
+import { FRAME_ANCESTORS, NO_STORE, PERMISSIONS_POLICY, withCacheControl, withFrameAncestors, withPermissionsPolicy } from "./security-headers.ts";
 
 describe("withFrameAncestors", () => {
   it("setzt frame-ancestors auf HTML-Seiten", async () => {
@@ -45,6 +45,27 @@ describe("withCacheControl", () => {
     expect(withCacheControl(pdf)).toBe(pdf);
     const kennzeichen = new Response("", { headers: { "Cache-Control": "private, max-age=31536000, immutable" } });
     expect(withCacheControl(kennzeichen).headers.get("cache-control")).toBe("private, max-age=31536000, immutable");
+  });
+});
+
+describe("withPermissionsPolicy", () => {
+  it("sperrt ungenutzte Browser-Funktionen auf HTML-Seiten, die Kamera nur für die eigene Seite", async () => {
+    const response = withPermissionsPolicy(new Response("<!doctype html>", { headers: { "Content-Type": "text/html; charset=utf-8" } }));
+    const policy = response.headers.get("permissions-policy");
+    expect(policy).toBe(PERMISSIONS_POLICY);
+    expect(policy).toContain("camera=(self)");
+    expect(policy).toContain("microphone=()");
+    expect(policy).toContain("geolocation=()");
+    expect(await response.text()).toBe("<!doctype html>");
+  });
+
+  it("lässt Dateien, JSON und eine schon gesetzte Policy unverändert", () => {
+    const pdf = fileResponse(new Uint8Array([1]), { mimeType: "application/pdf", filename: "beleg.pdf" }, false);
+    expect(withPermissionsPolicy(pdf)).toBe(pdf);
+    const json = new Response("{}", { headers: { "Content-Type": "application/json" } });
+    expect(withPermissionsPolicy(json).headers.has("permissions-policy")).toBe(false);
+    const eigene = new Response("<p>", { headers: { "Content-Type": "text/html", "Permissions-Policy": "camera=()" } });
+    expect(withPermissionsPolicy(eigene)).toBe(eigene);
   });
 });
 

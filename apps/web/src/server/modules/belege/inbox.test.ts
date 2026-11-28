@@ -98,6 +98,12 @@ describe.skipIf(!testDatabaseUrl)("Belege per E-Mail (Postgres)", () => {
 
   const settings = { host: "imap.example.com", port: 993, secure: true, username: "belege@mustermann.example", password: "geheim", folder: "Belege" };
 
+  it("erklärt einen Server ohne STARTTLS auf Deutsch und lässt andere Fehler unverändert", () => {
+    expect(inbox.connectErrorText(new Error("Server does not support STARTTLS"))).toMatch(/kein STARTTLS.*Port 993/);
+    expect(inbox.connectErrorText(new Error("AUTHENTICATIONFAILED"))).toBe("AUTHENTICATIONFAILED");
+    expect(inbox.connectErrorText(new Error("STARTTLS: self-signed certificate"))).toBe("STARTTLS: self-signed certificate");
+  });
+
   it("legt Anhänge als Belege ab, überspringt Signaturbilder und Fremdes, markiert gelesen", async () => {
     await expect(inbox.fetchInbox(actor)).rejects.toThrow(/kein Postfach/);
     await expect(inbox.saveInboxSettings(actor, { ...settings, password: "" })).rejects.toThrow(/Passwort fehlt/);
