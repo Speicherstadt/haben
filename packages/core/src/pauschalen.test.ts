@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { entfernungspauschale } from "./arbeitnehmer.ts";
-import { fahrtBetrag, homeofficeSatz, PAUSCHALE_KONTEN, PAUSCHALE_LABEL, verpflegungBetrag, volleKilometer } from "./pauschalen.ts";
+import {
+  fahrtBetrag,
+  homeofficeSatz,
+  PAUSCHALE_KONTEN,
+  PAUSCHALE_LABEL,
+  pauschaleArtDesKontos,
+  pauschaleKontoNamen,
+  verpflegungBetrag,
+  volleKilometer,
+} from "./pauschalen.ts";
 
 describe("Pauschalen", () => {
   it("Homeoffice: 6 € für bis zu 210 Tage ab 2023, davor 5 € für 120 Tage", () => {
@@ -59,5 +68,31 @@ describe("Pauschalen", () => {
     expect(PAUSCHALE_KONTEN.entfernung.SKR03.konto).toBe("4678");
     expect(PAUSCHALE_KONTEN.entfernung.SKR04.konto).toBe("6688");
     expect(PAUSCHALE_KONTEN.entfernung.SKR03.name).toMatch(/Wohnung und Betriebsstätte.*abziehbarer Anteil/);
+  });
+
+  it("Homeoffice auf dem Konto der Tagespauschale, nicht auf dem des Arbeitszimmers (#2015)", () => {
+    // DATEV-Kontenrahmen 2026: SKR03 4287 bzw. SKR04 6347; 4288 bzw. 6348 ist das häusliche Arbeitszimmer (abziehbarer Anteil)
+    const name = "Tagespauschale für die Tätigkeit in der häuslichen Wohnung";
+    expect(PAUSCHALE_KONTEN.homeoffice).toEqual({ SKR03: { konto: "4287", name }, SKR04: { konto: "6347", name } });
+  });
+
+  it("kennt das frühere Konto der Homeoffice-Pauschale mit dem Namen aus dem DATEV-Kontenrahmen (#2015)", () => {
+    for (const [kr, heute, frueher] of [
+      ["SKR03", "4287", "4288"],
+      ["SKR04", "6347", "6348"],
+    ] as const) {
+      expect([pauschaleArtDesKontos(kr, heute), pauschaleArtDesKontos(kr, frueher), pauschaleArtDesKontos(kr, "1890")]).toEqual([
+        "homeoffice",
+        "homeoffice",
+        null,
+      ]);
+      expect(pauschaleKontoNamen(kr)).toMatchObject({
+        [heute]: "Tagespauschale für die Tätigkeit in der häuslichen Wohnung",
+        [frueher]: "Aufwendungen für ein häusliches Arbeitszimmer (abziehbarer Anteil)",
+        [PAUSCHALE_KONTEN.fahrt[kr].konto]: PAUSCHALE_KONTEN.fahrt[kr].name,
+      });
+    }
+    // Im SKR03 bedeutet 6348 nichts
+    expect(pauschaleArtDesKontos("SKR03", "6348")).toBeNull();
   });
 });

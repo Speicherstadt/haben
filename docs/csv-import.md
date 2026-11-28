@@ -86,13 +86,13 @@ Die Namen folgen der [Mustervorlage für den Kontaktimport](https://help.lexware
 
 ## Kontakte aus DATEV
 
-Eine Datei „Debitoren/Kreditoren“ aus einem DATEV-Export (EXTF, Formatkategorie 16), etwa `EXTF_GP_Stamm_….csv` aus dem [Export von sevDesk](sevdesk.md#ohne-rest-api), wählst du wie jede andere Datei unter **Kontakte**. Haben erkennt sie an der Kopfzeile und liest die Spalten nach ihren Namen im DATEV-Format; zuzuordnen gibt es nichts. Kodierung wie oben, Windows-1252 oder UTF-8.
+Eine Datei „Debitoren/Kreditoren“ aus einem DATEV-Export (EXTF, Formatkategorie 16), etwa `EXTF_GP_Stamm_….csv` aus dem [Export von sevDesk](sevdesk.md#ohne-rest-api), wählst du wie jede andere Datei unter **Kontakte**. Haben erkennt sie an der Kopfzeile und liest die Spalten nach ihren Namen im DATEV-Format; zuzuordnen gibt es nichts. Auch der Stamm aus BuchhaltungsButler (`EXTF_DebKred_Stamm_….csv`) geht, obwohl er „Adressattyp“, „EU-Land“ und „EU-UStID“ schreibt. Kodierung wie oben, Windows-1252 oder UTF-8.
 
 | Spalte | In Haben |
 | --- | --- |
 | Konto | Debitor (10000 bis 69999, macht zum Kunden) oder Kreditor (70000 bis 99999, macht zum Lieferanten); ein anderes Konto ist ein Fehler |
 | Name (Adressatentyp Unternehmen), Vorname und Name (Adressatentyp natürl. Person), Name (Adressatentyp keine Angabe), Kurzbezeichnung | Name: die erste belegte Spalte in dieser Reihenfolge |
-| EU-Mitgliedstaat und EU-UStId. | USt-IdNr., zusammengesetzt (`DE` und `136695976` ergibt `DE136695976`) und geprüft wie in [Kontakte](#kontakte) |
+| EU-Mitgliedstaat und EU-UStId. | USt-IdNr., zusammengesetzt (`DE` und `136695976` ergibt `DE136695976`) und geprüft wie in [Kontakte](#kontakte); trägt die Nummer das Kennzeichen schon, kommt keines davor (`GR` und `EL` gelten als gleich, nordirische `XI`-Nummern gehören zu `GB`). Steht in „EU-Mitgliedstaat“ etwas anderes als zwei Buchstaben, etwa die Zahl, die BuchhaltungsButler bei manchen Partnern schreibt, bleibt die Nummer nur, wenn sie mit eigenem Länderkennzeichen eine USt-IdNr. ist (eine deutsche mit richtiger Prüfziffer); sonst bleibt die USt-IdNr. ohne Hinweis leer |
 | Straße, Postleitzahl, Ort, E-Mail, IBAN-Nr. 1 | wie in [Kontakte](#kontakte) |
 | Land | wie in [Kontakte](#kontakte); `UN`, das sevDesk bei Kontakten ohne Anschrift schreibt („UNKNOWN“), gilt wie leer. Ist das Land leer, nimmt Haben DE an und nennt das in der Vorschau, damit du es vor dem Import prüfen kannst. Passt das Land nicht zur USt-IdNr. (etwa leer, also DE, bei `ATU…`; Monaco mit `FR…` passt, es gilt als Gebiet Frankreichs nach [§ 1 Abs. 2a UStG](https://www.gesetze-im-internet.de/ustg_1980/__1.html)), übernimmt Haben es und nennt das in der Vorschau |
 | Telefon | wie in [Kontakte](#kontakte); ein `'` am Anfang, mit dem sevDesk Telefonnummern als Text kennzeichnet, lässt Haben weg |

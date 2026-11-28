@@ -3,11 +3,11 @@ import {
   kleinunternehmerAm,
   type KleinunternehmerStand,
   BUNDESLAENDER,
-  EXPENSE_CATEGORY_KEYS,
+  BELEGKATEGORIEN,
   glaeubigerIdProblem,
   normalizeGlaeubigerId,
   RECHTSFORM_KEYS,
-  isKapitalgesellschaft,
+  privatZulaessig,
   legalInfoGaps,
   MAX_DUNNING_FEE,
   skontoProblem,
@@ -101,7 +101,7 @@ export const companySchema = z
     /** Vorgabe für den Privatanteil je Belegkategorie in Prozent */
     /** Tageskurs statt der monatlichen USt-Umrechnungskurse, wenn das Finanzamt es gestattet hat */
     tageskurs: z.boolean().default(false),
-    privateShares: z.partialRecord(z.enum(EXPENSE_CATEGORY_KEYS), inProzent(z.number().int().min(0).max(100))).default({}),
+    privateShares: z.partialRecord(z.enum(BELEGKATEGORIEN), inProzent(z.number().int().min(0).max(100))).default({}),
     dunning: z
       .object({
         baseRate: inBasisPoints(z.number().int().min(BASE_RATE_LIMITS.min).max(BASE_RATE_LIMITS.max)).nullable(),
@@ -117,7 +117,7 @@ export const companySchema = z
       .default({ baseRate: null, fees: { "1": 0, "2": 0, "3": 0 }, deadlineDays: 10 }),
   })
   // Eine Kapitalgesellschaft hat kein Privat: privat Genutztes ist dort Arbeitslohn oder verdeckte Gewinnausschüttung
-  .refine((c) => !isKapitalgesellschaft(c.rechtsform) || Object.values(c.privateShares).every((share) => !share), {
+  .refine((c) => privatZulaessig(c.rechtsform) || Object.values(c.privateShares).every((share) => !share), {
     message: "Privatanteile gibt es nur im Einzelunternehmen",
     path: ["privateShares"],
   })

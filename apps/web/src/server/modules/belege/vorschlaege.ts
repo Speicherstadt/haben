@@ -1,4 +1,4 @@
-import { type ExpenseCategory, gelernteBezahlung, mostFrequent, ustIdVergleichbar, type Zahlweg } from "@haben/core";
+import { type ExpenseCategory, gelernteBezahlung, mostFrequent, PRIVATENTNAHME, ustIdVergleichbar, type Zahlweg } from "@haben/core";
 import { and, eq, or, type SQL, sql } from "drizzle-orm";
 import { db, schema } from "../../db/index.ts";
 import { documentNotCancelled } from "../../db/document-cancelled.ts";
@@ -41,7 +41,8 @@ function desselbenLieferanten(lieferant: Lieferant): SQL | null {
 /**
  * Kategorie aus den gebuchten Belegen desselben Lieferanten: die häufigste, bei Gleichstand die zuletzt gebuchte, mit
  * Anzahl und letzter Buchung für die Begründung („7 von 9 Belegen als Software gebucht, zuletzt am …“). Ein aufgeteilter
- * Beleg zählt bei jeder seiner Kategorien, insgesamt aber einmal.
+ * Beleg zählt bei jeder seiner Kategorien, insgesamt aber einmal. Die Privatentnahme ist keine Kategorie eines Belegs
+ * (BELEGKATEGORIEN, #1975) und wird nicht vorgeschlagen.
  */
 export async function supplierCategory(lieferant: Lieferant): Promise<{ category: ExpenseCategory; count: number; total: number; last: string } | null> {
   const filter = desselbenLieferanten(lieferant);
@@ -57,7 +58,7 @@ export async function supplierCategory(lieferant: Lieferant): Promise<{ category
     )
     select category, count(distinct id)::int as count, max(locked_at) as last,
            (select count(distinct id) from kategorien where category is not null)::int as total
-      from kategorien where category is not null group by category`);
+      from kategorien where category is not null and category <> ${PRIVATENTNAHME} group by category`);
   const total = rows[0]?.total ?? 0;
   const top = mostFrequent(
     rows.map((r) => ({ value: r.category as ExpenseCategory, count: r.count, last: new Date(r.last).toISOString() })),

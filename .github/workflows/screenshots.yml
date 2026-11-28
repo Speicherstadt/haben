@@ -1,6 +1,6 @@
 name: Update screenshots
 
-# Nimmt die Bilder in README und Doku (docs/screenshot-*.png, hell und dunkel), Vorschaubild und Hero neu auf und
+# Nimmt die Bilder in README und Doku (docs/screenshot-*.png, hell und dunkel, dazu ohne Rahmen in docs/ohne-rahmen/), Vorschaubild und Hero neu auf und
 # committet, was sich geändert hat: die Ende-zu-Ende-Tests legen die Daten an,
 # e2e/zz-doku-screenshots.spec.ts fotografiert (bun run docs:screenshots). Nach einer Änderung am
 # Aussehen von Hand starten.
@@ -26,6 +26,7 @@ jobs:
         E2E_TEIL=ablauf E2E_DATABASE_URL="$POSTGRES_URL" E2E_SERVER_COMMAND="bun .output/server/index.mjs" bun run docs:screenshots
       paths: |
         docs/screenshot-*.png
+        docs/ohne-rahmen/screenshot-*.png
         docs/social-preview.png
         docs/hero-*.png
       commit-message: Screenshots erneuert

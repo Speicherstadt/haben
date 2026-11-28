@@ -560,7 +560,7 @@ Bei **Ist-Versteuerung** kommt die Umbuchung der Steuer dazu; erst damit wird si
 | 1766 USt nicht fällig 19 % | 3816 USt nicht fällig 19 % | 190,00 | |
 | 1776 Umsatzsteuer 19 % | 3806 Umsatzsteuer 19 % | | 190,00 |
 
-Bei Teilzahlungen wird nur der Steueranteil der Zahlung umgebucht, bei mehreren Steuersätzen anteilig je Satz. Rundungsreste schlägt Haben dem größten Posten zu, damit die Summe stimmt.
+Bei Teilzahlungen wird nur der Steueranteil der Zahlung umgebucht, bei mehreren Steuersätzen anteilig je Satz. Ein Steuer-Rundungsrest geht auf den steuerpflichtigen Satz mit dem größten Steuerbetrag (nie auf 0 %), damit die Summe stimmt.
 
 Bezahlt der Kunde bar, erfasst du das im [Kassenbuch](kasse.md#rechnung-bar-bezahlt): gebucht genauso, nur 1000 Kasse (SKR04 1600) statt Bank, mit dem Datum der Bareinnahme. Der Bankabgleich sieht danach nur noch den offenen Rest.
 

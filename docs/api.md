@@ -284,9 +284,11 @@ Gelöscht wird mit `DELETE /leistungen/{id}`, gelesen mit `GET /leistungen/{id}`
 
 ### Zeitbuchungen aus Kimai holen
 
+Haben liefert dafür kein Skript mit und ruft Kimai nicht selbst ab. Die Brücke ist ein eigenes Skript, das regelmäßig läuft, etwa per Cron, und beide APIs aufruft.
+
 Kimai hat eine eigene [REST-API](https://www.kimai.org/documentation/rest-api.html): Anmeldung mit `Authorization: Bearer <Kimai-Token>` (das Token aus dem Profil in Kimai, nicht das Passwort), Basis `https://<deine Kimai-Adresse>/api`, die vollständige Beschreibung unter `/api/doc` der eigenen Installation. Die Zeitbuchungen holt `GET /api/timesheets`; laut Quelltext von Kimai nimmt die Liste unter anderem `begin` und `end` (lokale Zeit, `JJJJ-MM-TTThh:mm:ss`), `customer`, `project`, `exported` (0 oder 1), `billable` (0 oder 1), `active` (0 = beendet), `modified_after` (UTC), `size` (höchstens 500) und `page`; `full=1` liefert Kunde und Projekt mit Namen statt nur mit ID.
 
-Ein Skript ruft regelmäßig die beendeten, noch nicht exportierten Zeitbuchungen ab und schickt jede an Haben:
+Das Skript holt die beendeten, noch nicht exportierten Zeitbuchungen (`active=0`, `exported=0`) und schickt jede an Haben:
 
 | Kimai | Haben (`POST /api/v1/leistungen`) |
 | --- | --- |
@@ -300,7 +302,7 @@ Ein Skript ruft regelmäßig die beendeten, noch nicht exportierten Zeitbuchunge
 
 `hourlyRateCents` lässt das Skript weg: Dann gilt der Satz des Kunden in Haben. Weil die Kennung der Zeitbuchung `externalId` ist, ändert ein erneuter Abruf, etwa nach `modified_after`, vorhandene Einträge statt neue anzulegen. Wer eine Zeitbuchung in Kimai nachträglich ändert, schickt sie noch einmal.
 
-Kimai merkt sich, was schon abgerechnet ist, mit dem Kennzeichen `exported` (`PATCH /api/timesheets/{id}/export` schaltet es um). Setzen soll es der Abgleich, sobald Haben die Einträge zu einer Rechnung gemacht hat; das kommt mit dem Abrechnen, einem späteren Teil von [#417](https://github.com/Speicherstadt/haben/issues/417).
+Kimai merkt sich, was schon abgerechnet ist, mit dem Kennzeichen `exported`. Haben setzt es nicht, auch nicht beim [Abrechnen](leistungen.md#abrechnen). Wer es nutzen will, lässt es das Skript setzen, sobald ein Eintrag auf einer festgeschriebenen Rechnung steht: `GET /leistungen?status=abgerechnet` liefert ihn mit `source` `kimai`, `externalId` und `invoiceStatus` `final`. `PATCH /api/timesheets/{id}/export` schaltet das Kennzeichen um; das Skript ruft es deshalb nur für Zeitbuchungen auf, die `GET /api/timesheets?exported=0` noch liefert, sonst nähme der nächste Lauf es wieder zurück. Diese Abfrage läuft ohne `modified_after`, sonst fehlten darin die Zeitbuchungen, die sich seit diesem Zeitpunkt nicht geändert haben.
 
 > [!NOTE]
 > Diese Zuordnung folgt der Kimai-Dokumentation und dem Quelltext von Kimai. Sie ist noch nicht gegen eine laufende Kimai-Installation ausprobiert; welche Felder die Antwort genau enthält, zeigt `/api/doc` der eigenen Installation.

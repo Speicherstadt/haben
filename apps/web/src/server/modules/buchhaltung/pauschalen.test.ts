@@ -35,7 +35,7 @@ describe.skipIf(!testDatabaseUrl)("Pauschalen (Postgres)", () => {
     const row = await pauschalen.createPauschale(actor, { art: "homeoffice", month: "2026-03", tage: 12 }, today);
     expect(row).toMatchObject({ art: "homeoffice", date: "2026-03-31", amount: 7200, details: { tage: 12 } });
     expect(await linesOf(row.journalEntryId)).toEqual([
-      { date: "2026-03-31", locked: true, account: "4288", debit: 7200, credit: 0 },
+      { date: "2026-03-31", locked: true, account: "4287", debit: 7200, credit: 0 },
       { date: "2026-03-31", locked: true, account: "1890", debit: 0, credit: 7200 },
     ]);
   });
@@ -85,7 +85,7 @@ describe.skipIf(!testDatabaseUrl)("Pauschalen (Postgres)", () => {
     expect(reversal).toMatchObject({ amount: -6000, date: "2026-05-31" });
     expect(await linesOf(reversal!.journal_entry_id)).toEqual([
       { date: "2026-05-31", locked: true, account: "1890", debit: 6000, credit: 0 },
-      { date: "2026-05-31", locked: true, account: "4288", debit: 0, credit: 6000 },
+      { date: "2026-05-31", locked: true, account: "4287", debit: 0, credit: 6000 },
     ]);
     await expect(pauschalen.reversePauschale(actor, reversal!.id)).rejects.toThrow(/nicht gefunden/);
 

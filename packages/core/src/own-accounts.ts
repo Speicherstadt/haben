@@ -5,7 +5,7 @@ import { bereichPosten } from "./hgb.ts";
 import { GEWST_HINZURECHNUNG_KONTEN, KAPG_STEUER_KONTEN } from "./koerperschaft.ts";
 import { LOHN_KONTEN } from "./lohn-buchung.ts";
 import { ledgerManagedAccounts, SACHENTNAHME_FRUEHERE_KONTEN, SACHENTNAHME_KONTEN } from "./manual.ts";
-import { PAUSCHALE_KONTEN } from "./pauschalen.ts";
+import { PAUSCHALE_FRUEHERE_KONTEN, PAUSCHALE_KONTEN } from "./pauschalen.ts";
 import { ACCOUNT_NAMES, ACCOUNTS, EXPENSE_CATEGORIES, kategorienMit, type ExpenseCategory, type Kontenrahmen } from "./posting.ts";
 import { PRIVATE_USE_ACCOUNT_NAMES, PRIVATE_USE_ACCOUNTS } from "./private-use.ts";
 import { STEUER_KONTEN } from "./steuerzahlung.ts";
@@ -67,6 +67,7 @@ export function reservedAccountNumbers(kontenrahmen: Kontenrahmen): ReadonlySet<
     PRIVATE_USE_ACCOUNTS,
     PRIVATE_USE_ACCOUNT_NAMES,
     PAUSCHALE_KONTEN,
+    PAUSCHALE_FRUEHERE_KONTEN,
     LOHN_KONTEN,
     STEUER_KONTEN,
     DARLEHEN_KONTEN,

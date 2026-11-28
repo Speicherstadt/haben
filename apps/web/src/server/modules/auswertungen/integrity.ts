@@ -27,7 +27,10 @@ export interface ChainHead {
 }
 
 export interface IntegrityProblem {
-  /** kette: Audit-Log; kopf: Kettenkopf; siegel: festgeschriebener Datensatz; sperre: Trigger, Funktion oder Standardwert einer Spalte */
+  /**
+   * kette: Audit-Log; kopf: Kettenkopf; siegel: festgeschriebener Datensatz oder Zeile einer nur anhängbaren Tabelle
+   * (Abgleich mit dem Audit-Log); sperre: Trigger, Funktion oder Standardwert einer Spalte
+   */
   art: "kette" | "kopf" | "siegel" | "sperre";
   tabelle: string;
   zeile: string | null;

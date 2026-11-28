@@ -89,16 +89,21 @@ export function verpflegungBetrag(year: number, tag: Reisetag, mahlzeiten: Mahlz
   return Math.max(0, satz - kuerzung);
 }
 
+export interface PauschaleKonto {
+  konto: string;
+  name: string;
+}
+
 /**
- * Aufwandskonto je Pauschale; Gegenkonto ist die Privateinlage. Homeoffice auf dem Konto für das
- * häusliche Arbeitszimmer (abziehbarer Anteil), Fahrten und Verpflegung auf den Reisekosten des Unternehmers. Die Wege
- * zur Betriebsstätte auf dem Konto für den abziehbaren Anteil; der DATEV-Kontenrahmen 2026 beschriftet es für Fahrzeuge
- * im Betriebsvermögen und kennt kein eigenes Konto für das Privatfahrzeug.
+ * Aufwandskonto je Pauschale; Gegenkonto ist die Privateinlage. Homeoffice auf dem Konto der Tagespauschale, Fahrten und
+ * Verpflegung auf den Reisekosten des Unternehmers. Die Wege zur Betriebsstätte auf dem Konto für den abziehbaren Anteil;
+ * der DATEV-Kontenrahmen 2026 beschriftet es für Fahrzeuge im Betriebsvermögen und kennt kein eigenes Konto für das
+ * Privatfahrzeug. Namen wie im DATEV-Kontenrahmen 2026.
  */
-export const PAUSCHALE_KONTEN: Record<PauschaleArt, Record<Kontenrahmen, { konto: string; name: string }>> = {
+export const PAUSCHALE_KONTEN: Record<PauschaleArt, Record<Kontenrahmen, PauschaleKonto>> = {
   homeoffice: {
-    SKR03: { konto: "4288", name: "Häusliches Arbeitszimmer, Tagespauschale (abziehbar)" },
-    SKR04: { konto: "6348", name: "Häusliches Arbeitszimmer, Tagespauschale (abziehbar)" },
+    SKR03: { konto: "4287", name: "Tagespauschale für die Tätigkeit in der häuslichen Wohnung" },
+    SKR04: { konto: "6347", name: "Tagespauschale für die Tätigkeit in der häuslichen Wohnung" },
   },
   fahrt: {
     SKR03: { konto: "4673", name: "Reisekosten Unternehmer Fahrtkosten" },
@@ -113,3 +118,29 @@ export const PAUSCHALE_KONTEN: Record<PauschaleArt, Record<Kontenrahmen, { konto
     SKR04: { konto: "6688", name: "Fahrten zwischen Wohnung und Betriebsstätte (abziehbarer Anteil)" },
   },
 };
+
+/**
+ * Konten, auf die Haben eine Pauschale früher gebucht hat. Die Buchungen darauf bleiben festgeschrieben, wie sie sind, und
+ * zählen in EÜR und BWA weiter als diese Pauschale; ein Storno bucht auf ihr Konto zurück. Die Homeoffice-Pauschale stand
+ * bis #2015 auf dem Konto des häuslichen Arbeitszimmers; andere Buchungen dort bleiben Arbeitszimmer.
+ */
+export const PAUSCHALE_FRUEHERE_KONTEN: readonly ({ art: PauschaleArt } & Record<Kontenrahmen, PauschaleKonto>)[] = [
+  {
+    art: "homeoffice",
+    SKR03: { konto: "4288", name: "Aufwendungen für ein häusliches Arbeitszimmer (abziehbarer Anteil)" },
+    SKR04: { konto: "6348", name: "Aufwendungen für ein häusliches Arbeitszimmer (abziehbarer Anteil)" },
+  },
+];
+
+/** Die Pauschale, die Haben auf dieses Konto bucht oder früher gebucht hat, sonst null */
+export function pauschaleArtDesKontos(kontenrahmen: Kontenrahmen, account: string): PauschaleArt | null {
+  for (const [art, konten] of Object.entries(PAUSCHALE_KONTEN) as [PauschaleArt, Record<Kontenrahmen, PauschaleKonto>][])
+    if (konten[kontenrahmen].konto === account) return art;
+  return PAUSCHALE_FRUEHERE_KONTEN.find((k) => k[kontenrahmen].konto === account)?.art ?? null;
+}
+
+/** Nummer und Name aller Konten der Pauschalen, heutige und frühere */
+export function pauschaleKontoNamen(kontenrahmen: Kontenrahmen): Record<string, string> {
+  const konten = [...Object.values(PAUSCHALE_KONTEN), ...PAUSCHALE_FRUEHERE_KONTEN].map((k) => k[kontenrahmen]);
+  return Object.fromEntries(konten.map((k) => [k.konto, k.name]));
+}

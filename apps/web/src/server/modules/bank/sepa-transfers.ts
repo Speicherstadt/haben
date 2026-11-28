@@ -3,7 +3,6 @@ import {
   documentOpen,
   formatDecimal,
   geltendeIban,
-  hatPrivatanteil,
   type IbanEntscheidung,
   isEwrIban,
   isValidIban,
@@ -24,6 +23,8 @@ import { loadCompany } from "../stammdaten/index.ts";
 import { BankError } from "./bank-error.ts";
 import { documentPayments } from "./settled-amounts.ts";
 import { documentPayees, ibanDecisions, type DocumentPayee } from "./document-payees.ts";
+import { documentsMitEntnahme } from "../umsatzsteuer/index.ts";
+import { skontoMoeglich } from "./skonto-moeglich.ts";
 
 /** Ein offener Beleg, der sich überweisen lässt, oder warum nicht */
 export interface TransferCandidate {
@@ -42,6 +43,8 @@ export interface TransferCandidate {
   warning: string | null;
   /** Die E-Rechnung nennt eine andere IBAN als der Kontakt, und am Beleg ist nicht entschieden, welche gilt (#410) */
   ibanDecisionNeeded: boolean;
+  /** Das Problem behebt man im Kontakt des Lieferanten: IBAN fehlt oder ist dort ungültig (Link am Beleg, #1967) */
+  problemImKontakt: boolean;
   /** Skonto aus der E-Rechnung, nur wenn es sich später als erhaltenes Skonto buchen lässt */
   skontoTerms: SkontoTerm[];
   /** Früher erzeugte Überweisungen für diesen Beleg */
@@ -55,7 +58,7 @@ export interface TransferCandidate {
 function payeeAccount(
   payee: DocumentPayee | undefined,
   decisions: IbanEntscheidung[],
-): Pick<TransferCandidate, "iban" | "ibanSource" | "problem" | "warning" | "ibanDecisionNeeded"> {
+): Pick<TransferCandidate, "iban" | "ibanSource" | "problem" | "warning" | "ibanDecisionNeeded" | "problemImKontakt"> {
   const geltend = geltendeIban({ kontaktIban: payee?.contactIban ?? null, rechnungsIban: payee?.einvoiceIban ?? null }, decisions);
   if (geltend.iban === null) {
     const problem = !geltend.offen
@@ -63,7 +66,7 @@ function payeeAccount(
       : payee?.contactIban
         ? "Die E-Rechnung nennt eine andere IBAN als der Kontakt: am Beleg entscheiden, welche gilt"
         : "Die IBAN aus der E-Rechnung ist noch nicht bestätigt: am Beleg übernehmen";
-    return { iban: null, ibanSource: null, problem, warning: null, ibanDecisionNeeded: geltend.offen === true };
+    return { iban: null, ibanSource: null, problem, warning: null, ibanDecisionNeeded: geltend.offen === true, problemImKontakt: !geltend.offen };
   }
   const { iban, herkunft: ibanSource } = geltend;
   const problem = !isValidIban(iban)
@@ -74,11 +77,11 @@ function payeeAccount(
   const warning = geltend.entschieden
     ? `Am Beleg entschieden: ${ibanSource === "kontakt" ? "IBAN des Kontakts" : "IBAN der E-Rechnung nur für diesen Beleg"}`
     : null;
-  return { iban, ibanSource, problem, warning, ibanDecisionNeeded: false };
+  return { iban, ibanSource, problem, warning, ibanDecisionNeeded: false, problemImKontakt: ibanSource === "kontakt" && !isValidIban(iban) };
 }
 
-/** Offene Belege, die per Bank bezahlt werden, mit Konto des Lieferanten; älteste Fälligkeit zuerst */
-export async function transferCandidates(): Promise<TransferCandidate[]> {
+/** Offene Belege, die per Bank bezahlt werden, mit Konto des Lieferanten; älteste Fälligkeit zuerst. Mit ids nur diese Belege (GiroCode am Beleg, #1967) */
+export async function transferCandidates(ids?: string[]): Promise<TransferCandidate[]> {
   const documents = await db
     .select({
       id: schema.documents.id,
@@ -93,18 +96,44 @@ export async function transferCandidates(): Promise<TransferCandidate[]> {
       category: schema.documents.category,
     })
     .from(schema.documents)
-    .where(and(eq(schema.documents.status, "gebucht"), eq(schema.documents.payment, "bank"), documentNotCancelled()));
-  const ids = documents.map((d) => d.id);
-  const [paid, payees, transfers, decisions] = await Promise.all([documentPayments(ids), documentPayees(ids), transfersByDocument(ids), ibanDecisions(ids)]);
+    .where(
+      and(
+        eq(schema.documents.status, "gebucht"),
+        eq(schema.documents.payment, "bank"),
+        documentNotCancelled(),
+        ids ? inArray(schema.documents.id, ids) : undefined,
+      ),
+    );
+  const found = documents.map((d) => d.id);
+  const [paid, payees, transfers, decisions, entnahme] = await Promise.all([
+    documentPayments(found),
+    documentPayees(found),
+    transfersByDocument(found),
+    ibanDecisions(found),
+    documentsMitEntnahme(found),
+  ]);
   return documents
     .map((doc) => {
       const paidSoFar = paid.get(doc.id) ?? 0;
       const open = -documentOpen(doc.gross, paidSoFar);
       const payee = payees.get(doc.id);
       const account = payeeAccount(payee, decisions.get(doc.id) ?? []);
-      // Erhaltenes Skonto bucht Haben nur ohne § 13b, Privatanteil und Anlagegut (write-offs.ts, writeOff); angeboten nur auf einen noch ganz offenen Beleg
+      const problem =
+        doc.currency !== "EUR"
+          ? `Rechnung in ${doc.currency}: SEPA überweist nur Euro`
+          : doc.supplierName.trim() === ""
+            ? "Name des Lieferanten fehlt am Beleg"
+            : account.problem;
+      // Erhaltenes Skonto nur, wo writeOff es ausbuchen darf (skontoMoeglich, #1975), und nur auf einen noch ganz offenen Beleg
       const skontoAllowed =
-        paidSoFar === 0 && doc.reverseCharge === null && !hatPrivatanteil(doc.privateShare) && doc.category !== "anlage" && doc.documentDate !== null;
+        paidSoFar === 0 &&
+        doc.documentDate !== null &&
+        skontoMoeglich({
+          reverseCharge: doc.reverseCharge,
+          privateShare: doc.privateShare,
+          entnahmezeile: entnahme.has(doc.id),
+          category: doc.category,
+        }).moeglich;
       return {
         documentId: doc.id,
         supplierName: doc.supplierName,
@@ -113,12 +142,9 @@ export async function transferCandidates(): Promise<TransferCandidate[]> {
         dueDate: doc.dueDate,
         open,
         ...account,
-        problem:
-          doc.currency !== "EUR"
-            ? `Rechnung in ${doc.currency}: SEPA überweist nur Euro`
-            : doc.supplierName.trim() === ""
-              ? "Name des Lieferanten fehlt am Beleg"
-              : account.problem,
+        problem,
+        // Nur wenn genau dieses Problem gemeldet ist; bei Fremdwährung hilft der Kontakt nicht
+        problemImKontakt: account.problemImKontakt && problem === account.problem,
         skontoTerms: skontoAllowed && payee?.paymentTerms ? parseSkontoTerms(payee.paymentTerms) : [],
         transfers: transfers.get(doc.id) ?? [],
       };
@@ -179,6 +205,11 @@ function remittanceFor(c: TransferCandidate, skonto: { percent: number; amount: 
   return `${reference} abzgl. ${percent} Prozent Skonto ${formatDecimal(skonto.amount)} EUR`;
 }
 
+/** Betrag und Verwendungszweck einer Überweisung, für die SEPA-Datei wie für den GiroCode am Beleg (#1967) */
+export function ueberweisung(c: TransferCandidate, skonto: { percent: number; amount: Cents } | null): { amount: Cents; remittance: string } {
+  return { amount: c.open - (skonto?.amount ?? 0), remittance: remittanceFor(c, skonto) };
+}
+
 /**
  * Erzeugt die pain.001-Datei für die gewählten Belege und hält sie fest (sepa_transfers, sepa_transfer_items). Gebucht
  * wird nichts: Die Belege bleiben offen, bis der Bankabgleich die Abbuchung zuordnet; die EndToEndId hilft ihm dabei.
@@ -207,12 +238,7 @@ export async function createSepaTransfer(actor: string, input: SepaTransferInput
     const offer = item.skonto && c.documentDate ? skontoOffer(c.skontoTerms, c.documentDate, input.executionDate, c.open) : null;
     if (item.skonto && !offer) problems.push(`${c.supplierName || "Beleg"}: Skonto ist zum Ausführungsdatum nicht mehr möglich`);
     const skonto = offer ? { percent: offer.term.percent, amount: offer.amount } : null;
-    const transaction: SepaTransaction = {
-      endToEndId: newId(),
-      amount: c.open - (skonto?.amount ?? 0),
-      creditor: { name: c.supplierName, iban: c.iban },
-      remittance: remittanceFor(c, skonto),
-    };
+    const transaction: SepaTransaction = { endToEndId: newId(), creditor: { name: c.supplierName, iban: c.iban }, ...ueberweisung(c, skonto) };
     return [{ documentId: c.documentId, skonto: skonto?.amount ?? 0, transaction }];
   });
   if (problems.length > 0) throw new BankError(problems.join(" "));
