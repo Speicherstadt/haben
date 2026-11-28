@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { mapContact, mapPayments, mapSalesDocument, mapVoucher } from "../map.ts";
 import { itemTax, webBookkeepingVoucher, webContact, webPayments, webSalesDocument, webStatus } from "./convert.ts";
 import { webEntrySchema, type WebEntry } from "./schema.ts";
-import { LexwareWebExportError, maxUnpackedBytes, readWebExport, webExportSource } from "./source.ts";
+import { LexwareWebExportError, readWebExport, webExportSource } from "./source.ts";
 
 const raw = (name: string): unknown => JSON.parse(readFileSync(new URL(`../../../test-fixtures/lexoffice-web/${name}`, import.meta.url), "utf8"));
 const entry = (name: string): WebEntry => webEntrySchema.parse({ files: [], ...(raw(name) as object) });
@@ -376,12 +376,5 @@ describe("Sicherung lesen", () => {
     const bytes = zipSync({ "manifest.json": encode("{}"), "dateien/gross.bin": new Uint8Array(10 * 1024 * 1024) });
     // Die Größe stört nicht: erst der Inhalt (hier ein leeres Manifest) wird bemängelt
     expect(() => readWebExport([{ name: "x.zip", bytes }])).toThrow(/unerwartetes Format/);
-  });
-
-  it("begrenzt das Entpacken auf das Zwanzigfache der ZIP-Datei plus 64 MiB, höchstens 2 GiB", () => {
-    expect(maxUnpackedBytes(0)).toBe(64 * 1024 ** 2);
-    expect(maxUnpackedBytes(1024 ** 2)).toBe(84 * 1024 ** 2);
-    expect(maxUnpackedBytes(100 * 1024 ** 2)).toBe(2 * 1024 ** 3);
-    expect(maxUnpackedBytes(1024 ** 4)).toBe(2 * 1024 ** 3);
   });
 });

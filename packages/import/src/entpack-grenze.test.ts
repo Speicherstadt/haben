@@ -9,6 +9,8 @@ describe("Grenze beim Entpacken", () => {
 
   it("rechnet das Zwanzigfache plus 64 MiB, höchstens 2 GiB", () => {
     expect(maxUnpackedBytes(0)).toBe(64 * 1024 ** 2);
+    expect(maxUnpackedBytes(1024 ** 2)).toBe(84 * 1024 ** 2);
+    expect(maxUnpackedBytes(100 * 1024 ** 2)).toBe(2 * 1024 ** 3);
     expect(maxUnpackedBytes(1024 ** 4)).toBe(2 * 1024 ** 3);
   });
 

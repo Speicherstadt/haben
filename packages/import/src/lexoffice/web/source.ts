@@ -1,4 +1,4 @@
-import { type EntpackBudget, EntpackGrenzeError, entpackBudget, maxUnpackedBytes, unzipBegrenzt } from "../../entpack-grenze.ts";
+import { type EntpackBudget, EntpackGrenzeError, entpackBudget, unzipBegrenzt } from "../../entpack-grenze.ts";
 import type { z } from "zod";
 import { LexwareWebExportError } from "./errors.ts";
 import type { LexofficeSource } from "../source.ts";
@@ -60,9 +60,6 @@ function readJson<S extends z.ZodType>(files: Record<string, Uint8Array>, name: 
   if (!parsed.success) throw new LexwareWebExportError(`${partName}: ${name} hat ein unerwartetes Format.`);
   return parsed.data;
 }
-
-/** Wie weit ein Teil beim Entpacken wachsen darf (entpack-grenze.ts) */
-export { maxUnpackedBytes };
 
 function unzip(bytes: Uint8Array, partName: string, budget: EntpackBudget): Record<string, Uint8Array> {
   try {
