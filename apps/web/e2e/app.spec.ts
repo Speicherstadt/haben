@@ -610,6 +610,8 @@ test("Beleg hochladen und buchen", async ({ browser }) => {
   await faktenZeigen(page, "Betrag");
   await bestaetigen(page, "Buchen");
   await expect(page.getByText(/Gebucht .*festgeschrieben/)).toBeVisible();
+  // Offen über das Geschäftskonto: der Inhaber kann ihn per GiroCode überweisen (#1967)
+  await expect(page.getByRole("region", { name: "Zum Überweisen" }).locator("summary")).toContainText("45,90");
 
   // Bis zur Zahlung steht der Beleg in der Übersicht unter den offenen Verbindlichkeiten
   await go("/");
