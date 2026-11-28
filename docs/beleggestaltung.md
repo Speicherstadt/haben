@@ -68,7 +68,7 @@ Unter **Einstellungen › Beleggestaltung › Fußzeile** schaltest du von der a
 - Bricht eine Zeile um oder sind die Spalten hoch, wächst der untere Rand mit; es steht dann weniger Inhalt auf der Seite.
 - Dein Text wird nicht übersetzt: Auf englischen Belegen steht er so, wie du ihn schreibst.
 
-**Spalten ausrichten** stellt die Spalten **oben** (ab Werk) oder **unten** bündig, auch die der automatischen Fußzeile und die Registerangaben als Spalte. Unten bündig stehen die letzten Zeilen unterschiedlich langer Spalten auf einer Linie. In der Randspalte von Elegant und Atelier stehen die Spalten untereinander, dort wirkt die Einstellung nicht.
+**Spalten ausrichten** stellt die Spalten **oben** (ab Werk) oder **unten** bündig, auch die der automatischen Fußzeile und die Registerangaben als Spalte. In der Randspalte von Elegant und Atelier stehen die Spalten untereinander, dort wirkt die Einstellung nicht.
 
 ### Pflichtangaben einer GmbH oder UG
 
