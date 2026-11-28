@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { auslesungAktiv, type QueueOverview } from "./-auslesung-aktiv.ts";
 
 const leer: QueueOverview = { waiting: 0, running: 0, failed: 0, paused: false };
-const zeile = (extractionStatus: string) => ({ extractionStatus });
+const zeile = (extractionStatus: string, status = "neu") => ({ status, extractionStatus });
 
 describe("auslesungAktiv: Wann sich die Belegliste auffrischt (#2085)", () => {
   it("frischt auf, solange die Warteschlange läuft oder ungehalten wartet", () => {
@@ -20,5 +20,10 @@ describe("auslesungAktiv: Wann sich die Belegliste auffrischt (#2085)", () => {
   it("frischt weiter auf, wenn die Liste einen Beleg noch als wartend zeigt und die Auslesung nicht angehalten ist", () => {
     expect(auslesungAktiv(leer, [zeile("wartet")])).toBe(true);
     expect(auslesungAktiv({ ...leer, paused: true }, [zeile("wartet")])).toBe(false);
+  });
+
+  it("frischt nicht auf für gebuchte Belege, die beim Buchen noch warteten oder ausgelesen wurden", () => {
+    // Die Warteschlange lässt gebuchte Belege aus; ihr Stand der Auslesung bleibt so stehen
+    expect(auslesungAktiv(leer, [zeile("wartet", "gebucht"), zeile("laeuft", "gebucht")])).toBe(false);
   });
 });

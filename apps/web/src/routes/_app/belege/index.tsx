@@ -94,7 +94,7 @@ function DocumentsPage() {
       </Link>
     );
   };
-  const running = auslesungAktiv(queue);
+  const running = auslesungAktiv(queue, documents);
   const open = documents.filter((d) => d.status === "neu").length;
   // Neu auslesen in der Reihenfolge, die die Liste gerade zeigt (#1735)
   const auslesung = useAuslesung(sorted);
