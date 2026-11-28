@@ -73,7 +73,7 @@ export function anwender(s: InstanzStand, angaben: ProcedureDetails): Verfahrens
     absaetze: [
       "Rechnungen bekommen ihre Nummer beim Festschreiben aus einem fortlaufenden Nummernkreis; danach sind sie mit PDF und E-Rechnung versiegelt, eine Korrektur ist ein Storno oder eine neue Rechnung. Belege werden hochgeladen und unverändert unter ihrem SHA-256 gespeichert; beim Buchen werden sie festgeschrieben. Buchungen entstehen aus Rechnungen, Belegen, Bankumsätzen, Kasse und Anlagen nach dem gewählten Kontenrahmen; eine festgeschriebene Buchung wird nur durch eine Gegenbuchung korrigiert.",
       s.postfach
-        ? `Belege kommen außerdem aus dem Postfach ${s.postfach.username} auf ${s.postfach.host} (Ordner ${s.postfach.folder}); jede abgerufene Mail wird nur einmal übernommen.`
+        ? `Belege kommen außerdem aus dem Postfach ${s.postfach.username} auf ${s.postfach.host} (Ordner ${s.postfach.folder}); jede abgerufene Mail wird nur einmal übernommen.${s.postfach.outboundFolder ? ` Aus dem Ordner ${s.postfach.outboundFolder} holt Haben Ausgangsrechnungen eines Fremdsystems als PDF; gebucht werden sie erst, wenn die Angaben geprüft und bestätigt sind.` : ""}`
         : "",
       s.ablage
         ? `Festgeschriebene Rechnungen schickt Haben seit ${tag(s.ablage.since)} zusätzlich als Kopie an das Dokumentenarchiv unter ${s.ablage.origin}; das Original bleibt in Haben, jede Übertragung steht mit Zeitpunkt und Ergebnis an der Rechnung.`

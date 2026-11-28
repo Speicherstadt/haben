@@ -1604,3 +1604,43 @@ summary { cursor: pointer; min-height: 24px; }
 @media (forced-colors: active) {
   .cmd-option[aria-selected="true"] { outline: 2px solid Highlight; }
 }
+
+/* Karte „Aus dem Postfach“ (Rechnungen): Tabelle mit festen Spalten, am Handy Absender und Eingang unter der Nummer */
+.postfach-zeile {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1.3fr) minmax(0, 1fr) 96px 192px;
+  gap: 12px;
+  align-items: center;
+}
+.postfach-info {
+  display: contents;
+}
+.postfach-kurz {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.postfach-aktion {
+  justify-content: flex-end;
+}
+@media (max-width: 640px) {
+  .postfach-zeile {
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+  }
+  .postfach-kopf > :nth-child(n + 3) {
+    display: none;
+  }
+  .postfach-info {
+    display: block;
+    min-width: 0;
+  }
+  .postfach-eingang {
+    display: inline;
+  }
+  .postfach-aktion {
+    flex-wrap: nowrap;
+  }
+  .postfach-aktion .btn-primary {
+    padding-inline: 12px;
+  }
+}

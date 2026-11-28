@@ -972,6 +972,28 @@ export const inboxMessages = pgTable("inbox_messages", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Ausgangsrechnungen aus dem Ordner für Ausgangsrechnungen des Postfachs (#660): Das PDF liegt abgelegt, die Angaben
+ * prüft der Nutzer beim Übernehmen. Eine Datei steht nur einmal da (SHA-256); verworfene Einträge bleiben, damit der
+ * Abruf dieselbe Datei nicht wieder anbietet.
+ */
+export const inboxOutgoing = pgTable("inbox_outgoing", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sha256: text("sha256").notNull().unique(),
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(),
+  sender: text("sender").notNull(),
+  subject: text("subject").notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true }),
+  status: text("status", { enum: ["offen", "uebernommen", "verworfen"] })
+    .notNull()
+    .default("offen"),
+  /** Die daraus übernommene Rechnung */
+  invoiceId: uuid("invoice_id").references(() => invoices.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** Gesendete E-Mails; Fristen-Erinnerungen merken sich, welche Frist zu welcher Stufe schon erinnert wurde */
 export const mailLog = pgTable("mail_log", {
   id: uuid("id").primaryKey().defaultRandom(),

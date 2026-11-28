@@ -2416,6 +2416,20 @@
       "when": 1795854528637,
       "tag": "0344_kz60_bauleistungen",
       "breakpoints": true
+    },
+    {
+      "idx": 345,
+      "version": "7",
+      "when": 1795856490425,
+      "tag": "0345_postfach_ausgang",
+      "breakpoints": true
+    },
+    {
+      "idx": 346,
+      "version": "7",
+      "when": 1795856500277,
+      "tag": "0346_postfach_ausgang_trigger",
+      "breakpoints": true
     }
   ]
 }
