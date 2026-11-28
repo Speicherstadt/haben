@@ -202,4 +202,23 @@ describe.skipIf(!testDatabaseUrl)("Rechnungskorrektur: Festschreiben (Postgres)"
     const dritte = await entwurf("korrektur", -35, rechnung);
     await expect(invoices.finalizeInvoice(actor, dritte.id, kleinunternehmerStand)).rejects.toThrow(/ist ein Storno/);
   }, 60_000);
+
+  it("Fremdwährung: weist eine Korrektur ab, die in der Rechnungswährung unter 0 mindert", async () => {
+    // 99,99 USD und −100,00 USD ergeben beim Kurs 1,20 in Euro dieselben Cent; in USD fehlt 0,01
+    const usd = (netto: number) => ({
+      contactId,
+      issueDate: "2026-09-01",
+      serviceFrom: null,
+      serviceTo: null,
+      paymentTermDays: 14,
+      format: "zugferd" as const,
+      note: "",
+      currency: "USD",
+      exchangeRate: "1,20",
+      lines: [{ description: "Beratung", quantity: 1000, unit: "Psch." as const, unitPrice: netto, taxRate: 1900 as const }],
+    });
+    const rechnung = await invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, usd(9_999))).id, kleinunternehmerStand);
+    const entwurf = await invoices.createDraft(actor, usd(-10_000), { kind: "korrektur", correctsId: rechnung.id });
+    await expect(invoices.finalizeInvoice(actor, entwurf.id, kleinunternehmerStand)).rejects.toThrow(/unter 0/);
+  }, 60_000);
 });
