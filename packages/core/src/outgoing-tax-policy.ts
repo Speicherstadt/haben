@@ -36,6 +36,9 @@ export function outgoingTaxIssues(treatment: TaxTreatment, details: OutgoingTaxD
       issues.push(
         "Als Kleinunternehmer bitte den tatsächlichen ausländischen Leistungsort und die Behandlung ohne auszuweisende ausländische Umsatzsteuer bestätigen",
       );
+    } else if (treatment === "bauleistung_13b") {
+      // § 13b erfasst nur steuerpflichtige Umsätze; die eines Kleinunternehmers sind steuerfrei (§ 19 Abs. 1 UStG, #1934)
+      issues.push("Als Kleinunternehmer gibt es keine Bauleistung nach § 13b: deine Umsätze sind steuerfrei (§ 19 Abs. 1 UStG); bitte § 19 wählen");
     } else if (treatment === "regulaer" || treatment === "ig_lieferung" || treatment === "ausfuhr") {
       issues.push("Als Kleinunternehmer bitte § 19, eine unterstützte eigene Befreiung oder einen geklärten ausländischen Leistungsort wählen");
     }

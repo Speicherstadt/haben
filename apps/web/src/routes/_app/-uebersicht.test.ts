@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
 vi.mock("../../server/functions/backup.ts", () => ({}));
 vi.mock("../../server/functions/invoices.ts", () => ({}));
 vi.mock("../../server/functions/vat.ts", () => ({}));
+vi.mock("../../server/functions/liquiditaet.ts", () => ({}));
 vi.mock("../../server/functions/finanzamt.ts", () => ({ markPostfachDocument: () => undefined }));
 vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
 vi.mock("@tanstack/react-router", () => ({

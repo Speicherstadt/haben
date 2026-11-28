@@ -228,7 +228,8 @@ Ein Forderungsausfall bei Soll steht zusätzlich in Kz 50, der Minderung der Bem
 
 Kz 81 ist die Bemessungsgrundlage zu 19 %, Kz 86 die zu 7 %. Dazu zählen regulär besteuerte Rechnungen, Direktbuchungen, Bareinnahmen ohne Rechnung im [Kassenbuch](kasse.md), [freie Buchungen mit Steuerschlüssel](buchhaltung.md#manuelle-und-freie-buchungen) einschließlich der Sachentnahme und, in Kz 81, die private Nutzung von Firmenwagen im Monat der Nutzung ([Anlagen und AfA](anlagen.md#private-nutzung-von-firmenwagen)) und die Entnahme einer Anlage, für die du beim Kauf Vorsteuer gezogen hast, im Monat der Entnahme ([Entnahme](anlagen.md#entnahme)), beide auch bei Ist-Versteuerung. Belege mit Privatanteil zählen in Kz 66 nur mit dem betrieblichen Teil. Regulär besteuerte Umsätze zu 0 % meldet Haben nicht; die Vorprüfung weist darauf hin.
 
-### Umsätze ohne Steuer (Kz 21, 41, 43, 45 und 48)
+<a id="umsätze-ohne-steuer-kz-21-41-43-45-und-48"></a>
+### Umsätze ohne Steuer (Kz 21, 41, 43, 45, 48 und 60)
 
 Rechnungen ohne Steuerausweis (siehe [Rechnungen](rechnungen.md#umsatzsteuer-auf-der-rechnung)) meldet Haben mit ihrer Bemessungsgrundlage, ohne Steuer. Sie ändern Kz 83 nicht.
 
@@ -240,6 +241,7 @@ Bei neuen Bilanz-Anzahlungs-/Schlussketten von GmbH und UG gehen reine Anforderu
 | 41 | Warenlieferung in die EU (innergemeinschaftliche Lieferung) | immer das Rechnungsdatum, auch bei Ist-Versteuerung (§ 18b Satz 1 Nr. 1 und Satz 2 UStG) |
 | 43 | Warenlieferung ins Nicht-EU-Ausland (Ausfuhrlieferung) | Rechnung: [Leistungstag](#leistungstag-bei-soll-versteuerung), unabhängig von Ist/Soll; Anzahlungen nicht, die Schlussrechnung mit der ganzen Leistung. Storno und Korrektur: Monat ihres Datums, auf schon bezahltes Entgelt erst mit der [Rückzahlung](rechnungen.md#bereits-bezahlte-rechnung), bei einer Schlussrechnung mehr unter der Tabelle. Skonto und Forderungsausfall: Monat der Ausbuchung bzw. ihrer Aufhebung. Bis Version 0.13.0-rc.1 festgeschriebene Rechnungen: wie bisher, siehe unter der Tabelle |
 | 45 | Nicht-EU-Ausland: Dienstleistung oder Nutzungsrecht | immer das Rechnungsdatum, auch bei Ist-Versteuerung |
+| 60 | Inland, Bauleistung: Kunde schuldet die Steuer | das Rechnungsdatum, spätestens der letzte Tag des Monats nach dem [Leistungstag](#leistungstag-bei-soll-versteuerung), auch bei Ist-Versteuerung ([§ 13b Abs. 2 UStG](https://www.gesetze-im-internet.de/ustg_1980/__13b.html), [DATEV-Dok. 1007335](https://help-center.apps.datev.de/documents/1007335)) |
 | 48 | Steuerfreie Leistung, z. B. Heilbehandlung oder Unterricht (§ 4 UStG, ohne Vorsteuerabzug) | wie Kz 43; Bareinnahme ohne Rechnung: Tag der Zahlung |
 | 48 | Umsatz als Kleinunternehmer (§ 19 Abs. 1 UStG) | wie Kz 43, auch für Rechnungen bis Version 0.13.0-rc.1; Bareinnahme und Direktbuchung: Tag der Zahlung |
 
@@ -251,7 +253,7 @@ Für Kz 43 und 48 sagt die [Anleitung zur UStVA 2026](https://www.elster.de/epor
 
 Rechnungen über § 4 und Ausfuhr, die bis Version 0.13.0-rc.1 festgeschrieben wurden, zählen samt Storno, Korrektur und Zahlungen weiter wie Kz 81: bei Ist mit der Zahlung, Anzahlungen darauf bei Ist und Soll mit ihrer Zahlung, und eine spätere Schlussrechnung zählt eine solche Anzahlung nicht noch einmal. So ändert sich keine vor dem Update gesendete Voranmeldung, und kein Umsatz bleibt ungemeldet. Eine danach festgeschriebene Rechnung mit Leistung in einem schon gesendeten Zeitraum meldet der [Abgleich](buchhaltung.md#abgleich-im-journal), dazu der Hinweis an der Rechnung ([Leistungstag](#leistungstag-bei-soll-versteuerung)).
 
-In der Tabelle der Kennzahlen stehen Kz 21, 41, 43, 45, 48 und 50 nur, wenn sie nicht null sind oder du die Werte von Hand überschreibst.
+In der Tabelle der Kennzahlen stehen Kz 21, 41, 43, 45, 48, 50 und 60 nur, wenn sie nicht null sind oder du die Werte von Hand überschreibst.
 
 ### Leistungstag bei Soll-Versteuerung
 

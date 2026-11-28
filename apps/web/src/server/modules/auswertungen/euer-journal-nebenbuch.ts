@@ -18,7 +18,7 @@ import {
 } from "@haben/core";
 import { eq, inArray } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
-import { splitsByDocument } from "../belege/index.ts";
+import { auswertungsKontierung, belegKategorie, loadPositionen, positionenJeBeleg } from "../belege/index.ts";
 import { loadOwnAccountNumbers } from "../eigene-konten/index.ts";
 import { documentsMitEntnahme } from "../umsatzsteuer/index.ts";
 import { invoiceTotalsById } from "../rechnungen/index.ts";
@@ -51,7 +51,6 @@ export async function belegNebenbuecher(q: Db | Tx, ids: string[]): Promise<Map<
     const docs = await q
       .select({
         id: d.id,
-        category: d.category,
         vorsteuerAbzug: d.vorsteuerAbzug,
         vorsteuerAnteil: d.vorsteuerAnteil,
         privateShare: d.privateShare,
@@ -75,7 +74,8 @@ export async function belegNebenbuecher(q: Db | Tx, ids: string[]): Promise<Map<
     if (noetig.length === 0) continue;
     const noetigIds = noetig.map((doc) => doc.id);
     // Mit Kontonummer der eigenen Sachkonten: Die EÜR rundet Bewirtung je Journalzeile wie die Buchung (#1975)
-    const splitsJe = await splitsByDocument(noetigIds, q, await loadOwnAccountNumbers(q));
+    const eigene = await loadOwnAccountNumbers(q);
+    const positionenJe = await positionenJeBeleg(noetigIds, q);
     const effects = await belegZahlungsWirkungen(q, noetigIds);
     for (const doc of noetig) {
       // § 13b und Erwerb: gezahlt ist nur netto (wie reports.ts); die Zeilen der Aufteilung behalten ihre Steuer, die
@@ -86,8 +86,7 @@ export async function belegNebenbuecher(q: Db | Tx, ids: string[]): Promise<Map<
         tax: doc.reverseCharge ? 0 : a.tax,
         vorsteuerAnteil: gespeicherterAnteil(doc, a.vorsteuerAnteil),
       }));
-      const splits = splitsJe.get(doc.id);
-      const category = doc.category && doc.category in EXPENSE_CATEGORIES ? (doc.category as ExpenseCategory) : "sonstiges";
+      const { category, splits } = auswertungsKontierung(positionenJe.get(doc.id) ?? [], eigene);
       result.set(doc.id, {
         totals: totalsFromTaxes(rows),
         category,
@@ -142,7 +141,6 @@ export async function uebernommeneZeilen(
   const d = schema.documents;
   const [doc] = await q
     .select({
-      category: d.category,
       vorsteuerAbzug: d.vorsteuerAbzug,
       vorsteuerAnteil: d.vorsteuerAnteil,
       privateShare: d.privateShare,
@@ -150,23 +148,15 @@ export async function uebernommeneZeilen(
     })
     .from(d)
     .where(eq(d.id, id));
-  if (!doc?.category || !(doc.category in EXPENSE_CATEGORIES)) return null;
+  // Übernommene Belege tragen eine Kategorie (legacy-open.ts); ohne eine lässt sich die Buchung nicht nachbauen
+  const category = belegKategorie(await loadPositionen(id, q));
+  if (!doc || !category || !(category in EXPENSE_CATEGORIES)) return null;
   const amounts = await q.select().from(schema.documentAmounts).where(eq(schema.documentAmounts.documentId, id));
   const totals = totalsFromTaxes(
     amounts.map((a) => ({ rate: a.taxRate, base: a.net, tax: a.tax, vorsteuerAnteil: gespeicherterAnteil(doc, a.vorsteuerAnteil) })),
   );
   // § 13b und Erwerb: gezahlt ist nur netto (documentPosting)
   const gezahlt = doc.reverseCharge ? { ...totals, gross: totals.net } : totals;
-  const lines = documentPosting(
-    gezahlt,
-    doc.category as ExpenseCategory,
-    kr,
-    "einzelunternehmen",
-    "bank",
-    gespeicherterAnteil(doc),
-    undefined,
-    doc.privateShare,
-    doc.reverseCharge,
-  );
+  const lines = documentPosting(gezahlt, category, kr, "einzelunternehmen", "bank", gespeicherterAnteil(doc), undefined, doc.privateShare, doc.reverseCharge);
   return { zeilen: lines.filter((z) => !offenerPosten(kr, z)), gesamt: lines.filter((z) => offenerPosten(kr, z)).reduce((s, z) => s + z.debit - z.credit, 0) };
 }

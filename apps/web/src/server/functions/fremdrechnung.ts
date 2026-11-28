@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { UserError } from "../errors.ts";
 import { authMiddleware } from "../middleware.ts";
 import { listContactChoices, loadCompany } from "../modules/stammdaten/index.ts";
+import { assertOutgoingOpen, markOutgoingAdopted } from "../modules/belege/index.ts";
 import { kleinunternehmerStand } from "../modules/auswertungen/index.ts";
 import {
   adoptForeignCancellationFile,
@@ -49,12 +50,25 @@ function fileWithJson(data: unknown, feld: string): { file: File; parsed: unknow
   }
 }
 
+/** Kommt die Datei aus dem Postfach, steht im Feld `postfach` der Eintrag, der danach als übernommen gilt */
+function postfachOf(data: unknown): string | null {
+  const postfach = (data as FormData).get("postfach");
+  return typeof postfach === "string" && postfach ? postfach : null;
+}
+
+/** Der Eintrag im Postfach wird in derselben Transaktion erledigt, die bucht */
+function erledigen(actor: string, postfach: string | null) {
+  if (!postfach) return undefined;
+  return (tx: Parameters<typeof markOutgoingAdopted>[3], id: string) => markOutgoingAdopted(actor, postfach, id, tx);
+}
+
 /** Legt die geprüfte Rechnung an: Datei als Original, Angaben als JSON im Feld `rechnung` */
 export const adoptForeignInvoiceFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((data: unknown) => fileWithJson(data, "rechnung"))
+  .validator((data: unknown) => ({ ...fileWithJson(data, "rechnung"), postfach: postfachOf(data) }))
   .handler(async ({ data, context }) => {
     const bytes = new Uint8Array(await data.file.arrayBuffer());
+    if (data.postfach) await assertOutgoingOpen(data.postfach);
     try {
       const { id } = await adoptForeignInvoiceFile(
         context.user.id,
@@ -65,6 +79,7 @@ export const adoptForeignInvoiceFn = createServerFn({ method: "POST" })
           mimeType: data.file.type,
         },
         kleinunternehmerStand,
+        erledigen(context.user.id, data.postfach),
       );
       return { status: "final" as const, id };
     } catch (error) {
@@ -82,12 +97,14 @@ export const adoptForeignInvoiceFn = createServerFn({ method: "POST" })
 /** Übernimmt das Storno einer Fremdsystem-Rechnung (#1900): Datei als Original, Rechnung, Nummer und Datum als JSON im Feld `storno` */
 export const adoptForeignCancellationFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((data: unknown) => fileWithJson(data, "storno"))
+  .validator((data: unknown) => ({ ...fileWithJson(data, "storno"), postfach: postfachOf(data) }))
   .handler(async ({ data, context }) => {
     const bytes = new Uint8Array(await data.file.arrayBuffer());
-    return adoptForeignCancellationFile(context.user.id, data.parsed as ForeignCancellationInput, {
-      bytes,
-      filename: data.file.name,
-      mimeType: data.file.type,
-    });
+    if (data.postfach) await assertOutgoingOpen(data.postfach);
+    return adoptForeignCancellationFile(
+      context.user.id,
+      data.parsed as ForeignCancellationInput,
+      { bytes, filename: data.file.name, mimeType: data.file.type },
+      erledigen(context.user.id, data.postfach),
+    );
   });

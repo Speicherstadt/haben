@@ -1,6 +1,7 @@
 import { APIError, authorizationCodeRequest, getOAuth2Tokens, type BetterAuthPlugin, type GenericEndpointContext } from "better-auth";
 import { addOAuthServerContext, createAuthMiddleware, getOAuthState, isAPIError } from "better-auth/api";
 import { genericOAuth } from "better-auth/plugins";
+import { eigenesZiel } from "../lib/weiter.ts";
 import { beginCallbackWrites, rejectCallback, setCallbackProof } from "./auth-transaction.ts";
 import { env } from "./env.ts";
 import { decideRole, SSO_PROOF_MS } from "./sso-groups.ts";
@@ -220,7 +221,7 @@ function oidcGuard(): BetterAuthPlugin {
   return { id: "haben-oidc-guard", hooks: { before: [{ matcher: () => true, handler: createAuthMiddleware(oidcBefore) }] } };
 }
 
-/** Start und Callback nur mit dem geprüften Anbieter; feste interne Ziele statt Browserangaben */
+/** Start und Callback nur mit dem geprüften Anbieter; interne Ziele statt beliebiger Browserangaben */
 async function oidcBefore(ctx: GenericEndpointContext): Promise<void> {
   const callback = ctx.path?.startsWith("/callback/");
   if (!callback && ctx.path !== "/sign-in/social") return;
@@ -235,8 +236,9 @@ async function oidcBefore(ctx: GenericEndpointContext): Promise<void> {
   });
   if (callback) return;
   if (ctx.body?.provider !== "oidc" || ctx.body?.idToken || ctx.body?.additionalParams || ctx.body?.additionalData || ctx.body?.loginHint) throw denied();
-  // Auch Fehler- und Neuanlage-URLs fest: keine offenen Redirects. Ob ein Konto entsteht, entscheidet der Callback.
-  ctx.body.callbackURL = "/";
+  // Zurück nur auf einen geprüften eigenen Pfad (#2048), Fehler- und Neuanlage-URLs fest: keine offenen Redirects. Ob ein
+  // Konto entsteht, entscheidet der Callback.
+  ctx.body.callbackURL = eigenesZiel(ctx.body.callbackURL) ?? "/";
   ctx.body.newUserCallbackURL = "/";
   ctx.body.errorCallbackURL = "/login?sso=fehler";
   ctx.body.requestSignUp = true;

@@ -49,9 +49,17 @@ function leser(reader: Reader): Leser {
   };
 }
 
+/**
+ * Neben den versiegelten Tabellen zählen die Standardwerte von Audit-Log, Kopf der Kette und Siegeln: Ein geänderter
+ * Standardwert dort ist ein Befund, auch wenn die Trigger die Zeitpunkte selbst setzen (0347). Das gilt nur für Haben,
+ * deshalb hier und nicht im Kern.
+ */
+const auchMitStandardwerten = ["public.audit_chain", "public.audit_log", "public.seals"];
+
 /** Der Generator behält sein Format; Laufzeitvorgaben gehören nicht zum ausgelieferten Sollbestand. */
 export async function readTriggerInventory(reader: Reader): Promise<TriggerInventory> {
-  return (await leseMomentaufnahme(leser(reader), { ...optionen, tabellen: sealedTables })).bestand;
+  const tabellen = async (abfrage: Abfrage) => [...new Set([...(await sealedTables(abfrage)), ...auchMitStandardwerten])].sort();
+  return (await leseMomentaufnahme(leser(reader), { ...optionen, tabellen })).bestand;
 }
 
 const ohneSchema = (table: string) => table.replace(/^public\./, "");
@@ -85,6 +93,8 @@ export function problem(befund: Befund): { tabelle: string; befund: string } {
             : "wurde verändert";
       return { tabelle: ohneSchema(befund.tabelle), befund: `Trigger ${befund.tabelle}.${befund.trigger} ${zustand}` };
     }
+    case "trigger-am-audit-log":
+      return { tabelle: ohneSchema(befund.tabelle), befund: `Zusätzlicher Trigger ${befund.tabelle}.${befund.trigger} auf dem Audit-Log` };
     case "funktion-fehlt":
     case "funktion-veraendert":
       return {
@@ -109,6 +119,8 @@ export function problem(befund: Befund): { tabelle: string; befund: string } {
       return { tabelle: befund.tabelle, befund: `Zeilensicherheit auf ${befund.tabelle} erzwungen` };
     case "policy":
       return { tabelle: befund.tabelle, befund: `Policy ${befund.policy} auf ${befund.tabelle} angelegt` };
+    case "regel":
+      return { tabelle: befund.tabelle, befund: `Regel ${befund.regel} auf ${befund.tabelle} angelegt` };
     case "objekt-im-systemschema":
       return datenbank(`${zusaetzlich[befund.objektart]} ${befund.name} im Systemschema pg_catalog`);
     case "objekt-ueberdeckt":

@@ -18,6 +18,7 @@ import {
   inBasisPoints,
   inCents,
   inProzent,
+  type Cents,
 } from "@haben/core";
 import { and, desc, eq, gte, lt, lte, min, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -302,6 +303,12 @@ export function letterIssues(company: Company): string[] {
 export async function setArchiveSearch(actor: string, enabled: boolean): Promise<void> {
   await loadCompany();
   await withActor(actor, (tx) => tx.update(schema.company).set({ archiveSearch: enabled, updatedAt: new Date() }).where(eq(schema.company.id, 1)));
+}
+
+/** Mindestbestand der Liquiditätsvorschau (#1381) in Cent; null = keine Warnung */
+export async function setMindestbestand(actor: string, mindestbestand: Cents | null): Promise<void> {
+  await loadCompany();
+  await withActor(actor, (tx) => tx.update(schema.company).set({ mindestbestand, updatedAt: new Date() }).where(eq(schema.company.id, 1)));
 }
 
 export type Einrichtung = typeof schema.einrichtung.$inferSelect;

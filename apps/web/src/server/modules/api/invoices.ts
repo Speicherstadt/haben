@@ -18,8 +18,9 @@ import { fail, noContent, notFound, ok, validate, type ApiRequest, type ApiResul
 import { draftCreateSchema, draftPatchSchema, invoiceQuerySchema, type invoiceSchema, type invoiceSummarySchema } from "./schemas.ts";
 
 /*
- * Rechnungen über die REST-API: alle lesen, Entwürfe anlegen, ändern und löschen. Festschreiben, Buchen, Stornieren
- * und Versenden gibt es hier nicht; das bleibt wegen GoBD ein Klick in Haben, auf den `url` in jeder Antwort zeigt.
+ * Rechnungen über die REST-API: alle lesen, Entwürfe anlegen, ändern und löschen. Festschreiben und Versenden nur für
+ * Entwürfe einer externen Quelle mit eigenem Recht (invoice-finalize.ts, #1918); Buchen, Stornieren und Korrigieren bleiben
+ * wegen GoBD ein Klick in Haben, auf den `url` in jeder Antwort zeigt.
  */
 
 type Summary = z.output<typeof invoiceSummarySchema>;
@@ -100,10 +101,15 @@ async function loadInvoice(id: string, today: string) {
   return detail && row ? { ...detail, row } : null;
 }
 
-async function respondWith(id: string, request: ApiRequest, status = 200, headers: Record<string, string> = {}): Promise<ApiResult> {
+/** Die Rechnung, wie GET /rechnungen/{id} sie liefert, oder null */
+export async function invoiceBody(id: string, request: Pick<ApiRequest, "today" | "baseUrl">): Promise<z.output<typeof invoiceSchema> | null> {
   const loaded = await loadInvoice(id, request.today);
-  if (!loaded) return notFound(INVOICE_NOT_FOUND);
-  return ok(invoiceOut(loaded.row, loaded.invoice, loaded.lines, request.baseUrl), status, headers);
+  return loaded ? invoiceOut(loaded.row, loaded.invoice, loaded.lines, request.baseUrl) : null;
+}
+
+async function respondWith(id: string, request: ApiRequest, status = 200, headers: Record<string, string> = {}): Promise<ApiResult> {
+  const body = await invoiceBody(id, request);
+  return body ? ok(body, status, headers) : notFound(INVOICE_NOT_FOUND);
 }
 
 /** Unbekannter Kontakt als 422; ob er Kunde ist, prüft das Modul beim Schreiben */

@@ -1,3 +1,4 @@
+import { unterschreitungText, type Unterschreitung } from "@haben/core";
 import { Link } from "@tanstack/react-router";
 import { useAction } from "../lib/use-action.ts";
 import { daysUntil } from "../lib/format.ts";
@@ -20,7 +21,8 @@ export interface Todo {
     | "/anlagen"
     | "/rechnungen/mahnwesen"
     | "/finanzamt"
-    | "/kontakte/$id";
+    | "/kontakte/$id"
+    | "/auswertungen/liquiditaet";
   /** Bereich der Einstellungen, wenn to „/einstellungen“ ist */
   bereich?: SettingsArea;
   /** Der Kontakt, wenn to „/kontakte/$id“ ist */
@@ -29,6 +31,22 @@ export interface Todo {
   frist?: string;
   /** Bescheid aus dem Postfach, der sich hier direkt als geprüft abhaken lässt (#1819); die ID ist die des Dokuments */
   erledigen?: { id: string };
+}
+
+/** Die Liquiditätsvorschau sieht den Kontostand unter dem Mindestbestand (#1381); der Tag zählt wie eine Frist */
+export function mindestbestandAufgaben(w: Unterschreitung | null): Todo[] {
+  if (!w) return [];
+  const { titel, detail } = unterschreitungText(w);
+  return [
+    {
+      title: titel,
+      detail,
+      frist: w.datum,
+      action: "Ansehen",
+      tone: "warn",
+      to: "/auswertungen/liquiditaet",
+    },
+  ];
 }
 
 const DOT = { info: "var(--info-ink)", warn: "var(--warn-dot)", neutral: "var(--muted)" };

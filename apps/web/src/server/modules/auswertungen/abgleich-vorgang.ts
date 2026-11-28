@@ -1,6 +1,7 @@
 import {
   ACCOUNTS,
   gleicheSalden,
+  heutigesKonto,
   IST_NACH_ZAHLUNG,
   kennzahlenAusJournal,
   paymentProviderAccount,
@@ -11,7 +12,7 @@ import {
 } from "@haben/core";
 import { and, eq, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
-import { belegZeilen, loadSplits } from "../belege/index.ts";
+import { belegZeilen, positionenJeBeleg } from "../belege/index.ts";
 import { loadOwnAccountNumbers } from "../eigene-konten/index.ts";
 import { invoiceTaxReader } from "../rechnungen/index.ts";
 import { zahlungenWieHeute } from "../umsatzsteuer/index.ts";
@@ -94,18 +95,25 @@ async function belege(year: number, q: Db | Tx, rechtsform: Rechtsform): Promise
       ),
     );
   const eigene = await loadOwnAccountNumbers(q);
+  const positionen = await positionenJeBeleg(
+    rows.map((r) => r.doc.id),
+    q,
+  );
   const result: VorgangZeile[] = [];
   for (const r of rows) {
-    const gebucht = (zeilen.get(r.entryId) ?? []) as PostingLine[];
+    // Ein früheres Konto zählt wie sein heutiges (kontenaenderungen.ts): Erwartet wird mit den Konten der neuesten Ausgabe
+    const gebucht = ((zeilen.get(r.entryId) ?? []) as PostingLine[]).map((z) => ({
+      ...z,
+      account: heutigesKonto(r.kontenrahmen as Kontenrahmen, z.account, "document"),
+    }));
     let erwartet: PostingLine[];
     let bestand: PostingLine[];
     try {
-      const splits = await loadSplits(r.doc.id, q);
       const zeilenFuer = (doc: typeof r.doc) =>
         belegZeilen(
           doc,
           amounts.filter((a) => a.documentId === r.doc.id),
-          splits,
+          positionen.get(r.doc.id) ?? [],
           { kontenrahmen: r.kontenrahmen as Kontenrahmen, rechtsform },
           r.doc.vorsteuerAbzug,
           eigene,

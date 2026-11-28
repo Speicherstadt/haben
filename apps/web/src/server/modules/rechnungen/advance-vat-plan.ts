@@ -220,7 +220,13 @@ export async function loadAdvanceVatPlan(reference: Pick<Invoice, "id">, q: Db |
     postingChanges: special ? advanceVatDifference(normalWriteOffs, changes) : changes,
     balanceChanges:
       original.advanceAccounting === "deferred" && isKapitalgesellschaft(company!.rechtsform)
-        ? advanceBalancePlan(total, [...events, ...performance.balance], company!.kontenrahmen, original.taxTreatment)
+        ? advanceBalancePlan(
+            total,
+            [...events, ...performance.balance],
+            company!.kontenrahmen,
+            original.taxTreatment,
+            original.taxDetails?.assetDisposal ?? false,
+          )
         : [],
   };
 }

@@ -215,6 +215,33 @@ test("Handy: neue Steuerfelder per Tastatur, Speichern und Vorschau ohne horizon
   }
 });
 
+test("Verkauf aus dem Anlagevermögen: sichtbar bei den Steuerangaben, gespeichert und auf dem Verkaufskonto gebucht (#2022)", async () => {
+  const [{ kontenrahmen }] = await sql`select kontenrahmen from company`;
+  for (const editor of editors) {
+    await test.step(editor.kind, async () => {
+      await newDraft(editor);
+      // Nicht mehr im eingeklappten Bereich „Angaben zum Gesamtumsatz“: ohne Aufklappen zu sehen
+      const feld = page.getByLabel("Verkauf aus dem Anlagevermögen", { exact: true });
+      await expect(feld).toBeVisible();
+      await expect(feld).toHaveValue("nein");
+      await expect(feld).toHaveAccessibleDescription(/in der EÜR in Zeile 19 und nicht im Gesamtumsatz\. Den Abgang trägst du zusätzlich an der Anlage ein\./);
+      await feld.selectOption("ja");
+      const id = await saveAndReopen(editor);
+      await expect(page.getByLabel("Verkauf aus dem Anlagevermögen", { exact: true })).toHaveValue("ja");
+      const [stored] = await sql`select tax_details from ${sql(editor.table)} where id = ${id}`;
+      expect(stored!.tax_details.assetDisposal).toBe(true);
+      if (editor.kind !== "Rechnung") return;
+      await page.getByRole("button", { name: "Festschreiben", exact: true }).click();
+      await bestaetigen(page, "Festschreiben");
+      await expect(page.getByText(/Festgeschrieben/).first()).toBeVisible();
+      const konten = await sql`select l.account from journal_lines l join journal_entries e on e.id = l.entry_id
+        where e.source_type = 'invoice' and e.source_id = ${id} and l.credit > 0`;
+      // Kleinunternehmer: „Erlöse aus Verkäufen Sachanlagevermögen (bei Buchgewinn)“ ohne USt
+      expect(konten.map((k) => k.account)).toEqual([kontenrahmen === "SKR04" ? "4849" : "8829"]);
+    });
+  }
+});
+
 test("Gesamtumsatz: bekannte Einnahme, eigene Befreiungen und unbekannter historischer Teil bleiben getrennt", async () => {
   await gehe(page, `/auswertungen?jahr=${YEAR}`);
   const card = page.getByRole("region", { name: "Gesamtumsatz nach § 19 UStG" });

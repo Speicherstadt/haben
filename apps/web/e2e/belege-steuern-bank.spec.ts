@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import postgres from "postgres";
+import { protokollEintragen } from "../src/server/db/test-protokoll.ts";
 import { day, YEAR } from "./daten.ts";
 import { type Durchlauf, databaseUrlFuer } from "./durchlaeufe.ts";
 import {
@@ -948,9 +949,14 @@ test("Gelernte Erlöse als Kleinunternehmer, § 19 inzwischen aufgegeben: das Fo
   // Zwei Zahlungen von damals als Erlöse ohne Steuer zugeordnet.
   const sql = postgres(databaseUrlFuer(DURCHLAUF), { max: 1 });
   try {
-    await sql`insert into audit_log (at, actor, table_name, row_id, action, new_value)
-      values (${`${datum}T12:00:00Z`}::timestamptz, 'e2e', 'company', '1', 'UPDATE', ${sql.json({ kleinunternehmer: true })}),
-             (now(), 'e2e', 'company', '1', 'UPDATE', ${sql.json({ kleinunternehmer: false })})`;
+    await protokollEintragen(
+      sql,
+      [
+        { at: `${datum}T12:00:00Z`, tableName: "company", rowId: "1", action: "UPDATE", newValue: { kleinunternehmer: true } },
+        { at: new Date().toISOString(), tableName: "company", rowId: "1", action: "UPDATE", newValue: { kleinunternehmer: false } },
+      ],
+      "e2e",
+    );
     for (const zweck of ["Fenster putzen 1", "Fenster putzen 2"]) {
       await sql`insert into allocations (transaction_id, kind, amount, category, tax_rate)
         select id, 'kategorie', amount, 'erloese', 0 from bank_transactions where purpose = ${zweck}`;

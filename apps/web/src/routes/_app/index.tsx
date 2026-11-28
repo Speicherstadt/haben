@@ -4,18 +4,19 @@ import { daysUntil, formatDate, formatDateTime, formatLongDate } from "../../lib
 import { InvoiceStatus } from "../../components/InvoiceStatus.tsx";
 import { EricHinweis } from "../../components/EricHinweis.tsx";
 import { KleinunternehmerHinweise } from "../../components/KleinunternehmerHinweise.tsx";
-import { UebersichtAufgaben, ZUERST, ordneAufgaben, type Todo } from "../../components/UebersichtAufgaben.tsx";
+import { UebersichtAufgaben, ZUERST, mindestbestandAufgaben, ordneAufgaben, type Todo } from "../../components/UebersichtAufgaben.tsx";
 import { UebersichtKennzahlen, ohneKennzahlen, type UebersichtDaten } from "../../components/UebersichtKennzahlen.tsx";
 import { getBackupStatus } from "../../server/functions/backup.ts";
 import { getInvoiceSummary } from "../../server/functions/invoices.ts";
+import { getMindestbestandWarnung } from "../../server/functions/liquiditaet.ts";
 import { getOverview } from "../../server/functions/vat.ts";
 import { einrichtungsAufgaben } from "../../lib/einrichtung.ts";
 import { useBereichAktiv } from "../../lib/use-bereich.ts";
 
 export const Route = createFileRoute("/_app/")({
   loader: async () => {
-    const [vat, invoices, backup] = await Promise.all([getOverview(), getInvoiceSummary(), getBackupStatus()]);
-    return { ...vat, invoices, backup };
+    const [vat, invoices, backup, mindestbestand] = await Promise.all([getOverview(), getInvoiceSummary(), getBackupStatus(), getMindestbestandWarnung()]);
+    return { ...vat, invoices, backup, mindestbestand };
   },
   head: () => ({ meta: [{ title: "Übersicht · Haben" }] }),
   component: OverviewPage,
@@ -224,7 +225,11 @@ function OverviewPage() {
   const schreiben = useBereichAktiv("rechnungserstellung");
   const mahnwesen = useBereichAktiv("mahnwesen");
   const todos: Todo[] = [...einrichtungsAufgaben(Route.useRouteContext().einrichtung), ...ustIdAufgaben(data.ustIdUngueltig)];
-  todos.push(...umsatzsteuerAufgaben(data, { sent, vatRequired, vorStart, taxAccount, taxShortfall }), ...bankAufgaben(data));
+  todos.push(
+    ...umsatzsteuerAufgaben(data, { sent, vatRequired, vorStart, taxAccount, taxShortfall }),
+    ...mindestbestandAufgaben(data.mindestbestand),
+    ...bankAufgaben(data),
+  );
   if (data.invoices.overdueCount > 0) {
     todos.push({
       title: `${data.invoices.overdueCount} ${data.invoices.overdueCount === 1 ? "Rechnung" : "Rechnungen"} überfällig`,

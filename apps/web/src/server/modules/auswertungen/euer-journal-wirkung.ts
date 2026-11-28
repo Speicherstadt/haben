@@ -82,6 +82,8 @@ export interface EuerLauf {
   verrechnungenVon: Map<string, RechnungsVerrechnung[]>;
   nebenbuchVon: Map<string, BelegNebenbuch>;
   anlagen: Set<string>;
+  /** Rechnungen mit „Verkauf aus dem Anlagevermögen“ (#2022) */
+  anlagenverkaeufe: Set<string>;
   zaehler: { ungeklaerteImporte: number };
   ursprung: Map<string, Ursprung>;
 }
@@ -93,6 +95,7 @@ const alsZeilen = (zeilen: Zeile[], anteil: number[]): Zeile[] =>
 export function dazu(nach: EuerAusJournal, von: EuerAusJournal, vorzeichen: 1 | -1 = 1) {
   for (const [key, betrag] of Object.entries(von.zeilen) as [keyof EuerAusJournal["zeilen"], number][])
     nach.zeilen[key] = (nach.zeilen[key] ?? 0) + vorzeichen * betrag;
+  if (von.anlagenverkauf) nach.anlagenverkauf = (nach.anlagenverkauf ?? 0) + vorzeichen * von.anlagenverkauf;
   nach.bewirtungNichtAbziehbar += vorzeichen * von.bewirtungNichtAbziehbar;
   nach.gewerbesteuerNichtAbziehbar += vorzeichen * von.gewerbesteuerNichtAbziehbar;
 }
@@ -122,7 +125,8 @@ async function ursprungVon(l: EuerLauf, typ: "invoice" | "document", id: string,
   const ersatz = istUebernommen ? await uebernommeneZeilen(l.q, typ, id, kontenrahmen) : null;
   const zeilen = ersatz?.zeilen ?? zwischenkontoAlsVorsteuer(kontenrahmen, alle);
   const gesamt = ersatz ? ersatz.gesamt : alle.filter((z) => offenerPosten(kontenrahmen, z)).reduce((s, z) => s + z.debit - z.credit, 0);
-  const herkunft: EuerHerkunft = typ === "document" && l.anlagen.has(id) ? "anlage" : "sonst";
+  const herkunft: EuerHerkunft =
+    typ === "document" && l.anlagen.has(id) ? "anlage" : typ === "invoice" && l.anlagenverkaeufe.has(id) ? "anlagenverkauf" : "sonst";
   const u: Ursprung = {
     kontenrahmen,
     zeilen,

@@ -100,6 +100,7 @@ describe("Umsatzsteuererklärung (E50)", () => {
         kz85: 11_400,
         kz21: 70_000,
         kz45: 80_000,
+        kz60: 90_000,
         kz61: 8_500,
         kz62: 3_000,
         kz67: 9_500,
@@ -122,7 +123,9 @@ describe("Umsatzsteuererklärung (E50)", () => {
     expect(tag(xml, "E3102503")).toBe("600");
     expect(tag(xml, "E3102504")).toBe("114,00");
     expect(tag(xml, "E3102601")).toBe("209,00");
-    // Ergänzende Angaben: im EU-Ausland Reverse Charge (21), nicht steuerbar Drittland (45)
+    // Ergänzende Angaben: § 13b Abs. 5 UStG als Leistender (Zeile 76, Kz 209), im EU-Ausland Reverse Charge (21), nicht
+    // steuerbar Drittland (45)
+    expect(tag(xml, "E3105301")).toBe("900");
     expect(tag(xml, "E3105702")).toBe("700");
     expect(tag(xml, "E3105801")).toBe("800");
     // Vorsteuer: Kz 61 (ig. Erwerb), 62 (Einfuhr), 67 (§ 13b) in der Summe

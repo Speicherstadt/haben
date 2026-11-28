@@ -733,12 +733,14 @@ describe.skipIf(!testDatabaseUrl)("REST-API /api/v1 (Postgres)", () => {
         "/rechnungen/wiederkehrend",
         "/rechnungen/wiederkehrend/{id}",
         "/rechnungen/{id}",
+        "/rechnungen/{id}/festschreiben",
       ]);
       expect(doc.paths["/rechnungen"]!.post!.security).toEqual([{ token: ["rechnungen:entwuerfe"] }]);
       expect(doc.paths["/rechnungen/wiederkehrend"]!.post!.security).toEqual([{ token: ["rechnungen:vorlagen-anlegen"] }]);
       expect(doc.paths["/leistungen"]!.post!.security).toEqual([{ token: ["leistungen:schreiben"] }]);
       expect(doc.paths["/angebote"]!.get!.security).toEqual([{ token: ["angebote:lesen"] }]);
       expect(doc.paths["/bankimporte"]!.post!.security).toEqual([{ token: ["bank:importieren"] }]);
+      expect(doc.paths["/rechnungen/{id}/festschreiben"]!.post!.security).toEqual([{ token: ["rechnungen:festschreiben"] }]);
     });
   });
 });

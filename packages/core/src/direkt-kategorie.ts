@@ -1,3 +1,4 @@
+import { kontoImBuchungsjahr } from "./kontenaenderungen.ts";
 import { taxIncluded, type BasisPoints, type Cents } from "./money.ts";
 import {
   ACCOUNT_NAMES,
@@ -200,17 +201,24 @@ export interface VorschlagZeile {
 
 const STEUER_ANZEIGE: Partial<Record<string, string>> = { USt19: "19 %", USt7: "7 %" };
 
-/** Was Direkt buchen auf eine Kategorie bucht, als Zeilen für die Oberfläche; die Umsatzsteuer steht als eigene Zeile */
-export function kategorieVorschlag(angabe: KategorieAngabe, amount: Cents, kontenrahmen: Kontenrahmen): VorschlagZeile[] {
+/**
+ * Was Direkt buchen auf eine Kategorie bucht, als Zeilen für die Oberfläche; die Umsatzsteuer steht als eigene Zeile. Mit
+ * dem Konto des Buchungsjahres, wie es beim Buchen ins Journal kommt (kontenaenderungen.ts): Kleinunternehmererlöse für
+ * 2024 auf dem Konto von 2024.
+ */
+export function kategorieVorschlag(angabe: KategorieAngabe, amount: Cents, kontenrahmen: Kontenrahmen, jahr: number): VorschlagZeile[] {
   const bank = ACCOUNTS[kontenrahmen].bank;
   const aufwandskonto = istEinnahme(angabe.kategorie) ? null : EXPENSE_CATEGORIES[angabe.kategorie as ExpenseCategory][kontenrahmen];
   return kategoriePosting(angabe, amount, kontenrahmen)
     .filter((line) => line.account !== bank)
-    .map((line) => ({
-      konto: line.account,
-      // Das Aufwandskonto einer Kategorie steht nicht in ACCOUNT_NAMES; dort gilt die Bezeichnung der Kategorie
-      kontoName: ACCOUNT_NAMES[kontenrahmen][line.account] ?? (aufwandskonto === line.account ? kategorieText(angabe) : ""),
-      betrag: line.credit - line.debit,
-      steuer: (line.taxCode && STEUER_ANZEIGE[line.taxCode]) || "ohne",
-    }));
+    .map((line) => {
+      const konto = kontoImBuchungsjahr(kontenrahmen, line.account, jahr, "allocation");
+      return {
+        konto,
+        // Das Aufwandskonto einer Kategorie steht nicht in ACCOUNT_NAMES; dort gilt die Bezeichnung der Kategorie
+        kontoName: ACCOUNT_NAMES[kontenrahmen][konto] ?? (aufwandskonto === line.account ? kategorieText(angabe) : ""),
+        betrag: line.credit - line.debit,
+        steuer: (line.taxCode && STEUER_ANZEIGE[line.taxCode]) || "ohne",
+      };
+    });
 }

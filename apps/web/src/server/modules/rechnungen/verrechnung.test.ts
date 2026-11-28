@@ -247,15 +247,27 @@ describe.skipIf(!testDatabaseUrl)("Verrechnung von Ausgangsrechnung und Kundenko
     expect(await offen(grosseKorrektur)).toBe(-9_100);
   }, 60_000);
 
-  it("lehnt ab, was keine Verrechnung ist: voller Betrag, falsches Paar, eigenes Datum, Zukunft", async () => {
-    const { rechnung, korrektur } = await paar();
-    // Eine Korrektur über den ganzen, noch unbezahlten Rechnungsbetrag ist ein Storno — eigene Rechnung, damit die
-    // Korrekturen zusammen die Rechnung nicht unter 0 mindern
-    const eigene = await beleg("rechnung", 13_361, "2026-09-05");
-    const volleKorrektur = await beleg("korrektur", -13_361, "2026-11-11", eigene);
+  it("weist bei Altbestand die Korrektur über den vollen, unbezahlten Betrag als Storno ab", async () => {
+    // Seit #2037 kommt dieser Altbestand über das Festschreiben nicht mehr zustande: es weist die volle Korrektur ab.
+    // Die Sperre in verrechnung.ts bleibt für Belege, die vorher entstanden sind, und wird hier direkt eingefügt.
+    const [eigene] = await sql`insert into invoices (kind, status, number, locked_at, issue_date, due_date, net, tax, gross, contact_id)
+      values ('rechnung', 'final', 'RE-2026-101', now(), '2026-09-05', '2026-09-19', 13361, 2539, 15900, ${contactId}) returning id`;
+    const [volleKorrektur] =
+      await sql`insert into invoices (kind, status, number, locked_at, issue_date, due_date, net, tax, gross, corrects_id, reduction_rule, contact_id)
+      values ('korrektur', 'final', 'RE-2026-102', now(), '2026-11-11', '2026-11-25', -13361, -2539, -15900, ${eigene!.id}, 'rueckgewaehr', ${contactId}) returning id`;
     await expect(
-      verrechnung.settleInvoices(actor, { invoiceId: eigene, counterInvoiceId: volleKorrektur, amount: 15_900, date: "2026-11-12", note: "voll" }),
+      verrechnung.settleInvoices(actor, {
+        invoiceId: eigene!.id as string,
+        counterInvoiceId: volleKorrektur!.id as string,
+        amount: 15_900,
+        date: "2026-11-12",
+        note: "voll",
+      }),
     ).rejects.toThrow(/ist ein Storno/);
+  }, 60_000);
+
+  it("lehnt ab, was keine Verrechnung ist: falsches Paar, eigenes Datum, Zukunft", async () => {
+    const { rechnung, korrektur } = await paar();
 
     // Zwei Rechnungen ohne Korrektur sind kein Paar
     const zweite = await beleg("rechnung", 1_000, "2026-09-02");

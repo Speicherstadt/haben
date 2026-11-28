@@ -111,8 +111,10 @@ describe.skipIf(!testDatabaseUrl)("offener Betrag überall gleich (Postgres)", (
     // Unbezahlt storniert: nichts offen, auch nicht -0
     const storniert = await invoice(30_00);
     const stornoLeer = await invoices.cancelInvoice(actor, storniert.id, "2026-06-11");
-    // Korrektur: Gutschrift offen
+    // Korrektur: Gutschrift offen. 1 Cent vorab, weil seit #2037 eine Korrektur über den vollen, unbezahlten Betrag ein
+    // Storno ist; mit dem Cent bleibt die Rechnung 95,19 offen, die Gutschrift über 95,20 tilgt sie und nichts ist zu mahnen.
     const korrigiert = await invoice(80_00);
+    await pay(korrigiert.id, 1, "10.06.26");
     const korrektur = await invoices.finalizeInvoice(actor, (await invoices.createCorrection(actor, korrigiert.id, "2026-06-12")).id, kleinunternehmerStand);
 
     // 1. Rechnungsliste
@@ -126,7 +128,7 @@ describe.skipIf(!testDatabaseUrl)("offener Betrag überall gleich (Postgres)", (
       [stornoErstatten.number!]: -11_90,
       [storniert.number!]: 0,
       [stornoLeer.number!]: 0,
-      [korrigiert.number!]: 95_20,
+      [korrigiert.number!]: 95_19,
       [korrektur.number!]: -95_20,
     });
     expect(Object.is(list.find((i) => i.id === stornoLeer.id)!.open, -0)).toBe(false);

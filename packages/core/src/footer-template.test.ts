@@ -73,6 +73,54 @@ describe("Auszeichnungen in eigenen Spalten", () => {
   });
 });
 
+describe("Leerzeilen in eigenen Spalten (#2046)", () => {
+  const leer = [{ text: "", bold: false, italic: false, underline: false }];
+
+  it("behält eine leere Zeile zwischen zwei Zeilen", () => {
+    expect(fillFooterColumn("{firma}\n\n{email}", values)).toEqual(["Testfirma", "", "rechnung@example.com"]);
+  });
+
+  it("behält leere Zeilen am Anfang der Spalte", () => {
+    expect(fillFooterColumn("\n\n{firma}", values)).toEqual(["", "", "Testfirma"]);
+  });
+
+  it("eine Zeile nur aus Leerzeichen zählt als leere Zeile", () => {
+    expect(fillFooterColumn("{firma}\n   \n{email}", values)).toEqual(["Testfirma", "", "rechnung@example.com"]);
+  });
+
+  it("lässt eine Zeile, deren Platzhalter alle leer sind, weiter weg; die leere Zeile daneben bleibt", () => {
+    expect(fillFooterColumn("{firma}\nTelefon {telefon}\n\n{email}", values)).toEqual(["Testfirma", "", "rechnung@example.com"]);
+  });
+
+  it("lässt leere Zeilen am Ende der Spalte weg, auch hinter einer weggefallenen Zeile", () => {
+    expect(fillFooterColumn("{firma}\n\n", values)).toEqual(["Testfirma"]);
+    expect(fillFooterColumn("{firma}\n\nTelefon {telefon}", values)).toEqual(["Testfirma"]);
+    expect(fillFooterColumn("\n\n", values)).toEqual([]);
+  });
+
+  it("gibt die leere Zeile als einen leeren Abschnitt ohne Auszeichnung weiter, auch innerhalb einer Auszeichnung", () => {
+    expect(customFooterRuns(["*Sprechzeiten\n\nnach Vereinbarung*\n{steuernummer}"], values)[0]![1]).toEqual(leer);
+    expect(customFooterRuns(["\n{steuernummer}"], values)).toEqual([[leer, [{ ...leer[0]!, text: "198/113/10010" }]]]);
+  });
+
+  it("setzt die fehlende Steuerkennung trotz leerer Zeilen ans Ende der letzten Spalte (§ 14 Abs. 4 Nr. 2 UStG)", () => {
+    const ohne = { ...values, steuernummer: "", ustid: "DE123456789" };
+    expect(customFooter(["{firma}\n\n{email}", "Steuernummer {steuernummer}\n\n"], ohne)).toEqual([
+      ["Testfirma", "", "rechnung@example.com"],
+      ["USt-IdNr. DE123456789"],
+    ]);
+  });
+
+  it("eine leere Zeile täuscht keine genannte Steuernummer vor", () => {
+    const ohne = { ...values, steuernummer: "", ustid: "DE123456789" };
+    expect(customFooter(["\n{firma}", "\n{steuernummer}"], ohne, { needsVatId: true })).toEqual([["", "Testfirma"], ["USt-IdNr. DE123456789"]]);
+    expect(customFooter(["\n{firma}", "\n{steuernummer}"], values)).toEqual([
+      ["", "Testfirma"],
+      ["", "198/113/10010"],
+    ]);
+  });
+});
+
 describe("Zeichen ohne Schrift", () => {
   it("meldet Schriftzeichen, die keine Belegschrift enthält", () => {
     expect(footerIssues(["電話 {telefon}", "{steuernummer}"]).join()).toContain("電");

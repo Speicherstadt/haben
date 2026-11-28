@@ -93,13 +93,15 @@ describe.skipIf(!testDatabaseUrl)("Aufteilung mit Beschreibung (#1975, Postgres)
     // Die Belegseite liest die Zeilen über getDocument (#1975: der Lader gibt die Beschreibung mit, die Anzeige in
     // -beleg-felder.ts lässt sie noch fallen — das ist Etappe B)
     const gelesen = (await documents.getDocument(id))!;
-    expect(gelesen.splits.map(({ position, category, taxRate, net, tax, description }) => ({ position, category, taxRate, net, tax, description }))).toEqual([
+    expect(
+      gelesen.positionen.map(({ position, category, taxRate, net, tax, description }) => ({ position, category, taxRate, net, tax, description })),
+    ).toEqual([
       { position: 1, category: "software", taxRate: 1900, net: 10_000, tax: 1_900, description: "Lizenzen" },
       { position: 2, category: "buero", taxRate: 1900, net: 7_000, tax: 1_330, description: "" },
     ]);
 
     // Die Kontierungszeilen sind die von vorher: Kategorie, Satz, Netto, Steuer — keine Beschreibung
-    expect(splits.splitLines(gelesen.splits)).toEqual([
+    expect(splits.splitLines(gelesen.positionen)).toEqual([
       { category: "software", taxRate: 1900, net: 10_000, tax: 1_900 },
       { category: "buero", taxRate: 1900, net: 7_000, tax: 1_330 },
     ]);

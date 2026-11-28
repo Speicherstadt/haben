@@ -13,7 +13,7 @@ import { db, schema, type Db, type Tx } from "../../db/index.ts";
  */
 
 /** Steuerschlüssel einer Erlöszeile (revenueTaxCode) */
-const ERLOES_SCHLUESSEL = new Set(["USt19", "USt7", "frei", "RC", "Drittland", "Steuerfrei", "IGL", "Ausfuhr", "KU"]);
+const ERLOES_SCHLUESSEL = new Set(["USt19", "USt7", "frei", "RC", "RC13bBau", "Drittland", "Steuerfrei", "IGL", "Ausfuhr", "KU"]);
 
 export interface BelegZeile {
   zeitraum: string;

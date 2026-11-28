@@ -23,7 +23,7 @@ export async function entnahmeZeilen(ids: readonly string[], q: Db | Tx): Promis
     .from(schema.documentSplits)
     .where(and(inArray(schema.documentSplits.documentId, eindeutig), eq(schema.documentSplits.category, PRIVATENTNAHME)));
   for (const row of rows) {
-    const zeile: Anteilszeile = { category: row.category, taxRate: row.taxRate as number, net: row.net, tax: row.tax };
+    const zeile: Anteilszeile = { category: PRIVATENTNAHME, taxRate: row.taxRate as number, net: row.net, tax: row.tax };
     result.set(row.documentId, [...(result.get(row.documentId) ?? []), zeile]);
   }
   return result;

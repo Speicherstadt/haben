@@ -18,7 +18,8 @@ export function KorrekturAktionen({ busy, onCancel, onCorrect }: { busy: boolean
           Rechnungskorrektur anlegen
         </button>
         <p id="amend-correct-hint" className="field-hint">
-          Mindert den Betrag: ein Entwurf mit allen Positionen negativ, den du kürzt.
+          Mindert den Betrag: ein Entwurf mit allen Positionen negativ, den du kürzt. Hebt er die ganze, noch unbezahlte Rechnung auf, ist das ein Storno; Haben
+          weist das Festschreiben dann ab.
         </p>
       </div>
     </div>

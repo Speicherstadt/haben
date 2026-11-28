@@ -3,6 +3,7 @@ import { computeInvoiceTotals } from "@haben/core";
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { today } from "../../today.ts";
 
 // Die KI wird nicht aufgerufen; die Auslesung liefert feste Werte.
 vi.mock("./extraction.ts", async (importOriginal) => {
@@ -33,14 +34,21 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
   let documents: typeof import("./documents.ts");
   let vorschlaege: typeof import("./vorschlaege.ts");
   let einvoice: typeof import("@haben/einvoice");
+  let eingabe: typeof import("./beleg-eingabe.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
+  /** Der Beleg, wie ihn das Formular sieht: Kategorie, eigenes Konto und Privatanteil aus den Positionen (#1975) */
+  const ansicht = async (id: string) => {
+    const geladen = (await documents.getDocument(id))!;
+    return eingabe.formularansicht(geladen.document, geladen.positionen).document;
+  };
 
   beforeAll(async () => {
     sql = await setupTestDb();
     documents = await import("./documents.ts");
     vorschlaege = await import("./vorschlaege.ts");
     einvoice = await import("@haben/einvoice");
+    eingabe = await import("./beleg-eingabe.ts");
   }, 30_000);
 
   afterAll(async () => {
@@ -166,11 +174,10 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
       note: "",
       amounts: [{ taxRate: 1900, net: 1_000, tax: 190 }],
     });
-    expect((await documents.getDocument(id))!.document.ownAccountId).toBe(own);
+    expect((await ansicht(id)).ownAccountId).toBe(own);
     // Die Auslesung (Mock) liefert „telefon“: das Konto der Elternkategorie „software“ passt nicht mehr
     await (await documents.queueExtraction(actor, [id], { first: true })).work;
-    const { document } = (await documents.getDocument(id))!;
-    expect(document).toMatchObject({ category: "telefon", ownAccountId: null });
+    expect(await ansicht(id)).toMatchObject({ category: "telefon", ownAccountId: null });
   });
 
   it("von Hand eingetragener Tabellenkurs: der später veröffentlichte amtliche Kurs gilt auch für ungebuchte Belege", async () => {
@@ -256,8 +263,8 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
   it("Foto geht an die KI, Buchen erzeugt Aufwand und Vorsteuer und sperrt", async () => {
     const { id } = await documents.uploadDocument(actor, { bytes: JPEG, filename: "quittung.jpg" });
     const before = (await documents.getDocument(id))!;
-    expect(before.document).toMatchObject({ extractedBy: "ki", extractionStatus: "fertig", category: "telefon", gross: 4590 });
-    expect(documents.bookingIssues(before.document, before.amounts)).toEqual([]);
+    expect(await ansicht(id)).toMatchObject({ extractedBy: "ki", extractionStatus: "fertig", category: "telefon", gross: 4590 });
+    expect(documents.bookingIssues(before.document, before.amounts, today(), before.positionen)).toEqual([]);
 
     await documents.bookDocument(actor, id);
     const lines = await sql`select l.account, l.debit, l.credit, l.tax_code from journal_lines l
@@ -294,7 +301,7 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
     expect(counter?.account).toBe("1890");
 
     const second = await documents.uploadDocument(actor, { bytes: new Uint8Array([...JPEG, 9]), filename: "b.jpg" });
-    expect((await documents.getDocument(second.id))?.document.category).toBe("internet");
+    expect((await ansicht(second.id)).category).toBe("internet");
   });
 
   it("Kategorie je Lieferant: die häufigste, bei Gleichstand die zuletzt gebuchte, mit Anzahl", async () => {
@@ -328,7 +335,7 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
     expect(await vorschlaege.supplierCategory(lieferant("Andere GmbH", ""))).toBeNull();
     // Auch die Auslesung (KI: „telefon“) überstimmt die häufigste Kategorie
     const next = await documents.uploadDocument(actor, { bytes: new Uint8Array([...JPEG, 99]), filename: "neu.jpg" });
-    expect((await documents.getDocument(next.id))?.document.category).toBe("internet");
+    expect((await ansicht(next.id)).category).toBe("internet");
   });
 
   it("Fremdwährung: KI-Beträge sind Originalbeträge, gebucht wird erst mit Kurs und dann in Euro", async () => {
@@ -351,8 +358,12 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
     const extracted = (await documents.getDocument(id))!;
     expect(extracted.document).toMatchObject({ currency: "USD", exchangeRate: null, net: 0, tax: 0, gross: 0 });
     expect(extracted.amounts.map((a) => [a.net, a.tax, a.originalNet, a.originalTax])).toEqual([[0, 0, 10_000, 1_900]]);
-    expect(documents.bookingIssues(extracted.document, extracted.amounts, "2026-10-22")).toEqual(["Umrechnungskurs für USD 09/2026 fehlt"]);
-    expect(documents.bookingIssues(extracted.document, extracted.amounts, "2026-09-30")[0]).toMatch(/^Kurs für 09\/2026 noch nicht veröffentlicht/);
+    expect(documents.bookingIssues(extracted.document, extracted.amounts, "2026-10-22", extracted.positionen)).toEqual([
+      "Umrechnungskurs für USD 09/2026 fehlt",
+    ]);
+    expect(documents.bookingIssues(extracted.document, extracted.amounts, "2026-09-30", extracted.positionen)[0]).toMatch(
+      /^Kurs für 09\/2026 noch nicht veröffentlicht/,
+    );
     await expect(documents.bookDocument(actor, id)).rejects.toThrow(/Kurs für 09\/2026|Umrechnungskurs für USD 09\/2026/);
 
     const input = {
@@ -373,7 +384,7 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
     // 100,00 USD / 1,0812 = 92,49 €; 19,00 USD / 1,0812 = 17,57 €
     expect(converted.document).toMatchObject({ currency: "USD", exchangeRate: "1.081200", net: 9249, tax: 1757, gross: 11_006 });
     expect(converted.amounts.map((a) => [a.net, a.tax, a.originalNet, a.originalTax])).toEqual([[9249, 1757, 10_000, 1_900]]);
-    expect(documents.bookingIssues(converted.document, converted.amounts)).toEqual([]);
+    expect(documents.bookingIssues(converted.document, converted.amounts, today(), converted.positionen)).toEqual([]);
 
     await documents.bookDocument(actor, id);
     const lines = await sql`select l.debit, l.credit from journal_lines l join journal_entries e on e.id = l.entry_id where e.source_id = ${id}`;
@@ -449,7 +460,7 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
     });
     const doc = (await documents.getDocument(id))!;
     // § 13b Abs. 1 UStG gilt nur für sonstige Leistungen (Kz 46/47); Waren gehören in Kz 89/93 (§ 1a UStG)
-    expect(documents.bookingIssues(doc.document, doc.amounts)).toContain("§ 13b gilt nicht für Wareneinkäufe");
+    expect(documents.bookingIssues(doc.document, doc.amounts, today(), doc.positionen)).toContain("§ 13b gilt nicht für Wareneinkäufe");
   });
 
   it("nennt das Feld eines Hinweises vor dem Buchen, auch wenn der Server das Buchen ablehnt (#1253)", async () => {
@@ -470,7 +481,7 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
       amounts: [{ taxRate: 1900, net: 10_000, tax: 1_900 }],
     });
     const doc = (await documents.getDocument(id))!;
-    expect(documents.bookingIssueList(doc.document, doc.amounts)).toEqual([
+    expect(documents.bookingIssueList(doc.document, doc.amounts, today(), doc.positionen)).toEqual([
       { text: expect.stringMatching(/^Lieferant FR1234: nach dem Länderkennzeichen 5 bis 12/), feld: "supplierUstId" },
     ]);
     await expect(documents.bookDocument(actor, id)).rejects.toMatchObject({
@@ -518,7 +529,9 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
       // Ein schon gespeicherter Entwurf mit abweichender Steuer lässt sich nicht buchen, bis er neu gespeichert ist
       await sql`update document_amounts set tax = 0 where document_id = ${id} and tax_rate = 1900`;
       const legacy = (await documents.getDocument(id))!;
-      expect(documents.bookingIssues(legacy.document, legacy.amounts)).toContain(`${name} passt nicht zu Netto und Satz; öffne den Beleg und speichere ihn`);
+      expect(documents.bookingIssues(legacy.document, legacy.amounts, today(), legacy.positionen)).toContain(
+        `${name} passt nicht zu Netto und Satz; öffne den Beleg und speichere ihn`,
+      );
     },
   );
 
@@ -585,7 +598,7 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
     const doc = (await documents.getDocument(id))!;
     expect(doc.document).toMatchObject({ reverseCharge: "eu", status: "neu", lockedAt: null, net: 11_544, tax: 2_193, gross: 11_544 });
     expect(doc.amounts.map((a) => [a.taxRate, a.net, a.tax])).toEqual([[1900, 11_544, 2_193]]);
-    expect(documents.bookingIssues(doc.document, doc.amounts)).not.toContain("Bei § 13b steht jede Zeile auf 19 % oder 7 %");
+    expect(documents.bookingIssues(doc.document, doc.amounts, today(), doc.positionen)).not.toContain("Bei § 13b steht jede Zeile auf 19 % oder 7 %");
     // Von Hand auf Drittland gestellt: ein erneutes Auslesen ändert die Wahl nicht
     await sql`update documents set reverse_charge = 'drittland' where id = ${id}`;
     vi.mocked(extraction.extractDocument).mockResolvedValueOnce({
@@ -652,7 +665,9 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
       amounts: [{ taxRate: 1900, net: 0, tax: 0, originalNet: 4, originalTax: 0 }],
     });
     const zero = (await documents.getDocument(id))!;
-    expect(documents.bookingIssueList(zero.document, zero.amounts)).toEqual([{ text: "Umgerechnet 0,00 €, bitte den Kurs prüfen", feld: "exchangeRate" }]);
+    expect(documents.bookingIssueList(zero.document, zero.amounts, today(), zero.positionen)).toEqual([
+      { text: "Umgerechnet 0,00 €, bitte den Kurs prüfen", feld: "exchangeRate" },
+    ]);
 
     await documents.updateDocument(actor, id, {
       ...base,
@@ -667,16 +682,23 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
 
   it("Bestand: alte Fremdwährungsbelege bekommen ihre Beträge als Originalbeträge, gesperrte bleiben", async () => {
     const { id } = await documents.uploadDocument(actor, { bytes: new Uint8Array([...JPEG, 9]), filename: "alt.jpg" });
-    // So hat die Auslesung vor den Kursen gespeichert: Dollarbeträge in den Euro-Spalten
-    await sql`update documents set currency = 'USD', net = 10000, tax = 0, gross = 10000 where id = ${id}`;
+    // So hat die Auslesung vor den Kursen gespeichert: Dollarbeträge in den Euro-Spalten, die Kategorie am Beleg und noch
+    // ohne Positionen (#1975)
+    await sql`update documents set currency = 'USD', net = 10000, tax = 0, gross = 10000, category = 'telefon' where id = ${id}`;
+    await sql`delete from document_splits where document_id = ${id}`;
     await sql`delete from document_amounts where document_id = ${id}`;
     await sql`insert into document_amounts (document_id, tax_rate, net, tax) values (${id}, 0, 10000, 0)`;
-    const migration = readFileSync(new URL("../../../../drizzle/0075_fremdwaehrung_bestand.sql", import.meta.url), "utf8");
-    for (const statement of migration.split("--> statement-breakpoint")) await sql.unsafe(statement);
+    // Erst 0075, dann die Positionen aus 0352, beide wie beim Update je in einer Transaktion
+    for (const datei of ["0075_fremdwaehrung_bestand.sql", "0352_belege_positionen.sql"]) {
+      const migration = readFileSync(new URL(`../../../../drizzle/${datei}`, import.meta.url), "utf8");
+      await sql.begin(async (tx) => {
+        for (const statement of migration.split("--> statement-breakpoint")) await tx.unsafe(statement);
+      });
+    }
     const after = (await documents.getDocument(id))!;
     expect(after.document).toMatchObject({ currency: "USD", net: 0, tax: 0, gross: 0 });
     expect(after.amounts.map((a) => [a.net, a.originalNet])).toEqual([[0, 10000]]);
-    expect(documents.bookingIssueList(after.document, after.amounts, "2026-10-22")).toEqual([
+    expect(documents.bookingIssueList(after.document, after.amounts, "2026-10-22", after.positionen)).toEqual([
       { text: "Umrechnungskurs für USD 09/2026 fehlt", feld: "exchangeRate" },
     ]);
   });

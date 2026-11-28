@@ -56,6 +56,9 @@ function UstZeilen({ ust }: { ust: Data["ust"] }) {
         {((f.kz84 ?? 0) !== 0 || (f.kz85 ?? 0) !== 0) && (
           <Row label="§-13b-Leistungen aus dem Drittland" kz="84/85" extra={formatEuro(f.kz84 ?? 0)} value={formatEuro(f.kz85 ?? 0)} />
         )}
+        {(f.kz60 ?? 0) !== 0 && (
+          <Row label="Bauleistungen, für die der Kunde die Steuer schuldet (§ 13b Abs. 5 UStG)" kz="209" extra={formatEuro(f.kz60!)} value="–" />
+        )}
         {(f.kz21 ?? 0) !== 0 && <Row label="Nicht steuerbare Leistungen, Ort im EU-Ausland" kz="21" extra={formatEuro(f.kz21!)} value="–" />}
         {(f.kz45 ?? 0) !== 0 && <Row label="Nicht steuerbare Umsätze (Drittland)" kz="45" extra={formatEuro(f.kz45!)} value="–" />}
         {(f.kz50 ?? 0) !== 0 && (

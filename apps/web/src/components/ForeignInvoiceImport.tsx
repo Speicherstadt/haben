@@ -12,14 +12,23 @@ import { FOREIGN, nurNetto, startZeilen, TaxSection, type TaxRow } from "./Forei
 import { NewContactDialog } from "./NewContactDialog.tsx";
 import { UmsatzgrenzeDialog } from "./UmsatzgrenzeDialog.tsx";
 
-type Read = Awaited<ReturnType<typeof readForeignInvoice>>;
+export type Read = Awaited<ReturnType<typeof readForeignInvoice>>;
 
 /**
  * Rechnung aus einem Fremdsystem übernehmen (#660): Original-PDF wählen, die Angaben prüfen (bei einer E-Rechnung kommen sie
  * aus der Datei) und übernehmen. Nummer und PDF bleiben, gebucht wird wie beim Festschreiben einer eigenen Rechnung.
  */
-export function ForeignInvoiceImport({ onClose }: { onClose: () => void }) {
-  const [read, setRead] = useState<{ file: File; data: Read } | null>(null);
+export function ForeignInvoiceImport({
+  onClose,
+  onAdopted,
+  vorgabe,
+}: {
+  onClose: () => void;
+  /** Statt zur Rechnung zu springen: etwa zur nächsten wartenden Rechnung aus dem Postfach */
+  onAdopted?: () => void;
+  vorgabe?: { file: File; data: Read; postfach: string };
+}) {
+  const [read, setRead] = useState<{ file: File; data: Read } | null>(vorgabe ?? null);
   const [error, setError] = useState<string | null>(null);
 
   async function choose(file: File | null) {
@@ -50,9 +59,15 @@ export function ForeignInvoiceImport({ onClose }: { onClose: () => void }) {
             {error}
           </div>
         )}
-        <Field label="Original der Rechnung oder des Stornos (PDF, auch ZUGFeRD)">
-          {(control) => <FilePicker {...control} accept="application/pdf,.pdf" onChange={(e) => void choose(e.target.files?.[0] ?? null)} />}
-        </Field>
+        {vorgabe ? (
+          <p className="muted" style={{ margin: 0 }}>
+            Aus dem Postfach: <span className="mono small">{vorgabe.file.name}</span>
+          </p>
+        ) : (
+          <Field label="Original der Rechnung oder des Stornos (PDF, auch ZUGFeRD)">
+            {(control) => <FilePicker {...control} accept="application/pdf,.pdf" onChange={(e) => void choose(e.target.files?.[0] ?? null)} />}
+          </Field>
+        )}
       </div>
       {read?.data.proposal.cancels ? (
         <ForeignCancellationForm
@@ -60,10 +75,19 @@ export function ForeignInvoiceImport({ onClose }: { onClose: () => void }) {
           file={read.file}
           proposal={read.data.proposal}
           cancels={read.data.proposal.cancels}
+          postfach={vorgabe?.postfach}
+          onAdopted={onAdopted}
           onClose={onClose}
         />
       ) : read ? (
-        <ForeignInvoiceForm key={read.file.name + read.file.size + read.file.lastModified} file={read.file} read={read.data} onClose={onClose} />
+        <ForeignInvoiceForm
+          key={read.file.name + read.file.size + read.file.lastModified}
+          file={read.file}
+          read={read.data}
+          postfach={vorgabe?.postfach}
+          onAdopted={onAdopted}
+          onClose={onClose}
+        />
       ) : (
         <div className="actions form-footer">
           <button type="button" className="btn" onClick={onClose}>
@@ -76,7 +100,7 @@ export function ForeignInvoiceImport({ onClose }: { onClose: () => void }) {
 }
 
 /** Absenden an den Server; meldet er die Umsatzgrenze, wartet die Rechnung auf die Bestätigung (`pending`) */
-function useAdopt(file: File) {
+function useAdopt(file: File, postfach?: string, onAdopted?: () => void) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -86,6 +110,7 @@ function useAdopt(file: File) {
     const form = new FormData();
     form.set("file", file);
     form.set("rechnung", JSON.stringify(payload));
+    if (postfach) form.set("postfach", postfach);
     setBusy(true);
     setError(null);
     try {
@@ -94,6 +119,11 @@ function useAdopt(file: File) {
         const { umsatz, rechnung, grenze, vorjahresumsatz } = result;
         setPending({ payload, warning: { umsatz, rechnung, grenze, ...(vorjahresumsatz === undefined ? {} : { vorjahresumsatz }) } });
         setBusy(false);
+        return;
+      }
+      if (onAdopted) {
+        setBusy(false);
+        onAdopted();
         return;
       }
       await router.navigate({ to: "/rechnungen/$id", params: { id: result.id } });
@@ -105,9 +135,21 @@ function useAdopt(file: File) {
   return { error, setError, busy, pending, setPending, adopt };
 }
 
-function ForeignInvoiceForm({ file, read, onClose }: { file: File; read: Read; onClose: () => void }) {
+function ForeignInvoiceForm({
+  file,
+  read,
+  postfach,
+  onAdopted,
+  onClose,
+}: {
+  file: File;
+  read: Read;
+  postfach?: string;
+  onAdopted?: () => void;
+  onClose: () => void;
+}) {
   const p = read.proposal;
-  const { error, setError, busy, pending, setPending, adopt } = useAdopt(file);
+  const { error, setError, busy, pending, setPending, adopt } = useAdopt(file, postfach, onAdopted);
   const [basics, setBasics] = useState<Basics>({
     number: p.number,
     issueDate: p.issueDate,

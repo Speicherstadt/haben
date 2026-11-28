@@ -1345,6 +1345,20 @@
       "function": "public.haben_reject_truncate()"
     },
     {
+      "table": "public.inbox_outgoing",
+      "name": "inbox_outgoing_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER inbox_outgoing_audit AFTER INSERT OR DELETE OR UPDATE ON public.inbox_outgoing FOR EACH ROW EXECUTE FUNCTION public.haben_audit()",
+      "function": "public.haben_audit()"
+    },
+    {
+      "table": "public.inbox_outgoing",
+      "name": "inbox_outgoing_no_truncate",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER inbox_outgoing_no_truncate BEFORE TRUNCATE ON public.inbox_outgoing FOR EACH STATEMENT EXECUTE FUNCTION public.haben_reject_truncate()",
+      "function": "public.haben_reject_truncate()"
+    },
+    {
       "table": "public.inbox_settings",
       "name": "inbox_settings_audit",
       "enabled": "O",
@@ -3386,8 +3400,8 @@
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "021f8c94bc8e74f1a7338ef47355fbfba75d82042ebbffa316b40368712fb8aa",
-      "definitionHash": "7d9bea84483333171797213b3c828dcaae85b142030aecec3a2a79277fc709aa"
+      "sourceHash": "8e93d8eb9a0c17d86c62a8a25e45386984ef68d8a14a6acaeae40bc5cccb5218",
+      "definitionHash": "d3b420122e3a3b7a8fecd8d03d80480249bf82a3e88da2d043b3db259c962330"
     },
     {
       "name": "public.haben_audit_chain_guard()",
@@ -3898,8 +3912,8 @@
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "25b0968460b7a4b6369e076c7e1d8b8842aee9f8ade91fdbc7b036b99781cf4e",
-      "definitionHash": "912489619def8c6ae7c0f8d943e27fd418f4533052906c9cd1198edea8de8cee"
+      "sourceHash": "0f1a04cd9ff718b8553371a938ab6a2f1669781aea647b3a16c3ba2d95ab3ddb",
+      "definitionHash": "b4d63da65aecd4c73ed883199ef67182e30ab92ff9df03e8cca25700c21c6ea8"
     },
     {
       "name": "public.haben_seal_columns(tbl text)",
@@ -3961,6 +3975,8 @@
   "sealedTables": [
     "public.allocations",
     "public.asset_depreciations",
+    "public.audit_chain",
+    "public.audit_log",
     "public.cash_entries",
     "public.document_amounts",
     "public.document_cancellations",
@@ -3975,6 +3991,7 @@
     "public.pauschalen",
     "public.payslip_cancellations",
     "public.payslips",
+    "public.seals",
     "public.vat_return_filings",
     "public.vat_returns"
   ],
@@ -3986,6 +4003,9 @@
     { "table": "public.asset_depreciations", "column": "id", "expression": "gen_random_uuid()" },
     { "table": "public.asset_depreciations", "column": "private_use", "expression": "0" },
     { "table": "public.asset_depreciations", "column": "private_use_vat", "expression": "0" },
+    { "table": "public.audit_chain", "column": "id", "expression": "1" },
+    { "table": "public.audit_log", "column": "at", "expression": "now()" },
+    { "table": "public.audit_log", "column": "id", "expression": "nextval('public.audit_log_id_seq'::regclass)" },
     { "table": "public.cash_entries", "column": "created_at", "expression": "now()" },
     { "table": "public.cash_entries", "column": "id", "expression": "gen_random_uuid()" },
     { "table": "public.document_amounts", "column": "id", "expression": "gen_random_uuid()" },
@@ -4057,6 +4077,9 @@
     { "table": "public.payslips", "column": "hinweise", "expression": "'[]'::jsonb" },
     { "table": "public.payslips", "column": "id", "expression": "gen_random_uuid()" },
     { "table": "public.payslips", "column": "updated_at", "expression": "now()" },
+    { "table": "public.seals", "column": "created_at", "expression": "now()" },
+    { "table": "public.seals", "column": "genesis", "expression": "false" },
+    { "table": "public.seals", "column": "id", "expression": "nextval('public.seals_id_seq'::regclass)" },
     { "table": "public.vat_return_filings", "column": "created_at", "expression": "now()" },
     { "table": "public.vat_return_filings", "column": "id", "expression": "gen_random_uuid()" },
     { "table": "public.vat_returns", "column": "berichtigt", "expression": "false" },
@@ -4071,6 +4094,7 @@
     { "table": "public.vat_returns", "column": "kz47", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz48", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz50", "expression": "0" },
+    { "table": "public.vat_returns", "column": "kz60", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz61", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz62", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz66", "expression": "0" },

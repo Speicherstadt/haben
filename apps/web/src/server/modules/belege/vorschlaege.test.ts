@@ -39,6 +39,7 @@ const jpeg = () => {
 
 describe.skipIf(!testDatabaseUrl)("Vorschläge für Belege aus früheren Belegen (Postgres)", () => {
   let documents: typeof import("./documents.ts");
+  let eingabe: typeof import("./beleg-eingabe.ts");
   let vorschlaege: typeof import("./vorschlaege.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
@@ -46,6 +47,7 @@ describe.skipIf(!testDatabaseUrl)("Vorschläge für Belege aus früheren Belegen
   beforeAll(async () => {
     sql = await setupTestDb();
     documents = await import("./documents.ts");
+    eingabe = await import("./beleg-eingabe.ts");
     vorschlaege = await import("./vorschlaege.ts");
   }, 30_000);
 
@@ -174,7 +176,8 @@ describe.skipIf(!testDatabaseUrl)("Vorschläge für Belege aus früheren Belegen
       await gebucht({ category: "telefon", payment: "privat" });
       await gebucht({ category: "telefon", payment: "privat" });
       const { id } = await documents.uploadDocument(actor, { bytes: jpeg(), filename: "neu.jpg" });
-      const neu = (await documents.getDocument(id))!.document;
+      const geladen = (await documents.getDocument(id))!;
+      const neu = eingabe.formularansicht(geladen.document, geladen.positionen).document;
       // Die KI sagt „sonstiges“; die Belege des Lieferanten gehen vor, die Bezahlung ebenso
       expect(neu).toMatchObject({ category: "telefon", payment: "privat", status: "neu" });
       expect(await sql`select count(*)::int as n from journal_entries where source_id = ${id}`).toEqual([{ n: 0 }]);

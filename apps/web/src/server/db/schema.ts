@@ -226,6 +226,8 @@ export const company = pgTable(
     navLogo: boolean("nav_logo").notNull().default(false),
     /** Archiv aus dem Umzug in der Schnellsuche mitdurchsuchen (#617); Vorgabe an */
     archiveSearch: boolean("archive_search").notNull().default(true),
+    /** Liquiditätsvorschau (#1381): Fällt der erwartete Kontostand darunter, warnen Übersicht und Fristen-Mail; null = keine Warnung */
+    mindestbestand: bigint("mindestbestand", { mode: "number" }).$type<Cents>(),
     /**
      * KI-Auslesung (#1735): Warteschlange angehalten, und die Grenzen des Dienstes; null = keine Grenze. Haben schickt die
      * nächste Anfrage erst, wenn sie alle gesetzten Grenzen einhält.
@@ -243,6 +245,7 @@ export const company = pgTable(
     check("company_rechtsform", sql`${t.rechtsform} in ('einzelunternehmen', 'gmbh', 'ug')`),
     check("company_nav_color", sql`${t.navColor} ~ '^#[0-9A-F]{6}$'`),
     check("company_extraction_max_parallel", sql`${t.extractionMaxParallel} between 1 and 20`),
+    check("company_mindestbestand", sql`${t.mindestbestand} >= 0`),
     check(
       "company_extraction_limits",
       sql`coalesce(${t.extractionMaxTokensPerRequest}, 1) > 0 and coalesce(${t.extractionRequestsPerMinute}, 1) > 0 and coalesce(${t.extractionTokensPerMinute}, 1) > 0`,
@@ -322,6 +325,8 @@ export const vatReturns = pgTable(
     /** Umsätze ohne Steuer: Reverse Charge im EU-Ausland, nicht steuerbar, steuerfrei ohne Vorsteuerabzug */
     kz21: integer("kz21").$type<Cents>().notNull().default(0),
     kz45: integer("kz45").$type<Cents>().notNull().default(0),
+    /** Bauleistungen, für die der Kunde die Steuer schuldet (§ 13b Abs. 5 UStG) */
+    kz60: integer("kz60").$type<Cents>().notNull().default(0),
     kz48: integer("kz48").$type<Cents>().notNull().default(0),
     kz66: integer("kz66").$type<Cents>().notNull().default(0),
     /** § 13b als Leistungsempfänger: Bemessungsgrundlagen 46/84, Steuer 47/85, Vorsteuer 67 */
@@ -366,6 +371,7 @@ export const vatReturns = pgTable(
       kz86: Cents;
       kz21?: Cents;
       kz45?: Cents;
+      kz60?: Cents;
       kz48?: Cents;
       kz66: Cents;
       kz46?: Cents;
@@ -875,6 +881,8 @@ export const mailSettings = pgTable(
     fromAddress: text("from_address").notNull(),
     /** Name vor der Absenderadresse; leer: der Firmenname, ohne den „Haben“ (senderName in mail.ts) */
     fromName: text("from_name").notNull().default(""),
+    /** Antwortadresse (Reply-To) aller Mails, wenn Antworten nicht an `from_address` gehen sollen; leer: keine (#2045) */
+    replyTo: text("reply_to").notNull().default(""),
     /** Empfänger der Erinnerungen */
     reminderTo: text("reminder_to").notNull(),
     remindersEnabled: boolean("reminders_enabled").notNull().default(true),
@@ -966,6 +974,28 @@ export const inboxMessages = pgTable("inbox_messages", {
   duplicates: integer("duplicates").notNull().default(0),
   /** Übersprungene Anhänge mit Grund */
   skipped: text("skipped").array().notNull().default(sql`'{}'::text[]`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Ausgangsrechnungen aus dem Ordner für Ausgangsrechnungen des Postfachs (#660): Das PDF liegt abgelegt, die Angaben
+ * prüft der Nutzer beim Übernehmen. Eine Datei steht nur einmal da (SHA-256); verworfene Einträge bleiben, damit der
+ * Abruf dieselbe Datei nicht wieder anbietet.
+ */
+export const inboxOutgoing = pgTable("inbox_outgoing", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sha256: text("sha256").notNull().unique(),
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(),
+  sender: text("sender").notNull(),
+  subject: text("subject").notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true }),
+  status: text("status", { enum: ["offen", "uebernommen", "verworfen"] })
+    .notNull()
+    .default("offen"),
+  /** Die daraus übernommene Rechnung */
+  invoiceId: uuid("invoice_id").references(() => invoices.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -2447,9 +2477,11 @@ export const documentAmounts = pgTable(
 );
 
 /**
- * Aufteilung eines Belegs auf mehrere Kontierungszeilen (#271): Kategorie, Steuersatz und Netto je Zeile, dazu der
- * anteilige Betrag der Vorsteuer des Satzes (allocateSplitTax). Ohne Zeilen gilt documents.category. Gesperrt mit dem
- * Beleg und Teil seines Siegels.
+ * Positionen eines Belegs (#271, #1975, docs/adr/belege-positionen.md): Kategorie, Steuersatz, Netto und der Anteil an
+ * der Steuer des Satzes je Position. Jeder neue oder offene Beleg hat hier seine Kontierung; ein Privatanteil ist eine
+ * Position `privatentnahme`. Nur festgeschriebene Belege aus der Zeit davor haben keine Zeilen, für sie gelten
+ * `documents.category` und `private_share` (belege/positionen.ts liest beides als Positionen). Der Name der Tabelle
+ * bleibt, weil Siegel und `haben_integrity_problems` ihn tragen. Gesperrt mit dem Beleg und Teil seines Siegels.
  */
 export const documentSplits = pgTable(
   "document_splits",
@@ -2460,7 +2492,8 @@ export const documentSplits = pgTable(
       .references(() => documents.id, { onDelete: "cascade" }),
     /** Reihenfolge wie eingegeben, ab 1 */
     position: smallint("position").notNull(),
-    category: text("category").notNull(),
+    /** Leer, solange ein Entwurf keiner Kategorie zugeordnet ist; gebucht wird nur mit Kategorie in jeder Position */
+    category: text("category"),
     /**
      * Freie Beschreibung der Zeile (#1975). Leer ist der leere Text, nie null: `0310` prüft eine Spalte, die einem
      * alten Siegel fehlt, gegen den Katalog-Default, deshalb bleibt der Default für immer `''`.
@@ -2471,6 +2504,12 @@ export const documentSplits = pgTable(
     taxRate: smallint("tax_rate").$type<BasisPoints>().notNull(),
     net: integer("net").$type<Cents>().notNull(),
     tax: integer("tax").$type<Cents>().notNull(),
+    /**
+     * Nur bei Fremdwährung: Netto der Position laut Beleg (#1975). Euro ergeben sich je Satz aus dem Kurs; die Position
+     * behält so ihren Anteil, auch solange der Kurs fehlt und alle Euro-Beträge 0 sind. Ohne Standardwert, damit ältere
+     * Siegel ohne die Spalte gültig bleiben.
+     */
+    originalNet: bigint("original_net", { mode: "number" }).$type<Cents>(),
   },
   (t) => [uniqueIndex("document_splits_position").on(t.documentId, t.position)],
 );
@@ -4396,6 +4435,8 @@ export const mcpTokens = pgTable("mcp_tokens", {
   prefix: text("prefix").notNull(),
   /** Rechte des Tokens, TOKEN_SCOPES in modules/mcp/tokens.ts: haben:lesen für MCP, kontakte:…, rechnungen:… und belege:… für die REST-API */
   scopes: text("scopes").array().notNull(),
+  /** Mit rechnungen:festschreiben: die externe Quelle (invoices.external_source), deren Entwürfe das Token festschreiben darf (#1918) */
+  finalizeSource: text("finalize_source"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),

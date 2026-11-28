@@ -38,17 +38,17 @@ export async function unbilledAdvanceRequest(invoice: Invoice, date: string, tx:
  * betragsgleicher Ersatz ändert sie nicht. Echte Entgeltkorrekturen bleiben eigene Buchungen (§ 252 HGB, § 17 UStG).
  * Entscheidung: https://github.com/Speicherstadt/haben/issues/750#issuecomment-6837873675
  */
-export async function advanceInvoicePosting(invoice: Invoice, totals: InvoiceTotals, frame: Kontenrahmen, tx: Tx) {
+export async function advanceInvoicePosting(invoice: Invoice, totals: InvoiceTotals, frame: Kontenrahmen, tx: Tx, assetDisposal = false) {
   const original = await invoiceTaxReader(tx).original(invoice);
   if (original.variant === null) {
     const [company] = await tx.select({ rechtsform: schema.company.rechtsform }).from(schema.company).where(eq(schema.company.id, 1));
     // GmbH/UG: Der Plan ersetzt die gesamte Normalbuchung. EÜR: bestehende Netto-/Zahlungsanteile behalten,
     // nur die Steuerfälligkeit übernimmt derselbe Plan (§ 11 EStG, § 13 UStG).
     if (isKapitalgesellschaft(company!.rechtsform)) return [];
-    return [{ date: await invoiceVatDate(invoice, tx), lines: invoicePosting(totals, frame, "ist", invoice.taxTreatment) }];
+    return [{ date: await invoiceVatDate(invoice, tx), lines: invoicePosting(totals, frame, "ist", invoice.taxTreatment, assetDisposal) }];
   }
   if (original.advanceType === "anzahlung" || invoice.replacesInvoiceId || (invoice.kind === "storno" && original.variant === "schluss")) return [];
-  const lines = invoicePosting(totals, frame, await invoicePostingMode(invoice, tx), invoice.taxTreatment);
+  const lines = invoicePosting(totals, frame, await invoicePostingMode(invoice, tx), invoice.taxTreatment, assetDisposal);
   if (!lines.length) return [];
   const date = invoice.kind === "rechnung" ? (invoice.serviceTo ?? invoice.serviceFrom ?? invoice.issueDate) : invoice.issueDate;
   const reporting = advanceReportingPosting(totals.taxes, frame, invoice.taxTreatment);

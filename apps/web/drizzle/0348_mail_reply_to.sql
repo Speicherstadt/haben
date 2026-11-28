@@ -1,0 +1,1 @@
+ALTER TABLE "mail_settings" ADD COLUMN "reply_to" text DEFAULT '' NOT NULL;

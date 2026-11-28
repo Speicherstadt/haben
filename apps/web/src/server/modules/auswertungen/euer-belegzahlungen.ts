@@ -1,7 +1,7 @@
-import { documentEuerEffects, EXPENSE_CATEGORIES, type DocumentEuerEffect, type EuerPayment, type ExpenseCategory } from "@haben/core";
+import { documentEuerEffects, type DocumentEuerEffect, type EuerPayment } from "@haben/core";
 import { inArray, sql } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
-import { splitsByDocument } from "../belege/index.ts";
+import { auswertungsKontierung, positionenJeBeleg } from "../belege/index.ts";
 import { loadOwnAccountNumbers } from "../eigene-konten/index.ts";
 import { documentsMitEntnahme } from "../umsatzsteuer/index.ts";
 import { documentTotalsById } from "./euer-belege.ts";
@@ -22,9 +22,10 @@ export async function belegZahlungsWirkungen(q: Db | Tx, ids: string[]): Promise
   );
   if (partial.length === 0) return result;
   const d = schema.documents;
-  const docs = await q.select({ id: d.id, category: d.category, privateShare: d.privateShare }).from(d).where(inArray(d.id, partial));
+  const docs = await q.select({ id: d.id, privateShare: d.privateShare }).from(d).where(inArray(d.id, partial));
   // Mit Kontonummer der eigenen Sachkonten: Die EÜR rundet Bewirtung je Journalzeile wie die Buchung (#1975)
-  const splits = await splitsByDocument(partial, q, await loadOwnAccountNumbers(q));
+  const eigene = await loadOwnAccountNumbers(q);
+  const positionen = await positionenJeBeleg(partial, q);
   // Wie das bestehende Journalmodell (#864): Gegenzeilen wirken an a.date, sonst gilt der Bankbuchungstag.
   // § 11 Abs. 2 EStG betrifft das Abflussjahr; spätere Aufhebungen dürfen frühere Zahlungsanteile nicht neu runden.
   // Quelle: https://www.gesetze-im-internet.de/estg/__11.html
@@ -42,14 +43,14 @@ export async function belegZahlungsWirkungen(q: Db | Tx, ids: string[]): Promise
     ) zahlungen order by datum, created_at, id`);
   for (const doc of docs) {
     // § 13b: die Zeilen behalten ihre Steuer; die EÜR rechnet mit selbstGeschuldet nur netto (euer-beleg.ts, #1975)
-    const lines = splits.get(doc.id);
+    const { category, splits: lines } = auswertungsKontierung(positionen.get(doc.id) ?? [], eigene);
     const payment: Extract<EuerPayment, { kind: "document" }> = {
       kind: "document",
       date: "",
       paid: 0,
       totals: totals.get(doc.id)!,
       privateShare: doc.privateShare,
-      category: doc.category && doc.category in EXPENSE_CATEGORIES ? (doc.category as ExpenseCategory) : "sonstiges",
+      category,
       ...(lines ? { splits: lines } : {}),
       ...(selbstGeschuldet.has(doc.id) ? { selbstGeschuldet: selbstGeschuldet.get(doc.id)! } : {}),
     };

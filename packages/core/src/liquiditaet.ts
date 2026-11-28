@@ -1,5 +1,5 @@
 import { addDays } from "./holidays.ts";
-import type { Cents } from "./money.ts";
+import { formatEuro, type Cents } from "./money.ts";
 import { addMonthsAnchored } from "./recurring.ts";
 
 /*
@@ -75,6 +75,8 @@ export const HORIZONTE = {
 } as const;
 export type Horizont = keyof typeof HORIZONTE;
 export const HORIZONT_KEYS = Object.keys(HORIZONTE) as [Horizont, ...Horizont[]];
+/** Horizont der Seite ohne Auswahl; darin prüfen Übersicht und Fristen-Mail den Mindestbestand, damit ihr Link denselben Tag zeigt */
+export const STANDARD_HORIZONT: Horizont = "13w";
 
 /** Letzter Tag des Horizonts, einschließlich: 4 Wochen ab Freitag, dem 20., enden am Donnerstag, dem 17. des Folgemonats */
 export function horizontEnde(heute: string, horizont: Horizont): string {
@@ -204,5 +206,36 @@ export function liquiditaetsVorschau(input: { heute: string; horizont: Horizont;
     eingaenge,
     ausgaenge,
     ende: start + eingaenge - ausgaenge,
+  };
+}
+
+/** Höchster Mindestbestand, den Formular und Übernahme annehmen: 1 Mrd. € */
+export const MINDESTBESTAND_MAX: Cents = 100_000_000_000;
+
+/** Der erwartete Kontostand fällt unter den Mindestbestand: am Tag `datum` auf `stand`, es fehlen `fehlt` */
+export interface Unterschreitung extends Stand {
+  mindestbestand: Cents;
+  /** Mindestbestand minus Stand, positiv */
+  fehlt: Cents;
+}
+
+/**
+ * Erster Tag im Horizont, an dem der Tagesendstand unter dem Mindestbestand liegt (#1381); null, wenn er nie darunter
+ * fällt. Ohne Posten heute zählt der Stand zu Beginn als Stand von heute, liegt er schon darunter, ist es heute. Für
+ * Übersicht, Fristen-Mail und Liquiditätsseite, unabhängig vom Horizont der Vorschau.
+ */
+export function unterschreitung(vorschau: Pick<Vorschau, "heute" | "start" | "verlauf">, mindestbestand: Cents): Unterschreitung | null {
+  const heute = vorschau.verlauf[0]?.datum === vorschau.heute ? [] : [{ datum: vorschau.heute, stand: vorschau.start }];
+  const tag = [...heute, ...vorschau.verlauf].find((s) => s.stand < mindestbestand);
+  return tag ? { datum: tag.datum, stand: tag.stand, mindestbestand, fehlt: mindestbestand - tag.stand } : null;
+}
+
+const tagDe = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
+
+/** Wortlaut der Warnung für Liquiditätsseite, Übersicht und Fristen-Mail (#1381): titel nennt den Tag, detail Stand und Fehlbetrag */
+export function unterschreitungText(w: Unterschreitung): { titel: string; detail: string } {
+  return {
+    titel: `Kontostand unterschreitet Mindestbestand am ${tagDe(w.datum)}`,
+    detail: `Erwartet ${formatEuro(w.stand)}, ${formatEuro(w.fehlt)} unter dem Mindestbestand von ${formatEuro(w.mindestbestand)}`,
   };
 }

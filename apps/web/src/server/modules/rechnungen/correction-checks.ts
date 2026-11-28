@@ -1,8 +1,9 @@
 import { cancellationProblem } from "@haben/core";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
+import { today } from "../../today.ts";
 import { deductedElsewhere } from "./advance-deductions.ts";
-import type { Invoice } from "./invoices.ts";
+import { listInvoices, type Invoice } from "./invoices.ts";
 
 /* Was gegen Storno oder Korrektur einer Rechnung spricht; geprüft beim Anlegen und beim Festschreiben */
 
@@ -27,11 +28,40 @@ export async function originalProblem(original: Invoice, q: Db | Tx = db, of?: I
   return cancellationProblem(original, { cancelled: Boolean(storno), deductedIn }, kinds);
 }
 
-/** Mehrere Korrekturen zusammen mindern eine Rechnung höchstens bis auf 0, netto (die Steuer rundet jeder Beleg für sich) */
+/**
+ * Mehrere Korrekturen zusammen mindern eine Rechnung höchstens bis auf 0. Gerechnet wird das Netto in der Währung der
+ * Rechnung: Steuer und Euro-Betrag rundet jeder Beleg für sich, über mehrere Korrekturen bliebe 1 Cent über oder fehlte.
+ */
 export async function reductionProblem(invoice: Invoice, original: Invoice, q: Db | Tx = db): Promise<string | null> {
   if (invoice.kind !== "korrektur") return null;
-  const [corrections] = await q
-    .select({ net: sql<number>`coalesce(sum(${schema.invoices.net}), 0)::int` })
+  const rest = await nettoInRechnungswaehrung(invoice, original, q);
+  if (rest < 0) return "Die Korrekturen mindern die Rechnung unter 0";
+  return rest === 0 ? aufgehobenProblem(original, q) : null;
+}
+
+/**
+ * Eine Korrektur, die eine noch unbezahlte Rechnung genau aufhebt, ist ein Storno (#877, #2037). Das wird schon beim
+ * Festschreiben abgewiesen, weil der Beleg danach versiegelt ist und nur noch ein Storno der Rechnung hilft.
+ *
+ * Aufgehoben ist die Rechnung, wenn das Netto von Rechnung und allen Korrekturen in der Währung der Rechnung 0 ergibt
+ * (#2079: brutto bliebe durch die Rundung je Beleg 1 Cent über oder fehlte).
+ * „Nichts bezahlt" heißt offener Rest gleich Rechnungsbetrag, gelesen auf der festgeschriebenen Rechnung (`invoiceOpen`
+ * liefert für einen Entwurf 0); Ausbuchungen und Verrechnungen zählen als Zahlung, ebenso eine als bereits bezahlt
+ * ausgestellte Rechnung, deren Zahlung erst der Bankabgleich zuordnet.
+ * Eine Schlussrechnung zieht immer Abschläge ab: Die Korrektur ihres ganzen Rests lässt den Abschlag als Entgelt stehen,
+ * erst ein Storno gibt ihn wieder frei. Sie ist deshalb keine Aufhebung der Leistung.
+ */
+async function aufgehobenProblem(original: Invoice, q: Db | Tx): Promise<string | null> {
+  if (original.variant === "schluss" || original.paymentMethod === "bereits_bezahlt") return null;
+  const [offen] = await listInvoices(today(), original.id, q);
+  if (offen?.open !== original.gross) return null;
+  return "Diese Korrektur hebt die ganze Rechnung auf. Das ist ein Storno: storniere die Rechnung, statt die Korrektur festzuschreiben";
+}
+
+/** Netto von Rechnung, festgeschriebenen Korrekturen und dieser Korrektur in der Währung der Rechnung, aus den Steuerzeilen */
+async function nettoInRechnungswaehrung(invoice: Invoice, original: Invoice, q: Db | Tx): Promise<number> {
+  const korrekturen = q
+    .select({ id: schema.invoices.id })
     .from(schema.invoices)
     .where(
       and(
@@ -41,5 +71,9 @@ export async function reductionProblem(invoice: Invoice, original: Invoice, q: D
         ne(schema.invoices.id, invoice.id),
       ),
     );
-  return original.net + corrections!.net + invoice.net < 0 ? "Die Korrekturen mindern die Rechnung unter 0" : null;
+  const [row] = await q
+    .select({ net: sql<number>`coalesce(sum(coalesce(${schema.invoiceTaxes.originalBase}, ${schema.invoiceTaxes.base})), 0)::bigint` })
+    .from(schema.invoiceTaxes)
+    .where(or(inArray(schema.invoiceTaxes.invoiceId, [original.id, invoice.id]), inArray(schema.invoiceTaxes.invoiceId, korrekturen)));
+  return Number(row!.net);
 }

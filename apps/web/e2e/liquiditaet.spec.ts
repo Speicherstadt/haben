@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { SESSION } from "./daten.ts";
+import { axeVerstoesse } from "./einrichtung.ts";
 import { HANDY } from "./kopfzeile.ts";
 
 /*
  * Liquiditätsvorschau (#1381) mit den Daten aus app.spec.ts (offene Rechnungen, Dauerbeleg Miete): über den Link der Auswertungen
  * öffnen, Horizont umschalten, einen Zeitraum aufklappen und von einem Posten zu seiner Quelle springen, Überfälliges mit Status
- * und eigentlichem Termin, überfällige Forderungen ausblenden.
+ * und eigentlichem Termin, überfällige Forderungen ausblenden; Mindestbestand einstellen mit Hinweis, Linie und Aufgabe in der Übersicht.
  */
 
 test.use({ storageState: SESSION });
@@ -69,4 +70,93 @@ test("Liquidität am Handy: Horizont und Schalter stehen ganz im Bild", async ({
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(HANDY.width);
   }
+});
+
+// Der Mindestbestand gehört zu den Daten, die „mit-daten“ teilt: Brach der Test ab, bevor er ihn entfernte, entfernt ihn
+// afterAll. In der Gruppe läuft es nur im Worker dieser Tests, nicht in einem, der die übrigen Tests der Datei nahm; die Tests
+// der Gruppe laufen nacheinander, weil jeder den Mindestbestand ändert.
+test.describe("Mindestbestand", () => {
+  test.describe.configure({ mode: "serial" });
+  test.afterAll(async ({ browser }) => {
+    const page = await browser.newPage({ storageState: SESSION });
+    await page.goto("/auswertungen/liquiditaet", { waitUntil: "networkidle" });
+    const feld = page.getByRole("textbox", { name: "Mindestbestand" });
+    if ((await feld.inputValue()) !== "") {
+      await feld.fill("");
+      await page.getByRole("button", { name: "Speichern", exact: true }).click();
+      await expect(page.getByText("Mindestbestand entfernt.")).toBeVisible();
+    }
+    await page.close();
+  });
+
+  test("einstellen, Hinweis und Linie auf der Seite, Aufgabe in der Übersicht, wieder entfernen", async ({ page }) => {
+    await page.goto("/auswertungen/liquiditaet");
+    const karte = page.locator("section.card").filter({ has: page.getByRole("heading", { name: "Mindestbestand", exact: true }) });
+    const feld = karte.getByLabel("Mindestbestand");
+    await expect(feld).toHaveValue("");
+    await expect(page.locator(".chart .grenze")).toHaveCount(0);
+
+    // Prüfung beim Absenden: kein Betrag
+    await feld.fill("viel");
+    await karte.getByRole("button", { name: "Speichern" }).click();
+    await expect(feld).toHaveAttribute("aria-invalid", "true");
+
+    // Weit über dem Kontostand: schon heute darunter
+    await feld.fill("10.000.000,00");
+    await karte.getByRole("button", { name: "Speichern" }).click();
+    // Die Meldung nennt das Ergebnis, weil der Hinweis oben auf der Seite außer Sicht steht
+    await expect(karte.getByRole("status")).toHaveText(/^Mindestbestand gespeichert\. Der Kontostand unterschreitet ihn am \d\d\.\d\d\.\d{4}\.$/);
+    await expect(
+      page
+        .getByRole("note")
+        .filter({ hasText: /^Kontostand unterschreitet Mindestbestand am \d\d\.\d\d\.\d{4}\. Erwartet .+ unter dem Mindestbestand von 10\.000\.000,00/ }),
+    ).toBeVisible();
+    await expect(page.locator(".chart .grenze")).toHaveCount(1);
+    // barrierefreiheit.spec.ts sieht die Seite ohne Mindestbestand; Hinweis und Linie nur hier
+    expect(await axeVerstoesse(page)).toEqual([]);
+
+    await page.goto("/");
+    // Nahe Fristen stehen vorn, die früheste zuerst; überfällige können die Aufgabe unter „Weitere“ schieben
+    const weitere = page.locator("details.todo-weitere");
+    if ((await weitere.count()) > 0) await weitere.locator("summary").click();
+    const aufgabe = page.getByRole("link", { name: /Kontostand unterschreitet Mindestbestand am \d\d\.\d\d\.\d{4}/ });
+    await expect(aufgabe).toContainText("unter dem Mindestbestand von 10.000.000,00");
+    expect(await axeVerstoesse(page)).toEqual([]);
+    await aufgabe.click();
+    await expect(page).toHaveURL(/\/auswertungen\/liquiditaet$/);
+
+    // Leer heißt keine Warnung: Hinweis, Linie und Aufgabe verschwinden
+    await karte.getByLabel("Mindestbestand").fill("");
+    await karte.getByRole("button", { name: "Speichern" }).click();
+    await expect(karte.getByText("Mindestbestand entfernt.")).toBeVisible();
+    await expect(page.locator(".chart .grenze")).toHaveCount(0);
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Übersicht");
+    await expect(page.getByText(/Kontostand unterschreitet Mindestbestand/)).toHaveCount(0);
+  });
+
+  test("die Meldung nach dem Speichern widerspricht dem Hinweis nicht, wenn danach der Horizont wechselt", async ({ page }) => {
+    // Tiefpunkt in 4 Wochen als Mindestbestand: darüber, in 12 Monaten (Miete jeden Monat) darunter
+    const tiefpunkt = async (horizont: string) => {
+      await page.goto(`/auswertungen/liquiditaet?horizont=${horizont}`);
+      const text = await page.locator(".liq-kennzahlen .card").filter({ hasText: "Tiefpunkt" }).locator(".kpi-value").textContent();
+      return (text ?? "").trim().replace(/\s*€$/, "");
+    };
+    const euro = (betrag: string) => Number(betrag.replace(/\./g, "").replace(",", "."));
+    const imMonat = await tiefpunkt("4w");
+    expect(euro(imMonat)).toBeGreaterThanOrEqual(0);
+    expect(euro(await tiefpunkt("12m"))).toBeLessThan(euro(imMonat));
+
+    await page.goto("/auswertungen/liquiditaet?horizont=4w");
+    const karte = page.locator("section.card").filter({ has: page.getByRole("heading", { name: "Mindestbestand", exact: true }) });
+    await karte.getByLabel("Mindestbestand").fill(imMonat);
+    await karte.getByRole("button", { name: "Speichern" }).click();
+    await expect(karte.getByRole("status")).toHaveText("Mindestbestand gespeichert. Der Kontostand bleibt im gewählten Horizont darüber.");
+    const hinweis = page.getByRole("note").filter({ hasText: "Kontostand unterschreitet Mindestbestand" });
+    await expect(hinweis).toHaveCount(0);
+
+    await page.getByLabel("Horizont").selectOption("12m");
+    await expect(hinweis).toBeVisible();
+    await expect(karte.getByText("bleibt im gewählten Horizont darüber")).toHaveCount(0);
+  });
 });

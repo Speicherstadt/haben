@@ -12,12 +12,12 @@ description: >-
 
 Die Oberfläche einer solchen Automation kannst du als [eigene Seite](eigene-seiten.md) ins Menü von Haben hängen.
 
-Die API **bucht nichts, schreibt nichts fest und versendet nichts**. Ein Entwurf aus der API ist ein Entwurf wie jeder andere: Du prüfst ihn in Haben und schreibst ihn dort mit einem Klick fest. Das bleibt wegen GoBD so, denn erst mit dem Festschreiben bekommt die Rechnung ihre Nummer, ihr PDF und ihre Buchung. Genauso wird ein Beleg aus der API erst gebucht, wenn du ihn in Haben geprüft hast.
+Die API **bucht nichts und schreibt nichts fest**, mit einer Ausnahme. Ein Entwurf aus der API ist ein Entwurf wie jeder andere: Du prüfst ihn in Haben und schreibst ihn dort mit einem Klick fest, denn erst mit dem Festschreiben bekommt die Rechnung ihre Nummer, ihr PDF und ihre Buchung. Die Ausnahme ist ein Token mit dem Recht `rechnungen:festschreiben`: Es schreibt bereits bezahlte Entwürfe der einen Quelle fest, die du beim Anlegen wählst, damit entsteht auch ihre Buchung, und versendet sie auf Wunsch per E-Mail ([Festschreiben und versenden](#festschreiben-und-versenden)). Storno, Korrektur und alles, was an ELSTER geht, bleiben ein Klick in Haben. Ein Beleg aus der API wird erst gebucht, wenn du ihn in Haben geprüft hast.
 
 | Bereich | Was die API kann |
 | --- | --- |
 | Kontakte | auflisten und suchen, lesen, anlegen, ändern (nicht löschen: Kontakte sind versioniert) |
-| Rechnungen | alle lesen, auch festgeschriebene; Entwürfe anlegen, ändern und löschen, solange sie Entwurf sind |
+| Rechnungen | alle lesen, auch festgeschriebene; Entwürfe anlegen, ändern und löschen, solange sie Entwurf sind; bereits bezahlte Entwürfe einer freigegebenen Quelle [festschreiben und versenden](#festschreiben-und-versenden) |
 | Wiederkehrende Rechnungen | [Vorlagen anlegen, ändern und löschen](#wiederkehrende-rechnungen) |
 | Angebote | alle lesen, auch festgeschriebene, mit der Antwort des Kunden und der Rechnung daraus; [Entwürfe](#angebotsentwürfe) anlegen, ändern und löschen, solange sie Entwurf sind |
 | Belege | hochladen (landen als „Zu prüfen“), auflisten und lesen, ob sie schon geprüft und gebucht sind; nicht ändern oder löschen |
@@ -41,6 +41,7 @@ Es sind dieselben Tokens wie für die [KI-Assistenten](ki-assistenten.md); was e
 | `kontakte:schreiben` | dazu `POST /kontakte`, `PATCH /kontakte/{id}` |
 | `rechnungen:lesen` | `GET /rechnungen`, `GET /rechnungen/{id}` |
 | `rechnungen:entwuerfe` | dazu `POST /rechnungen`, `PATCH /rechnungen/{id}`, `DELETE /rechnungen/{id}` |
+| `rechnungen:festschreiben` | `GET /rechnungen`, `GET /rechnungen/{id}` (alle Rechnungen), `POST /rechnungen/{id}/festschreiben` (nur Entwürfe der gewählten Quelle) |
 | `rechnungen:vorlagen-anlegen` | `POST /rechnungen/wiederkehrend` |
 | `rechnungen:vorlagen-bearbeiten` | `PATCH /rechnungen/wiederkehrend/{id}`, `DELETE /rechnungen/wiederkehrend/{id}` |
 | `angebote:lesen` | `GET /angebote`, `GET /angebote/{id}` |
@@ -55,6 +56,8 @@ Es sind dieselben Tokens wie für die [KI-Assistenten](ki-assistenten.md); was e
 | `haben:lesen` | nur die Werkzeuge über [MCP](ki-assistenten.md), nicht die REST-API |
 
 „Dazu“ bedeutet, dass das Recht auch die Lesezugriffe der Zeile darüber erlaubt. Ein Token ohne das nötige Recht bekommt `403`.
+
+Bei `rechnungen:festschreiben` wählst du unter **Quelle zum Festschreiben** die `externalSource`, etwa `ebay`. Zur Wahl stehen nur Quellen, aus denen es schon Rechnungen gibt; lege also zuerst mit einem anderen Token einen Entwurf an. Gib dem Festschreiben ein eigenes Token, getrennt vom Token für die Entwürfe: So kannst du es einzeln widerrufen.
 
 ## Grundlagen
 
@@ -220,7 +223,30 @@ Ist die Rechnung schon festgeschrieben, antworten Ändern und Löschen mit `409`
 1. Neue Bestellungen von der Plattform holen (Trigger oder Zeitplan).
 2. `GET /kontakte?q=<E-Mail>`; ist `total` 0, den Kontakt mit `POST /kontakte` anlegen.
 3. `POST /rechnungen` mit `contactId`, `externalSource`, `externalId` und den Positionen. Läuft der Abruf doppelt, kommt `200` mit der vorhandenen Rechnung statt eines Duplikats.
-4. In Haben die Entwürfe prüfen und festschreiben, dann wie gewohnt versenden.
+4. In Haben die Entwürfe prüfen und festschreiben, dann wie gewohnt versenden. Oder der Dienst entscheidet selbst: Ist die Bestellung bezahlt, ruft er mit einem eigenen Token `POST /rechnungen/{id}/festschreiben` mit `{"senden": true}` auf ([Festschreiben und versenden](#festschreiben-und-versenden)).
+
+## Festschreiben und versenden
+
+`POST /rechnungen/{id}/festschreiben` mit dem Body `{}` schreibt einen Entwurf fest, `{"senden": true}` schickt ihn danach mit der Vorlage an die E-Mail-Adresse des Kunden. Haben macht dabei dasselbe wie **Direkt festschreiben** einer [wiederkehrenden Rechnung](rechnungen.md#wiederkehrende-rechnungen): Nummer, PDF, E-Rechnung und Buchung entstehen wie beim Festschreiben von Hand. Der Versand steht an der Rechnung unter **Per E-Mail**.
+
+Festgeschrieben wird nur ein Entwurf, der
+
+- die `externalSource` des Tokens trägt, sonst `403`; ohne externe Referenz `422`,
+- die Zahlungsart `bereits_bezahlt` hat ([Bereits bezahlte Rechnungen](#bereits-bezahlte-rechnungen)), sonst `422`; das gilt auch für eine schon in Haben festgeschriebene Rechnung, die versendet werden soll,
+- keinen Hinweis hat, der im Editor das Festschreiben verhindert. Sonst kommt `422` mit den Hinweisen in `issues`. Als `422` kommt auch die Rückfrage zur Kleinunternehmergrenze, die ein Token nicht bestätigen kann.
+
+Mit `senden` braucht Haben einen [E-Mail-Zugang](einrichtung-email.md) und am Kontakt eine E-Mail-Adresse. Fehlt eins davon, kommt `422`, und nichts wird festgeschrieben. Bei `422` bleibt der Entwurf unverändert.
+
+Die Antwort `200` ist die Rechnung wie bei `GET /rechnungen/{id}`, dazu `festgeschrieben` (`false`, wenn sie schon vorher festgeschrieben war) und `versand.status`:
+
+| `versand.status` | Bedeutung |
+| --- | --- |
+| `nicht_verlangt` | ohne `senden` |
+| `gesendet` | jetzt per E-Mail gegangen |
+| `schon_gesendet` | ging schon früher erfolgreich, keine zweite Mail |
+| `fehlgeschlagen` | festgeschrieben, die Mail nicht; `versand.fehler` nennt den Grund |
+
+Der Aufruf lässt sich gefahrlos wiederholen: Eine festgeschriebene Rechnung bekommt keine zweite Nummer, und eine Mail geht nur, solange noch keine erfolgreich gegangen ist. Nach `fehlgeschlagen` holt derselbe Aufruf den Versand nach.
 
 ## Wiederkehrende Rechnungen
 
@@ -366,6 +392,8 @@ curl -s "$HABEN/belege/0c9a…" -H "Authorization: Bearer $TOKEN"
 
 `status` ist `neu` („Zu prüfen“) oder `gebucht`, `booked` und `bookedAt` sagen dasselbe als Wahrheitswert und Zeitpunkt. Ein stornierter Beleg bleibt `gebucht`; `cancelledOn` nennt dann das Datum der Gegenbuchung (sonst `null`; siehe [Stornieren](belege.md#stornieren-und-neu-erfassen)), und in der Einzelansicht zeigt `replacedById` auf seine Neuerfassung, `replacesId` umgekehrt von der Neuerfassung auf den stornierten Beleg ([Stornieren und neu erfassen](belege.md#stornieren-und-neu-erfassen)). Ein gebuchter Beleg ist gesperrt und versiegelt, mit seiner Referenz ([Hash-Kette und Siegel](buchhaltung.md#manipulationserkennung-hash-kette-und-siegel)); dieselbe Referenz liefert dann weiter diesen Beleg. Löschst du einen ungebuchten Beleg in Haben, ist seine Referenz wieder frei. Die Datei selbst gibt die API nicht heraus, und ändern oder löschen lässt sich ein Beleg nur in Haben.
 
+Die Einzelansicht nennt die Beträge je Steuersatz in `amounts` und die Kontierung in `lines`: je Position Kategorie (`privatentnahme` für einen Privatanteil, `null`, solange nicht zugeordnet), Beschreibung, Satz, Netto und Anteil an der Steuer des Satzes ([Entscheidung](adr/belege-positionen.md)). `category` ist die eine Kategorie der Positionen ohne Privatanteil, bei mehreren `null`. Ein gebuchter Beleg aus der Zeit vor den Positionen hat eine Position je Satz; einen Privatanteil zeigt `lines` bei ihm nicht.
+
 ### Paperless-ngx
 
 Paperless-ngx schickt neue Dokumente mit einem Workflow ohne eigenen Code an Haben. Die Workflow-Aktion „Webhook“ hängt die Datei fest im Feld `file` an (`execute_webhook_action` in `src/documents/workflows/actions.py` von Paperless-ngx); Haben nimmt sie dort wie im Feld `datei` an.
@@ -448,7 +476,7 @@ Die Antwort (`201`):
 ## Sicherheit
 
 - Der Zugang ist standardmäßig aus. Tokens laufen nach 30, 90 oder 365 Tagen ab und lassen sich einzeln widerrufen. Gespeichert ist nur ihr SHA-256-Hash.
-- Jedes Token hat nur die Rechte, die du ihm gibst. Keines kann buchen, festschreiben, stornieren, versenden oder etwas an ELSTER schicken, und keines sieht Zertifikat, Passwörter, API-Schlüssel oder Steuer-ID. Ein Token mit `belege:anlegen` kann Belege nur hinzufügen, nicht ändern, löschen oder herunterladen. Ein Token mit `bank:importieren` liefert nur in Quellen, die du am Konto freigegeben hast, und liest keine Umsätze.
+- Jedes Token hat nur die Rechte, die du ihm gibst. Keines kann stornieren oder etwas an ELSTER schicken, und keines sieht Zertifikat, Passwörter, API-Schlüssel oder Steuer-ID. Gebucht wird über die API nur beim Festschreiben: Das kann nur ein Token mit `rechnungen:festschreiben`, und nur für bereits bezahlte Entwürfe der einen Quelle, die du beim Anlegen gewählt hast, die es auch versenden darf; von Hand angelegte Entwürfe fasst es nicht an. Ein Token mit `belege:anlegen` kann Belege nur hinzufügen, nicht ändern, löschen oder herunterladen. Ein Token mit `bank:importieren` liefert nur in Quellen, die du am Konto freigegeben hast, und liest keine Umsätze.
 - Die API meldet sich nur mit dem Token an, nie mit dem Sitzungscookie. Eine fremde Webseite, die du im selben Browser öffnest, kann sie deshalb nicht in deinem Namen aufrufen.
 - Ein Token ist so viel wert wie seine Rechte. Halte es in den Zugangsdaten deines Werkzeugs, nicht im Klartext in Skripten oder Workflows, und erreichst du Haben aus dem Internet, dann nur über HTTPS.
 - Im SSO-Modus hat jedes Token einen verantwortlichen Inhaber; verliert er die Inhaberrolle, deaktiviert Haben seine Tokens, siehe [Tokens nach Gruppenentzug](installation-sso.md#tokens-nach-gruppenentzug).

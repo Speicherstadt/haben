@@ -44,6 +44,11 @@ export interface UstErklaerungFigures {
   /** Nicht steuerbare Umsätze Drittland (Kz 45, E3105801) */
   kz45?: Cents;
   /**
+   * Umsätze, für die der Leistungsempfänger die Steuer nach § 13b Abs. 5 UStG schuldet (Zeile 76, Kz 209, E3105301; in
+   * der Voranmeldung Kz 60). Feldkennung aus EasyCash&Tax (UST/D-2026/USt-d-2026.ecf, uvafeld 60)
+   */
+  kz60?: Cents;
+  /**
    * Minderung der Bemessungsgrundlage für uneinbringliche Forderungsentgelte (§ 17 Abs. 1 Satz 1 i. V. m. Abs. 2 Nr. 1
    * Satz 1 UStG, E3106101, Kz 650): die Summe der Kz 50 der Voranmeldungen, zusätzlich zu den schon geminderten
    * Bemessungsgrundlagen der Umsätze zu 19 und 7 %, nie negativ, volle Euro. Quelle: Jahresdokumentation E50 2025 im
@@ -98,6 +103,7 @@ export function ustErklaerungLeer(f: UstErklaerungFigures): boolean {
     f.kz85,
     f.kz21,
     f.kz45,
+    f.kz60,
     f.kz50,
     f.kz48Zeile46,
     f.kz48Zeile47,
@@ -218,15 +224,19 @@ function ust2a13b(f: UstErklaerungFigures, s13bSteuer: Cents): XmlNode | false {
   );
 }
 
-/** Ergänzende Angaben zu den Umsätzen: Leistungsort EU-Ausland (Kz 21), Drittland (Kz 45), Minderung bei Uneinbringlichkeit (Kz 650) */
+/**
+ * Ergänzende Angaben zu den Umsätzen: § 13b Abs. 5 UStG als Leistender (Kz 209), Leistungsort EU-Ausland (Kz 21), Drittland
+ * (Kz 45), Minderung bei Uneinbringlichkeit (Kz 650)
+ */
 function ust2aErgAng(f: UstErklaerungFigures): XmlNode | false {
   return (
-    (kz(f.kz21) !== 0 || kz(f.kz45) !== 0 || kz(f.kz50) !== 0) && [
+    (kz(f.kz60) !== 0 || kz(f.kz21) !== 0 || kz(f.kz45) !== 0 || kz(f.kz50) !== 0) && [
       "Erg_Ang_Ums",
       [
         [
           "Tabelle",
           [
+            ["E3105301", f.kz60 ? wholeEuros(f.kz60) : undefined],
             ["E3105702", f.kz21 ? wholeEuros(f.kz21) : undefined],
             ["E3105801", f.kz45 ? wholeEuros(f.kz45) : undefined],
             ["E3106101", f.kz50 ? wholeEuros(f.kz50) : undefined],

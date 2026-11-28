@@ -8,7 +8,7 @@ Die Oberfläche ist schlichtes CSS mit Variablen, ohne Komponentenbibliothek. Ha
 
 ## Farben und Themes
 
-Keine Verläufe, Leuchteffekte oder Endlos-Animationen; Farbe trägt Bedeutung (Akzent, Status, Diagrammreihen).
+Keine Verläufe, Leuchteffekte oder Endlos-Animationen; Farbe trägt Bedeutung (Akzent, Status, Diagrammreihen). Eine Grenze im Diagramm, etwa der Mindestbestand der Liquiditätsvorschau, ist eine gestrichelte Linie in `--warn-dot` unter der Kurve. Ihre Beschriftung in `--warn-ink` steht rechtsbündig über der Linie, unter ihr, wenn die Kurve dort knapp über, aber nicht knapp unter der Linie verläuft und unter ihr Platz bis zur Achse der Monate ist; sie wird nach der Kurve gezeichnet und ohne Rand, damit beide sichtbar bleiben, wo sie sich überlappen (`grenze` und `grenzeLabelSeite` in `BalanceChart`).
 
 Farben kommen aus den Variablen in `:root` von `styles.css`; die Farben überschreiben sie unter `[data-theme="…"]`, der dunkle Modus unter `[data-mode="dark"]`:
 
@@ -109,7 +109,7 @@ Eigene Seiten stehen in ihrer Gruppe mit einem Symbol, das zeigt, wohin der Eint
 
 Die festen Menüpunkte (`NAV_GROUPS`, `STEUERBERATUNG_NAV`) haben je ein eigenes Symbol; eins teilen nur die Punkte, die `GETEILTE_SYMBOLE` in `lib/navigation.test.ts` nennt.
 
-Ist die Navigation höher als das Fenster, bleibt am Desktop die Marke mit dem Firmennamen stehen und nur die Menüpunkte darunter rollen. Die Leiste, auch die der Liste unter „Firma wechseln“, ist schmal, erscheint nur beim Rollen, wo das System es so vorsieht, und hat in `--nav-ink` mit 55 % Deckkraft mindestens 3 : 1 gegen `--nav` (WCAG 1.4.11).
+Ist die Navigation höher als das Fenster, bleibt am Desktop die Marke mit dem Firmennamen stehen und nur die Menüpunkte darunter rollen. Die Desktop-Navigation zeigt keine waagrechte Bildlaufleiste. Die senkrechte Leiste, auch die der Liste unter „Firma wechseln“, ist schmal, erscheint nur beim Rollen, wo das System es so vorsieht, und hat in `--nav-ink` mit 55 % Deckkraft mindestens 3 : 1 gegen `--nav` (WCAG 1.4.11).
 
 **Einfahrbare Seitenleiste (Desktop):** Oberhalb von 860 px Breite klappt der letzte Knopf der Leiste (`sidebar-close`, eingeklappt `sidebar-open`) oder `Strg+B`, am Mac `⌘+B` (`EINKLAPP_KUERZEL`; nicht in Feldern, wo es Fett ist; der Knopf zeigt das Kürzel, eingeklappt im Hinweis), ausgeklappt wie eingeklappt ganz unten, die Seitenleiste auf 64 px ein (168 px mehr Breite für Tabellen und Belegvorschau). Was Formular und Beleg nebeneinanderstellt, richtet sich deshalb nach der Breite der Arbeitsfläche: `.editor-grid` (Beleg prüfen, Dauerbeleg, wiederkehrende Rechnung) über Medienabfragen je Zustand der Leiste: Fenster ab 1201 px ausgeklappt, ab 1033 px eingeklappt, beides 889 px Arbeitsfläche. Sie zählen eine klassische Scrollleiste mit, die Arbeitsfläche ist dann um deren Breite schmaler; so hängt die Anordnung nicht davon ab, ob die Seite scrollt (#1152). Die Vorschau der Rechnungseditoren folgt der gemessenen Breite des Editors („Vorschau der Belegeditoren“). `NAV_SCRIPT` setzt `data-nav="collapsed"` schon vor dem ersten Zeichnen aus `localStorage` (analog zu `THEME_SCRIPT` in `lib/theme.ts`); der Server liefert beide Fassungen, CSS zeigt eine, sodass beim Laden nichts springt oder nachrückt. Eingeklappt bleiben das Markenzeichen, die Lupe der Schnellsuche, `Übersicht`, die Arbeitsbereiche, optional `Firma wechseln` oder „Zum Firmenportal“ und `Eigene Seiten`, `Einstellungen` und `Konto & Darstellung` als Symbole stehen. Jeder Arbeitsbereich hat ein eigenes Symbol, das kein Menüpunkt wiederholt.
 

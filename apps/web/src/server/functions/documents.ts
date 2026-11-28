@@ -17,6 +17,7 @@ import {
   documentInputSchema,
   documentNavigation,
   dauerbelegName,
+  formularansicht,
   duplicateDocument,
   getDocument,
   supplierCategory,
@@ -76,10 +77,12 @@ export const getDocumentDetail = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const result = await getDocument(data);
     if (!result) throw notFound();
-    // Rohdaten der Auslesung bleiben auf dem Server
-    const { extraction: _extraction, ...document } = result.document;
-    const [asset] = await db.select({ id: schema.assets.id }).from(schema.assets).where(eq(schema.assets.documentId, data));
     const company = await loadCompany();
+    // Das Formular kennt noch Kategorie und Privatanteil am Beleg (#1975): die Positionen in dieser Form, sonst als Aufteilung
+    const ansicht = formularansicht(result.document, result.positionen, (category) => (category ? company.privateShares[category] : undefined));
+    // Rohdaten der Auslesung bleiben auf dem Server
+    const { extraction: _extraction, ...document } = ansicht.document;
+    const [asset] = await db.select({ id: schema.assets.id }).from(schema.assets).where(eq(schema.assets.documentId, data));
     const { cancellation, reentryId } = await documentCancellation(data);
     return {
       document,
@@ -96,7 +99,7 @@ export const getDocumentDetail = createServerFn({ method: "GET" })
       // Bestätigter Umfang einschließlich ganzer Aufteilungen; der Storno prüft ihn erneut in seiner Transaktion.
       cancellationAllocations: result.document.lockedAt && !cancellation && result.document.payment === "bank" ? await documentBankAllocations(data) : [],
       // Was gegen einen Storno spricht; Bankzuordnungen werden nach ausdrücklicher Bestätigung mit aufgehoben.
-      cancellationIssues: result.document.lockedAt && !cancellation ? cancellationIssues(result.document) : [],
+      cancellationIssues: result.document.lockedAt && !cancellation ? cancellationIssues(result.document, result.positionen) : [],
       // Datum, das ein Storno heute bekäme: im noch offenen Zeitraum der Belegbuchung oder heute
       cancellationDate: result.document.lockedAt && !cancellation ? await plannedCancellationDate(data, today()) : null,
       today: today(),
@@ -109,9 +112,9 @@ export const getDocumentDetail = createServerFn({ method: "GET" })
       ohneVorsteuerabzug: company.ohneVorsteuerabzug,
       tageskurs: company.tageskurs,
       amounts: result.amounts,
-      splits: result.splits,
+      splits: ansicht.splits,
       // Je Hinweis das Feld, an dem er liegt: Die Seite klappt „Weitere Angaben“ dafür auf
-      issues: result.document.lockedAt ? [] : bookingIssueList(result.document, result.amounts, today(), result.splits, company.rechtsform),
+      issues: result.document.lockedAt ? [] : bookingIssueList(result.document, result.amounts, today(), result.positionen, company.rechtsform),
       // Andere Belege desselben Lieferanten mit derselben Rechnungsnummer: Hinweis auf eine mögliche Dublette (#1314)
       gleicheNummer: await belegeMitGleicherNummer(result.document),
       // Bisherige Kategorie und Bezahlung des Lieferanten als Hinweis am Feld, nur solange der Beleg offen ist (#295)

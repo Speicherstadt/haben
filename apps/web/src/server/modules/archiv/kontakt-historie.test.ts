@@ -17,6 +17,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Belege am Kontakt (Postgres)",
   let invoices: typeof import("../rechnungen/index.ts");
   let documents: typeof import("../belege/documents.ts");
   let cancellation: typeof import("../belege/cancellation.ts");
+  let bank: typeof import("../bank/index.ts");
   let legacy: typeof import("./legacy-open.ts");
   let storage: typeof import("../../storage.ts");
   let sql: postgres.Sql;
@@ -34,6 +35,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Belege am Kontakt (Postgres)",
     invoices = await import("../rechnungen/index.ts");
     documents = await import("../belege/documents.ts");
     cancellation = await import("../belege/cancellation.ts");
+    bank = await import("../bank/index.ts");
     legacy = await import("./legacy-open.ts");
     storage = await import("../../storage.ts");
   }, 30_000);
@@ -162,6 +164,9 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Belege am Kontakt (Postgres)",
 
   it("Kunde: eine Rechnungskorrektur mindert; Rechnungen eines Namensvetters zählen nicht", async () => {
     const maerz = await rechnung(kunde, "2026-03-02", 400_000);
+    // 1,00 EUR vorab: seit #2037 ist eine Korrektur über den vollen, unbezahlten Betrag ein Storno. Die Historie soll
+    // hier zeigen, dass sich Ertrag und Gutschrift aufheben, dafür muss die Korrektur voll sein.
+    await bank.createCashInvoiceEntry(actor, { invoiceId: maerz.id, date: "2026-03-10", amount: 100 }, "2026-03-10");
     const korrektur = await invoices.createCorrection(actor, maerz.id, "2026-03-20");
     await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand);
     await rechnung(namensvetter, "2026-04-01", 77_700);

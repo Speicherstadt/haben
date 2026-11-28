@@ -7,6 +7,7 @@ import {
   euerZeilenKonto,
   form43,
   form43Anteile,
+  heutigesKonto,
   imZeitraum,
   isKapitalgesellschaft,
   jahreVon,
@@ -28,6 +29,7 @@ import {
   type Form43Summe,
   type Form43Werte,
   type Form43Zeile,
+  type Kontenrahmen,
   type Vergleich,
   type Warum,
   type WarumPosten,
@@ -197,11 +199,22 @@ export interface BwaGruppe {
   vorgaenge: BwaVorgang[];
 }
 
+/**
+ * Das Konto in der Überschrift einer Gruppe: das der EÜR-Zeile. Stehen ihre Buchungen alle auf demselben früheren Konto
+ * dieser Zeile (kontenaenderungen.ts), etwa Homeoffice-Pauschalen für 2024, dann dieses: Dort führt das Kontenblatt sie.
+ * Mit zwei Konten in einem Jahr bleibt es beim heutigen; jede Zeile verlinkt ihr eigenes.
+ */
+function gruppenKonto(kontenrahmen: Kontenrahmen, gruppe: BwaGruppe): string | null {
+  const konten = new Set(gruppe.vorgaenge.flatMap((v) => (v.konto && heutigesKonto(kontenrahmen, v.konto, v.sourceType) === gruppe.konto ? [v.konto] : [])));
+  return konten.size === 1 ? [...konten][0]! : gruppe.konto;
+}
+
 /** Was in einer Zeile der Form 43 im Zeitraum steht: je Zeile der EÜR die Buchungen, mit Rechnung bzw. Beleg */
 export async function bwaZeileDetails(zeitraum: Zeitraum, zeile: Form43Zeile, q: Db | Tx = db): Promise<BwaGruppe[]> {
   const treffer = (await anteile([zeitraum], q)).filter((a) => a.zeile === zeile && imZeitraum(zeitraum, a.datum));
   const angaben = await quellenAngaben(treffer, q);
   const gruppen = new Map<string, BwaGruppe>();
+  const rahmen = new Map<BwaGruppe, Kontenrahmen>();
   for (const a of treffer) {
     const gruppe: BwaGruppe = gruppen.get(a.euerZeile) ?? {
       euerZeile: a.euerZeile,
@@ -225,9 +238,13 @@ export async function bwaZeileDetails(zeitraum: Zeitraum, zeile: Form43Zeile, q:
       text: angabeZu(angaben, a.quelle)?.text ?? "",
     });
     gruppen.set(a.euerZeile, gruppe);
+    rahmen.set(gruppe, a.kontenrahmen);
   }
   const ergebnis = [...gruppen.values()].sort((a, b) => Math.abs(b.betrag) - Math.abs(a.betrag));
-  for (const g of ergebnis) g.vorgaenge.sort((a, b) => a.datum.localeCompare(b.datum) || a.betrag - b.betrag);
+  for (const g of ergebnis) {
+    g.vorgaenge.sort((a, b) => a.datum.localeCompare(b.datum) || a.betrag - b.betrag);
+    g.konto = gruppenKonto(rahmen.get(g)!, g);
+  }
   return ergebnis;
 }
 

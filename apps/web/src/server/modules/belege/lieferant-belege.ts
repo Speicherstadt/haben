@@ -1,5 +1,6 @@
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { db, schema } from "../../db/index.ts";
+import { belegAufteilungSql, belegKategorieSql } from "../../db/beleg-kategorie.ts";
 
 /**
  * Gebuchte Belege eines Lieferanten für die Kontaktseite (#587), über die Kontakt-ID, nie über den Namen. Ein
@@ -14,9 +15,10 @@ export async function supplierDocuments(contactId: string) {
       number: schema.documents.invoiceNumber,
       filename: schema.documents.filename,
       date: schema.documents.documentDate,
-      category: schema.documents.category,
-      /** Zahl der Kontierungszeilen (#271); 0 = die Kategorie gilt für den ganzen Beleg */
-      splitCount: sql<number>`(select count(*)::int from document_splits s where s.document_id = ${schema.documents.id})`,
+      /** Die eine Kategorie der Positionen (#1975), beim Altbestand die am Beleg */
+      category: belegKategorieSql(schema.documents.id, schema.documents.category),
+      /** Zahl der Positionen bei mehreren Kategorien (#271); 0 = eine Kategorie gilt für den ganzen Beleg */
+      splitCount: belegAufteilungSql(schema.documents.id),
       net: schema.documents.net,
       gross: schema.documents.gross,
       cancelledOn: schema.documentCancellations.date,

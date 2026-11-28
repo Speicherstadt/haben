@@ -219,7 +219,15 @@ describe.skipIf(!testDatabaseUrl)("Teilabzug der Vorsteuer (Postgres, #433)", ()
     await documents.bookDocument(actor, id);
     const api = await import("../api/documents.ts");
     const schema = await import("../api/belege-schemas.ts");
-    const response = await api.getDocumentHandler({ actor, params: { id }, query: {}, body: null, baseUrl: "http://localhost:3000", today: "2026-10-05" });
+    const response = await api.getDocumentHandler({
+      actor,
+      params: { id },
+      query: {},
+      body: null,
+      baseUrl: "http://localhost:3000",
+      today: "2026-10-05",
+      finalizeSource: null,
+    });
     expect(response.status).toBe(200);
     expect(schema.documentSchema.parse(response.body)).toMatchObject({
       tax: 1_900,

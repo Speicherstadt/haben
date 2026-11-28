@@ -11,7 +11,7 @@
   --md-accent-fg-color: #3fa284;
   --md-accent-fg-color--transparent: rgba(63, 162, 132, .15);
 }
-/* Bilder: Ecken und Schatten, nie breiter als der Text; Screenshots und Hero bringen ihren Rahmen selbst mit (unten) */
+/* Bilder: Ecken und Schatten, nie breiter als der Text */
 .md-typeset img {
   max-width: 100%;
   height: auto;
@@ -77,12 +77,4 @@
    weicher Schein wie um das Zeichen der Firma in der App (.brand-mark-kante) */
 [data-md-color-scheme="slate"] .md-typeset img {
   box-shadow: 0 0 0 1px rgb(255 255 255 / .16), 0 0 20px 1px rgb(255 255 255 / .08);
-}
-/* Screenshots und Hero bringen Kante, Schatten oder Schein und Ecken im Bild mit, für GitHub
-   (apps/web/e2e/bildrahmen.ts); um sie kein zweiter Rahmen */
-.md-typeset img[src*="screenshot-"],
-.md-typeset img[src*="hero-"] {
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
 }

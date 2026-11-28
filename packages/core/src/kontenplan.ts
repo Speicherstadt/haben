@@ -8,9 +8,6 @@ import { isKapitalgesellschaft, type Rechtsform } from "./rechtsform.ts";
 export type Kontenrahmen = "SKR03" | "SKR04";
 export type Versteuerung = "ist" | "soll";
 
-/** Frühere Haben-Konten bleiben für Bestandsauswertungen und Gegenbuchungen erhalten; neue Erlöse folgen DATEV 2026. */
-export const KLEINUNTERNEHMER_FRUEHERE_KONTEN = { SKR03: "8195", SKR04: "4185" } as const;
-
 /** Konten, die Haben bisher bebucht. Vor dem Echtbetrieb mit dem Steuerberater abgleichen. */
 export const ACCOUNTS = {
   SKR03: {
@@ -20,6 +17,7 @@ export const ACCOUNTS = {
     erloese: { 1900: "8400", 700: "8300", 0: "8200" },
     erloeseSonder: {
       reverse_charge: "8336",
+      bauleistung_13b: "8337",
       drittland: "8338",
       eu_sonstige: "8339",
       ig_lieferung: "8125",
@@ -93,6 +91,7 @@ export const ACCOUNTS = {
     erloese: { 1900: "4400", 700: "4300", 0: "4200" },
     erloeseSonder: {
       reverse_charge: "4336",
+      bauleistung_13b: "4337",
       drittland: "4338",
       eu_sonstige: "4339",
       ig_lieferung: "4125",
@@ -293,105 +292,4 @@ export function kategorieMitKonto(kontenrahmen: Kontenrahmen, kategorie: string)
   return `${eintrag[kontenrahmen]} · ${eintrag.label}`;
 }
 
-export const ACCOUNT_NAMES: Record<Kontenrahmen, Record<string, string>> = {
-  SKR03: {
-    // Kapitalgesellschaft: Gesellschafter und Eigenkapital (DATEV-Kontenrahmen SKR03 2026, Art.-Nr. 11174)
-    "0730": "Verbindlichkeiten gegenüber Gesellschaftern",
-    "0731": "Verbindlichkeiten gegenüber Gesellschaftern, Restlaufzeit bis 1 Jahr",
-    "0740": "Verbindlichkeiten gegenüber Gesellschaftern, Restlaufzeit 1 bis 5 Jahre",
-    "0750": "Verbindlichkeiten gegenüber Gesellschaftern, Restlaufzeit größer 5 Jahre",
-    "0800": "Gezeichnetes Kapital",
-    // Steuern vom Einkommen und Ertrag und ihre Rückstellungen (koerperschaft.ts)
-    "0955": "Steuerrückstellungen",
-    "0956": "Gewerbesteuerrückstellung nach § 4 Abs. 5b EStG",
-    "0963": "Körperschaftsteuerrückstellung",
-    "2200": "Körperschaftsteuer",
-    "2208": "Solidaritätszuschlag",
-    "4320": "Gewerbesteuer",
-    "0860": "Gewinnvortrag vor Verwendung",
-    "0868": "Verlustvortrag vor Verwendung",
-    "1000": "Kasse",
-    "1200": "Bank",
-    ...Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => [`136${i}`, "Verrechnungskonto Zahlungsdienstleister"])),
-    "1400": "Forderungen aus Lieferungen und Leistungen",
-    "1761": "Umsatzsteuer nicht fällig 7 %",
-    "1766": "Umsatzsteuer nicht fällig 19 %",
-    "1771": "Umsatzsteuer 7 %",
-    "1776": "Umsatzsteuer 19 %",
-    "1787": "Umsatzsteuer nach § 13b UStG",
-    "1548": "Vorsteuer in Folgeperiode/im Folgejahr abziehbar",
-    "1590": "Verrechnungskonto (durchlaufende Posten)",
-    "1572": "Abziehbare Vorsteuer aus innergemeinschaftlichem Erwerb",
-    "1574": "Abziehbare Vorsteuer aus innergemeinschaftlichem Erwerb 19 %",
-    "1772": "Umsatzsteuer aus innergemeinschaftlichem Erwerb",
-    "1774": "Umsatzsteuer aus innergemeinschaftlichem Erwerb 19 %",
-    "8120": "Steuerfreie Umsätze § 4 Nr. 1a UStG",
-    "8125": "Steuerfreie innergemeinschaftliche Lieferungen § 4 Nr. 1b UStG",
-    "2150": "Aufwendungen aus der Währungsumrechnung",
-    "2400": "Forderungsverluste (übliche Höhe)",
-    "2650": "Sonstige Zinsen und ähnliche Erträge",
-    "2660": "Erträge aus der Währungsumrechnung",
-    "2742": "Versicherungsentschädigungen und Schadenersatzleistungen",
-    "3730": "Erhaltene Skonti",
-    "8730": "Gewährte Skonti",
-    "8100": "Steuerfreie Umsätze § 4 Nr. 8 ff. UStG",
-    "8192": "Erlöse als Kleinunternehmer § 19 UStG",
-    "8195": "Erlöse als Kleinunternehmer § 19 UStG",
-    "8200": "Erlöse",
-    "8300": "Erlöse 7 % USt",
-    "8336": "Erlöse aus im anderen EU-Land steuerpflichtigen sonstigen Leistungen (Reverse Charge)",
-    "8338": "Erlöse aus im Drittland steuerbaren Leistungen",
-    "8339": "Erlöse aus im anderen EU-Land steuerbaren Leistungen, im Inland nicht steuerbare Umsätze",
-    "8400": "Erlöse 19 % USt",
-    "9000": "Saldenvorträge Sachkonten",
-  },
-  SKR04: {
-    "1200": "Forderungen aus Lieferungen und Leistungen",
-    "1600": "Kasse",
-    "1800": "Bank",
-    ...Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => [`146${i}`, "Verrechnungskonto Zahlungsdienstleister"])),
-    // Kapitalgesellschaft: Gesellschafter und Eigenkapital (DATEV-Kontenrahmen SKR04 2026, Art.-Nr. 11175)
-    "2900": "Gezeichnetes Kapital",
-    "3020": "Steuerrückstellungen",
-    "3035": "Gewerbesteuerrückstellung nach § 4 Abs. 5b EStG",
-    "3040": "Körperschaftsteuerrückstellung",
-    "7600": "Körperschaftsteuer",
-    "7608": "Solidaritätszuschlag",
-    "7610": "Gewerbesteuer",
-    "2970": "Gewinnvortrag vor Verwendung",
-    "2978": "Verlustvortrag vor Verwendung",
-    "3510": "Verbindlichkeiten gegenüber Gesellschaftern",
-    "3511": "Verbindlichkeiten gegenüber Gesellschaftern, Restlaufzeit bis 1 Jahr",
-    "3514": "Verbindlichkeiten gegenüber Gesellschaftern, Restlaufzeit 1 bis 5 Jahre",
-    "3801": "Umsatzsteuer 7 %",
-    "3806": "Umsatzsteuer 19 %",
-    "3837": "Umsatzsteuer nach § 13b UStG",
-    "1434": "Vorsteuer in Folgeperiode/im Folgejahr abziehbar",
-    "1370": "Verrechnungskonto (durchlaufende Posten)",
-    "1402": "Abziehbare Vorsteuer aus innergemeinschaftlichem Erwerb",
-    "1404": "Abziehbare Vorsteuer aus innergemeinschaftlichem Erwerb 19 %",
-    "3802": "Umsatzsteuer aus innergemeinschaftlichem Erwerb",
-    "3804": "Umsatzsteuer aus innergemeinschaftlichem Erwerb 19 %",
-    "4120": "Steuerfreie Umsätze § 4 Nr. 1a UStG",
-    "4125": "Steuerfreie innergemeinschaftliche Lieferungen § 4 Nr. 1b UStG",
-    "3811": "Umsatzsteuer nicht fällig 7 %",
-    "3816": "Umsatzsteuer nicht fällig 19 %",
-    "4100": "Steuerfreie Umsätze § 4 Nr. 8 ff. UStG",
-    "4184": "Erlöse als Kleinunternehmer § 19 UStG",
-    "4185": "Erlöse als Kleinunternehmer § 19 UStG",
-    "4200": "Erlöse",
-    "4300": "Erlöse 7 % USt",
-    "4336": "Erlöse aus im anderen EU-Land steuerpflichtigen sonstigen Leistungen (Reverse Charge)",
-    "4338": "Erlöse aus im Drittland steuerbaren Leistungen",
-    "4339": "Erlöse aus im anderen EU-Land steuerbaren Leistungen, im Inland nicht steuerbare Umsätze",
-    "4400": "Erlöse 19 % USt",
-    "4730": "Gewährte Skonti",
-    "4840": "Erträge aus der Währungsumrechnung",
-    "4970": "Versicherungsentschädigungen und Schadenersatzleistungen",
-    "5730": "Erhaltene Skonti",
-    "6880": "Aufwendungen aus der Währungsumrechnung",
-    "6930": "Forderungsverluste (übliche Höhe)",
-    "7100": "Sonstige Zinsen und ähnliche Erträge",
-    "9000": "Saldenvorträge Sachkonten",
-  },
-};
+export { ACCOUNT_NAMES } from "./kontennamen.ts";

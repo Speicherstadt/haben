@@ -129,6 +129,23 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen für SMTP und Microsoft Graph (
     );
   });
 
+  it("speichert die Antwortadresse ohne Leerzeichen am Rand; leer ist erlaubt, eine ungültige oder eine Liste nicht", async () => {
+    await mail.saveMailSettings(actor, { ...smtp, replyTo: " antworten@testfirma.example " });
+    expect((await row()).reply_to).toBe("antworten@testfirma.example");
+    expect((await mail.mailSettingsSummary())!.replyTo).toBe("antworten@testfirma.example");
+    expect(await reason(mail.saveMailSettings(actor, { ...smtp, replyTo: "keine-adresse" }))).toContain("Keine gültige E-Mail-Adresse");
+    expect(await reason(mail.saveMailSettings(actor, { ...smtp, replyTo: "a@testfirma.example, b@testfirma.example" }))).toContain(
+      "Keine gültige E-Mail-Adresse",
+    );
+    expect((await row()).reply_to).toBe("antworten@testfirma.example");
+    await mail.saveMailSettings(actor, { ...smtp, replyTo: "" });
+    expect((await row()).reply_to).toBe("");
+    // Ohne das Feld, etwa aus einem älteren Aufrufer: leer
+    await mail.saveMailSettings(actor, { ...smtp, replyTo: "antworten@testfirma.example" });
+    await mail.saveMailSettings(actor, smtp);
+    expect((await row()).reply_to).toBe("");
+  });
+
   it("erzwingt die Spalten des Versandwegs in der Datenbank", async () => {
     await mail.saveMailSettings(actor, graph);
     await expect(sql`update mail_settings set graph_tenant_id = null where id = 1`).rejects.toThrow(/mail_settings_transport/);
