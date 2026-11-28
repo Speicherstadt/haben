@@ -297,9 +297,11 @@ export async function computeVatFigures(period: VatPeriod, q: Db | Tx = db, cont
     }
   }
 
-  // Soll: alle Rechnungen nach Rechnungsdatum. Ist: nur Reverse Charge, innergemeinschaftliche Lieferungen und Leistungen
-  // ins Drittland, die Meldung in Kz 21, 41 und 45 richtet sich nach der Rechnung, nicht nach der Zahlung (NACH_RECHNUNGSDATUM).
+  // Soll: alle Rechnungen nach Rechnungsdatum. Ist: nur Reverse Charge, Bauleistungen (§ 13b), innergemeinschaftliche
+  // Lieferungen und Leistungen ins Drittland, die Meldung richtet sich nach der Rechnung, nicht nach der Zahlung (NACH_RECHNUNGSDATUM).
   {
+    const [startYear, startMonth] = start.split("-").map(Number);
+    const bauleistungStart = startMonth === 1 ? `${startYear - 1}-12-01` : `${startYear}-${String(startMonth - 1).padStart(2, "0")}-01`;
     const issued = await q
       .select()
       .from(schema.invoices)
@@ -310,6 +312,14 @@ export async function computeVatFigures(period: VatPeriod, q: Db | Tx = db, cont
             and(gte(schema.invoices.issueDate, start), lt(schema.invoices.issueDate, end)),
             and(gte(schema.invoices.serviceFrom, start), lt(schema.invoices.serviceFrom, end)),
             and(gte(schema.invoices.serviceTo, start), lt(schema.invoices.serviceTo, end)),
+            // Bauleistungen (§ 13b Abs. 2 UStG): spätestens im Folgemonat nach Leistung gemeldet, auch bei späterer Rechnung
+            and(
+              eq(schema.invoices.taxTreatment, "bauleistung_13b"),
+              or(
+                and(gte(schema.invoices.serviceFrom, bauleistungStart), lt(schema.invoices.serviceFrom, start)),
+                and(gte(schema.invoices.serviceTo, bauleistungStart), lt(schema.invoices.serviceTo, start)),
+              ),
+            ),
           ),
           // aus Lexoffice übernommen: die Steuer ist dort schon angemeldet
           isNull(schema.invoices.lexofficeVoucherId),
