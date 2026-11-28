@@ -9,7 +9,7 @@ description: >-
 
 Rechnungen, Buchungen und Bankumsätze aus dem Testen lassen sich nicht löschen (GoBD). Für den Echtbetrieb beginnst du deshalb mit einer frischen Datenbank und nimmst die Einrichtung als Datei mit: Unter **Einstellungen › Export** lädt **Datei herunterladen** in der Karte **Einstellungen exportieren** ein ZIP herunter: die Einstellungen in `einstellungen.json`, Logo, Briefpapier und Standardanhänge als Dateien daneben. Es enthält:
 
-- Firmendaten mit Mahnwesen, Privatanteilen und DATEV-Nummern, persönliche Angaben, ausgeblendete Bereiche und den [Voranmeldungszeitraum](umsatzsteuer.md#voranmeldungszeitraum)
+- Firmendaten mit Mahnwesen, Privatanteilen und DATEV-Nummern, persönliche Angaben, ausgeblendete Bereiche, den [Voranmeldungszeitraum](umsatzsteuer.md#voranmeldungszeitraum) und den [Mindestbestand](liquiditaet.md) der Liquiditätsvorschau
 - Beleggestaltung mit Logo, Briefpapier und eigenen Layouts
 - Nummernformate, Vorlagen für den Zahlungsplan, Standardanhänge für Angebote, Format und nächste Kundennummer
 - Absender und Vorlagen der E-Mails, [Erinnerungen an Fristen](fristen.md#erinnerungen-per-e-mail), Textbausteine, eigene Konten, eigene Seiten und die Angaben zur Verfahrensdokumentation
