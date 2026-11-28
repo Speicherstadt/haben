@@ -254,6 +254,28 @@ describe.skipIf(!testDatabaseUrl)("Belege aus Positionen (Postgres, #1975)", () 
     expect(zeile).toMatchObject({ category: null, splitCount: 0 });
   });
 
+  it("ein offener Alt-Entwurf mit Aufteilung und Privatanteil am Beleg zeigt im Formular weiter seine Aufteilung", async () => {
+    await reset("SKR03", "soll");
+    const id = await beleg({
+      category: null,
+      amounts: [{ taxRate: 1900, net: 3_360, tax: 638 }],
+      splits: [
+        { category: "internet", taxRate: 1900, net: 2_000 },
+        { category: "telefon", taxRate: 1900, net: 1_360 },
+      ],
+    });
+    // Stand aus der Zeit vor den Positionen, den Migration 0352 stehen lässt: Aufteilung und daneben ein Privatanteil am
+    // Beleg (über einen eigenen Aufruf der Serverfunktion; das Formular schickt mit Aufteilung 0 %, seit #287). Zeigte das
+    // Formular ihn als „ohne Kategorie, 25 % privat“, schriebe erneutes Speichern daraus Positionen und die Aufteilung ginge verloren.
+    await sql`update documents set private_share = 25 where id = ${id}`;
+    const geladen = (await documents.getDocument(id))!;
+    const ansicht = eingabe.formularansicht(geladen.document, geladen.positionen);
+    expect(ansicht.splits.map(({ category, net }) => ({ category, net }))).toEqual([
+      { category: "internet", net: 2_000 },
+      { category: "telefon", net: 1_360 },
+    ]);
+  });
+
   it("Duplizieren übernimmt Kategorie und Privatanteil mit derselben Rundung", async () => {
     await reset("SKR03", "soll");
     const id = await beleg({ category: "telefon", privateShare: 25, amounts: [{ taxRate: 1900, net: 1_001, tax: 190 }] });
