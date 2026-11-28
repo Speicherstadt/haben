@@ -1,3 +1,4 @@
+import { computeInvoiceTotals, invoicePosting, type TaxTreatment } from "@haben/core";
 import { describe, expect, it } from "vitest";
 import { buildDatevBuchungsstapel, DATEV_COLUMNS, encodeCp1252, splitEntry, type DatevExportEntry, type DatevExportHeader } from "./datev-export.ts";
 import { parseDatevBuchungsstapel } from "./datev.ts";
@@ -269,6 +270,33 @@ describe("Verkauf einer Anlage per Rechnung (#2022)", () => {
   ] as const) {
     it(`${kr} ${konto} ohne Steuer: kein BU-Schlüssel, die Automatik ordnet die Kennzahl zu`, () => {
       expect(splitEntry(rechnung(forderung, konto, null), kr).find((r) => r.contraAccount === konto)?.buKey).toBe("");
+    });
+  }
+});
+
+describe("Verkauf einer Anlage ohne Verkaufskonto bei DATEV (#2022)", () => {
+  // Zu 7 %, steuerfrei nach § 4 Nr. 8 ff., § 13b, Drittland und nicht steuerbar bleibt der Erlös auf dem normalen
+  // Erlöskonto mit Automatik (DATEV-Kontenrahmen 2026): 8829/4849 hätte keine und brächte in DATEV keine Kennzahl.
+  const verkauf = (kr: "SKR03" | "SKR04", treatment: TaxTreatment, rate: 700 | 0) => {
+    const totals = computeInvoiceTotals([{ quantity: 1000, unitPrice: 40_000, taxRate: rate }]);
+    const lines = invoicePosting(totals, kr, "soll", treatment, true).map(({ account, debit, credit }) => ({ account, debit, credit }));
+    return splitEntry({ date: "2026-10-15", description: "Rechnung RE-2 · Kamera", voucher: "RE-2", locked: true, lines }, kr);
+  };
+  for (const [kr, konto] of [
+    ["SKR03", "8100"],
+    ["SKR04", "4100"],
+  ] as const) {
+    it(`${kr} steuerfrei: auf ${konto} ohne BU-Schlüssel, die Automatik ordnet die Kennzahl zu`, () => {
+      const row = verkauf(kr, "steuerfrei", 0).find((r) => r.contraAccount === konto);
+      expect(row?.buKey).toBe("");
+    });
+  }
+  for (const [kr, konto] of [
+    ["SKR03", "8300"],
+    ["SKR04", "4300"],
+  ] as const) {
+    it(`${kr} 7 %: auf ${konto} mit BU 40 wie jede Rechnung zu 7 %`, () => {
+      expect(verkauf(kr, "regulaer", 700).find((r) => r.contraAccount === konto)?.buKey).toBe("40");
     });
   }
 });

@@ -73,8 +73,14 @@ describe.skipIf(!testDatabaseUrl)("Verkauf einer Anlage per Rechnung in der EÜR
   }
 
   /** Festgeschriebene Rechnung über eine Position; `verkauf`: „Verkauf aus dem Anlagevermögen“ */
-  async function rechnung(issueDate: string, net: number, verkauf: boolean, rate: 1900 | 0 = kleinunternehmer ? 0 : 1900) {
-    const taxTreatment: TaxTreatment = kleinunternehmer ? "kleinunternehmer" : "regulaer";
+  async function rechnung(
+    issueDate: string,
+    net: number,
+    verkauf: boolean,
+    rate: 1900 | 700 | 0 = kleinunternehmer ? 0 : 1900,
+    taxTreatment: TaxTreatment = kleinunternehmer ? "kleinunternehmer" : "regulaer",
+    exemption: { number: string } | null = null,
+  ) {
     const draft = await invoices.createDraft(actor, {
       contactId,
       issueDate,
@@ -84,7 +90,7 @@ describe.skipIf(!testDatabaseUrl)("Verkauf einer Anlage per Rechnung in der EÜR
       format: "zugferd",
       note: "",
       taxTreatment,
-      taxDetails: { exemption: null, ancillary: null, foreignPlace: null, assetDisposal: verkauf },
+      taxDetails: { exemption, ancillary: null, foreignPlace: null, assetDisposal: verkauf },
       lines: [{ description: "Gebrauchte Kamera", quantity: 1000, unit: "Stk." as const, unitPrice: net, taxRate: rate }],
     });
     return invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
@@ -226,6 +232,32 @@ describe.skipIf(!testDatabaseUrl)("Verkauf einer Anlage per Rechnung in der EÜR
       const storno = await invoices.cancelInvoice(actor, verkauf.id, "2026-03-20");
       expect((await konten(storno.id, kontenrahmen))[VERKAUF[kontenrahmen].ust19]).toBe(-40_000);
       expect((await konten(storno.id, kontenrahmen))[ACCOUNTS[kontenrahmen].erloese[1900]]).toBeUndefined();
+    }, 60_000);
+  }
+
+  // Ohne Verkaufskonto bei DATEV (7 %, steuerfrei, § 13b, Drittland, nicht steuerbar) bleibt der Erlös auf dem Erlöskonto mit
+  // Automatik; die EÜR nimmt ihn über das Kennzeichen der Rechnung trotzdem in Zeile 19, auch bei Teilzahlung und Storno
+  for (const [kontenrahmen, versteuerung, rate, treatment, exemption, erloes] of [
+    ["SKR03", "soll", 700, "regulaer", null, "8300"],
+    ["SKR04", "ist", 0, "steuerfrei", { number: "28" }, "4100"],
+  ] as const) {
+    it(`${treatment} ${rate / 100} %: Erlöskonto wie bisher, Zeile 19 mit jeder Teilzahlung, Storno auf dasselbe Konto (${kontenrahmen}, ${versteuerung})`, async () => {
+      await reset(versteuerung, kontenrahmen);
+      const verkauf = await rechnung("2026-05-04", 40_000, true, rate, treatment, exemption);
+      const brutto = rate === 700 ? 42_800 : 40_000;
+      expect(Object.keys(await konten(verkauf.id, kontenrahmen))).toContain(erloes);
+      expect(Object.keys(await konten(verkauf.id, kontenrahmen))).not.toContain(VERKAUF[kontenrahmen].ohneUst);
+      await bar(verkauf.id, "2026-05-10", brutto / 2);
+      expect((await euer(2026)).anlagenabgang).toBe(20_000);
+      await bar(verkauf.id, "2026-06-10", brutto / 2);
+      const e = await euer(2026);
+      expect([e.anlagenabgang, e.steuerpflichtig, e.ust]).toEqual([40_000, 0, brutto - 40_000]);
+      expect(e.monate).toEqual(monate(5, 20_000).map((b, i) => (i === 5 ? 20_000 : b)));
+
+      const zweite = await rechnung("2026-07-01", 10_000, true, rate, treatment, exemption);
+      const storno = await invoices.cancelInvoice(actor, zweite.id, "2026-07-02");
+      expect((await konten(storno.id, kontenrahmen))[erloes]).toBe(-10_000);
+      expect((await euer(2026)).anlagenabgang).toBe(40_000);
     }, 60_000);
   }
 

@@ -113,9 +113,10 @@ export function side(account: string, amount: Cents, debitIfPositive: boolean, t
   return { account, debit: debit ? Math.abs(amount) : 0, credit: debit ? 0 : Math.abs(amount), taxCode };
 }
 
-/** Erlöskonto einer Ausgangsrechnung je Satz; bei „Verkauf aus dem Anlagevermögen“ das Verkaufskonto (#2022) */
+/** Erlöskonto einer Ausgangsrechnung je Satz; bei „Verkauf aus dem Anlagevermögen“ das Verkaufskonto, wo es eins gibt (#2022) */
 function revenueAccount(kontenrahmen: Kontenrahmen, treatment: TaxTreatment, rate: BasisPoints, assetDisposal: boolean): string {
-  if (assetDisposal) return anlagenverkaufKonto(kontenrahmen, treatment, rate);
+  const verkauf = assetDisposal ? anlagenverkaufKonto(kontenrahmen, treatment, rate) : null;
+  if (verkauf) return verkauf;
   const accounts = ACCOUNTS[kontenrahmen];
   return treatment === "regulaer" ? accounts.erloese[rate === 0 ? 0 : vatRate(rate)] : accounts.erloeseSonder[treatment];
 }
@@ -125,7 +126,7 @@ function revenueAccount(kontenrahmen: Kontenrahmen, treatment: TaxTreatment, rat
  * Bei Ist-Versteuerung auf „Umsatzsteuer nicht fällig“; fällig wird sie mit dem Zahlungseingang.
  * Negative Summen (Storno, Korrektur) drehen die Seiten. Reverse Charge, Drittland, steuerfreie
  * und Kleinunternehmer-Umsätze gehen auf eigene Erlöskonten, der Verkauf einer Anlage (`assetDisposal`) auf die
- * Verkaufskonten (anlagenverkauf.ts).
+ * Verkaufskonten, soweit es sie bei DATEV gibt (anlagenverkauf.ts).
  */
 export function invoicePosting(
   totals: InvoiceTotals,

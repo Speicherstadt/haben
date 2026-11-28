@@ -176,7 +176,7 @@ Ein Wechsel zum Jahreswechsel gilt nur für künftige Buchungen. Ein noch offene
 | Steuerfreie Umsätze § 4 Nr. 1a UStG (Ausfuhr) | 8120 | 4120 |
 | Steuerfreie Umsätze § 4 Nr. 8 ff. UStG | 8100 | 4100 |
 | Erlöse als Kleinunternehmer § 19 UStG | 8192 | 4184 |
-| Erlöse aus Verkäufen Sachanlagevermögen (bei Buchgewinn), je Umsatzsteuer der Rechnung ([Verkauf einer Anlage](anlagen.md#verkauf)) | 8820, 8827, 8828, 8829 | 4845, 4844, 4848, 4849 |
+| Erlöse aus Verkäufen Sachanlagevermögen (bei Buchgewinn): 19 %, Ausfuhr, innergemeinschaftliche Lieferung, Kleinunternehmer ([Verkauf einer Anlage](anlagen.md#verkauf)) | 8820, 8827, 8828, 8829 | 4845, 4844, 4848, 4849 |
 | Umsatzsteuer 19 % | 1776 | 3806 |
 | Umsatzsteuer 7 % | 1771 | 3801 |
 | Umsatzsteuer nicht fällig 19 % | 1766 | 3816 |

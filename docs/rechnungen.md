@@ -278,7 +278,7 @@ Alte Befreiungstexte werden nicht automatisch einer Vorschrift zugeordnet. Ihr g
 
 #### Verkauf aus dem Anlagevermögen
 
-Verkaufst du etwas aus deinem Anlagevermögen, etwa einen gebrauchten Laptop, stellst du **Verkauf aus dem Anlagevermögen** unter dem Feld **Umsatzsteuer** auf **Ja**. Die Umsatzsteuer wählst du wie für jede Lieferung. Haben bucht den Erlös dann auf „Erlöse aus Verkäufen Sachanlagevermögen“ statt auf das Erlöskonto ([Konten](anlagen.md#verkauf)); in der EÜR steht er in Zeile 19 „Veräußerung oder Entnahme von Anlagevermögen“ und im [Gesamtumsatz](auswertungen.md#gesamtumsatz-nach--19-ustg) nicht. Den Abgang trägst du zusätzlich an der [Anlage](anlagen.md#abgang) ein.
+Verkaufst du etwas aus deinem Anlagevermögen, etwa einen gebrauchten Laptop, stellst du **Verkauf aus dem Anlagevermögen** unter dem Feld **Umsatzsteuer** auf **Ja**. Die Umsatzsteuer wählst du wie für jede Lieferung. Haben bucht den Erlös dann auf „Erlöse aus Verkäufen Sachanlagevermögen“ statt auf das Erlöskonto, wo DATEV dafür ein Konto hat ([Konten](anlagen.md#verkauf)); in der EÜR steht er in Zeile 19 „Veräußerung oder Entnahme von Anlagevermögen“ und im [Gesamtumsatz](auswertungen.md#gesamtumsatz-nach--19-ustg) nicht. Den Abgang trägst du zusätzlich an der [Anlage](anlagen.md#abgang) ein.
 
 ### Format wählen
 
@@ -398,7 +398,7 @@ Rechnungen ohne Steuerausweis gehen ohne Steuerzeile auf eigene Erlöskonten:
 | Steuerfreie Leistung, z. B. Heilbehandlung oder Unterricht | 8100 | 4100 | `Steuerfrei` (Kz 48) |
 | Kleinunternehmer: ohne Umsatzsteuer | 8192 | 4184 | `KU` (Kz 48 nach dem [Leistungstag](umsatzsteuer.md#umsätze-ohne-steuer-kz-21-41-43-45-und-48)) |
 
-Mit [Verkauf aus dem Anlagevermögen](#verkauf-aus-dem-anlagevermögen) geht der Erlös auf die Verkaufskonten 8820 bis 8829 bzw. 4844 bis 4849 ([Anlagen](anlagen.md#verkauf)); Steuerschlüssel und Umsatzsteuerkonto bleiben dieselben.
+Mit [Verkauf aus dem Anlagevermögen](#verkauf-aus-dem-anlagevermögen) geht der Erlös zu 19 %, bei Ausfuhr, innergemeinschaftlicher Lieferung und als Kleinunternehmer auf die Verkaufskonten 8820, 8827, 8828 und 8829 bzw. 4845, 4844, 4848 und 4849 ([Anlagen](anlagen.md#verkauf)), sonst auf das Erlöskonto oben; Steuerschlüssel und Umsatzsteuerkonto bleiben dieselben.
 
 > [!IMPORTANT]
 > Die Kontenzuordnung stammt aus `packages/core/src/kontenplan.ts`. Gleiche sie vor dem Echtbetrieb mit deiner Steuerberatung ab.

@@ -165,7 +165,10 @@ Den Verkaufserlös stellst du als [Rechnung](rechnungen.md#verkauf-aus-dem-anlag
 | 19 % | 8820 | 4845 |
 | Ausfuhr (§ 4 Nr. 1a UStG) | 8827 | 4844 |
 | innergemeinschaftliche Lieferung (§ 4 Nr. 1b UStG) | 8828 | 4848 |
-| alle übrigen (7 %, Kleinunternehmer, steuerfrei, § 13b, nicht steuerbar) | 8829 | 4849 |
+| Kleinunternehmer | 8829 | 4849 |
+| 7 %, steuerfrei nach § 4 Nr. 8 ff., § 13b, Drittland, nicht steuerbar | das Erlöskonto der Rechnung wie ohne das Feld | ebenso |
+
+Für die letzte Zeile hat DATEV kein Verkaufskonto, das die Kennzahl der Voranmeldung trägt; auf 8829 bzw. 4849 ohne Automatik fehlte sie der Steuerberatung in DATEV.
 
 In der EÜR steht der Erlös mit der Zahlung in Zeile 19 „Veräußerung oder Entnahme von Anlagevermögen“, der Restbuchwert getrennt als Ausgabe ([amtliche Anleitung EÜR 2025, Zeile 19](https://www.elster.de/eportal/helpGlobal?themaGlobal=help_euer_ufa_77_2025)). Als Kleinunternehmer zählt er nicht in Zeile 12 und nicht im [Gesamtumsatz](auswertungen.md#gesamtumsatz-nach--19-ustg) ([§ 19 Abs. 2 Satz 2 UStG](https://www.gesetze-im-internet.de/ustg_1980/__19.html)).
 

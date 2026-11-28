@@ -37,10 +37,10 @@ describe.each(["SKR03", "SKR04"] as const)("Rechnung mit „Verkauf aus dem Anla
     expect(invoicePosting(satz(1900), kr, "ist", "regulaer", true).map((l) => l.account)).toEqual([a.forderungen, v.ust19, a.ustNichtFaellig[1900]]);
   });
 
-  it("7 %: Erlös auf das Konto ohne USt, die Steuer bleibt auf dem Konto für 7 %", () => {
+  it("7 %: Erlös auf dem Erlöskonto 7 %, denn ein Verkaufskonto mit 7 % USt gibt es bei DATEV nicht (Kz 86 aus der Automatik)", () => {
     expect(invoicePosting(satz(700), kr, "soll", "regulaer", true)).toEqual([
       { account: a.forderungen, debit: 42_800, credit: 0, taxCode: null },
-      { account: v.sonstige, debit: 0, credit: 40_000, taxCode: "USt7" },
+      { account: a.erloese[700], debit: 0, credit: 40_000, taxCode: "USt7" },
       { account: a.ust[700], debit: 0, credit: 2_800, taxCode: "USt7" },
     ]);
   });
@@ -49,13 +49,36 @@ describe.each(["SKR03", "SKR04"] as const)("Rechnung mit „Verkauf aus dem Anla
     ["ausfuhr", "ausfuhr", "Ausfuhr"],
     ["ig_lieferung", "igl", "IGL"],
     ["kleinunternehmer", "sonstige", "KU"],
-    ["steuerfrei", "sonstige", "Steuerfrei"],
-    ["reverse_charge", "sonstige", "RC"],
-    ["drittland", "sonstige", "Drittland"],
-    ["eu_sonstige", "sonstige", "NichtSteuerbar"],
-    ["regulaer", "sonstige", "frei"],
-  ] as const)("%s: Erlöskonto nach der Steuer der Rechnung, Steuerschlüssel unverändert", (treatment: TaxTreatment, konto, code) => {
+  ] as const)("%s: Verkaufskonto mit Gegenstück bei DATEV, Steuerschlüssel unverändert", (treatment: TaxTreatment, konto, code) => {
     expect(invoicePosting(satz(0), kr, "soll", treatment, true)[1]).toEqual({ account: v[konto], debit: 0, credit: 40_000, taxCode: code });
+  });
+
+  // Ohne Verkaufskonto bei DATEV (8829/4849 hat keine Automatik und brächte in DATEV keine Kennzahl der Voranmeldung): das
+  // Erlöskonto wie ohne Kennzeichen; Zeile 19 der EÜR kommt dann aus dem Kennzeichen der Rechnung (Herkunft „anlagenverkauf“)
+  it.each([
+    ["steuerfrei", "Steuerfrei"],
+    ["reverse_charge", "RC"],
+    ["drittland", "Drittland"],
+    ["eu_sonstige", "NichtSteuerbar"],
+    ["regulaer", "frei"],
+  ] as const)("%s: das Erlöskonto wie ohne Kennzeichen", (treatment: TaxTreatment, code) => {
+    const ohne = invoicePosting(satz(0), kr, "soll", treatment)[1]!;
+    expect(invoicePosting(satz(0), kr, "soll", treatment, true)[1]).toEqual({ account: ohne.account, debit: 0, credit: 40_000, taxCode: code });
+    expect(Object.values(VERKAUF[kr])).not.toContain(ohne.account);
+  });
+
+  it("19 % und 7 % in einer Rechnung: nur der Teil zu 19 % auf das Verkaufskonto", () => {
+    const totals = computeInvoiceTotals([
+      { quantity: 1000, unitPrice: 40_000, taxRate: 1900 },
+      { quantity: 1000, unitPrice: 10_000, taxRate: 700 },
+    ]);
+    expect(invoicePosting(totals, kr, "ist", "regulaer", true).map((l) => l.account)).toEqual([
+      a.forderungen,
+      v.ust19,
+      a.ustNichtFaellig[1900],
+      a.erloese[700],
+      a.ustNichtFaellig[700],
+    ]);
   });
 
   it("Storno (negativ) dreht die Seiten auf demselben Konto", () => {

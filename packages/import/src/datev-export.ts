@@ -60,7 +60,8 @@ export interface DatevBookingRow {
  * bei Buchgewinn bzw. Buchverlust (SKR03 8820/8801, SKR04 4845/6885, AM); die Konten ohne USt (8829/8800, 4849/6889) haben
  * keine Automatik. Die steuerfreien Verkaufskonten nach § 4 Nr. 1a und 1b UStG (SKR03 8827/8828, SKR04 4844/4848) sind
  * AM-Konten ohne Steuer: Wie bei den Erlösen aus Ausfuhr und innergemeinschaftlicher Lieferung (8120/8125 bzw. 4120/4125)
- * rechnet DATEV dort keine Steuer heraus und ordnet nur die Kennzahl zu, deshalb kein BU 40. Quelle: DATEV-Kontenrahmen
+ * rechnet DATEV dort keine Steuer heraus und ordnet nur die Kennzahl zu, deshalb kein BU 40. Ein Verkauf zu 7 %, steuerfrei
+ * nach § 4 Nr. 8 ff., nach § 13b, ins Drittland oder nicht steuerbar bleibt auf dem normalen Erlöskonto. Quelle: DATEV-Kontenrahmen
  * SKR03 Art.-Nr. 11174 und SKR04 Art.-Nr. 11175, gültig für 2026.
  */
 export const DATEV_AUTOMATIC_ACCOUNTS: Record<DatevExportHeader["kontenrahmen"], ReadonlySet<string>> = {
