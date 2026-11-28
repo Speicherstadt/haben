@@ -268,18 +268,18 @@ describe.skipIf(!testDatabaseUrl)("Steuer der Korrektur aus dem Gesamtstand (Pos
     await integrity();
   }, 40_000);
 
-  it("Fremdwährung: Gesamtstand in der Währung der Rechnung, in Euro je Beleg mit dem Kurs der Rechnung", async () => {
+  it("Fremdwährung: Gesamtstand in der Währung der Rechnung und in Euro mit dem Kurs der Rechnung", async () => {
     const original = await invoice([beratung(10_000), bleibt()], { currency: "GBP", exchangeRate: "0,85" });
     expect(await storedTaxes(original.id)).toEqual([{ rate: 1900, base: 11_765, tax: 2_235, original_base: 10_000, original_tax: 1_900 }]);
     const a = await correction(original.id, "2026-06-10", [beratung(-50)]);
-    // GBP: −0,09 (Stand 18,91); in Euro je Beleg umgerechnet wie bisher: −0,09 GBP = −0,11 €
-    expect(await storedTaxes(a.id)).toEqual([{ rate: 1900, base: -59, tax: -11, original_base: -50, original_tax: -9 }]);
+    // GBP: −0,09 (Stand 18,91); Euro: Stand 99,50 GBP = 117,06 €, 18,91 GBP = 22,25 €, also −0,10 €
+    expect(await storedTaxes(a.id)).toEqual([{ rate: 1900, base: -59, tax: -10, original_base: -50, original_tax: -9 }]);
     expect(a.xml).toContain("<ram:CalculatedAmount>0.09</ram:CalculatedAmount>");
     const b = await correction(original.id, "2026-06-11", [beratung(-9_950)]);
     expect(await storedTaxes(b.id)).toEqual([{ rate: 1900, base: -11_706, tax: -2_225, original_base: -9_950, original_tax: -1_891 }]);
-    // In GBP genau aufgehoben; in Euro bleibt die Rundung je Beleg: 22,35 € gebucht, 22,36 € zurück (je Beleg vorher 22,37 €)
-    expect(await kz(6)).toEqual({ kz81: -11_765, tax81: -2_236 });
-    expect(await balance(ACCOUNTS.SKR03.ust[1900])).toBe(1);
+    // In GBP und in Euro genau aufgehoben: 22,35 € gebucht, 22,35 € zurück (je Beleg gerundet vorher 22,37 €)
+    expect(await kz(6)).toEqual({ kz81: -11_765, tax81: -2_235 });
+    expect(await balance(ACCOUNTS.SKR03.ust[1900])).toBe(0);
     await integrity();
   }, 40_000);
 });

@@ -8,7 +8,6 @@ import {
   totalsFromTaxes,
   type InvoiceCalculation,
   type PriceMode,
-  type TaxBreakdown,
   type TaxTreatment,
   type UnitLabel,
 } from "@haben/core";
@@ -32,7 +31,7 @@ import { draftRate, MAX_EURO_CENTS } from "./draft-rate.ts";
 import { effectivePriceMode, type DraftInput, type LineInput } from "./draft-schema.ts";
 import { InvoiceError } from "./invoice-error.ts";
 import { replacementQuote } from "./invoice-replacement.ts";
-import { correctionBasis, correctionTaxes, euroTaxes, storeInvoiceTaxes } from "./invoice-taxes.ts";
+import { correctionBasis, correctionTaxes, euroTaxes, storeInvoiceTaxes, type CorrectionBasis } from "./invoice-taxes.ts";
 import type { Invoice, InvoiceLine } from "./invoices.ts";
 import { draftMandateProblem, paymentColumns } from "./lastschrift.ts";
 import { customerChangeProblem } from "./leistungen-kunde.ts";
@@ -109,7 +108,7 @@ function draftValues(
   lines: LineInput[],
   rate: { currency: string } & RateFields,
   kind = "rechnung",
-  basis?: TaxBreakdown[],
+  basis?: CorrectionBasis,
 ) {
   const priceMode = effectivePriceMode(input);
   const own = computeInvoice(lines, priceMode, input.discount ?? null);

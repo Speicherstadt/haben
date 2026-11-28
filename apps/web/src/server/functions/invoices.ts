@@ -172,7 +172,7 @@ export const getInvoiceDetail = createServerFn({ method: "GET" })
       // Entwurf einer Korrektur: der Editor rechnet ihre Steuer aus dem Gesamtstand wie der Server (#2079)
       correctionBasis:
         result.invoice.status === "draft" && result.invoice.kind === "korrektur" && result.invoice.correctsId
-          ? await correctionBasis(db, result.invoice.correctsId)
+          ? (await correctionBasis(db, result.invoice.correctsId)).document
           : null,
       leistungsmonat,
       attachments: (await listInvoiceAttachments(data)).map(({ id, filename, size }) => ({ id, filename, size })),
