@@ -73,7 +73,10 @@ describe("kontenNurBis", () => {
 
 describe("unvollstaendig", () => {
   const offen: OffeneVorgaenge = { ausgaben: 2, eingaenge: 1, belege: 3, rechnungsentwuerfe: 4 };
-  const konten = [{ id: "k", name: "Visa", bis: "2026-03-20" }];
+  const konten = [
+    { id: "k", name: "Visa", bis: "2026-03-20" },
+    { id: "g", name: "Girokonto", bis: "2026-03-05" },
+  ];
   const kurz = (form: "form43" | "form01") => unvollstaendig(offen, konten, form).map((h) => [h.art, h.ton, h.anzahl, h.link]);
 
   it("Form 43 nach Zahlung: offene Umsätze, Belege und Konten warnen, Entwürfe fehlen", () => {
@@ -81,7 +84,7 @@ describe("unvollstaendig", () => {
       ["ausgaben", "warn", 2, "/bank"],
       ["eingaenge", "warn", 1, "/bank"],
       ["belege", "warn", 3, "/belege"],
-      ["konto", "warn", 1, "/bank"],
+      ["konto", "warn", 2, "/bank"],
     ]);
   });
 
@@ -92,8 +95,12 @@ describe("unvollstaendig", () => {
       ["eingaenge", "info", 1, "/bank"],
       ["belege", "warn", 3, "/belege"],
       ["rechnungsentwuerfe", "info", 4, "/rechnungen"],
-      ["konto", "info", 1, "/bank"],
+      ["konto", "info", 2, "/bank"],
     ]);
+  });
+
+  it("alle Konten, die zu früh aufhören, in einem Hinweis", () => {
+    expect(unvollstaendig(nichts, konten, "form43")).toEqual([{ art: "konto", ton: "warn", anzahl: 2, konten, link: "/bank" }]);
   });
 
   it("ohne Offenes keine Hinweise", () => {
@@ -134,5 +141,17 @@ describe("unvollstaendigText", () => {
     const winter = { von: "2025-12-01", bis: "2026-01-31" };
     expect(bis("2025-12-19", winter)).toBe("Umsätze von Konto „Visa“ nur bis 19.12.2025.");
     expect(bis("2026-01-09", winter)).toBe("Umsätze von Konto „Visa“ nur bis 09.01.2026.");
+  });
+
+  it("nennt mehrere Konten in einem Satz, das Jahr auch mitten im Satz ohne Punkt", () => {
+    const zwei = unvollstaendig(
+      nichts,
+      [
+        { id: "k", name: "Visa", bis: "2025-10-20" },
+        { id: "g", name: "Girokonto", bis: "2026-03-05" },
+      ],
+      "form43",
+    );
+    expect(unvollstaendigText(zwei[0]!, maerz)).toBe("Umsätze der Konten „Visa“ nur bis 20.10.2025, „Girokonto“ nur bis 05.03.");
   });
 });

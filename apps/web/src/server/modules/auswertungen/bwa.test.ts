@@ -293,20 +293,20 @@ describe.skipIf(!testDatabaseUrl)("BWA nach Zufluss und Abfluss (Postgres, #1380
     });
     const maerz = await bwa.bwaBericht(bwaZeitraum("monat", 2026, 3), "vorjahr", undefined, "2026-11-28");
     expect(maerz.unvollstaendig.stand).toBe("2026-11-28");
-    expect(maerz.unvollstaendig.hinweise.map((h) => [h.art, h.ton, h.anzahl, h.konto?.bis ?? null])).toEqual([
+    expect(maerz.unvollstaendig.hinweise.map((h) => [h.art, h.ton, h.anzahl, h.konten?.map((k) => k.bis) ?? null])).toEqual([
       ["ausgaben", "warn", 1, null],
       ["eingaenge", "warn", 2, null],
       ["belege", "warn", 1, null],
-      ["konto", "warn", 1, "2026-03-20"],
+      ["konto", "warn", 1, ["2026-03-20"]],
     ]);
     // Im laufenden Monat bis gestern: Der Umsatz von gestern (Freitag) reicht, das Konto fehlt nicht
     const laufend = await bwa.bwaBericht(bwaZeitraum("monat", 2026, 3), "keiner", undefined, "2026-03-21");
     expect(laufend.unvollstaendig.hinweise.map((h) => h.art)).toEqual(["ausgaben", "eingaenge", "belege"]);
     // April: Das Konto endet vor dem Zeitraum und bleibt gemeldet; der Beleg ohne Datum bleibt
     const april = await bwa.bwaBericht(bwaZeitraum("monat", 2026, 4), "keiner", undefined, "2026-11-28");
-    expect(april.unvollstaendig.hinweise.map((h) => [h.art, h.konto?.bis ?? null])).toEqual([
+    expect(april.unvollstaendig.hinweise.map((h) => [h.art, h.konten?.map((k) => k.bis) ?? null])).toEqual([
       ["belege", null],
-      ["konto", "2026-03-20"],
+      ["konto", ["2026-03-20"]],
     ]);
   }, 60_000);
 

@@ -36,7 +36,7 @@ Die Umsatzrendite im Einzelunternehmen rechnet ohne Umsatzsteuer und Vorsteuer, 
 Darüber weist die BWA auf **Unvollständiges** im Zeitraum hin, mit Link dorthin, wo es sich beheben lässt (die Steuerberatung sieht den Link zur Bank nicht):
 
 - offene Ausgaben und Zahlungseingänge auf dem Konto, ungebuchte Belege und, nur bei GmbH und UG, Rechnungsentwürfe, gezählt wie in der [Vorprüfung der Voranmeldung](umsatzsteuer.md#vorprüfung);
-- „Umsätze von Konto … nur bis TT.MM.“, wenn Kontoauszug und Umsätze eines Kontos (außer privaten) vor dem Ende des Zeitraums aufhören, im laufenden Zeitraum vor gestern, auch bis 3 Monate vor Beginn des Zeitraums. Fällt dieser Tag auf ein Wochenende oder einen bundesweiten Feiertag, reicht der Bankarbeitstag davor. Das Jahr steht dabei, wenn Tag und Zeitraum nicht im selben Jahr liegen („nur bis 20.10.2025.“).
+- „Umsätze von Konto … nur bis TT.MM.“, wenn Kontoauszug und Umsätze eines Kontos (außer privaten) vor dem Ende des Zeitraums aufhören, im laufenden Zeitraum vor gestern, auch bis 3 Monate vor Beginn des Zeitraums; mehrere Konten in einem Hinweis. Fällt dieser Tag auf ein Wochenende oder einen bundesweiten Feiertag, reicht der Bankarbeitstag davor. Das Jahr steht dabei, wenn Tag und Zeitraum nicht im selben Jahr liegen („nur bis 20.10.2025“).
 
 Was die Zahlen sicher verfälscht, steht je als eigener Hinweis. Bei GmbH und UG zählt eine Rechnung schon festgeschrieben als Erlös und ein gebuchter Beleg als Aufwand; offene Ausgaben, Zahlungseingänge, Entwürfe und „nur bis“ stehen dort gebündelt als ruhiger Hinweis, denn nach dem letzten Umsatz fehlt nur, was erst die Bank bucht (Gebühren, Zinsen). Die Hinweise gelten für den Zeitraum, nicht für die kumulierte Spalte und den Vergleich.
 

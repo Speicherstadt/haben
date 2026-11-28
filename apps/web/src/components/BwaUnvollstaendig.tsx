@@ -17,21 +17,20 @@ export function BwaUnvollstaendig({ hinweise, zeitraum, rolle }: { hinweise: rea
       {siehtSeite(rolle, h.link) && (
         <>
           {" "}
-          <Link to={h.link} search={h.konto ? { konto: h.konto.id } : undefined}>
+          <Link to={h.link} search={h.konten ? { konto: h.konten.length === 1 ? h.konten[0]!.id : "alle" } : undefined}>
             {ZIEL[h.link]}
           </Link>
         </>
       )}
     </>
   );
-  const schluessel = (h: UnvollstaendigHinweis) => `${h.art}-${h.konto?.id ?? ""}`;
-  const ruhig = hinweise.filter((h) => h.ton === "info");
+    const ruhig = hinweise.filter((h) => h.ton === "info");
   return (
     <>
       {hinweise
         .filter((h) => h.ton === "warn")
         .map((h) => (
-          <div key={schluessel(h)} className="banner" role="status">
+          <div key={h.art} className="banner" role="status">
             <Icon name="alert" />
             <span>{inhalt(h)}</span>
           </div>
@@ -44,7 +43,7 @@ export function BwaUnvollstaendig({ hinweise, zeitraum, rolle }: { hinweise: rea
           ) : (
             <ul className="banner-list">
               {ruhig.map((h) => (
-                <li key={schluessel(h)}>{inhalt(h)}</li>
+                <li key={h.art}>{inhalt(h)}</li>
               ))}
             </ul>
           )}

@@ -34,10 +34,10 @@ export interface UnvollstaendigHinweis {
   art: UnvollstaendigArt;
   /** warn: die Zahlen sind sicher zu niedrig oder zu hoch; info: sie können es sein */
   ton: "warn" | "info";
-  /** Anzahl der Vorgänge; bei „konto“ 1 */
+  /** Anzahl der Vorgänge; bei „konto“ die der Konten */
   anzahl: number;
-  /** Nur bei „konto“ */
-  konto?: { id: string; name: string; bis: string };
+  /** Nur bei „konto“: alle Konten, die zu früh aufhören, in einem Hinweis */
+  konten?: { id: string; name: string; bis: string }[];
   /** Wo es sich beheben lässt; die Seite zeigt den Link nur, wer die Seite sieht */
   link: "/bank" | "/belege" | "/rechnungen";
 }
@@ -85,18 +85,15 @@ export function unvollstaendig(offen: OffeneVorgaenge, konten: readonly { id: st
   dazu("eingaenge", offen.eingaenge, bankTon, "/bank");
   dazu("belege", offen.belege, "warn", "/belege");
   if (form === "form01") dazu("rechnungsentwuerfe", offen.rechnungsentwuerfe, "info", "/rechnungen");
-  for (const konto of konten) hinweise.push({ art: "konto", ton: bankTon, anzahl: 1, konto, link: "/bank" });
+  if (konten.length > 0) hinweise.push({ art: "konto", ton: bankTon, anzahl: konten.length, konten: [...konten], link: "/bank" });
   return hinweise;
 }
 
-/**
- * TT.MM., mit Jahr, sobald Tag und Zeitraum nicht in einem Jahr liegen; sonst wäre „nur bis 20.01.“ über den Jahreswechsel
- * offen. Steht am Satzende: Der Punkt nach dem Jahr schließt den Satz wie der nach TT.MM.
- */
+/** TT.MM., mit Jahr, sobald Tag und Zeitraum nicht in einem Jahr liegen; sonst wäre „nur bis 20.01.“ über den Jahreswechsel offen */
 const tagImZeitraum = (datum: string, zeitraum: Zeitraum) => {
   const tagMonat = `${datum.slice(8, 10)}.${datum.slice(5, 7)}.`;
   const jahr = datum.slice(0, 4);
-  return jahr === zeitraum.von.slice(0, 4) && jahr === zeitraum.bis.slice(0, 4) ? tagMonat : `${tagMonat}${jahr}.`;
+  return jahr === zeitraum.von.slice(0, 4) && jahr === zeitraum.bis.slice(0, 4) ? tagMonat : `${tagMonat}${jahr}`;
 };
 
 /** Ein Satz je Hinweis zum Zeitraum der Auswertung, für Seite und Export gleich */
@@ -115,7 +112,11 @@ export function unvollstaendigText(h: UnvollstaendigHinweis, zeitraum: Zeitraum)
       return `${n} ${n === 1 ? "Beleg" : "Belege"} im Zeitraum oder ohne Datum noch nicht gebucht.`;
     case "rechnungsentwuerfe":
       return `${n} ${n === 1 ? "Rechnungsentwurf" : "Rechnungsentwürfe"} mit Datum im Zeitraum; Erlöse zählen erst festgeschrieben.`;
-    case "konto":
-      return `Umsätze von Konto „${h.konto?.name}“ nur bis ${tagImZeitraum(h.konto?.bis ?? "", zeitraum)}`;
+    case "konto": {
+      const konten = h.konten ?? [];
+      const liste = konten.map((k) => `„${k.name}“ nur bis ${tagImZeitraum(k.bis, zeitraum)}`).join(", ");
+      // Endet mit dem Jahr, schließt der Punkt den Satz; nach TT.MM. steht er schon
+      return `Umsätze ${konten.length === 1 ? "von Konto" : "der Konten"} ${liste}${liste.endsWith(".") ? "" : "."}`;
+    }
   }
 }
