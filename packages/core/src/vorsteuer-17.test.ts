@@ -94,7 +94,7 @@ describe("documentPosting: Gutschrift mit „erstattet bereits Bezahltes“", ()
 
 describe("vorsteuerAusgleichPosting: Umbuchung beim Ausgleich", () => {
   it("0 %: ein Rundungsrest landet nicht auf einem Konto ohne Steuersatz", () => {
-    // Beleg mit 19 %, 7 % und 0 %, die 0 %-Zeile ist die größte: paidTaxShares legt den Rundungsrest dorthin
+    // Beleg mit 19 %, 7 % und 0 %, die 0 %-Zeile ist die größte: paidTaxShares legt den Steuer-Rest nicht mehr auf 0 % (#2026)
     const totals = {
       net: 5200,
       tax: 26,
@@ -106,9 +106,24 @@ describe("vorsteuerAusgleichPosting: Umbuchung beim Ausgleich", () => {
       ],
     };
     const shares = settlementTaxShares(totals, 0, [], 500);
-    expect(shares.find((s) => s.rate === 0)?.tax).toBe(-1);
-    // Ohne die 0 %-Zeile: nur 19 % und 7 %, keine Zeile ohne Steuersatz
+    expect(shares.find((s) => s.rate === 0)?.tax).toBe(0);
     expect(vorsteuerAusgleichPosting(shares, "SKR03")).toEqual([
+      { account: ACCOUNTS.SKR03.vorsteuerNochNichtAbziehbar, debit: 1, credit: 0, taxCode: "VSt19", basis: 10 },
+      { account: ACCOUNTS.SKR03.vorsteuer[1900], debit: 0, credit: 1, taxCode: "VSt19" },
+      { account: ACCOUNTS.SKR03.vorsteuerNochNichtAbziehbar, debit: 1, credit: 0, taxCode: "VSt7", basis: 10 },
+      { account: ACCOUNTS.SKR03.vorsteuer[700], debit: 0, credit: 1, taxCode: "VSt7" },
+    ]);
+    // Auch bei direkt übergebenem Rest auf 0 %: vorsteuerAusgleichPosting erzeugt keine Zeile ohne Steuersatz
+    expect(
+      vorsteuerAusgleichPosting(
+        [
+          { rate: 1900, base: 10, tax: 2 },
+          { rate: 700, base: 10, tax: 1 },
+          { rate: 0, base: 478, tax: -1 },
+        ],
+        "SKR03",
+      ),
+    ).toEqual([
       { account: ACCOUNTS.SKR03.vorsteuerNochNichtAbziehbar, debit: 2, credit: 0, taxCode: "VSt19", basis: 10 },
       { account: ACCOUNTS.SKR03.vorsteuer[1900], debit: 0, credit: 2, taxCode: "VSt19" },
       { account: ACCOUNTS.SKR03.vorsteuerNochNichtAbziehbar, debit: 1, credit: 0, taxCode: "VSt7", basis: 10 },

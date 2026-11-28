@@ -3,7 +3,6 @@ import {
   documentOpen,
   formatDecimal,
   geltendeIban,
-  hatPrivatanteil,
   type IbanEntscheidung,
   isEwrIban,
   isValidIban,
@@ -24,6 +23,8 @@ import { loadCompany } from "../stammdaten/index.ts";
 import { BankError } from "./bank-error.ts";
 import { documentPayments } from "./settled-amounts.ts";
 import { documentPayees, ibanDecisions, type DocumentPayee } from "./document-payees.ts";
+import { documentsMitEntnahme } from "../umsatzsteuer/index.ts";
+import { skontoMoeglich } from "./skonto-moeglich.ts";
 
 /** Ein offener Beleg, der sich überweisen lässt, oder warum nicht */
 export interface TransferCandidate {
@@ -104,11 +105,12 @@ export async function transferCandidates(ids?: string[]): Promise<TransferCandid
       ),
     );
   const found = documents.map((d) => d.id);
-  const [paid, payees, transfers, decisions] = await Promise.all([
+  const [paid, payees, transfers, decisions, entnahme] = await Promise.all([
     documentPayments(found),
     documentPayees(found),
     transfersByDocument(found),
     ibanDecisions(found),
+    documentsMitEntnahme(found),
   ]);
   return documents
     .map((doc) => {
@@ -122,9 +124,16 @@ export async function transferCandidates(ids?: string[]): Promise<TransferCandid
           : doc.supplierName.trim() === ""
             ? "Name des Lieferanten fehlt am Beleg"
             : account.problem;
-      // Erhaltenes Skonto bucht Haben nur ohne § 13b, Privatanteil und Anlagegut (write-offs.ts, writeOff); angeboten nur auf einen noch ganz offenen Beleg
+      // Erhaltenes Skonto nur, wo writeOff es ausbuchen darf (skontoMoeglich, #1975), und nur auf einen noch ganz offenen Beleg
       const skontoAllowed =
-        paidSoFar === 0 && doc.reverseCharge === null && !hatPrivatanteil(doc.privateShare) && doc.category !== "anlage" && doc.documentDate !== null;
+        paidSoFar === 0 &&
+        doc.documentDate !== null &&
+        skontoMoeglich({
+          reverseCharge: doc.reverseCharge,
+          privateShare: doc.privateShare,
+          entnahmezeile: entnahme.has(doc.id),
+          category: doc.category,
+        }).moeglich;
       return {
         documentId: doc.id,
         supplierName: doc.supplierName,

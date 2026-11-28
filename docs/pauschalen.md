@@ -28,7 +28,7 @@ Halte fest, wann du wo warst, zum Beispiel im Kalender oder in einer Fahrtenlist
 - Ab 2023 zählt ein Tag auch dann, wenn du auswärts oder an der ersten Tätigkeitsstätte gearbeitet hast, sofern dir dauerhaft kein anderer Arbeitsplatz zur Verfügung steht (Nr. 6c Satz 2).
 - Du trägst die Tage je Monat ein. Haben bucht sie zum Monatsletzten.
 - Haben lässt nicht mehr Tage zu, als der Monat hat, und nicht mehr, als im Jahr erlaubt sind.
-- Konto: SKR03 4288, SKR04 6348.
+- Konto: SKR03 4287, SKR04 6347 („Tagespauschale für die Tätigkeit in der häuslichen Wohnung“). Bis Version 0.15.0 buchte Haben auf 4288 bzw. 6348, das Konto des Arbeitszimmers. Diese Buchungen bleiben dort und zählen in EÜR und BWA weiter als Tagespauschale.
 - Anlage EÜR: Zeile „Tagespauschale“ (Kennzahl E6006405).
 
 Hast du ein häusliches Arbeitszimmer, das den Mittelpunkt deiner Arbeit bildet, setzt du stattdessen die Kosten oder die Jahrespauschale von 1.260 € an. Beides zusammen geht nicht. Das Arbeitszimmer buchst du als Beleg.
@@ -108,13 +108,13 @@ Jede Pauschale wird beim Eintragen gebucht und festgeschrieben, zum Beispiel Hom
 
 | Soll | Haben | Betrag |
 |---|---|---|
-| 4288 Häusliches Arbeitszimmer, Tagespauschale | 1890 Privateinlagen | 72,00 € |
+| 4287 Tagespauschale für die Tätigkeit in der häuslichen Wohnung | 1890 Privateinlagen | 72,00 € |
 
 Die Einlage erscheint in der Anlage EÜR bei den Einlagen. Umsatzsteuer und Vorsteuer sind nicht betroffen.
 
 Eine falsche Eingabe hebst du mit **Stornieren** auf. Die Rückfrage nennt Datum oder Monat mit Jahr, Beschreibung, Angaben und Betrag der Zeile.
 
-- Haben schreibt eine Gegenzeile mit negativem Betrag und eine Gegenbuchung am selben Tag.
+- Haben schreibt eine Gegenzeile mit negativem Betrag und eine Gegenbuchung am selben Tag, auf die Konten der ursprünglichen Buchung.
 - Das Original bleibt durchgestrichen stehen.
 - Danach trägst du die Pauschale richtig neu ein.
 

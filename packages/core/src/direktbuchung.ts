@@ -46,6 +46,31 @@ export function directBookingLabel(kind: DirectBooking, rechtsform: Rechtsform):
 }
 
 /**
+ * Kurzer Name einer Buchung ohne Beleg, ohne Richtung: im Buchungstext des Journals und im Jahresarchiv. Lastschrift und
+ * Erstattung des Finanzamts heißen beide „USt-Vorauszahlung“, wie das Konto.
+ */
+export const DIRECT_BOOKING_TEXT = {
+  privat: "Privat",
+  spende: "Spende (Zuwendungen, Spenden)",
+  geldtransit: "Geldtransit",
+  ustVorauszahlung: "USt-Vorauszahlung",
+  sondervorauszahlung: "USt-Sondervorauszahlung",
+  gebuehren: "Bankgebühren",
+  mahnerloes: "Mahngebühren und Zinsen",
+  zinsertrag: "Zinserträge",
+  kapest: "Kapitalertragsteuer",
+  lohn: "Lohn/Gehalt",
+  lohnsteuer: "Lohnsteuer",
+  sozialversicherung: "SV-Beiträge",
+} as const satisfies Record<DirectBooking, string>;
+
+/** Buchungstext „Gegenseite · Buchungsart“; „privat“ ist in GmbH und UG das Gesellschafter-Verrechnungskonto */
+export function directBookingText(kind: DirectBooking, rechtsform: Rechtsform, counterparty: string): string {
+  const art = kind === "privat" && isKapitalgesellschaft(rechtsform) ? ownerLabels(rechtsform).bank : DIRECT_BOOKING_TEXT[kind];
+  return `${counterparty || "Bankumsatz"} · ${art}`;
+}
+
+/**
  * Buchungen ohne Beleg, die es in der Rechtsform gibt: Ausschüttungen und ihre Kapitalertragsteuer nur in GmbH und UG, die
  * private Spende nur ohne GmbH und UG (deren Spenden sind Aufwand mit Abzug nach § 9 Abs. 1 Nr. 2 KStG)
  */

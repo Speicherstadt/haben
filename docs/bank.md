@@ -474,6 +474,8 @@ Eine **Spende** vom Geschäftskonto ist im Einzelunternehmen keine Betriebsausga
 
 Die drei Lohnzahlungen bezahlen, was eine festgeschriebene [Lohnabrechnung](lohn.md#buchung) als Verbindlichkeit gebucht hat, und höchstens so viel, wie auf dem Konto noch offen ist; ohne festgeschriebene Abrechnung lehnt Haben sie ab. Ein Eingang (Rückzahlung, Erstattung) geht nur, soweit das Konto überzahlt ist. Lohnsteuer, Soli und Kirchensteuer überweist du gemeinsam als „Lohnsteuer an das Finanzamt“, im Minijob die Pauschsteuer mit den Beiträgen an die Minijob-Zentrale. Eine Lastschrift des Finanzamts über genau den Gesamtbetrag (Kz 83) einer übermittelten [Lohnsteuer-Anmeldung](lohn.md#lohnsteuer-anmeldung) schlägt Haben als „Lohnsteuer an das Finanzamt“ vor. Im Einzelunternehmen zählen sie in der EÜR am Tag der Zahlung als Ausgaben für Personal.
 
+Bei den Arten mit festem Gegenkonto steht als Buchungstext im Journal die Gegenseite mit der Art in Kurzform, etwa „Finanzamt Regensburg · USt-Vorauszahlung“, in GmbH und UG „Max Muster · Gesellschafter (Verrechnungskonto)“. Bis Version 0.15.0 stand dort der interne Name der Art, etwa „ustVorauszahlung“; gebuchte Texte bleiben so.
+
 Für Ausgaben mit Rechnung gilt: erst den Beleg unter [Belege](belege.md) hochladen und buchen, dann hier zuordnen. Direkt gebuchte Ausgaben haben keine Vorsteuer.
 
 ### Aufladung eines Guthabens
@@ -558,7 +560,7 @@ Bei **Ist-Versteuerung** kommt die Umbuchung der Steuer dazu; erst damit wird si
 | 1766 USt nicht fällig 19 % | 3816 USt nicht fällig 19 % | 190,00 | |
 | 1776 Umsatzsteuer 19 % | 3806 Umsatzsteuer 19 % | | 190,00 |
 
-Bei Teilzahlungen wird nur der Steueranteil der Zahlung umgebucht, bei mehreren Steuersätzen anteilig je Satz. Rundungsreste schlägt Haben dem größten Posten zu, damit die Summe stimmt.
+Bei Teilzahlungen wird nur der Steueranteil der Zahlung umgebucht, bei mehreren Steuersätzen anteilig je Satz. Ein Steuer-Rundungsrest geht auf den steuerpflichtigen Satz mit dem größten Steuerbetrag (nie auf 0 %), damit die Summe stimmt.
 
 Bezahlt der Kunde bar, erfasst du das im [Kassenbuch](kasse.md#rechnung-bar-bezahlt): gebucht genauso, nur 1000 Kasse (SKR04 1600) statt Bank, mit dem Datum der Bareinnahme. Der Bankabgleich sieht danach nur noch den offenen Rest.
 

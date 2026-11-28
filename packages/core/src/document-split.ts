@@ -19,7 +19,7 @@ import {
   vatRate,
 } from "./posting.ts";
 import { distribute } from "./rabatt.ts";
-import type { Rechtsform } from "./rechtsform.ts";
+import { privatZulaessig, type Rechtsform } from "./rechtsform.ts";
 import { abziehbareSteuer, buchungsAnteil } from "./vorsteuerabzug.ts";
 
 /*
@@ -122,6 +122,10 @@ export function splitIssues(lines: AllocatedSplitLine[], amounts: DocumentRateAm
   if (lines.length < 2) issues.push("Eine Aufteilung braucht mindestens zwei Zeilen; für eine Kategorie wähle sie direkt");
   if (lines.some((line) => line.category === "anlage")) issues.push("Anlagegüter lassen sich nicht aufteilen; erfasse sie als eigenen Beleg");
   if (lines.some((line) => line.net === 0)) issues.push("Jede Zeile der Aufteilung braucht einen Nettobetrag");
+  // Ein Beleg nur mit Entnahme hat keinen Betriebsanteil und keine abziehbare Vorsteuer (#1975); ein ganz privater Beleg
+  // bleibt beim Privatanteil am Beleg
+  if (lines.length > 0 && lines.every((line) => line.category === PRIVATENTNAHME))
+    issues.push("Eine Aufteilung aus lauter Privatentnahmen hat keinen Betriebsanteil; für einen ganz privaten Beleg gilt der Privatanteil am Beleg");
   const rates = [...new Set([...amounts.map((a) => a.taxRate), ...lines.map((l) => l.taxRate)])].sort((a, b) => b - a);
   for (const rate of rates) {
     const amount = amounts.find((a) => a.taxRate === rate) ?? { taxRate: rate, net: 0, tax: 0 };
@@ -156,11 +160,10 @@ export function privatanteilAbspalten(line: DocumentSplitLine, prozent: Prozent)
   if (privat === 0 || business === 0) {
     throw new RangeError(`${prozent} % von ${formatEuro(line.net)} ergeben gerundet eine Zeile mit 0 Cent; dafür lässt sich nichts abspalten`);
   }
-  // Bis die Privatentnahme mit der Buchung in EXPENSE_CATEGORIES steht, ist sie keine ExpenseCategory
   const { account: _konto, ...ohneKonto } = line;
   return {
     betrieblich: { ...line, net: business },
-    privat: { ...ohneKonto, category: PRIVATENTNAHME as ExpenseCategory, net: privat },
+    privat: { ...ohneKonto, category: PRIVATENTNAHME, net: privat },
   };
 }
 
@@ -191,6 +194,10 @@ export function documentSplitPosting(
   vorsteuerNochNichtAbziehbar = false,
 ): PostingLine[] {
   const accounts = ACCOUNTS[kontenrahmen];
+  // Eine Entnahme gibt es nur im Einzelunternehmen: In GmbH und UG ist privat Genutztes Arbeitslohn oder verdeckte
+  // Gewinnausschüttung (§ 12 Nr. 1 EStG gilt dort nicht)
+  if (lines.some((line) => line.category === PRIVATENTNAHME) && !privatZulaessig(rechtsform))
+    throw new RangeError("Privatentnahmen gibt es nur im Einzelunternehmen; GmbH und UG kennen kein Privat");
   if (erstattetBezahltes) {
     if (totals.gross >= 0) throw new RangeError("„Erstattet bereits Bezahltes“ gibt es nur an einer Gutschrift, also an einem negativen Beleg");
     if (reverseCharge) throw new RangeError("„Erstattet bereits Bezahltes“ gibt es nicht bei § 13b oder innergemeinschaftlichem Erwerb");
@@ -210,15 +217,40 @@ export function documentSplitPosting(
     if (seen) seen.amount += amount;
     else expenses.set(key, { account, amount, code });
   };
-  // Erst je Satz runden, danach auf die Zeilen verteilen: deren Summe bleibt exakt die abziehbare Steuer.
-  const deductible = allocateSplitTax(
-    lines,
-    totals.taxes.map((t) => ({ taxRate: t.rate, net: t.base, tax: abziehbareSteuer(t.tax, buchungsAnteil(vorsteuerAbzug, t.vorsteuerAnteil)) })),
+  // Abziehbar ist die Steuer des betrieblichen Teils (§ 15 Abs. 1 Satz 1 Nr. 1 UStG), davon der zugeordnete Anteil
+  // (§ 15 Abs. 4 UStG): erst die Entnahme heraus, dann der Anteil, wie beim Privatanteil am Beleg und in den Nebenbüchern
+  // (betrieblichSteuer). Je Satz gerundet, danach auf die betrieblichen Zeilen verteilt: deren Summe bleibt exakt die
+  // abziehbare Steuer.
+  const entnahme = (rate: BasisPoints, feld: "net" | "tax") =>
+    sum(lines.filter((line) => line.category === PRIVATENTNAHME && line.taxRate === rate).map((line) => line[feld]));
+  const abziehbar = new Map(
+    totals.taxes.map((t) => [t.rate, abziehbareSteuer(t.tax - entnahme(t.rate, "tax"), buchungsAnteil(vorsteuerAbzug, t.vorsteuerAnteil))] as const),
   );
+  const betrieb = lines.flatMap((line, i) => (line.category === PRIVATENTNAHME ? [] : [i]));
+  const betriebAbzug = allocateSplitTax(
+    betrieb.map((i) => lines[i]!),
+    totals.taxes.map((t) => ({ taxRate: t.rate, net: t.base - entnahme(t.rate, "net"), tax: abziehbar.get(t.rate)! })),
+  );
+  const deductible = new Map(betrieb.map((i, k) => [i, betriebAbzug[k]!.tax]));
+  let entnahmeOhneSchluessel = 0;
   for (const [i, line] of lines.entries()) {
     const account = line.account ?? EXPENSE_CATEGORIES[line.category][kontenrahmen];
     const anteil = buchungsAnteil(vorsteuerAbzug, totals.taxes.find((t) => t.rate === line.taxRate)?.vorsteuerAnteil);
-    const tax = deductible[i]!.tax;
+    const tax = deductible.get(i) ?? 0;
+    if (line.category === PRIVATENTNAHME) {
+      // Entnahme und keine Betriebsausgabe (§ 4 Abs. 1 Satz 2, § 12 Nr. 1 EStG): brutto auf das Entnahmekonto, ohne
+      // Vorsteuer, denn abziehbar ist nur die betriebliche Verwendung (§ 15 Abs. 1 Satz 1 Nr. 1 UStG). Bei § 13b trägt
+      // das Netto den Steuerschlüssel, damit die Bemessungsgrundlage (Kz 46/84) bleibt (#542); die Steuer darauf steht
+      // ohne Steuerschlüssel wie beim Privatanteil am Beleg (documentPosting): Sie geht mit der Voranmeldung ans
+      // Finanzamt und zählt in der EÜR als Umsatzsteuer auf die Entnahme (journal-euer.ts).
+      // Ohne § 13b steht sie brutto ohne Steuerschlüssel wie in documentPosting: Mit keineVSt hielte die Verprobung sie
+      // für nicht abziehbare Vorsteuer und übersähe eine fehlende Vorsteuerbuchung (ust-verprobung.ts)
+      if (rcCode) {
+        add(accounts.privatentnahmen, rcCode, line.net);
+        entnahmeOhneSchluessel += line.tax;
+      } else entnahmeOhneSchluessel += line.net + line.tax;
+      continue;
+    }
     if (anteil > 0) {
       add(account, rcCode ?? inputTaxCode(line.taxRate), line.net);
       add(account, "keineVSt", line.tax - tax, true);
@@ -230,9 +262,11 @@ export function documentSplitPosting(
     } else add(account, "keineVSt", line.net + line.tax);
   }
   const result: PostingLine[] = [...expenses.values()].map((e) => side(e.account, e.amount, true, e.code));
+  if (entnahmeOhneSchluessel !== 0) result.push(side(accounts.privatentnahmen, entnahmeOhneSchluessel, true, null));
   for (const row of totals.taxes) {
     const { rate, tax } = row;
-    const abzugsfaehig = abziehbareSteuer(tax, buchungsAnteil(vorsteuerAbzug, row.vorsteuerAnteil));
+    // Der Anteil der Entnahmezeilen ist nicht abziehbar; er steht brutto auf dem Entnahmekonto
+    const abzugsfaehig = abziehbar.get(rate)!;
     if (tax === 0) continue;
     const satz = vatRate(rate);
     if (rcCode) {

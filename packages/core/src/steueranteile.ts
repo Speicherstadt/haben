@@ -19,13 +19,16 @@ export function paidTaxShares(totals: InvoiceTotals, paid: Cents): TaxShare[] {
   const share = (value: Cents) => roundHalfAwayFromZero((value * paid) / totals.gross);
   const totalTax = share(totals.tax);
   const totalNet = paid - totalTax;
-  const rows = totals.taxes.map((t) => ({ rate: t.rate, base: share(t.base), tax: share(t.tax) }));
-  // Rundungsrest dem größten Posten zuschlagen
+  const rows = totals.taxes.map((t) => ({ rate: t.rate, base: share(t.base), tax: t.rate === 0 || t.tax === 0 ? 0 : share(t.tax) }));
+  // Netto-Rundungsrest auf den größten Basisposten; der Steuer-Rest nur auf den steuerpflichtigen Satz mit dem größten
+  // Steuerbetrag — nie auf 0 % (§ 15 Abs. 1 Satz 1 Nr. 1, § 13 Abs. 1 Nr. 1 Buchst. b, § 17 Abs. 1 UStG, #2026)
   const largest = rows.reduce((best, row, i) => (Math.abs(row.base) > Math.abs(rows[best]!.base) ? i : best), 0);
-  if (rows[largest]) {
-    rows[largest]!.tax += totalTax - rows.reduce((s, r) => s + r.tax, 0);
-    rows[largest]!.base += totalNet - rows.reduce((s, r) => s + r.base, 0);
-  }
+  const largestTaxed = totals.taxes.reduce<number>(
+    (best, t, i) => (t.rate !== 0 && t.tax !== 0 && (best < 0 || Math.abs(t.tax) > Math.abs(totals.taxes[best]!.tax)) ? i : best),
+    -1,
+  );
+  if (rows[largest]) rows[largest]!.base += totalNet - rows.reduce((s, r) => s + r.base, 0);
+  if (largestTaxed >= 0) rows[largestTaxed]!.tax += totalTax - rows.reduce((s, r) => s + r.tax, 0);
   return rows;
 }
 

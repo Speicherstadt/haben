@@ -8,7 +8,8 @@
 import { mapSevRecurringVoucher, type SevDauerbeleg, type SevVoucher, type SevVoucherPos } from "@haben/import";
 import {
   dauerbelegProbleme,
-  EXPENSE_CATEGORY_KEYS,
+  kategorienMit,
+  type ExpenseCategory,
   terminAbStichtag,
   vorschauTermine,
   type DauerbelegStatus,
@@ -42,7 +43,7 @@ export const dauerbelegInputSchema = z.object({
   supplierUstId: z.string().trim().max(20).default(""),
   supplierContactId: z.uuid().nullable().default(null),
   reference: z.string().trim().max(100).default(""),
-  category: z.enum(EXPENSE_CATEGORY_KEYS),
+  category: z.enum(kategorienMit("dauerbeleg") as [ExpenseCategory, ...ExpenseCategory[]]),
   payment: z.enum(["bank", "privat", "kasse"]),
   privateShare: inProzent(z.number().int().min(0).max(100)).default(0),
   amounts: z
