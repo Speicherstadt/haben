@@ -1,6 +1,6 @@
 import type { BasisPoints, Cents } from "@haben/core";
 import { XMLParser } from "fast-xml-parser";
-import { unzipSync } from "fflate";
+import { unzipBegrenzt } from "../entpack-grenze.ts";
 import { parseDatevBuchungsstapel, type DatevStack } from "../datev.ts";
 import type { AccountableBankMovement, AccountableExpenseRow, AccountableReceipt, AccountableRevenue } from "./types.ts";
 import { readXlsxSheet } from "./xlsx.ts";
@@ -70,7 +70,7 @@ const COLUMNS = {
  */
 export function readAccountableExport(archive: Uint8Array): AccountableExport {
   const warnings: string[] = [];
-  const outer = unzipSync(archive);
+  const outer = unzipBegrenzt(archive);
 
   const stackName = Object.keys(outer).find((name) => /(^|\/)EXTF.*\.csv$/i.test(name));
   if (!stackName) throw new Error("Kein DATEV-Buchungsstapel (EXTF…csv) im Export gefunden.");
@@ -86,7 +86,7 @@ export function readAccountableExport(archive: Uint8Array): AccountableExport {
   if (!belegeName) {
     warnings.push("Belege.zip fehlt; der Umzug übernimmt nur die Buchungen.");
   } else {
-    const inner = unzipSync(outer[belegeName]!);
+    const inner = unzipBegrenzt(outer[belegeName]!);
     const xmlName = Object.keys(inner).find((name) => base(name).toLowerCase() === "document.xml");
     if (!xmlName) {
       warnings.push("document.xml fehlt in Belege.zip; Zuordnung Buchung → Beleg nicht möglich.");

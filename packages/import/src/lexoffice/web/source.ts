@@ -1,4 +1,4 @@
-import { unzipSync } from "fflate";
+import { EntpackGrenzeError, maxUnpackedBytes, unzipBegrenzt } from "../../entpack-grenze.ts";
 import type { z } from "zod";
 import { LexwareWebExportError } from "./errors.ts";
 import type { LexofficeSource } from "../source.ts";
@@ -61,36 +61,14 @@ function readJson<S extends z.ZodType>(files: Record<string, Uint8Array>, name: 
   return parsed.data;
 }
 
-/**
- * Wie weit ein Teil beim Entpacken wachsen darf: das Zwanzigfache der ZIP-Datei plus 64 MiB, höchstens 2 GiB. Echte
- * Sicherungen bestehen aus PDF und Bildern (kaum komprimierbar) und JSON (gut komprimierbar) und bleiben weit darunter.
- * Eine ZIP-Datei, die zu einem Vielfachen anschwillt (Zip-Bombe), lehnt der Import ab, bevor der Speicher belegt wird.
- */
-export function maxUnpackedBytes(zipBytes: number): number {
-  return Math.min(2 * 1024 ** 3, 64 * 1024 ** 2 + 20 * zipBytes);
-}
+/** Wie weit ein Teil beim Entpacken wachsen darf (entpack-grenze.ts) */
+export { maxUnpackedBytes };
 
 function unzip(bytes: Uint8Array, partName: string, limit = maxUnpackedBytes(bytes.length)): Record<string, Uint8Array> {
-  let total = 0;
-  let tooLarge = false;
   try {
-    // fflate legt den Speicher je Eintrag nach der Größe im ZIP-Verzeichnis an und schneidet Überlanges ab. Die
-    // Summe dieser Angaben zu prüfen, bevor entpackt wird, begrenzt deshalb den Speicherbedarf. Gezählt wird das
-    // Größere aus entpackter und gepackter Größe: Ein gespeicherter Eintrag (ohne Kompression) liest fflate mit der
-    // gepackten Größe, und mehrere Einträge dürfen auf denselben Datenblock zeigen; eine falsche „0“ als entpackte
-    // Größe darf die Grenze nicht umgehen.
-    return unzipSync(bytes, {
-      filter: (file) => {
-        total += Math.max(file.size, file.originalSize);
-        if (total > limit) {
-          tooLarge = true;
-          throw new Error("zu groß");
-        }
-        return true;
-      },
-    });
-  } catch {
-    if (tooLarge) {
+    return unzipBegrenzt(bytes, limit);
+  } catch (error) {
+    if (error instanceof EntpackGrenzeError) {
       throw new LexwareWebExportError(`${partName}: Die Sicherung ist entpackt viel größer als die ZIP-Datei und wird nicht gelesen.`);
     }
     throw new LexwareWebExportError(`${partName}: keine gültige ZIP-Datei.`);

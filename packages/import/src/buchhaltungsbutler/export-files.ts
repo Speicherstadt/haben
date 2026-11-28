@@ -1,4 +1,4 @@
-import { unzipSync } from "fflate";
+import { EntpackGrenzeError, unzipBegrenzt } from "../entpack-grenze.ts";
 import { decodeText } from "../decode.ts";
 import { parseCsv } from "../csv.ts";
 import type { BuchhaltungsbutlerFile, BuchhaltungsbutlerRow } from "./types.ts";
@@ -121,8 +121,9 @@ function uniqueFile(parts: ExportPart[], matches: (name: string) => boolean, lab
 
 function unzip(bytes: Uint8Array, name: string): Record<string, Uint8Array> {
   try {
-    return unzipSync(bytes);
+    return unzipBegrenzt(bytes);
   } catch (error) {
+    if (error instanceof EntpackGrenzeError) throw new BuchhaltungsbutlerError(`${name}: ${error.message}`);
     throw new BuchhaltungsbutlerError(`${name}: ZIP-Datei kann nicht gelesen werden (${error instanceof Error ? error.message : String(error)}).`);
   }
 }

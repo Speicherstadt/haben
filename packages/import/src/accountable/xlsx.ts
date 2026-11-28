@@ -1,5 +1,5 @@
 import { XMLParser } from "fast-xml-parser";
-import { unzipSync } from "fflate";
+import { unzipBegrenzt } from "../entpack-grenze.ts";
 
 /**
  * Minimaler Leser für die Tabellen im Accountable-Export.
@@ -38,7 +38,7 @@ const parser = new XMLParser({
  * der Import läuft dann ohne die Zusatzangaben weiter, statt den Export abzulehnen.
  */
 export function readXlsxSheet(bytes: Uint8Array, sheetName: string): XlsxRow[] {
-  const files = unzipSync(bytes);
+  const files = unzipBegrenzt(bytes);
   const path = sheetPathOf(files, sheetName);
   const sheetFile = path ? files[path] : undefined;
   if (!sheetFile) return [];
