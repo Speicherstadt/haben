@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { SESSION } from "./daten.ts";
+import { axeVerstoesse } from "./einrichtung.ts";
 import { HANDY } from "./kopfzeile.ts";
 
 /*
@@ -71,40 +72,59 @@ test("Liquidität am Handy: Horizont und Schalter stehen ganz im Bild", async ({
   }
 });
 
-test("Mindestbestand: einstellen, Hinweis und Linie auf der Seite, Aufgabe in der Übersicht, wieder entfernen", async ({ page }) => {
-  await page.goto("/auswertungen/liquiditaet");
-  const karte = page.locator("section.card").filter({ has: page.getByRole("heading", { name: "Mindestbestand", exact: true }) });
-  const feld = karte.getByLabel("Mindestbestand");
-  await expect(feld).toHaveValue("");
-  await expect(page.locator(".chart .grenze")).toHaveCount(0);
+// Der Mindestbestand gehört zu den Daten, die „mit-daten“ teilt: Brach der Test ab, bevor er ihn entfernte, entfernt ihn
+// afterAll. In der Gruppe läuft es nur im Worker dieses Tests, nicht in einem, der die übrigen Tests der Datei nahm.
+test.describe("Mindestbestand", () => {
+  test.afterAll(async ({ browser }) => {
+    const page = await browser.newPage({ storageState: SESSION });
+    await page.goto("/auswertungen/liquiditaet", { waitUntil: "networkidle" });
+    const feld = page.getByRole("textbox", { name: "Mindestbestand" });
+    if ((await feld.inputValue()) !== "") {
+      await feld.fill("");
+      await page.getByRole("button", { name: "Speichern", exact: true }).click();
+      await expect(page.getByText("Mindestbestand entfernt.")).toBeVisible();
+    }
+    await page.close();
+  });
 
-  // Prüfung beim Absenden: kein Betrag
-  await feld.fill("viel");
-  await karte.getByRole("button", { name: "Speichern" }).click();
-  await expect(feld).toHaveAttribute("aria-invalid", "true");
+  test("einstellen, Hinweis und Linie auf der Seite, Aufgabe in der Übersicht, wieder entfernen", async ({ page }) => {
+    await page.goto("/auswertungen/liquiditaet");
+    const karte = page.locator("section.card").filter({ has: page.getByRole("heading", { name: "Mindestbestand", exact: true }) });
+    const feld = karte.getByLabel("Mindestbestand");
+    await expect(feld).toHaveValue("");
+    await expect(page.locator(".chart .grenze")).toHaveCount(0);
 
-  // Weit über dem Kontostand: schon heute darunter
-  await feld.fill("10.000.000,00");
-  await karte.getByRole("button", { name: "Speichern" }).click();
-  await expect(karte.getByText("Mindestbestand gespeichert.")).toBeVisible();
-  await expect(page.getByRole("note").filter({ hasText: "unterschreitet den Mindestbestand von 10.000.000,00" })).toBeVisible();
-  await expect(page.locator(".chart .grenze")).toHaveCount(1);
+    // Prüfung beim Absenden: kein Betrag
+    await feld.fill("viel");
+    await karte.getByRole("button", { name: "Speichern" }).click();
+    await expect(feld).toHaveAttribute("aria-invalid", "true");
 
-  await page.goto("/");
-  // Nahe Fristen stehen vorn, die früheste zuerst; überfällige können die Aufgabe unter „Weitere“ schieben
-  const weitere = page.locator("details.todo-weitere");
-  if ((await weitere.count()) > 0) await weitere.locator("summary").click();
-  const aufgabe = page.getByRole("link", { name: /Kontostand unterschreitet Mindestbestand am \d\d\.\d\d\.\d{4}/ });
-  await expect(aufgabe).toContainText("unter dem Mindestbestand von 10.000.000,00");
-  await aufgabe.click();
-  await expect(page).toHaveURL(/\/auswertungen\/liquiditaet$/);
+    // Weit über dem Kontostand: schon heute darunter
+    await feld.fill("10.000.000,00");
+    await karte.getByRole("button", { name: "Speichern" }).click();
+    await expect(karte.getByText("Mindestbestand gespeichert.")).toBeVisible();
+    await expect(page.getByRole("note").filter({ hasText: "unterschreitet den Mindestbestand von 10.000.000,00" })).toBeVisible();
+    await expect(page.locator(".chart .grenze")).toHaveCount(1);
+    // barrierefreiheit.spec.ts sieht die Seite ohne Mindestbestand; Hinweis und Linie nur hier
+    expect(await axeVerstoesse(page)).toEqual([]);
 
-  // Leer heißt keine Warnung: Hinweis, Linie und Aufgabe verschwinden
-  await karte.getByLabel("Mindestbestand").fill("");
-  await karte.getByRole("button", { name: "Speichern" }).click();
-  await expect(karte.getByText("Mindestbestand entfernt.")).toBeVisible();
-  await expect(page.locator(".chart .grenze")).toHaveCount(0);
-  await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Übersicht");
-  await expect(page.getByText(/Kontostand unterschreitet Mindestbestand/)).toHaveCount(0);
+    await page.goto("/");
+    // Nahe Fristen stehen vorn, die früheste zuerst; überfällige können die Aufgabe unter „Weitere“ schieben
+    const weitere = page.locator("details.todo-weitere");
+    if ((await weitere.count()) > 0) await weitere.locator("summary").click();
+    const aufgabe = page.getByRole("link", { name: /Kontostand unterschreitet Mindestbestand am \d\d\.\d\d\.\d{4}/ });
+    await expect(aufgabe).toContainText("unter dem Mindestbestand von 10.000.000,00");
+    expect(await axeVerstoesse(page)).toEqual([]);
+    await aufgabe.click();
+    await expect(page).toHaveURL(/\/auswertungen\/liquiditaet$/);
+
+    // Leer heißt keine Warnung: Hinweis, Linie und Aufgabe verschwinden
+    await karte.getByLabel("Mindestbestand").fill("");
+    await karte.getByRole("button", { name: "Speichern" }).click();
+    await expect(karte.getByText("Mindestbestand entfernt.")).toBeVisible();
+    await expect(page.locator(".chart .grenze")).toHaveCount(0);
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Übersicht");
+    await expect(page.getByText(/Kontostand unterschreitet Mindestbestand/)).toHaveCount(0);
+  });
 });
