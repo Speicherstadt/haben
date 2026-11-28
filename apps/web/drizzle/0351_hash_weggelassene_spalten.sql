@@ -138,7 +138,7 @@ BEGIN
   -- Triggern anhängen, ohne die Kette zu brechen.
   -- jsonb_populate_record wandelt den Wert in den Zeilentyp, damit etwa Zeitpunkte unabhängig von der Zeitzone der
   -- schreibenden Sitzung verglichen werden. Spalten, die eine spätere Migration ergänzt hat, fehlen in älteren Einträgen
-  -- und bleiben dort ungeprüft. Die Spalten, die haben_audit weglässt (PDF, XML), vergleicht er über ihren SHA-256 (0350).
+  -- und bleiben dort ungeprüft. Die Spalten, die haben_audit weglässt (PDF, XML), vergleicht er über ihren SHA-256 (0351).
   FOREACH tbl IN ARRAY haben_audited_append_only_tables() LOOP
     IF to_regclass(tbl) IS NULL THEN
       RETURN QUERY SELECT 'siegel'::text, tbl, NULL::text, NULL::bigint, 'Tabelle fehlt'::text;
@@ -189,7 +189,7 @@ BEGIN
          ORDER BY x.eintrag NULLS LAST, x.zeile
          LIMIT $1
       $q$, tbl, pk_match, pk_key, zeile_t, zeile_l, abweichung) USING max_rows;
-      -- PDF und XML (#2038): maßgeblich ist der erste INSERT-Eintrag der Zeile mit Hashes, bei Zeilen von vor 0350 der
+      -- PDF und XML (#2038): maßgeblich ist der erste INSERT-Eintrag der Zeile mit Hashes, bei Zeilen von vor 0351 der
       -- Nachtrag der Migration. Verglichen werden nur die Spalten, die der Eintrag nennt, wie oben.
       IF mit_hash THEN
         RETURN QUERY EXECUTE format($q$

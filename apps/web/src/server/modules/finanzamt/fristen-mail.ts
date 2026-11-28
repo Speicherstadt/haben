@@ -10,6 +10,12 @@ import { listFristen, type Frist } from "./fristen.ts";
  * Kunden, die das BZSt nicht gültig nennt (#1489), auch wenn gerade keine Frist ansteht.
  */
 
+/** Zeile, die in jeder Erinnerung unten steht, etwa die Warnung vor dem Mindestbestand (#1381); link ist ein Pfad in Haben */
+export interface MailHinweis {
+  text: string;
+  link: string;
+}
+
 function datum(iso: string): string {
   return `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
 }
@@ -28,8 +34,11 @@ function betreff(neu: { frist: Frist; tage: number }[], ustIds: readonly Unguelt
   return ustIds.length === 1 ? `USt-IdNr. von ${ustIds[0]!.kontakt} laut BZSt nicht gültig` : `${ustIds.length} USt-IdNrn. laut BZSt nicht gültig`;
 }
 
-/** Inhalt einer Erinnerung; neu: was heute erinnert wird, ustIds: ungültige Nummern, die noch in keiner Mail standen */
-function fristenMail(neu: { frist: Frist; tage: number }[], ustIds: readonly UngueltigeUstId[], today: string) {
+/**
+ * Inhalt einer Erinnerung; neu: was heute erinnert wird, ustIds: ungültige Nummern, die noch in keiner Mail standen,
+ * hinweis: steht unter den Fristen, löst selbst keine Mail aus
+ */
+function fristenMail(neu: { frist: Frist; tage: number }[], ustIds: readonly UngueltigeUstId[], today: string, hinweis: MailHinweis | null) {
   const zeilen = neu.map(({ frist, tage }) => ({ frist, text: `${datum(frist.datum)} (${wann(tage)}): ${frist.titel}` }));
   const nummern = ustIds.map((u) => ({
     link: `${baseUrl()}/kontakte/${u.contactId}`,
@@ -41,6 +50,7 @@ function fristenMail(neu: { frist: Frist; tage: number }[], ustIds: readonly Ung
     "",
     ...zeilen.map(({ frist, text }) => `- ${text}\n  ${frist.detail}\n  ${baseUrl()}${frist.link}`),
     ...(nummern.length ? [...(zeilen.length ? [""] : []), ustIdTitel, ...nummern.map((n) => `- ${n.text}\n  ${n.link}`)] : []),
+    ...(hinweis ? ["", `${hinweis.text}\n${baseUrl()}${hinweis.link}`] : []),
     "",
     `Alle Fristen: ${baseUrl()}/fristen`,
   ].join("\n");
@@ -55,6 +65,7 @@ function fristenMail(neu: { frist: Frist; tage: number }[], ustIds: readonly Ung
     ...(nummern.length
       ? [`<p>${escapeHtml(ustIdTitel)}</p>`, ...liste(nummern.map((n) => `<li><a href="${escapeHtml(n.link)}">${escapeHtml(n.text)}</a></li>`))]
       : []),
+    ...(hinweis ? [`<p><a href="${escapeHtml(baseUrl() + hinweis.link)}">${escapeHtml(hinweis.text)}</a></p>`] : []),
     `<p><a href="${escapeHtml(`${baseUrl()}/fristen`)}">Alle Fristen in Haben</a></p>`,
   ].join("\n");
   return { subject: betreff(neu, ustIds), text, html };
@@ -72,9 +83,11 @@ async function sentReminderKeys(): Promise<Set<string>> {
 /**
  * Für den Scheduler: Erinnert an offene Fristen, die heute genau eine der eingestellten Tageszahlen entfernt
  * sind, und an überfällige einmal. Jede Frist und Stufe nur einmal; mehrere Fristen in einer Mail.
- * Verpasste Stufen (Server war aus) holt der nächste Lauf nach, solange die Frist noch nicht vorbei ist.
+ * Verpasste Stufen (Server war aus) holt der nächste Lauf nach, solange die Frist noch nicht vorbei ist. `hinweis` fragt
+ * der Lauf nur, wenn er ohnehin eine Mail schickt; der Scheduler gibt die Warnung vor dem Mindestbestand mit, weil
+ * liquiditaet über finanzamt liegt.
  */
-export async function runDueFristenMails(today: string, now = new Date()) {
+export async function runDueFristenMails(today: string, now = new Date(), hinweis: () => Promise<MailHinweis | null> = async () => null) {
   const settings = await loadMailSettings();
   if (!settings?.remindersEnabled || berlinHour(now) < 7) return null;
   const stufen = [...settings.reminderDays].sort((a, b) => b - a);
@@ -98,7 +111,12 @@ export async function runDueFristenMails(today: string, now = new Date()) {
   // Je Antwort einmal: Eine neue ungültige Antwort zur selben Nummer erinnert wieder
   const ustIds = ungueltig.filter((u) => !sent.has(`ustid:${u.bestaetigungId}`));
   if (neu.length === 0 && ustIds.length === 0) return { sent: 0 };
-  const mail = fristenMail(neu, ustIds, today);
+  // Ein Fehler im Hinweis hält die Erinnerung an Fristen nicht auf
+  const zusatz = await hinweis().catch((error: unknown) => {
+    console.warn("Fristen-Erinnerung: Hinweis nicht berechnet", error);
+    return null;
+  });
+  const mail = fristenMail(neu, ustIds, today, zusatz);
   const reminderKeys = [...neu.map((n) => n.key), ...ustIds.map((u) => `ustid:${u.bestaetigungId}`)];
   const result = await send(MAIL_ACTOR, { kind: "fristen", to: settings.reminderTo, ...mail, reminderKeys });
   if (!result.ok) throw new MailError(`Erinnerung nicht gesendet: ${result.error}`);

@@ -11,11 +11,11 @@ import { testDatabaseUrl } from "../test-db.ts";
 const MIGRATIONS = fileURLToPath(new URL("../../../drizzle", import.meta.url));
 
 /*
- * Migration 0350 (#2038): Einträge von vor 0350 haben keine Hashes von PDF und XML. Die Migration trägt sie für jede solche
+ * Migration „Hashes weggelassener Spalten“ (#2038, 0351): Einträge von vorher haben keine Hashes von PDF und XML. Die Migration trägt sie für jede solche
  * Zeile nachträglich ein, mit Hinweis in der Kette; danach meldet der Abgleich nichts, und eine still getauschte Datei
  * fällt auf.
  */
-describe.skipIf(!testDatabaseUrl)("Migration 0350: Hashes von PDF und XML im Bestand (Postgres)", () => {
+describe.skipIf(!testDatabaseUrl)("Migration: Hashes von PDF und XML im Bestand (Postgres)", () => {
   let sql: postgres.Sql;
 
   beforeAll(async () => {
@@ -27,7 +27,7 @@ describe.skipIf(!testDatabaseUrl)("Migration 0350: Hashes von PDF und XML im Bes
     const previous = mkdtempSync(join(tmpdir(), "haben-migrationen-"));
     cpSync(MIGRATIONS, previous, { recursive: true });
     const full = JSON.parse(readFileSync(join(MIGRATIONS, "meta", "_journal.json"), "utf8"));
-    const idx = full.entries.findIndex((e: { tag: string }) => e.tag === "0350_hash_weggelassene_spalten");
+    const idx = full.entries.findIndex((e: { tag: string }) => e.tag.endsWith("_hash_weggelassene_spalten"));
     writeFileSync(join(previous, "meta", "_journal.json"), JSON.stringify({ ...full, entries: full.entries.slice(0, idx) }));
     sql = postgres(testDatabaseUrl!, { max: 1, onnotice: () => {} });
     const { drizzle } = await import("drizzle-orm/postgres-js");

@@ -31,6 +31,6 @@ describe("Felder des Einstellungsexports", () => {
     // bisherigen Version weiter liest; danach den neuen Wert eintragen
     const felder = Object.fromEntries(Object.entries(FELDER).map(([name, { mit }]) => [name, [...mit].sort()]));
     const sha256 = createHash("sha256").update(JSON.stringify(felder)).digest("hex");
-    expect({ version: SETTINGS_EXPORT_VERSION, sha256 }).toEqual({ version: 7, sha256: "3b5671f0cbb4c702fbd72356b1e89dc86510f42900574e0ee964cf88dbec44c4" });
+    expect({ version: SETTINGS_EXPORT_VERSION, sha256 }).toEqual({ version: 8, sha256: "b2976307bc0bc7a7ae249437d65b4cef6024f28c2503d3798abc2b5dac8d1fd3" });
   });
 });

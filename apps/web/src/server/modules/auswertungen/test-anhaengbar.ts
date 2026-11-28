@@ -1,6 +1,6 @@
 import type postgres from "postgres";
 
-/** Hilfen für Tests des Abgleichs nur anhängbarer Tabellen mit dem Audit-Log (0339, 0350) */
+/** Hilfen für Tests des Abgleichs nur anhängbarer Tabellen mit dem Audit-Log (0339, 0351) */
 
 export type Problem = { art: string; tabelle: string; zeile: string | null; seq: string | null; befund: string };
 

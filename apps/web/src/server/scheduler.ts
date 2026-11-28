@@ -10,6 +10,7 @@ import { type Job, recordJobRun } from "./metriken.ts";
 import { applyPublishedRates, runDueDauerbelege, runDueInboxFetch } from "./modules/belege/index.ts";
 import { runDueExchangeRates } from "./modules/stammdaten/index.ts";
 import { runDueFristenMails, runDuePostfachFetch } from "./modules/finanzamt/index.ts";
+import { mindestbestandHinweis } from "./modules/liquiditaet/index.ts";
 import { applyPublishedRatesToDrafts, runDueBaseRate, runDueRecurring } from "./modules/rechnungen/index.ts";
 import { runDueEtsySyncs } from "./modules/etsy/index.ts";
 import { runDueStoreSyncs } from "./modules/stores/index.ts";
@@ -204,7 +205,7 @@ const JOBS: ScheduledJob[] = [
     task: "deadline_mails",
     label: "Fristen-Erinnerung",
     run: async () => {
-      const result = await runDueFristenMails(today());
+      const result = await runDueFristenMails(today(), new Date(), () => mindestbestandHinweis(today()));
       if (result?.sent) console.log(`Fristen-Erinnerung: ${result.sent} Frist(en) per E-Mail erinnert`);
       return true;
     },

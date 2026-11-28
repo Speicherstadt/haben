@@ -2455,8 +2455,15 @@
     {
       "idx": 350,
       "version": "7",
-      "when": 1795873777496,
-      "tag": "0350_hash_weggelassene_spalten",
+      "when": 1795876747788,
+      "tag": "0350_mindestbestand",
+      "breakpoints": true
+    },
+    {
+      "idx": 351,
+      "version": "7",
+      "when": 1795883589493,
+      "tag": "0351_hash_weggelassene_spalten",
       "breakpoints": true
     }
   ]

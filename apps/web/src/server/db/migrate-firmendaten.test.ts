@@ -61,14 +61,15 @@ describe.skipIf(!testDatabaseUrl)("Firmendaten-Bestätigung bei einer bestehende
       await migrate(database, { migrationsFolder: MIGRATIONS });
       expect(await sql`select firmendaten_gespeichert_at from company`).toEqual([{ firmendaten_gespeichert_at: null }]);
       // Spätere Migrationen ergänzen Spalten für Navigation (#504), Vorsteuerabzug (#852), Archivsuche (#617),
-      // Gründungsdatum (#717) und den Zähler je Kunde (#1426); sonst bleibt alles gleich.
-      expect(await sql`select nav_color, nav_logo, ohne_vorsteuerabzug, archive_search, founded_on from company`).toEqual([
-        { nav_color: null, nav_logo: false, ohne_vorsteuerabzug: false, archive_search: true, founded_on: null },
+      // Gründungsdatum (#717), den Zähler je Kunde (#1426) und den Mindestbestand (#1381); sonst bleibt alles gleich.
+      expect(await sql`select nav_color, nav_logo, ohne_vorsteuerabzug, archive_search, founded_on, mindestbestand from company`).toEqual([
+        { nav_color: null, nav_logo: false, ohne_vorsteuerabzug: false, archive_search: true, founded_on: null, mindestbestand: null },
       ]);
       expect(
         await sql`select to_jsonb(company) - 'firmendaten_gespeichert_at' - 'nav_color' - 'nav_logo' - 'ohne_vorsteuerabzug'
           - 'archive_search' - 'founded_on' - 'invoice_counter_per_customer' - 'quote_counter_per_customer'
-          - 'extraction_paused' - 'extraction_max_tokens_per_request' - 'extraction_requests_per_minute' - 'extraction_tokens_per_minute' - 'extraction_max_parallel' as value from company`,
+          - 'extraction_paused' - 'extraction_max_tokens_per_request' - 'extraction_requests_per_minute' - 'extraction_tokens_per_minute' - 'extraction_max_parallel'
+          - 'mindestbestand' as value from company`,
       ).toEqual(before.company);
       // Bisherige Einträge unverändert; neu sind nur die Zeile der Prüfung beim Update (Migration 0275, #1116) und das
       // Briefkopf-Profil mit dem bisherigen Layout für die eingerichtete Firma (Migration 0312, #113)
