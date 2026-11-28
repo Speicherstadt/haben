@@ -47,6 +47,13 @@ export async function finalizeIssues(id: string, q: Db | Tx = db): Promise<strin
   if (invoice.kind === "rechnung") issues.push(...outgoingTaxIssues(invoice.taxTreatment, invoice.taxDetails, company.kleinunternehmer));
   issues.push(...(await versteuerungIssues(company, invoice.issueDate, q)));
   issues.push(...buyerIssues(company.invoiceNumberFormat, contact, data.corrects, company.invoiceCounterPerCustomer));
+  // § 13b Abs. 4 Satz 2 UStG: Bei Anzahlungen auf eine Bauleistung entsteht die Steuer des Kunden mit der Zahlung, Kz 60
+  // folgt ihr. Das bildet Haben noch nicht ab (#1934).
+  if (invoice.taxTreatment === "bauleistung_13b" && invoice.variant !== null) {
+    issues.push(
+      "Abschlags- und Schlussrechnungen mit Bauleistung im Inland (§ 13b UStG) unterstützt Haben noch nicht; stell eine Rechnung über die erbrachte Leistung",
+    );
+  }
   if (invoice.advanceType === "teilleistung") {
     if (!invoice.serviceFrom) issues.push("Leistungsdatum der erbrachten Teilleistung fehlt");
     if ((invoice.serviceTo ?? invoice.serviceFrom ?? "") > invoice.issueDate) issues.push("Die Teilleistung ist am Rechnungsdatum noch nicht erbracht");

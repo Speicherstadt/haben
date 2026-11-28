@@ -8,6 +8,7 @@ export type FieldKey =
   | "kz86"
   | "kz21"
   | "kz45"
+  | "kz60"
   | "kz48"
   | "kz50"
   | "kz66"

@@ -502,6 +502,27 @@ describe.skipIf(!testDatabaseUrl)("Fremde Ausgangsrechnung übernehmen (Postgres
     expect(await vat.computeVatFigures({ year: 2026, month: 10 })).toMatchObject({ kz81: 0, tax81: 0 });
   }, 30_000);
 
+  // #1934: Kategorie AE an einen Kunden mit deutscher USt-IdNr. ist die Bauleistung im Inland, nicht EU-Reverse-Charge
+  it("schlägt für AE mit deutscher USt-IdNr. des Kunden die Bauleistung nach § 13b vor und übernimmt sie mit Kz 60", async () => {
+    await company("SKR04", "ist");
+    const contactId = await customer("DE", "DE811128135");
+    const draft = await invoices.createDraft(actor, {
+      ...(await invoices.newDraftDefaults("2026-09-26")),
+      contactId,
+      taxTreatment: "bauleistung_13b",
+      lines: [{ description: "Dachstuhl abbinden", quantity: 1000, unit: "Psch.", unitPrice: 10_000, taxRate: 0 }],
+    });
+    const own = await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand);
+    const xml = own.xml!.replace(own.number!, `${own.number}-ALT`);
+    const file = { bytes: new TextEncoder().encode(xml), filename: "re.xml", mimeType: "application/xml" };
+    const proposal = await foreign.foreignInvoiceProposal(file);
+    expect(proposal).toMatchObject({ from: "xrechnung", taxTreatment: "bauleistung_13b", taxes: [{ rate: 0, net: 10_000, tax: 0 }], contactId });
+    const { id } = await foreign.adoptForeignInvoice(actor, { ...proposal, contactId }, pdf, kleinunternehmerStand);
+    const [row] = await sql`select tax_treatment from invoices where id = ${id}`;
+    expect(row!.tax_treatment).toBe("bauleistung_13b");
+    expect(await vat.computeVatFigures({ year: 2026, month: 9 })).toMatchObject({ kz60: 20_000, kz81: 0 });
+  }, 30_000);
+
   it("lehnt eine E-Rechnung als Gutschrift oder in Fremdwährung beim Übernehmen ab", async () => {
     await company("SKR03", "soll");
     const contactId = await customer("DE", "DE811128135");

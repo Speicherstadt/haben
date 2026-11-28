@@ -15,11 +15,17 @@ export function ForeignCancellationForm({
   file,
   proposal,
   cancels,
+  postfach,
+  onAdopted,
   onClose,
 }: {
   file: File;
   proposal: Proposal;
   cancels: NonNullable<Proposal["cancels"]>;
+  /** Eintrag aus dem Postfach, aus dem die Datei kommt */
+  postfach?: string;
+  /** Statt zum Storno zu springen: etwa zur nächsten wartenden Datei aus dem Postfach */
+  onAdopted?: () => void;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -31,10 +37,16 @@ export function ForeignCancellationForm({
     const form = new FormData();
     form.set("file", file);
     form.set("storno", JSON.stringify({ invoiceId: cancels.invoiceId, number: proposal.number, issueDate: proposal.issueDate }));
+    if (postfach) form.set("postfach", postfach);
     setBusy(true);
     setError(null);
     try {
       const { id } = await adoptForeignCancellationFn({ data: form });
+      if (onAdopted) {
+        setBusy(false);
+        onAdopted();
+        return;
+      }
       await router.navigate({ to: "/rechnungen/$id", params: { id } });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Das Storno konnte nicht übernommen werden.");

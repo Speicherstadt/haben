@@ -1,0 +1,1 @@
+ALTER TABLE "vat_returns" ADD COLUMN "kz60" integer DEFAULT 0 NOT NULL;

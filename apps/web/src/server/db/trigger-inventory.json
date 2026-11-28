@@ -1345,6 +1345,20 @@
       "function": "public.haben_reject_truncate()"
     },
     {
+      "table": "public.inbox_outgoing",
+      "name": "inbox_outgoing_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER inbox_outgoing_audit AFTER INSERT OR DELETE OR UPDATE ON public.inbox_outgoing FOR EACH ROW EXECUTE FUNCTION public.haben_audit()",
+      "function": "public.haben_audit()"
+    },
+    {
+      "table": "public.inbox_outgoing",
+      "name": "inbox_outgoing_no_truncate",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER inbox_outgoing_no_truncate BEFORE TRUNCATE ON public.inbox_outgoing FOR EACH STATEMENT EXECUTE FUNCTION public.haben_reject_truncate()",
+      "function": "public.haben_reject_truncate()"
+    },
+    {
       "table": "public.inbox_settings",
       "name": "inbox_settings_audit",
       "enabled": "O",
@@ -4071,6 +4085,7 @@
     { "table": "public.vat_returns", "column": "kz47", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz48", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz50", "expression": "0" },
+    { "table": "public.vat_returns", "column": "kz60", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz61", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz62", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz66", "expression": "0" },

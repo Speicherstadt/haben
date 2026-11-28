@@ -44,15 +44,26 @@ export function unterstuetzt(capabilities: Map<string, unknown>, afterFetch: Inb
   }
 }
 
-export async function imapConnect(settings: InboxSettings, password: string, folder: string): Promise<InboxConnection> {
-  const client = new ImapFlow({
+/**
+ * Verbindungsoptionen für imapflow. Ohne `secure` (Port 143) muss STARTTLS gelingen: imapflow nutzt es sonst nur, wenn
+ * der Server es anbietet, und meldet sich andernfalls im Klartext an. Wer auf dem Netzweg „STARTTLS“ aus der Antwort
+ * des Servers streicht, läse dann das Postfachpasswort mit. Mit `secure` (Port 993) ist die Verbindung von Anfang an
+ * verschlüsselt; dort darf `doSTARTTLS` nicht gesetzt sein.
+ */
+export function imapOptions(settings: Pick<InboxSettings, "host" | "port" | "secure" | "username">, password: string) {
+  return {
     host: settings.host,
     port: settings.port,
     secure: settings.secure,
+    doSTARTTLS: settings.secure ? undefined : true,
     auth: { user: settings.username, pass: password },
-    logger: false,
+    logger: false as const,
     socketTimeout: 60_000,
-  });
+  };
+}
+
+export async function imapConnect(settings: InboxSettings, password: string, folder: string): Promise<InboxConnection> {
+  const client = new ImapFlow(imapOptions(settings, password));
   await client.connect();
   try {
     unterstuetzt(client.capabilities, settings.afterFetch);

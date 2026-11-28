@@ -26,6 +26,8 @@ export interface UstvaValues {
   kz86: Cents;
   kz66: Cents;
   kz21?: Cents;
+  /** Bauleistungen, für die der Kunde die Steuer schuldet (§ 13b Abs. 5 UStG) */
+  kz60?: Cents;
   kz45?: Cents;
   kz48?: Cents;
   kz46?: Cents;
@@ -55,6 +57,7 @@ export interface UstvaFigures {
   tax86: Cents;
   /** Umsätze ohne Steuer in Cent, auf volle Euro abgerundet */
   kz21: Cents;
+  kz60: Cents;
   kz45: Cents;
   kz48: Cents;
   kz66: Cents;
@@ -108,6 +111,7 @@ export function computeUstva(input: UstvaValues): UstvaFigures {
     kz86,
     tax86,
     kz21: toWholeEuros(input.kz21 ?? 0),
+    kz60: toWholeEuros(input.kz60 ?? 0),
     kz45: toWholeEuros(input.kz45 ?? 0),
     kz48: toWholeEuros(input.kz48 ?? 0),
     kz66: input.kz66,

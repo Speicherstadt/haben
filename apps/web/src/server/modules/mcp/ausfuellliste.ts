@@ -71,6 +71,12 @@ const FELDER: { kz: Feld; abschnitt: string; bezeichnung: string; volleEuro: boo
     bezeichnung: "Nicht steuerbare sonstige Leistungen an Unternehmer im übrigen Gemeinschaftsgebiet (§ 18b Satz 1 Nr. 2 UStG)",
     volleEuro: true,
   },
+  {
+    kz: "kz60",
+    abschnitt: "Ergänzende Angaben zu Umsätzen",
+    bezeichnung: "Steuerpflichtige Umsätze, für die der Leistungsempfänger die Steuer nach § 13b Abs. 5 UStG schuldet",
+    volleEuro: true,
+  },
   { kz: "kz45", abschnitt: "Ergänzende Angaben zu Umsätzen", bezeichnung: "Übrige nicht steuerbare Umsätze (Leistungsort nicht im Inland)", volleEuro: true },
   {
     kz: "kz50",

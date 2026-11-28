@@ -19,7 +19,7 @@ vi.mock("imapflow", () => ({
   },
 }));
 
-const { imapConnect, InboxError } = await import("./inbox-imap.ts");
+const { imapConnect, imapOptions, InboxError } = await import("./inbox-imap.ts");
 
 const settings = (afterFetch: "seen" | "move" | "delete") =>
   ({ host: "imap.example.com", port: 993, secure: true, username: "u", afterFetch }) as Parameters<typeof imapConnect>[0];
@@ -50,5 +50,16 @@ describe("IMAP: gezielt löschen und verschieben (RFC 4315)", () => {
     const connection = await imapConnect(settings(afterFetch), "pw", "Belege");
     await connection.close();
     expect(state.calls).toEqual(["connect", "lock", "logout"]);
+  });
+});
+
+describe("imapOptions", () => {
+  it("verlangt bei IMAP ohne TLS (Port 143) STARTTLS, damit das Passwort nie im Klartext läuft", () => {
+    const base = { host: "imap.example.de", username: "belege" };
+    expect(imapOptions({ ...base, port: 143, secure: false }, "geheim")).toMatchObject({ secure: false, doSTARTTLS: true });
+    // Mit TLS von Anfang an (Port 993) darf doSTARTTLS nicht gesetzt sein: imapflow lehnt beides zusammen ab
+    const tls = imapOptions({ ...base, port: 993, secure: true }, "geheim");
+    expect(tls).toMatchObject({ secure: true });
+    expect(tls.doSTARTTLS).toBeUndefined();
   });
 });

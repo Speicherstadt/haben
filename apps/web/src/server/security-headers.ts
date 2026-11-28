@@ -45,3 +45,19 @@ export function withCacheControl(response: Response): Response {
   copy.headers.set("Cache-Control", NO_STORE);
   return copy;
 }
+
+/**
+ * Browser-Funktionen, die Haben nicht nutzt, für die Seite und eingebettete fremde Seiten („Eigene Seiten“) sperren.
+ * Die Kamera bleibt für die eigene Seite frei (Belegfoto). Passkeys und die Zwischenablage haben eigene Vorgaben des
+ * Browsers (nur die eigene Seite) und werden hier nicht angefasst.
+ */
+export const PERMISSIONS_POLICY = "camera=(self), microphone=(), geolocation=(), payment=(), usb=()";
+
+/** Ergänzt HTML-Antworten um die Permissions-Policy; alles andere und eine schon gesetzte Policy bleiben unverändert. */
+export function withPermissionsPolicy(response: Response): Response {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.startsWith("text/html") || response.headers.has("permissions-policy")) return response;
+  const copy = new Response(response.body, response);
+  copy.headers.set("Permissions-Policy", PERMISSIONS_POLICY);
+  return copy;
+}

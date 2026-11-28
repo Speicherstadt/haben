@@ -33,7 +33,9 @@ export async function attachmentsStored(source: { bytes: Buffer; tooLarge: boole
   const hashes = [...new Set(mail.attachments.filter(isBeleg).map((attachment) => sha256Of(new Uint8Array(attachment.content))))];
   if (hashes.length === 0) return false;
   const rows = await db.select({ sha256: schema.documents.sha256 }).from(schema.documents).where(inArray(schema.documents.sha256, hashes));
-  const present = new Set(rows.map((row) => row.sha256));
+  // Anhänge aus dem Ausgangsordner liegen nicht als Beleg, sondern als wartende Ausgangsrechnung vor
+  const waiting = await db.select({ sha256: schema.inboxOutgoing.sha256 }).from(schema.inboxOutgoing).where(inArray(schema.inboxOutgoing.sha256, hashes));
+  const present = new Set([...rows, ...waiting].map((row) => row.sha256));
   for (const hash of hashes) {
     if (!present.has(hash)) return false;
     try {
