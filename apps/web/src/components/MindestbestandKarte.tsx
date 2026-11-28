@@ -64,7 +64,7 @@ function MindestbestandForm({ mindestbestand }: { mindestbestand: Cents | null }
         </Field>
       </div>
       <div className="actions">
-        <button type="submit" className="btn" disabled={busy}>
+        <button type="submit" className="btn btn-primary" disabled={busy}>
           Speichern
         </button>
       </div>
