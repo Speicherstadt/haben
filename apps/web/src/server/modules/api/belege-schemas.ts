@@ -63,7 +63,7 @@ const documentSummaryShape = {
   supplierName: z.string().describe("Lieferant, leer bis ausgelesen oder eingetragen"),
   invoiceNumber: z.string(),
   documentDate: isoDate.nullable().describe("Belegdatum"),
-  category: z.string().nullable().describe("Kategorie der Ausgabe, z. B. software; null bei mehreren Kategorien (siehe positions in der Einzelansicht)"),
+  category: z.string().nullable().describe("Kategorie der Ausgabe, z. B. software; null bei mehreren Kategorien (siehe lines in der Einzelansicht)"),
   currency: z.string(),
   gross: inCents(z.number().int()).describe(`Brutto in Euro; ${CENTS}`),
   externalSource: z.string().nullable(),
@@ -94,7 +94,7 @@ export const documentSchema = z
     net: inCents(z.number().int()).describe(`Netto in Euro; ${CENTS}`),
     tax: inCents(z.number().int()).describe(`Steuer in Euro; ${CENTS}`),
     ...documentTaxShape,
-    positions: z
+    lines: z
       .array(
         z.object({
           category: z

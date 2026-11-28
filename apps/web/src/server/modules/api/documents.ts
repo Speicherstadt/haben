@@ -70,7 +70,7 @@ function documentOut({ document, amounts, positionen, cancellation, reentryId, r
     vorsteuerAnteil: document.vorsteuerAnteil,
     vorsteuerAbzug: document.vorsteuerAbzug,
     amounts: amounts.map(({ taxRate, net, tax, vorsteuerAnteil }) => ({ taxRate, net, tax, vorsteuerAnteil })),
-    positions: positionen.map(({ category, description, taxRate, net, tax }) => ({ category, description, taxRate, net, tax })),
+    lines: positionen.map(({ category, description, taxRate, net, tax }) => ({ category, description, taxRate, net, tax })),
     issues: document.lockedAt ? [] : bookingIssues(document, amounts, request.today, positionen, rechtsform),
     replacedById: reentryId,
     replacesId: document.replacesDocumentId,
