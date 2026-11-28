@@ -1540,6 +1540,9 @@ summary { cursor: pointer; min-height: 24px; }
 /* Pflichtangaben als Zeile unter den Spalten, wie auf dem Blatt durch eine feine Linie abgesetzt (#1651) */
 .footer-preview-legal { margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--line); }
 .footer-legal-hint { margin-top: 8px; }
+/* Wie auf dem Blatt: unten bündig stehen die letzten Zeilen auf einer Linie, eine leere Zeile hält ihre Höhe (#2046) */
+.footer-preview[data-align="unten"] .footer-columns { align-items: end; }
+.footer-preview .footer-columns > div > div { min-height: 1lh; }
 /* Randspalte (Elegant, Atelier): alles untereinander, so schmal wie auf dem Blatt */
 .footer-preview[data-stelle="rand"] .footer-columns { max-width: 224px; gap: 12px; }
 /* Eigene Layouts in den Einstellungen; ab sieben Einträgen scrollt die Liste */

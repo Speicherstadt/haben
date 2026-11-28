@@ -50,8 +50,15 @@ const common = {
     .describe("Angaben rechts neben der Anschrift: Nummer, Datum, Leistungsdatum, Kundennummer, Referenzen"),
   payment: text("Satz zur Zahlung, etwa Fälligkeit, Skonto oder Lastschrift").nullable(),
   qr: text("GiroCode als SVG; null oder fehlt, wenn keiner gedruckt wird").nullable().optional(),
-  footer: z.array(z.array(z.string())).describe("Spalten der Fußzeile, je Spalte die Zeilen als Text"),
-  footerFormatted: z.array(z.array(runs)).nullable().describe("Eigene Fußzeile mit Auszeichnungen, je Spalte und Zeile; null bei der automatischen Fußzeile"),
+  footer: z
+    .array(z.array(z.string()))
+    .describe("Spalten der Fußzeile, je Spalte die Zeilen als Text; eine leere Zeile der eigenen Fußzeile ist ein leerer Text und bleibt als Abstand stehen"),
+  footerFormatted: z
+    .array(z.array(runs))
+    .nullable()
+    .describe(
+      "Eigene Fußzeile mit Auszeichnungen, je Spalte und Zeile; eine leere Zeile ist ein Abschnitt mit leerem Text; null bei der automatischen Fußzeile",
+    ),
   legal: text(
     "Pflichtangaben einer GmbH oder UG (§ 35a GmbHG) in einer Zeile, Angaben getrennt durch „ · “; null ohne und wenn sie über ihre Platzhalter schon in der eigenen Fußzeile (footer) stehen",
   ).nullable(),
@@ -73,6 +80,12 @@ const common = {
         .optional()
         .describe(
           "Stelle von legal im Fuß: „spalte“ als eigene Spalte neben footer, je Angabe eine Zeile; „zeile“ als Zeile unter den Spalten; „layout“, wie es das Layout vorsieht. Eingebaute Layouts bekommen die Stelle aufgelöst, außer mit Randspalte (Elegant, Atelier): Die setzt legal immer selbst und bekommt die Wahl, wie sie ist",
+        ),
+      footerAlign: z
+        .enum(["oben", "unten"])
+        .optional()
+        .describe(
+          "Spalten von footer oben oder unten bündig, für alle gemeinsam; bei „unten“ stehen die letzten Zeilen auf einer Linie. Gilt auch für die Spalte aus legal; eine Randspalte, die die Spalten untereinander setzt, braucht es nicht",
         ),
       options: z
         .record(z.string(), z.string())
@@ -312,6 +325,7 @@ export const LAYOUT_GESTALTUNG = {
   background: { label: "Briefpapier", felder: "background", belege: ALLE_BELEGE },
   backgroundPages: { label: "Seiten mit Briefpapier", felder: "look.backgroundPages", belege: ALLE_BELEGE },
   legalPosition: { label: "Registerangaben", felder: "look.legalPosition", belege: ALLE_BELEGE },
+  footerAlign: { label: "Spalten ausrichten", felder: "look.footerAlign", belege: ALLE_BELEGE },
 } as const satisfies Record<string, { label: string; felder: string; belege: readonly LayoutDocumentType[] }>;
 
 export type LayoutGestaltung = keyof typeof LAYOUT_GESTALTUNG;

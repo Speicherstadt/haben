@@ -86,6 +86,13 @@ describe("Schrift und Briefpapier in der Gestaltung", () => {
     expect(letterheadDesignInputSchema.safeParse({ legalPosition: "rand" }).success).toBe(false);
   });
 
+  it("Spalten der Fußzeile ab Werk oben bündig, auch in älteren Zeilen; sonst unten (#2046)", () => {
+    expect(DEFAULT_DESIGN.footerAlign).toBe("oben");
+    expect(designWithDefaults({ accent: "#123456" }).footerAlign).toBe("oben");
+    expect(letterheadDesignInputSchema.safeParse({ footerAlign: "unten" }).success).toBe(true);
+    expect(letterheadDesignInputSchema.safeParse({ footerAlign: "mitte" }).success).toBe(false);
+  });
+
   it("kennt nur erste Seite oder alle Seiten", () => {
     expect(letterheadDesignInputSchema.safeParse({ backgroundPages: "alle" }).success).toBe(true);
     expect(letterheadDesignInputSchema.safeParse({ backgroundPages: "letzte" }).success).toBe(false);

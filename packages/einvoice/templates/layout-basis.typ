@@ -114,6 +114,8 @@
   grid(
     columns: range(fuss-spalten-zahl).map(_ => 1fr),
     column-gutter: 6mm,
+    // Mit look.footerAlign „unten“ stehen die letzten Zeilen auf einer Linie (#2046)
+    align: if look.at("footerAlign", default: "oben") == "unten" { bottom } else { top },
     ..if d.at("footerFormatted", default: none) != none { d.footerFormatted.map(footer-col-formatted) } else { d.footer.map(footer-col) },
     ..if legal-zeilen.len() > 0 { (footer-col(legal-zeilen),) },
   )
