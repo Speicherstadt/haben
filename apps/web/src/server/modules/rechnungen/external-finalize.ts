@@ -85,6 +85,10 @@ export async function finalizeExternalDraft(
     return refused("forbidden", `Dieses Token darf nur Entwürfe der Quelle „${source}“ festschreiben, diese Rechnung kommt aus „${invoice.externalSource}“.`);
   }
   if (invoice.status !== "draft") {
+    // Auch eine in Haben von Hand festgeschriebene Rechnung der Quelle geht nur mit „Bereits bezahlt“ per API hinaus
+    if (senden && invoice.paymentMethod !== "bereits_bezahlt") {
+      return refused("unprocessable", "Über die API werden nur Rechnungen mit der Zahlungsart „Bereits bezahlt“ versendet.");
+    }
     return { ok: true, invoice, finalized: false, versand: senden ? await sendOnce(actor, id) : { status: "nicht_verlangt" } };
   }
   const problem = await draftProblem(invoice, senden);
