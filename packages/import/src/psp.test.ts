@@ -38,6 +38,36 @@ describe("PayPal", () => {
       ["2026-09-30", -2_408, "PayPal", "Gebühr · 9AB"],
     ]);
   });
+
+  // #2025: Zahlung per Lastschrift vom Bankkonto wie im Issue, Namen und Codes erfunden. Die Autorisierungen sind nur
+  // Vormerkungen („Auswirkung auf Guthaben“ = Memo), die Spalte „Guthaben“ bleibt bei ihnen gleich.
+  const lastschrift = [
+    `"Datum","Uhrzeit","Zeitzone","Name","Typ","Status","Währung","Brutto","Gebühr","Netto","Transaktionscode","Zugehöriger Transaktionscode","Guthaben","Auswirkung auf Guthaben"`,
+    `"12.02.2026","09:14:02","MEZ","Beispiel Versand GmbH","Allgemeine Autorisierung","Ausstehend","EUR","-6,99","0,00","-6,99","1AA00000AA0000001","","0,00","Memo"`,
+    `"12.02.2026","09:14:02","MEZ","Beispiel Versand GmbH","PayPal Express-Zahlung","Abgeschlossen","EUR","-6,99","0,00","-6,99","2BB00000BB0000002","1AA00000AA0000001","-6,99","Soll"`,
+    `"12.02.2026","09:14:02","MEZ","","Bankgutschrift auf PayPal-Konto","Ausstehend","EUR","6,99","0,00","6,99","3CC00000CC0000003","2BB00000BB0000002","0,00","Haben"`,
+    `"12.02.2026","09:14:03","MEZ","Beispiel Versand GmbH","Allgemeine Autorisierung","Abgeschlossen","EUR","-6,99","0,00","-6,99","1AA00000AA0000001","","0,00","Memo"`,
+  ].join("\n");
+
+  it("übernimmt Vormerkungen (Memo) nicht als Umsatz und nennt sie im Protokoll (#2025)", () => {
+    const statement = parseStatement(bytes(lastschrift), "paypal.csv");
+    expect(brief(statement)).toEqual([["2026-02-12", -699, "Beispiel Versand GmbH", "PayPal Express-Zahlung · 2BB00000BB0000002"]]);
+    expect(statement.warnings).toEqual([
+      "2 Zeilen übersprungen: Vormerkung ohne Wirkung auf das Guthaben (Memo).",
+      "1 Zeile übersprungen: nicht abgeschlossen (ausstehend, abgelehnt, storniert).",
+    ]);
+  });
+
+  it("englische Spalten: „Balance Impact“ = Memo wird übersprungen (#2025)", () => {
+    const english = [
+      `"Date","Time","TimeZone","Name","Type","Status","Currency","Gross","Fee","Net","Transaction ID","Balance","Balance Impact"`,
+      `"12/02/2026","09:14:02","CET","Example Shipping Ltd","General Authorization","Completed","EUR","-6.99","0.00","-6.99","1AA00000AA0000001","0.00","Memo"`,
+      `"12/02/2026","09:14:02","CET","Example Shipping Ltd","Express Checkout Payment","Completed","EUR","-6.99","0.00","-6.99","2BB00000BB0000002","-6.99","Debit"`,
+    ].join("\n");
+    const statement = parseStatement(bytes(english));
+    expect(brief(statement)).toEqual([["2026-02-12", -699, "Example Shipping Ltd", "Express Checkout Payment · 2BB00000BB0000002"]]);
+    expect(statement.warnings).toEqual(["1 Zeile übersprungen: Vormerkung ohne Wirkung auf das Guthaben (Memo)."]);
+  });
 });
 
 describe("Stripe", () => {

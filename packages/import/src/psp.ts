@@ -41,7 +41,19 @@ export function isPayPalHeader(c: Columns): boolean {
   );
 }
 
-/** Aktivitätenexport von PayPal (Spalten deutsch oder englisch), nur abgeschlossene Zeilen in Euro */
+type PayPalSkip = "memo" | "pending" | "foreign";
+
+/** Warum eine Zeile des Aktivitätenexports kein Umsatz ist; `undefined` heißt übernehmen */
+function payPalSkip(impact: string, status: string, currency: string): PayPalSkip | undefined {
+  // „Auswirkung auf Guthaben“ bzw. „Balance Impact“ = Memo: eine Vormerkung, die das Guthaben nicht ändert, etwa die
+  // „Allgemeine Autorisierung“ neben der eigentlichen Zahlung (#2025). Fehlt die Spalte, ist der Wert leer.
+  if (/^memo$/i.test(impact)) return "memo";
+  if (!/^(abgeschlossen|completed)$/i.test(status)) return "pending";
+  if (currency.toUpperCase() !== "EUR") return "foreign";
+  return undefined;
+}
+
+/** Aktivitätenexport von PayPal (Spalten deutsch oder englisch), nur abgeschlossene Zeilen in Euro, die das Guthaben ändern */
 export function parsePayPal(rows: string[][], headerRow: number): ParsedStatement {
   const c = new Columns(rows[headerRow]!);
   const german = c.has("brutto");
@@ -50,6 +62,7 @@ export function parsePayPal(rows: string[][], headerRow: number): ParsedStatemen
   const name = c.getter("name");
   const type = c.getter("typ", "type");
   const status = c.getter("status");
+  const impact = c.getter("auswirkungaufguthaben", "balanceimpact");
   const currency = c.getter("währung", "currency");
   const gross = c.getter("brutto", "gross");
   const fee = c.getter("gebühr", "fee");
@@ -58,17 +71,13 @@ export function parsePayPal(rows: string[][], headerRow: number): ParsedStatemen
   const subject = c.getter("betreff", "subject", "artikelbezeichnung", "itemtitle");
 
   const list: Tx[] = [];
-  let pending = 0;
-  let foreign = 0;
+  const skipped: Record<PayPalSkip, number> = { memo: 0, pending: 0, foreign: 0 };
   rows.slice(headerRow + 1).forEach((row, i) => {
     if (isBlankRow(row)) return;
     const where = `Zeile ${headerRow + i + 2}`;
-    if (!/^(abgeschlossen|completed)$/i.test(status(row))) {
-      pending++;
-      return;
-    }
-    if (currency(row).toUpperCase() !== "EUR") {
-      foreign++;
+    const skip = payPalSkip(impact(row), status(row), currency(row));
+    if (skip) {
+      skipped[skip]++;
       return;
     }
     const code = id(row);
@@ -104,7 +113,11 @@ export function parsePayPal(rows: string[][], headerRow: number): ParsedStatemen
     format: "paypal-csv",
     currency: "EUR",
     transactions: indexed(list),
-    warnings: [...skippedWarning(pending, "nicht abgeschlossen (ausstehend, abgelehnt, storniert)"), ...skippedWarning(foreign, "nicht in Euro")],
+    warnings: [
+      ...skippedWarning(skipped.memo, "Vormerkung ohne Wirkung auf das Guthaben (Memo)"),
+      ...skippedWarning(skipped.pending, "nicht abgeschlossen (ausstehend, abgelehnt, storniert)"),
+      ...skippedWarning(skipped.foreign, "nicht in Euro"),
+    ],
   });
 }
 
