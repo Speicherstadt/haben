@@ -9,8 +9,8 @@ Verbindet zwei bewährte Prüfverfahren für Haben – **Impeccable** (`critique
 
 Zwei Modi:
 
-- **Audit** (ganz Haben, ein Bereich oder ausgewählte Bildschirme): vollständige Dual-Agent-Bewertung mit Scores (`/40` und `/20`), `P0`–`P3`-Priorisierung, Persona-Red-Flags, systemischen Mustern und Paketvorschlag. Erst nach Freigabe der Person folgen Issues und Pull Requests.
-- **PR-Prüfung** (ein UI-Pull-Request): dieselbe Methode fokussiert auf Diff, berührte Bildschirme, gemeinsame Komponenten und Vorher/Nachher-Screenshots.
+- **Audit** (ganz Haben, ein Bereich oder ausgewählte Bildschirme): Bericht nach Schritt 2, dann Umsetzungspakete nach Schritt 3.
+- **PR-Prüfung** (ein UI-Pull-Request): dieselbe Methode, beschränkt auf Diff, berührte Bildschirme, gemeinsame Komponenten und Vorher/Nachher-Screenshots.
 
 ## Harte Regeln
 
@@ -28,15 +28,10 @@ Zwei Modi:
 
 ## 1. Zwei isolierte Sichten ausführen
 
-Beide Subagenten parallel starten (ohne eigene Einschätzung im Prompt):
+Je Sicht ein Subagent, ohne eigene Einschätzung im Prompt; er liest seine Datei unter `references/` ganz.
 
-- **Sicht A – Design-Critique (`references/critique-rubric.md`):**
-  - Arbeitet auf Screenshots/gerenderter Oberfläche, `DESIGN.md` und Mockup (ohne Output von Sicht B).
-  - Prüft: **Design-Spezifität** (eigenständig fürs Produkt oder austauschbarer Einheitsbrei?), **Nielsen-Heuristiken 1–10** (je 0–4, Summe `/40` bzw. renormiert bei `n/a`), **Cognitive Load** (8-Punkte-Checkliste + Arbeitsgedächtnis-Regel `≤ 4` + 8 typische Verstöße), **Emotionale Reise** (Peak-End, Vertrauen bei heiklen Momenten), **Persona-Walkthroughs** (2–3 passende aus Alex, Jordan, Sam, Riley, Casey plus 1–2 der Personas für Haben aus Schritt 0) sowie **Craft Floor & Anti-Slop** (`Verify` / `Refuse`).
-- **Sicht B – Technisches Audit & Web Interface Guidelines (`references/audit-und-guidelines.md`):**
-  - Prüft Code, CSS-Tokens, Komponenten und – falls vorhanden – Detektor-/Axe-Läufe.
-  - Bewertet die **5 Audit-Dimensionen** (je 0–4, Summe `/20`): Accessibility, Performance, Theming, Responsive Design (inkl. Touch-Gesten) und Implementation Integrity.
-  - Prüft die kompletten **Web Interface Guidelines** (16 Kategorien + 14 Anti-Patterns) und liefert kompakte `datei:zeile`-Befunde sowie **systemische Muster** und **positive Funde**.
+- **Sicht A – Design-Critique** nach `references/critique-rubric.md`, auf Screenshots oder der gerenderten Oberfläche und `DESIGN.md`. Dazu, was die Rubrik nicht enthält: **Design-Spezifität** (eigenständig fürs Produkt oder austauschbarer Einheitsbrei?) und **Emotionale Reise** (Peak-End, Vertrauen bei heiklen Momenten). Personas: 2–3 aus der Tabelle der Rubrik plus 1–2 für Haben aus Schritt 0.
+- **Sicht B – Technisches Audit & Web Interface Guidelines** nach `references/audit-und-guidelines.md`, auf Code, CSS-Tokens, Komponenten und den Läufen aus Schritt 0, Punkt 4.
 
 ## 2. Zusammenführen und Bericht ausgeben
 
@@ -61,8 +56,7 @@ Nach dem Bericht die Befunde in **kleine, unabhängige Umsetzungspakete** schnei
 
 Erst auf Freigabe:
 - je Paket ein Issue nach Skill `issue-schreiben`;
-- je Paket ein kleiner Pull Request nach Skill `beitrag` mit Selbstprüfung (`beitrag-pruefen`), unabhängigem `tdd-review` (und `doku-pruefen`, wenn Markdown geändert ist);
-- nach Änderungen am Aussehen Screenshots aktualisieren und die neuen Bilder ansehen.
+- je Paket ein kleiner Pull Request nach Skill `beitrag`; die Bilder für „nachher“ selbst ansehen.
 
 ### Modus PR-Prüfung
 
