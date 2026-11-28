@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import postgres from "postgres";
+import { protokollEintragen } from "../src/server/db/test-protokoll.ts";
 import { day } from "./daten.ts";
 import { type Durchlauf, databaseUrlFuer } from "./durchlaeufe.ts";
 import { LAPTOP, sichtbar, zumEnde } from "./kopfzeile.ts";
@@ -342,9 +343,14 @@ test("Kasse: Bareinnahme ohne Rechnung aus einem Monat, in dem noch § 19 galt, 
   const datum = day(-40);
   const sql = postgres(databaseUrlFuer(DURCHLAUF), { max: 1 });
   try {
-    await sql`insert into audit_log (at, actor, table_name, row_id, action, new_value)
-      values (${`${datum}T12:00:00Z`}::timestamptz, 'e2e', 'company', '1', 'UPDATE', ${sql.json({ kleinunternehmer: true })}),
-             (now(), 'e2e', 'company', '1', 'UPDATE', ${sql.json({ kleinunternehmer: false })})`;
+    await protokollEintragen(
+      sql,
+      [
+        { at: `${datum}T12:00:00Z`, tableName: "company", rowId: "1", action: "UPDATE", newValue: { kleinunternehmer: true } },
+        { at: new Date().toISOString(), tableName: "company", rowId: "1", action: "UPDATE", newValue: { kleinunternehmer: false } },
+      ],
+      "e2e",
+    );
   } finally {
     await sql.end();
   }

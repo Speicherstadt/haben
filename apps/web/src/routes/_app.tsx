@@ -21,6 +21,8 @@ export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ location }) => {
     const state = await getAuthState();
     if (!state.initialized) throw redirect({ to: "/setup" });
+    // Nach Ablauf der SSO-Frist von selbst neu anmelden und hierher zurück (#2048), sonst zur Anmeldeseite
+    if (!state.user && state.sitzungAbgelaufen) throw redirect({ href: `/login?anmelden=erneut&weiter=${encodeURIComponent(location.href)}` });
     if (!state.user) throw redirect({ to: "/login" });
     // Die Steuerberatung sieht nur ihre Seiten; die Server Functions prüfen das unabhängig davon selbst
     if (!siehtSeite(state.user.role, location.pathname)) throw redirect({ to: STEUERBERATUNG_START });

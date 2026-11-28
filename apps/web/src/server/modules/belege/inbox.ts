@@ -203,6 +203,16 @@ async function freeKey(base: string): Promise<string | null> {
   return retryKey(base, n);
 }
 
+/** Meldung beim Verbinden: ein Server ohne STARTTLS bekommt eine verständliche Erklärung statt der englischen der Bibliothek */
+export function connectErrorText(e: unknown): string {
+  const text = errorText(e);
+  // Nur die Meldung von imapflow bei doSTARTTLS ohne Angebot des Servers; ein gescheiterter Handshake (Zertifikat) bleibt, wie er ist
+  if (/does not support STARTTLS/i.test(text)) {
+    return "Der Server bietet kein STARTTLS an. Wähle „TLS“ (meist Port 993) oder einen Server mit STARTTLS; ohne Verschlüsselung ruft Haben kein Postfach ab.";
+  }
+  return text;
+}
+
 async function processMessage(
   actor: string,
   source: { bytes: Buffer; tooLarge: boolean },
@@ -361,7 +371,7 @@ export async function fetchInbox(actor: string, background: (work: Promise<void>
     const password = new TextDecoder().decode(decrypt(settings.ciphertext));
     await fetchFolder(settings, password, actor, background, result, problems);
   } catch (e) {
-    error = errorText(e);
+    error = connectErrorText(e);
   }
   // Der Ausgangsordner hängt nicht am Eingangsordner: scheitert der eine, wird der andere trotzdem abgerufen
   if (settings.outboundFolder) {
@@ -369,7 +379,7 @@ export async function fetchInbox(actor: string, background: (work: Promise<void>
       const password = new TextDecoder().decode(decrypt(settings.ciphertext));
       await fetchFolder(settings, password, actor, background, result, problems, "ausgang");
     } catch (e) {
-      error = error ?? `Ausgangsordner „${settings.outboundFolder}“: ${errorText(e)}`;
+      error = error ?? `Ausgangsordner „${settings.outboundFolder}“: ${connectErrorText(e)}`;
     }
   }
   // Ein Mail, die sich nicht verschieben oder löschen ließ, hält den Abruf nicht an; der Fehler steht danach in lastError

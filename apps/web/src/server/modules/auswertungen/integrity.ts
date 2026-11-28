@@ -53,7 +53,7 @@ export interface IntegrityReport {
   abgleich: { abweichungen: AbgleichZeile[]; hinweise: string[] };
   /** Eigene Nummern, die eine spätere Version von Haben selbst nutzt; kein Beweis einer Manipulation. */
   accountCollisions: { kontenrahmen: Kontenrahmen; account: string; name: string }[];
-  /** Zusätzliche Betreibertrigger sind Hinweise, keine Korruptionsbefunde. */
+  /** Zusätzliche Betreibertrigger sind Hinweise, keine Korruptionsbefunde; auf audit_log und audit_chain stehen sie unter den Befunden. */
   triggerHints: string[];
   /** Prüfsumme der Sperren: eigener Bestand und ausgelieferter Sollbestand (#1683) */
   inventoryChecksum: InventoryChecksum;

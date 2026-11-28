@@ -13,6 +13,8 @@ process.once("message", ({ config, request }) => {
     pinOk: request.pin === "1234",
     // Gesetzt von worker-command.sh, wenn der Worker über einen Worker-Befehl gestartet wurde
     workerCommand: process.env.HABEN_TEST_WORKER_COMMAND ?? null,
+    // Welche Umgebungsvariablen der Worker von der App geerbt hat (nur die Namen)
+    envNames: Object.keys(process.env),
   };
   process.send(
     {

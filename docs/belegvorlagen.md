@@ -93,8 +93,8 @@ Feldvertrag Version 1. Ein Feld mit „Immer da: nein“ kann fehlen; in Typst m
 | `meta[].group` | `"kerndaten" \| "referenz"` | ja |  | „kerndaten“ bei den Kerndaten (Nummer, Datum, Leistungsdatum, Kundennummer, Bestellung des Kunden …), „referenz“ bei weiteren Referenzen (unser Auftrag, Lieferschein, Leitweg-ID …), die ein Layout gesondert setzen kann |
 | `payment` | `null \| string` | ja | ja | Satz zur Zahlung, etwa Fälligkeit, Skonto oder Lastschrift |
 | `qr` | `null \| string` | nein |  | GiroCode als SVG; null oder fehlt, wenn keiner gedruckt wird |
-| `footer` | `string[][]` | ja | ja | Spalten der Fußzeile, je Spalte die Zeilen als Text |
-| `footerFormatted` | `null \| object[][][]` | ja | ja | Eigene Fußzeile mit Auszeichnungen, je Spalte und Zeile; null bei der automatischen Fußzeile |
+| `footer` | `string[][]` | ja | ja | Spalten der Fußzeile, je Spalte die Zeilen als Text; eine leere Zeile der eigenen Fußzeile ist ein leerer Text und bleibt als Abstand stehen |
+| `footerFormatted` | `null \| object[][][]` | ja | ja | Eigene Fußzeile mit Auszeichnungen, je Spalte und Zeile; eine leere Zeile ist ein Abschnitt mit leerem Text; null bei der automatischen Fußzeile |
 | `footerFormatted[][][].text` | `string` | ja |  | Text des Abschnitts |
 | `footerFormatted[][][].bold` | `boolean` | ja |  | fett |
 | `footerFormatted[][][].italic` | `boolean` | ja |  | kursiv |
@@ -113,6 +113,7 @@ Feldvertrag Version 1. Ein Feld mit „Immer da: nein“ kann fehlen; in Typst m
 | `look.foldMarks` | `boolean` | ja |  | Falz- und Lochmarken drucken |
 | `look.backgroundPages` | `"erste" \| "alle"` | ja |  | Briefpapier nur auf der ersten oder auf allen Seiten |
 | `look.legalPosition` | `"layout" \| "spalte" \| "zeile"` | nein |  | Stelle von legal im Fuß: „spalte“ als eigene Spalte neben footer, je Angabe eine Zeile; „zeile“ als Zeile unter den Spalten; „layout“, wie es das Layout vorsieht. Eingebaute Layouts bekommen die Stelle aufgelöst, außer mit Randspalte (Elegant, Atelier): Die setzt legal immer selbst und bekommt die Wahl, wie sie ist |
+| `look.footerAlign` | `"oben" \| "unten"` | nein |  | Spalten von footer oben oder unten bündig, für alle gemeinsam; bei „unten“ stehen die letzten Zeilen auf einer Linie. Gilt auch für die Spalte aus legal; eine Randspalte, die die Spalten untereinander setzt, braucht es nicht |
 | `look.options` | `object` | nein |  | Optionen eines eingebauten Layouts, schon aufgelöst, etwa { fuss: „rechts“ }; leer bei eigenen Layouts |
 | `font` | `object` | ja |  | Gewählte Schrift; Familien, wie Typst sie nennt |
 | `font.regular` | `string` | ja |  | Familie für normalen Text |
@@ -213,8 +214,8 @@ Feldvertrag Version 1. Ein Feld mit „Immer da: nein“ kann fehlen; in Typst m
 | `meta[].group` | `"kerndaten" \| "referenz"` | ja |  | „kerndaten“ bei den Kerndaten (Nummer, Datum, Leistungsdatum, Kundennummer, Bestellung des Kunden …), „referenz“ bei weiteren Referenzen (unser Auftrag, Lieferschein, Leitweg-ID …), die ein Layout gesondert setzen kann |
 | `payment` | `null \| string` | ja |  | Satz zur Zahlung, etwa Fälligkeit, Skonto oder Lastschrift |
 | `qr` | `null \| string` | nein |  | GiroCode als SVG; null oder fehlt, wenn keiner gedruckt wird |
-| `footer` | `string[][]` | ja | ja | Spalten der Fußzeile, je Spalte die Zeilen als Text |
-| `footerFormatted` | `null \| object[][][]` | ja | ja | Eigene Fußzeile mit Auszeichnungen, je Spalte und Zeile; null bei der automatischen Fußzeile |
+| `footer` | `string[][]` | ja | ja | Spalten der Fußzeile, je Spalte die Zeilen als Text; eine leere Zeile der eigenen Fußzeile ist ein leerer Text und bleibt als Abstand stehen |
+| `footerFormatted` | `null \| object[][][]` | ja | ja | Eigene Fußzeile mit Auszeichnungen, je Spalte und Zeile; eine leere Zeile ist ein Abschnitt mit leerem Text; null bei der automatischen Fußzeile |
 | `footerFormatted[][][].text` | `string` | ja |  | Text des Abschnitts |
 | `footerFormatted[][][].bold` | `boolean` | ja |  | fett |
 | `footerFormatted[][][].italic` | `boolean` | ja |  | kursiv |
@@ -233,6 +234,7 @@ Feldvertrag Version 1. Ein Feld mit „Immer da: nein“ kann fehlen; in Typst m
 | `look.foldMarks` | `boolean` | ja |  | Falz- und Lochmarken drucken |
 | `look.backgroundPages` | `"erste" \| "alle"` | ja |  | Briefpapier nur auf der ersten oder auf allen Seiten |
 | `look.legalPosition` | `"layout" \| "spalte" \| "zeile"` | nein |  | Stelle von legal im Fuß: „spalte“ als eigene Spalte neben footer, je Angabe eine Zeile; „zeile“ als Zeile unter den Spalten; „layout“, wie es das Layout vorsieht. Eingebaute Layouts bekommen die Stelle aufgelöst, außer mit Randspalte (Elegant, Atelier): Die setzt legal immer selbst und bekommt die Wahl, wie sie ist |
+| `look.footerAlign` | `"oben" \| "unten"` | nein |  | Spalten von footer oben oder unten bündig, für alle gemeinsam; bei „unten“ stehen die letzten Zeilen auf einer Linie. Gilt auch für die Spalte aus legal; eine Randspalte, die die Spalten untereinander setzt, braucht es nicht |
 | `look.options` | `object` | nein |  | Optionen eines eingebauten Layouts, schon aufgelöst, etwa { fuss: „rechts“ }; leer bei eigenen Layouts |
 | `font` | `object` | ja |  | Gewählte Schrift; Familien, wie Typst sie nennt |
 | `font.regular` | `string` | ja |  | Familie für normalen Text |
@@ -312,5 +314,6 @@ Diese Einstellungen unter Einstellungen › Beleggestaltung kommen nur über ihr
 | Briefpapier | `background` | alle |
 | Seiten mit Briefpapier | `look.backgroundPages` | alle |
 | Registerangaben | `look.legalPosition` | alle |
+| Spalten ausrichten | `look.footerAlign` | alle |
 
 <!-- feldvertrag:ende -->

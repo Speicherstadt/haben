@@ -1,7 +1,10 @@
+import { fruehereKontoNamen } from "./kontenaenderungen.ts";
 import type { Kontenrahmen } from "./kontenplan.ts";
 
 export const ACCOUNT_NAMES: Record<Kontenrahmen, Record<string, string>> = {
   SKR03: {
+    // Frühere Konten mit ihrem letzten Namen (kontenaenderungen.ts)
+    ...fruehereKontoNamen("SKR03"),
     // Kapitalgesellschaft: Gesellschafter und Eigenkapital (DATEV-Kontenrahmen SKR03 2026, Art.-Nr. 11174)
     "0730": "Verbindlichkeiten gegenüber Gesellschaftern",
     "0731": "Verbindlichkeiten gegenüber Gesellschaftern, Restlaufzeit bis 1 Jahr",
@@ -43,7 +46,6 @@ export const ACCOUNT_NAMES: Record<Kontenrahmen, Record<string, string>> = {
     "8730": "Gewährte Skonti",
     "8100": "Steuerfreie Umsätze § 4 Nr. 8 ff. UStG",
     "8192": "Erlöse als Kleinunternehmer § 19 UStG",
-    "8195": "Erlöse als Kleinunternehmer § 19 UStG",
     "8200": "Erlöse",
     "8300": "Erlöse 7 % USt",
     "8336": "Erlöse aus im anderen EU-Land steuerpflichtigen sonstigen Leistungen (Reverse Charge)",
@@ -54,6 +56,8 @@ export const ACCOUNT_NAMES: Record<Kontenrahmen, Record<string, string>> = {
     "9000": "Saldenvorträge Sachkonten",
   },
   SKR04: {
+    // Frühere Konten mit ihrem letzten Namen (kontenaenderungen.ts)
+    ...fruehereKontoNamen("SKR04"),
     "1200": "Forderungen aus Lieferungen und Leistungen",
     "1600": "Kasse",
     "1800": "Bank",
@@ -86,7 +90,6 @@ export const ACCOUNT_NAMES: Record<Kontenrahmen, Record<string, string>> = {
     "3816": "Umsatzsteuer nicht fällig 19 %",
     "4100": "Steuerfreie Umsätze § 4 Nr. 8 ff. UStG",
     "4184": "Erlöse als Kleinunternehmer § 19 UStG",
-    "4185": "Erlöse als Kleinunternehmer § 19 UStG",
     "4200": "Erlöse",
     "4300": "Erlöse 7 % USt",
     "4336": "Erlöse aus im anderen EU-Land steuerpflichtigen sonstigen Leistungen (Reverse Charge)",

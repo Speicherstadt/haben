@@ -65,6 +65,7 @@ describe.skipIf(!testDatabaseUrl)("Versand über Microsoft Graph aus den gespeic
     const body = JSON.parse(init.body as string);
     expect(body.message.toRecipients).toEqual([{ emailAddress: { address: "max@testfirma.example" } }]);
     expect(body.message.from.emailAddress.address).toBe("rechnung@testfirma.example");
+    expect(body.message).not.toHaveProperty("replyTo");
     expect(body.saveToSentItems).toBe(true);
     const [log] = await sql`select transport, ok, error from mail_log order by created_at desc limit 1`;
     expect(log).toMatchObject({ transport: "graph", ok: true, error: null });
@@ -76,6 +77,16 @@ describe.skipIf(!testDatabaseUrl)("Versand über Microsoft Graph aus den gespeic
     await mail.saveMailSettings(actor, { ...settings, graphMailbox: "", clientSecret: "" });
     await mail.sendTestMail(actor);
     expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toContain("/users/rechnung%40testfirma.example/sendMail");
+  });
+
+  it("gibt die Antwortadresse als replyTo der Nachricht mit", async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 202 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await mail.saveMailSettings(actor, { ...settings, clientSecret: "", replyTo: "antworten@testfirma.example" });
+    await mail.sendTestMail(actor);
+    const body = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(body.message.replyTo).toEqual([{ emailAddress: { address: "antworten@testfirma.example" } }]);
+    expect(body.message.from.emailAddress.address).toBe("rechnung@testfirma.example");
   });
 
   it("protokolliert einen abgelehnten Versand auf Deutsch, ohne Token oder Secret", async () => {

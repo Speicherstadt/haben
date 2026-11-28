@@ -1,12 +1,12 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 import { buildNachrichtXml } from "./nachricht.ts";
 import { buildPostfachAnfrageXml, buildPostfachBestaetigungXml } from "./postfach.ts";
-import { EricProcessClient } from "./process-client.ts";
+import { EricProcessClient, workerEnvironment } from "./process-client.ts";
 import { buildUstvaXml, TEST_HERSTELLER_ID } from "./xml.ts";
 
 const fixtures = fileURLToPath(new URL("../test-fixtures/", import.meta.url));
@@ -25,6 +25,67 @@ const xml = (test = true) =>
   });
 
 const ericTempDirs = () => readdirSync(tmpdir()).filter((name) => name.startsWith("haben-eric-"));
+
+describe("workerEnvironment", () => {
+  it("entfernt Schlüssel, Zugangsdaten und die Datenbankadresse, lässt den Rest unverändert", () => {
+    const env = workerEnvironment({
+      PATH: "/usr/bin",
+      LANG: "de_DE.UTF-8",
+      ERIC_HOME: "/opt/eric",
+      ERIC_WORKER_COMMAND: "qemu-x86_64",
+      DATABASE_URL: "postgres://haben:geheim@db/haben",
+      BETTER_AUTH_SECRET: "a",
+      HABEN_ENCRYPTION_KEY: "b",
+      HABEN_SETUP_CODE: "c",
+      ANTHROPIC_API_KEY: "d",
+      EXTRACTION_API_KEY: "e",
+      OIDC_CLIENT_SECRET: "f",
+      ENABLE_BANKING_KEY: "g",
+      ENABLE_BANKING_KEY_FILE: "/run/secrets/enablebanking.pem",
+      RESTIC_PASSWORD: "h",
+    });
+    expect(env).toEqual({ PATH: "/usr/bin", LANG: "de_DE.UTF-8", ERIC_HOME: "/opt/eric", ERIC_WORKER_COMMAND: "qemu-x86_64" });
+  });
+
+  it("entfernt auch weitere Datenbankadressen mit Zugangsdaten (Migration, Tests)", () => {
+    const env = workerEnvironment({
+      PATH: "/usr/bin",
+      MIGRATION_DATABASE_URL: "postgres://haben:eigentuemer@db/haben",
+      TEST_DATABASE_URL: "postgres://haben:haben@localhost:5432/haben_test",
+      E2E_DATABASE_URL: "postgres://haben:haben@localhost:5432/haben_e2e",
+    });
+    expect(env).toEqual({ PATH: "/usr/bin" });
+  });
+
+  it("der gestartete Worker erbt die Schlüssel der App nicht", async () => {
+    process.env.HABEN_ENCRYPTION_KEY = "nicht-an-den-worker";
+    process.env.DATABASE_URL = "postgres://haben:geheim@db/haben";
+    try {
+      const { envNames } = JSON.parse((await stub("answer").validate(xml())).responseXml) as { envNames: string[] };
+      expect(envNames).toContain("PATH");
+      expect(envNames).not.toContain("HABEN_ENCRYPTION_KEY");
+      expect(envNames).not.toContain("DATABASE_URL");
+    } finally {
+      delete process.env.HABEN_ENCRYPTION_KEY;
+      delete process.env.DATABASE_URL;
+    }
+  });
+
+  it("der Worker lädt die Schlüssel auch nicht aus einer .env neben sich", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "haben-worker-env-"));
+    try {
+      copyFileSync(join(fixtures, "worker-answer.mjs"), join(dir, "worker-answer.mjs"));
+      writeFileSync(join(dir, ".env"), "HABEN_ENCRYPTION_KEY=aus-der-env-datei\nDATABASE_URL=postgres://haben:geheim@db/haben\n");
+      const client = new EricProcessClient({ ericHome: "/opt/eric", workerPath: join(dir, "worker-answer.mjs") });
+      const { envNames } = JSON.parse((await client.validate(xml())).responseXml) as { envNames: string[] };
+      expect(envNames).toContain("PATH");
+      expect(envNames).not.toContain("HABEN_ENCRYPTION_KEY");
+      expect(envNames).not.toContain("DATABASE_URL");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("EricProcessClient mit Stub-Worker", () => {
   it("reicht die Antwort des Workers durch", async () => {

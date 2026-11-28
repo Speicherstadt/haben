@@ -154,7 +154,27 @@ Wird eine Anlage verkauft, entnommen oder verschrottet, trägst du auf der Seite
      (Restbuchwert bei Buchverlust)           16.500,00   an  0320 Pkw  16.500,00
 ```
 
-Den Verkaufserlös stellst du als normale [Rechnung](rechnungen.md) mit Umsatzsteuer. Er zählt in der EÜR als Einnahme. Der Abgang lässt sich nur in ein Jahr legen, für das die AfA noch nicht gebucht ist; ist sie gebucht, sind Datum und Entnahme gesperrt, auch in der Datenbank.
+Der Abgang lässt sich nur in ein Jahr legen, für das die AfA noch nicht gebucht ist; ist sie gebucht, sind Datum und Entnahme gesperrt, auch in der Datenbank.
+
+### Verkauf
+
+Den Verkaufserlös stellst du als [Rechnung](rechnungen.md#verkauf-aus-dem-anlagevermögen) mit **Verkauf aus dem Anlagevermögen: Ja** und der Umsatzsteuer, die für den Verkauf gilt. Den Abgang trägst du zusätzlich an der Anlage ein; die Rechnung kennt die Anlage nicht. Haben bucht den Erlös auf „Erlöse aus Verkäufen Sachanlagevermögen … (bei Buchgewinn)“ (DATEV-Kontenrahmen 2026), Steuerschlüssel und Umsatzsteuer wie bei jeder Rechnung:
+
+| Umsatzsteuer der Rechnung | SKR03 | SKR04 |
+| --- | --- | --- |
+| 19 % | 8820 | 4845 |
+| Ausfuhr (§ 4 Nr. 1a UStG) | 8827 | 4844 |
+| innergemeinschaftliche Lieferung (§ 4 Nr. 1b UStG) | 8828 | 4848 |
+| Kleinunternehmer | 8829 | 4849 |
+| 7 %, steuerfrei nach § 4 Nr. 8 ff., § 13b, Drittland, nicht steuerbar | das Erlöskonto der Rechnung wie ohne das Feld | ebenso |
+
+Für die letzte Zeile hat DATEV kein Verkaufskonto, das die Kennzahl der Voranmeldung trägt; auf 8829 bzw. 4849 ohne Automatik fehlte sie der Steuerberatung in DATEV.
+
+In der EÜR steht der Erlös mit der Zahlung in Zeile 19 „Veräußerung oder Entnahme von Anlagevermögen“, der Restbuchwert getrennt als Ausgabe ([amtliche Anleitung EÜR 2025, Zeile 19](https://www.elster.de/eportal/helpGlobal?themaGlobal=help_euer_ufa_77_2025)). Als Kleinunternehmer zählt er nicht in Zeile 12 und nicht im [Gesamtumsatz](auswertungen.md#gesamtumsatz-nach--19-ustg) ([§ 19 Abs. 2 Satz 2 UStG](https://www.gesetze-im-internet.de/ustg_1980/__19.html)).
+
+Die Konten „bei Buchgewinn“ nimmt Haben immer, weil die Rechnung den Restbuchwert nicht kennt; für die EÜR ist das gleich. Wer bilanziert und mit Verlust verkauft (Erlös unter Restbuchwert), lässt beim Abschluss auf die Konten „bei Buchverlust“ umbuchen (SKR03 8801, 8807, 8808, 8800; SKR04 6885, 6884, 6888, 6889).
+
+Rechnungen mit diesem Feld bis Version 0.15.1 stehen auf dem normalen Erlöskonto. Sie bleiben so gebucht, zählen in der EÜR aber auch in Zeile 19; Storno und Korrektur buchen auf ihr bisheriges Konto.
 
 ### Entnahme
 
@@ -235,7 +255,7 @@ Ist schon gebucht, lässt sich die Privatnutzung nicht mehr ändern.
 
 ## In der EÜR
 
-Die [EÜR](auswertungen.md) bekommt je nach Bedarf die Zeilen **AfA auf bewegliche Wirtschaftsgüter**, **Sonderabschreibungen nach § 7g EStG**, **Sofortabschreibung geringwertiger Wirtschaftsgüter**, **Auflösung Sammelposten** und **Restbuchwert ausgeschiedener Anlagegüter**, bei einer [Entnahme](#entnahme) dazu **Veräußerung oder Entnahme von Anlagevermögen**. Solange die AfA des Jahres nicht gebucht ist, kommen die Werte aus dem Abschreibungsplan. Danach kommen sie aus dem Journal ([EÜR nach Zufluss und Abfluss](auswertungen.md#eür-nach-zufluss-und-abfluss)); der [Abgleich](buchhaltung.md#abgleich-im-journal) prüft, dass gebuchte AfA und Plan übereinstimmen.
+Die [EÜR](auswertungen.md) bekommt je nach Bedarf die Zeilen **AfA auf bewegliche Wirtschaftsgüter**, **Sonderabschreibungen nach § 7g EStG**, **Sofortabschreibung geringwertiger Wirtschaftsgüter**, **Auflösung Sammelposten** und **Restbuchwert ausgeschiedener Anlagegüter**, bei einem [Verkauf](#verkauf) oder einer [Entnahme](#entnahme) dazu **Veräußerung oder Entnahme von Anlagevermögen**. Solange die AfA des Jahres nicht gebucht ist, kommen die Werte aus dem Abschreibungsplan, der Verkaufserlös aus der Rechnung. Danach kommen sie aus dem Journal ([EÜR nach Zufluss und Abfluss](auswertungen.md#eür-nach-zufluss-und-abfluss)); der [Abgleich](buchhaltung.md#abgleich-im-journal) prüft, dass gebuchte AfA und Plan übereinstimmen.
 
 Im Jahresexport liegt `anlagen/anlagenverzeichnis.csv` mit Buchwert am Jahresanfang, Zugang, AfA, Sonder-AfA, Abgang und Buchwert am Jahresende je Anlage.
 

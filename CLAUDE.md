@@ -19,6 +19,7 @@ the change before starting.
 | Schema and migrations | `entwicklung.md`: Migrationen | |
 | What a pull request contains, branch, title, commits, agent marker | `mitwirken.md` | `beitrag` |
 | Screenshots of a change to the look | `mitwirken.md` | `pr-screenshots` |
+| Audit of the interface or review of a UI pull request (design critique, accessibility, Web Interface Guidelines) | `DESIGN.md`, `barrierefreiheit.md` | `design-pruefen` |
 | Judge a contribution (do we want it, built from the sources and correct, simplest solution, rules): own pull request as self-check, someone else's as maintainer | `mitwirken.md`: Beiträge annehmen | `beitrag-pruefen` |
 | Review and merge | `mitwirken.md`: Review | `tdd-review` for code, `doku-pruefen` for Markdown, both in parallel if a PR has both |
 | Work through all open pull requests, ranked from easiest to merge | `mitwirken.md`: Beiträge annehmen, Review | `prs-abarbeiten` |

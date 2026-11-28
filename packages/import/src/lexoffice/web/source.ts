@@ -1,4 +1,4 @@
-import { unzipSync } from "fflate";
+import { type EntpackBudget, EntpackGrenzeError, entpackBudget, unzipBegrenzt } from "../../entpack-grenze.ts";
 import type { z } from "zod";
 import { LexwareWebExportError } from "./errors.ts";
 import type { LexofficeSource } from "../source.ts";
@@ -61,10 +61,13 @@ function readJson<S extends z.ZodType>(files: Record<string, Uint8Array>, name: 
   return parsed.data;
 }
 
-function unzip(bytes: Uint8Array, partName: string): Record<string, Uint8Array> {
+function unzip(bytes: Uint8Array, partName: string, budget: EntpackBudget): Record<string, Uint8Array> {
   try {
-    return unzipSync(bytes);
-  } catch {
+    return unzipBegrenzt(bytes, budget);
+  } catch (error) {
+    if (error instanceof EntpackGrenzeError) {
+      throw new LexwareWebExportError(`${partName}: Die Sicherung ist entpackt viel größer als die ZIP-Datei und wird nicht gelesen.`);
+    }
     throw new LexwareWebExportError(`${partName}: keine gültige ZIP-Datei.`);
   }
 }
@@ -76,8 +79,10 @@ function unzip(bytes: Uint8Array, partName: string): Record<string, Uint8Array> 
 export function readWebExport(parts: { name: string; bytes: Uint8Array }[]): WebExport {
   const result: WebExport = { createdAt: "", contacts: [], entries: new Map(), files: new Map(), failures: new Map() };
   const contacts = new Map<string, WebContact>();
+  // Ein Budget für alle Teile zusammen: Mehrere Teile dürfen zusammen nicht weiter wachsen als eine Datei ihrer Summe
+  const budget = entpackBudget(parts.reduce((sum, part) => sum + part.bytes.length, 0));
   for (const part of parts) {
-    const files = unzip(part.bytes, part.name);
+    const files = unzip(part.bytes, part.name, budget);
     const manifest = readJson(files, "manifest.json", webManifestSchema, part.name);
     if (manifest.format !== WEB_EXPORT_FORMAT) {
       throw new LexwareWebExportError(`${part.name}: keine Sicherung aus dem Skript für Lexware Office.`);
