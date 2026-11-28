@@ -64,8 +64,9 @@ function voranmeldungStand(data: UebersichtDaten) {
   const postenOffen = data.vatOpen.filter((p) => p.offen > 0).reduce((sum, p) => sum + p.offen, 0);
   const zahllastOffen = postenOffen + (sent || vorStart ? 0 : Math.max(0, data.computedKz83 - data.vatPaid));
   const taxShortfall = taxAccount && taxAccount.balance !== null && zahllastOffen > 0 ? zahllastOffen - taxAccount.balance : 0;
-  // Nach der Frist sagen Aufgabe und Kennzahl „überfällig“ wie die Seite der Voranmeldung, nicht nur über die Farbe
-  const ueberfaellig = !sent && vatRequired && !vorStart && daysUntil(data.dueDate) < 0;
+  // Nach der Frist sagen Aufgabe und Kennzahl „überfällig“ wie die Seite der Voranmeldung, nicht nur über die Farbe. Eine
+  // offene Berichtigung nicht: Der Zeitraum ist schon fristgerecht abgegeben (wie bei den Fristen, abgegebeneZeitraeume)
+  const ueberfaellig = !sent && vatRequired && !vorStart && !data.current?.berichtigt && daysUntil(data.dueDate) < 0;
   return { sent, vatRequired, vorStart, ueberfaellig, zahllast, periodOpen, showVatPeriod, zahllastOffen, taxAccount, taxShortfall };
 }
 
