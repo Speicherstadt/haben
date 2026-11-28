@@ -679,7 +679,7 @@ Eine festgeschriebene Rechnung änderst du nicht, du stellst eine neue aus. Auf 
 | Zweck | Hebt die Rechnung vollständig auf. | Mindert den Betrag. |
 | Ergebnis | Stornorechnung mit allen Positionen negativ, sofort festgeschrieben und gebucht. Das Papierstorno einer Schlussrechnung oder Anzahlungsanforderung bei GmbH und UG ([Bilanzverfahren](#abschlags--und-schlussrechnung)) bucht nichts. Festgeschriebene Korrekturen der Rechnung bekommen je ein eigenes Storno. | Entwurf mit allen Positionen negativ, den du auf die Minderung kürzt. |
 | Bestätigung | Im Dialog **Stornieren**. | Festschreiben wie bei einer Rechnung. |
-| Bedingung | – | Gesamtbetrag muss negativ bleiben; die Korrekturen zusammen dürfen die Rechnung nicht ganz aufheben, solange darauf nichts bezahlt, verrechnet oder ausgebucht ist. Haben weist das Festschreiben dann ab. |
+| Bedingung | – | Gesamtbetrag muss negativ bleiben; die Korrekturen zusammen dürfen die Rechnung nicht ganz aufheben, solange darauf nichts bezahlt, verrechnet oder ausgebucht ist. Haben weist das Festschreiben dann ab. Bei einer Schlussrechnung gilt das nicht: Der abgezogene Abschlag bleibt stehen. |
 
 Für beide gilt:
 

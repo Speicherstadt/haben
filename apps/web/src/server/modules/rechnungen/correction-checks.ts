@@ -43,8 +43,11 @@ export async function reductionProblem(invoice: Invoice, original: Invoice, q: D
  * Gerechnet wird brutto, weil der Kunde den Bruttobetrag schuldet, und zwar auf der festgeschriebenen Rechnung:
  * `invoiceOpen` liefert 0, sobald der Beleg kein Festschreiben ist, deshalb darf hier nie der Entwurf stehen.
  * „Nichts bezahlt" heißt offener Rest gleich Rechnungsbetrag; Ausbuchungen und Verrechnungen zählen als Zahlung.
+ * Eine Schlussrechnung zieht immer Abschläge ab: Die Korrektur ihres ganzen Rests lässt den Abschlag als Entgelt stehen,
+ * erst ein Storno gibt ihn wieder frei. Sie ist deshalb keine Aufhebung der Leistung.
  */
 async function aufgehobenProblem(invoice: Invoice, original: Invoice, corrections: { net: number; gross: number }, q: Db | Tx): Promise<string | null> {
+  if (original.variant === "schluss") return null;
   const brutto = original.gross + corrections.gross + invoice.gross;
   if (brutto !== 0) return null;
   const [offen] = await listInvoices(today(), original.id, q);
