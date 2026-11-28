@@ -1,6 +1,6 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /*
@@ -48,12 +48,8 @@ describe.skipIf(!testDatabaseUrl)("Positionen und Steuerzeilen einer Rechnung im
 
   async function reset(kontenrahmen: "SKR03" | "SKR04", versteuerung: "ist" | "soll") {
     // Mit Siegeln und neuer Kette: Siegel früherer Fälle ohne ihre Rechnungen wären sonst ein Befund
-    await sql.begin(async (tx) => {
-      await tx`set local session_replication_role = replica`;
-      await tx`truncate seals, audit_log, audit_chain, allocations, journal_lines, journal_entries, invoice_taxes, invoice_lines, invoices,
-        invoice_number_counters, contact_versions, contacts, company cascade`;
-      await tx`insert into audit_chain (id, seq, hash) values (1, 0, haben_audit_genesis())`;
-    });
+    await leeren(sql)`truncate seals, audit_log, audit_chain, allocations, journal_lines, journal_entries, invoice_taxes, invoice_lines, invoices,
+      invoice_number_counters, contact_versions, contacts, company cascade`;
     await sql`insert into company (id, name, strasse, plz, ort, email, telefon, steuernummer, ust_id, bundesland, iban, bic, bank, versteuerung, kontenrahmen)
       values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '+49 941 123456',
               '198/113/10010', 'DE123456789', 'BY', 'DE89370400440532013000', 'COBADEFFXXX', 'Commerzbank', ${versteuerung}, ${kontenrahmen})`;
