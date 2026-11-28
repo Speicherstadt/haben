@@ -41,8 +41,11 @@ export async function offeneVorgaenge(start: string, endeAusschl: string, q: Db 
 }
 
 /**
- * Wie weit die Umsätze je Konto reichen: das späteste Ende eines Imports oder, wenn später, der letzte Umsatz. Nur Geschäfts-,
- * Steuer- und Zahlungsdienstleisterkonten; private, Rücklage- und ausgeschlossene Konten fließen nicht in die Auswertungen.
+ * Wie weit die Umsätze je Konto reichen: das späteste Ende eines Imports, der letzte Umsatz oder bei einem Zahlungsdienstleister
+ * mit Abruf der Tag vor dem letzten erfolgreichen Abruf (in Berlin), je nachdem, was später ist. Der Abruf speichert als Ende
+ * nur seinen letzten Umsatz, ohne neue Umsätze gar keinen Import. Nach einem Fehler setzt der Zeitplan last_sync_at trotzdem,
+ * deshalb zählt der Abruf nur ohne last_error. Nur Geschäfts-, Steuer- und Zahlungsdienstleisterkonten; private, Rücklage- und
+ * ausgeschlossene Konten fließen nicht in die Auswertungen.
  */
 export async function kontoAbdeckung(q: Db | Tx = db): Promise<KontoAbdeckung[]> {
   const a = schema.bankAccounts;
@@ -53,7 +56,9 @@ export async function kontoAbdeckung(q: Db | Tx = db): Promise<KontoAbdeckung[]>
       // Tabelle ausdrücklich nennen: in der Spaltenliste schreibt drizzle nur "id", das träfe in den Unterabfragen deren id
       bis: sql<string | null>`greatest(
         (select max(${schema.bankImports.periodTo}) from ${schema.bankImports} where ${schema.bankImports.bankAccountId} = ${a}.id and ${echterImport}),
-        (select max(bt.booking_date) from bank_transactions bt where bt.bank_account_id = ${a}.id))::text`,
+        (select max(bt.booking_date) from bank_transactions bt where bt.bank_account_id = ${a}.id),
+        (select max((c.last_sync_at at time zone 'Europe/Berlin')::date - 1) from psp_connections c
+          where c.bank_account_id = ${a}.id and c.last_error is null))::text`,
     })
     .from(a)
     .where(and(isNull(a.excludedAt), inArray(a.purpose, ["geschaeft", "steuer", "zahlungsdienstleister"])))
