@@ -92,7 +92,8 @@ export function OutgoingTaxFields(props: TaxFieldsProps) {
           )}
         </Field>
       )}
-      <TurnoverFields {...detailsProps} treatment={treatment} />
+      <AssetDisposalField {...detailsProps} />
+      {treatment === "steuerfrei" && <TurnoverFields {...detailsProps} />}
       {problems
         .filter((problem) => problem !== error)
         .map((problem) => (
@@ -235,43 +236,54 @@ export function ForeignTaxFields({
   );
 }
 
-function TurnoverFields({ values, disabled, update, treatment }: DetailsProps & Pick<TaxFieldsProps, "treatment">) {
+/**
+ * Verkauf einer Anlage (#2022): bucht auf die Verkaufskonten, zählt in der EÜR in Zeile 19 und im Gesamtumsatz nicht
+ * (§ 19 Abs. 2 Satz 2 UStG). Sichtbar bei den Steuerangaben, weil es Buchung und EÜR jeder Rechnung betrifft.
+ */
+function AssetDisposalField({ values, disabled, update }: DetailsProps) {
+  return (
+    <Field
+      label="Verkauf aus dem Anlagevermögen"
+      hint="Etwa ein gebrauchtes betriebliches Gerät. Der Erlös zählt in der EÜR in Zeile 19 und nicht im Gesamtumsatz. Den Abgang trägst du zusätzlich an der Anlage ein."
+    >
+      {(control) => (
+        <select
+          {...control}
+          value={values.assetDisposal ? "ja" : "nein"}
+          disabled={disabled}
+          onChange={(event) => update({ assetDisposal: event.target.value === "ja" })}
+        >
+          <option value="nein">Nein</option>
+          <option value="ja">Ja, Verkauf eines Wirtschaftsguts des Anlagevermögens</option>
+        </select>
+      )}
+    </Field>
+  );
+}
+
+/** Seltene Angaben zur Zählung des Gesamtumsatzes bei Befreiungen nach § 4 UStG, eingeklappt */
+function TurnoverFields({ values, disabled, update }: DetailsProps) {
   return (
     <details>
       <summary className="small">Angaben zum Gesamtumsatz (§ 19 Abs. 2 UStG)</summary>
       <div className="stack" style={{ marginTop: 8 }}>
-        <Field label="Verkauf aus dem Anlagevermögen" hint="Betrifft die Zählgrundlage des Gesamtumsatzes; etwa den Verkauf eines betrieblichen Geräts.">
+        <Field
+          label="Hilfsumsatz"
+          hint="Für die Zählung bei § 4 Nr. 8 Buchst. a–h, Nr. 9 Buchst. a und Nr. 10 UStG; bei Heilbehandlung und Unterricht ohne Auswirkung."
+        >
           {(control) => (
             <select
               {...control}
-              value={values.assetDisposal ? "ja" : "nein"}
+              value={values.ancillary === null ? "" : values.ancillary ? "ja" : "nein"}
               disabled={disabled}
-              onChange={(event) => update({ assetDisposal: event.target.value === "ja" })}
+              onChange={(event) => update({ ancillary: event.target.value === "" ? null : event.target.value === "ja" })}
             >
+              <option value="">Nicht geklärt</option>
               <option value="nein">Nein</option>
-              <option value="ja">Ja, Verkauf eines Wirtschaftsguts des Anlagevermögens</option>
+              <option value="ja">Ja</option>
             </select>
           )}
         </Field>
-        {treatment === "steuerfrei" && (
-          <Field
-            label="Hilfsumsatz"
-            hint="Für die Zählung bei § 4 Nr. 8 Buchst. a–h, Nr. 9 Buchst. a und Nr. 10 UStG; bei Heilbehandlung und Unterricht ohne Auswirkung."
-          >
-            {(control) => (
-              <select
-                {...control}
-                value={values.ancillary === null ? "" : values.ancillary ? "ja" : "nein"}
-                disabled={disabled}
-                onChange={(event) => update({ ancillary: event.target.value === "" ? null : event.target.value === "ja" })}
-              >
-                <option value="">Nicht geklärt</option>
-                <option value="nein">Nein</option>
-                <option value="ja">Ja</option>
-              </select>
-            )}
-          </Field>
-        )}
       </div>
     </details>
   );
