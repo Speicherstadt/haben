@@ -1,4 +1,5 @@
 import type postgres from "postgres";
+import type { StripeClient } from "@haben/import";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
@@ -167,5 +168,37 @@ describe.skipIf(!testDatabaseUrl)("Vollständigkeit: offene Vorgänge und Abdeck
       { id: paypal.id, name: "PayPal", bis: "2026-10-30" },
       { id: stripe.id, name: "Stripe", bis: "2026-11-23" },
     ]);
+  }, 60_000);
+
+  it("Abdeckung mit Abruf: ein fehlgeschlagener Anlauf zählt auch nach neuem Schlüssel oder anderem Konto nicht", async () => {
+    const psp = await import("../zahlungsdienstleister/index.ts");
+    // Der alte Schlüssel ist abgelaufen; der neue gehört zum selben Konto bei Stripe, der dritte zu einem anderen
+    const acct: Record<string, string> = { rk_live_altaaaaaaaaaaa: "acct_shop", rk_live_neuaaaaaaaaaaa: "acct_shop", rk_live_andereaaaaaaa: "acct_kurse" };
+    psp.setStripeClientFactory(
+      ({ apiKey }) =>
+        ({
+          accountId: async () => acct[apiKey],
+          balanceTransactions: async () => {
+            throw new Error("401 abgelaufen");
+          },
+        }) as unknown as StripeClient,
+    );
+    const konto = await bank.createProviderAccount(actor, { name: "Stripe", provider: "stripe" });
+    const eingabe = { provider: "stripe", name: "Stripe", bankAccountId: konto.id, fetchFrom: "2026-10-01" } as const;
+    const { id } = await psp.speichereVerbindung(actor, { ...eingabe, eingabe: { apiKey: "rk_live_altaaaaaaaaaaa" } });
+    const fehlgeschlagen = async () => {
+      // Der Zeitplan setzt last_sync_at auch nach dem Fehler
+      expect((await psp.runDuePspSyncs(new Date("2026-11-24T10:00:00Z"))).errors).toHaveLength(1);
+      expect(await offen.kontoAbdeckung()).toEqual([{ id: konto.id, name: "Stripe", bis: null }]);
+    };
+    await fehlgeschlagen();
+    // Der neue Schlüssel löscht den Fehler, abgerufen ist damit noch nichts
+    await psp.speichereVerbindung(actor, { ...eingabe, id, eingabe: { apiKey: "rk_live_neuaaaaaaaaaaa" } });
+    expect(await offen.kontoAbdeckung()).toEqual([{ id: konto.id, name: "Stripe", bis: null }]);
+    await sql`update psp_connections set last_sync_at = null, last_error = null where id = ${id}`;
+    await fehlgeschlagen();
+    // Ebenso ein anderes Konto beim Anbieter
+    await psp.speichereVerbindung(actor, { ...eingabe, id, eingabe: { apiKey: "rk_live_andereaaaaaaa" } });
+    expect(await offen.kontoAbdeckung()).toEqual([{ id: konto.id, name: "Stripe", bis: null }]);
   }, 60_000);
 });
