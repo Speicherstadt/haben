@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { problems, rolledBack, tamper } from "../modules/auswertungen/test-anhaengbar.ts";
 import { testDatabaseUrl } from "../test-db.ts";
 
@@ -18,7 +18,9 @@ const MIGRATIONS = fileURLToPath(new URL("../../../drizzle", import.meta.url));
 describe.skipIf(!testDatabaseUrl)("Migration: Hashes von PDF und XML im Bestand (Postgres)", () => {
   let sql: postgres.Sql;
 
-  beforeAll(async () => {
+  /** Jeder Test beginnt mit einer frischen Datenbank auf dem Stand vor dieser Migration */
+  beforeEach(async () => {
+    await sql?.end();
     const name = decodeURIComponent(new URL(testDatabaseUrl!).pathname.slice(1));
     const admin = postgres(process.env.TEST_DATABASE_URL!, { max: 1, onnotice: () => {} });
     await admin`drop database if exists ${admin(name)} with (force)`;
@@ -31,9 +33,7 @@ describe.skipIf(!testDatabaseUrl)("Migration: Hashes von PDF und XML im Bestand 
       const idx = full.entries.findIndex((e: { tag: string }) => e.tag.endsWith("_hash_weggelassene_spalten"));
       writeFileSync(join(previous, "meta", "_journal.json"), JSON.stringify({ ...full, entries: full.entries.slice(0, idx) }));
       sql = postgres(testDatabaseUrl!, { max: 1, onnotice: () => {} });
-      const { drizzle } = await import("drizzle-orm/postgres-js");
-      const { migrate } = await import("drizzle-orm/postgres-js/migrator");
-      await migrate(drizzle(sql), { migrationsFolder: previous });
+      await migrieren(sql, previous);
     } finally {
       rmSync(previous, { recursive: true, force: true });
     }
@@ -42,6 +42,42 @@ describe.skipIf(!testDatabaseUrl)("Migration: Hashes von PDF und XML im Bestand 
   afterAll(async () => {
     await sql?.end();
   });
+
+  async function migrieren(db: postgres.Sql, migrationsFolder = MIGRATIONS) {
+    const { drizzle } = await import("drizzle-orm/postgres-js");
+    const { migrate } = await import("drizzle-orm/postgres-js/migrator");
+    await migrate(drizzle(db), { migrationsFolder });
+  }
+
+  /** Eine gesendete Voranmeldung mit Protokoll, über die Trigger eingefügt */
+  async function uebermittlung(pdf: Buffer) {
+    return sql.begin(async (tx) => {
+      await tx`select set_config('haben.actor', 'test:vorher', true)`;
+      const [voranmeldung] = await tx`insert into vat_returns (year, month) values (2025, 12) returning id`;
+      const [u] = await tx`insert into vat_return_submissions (vat_return_id, kind, ok, code, message, request_xml, response_xml,
+          server_response_xml, protocol_pdf)
+        values (${voranmeldung!.id}, 'send', true, 0, 'ok', '<Elster/>', '<Antwort/>', '<Server/>', ${pdf}) returning id`;
+      return u!.id as string;
+    });
+  }
+
+  /** Ein angehängter INSERT-Eintrag der Übermittlung, der als Protokoll den Hash von pdf nennt */
+  const hashEintrag = (db: postgres.Sql | postgres.TransactionSql, id: string, pdf: Buffer) =>
+    db`insert into audit_log (actor, table_name, row_id, action, old_value, new_value)
+      select 'test', 'vat_return_submissions', ${id}, 'INSERT', null,
+             (to_jsonb(u) - 'protocol_pdf' - 'request_xml' - 'response_xml' - 'server_response_xml')
+               || jsonb_build_object('omitted_sha256', jsonb_build_object('protocol_pdf', ${sha256(pdf)}::text))
+        from vat_return_submissions u where u.id = ${id}`;
+
+  /** Befunde nach still getauschtem Protokoll, zurückgerollt */
+  const nachTausch = (id: string, pdf: Buffer, vorher?: (tx: postgres.TransactionSql) => Promise<unknown>) =>
+    rolledBack(sql, async (tx) => {
+      await tamper(tx, async () => {
+        await vorher?.(tx);
+        await tx`update vat_return_submissions set protocol_pdf = ${pdf} where id = ${id}`;
+      });
+      return problems(tx);
+    });
 
   const sha256 = (inhalt: string | Buffer) => createHash("sha256").update(inhalt).digest("hex");
 
@@ -84,9 +120,7 @@ describe.skipIf(!testDatabaseUrl)("Migration: Hashes von PDF und XML im Bestand 
     });
     const [kopf] = await sql`select seq from audit_chain`;
 
-    const { drizzle } = await import("drizzle-orm/postgres-js");
-    const { migrate } = await import("drizzle-orm/postgres-js/migrator");
-    await migrate(drizzle(sql), { migrationsFolder: MIGRATIONS });
+    await migrieren(sql);
 
     const nachgetragen = await sql`select table_name, row_id, actor, new_value from audit_log where seq > ${kopf!.seq} order by seq`;
     expect(await sql`select id, seq from audit_hash_since`).toEqual([{ id: 1, seq: kopf!.seq }]);
@@ -121,5 +155,79 @@ describe.skipIf(!testDatabaseUrl)("Migration: Hashes von PDF und XML im Bestand 
         expect.objectContaining({ tabelle: "vat_return_submissions", zeile: vorher.uebermittlung, befund: "Spalte protocol_pdf weicht vom Audit-Log ab" }),
       ]),
     );
+  }, 120_000);
+
+  it("ein vor dem Update angehängter Eintrag für audit_hash_since setzt den Stichtag nicht außer Kraft (Review zu #2072)", async () => {
+    const pdf = Buffer.from("%PDF-1.7 Protokoll");
+    const faelschung = Buffer.from("%PDF-1.7 gefälscht");
+    const id = await uebermittlung(pdf);
+    await hashEintrag(sql, id, faelschung);
+    await sql`insert into audit_log (actor, table_name, row_id, action, old_value, new_value)
+      values ('test', 'audit_hash_since', '1', 'INSERT', null, '{"id": 1}'::jsonb)`;
+    await migrieren(sql);
+
+    const nichtBelegt = expect.objectContaining({ tabelle: "audit_hash_since", befund: "Stichtag der Hashes von PDF und XML nicht belegt" });
+    expect(await problems(sql)).toEqual([nichtBelegt]);
+    // Auch mit abgesenktem Stichtag und getauschtem Protokoll bleibt das sichtbar
+    expect(await nachTausch(id, faelschung, (tx) => tx`update audit_hash_since set seq = 0 where id = 1`)).toEqual(expect.arrayContaining([nichtBelegt]));
+  }, 120_000);
+
+  it("nach dem Update angehängt oder entfernt: der Stichtag ist nicht mehr belegt", async () => {
+    await migrieren(sql);
+    expect(await problems(sql)).toEqual([]);
+    const nichtBelegt = expect.objectContaining({ tabelle: "audit_hash_since", befund: "Stichtag der Hashes von PDF und XML nicht belegt" });
+    const entfernt = await rolledBack(sql, async (tx) => {
+      await tamper(tx, () => tx`delete from audit_hash_since`);
+      return problems(tx);
+    });
+    expect(entfernt).toEqual(expect.arrayContaining([nichtBelegt]));
+    // Bestätigt angehängt, weil audit_chain den Kopf erst beim Commit nachzieht
+    await sql`insert into audit_log (actor, table_name, row_id, action, old_value, new_value)
+      select 'test', 'audit_hash_since', '1', 'INSERT', null, to_jsonb(h) from audit_hash_since h`;
+    expect(await problems(sql)).toEqual([nichtBelegt]);
+  }, 120_000);
+
+  it("ein Eintrag einer während des Updates offenen Transaktion liegt vor dem Stichtag (Review zu #2072)", async () => {
+    const pdf = Buffer.from("%PDF-1.7 Protokoll");
+    const faelschung = Buffer.from("%PDF-1.7 gefälscht");
+    const id = await uebermittlung(pdf);
+    const b = postgres(testDatabaseUrl!, { max: 1, onnotice: () => {} });
+    const update = postgres(testDatabaseUrl!, { max: 1, onnotice: () => {} });
+    try {
+      let bestaetigen!: () => void;
+      const offen = new Promise<void>((resolve) => {
+        bestaetigen = resolve;
+      });
+      let angehaengt!: () => void;
+      const eintragDa = new Promise<void>((resolve) => {
+        angehaengt = resolve;
+      });
+      const sitzungB = b.begin(async (tx) => {
+        await hashEintrag(tx, id, faelschung);
+        angehaengt();
+        await offen;
+      });
+      await eintragDa;
+      const [backend] = await update<{ pid: number }[]>`select pg_backend_pid() as pid`;
+      const migration = migrieren(update);
+      // Warten, bis das Update auf die Kettensperre von B wartet, dann B bestätigen
+      for (let i = 0; i < 600; i++) {
+        const [w] = await sql`select wait_event_type from pg_stat_activity where pid = ${backend!.pid}`;
+        if (w?.wait_event_type === "Lock") break;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      bestaetigen();
+      await sitzungB;
+      await migration;
+    } finally {
+      await b.end();
+      await update.end();
+    }
+    const [stichtag] = await sql<{ seq: string }[]>`select seq from audit_hash_since`;
+    const [vonB] = await sql<{ seq: string }[]>`select max(seq) as seq from audit_log where table_name = 'vat_return_submissions' and actor = 'test'`;
+    expect(Number(stichtag!.seq)).toBeGreaterThanOrEqual(Number(vonB!.seq));
+    expect(await nachTausch(id, faelschung)).toEqual([
+      expect.objectContaining({ tabelle: "vat_return_submissions", zeile: id, befund: "Spalte protocol_pdf weicht vom Audit-Log ab" }),
+    ]);
   }, 120_000);
 });

@@ -8,7 +8,8 @@
 -- 3. Zeilen von vor dieser Migration bekommen einen nachträglichen Eintrag mit ihren Hashes und die Kette einen Hinweis wie
 --    in 0339.
 -- 4. haben_append_only_problems vergleicht die Hashes mit den Spalten, nur aus Einträgen nach dem Stichtag in
---    audit_hash_since (Tabelle aus 0353): Vorher kann ein Eintrag mit Hashes nur angehängt sein.
+--    audit_hash_since (Tabelle aus 0353): Vorher kann ein Eintrag mit Hashes nur angehängt sein. Der Stichtag gilt als belegt,
+--    wenn genau ein Eintrag im Audit-Log ihn nennt und nach ihm liegt; sonst ist das ein eigener Befund.
 --
 -- Quelle: GoBD, BMF-Schreiben vom 28.11.2019, Rz. 108 (keine Änderung ohne Kenntlichmachung), am Original gelesen in #861.
 --
@@ -100,6 +101,10 @@ LANGUAGE sql IMMUTABLE AS $$
     'year_closings', 'zm_submissions']
 $$;
 --> statement-breakpoint
+-- Erst die Sperre der Kette, dann der Stichtag: So sieht max(seq) auch den Eintrag einer Sitzung, die beim Update noch
+-- offen war; ihr Eintrag liegt dann vor dem Stichtag statt dahinter (READ COMMITTED: neuer Schnappschuss je Anweisung).
+SELECT pg_advisory_xact_lock(hashtext('haben.audit_chain'));
+--> statement-breakpoint
 INSERT INTO audit_hash_since (id, seq) SELECT 1, coalesce(max(seq), 0) FROM audit_log;
 --> statement-breakpoint
 -- Bestand: jede Zeile mit weggelassenen Spalten, die einen INSERT-Eintrag hat, nachträglich eintragen, wie haben_audit es
@@ -163,7 +168,20 @@ DECLARE
   zeile_l text;
   abweichung text;
   mit_hash boolean;
+  stichtag bigint;
 BEGIN
+  -- Stichtag der Hashes (#2038): belegt nur durch genau einen Eintrag im Audit-Log, den der Migration, der ihn nennt und
+  -- nach ihm liegt. Ein vor dem Update angehängter Eintrag für audit_hash_since, ein später angehängter oder eine still
+  -- entfernte Zeile bleibt so sichtbar, auch wenn danach jemand den Stichtag absenkt.
+  IF to_regclass('audit_hash_since') IS NOT NULL THEN
+    EXECUTE 'SELECT seq FROM audit_hash_since WHERE id = 1' INTO stichtag;
+    IF stichtag IS NULL OR NOT coalesce((
+         SELECT count(*) = 1 AND bool_and(a.action = 'INSERT' AND a.seq > stichtag AND a.new_value ->> 'seq' = stichtag::text)
+           FROM audit_log a WHERE a.table_name = 'audit_hash_since'), false) THEN
+      RETURN QUERY SELECT 'siegel'::text, 'audit_hash_since'::text, '1'::text, NULL::bigint,
+        'Stichtag der Hashes von PDF und XML nicht belegt'::text;
+    END IF;
+  END IF;
   -- Nur anhängbare Tabellen ohne Siegel (#861): Jede Zeile steht so im Audit-Log, wie sie in der Tabelle steht. Ihr
   -- Audit-Trigger schreibt beim Einfügen den ganzen Wert, und ändern oder löschen lässt haben_append_only sie nur mit
   -- abgeschalteten Triggern; das hinterlässt keinen Eintrag. Maßgeblich ist der erste INSERT-Eintrag je Primärschlüssel:
@@ -225,8 +243,8 @@ BEGIN
       -- PDF und XML (#2038): maßgeblich ist je Spalte der erste INSERT-Eintrag nach dem Stichtag (audit_hash_since), der
       -- ihren Hash nennt, bei Zeilen von vor 0354 der Nachtrag der Migration. Ein angehängter Eintrag ohne diese Spalte, etwa
       -- mit leerem omitted_sha256, ersetzt ihn nicht; einer vor dem Stichtag zählt gar nicht. Fehlt die Zeile des Stichtags,
-      -- zählen alle Einträge, und der Abgleich von audit_hash_since meldet sie. Ist omitted_sha256 kein Objekt, bricht jsonb_each ab und die Tabelle meldet unten, dass der
-      -- Abgleich nicht möglich ist.
+      -- zählen alle Einträge; das ist oben schon ein Befund. Ist omitted_sha256 kein Objekt, bricht jsonb_each ab und die
+      -- Tabelle meldet unten, dass der Abgleich nicht möglich ist.
       IF mit_hash THEN
         RETURN QUERY EXECUTE format($q$
           WITH e AS (
@@ -234,7 +252,7 @@ BEGIN
               FROM audit_log a
              CROSS JOIN LATERAL jsonb_each(a.new_value -> 'omitted_sha256') s(spalte, soll)
              WHERE a.table_name = %1$L AND a.action = 'INSERT' AND a.new_value ? 'omitted_sha256'
-               AND a.seq > coalesce((SELECT h.seq FROM audit_hash_since h WHERE h.id = 1), 0)
+               AND a.seq > $2
           ), l AS (
             SELECT DISTINCT ON (%3$s, e.spalte) e.* FROM e ORDER BY %3$s, e.spalte, e.seq
           ), t AS (
@@ -248,7 +266,7 @@ BEGIN
            GROUP BY %4$s
            ORDER BY min(l.seq)
            LIMIT $1
-        $q$, tbl, pk_match, pk_key, zeile_t) USING max_rows;
+        $q$, tbl, pk_match, pk_key, zeile_t) USING max_rows, coalesce(stichtag, 0);
       END IF;
     EXCEPTION WHEN OTHERS THEN
       -- Etwa ein älterer Wert, der sich nicht mehr in den heutigen Spaltentyp wandeln lässt: ein Befund an der Tabelle statt
