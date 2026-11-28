@@ -253,4 +253,36 @@ describe.skipIf(!testDatabaseUrl)("Beleg duplizieren (Postgres)", () => {
     await expect(duplizieren.duplicateDocument(actor, copyId, jpeg())).rejects.toThrow(/gerade ausgelesen/);
     await expect(duplizieren.duplicateDocument(actor, "00000000-0000-4000-8000-000000000000", jpeg())).rejects.toThrow(/nicht gefunden/);
   });
+
+  it("übernimmt eine Aufteilung in Fremdwährung aus dem bisherigen Formular mit den Beträgen laut Beleg", async () => {
+    await reset("SKR03", "soll");
+    // Das bisherige Formular behält eine Aufteilung, wenn die Währung danach umgestellt wird; ihre Zeilen haben kein
+    // Netto laut Beleg (#1975)
+    const { id } = await documents.uploadDocument(actor, jpeg());
+    await documents.updateDocument(actor, id, {
+      supplierName: "Figma Inc.",
+      supplierUstId: "",
+      invoiceNumber: "F-1002",
+      documentDate: "2026-09-15",
+      dueDate: null,
+      category: null,
+      payment: "bank",
+      note: "",
+      currency: "USD",
+      exchangeRate: null,
+      amounts: [{ taxRate: 1900, net: 0, tax: 0, originalNet: 10_000, originalTax: 1_900 }],
+      splits: [
+        { category: "telefon", taxRate: 1900, net: 7_500 },
+        { category: "privatentnahme", taxRate: 1900, net: 2_500 },
+      ],
+    });
+    const original = (await documents.getDocument(id))!;
+
+    const { id: copyId } = await duplizieren.duplicateDocument(actor, id, jpeg());
+    const copy = (await documents.getDocument(copyId))!;
+    const betraege = (d: typeof copy) => d.amounts.map((a) => [a.taxRate, a.originalNet, a.originalTax]);
+    const kontierung = (d: typeof copy) => d.positionen.map(({ category, taxRate, net }) => ({ category, taxRate, net }));
+    expect(betraege(copy)).toEqual([[1900, 10_000, 1_900]]);
+    expect(kontierung(copy)).toEqual(kontierung(original));
+  });
 });
