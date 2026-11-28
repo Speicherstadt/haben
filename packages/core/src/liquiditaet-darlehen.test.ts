@@ -29,6 +29,7 @@ describe("Rhythmus der Darlehensraten", () => {
     expect(darlehenRhythmus(["2026-01-05", "2026-02-23"])).toBe(1);
     expect(darlehenRhythmus(["2026-01-31", "2026-05-31"])).toBe(3);
     expect(darlehenRhythmus(["2026-01-31", "2026-09-30"])).toBe(6);
+    expect(darlehenRhythmus(["2026-01-31", "2026-06-20"])).toBe(6);
     expect(darlehenRhythmus(["2026-01-31", "2026-11-30"])).toBe(12);
     // Eine Rate außer der Reihe ändert den Rhythmus nicht: der häufigste der letzten drei Abstände
     expect(darlehenRhythmus(["2026-03-31", "2026-06-30", "2026-09-30", "2026-10-30"])).toBe(3);
@@ -196,6 +197,9 @@ describe("Darlehensraten fortschreiben", () => {
       ["2026-11-02", 1000_00],
       ["2026-11-30", 1000_00],
     ]);
+    // Vierteljährlich ruht es erst nach zwei Quartalen und 30 Tagen: Die Rate zum 30.09. steht überfällig
+    const quartal = darlehen([...rate("2026-03-31", 1500_00, 300_00), ...rate("2026-06-30", 1500_00, 300_00)]);
+    expect(kurz(quartal).map(([datum]) => datum)).toEqual(["2026-09-30", "2026-12-31", "2027-03-31"]);
   });
 
   it("überfällig nur nach dem ersten Bankumsatz, ohne Bankumsätze nie", () => {
@@ -207,6 +211,23 @@ describe("Darlehensraten fortschreiben", () => {
     ]);
     expect(kurz(d, { bis: "2026-11-30", bankdatenAb: "2026-11-02" })).toEqual([["2026-11-30", 1000_00]]);
     expect(kurz(d, { bis: "2026-11-30", bankdatenAb: null })).toEqual([["2026-11-30", 1000_00]]);
+  });
+
+  it("Tage ohne Ausgang und ohne Zinsen", () => {
+    // Eine Erstattung an einem eigenen Tag ist keine Rate: Die Rate zum 30.11. bleibt überfällig
+    const erstattung = darlehen([...rate("2026-09-30", 500_00), ...rate("2026-10-30", 500_00), { datum: "2026-12-02", teil: "tilgung", betrag: 50_00 }]);
+    expect(kurz(erstattung, { heute: "2026-12-10", bis: "2026-12-31" })).toEqual([
+      ["2026-11-30", 500_00],
+      ["2026-12-30", 500_00],
+    ]);
+    // Zahlt das Darlehen seit den letzten drei Raten keine Zinsen mehr, zählen auch Tage ohne Zinsen
+    const zinslos = darlehen(
+      ["2026-07-30", "2026-08-31", "2026-09-30", "2026-10-30"].flatMap((datum) => rate(datum, 800_00)).concat(rate("2026-06-30", 800_00, 200_00)),
+    );
+    expect(kurz(zinslos, { bis: "2026-12-31" })).toEqual([
+      ["2026-11-30", 800_00],
+      ["2026-12-30", 800_00],
+    ]);
   });
 
   it("ohne Rate ein Hinweis, mit Bestand; nur Gebühren sind keine Rate", () => {
