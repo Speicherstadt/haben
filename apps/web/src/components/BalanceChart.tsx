@@ -81,7 +81,11 @@ export function BalanceChart({
   d += `H${W - M.right}`;
   stufen.push({ x: W - M.right, y: y(current) });
   const linie = grenze ? y(grenze.value) : 0;
-  const labelUnten = grenze ? grenzeLabelSeite(stufen, W - M.right - grenze.label.length * LABEL_ZEICHEN, W - M.right, linie) === "unten" : false;
+  // Unter der Linie nur mit Platz im Diagramm: Ganz unten (0 € auf der Nulllinie) stünde sie auf der Achse der Monate
+  const labelUnten =
+    grenze !== undefined &&
+    linie + LABEL_BAND <= M.top + plotH &&
+    grenzeLabelSeite(stufen, W - M.right - grenze.label.length * LABEL_ZEICHEN, W - M.right, linie) === "unten";
 
   // Monatsanfänge im Zeitraum als Achsenbeschriftung
   const monthTicks: { iso: string; label: string }[] = [];
