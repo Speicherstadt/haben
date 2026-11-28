@@ -267,6 +267,27 @@
       "function": "public.haben_append_only()"
     },
     {
+      "table": "public.audit_hash_since",
+      "name": "audit_hash_since_append_only",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER audit_hash_since_append_only BEFORE DELETE OR UPDATE ON public.audit_hash_since FOR EACH ROW EXECUTE FUNCTION public.haben_append_only()",
+      "function": "public.haben_append_only()"
+    },
+    {
+      "table": "public.audit_hash_since",
+      "name": "audit_hash_since_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER audit_hash_since_audit AFTER INSERT ON public.audit_hash_since FOR EACH ROW EXECUTE FUNCTION public.haben_audit()",
+      "function": "public.haben_audit()"
+    },
+    {
+      "table": "public.audit_hash_since",
+      "name": "audit_hash_since_no_truncate",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER audit_hash_since_no_truncate BEFORE TRUNCATE ON public.audit_hash_since FOR EACH STATEMENT EXECUTE FUNCTION public.haben_reject_truncate()",
+      "function": "public.haben_reject_truncate()"
+    },
+    {
       "table": "public.audit_log",
       "name": "audit_log_append_only",
       "enabled": "O",
@@ -3384,16 +3405,16 @@
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "75a7971a80052089062f7b6c6b22b2484f34302f0fcb792e711753b7a5000356",
-      "definitionHash": "a5306a56eff616d7e09392e4e999212b4ba887bfff1ad763b3589fe41e514c31"
+      "sourceHash": "4e98eafdc838364a0e2397e23b54110d70407807569c0363aed6b6b565d562a0",
+      "definitionHash": "4e5d0b72232bce5987cb873171cd98743ef26dedd8acebd77bd19f513d9f6ff4"
     },
     {
       "name": "public.haben_audit()",
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "b5ffdf40a6416a8cb22143de6df8aa69b4dd13d42039ce95ec59d01038c9bd20",
-      "definitionHash": "78acdbe6c38396d351a38da411c8ae403cf3c976b413938a8ab1030a7271cf6f"
+      "sourceHash": "2756c0dfa9d15b31215553870289f5a35b88c5200e4d9819ea2dfc6e22596fe5",
+      "definitionHash": "100a9d1b915df82ee045a4dddddd1fc99ba575da4ffced6200ba3d4568736cd8"
     },
     {
       "name": "public.haben_audit_chain()",
@@ -3444,12 +3465,20 @@
       "definitionHash": "da60f9d481a52dafebc1143a24dd5618bb5d6b4226417d7b81f8811833be7845"
     },
     {
+      "name": "public.haben_audit_omitted_sha256(rec anyelement)",
+      "config": ["bytea_output=hex"],
+      "language": "sql",
+      "securityDefiner": false,
+      "sourceHash": "afb954333f586bfd3033af4c3f3977d566749c6466aaa556e04761d594ce3a83",
+      "definitionHash": "bce3cec44fd76d4bdffd29451f4bac4167ec21968137b67f8c7d8c561370e7a9"
+    },
+    {
       "name": "public.haben_audited_append_only_tables()",
       "config": [],
       "language": "sql",
       "securityDefiner": false,
-      "sourceHash": "be684a372b436eb0488ce88d7c1feb0a0eed0043a3ffe55acbf4aa4f18329e8a",
-      "definitionHash": "8841be6b63f2b3d5a56f6e30d6a71aa52cfafdbb749a20106a6b75a26e34533b"
+      "sourceHash": "4b6aa3369ce874ccd476c6c4232d3f1adbd734805276f15766ef969543bed005",
+      "definitionHash": "9fd68d7bda7d26736d22f8dd9117089a7fcfabff353d871b820e6ea10a60de3d"
     },
     {
       "name": "public.haben_bank_duplicate(umsatz_id uuid)",

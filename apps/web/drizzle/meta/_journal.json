@@ -2472,6 +2472,20 @@
       "when": 1795884182863,
       "tag": "0352_belege_positionen",
       "breakpoints": true
+    },
+    {
+      "idx": 353,
+      "version": "7",
+      "when": 1795889948647,
+      "tag": "0353_audit_hash_stichtag",
+      "breakpoints": true
+    },
+    {
+      "idx": 354,
+      "version": "7",
+      "when": 1795889950585,
+      "tag": "0354_hash_weggelassene_spalten",
+      "breakpoints": true
     }
   ]
 }

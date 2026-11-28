@@ -88,12 +88,14 @@ describe.skipIf(!testDatabaseUrl)("Migration: Beträge, Positionen und Steuerzei
 
   /**
    * Einträge ohne den einen der späteren Migration 0352 (#1975): Sie gibt dem offenen Entwurf ohne Kategorie seine Position
-   * je Satz, mit eigenem Eintrag als system:migration. Diese Migration selbst trägt nichts nach.
+   * je Satz, mit eigenem Eintrag als system:migration. Ebenso ohne den Stichtag der Hashes aus 0354 (#2038). Diese Migration
+   * selbst trägt nichts nach.
    */
   const eintraegeOhnePositionen = async () =>
     (
       await sql<{ n: number }[]>`select count(*)::int as n from audit_log
-        where not (table_name = 'document_splits' and action = 'INSERT' and actor = 'system:migration')`
+        where not (table_name = 'document_splits' and action = 'INSERT' and actor = 'system:migration')
+          and not (table_name = 'audit_hash_since' and actor = 'system:migration')`
     )[0]!.n;
 
   it("trägt nichts nach; Kette, Siegel und Sollbestand ohne Befund", async () => {

@@ -137,7 +137,7 @@ export async function setupTestDb(): Promise<postgres.Sql> {
  * Wird `audit_chain` geleert, legt leeren den Kopf der Kette neu an. Wird `audit_log` geleert, stehen die verbliebenen
  * Zeilen nur anhängbarer Tabellen (etwa `vat_items_since` aus den Migrationen) nicht mehr darin, und der Abgleich aus 0339
  * meldete sie. Sie kommen deshalb wieder hinein, wie beim Nachtrag in 0339, mit eingeschalteten Triggern, damit die Kette
- * sie verkettet.
+ * sie verkettet. Der Stichtag der Hashes (`audit_hash_since`, 0354) beginnt dann wieder bei 0, weil die Kette neu anfängt.
  */
 export function leeren(sql: postgres.Sql) {
   return async (strings: TemplateStringsArray, ...values: never[]): Promise<void> => {
@@ -147,7 +147,10 @@ export function leeren(sql: postgres.Sql) {
       await tx(strings, ...values);
       if (/\baudit_chain\b/.test(strings.join(""))) await tx`insert into audit_chain (id, seq, hash) values (1, 0, haben_audit_genesis())`;
       if (/\baudit_log\b/.test(strings.join(""))) {
+        const [stichtag] = await tx<{ da: boolean }[]>`select to_regclass('audit_hash_since') is not null as da`;
+        if (stichtag?.da) await tx`truncate audit_hash_since`;
         await tx`set local session_replication_role = origin`;
+        if (stichtag?.da) await tx`insert into audit_hash_since (id, seq) values (1, 0)`;
         await auditNachtragen(tx);
       }
     });

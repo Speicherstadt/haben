@@ -69,8 +69,9 @@ describe.skipIf(!testDatabaseUrl)("Migration 0339: Bestand der nur anhängbaren 
     expect(zeilen("contact_versions").sort()).toEqual(versionen.map((v) => v.id).sort());
     expect(zeilen("user_logins")).toEqual([vorher.zugang]);
     expect(nachgetragen.every((e) => e.actor === "system:migration")).toBe(true);
-    // Hinweis wie beim nachträglichen Bilden der Kette (0063): danach, mit der Anzahl je Tabelle
-    expect(nachgetragen.at(-1)).toMatchObject({
+    // Hinweis wie beim nachträglichen Bilden der Kette (0063): danach, mit der Anzahl je Tabelle. Den Stichtag der Hashes
+    // legt erst die spätere Migration 0354 an (#2038).
+    expect(nachgetragen.filter((e) => e.table_name !== "audit_hash_since").at(-1)).toMatchObject({
       table_name: "audit_chain",
       new_value: {
         hinweis: expect.stringContaining("nachträglich eingetragen"),

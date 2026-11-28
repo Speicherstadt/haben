@@ -1137,6 +1137,20 @@ export const auditChain = pgTable(
 );
 
 /**
+ * Ab welchem Eintrag im Audit-Log die Hashes von PDF und XML gelten (#2038): der Kopf der Kette, bevor die Migration die
+ * Hashes des Bestands nachträgt. Ein früherer Eintrag mit omitted_sha256 kann nur angehängt sein und zählt im Abgleich
+ * nicht. Eine Zeile, nur anhängen.
+ */
+export const auditHashSince = pgTable(
+  "audit_hash_since",
+  {
+    id: smallint("id").primaryKey().default(1),
+    seq: bigint("seq", { mode: "number" }).notNull(),
+  },
+  (t) => [check("audit_hash_since_single_row", sql`${t.id} = 1`)],
+);
+
+/**
  * Siegel festgeschriebener Datensätze: SHA-256 über die Zeile und ihre abhängigen Zeilen (Buchungszeilen,
  * Positionen, Steuerbeträge), angelegt per Trigger beim Festschreiben; für nur anhängbare Tabellen (Kassenbuch, Zuordnungen,
  * Pauschalen, AfA) beim Einfügen. Steht über das Audit-Log in der Kette.
