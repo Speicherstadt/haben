@@ -178,6 +178,14 @@ describe.skipIf(!testDatabaseUrl)("Entwürfe einer externen Quelle festschreiben
     expect(sent).toHaveLength(1);
   });
 
+  it("mit senden: keine Mail für eine von Hand festgeschriebene Rechnung, die nicht „Bereits bezahlt“ ist", async () => {
+    await mailSettings();
+    const offen = await ebayDraft({ paymentMethod: "ueberweisung", paidVia: null, paidOn: null, paymentTermDays: 14 });
+    await rechnungen.finalizeInvoice(actor, offen.id, kleinunternehmerStand);
+    expect(await run(offen.id, true)).toMatchObject({ ok: false, code: "unprocessable" });
+    expect(sent).toHaveLength(0);
+  });
+
   it.each([
     ["SKR03", "ist"],
     ["SKR04", "soll"],
