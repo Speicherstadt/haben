@@ -42,7 +42,7 @@ export function mindestbestandAufgaben(w: Unterschreitung | null): Todo[] {
       title: titel,
       detail,
       frist: w.datum,
-      action: "Vorschau",
+      action: "Ansehen",
       tone: "warn",
       to: "/auswertungen/liquiditaet",
     },

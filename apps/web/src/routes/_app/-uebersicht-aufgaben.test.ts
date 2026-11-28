@@ -98,7 +98,7 @@ beforeEach(() => {
 });
 
 describe("Übersicht: Mindestbestand (#1381)", () => {
-  it("steht mit Tag, Stand und Fehlbetrag als Warnung, der Tag zählt wie eine Frist, und führt zur Liquiditätsvorschau", () => {
+  it("steht mit Tag, Stand und Fehlbetrag als Warnung, der Tag zählt wie eine Frist, und führt mit „Ansehen“ zur Liquiditätsvorschau", () => {
     data.invoices.drafts = 1;
     data.invoices.overdueCount = 2;
     data.mindestbestand = { datum: inTagen(10), stand: 400_000, mindestbestand: 500_000, fehlt: 100_000 };
@@ -109,6 +109,8 @@ describe("Übersicht: Mindestbestand (#1381)", () => {
       href: "/auswertungen/liquiditaet",
       detail: "Erwartet 4.000,00\u00a0€, 1.000,00\u00a0€ unter dem Mindestbestand von 5.000,00\u00a0€",
     });
+    // Wie die übrigen Aufgaben, die man nur ansieht
+    expect(html).toMatch(new RegExp(`${titelMb}</span>(?:(?!</a>).)*?<span class="todo-action">Ansehen</span>`));
   });
 
   it("ohne Unterschreitung keine Aufgabe", () => {
