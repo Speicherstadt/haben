@@ -1,4 +1,4 @@
-import { EXPENSE_CATEGORY_KEYS } from "@haben/core";
+import { kategorienMit, type ExpenseCategory } from "@haben/core";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { withActor } from "../../db/actor.ts";
@@ -54,7 +54,7 @@ const ownAccountSchema = z.object({
   kontenrahmen: z.enum(["SKR03", "SKR04"]),
   account: z.string(),
   name: z.string(),
-  parentCategory: z.enum(EXPENSE_CATEGORY_KEYS),
+  parentCategory: z.enum(kategorienMit("eigenesKonto") as [ExpenseCategory, ...ExpenseCategory[]]),
   archivedAt: z.string().min(1).nullable(),
 });
 

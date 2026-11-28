@@ -68,10 +68,15 @@ async function skontoVorsteuer(
       konten.map((konto) => sql`${konto}`),
       sql`, `,
     )}) group by l.tax_code`);
-  return paidTaxShares(totals, -(Number(stand?.amount ?? 0) + amount)).map((s) => ({
-    ...s,
-    tax:
-      abziehbareSteuer(s.tax, gespeicherterAnteil(doc, totals.taxes.find((t) => t.rate === s.rate)?.vorsteuerAnteil)) -
-      bisher.filter((r) => r.tax_code === (s.rate === 1900 ? "VSt19" : "VSt7")).reduce((sum, r) => sum + Number(r.tax), 0),
-  }));
+  return paidTaxShares(totals, -(Number(stand?.amount ?? 0) + amount)).map((s) => {
+    // § 17 Abs. 1 Satz 2 UStG: nur Sätze mit Vorsteuerschlüssel mit bereits gebuchter Vorsteuer verrechnen (#2033)
+    const code = s.rate === 1900 ? "VSt19" : s.rate === 700 ? "VSt7" : null;
+    if (code === null) return { ...s, tax: 0 };
+    return {
+      ...s,
+      tax:
+        abziehbareSteuer(s.tax, gespeicherterAnteil(doc, totals.taxes.find((t) => t.rate === s.rate)?.vorsteuerAnteil)) -
+        bisher.filter((r) => r.tax_code === code).reduce((sum, r) => sum + Number(r.tax), 0),
+    };
+  });
 }

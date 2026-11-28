@@ -1,3 +1,4 @@
+import type { Rechtsform } from "@haben/core";
 import type { z } from "zod";
 import {
   bookingIssues,
@@ -10,6 +11,7 @@ import {
   type DocumentReference,
 } from "../belege/index.ts";
 import { type DocumentKind, sniff } from "../../storage.ts";
+import { loadCompany } from "../stammdaten/index.ts";
 import { fail, notFound, ok, validate, type ApiRequest, type ApiResult } from "./http.ts";
 import { documentQuerySchema, documentUploadSchema, type documentSchema, type documentSummarySchema } from "./belege-schemas.ts";
 
@@ -20,7 +22,8 @@ import { documentQuerySchema, documentUploadSchema, type documentSchema, type do
  */
 
 type ListRow = Omit<Awaited<ReturnType<typeof listDocuments>>[number], "splitCount" | "ownAccount">;
-type Loaded = NonNullable<Awaited<ReturnType<typeof getDocument>>> & Awaited<ReturnType<typeof documentCancellation>>;
+/** Mit der Rechtsform: bookingIssues meldet eine Entnahmezeile bei GmbH und UG wie das Buchen (#1975) */
+type Loaded = NonNullable<Awaited<ReturnType<typeof getDocument>>> & Awaited<ReturnType<typeof documentCancellation>> & { rechtsform: Rechtsform };
 
 const DOCUMENT_NOT_FOUND = "Beleg nicht gefunden.";
 const location = (id: string) => `/api/v1/belege/${id}`;
@@ -51,7 +54,7 @@ function summaryOut(row: ListRow, baseUrl: string): z.output<typeof documentSumm
   };
 }
 
-function documentOut({ document, amounts, splits, cancellation, reentryId }: Loaded, request: ApiRequest): z.output<typeof documentSchema> {
+function documentOut({ document, amounts, splits, cancellation, reentryId, rechtsform }: Loaded, request: ApiRequest): z.output<typeof documentSchema> {
   return {
     ...summaryOut({ ...document, cancelledOn: cancellation?.date ?? null }, request.baseUrl),
     size: document.size,
@@ -66,7 +69,7 @@ function documentOut({ document, amounts, splits, cancellation, reentryId }: Loa
     vorsteuerAnteil: document.vorsteuerAnteil,
     vorsteuerAbzug: document.vorsteuerAbzug,
     amounts: amounts.map(({ taxRate, net, tax, vorsteuerAnteil }) => ({ taxRate, net, tax, vorsteuerAnteil })),
-    issues: document.lockedAt ? [] : bookingIssues(document, amounts, request.today, splits),
+    issues: document.lockedAt ? [] : bookingIssues(document, amounts, request.today, splits, rechtsform),
     replacedById: reentryId,
     replacesId: document.replacesDocumentId,
     updatedAt: document.updatedAt.toISOString(),
@@ -76,7 +79,7 @@ function documentOut({ document, amounts, splits, cancellation, reentryId }: Loa
 /** Beleg mit Beträgen und Storno */
 async function load(id: string): Promise<Loaded | null> {
   const loaded = await getDocument(id);
-  return loaded && { ...loaded, ...(await documentCancellation(id)) };
+  return loaded && { ...loaded, ...(await documentCancellation(id)), rechtsform: (await loadCompany()).rechtsform };
 }
 
 async function respondWith(id: string, request: ApiRequest, status = 200, headers: Record<string, string> = {}): Promise<ApiResult> {

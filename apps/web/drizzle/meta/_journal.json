@@ -2371,8 +2371,15 @@
     {
       "idx": 338,
       "version": "7",
-      "when": 1795809368185,
-      "tag": "0338_abgleich_audit_log",
+      "when": 1795803242773,
+      "tag": "0338_aufteilung_beschreibung",
+      "breakpoints": true
+    },
+    {
+      "idx": 339,
+      "version": "7",
+      "when": 1795825865984,
+      "tag": "0339_abgleich_audit_log",
       "breakpoints": true
     }
   ]

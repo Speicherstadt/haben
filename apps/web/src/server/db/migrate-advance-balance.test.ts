@@ -96,7 +96,7 @@ describe.skipIf(!testDatabaseUrl)("Migration des Anzahlungs-Bilanzverfahrens: Al
       expect(await sql`select reduction_rule from invoices where id=${invoiceId}`).toEqual([{ reduction_rule: null }]);
       // Neu im Audit-Log sind nur die Zeile der Prüfung beim Update (Migration 0275, #1116), das Briefkopf-Profil mit dem
       // bisherigen Layout für die eingerichtete Firma (Migration 0312, #113) und der Nachtrag von vat_items_since, das 0138
-      // vor seinem Audit-Trigger anlegt, mit Hinweis (Migration 0338, #861)
+      // vor seinem Audit-Trigger anlegt, mit Hinweis (Migration 0339, #861)
       expect(await sql`select table_name, action from audit_log where seq > ${auditHead!.seq} order by seq`).toEqual([
         { table_name: "journal_umstellung", action: "INSERT" },
         { table_name: "letterhead_profiles", action: "INSERT" },

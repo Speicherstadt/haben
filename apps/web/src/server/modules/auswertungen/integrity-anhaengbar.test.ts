@@ -5,7 +5,7 @@ import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
 /*
  * Nur anhängbare Tabellen ohne Siegel (#861): Ihr Audit-Trigger schreibt jede Zeile beim Einfügen ins Audit-Log. Ändern
- * oder löschen geht nur mit abgeschalteten Triggern; haben_integrity_problems (0338) vergleicht deshalb jede Zeile mit
+ * oder löschen geht nur mit abgeschalteten Triggern; haben_integrity_problems (0339) vergleicht deshalb jede Zeile mit
  * dem Eintrag, mit dem sie dorthin kam.
  */
 describe.skipIf(!testDatabaseUrl)("Nur anhängbare Tabellen gegen das Audit-Log (Postgres)", () => {
@@ -161,7 +161,7 @@ describe.skipIf(!testDatabaseUrl)("Nur anhängbare Tabellen gegen das Audit-Log 
     expect(found.found).toEqual([{ art: "siegel", tabelle: "invoice_settlements", zeile: found.id, seq: null, befund: "Zeile steht nicht im Audit-Log" }]);
   });
 
-  // Bankumsätze standen bis 0338 gar nicht im Audit-Log (#861, erstes Akzeptanzkriterium)
+  // Bankumsätze standen bis 0339 gar nicht im Audit-Log (#861, erstes Akzeptanzkriterium)
   it("schreibt Bankumsätze ins Audit-Log und meldet einen geänderten", async () => {
     const { id } = await bankTransaction();
     const [audited] = await sql`select new_value from audit_log where table_name = 'bank_transactions' and row_id = ${id}`;

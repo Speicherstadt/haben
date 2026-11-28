@@ -3971,6 +3971,7 @@
     { "table": "public.document_cancellations", "column": "created_at", "expression": "now()" },
     { "table": "public.document_cancellations", "column": "id", "expression": "gen_random_uuid()" },
     { "table": "public.document_cancellations", "column": "reason", "expression": "''::text" },
+    { "table": "public.document_splits", "column": "description", "expression": "''::text" },
     { "table": "public.document_splits", "column": "id", "expression": "gen_random_uuid()" },
     { "table": "public.documents", "column": "currency", "expression": "'EUR'::text" },
     { "table": "public.documents", "column": "erstattet_bezahltes", "expression": "false" },

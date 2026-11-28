@@ -135,8 +135,8 @@ export async function setupTestDb(): Promise<postgres.Sql> {
  * die Sperren selbst bleiben unverändert. Nur für TRUNCATE, damit kein anderer Trigger nebenbei umgangen wird.
  *
  * Wird `audit_chain` geleert, legt leeren den Kopf der Kette neu an. Wird `audit_log` geleert, stehen die verbliebenen
- * Zeilen nur anhängbarer Tabellen (etwa `vat_items_since` aus den Migrationen) nicht mehr darin, und der Abgleich aus 0338
- * meldete sie. Sie kommen deshalb wieder hinein, wie beim Nachtrag in 0338, mit eingeschalteten Triggern, damit die Kette
+ * Zeilen nur anhängbarer Tabellen (etwa `vat_items_since` aus den Migrationen) nicht mehr darin, und der Abgleich aus 0339
+ * meldete sie. Sie kommen deshalb wieder hinein, wie beim Nachtrag in 0339, mit eingeschalteten Triggern, damit die Kette
  * sie verkettet.
  */
 export function leeren(sql: postgres.Sql) {
@@ -154,7 +154,7 @@ export function leeren(sql: postgres.Sql) {
   };
 }
 
-/** Trägt jede Zeile der nur anhängbaren Tabellen ohne Eintrag ins Audit-Log ein (wie der Nachtrag in 0338) */
+/** Trägt jede Zeile der nur anhängbaren Tabellen ohne Eintrag ins Audit-Log ein (wie der Nachtrag in 0339) */
 export async function auditNachtragen(tx: postgres.TransactionSql): Promise<void> {
   await tx.unsafe(`DO $$
     DECLARE tbl text;

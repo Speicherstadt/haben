@@ -1,4 +1,4 @@
-import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_KEYS, SELF_ASSESSED_TAX_KEYS, formatDecimal, formatEuro, type Cents } from "@haben/core";
+import { BELEGKATEGORIEN, EXPENSE_CATEGORIES, SELF_ASSESSED_TAX_KEYS, formatDecimal, formatEuro, type Cents } from "@haben/core";
 import { z } from "zod";
 import { UserError } from "../../errors.ts";
 import type { DocumentKind } from "../../storage.ts";
@@ -40,7 +40,7 @@ export const extractionSchema = z.object({
     )
     .describe("Je Steuersatz eine Zeile, positive Beträge"),
   brutto: z.string().nullable().describe("Gesamtbetrag, Dezimalpunkt"),
-  kategorie: z.enum(EXPENSE_CATEGORY_KEYS),
+  kategorie: z.enum(BELEGKATEGORIEN),
   // § 13b steht als Hinweis auf dem Beleg; die Wahl am Beleg bleibt bestehen und geht vor
   reverseCharge: z
     .enum(SELF_ASSESSED_TAX_KEYS)
@@ -63,7 +63,7 @@ export interface ExtractedFields {
   serviceFrom?: string | null;
   serviceTo?: string | null;
   currency: string;
-  category: (typeof EXPENSE_CATEGORY_KEYS)[number];
+  category: (typeof BELEGKATEGORIEN)[number];
   /** § 13b aus dem Beleg, nur als Vorschlag; eine Wahl am Beleg gilt weiter */
   reverseCharge?: (typeof SELF_ASSESSED_TAX_KEYS)[number] | null;
   amounts: { taxRate: 1900 | 700 | 0; net: Cents; tax: Cents }[];
@@ -89,9 +89,7 @@ export class ExtractionError extends UserError {
   }
 }
 
-const CATEGORY_LIST = Object.entries(EXPENSE_CATEGORIES)
-  .map(([key, { label }]) => `- ${key}: ${label}`)
-  .join("\n");
+const CATEGORY_LIST = BELEGKATEGORIEN.map((key) => `- ${key}: ${EXPENSE_CATEGORIES[key].label}`).join("\n");
 
 export const EXTRACTION_INSTRUCTIONS = `Du liest Eingangsbelege (Rechnungen, Quittungen) eines deutschen Freiberuflers für die Buchhaltung aus.
 Gib nur zurück, was auf dem Beleg steht; rate keine Beträge oder Nummern. Fehlt eine Angabe, setze null.

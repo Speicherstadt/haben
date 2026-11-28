@@ -9,11 +9,11 @@ import { testDatabaseUrl } from "../test-db.ts";
 const MIGRATIONS = fileURLToPath(new URL("../../../drizzle", import.meta.url));
 
 /*
- * Migration 0338 (#861): Bankumsätze, Kontaktversionen, DATEV-Buchungen und Lexoffice-Belege standen nicht im Audit-Log.
+ * Migration 0339 (#861): Bankumsätze, Kontaktversionen, DATEV-Buchungen und Lexoffice-Belege standen nicht im Audit-Log.
  * Vorhandene Zeilen trägt die Migration nachträglich ein, ebenso Zeilen anderer nur anhängbarer Tabellen, die dort fehlen;
  * danach meldet der neue Abgleich nichts, und die Kette hält.
  */
-describe.skipIf(!testDatabaseUrl)("Migration 0338: Bestand der nur anhängbaren Tabellen ins Audit-Log (Postgres)", () => {
+describe.skipIf(!testDatabaseUrl)("Migration 0339: Bestand der nur anhängbaren Tabellen ins Audit-Log (Postgres)", () => {
   let sql: postgres.Sql;
 
   beforeAll(async () => {
@@ -25,7 +25,7 @@ describe.skipIf(!testDatabaseUrl)("Migration 0338: Bestand der nur anhängbaren 
     const previous = mkdtempSync(join(tmpdir(), "haben-migrationen-"));
     cpSync(MIGRATIONS, previous, { recursive: true });
     const full = JSON.parse(readFileSync(join(MIGRATIONS, "meta", "_journal.json"), "utf8"));
-    const idx = full.entries.findIndex((e: { tag: string }) => e.tag === "0338_abgleich_audit_log");
+    const idx = full.entries.findIndex((e: { tag: string }) => e.tag === "0339_abgleich_audit_log");
     writeFileSync(join(previous, "meta", "_journal.json"), JSON.stringify({ ...full, entries: full.entries.slice(0, idx) }));
     sql = postgres(testDatabaseUrl!, { max: 1, onnotice: () => {} });
     const { drizzle } = await import("drizzle-orm/postgres-js");
@@ -48,7 +48,7 @@ describe.skipIf(!testDatabaseUrl)("Migration 0338: Bestand der nur anhängbaren 
         returning id`;
       const [kontakt] = await tx`insert into contacts (name) values ('Kunde A') returning id`;
       await tx`update contacts set name = 'Kunde A GmbH' where id = ${kontakt!.id}`;
-      // Eine Zeile, die schon vor 0338 an den Triggern vorbei in eine auditierte Tabelle kam: auch sie wird eingetragen
+      // Eine Zeile, die schon vor 0339 an den Triggern vorbei in eine auditierte Tabelle kam: auch sie wird eingetragen
       await tx`set local session_replication_role = replica`;
       const [zugang] = await tx`insert into user_logins (user_id, role, method) values ('nutzer-1', 'owner', 'passwort') returning id::text as id`;
       await tx`set local session_replication_role = origin`;
