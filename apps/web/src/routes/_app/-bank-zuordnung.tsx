@@ -188,7 +188,9 @@ function Auswahl({ z }: { z: Zuordnung }) {
           onChange={wahl.setKategorie}
         />
       )}
-      {mode === "direct" && directKind === "kategorie" && <BuchungsVorschlag wahl={wahl.kategorie} amount={wahl.signedAmount} kontenrahmen={kontenrahmen} />}
+      {mode === "direct" && directKind === "kategorie" && (
+        <BuchungsVorschlag wahl={wahl.kategorie} amount={wahl.signedAmount} kontenrahmen={kontenrahmen} jahr={Number(tx.bookingDate.slice(0, 4))} />
+      )}
     </>
   );
 }
