@@ -398,6 +398,8 @@ Rechnungen ohne Steuerausweis gehen ohne Steuerzeile auf eigene Erlöskonten:
 | Steuerfreie Leistung, z. B. Heilbehandlung oder Unterricht | 8100 | 4100 | `Steuerfrei` (Kz 48) |
 | Kleinunternehmer: ohne Umsatzsteuer | 8192 | 4184 | `KU` (Kz 48 nach dem [Leistungstag](umsatzsteuer.md#umsätze-ohne-steuer-kz-21-41-43-45-und-48)) |
 
+Für Buchungsjahre bis 2024 steht statt 8192 bzw. 4184 das Konto 8195 bzw. 4185 ([Neue Ausgabe des Kontenrahmens](buchhaltung.md#neue-ausgabe-des-kontenrahmens)).
+
 > [!IMPORTANT]
 > Die Kontenzuordnung stammt aus `packages/core/src/kontenplan.ts`. Gleiche sie vor dem Echtbetrieb mit deiner Steuerberatung ab.
 
