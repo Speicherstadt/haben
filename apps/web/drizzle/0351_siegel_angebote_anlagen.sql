@@ -28,7 +28,10 @@ LANGUAGE sql STABLE AS $$
     WHEN 'cash_entries' THEN jsonb_build_object('cash_entries', haben_columns('cash_entries'))
     WHEN 'allocations' THEN jsonb_build_object('allocations', haben_columns('allocations'))
     WHEN 'pauschalen' THEN jsonb_build_object('pauschalen', haben_columns('pauschalen'))
-    WHEN 'asset_depreciations' THEN jsonb_build_object('asset_depreciations', haben_columns('asset_depreciations'))
+    -- Dazu die Werte der Anlage, die mit der AfA dieses Jahres fest werden (haben_reject_booked_asset, 0342): errechnet in
+    -- haben_seal_digest, keine Spalten einer Kindtabelle
+    WHEN 'asset_depreciations' THEN jsonb_build_object('asset_depreciations', haben_columns('asset_depreciations'),
+      'assets', jsonb_build_array('special_depreciation', 'disposal_date', 'disposal_withdrawal', 'linear_from_year'))
     WHEN 'document_cancellations' THEN jsonb_build_object('document_cancellations', haben_columns('document_cancellations'))
     WHEN 'payslips' THEN jsonb_build_object('payslips', haben_columns('payslips'))
     WHEN 'payslip_cancellations' THEN jsonb_build_object('payslip_cancellations', haben_columns('payslip_cancellations'))
@@ -102,6 +105,21 @@ BEGIN
     WHEN 'asset_depreciations' THEN
       content := jsonb_build_object(
         'asset_depreciations', (SELECT haben_pick(to_jsonb(d), cols -> 'asset_depreciations') FROM asset_depreciations d WHERE d.id = rid));
+      -- Werte der Anlage bis zum Jahr dieser AfA, so wie die Sperre sie ab der Buchung festhält: Sonder-AfA bis zu diesem Jahr,
+      -- Abgang samt Entnahme und Wechsel zur linearen AfA, wenn sie in diesem Jahr oder früher liegen. Spätere Jahre bleiben
+      -- änderbar und gehen nicht ein. Nur Siegel ab 0351 kennen den Teil; ältere behalten ihren Hash.
+      IF cols ? 'assets' THEN
+        content := content || jsonb_build_object('assets', (
+          SELECT haben_pick(jsonb_build_object(
+                   'special_depreciation', (SELECT coalesce(jsonb_agg(e ORDER BY e), '[]'::jsonb)
+                                              FROM jsonb_array_elements(a.special_depreciation) e
+                                             WHERE (e ->> 'year')::integer <= d.year),
+                   'disposal_date', CASE WHEN extract(year FROM a.disposal_date) <= d.year THEN a.disposal_date END,
+                   'disposal_withdrawal', CASE WHEN extract(year FROM a.disposal_date) <= d.year THEN a.disposal_withdrawal END,
+                   'linear_from_year', CASE WHEN a.linear_from_year <= d.year THEN a.linear_from_year END),
+                 cols -> 'assets')
+            FROM asset_depreciations d JOIN assets a ON a.id = d.asset_id WHERE d.id = rid));
+      END IF;
     WHEN 'document_cancellations' THEN
       content := jsonb_build_object(
         'document_cancellations', (SELECT haben_pick(to_jsonb(c), cols -> 'document_cancellations') FROM document_cancellations c WHERE c.id = rid));
@@ -125,6 +143,63 @@ BEGIN
       RAISE EXCEPTION 'Für % gibt es kein Siegel', tbl;
   END CASE;
   RETURN encode(sha256(convert_to(content::text, 'UTF8')), 'hex');
+END;
+$$;
+--> statement-breakpoint
+-- Sperre der Anlage wie in 0342, nur der Verweis auf die Eröffnungsbuchung ist ab der Buchung ganz fest: Das Siegel der
+-- Anlage nimmt ihn auf.
+CREATE OR REPLACE FUNCTION haben_reject_booked_asset() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE
+  booked boolean := EXISTS (SELECT 1 FROM asset_depreciations WHERE asset_id = OLD.id) OR OLD.opening_entry_id IS NOT NULL;
+  last_booked smallint;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF booked OR OLD.document_id IS NOT NULL THEN
+      RAISE EXCEPTION 'Anlage % ist gebucht und kann nicht gelöscht werden', OLD.id USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN OLD;
+  END IF;
+  IF booked AND (
+    NEW.kind IS DISTINCT FROM OLD.kind OR NEW.method IS DISTINCT FROM OLD.method OR NEW.account IS DISTINCT FROM OLD.account
+    OR NEW.acquisition_date IS DISTINCT FROM OLD.acquisition_date OR NEW.cost IS DISTINCT FROM OLD.cost
+    OR NEW.useful_life_months IS DISTINCT FROM OLD.useful_life_months OR NEW.document_id IS DISTINCT FROM OLD.document_id
+    OR NEW.opening_date IS DISTINCT FROM OLD.opening_date OR NEW.opening_book_value IS DISTINCT FROM OLD.opening_book_value
+    OR NEW.private_use IS DISTINCT FROM OLD.private_use
+    OR NEW.degressive_rate IS DISTINCT FROM OLD.degressive_rate OR NEW.memo_value IS DISTINCT FROM OLD.memo_value
+    -- Den Verweis auf die Eröffnungsbuchung setzt die App vor der ersten AfA; danach ist er fest, auch noch leer (0351)
+    OR NEW.opening_entry_id IS DISTINCT FROM OLD.opening_entry_id
+  ) THEN
+    RAISE EXCEPTION 'Anlage % ist gebucht, die Berechnungsgrundlagen sind unveränderlich', OLD.id USING ERRCODE = 'check_violation';
+  END IF;
+  IF booked THEN
+    SELECT max(year) INTO last_booked FROM asset_depreciations WHERE asset_id = OLD.id;
+  END IF;
+  IF booked AND (
+    NEW.linear_from_year IS DISTINCT FROM OLD.linear_from_year OR NEW.special_depreciation IS DISTINCT FROM OLD.special_depreciation
+  ) THEN
+    IF NEW.linear_from_year IS DISTINCT FROM OLD.linear_from_year
+      AND (OLD.linear_from_year <= last_booked OR NEW.linear_from_year <= last_booked) THEN
+      RAISE EXCEPTION 'Anlage %: Der Wechsel zur linearen AfA geht nur in ein Jahr nach %', OLD.id, last_booked USING ERRCODE = 'check_violation';
+    END IF;
+    IF (
+      SELECT jsonb_agg(entry ORDER BY entry)
+      FROM jsonb_array_elements(NEW.special_depreciation) AS entry
+      WHERE (entry->>'year')::integer <= last_booked
+    ) IS DISTINCT FROM (
+      SELECT jsonb_agg(entry ORDER BY entry)
+      FROM jsonb_array_elements(OLD.special_depreciation) AS entry
+      WHERE (entry->>'year')::integer <= last_booked
+    ) THEN
+      RAISE EXCEPTION 'Anlage %: Sonder-AfA für bereits gebuchte Jahre ist unveränderlich', OLD.id USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+  IF booked AND (
+    NEW.disposal_date IS DISTINCT FROM OLD.disposal_date OR NEW.disposal_withdrawal IS DISTINCT FROM OLD.disposal_withdrawal
+  ) AND (extract(year FROM OLD.disposal_date) <= last_booked OR extract(year FROM NEW.disposal_date) <= last_booked) THEN
+    RAISE EXCEPTION 'Anlage %: Der Abgang geht nur in ein Jahr nach %', OLD.id, last_booked USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
 END;
 $$;
 --> statement-breakpoint
@@ -264,6 +339,9 @@ BEGIN
     SELECT coalesce(jsonb_agg(DISTINCT s.columns), '[]'::jsonb) INTO listen
       FROM seals s WHERE s.table_name = tbl AND s.columns <> heute;
     FOR teil IN SELECT jsonb_object_keys(heute) LOOP
+      -- Errechneter Teil des Siegels einer AfA (0351), keine Kindtabelle: Ein älteres Siegel ohne ihn deckt die Werte nicht
+      -- ab, verglichen mit Standardwerten wird er nicht
+      CONTINUE WHEN tbl = 'asset_depreciations' AND teil = 'assets';
       -- Spalte, über die haben_seal_digest die Zeilen des Datensatzes findet. Eine neue Kindtabelle im Siegel fällt
       -- hier bei jedem Lauf auf, nicht erst auf einer Instanz mit älteren Siegeln.
       fk := CASE

@@ -3787,8 +3787,8 @@
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "4016a42e0a77bb5a818f6f9b60a0da21883fe267de449b4f48024dca4cbf7431",
-      "definitionHash": "1c204d4a079b34a5bddf99634d960323748e67afd9bf1323611cefe214f034f7"
+      "sourceHash": "f98a728a68ddc327922bf8762fe6364ba073ac0c06dbad0f1c35405d454df243",
+      "definitionHash": "4f977caa34ca7cf6034f60fecda5e4b7829f7340d67208fb60a1a3063044dfde"
     },
     {
       "name": "public.haben_loan_fixed()",
@@ -3851,8 +3851,8 @@
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "7591c24b0fa91d5f670da03e74d6b03adc260b8a09d1bdd930ebe738f2e1bba6",
-      "definitionHash": "f98366dcdc92f3c4be0c1a2c2ca8e95e7e1fa7a95b99662aed25884844f6dac2"
+      "sourceHash": "44b80e6cd2ebf512142add8b41059563f886298f5e8e1b56ddc63d9ac83b170f",
+      "definitionHash": "9df1e21fe56b2183c75b0acdbca39c19f56f100245df8cc0335556360ee5da3a"
     },
     {
       "name": "public.haben_reject_locked()",
@@ -3963,16 +3963,16 @@
       "config": [],
       "language": "sql",
       "securityDefiner": false,
-      "sourceHash": "b9aabf07bbe68488b056c207beefa2c3547e22c2a9d4f014d7fccc451864ed3a",
-      "definitionHash": "2c3c8fdb1b655db055d294be35e63f2909e05597e9ba88c20fc473a5ad74949a"
+      "sourceHash": "1dc51b5c7a0460f682c33e0fa70e4397207dad565bb89bf91be97075a21eda72",
+      "definitionHash": "44b5bcbf5bd5cf56141365eabc0e2d8076491bdfaaa1b64a4cc797881e3ebe97"
     },
     {
       "name": "public.haben_seal_digest(tbl text, rid uuid, cols jsonb)",
       "config": ["IntervalStyle=postgres", "TimeZone=UTC", "bytea_output=hex", "extra_float_digits=1"],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "71c8c4fb0b34709e40017298cd2f6b6f50986ab03fe4240dcc3883b7cb4ec6ca",
-      "definitionHash": "1cae7fe539835647ad48dcd14cc7cdafd74ba8f58b073586eed1df6bd5bd4232"
+      "sourceHash": "7b77f0d067bbebf94bfe3e57f21f42665ab96e49498026b4762435eba742390a",
+      "definitionHash": "c7f2c9892ca1754ead4e9fdf2fdb3af0a85cc7dba2d8f3d2aef97ea43cb8f45e"
     },
     {
       "name": "public.haben_unaccent(t text)",

@@ -250,4 +250,63 @@ describe.skipIf(!testDatabaseUrl)("Siegel für Angebote und Anlagen (Postgres)",
       expect(found).toEqual([{ art: "siegel", tabelle: "assets", zeile: id, befund: "Festgeschrieben, aber ohne Siegel" }]);
     });
   });
+  // Abgang, Sonder-AfA und Wechsel zur linearen AfA sind für gebuchte Jahre fest (haben_reject_booked_asset, 0342). Das
+  // Siegel der Anlage deckt sie nicht ab, weil sie für spätere Jahre änderbar bleiben; das Siegel der AfA eines Jahres nimmt
+  // sie bis zu diesem Jahr auf. Anlagenverzeichnis und Jahreserklärung rechnen mit ihnen.
+  describe("Anlagen, Werte gebuchter Jahre", () => {
+    async function degressiv(extra: { special?: string; disposal?: string } = {}) {
+      const [a] = await sql`insert into assets (name, kind, method, degressive_rate, account, acquisition_date, cost, useful_life_months,
+          linear_from_year, special_depreciation, disposal_date)
+        values ('Maschine', 'sonstige', 'degressiv', 2000, '0440', '2026-01-05', 500000, 120, 2028,
+          coalesce(${extra.special ?? null}::jsonb, '[]'::jsonb), ${extra.disposal ?? null}) returning id`;
+      const [afa] = await sql`insert into asset_depreciations (asset_id, year, depreciation, entry_id)
+        values (${a!.id}, 2026, 100000, ${await lockedEntry()}) returning id`;
+      return { id: a!.id as string, afa: afa!.id as string };
+    }
+
+    it("nimmt die bis zum Jahr festen Werte der Anlage ins Siegel der AfA auf", async () => {
+      const { afa } = await degressiv({ special: '[{"year": 2026, "amount": 20000}, {"year": 2027, "amount": 10000}]' });
+      const [siegel] = await seals(afa);
+      expect(Object.keys(siegel!.columns).sort()).toEqual(["asset_depreciations", "assets"]);
+      expect(siegel!.columns.assets).toEqual(["special_depreciation", "disposal_date", "disposal_withdrawal", "linear_from_year"]);
+      expect(await problems()).toEqual([]);
+    });
+
+    it("lässt die Werte späterer Jahre ohne Befund änderbar", async () => {
+      const { id } = await degressiv({ special: '[{"year": 2026, "amount": 20000}, {"year": 2027, "amount": 10000}]' });
+      await sql`update assets set special_depreciation = '[{"year": 2026, "amount": 20000}, {"year": 2027, "amount": 5000}]',
+        linear_from_year = 2029, disposal_date = '2027-06-30' where id = ${id}`;
+      expect(await problems()).toEqual([]);
+    });
+
+    it.each([
+      { was: "Sonder-AfA des gebuchten Jahres", aenderung: { special_depreciation: '[{"year": 2026, "amount": 1}]' } },
+      { was: "Abgang im gebuchten Jahr", aenderung: { disposal_date: "2026-06-30" } },
+      { was: "Wechsel zur linearen AfA im gebuchten Jahr", aenderung: { linear_from_year: 2026 } },
+    ])("meldet $was, still geändert, am Siegel der AfA", async ({ aenderung }) => {
+      const { afa, id } = await degressiv({ special: '[{"year": 2026, "amount": 20000}]' });
+      const found = await rolledBack(async (tx) => {
+        await tamper(tx, () => tx`update assets set ${tx(aenderung)} where id = ${id}`);
+        return problems(tx);
+      });
+      expect(found).toEqual([{ art: "siegel", tabelle: "asset_depreciations", zeile: afa, befund: "Inhalt passt nicht zum Siegel" }]);
+    });
+
+    it("meldet einen still entfernten Abgang im gebuchten Jahr", async () => {
+      const { afa, id } = await degressiv({ disposal: "2026-09-30" });
+      const found = await rolledBack(async (tx) => {
+        await tamper(tx, () => tx`update assets set disposal_date = null where id = ${id}`);
+        return problems(tx);
+      });
+      expect(found).toEqual([{ art: "siegel", tabelle: "asset_depreciations", zeile: afa, befund: "Inhalt passt nicht zum Siegel" }]);
+    });
+
+    // Den Verweis setzt die App vor der ersten AfA; danach lehnt die Sperre auch das erste Setzen ab, sonst meldete das
+    // Siegel der Anlage eine erlaubte Änderung
+    it("lehnt einen Verweis auf die Eröffnungsbuchung nach gebuchter AfA ab", async () => {
+      const { id } = await degressiv();
+      const entry = await lockedEntry();
+      await expect(sql`update assets set opening_entry_id = ${entry} where id = ${id}`).rejects.toThrow(/unveränderlich/);
+    });
+  });
 });
