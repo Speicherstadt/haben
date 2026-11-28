@@ -243,12 +243,42 @@ describe.skipIf(!testDatabaseUrl)("PayPal-Abruf (Postgres)", () => {
     }
   });
 
-  it("erzeugt mit einem späteren CSV-Import desselben Zeitraums keine Dubletten, wenn die Art im Export dieselbe ist", async () => {
+  it("legt CSV und Abruf zur Nutzerentscheidung vor und erkennt wiederholte Dateiimporte", async () => {
     const konto = (await sql`select id from bank_accounts where provider = 'paypal'`)[0]!.id as string;
     const before = (await sql`select count(*)::int as n from bank_transactions`)[0]!.n;
     const result = await bank.importStatement(actor, { bytes: csv(), filename: "aktivitaeten.csv" }, konto);
-    expect(result.added).toBe(0);
-    expect((await sql`select count(*)::int as n from bank_transactions`)[0]!.n).toBe(before);
+    expect(result.added).toBe(12);
+    expect((await sql`select count(*)::int as n from bank_transactions`)[0]!.n).toBe(before + 12);
+    const [review] = await sql`select r.id, r.transaction_id from bank_duplicate_reviews r
+      join bank_transactions t on t.id = r.transaction_id where t.bank_reference = '9XY12345AB678901C'`;
+    expect(review).toBeDefined();
+    const { decideDuplicate, duplicateReviewsForTransaction } = await import("../bank/duplicate-review.ts");
+    expect((await duplicateReviewsForTransaction(review!.transaction_id))[0]!.decision).toBe("pending");
+    await decideDuplicate(actor, { id: review!.id, decision: "duplicate", requestId: crypto.randomUUID() });
+    expect((await duplicateReviewsForTransaction(review!.transaction_id))[0]!.decision).toBe("duplicate");
+    expect((await bank.importStatement(actor, { bytes: csv(), filename: "nochmal.csv" }, konto)).added).toBe(0);
+  });
+
+  it("legt eine deutsche Transaktionsart ebenfalls zur Entscheidung vor", async () => {
+    const konto = (await sql`select id from bank_accounts where provider = 'paypal'`)[0]!.id as string;
+    const text = new TextDecoder().decode(csv()).replaceAll("Express Checkout payment", "Express-Checkout-Zahlung");
+    const neueZeilen = text.split("\n").filter((zeile) => zeile.includes("Express-Checkout-Zahlung"));
+    const gemeinsam = [new TextDecoder().decode(csv()), ...neueZeilen].join("\n");
+    const result = await bank.importStatement(actor, { bytes: new TextEncoder().encode(gemeinsam), filename: "gemeinsam.csv" }, konto);
+    // Drei neue Zeilen mit je einer Gebühr.
+    expect(result.added).toBe(6);
+    const [paar] = await sql`select haben_bank_shared_fetch(a.id,b.id) as gemeinsam
+      from bank_transactions a join bank_transactions b on a.bank_reference = b.bank_reference
+      join bank_imports i on i.id = a.import_id
+      where i.format = 'paypal-csv' and a.bank_reference = '9XY12345AB678901C'
+        and a.purpose like 'Express Checkout payment%' and b.purpose like 'Express-Checkout-Zahlung%'`;
+    expect(paar?.gemeinsam).toBe(true);
+    const [row] = await sql`select r.id, r.transaction_id from bank_duplicate_reviews r join bank_transactions t on t.id = r.transaction_id
+      where t.purpose like 'Express-Checkout-Zahlung%' limit 1`;
+    const { decideDuplicate, duplicateReviewsForTransaction } = await import("../bank/duplicate-review.ts");
+    await decideDuplicate(actor, { id: row!.id, decision: "distinct", requestId: crypto.randomUUID() });
+    expect((await duplicateReviewsForTransaction(row!.transaction_id))[0]!.decision).toBe("distinct");
+    expect((await bank.importStatement(actor, { bytes: new TextEncoder().encode(text), filename: "deutsch.csv" }, konto)).added).toBe(0);
   });
 
   it("nimmt einen Abruf mit anderem Betrag zu einer schon übernommenen Bewegung nicht an und zeigt den Konflikt", async () => {

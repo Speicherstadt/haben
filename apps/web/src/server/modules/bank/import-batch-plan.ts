@@ -3,6 +3,7 @@ import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import { schema, type Tx } from "../../db/index.ts";
 import { otherImports } from "./andere-importe.ts";
 import { knownHashes } from "./statement-import.ts";
+import { paypalDateiabgleich, paypalAbrufBereitsVorhanden } from "./paypal-dateiabgleich.ts";
 
 type Row = ParsedTransaction & { dedupHash: string };
 
@@ -66,7 +67,7 @@ async function planFallbackRows(tx: Tx, accountId: string, rows: Row[], stableId
 export async function planRows(
   tx: Tx,
   accountId: string,
-  source: { createdAt: Date; cutoverDate: string | null },
+  source: { createdAt: Date; cutoverDate: string | null; provider: string },
   rows: Row[],
   fresh: Map<string, ImportMovement>,
   eventOf: (t: ParsedTransaction) => string | undefined,
@@ -85,11 +86,20 @@ export async function planRows(
     rows.filter((r) => fresh.has(eventOf(r) ?? "")).map((r) => r.dedupHash),
   );
   const beforeWindow = (m: ImportMovement) => windowFrom !== undefined && m.bookingDate < windowFrom;
+  const paypal =
+    source.provider === "paypal"
+      ? await paypalDateiabgleich(
+          tx,
+          accountId,
+          rows.filter((r) => eventOf(r) === undefined || fresh.has(eventOf(r) ?? "")),
+          "abruf",
+        )
+      : new Map();
   const inFiles = await otherImports(
     tx,
     accountId,
     [...fresh.values()].filter(beforeWindow).map((m) => m.bookingDate),
-    [...aliases.values()],
+    [...aliases.values(), ...[...paypal.values()].flat()],
     // Mit Stichtag nur Dateien nach der Bindung; eine Bindung ohne Stichtag (vor 3b) gleicht wie bisher mit allen ab
     source.cutoverDate ? source.createdAt : undefined,
   );
@@ -99,6 +109,7 @@ export async function planRows(
   const taken = new Set<string>();
   const fallbackRows: Row[] = [];
   const observedHashes: Row[] = [];
+  const paypalObserved: string[] = [];
   for (const row of rows) {
     const event = eventOf(row);
     if (event !== undefined && fallback?.events.has(event)) {
@@ -106,6 +117,17 @@ export async function planRows(
       continue;
     }
     if (event === undefined) {
+      if (paypal.has(row)) {
+        const previous = await paypalAbrufBereitsVorhanden(tx, accountId, row);
+        if (previous) {
+          paypalObserved.push(previous);
+          continue;
+        }
+        const hash = known.has(row.dedupHash) || taken.has(row.dedupHash) ? await freeHash(tx, accountId, row, taken) : row.dedupHash;
+        taken.add(hash);
+        insert.push({ ...row, dedupHash: hash });
+        continue;
+      }
       // Sobald auch mehrdeutige Zeilen nach Inhalt abgeglichen werden, müssen beide Wege gemeinsam zählen.
       if (fallback) {
         fallbackRows.push(row);
@@ -122,7 +144,7 @@ export async function planRows(
     // Bekannt, abgelehnt oder schon einmal in dieser Lieferung: kein Umsatz
     if (!movement) continue;
     fresh.delete(event);
-    const alias = aliases.get(row.dedupHash);
+    const alias = paypal.has(row) ? undefined : aliases.get(row.dedupHash);
     const inFile = `${movement.bookingDate}|${movement.amount}`;
     // Vor dem Fenster und an Tag und Betrag schon aus Datei oder FinTS: mit dieser Zeile verbunden, damit sie verbraucht ist
     const fromFile = !alias && beforeWindow(movement) ? inFiles.get(inFile)?.shift() : undefined;
@@ -147,5 +169,5 @@ export async function planRows(
     observedHashes.push(...planned.observed);
   }
 
-  return { insert, linked, fileDays, observedHashes };
+  return { insert, linked, fileDays, observedHashes, paypal, paypalObserved };
 }

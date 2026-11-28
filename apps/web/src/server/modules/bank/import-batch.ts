@@ -22,6 +22,7 @@ import { keineExterneQuelle } from "./abruf-bindung.ts";
 import { connectedRanges, cutoverFor, otherRanges } from "./andere-importe.ts";
 import { type ImportResult, insertStatement, prepareStatement, statementResult } from "./statement-import.ts";
 import { BankError } from "./bank-error.ts";
+import { paypalVerdachtSpeichern } from "./paypal-dateiabgleich.ts";
 import { recordDuplicateCandidates } from "./duplicate-scan.ts";
 import { type Linked, planRows } from "./import-batch-plan.ts";
 import { lockImportObservations, recordImportObservations } from "./import-observations.ts";
@@ -335,10 +336,22 @@ export async function storeBatch(tx: Tx, input: StoreBatchInput, accountId: stri
         stableIds: observedIds,
       }
     : undefined;
-  const { insert, linked, fileDays, observedHashes } = await planRows(tx, account.id, source, rows, fresh, input.eventOf, statement.periodFrom, fallback);
+  const { insert, linked, fileDays, observedHashes, paypal, paypalObserved } = await planRows(
+    tx,
+    account.id,
+    source,
+    rows,
+    fresh,
+    input.eventOf,
+    statement.periodFrom,
+    fallback,
+  );
   const existingIds = [...observedIds, ...linked.flatMap((row) => (row.transactionId ? [row.transactionId] : []))];
   const scanDays = fromEnableBanking ? [...new Set(insert.map((row) => row.bookingDate))] : [];
-  const observed = fromEnableBanking ? await lockImportObservations(tx, account.id, scanDays, { ids: existingIds, hashes: observedHashes }) : [];
+  const observed =
+    fromEnableBanking || source.provider === "paypal"
+      ? await lockImportObservations(tx, account.id, scanDays, { ids: [...existingIds, ...paypalObserved], hashes: fromEnableBanking ? observedHashes : [] })
+      : [];
   // Hinweise der Lieferung ins Importprotokoll (bank_imports.warnings), damit sie auch nach dem nächtlichen Abruf zu sehen sind
   const hints = [
     ...validation.hints,
@@ -348,6 +361,12 @@ export async function storeBatch(tx: Tx, input: StoreBatchInput, accountId: stri
   const logged = { ...statement, warnings: [...statement.warnings, ...hints] };
   const { importId, transactionIds } = await insertStatement(tx, account.id, logged, input.source, insert, rows.length - insert.length);
   const progress = await recordBatch(tx, source.id, account.id, validation, importId, linked, transactionIds, ambiguity.observed);
+  for (const row of insert) {
+    const originalRow = rows.find((candidate) => candidate.bankReference === row.bankReference);
+    const originals = originalRow ? paypal.get(originalRow) : undefined;
+    const id = transactionIds.get(row.dedupHash);
+    if (id && originals) await paypalVerdachtSpeichern(tx, id, originals);
+  }
   await recordImportObservations(tx, importId, observed);
   if (scanDays.length > 0) {
     const stableIds = new Set(linked.flatMap(({ hash }) => (hash && transactionIds.has(hash) ? [transactionIds.get(hash)!] : [])));

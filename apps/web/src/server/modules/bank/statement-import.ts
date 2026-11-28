@@ -1,6 +1,7 @@
 // Kontoauszüge importieren und speichern: Saldenfolge, Dubletten, Importprotokoll
 
 import { BankError } from "./bank-error.ts";
+import { paypalDateiabgleich, paypalVerdachtSpeichern, paypalDateizeilen } from "./paypal-dateiabgleich.ts";
 import {
   checkBalanceContinuity,
   parseStatement,
@@ -66,13 +67,28 @@ export async function storeStatement(
     account.id,
     transactions.map((t) => t.dedupHash),
   );
-  const fresh = transactions.filter((t) => !known.has(t.dedupHash));
+  const paypal = statement.format === "paypal-csv" ? await paypalDateiabgleich(tx, account.id, transactions, "datei") : new Map();
+  const planned =
+    statement.format === "paypal-csv"
+      ? await paypalDateizeilen(tx, account.id, transactions, known, paypal)
+      : { fresh: transactions.filter((row) => !known.has(row.dedupHash)), observedIds: [] };
+  const { fresh } = planned;
   const fromEnableBanking = statement.format === "enablebanking";
   const scanDays = fromEnableBanking ? [...new Set(fresh.map((row) => row.bookingDate))] : [];
-  const observed = fromEnableBanking
-    ? await lockImportObservations(tx, account.id, scanDays, { hashes: transactions.filter((row) => known.has(row.dedupHash)) })
-    : [];
+  const observed =
+    fromEnableBanking || statement.format === "paypal-csv"
+      ? await lockImportObservations(tx, account.id, scanDays, {
+          ids: planned.observedIds,
+          hashes: fromEnableBanking ? transactions.filter((row) => known.has(row.dedupHash)) : [],
+        })
+      : [];
   const { importId, transactionIds } = await insertStatement(tx, account.id, statement, source, fresh, transactions.length - fresh.length);
+  for (const row of fresh) {
+    const original = transactions.find((candidate) => candidate.bankReference === row.bankReference);
+    const originals = original ? paypal.get(original) : undefined;
+    const id = transactionIds.get(row.dedupHash);
+    if (id && originals) await paypalVerdachtSpeichern(tx, id, originals);
+  }
   await recordImportObservations(tx, importId, observed);
   // Ohne Quellenbindung ist auch eine innerhalb des Abrufs eindeutige Referenz kein Beleg über mehrere Abrufe.
   await recordDuplicateCandidates(tx, account.id, scanDays, new Set(transactionIds.values()), new Set());

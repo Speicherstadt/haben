@@ -6,9 +6,8 @@ import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 import { alsPayPal } from "./test-verbindung.ts";
 
 /*
- * Der Aktivitätenexport (CSV) kam vor dem Abruf (#1512, #306): Der Abruf verbindet die Umsätze aus der Datei mit der
- * Kennung der Transaktion, statt sie ein zweites Mal anzulegen, wenn die Art (Spalte „Type“) dieselbe ist. Eigene Testdatei,
- * weil sie eine leere Datenbank braucht; Aufbau und Daten wie paypal.test.ts.
+ * Der Aktivitätenexport (CSV) kam vor dem Abruf (#1512, #306). Ein abweichender Zweck kann dieselbe Zahlung meinen.
+ * Beide Zeilen bleiben für die Dublettenprüfung erhalten. Ein weiterer Abruf erkennt die bereits gespeicherte API-Zeile.
  *
  * Die PayPal-API ist nachgebaut: Der echte `PayPalClient` läuft gegen eine `fetch`-Attrappe, die Anmeldung, Saldo und
  * Transaktionen (nach Zeitraum und Seite geschnitten) aus packages/import/test-fixtures/paypal liefert. Kennungen, Namen und
@@ -58,17 +57,17 @@ const fetchAttrappe = (async (input: string | URL | Request) => {
 const factory = (options: ConstructorParameters<typeof PayPalClient>[0]) =>
   new PayPalClient({ ...options, fetch: fetchAttrappe, now: () => HEUTE.getTime(), sleep: async () => {} });
 
-/** Der Aktivitätenexport (englisch) zu denselben Zeilen, mit der Art als Beschreibung des T-Codes */
-function csv(): Uint8Array {
+/** Aktivitätenexport mit englischen Spalten und teilweise übersetzten Transaktionsarten */
+function csv(auszug: Row[] = rows): Uint8Array {
   const art: Record<string, string> = {
-    T0006: "Express Checkout payment",
+    T0006: "Express-Checkout-Zahlung",
     T1107: "Payment refund",
     T0400: "General withdrawal - bank account",
     T1106: "Payment reversal",
-    T0001: "T0001",
+    T0001: "Massenzahlung",
   };
   const euro = (v: string) => Number(v).toFixed(2);
-  const lines = fixture.transaction_details
+  const lines = auszug
     .filter((r) => {
       const i = r.transaction_info;
       return i.transaction_status !== "P" && i.transaction_status !== "D" && i.transaction_amount.currency_code === "EUR";
@@ -119,17 +118,66 @@ describe.skipIf(!testDatabaseUrl)("PayPal-Abruf nach dem CSV-Export (Postgres)",
     await sql?.end();
   });
 
-  it("verbindet einen früheren CSV-Import mit der Kennung, statt die Umsätze neu anzulegen", async () => {
+  it("behält einen anderssprachigen CSV-Umsatz und seinen API-Treffer zur Dublettenprüfung", async () => {
     await paypal.savePayPalConnection(actor, { clientId: ID, clientSecret: SECRET, fetchFrom: "2026-10-01" });
     await sql`insert into bank_accounts (name, purpose, provider, ledger_index) values ('PayPal', 'zahlungsdienstleister', 'paypal', 3)`;
     const konto = (await sql`select id from bank_accounts where provider = 'paypal'`)[0]!.id as string;
+    const ersteZahlung = rows.filter((row) => row.transaction_info.transaction_id === "9XY12345AB678901C");
+    const ersterImport = await bank.importStatement(actor, { bytes: csv(ersteZahlung), filename: "erster-tag.csv" }, konto);
+    expect(ersterImport.added).toBe(2);
+    const ersterAbruf = await paypal.syncPayPal(actor, new Date("2026-10-06T12:00:00Z"));
+    expect(ersterAbruf.error).toBeNull();
+    const ref = "9XY12345AB678901C";
+    async function pruefstand() {
+      const umsaetze = await sql`select i.format from bank_transactions t join bank_imports i on i.id = t.import_id
+        where t.bank_account_id = ${konto} and t.bank_reference = ${ref} order by i.format`;
+      expect(umsaetze.map((row) => row.format)).toEqual(["paypal-api", "paypal-csv"]);
+      const pruefung = await sql`select r.decision from bank_duplicate_reviews r
+        join bank_transactions neu on neu.id = r.transaction_id
+        join bank_transactions alt on alt.id = r.original_transaction_id
+        where neu.bank_account_id = ${konto} and neu.bank_reference = ${ref} and alt.bank_reference = ${ref}`;
+      expect(pruefung).toEqual([{ decision: "pending" }]);
+    }
+    await pruefstand();
+    const nochmal = await paypal.syncPayPal(actor, new Date("2026-10-07T12:00:00Z"));
+    expect(nochmal.error).toBeNull();
+    expect(nochmal.added).toBe(0);
+    await pruefstand();
+    // Nach der Quellenbindung kommt ein weiterer Export, bevor der nächste Abruf diese Tage sieht.
     const csvImport = await bank.importStatement(actor, { bytes: csv(), filename: "aktivitaeten.csv" }, konto);
-    expect(csvImport.added).toBe(12);
+    expect(csvImport.added).toBe(10);
     const result = await paypal.syncPayPal(actor, HEUTE);
     expect(result.error).toBeNull();
-    expect(result.added).toBe(0);
-    expect((await sql`select count(*)::int as n from bank_transactions`)[0]!.n).toBe(12);
-    // Die Kennungen sind nun mit den Umsätzen aus der Datei verbunden: ein weiterer Abruf erkennt sie daran
+    const unbekannt = await sql`select i.format from bank_transactions t join bank_imports i on i.id = t.import_id
+      where t.bank_account_id = ${konto} and t.bank_reference = '2ML89012HJ345678K' order by i.format`;
+    expect(unbekannt.map((row) => row.format)).toEqual(["paypal-api", "paypal-csv"]);
+    // Der Abruf erkennt seine elf identifizierten Bewegungen bei der Wiederholung wieder.
     expect((await sql`select count(*)::int as n from import_movements`)[0]!.n).toBe(11);
+    const vorher = (await sql`select count(*)::int as n from bank_transactions`)[0]!.n;
+    const erneut = await paypal.syncPayPal(actor, HEUTE);
+    expect(erneut.error).toBeNull();
+    expect(erneut.added).toBe(0);
+    expect((await sql`select count(*)::int as n from bank_transactions`)[0]!.n).toBe(vorher);
+  });
+
+  it("schlägt auch die Rückzahlung mit zweitem Ereigniscode derselben PayPal-ID vor", async () => {
+    const ref = "2TW91234YZ567890A";
+    const zahlung = structuredClone(rows[0]!);
+    zahlung.transaction_info.transaction_id = ref;
+    zahlung.transaction_info.transaction_initiation_date = "2026-11-07T08:00:00+0000";
+    const rueckzahlung = structuredClone(zahlung);
+    rueckzahlung.transaction_info.transaction_event_code = "T1107";
+    rueckzahlung.transaction_info.transaction_amount.value = "-50.00";
+    delete rueckzahlung.transaction_info.fee_amount;
+    rows.push(zahlung, rueckzahlung);
+    const [konto] = await sql`select id from bank_accounts where provider = 'paypal'`;
+    await bank.importStatement(actor, { bytes: csv([zahlung, rueckzahlung]), filename: "zahlung-und-rueckzahlung.csv" }, konto!.id);
+    const abruf = await paypal.syncPayPal(actor, new Date("2026-11-08T12:00:00Z"));
+    expect(abruf.error).toBeNull();
+    const paare = await sql`select r.decision from bank_duplicate_reviews r
+      join bank_transactions neu on neu.id = r.transaction_id
+      join bank_transactions alt on alt.id = r.original_transaction_id
+      where neu.bank_reference = ${`${ref}/T1107`} and alt.bank_reference = ${ref} and alt.amount = -5000`;
+    expect(paare).toEqual([{ decision: "pending" }]);
   });
 });
