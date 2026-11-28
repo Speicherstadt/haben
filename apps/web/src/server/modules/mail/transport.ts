@@ -15,7 +15,7 @@ export interface OutgoingMail {
   /** eine oder mehrere Adressen, durch Komma getrennt */
   to: string;
   bcc?: string;
-  /** Antwortadresse (Reply-To) aus den Einstellungen; fehlt sie, gehen Antworten an `from` */
+  /** Antwortadresse (Reply-To) aus den Einstellungen; fehlt sie, gehen Antworten an `from` (RFC 5322, 3.6.2) */
   replyTo?: string;
   subject: string;
   text: string;

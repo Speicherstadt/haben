@@ -14,6 +14,7 @@ describe.skipIf(!testDatabaseUrl)("Absender der E-Mails (Postgres)", () => {
   const sent: Sent[] = [];
   /** Die fertige Nachricht, wie nodemailer sie per SMTP übergäbe (Kopf und Inhalt) */
   const raw: string[] = [];
+  const envelopes: { from: string | false }[] = [];
 
   const settings = {
     host: "smtp.example.com",
@@ -39,6 +40,7 @@ describe.skipIf(!testDatabaseUrl)("Absender der E-Mails (Postgres)", () => {
           sent.push(message);
           const info = await transport.sendMail(message);
           raw.push((info.message as Buffer).toString("utf8"));
+          envelopes.push(info.envelope);
           return info;
         },
       };
@@ -52,6 +54,7 @@ describe.skipIf(!testDatabaseUrl)("Absender der E-Mails (Postgres)", () => {
   beforeEach(() => {
     sent.length = 0;
     raw.length = 0;
+    envelopes.length = 0;
   });
 
   /** Die Kopfzeilen der fertigen Nachricht, bis zur ersten Leerzeile */
@@ -85,13 +88,14 @@ describe.skipIf(!testDatabaseUrl)("Absender der E-Mails (Postgres)", () => {
     expect(sent[0]!.from.name).toBe("Haben");
   });
 
-  // RFC 5322, 3.6.2: Das Feld „Reply-To:“ nennt die Adresse, an die Antworten gehen sollen; nach 3.6.3 richtet sich eine
-  // Antwort dann an diese Adresse statt an „From:“
+  // RFC 5322, 3.6.2: „Reply-To:“ nennt die Adresse, an die der Absender Antworten erbittet; ohne das Feld gehen Antworten
+  // an „From:“. Der Umschlagabsender (MAIL FROM, für SPF und DMARC) bleibt die Absenderadresse.
   it("setzt die Antwortadresse als Kopfzeile Reply-To, der Absender bleibt", async () => {
     await mail.saveMailSettings(actor, { ...settings, fromName: "Muster IT-Beratung", replyTo: "antworten@testfirma.example" });
     await mail.sendTestMail(actor);
     expect(header()).toMatch(/^Reply-To: antworten@testfirma\.example$/m);
     expect(header()).toMatch(/^From: "?Muster IT-Beratung"? <rechnung@testfirma\.example>$/m);
+    expect(envelopes[0]!.from).toBe("rechnung@testfirma.example");
   });
 
   it("setzt ohne Antwortadresse keine Kopfzeile Reply-To", async () => {

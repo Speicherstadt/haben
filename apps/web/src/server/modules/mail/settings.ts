@@ -28,6 +28,7 @@ const common = {
   replyTo: z
     .string()
     .trim()
+    .max(320)
     .refine((value) => value === "" || email.safeParse(value).success, "Keine gültige E-Mail-Adresse")
     .default(""),
   reminderTo: email,
