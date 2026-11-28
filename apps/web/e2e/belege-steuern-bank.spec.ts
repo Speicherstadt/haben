@@ -355,6 +355,54 @@ test("Anlage: Speichern schlägt fehl, der Fokus steht danach wieder im Feld (#1
   await expect(page).toHaveURL(/\/anlagen(?:\?.*)?$/);
 });
 
+test("Anlage: Abgang als Entnahme ins Privatvermögen mit Entnahmewert und Vorsteuer beim Kauf (#1970)", async () => {
+  await go("/anlagen/neu");
+  const form = page.getByRole("region", { name: "Angaben" });
+  await form.getByLabel("Bezeichnung").fill("Kamera Entnahme");
+  await form.getByRole("combobox", { name: "Art", exact: true }).selectOption({ label: "Sonstige Betriebs- und Geschäftsausstattung" });
+  await form.getByLabel("Anschaffungsdatum").fill(`${YEAR - 2}-01-10`);
+  await form.getByLabel("Anschaffungskosten netto (€)").fill("2.400,00");
+  await form.getByLabel("Nutzungsdauer in Jahren").fill("4");
+  await form.getByLabel("Übernahmestichtag").fill(`${YEAR}-01-01`);
+  await form.getByLabel("Restbuchwert zum Stichtag (€)").fill("1.200,00");
+  // Die Art des Abgangs gibt es erst mit Abgangsdatum; vorgewählt ist der Verkauf wie bisher
+  const entnahme = form.getByRole("radio", { name: "Entnahme ins Privatvermögen" });
+  await expect(entnahme).toHaveCount(0);
+  await form.getByRole("textbox", { name: /^Abgang/ }).fill(`${YEAR}-10-15`);
+  await expect(form.getByRole("radio", { name: "Verkauf oder Verschrottung" })).toBeChecked();
+  await entnahme.check();
+  // Ohne Entnahmewert: Fehler am Feld, der Fokus steht dort
+  const wert = form.getByLabel("Entnahmewert netto (€)");
+  await form.getByRole("button", { name: "Anlage übernehmen" }).click();
+  await expect(wert).toBeFocused();
+  await expect(wert).toHaveAccessibleDescription(/Trag den Entnahmewert netto ein/);
+  await wert.fill("800,00");
+  const vorsteuer = form.getByRole("checkbox", { name: "Beim Kauf Vorsteuer gezogen" });
+  await expect(vorsteuer).not.toBeChecked();
+  await expect(vorsteuer).toHaveAccessibleDescription(/Umsatzsteuer an, 19\s%/);
+  await vorsteuer.check();
+  await form.getByRole("button", { name: "Anlage übernehmen" }).click();
+  await page.waitForURL(/\/anlagen\/[0-9a-f-]{36}$/);
+
+  const angaben = page.getByRole("region", { name: "Angaben" });
+  await expect(angaben.getByRole("radio", { name: "Entnahme ins Privatvermögen" })).toBeChecked();
+  await expect(angaben.getByLabel("Entnahmewert netto (€)")).toHaveValue("800,00");
+  await expect(angaben.getByRole("checkbox", { name: "Beim Kauf Vorsteuer gezogen" })).toBeChecked();
+  // Zurück zum Verkauf: die Entnahme fällt weg
+  await angaben.getByRole("radio", { name: "Verkauf oder Verschrottung" }).check();
+  await expect(angaben.getByLabel("Entnahmewert netto (€)")).toHaveCount(0);
+  await angaben.getByRole("button", { name: "Speichern", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Gespeichert." })).toBeVisible();
+  // Das Formular baut sich nach dem Speichern aus den gespeicherten Werten neu auf
+  await expect(angaben.getByRole("radio", { name: "Verkauf oder Verschrottung" })).toBeChecked();
+  await angaben.getByRole("radio", { name: "Entnahme ins Privatvermögen" }).check();
+  await expect(angaben.getByLabel("Entnahmewert netto (€)")).toHaveValue("");
+  // Die Anlage gehört nur diesem Test
+  await page.locator(".page-head").getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(page, "Anlage löschen");
+  await expect(page).toHaveURL(/\/anlagen(?:\?.*)?$/);
+});
+
 test("Aufteilen mit zu viel verteilt: der Fehler am Betrag sagt, wie viel zu viel ist (Review #970)", async () => {
   const csv =
     "\ufeff" +

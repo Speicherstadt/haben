@@ -2388,6 +2388,20 @@
       "when": 1795851655456,
       "tag": "0340_betraege_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 341,
+      "version": "7",
+      "when": 1795852792978,
+      "tag": "0341_entnahme_anlage",
+      "breakpoints": true
+    },
+    {
+      "idx": 342,
+      "version": "7",
+      "when": 1795852802079,
+      "tag": "0342_entnahme_anlage_trigger",
+      "breakpoints": true
     }
   ]
 }

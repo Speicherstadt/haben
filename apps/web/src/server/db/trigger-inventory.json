@@ -3802,8 +3802,8 @@
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "1fc63ab0a25c90d55c98728a2722ba55b5288ef993eda16d5bf8163b884babec",
-      "definitionHash": "2df4b013a99411fd8e76648f14ac2819b9df2d80c4b5275009beed055f91989a"
+      "sourceHash": "7591c24b0fa91d5f670da03e74d6b03adc260b8a09d1bdd930ebe738f2e1bba6",
+      "definitionHash": "f98366dcdc92f3c4be0c1a2c2ca8e95e7e1fa7a95b99662aed25884844f6dac2"
     },
     {
       "name": "public.haben_reject_locked()",

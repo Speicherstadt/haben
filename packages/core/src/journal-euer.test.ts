@@ -269,7 +269,7 @@ describe.each(KONTENRAHMEN)("EÜR-Zeilen aus dem Journal wie computeEuer (%s)", 
 
     it("Privatnutzung eines Firmenwagens mit Umsatzsteuer (Herkunft Anlage)", () => {
       const lines = privateUsePosting({ withdrawal: 50_000, vatBase: 40_000, vat: 7_600 }, kr);
-      expect(ausJournal(kr, lines, "asset")).toEqual(erwartet([], undefined, { privateKfz: 50_000, ustEntnahmen: 7_600 }));
+      expect(ausJournal(kr, lines, "asset")).toEqual(erwartet([], undefined, { privateKfz: 50_000, anlagenabgang: 0, ustEntnahmen: 7_600 }));
     });
 
     it("AfA, GWG, Sammelposten und Restbuchwert", () => {

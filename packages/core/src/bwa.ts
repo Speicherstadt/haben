@@ -136,6 +136,8 @@ const FESTE_ZEILEN: Partial<Record<EuerLineKey, Form43Zeile>> = {
   einnahmenKleinunternehmer: "erloese",
   einnahmenSteuerpflichtig: "erloese",
   einnahmenSteuerfrei: "erloese",
+  // Veräußerung oder Entnahme von Anlagevermögen: bei DATEV neutraler Ertrag (#1970)
+  anlagenabgang: "sonstigeErloese",
   privateKfz: "sonstigeErloese",
   sachentnahmen: "sonstigeErloese",
   kursgewinne: "sonstigeErloese",

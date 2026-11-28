@@ -1,9 +1,9 @@
-import { ASSET_KINDS, type AssetKind, type AssetMethod, type CarPrivateUse } from "@haben/core";
+import { ASSET_KINDS, type AssetKind, type AssetMethod, type AssetWithdrawal, type CarPrivateUse } from "@haben/core";
 import { useState, type FormEvent } from "react";
 import { useFokusNachSperre } from "../lib/use-fokus-nach-sperre.ts";
 import { useSubmitCheck } from "../lib/use-submit-check.ts";
 import { Field } from "./Field.tsx";
-import { AssetBasics, AssetDepreciation, AssetPrivateUse } from "./AssetFormTeile.tsx";
+import { AssetBasics, AssetDepreciation, AssetDisposal, AssetPrivateUse } from "./AssetFormTeile.tsx";
 import { type AssetState, assetState, readAsset } from "./asset-form-lesen.ts";
 
 export interface AssetFormValues {
@@ -20,6 +20,7 @@ export interface AssetFormValues {
   openingDate: string;
   openingBookValue: number;
   disposalDate: string | null;
+  disposalWithdrawal: AssetWithdrawal | null;
   privateUse: CarPrivateUse | null;
   note: string;
 }
@@ -38,7 +39,8 @@ export function kindPatch(kind: AssetKind): Partial<AssetState> {
 /**
  * Formular für eine Anlage. `locked` sperrt die Berechnungsgrundlagen (gebucht oder aus einem Beleg),
  * `lifeEditable` erlaubt trotzdem Nutzungsdauer, Abschreibung und ihre Angaben (Beleg-Anlage vor der ersten AfA),
- * `switchEditable` den Wechsel von der degressiven zur linearen AfA (auch nach der ersten Buchung).
+ * `switchEditable` den Wechsel von der degressiven zur linearen AfA (auch nach der ersten Buchung), `disposalLocked` sperrt den
+ * Abgang (AfA des Abgangsjahres gebucht).
  */
 export function AssetForm({
   initial,
@@ -48,6 +50,8 @@ export function AssetForm({
   privateUseLocked,
   privateUseAvailable,
   elektroOffered,
+  disposalLocked = false,
+  inputVatDefault = false,
   showOpening,
   submitLabel,
   busy,
@@ -63,12 +67,15 @@ export function AssetForm({
   privateUseAvailable: boolean;
   /** AfA nach § 7 Abs. 2a EStG nur im Einzelunternehmen (elektroAvailable in @haben/core) */
   elektroOffered: boolean;
+  disposalLocked?: boolean;
+  /** Vorbelegung „Beim Kauf Vorsteuer gezogen“ einer Entnahme: der Anschaffungsbeleg hat Vorsteuer abgezogen */
+  inputVatDefault?: boolean;
   showOpening: boolean;
   submitLabel: string;
   busy: boolean;
   onSubmit: (values: AssetFormValues) => void;
 }) {
-  const [v, setV] = useState<AssetState>(() => assetState(initial));
+  const [v, setV] = useState<AssetState>(() => assetState(initial, inputVatDefault));
   const set = (patch: Partial<AssetState>) => setV((prev) => ({ ...prev, ...patch }));
   const { lifeMonths, suggestion, effectiveRate, monthly, errors, values } = readAsset(v, showOpening);
   const { form, error, check } = useSubmitCheck(errors);
@@ -102,17 +109,8 @@ export function AssetForm({
           showOpening={showOpening}
           lifeMonths={lifeMonths}
         />
-        <section className="form-section" aria-labelledby="asset-disposal">
-          <h3 id="asset-disposal">Abgang</h3>
-          <div className="form-row cols-2">
-            <Field label="Abgang (Verkauf, Entnahme, Verschrottung)" describedBy="disposal-hint">
-              {(control) => <input {...control} type="date" value={v.disposalDate} onChange={(e) => set({ disposalDate: e.target.value })} />}
-            </Field>
-          </div>
-          <p id="disposal-hint" className="field-hint">
-            Bis zum Abgangsmonat wird abgeschrieben, der Rest geht als Restbuchwert in die Ausgaben. Einen Verkauf stellst du als Rechnung.
-          </p>
-        </section>
+        {/* Entnahme wie Privatnutzung nur im Einzelunternehmen; in GmbH und UG wäre sie eine verdeckte Gewinnausschüttung */}
+        <AssetDisposal v={v} set={set} error={error} locked={disposalLocked} withdrawalAvailable={privateUseAvailable} />
 
         <div className="form-grid">
           {v.kind === "kfz" && privateUseAvailable && (
