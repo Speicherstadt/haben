@@ -1,0 +1,30 @@
+import { formatEuro, unterschreitung, type Horizont, type Unterschreitung } from "@haben/core";
+import { loadCompany } from "../stammdaten/index.ts";
+import { liquiditaetsvorschau } from "./vorschau.ts";
+
+/*
+ * Warnung vor dem Mindestbestand (#1381) für Übersicht und Fristen-Mail: dieselbe Vorschau wie die Seite ohne Auswahl
+ * (13 Wochen, überfällige Forderungen eingerechnet), damit der Link dorthin denselben Tag zeigt.
+ */
+
+export const MINDESTBESTAND_HORIZONT: Horizont = "13w";
+
+/** Erster Tag in den nächsten 13 Wochen unter dem Mindestbestand; null ohne Mindestbestand oder wenn der Stand darüber bleibt */
+export async function mindestbestandWarnung(heute: string): Promise<Unterschreitung | null> {
+  const { mindestbestand } = await loadCompany();
+  if (mindestbestand === null) return null;
+  const { vorschau } = await liquiditaetsvorschau(heute, MINDESTBESTAND_HORIZONT);
+  return unterschreitung(vorschau, mindestbestand);
+}
+
+const datum = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
+
+/** Zeile für die Fristen-Mail mit dem Pfad der Liquiditätsvorschau; null ohne Warnung */
+export async function mindestbestandHinweis(heute: string): Promise<{ text: string; link: string } | null> {
+  const w = await mindestbestandWarnung(heute);
+  if (!w) return null;
+  return {
+    text: `Kontostand unterschreitet Mindestbestand am ${datum(w.datum)}: erwartet ${formatEuro(w.stand)}, ${formatEuro(w.fehlt)} unter ${formatEuro(w.mindestbestand)}`,
+    link: "/auswertungen/liquiditaet",
+  };
+}

@@ -228,6 +228,44 @@ describe.skipIf(!testDatabaseUrl)("Fristen, Kalender-Abo und Erinnerungen per E-
     await expect(sql`delete from mail_log`).rejects.toThrow();
   });
 
+  it("nennt den Hinweis zum Mindestbestand nur in einer Mail, die ohnehin geht; ein Fehler darin hält sie nicht auf", async () => {
+    await mail.saveMailSettings(actor, {
+      host: "smtp.example.com",
+      port: 465,
+      secure: true,
+      username: "max",
+      password: "geheim",
+      fromAddress: "haben@example.com",
+      reminderTo: "max@example.com",
+      remindersEnabled: true,
+      reminderDays: [7],
+    });
+    const morgens = new Date("2026-10-05T06:00:00Z");
+    let gefragt = 0;
+    const hinweis = async () => {
+      gefragt++;
+      return {
+        text: "Kontostand unterschreitet Mindestbestand am 01.12.2026: erwartet 5.000,00 €, 1.000,00 € unter 6.000,00 €",
+        link: "/auswertungen/liquiditaet",
+      };
+    };
+    expect(await erinnerung.runDueFristenMails("2026-10-05", morgens, hinweis)).toEqual({ sent: 3 });
+    expect(sent.at(-1)!.text).toMatch(
+      /\n\nKontostand unterschreitet Mindestbestand am 01\.12\.2026: erwartet 5\.000,00 €, 1\.000,00 € unter 6\.000,00 €\nhttps?:\/\/[^\n]+\/auswertungen\/liquiditaet\n/,
+    );
+    // Nichts Neues: keine Mail und keine Vorschau gerechnet
+    expect(await erinnerung.runDueFristenMails("2026-10-05", morgens, hinweis)).toEqual({ sent: 0 });
+    expect(gefragt).toBe(1);
+    expect(sent).toHaveLength(1);
+    // Die nächste Stufe geht auch, wenn der Hinweis scheitert, nur ohne ihn
+    const kaputt = async () => {
+      throw new Error("Vorschau kaputt");
+    };
+    expect((await erinnerung.runDueFristenMails("2026-11-03", new Date("2026-11-03T06:00:00Z"), kaputt))?.sent).toBeGreaterThan(0);
+    expect(sent).toHaveLength(2);
+    expect(sent.at(-1)!.text).not.toContain("Mindestbestand");
+  });
+
   it("schickt eine Test-Mail und behält das Passwort beim Speichern ohne neues", async () => {
     await expect(mail.sendTestMail(actor)).rejects.toThrow(/kein E-Mail-Zugang/);
     const base = {
