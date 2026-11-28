@@ -1,15 +1,21 @@
-import { amountError, formatDecimal, formatEuro, MINDESTBESTAND_MAX, parseEuro, type Cents } from "@haben/core";
+import { amountError, formatDecimal, formatEuro, MINDESTBESTAND_MAX, parseEuro, unterschreitung, type Cents, type Vorschau } from "@haben/core";
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { type FormEvent, useState } from "react";
+import { formatDate } from "../lib/format.ts";
 import { useAction } from "../lib/use-action.ts";
 import { useSubmitCheck } from "../lib/use-submit-check.ts";
 import { saveMindestbestand } from "../server/functions/liquiditaet.ts";
 import { Field } from "./Field.tsx";
 import { NoticeBanner } from "./NoticeBanner.tsx";
 
-/** Mindestbestand der Liquiditätsvorschau (#1381): der Inhaber stellt ihn ein, die Steuerberatung sieht ihn nur */
-export function MindestbestandKarte({ mindestbestand, aendern }: { mindestbestand: Cents | null; aendern: boolean }) {
+type Verlauf = Pick<Vorschau, "heute" | "start" | "verlauf">;
+
+/**
+ * Mindestbestand der Liquiditätsvorschau (#1381): der Inhaber stellt ihn ein, die Steuerberatung sieht ihn nur. vorschau ist
+ * die Vorschau im gewählten Horizont, null ohne bekannten Kontostand.
+ */
+export function MindestbestandKarte({ mindestbestand, vorschau, aendern }: { mindestbestand: Cents | null; vorschau: Verlauf | null; aendern: boolean }) {
   return (
     <section className="card" aria-labelledby="liq-mindestbestand-titel">
       <h2 id="liq-mindestbestand-titel">Mindestbestand</h2>
@@ -17,12 +23,25 @@ export function MindestbestandKarte({ mindestbestand, aendern }: { mindestbestan
         Fällt der erwartete Kontostand darunter, warnen der Hinweis hier, die Übersicht und die Fristen-Mail.
       </p>
       {aendern ? (
-        <MindestbestandForm mindestbestand={mindestbestand} />
+        <MindestbestandForm mindestbestand={mindestbestand} vorschau={vorschau} />
       ) : (
         <p style={{ margin: 0 }}>{mindestbestand === null ? "Kein Mindestbestand eingestellt." : formatEuro(mindestbestand)}</p>
       )}
     </section>
   );
+}
+
+/**
+ * Meldung nach dem Speichern mit dem Ergebnis im gewählten Horizont: Der Hinweis dazu steht oben auf der Seite, außer Sicht
+ * und ohne Ansage. Ohne bekannten Kontostand (vorschau null) keine Aussage, wie beim Hinweis.
+ */
+export function speicherMeldung(betrag: Cents | null, vorschau: Verlauf | null): string {
+  if (betrag === null) return "Mindestbestand entfernt.";
+  if (vorschau === null) return "Mindestbestand gespeichert.";
+  const w = unterschreitung(vorschau, betrag);
+  return w
+    ? `Mindestbestand gespeichert. Der Kontostand unterschreitet ihn am ${formatDate(w.datum)}.`
+    : "Mindestbestand gespeichert. Der Kontostand bleibt im gewählten Horizont darüber.";
 }
 
 /** Eingabe des Felds: leer heißt kein Mindestbestand (betrag null); fehler sagt, was zu tun ist */
@@ -36,7 +55,7 @@ export function mindestbestandEingabe(wert: string): { betrag: Cents | null; feh
   return { betrag, fehler: null };
 }
 
-function MindestbestandForm({ mindestbestand }: { mindestbestand: Cents | null }) {
+function MindestbestandForm({ mindestbestand, vorschau }: { mindestbestand: Cents | null; vorschau: Verlauf | null }) {
   const router = useRouter();
   const save = useServerFn(saveMindestbestand);
   const { busy, notice, run } = useAction();
@@ -52,7 +71,7 @@ function MindestbestandForm({ mindestbestand }: { mindestbestand: Cents | null }
         await save({ data: { mindestbestand: betrag } });
         await router.invalidate();
       },
-      betrag === null ? "Mindestbestand entfernt." : "Mindestbestand gespeichert.",
+      speicherMeldung(betrag, vorschau),
     );
   }
 

@@ -107,7 +107,7 @@ function LiquiditaetPage() {
         <LiquiditaetVerlauf vorschau={vorschau} offen={suche.zeitraum} rolle={user.role} />
       </section>
 
-      <MindestbestandKarte mindestbestand={mindestbestand} aendern={darf(user.role, "inhaber")} />
+      <MindestbestandKarte mindestbestand={mindestbestand} vorschau={konten.bekannt ? vorschau : null} aendern={darf(user.role, "inhaber")} />
     </>
   );
 }

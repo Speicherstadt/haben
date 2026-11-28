@@ -102,7 +102,8 @@ test.describe("Mindestbestand", () => {
     // Weit über dem Kontostand: schon heute darunter
     await feld.fill("10.000.000,00");
     await karte.getByRole("button", { name: "Speichern" }).click();
-    await expect(karte.getByText("Mindestbestand gespeichert.")).toBeVisible();
+    // Die Meldung nennt das Ergebnis, weil der Hinweis oben auf der Seite außer Sicht steht
+    await expect(karte.getByRole("status")).toHaveText(/^Mindestbestand gespeichert\. Der Kontostand unterschreitet ihn am \d\d\.\d\d\.\d{4}\.$/);
     await expect(
       page
         .getByRole("note")
