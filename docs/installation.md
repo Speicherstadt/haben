@@ -418,6 +418,8 @@ Läuft Haben auf einem Server im Internet, liegen Rechnungen, Belege und Bankdat
       mem_limit: 2g
   ```
 
+  Für einen großen Umzug (Sicherungen oder Exporte von mehreren hundert MB) setzt du die Grenze vorübergehend höher: Der Import hält die Dateien beim Entpacken im Speicher.
+
 - **Backup auf ein zweites System** (`RESTIC_REPOSITORY`, siehe [Repository auf einem zweiten System](installation-backup.md#repository-auf-einem-zweiten-system)), nicht nur in das Volume auf demselben Server. `ENCRYPTION_KEY` und `RESTIC_PASSWORD` zusätzlich im Passwortmanager ablegen.
 - **Updates bewusst einspielen.** Ein `pull` holt mit `latest` jede neue Version; mach vorher ein Backup, siehe [Updates](installation-backup.md#updates).
 

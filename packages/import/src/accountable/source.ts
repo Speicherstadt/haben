@@ -1,6 +1,6 @@
 import type { BasisPoints, Cents } from "@haben/core";
 import { XMLParser } from "fast-xml-parser";
-import { unzipBegrenzt } from "../entpack-grenze.ts";
+import { type EntpackBudget, entpackBudget, unzipBegrenzt } from "../entpack-grenze.ts";
 import { parseDatevBuchungsstapel, type DatevStack } from "../datev.ts";
 import type { AccountableBankMovement, AccountableExpenseRow, AccountableReceipt, AccountableRevenue } from "./types.ts";
 import { readXlsxSheet } from "./xlsx.ts";
@@ -70,7 +70,9 @@ const COLUMNS = {
  */
 export function readAccountableExport(archive: Uint8Array): AccountableExport {
   const warnings: string[] = [];
-  const outer = unzipBegrenzt(archive);
+  // Ein Budget für den Export, Belege.zip und Daten.xlsx darin zusammen
+  const budget = entpackBudget(archive.length);
+  const outer = unzipBegrenzt(archive, budget);
 
   const stackName = Object.keys(outer).find((name) => /(^|\/)EXTF.*\.csv$/i.test(name));
   if (!stackName) throw new Error("Kein DATEV-Buchungsstapel (EXTF…csv) im Export gefunden.");
@@ -86,7 +88,7 @@ export function readAccountableExport(archive: Uint8Array): AccountableExport {
   if (!belegeName) {
     warnings.push("Belege.zip fehlt; der Umzug übernimmt nur die Buchungen.");
   } else {
-    const inner = unzipBegrenzt(outer[belegeName]!);
+    const inner = unzipBegrenzt(outer[belegeName]!, budget);
     const xmlName = Object.keys(inner).find((name) => base(name).toLowerCase() === "document.xml");
     if (!xmlName) {
       warnings.push("document.xml fehlt in Belege.zip; Zuordnung Buchung → Beleg nicht möglich.");
@@ -109,9 +111,9 @@ export function readAccountableExport(archive: Uint8Array): AccountableExport {
   }
 
   const expenseFile = Object.keys(outer).find((name) => base(name).toLowerCase() === "daten.xlsx");
-  const expenses = expenseFile ? expensesOf(outer[expenseFile]!) : [];
-  const bankMovements = expenseFile ? bankMovementsOf(outer[expenseFile]!) : [];
-  const revenues = expenseFile ? revenuesOf(outer[expenseFile]!) : [];
+  const expenses = expenseFile ? expensesOf(outer[expenseFile]!, budget) : [];
+  const bankMovements = expenseFile ? bankMovementsOf(outer[expenseFile]!, budget) : [];
+  const revenues = expenseFile ? revenuesOf(outer[expenseFile]!, budget) : [];
 
   const receiptByGuid = new Map(receipts.map((receipt) => [receipt.guid, receipt]));
 
@@ -123,8 +125,8 @@ export function readAccountableExport(archive: Uint8Array): AccountableExport {
 }
 
 /** Die Zeilen des Sheets „Ausgaben“ in die Form, mit der `map.ts` arbeitet */
-function expensesOf(xlsx: Uint8Array): AccountableExpenseRow[] {
-  return readXlsxSheet(xlsx, "Ausgaben").map((row, index) => ({
+function expensesOf(xlsx: Uint8Array, budget: EntpackBudget): AccountableExpenseRow[] {
+  return readXlsxSheet(xlsx, "Ausgaben", budget).map((row, index) => ({
     bookingDate: isoDate(row[COLUMNS.bookingDate]),
     supplierName: textOrNull(row[COLUMNS.supplierName]),
     gross: euros(row[COLUMNS.gross]),
@@ -156,8 +158,8 @@ const MOVEMENT_COLUMNS = {
 } as const;
 
 /** Die Zeilen des Sheets „Kontobewegungen“: die Umsätze des Bankkontos, mit Vorzeichen */
-function bankMovementsOf(xlsx: Uint8Array): AccountableBankMovement[] {
-  return readXlsxSheet(xlsx, "Kontobewegungen").map((row, index) => ({
+function bankMovementsOf(xlsx: Uint8Array, budget: EntpackBudget): AccountableBankMovement[] {
+  return readXlsxSheet(xlsx, "Kontobewegungen", budget).map((row, index) => ({
     date: isoDate(row[MOVEMENT_COLUMNS.date]),
     account: (row[MOVEMENT_COLUMNS.account] ?? "").trim(),
     purpose: (row[MOVEMENT_COLUMNS.purpose] ?? "").trim(),
@@ -186,8 +188,8 @@ const REVENUE_COLUMNS = {
 } as const;
 
 /** Die Zeilen des Sheets „Rechnungen“: Ausgangsrechnungen und sonstige Einnahmen */
-function revenuesOf(xlsx: Uint8Array): AccountableRevenue[] {
-  return readXlsxSheet(xlsx, "Rechnungen").map((row, index) => ({
+function revenuesOf(xlsx: Uint8Array, budget: EntpackBudget): AccountableRevenue[] {
+  return readXlsxSheet(xlsx, "Rechnungen", budget).map((row, index) => ({
     number: (row[REVENUE_COLUMNS.number] ?? "").trim(),
     kind: (row[REVENUE_COLUMNS.kind] ?? "").trim(),
     status: (row[REVENUE_COLUMNS.status] ?? "").trim(),

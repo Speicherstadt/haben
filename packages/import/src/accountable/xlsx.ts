@@ -1,5 +1,5 @@
 import { XMLParser } from "fast-xml-parser";
-import { unzipBegrenzt } from "../entpack-grenze.ts";
+import { type EntpackBudget, unzipBegrenzt } from "../entpack-grenze.ts";
 
 /**
  * Minimaler Leser für die Tabellen im Accountable-Export.
@@ -37,8 +37,9 @@ const parser = new XMLParser({
  * Gesucht wird das Sheet über seinen Namen in `xl/workbook.xml`. Fehlt es, ist das Ergebnis leer:
  * der Import läuft dann ohne die Zusatzangaben weiter, statt den Export abzulehnen.
  */
-export function readXlsxSheet(bytes: Uint8Array, sheetName: string): XlsxRow[] {
-  const files = unzipBegrenzt(bytes);
+/** `budget`: das des Exports, in dem die Datei liegt (entpack-grenze.ts) */
+export function readXlsxSheet(bytes: Uint8Array, sheetName: string, budget?: EntpackBudget): XlsxRow[] {
+  const files = unzipBegrenzt(bytes, budget);
   const path = sheetPathOf(files, sheetName);
   const sheetFile = path ? files[path] : undefined;
   if (!sheetFile) return [];

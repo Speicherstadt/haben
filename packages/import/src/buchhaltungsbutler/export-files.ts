@@ -1,4 +1,4 @@
-import { EntpackGrenzeError, unzipBegrenzt } from "../entpack-grenze.ts";
+import { type EntpackBudget, EntpackGrenzeError, unzipBegrenzt } from "../entpack-grenze.ts";
 import { decodeText } from "../decode.ts";
 import { parseCsv } from "../csv.ts";
 import type { BuchhaltungsbutlerFile, BuchhaltungsbutlerRow } from "./types.ts";
@@ -58,10 +58,11 @@ export interface ReceiptArchive {
  * gehört, steht in „Beleg-Dateinamen“ des BB Standardexports und als „Original-Dateiname“ im DATEV-Buchungsstapel.
  * Eine Datei kann an mehreren Buchungen hängen und liegt trotzdem nur einmal im ZIP.
  */
-export function readReceiptFiles(bytes: Uint8Array): ReceiptArchive {
+/** `budget`: dasselbe wie für readExportFiles, wenn Belege.zip aus einem Export-ZIP kommt (entpack-grenze.ts) */
+export function readReceiptFiles(bytes: Uint8Array, budget?: EntpackBudget): ReceiptArchive {
   const byName = new Map<string, BuchhaltungsbutlerFile>();
   const byBooking = new Map<string, BuchhaltungsbutlerFile[]>();
-  for (const [path, content] of Object.entries(unzip(bytes, "Belege.zip"))) {
+  for (const [path, content] of Object.entries(unzip(bytes, "Belege.zip", budget))) {
     if (path.endsWith("/") || path.split("/").includes("__MACOSX") || baseName(path).startsWith("._")) continue;
     const filename = baseName(path);
     if (isBediManifest(filename, content)) continue;
@@ -92,12 +93,12 @@ function isBediManifest(filename: string, content: Uint8Array): boolean {
   return filename.toLowerCase() === "document.xml" && new TextDecoder().decode(content.subarray(0, 600)).includes("xml.datev.de/bedi");
 }
 
-export function readExportFiles(parts: ExportPart[]): ExportFiles {
+export function readExportFiles(parts: ExportPart[], budget?: EntpackBudget): ExportFiles {
   const files: ExportPart[] = [];
   for (const part of parts) {
     const lower = part.name.toLowerCase();
     if (lower.endsWith(".zip") && !lower.endsWith("belege.zip")) {
-      for (const [name, bytes] of Object.entries(unzip(part.bytes, part.name))) {
+      for (const [name, bytes] of Object.entries(unzip(part.bytes, part.name, budget))) {
         // Ordnereinträge und Metadaten von macOS (__MACOSX/, ._Datei) sind keine Exportdateien
         if (name.endsWith("/") || name.split("/").includes("__MACOSX") || baseName(name).startsWith("._")) continue;
         files.push({ name, bytes });
@@ -119,9 +120,9 @@ function uniqueFile(parts: ExportPart[], matches: (name: string) => boolean, lab
   return found[0]!;
 }
 
-function unzip(bytes: Uint8Array, name: string): Record<string, Uint8Array> {
+function unzip(bytes: Uint8Array, name: string, budget?: EntpackBudget): Record<string, Uint8Array> {
   try {
-    return unzipBegrenzt(bytes);
+    return unzipBegrenzt(bytes, budget);
   } catch (error) {
     if (error instanceof EntpackGrenzeError) throw new BuchhaltungsbutlerError(`${name}: ${error.message}`);
     throw new BuchhaltungsbutlerError(`${name}: ZIP-Datei kann nicht gelesen werden (${error instanceof Error ? error.message : String(error)}).`);
