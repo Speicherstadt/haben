@@ -39,6 +39,7 @@ export {
   type Einrichtung,
   sellerIssues,
   setArchiveSearch,
+  setMindestbestand,
   versteuerungForYear,
   type Company,
   type CompanyInput,

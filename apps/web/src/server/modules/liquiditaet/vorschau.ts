@@ -1,4 +1,4 @@
-import { liquiditaetsVorschau, type Horizont, type Vorschau } from "@haben/core";
+import { liquiditaetsVorschau, type Cents, type Horizont, type Vorschau } from "@haben/core";
 import { dauerbelegPosten } from "./dauerbelege.ts";
 import { kontostaende, type Kontostaende } from "./konten.ts";
 import { ladeKontext } from "./kontext.ts";
@@ -10,6 +10,8 @@ import { wiederkehrendPosten } from "./wiederkehrend.ts";
 export interface LiquiditaetsBericht {
   vorschau: Vorschau;
   konten: Kontostaende;
+  /** Aus den Firmendaten; null = keine Warnung */
+  mindestbestand: Cents | null;
 }
 
 /**
@@ -33,5 +35,6 @@ export async function liquiditaetsvorschau(
   ];
   // Die Umsatzsteuer rechnet mit der Steuer der übrigen Posten
   const umsatzsteuer = await umsatzsteuerPostenLaden(k, posten);
-  return { vorschau: liquiditaetsVorschau({ heute, horizont, start: konten.bestand, posten: [...posten, ...umsatzsteuer] }), konten };
+  const vorschau = liquiditaetsVorschau({ heute, horizont, start: konten.bestand, posten: [...posten, ...umsatzsteuer] });
+  return { vorschau, konten, mindestbestand: k.mindestbestand };
 }

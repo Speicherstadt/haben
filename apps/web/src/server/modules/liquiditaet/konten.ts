@@ -33,29 +33,33 @@ export interface Kontostaende {
   bestand: Cents;
   /** Summe der Rücklagekonten, nur ausgewiesen */
   ruecklage: Cents;
+  /** Mindestens ein Konto im Bestand hat einen Stand; sonst ist der Startwert 0 € nur geraten und der Mindestbestand warnt nicht */
+  bekannt: boolean;
 }
 
 export async function kontostaende(heute: string): Promise<Kontostaende> {
-  const konten = (await listAccounts())
-    .filter((a) => a.purpose !== "privat")
-    .map((a): Kontostand => {
-      const datum = a.lastImport?.periodTo ?? null;
-      const stand = a.purpose === "zahlungsdienstleister" ? a.providerBalance : (a.lastImport?.closingBalance ?? null);
-      return {
-        id: a.id,
-        name: a.name,
-        zweck: a.purpose as Kontostand["zweck"],
-        stand,
-        datum,
-        alt: datum !== null && datum < addDays(heute, -ALTER_KONTOSTAND_TAGE),
-        offeneUmsaetze: a.openCount,
-      };
-    });
+  const accounts = (await listAccounts()).filter((a) => a.purpose !== "privat");
+  const konten = accounts.map((a): Kontostand => {
+    const datum = a.lastImport?.periodTo ?? null;
+    const stand = a.purpose === "zahlungsdienstleister" ? a.providerBalance : (a.lastImport?.closingBalance ?? null);
+    return {
+      id: a.id,
+      name: a.name,
+      zweck: a.purpose as Kontostand["zweck"],
+      stand,
+      datum,
+      alt: datum !== null && datum < addDays(heute, -ALTER_KONTOSTAND_TAGE),
+      offeneUmsaetze: a.openCount,
+    };
+  });
   const summe = (liste: Kontostand[]) => liste.reduce((s, k) => s + (k.stand ?? 0), 0);
+  const imBestand = konten.filter((k) => k.zweck !== "ruecklage");
   return {
     konten,
-    bestand: summe(konten.filter((k) => k.zweck !== "ruecklage")),
+    bestand: summe(imBestand),
     ruecklage: summe(konten.filter((k) => k.zweck === "ruecklage")),
+    // Ein Zahlungsdienstleister ohne Umsätze steht mit 0 € da, kennt aber so wenig einen Stand wie eine Datei ohne Saldo
+    bekannt: accounts.some((a, i) => a.purpose !== "ruecklage" && konten[i]!.stand !== null && (a.purpose !== "zahlungsdienstleister" || a.hasTransactions)),
   };
 }
 

@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { horizontEnde, imHorizont, liquiditaetsVorschau, postenAus, vorschauZeitraeume, wirkung, type LiquiditaetsPosten } from "./liquiditaet.ts";
+import {
+  horizontEnde,
+  imHorizont,
+  liquiditaetsVorschau,
+  postenAus,
+  unterschreitung,
+  unterschreitungText,
+  vorschauZeitraeume,
+  wirkung,
+  type LiquiditaetsPosten,
+} from "./liquiditaet.ts";
 
 const posten = (datum: string, betrag: number, richtung: "ein" | "aus", rest: Partial<LiquiditaetsPosten> = {}): LiquiditaetsPosten => ({
   datum,
@@ -133,5 +143,46 @@ describe("Vorschau", () => {
     expect(vorschau.zeitraeume[1]?.posten).toEqual([est]);
     expect(vorschau.zeitraeume[2]?.posten).toEqual([ust]);
     expect(vorschau.zeitraeume[2]?.ende).toBe(-151_000);
+  });
+});
+
+describe("Unterschreitung des Mindestbestands", () => {
+  const vorschau = (start: number, ...p: LiquiditaetsPosten[]) => liquiditaetsVorschau({ heute: HEUTE, horizont: "13w", start, posten: p });
+
+  it("nennt den ersten Tag unter dem Mindestbestand mit Stand und Fehlbetrag, nicht den Tiefpunkt", () => {
+    const v = vorschau(800_000, posten("2026-12-10", 400_000, "aus"), posten("2026-12-15", 300_000, "ein"), posten("2027-01-10", 600_000, "aus"));
+    expect(unterschreitung(v, 500_000)).toEqual({ datum: "2026-12-10", stand: 400_000, mindestbestand: 500_000, fehlt: 100_000 });
+    expect(v.tiefpunkt).toEqual({ datum: "2027-01-10", stand: 100_000 });
+  });
+
+  it("zählt den Stand am Ende des Tages: ein Eingang am selben Tag gleicht aus", () => {
+    const v = vorschau(600_000, posten("2026-12-10", 200_000, "aus"), posten("2026-12-10", 200_000, "ein"));
+    expect(unterschreitung(v, 500_000)).toBeNull();
+  });
+
+  it("genau auf dem Mindestbestand ist nicht darunter", () => {
+    expect(unterschreitung(vorschau(600_000, posten("2026-12-10", 100_000, "aus")), 500_000)).toBeNull();
+  });
+
+  it("liegt der Kontostand schon darunter, ist es heute; ein Eingang heute zählt mit", () => {
+    expect(unterschreitung(vorschau(300_000, posten("2026-12-10", 50_000, "aus")), 500_000)).toEqual({
+      datum: HEUTE,
+      stand: 300_000,
+      mindestbestand: 500_000,
+      fehlt: 200_000,
+    });
+    expect(unterschreitung(vorschau(300_000, posten(HEUTE, 300_000, "ein")), 500_000)).toBeNull();
+  });
+
+  it("Mindestbestand 0 warnt erst bei einem Minus", () => {
+    expect(unterschreitung(vorschau(100_000, posten("2026-12-10", 100_000, "aus")), 0)).toBeNull();
+    expect(unterschreitung(vorschau(100_000, posten("2026-12-10", 100_001, "aus")), 0)?.fehlt).toBe(1);
+  });
+
+  it("hat einen Wortlaut mit Tag, Stand und Fehlbetrag „unter dem Mindestbestand von“", () => {
+    expect(unterschreitungText({ datum: "2026-12-01", stand: 500_000, mindestbestand: 600_000, fehlt: 100_000 })).toEqual({
+      titel: "Kontostand unterschreitet Mindestbestand am 01.12.2026",
+      detail: "Erwartet 5.000,00\u00a0€, 1.000,00\u00a0€ unter dem Mindestbestand von 6.000,00\u00a0€",
+    });
   });
 });
