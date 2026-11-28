@@ -152,7 +152,7 @@ function McpIntro() {
       <p className="small muted" style={{ margin: 0, maxWidth: 760 }}>
         Über die REST-API legen eigene Werkzeuge und Automationen Kontakte und Rechnungsentwürfe an, etwa aus Bestellungen bei Etsy oder eBay, und liefern
         Belege, etwa aus einem Dokumentenarchiv; sie landen unter Belege als „Zu prüfen“. Die API bucht nichts. Festschreiben und per E-Mail senden kann nur ein
-        Token mit diesem Recht, und nur Entwürfe der Quelle, die du beim Anlegen wählst.{" "}
+        Token mit dem Recht <span className="mono">rechnungen:festschreiben</span>, und nur Entwürfe der Quelle, die du beim Anlegen wählst.{" "}
         <a href={API_DOCS} target="_blank" rel="noreferrer">
           Anleitung zur API
         </a>
