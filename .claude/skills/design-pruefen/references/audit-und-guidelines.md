@@ -44,7 +44,7 @@ Grundlage für Sicht B in `design-pruefen` – verbindet das 5-Dimensionen-Audit
 ### 3. Forms
 - Passende `autocomplete`, `name`, `type` (`email`, `tel`, `url`, `number`) und `inputmode`.
 - Nie Einfügen blockieren (`onPaste` + `preventDefault`).
-- Klickbare Labels (`for`/`htmlFor` oder umschließend); Checkbox/Radio teilen eine gemeinsame Klickfläche ohne tote Zonen.
+- Feldnamen als `<label>` mit `htmlFor` über `Field`, nie umschließend; Checkbox/Radio als `label.checkbox` mit der ganzen Zeile als Klickfläche (`DESIGN.md`, Felder).
 - Rechtschreibprüfung auf E-Mails, Kennungen, Codes aus (`spellcheck="false"`, als String wo Frameworks boolesches `false` entfernen) und `autocapitalize="off"`.
 - Absende-Knopf bleibt bis zum Klick aktiv, wird während laufender Anfrage deaktiviert/angezeigt (kein Doppel-Submit).
 - Fehler inline am Feld; ersten Fehler beim Absenden fokussieren; Platzhalter mit `…` und Beispielmuster; `autocomplete="off"` auf Nicht-Auth-Feldern gegen Passwortmanager-Fehltrigger; Warnung bei ungespeicherten Änderungen.
