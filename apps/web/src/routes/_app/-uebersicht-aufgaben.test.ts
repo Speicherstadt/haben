@@ -188,6 +188,18 @@ describe("Übersicht: überfällige Voranmeldung", () => {
     expect(render()).toContain(`<div class="small" style="color:var(--warn-ink);">Voranmeldung überfällig seit ${formatDate(inTagen(-1))}</div>`);
   });
 
+  // Eine Berichtigung (§ 153 AO) ist ein neuer Entwurf im schon abgegebenen Zeitraum (vat.ts: berichtigt, correctsId);
+  // die Frist des Zeitraums ist eingehalten, die Fristen zählen ihn als abgegeben (abgegebeneZeitraeume)
+  it("eine offene Berichtigung nach der Frist steht nicht als überfällig da", () => {
+    data.dueDate = inTagen(-18);
+    data.invoices.openCount = 1;
+    data.current = { status: "draft", kz83: 0, berichtigt: true } as unknown as typeof data.current;
+    const html = render();
+    expect(aufgabe(html, "Voranmeldung Oktober 2026 senden")?.detail).not.toMatch(/Überfällig/);
+    expect(html).not.toMatch(/Voranmeldung überfällig/);
+    expect(html).not.toContain("color:var(--warn-ink);");
+  });
+
   it("am Tag der Frist und davor bleibt es bei „fällig“", () => {
     data.dueDate = germanDay();
     data.invoices.openCount = 1;
