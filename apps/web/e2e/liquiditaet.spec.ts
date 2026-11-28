@@ -73,8 +73,10 @@ test("Liquidität am Handy: Horizont und Schalter stehen ganz im Bild", async ({
 });
 
 // Der Mindestbestand gehört zu den Daten, die „mit-daten“ teilt: Brach der Test ab, bevor er ihn entfernte, entfernt ihn
-// afterAll. In der Gruppe läuft es nur im Worker dieses Tests, nicht in einem, der die übrigen Tests der Datei nahm.
+// afterAll. In der Gruppe läuft es nur im Worker dieser Tests, nicht in einem, der die übrigen Tests der Datei nahm; die Tests
+// der Gruppe laufen nacheinander, weil jeder den Mindestbestand ändert.
 test.describe("Mindestbestand", () => {
+  test.describe.configure({ mode: "serial" });
   test.afterAll(async ({ browser }) => {
     const page = await browser.newPage({ storageState: SESSION });
     await page.goto("/auswertungen/liquiditaet", { waitUntil: "networkidle" });
@@ -131,5 +133,30 @@ test.describe("Mindestbestand", () => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Übersicht");
     await expect(page.getByText(/Kontostand unterschreitet Mindestbestand/)).toHaveCount(0);
+  });
+
+  test("die Meldung nach dem Speichern widerspricht dem Hinweis nicht, wenn danach der Horizont wechselt", async ({ page }) => {
+    // Tiefpunkt in 4 Wochen als Mindestbestand: darüber, in 12 Monaten (Miete jeden Monat) darunter
+    const tiefpunkt = async (horizont: string) => {
+      await page.goto(`/auswertungen/liquiditaet?horizont=${horizont}`);
+      const text = await page.locator(".liq-kennzahlen .card").filter({ hasText: "Tiefpunkt" }).locator(".kpi-value").innerText();
+      return text.replace(/\s*€$/, "");
+    };
+    const euro = (betrag: string) => Number(betrag.replace(/\./g, "").replace(",", "."));
+    const imMonat = await tiefpunkt("4w");
+    expect(euro(imMonat)).toBeGreaterThanOrEqual(0);
+    expect(euro(await tiefpunkt("12m"))).toBeLessThan(euro(imMonat));
+
+    await page.goto("/auswertungen/liquiditaet?horizont=4w");
+    const karte = page.locator("section.card").filter({ has: page.getByRole("heading", { name: "Mindestbestand", exact: true }) });
+    await karte.getByLabel("Mindestbestand").fill(imMonat);
+    await karte.getByRole("button", { name: "Speichern" }).click();
+    await expect(karte.getByRole("status")).toHaveText("Mindestbestand gespeichert. Der Kontostand bleibt im gewählten Horizont darüber.");
+    const hinweis = page.getByRole("note").filter({ hasText: "Kontostand unterschreitet Mindestbestand" });
+    await expect(hinweis).toHaveCount(0);
+
+    await page.getByLabel("Horizont").selectOption("12m");
+    await expect(hinweis).toBeVisible();
+    await expect(karte.getByText("bleibt im gewählten Horizont darüber")).toHaveCount(0);
   });
 });
