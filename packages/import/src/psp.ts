@@ -70,7 +70,9 @@ function payPalSkip(type: string, impact: string, status: string, currency: stri
   // „Auswirkung auf Guthaben“ bzw. „Balance Impact“ = Memo: eine Vormerkung, die das Guthaben nicht ändert, etwa die
   // „Allgemeine Autorisierung“ neben der eigentlichen Zahlung (#2025). Fehlt die Spalte, ist der Wert leer.
   if (/^memo$/i.test(impact)) return "memo";
-  if (PAYPAL_HOLD.test(type)) return "hold";
+  // Ohne die Spalte bleibt auch die abgeschlossene Autorisierung als Abgang stehen; die Rückbuchung gleicht sie dann aus,
+  // deshalb fällt das Paar nur mit Angabe der Wirkung weg (sonst wie vor #2025)
+  if (impact && PAYPAL_HOLD.test(type)) return "hold";
   const pendingFunding = /^(ausstehend|pending)$/i.test(status) && isBankFunding(type, impact);
   if (!/^(abgeschlossen|completed)$/i.test(status) && !pendingFunding) return "pending";
   if (currency.toUpperCase() !== "EUR") return "foreign";

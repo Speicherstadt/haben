@@ -102,6 +102,21 @@ describe("PayPal", () => {
     ]);
   });
 
+  it("Zahlung aus dem Guthaben ohne Spalte „Auswirkung auf Guthaben“: das Konto sinkt nur um die Zahlung, wie bisher (#2025)", () => {
+    // Juli-Fall wie oben, aber aus einem Export ohne die Spalte: Die abgeschlossene Autorisierung ist dann nicht als Memo
+    // erkennbar; auf main glich die Rückbuchung sie aus (−5,19 € im Ganzen).
+    const ohneSpalte = [
+      `"Datum","Uhrzeit","Zeitzone","Name","Typ","Status","Währung","Brutto","Gebühr","Netto","Transaktionscode","Zugehöriger Transaktionscode","Guthaben"`,
+      `"15.07.2026","10:41:18","MESZ","Beispiel Versand GmbH","Allgemeine Autorisierung","Ausstehend","EUR","-5,19","0,00","-5,19","8HH00000HH0000008","","116,00"`,
+      `"15.07.2026","10:41:18","MESZ","","Einbehaltung für offene Autorisierung","Ausstehend","EUR","-5,19","0,00","-5,19","9JJ00000JJ0000009","8HH00000HH0000008","110,81"`,
+      `"15.07.2026","10:41:21","MESZ","Beispiel Versand GmbH","PayPal Express-Zahlung","Abgeschlossen","EUR","-5,19","0,00","-5,19","0KK00000KK0000010","8HH00000HH0000008","105,62"`,
+      `"15.07.2026","10:41:21","MESZ","","Rückbuchung allgemeiner Einbehaltung","Abgeschlossen","EUR","5,19","0,00","5,19","1LL00000LL0000011","9JJ00000JJ0000009","110,81"`,
+      `"15.07.2026","10:41:21","MESZ","Beispiel Versand GmbH","Allgemeine Autorisierung","Abgeschlossen","EUR","-5,19","0,00","-5,19","8HH00000HH0000008","","110,81"`,
+    ].join("\n");
+    const statement = parseStatement(bytes(ohneSpalte));
+    expect(statement.transactions.reduce((sum, t) => sum + t.amount, 0)).toBe(-519);
+  });
+
   it("eine abgeschlossene Einbehaltung fällt mit ihrer Rückbuchung weg, auch englisch (#2025)", () => {
     const english = [
       `"Date","Time","TimeZone","Name","Type","Status","Currency","Gross","Fee","Net","Transaction ID","Balance Impact"`,
