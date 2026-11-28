@@ -122,6 +122,21 @@ describe("Darlehensraten fortschreiben", () => {
     expect(kurz(d, { heute: "2027-02-10", bis: "2027-03-31" }).map(([datum]) => datum)).toEqual(["2027-03-01", "2027-03-31"]);
   });
 
+  it("Tilgung und Zinsen an verschiedenen Tagen: je Teil ein eigener Termin", () => {
+    // Tilgung zum 1. (01.11.2026 ist ein Sonntag), Zinsen zum 30. (31.08. Montag nach dem Sonntag, 30.08.)
+    const d = darlehen([
+      ...["2026-09-01", "2026-10-01", "2026-11-02"].flatMap((datum) => rate(datum, 800_00)),
+      ...["2026-08-31", "2026-09-30", "2026-10-30"].flatMap((datum) => rate(datum, 0, 200_00)),
+    ]);
+    // 01.01.2027 ist Neujahr, danach ein Wochenende
+    expect(kurz(d, { bis: "2027-01-31" })).toEqual([
+      ["2026-11-30", 200_00],
+      ["2026-12-01", 800_00],
+      ["2026-12-30", 200_00],
+      ["2027-01-04", 800_00],
+    ]);
+  });
+
   it("Tilgungen enden am Bestand, die letzte tilgt den Rest und heißt Schlussrate", () => {
     const d = darlehen([...rate("2026-09-30", 800_00, 20_00), ...rate("2026-10-30", 800_00, 20_00)], 2000_00);
     const liste = posten(d).posten;
