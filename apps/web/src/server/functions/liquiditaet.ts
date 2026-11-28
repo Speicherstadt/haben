@@ -12,10 +12,18 @@ export const getLiquiditaet = createServerFn({ method: "GET" })
   .validator(z.object({ horizont: z.enum(HORIZONT_KEYS), ueberfaellige: z.boolean() }))
   .handler(({ data }) => liquiditaetsvorschau(today(), data.horizont, { ueberfaellige: data.ueberfaellige }));
 
-/** Für „Zu erledigen“ in der Übersicht: erster Tag der nächsten 13 Wochen unter dem Mindestbestand, sonst null */
+/**
+ * Für „Zu erledigen“ in der Übersicht: erster Tag der nächsten 13 Wochen unter dem Mindestbestand, sonst null. Ein Fehler
+ * der Vorschau steht im Log und lässt die Übersicht stehen; die Liquiditätsvorschau selbst zeigt ihn.
+ */
 export const getMindestbestandWarnung = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
-  .handler(() => mindestbestandWarnung(today()));
+  .handler(() =>
+    mindestbestandWarnung(today()).catch((error: unknown) => {
+      console.error("Mindestbestand: Vorschau nicht berechnet", error);
+      return null;
+    }),
+  );
 
 /** Mindestbestand in Cent; null = keine Warnung */
 export const saveMindestbestand = createServerFn({ method: "POST" })
