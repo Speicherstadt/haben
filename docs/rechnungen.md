@@ -304,7 +304,7 @@ Der Editor listet alles auf, was noch fehlt. Geprüft werden:
 - Umsatzsteuer: Außer bei „Regulär“ müssen alle Positionen 0 % haben. Reverse Charge und die innergemeinschaftliche Lieferung brauchen deine USt-IdNr. und eine USt-IdNr. des Kunden aus einem anderen EU-Land. Haben prüft sie wie die [Vorprüfung der ZM](umsatzsteuer.md#vorprüfung-der-zm) und nach dem Aufbau in ihrem Land; nordirische Nummern (XI) gehen nur bei Lieferungen. Bei beiden prüft Haben außerdem das Land des Kunden. Storno und Korrektur übernehmen die Nummer der Rechnung ohne Prüfung des Aufbaus; bei Reverse Charge prüfen sie nur, ob eine Nummer da ist. Die Ausfuhrlieferung braucht deine USt-IdNr. und als Bestimmungsort eine Kundenanschrift im umsatzsteuerlichen Drittland. [Sondergebiete](umsatzsteuer-sondergebiete.md) geben einen Prüfhinweis. Bei Dienstleistungen kann ein ausdrücklich erfasster tatsächlicher Leistungsort vom Kundensitz abweichen. Monaco zählt zu Frankreich ([Umsatzsteuer](umsatzsteuer.md#zusammenfassende-meldung)). „Steuerfreie Leistung, z. B. Heilbehandlung oder Unterricht“ braucht die Befreiungsvorschrift.
 - Kleinunternehmer: Die gewählte Umsatzsteuer-Behandlung muss zum Firmenstatus passen, siehe [Umsatzsteuer auf der Rechnung](#umsatzsteuer-auf-der-rechnung).
 - Bei Kleinunternehmer-Rechnungen mit Rechnungsdatum bis Ende des laufenden Jahres fragt Haben vor dem Festschreiben nach, wenn die vollständige Zahlung im laufenden Jahr die Jahresgrenze überschreiten könnte oder der erfasste Vorjahresumsatz über 25.000 € liegt. Bei Abbruch bleibt der Entwurf gespeichert. Die automatische Festschreibung einer wiederkehrenden Rechnung braucht dann eine manuelle Bestätigung am Entwurf. Mehr zur Berechnung unter [Kleinunternehmer](einrichtung.md#kleinunternehmer).
-- Eine Rechnung muss einen positiven Gesamtbetrag haben, eine Rechnungskorrektur einen negativen, und die Korrekturen zusammen dürfen die Rechnung nicht ganz aufheben, solange nichts darauf bezahlt ist ([Storno und Rechnungskorrektur](#storno-und-rechnungskorrektur)).
+- Eine Rechnung muss einen positiven Gesamtbetrag haben, eine Rechnungskorrektur einen negativen, und Korrekturen, die die Rechnung ganz aufheben, sind ein Storno ([Storno und Rechnungskorrektur](#storno-und-rechnungskorrektur)).
 - GmbH und UG: Fehlen Pflichtangaben nach § 35a GmbHG (Registergericht, Registernummer, Geschäftsführer), zeigt der Editor einen Hinweis. Festschreiben geht trotzdem, siehe [Pflichtangaben einer GmbH oder UG](#pflichtangaben-einer-gmbh-oder-ug).
 - Pflichtangaben je Format:
 
@@ -609,7 +609,7 @@ Eine ausgebuchte Rechnung lässt sich erst stornieren, wenn die Ausbuchung aufge
 
 Eine offene Rechnung und die Kundenkorrektur zu ihr lassen sich ohne Geldfluss gegeneinander ausgleichen. Auf der Seite der festgeschriebenen Rechnung steht dafür der Abschnitt **Verrechnung** mit **Mit der Korrektur verrechnen**: die Korrektur wählen (angeboten werden nur offene Korrekturen derselben Rechnung), Datum, Betrag und einen Grund eintragen. Der Rechnungsbetrag bleibt stehen, offen ist danach nur noch der Rest; die Korrektur gilt als erledigt.
 
-- Verrechnet wird höchstens bis zum offenen Rest der Rechnung. Nimmt die Korrektur den vollen Betrag einer noch unbezahlten Rechnung zurück, ist das ein Storno — dafür nimmst du **Storno**, nicht die Verrechnung.
+- Verrechnet wird höchstens bis zum offenen Rest der Rechnung. Eine Korrektur über den vollen Betrag einer noch unbezahlten Rechnung lässt sich schon nicht festschreiben; dafür nimmst du **Storno**.
 - Das Datum ist der Tag der Aufrechnung: nicht vor dem jüngeren der beiden Belege und nicht in der Zukunft.
 - Beide Belege müssen festgeschrieben sein; Rechnungen in fremder Währung verrechnet Haben nicht.
 
@@ -679,7 +679,7 @@ Eine festgeschriebene Rechnung änderst du nicht, du stellst eine neue aus. Auf 
 | Zweck | Hebt die Rechnung vollständig auf. | Mindert den Betrag. |
 | Ergebnis | Stornorechnung mit allen Positionen negativ, sofort festgeschrieben und gebucht. Das Papierstorno einer Schlussrechnung oder Anzahlungsanforderung bei GmbH und UG ([Bilanzverfahren](#abschlags--und-schlussrechnung)) bucht nichts. Festgeschriebene Korrekturen der Rechnung bekommen je ein eigenes Storno. | Entwurf mit allen Positionen negativ, den du auf die Minderung kürzt. |
 | Bestätigung | Im Dialog **Stornieren**. | Festschreiben wie bei einer Rechnung. |
-| Bedingung | – | Gesamtbetrag muss negativ bleiben; die Korrekturen zusammen dürfen die Rechnung nicht ganz aufheben, solange darauf nichts bezahlt, verrechnet oder ausgebucht ist. Haben weist das Festschreiben dann ab. Bei einer Schlussrechnung gilt das nicht: Der abgezogene Abschlag bleibt stehen. |
+| Bedingung | – | Gesamtbetrag muss negativ bleiben; die Korrekturen zusammen dürfen die Rechnung nicht ganz aufheben (Netto 0 in der Währung der Rechnung), solange darauf nichts bezahlt, verrechnet oder ausgebucht ist und sie nicht als bereits bezahlt ausgestellt ist. Haben weist das Festschreiben dann ab. Bei einer Schlussrechnung gilt das nicht: Der abgezogene Abschlag bleibt stehen. |
 
 Für beide gilt:
 

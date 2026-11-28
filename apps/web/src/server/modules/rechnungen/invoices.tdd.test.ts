@@ -76,6 +76,9 @@ describe.skipIf(!testDatabaseUrl)("TDD: Rundung bei Storno und Korrekturen (Post
 
   it("zwei Korrekturen, die den Nettobetrag genau auf 0 mindern, lassen sich festschreiben", async () => {
     const original = await invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, draft([line(10_000)]))).id, kleinunternehmerStand);
+    // Teilbezahlt: Auf einer unbezahlten Rechnung wäre die Aufhebung ein Storno (#2037); hier geht es um die Netto-Grenze
+    const bank = await import("../bank/index.ts");
+    await bank.createCashInvoiceEntry(actor, { invoiceId: original.id, date: "2026-10-01", amount: 100 }, "2026-10-01");
     const first = await invoices.createCorrection(actor, original.id, "2026-10-05");
     await invoices.updateDraft(actor, first.id, { ...draft([line(-50)]), issueDate: "2026-10-05", paymentTermDays: 0 });
     await invoices.finalizeInvoice(actor, first.id, kleinunternehmerStand);
