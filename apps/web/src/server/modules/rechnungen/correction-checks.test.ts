@@ -6,7 +6,8 @@ import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 /*
  * Festschreiben einer Rechnungskorrektur (#2037). Eine Korrektur über den vollen, noch unbezahlten Rechnungsbetrag
  * hebt die Rechnung auf und ist ein Storno; das wird abgewiesen, bevor versiegelt wird, statt erst beim Verrechnen
- * (#877). Die Regel rechnet brutto und nur, solange nichts bezahlt ist.
+ * (#877). Die Regel rechnet netto in der Währung der Rechnung und nur, solange nichts bezahlt ist; eine Schlussrechnung
+ * und eine als bereits bezahlt ausgestellte Rechnung sind ausgenommen.
  */
 describe.skipIf(!testDatabaseUrl)("Rechnungskorrektur: Festschreiben (Postgres)", () => {
   let invoices: typeof import("./index.ts");
