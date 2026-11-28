@@ -132,6 +132,11 @@ export type NeuePosition = Omit<Belegposition, "position">;
 
 /** Ersetzt die Positionen eines offenen Belegs; die Steuer je Position steht schon fest */
 export async function schreibePositionen(tx: Tx, documentId: string, positionen: readonly NeuePosition[]): Promise<void> {
+  // Erst die eigenen Konten der neuen Positionen sperren, wie es ihr Fremdschlüssel ohnehin tut, dann löschen: Das Löschen
+  // der alten Positionen schreibt ins Audit-Log und hält ab da die Hash-Kette. Wer gleichzeitig ein Konto umbenennt, hält
+  // dessen Zeile und wartet auf die Kette; sperrte erst danach der Fremdschlüssel, wäre das ein Deadlock (#1978).
+  const konten = [...new Set(positionen.flatMap((p) => (p.ownAccountId ? [p.ownAccountId] : [])))];
+  if (konten.length > 0) await tx.select({ id: schema.ownAccounts.id }).from(schema.ownAccounts).where(inArray(schema.ownAccounts.id, konten)).for("key share");
   await tx.delete(schema.documentSplits).where(eq(schema.documentSplits.documentId, documentId));
   if (positionen.length === 0) return;
   // Netto und Steuer stehen in int4-Spalten; die Eingabe erlaubt wie bei den Beträgen mehr
