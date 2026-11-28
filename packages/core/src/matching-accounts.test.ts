@@ -130,6 +130,14 @@ describe("Zahlungsdienstleister", () => {
     expect(findTransferCounterpart({ bookingDate: "2026-10-05", amount: -466_450 }, null, candidates, providerMatcher(paypal))?.id).toBe("x");
   });
 
+  it("Lastschrift von PayPal auf der Bank: Gegenstück ist die Bankgutschrift im PayPal-Konto, ohne IBAN und Namen (#2025)", () => {
+    const lastschrift = { ...tx({ amount: -699, counterpartyName: "PayPal Europe S.a.r.l. et Cie S.C.A" }), bookingDate: "2026-02-14" };
+    expect(suggestDirectBooking(lastschrift, business, accounts)).toMatchObject({ kind: "geldtransit", counterAccountId: "pp", requiresCounterpart: true });
+    const gutschrift = { id: "g", bookingDate: "2026-02-12", amount: 699, open: 699, counterpartyIban: null, counterpartyName: "" };
+    expect(findTransferCounterpart(lastschrift, business.iban, [gutschrift])?.id).toBe("g");
+    expect(findTransferCounterpart(lastschrift, business.iban, [])).toBeNull();
+  });
+
   describe("App Store: Auszahlung am Verwendungszweck, auch vom Absender „Apple Inc“ (#1628)", () => {
     const appstore: OwnAccount = { id: "as", name: "App Store", iban: null, purpose: "zahlungsdienstleister", provider: "appstore" };
     const proceeds = "CCI : 0300000003,PURP:DEVELOPER PROCEEDS,APPLE";

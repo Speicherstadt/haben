@@ -41,7 +41,48 @@ export function isPayPalHeader(c: Columns): boolean {
   );
 }
 
-/** Aktivitätenexport von PayPal (Spalten deutsch oder englisch), nur abgeschlossene Zeilen in Euro */
+type PayPalSkip = "memo" | "hold" | "pending" | "foreign";
+
+/**
+ * Einbehaltung und ihre Rückbuchung: PayPal reserviert einen Betrag im Guthaben (bei einer Zahlung aus dem Guthaben die
+ * „Einbehaltung für offene Autorisierung“, oft „Ausstehend“, aber mit Wirkung „Soll“) und gibt ihn mit der „Rückbuchung
+ * allgemeiner Einbehaltung“ wieder frei; Geld fließt nur mit der Zahlung selbst (Juli-Fall im Issue #2025: 116,00 →
+ * 110,81 → Zahlung 105,62 → Rückbuchung 110,81). Beide fallen immer weg, gleich welcher Status, damit keine Hälfte des
+ * Paares allein stehen bleibt. Die Rückbuchung (T1105) hebt auch die allgemeine Einbehaltung (T1500) auf, deshalb fällt
+ * diese mit; Namen nach der T-Code-Tabelle von PayPal (https://developer.paypal.com/reports/reference/t-codes). hledger
+ * verwirft das Paar ebenso (`examples/csv/other/paypal-json.rules`, T1501 und T1105).
+ */
+const PAYPAL_HOLD =
+  /^(einbehaltung für offene autorisierung|allgemeine einbehaltung|rückbuchung allgemeiner einbehaltung|account hold for open authorization|general account hold|reversal of general account hold)$/i;
+
+/**
+ * Bankgutschrift zu einer Zahlung per Lastschrift: PayPal lässt sie im Export „Ausstehend“, sie gleicht das Guthaben aber
+ * aus (Wirkung „Haben“) und ist das Gegenstück der Lastschrift auf dem Bankkonto, also Geldtransit (#2025). Beleg: der
+ * Beispiel-Export in hledger (`examples/csv/other/paypal-custom.csv`, „Bank Deposit to PP Account“ mit „Pending“, die Spalte
+ * „Balance“ geht damit von −6,99 auf 0,00 zurück) und das Beispiel im Issue.
+ */
+function isBankFunding(type: string, impact: string): boolean {
+  return /^(haben|credit)$/i.test(impact) && /^(bankgutschrift auf paypal-konto|bank deposit to pp account)/i.test(type);
+}
+
+/** Warum eine Zeile des Aktivitätenexports kein Umsatz ist; `undefined` heißt übernehmen */
+function payPalSkip(type: string, impact: string, status: string, currency: string): PayPalSkip | undefined {
+  // „Auswirkung auf Guthaben“ bzw. „Balance Impact“ = Memo: eine Vormerkung, die das Guthaben nicht ändert, etwa die
+  // „Allgemeine Autorisierung“ neben der eigentlichen Zahlung (#2025). Fehlt die Spalte, ist der Wert leer.
+  if (/^memo$/i.test(impact)) return "memo";
+  // Ohne die Spalte bleibt auch die abgeschlossene Autorisierung als Abgang stehen; die Rückbuchung gleicht sie dann aus,
+  // deshalb fällt das Paar nur mit Angabe der Wirkung weg (sonst wie vor #2025)
+  if (impact && PAYPAL_HOLD.test(type)) return "hold";
+  const pendingFunding = /^(ausstehend|pending)$/i.test(status) && isBankFunding(type, impact);
+  if (!/^(abgeschlossen|completed)$/i.test(status) && !pendingFunding) return "pending";
+  if (currency.toUpperCase() !== "EUR") return "foreign";
+  return undefined;
+}
+
+/**
+ * Aktivitätenexport von PayPal (Spalten deutsch oder englisch): Zeilen in Euro, die das Guthaben ändern, abgeschlossen oder
+ * die ausstehende Bankgutschrift zu einer Lastschrift, ohne Einbehaltungen und ihre Rückbuchung
+ */
 export function parsePayPal(rows: string[][], headerRow: number): ParsedStatement {
   const c = new Columns(rows[headerRow]!);
   const german = c.has("brutto");
@@ -50,6 +91,7 @@ export function parsePayPal(rows: string[][], headerRow: number): ParsedStatemen
   const name = c.getter("name");
   const type = c.getter("typ", "type");
   const status = c.getter("status");
+  const impact = c.getter("auswirkungaufguthaben", "balanceimpact");
   const currency = c.getter("währung", "currency");
   const gross = c.getter("brutto", "gross");
   const fee = c.getter("gebühr", "fee");
@@ -58,17 +100,13 @@ export function parsePayPal(rows: string[][], headerRow: number): ParsedStatemen
   const subject = c.getter("betreff", "subject", "artikelbezeichnung", "itemtitle");
 
   const list: Tx[] = [];
-  let pending = 0;
-  let foreign = 0;
+  const skipped: Record<PayPalSkip, number> = { memo: 0, hold: 0, pending: 0, foreign: 0 };
   rows.slice(headerRow + 1).forEach((row, i) => {
     if (isBlankRow(row)) return;
     const where = `Zeile ${headerRow + i + 2}`;
-    if (!/^(abgeschlossen|completed)$/i.test(status(row))) {
-      pending++;
-      return;
-    }
-    if (currency(row).toUpperCase() !== "EUR") {
-      foreign++;
+    const skip = payPalSkip(type(row), impact(row), status(row), currency(row));
+    if (skip) {
+      skipped[skip]++;
       return;
     }
     const code = id(row);
@@ -104,7 +142,12 @@ export function parsePayPal(rows: string[][], headerRow: number): ParsedStatemen
     format: "paypal-csv",
     currency: "EUR",
     transactions: indexed(list),
-    warnings: [...skippedWarning(pending, "nicht abgeschlossen (ausstehend, abgelehnt, storniert)"), ...skippedWarning(foreign, "nicht in Euro")],
+    warnings: [
+      ...skippedWarning(skipped.memo, "Vormerkung ohne Wirkung auf das Guthaben (Memo)"),
+      ...skippedWarning(skipped.hold, "Einbehaltung und ihre Rückbuchung (nur eine Reservierung im Guthaben)"),
+      ...skippedWarning(skipped.pending, "nicht abgeschlossen (ausstehend, abgelehnt, storniert)"),
+      ...skippedWarning(skipped.foreign, "nicht in Euro"),
+    ],
   });
 }
 
