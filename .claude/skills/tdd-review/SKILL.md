@@ -31,6 +31,7 @@ Unabhängig ist, wer den Code nicht selbst geschrieben hat. Gemeint ist der Agen
   - Server mit Datenbank: Postgres-Test neben dem Modul in `apps/web/src/server/modules/`, mit `TEST_DATABASE_URL` (ohne die Variable wird er übersprungen und beweist nichts; ohne Bun im Dev-Container nach Skill `checks`).
   - Was ein Nutzer klickt: Playwright in `apps/web/e2e/`, nur wenn es nicht anders geht.
 - **Nur ein Test, der auf dem Stand des PR rot ist, ist ein Finding.**
+- **Gegenprobe** für neue oder geänderte Logik, die schreibt, übernimmt, rechnet oder entscheidet: die Zeile probeweise entfernen oder verfälschen und die passenden Tests laufen lassen. Bleibt alles grün, ist sie ungetestet: einen Test schreiben, der auf dem PR grün und mit der Probeänderung rot ist, mit Werten, die nicht null, 0 oder der Standard sind. Das ist ein Finding („ungetestet“, Beleg ist die rote Ausgabe mit der Probeänderung); die Probeänderung danach zurücksetzen und in Schritt 4 nur den Test committen.
 - Bleibt der Test grün oder lässt sich der Verdacht nicht testen, wird er verworfen (höchstens als Notiz unter „Nicht belegt“).
 
 ## 3. Findings in den PR posten
