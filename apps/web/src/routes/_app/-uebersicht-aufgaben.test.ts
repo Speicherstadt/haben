@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({ data: {} as Record<string, unknown> }));
 vi.mock("../../server/functions/backup.ts", () => ({}));
 vi.mock("../../server/functions/invoices.ts", () => ({}));
 vi.mock("../../server/functions/vat.ts", () => ({}));
+vi.mock("../../server/functions/liquiditaet.ts", () => ({}));
 vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
 vi.mock("../../server/functions/finanzamt.ts", () => ({ markPostfachDocument: () => undefined }));
 vi.mock("@tanstack/react-router", () => ({
@@ -65,6 +66,7 @@ function fixture() {
     companyName: "Musterfirma",
     mode: "echt",
     ustIdUngueltig: [] as unknown[],
+    mindestbestand: null as { datum: string; stand: number; mindestbestand: number; fehlt: number } | null,
     invoices: {
       openTotal: 0,
       openCount: 0,
@@ -93,6 +95,25 @@ const aufgabe = (html: string, title: string) => {
 beforeEach(() => {
   data = fixture();
   state.data = data;
+});
+
+describe("Übersicht: Mindestbestand (#1381)", () => {
+  it("steht mit Tag, Stand und Fehlbetrag als Warnung, der Tag zählt wie eine Frist, und führt zur Liquiditätsvorschau", () => {
+    data.invoices.drafts = 1;
+    data.invoices.overdueCount = 2;
+    data.mindestbestand = { datum: inTagen(10), stand: 400_000, mindestbestand: 500_000, fehlt: 100_000 };
+    const html = render();
+    const titelMb = `Kontostand unterschreitet Mindestbestand am ${formatDate(inTagen(10))}`;
+    expect(titel(html)[0]).toBe(titelMb);
+    expect(aufgabe(html, titelMb)).toEqual({
+      href: "/auswertungen/liquiditaet",
+      detail: "Erwartet 4.000,00\u00a0€, 1.000,00\u00a0€ unter dem Mindestbestand von 5.000,00\u00a0€",
+    });
+  });
+
+  it("ohne Unterschreitung keine Aufgabe", () => {
+    expect(render()).not.toContain("Mindestbestand");
+  });
 });
 
 describe("Übersicht: Reihenfolge der Aufgaben", () => {

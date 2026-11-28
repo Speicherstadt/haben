@@ -18,14 +18,29 @@ const day = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 86_400_000;
 
 /**
  * Saldoverlauf eines Kontos als Stufenlinie: zwischen zwei Buchungen bleibt der Saldo gleich.
- * Eine Reihe, daher keine Legende; Titel und Tabelle darunter benennen sie.
+ * Eine Reihe, daher keine Legende; Titel und Tabelle darunter benennen sie. `grenze` zeichnet einen Wert als gestrichelte
+ * Linie mit Beschriftung, etwa den Mindestbestand der Liquiditätsvorschau (#1381).
  */
-export function BalanceChart({ from, to, start, points, title }: { from: string; to: string; start: number; points: BalancePoint[]; title: string }) {
+export function BalanceChart({
+  from,
+  to,
+  start,
+  points,
+  title,
+  grenze,
+}: {
+  from: string;
+  to: string;
+  start: number;
+  points: BalancePoint[];
+  title: string;
+  grenze?: { value: number; label: string };
+}) {
   const [active, setActive] = useState<number | null>(null);
   const [chartRef, W] = useChartWidth();
   const first = day(from);
   const last = Math.max(day(to) - 1, first + 1);
-  const values = [start, ...points.map((p) => p.value)];
+  const values = [start, ...points.map((p) => p.value), ...(grenze ? [grenze.value] : [])];
   const ticks = niceTicks(Math.min(0, ...values), Math.max(0, ...values));
   const lo = ticks[0]!;
   const hi = ticks[ticks.length - 1]!;
@@ -63,7 +78,12 @@ export function BalanceChart({ from, to, start, points, title }: { from: string;
   const point = active !== null ? points[active] : null;
   return (
     <div className="chart" ref={chartRef} onPointerLeave={() => setActive(null)}>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${title}: Saldo von ${formatEuro(start)} auf ${formatEuro(current)}`} onPointerMove={onMove}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label={`${title}: Saldo von ${formatEuro(start)} auf ${formatEuro(current)}${grenze ? `, ${grenze.label} ${formatEuro(grenze.value)}` : ""}`}
+        onPointerMove={onMove}
+      >
         <g aria-hidden="true">
           {ticks.map((t) => (
             <g key={t}>
@@ -83,6 +103,14 @@ export function BalanceChart({ from, to, start, points, title }: { from: string;
               ) : null,
             )}
         </g>
+        {grenze && (
+          <g aria-hidden="true">
+            <line x1={M.left} x2={W - M.right} y1={y(grenze.value)} y2={y(grenze.value)} className="grenze" />
+            <text x={W - M.right} y={y(grenze.value) - 4} style={{ textAnchor: "end" }} className="tick grenze-label">
+              {grenze.label}
+            </text>
+          </g>
+        )}
         <path d={d} className="line-series" />
         {point && (
           <g aria-hidden="true">

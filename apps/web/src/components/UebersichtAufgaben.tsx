@@ -1,6 +1,7 @@
+import { formatEuro, type Unterschreitung } from "@haben/core";
 import { Link } from "@tanstack/react-router";
 import { useAction } from "../lib/use-action.ts";
-import { daysUntil } from "../lib/format.ts";
+import { daysUntil, formatDate } from "../lib/format.ts";
 import type { SettingsArea } from "../lib/settings-areas.ts";
 import { useBescheidAbhaken } from "../routes/_app/-uebersicht-abhaken.ts";
 
@@ -20,7 +21,8 @@ export interface Todo {
     | "/anlagen"
     | "/rechnungen/mahnwesen"
     | "/finanzamt"
-    | "/kontakte/$id";
+    | "/kontakte/$id"
+    | "/auswertungen/liquiditaet";
   /** Bereich der Einstellungen, wenn to „/einstellungen“ ist */
   bereich?: SettingsArea;
   /** Der Kontakt, wenn to „/kontakte/$id“ ist */
@@ -29,6 +31,21 @@ export interface Todo {
   frist?: string;
   /** Bescheid aus dem Postfach, der sich hier direkt als geprüft abhaken lässt (#1819); die ID ist die des Dokuments */
   erledigen?: { id: string };
+}
+
+/** Die Liquiditätsvorschau sieht den Kontostand unter dem Mindestbestand (#1381); der Tag zählt wie eine Frist */
+export function mindestbestandAufgaben(w: Unterschreitung | null): Todo[] {
+  if (!w) return [];
+  return [
+    {
+      title: `Kontostand unterschreitet Mindestbestand am ${formatDate(w.datum)}`,
+      detail: `Erwartet ${formatEuro(w.stand)}, ${formatEuro(w.fehlt)} unter dem Mindestbestand von ${formatEuro(w.mindestbestand)}`,
+      frist: w.datum,
+      action: "Vorschau",
+      tone: "warn",
+      to: "/auswertungen/liquiditaet",
+    },
+  ];
 }
 
 const DOT = { info: "var(--info-ink)", warn: "var(--warn-dot)", neutral: "var(--muted)" };

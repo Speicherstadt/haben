@@ -1,11 +1,12 @@
-import { HORIZONTE, HORIZONT_KEYS, addDays, formatEuro, type Horizont, type Vorschau } from "@haben/core";
+import { HORIZONTE, HORIZONT_KEYS, addDays, formatEuro, unterschreitung, type Horizont, type Vorschau } from "@haben/core";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod/mini";
 import { BalanceChart } from "../../components/BalanceChart.tsx";
 import { Field } from "../../components/Field.tsx";
 import { LiquiditaetVerlauf } from "../../components/LiquiditaetVerlauf.tsx";
+import { MindestbestandKarte } from "../../components/MindestbestandKarte.tsx";
 import { formatDate } from "../../lib/format.ts";
-import { siehtSeite } from "../../lib/rollen.ts";
+import { darf, siehtSeite } from "../../lib/rollen.ts";
 import { getLiquiditaet } from "../../server/functions/liquiditaet.ts";
 import type { Kontostaende } from "../../server/modules/liquiditaet/index.ts";
 import styles from "../../styles/auswertungen.css?url";
@@ -34,7 +35,7 @@ export const Route = createFileRoute("/_app/auswertungen_/liquiditaet")({
 });
 
 function LiquiditaetPage() {
-  const { vorschau, konten } = Route.useLoaderData();
+  const { vorschau, konten, mindestbestand } = Route.useLoaderData();
   const { user } = Route.useRouteContext();
   const suche = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -71,6 +72,7 @@ function LiquiditaetPage() {
       </div>
 
       <KontoHinweise konten={konten} rolle={user.role} />
+      {mindestbestand !== null && <MindestbestandHinweis vorschau={vorschau} mindestbestand={mindestbestand} />}
       <Kennzahlen vorschau={vorschau} konten={konten} />
 
       <section className="card liq-kurve" aria-labelledby="liq-kurve-titel">
@@ -81,6 +83,7 @@ function LiquiditaetPage() {
           to={addDays(vorschau.bis, 1)}
           start={vorschau.start}
           points={vorschau.verlauf.map((s) => ({ date: s.datum, value: s.stand, label: tagesText(vorschau, s.datum) }))}
+          grenze={mindestbestand === null ? undefined : { value: mindestbestand, label: "Mindestbestand" }}
         />
       </section>
 
@@ -93,6 +96,8 @@ function LiquiditaetPage() {
         </p>
         <LiquiditaetVerlauf vorschau={vorschau} offen={suche.zeitraum} rolle={user.role} />
       </section>
+
+      <MindestbestandKarte mindestbestand={mindestbestand} aendern={darf(user.role, "inhaber")} />
     </>
   );
 }
@@ -133,6 +138,18 @@ function Kennzahlen({ vorschau, konten }: { vorschau: Vorschau; konten: Kontosta
         <div className="kpi-value">{formatEuro(konten.ruecklage)}</div>
         <div className="small muted">nicht im Kontostand</div>
       </div>
+    </div>
+  );
+}
+
+/** Erster Tag im Horizont unter dem Mindestbestand (#1381); nichts, solange der Stand darüber bleibt */
+function MindestbestandHinweis({ vorschau, mindestbestand }: { vorschau: Vorschau; mindestbestand: number }) {
+  const w = unterschreitung(vorschau, mindestbestand);
+  if (!w) return null;
+  return (
+    <div className="banner" role="note">
+      Der Kontostand unterschreitet den Mindestbestand von {formatEuro(w.mindestbestand)} am {formatDate(w.datum)}: erwartet {formatEuro(w.stand)}, es fehlen{" "}
+      {formatEuro(w.fehlt)}.
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { HANDY } from "./kopfzeile.ts";
 /*
  * Liquiditätsvorschau (#1381) mit den Daten aus app.spec.ts (offene Rechnungen, Dauerbeleg Miete): über den Link der Auswertungen
  * öffnen, Horizont umschalten, einen Zeitraum aufklappen und von einem Posten zu seiner Quelle springen, Überfälliges mit Status
- * und eigentlichem Termin, überfällige Forderungen ausblenden.
+ * und eigentlichem Termin, überfällige Forderungen ausblenden; Mindestbestand einstellen mit Hinweis, Linie und Aufgabe in der Übersicht.
  */
 
 test.use({ storageState: SESSION });
@@ -69,4 +69,42 @@ test("Liquidität am Handy: Horizont und Schalter stehen ganz im Bild", async ({
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(HANDY.width);
   }
+});
+
+test("Mindestbestand: einstellen, Hinweis und Linie auf der Seite, Aufgabe in der Übersicht, wieder entfernen", async ({ page }) => {
+  await page.goto("/auswertungen/liquiditaet");
+  const karte = page.locator("section.card").filter({ has: page.getByRole("heading", { name: "Mindestbestand", exact: true }) });
+  const feld = karte.getByLabel("Mindestbestand");
+  await expect(feld).toHaveValue("");
+  await expect(page.locator(".chart .grenze")).toHaveCount(0);
+
+  // Prüfung beim Absenden: kein Betrag
+  await feld.fill("viel");
+  await karte.getByRole("button", { name: "Speichern" }).click();
+  await expect(feld).toHaveAttribute("aria-invalid", "true");
+
+  // Weit über dem Kontostand: schon heute darunter
+  await feld.fill("10.000.000,00");
+  await karte.getByRole("button", { name: "Speichern" }).click();
+  await expect(karte.getByText("Mindestbestand gespeichert.")).toBeVisible();
+  await expect(page.getByRole("note").filter({ hasText: "unterschreitet den Mindestbestand von 10.000.000,00" })).toBeVisible();
+  await expect(page.locator(".chart .grenze")).toHaveCount(1);
+
+  await page.goto("/");
+  // Nahe Fristen stehen vorn, die früheste zuerst; überfällige können die Aufgabe unter „Weitere“ schieben
+  const weitere = page.locator("details.todo-weitere");
+  if ((await weitere.count()) > 0) await weitere.locator("summary").click();
+  const aufgabe = page.getByRole("link", { name: /Kontostand unterschreitet Mindestbestand am \d\d\.\d\d\.\d{4}/ });
+  await expect(aufgabe).toContainText("unter dem Mindestbestand von 10.000.000,00");
+  await aufgabe.click();
+  await expect(page).toHaveURL(/\/auswertungen\/liquiditaet$/);
+
+  // Leer heißt keine Warnung: Hinweis, Linie und Aufgabe verschwinden
+  await karte.getByLabel("Mindestbestand").fill("");
+  await karte.getByRole("button", { name: "Speichern" }).click();
+  await expect(karte.getByText("Mindestbestand entfernt.")).toBeVisible();
+  await expect(page.locator(".chart .grenze")).toHaveCount(0);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Übersicht");
+  await expect(page.getByText(/Kontostand unterschreitet Mindestbestand/)).toHaveCount(0);
 });

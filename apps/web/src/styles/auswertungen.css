@@ -98,6 +98,9 @@
 .chart .line-series { fill: none; stroke: var(--series-in); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .chart .crosshair { stroke: var(--line-strong); stroke-width: 1; }
 .chart .marker { fill: var(--series-in); stroke: var(--surface); stroke-width: 2; }
+/* Mindestbestand der Liquiditätsvorschau (#1381): gestrichelt in der Farbe der Warnung, die Beschriftung darüber */
+.chart .grenze { stroke: var(--warn-dot); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.chart .grenze-label { fill: var(--warn-ink); }
 
 /* Ziel eines Links auf eine Buchung (BWA → Kontenblatt, #1635) */
 .report-table tr[aria-current] > td { background: var(--accent-soft); }
@@ -253,6 +256,7 @@
 .liq-aufgeklappt > td { padding: 0 0 12px 20px; }
 .liq-posten { font-size: 13px; }
 .liq-hinweise { margin: 0; padding-left: 20px; }
+.form-row.liq-mindestbestand { grid-template-columns: minmax(0, 240px); }
 
 /* Gesamtumsatz nach § 19: lange Dateinamen als Quelle (DATEV-Stapel ohne Leerzeichen) brechen um, statt die Spalte so
    breit zu machen, dass die Begründung der Einordnung in einer schmalen Spalte viele Zeilen hoch wird */

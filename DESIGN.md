@@ -8,7 +8,7 @@ Die Oberfläche ist schlichtes CSS mit Variablen, ohne Komponentenbibliothek. Ha
 
 ## Farben und Themes
 
-Keine Verläufe, Leuchteffekte oder Endlos-Animationen; Farbe trägt Bedeutung (Akzent, Status, Diagrammreihen).
+Keine Verläufe, Leuchteffekte oder Endlos-Animationen; Farbe trägt Bedeutung (Akzent, Status, Diagrammreihen). Eine Grenze im Diagramm, etwa der Mindestbestand der Liquiditätsvorschau, ist eine gestrichelte Linie in `--warn-dot` mit Beschriftung in `--warn-ink` am rechten Ende (`grenze` in `BalanceChart`).
 
 Farben kommen aus den Variablen in `:root` von `styles.css`; die Farben überschreiben sie unter `[data-theme="…"]`, der dunkle Modus unter `[data-mode="dark"]`:
 
