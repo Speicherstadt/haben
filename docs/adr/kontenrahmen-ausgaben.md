@@ -114,10 +114,11 @@ Versionsnummer nennt sie nur, wenn die Version veröffentlicht ist: Wer sie beim
   schlägt der Test an. Dann braucht `heutigesKonto` das Buchungsjahr, damit alte Buchungen ihren Zweck behalten.
 - **Storno mit eigener Urkunde.** Eine Stornorechnung ist eine neue Buchung mit eigenem Datum und bucht nach ihrem Jahr,
   nicht nach dem der Rechnung.
-- **Was geprüft ist.** Die neuen Konten aus den Programmänderungen zum Kontenrahmen 2025, die Tabellen der Bereinigung
-  2024 bis 2027 und der Kontenrahmen 2026: Keins der Konten, die er als für 2026 neu eingeführt kennzeichnet (Fußnote 1),
-  bebucht Haben. Die Änderungsliste 2024/2025 ist noch nicht Konto für Konto abgeglichen, ältere Ausgaben gar nicht; für
-  diese Jahre gilt die Liste, soweit sie reicht.
+- **Was geprüft ist.** Die Änderungslisten 2024/2025 von DATEV für SKR03 und SKR04 (1. Auflage Dezember 2024), Konto für
+  Konto gegen die Konten, die Haben bebucht: Neu sind dort nur 4287 bzw. 6347 und 8192 bzw. 4184, reserviert oder gelöscht
+  wird keins, und bei 1790/1791 bzw. 3841/3845 ändert sich nur die Beschriftung, die Haben schon führt. Dazu die Tabellen
+  der Bereinigung 2024 bis 2027 und der Kontenrahmen 2026: Keins der Konten, die er als für 2026 neu eingeführt kennzeichnet
+  (Fußnote 1), bebucht Haben. Ausgaben vor 2024 sind nicht abgeglichen; für diese Jahre gilt die Liste, soweit sie reicht.
 - **Homeoffice für 2024.** DATEV führt 2024 den Kontenzweck der Tagespauschale, aber kein Konto dafür; 4288 bzw. 6348
   heißt dort schon „häusliches Arbeitszimmer“. Haben bucht 2024 trotzdem dorthin, weil es das Konto bis 2023 war und
   4287 bzw. 6347 erst ab 2025 gilt. Ob die Steuerberatung für 2024 ein eigenes Konto mit dem Kontenzweck vorzieht, ist
