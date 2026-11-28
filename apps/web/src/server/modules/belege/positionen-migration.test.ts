@@ -207,6 +207,28 @@ describe.skipIf(!testDatabaseUrl)("Migration 0340: offene Belege werden Position
     ]);
   });
 
+  it("teilt auch ein Netto laut Beleg jenseits von int4, etwa in Forint", async () => {
+    // original_net ist bigint (HUF, JPY); der private Teil von 30 Mio. Forint zu 80 % passt nicht in integer
+    const eigenesKonto = await reset("SKR03", "soll");
+    const huf = await altEntwurf(
+      {
+        name: "Forint",
+        category: "software",
+        privateShare: 80,
+        amounts: [{ taxRate: 0, net: 0, tax: 0, originalNet: 3_000_000_000, originalTax: 0 }],
+        extra: { currency: "HUF", exchangeRate: "400,00" },
+      },
+      eigenesKonto,
+    );
+    await migrieren();
+    expect(
+      await sql`select category, net, original_net::bigint::text as original_net from document_splits where document_id = ${huf} order by position`,
+    ).toEqual([
+      { category: "software", net: 1_500_000, original_net: "600000000" },
+      { category: "privatentnahme", net: 6_000_000, original_net: "2400000000" },
+    ]);
+  });
+
   it("lässt gebuchte und schon aufgeteilte Belege unberührt und hält die Hash-Kette", async () => {
     const eigenesKonto = await reset("SKR04", "ist");
     const gebucht = await altEntwurf(FAELLE[0]!, eigenesKonto);
