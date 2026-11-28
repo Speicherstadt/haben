@@ -232,6 +232,13 @@
       "function": "public.haben_seal()"
     },
     {
+      "table": "public.asset_depreciations",
+      "name": "asset_depreciations_seal_asset",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER asset_depreciations_seal_asset AFTER INSERT ON public.asset_depreciations FOR EACH ROW EXECUTE FUNCTION public.haben_seal_asset()",
+      "function": "public.haben_seal_asset()"
+    },
+    {
       "table": "public.assets",
       "name": "assets_audit",
       "enabled": "O",
@@ -251,6 +258,13 @@
       "enabled": "O",
       "definition": "CREATE TRIGGER assets_no_truncate BEFORE TRUNCATE ON public.assets FOR EACH STATEMENT EXECUTE FUNCTION public.haben_reject_truncate()",
       "function": "public.haben_reject_truncate()"
+    },
+    {
+      "table": "public.assets",
+      "name": "assets_seal",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER assets_seal AFTER INSERT OR UPDATE OF opening_entry_id ON public.assets FOR EACH ROW WHEN ((new.opening_entry_id IS NOT NULL)) EXECUTE FUNCTION public.haben_seal_asset()",
+      "function": "public.haben_seal_asset()"
     },
     {
       "table": "public.audit_chain",
@@ -2438,6 +2452,13 @@
     },
     {
       "table": "public.quote_lines",
+      "name": "quote_lines_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER quote_lines_audit AFTER INSERT OR DELETE OR UPDATE ON public.quote_lines FOR EACH ROW EXECUTE FUNCTION public.haben_audit()",
+      "function": "public.haben_audit()"
+    },
+    {
+      "table": "public.quote_lines",
       "name": "quote_lines_locked",
       "enabled": "O",
       "definition": "CREATE TRIGGER quote_lines_locked BEFORE INSERT OR DELETE OR UPDATE ON public.quote_lines FOR EACH ROW EXECUTE FUNCTION public.haben_reject_locked_quote_line()",
@@ -2491,6 +2512,20 @@
       "enabled": "O",
       "definition": "CREATE TRIGGER quotes_no_truncate BEFORE TRUNCATE ON public.quotes FOR EACH STATEMENT EXECUTE FUNCTION public.haben_reject_truncate()",
       "function": "public.haben_reject_truncate()"
+    },
+    {
+      "table": "public.quotes",
+      "name": "quotes_seal",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER quotes_seal AFTER UPDATE OF locked_at ON public.quotes FOR EACH ROW WHEN (((old.locked_at IS NULL) AND (new.locked_at IS NOT NULL))) EXECUTE FUNCTION public.haben_seal()",
+      "function": "public.haben_seal()"
+    },
+    {
+      "table": "public.quotes",
+      "name": "quotes_seal_insert",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER quotes_seal_insert AFTER INSERT ON public.quotes FOR EACH ROW WHEN ((new.locked_at IS NOT NULL)) EXECUTE FUNCTION public.haben_seal()",
+      "function": "public.haben_seal()"
     },
     {
       "table": "public.recurring_documents",
@@ -3752,8 +3787,8 @@
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "e493b2fa7f9903ba7374cadff19443ed3e03511c32fb06ad68669fa8f6eb2e97",
-      "definitionHash": "24364f4fce64cf0103d8e4f3c967b94bece9f48671faea9dc50b312e999354a4"
+      "sourceHash": "d894ccf6489a0eab3ed0b3a0ec535ebefde930b844422174839f4f89630ed4e3",
+      "definitionHash": "376eaaae01dc5a6872232d6fbab8b8d936845ce4e620b65a7e08709dcc60afcf"
     },
     {
       "name": "public.haben_loan_fixed()",
@@ -3916,20 +3951,28 @@
       "definitionHash": "b4d63da65aecd4c73ed883199ef67182e30ab92ff9df03e8cca25700c21c6ea8"
     },
     {
+      "name": "public.haben_seal_asset()",
+      "config": [],
+      "language": "plpgsql",
+      "securityDefiner": false,
+      "sourceHash": "7d82abec66474fd6d12e617a5a326570dfd3e5c34ac8da0f06a5c35ac6fd8764",
+      "definitionHash": "6e3f079ad63801931bde64b98ae6f54c7912071b4fba2e1a77944270861dc1e3"
+    },
+    {
       "name": "public.haben_seal_columns(tbl text)",
       "config": [],
       "language": "sql",
       "securityDefiner": false,
-      "sourceHash": "fd8d1619eee9001c3192c07a2ef76aa571d2d759ec104b22a496bd4d766d4fe1",
-      "definitionHash": "44861cf946bc2d367e2ba7a43f9ab62cd94ab659ad269cd74091c63a2689ee48"
+      "sourceHash": "e64a266a9552fc6518774e8d2296d8cd8c7aa79935d78dcb15eb125c6062e1e8",
+      "definitionHash": "892809a88e2af2ef71f8b10a89edc4989583115686eeb33c34a18de99246aa23"
     },
     {
       "name": "public.haben_seal_digest(tbl text, rid uuid, cols jsonb)",
       "config": ["IntervalStyle=postgres", "TimeZone=UTC", "bytea_output=hex", "extra_float_digits=1"],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "8c5e6e300d07fac34b55c0aae1b86d57fc099b2c47050da93046609e699259b6",
-      "definitionHash": "6ff440a018bb3a717a65df0f5f4539288b3ccdc3c574cc7e6976faa6bdd67384"
+      "sourceHash": "71c8c4fb0b34709e40017298cd2f6b6f50986ab03fe4240dcc3883b7cb4ec6ca",
+      "definitionHash": "1cae7fe539835647ad48dcd14cc7cdafd74ba8f58b073586eed1df6bd5bd4232"
     },
     {
       "name": "public.haben_unaccent(t text)",
@@ -3975,6 +4018,7 @@
   "sealedTables": [
     "public.allocations",
     "public.asset_depreciations",
+    "public.assets",
     "public.audit_chain",
     "public.audit_log",
     "public.cash_entries",
@@ -3991,6 +4035,9 @@
     "public.pauschalen",
     "public.payslip_cancellations",
     "public.payslips",
+    "public.quote_attachments",
+    "public.quote_lines",
+    "public.quotes",
     "public.seals",
     "public.vat_return_filings",
     "public.vat_returns"
@@ -4003,6 +4050,12 @@
     { "table": "public.asset_depreciations", "column": "id", "expression": "gen_random_uuid()" },
     { "table": "public.asset_depreciations", "column": "private_use", "expression": "0" },
     { "table": "public.asset_depreciations", "column": "private_use_vat", "expression": "0" },
+    { "table": "public.assets", "column": "created_at", "expression": "now()" },
+    { "table": "public.assets", "column": "id", "expression": "gen_random_uuid()" },
+    { "table": "public.assets", "column": "memo_value", "expression": "false" },
+    { "table": "public.assets", "column": "note", "expression": "''::text" },
+    { "table": "public.assets", "column": "special_depreciation", "expression": "'[]'::jsonb" },
+    { "table": "public.assets", "column": "updated_at", "expression": "now()" },
     { "table": "public.audit_chain", "column": "id", "expression": "1" },
     { "table": "public.audit_log", "column": "at", "expression": "now()" },
     { "table": "public.audit_log", "column": "id", "expression": "nextval('public.audit_log_id_seq'::regclass)" },
@@ -4077,6 +4130,32 @@
     { "table": "public.payslips", "column": "hinweise", "expression": "'[]'::jsonb" },
     { "table": "public.payslips", "column": "id", "expression": "gen_random_uuid()" },
     { "table": "public.payslips", "column": "updated_at", "expression": "now()" },
+    { "table": "public.quote_attachments", "column": "created_at", "expression": "now()" },
+    { "table": "public.quote_attachments", "column": "id", "expression": "gen_random_uuid()" },
+    { "table": "public.quote_lines", "column": "arbeitskosten", "expression": "false" },
+    { "table": "public.quote_lines", "column": "detail", "expression": "''::text" },
+    { "table": "public.quote_lines", "column": "id", "expression": "gen_random_uuid()" },
+    { "table": "public.quote_lines", "column": "item_number", "expression": "''::text" },
+    { "table": "public.quotes", "column": "buyer_order_reference", "expression": "''::text" },
+    { "table": "public.quotes", "column": "created_at", "expression": "now()" },
+    { "table": "public.quotes", "column": "despatch_advice_reference", "expression": "''::text" },
+    { "table": "public.quotes", "column": "exemption_reason", "expression": "''::text" },
+    { "table": "public.quotes", "column": "gross", "expression": "0" },
+    { "table": "public.quotes", "column": "id", "expression": "gen_random_uuid()" },
+    { "table": "public.quotes", "column": "intro", "expression": "''::text" },
+    { "table": "public.quotes", "column": "intro_vorlage", "expression": "''::text" },
+    { "table": "public.quotes", "column": "language", "expression": "'de'::text" },
+    { "table": "public.quotes", "column": "net", "expression": "0" },
+    { "table": "public.quotes", "column": "note", "expression": "''::text" },
+    { "table": "public.quotes", "column": "note_vorlage", "expression": "''::text" },
+    { "table": "public.quotes", "column": "payment_plan", "expression": "'[]'::jsonb" },
+    { "table": "public.quotes", "column": "payment_plan_in_confirmation", "expression": "false" },
+    { "table": "public.quotes", "column": "price_mode", "expression": "'netto'::text" },
+    { "table": "public.quotes", "column": "seller_order_reference", "expression": "''::text" },
+    { "table": "public.quotes", "column": "status", "expression": "'draft'::public.invoice_status" },
+    { "table": "public.quotes", "column": "tax", "expression": "0" },
+    { "table": "public.quotes", "column": "tax_treatment", "expression": "'regulaer'::text" },
+    { "table": "public.quotes", "column": "updated_at", "expression": "now()" },
     { "table": "public.seals", "column": "created_at", "expression": "now()" },
     { "table": "public.seals", "column": "genesis", "expression": "false" },
     { "table": "public.seals", "column": "id", "expression": "nextval('public.seals_id_seq'::regclass)" },

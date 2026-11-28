@@ -31,6 +31,8 @@ const TABELLEN: Record<string, string> = {
   allocations: "Zuordnung",
   pauschalen: "Pauschale",
   asset_depreciations: "AfA",
+  quotes: "Angebot",
+  assets: "Anlage",
 };
 
 /** Prüfsumme der Sperren (#1683), zum Vergleich mit der Prüfsumme in den Versionshinweisen auf GitHub */
