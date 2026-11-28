@@ -2,7 +2,7 @@
 -- je Steuersatz eine Position mit Kategorie und eigenem Konto des Belegs; ein Privatanteil wird je Satz eine Position
 -- „privatentnahme“ mit dem privaten Teil von Netto und Steuer. Gerundet wie belegAnteile in packages/core: privat
 -- kaufmännisch (round auf numeric rundet halbe Cent von der Null weg wie roundHalfAwayFromZero), betrieblich der Rest; so
--- bucht der Beleg auf jedem Konto wie vorher (belege-positionen-migration.test.ts). Ein Entwurf mit Kategorie, aber ohne
+-- bucht der Beleg auf jedem Konto wie vorher (positionen-migration.test.ts). Ein Entwurf mit Kategorie, aber ohne
 -- Beträge bekommt eine Position zu 19 % mit 0, damit die Kategorie bleibt. Danach stehen Kategorie, eigenes Konto und
 -- Privatanteil nur noch in den Positionen.
 --
@@ -21,7 +21,7 @@ WITH saetze AS (
          round(a.net::numeric * o.private_share / 100)::integer AS privat_net,
          round(a.tax::numeric * o.private_share / 100)::integer AS privat_tax,
          CASE WHEN o.fremd THEN coalesce(a.original_net, 0) END AS original_net,
-         CASE WHEN o.fremd THEN round(coalesce(a.original_net, 0)::numeric * o.private_share / 100)::integer END AS privat_original
+         CASE WHEN o.fremd THEN round(coalesce(a.original_net, 0)::numeric * o.private_share / 100)::bigint END AS privat_original
     FROM haben_0340_offen o JOIN document_amounts a ON a.document_id = o.id
 ), zeilen AS (
   SELECT id, tax_rate, 0 AS art, category, own_account_id, net - privat_net AS net, tax - privat_tax AS tax, original_net - privat_original AS original_net
