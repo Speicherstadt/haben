@@ -166,6 +166,8 @@ export function formularansicht<D extends { category: string | null; ownAccountI
   positionen: readonly Belegposition[],
   vorgabe: (category: string | null) => Prozent | undefined = () => undefined,
 ): { document: D; splits: Belegposition[] } {
+  // Ein offener Entwurf mit Aufteilung und Privatanteil am Beleg (von 0352 nicht berührt) behält seine Aufteilung
+  if (doc.privateShare !== 0 && doc.category === null && doc.ownAccountId === null) return { document: doc, splits: [...positionen] };
   if (doc.category !== null || doc.ownAccountId !== null || doc.privateShare !== 0) return { document: doc, splits: [] };
   const form = bisherigeForm(positionen, fremd(doc), vorgabe);
   if (form) return { document: { ...doc, ...form }, splits: [] };
