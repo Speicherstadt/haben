@@ -112,4 +112,61 @@ describe.skipIf(!testDatabaseUrl)("Beleg speichern und eigenes Konto ändern gle
       expect(Number(verwendet!.n)).toBe(1);
     }, 30_000);
   }
+
+  /** Wie oben (renameOwnAccount), aber mit `aktion` statt Speichern: Sie muss das Konto sperren, bevor sie die Kette hält */
+  async function gleichzeitigUmbenennen(konto: string, aktion: () => Promise<unknown>) {
+    let laeuft: Promise<unknown> | undefined;
+    const umbenennen = andere
+      .begin(async (tx) => {
+        await tx`select set_config('haben.actor', 'test:andere', true)`;
+        const [backend] = await tx<{ pid: number }[]>`select pg_backend_pid() as pid`;
+        await tx`select id from own_accounts where id = ${konto} for update`;
+        laeuft = aktion().then(
+          (r) => r,
+          (e: unknown) => e,
+        );
+        await warteAufSperre(backend!.pid);
+        await tx`update own_accounts set name = 'Software: Lizenzen', updated_at = now() where id = ${konto}`;
+      })
+      .then(
+        () => "umbenannt",
+        (e: unknown) => e,
+      );
+    return { umbenannt: await umbenennen, ergebnis: await laeuft };
+  }
+
+  it("Storno neu erfassen mit eigenem Konto, während es jemand umbenennt: beide Transaktionen kommen durch", async () => {
+    const cancellation = await import("./cancellation.ts");
+    const konto = await konten.createOwnAccount(actor, { account: "4997", name: "Software: Entwicklung", parentCategory: "software" });
+    const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 97, 1, 2, 3, 0xff, 0xd9]);
+    const { id } = await documents.uploadDocument(actor, { bytes, filename: "software-4997.jpg" });
+    await documents.updateDocument(actor, id, eingabe({ ownAccountId: konto }));
+    await documents.bookDocument(actor, id);
+    await cancellation.cancelDocument(actor, id, {}, "2026-10-05");
+
+    const { umbenannt, ergebnis } = await gleichzeitigUmbenennen(konto, () => cancellation.reenterDocument(actor, id));
+    expect(umbenannt).toBe("umbenannt");
+    expect(ergebnis).toEqual(expect.any(String));
+    const [verwendet] = await sql<{ n: number }[]>`
+      select count(*)::int as n from document_splits where document_id = ${ergebnis as string} and own_account_id = ${konto}`;
+    expect(verwendet!.n).toBe(1);
+  }, 30_000);
+
+  it("veröffentlichten Kurs übernehmen bei eigenem Konto, während es jemand umbenennt: beide Transaktionen kommen durch", async () => {
+    const stammdaten = await import("../stammdaten/index.ts");
+    const konto = await konten.createOwnAccount(actor, { account: "4996", name: "Software: Entwicklung", parentCategory: "software" });
+    const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 96, 1, 2, 3, 0xff, 0xd9]);
+    const { id } = await documents.uploadDocument(actor, { bytes, filename: "software-4996.jpg" });
+    await documents.updateDocument(actor, id, {
+      ...(eingabe({ ownAccountId: konto }) as object),
+      currency: "USD",
+      amounts: [{ taxRate: 1900, net: 0, tax: 0, originalNet: 10_000, originalTax: 1_900 }],
+    } as never);
+    expect((await documents.getDocument(id))!.document.exchangeRate).toBeNull();
+    await stammdaten.storeExchangeRates(actor, [{ currency: "USD", month: "2026-09", rate: "1.0812" }], "bmf");
+
+    const { umbenannt, ergebnis } = await gleichzeitigUmbenennen(konto, () => documents.applyPublishedRates(actor));
+    expect(umbenannt).toBe("umbenannt");
+    expect(ergebnis).toBe(1);
+  }, 30_000);
 });
