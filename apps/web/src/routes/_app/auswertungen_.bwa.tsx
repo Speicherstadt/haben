@@ -19,6 +19,7 @@ import { BwaTabelle, zeitraumText } from "../../components/BwaTabelle.tsx";
 import { BwaUnvollstaendig } from "../../components/BwaUnvollstaendig.tsx";
 import { BwaWarum } from "../../components/BwaWarum.tsx";
 import { Field } from "../../components/Field.tsx";
+import { Icon } from "../../components/Icon.tsx";
 import { JOURNAL_SOURCE, ZEITRAEUME } from "../../components/Ledger.tsx";
 import { ScrollTable } from "../../components/ScrollTable.tsx";
 import { formatDate } from "../../lib/format.ts";
@@ -118,11 +119,14 @@ function BwaPage() {
       <BwaUnvollstaendig hinweise={bericht.unvollstaendig.hinweise} zeitraum={bericht.zeitraum} rolle={user.role} />
       {bericht.afaOffen.length > 0 && (
         <div className="banner banner-info" role="note">
-          Die Anlagen {bericht.afaOffen.join(", ")} sind im <Link to="/anlagen">Anlagenverzeichnis</Link> noch nicht gebucht. Bis dahin fehlen hier
-          Abschreibungen
-          {bericht.kapitalgesellschaft
-            ? " und Restbuchwerte, ebenso in der GuV."
-            : ", Restbuchwerte und die Privatnutzung von Fahrzeugen; die EÜR rechnet sie schon aus dem Anlagenverzeichnis, ihr Gewinn weicht deshalb ab."}
+          <Icon name="info" />
+          <span>
+            Die Anlagen {bericht.afaOffen.join(", ")} sind im <Link to="/anlagen">Anlagenverzeichnis</Link> noch nicht gebucht. Bis dahin fehlen hier
+            Abschreibungen
+            {bericht.kapitalgesellschaft
+              ? " und Restbuchwerte, ebenso in der GuV."
+              : ", Restbuchwerte und die Privatnutzung von Fahrzeugen; die EÜR rechnet sie schon aus dem Anlagenverzeichnis, ihr Gewinn weicht deshalb ab."}
+          </span>
         </div>
       )}
       <BwaKennzahlen bericht={bericht} />
