@@ -89,11 +89,14 @@ export function unvollstaendig(offen: OffeneVorgaenge, konten: readonly { id: st
   return hinweise;
 }
 
-/** TT.MM., mit Jahr, sobald Tag oder Zeitraum nicht in einem Jahr liegen; sonst wäre „nur bis 20.01.“ über den Jahreswechsel offen */
+/**
+ * TT.MM., mit Jahr, sobald Tag und Zeitraum nicht in einem Jahr liegen; sonst wäre „nur bis 20.01.“ über den Jahreswechsel
+ * offen. Steht am Satzende: Der Punkt nach dem Jahr schließt den Satz wie der nach TT.MM.
+ */
 const tagImZeitraum = (datum: string, zeitraum: Zeitraum) => {
   const tagMonat = `${datum.slice(8, 10)}.${datum.slice(5, 7)}.`;
   const jahr = datum.slice(0, 4);
-  return jahr === zeitraum.von.slice(0, 4) && jahr === zeitraum.bis.slice(0, 4) ? tagMonat : `${tagMonat}${jahr}`;
+  return jahr === zeitraum.von.slice(0, 4) && jahr === zeitraum.bis.slice(0, 4) ? tagMonat : `${tagMonat}${jahr}.`;
 };
 
 /** Ein Satz je Hinweis zum Zeitraum der Auswertung, für Seite und Export gleich */
