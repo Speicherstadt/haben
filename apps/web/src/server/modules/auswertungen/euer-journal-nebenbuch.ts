@@ -19,13 +19,15 @@ import {
 import { eq, inArray } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
 import { splitsByDocument } from "../belege/index.ts";
+import { loadOwnAccountNumbers } from "../eigene-konten/index.ts";
+import { documentsMitEntnahme } from "../umsatzsteuer/index.ts";
 import { invoiceTotalsById } from "../rechnungen/index.ts";
 import { bloecke, offenerPosten, type Zeile } from "./euer-journal-buchungen.ts";
 import { belegZahlungsWirkungen } from "./euer-belegzahlungen.ts";
 
 /*
  * Was die EÜR aus dem Journal (euer-journal.ts) aus dem Nebenbuch braucht, weil die Buchung allein es nicht hergibt: die
- * Rundung von Teilzahlungen auf Belege mit Privatanteil oder ohne Vorsteuerabzug und die Zeilen übernommener
+ * Rundung von Teilzahlungen auf Belege mit Privatanteil, Entnahmezeile oder ohne Vorsteuerabzug und die Zeilen übernommener
  * Lexoffice-Posten, deren Buchung gegen den Saldenvortrag steht.
  */
 
@@ -61,23 +63,30 @@ export async function belegNebenbuecher(q: Db | Tx, ids: string[]): Promise<Map<
     for (const a of await q.select().from(schema.documentAmounts).where(inArray(schema.documentAmounts.documentId, block)))
       amounts.set(a.documentId, [...(amounts.get(a.documentId) ?? []), a]);
     // Teilabzug braucht die ursprüngliche Steuer je Satz: Der Betrag der Aufwandszeile enthält auch den nicht
-    // abziehbaren Teil. Ein neuer Satzoverride darf deshalb nicht vom Boolean am Beleg übergangen werden.
+    // abziehbaren Teil. Ein neuer Satzoverride darf deshalb nicht vom Boolean am Beleg übergangen werden. Eine
+    // Entnahmezeile rundet Teilzahlungen wie der Privatanteil am Beleg kumuliert, auch bei vollem Abzug (#1975).
+    const mitEntnahme = await documentsMitEntnahme(block, q);
     const noetig = docs.filter(
-      (doc) => hatPrivatanteil(doc.privateShare) || (amounts.get(doc.id) ?? []).some((a) => gespeicherterAnteil(doc, a.vorsteuerAnteil) !== 10_000),
+      (doc) =>
+        hatPrivatanteil(doc.privateShare) ||
+        mitEntnahme.has(doc.id) ||
+        (amounts.get(doc.id) ?? []).some((a) => gespeicherterAnteil(doc, a.vorsteuerAnteil) !== 10_000),
     );
     if (noetig.length === 0) continue;
     const noetigIds = noetig.map((doc) => doc.id);
-    const splitsJe = await splitsByDocument(noetigIds, q);
+    // Mit Kontonummer der eigenen Sachkonten: Die EÜR rundet Bewirtung je Journalzeile wie die Buchung (#1975)
+    const splitsJe = await splitsByDocument(noetigIds, q, await loadOwnAccountNumbers(q));
     const effects = await belegZahlungsWirkungen(q, noetigIds);
     for (const doc of noetig) {
-      // § 13b und Erwerb: gezahlt ist nur netto, auch je Zeile der Aufteilung (wie reports.ts)
+      // § 13b und Erwerb: gezahlt ist nur netto (wie reports.ts); die Zeilen der Aufteilung behalten ihre Steuer, die
+      // EÜR rechnet sie mit selbstGeschuldet heraus und braucht sie für die Umsatzsteuer auf die Entnahme (#1975)
       const rows = (amounts.get(doc.id) ?? []).map((a) => ({
         rate: a.taxRate,
         base: a.net,
         tax: doc.reverseCharge ? 0 : a.tax,
         vorsteuerAnteil: gespeicherterAnteil(doc, a.vorsteuerAnteil),
       }));
-      const splits = splitsJe.get(doc.id)?.map((line) => (doc.reverseCharge ? { ...line, tax: 0 } : line));
+      const splits = splitsJe.get(doc.id);
       const category = doc.category && doc.category in EXPENSE_CATEGORIES ? (doc.category as ExpenseCategory) : "sonstiges";
       result.set(doc.id, {
         totals: totalsFromTaxes(rows),

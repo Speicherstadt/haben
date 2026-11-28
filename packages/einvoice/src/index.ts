@@ -46,6 +46,7 @@ export { buildEInvoice } from "./xml.ts";
 export { validateForFormat } from "./validate.ts";
 export { extractFacturXXml } from "./zugferd.ts";
 export { extractEmbeddedXml } from "./embedded.ts";
+export { girocodeSvg } from "./qr.ts";
 export {
   EInvoiceParseError,
   parseEInvoiceXml,

@@ -7,7 +7,7 @@ import { kontoart } from "./ledger.ts";
 import { isSachentnahmeKonto } from "./manual.ts";
 import { LOHN_KONTEN } from "./lohn-buchung.ts";
 import { roundHalfAwayFromZero, type Cents } from "./money.ts";
-import { PAUSCHALE_KONTEN, type PauschaleArt } from "./pauschalen.ts";
+import { pauschaleArtDesKontos } from "./pauschalen.ts";
 import { ACCOUNTS, EXPENSE_CATEGORIES, hatEigenschaft, KLEINUNTERNEHMER_FRUEHERE_KONTEN, type ExpenseCategory, type Kontenrahmen } from "./posting.ts";
 import { PRIVATE_USE_ACCOUNTS } from "./private-use.ts";
 import { abziehbareNebenleistungen, nichtAbziehbareNebenleistungen, STEUER_KONTEN } from "./steuerzahlung.ts";
@@ -69,10 +69,9 @@ export type EuerHerkunft = "pauschale" | "asset" | "anlage" | "darlehenAnlagever
  */
 export function euerZuordnung(kontenrahmen: Kontenrahmen, account: string, herkunft: EuerHerkunft = "sonst", kleinunternehmer = false): EuerZuordnung | null {
   const a = ACCOUNTS[kontenrahmen];
-  if (herkunft === "pauschale") {
-    for (const [art, konten] of Object.entries(PAUSCHALE_KONTEN) as [PauschaleArt, (typeof PAUSCHALE_KONTEN)[PauschaleArt]][])
-      if (konten[kontenrahmen].konto === account) return `pauschale:${art}`;
-  }
+  // Auch auf dem früheren Konto einer Pauschale (#2015), andere Buchungen dort zählen nach dem Konto
+  const pauschale = herkunft === "pauschale" ? pauschaleArtDesKontos(kontenrahmen, account) : null;
+  if (pauschale) return `pauschale:${pauschale}`;
   // Umsatzsteuer: vereinnahmt, auch noch nicht fällig (sie wird es mit der Zahlung); auf die Privatnutzung eigene Zeile
   if (account === a.ust[1900] || account === a.ust[700]) return herkunft === "asset" ? "ustEntnahmen" : "vereinnahmteUst";
   if (account === a.ustNichtFaellig[1900] || account === a.ustNichtFaellig[700]) return "vereinnahmteUst";

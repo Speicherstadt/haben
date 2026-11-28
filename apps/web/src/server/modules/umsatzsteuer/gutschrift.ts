@@ -1,6 +1,8 @@
 import {
   abziehbareSteuer,
-  betrieblicherAnteil,
+  belegPrivat,
+  betrieblichNetto,
+  betrieblichSteuer,
   gespeicherterAnteil,
   paidTaxShares,
   periodRange,
@@ -9,6 +11,7 @@ import {
   type VatPeriod,
   type Prozent,
 } from "@haben/core";
+import { entnahmeZeilen } from "./entnahme-zeilen.ts";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 
@@ -150,10 +153,10 @@ export async function gutschriftAnteile(period: VatPeriod, q: Db | Tx = db): Pro
   const { start, end } = periodRange(period);
   const vorgaenge = await gutschriftVorgaenge(q);
   if (vorgaenge.length === 0) return [];
-  const rows = await q
-    .select()
-    .from(schema.documentAmounts)
-    .where(inArray(schema.documentAmounts.documentId, [...new Set(vorgaenge.map((v) => v.documentId))]));
+  const ids = [...new Set(vorgaenge.map((v) => v.documentId))];
+  const rows = await q.select().from(schema.documentAmounts).where(inArray(schema.documentAmounts.documentId, ids));
+  // Eine Gutschrift mit Zeilen privatentnahme trägt ihren Privatanteil dort (#1975)
+  const entnahme = await entnahmeZeilen(ids, q);
   // Stand je Gutschrift: der Betrag, der schon ausgeglichen ist, und die dafür erfassten Anteile
   const ausgeglichen = new Map<string, Cents>();
   const erfasst = new Map<string, TaxShare[]>();
@@ -167,6 +170,7 @@ export async function gutschriftAnteile(period: VatPeriod, q: Db | Tx = db): Pro
     const totals = { net: v.net, tax: v.tax, gross: v.gross, taxes };
     // Der Vorgang ist eine Zahlung auf die Gutschrift (positiv); mit dem Vorzeichen des Belegs ist das -amount.
     // Eine Erstattung von 9025 Cent mindert die Vorsteuer damit um 1441 Cent.
+    const privat = belegPrivat(v.privateShare, entnahme.get(v.documentId) ?? []);
     const betrag = -v.amount;
     const vorher = ausgeglichen.get(v.documentId) ?? 0;
     const bisher = erfasst.get(v.documentId) ?? [];
@@ -180,11 +184,12 @@ export async function gutschriftAnteile(period: VatPeriod, q: Db | Tx = db): Pro
       aufgehoben?.map((t) => ({ rate: t.rate, base: -t.base, tax: -t.tax })) ??
       paidTaxShares(totals, vorher + betrag).map((t) => {
         const recorded = bisher.filter((r) => r.rate === t.rate);
+        const gesamt = taxes.find((a) => a.rate === t.rate);
         return {
           rate: t.rate,
-          base: betrieblicherAnteil(t.base, v.privateShare) - recorded.reduce((sum, r) => sum + r.base, 0),
+          base: betrieblichNetto(privat, t.rate, t.base, gesamt?.base ?? t.base) - recorded.reduce((sum, r) => sum + r.base, 0),
           tax:
-            abziehbareSteuer(betrieblicherAnteil(t.tax, v.privateShare), gespeicherterAnteil(v, taxes.find((a) => a.rate === t.rate)?.vorsteuerAnteil)) -
+            abziehbareSteuer(betrieblichSteuer(privat, t.rate, t.tax, gesamt?.tax ?? t.tax), gespeicherterAnteil(v, gesamt?.vorsteuerAnteil)) -
             recorded.reduce((sum, r) => sum + r.tax, 0),
         };
       });

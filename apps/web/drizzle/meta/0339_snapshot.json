@@ -1,6 +1,6 @@
 {
-  "id": "56937cc1-90cc-4364-a26e-a3d68599a2bc",
-  "prevId": "6cfbb048-c093-486b-a032-cc92c475cb63",
+  "id": "d050dc9f-4c9f-420c-bf66-08bd332ecfd0",
+  "prevId": "6a499e90-7f9b-415c-8da8-c452f444cb9e",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1567,12 +1567,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "disposal_withdrawal": {
-          "name": "disposal_withdrawal",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "private_use": {
           "name": "private_use",
           "type": "jsonb",
@@ -1699,10 +1693,6 @@
         "assets_private_use_car": {
           "name": "assets_private_use_car",
           "value": "\"assets\".\"private_use\" is null or \"assets\".\"kind\" = 'kfz'"
-        },
-        "assets_withdrawal_disposal": {
-          "name": "assets_withdrawal_disposal",
-          "value": "\"assets\".\"disposal_withdrawal\" is null or \"assets\".\"disposal_date\" is not null"
         },
         "assets_degressive_rate": {
           "name": "assets_degressive_rate",
@@ -5749,6 +5739,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
         },
         "own_account_id": {
           "name": "own_account_id",

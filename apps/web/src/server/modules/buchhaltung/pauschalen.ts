@@ -6,16 +6,18 @@ import {
   FAHRZEUG_LABEL,
   homeofficeSatz,
   PAUSCHALE_KONTEN,
-  PAUSCHALE_LABEL,
   REISETAG_LABEL,
   verpflegungBetrag,
   type Cents,
+  type Kontenrahmen,
   type PauschaleArt,
+  type PostingLine,
   isKapitalgesellschaft,
 } from "@haben/core";
 import { and, asc, eq, gte, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { withActor } from "../../db/actor.ts";
+import { reverseLinesIn } from "./gegenbuchung.ts";
 import { openBooks, post } from "./ledger.ts";
 import { db, schema, type Tx } from "../../db/index.ts";
 
@@ -179,27 +181,56 @@ async function prepare(tx: Tx, input: z.output<typeof pauschaleInputSchema>, tod
   }
 }
 
-async function postEntry(
-  tx: Tx,
-  input: { id: string; art: PauschaleArt; date: string; text: string; amount: Cents; reversesId?: string | null },
-): Promise<string> {
+/** Bücher für eine Pauschale: Sie ersetzen Ausgaben des Inhabers (Gegenkonto Privateinlage); eine GmbH erstattet sie dem Gesellschafter mit Beleg */
+async function pauschalenBuecher(tx: Tx) {
   const books = await openBooks(tx);
-  // Die Pauschalen ersetzen Ausgaben des Inhabers (Gegenkonto Privateinlage); eine GmbH erstattet sie dem Gesellschafter mit Beleg
   if (isKapitalgesellschaft(books.rechtsform)) throw new PauschaleError("Pauschalen gibt es nur im Einzelunternehmen.");
-  const aufwand = PAUSCHALE_KONTEN[input.art][books.kontenrahmen].konto;
-  const einlage = ACCOUNTS[books.kontenrahmen].privateinlagen;
-  const [soll, haben] = input.amount >= 0 ? [aufwand, einlage] : [einlage, aufwand];
-  const betrag = Math.abs(input.amount);
+  return books;
+}
+
+/** Bucht eine Pauschale: Aufwand an Privateinlage */
+async function postEntry(tx: Tx, input: { id: string; art: PauschaleArt; date: string; text: string; amount: Cents }): Promise<string> {
+  const books = await pauschalenBuecher(tx);
   return post(tx, books, {
     date: input.date,
     description: input.text,
     sourceType: "pauschale",
     sourceId: input.id,
-    reversesId: input.reversesId,
     lines: [
-      { account: soll, debit: betrag, credit: 0, taxCode: null },
-      { account: haben, debit: 0, credit: betrag, taxCode: null },
+      { account: PAUSCHALE_KONTEN[input.art][books.kontenrahmen].konto, debit: input.amount, credit: 0, taxCode: null },
+      { account: ACCOUNTS[books.kontenrahmen].privateinlagen, debit: 0, credit: input.amount, taxCode: null },
     ],
+  });
+}
+
+/**
+ * Gegenbuchung mit den Konten der ursprünglichen Buchung: Eine Homeoffice-Pauschale von vor #2015 steht auf dem Konto des
+ * Arbeitszimmers, ihr Storno bucht dorthin zurück und nicht auf das heutige Konto
+ */
+async function postReversal(tx: Tx, input: { id: string; text: string; buchung: typeof schema.journalEntries.$inferSelect }): Promise<string> {
+  const books = await pauschalenBuecher(tx);
+  const { buchung } = input;
+  const zeilen = await tx
+    .select({
+      account: schema.journalLines.account,
+      debit: schema.journalLines.debit,
+      credit: schema.journalLines.credit,
+      taxCode: schema.journalLines.taxCode,
+      basis: schema.journalLines.basis,
+    })
+    .from(schema.journalLines)
+    .where(eq(schema.journalLines.entryId, buchung.id));
+  return post(tx, books, {
+    date: buchung.date,
+    description: input.text,
+    sourceType: "pauschale",
+    sourceId: input.id,
+    reversesId: buchung.id,
+    lines: reverseLinesIn(
+      buchung.kontenrahmen as Kontenrahmen,
+      books.kontenrahmen,
+      zeilen.map((l) => ({ ...l, taxCode: l.taxCode as PostingLine["taxCode"] })),
+    ),
   });
 }
 
@@ -228,15 +259,9 @@ export async function reversePauschale(actor: string, id: string): Promise<void>
     const [already] = await tx.select({ id: schema.pauschalen.id }).from(schema.pauschalen).where(eq(schema.pauschalen.reversesId, id));
     if (already) throw new PauschaleError("Die Pauschale ist bereits storniert.");
     const [entry] = await tx.select().from(schema.journalEntries).where(eq(schema.journalEntries.id, original.journalEntryId));
+    if (!entry) throw new PauschaleError("Die Buchung der Pauschale fehlt.");
     const reversalId = crypto.randomUUID();
-    const journalEntryId = await postEntry(tx, {
-      id: reversalId,
-      art: original.art,
-      date: original.date,
-      text: `Storno: ${entry?.description ?? PAUSCHALE_LABEL[original.art]}`,
-      amount: -original.amount,
-      reversesId: original.journalEntryId,
-    });
+    const journalEntryId = await postReversal(tx, { id: reversalId, text: `Storno: ${entry.description}`, buchung: entry });
     await tx.insert(schema.pauschalen).values({
       id: reversalId,
       art: original.art,

@@ -2,6 +2,7 @@ import { taxIncluded, type BasisPoints, type Cents } from "./money.ts";
 import {
   ACCOUNT_NAMES,
   ACCOUNTS,
+  BELEGKATEGORIEN,
   EXPENSE_CATEGORIES,
   hatEigenschaft,
   kategorieMitKonto,
@@ -59,7 +60,8 @@ const istEinnahme = (k: string): k is EinnahmeKategorie => Object.hasOwn(EINNAHM
 
 export function kategorieArt(kategorie: string): "einnahme" | "ausgabe" | null {
   if (istEinnahme(kategorie)) return "einnahme";
-  return Object.hasOwn(EXPENSE_CATEGORIES, kategorie) ? "ausgabe" : null;
+  // Die Privatentnahme entsteht nur als Zeile einer Aufteilung (#1975) und ist ohne Beleg nicht buchbar
+  return (BELEGKATEGORIEN as readonly string[]).includes(kategorie) ? "ausgabe" : null;
 }
 
 /** Auswahl unter „Direkt buchen“: erst die Einnahmen, dann die Ausgabekategorien, die ohne Beleg gehen */

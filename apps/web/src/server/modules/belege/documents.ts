@@ -9,7 +9,8 @@ import {
   abziehbarerAnteil,
   abziehbareSteuer,
   einfuhrumsatzsteuerIssues,
-  EXPENSE_CATEGORY_KEYS,
+  BELEGKATEGORIEN,
+  PRIVATENTNAHME,
   formatRateMonth,
   parseExchangeRate,
   rateMonth,
@@ -30,6 +31,7 @@ import {
   type AssetMethod,
   type Cents,
   type OwnInvoiceVerdict,
+  type Rechtsform,
   inBasisPoints,
   inCents,
   inProzent,
@@ -80,7 +82,7 @@ const documentFields = z.object({
   /** Leistungszeitraum aus dem Beleg (#693): „ausgeführt am“ ist der letzte Tag, siehe leistungsdatum() in @haben/core */
   serviceFrom: isoDate.nullable().default(null),
   serviceTo: isoDate.nullable().default(null),
-  category: z.enum(EXPENSE_CATEGORY_KEYS).nullable(),
+  category: z.enum(BELEGKATEGORIEN).nullable(),
   /** Eigenes Sachkonto (#270) der Kategorie; fehlt = das Konto der Kategorie. Mit Aufteilung stehen die Konten in den Zeilen */
   ownAccountId: z.uuid().nullable().default(null),
   payment: z.enum(["bank", "privat", "kasse"]),
@@ -550,10 +552,6 @@ async function updateDocumentIn(tx: Tx, id: string, input: DocumentInput): Promi
       );
     }
   }
-  await tx.delete(schema.documentAmounts).where(eq(schema.documentAmounts.documentId, id));
-  if (amounts.length > 0) {
-    await tx.insert(schema.documentAmounts).values(amounts.map((a) => ({ documentId: id, ...a })));
-  }
   // Aufgeteilt: Kategorie und Anlage stehen in den Zeilen bzw. gibt es nicht (Anlagegüter lassen sich nicht aufteilen)
   await replaceSplits(tx, id, parsed.splits, amounts);
   const { amounts: _amounts, splits, asset, ...fields } = parsed;
@@ -572,6 +570,12 @@ async function updateDocumentIn(tx: Tx, id: string, input: DocumentInput): Promi
       updatedAt: new Date(),
     })
     .where(eq(schema.documents.id, id));
+  // Beträge zuletzt: Ihr Audit-Eintrag sperrt die Hash-Kette, Zeilen und Beleg prüfen davor ihre eigenen Konten
+  // (Fremdschlüssel). Sonst wartete das Speichern mit der Kette auf ein Konto, das gerade jemand umbenennt (Deadlock).
+  await tx.delete(schema.documentAmounts).where(eq(schema.documentAmounts.documentId, id));
+  if (amounts.length > 0) {
+    await tx.insert(schema.documentAmounts).values(amounts.map((a) => ({ documentId: id, ...a })));
+  }
 }
 
 export async function getDocument(id: string) {
@@ -695,18 +699,26 @@ export interface BookingIssue {
 }
 
 /** Was vor dem Buchen fehlt; leere Liste = bereit. Mit Aufteilung (splits) statt der Kategorie die Zeilen geprüft. */
-export function bookingIssues(doc: Document, amounts: DocumentAmount[], todayDate = today(), splits: DocumentSplit[] = []): string[] {
-  return bookingIssueList(doc, amounts, todayDate, splits).map((issue) => issue.text);
+export function bookingIssues(doc: Document, amounts: DocumentAmount[], todayDate = today(), splits: DocumentSplit[] = [], rechtsform?: Rechtsform): string[] {
+  return bookingIssueList(doc, amounts, todayDate, splits, rechtsform).map((issue) => issue.text);
 }
 
 /** Wie bookingIssues, je Hinweis mit dem Feld, an dem er liegt */
-export function bookingIssueList(doc: Document, amounts: DocumentAmount[], todayDate = today(), splits: DocumentSplit[] = []): BookingIssue[] {
+export function bookingIssueList(
+  doc: Document,
+  amounts: DocumentAmount[],
+  todayDate = today(),
+  splits: DocumentSplit[] = [],
+  rechtsform?: Rechtsform,
+): BookingIssue[] {
   const issues: BookingIssue[] = [];
   const add = (...texts: string[]) => issues.push(...texts.map((text) => ({ text })));
   if (!doc.supplierName) add("Lieferant fehlt");
   if (!doc.documentDate) add("Belegdatum fehlt");
-  if (splits.length > 0) add(...splitBookingIssues(doc, amounts, splits));
+  if (splits.length > 0) add(...splitBookingIssues(doc, amounts, splits, rechtsform));
   else if (!doc.category) add("Kategorie fehlt");
+  // Die Privatentnahme gibt es nur als Zeile einer Aufteilung (#1975); am ganzen Beleg zöge sie die volle Vorsteuer
+  else if (doc.category === PRIVATENTNAHME) add("Eine Privatentnahme gibt es nur als Zeile einer Aufteilung");
   const foreign = doc.currency !== "EUR";
   if (foreign && !doc.exchangeRate) issues.push({ text: missingRateIssue(doc, todayDate), feld: "exchangeRate" });
   if (foreign && amounts.some((a) => a.originalNet === null || a.originalTax === null)) add(`Beträge in ${doc.currency} fehlen`);
@@ -771,7 +783,7 @@ export async function bookDocumentIn(tx: Tx, id: string): Promise<void> {
   const vorsteuerAnteil = abziehbarerAnteil(company, doc.vorsteuerAnteil);
   const wirksameBetraege = amounts.map((a) => ({ ...a, vorsteuerAnteil: abziehbarerAnteil(company, a.vorsteuerAnteil ?? vorsteuerAnteil) }));
   const vorsteuerAbzug = wirksameBetraege.some((a) => a.vorsteuerAnteil > 0);
-  const vorab = bookingIssueList(doc, amounts, today(), splits);
+  const vorab = bookingIssueList(doc, amounts, today(), splits, company.rechtsform);
   const issues = vorab.map((issue) => issue.text);
   // GmbH und UG: privat Genutztes ist Arbeitslohn oder verdeckte Gewinnausschüttung, keine Entnahme
   if (doc.privateShare > 0 && !privatZulaessig(company.rechtsform)) issues.push("Einen Privatanteil gibt es nur im Einzelunternehmen");
