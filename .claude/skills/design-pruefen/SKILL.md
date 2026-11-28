@@ -32,7 +32,7 @@ Beide Subagenten parallel starten (ohne eigene Einschätzung im Prompt):
 
 - **Sicht A – Design-Critique (`references/critique-rubric.md`):**
   - Arbeitet auf Screenshots/gerenderter Oberfläche, `DESIGN.md` und Mockup (ohne Output von Sicht B).
-  - Prüft: **Design-Spezifität** (eigenständig fürs Produkt oder austauschbarer Einheitsbrei?), **Nielsen-Heuristiken 1–10** (je 0–4, Summe `/40` bzw. renormiert bei `n/a`), **Cognitive Load** (8-Punkte-Checkliste + Arbeitsgedächtnis-Regel `≤ 4` + 8 typische Verstöße), **Emotionale Reise** (Peak-End, Vertrauen bei heiklen Momenten), **Persona-Walkthroughs** (2–3 passende aus Alex, Jordan, Sam, Riley, Casey plus 1–2 projektbezogene aus `DESIGN.md`/`PRODUCT.md`) sowie **Craft Floor & Anti-Slop** (`Verify` / `Refuse`).
+  - Prüft: **Design-Spezifität** (eigenständig fürs Produkt oder austauschbarer Einheitsbrei?), **Nielsen-Heuristiken 1–10** (je 0–4, Summe `/40` bzw. renormiert bei `n/a`), **Cognitive Load** (8-Punkte-Checkliste + Arbeitsgedächtnis-Regel `≤ 4` + 8 typische Verstöße), **Emotionale Reise** (Peak-End, Vertrauen bei heiklen Momenten), **Persona-Walkthroughs** (2–3 passende aus Alex, Jordan, Sam, Riley, Casey plus 1–2 der Personas für Haben aus Schritt 0) sowie **Craft Floor & Anti-Slop** (`Verify` / `Refuse`).
 - **Sicht B – Technisches Audit & Web Interface Guidelines (`references/audit-und-guidelines.md`):**
   - Prüft Code, CSS-Tokens, Komponenten und – falls vorhanden – Detektor-/Axe-Läufe.
   - Bewertet die **5 Audit-Dimensionen** (je 0–4, Summe `/20`): Accessibility, Performance, Theming, Responsive Design (inkl. Touch-Gesten & RTL-Regeln) und Implementation Integrity.

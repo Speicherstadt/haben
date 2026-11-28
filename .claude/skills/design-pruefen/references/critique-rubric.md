@@ -58,7 +58,7 @@ Drei Arten trennen: **Intrinsic** (Aufgabenkomplexität → strukturieren), **Ex
 
 ## 4. Persona-Walkthroughs
 
-2–3 passende Personas wählen (plus 1–2 projektbezogene aus `DESIGN.md`/`PRODUCT.md`, falls vorhanden) und den **Hauptablauf** konkret durchspielen. Nur echte Brüche mit Elementnamen melden, keine Floskeln.
+2–3 passende Personas wählen (plus 1–2 der Personas für Haben aus `SKILL.md`, Schritt 0) und den **Hauptablauf** konkret durchspielen. Nur echte Brüche mit Elementnamen melden, keine Floskeln.
 
 | Persona | Typ | Typische Red Flags |
 | --- | --- | --- |
