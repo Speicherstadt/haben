@@ -15,6 +15,10 @@ describe("Mindestbestand: Karte (#1381)", () => {
     expect(karte(false)).toContain("warnen ein Hinweis oben auf dieser Seite, die Übersicht und die Fristen-Mail.");
   });
 
+  it("zeigt der Steuerberatung den Betrag mit gleich breiten Ziffern (.amount)", () => {
+    expect(karte(false)).toContain('<span class="amount">5.000,00\u00a0€</span>');
+  });
+
   it("nennt am Feld, was leer und was 0 € heißt", () => {
     expect(karte(true)).toContain("In Euro; leer heißt keine Warnung, 0 € warnt vor einem Minus");
   });

@@ -25,7 +25,9 @@ export function MindestbestandKarte({ mindestbestand, vorschau, aendern }: { min
       {aendern ? (
         <MindestbestandForm mindestbestand={mindestbestand} vorschau={vorschau} />
       ) : (
-        <p style={{ margin: 0 }}>{mindestbestand === null ? "Kein Mindestbestand eingestellt." : formatEuro(mindestbestand)}</p>
+        <p style={{ margin: 0 }}>
+          {mindestbestand === null ? "Kein Mindestbestand eingestellt." : <span className="amount">{formatEuro(mindestbestand)}</span>}
+        </p>
       )}
     </section>
   );
