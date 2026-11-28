@@ -212,6 +212,14 @@ describe.skipIf(!testDatabaseUrl)("Storno aus dem Fremdsystem übernehmen (Postg
     expect(teil.cancels).toMatchObject({ number: "2026-034" });
     expect(teil.cancels!.problem).toMatch(/nur das volle Storno/);
     const korrektur = await invoices.createCorrection(actor, rechnungId, "2026-10-05");
+    // Nicht die ganze unbezahlte Rechnung aufheben, das ist seit #2037 ein Storno: Entwurf kürzen
+    const geladen_korrektur = (await invoices.getInvoice(korrektur.id))!;
+    const { draftInputOf: zuEingabe } = await import("./external-reference.ts");
+    const eingabe_korrektur = zuEingabe(geladen_korrektur.invoice, geladen_korrektur.lines);
+    await invoices.updateDraft(actor, korrektur.id, {
+      ...eingabe_korrektur,
+      lines: eingabe_korrektur.lines.map((z, n) => (n === 0 ? { ...z, unitPrice: Math.floor(z.unitPrice / 2) } : z)),
+    });
     await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand);
     await expect(
       storno.adoptForeignCancellationFile(actor, { invoiceId: rechnungId, number: "2026-035", issueDate: "2026-10-02" }, datei(stornoPdf, "2026-035.pdf")),

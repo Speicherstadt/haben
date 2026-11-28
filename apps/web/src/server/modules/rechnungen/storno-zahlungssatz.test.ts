@@ -99,7 +99,16 @@ describe.skipIf(!testDatabaseUrl)("Zahlungssatz bei Storno und Korrektur (Postgr
 
   it("verspricht bei einer unbezahlten Rechnungskorrektur keine Auszahlung", async () => {
     const invoice = await original();
-    const correction = await invoices.finalizeInvoice(actor, (await invoices.createCorrection(actor, invoice.id, "2026-11-12")).id, kleinunternehmerStand);
+    const entwurf = await invoices.createCorrection(actor, invoice.id, "2026-11-12");
+    // Nicht die ganze unbezahlte Rechnung aufheben, das ist seit #2037 ein Storno: Entwurf kürzen
+    const geladen_entwurf = (await invoices.getInvoice(entwurf.id))!;
+    const { draftInputOf: zuEingabe } = await import("./external-reference.ts");
+    const eingabe_entwurf = zuEingabe(geladen_entwurf.invoice, geladen_entwurf.lines);
+    await invoices.updateDraft(actor, entwurf.id, {
+      ...eingabe_entwurf,
+      lines: eingabe_entwurf.lines.map((z, n) => (n === 0 ? { ...z, unitPrice: Math.floor(z.unitPrice / 2) } : z)),
+    });
+    const correction = await invoices.finalizeInvoice(actor, entwurf.id, kleinunternehmerStand);
     expect(textOf(correction.pdf!)).not.toContain("Der Betrag wird Ihnen erstattet.");
     expect(correction.xml).not.toContain("Der Betrag wird Ihnen erstattet.");
   });

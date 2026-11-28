@@ -282,6 +282,14 @@ describe.skipIf(!testDatabaseUrl)("Nummernformat (Postgres)", () => {
     const original = await invoices.finalizeInvoice(actor, (await invoiceDraft(ohne)).id, kleinunternehmerStand);
     await formats.saveNumberFormats(actor, { invoice: "RE-{KUNDENNR}-{NNN}", quote: "AN-{JJJJ}-{NNN}", invoiceRunning: true });
     const korrektur = await invoices.createCorrection(actor, original.id, "2026-03-05");
+    // Nicht die ganze unbezahlte Rechnung aufheben, das ist seit #2037 ein Storno: Entwurf kürzen
+    const geladen_korrektur = (await invoices.getInvoice(korrektur.id))!;
+    const { draftInputOf: zuEingabe } = await import("./external-reference.ts");
+    const eingabe_korrektur = zuEingabe(geladen_korrektur.invoice, geladen_korrektur.lines);
+    await invoices.updateDraft(actor, korrektur.id, {
+      ...eingabe_korrektur,
+      lines: eingabe_korrektur.lines.map((z, n) => (n === 0 ? { ...z, unitPrice: Math.floor(z.unitPrice / 2) } : z)),
+    });
     await expect(invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand)).rejects.toThrow(/Kundennummer/);
     await updateKundennummer(ohne, "ACME");
     const final = await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand);
