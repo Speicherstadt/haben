@@ -67,9 +67,17 @@ Befund `norm-<id>`. `scripts/jahreswerte/normen.json` nennt je Norm, wofür Habe
 
 ## Kontenrahmen
 
-Befunde `datev-skr03`, `datev-skr04`: die Kontenzuordnung (`hgb.ts`, `kontenplan.ts`, `ebilanz.ts`) mit der neuen Ausgabe abgleichen, dann `HABEN_KONTENRAHMEN_STAND` in `scripts/jahreswerte/datev.ts` anheben. Widerspricht eine Kontenfunktion dem Gesetz, einer Kennzahl oder der Taxonomie, gilt die Norm.
+Befunde `datev-skr03`, `datev-skr04`. Widerspricht eine Kontenfunktion dem Gesetz, einer Kennzahl oder der Taxonomie, gilt die Norm. Die Regel für geänderte Konten steht in `docs/entwicklung.md`, Konventionen, „Geänderte Konten“.
 
-Dabei die Konvention [„Neue Systemkonten“](../../../docs/entwicklung.md#konventionen) beachten: neu genutzte Nummern können mit bestehenden eigenen Konten kollidieren.
+1. Die Änderungen der Ausgabe bei DATEV lesen: „Kontenrahmenänderungen `<Vorjahr>/<Jahr>`“ (Wissensplattform; 2025/2026 ist Dok.-Nr. 0907108, 2026/2027 Dok.-Nr. 0907109; die Listen selbst sind dort als PDF je Kontenrahmen verlinkt) mit den Kürzeln N (neu), B (Beschriftung geändert), R+ (reserviert) und L (gelöscht), dazu „Optimierung und Bereinigung“ ([Dok.-Nr. 1029365](https://apps.datev.de/knowledge/help/documents/1029365)). Im Kontenrahmen selbst trägt ein für das Jahr neu eingeführtes Konto die Fußnote 1. Ab welchem Jahr ein einzelnes Konto gilt oder wegfällt, sagt seine Kontenerläuterung (Suche der Wissensplattform nach der Nummer). Die Seiten laden ihren Inhalt per JavaScript: im Browser lesen, ein einfacher Abruf sieht nur „Loading“.
+2. Jede geänderte Nummer gegen `heuteBebuchteKonten` (`packages/core/src/own-accounts.ts`) und gegen `hgb.ts`, `kontenplan.ts`, `ebilanz.ts` halten.
+3. Ein Konto, das Haben bebucht, bekommt eine neue Nummer oder wird reserviert: eine Zeile in `KONTENAENDERUNGEN` (`packages/core/src/kontenaenderungen.ts`) mit `heute`, `frueher` samt letztem Namen, `bisJahr` (das Jahr vor der Ausgabe) und der Fundstelle; dann das heutige Konto in der Tabelle des Moduls anheben. Die Nummer nie nur überschreiben und keine eigene Liste anlegen. `kontenaenderungen.test.ts` prüft jede Zeile von selbst; dazu je ein Fall für SKR03 und SKR04 mit einer Buchung im letzten alten und im ersten neuen Jahr (Vorlage `konten-buchungsjahr.test.ts`).
+4. Meldet der Test, eine frühere Nummer sei heute anders belegt: DATEV hat sie neu vergeben. Dann braucht `heutigesKonto` das Buchungsjahr (`docs/adr/kontenrahmen-ausgaben.md`, Grenzen); nicht den Test anpassen.
+5. Nur die Beschriftung ändert sich: den Namen nachziehen (`kontennamen.ts` oder die Namensliste des Moduls).
+6. Doku: die Tabelle unter `docs/buchhaltung.md`, „Neue Ausgabe des Kontenrahmens“, und die Seite des Bereichs.
+7. `HABEN_KONTENRAHMEN_STAND` in `scripts/jahreswerte/datev.ts` anheben, auch wenn sich für Haben nichts ändert, und die Quellenangaben („DATEV-Kontenrahmen 2026“) nachziehen.
+
+Neu genutzte Nummern können mit bestehenden eigenen Konten kollidieren (Konvention [„Neue Systemkonten“](../../../docs/entwicklung.md#konventionen)).
 
 ## Abschlussbericht
 

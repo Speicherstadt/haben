@@ -4,16 +4,19 @@ import { parseDate, parseGermanRate } from "../text.ts";
 import type { LegacyVoucher } from "../lexoffice/map.ts";
 import { joinRows } from "./datev-info.ts";
 import { directionOf, type DirectionMapping } from "./direction.ts";
+import { entpackBudget } from "../entpack-grenze.ts";
 import { readBbRows, readExportFiles, readReceiptFiles, type ExportPart } from "./export-files.ts";
 import { assignReceipts } from "./receipts.ts";
 import type { BuchhaltungsbutlerJoinedRow, BuchhaltungsbutlerPreview, BuchhaltungsbutlerVoucher } from "./types.ts";
 import { BuchhaltungsbutlerError } from "./types.ts";
 
 export function previewBuchhaltungsbutlerExport(parts: ExportPart[], skr: Kontenrahmen): BuchhaltungsbutlerPreview {
-  const files = readExportFiles(parts);
+  // Ein Budget für alle Teile und die Belege.zip darin zusammen
+  const budget = entpackBudget(parts.reduce((sum, part) => sum + part.bytes.length, 0));
+  const files = readExportFiles(parts, budget);
   const stack = parseDatevBuchungsstapel(files.datev);
   const rows = joinRows(readBbRows(files.bb), stack.bookings);
-  const archive = readReceiptFiles(files.receipts);
+  const archive = readReceiptFiles(files.receipts, budget);
   const withReceipt = rows.filter((row) => row.info.url !== "");
   const receiptsByBooking = assignReceipts(withReceipt, archive);
   const used = new Set([...receiptsByBooking.values()].flat());

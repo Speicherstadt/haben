@@ -104,9 +104,15 @@ export function footerIssues(columns: readonly string[]): string[] {
 
 const PLACEHOLDER = /\{([^{}\s]*)\}/g;
 
+/** Eine absichtlich leere Zeile (#2046): ein Abschnitt ohne Text, so kommen auch Layouts zurecht, die jeden Abschnitt setzen */
+const emptyLine = (): FormattedTextRun[] => [{ text: "", bold: false, italic: false, underline: false }];
+
+const isEmptyLine = (runs: readonly FormattedTextRun[]): boolean => runs.every((run) => !run.text);
+
 /**
- * Eine Zeile ohne Wert fällt weg: Ohne Telefon erscheint nicht „Telefon “. Ausgezeichnet wird der eingegebene Text, die Werte
- * kommen erst danach dazu: Ein Unterstrich in einer E-Mail-Adresse bleibt ein Unterstrich.
+ * Eine Zeile ohne Wert fällt weg: Ohne Telefon erscheint nicht „Telefon “. Eine Zeile ohne Platzhalter und ohne Text bleibt als
+ * leere Zeile stehen. Ausgezeichnet wird der eingegebene Text, die Werte kommen erst danach dazu: Ein Unterstrich in einer
+ * E-Mail-Adresse bleibt ein Unterstrich.
  */
 function filledRuns(line: readonly FormattedTextRun[], values: FooterValues): FormattedTextRun[] | null {
   const names = line.flatMap((run) => placeholdersIn(run.text)).filter(isPlaceholder);
@@ -121,7 +127,8 @@ function filledRuns(line: readonly FormattedTextRun[], values: FooterValues): Fo
     return { ...run, text: index === last ? start.trimEnd() : start };
   });
   const filled = trimmed.filter((run) => run.text);
-  return filled.length > 0 ? filled : null;
+  if (filled.length > 0) return filled;
+  return names.length === 0 ? emptyLine() : null;
 }
 
 const plainLine = (runs: readonly FormattedTextRun[]): string => runs.map((run) => run.text).join("");
@@ -138,10 +145,14 @@ function columnLines(text: string): FormattedTextRun[][] {
   return lines;
 }
 
-const columnRuns = (text: string, values: FooterValues): FormattedTextRun[][] =>
-  columnLines(text)
+/** Leere Zeilen am Ende fallen weg: Zu sehen sind sie nicht, und unten bündig verschöben sie die Spalte nach oben */
+function columnRuns(text: string, values: FooterValues): FormattedTextRun[][] {
+  const lines = columnLines(text)
     .map((line) => filledRuns(line, values))
     .filter((runs): runs is FormattedTextRun[] => runs !== null);
+  while (lines.length > 0 && isEmptyLine(lines.at(-1)!)) lines.pop();
+  return lines;
+}
 
 export function fillFooterColumn(text: string, values: FooterValues): string[] {
   return columnRuns(text, values).map(plainLine);

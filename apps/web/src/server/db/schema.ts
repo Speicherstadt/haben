@@ -322,6 +322,8 @@ export const vatReturns = pgTable(
     /** Umsätze ohne Steuer: Reverse Charge im EU-Ausland, nicht steuerbar, steuerfrei ohne Vorsteuerabzug */
     kz21: integer("kz21").$type<Cents>().notNull().default(0),
     kz45: integer("kz45").$type<Cents>().notNull().default(0),
+    /** Bauleistungen, für die der Kunde die Steuer schuldet (§ 13b Abs. 5 UStG) */
+    kz60: integer("kz60").$type<Cents>().notNull().default(0),
     kz48: integer("kz48").$type<Cents>().notNull().default(0),
     kz66: integer("kz66").$type<Cents>().notNull().default(0),
     /** § 13b als Leistungsempfänger: Bemessungsgrundlagen 46/84, Steuer 47/85, Vorsteuer 67 */
@@ -366,6 +368,7 @@ export const vatReturns = pgTable(
       kz86: Cents;
       kz21?: Cents;
       kz45?: Cents;
+      kz60?: Cents;
       kz48?: Cents;
       kz66: Cents;
       kz46?: Cents;
@@ -966,6 +969,28 @@ export const inboxMessages = pgTable("inbox_messages", {
   duplicates: integer("duplicates").notNull().default(0),
   /** Übersprungene Anhänge mit Grund */
   skipped: text("skipped").array().notNull().default(sql`'{}'::text[]`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Ausgangsrechnungen aus dem Ordner für Ausgangsrechnungen des Postfachs (#660): Das PDF liegt abgelegt, die Angaben
+ * prüft der Nutzer beim Übernehmen. Eine Datei steht nur einmal da (SHA-256); verworfene Einträge bleiben, damit der
+ * Abruf dieselbe Datei nicht wieder anbietet.
+ */
+export const inboxOutgoing = pgTable("inbox_outgoing", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sha256: text("sha256").notNull().unique(),
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(),
+  sender: text("sender").notNull(),
+  subject: text("subject").notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true }),
+  status: text("status", { enum: ["offen", "uebernommen", "verworfen"] })
+    .notNull()
+    .default("offen"),
+  /** Die daraus übernommene Rechnung */
+  invoiceId: uuid("invoice_id").references(() => invoices.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

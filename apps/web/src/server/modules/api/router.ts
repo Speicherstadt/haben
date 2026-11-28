@@ -1,4 +1,5 @@
 import { env } from "../../env.ts";
+import { readBodyLimited } from "../../body-limit.ts";
 import { reportInternalError, userMessage } from "../../errors.ts";
 import { withLogComponent } from "../../log-kontext.ts";
 import { today } from "../../today.ts";
@@ -46,38 +47,15 @@ async function readJson(request: Request): Promise<{ body: unknown } | { failure
   if (!/^application\/([\w.+-]+\+)?json\b/i.test(type))
     return { failure: fail("unsupported_media_type", "Body bitte als JSON mit Content-Type: application/json.") };
   if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) return { failure: fail("payload_too_large", "Body ist größer als 1 MB.") };
-  const text = await request.text();
-  if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) return { failure: fail("payload_too_large", "Body ist größer als 1 MB.") };
+  // Auch ohne Content-Length (chunked) nicht mehr als die Grenze lesen
+  const bytes = await readBodyLimited(request, MAX_BODY_BYTES);
+  if (!bytes) return { failure: fail("payload_too_large", "Body ist größer als 1 MB.") };
+  const text = new TextDecoder().decode(bytes);
   try {
     return { body: JSON.parse(text) as unknown };
   } catch {
     return { failure: fail("invalid_json", "Body ist kein gültiges JSON.") };
   }
-}
-
-/** Body bis höchstens `limit` Bytes, auch ohne Content-Length; null, sobald er größer ist (Rest wird nicht gelesen) */
-async function readLimited(request: Request, limit: number): Promise<Uint8Array<ArrayBuffer> | null> {
-  if (!request.body) return new Uint8Array();
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > limit) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(value);
-  }
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return bytes;
 }
 
 /** Felder eines Formulars als Objekt wie ein JSON-Body; ein mehrfach gesendetes Feld wird zur Liste, die das Schema ablehnt */
@@ -100,7 +78,7 @@ async function readMultipart(request: Request, limit: number): Promise<{ body: u
   }
   const tooLarge = () => ({ failure: fail("payload_too_large", `Body ist größer als ${Math.floor(limit / 1024 / 1024)} MB.`) });
   if (Number(request.headers.get("content-length") ?? 0) > limit) return tooLarge();
-  const bytes = await readLimited(request, limit);
+  const bytes = await readBodyLimited(request, limit);
   if (!bytes) return tooLarge();
   try {
     return { body: formFields(await new Response(bytes, { headers: { "content-type": type } }).formData()) };

@@ -26,7 +26,7 @@ export interface UstvaXmlInput {
     Partial<
       Pick<
         UstvaFigures,
-        "kz21" | "kz45" | "kz48" | "kz46" | "kz47" | "kz84" | "kz85" | "kz67" | "kz39" | "kz41" | "kz43" | "kz89" | "kz93" | "kz61" | "kz62" | "kz50"
+        "kz21" | "kz60" | "kz45" | "kz48" | "kz46" | "kz47" | "kz84" | "kz85" | "kz67" | "kz39" | "kz41" | "kz43" | "kz89" | "kz93" | "kz61" | "kz62" | "kz50"
       >
     >;
   datenlieferant: Datenlieferant;
@@ -230,6 +230,7 @@ export function ustvaNutzdaten(input: UstvaNutzdatenInput): string[] {
   tax("47", figures.kz47);
   base("48", figures.kz48);
   base("50", figures.kz50);
+  base("60", figures.kz60);
   tax("61", figures.kz61);
   tax("62", figures.kz62);
   tax("66", figures.kz66);

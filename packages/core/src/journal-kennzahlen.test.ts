@@ -153,7 +153,7 @@ describe.each(KONTENRAHMEN)("Kennzahlen aus dem Journal (%s)", (kr) => {
     expect(kennzahlen(kr, lines, "ist")).toEqual({ kz81: 10_000, tax81: 1_900 });
   });
 
-  it.each(["reverse_charge", "drittland", "ig_lieferung"] as const)("Ist: %s zählt mit der Rechnung", (treatment) => {
+  it.each(["reverse_charge", "bauleistung_13b", "drittland", "ig_lieferung"] as const)("Ist: %s zählt mit der Rechnung", (treatment) => {
     expect(Object.values(kennzahlen(kr, invoicePosting(totals({ rate: 0, base: 500_000 }), kr, "ist", treatment), "ist"))).toEqual([500_000]);
   });
 
@@ -163,6 +163,7 @@ describe.each(KONTENRAHMEN)("Kennzahlen aus dem Journal (%s)", (kr) => {
 
   it.each([
     ["reverse_charge", "kz21"],
+    ["bauleistung_13b", "kz60"],
     ["drittland", "kz45"],
     ["steuerfrei", "kz48"],
     ["ig_lieferung", "kz41"],

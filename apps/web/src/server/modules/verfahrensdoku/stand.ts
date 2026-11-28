@@ -52,7 +52,7 @@ export interface InstanzStand {
   versionen: AppVersionEntry[];
   pruefwert: { seq: number; hash: string } | null;
   pruefwertMail: string | null;
-  postfach: { username: string; host: string; folder: string } | null;
+  postfach: { username: string; host: string; folder: string; outboundFolder: string | null } | null;
   /** Ablage festgeschriebener Rechnungen im Archiv: nur der Ursprung der Adresse, Pfad und Anfrage können Kennungen tragen */
   ablage: { origin: string; since: Date } | null;
   elster: { validUntil: string | null } | null;
@@ -114,7 +114,7 @@ async function tokens(now: Date) {
 async function postfach() {
   const i = schema.inboxSettings;
   const [row] = await db
-    .select({ username: i.username, host: i.host, folder: i.folder })
+    .select({ username: i.username, host: i.host, folder: i.folder, outboundFolder: i.outboundFolder })
     .from(i)
     .where(and(eq(i.id, 1), eq(i.enabled, true)));
   return row ?? null;

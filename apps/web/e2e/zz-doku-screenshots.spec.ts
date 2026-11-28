@@ -1,10 +1,9 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { type Browser, expect, test, type Page } from "@playwright/test";
+import { writeFile } from "node:fs/promises";
+import { expect, test, type Page } from "@playwright/test";
 import postgres from "postgres";
 import { day, fullPageScreenshot, USER, vorschauAnheften, YEAR } from "./daten.ts";
 import { databaseUrlFuer } from "./durchlaeufe.ts";
 import { dkb, kundeWaehlen, type Rechnung, rechnungFestschreiben } from "./einrichtung.ts";
-import { mitRahmen } from "./bildrahmen.ts";
 
 /**
  * Die Bilder in README und Doku (docs/screenshot-*.png), aufgenommen mit den Daten, die app.spec.ts
@@ -21,20 +20,12 @@ test.describe.configure({ mode: "serial" });
 test.skip(!process.env.DOKU_SCREENSHOTS, "nur für bun run docs:screenshots");
 
 const DOCS = "../../docs";
-/**
- * Dieselben Bilder ohne Rahmen für Webseiten, die eigenes CSS haben (speicherstadt.org, teufel-it.de): Dort würde der
- * transparente Rand beim Umwandeln weiß und stünde als Rahmen in der Karte.
- */
-const OHNE_RAHMEN = `${DOCS}/ohne-rahmen`;
 const DESKTOP = { width: 1440, height: 900 };
 const MOBIL = { width: 390, height: 844 };
 
 let page: Page;
-let browserFuerRahmen: Browser;
 
 test.beforeAll(async ({ browser }) => {
-  browserFuerRahmen = browser;
-  await mkdir(OHNE_RAHMEN, { recursive: true });
   page = await browser.newPage({ viewport: DESKTOP, locale: "de-DE", timezoneId: "Europe/Berlin" });
   // Das Bild „Rechnung schreiben mit Vorschau“ zeigt Formular und Vorschau nebeneinander
   await vorschauAnheften(page);
@@ -82,8 +73,8 @@ async function einrichtungshinweiseAusblenden() {
 }
 
 /**
- * Jedes Bild in Wald hell und dunkel; README und Doku zeigen das passende zur Systemeinstellung, beide mit Rahmen
- * (bildrahmen.ts). Daneben dasselbe Bild ohne Rahmen in docs/ohne-rahmen/ für Webseiten.
+ * Jedes Bild in Wald hell und dunkel; README und Doku zeigen das passende zur Systemeinstellung. Ohne Rahmen im Bild:
+ * So nehmen auch Webseiten mit eigenem CSS (speicherstadt.org, teufel-it.de) die Bilder, wie sie sind.
  */
 async function shot(name: string, fullPage = false) {
   await einrichtungshinweiseAusblenden();
@@ -95,9 +86,7 @@ async function shot(name: string, fullPage = false) {
     // Kein blinkender Cursor, keine halb abgelaufene Animation im Bild
     const options = { animations: "disabled", caret: "hide" } as const;
     const png = await (fullPage ? fullPageScreenshot(page, options) : page.screenshot(options));
-    const radius = page.viewportSize()?.width === MOBIL.width ? 36 : 16;
-    await writeFile(`${OHNE_RAHMEN}/screenshot-${name}${suffix}.png`, png);
-    await writeFile(`${DOCS}/screenshot-${name}${suffix}.png`, await mitRahmen(browserFuerRahmen, png, id === "dark" ? "dunkel" : "hell", { radius }));
+    await writeFile(`${DOCS}/screenshot-${name}${suffix}.png`, png);
   }
   await theme("light");
 }
@@ -262,7 +251,7 @@ test("Umsatzsteuer, Auswertungen und Archiv", async () => {
   await go("/auswertungen");
   await shot("auswertungen");
   await go("/archiv");
-  // Der obere Teil für die Startseite der Doku, mit eigenem Rahmen; die ganze Seite für die übrigen Seiten
+  // Der obere Teil für die Startseite der Doku; die ganze Seite für die übrigen Seiten
   await shot("archiv-oben");
   await shot("archiv", true);
 });

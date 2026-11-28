@@ -2,7 +2,8 @@ import { anlagenKonten } from "./ebilanz-anlagen.ts";
 import { postenForSaldo, type Posten } from "./hgb.ts";
 import { LOHN_KONTEN } from "./lohn-buchung.ts";
 import type { Cents } from "./money.ts";
-import { ACCOUNTS, EXPENSE_CATEGORIES, KLEINUNTERNEHMER_FRUEHERE_KONTEN, type Aufwandskategorie, type Kontenrahmen } from "./posting.ts";
+import { mitFrueherenKonten } from "./kontenaenderungen.ts";
+import { ACCOUNTS, EXPENSE_CATEGORIES, type Aufwandskategorie, type Kontenrahmen } from "./posting.ts";
 import { STEUER_KONTEN } from "./steuerzahlung.ts";
 import { DARLEHEN_KONTEN } from "./darlehen.ts";
 import { hinzurechnungPositionen } from "./ebilanz-hinzurechnung.ts";
@@ -289,16 +290,14 @@ function kontenOf(kontenrahmen: Kontenrahmen): Record<string, EbilanzZiel> {
     [a.erloese[1900], [`${GS}.generalRateVAT`]],
     [a.erloese[700], [`${GS}.reducedRateVAT`]],
     [a.erloese[0], [`${GS}.unknownVAT`]],
-    // Leistungsort im Ausland: in Deutschland nicht steuerbar
-    [a.erloeseSonder.reverse_charge, [`${GS}.untaxable`]],
-    [a.erloeseSonder.drittland, [`${GS}.untaxable`]],
-    [a.erloeseSonder.eu_sonstige, [`${GS}.untaxable`]],
+    // Leistungsort im Ausland: in Deutschland nicht steuerbar; Bauleistung im Inland, der Kunde schuldet die Steuer (§ 13b UStG)
+    ...(["reverse_charge", "drittland", "eu_sonstige"] as const).map((k): [string, EbilanzZiel] => [a.erloeseSonder[k], [`${GS}.untaxable`]]),
+    [a.erloeseSonder.bauleistung_13b, [`${GS}.UStG13b`]],
     // Steuerfreie Lieferungen mit Vorsteuerabzug: innergemeinschaftlich an Abnehmer mit USt-IdNr. und Ausfuhr
     [a.erloeseSonder.ig_lieferung, [`${GS}.taxExemptUStG4_1b.VIES_ID`]],
     [a.erloeseSonder.ausfuhr, [`${GS}.taxExemptUStG4_1a`]],
     [a.erloeseSonder.steuerfrei, [`${GS}.taxExemptUStG4_8.other`]],
     [a.erloeseSonder.kleinunternehmer, [`${GS}.taxExemptUStG19_1`]],
-    [KLEINUNTERNEHMER_FRUEHERE_KONTEN[kontenrahmen], [`${GS}.taxExemptUStG19_1`]],
     [a.skontiGewaehrt, [`${SALES}.reductionsFromGrossSales.unknownVAT`]],
     [a.skontiErhalten, [`${MAT}.misc`]],
     [a.mahnerloes, ["is.netIncome.regular.fin.netInterest.income.other"]],
@@ -320,7 +319,7 @@ function kontenOf(kontenrahmen: Kontenrahmen): Record<string, EbilanzZiel> {
     ...darlehenKonten(kontenrahmen),
     ...hinzurechnungPositionen(kontenrahmen),
   ];
-  return Object.fromEntries(entries);
+  return mitFrueherenKonten(kontenrahmen, Object.fromEntries(entries));
 }
 
 export const EBILANZ_KONTEN: Record<Kontenrahmen, Readonly<Record<string, EbilanzZiel>>> = {

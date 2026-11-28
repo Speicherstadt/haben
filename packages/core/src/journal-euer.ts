@@ -3,12 +3,13 @@ import { istAnlagenabgangKonto, istRechnungsErloesKonto } from "./anlagenverkauf
 import { DARLEHEN_KONTEN } from "./darlehen.ts";
 import type { EuerLineKey } from "./euer.ts";
 import type { JournalZeile } from "./journal-kennzahlen.ts";
+import { heutigesKonto } from "./kontenaenderungen.ts";
 import { kontoart } from "./ledger.ts";
 import { isSachentnahmeKonto } from "./manual.ts";
 import { LOHN_KONTEN } from "./lohn-buchung.ts";
 import { roundHalfAwayFromZero, type Cents } from "./money.ts";
 import { pauschaleArtDesKontos } from "./pauschalen.ts";
-import { ACCOUNTS, EXPENSE_CATEGORIES, hatEigenschaft, KLEINUNTERNEHMER_FRUEHERE_KONTEN, type ExpenseCategory, type Kontenrahmen } from "./posting.ts";
+import { ACCOUNTS, EXPENSE_CATEGORIES, hatEigenschaft, type ExpenseCategory, type Kontenrahmen } from "./posting.ts";
 import { PRIVATE_USE_ACCOUNTS } from "./private-use.ts";
 import { abziehbareNebenleistungen, nichtAbziehbareNebenleistungen, STEUER_KONTEN } from "./steuerzahlung.ts";
 
@@ -70,9 +71,11 @@ export type EuerHerkunft = "pauschale" | "asset" | "anlage" | "darlehenAnlagever
  * Privatkonten, Anlagekonten, Darlehen, Steuer nach § 13b und Erwerb). Die Pauschale „Fahrt“ teilt ihr Konto mit den
  * Fahrtkosten; die Herkunft unterscheidet sie. Die Umsatzsteuer auf die Privatnutzung (Herkunft „asset“) ist eine eigene Zeile.
  */
-export function euerZuordnung(kontenrahmen: Kontenrahmen, account: string, herkunft: EuerHerkunft = "sonst", kleinunternehmer = false): EuerZuordnung | null {
+export function euerZuordnung(kontenrahmen: Kontenrahmen, konto: string, herkunft: EuerHerkunft = "sonst", kleinunternehmer = false): EuerZuordnung | null {
   const a = ACCOUNTS[kontenrahmen];
-  // Auch auf dem früheren Konto einer Pauschale (#2015), andere Buchungen dort zählen nach dem Konto
+  // Ein früheres Konto zählt wie sein heutiges (kontenaenderungen.ts); das Arbeitszimmer nur für eine Pauschale (#2015),
+  // andere Buchungen dort zählen nach dem Konto
+  const account = heutigesKonto(kontenrahmen, konto, herkunft);
   const pauschale = herkunft === "pauschale" ? pauschaleArtDesKontos(kontenrahmen, account) : null;
   if (pauschale) return `pauschale:${pauschale}`;
   // Umsatzsteuer: vereinnahmt, auch noch nicht fällig (sie wird es mit der Zahlung); auf die Privatnutzung eigene Zeile
@@ -91,7 +94,7 @@ export function euerZuordnung(kontenrahmen: Kontenrahmen, account: string, herku
   if (herkunft === "anlagenverkauf" && istRechnungsErloesKonto(kontenrahmen, account)) return "anlagenabgang";
   // Erlöse
   if (account === a.erloese[1900] || account === a.erloese[700]) return "einnahmenSteuerpflichtig";
-  if (account === a.erloeseSonder.kleinunternehmer || account === KLEINUNTERNEHMER_FRUEHERE_KONTEN[kontenrahmen]) return "einnahmenKleinunternehmer";
+  if (account === a.erloeseSonder.kleinunternehmer) return "einnahmenKleinunternehmer";
   if (account === a.erloese[0] || Object.values(a.erloeseSonder).includes(account as never)) return steuerfrei;
   if (account === a.mahnerloes) return steuerfrei;
   // Echter Schadenersatz, nicht steuerbar (UStAE 1.3 Abs. 1): Anleitung EÜR 2025, Zeile 16 „nicht umsatzsteuerbare

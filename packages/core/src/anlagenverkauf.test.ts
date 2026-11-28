@@ -3,9 +3,10 @@ import { ASSET_ACCOUNT_NAMES } from "./afa.ts";
 import { ebilanzPosition } from "./ebilanz.ts";
 import { computeInvoiceTotals } from "./invoice.ts";
 import { euerAusZeilen, euerZuordnung } from "./journal-euer.ts";
+import { fruehereKonten } from "./kontenaenderungen.ts";
 import { kontoImKontenrahmen } from "./kontenrahmen-wechsel.ts";
 import { manualPostingIssues } from "./manual.ts";
-import { ACCOUNTS, invoicePosting, KLEINUNTERNEHMER_FRUEHERE_KONTEN, type Kontenrahmen } from "./posting.ts";
+import { ACCOUNTS, invoicePosting, type Kontenrahmen } from "./posting.ts";
 import type { TaxTreatment } from "./treatment.ts";
 
 /*
@@ -99,7 +100,7 @@ describe.each(["SKR03", "SKR04"] as const)("Rechnung mit „Verkauf aus dem Anla
   });
 
   it("EÜR: eine Rechnung mit Kennzeichen auf dem Erlöskonto (vor #2022 gebucht) zählt in Zeile 19, die Steuer bleibt Umsatzsteuer", () => {
-    const erloese = [...Object.values(a.erloese), ...Object.values(a.erloeseSonder), KLEINUNTERNEHMER_FRUEHERE_KONTEN[kr]];
+    const erloese = [...Object.values(a.erloese), ...Object.values(a.erloeseSonder), ...fruehereKonten(kr, a.erloeseSonder.kleinunternehmer)];
     for (const konto of erloese) {
       expect(euerZuordnung(kr, konto, "anlagenverkauf"), konto).toBe("anlagenabgang");
       expect(euerZuordnung(kr, konto, "anlagenverkauf", true), konto).toBe("anlagenabgang");

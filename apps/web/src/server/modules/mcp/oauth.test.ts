@@ -81,6 +81,23 @@ describe.skipIf(!testDatabaseUrl)("OAuth für Connectors (Postgres)", () => {
       .then(async (response) => ({ status: response.status, body: (await jsonBody(response)) as Record<string, string | number> }));
   }
 
+  it("liest bei Registrierung und Token höchstens 64 KiB, auch ohne Content-Length", async () => {
+    /** Ein Body als Strom ohne Content-Length, wie bei Transfer-Encoding: chunked */
+    const chunked = (bytes: number) =>
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (let sent = 0; sent < bytes; sent += 16 * 1024) controller.enqueue(new Uint8Array(16 * 1024).fill(0x20));
+          controller.close();
+        },
+      });
+    const post = (path: string, type: string, body: ReadableStream<Uint8Array>) =>
+      new Request(`http://localhost:3000${path}`, { method: "POST", headers: headers({ "Content-Type": type }), body, duplex: "half" } as RequestInit);
+    expect((await mcp.handleRegister(post("/api/oauth/register", "application/json", chunked(1024 * 1024)))).status).toBe(413);
+    expect((await mcp.handleToken(post("/api/oauth/token", "application/x-www-form-urlencoded", chunked(1024 * 1024)))).status).toBe(413);
+    // Unter der Grenze wie bisher: Die Registrierung prüft dann den Inhalt
+    expect((await register({ redirect_uris: [CLAUDE] })).status).toBe(201);
+  });
+
   function rpc(bearer: string) {
     return server.handleMcpRequest(
       new Request("http://localhost:3000/api/mcp", {

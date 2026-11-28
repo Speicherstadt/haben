@@ -1,6 +1,7 @@
 import { ASSET_ACCOUNTS } from "./afa.ts";
+import { heutigesKonto } from "./kontenaenderungen.ts";
+import { ACCOUNTS, type Kontenrahmen } from "./kontenplan.ts";
 import type { BasisPoints } from "./money.ts";
-import { ACCOUNTS, KLEINUNTERNEHMER_FRUEHERE_KONTEN, type Kontenrahmen } from "./kontenplan.ts";
 import type { TaxTreatment } from "./treatment.ts";
 
 /*
@@ -40,5 +41,6 @@ export function istAnlagenabgangKonto(kontenrahmen: Kontenrahmen, account: strin
  */
 export function istRechnungsErloesKonto(kontenrahmen: Kontenrahmen, account: string): boolean {
   const a = ACCOUNTS[kontenrahmen];
-  return [...Object.values(a.erloese), ...Object.values(a.erloeseSonder), KLEINUNTERNEHMER_FRUEHERE_KONTEN[kontenrahmen]].includes(account as never);
+  const heute = heutigesKonto(kontenrahmen, account);
+  return [...Object.values(a.erloese), ...Object.values(a.erloeseSonder)].includes(heute as never);
 }

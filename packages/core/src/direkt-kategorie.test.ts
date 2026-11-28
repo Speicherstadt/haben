@@ -252,7 +252,7 @@ describe("kategorienMitKonto (#1438)", () => {
 
 describe("kategorieVorschlag (#1440)", () => {
   it("zeigt Erlös und Umsatzsteuer mit Kontonummer und Steuerschlüssel, ohne die Bankzeile", () => {
-    const zeilen = kategorieVorschlag({ kategorie: "erloese", steuersatz: 1900 }, 11900, "SKR03");
+    const zeilen = kategorieVorschlag({ kategorie: "erloese", steuersatz: 1900 }, 11900, "SKR03", 2026);
     expect(zeilen.map((z) => [z.konto, z.betrag, z.steuer])).toEqual([
       ["8400", 10000, "19 %"],
       ["1776", 1900, "19 %"],
@@ -260,10 +260,21 @@ describe("kategorieVorschlag (#1440)", () => {
   });
 
   it("zeigt eine Ausgabe mit negativem Betrag und ohne Steuer", () => {
-    const zeilen = kategorieVorschlag({ kategorie: "sonstiges", steuersatz: 0 }, -35, "SKR04");
+    const zeilen = kategorieVorschlag({ kategorie: "sonstiges", steuersatz: 0 }, -35, "SKR04", 2026);
     expect(zeilen).toHaveLength(1);
     expect(zeilen[0]?.betrag).toBe(-35);
     expect(zeilen[0]?.steuer).toBe("ohne");
     expect(zeilen[0]?.kontoName).not.toBe("");
+  });
+
+  // DATEV führt 8192 bzw. 4184 erst ab 2025 (#2043): Der Vorschlag nennt das Konto, auf dem die Buchung im Journal steht
+  it.each([
+    ["SKR03", "8195", "8192"],
+    ["SKR04", "4185", "4184"],
+  ] as const)("%s: Kleinunternehmererlöse für 2024 auf %s, für 2025 auf %s", (kr, bis2024, ab2025) => {
+    const vorschlag = (jahr: number) =>
+      kategorieVorschlag({ kategorie: "erloese", steuersatz: 0 }, 10_000, kr, jahr).map((z) => [z.konto, z.kontoName, z.betrag, z.steuer]);
+    expect(vorschlag(2024)).toEqual([[bis2024, "Erlöse als Kleinunternehmer § 19 UStG", 10_000, "ohne"]]);
+    expect(vorschlag(2025)).toEqual([[ab2025, "Erlöse als Kleinunternehmer § 19 UStG", 10_000, "ohne"]]);
   });
 });

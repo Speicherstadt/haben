@@ -1,6 +1,6 @@
 import { type FbFile, type LegacyVoucher, unwrapFormUpload } from "@haben/import";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
-import { unzipSync } from "fflate";
+import { EntpackGrenzeError, unzipBegrenzt } from "@haben/import/entpack-grenze";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import { loadFile, sniff, storeFile } from "../../storage.ts";
@@ -135,8 +135,9 @@ export async function uploadFastbillReceipts(actor: string, zip: Uint8Array): Pr
   await refuseWhileRunning();
   let entries: Record<string, Uint8Array>;
   try {
-    entries = unzipSync(zip);
-  } catch {
+    entries = unzipBegrenzt(zip);
+  } catch (error) {
+    if (error instanceof EntpackGrenzeError) throw new FastbillError(error.message);
     throw new FastbillError("Die Datei ist kein lesbares ZIP.");
   }
   let manifest: { format?: unknown } | null = null;

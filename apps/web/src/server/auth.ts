@@ -5,6 +5,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { count } from "drizzle-orm";
 import { INVITATION_HEADER, accountState, claimInvitation, linkInvitation, loginMethod, openInvitation, recordLogin } from "./anmeldung.ts";
+import { limitAuthBody } from "./body-limit.ts";
 import { atomicAuthCallback, authDatabase, authDatabaseProxy, authTransaction, passwordChangeTransaction } from "./auth-transaction.ts";
 import { changePasswordRequest } from "./change-password.ts";
 import { schema } from "./db/index.ts";
@@ -198,8 +199,10 @@ async function handleAuthRequest(request: Request): Promise<Response> {
 }
 
 /** Keine SQL-Parameter, Codes oder Providerdetails aus unerwarteten Fehlern nach außen oder ins Log geben. */
-export async function handleAuth(request: Request): Promise<Response> {
+export async function handleAuth(original: Request): Promise<Response> {
   try {
+    const request = await limitAuthBody(original);
+    if (!request) return new Response("Anfrage zu groß", { status: 413 });
     return await handleAuthRequest(request);
   } catch (error) {
     console.error(`Anmeldung: unerwarteter Fehler (${error instanceof Error ? error.name : "unbekannt"})`);

@@ -186,9 +186,22 @@ export function invoiceTaxReader(q: Db | Tx = db) {
     const performed = await performanceDate(invoice);
     // § 18b Satz 3 UStG: ausgeführte EU-Dienstleistung auch bei Ist im Leistungsmonat melden.
     if (performed && invoice.taxTreatment === "reverse_charge") return performed;
+    // § 13b Abs. 2 UStG: Beim Kunden entsteht die Steuer mit der Rechnung, spätestens mit Ablauf des Monats nach der
+    // Leistung; Kz 60 folgt dem auch bei Ist (#1934)
+    if (performed && invoice.taxTreatment === "bauleistung_13b") {
+      const latest = lastDayOfNextMonth(performed);
+      if (latest < invoice.issueDate) return latest;
+      return invoice.issueDate;
+    }
     return performed && advanceUsesPayments(invoice.taxTreatment) && (await companyMode(invoice)) === "soll" ? performed : invoice.issueDate;
   }
   return { original, taxYear, modeForYear, companyMode, postingMode, paymentPostingMode, managedAdvance, invoicePostingAllowed, date };
+}
+
+/** Letzter Tag des Monats nach dem Datum (JJJJ-MM-TT) */
+function lastDayOfNextMonth(date: string): string {
+  const [year, month] = date.split("-").map(Number) as [number, number];
+  return new Date(Date.UTC(year, month + 1, 0)).toISOString().slice(0, 10);
 }
 
 export const invoiceTaxYear = (invoice: Reference, q: Db | Tx = db) => invoiceTaxReader(q).taxYear(invoice);

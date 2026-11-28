@@ -9,13 +9,15 @@ const IMPORT_TAX_TREATMENTS: Record<string, TaxTreatment> = {
   thirdPartyCountryService: "drittland",
   intraCommunitySupply: "ig_lieferung",
   externalService13b: "reverse_charge",
+  constructionService13b: "bauleistung_13b",
 };
 
 /**
  * Steuerart des JSON-Originals als native Behandlung; sie steuert Erlöskonto, Kennzahl und spätere Zahlungen wie bei
  * einer in Haben geschriebenen Rechnung. Zuordnung wie in legacy-vat.ts (TAX_TYPES): Ausfuhr Kz 43, Leistung ins
- * Drittland Kz 45, innergemeinschaftliche Lieferung Kz 41, sonstige Leistung im EU-Ausland nach § 13b UStG Kz 21.
- * Für § 13b im Inland (Kz 60), Photovoltaik zum Nullsteuersatz (Kz 87) und OSS hat Haben keine Behandlung: Solche
+ * Drittland Kz 45, innergemeinschaftliche Lieferung Kz 41, sonstige Leistung im EU-Ausland nach § 13b UStG Kz 21,
+ * Bauleistung im Inland nach § 13b Abs. 5 UStG Kz 60 (#1934).
+ * Für Photovoltaik zum Nullsteuersatz (Kz 87) und OSS hat Haben keine Behandlung: Solche
  * Rechnungen werden nicht übernommen, statt als regulär. Lexoffice und sevDesk bleiben wie bisher regulär.
  * Ergebnis: die Behandlung oder der Grund, warum die Rechnung nicht übernommen wird.
  */

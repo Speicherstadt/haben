@@ -1,4 +1,4 @@
-import { ACCOUNTS, KLEINUNTERNEHMER_FRUEHERE_KONTEN, settlementTaxShares, type InvoiceTotals, type Kontenrahmen, type TaxShare } from "@haben/core";
+import { ACCOUNTS, heutigesKonto, settlementTaxShares, type InvoiceTotals, type Kontenrahmen, type TaxShare } from "@haben/core";
 import { and, asc, eq, gte, inArray, lt, type SQL } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
 import { externalSettlementLinks } from "./import-zahlungsbezuege.ts";
@@ -6,7 +6,7 @@ import { turnoverRange, unknownTurnover, type GesamtumsatzItem } from "./gesamtu
 
 type JournalLine = typeof schema.journalLines.$inferSelect;
 type Journal = typeof schema.journalEntries.$inferSelect & { lines: JournalLine[] };
-const outgoingCodes = new Set(["USt19", "USt7", "frei", "KU", "Steuerfrei", "RC", "Drittland", "NichtSteuerbar", "IGL", "Ausfuhr"]);
+const outgoingCodes = new Set(["USt19", "USt7", "frei", "KU", "Steuerfrei", "RC", "RC13bBau", "Drittland", "NichtSteuerbar", "IGL", "Ausfuhr"]);
 const incomingCodes = new Set(["VSt19", "VSt7", "keineVSt", "RC13bEU", "RC13bDrittland", "VSt13b", "IGE19", "IGE7", "VStIGE", "EUSt"]);
 
 async function journalRows(q: Db | Tx, where: SQL) {
@@ -125,13 +125,10 @@ function manualKuCashAmount(entry: Journal): number | null {
   const a = ACCOUNTS[entry.kontenrahmen];
   const cash = entry.lines.filter((line) => line.account === a.kasse);
   const revenue = entry.lines.filter((line) => line.account !== a.kasse);
-  const domesticRevenue = new Set<string>([
-    ...Object.values(a.erloese),
-    a.erloeseSonder.kleinunternehmer,
-    KLEINUNTERNEHMER_FRUEHERE_KONTEN[entry.kontenrahmen],
-  ]);
+  // Auch die Kleinunternehmererlöse auf ihrem früheren Konto (kontenaenderungen.ts)
+  const domesticRevenue = new Set<string>([...Object.values(a.erloese), a.erloeseSonder.kleinunternehmer]);
   if (!cash.length || !revenue.length || cash.some((line) => line.taxCode)) return null;
-  if (!revenue.every((line) => domesticRevenue.has(line.account) && line.taxCode === "KU")) return null;
+  if (!revenue.every((line) => domesticRevenue.has(heutigesKonto(entry.kontenrahmen, line.account)) && line.taxCode === "KU")) return null;
   const amount = cash.reduce((sum, line) => sum + line.debit - line.credit, 0);
   return amount !== 0 && amount === revenue.reduce((sum, line) => sum + line.credit - line.debit, 0) ? amount : null;
 }

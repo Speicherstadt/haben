@@ -25,7 +25,7 @@ import { pruefeUmsatzgrenze, type UmsatzStand } from "./umsatzgrenze.ts";
 import { rebuildInvoiceLines } from "./positionen-nachbilden.ts";
 import { createTakenOverInvoice } from "./rechnung-uebernehmen.ts";
 import { outgoingTaxDetailsSchema } from "./tax-details.ts";
-import { FREMDSYSTEM, fremdNummerSchema, looksLikePdf } from "./fremdsystem.ts";
+import { FREMDSYSTEM, fremdNummerSchema, looksLikePdf, type NachDemBuchen } from "./fremdsystem.ts";
 import { cancellationProposal } from "./fremdstorno.ts";
 import { isCancellation } from "./fremdstorno-pruefung.ts";
 
@@ -142,6 +142,7 @@ export async function adoptForeignInvoice(
   pdf: Uint8Array,
   umsatzStand: UmsatzStand,
   xml: string | null = null,
+  danach?: NachDemBuchen,
 ): Promise<{ id: string }> {
   const input = foreignInvoiceSchema.parse(raw);
   if (!looksLikePdf(pdf)) throw new InvoiceError("Das Original muss ein PDF sein.");
@@ -199,6 +200,7 @@ export async function adoptForeignInvoice(
           input.taxDetails?.assetDisposal ?? false,
         ),
       });
+      await danach?.(tx, id);
       return { id };
     });
   } catch (error) {
@@ -279,8 +281,10 @@ export async function foreignInvoiceProposal(file: { bytes: Uint8Array; filename
   if (invoice.currency !== "EUR") warnings.push(`Die Rechnung lautet auf ${invoice.currency}; Haben übernimmt hier nur Rechnungen in Euro.`);
   if (invoice.typeCode === PREPAYMENT) warnings.push(PREPAYMENT_TEXT);
   const taxes = groupByRate(invoice.taxes.map((t) => ({ rate: t.rate, net: t.base, tax: t.tax })));
-  const special = invoice.taxes.map((t) => TREATMENT_OF_CATEGORY[t.category]).find((t) => t !== undefined);
   const buyerUst = invoice.buyer?.ustId?.replace(/\s/g, "").toUpperCase();
+  const category = invoice.taxes.map((t) => TREATMENT_OF_CATEGORY[t.category]).find((t) => t !== undefined);
+  // AE mit deutscher USt-IdNr. des Kunden: Bauleistung im Inland (§ 13b Abs. 5 UStG), nicht EU-Reverse-Charge (#1934)
+  const special = category === "reverse_charge" && buyerUst?.startsWith("DE") ? "bauleistung_13b" : category;
   const buyerName = invoice.buyer?.name?.trim() ?? null;
   const contacts = await db.select({ id: schema.contacts.id, name: schema.contacts.name, ustId: schema.contacts.ustId }).from(schema.contacts);
   const matches = contacts.filter((c) =>
@@ -309,6 +313,7 @@ export async function adoptForeignInvoiceFile(
   raw: ForeignInvoiceInput,
   file: { bytes: Uint8Array; filename: string; mimeType: string },
   umsatzStand: UmsatzStand,
+  danach?: NachDemBuchen,
 ) {
   const read = await readEInvoice(file).catch(() => null);
   if (read) {
@@ -320,7 +325,7 @@ export async function adoptForeignInvoiceFile(
     const problem = xmlMismatch(read.invoice, foreignInvoiceSchema.parse(raw));
     if (problem) throw new InvoiceError(`Die E-Rechnung in der Datei passt nicht zu den Angaben: ${problem}. Das Original wird so nicht übernommen.`);
   }
-  return adoptForeignInvoice(actor, raw, file.bytes, umsatzStand, read?.xml ?? null);
+  return adoptForeignInvoice(actor, raw, file.bytes, umsatzStand, read?.xml ?? null, danach);
 }
 
 /** Was an der eingebetteten E-Rechnung von den bestätigten Angaben abweicht, oder null; das XML wird mit der Rechnung archiviert und weitergegeben */
@@ -346,7 +351,7 @@ const TREATMENTS_OF_CATEGORY: Record<string, readonly TaxTreatment[]> = {
   S: ["regulaer"],
   Z: ["regulaer"],
   E: ["steuerfrei", "kleinunternehmer"],
-  AE: ["reverse_charge"],
+  AE: ["reverse_charge", "bauleistung_13b"],
   K: ["ig_lieferung"],
   G: ["ausfuhr"],
   O: ["drittland", "eu_sonstige", "kleinunternehmer"],

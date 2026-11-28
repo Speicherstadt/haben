@@ -298,6 +298,8 @@ export function treatmentHint(treatment: TaxTreatment, kleinunternehmer: boolean
       return "Kleinunternehmerregelung nach § 19 UStG, in den Einstellungen eingetragen. Eigene Befreiungen und geklärte Auslandsleistungen wählst du je Beleg.";
     case "reverse_charge":
       return "Nur für Dienstleistungen und Nutzungsrechte (sonstige Leistungen, § 3 Abs. 9 UStG) an Unternehmen im EU-Ausland mit USt-IdNr.; der Leistungsort liegt beim Kunden (§ 3a Abs. 2 UStG). Zusätzlich in der Zusammenfassenden Meldung angeben. Nicht für Privatkunden.";
+    case "bauleistung_13b":
+      return "Bauleistung (§ 13b Abs. 2 Nr. 4 UStG) an einen Unternehmer, der selbst nachhaltig Bauleistungen erbringt; Nachweis ist die Bescheinigung USt 1 TG seines Finanzamts (§ 13b Abs. 5 Satz 2 UStG). Der Kunde schuldet die Steuer, die Rechnung zeigt keine Umsatzsteuer und den Hinweis „Steuerschuldnerschaft des Leistungsempfängers“ (§ 14a Abs. 5 UStG). Haben meldet Kz 60. Nicht als Kleinunternehmer.";
     case "drittland":
       return "Dienstleistung oder Nutzungsrecht (sonstige Leistung, § 3 Abs. 9 UStG) mit Leistungsort im Nicht-EU-Ausland (§ 3a UStG): in Deutschland nicht steuerbar, Kz 45.";
     case "eu_sonstige":

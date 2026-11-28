@@ -21,6 +21,7 @@ const FELDER = [
   "kz86",
   "kz21",
   "kz45",
+  "kz60",
   "kz48",
   "kz66",
   "kz46",

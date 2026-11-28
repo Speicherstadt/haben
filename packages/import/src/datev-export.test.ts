@@ -1,6 +1,14 @@
-import { computeInvoiceTotals, invoicePosting, type TaxTreatment } from "@haben/core";
+import { computeInvoiceTotals, gleichgestellteKonten, invoicePosting, type TaxTreatment } from "@haben/core";
 import { describe, expect, it } from "vitest";
-import { buildDatevBuchungsstapel, DATEV_COLUMNS, encodeCp1252, splitEntry, type DatevExportEntry, type DatevExportHeader } from "./datev-export.ts";
+import {
+  buildDatevBuchungsstapel,
+  DATEV_AUTOMATIC_ACCOUNTS,
+  DATEV_COLUMNS,
+  encodeCp1252,
+  splitEntry,
+  type DatevExportEntry,
+  type DatevExportHeader,
+} from "./datev-export.ts";
 import { parseDatevBuchungsstapel } from "./datev.ts";
 
 const header: DatevExportHeader = {
@@ -358,4 +366,15 @@ describe("Belegfeld 1 im Zeichensatz von DATEV (#675)", () => {
     expect(warnings[0]).toContain(`„${lang}-1“`);
     expect(warnings[0]).toContain(`„${lang}-2“`);
   });
+});
+
+// Die Liste der Automatikkonten steht für sich; ein früheres Konto (kontenaenderungen.ts in @haben/core) muss dort stehen
+// wie sein heutiges, sonst rechnete DATEV aus Bestandsbuchungen die Steuer ein zweites Mal heraus (SKR04 4630 neben 4610)
+describe("Automatikkonten und frühere Konten", () => {
+  it.each((["SKR03", "SKR04"] as const).flatMap((kr) => gleichgestellteKonten(kr).map((f) => [kr, f.konto, f.heute] as const)))(
+    "%s %s hebt die Automatik auf wie %s",
+    (kr, frueher, heute) => {
+      expect(DATEV_AUTOMATIC_ACCOUNTS[kr].has(frueher)).toBe(DATEV_AUTOMATIC_ACCOUNTS[kr].has(heute));
+    },
+  );
 });

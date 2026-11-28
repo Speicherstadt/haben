@@ -1,5 +1,6 @@
 import { APIError, type GenericEndpointContext } from "better-auth";
 import { getSessionFromCtx } from "better-auth/api";
+import { getSessionCookie } from "better-auth/cookies";
 import { eq } from "drizzle-orm";
 import { isRolle, type Rolle } from "../lib/rollen.ts";
 import { authDatabase } from "./auth-transaction.ts";
@@ -66,6 +67,16 @@ export function effectiveRole(session: SessionProof | undefined, account: Accoun
   }
   if (!session || session.oidcIssuer !== env().OIDC_ISSUER || !isRolle(session.ssoRole) || !session.ssoExpiresAt) return null;
   return new Date(session.ssoExpiresAt).getTime() > now ? session.ssoRole : null;
+}
+
+/**
+ * Ob im SSO-Modus gerade eine Sitzung bestand, die nicht mehr gilt, meist nach Ablauf der Frist: Der Browser schickt noch
+ * das Sitzungscookie, angemeldet ist aber niemand. Nur dann startet die Anmeldung von selbst neu (#2048); nach dem
+ * Abmelden ist das Cookie gelöscht. Better Auth löscht es auch, sobald es eine Anfrage ohne Sitzung beantwortet; dann
+ * bleibt es wie bisher bei der Anmeldeseite.
+ */
+export function ssoSitzungAbgelaufen(headers: Headers, angemeldet: boolean): boolean {
+  return ssoOnly() && !angemeldet && getSessionCookie(headers) !== null;
 }
 
 /** Auch direkte Aufrufe nativer Better-Auth-Endpunkte halten die Betriebsart ein, nicht nur die Oberfläche */
