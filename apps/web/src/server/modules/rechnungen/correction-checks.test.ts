@@ -146,4 +146,60 @@ describe.skipIf(!testDatabaseUrl)("Rechnungskorrektur: Festschreiben (Postgres)"
     expect(treffer).toHaveLength(1);
     expect(treffer[0]).toMatch(/ist ein Storno/);
   }, 60_000);
+  it("Fremdwährung: lässt eine Korrektur zu, die in der Rechnungswährung einen Rest übrig lässt", async () => {
+    // 100,00 USD und −99,99 USD ergeben beim Kurs 1,20 in Euro dieselben Cent; in USD bleibt 0,01 offen
+    const usd = (netto: number) => ({
+      contactId,
+      issueDate: "2026-09-01",
+      serviceFrom: null,
+      serviceTo: null,
+      paymentTermDays: 14,
+      format: "zugferd" as const,
+      note: "",
+      currency: "USD",
+      exchangeRate: "1,20",
+      lines: [{ description: "Beratung", quantity: 1000, unit: "Psch." as const, unitPrice: netto, taxRate: 1900 as const }],
+    });
+    const rechnung = await invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, usd(10_000))).id, kleinunternehmerStand);
+    const entwurf = await invoices.createDraft(actor, usd(-9_999), { kind: "korrektur", correctsId: rechnung.id });
+    const korrektur = await invoices.finalizeInvoice(actor, entwurf.id, kleinunternehmerStand);
+    expect(korrektur).toMatchObject({ kind: "korrektur", status: "final" });
+  }, 60_000);
+
+  it("lässt eine Korrektur über den vollen Betrag einer als bereits bezahlt ausgestellten Rechnung zu", async () => {
+    // Die Rechnung sagt dem Kunden „bereits bezahlt“ (XML: TotalPrepaidAmount); vor dem Abgleich bleibt sie in der Liste offen
+    const draft = await invoices.createDraft(actor, {
+      contactId,
+      issueDate: "2026-09-01",
+      serviceFrom: null,
+      serviceTo: null,
+      paymentTermDays: 14,
+      format: "zugferd",
+      note: "",
+      paymentMethod: "bereits_bezahlt",
+      paidVia: "PayPal",
+      paidOn: "2026-09-01",
+      lines: [{ description: "Beratung", quantity: 1000, unit: "Psch.", unitPrice: 13_361, taxRate: 1900 }],
+    });
+    const rechnung = (await invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand)).id;
+    const korrektur = await entwurf("korrektur", -13_361, rechnung);
+    expect(await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand)).toMatchObject({ kind: "korrektur", status: "final" });
+  }, 60_000);
+
+  it("weist Korrekturen ab, die netto aufheben, auch wenn die je Beleg gerundete Steuer 1 Cent mehr zurücknimmt", async () => {
+    // 100,00 netto; −0,50 rundet −0,095 auf −0,10 USt, −99,50 rundet −18,905 auf −18,91: brutto −0,01 statt 0
+    const rechnung = await fest("rechnung", 10_000);
+    await fest("korrektur", -50, rechnung);
+    const zweite = await entwurf("korrektur", -9_950, rechnung);
+    await expect(invoices.finalizeInvoice(actor, zweite.id, kleinunternehmerStand)).rejects.toThrow(/ist ein Storno/);
+  }, 60_000);
+
+  it("weist Korrekturen ab, die netto aufheben, auch wenn brutto 1 Cent offen bliebe", async () => {
+    // 1,03 netto mit 0,20 USt; drei Korrekturen −0,34 / −0,34 / −0,35 nehmen nur 0,19 USt zurück
+    const rechnung = await fest("rechnung", 103);
+    await fest("korrektur", -34, rechnung);
+    await fest("korrektur", -34, rechnung);
+    const dritte = await entwurf("korrektur", -35, rechnung);
+    await expect(invoices.finalizeInvoice(actor, dritte.id, kleinunternehmerStand)).rejects.toThrow(/ist ein Storno/);
+  }, 60_000);
 });
