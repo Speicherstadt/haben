@@ -1,7 +1,7 @@
 import { amountError, formatDecimal, formatEuro, MINDESTBESTAND_MAX, parseEuro, unterschreitung, type Cents, type Vorschau } from "@haben/core";
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 import { formatDate } from "../lib/format.ts";
 import { useAction } from "../lib/use-action.ts";
 import { useSubmitCheck } from "../lib/use-submit-check.ts";
@@ -35,7 +35,8 @@ export function MindestbestandKarte({ mindestbestand, vorschau, aendern }: { min
 
 /**
  * Meldung nach dem Speichern mit dem Ergebnis im gewählten Horizont: Der Hinweis dazu steht oben auf der Seite, außer Sicht
- * und ohne Ansage. Ohne bekannten Kontostand (vorschau null) keine Aussage, wie beim Hinweis.
+ * und ohne Ansage. Ohne bekannten Kontostand (vorschau null) keine Aussage, wie beim Hinweis. Die Karte rechnet sie mit der
+ * Vorschau nach dem Speichern; die Seite legt die Karte bei jedem Wechsel der Ansicht neu an, dann verschwindet die Meldung.
  */
 export function speicherMeldung(betrag: Cents | null, vorschau: Verlauf | null): string {
   if (betrag === null) return "Mindestbestand entfernt.";
@@ -62,19 +63,23 @@ function MindestbestandForm({ mindestbestand, vorschau }: { mindestbestand: Cent
   const save = useServerFn(saveMindestbestand);
   const { busy, notice, run } = useAction();
   const [wert, setWert] = useState(mindestbestand === null ? "" : formatDecimal(mindestbestand));
+  // Gespeicherter Betrag; die Meldung dazu rechnet mit der Vorschau, die nach dem Speichern auf der Seite steht, wie der Hinweis
+  // oben. Ein neues Objekt nur bei neuem Text: NoticeBanner rollt bei jedem neuen zur Meldung.
+  const [gespeichert, setGespeichert] = useState<{ betrag: Cents | null } | null>(null);
+  const meldung = gespeichert && speicherMeldung(gespeichert.betrag, vorschau);
+  const erfolg = useMemo(() => (meldung ? { tone: "ok" as const, text: meldung } : null), [meldung]);
   const { betrag, fehler } = mindestbestandEingabe(wert);
   const { form, error, check } = useSubmitCheck({ mindestbestand: fehler });
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!check()) return;
-    await run(
-      async () => {
-        await save({ data: { mindestbestand: betrag } });
-        await router.invalidate();
-      },
-      speicherMeldung(betrag, vorschau),
-    );
+    setGespeichert(null);
+    const ok = await run(async () => {
+      await save({ data: { mindestbestand: betrag } });
+      await router.invalidate();
+    });
+    if (ok) setGespeichert({ betrag });
   }
 
   return (
@@ -89,7 +94,7 @@ function MindestbestandForm({ mindestbestand, vorschau }: { mindestbestand: Cent
           Speichern
         </button>
       </div>
-      <NoticeBanner notice={notice} />
+      <NoticeBanner notice={notice ?? erfolg} />
     </form>
   );
 }

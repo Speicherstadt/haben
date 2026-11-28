@@ -107,7 +107,13 @@ function LiquiditaetPage() {
         <LiquiditaetVerlauf vorschau={vorschau} offen={suche.zeitraum} rolle={user.role} />
       </section>
 
-      <MindestbestandKarte mindestbestand={mindestbestand} vorschau={konten.bekannt ? vorschau : null} aendern={darf(user.role, "inhaber")} />
+      {/* Neu je Ansicht: Die Meldung nach dem Speichern gilt für den Horizont, in dem gespeichert wurde */}
+      <MindestbestandKarte
+        key={`${horizont}:${ueberfaellige}`}
+        mindestbestand={mindestbestand}
+        vorschau={konten.bekannt ? vorschau : null}
+        aendern={darf(user.role, "inhaber")}
+      />
     </>
   );
 }
