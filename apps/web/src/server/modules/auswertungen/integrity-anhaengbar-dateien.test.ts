@@ -78,6 +78,26 @@ describe.skipIf(!testDatabaseUrl)("PDF und XML nur anhängbarer Tabellen gegen d
     expect(await problems(sql)).toEqual([]);
   });
 
+  // to_jsonb schreibt bytea nach bytea_output der Sitzung; mit escape entstünde ohne SET bytea_output = 'hex' in
+  // haben_audit_omitted_sha256 ein anderer Hash als der der Datei, und die Prüfung meldete eine unveränderte Zeile.
+  it("bildet den Hash der Datei auch in einer Sitzung mit bytea_output = escape", async () => {
+    const datei = Buffer.from([0x00, 0xff, 0x25, 0x50, 0x44, 0x46]);
+    const found = await rolledBack(sql, async (tx) => {
+      await tx`set local bytea_output = 'escape'`;
+      const [voranmeldung] = await tx`insert into vat_returns (year, month) values (1999, 12) returning id`;
+      const [u] = await tx`insert into vat_return_submissions (vat_return_id, kind, ok, code, message, request_xml, response_xml,
+          server_response_xml, protocol_pdf)
+        values (${voranmeldung!.id}, 'send', true, 0, 'ok', '<Elster>Umlaut ü</Elster>', '<Antwort/>', '<Server/>', ${datei})
+        returning id`;
+      const [e] = await tx`select new_value -> 'omitted_sha256' as h from audit_log
+        where table_name = 'vat_return_submissions' and row_id = ${u!.id} and action = 'INSERT'`;
+      await tx`set constraints all immediate`;
+      return { hashes: e!.h, befunde: await problems(tx) };
+    });
+    expect(found.hashes).toMatchObject({ protocol_pdf: sha256(datei), request_xml: sha256("<Elster>Umlaut ü</Elster>") });
+    expect(found.befunde).toEqual([]);
+  });
+
   it.each([
     { tabelle: "vat_return_submissions", anlegen: () => uebermittlung(), spalte: "protocol_pdf", neu: Buffer.from("%PDF-1.7 anders") },
     { tabelle: "vat_return_submissions", anlegen: () => uebermittlung(), spalte: "request_xml", neu: "<Elster>geändert</Elster>" },
