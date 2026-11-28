@@ -129,9 +129,9 @@ describe("unvollstaendigText", () => {
   });
 
   it("nennt das Jahr, sobald der Tag in einem anderen Jahr liegt oder der Zeitraum über den Jahreswechsel geht", () => {
-    expect(bis("2025-10-20", maerz)).toBe("Umsätze von Konto „Visa“ nur bis 20.10.2025");
+    expect(bis("2025-10-20", maerz)).toBe("Umsätze von Konto „Visa“ nur bis 20.10.2025.");
     const winter = { von: "2025-12-01", bis: "2026-01-31" };
-    expect(bis("2025-12-19", winter)).toBe("Umsätze von Konto „Visa“ nur bis 19.12.2025");
-    expect(bis("2026-01-09", winter)).toBe("Umsätze von Konto „Visa“ nur bis 09.01.2026");
+    expect(bis("2025-12-19", winter)).toBe("Umsätze von Konto „Visa“ nur bis 19.12.2025.");
+    expect(bis("2026-01-09", winter)).toBe("Umsätze von Konto „Visa“ nur bis 09.01.2026.");
   });
 });
