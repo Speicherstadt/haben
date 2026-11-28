@@ -44,5 +44,10 @@ describe("zieleImBuendel", () => {
       { to: "/rechnungen", search: undefined },
       { to: "/bank", search: { konto: "k1" } },
     ]);
+    // Steht das Konto vorn, führt sein Link trotzdem zu allen, denn die offenen Umsätze dahinter zählen über alle
+    expect(zieleImBuendel([hinweis("konto", "/bank", { konten: [visa] }), hinweis("eingaenge", "/bank")])).toEqual([
+      { to: "/bank", search: { konto: "alle" } },
+      null,
+    ]);
   });
 });
