@@ -1,11 +1,22 @@
-import { HORIZONTE, HORIZONT_KEYS, addDays, formatEuro, type Horizont, type Vorschau } from "@haben/core";
+import {
+  HORIZONTE,
+  HORIZONT_KEYS,
+  STANDARD_HORIZONT,
+  addDays,
+  formatEuro,
+  unterschreitung,
+  unterschreitungText,
+  type Horizont,
+  type Vorschau,
+} from "@haben/core";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod/mini";
 import { BalanceChart } from "../../components/BalanceChart.tsx";
 import { Field } from "../../components/Field.tsx";
 import { LiquiditaetVerlauf } from "../../components/LiquiditaetVerlauf.tsx";
+import { MindestbestandKarte } from "../../components/MindestbestandKarte.tsx";
 import { formatDate } from "../../lib/format.ts";
-import { siehtSeite } from "../../lib/rollen.ts";
+import { darf, siehtSeite } from "../../lib/rollen.ts";
 import { getLiquiditaet } from "../../server/functions/liquiditaet.ts";
 import type { Kontostaende } from "../../server/modules/liquiditaet/index.ts";
 import styles from "../../styles/auswertungen.css?url";
@@ -28,17 +39,17 @@ type Suche = z.infer<typeof search>;
 export const Route = createFileRoute("/_app/auswertungen_/liquiditaet")({
   validateSearch: search,
   loaderDeps: ({ search: { horizont, ueberfaellige } }) => ({ horizont, ueberfaellige }),
-  loader: ({ deps }) => getLiquiditaet({ data: { horizont: deps.horizont ?? "13w", ueberfaellige: deps.ueberfaellige ?? true } }),
+  loader: ({ deps }) => getLiquiditaet({ data: { horizont: deps.horizont ?? STANDARD_HORIZONT, ueberfaellige: deps.ueberfaellige ?? true } }),
   head: () => ({ meta: [{ title: "Liquiditätsvorschau · Haben" }], links: [{ rel: "stylesheet", href: styles }] }),
   component: LiquiditaetPage,
 });
 
 function LiquiditaetPage() {
-  const { vorschau, konten } = Route.useLoaderData();
+  const { vorschau, konten, mindestbestand } = Route.useLoaderData();
   const { user } = Route.useRouteContext();
   const suche = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const horizont = suche.horizont ?? "13w";
+  const horizont = suche.horizont ?? STANDARD_HORIZONT;
   const ueberfaellige = suche.ueberfaellige ?? true;
   const neu = (s: Partial<Suche>) => navigate({ search: { ...suche, zeitraum: undefined, ...s } });
 
@@ -71,6 +82,7 @@ function LiquiditaetPage() {
       </div>
 
       <KontoHinweise konten={konten} rolle={user.role} />
+      {mindestbestand !== null && konten.bekannt && <MindestbestandHinweis vorschau={vorschau} mindestbestand={mindestbestand} />}
       <Kennzahlen vorschau={vorschau} konten={konten} />
 
       <section className="card liq-kurve" aria-labelledby="liq-kurve-titel">
@@ -81,6 +93,7 @@ function LiquiditaetPage() {
           to={addDays(vorschau.bis, 1)}
           start={vorschau.start}
           points={vorschau.verlauf.map((s) => ({ date: s.datum, value: s.stand, label: tagesText(vorschau, s.datum) }))}
+          grenze={mindestbestand === null ? undefined : { value: mindestbestand, label: "Mindestbestand" }}
         />
       </section>
 
@@ -93,6 +106,14 @@ function LiquiditaetPage() {
         </p>
         <LiquiditaetVerlauf vorschau={vorschau} offen={suche.zeitraum} rolle={user.role} />
       </section>
+
+      {/* Neu je Ansicht: Die Meldung nach dem Speichern gilt für den Horizont, in dem gespeichert wurde */}
+      <MindestbestandKarte
+        key={`${horizont}:${ueberfaellige}`}
+        mindestbestand={mindestbestand}
+        vorschau={konten.bekannt ? vorschau : null}
+        aendern={darf(user.role, "inhaber")}
+      />
     </>
   );
 }
@@ -133,6 +154,18 @@ function Kennzahlen({ vorschau, konten }: { vorschau: Vorschau; konten: Kontosta
         <div className="kpi-value">{formatEuro(konten.ruecklage)}</div>
         <div className="small muted">nicht im Kontostand</div>
       </div>
+    </div>
+  );
+}
+
+/** Erster Tag im Horizont unter dem Mindestbestand (#1381); nichts, solange der Stand darüber bleibt oder kein Kontostand bekannt ist */
+function MindestbestandHinweis({ vorschau, mindestbestand }: { vorschau: Vorschau; mindestbestand: number }) {
+  const w = unterschreitung(vorschau, mindestbestand);
+  if (!w) return null;
+  const { titel, detail } = unterschreitungText(w);
+  return (
+    <div className="banner" role="note">
+      {titel}. {detail}.
     </div>
   );
 }

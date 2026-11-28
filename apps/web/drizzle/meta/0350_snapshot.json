@@ -1,5 +1,5 @@
 {
-  "id": "e127be29-af97-4d41-acf5-29de98d225d2",
+  "id": "9dd56376-9d80-4252-927f-b63ab4a03d6b",
   "prevId": "2a4b8dc7-02e7-4aab-8790-b30042322521",
   "version": "7",
   "dialect": "postgresql",
@@ -4024,6 +4024,12 @@
           "notNull": true,
           "default": true
         },
+        "mindestbestand": {
+          "name": "mindestbestand",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
         "extraction_paused": {
           "name": "extraction_paused",
           "type": "boolean",
@@ -4085,6 +4091,10 @@
         "company_extraction_max_parallel": {
           "name": "company_extraction_max_parallel",
           "value": "\"company\".\"extraction_max_parallel\" between 1 and 20"
+        },
+        "company_mindestbestand": {
+          "name": "company_mindestbestand",
+          "value": "\"company\".\"mindestbestand\" >= 0"
         },
         "company_extraction_limits": {
           "name": "company_extraction_limits",
@@ -5755,7 +5765,7 @@
           "name": "category",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "description": {
           "name": "description",
@@ -5787,12 +5797,6 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
-        },
-        "original_net": {
-          "name": "original_net",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {

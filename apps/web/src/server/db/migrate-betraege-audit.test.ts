@@ -87,7 +87,7 @@ describe.skipIf(!testDatabaseUrl)("Migration: Beträge, Positionen und Steuerzei
       select action, actor, row_id, old_value, new_value from audit_log where table_name = ${table} order by seq`;
 
   /**
-   * Einträge ohne den einen der späteren Migration 0351 (#1975): Sie gibt dem offenen Entwurf ohne Kategorie seine Position
+   * Einträge ohne den einen der späteren Migration 0352 (#1975): Sie gibt dem offenen Entwurf ohne Kategorie seine Position
    * je Satz, mit eigenem Eintrag als system:migration. Diese Migration selbst trägt nichts nach.
    */
   const eintraegeOhnePositionen = async () =>

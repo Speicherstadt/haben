@@ -7,3 +7,4 @@
  */
 export { ALTER_KONTOSTAND_TAGE, type Kontostaende, type Kontostand } from "./konten.ts";
 export { liquiditaetsvorschau, type LiquiditaetsBericht } from "./vorschau.ts";
+export { mindestbestandHinweis, mindestbestandWarnung } from "./mindestbestand.ts";

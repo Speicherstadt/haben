@@ -113,10 +113,10 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
   async function testinstanz() {
     await sql`insert into company(id, name, strasse, plz, ort, email, steuernummer, ust_id, iban, bic, kontenrahmen, versteuerung, payment_term_days,
         invoice_number_format, quote_number_format, invoice_counter_running, customer_number_format, customer_number_next, datev_berater_nr, datev_mandant_nr,
-        taxpayer, nav_color, archive_search, mcp_enabled, firmendaten_gespeichert_at)
+        taxpayer, nav_color, archive_search, mcp_enabled, firmendaten_gespeichert_at, mindestbestand)
       values (1, 'Muster Design', 'Lindenstraße 4', '04109', 'Leipzig', 'rechnung@muster.example', '231/815/08150', 'DE123456789', 'DE89370400440532013000',
         'COBADEFFXXX', 'SKR04', 'soll', 21, 'RE-{NNNN}', 'AN-{JJJJ}-{NNN}', true, 'K-{NNNN}', 42, '12345', '678',
-        ${JSON.stringify({ a: ERIKA })}::jsonb, '#1D4ED8', false, true, now())`;
+        ${JSON.stringify({ a: ERIKA })}::jsonb, '#1D4ED8', false, true, now(), 500000)`;
     await sql`insert into einrichtung(id, ausgeblendete_bereiche, fragen_at) values (1, ${JSON.stringify(["personal"])}::jsonb, now())`;
     // Weitere Zahlungskonten (#1887): eins als bevorzugtes des Kunden, eins ohne Kontakt
     await sql`insert into bankverbindungen(id, bezeichnung, iban, bank) values (${NORD}, 'Objekt Nord', 'DE02120300000000202051', 'Deutsche Kreditbank')`;
@@ -179,6 +179,8 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
       nav_color: "#1D4ED8",
       archive_search: false,
       mcp_enabled: false,
+      // bigint liest der rohe Client als Text
+      mindestbestand: "500000",
     });
     expect(firma!.firmendaten_gespeichert_at).not.toBeNull();
     expect((await sql`select ausgeblendete_bereiche from einrichtung`)[0]!.ausgeblendete_bereiche).toEqual(["personal"]);
@@ -584,6 +586,17 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     const result = await instanzwechsel.importSettings(actor, neuGepackt(unzipSync(zip), { "einstellungen.json": strToU8(JSON.stringify(alt)) }), HEUTE);
     expect(result.mail).toBe(true);
     expect(await sql`select from_name, reply_to from mail_settings`).toEqual([{ from_name: "Muster Design", reply_to: "" }]);
+  });
+
+  it("liest eine Datei der Version 7: Firmendaten ohne Mindestbestand bekommen keinen (#1381)", async () => {
+    await testinstanz();
+    const zip = await exportierenUndNeu();
+    const { sha256: _, ...inhalt } = einstellungen(zip);
+    expect(inhalt.company.mindestbestand).toBe(500000);
+    const { mindestbestand: _m, ...company } = inhalt.company;
+    const alt = withChecksum({ ...inhalt, version: 7, company });
+    await instanzwechsel.importSettings(actor, neuGepackt(unzipSync(zip), { "einstellungen.json": strToU8(JSON.stringify(alt)) }), HEUTE);
+    expect(await sql`select name, mindestbestand from company`).toEqual([{ name: "Muster Design", mindestbestand: null }]);
   });
 
   it("lehnt ein verändertes oder beschädigtes ZIP ab, bevor es etwas schreibt", async () => {

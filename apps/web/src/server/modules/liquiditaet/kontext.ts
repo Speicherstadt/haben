@@ -1,4 +1,4 @@
-import type { Bundesland, Horizont, Kontenrahmen, Rechtsform, Versteuerung } from "@haben/core";
+import type { Bundesland, Cents, Horizont, Kontenrahmen, Rechtsform, Versteuerung } from "@haben/core";
 import { horizontEnde } from "@haben/core";
 import { kleinunternehmerHistory, loadCompany, versteuerungForYear, type Company } from "../stammdaten/index.ts";
 import { bankdatenBeginn } from "./konten.ts";
@@ -20,6 +20,8 @@ export interface Kontext {
   ohneVorsteuerabzug: boolean;
   /** Erster Bankumsatz der Konten im Bestand: Steuertermine vor heute zählen nur danach als überfällig; null ohne Umsätze */
   bankdatenAb: string | null;
+  /** Mindestbestand aus den Firmendaten (#1381); null = keine Warnung */
+  mindestbestand: Cents | null;
 }
 
 export async function ladeKontext(heute: string, horizont: Horizont): Promise<Kontext> {
@@ -39,5 +41,6 @@ export async function ladeKontext(heute: string, horizont: Horizont): Promise<Ko
     kleinunternehmer: ku,
     ohneVorsteuerabzug: company.ohneVorsteuerabzug,
     bankdatenAb,
+    mindestbestand: company.mindestbestand,
   };
 }
