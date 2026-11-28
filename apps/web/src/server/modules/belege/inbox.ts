@@ -6,6 +6,7 @@ import { decrypt, encrypt } from "../../crypto.ts";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import { DocumentError, uploadDocument } from "./documents.ts";
+import { ablegenAusgang } from "./inbox-ausgang.ts";
 import { normalizeSenders, senderAllowed } from "./inbox-absender.ts";
 import { MAX_MAIL_SIZE } from "../../grenzen.ts";
 import { clean, errorText, isBeleg, settle } from "./inbox-danach.ts";
@@ -157,13 +158,17 @@ export interface InboxRunResult {
   skipped: number;
   /** Mails nicht freigegebener Absender, ungelesen im Postfach gelassen */
   rejected: number;
+  /** Nur mit Ausgangsordner: neue Ausgangsrechnungen, die auf „Übernehmen“ warten */
+  outgoing?: number;
 }
+
+type Direction = "eingang" | "ausgang";
 
 const FAILED = "Verarbeitung fehlgeschlagen: ";
 /** Eintrag von recordFailure: keine Belege, nur der Grund; der Mail kann ein neuer Versuch folgen */
 const isRetryable = (row: { skipped: string[]; documentIds: string[] }) => row.documentIds.length === 0 && !!row.skipped[0]?.startsWith(FAILED);
-/** Schlüssel in inbox_messages */
-const keyOf = (messageId: string) => messageId.slice(0, 998);
+/** Schlüssel in inbox_messages; dieselbe Mail im Ausgangsordner hat einen eigenen, sonst verdrängt die Kopie im Eingang sie */
+const keyOf = (messageId: string, direction: Direction = "eingang") => (direction === "ausgang" ? `ausgang: ${messageId}` : messageId).slice(0, 998);
 /** Schlüssel für das Nachholen einer Mail, deren erster Versuch fehlschlug */
 const retryKey = (messageId: string, n: number) => `${messageId.slice(0, 970)}${n === 1 ? " (nachgeholt)" : ` (nachgeholt ${n})`}`;
 
@@ -198,10 +203,25 @@ async function freeKey(base: string): Promise<string | null> {
   return retryKey(base, n);
 }
 
-async function processMessage(actor: string, source: { bytes: Buffer; tooLarge: boolean }, background: (work: Promise<void>) => void) {
+/** Meldung beim Verbinden: ein Server ohne STARTTLS bekommt eine verständliche Erklärung statt der englischen der Bibliothek */
+export function connectErrorText(e: unknown): string {
+  const text = errorText(e);
+  // Nur die Meldung von imapflow bei doSTARTTLS ohne Angebot des Servers; ein gescheiterter Handshake (Zertifikat) bleibt, wie er ist
+  if (/does not support STARTTLS/i.test(text)) {
+    return "Der Server bietet kein STARTTLS an. Wähle „TLS“ (meist Port 993) oder einen Server mit STARTTLS; ohne Verschlüsselung ruft Haben kein Postfach ab.";
+  }
+  return text;
+}
+
+async function processMessage(
+  actor: string,
+  source: { bytes: Buffer; tooLarge: boolean },
+  background: (work: Promise<void>) => void,
+  direction: Direction = "eingang",
+) {
   const mail = await simpleParser(source.bytes);
   const messageId = messageIdOf(mail, source.bytes);
-  const key = await freeKey(keyOf(messageId));
+  const key = await freeKey(keyOf(messageId, direction));
   if (!key) return null;
 
   const from = mail.from?.value[0];
@@ -218,6 +238,13 @@ async function processMessage(actor: string, source: { bytes: Buffer; tooLarge: 
     const filename = clean(attachment.filename ?? "").trim() || `Anhang-${index + 1}`;
     const file = { bytes: new Uint8Array(attachment.content), filename };
     try {
+      if (direction === "ausgang") {
+        // Kein Beleg: die Datei wartet in der Liste der Rechnungen, bis der Nutzer die Angaben geprüft hat
+        const result = await ablegenAusgang(actor, file, { sender, subject, receivedAt: mail.date ?? null });
+        if (result.duplicate) duplicates++;
+        else created++;
+        continue;
+      }
       const result = await uploadDocument(actor, file, { background });
       if (result.duplicate) duplicates++;
       else {
@@ -244,6 +271,7 @@ async function processMessage(actor: string, source: { bytes: Buffer; tooLarge: 
         sender: sender.slice(0, 500),
         subject: subject.slice(0, 500),
         receivedAt: mail.date ?? null,
+        direction,
         documentIds,
         duplicates,
         skipped,
@@ -261,10 +289,10 @@ function messageIdOf(mail: { messageId?: string }, bytes: Buffer) {
  * Eine Mail, an der die Verarbeitung scheitert, wird mit dem Fehler protokolliert und danach
  * als gelesen markiert. Sonst stünde sie bei jedem Abruf wieder vorn und hielte alle späteren auf.
  */
-async function recordFailure(actor: string, bytes: Buffer, error: unknown) {
+async function recordFailure(actor: string, bytes: Buffer, error: unknown, direction: Direction = "eingang") {
   const mail = await simpleParser(bytes).catch(() => null);
   const from = mail?.from?.value[0];
-  const key = await freeKey(keyOf(mail ? messageIdOf(mail, bytes) : messageIdOf({}, bytes)));
+  const key = await freeKey(keyOf(mail ? messageIdOf(mail, bytes) : messageIdOf({}, bytes), direction));
   if (!key) return;
   await withActor(actor, (tx) =>
     tx
@@ -274,6 +302,7 @@ async function recordFailure(actor: string, bytes: Buffer, error: unknown) {
         sender: clean(from?.address ?? "").slice(0, 500),
         subject: clean(mail?.subject ?? "").slice(0, 500),
         receivedAt: mail?.date ?? null,
+        direction,
         documentIds: [],
         duplicates: 0,
         skipped: [`${FAILED}${errorText(error)}`.slice(0, 1000)],
@@ -293,8 +322,9 @@ async function fetchFolder(
   background: (work: Promise<void>) => void,
   result: InboxRunResult,
   problems: string[],
+  direction: Direction = "eingang",
 ) {
-  const connection = await connector(settings, password, settings.folder);
+  const connection = await connector(settings, password, direction === "ausgang" ? settings.outboundFolder! : settings.folder);
   try {
     let handled = 0;
     for (const uid of await connection.unseen()) {
@@ -308,10 +338,10 @@ async function fetchFolder(
       let done: Awaited<ReturnType<typeof processMessage>>;
       let ok = true;
       try {
-        done = await processMessage(actor, source, background);
+        done = await processMessage(actor, source, background, direction);
       } catch (failure) {
         // Lässt sich nicht einmal der Fehler speichern (Datenbank weg), bricht der Lauf ab und die Mail bleibt ungelesen
-        await recordFailure(actor, source.bytes, failure);
+        await recordFailure(actor, source.bytes, failure, direction);
         done = { documents: 0, duplicates: 0, skipped: 1 };
         ok = false;
       }
@@ -320,7 +350,8 @@ async function fetchFolder(
       if (problem) problems.push(problem);
       if (!done) continue;
       result.messages++;
-      result.documents += done.documents;
+      if (direction === "ausgang") result.outgoing = (result.outgoing ?? 0) + done.documents;
+      else result.documents += done.documents;
       result.duplicates += done.duplicates;
       result.skipped += done.skipped;
     }
@@ -329,7 +360,7 @@ async function fetchFolder(
   }
 }
 
-/** Ruft das Postfach einmal ab (den Ordner für Eingangsrechnungen) */
+/** Ruft das Postfach einmal ab: den Ordner für Eingangsrechnungen und, falls eingerichtet, den für Ausgangsrechnungen */
 export async function fetchInbox(actor: string, background: (work: Promise<void>) => void = () => {}): Promise<InboxRunResult> {
   const settings = await loadInboxSettings();
   if (!settings) throw new InboxError("Es ist kein Postfach für Belege eingerichtet.");
@@ -340,7 +371,16 @@ export async function fetchInbox(actor: string, background: (work: Promise<void>
     const password = new TextDecoder().decode(decrypt(settings.ciphertext));
     await fetchFolder(settings, password, actor, background, result, problems);
   } catch (e) {
-    error = errorText(e);
+    error = connectErrorText(e);
+  }
+  // Der Ausgangsordner hängt nicht am Eingangsordner: scheitert der eine, wird der andere trotzdem abgerufen
+  if (settings.outboundFolder) {
+    try {
+      const password = new TextDecoder().decode(decrypt(settings.ciphertext));
+      await fetchFolder(settings, password, actor, background, result, problems, "ausgang");
+    } catch (e) {
+      error = error ?? `Ausgangsordner „${settings.outboundFolder}“: ${connectErrorText(e)}`;
+    }
   }
   // Ein Mail, die sich nicht verschieben oder löschen ließ, hält den Abruf nicht an; der Fehler steht danach in lastError
   const settleError = problems[0] ? `${problems[0]}${problems.length > 1 ? ` (und ${problems.length - 1} weitere)` : ""}` : null;

@@ -27,7 +27,7 @@ Rechnungen ohne Steuerausweis (siehe [Rechnungen](rechnungen.md#umsatzsteuer-auf
 | 1400 Forderungen | 1200 Forderungen | 1.000,00 | |
 | 8336 Erlöse Reverse Charge | 4336 Erlöse Reverse Charge | | 1.000,00 |
 
-Leistungen ins Drittland gehen auf 8338 bzw. 4338, steuerfreie Umsätze nach § 4 UStG auf 8100 bzw. 4100, Kleinunternehmer-Rechnungen auf 8192 bzw. 4184.
+Leistungen ins Drittland gehen auf 8338 bzw. 4338, steuerfreie Umsätze nach § 4 UStG auf 8100 bzw. 4100, Kleinunternehmer-Rechnungen auf 8192 bzw. 4184, für Buchungsjahre bis 2024 auf 8195 bzw. 4185 ([Neue Ausgabe des Kontenrahmens](buchhaltung.md#neue-ausgabe-des-kontenrahmens)).
 
 ## Stornorechnung und Rechnungskorrektur
 
@@ -166,7 +166,7 @@ Homeoffice-Tage, Fahrten mit dem Privatfahrzeug, Verpflegungsmehraufwand und Weg
 | Verpflegungsmehraufwand | 4674 | 6674 |
 | Wege zwischen Wohnung und Betriebsstätte (Entfernungspauschale) | 4678 | 6688 |
 
-Homeoffice-Pauschalen bis Version 0.15.0 stehen auf 4288 bzw. 6348 und zählen weiter als Tagespauschale. Ein Storno ist eine Gegenbuchung am selben Tag auf die Konten der ursprünglichen Buchung. Sätze und Grenzen stehen unter [Pauschalen](pauschalen.md).
+Homeoffice-Pauschalen für Buchungsjahre bis 2024 und alle, die Haben bis einschließlich Version 0.15.1 gebucht hat, stehen auf 4288 bzw. 6348 und zählen als Tagespauschale ([Neue Ausgabe des Kontenrahmens](buchhaltung.md#neue-ausgabe-des-kontenrahmens)). Ein Storno ist eine Gegenbuchung am selben Tag auf die Konten der ursprünglichen Buchung. Sätze und Grenzen stehen unter [Pauschalen](pauschalen.md).
 
 ## Lohnabrechnung
 

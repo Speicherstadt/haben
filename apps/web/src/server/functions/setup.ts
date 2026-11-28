@@ -11,7 +11,7 @@ import { env } from "../env.ts";
 import { andereFirmen } from "../../lib/firmen.ts";
 import { oidcPublicConfig } from "../oidc.ts";
 import { ssoInitialized } from "../sso-callback.ts";
-import { ssoOnly } from "../sso-policy.ts";
+import { ssoOnly, ssoSitzungAbgelaufen } from "../sso-policy.ts";
 import { sessionUser } from "../rollen.ts";
 
 /** Eingerichtet heißt im Standardmodus: es gibt ein Konto. Im SSO-Modus: ein Inhaber hat sich für diesen Issuer angemeldet. */
@@ -36,7 +36,8 @@ function einrichtungFuerNavigation(
 
 /** Öffentlich: Betriebsart, ob Haben schon eingerichtet ist und ob jemand angemeldet ist. */
 export const getAuthState = createServerFn({ method: "GET" }).handler(async () => {
-  const [user, init] = await Promise.all([sessionUser(getRequestHeaders()), initialized()]);
+  const headers = getRequestHeaders();
+  const [user, init] = await Promise.all([sessionUser(headers), initialized()]);
   const inhaber = user?.role === "inhaber";
   const [company, eigeneSeiten, hatMitarbeiter, einrichtung] = user
     ? await Promise.all([
@@ -51,6 +52,8 @@ export const getAuthState = createServerFn({ method: "GET" }).handler(async () =
     oidc: oidcPublicConfig(),
     initialized: init,
     user: user ? { name: user.name, email: user.email, role: user.role } : null,
+    // Frist abgelaufen (#2048): die App führt dann zur Anmeldung, die von selbst startet und auf dieselbe Seite zurückkehrt
+    sitzungAbgelaufen: ssoSitzungAbgelaufen(headers, user !== null),
     // Für die Navigation: eine GmbH oder UG hat keine Pauschalen; erst nach der Anmeldung
     rechtsform: company?.rechtsform ?? null,
     // Nummern der Konten vor den Kategorien (#1438)

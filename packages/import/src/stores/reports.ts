@@ -1,5 +1,5 @@
 import { formatRateMonth, type Cents } from "@haben/core";
-import { unzipSync } from "fflate";
+import { EntpackGrenzeError, unzipBegrenzt } from "../entpack-grenze.ts";
 import { parseCsv } from "../csv.ts";
 import { decodeText } from "../decode.ts";
 import { StatementParseError } from "../errors.ts";
@@ -134,8 +134,9 @@ function googleCsvFiles(bytes: Uint8Array): Uint8Array[] {
   if (!(bytes[0] === 0x50 && bytes[1] === 0x4b)) return [bytes];
   let entries: Record<string, Uint8Array>;
   try {
-    entries = unzipSync(bytes);
-  } catch {
+    entries = unzipBegrenzt(bytes);
+  } catch (error) {
+    if (error instanceof EntpackGrenzeError) throw new StatementParseError(error.message);
     throw new StatementParseError("Die ZIP-Datei lässt sich nicht entpacken.");
   }
   const files = Object.entries(entries)

@@ -25,7 +25,7 @@ import { pruefeUmsatzgrenze, type UmsatzStand } from "./umsatzgrenze.ts";
 import { rebuildInvoiceLines } from "./positionen-nachbilden.ts";
 import { createTakenOverInvoice } from "./rechnung-uebernehmen.ts";
 import { outgoingTaxDetailsSchema } from "./tax-details.ts";
-import { FREMDSYSTEM, fremdNummerSchema, looksLikePdf } from "./fremdsystem.ts";
+import { FREMDSYSTEM, fremdNummerSchema, looksLikePdf, type NachDemBuchen } from "./fremdsystem.ts";
 import { cancellationProposal } from "./fremdstorno.ts";
 import { isCancellation } from "./fremdstorno-pruefung.ts";
 
@@ -142,6 +142,7 @@ export async function adoptForeignInvoice(
   pdf: Uint8Array,
   umsatzStand: UmsatzStand,
   xml: string | null = null,
+  danach?: NachDemBuchen,
 ): Promise<{ id: string }> {
   const input = foreignInvoiceSchema.parse(raw);
   if (!looksLikePdf(pdf)) throw new InvoiceError("Das Original muss ein PDF sein.");
@@ -193,6 +194,7 @@ export async function adoptForeignInvoice(
         sourceId: id,
         lines: invoicePosting(totals, company.kontenrahmen, await invoicePostingMode(invoice, tx), input.taxTreatment),
       });
+      await danach?.(tx, id);
       return { id };
     });
   } catch (error) {
@@ -305,6 +307,7 @@ export async function adoptForeignInvoiceFile(
   raw: ForeignInvoiceInput,
   file: { bytes: Uint8Array; filename: string; mimeType: string },
   umsatzStand: UmsatzStand,
+  danach?: NachDemBuchen,
 ) {
   const read = await readEInvoice(file).catch(() => null);
   if (read) {
@@ -316,7 +319,7 @@ export async function adoptForeignInvoiceFile(
     const problem = xmlMismatch(read.invoice, foreignInvoiceSchema.parse(raw));
     if (problem) throw new InvoiceError(`Die E-Rechnung in der Datei passt nicht zu den Angaben: ${problem}. Das Original wird so nicht übernommen.`);
   }
-  return adoptForeignInvoice(actor, raw, file.bytes, umsatzStand, read?.xml ?? null);
+  return adoptForeignInvoice(actor, raw, file.bytes, umsatzStand, read?.xml ?? null, danach);
 }
 
 /** Was an der eingebetteten E-Rechnung von den bestätigten Angaben abweicht, oder null; das XML wird mit der Rechnung archiviert und weitergegeben */

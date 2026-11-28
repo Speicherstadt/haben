@@ -4,8 +4,9 @@ import { EBILANZ_KONTEN } from "./ebilanz.ts";
 import { bereichPosten } from "./hgb.ts";
 import { GEWST_HINZURECHNUNG_KONTEN, KAPG_STEUER_KONTEN } from "./koerperschaft.ts";
 import { LOHN_KONTEN } from "./lohn-buchung.ts";
-import { ledgerManagedAccounts, SACHENTNAHME_FRUEHERE_KONTEN, SACHENTNAHME_KONTEN } from "./manual.ts";
-import { PAUSCHALE_FRUEHERE_KONTEN, PAUSCHALE_KONTEN } from "./pauschalen.ts";
+import { KONTENAENDERUNGEN } from "./kontenaenderungen.ts";
+import { ledgerManagedAccounts, SACHENTNAHME_KONTEN } from "./manual.ts";
+import { PAUSCHALE_KONTEN } from "./pauschalen.ts";
 import { ACCOUNT_NAMES, ACCOUNTS, EXPENSE_CATEGORIES, kategorienMit, type ExpenseCategory, type Kontenrahmen } from "./posting.ts";
 import { PRIVATE_USE_ACCOUNT_NAMES, PRIVATE_USE_ACCOUNTS } from "./private-use.ts";
 import { STEUER_KONTEN } from "./steuerzahlung.ts";
@@ -47,39 +48,51 @@ function collect(value: unknown, into: Record<Kontenrahmen, Set<string>>, only?:
   }
 }
 
+/** Die Tabellen der Konten, auf die Haben heute bucht */
+const BEBUCHT = [
+  ACCOUNTS,
+  EXPENSE_CATEGORIES,
+  ASSET_ACCOUNTS,
+  PRIVATE_USE_ACCOUNTS,
+  PAUSCHALE_KONTEN,
+  LOHN_KONTEN,
+  STEUER_KONTEN,
+  DARLEHEN_KONTEN,
+  KAPG_STEUER_KONTEN,
+  GEWST_HINZURECHNUNG_KONTEN,
+  SACHENTNAHME_KONTEN,
+  VORTRAG_ACCOUNTS,
+];
+
+function nummernAus(quellen: readonly unknown[]): Record<Kontenrahmen, Set<string>> {
+  const into: Record<Kontenrahmen, Set<string>> = { SKR03: new Set(), SKR04: new Set() };
+  for (const quelle of quellen) collect(quelle, into);
+  return into;
+}
+
+let bebucht: Record<Kontenrahmen, ReadonlySet<string>> | undefined;
+
+/**
+ * Nummern, auf die Haben heute selbst bucht, ohne frühere Konten und ohne Konten, die nur einen Namen oder eine Position
+ * tragen. Eine frühere Nummer (kontenaenderungen.ts) darf hier nicht wieder auftauchen: Die Auswertungen läsen sonst alte
+ * Buchungen als das neue Konto.
+ */
+export function heuteBebuchteKonten(kontenrahmen: Kontenrahmen): ReadonlySet<string> {
+  bebucht ??= nummernAus(BEBUCHT);
+  return bebucht[kontenrahmen];
+}
+
 const reservedCache: Partial<Record<Kontenrahmen, ReadonlySet<string>>> = {};
 
 /**
  * Nummern, die Haben für eigene Zwecke belegt: die Konten der Kategorien, der Buchungen (Bank, Erlöse, Steuer, Lohn, Privat,
- * Gesellschafter, Darlehen, Pauschalen, Anlagen, Körperschaftsteuer) und alle Konten mit Namen oder E-Bilanz-Zuordnung.
- * Ein eigenes Konto darf keine davon nehmen, sonst deutete es bestehende Buchungen um.
+ * Gesellschafter, Darlehen, Pauschalen, Anlagen, Körperschaftsteuer), frühere Konten (kontenaenderungen.ts) und alle Konten
+ * mit Namen oder E-Bilanz-Zuordnung. Ein eigenes Konto darf keine davon nehmen, sonst deutete es bestehende Buchungen um.
  */
 export function reservedAccountNumbers(kontenrahmen: Kontenrahmen): ReadonlySet<string> {
   const cached = reservedCache[kontenrahmen];
   if (cached) return cached;
-  const into: Record<Kontenrahmen, Set<string>> = { SKR03: new Set(), SKR04: new Set() };
-  for (const quelle of [
-    ACCOUNTS,
-    ACCOUNT_NAMES,
-    EXPENSE_CATEGORIES,
-    ASSET_ACCOUNTS,
-    ASSET_ACCOUNT_NAMES,
-    PRIVATE_USE_ACCOUNTS,
-    PRIVATE_USE_ACCOUNT_NAMES,
-    PAUSCHALE_KONTEN,
-    PAUSCHALE_FRUEHERE_KONTEN,
-    LOHN_KONTEN,
-    STEUER_KONTEN,
-    DARLEHEN_KONTEN,
-    KAPG_STEUER_KONTEN,
-    GEWST_HINZURECHNUNG_KONTEN,
-    SACHENTNAHME_KONTEN,
-    SACHENTNAHME_FRUEHERE_KONTEN,
-    VORTRAG_ACCOUNTS,
-    EBILANZ_KONTEN,
-  ]) {
-    collect(quelle, into);
-  }
+  const into = nummernAus([...BEBUCHT, KONTENAENDERUNGEN, ACCOUNT_NAMES, ASSET_ACCOUNT_NAMES, PRIVATE_USE_ACCOUNT_NAMES, EBILANZ_KONTEN]);
   // Was das Hauptbuch selbst bebucht (Bank, Kasse, Forderungen, Verbindlichkeiten, Steuer, Anlagen), je Kontenrahmen
   for (const nummer of ledgerManagedAccounts(kontenrahmen).keys()) if (/^\d{4}$/.test(nummer)) into[kontenrahmen].add(nummer);
   reservedCache[kontenrahmen] = into[kontenrahmen];

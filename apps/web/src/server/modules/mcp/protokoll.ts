@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { readBodyLimited } from "../../body-limit.ts";
 
 /*
  * Model Context Protocol über Streamable HTTP, nur was Haben braucht: zustandslos, nur POST, Antwort als JSON statt
@@ -143,8 +144,9 @@ async function beantworten(server: McpServer, anfrage: Anfrage) {
 async function body(request: Request): Promise<string | null> {
   const laenge = Number(request.headers.get("content-length"));
   if (laenge > MAX_BODY_BYTES) return null;
-  const bytes = new Uint8Array(await request.arrayBuffer());
-  return bytes.byteLength > MAX_BODY_BYTES ? null : new TextDecoder().decode(bytes);
+  // Auch ohne Content-Length (chunked) nicht mehr als die Grenze lesen
+  const bytes = await readBodyLimited(request, MAX_BODY_BYTES);
+  return bytes === null ? null : new TextDecoder().decode(bytes);
 }
 
 /** Header, Body und Form der Nachrichten; eine Antwort, wenn etwas nicht passt, sonst die Nachrichten */

@@ -509,6 +509,8 @@ Schon vor dem Buchen zeigt die Karte **Wird gebucht**, was Haben bucht: je Zeile
 | Nicht steuerbare Einnahme (z. B. Schadenersatz) | 2742 | 4970 | – | Einnahme ohne Umsatzsteuer, „Umsatzsteuerfreie und nicht steuerbare Betriebseinnahmen“ |
 | Ausgabekategorie, z. B. Telefon | Konto der Kategorie ([Belegkategorien](buchhaltung.md#aufwandskonten-der-belegkategorien)) | ebenso | keine Vorsteuer | Ausgabe brutto in der Zeile der Kategorie |
 
+Für Buchungsjahre bis 2024 steht statt 8192 bzw. 4184 das Konto 8195 bzw. 4185 ([Neue Ausgabe des Kontenrahmens](buchhaltung.md#neue-ausgabe-des-kontenrahmens)).
+
 Beispiel: Ein Privatkunde überweist für eine Reparatur 119,00 €, Erlöse 19 %:
 
 | Konto SKR03 | Konto SKR04 | Soll | Haben |

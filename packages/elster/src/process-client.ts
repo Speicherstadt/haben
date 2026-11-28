@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { EricConfig, EricRawResult, EricRequest } from "./eric.ts";
 import type { WorkerRequest, WorkerResponse } from "./protocol.ts";
@@ -29,12 +29,32 @@ export interface EricProcessClientOptions extends EricConfig {
  * über sh ohne Core-Dump: Der Dump eines abgestürzten Bun-Prozesses ist mehrere GB groß (reservierter Speicher).
  * Wo ein Dienst ihn annimmt (apport, systemd-coredump), käme die Meldung des Absturzes erst nach Sekunden bis
  * Minuten, und auf dem Host landeten GB pro Absturz von ERiC. exec behält den IPC-Kanal (NODE_CHANNEL_FD).
+ *
+ * Bun liest beim Start die `.env` im Arbeitsverzeichnis und holte so zurück, was workerEnvironment herausnimmt (in der
+ * Entwicklung liegt dort `apps/web/.env` mit Schlüsseln und DATABASE_URL). Deshalb `--no-env-file` beim eigenen Start
+ * und als Arbeitsverzeichnis das des Workers statt dem der App, auch bei einem Worker-Befehl.
  */
-function spawnWorker(workerPath: string, command: readonly string[] = [process.execPath]) {
+function spawnWorker(workerPath: string, command: readonly string[] = [process.execPath, "--no-env-file"]) {
   return spawn("/bin/sh", ["-c", 'ulimit -c 0 && exec "$@"', "sh", ...command, workerPath], {
     stdio: ["ignore", "ignore", "pipe", "ipc"],
     serialization: "json",
+    env: workerEnvironment(),
+    cwd: dirname(workerPath),
   });
+}
+
+/** Variablen der App, die der Worker nicht braucht, weil er seine Konfiguration über den IPC-Kanal bekommt. */
+const WORKER_BLOCKED_ENV = new Set(["HABEN_SETUP_CODE", "ENABLE_BANKING_KEY", "ENABLE_BANKING_KEY_FILE"]);
+/** DATABASE_URL auch mit Vorsilbe: MIGRATION_DATABASE_URL (Eigentümer), TEST_DATABASE_URL, E2E_DATABASE_URL */
+const WORKER_BLOCKED_ENV_PATTERN = /DATABASE_URL|SECRET|PASSWORD|PASSWD|TOKEN|API_KEY|ENCRYPTION_KEY|PRIVATE_KEY/i;
+
+/**
+ * Die Umgebung des Workers: die der App ohne Schlüssel, Zugangsdaten und Datenbankadresse. ERiC ist Software eines
+ * Dritten; ein Fehler darin soll nicht an `BETTER_AUTH_SECRET`, `HABEN_ENCRYPTION_KEY` oder `DATABASE_URL` kommen.
+ * Alles andere (PATH, Sprache, ERIC_*, Variablen eines Worker-Befehls wie QEMU) bleibt unverändert.
+ */
+export function workerEnvironment(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(env).filter(([name]) => !WORKER_BLOCKED_ENV.has(name) && !WORKER_BLOCKED_ENV_PATTERN.test(name)));
 }
 
 /** Führt jeden ERiC-Aufruf in einem eigenen, kurzlebigen Kindprozess aus. */

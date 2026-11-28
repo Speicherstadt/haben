@@ -8,6 +8,7 @@ import {
   type Kontenrahmen,
   type PostingLine,
   type SaldenZeile,
+  zeilenFuersJournal,
 } from "@haben/core";
 import { and, asc, eq, gt, gte, inArray, lt, ne, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -106,7 +107,19 @@ export async function post(tx: Tx, books: Books, posting: Posting): Promise<stri
     );
   }
   // Zeilen ohne Betrag fallen weg, außer sie tragen eine Bemessungsgrundlage (Anteil ohne Steuer bei Ist, #542)
-  const lines = posting.lines.filter((line) => line.debit !== 0 || line.credit !== 0 || (line.basis ?? 0) !== 0);
+  // Konten nach dem Buchungsjahr (#2043, docs/adr/kontenrahmen-ausgaben.md): Die Module kontieren mit den Konten der
+  // neuesten DATEV-Ausgabe, ins Journal kommen die, die im Buchungsjahr galten. Eine Gegenbuchung im Jahr ihrer
+  // Ursprungsbuchung spiegelt deren Konten; sie übergibt dafür die Zeilen, wie sie im Journal stehen, nicht neu gerechnete.
+  const [ursprung] = posting.reversesId
+    ? await tx.select({ date: schema.journalEntries.date }).from(schema.journalEntries).where(eq(schema.journalEntries.id, posting.reversesId))
+    : [];
+  const kontiert = zeilenFuersJournal(books.kontenrahmen, {
+    jahr: Number(year),
+    herkunft: posting.sourceType,
+    ursprungsjahr: ursprung ? Number(ursprung.date.slice(0, 4)) : null,
+    zeilen: posting.lines,
+  });
+  const lines = kontiert.filter((line) => line.debit !== 0 || line.credit !== 0 || (line.basis ?? 0) !== 0);
   if (lines.length > 0) await tx.insert(schema.journalLines).values(lines.map((line) => ({ entryId: entry!.id, ...line })));
   await tx.update(schema.journalEntries).set({ lockedAt: new Date() }).where(eq(schema.journalEntries.id, entry!.id));
   return entry!.id;

@@ -12,7 +12,7 @@ export type Standardwert = { table: string; column: string; expression: string }
 export interface Sollbestand {
   triggers: { table: string; name: string; enabled: string; definition: string; function: string }[];
   functions: { name: string; sourceHash: string; definitionHash: string; config: string[]; language: string; securityDefiner: boolean }[];
-  /** Tabellen, deren Standardwerte zum Bestand gehören, bei Haben die versiegelten samt Kindtabellen */
+  /** Tabellen, deren Standardwerte zum Bestand gehören, bei Haben die versiegelten samt Kindtabellen, Audit-Log und Siegel */
   sealedTables: string[];
   /** Standardwerte ihrer Spalten; eine Spalte ohne Standardwert steht nicht darin */
   defaults: Standardwert[];
@@ -34,6 +34,9 @@ export type Zeilensicherheit = {
   policies: { table: string; name: string }[];
 };
 
+/** Regeln auf Relationen im geprüften Schema, ohne die Abfrage einer Sicht */
+export type Regel = { table: string; name: string };
+
 /** Alles, was der Vergleich aus einer Datenbank braucht, gelesen in einer Transaktion */
 export interface Momentaufnahme {
   bestand: Sollbestand;
@@ -44,6 +47,7 @@ export interface Momentaufnahme {
   temp: string | null;
   katalog: Katalogobjekte;
   zeilensicherheit: Zeilensicherheit;
+  regeln: Regel[];
 }
 
 /**
@@ -133,6 +137,7 @@ export async function leseMomentaufnahme(leser: Leser, optionen: LeseOptionen): 
         temp: einstellung!.temp,
         katalog,
         zeilensicherheit: await leseZeilensicherheit(abfrage, schema),
+        regeln: await leseRegeln(abfrage, schema),
       };
     } finally {
       await abfrage("select pg_catalog.set_config('search_path', $1, true)", [einstellung!.path]);
@@ -224,4 +229,23 @@ async function leseZeilensicherheit(abfrage: Abfrage, schema: string): Promise<Z
     [schema],
   );
   return { tables: [...tables], policies: [...policies] };
+}
+
+/*
+ * Regeln (CREATE RULE): Der Eigentümer einer Tabelle kann jede Anweisung darauf umschreiben, bevor ein Trigger feuert.
+ * `ON INSERT TO audit_log DO INSTEAD NOTHING` verwirft etwa jeden Eintrag ins Audit-Log; weil dann auch kein Trigger auf dem
+ * Audit-Log läuft, bleibt die Kette in sich stimmig; auffallen würde erst ein neues Siegel ohne Eintrag. Die Regel `_RETURN` (ev_type 1, SELECT) einer Sicht ist deren
+ * Abfrage; seit PostgreSQL 16 kann eine Tabelle keine solche Regel mehr bekommen. Erwartet search_path = pg_catalog.
+ * https://www.postgresql.org/docs/18/rules.html
+ * https://www.postgresql.org/docs/18/catalog-pg-rewrite.html
+ */
+async function leseRegeln(abfrage: Abfrage, schema: string): Promise<Regel[]> {
+  const regeln = await abfrage<Regel>(
+    `
+    select c.relname::text as "table", r.rulename::text as name
+    from pg_catalog.pg_rewrite r join pg_catalog.pg_class c on c.oid = r.ev_class join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = $1::text and not (r.ev_type = '1' and r.rulename = '_RETURN' and c.relkind in ('v', 'm'))`,
+    [schema],
+  );
+  return [...regeln];
 }

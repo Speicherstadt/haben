@@ -398,6 +398,8 @@ Rechnungen ohne Steuerausweis gehen ohne Steuerzeile auf eigene Erlöskonten:
 | Steuerfreie Leistung, z. B. Heilbehandlung oder Unterricht | 8100 | 4100 | `Steuerfrei` (Kz 48) |
 | Kleinunternehmer: ohne Umsatzsteuer | 8192 | 4184 | `KU` (Kz 48 nach dem [Leistungstag](umsatzsteuer.md#umsätze-ohne-steuer-kz-21-41-43-45-und-48)) |
 
+Für Buchungsjahre bis 2024 steht statt 8192 bzw. 4184 das Konto 8195 bzw. 4185 ([Neue Ausgabe des Kontenrahmens](buchhaltung.md#neue-ausgabe-des-kontenrahmens)).
+
 > [!IMPORTANT]
 > Die Kontenzuordnung stammt aus `packages/core/src/kontenplan.ts`. Gleiche sie vor dem Echtbetrieb mit deiner Steuerberatung ab.
 
@@ -721,6 +723,8 @@ Eigene Werkzeuge, etwa für Bestellungen aus Etsy oder eBay, legen über die [RE
 Schreibt ein anderes Programm deine Rechnungen, etwa ein Kundenportal oder eine Praxissoftware, übernimmst du sie laufend nach Haben: Auf der Seite **Rechnungen** wählst du oben **Ausgangsrechnung hochladen** (nur der Inhaber sieht den Knopf) und dann das PDF der Rechnung. Ist es eine E-Rechnung (ZUGFeRD), liest Haben Nummer, Datum, Fälligkeit, Leistungszeitraum und Steuer je Satz aus der Datei und schlägt sie vor, ebenso den Kunden, wenn die USt-IdNr. der Rechnung (steht keine darauf, der Name) zu genau einem deiner Kontakte passt; fehlt die Fälligkeit, schlägt Haben das Rechnungsdatum plus 14 Tage vor. Ohne E-Rechnung trägst du die Angaben von Hand ein. Prüfe Kunde und Steuerbehandlung, bei steuerfreien Umsätzen auch die Befreiungsvorschrift, und übernimm. Bei einer Leistung ins Ausland (Reverse Charge, Nicht-EU-Ausland, Leistungsort EU) gibst du wie im Editor das Land des tatsächlichen Leistungsorts an; bei „Leistungsort EU“ und als Kleinunternehmer ist es Pflicht, ebenso die Bestätigung, dass keine ausländische Umsatzsteuer auszuweisen ist. Erst mit dem Land zählt der [Gesamtumsatz nach § 19](auswertungen.md#gesamtumsatz-nach--19-ustg) den Umsatz als ausgenommen, sonst bleibt er ungeklärt.
 
 Die Rechnung steht danach festgeschrieben in der Liste, mit Nummer und PDF aus dem Fremdsystem; beides bleibt unverändert, dein Nummernkreis bleibt unberührt. Eine eingebettete E-Rechnung wird mit abgelegt und muss zu deinen Angaben passen (Nummer, Datum, Netto und Steuer je Satz, Steuerkategorie zur Steuerbehandlung; für § 19 UStG gilt E oder O), sonst lehnt Haben ab. Gebucht wird wie beim Festschreiben einer eigenen Rechnung (siehe [Buchungen](#buchungen)). Bei Soll-Versteuerung zählt der Monat der Leistung: Trage deshalb **Leistung von** und **Leistung bis** ein, wenn die Leistung in einem anderen Monat liegt als das Rechnungsdatum. Zahlung, Bankabgleich, Mahnung und Storno laufen danach wie bei jeder anderen Rechnung.
+
+Kommen die Rechnungen per E-Mail, kann Haben die PDFs aus dem [Ordner für Ausgangsrechnungen](belege.md#belege-per-e-mail) deines Postfachs holen; du übernimmst sie auf derselben Seite unter **Aus dem Postfach**.
 
 Anders als bei [übernommenen Rechnungen](#übernommene-rechnungen) aus dem Umzug gibt es keinen Stichtag: Der Erlös steht in Haben, nicht in alten Büchern. Übernimm eine Rechnung deshalb nur, wenn sie in keinem anderen Programm mehr verbucht wird. Es gelten dieselben Prüfungen wie beim Festschreiben: vollständige Firmendaten, die Versteuerungsart des Jahres und bei Kleinunternehmern die Umsatzgrenze. Könnte sie überschritten werden oder lag der Vorjahresumsatz schon über der Grenze, fragt Haben nach und übernimmt die Rechnung erst nach deiner Bestätigung.
 

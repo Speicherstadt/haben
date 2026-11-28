@@ -8,7 +8,7 @@ import { ErrorBanner } from "./ErrorBanner.tsx";
 import { NoticeBanner } from "./NoticeBanner.tsx";
 import { fetchInboxNow, removeInbox, saveInbox, type getInbox } from "../server/functions/inbox.ts";
 import { Field } from "./Field.tsx";
-import { Status, Tag, type StatusTone } from "./Status.tsx";
+import { Status, type StatusTone } from "./Status.tsx";
 
 type Data = Awaited<ReturnType<typeof getInbox>>;
 type Settings = Data["settings"];
@@ -19,7 +19,12 @@ type AfterFetch = "seen" | "move" | "delete";
 function abrufText(r: Abruf): string {
   const ungelesen = r.rejected ? ` ${r.rejected} ${r.rejected === 1 ? "Mail" : "Mails"} nicht freigegebener Absender ungelesen gelassen.` : "";
   if (r.messages === 0) return `Keine neuen Mails.${ungelesen}`;
-  const teile = [`${r.documents} neue Belege`, r.duplicates ? `${r.duplicates} schon vorhanden` : "", r.skipped ? `${r.skipped} übersprungen` : ""];
+  const teile = [
+    `${r.documents} neue Belege`,
+    r.outgoing ? `${r.outgoing} Ausgangsrechnungen zum Übernehmen` : "",
+    r.duplicates ? `${r.duplicates} schon vorhanden` : "",
+    r.skipped ? `${r.skipped} übersprungen` : "",
+  ];
   return `${r.messages} ${r.messages === 1 ? "Mail" : "Mails"} gelesen: ${teile.filter(Boolean).join(", ")}.${ungelesen}`;
 }
 
@@ -99,9 +104,9 @@ export function InboxCard({ data }: { data: Data }) {
         onClose={() => setAskingDelete(null)}
       >
         <p>
-          Haben löscht ab dem nächsten Abruf jede Mail im Postfach, deren Anhänge als Belege abgelegt sind. Haben behält die Anhänge sowie Absender und Betreff
-          in der Notiz am Beleg; Mailtext und Original sind danach weg. Gelöschte Mails lassen sich nicht zurückholen, bei manchen Anbietern liegen sie zunächst
-          im Papierkorb.
+          Haben löscht ab dem nächsten Abruf jede Mail im Postfach, deren Anhänge in Haben abgelegt sind. Haben behält die Anhänge sowie Absender und Betreff
+          (beim Eingang in der Notiz am Beleg, beim Ausgang bei der wartenden Rechnung); Mailtext und Original sind danach weg. Gelöschte Mails lassen sich
+          nicht zurückholen, bei manchen Anbietern liegen sie zunächst im Papierkorb.
         </p>
       </ConfirmDialog>
       <form className="card form-card" onSubmit={onSubmit} aria-labelledby="inbox-heading">
@@ -257,8 +262,8 @@ function OrdnerFelder({ settings }: { settings: Settings }) {
           label="Ordner für Ausgangsrechnungen (optional)"
           hint={
             <>
-              <Tag>noch ohne Wirkung</Tag> Für Rechnungen aus Shop oder Fremdsystem. Haben liest diesen Ordner noch nicht; fremde Ausgangsrechnungen übernimmst
-              du bisher auf der Seite Rechnungen mit „Ausgangsrechnung hochladen“. Der Ordner muss ein anderer sein als der Eingangsordner.
+              Für Rechnungen aus Shop oder Fremdsystem. PDFs aus ungelesenen Mails landen auf der Seite Rechnungen unter „Aus dem Postfach“; gebucht wird erst,
+              wenn du die Angaben dort geprüft hast. Der Ordner muss ein anderer sein als der Eingangsordner.
             </>
           }
         >
@@ -275,7 +280,7 @@ function NachAbrufFelder({ settings, afterFetch, setAfterFetch }: { settings: Se
     <>
       <Field
         label="Mail im Postfach"
-        hint="Gilt erst, wenn die Anhänge als Belege abgelegt sind. Mails nicht freigegebener Absender und Mails, die sich nicht verarbeiten lassen, bleiben liegen."
+        hint="Gilt für beide Ordner, erst wenn die Anhänge in Haben abgelegt sind. Mails nicht freigegebener Absender und Mails, die sich nicht verarbeiten lassen, bleiben liegen."
       >
         {(control) => (
           <select {...control} value={afterFetch} onChange={(e) => setAfterFetch(e.target.value as AfterFetch)}>
@@ -292,9 +297,10 @@ function NachAbrufFelder({ settings, afterFetch, setAfterFetch }: { settings: Se
       )}
       {afterFetch === "delete" && (
         <p className="small muted">
-          Haben behält die Anhänge als Belege sowie Absender und Betreff in der Notiz; Mailtext und Original sind danach weg. Mails ohne Anhang, mit Anhängen,
-          die Haben nicht ablegen kann, und zu große Mails löscht Haben nicht; sie bleiben als gelesen markiert im Postfach. Bei manchen Anbietern landet eine
-          gelöschte Mail zunächst im Papierkorb. Der Server muss gezieltes Löschen (UIDPLUS) beherrschen, sonst bricht der Abruf mit einer Meldung ab.
+          Haben behält die Anhänge (als Belege bzw. als wartende Ausgangsrechnungen) sowie Absender und Betreff; Mailtext und Original sind danach weg. Mails
+          ohne Anhang, mit Anhängen, die Haben nicht ablegen kann, und zu große Mails löscht Haben nicht; sie bleiben als gelesen markiert im Postfach. Bei
+          manchen Anbietern landet eine gelöschte Mail zunächst im Papierkorb. Der Server muss gezieltes Löschen (UIDPLUS) beherrschen, sonst bricht der Abruf
+          mit einer Meldung ab.
         </p>
       )}
     </>
@@ -333,6 +339,8 @@ function AbsenderFeld({ settings }: { settings: Settings }) {
 /** Wie ein protokollierter Abruf in der Liste heißt: Belege, übersprungen oder fehlgeschlagen */
 function mailStatus(m: Data["last"][number]): { tone: StatusTone; text: string; detail?: string } {
   if (m.documentIds.length > 0) return { tone: "ok", text: `${m.documentIds.length} ${m.documentIds.length === 1 ? "Beleg" : "Belege"}` };
+  // Aus dem Ausgangsordner entsteht kein Beleg: ohne Dublette und ohne Grund wartet jede Datei auf „Übernehmen“
+  if (m.direction === "ausgang" && m.skipped.length === 0 && m.duplicates === 0) return { tone: "ok", text: "Zum Übernehmen" };
   const grund = m.skipped.join("; ");
   if (grund.startsWith("Verarbeitung fehlgeschlagen"))
     return { tone: "danger", text: "Fehlgeschlagen", detail: grund.replace(/^Verarbeitung fehlgeschlagen: /, "") };

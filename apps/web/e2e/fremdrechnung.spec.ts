@@ -1,8 +1,13 @@
+import { createHash } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { buildEInvoice } from "@haben/einvoice";
+import postgres from "postgres";
 import { sampleDocument } from "../../../packages/einvoice/src/samples.ts";
 import { day } from "./daten.ts";
 import { axeVerstoesse, CUSTOMERS, durchlaufSeite, einrichten, gehe, INVOICES, kontaktAnlegen, kundeWaehlen, rechnungFestschreiben } from "./einrichtung.ts";
+import { databaseUrlFuer } from "./durchlaeufe.ts";
 import { datei, formularOeffnen, fremdesPdf } from "./fremdrechnung-formular.ts";
 
 /**
@@ -10,7 +15,8 @@ import { datei, formularOeffnen, fremdesPdf } from "./fremdrechnung-formular.ts"
  * übernehmen. Fremde Nummer und Original bleiben, die Rechnung ist festgeschrieben und gebucht. Geprüft wird, was
  * der Nutzer sieht: PDF ohne E-Rechnung von Hand ausfüllen, Kunden im Formular neu anlegen, eine schon vorhandene
  * Nummer ablehnen und die Angaben aus einer E-Rechnung (ZUGFeRD aus Haben selbst) vorbelegen. Buchung, Zahlung und
- * die Steuerfälle (SKR03/SKR04 × Ist/Soll) prüft fremdrechnung.test.ts.
+ * die Steuerfälle (SKR03/SKR04 × Ist/Soll) prüft fremdrechnung.test.ts. Dazu die Karte „Aus dem Postfach“: PDFs, die der
+ * Abruf aus dem Ordner für Ausgangsrechnungen geholt hat (inbox.test.ts), prüfen, verwerfen und übernehmen.
  */
 test.describe.configure({ mode: "serial" });
 
@@ -218,4 +224,200 @@ test("Storno aus dem Fremdsystem: E-Rechnung mit Bezug (BT-25) auf eine übernom
 
 test("Keine Seitenfehler im ganzen Durchlauf", () => {
   expect(pageErrors).toEqual([]);
+});
+
+/** Ein PDF so ablegen, wie es der Abruf aus dem Ausgangsordner des Postfachs tut: Datei unter ihrem Hash und eine Zeile als wartend */
+async function imPostfachAblegen(sql: postgres.Sql, nummer: string, vorhanden?: Buffer): Promise<void> {
+  const pdf = vorhanden ?? (await fremdesPdf(page, nummer));
+  const sha256 = createHash("sha256").update(pdf).digest("hex");
+  const verzeichnis = join(`${process.env.E2E_DOCUMENTS_DIR ?? "test-results/e2e-belege"}-fremdrechnung`, sha256.slice(0, 2));
+  await mkdir(verzeichnis, { recursive: true });
+  await writeFile(join(verzeichnis, sha256), pdf);
+  await sql`
+    insert into inbox_outgoing (sha256, filename, mime_type, size, sender, subject, received_at)
+    values (${sha256}, ${`Rechnung-${nummer}.pdf`}, 'application/pdf', ${pdf.byteLength}, 'Webshop <rechnung@shop.example>', ${`Rechnung ${nummer}`}, now())`;
+}
+
+test("Aus dem Postfach: eine wartende Ausgangsrechnung verwerfen, eine übernehmen, die dritte bleibt", async () => {
+  const sql = postgres(databaseUrlFuer("fremdrechnung"), { max: 1, onnotice: () => {} });
+  try {
+    for (const nummer of ["PG-1", "PG-2", "PG-3"]) await imPostfachAblegen(sql, nummer);
+    await gehe(page, "/rechnungen");
+    const karte = page.getByRole("region", { name: "Aus dem Postfach" });
+    await expect(karte.getByText("3 offen")).toBeVisible();
+    await expect(karte.getByText("Webshop").first()).toBeVisible();
+    expect(await axeVerstoesse(page)).toEqual([]);
+
+    // Verwerfen fragt nach, die Datei verschwindet aus der Liste
+    await karte.getByRole("button", { name: "Weitere Aktionen zu PG-1" }).click();
+    await page.getByRole("menuitem", { name: "Verwerfen" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Verwerfen" }).click();
+    await expect(karte.getByText("2 offen")).toBeVisible();
+    await expect(karte.getByText("PG-1", { exact: true })).toHaveCount(0);
+
+    // Übernehmen öffnet das Formular mit dem PDF aus dem Postfach; gebucht wird erst nach der Bestätigung
+    await karte.getByRole("button", { name: "Übernehmen PG-2" }).click();
+    await expect(page.getByRole("form", { name: "Angaben zur Rechnung" })).toBeVisible();
+    await expect(page.getByText("Aus dem Postfach:")).toContainText("Rechnung-PG-2.pdf");
+    await angabenEintragen("PG-2");
+    await kundeWaehlen(page, KUNDE);
+    await page.getByRole("button", { name: "Übernehmen" }).click();
+    await page.waitForURL(/rechnungen\/[0-9a-f-]{36}$/);
+    await expect(page.getByRole("heading", { name: "Rechnung PG-2" })).toBeVisible();
+
+    // Zurück in der Liste wartet nur noch PG-3; die beiden anderen stehen mit ihrem Ergebnis in der Tabelle
+    await gehe(page, "/rechnungen");
+    await expect(karte.getByText("1 offen")).toBeVisible();
+    await expect(karte.getByText("PG-3", { exact: true })).toBeVisible();
+    const zeilen = await sql`select filename, status, invoice_id is not null as rechnung from inbox_outgoing order by filename`;
+    expect(zeilen.map((z) => ({ ...z }))).toEqual([
+      { filename: "Rechnung-PG-1.pdf", status: "verworfen", rechnung: false },
+      { filename: "Rechnung-PG-2.pdf", status: "uebernommen", rechnung: true },
+      { filename: "Rechnung-PG-3.pdf", status: "offen", rechnung: false },
+    ]);
+  } finally {
+    await sql.end();
+  }
+});
+
+test("Aus dem Postfach: ein Storno übernehmen erledigt den Eintrag", async () => {
+  const leistung = { issueDate: day(-20), dueDate: day(-6), serviceFrom: day(-20), serviceTo: day(-20) };
+  const rechnung = { ...sampleDocument({ number: "SHOP-R2" }), ...leistung };
+  const storno = {
+    ...sampleDocument({ kind: "storno", number: "SHOP-S2" }),
+    ...leistung,
+    issueDate: day(-5),
+    corrects: { number: "SHOP-R2", issueDate: day(-20) },
+  };
+  await gehe(page, "/rechnungen");
+  await formularOeffnen(page);
+  await datei(page, "SHOP-R2.pdf", Buffer.from((await buildEInvoice(rechnung)).pdf));
+  await kundeWaehlen(page, KUNDE);
+  // Die Liste „Aus dem Postfach“ hat eigene Knöpfe „Übernehmen …“
+  await page.getByRole("button", { name: "Übernehmen", exact: true }).click();
+  await page.waitForURL(/rechnungen\/[0-9a-f-]{36}$/);
+
+  const sql = postgres(databaseUrlFuer("fremdrechnung"), { max: 1, onnotice: () => {} });
+  try {
+    await imPostfachAblegen(sql, "SHOP-S2", Buffer.from((await buildEInvoice(storno)).pdf));
+    await gehe(page, "/rechnungen");
+    await page.getByRole("region", { name: "Aus dem Postfach" }).getByRole("button", { name: "Übernehmen SHOP-S2" }).click();
+    const form = page.getByRole("form", { name: "Storno aus dem Fremdsystem" });
+    await form.getByRole("button", { name: "Storno übernehmen" }).click();
+    await expect
+      .poll(async () => (await sql`select status, invoice_id is not null as rechnung from inbox_outgoing where filename = 'Rechnung-SHOP-S2.pdf'`)[0])
+      .toEqual({ status: "uebernommen", rechnung: true });
+    expect(pageErrors).toEqual([]);
+  } finally {
+    await sql.end();
+  }
+});
+
+/** Leere Liste, die genannten PDFs warten, und das Formular des ersten ist ausgefüllt, aber noch nicht abgeschickt */
+async function postfachFormular(sql: postgres.Sql, seite: Page, nummern: string[], knopf: string): Promise<void> {
+  await sql`delete from inbox_outgoing`;
+  for (const nummer of nummern) await imPostfachAblegen(sql, nummer);
+  await gehe(seite, "/rechnungen");
+  await seite.getByRole("region", { name: "Aus dem Postfach" }).getByRole("button", { name: knopf }).click();
+  await expect(seite.getByRole("form", { name: "Angaben zur Rechnung" })).toBeVisible();
+}
+
+async function ausfuellen(seite: Page, nummer: string): Promise<void> {
+  await seite.getByLabel("Rechnungsnummer").fill(nummer);
+  await seite.getByLabel("Rechnungsdatum").fill(day(-20));
+  await seite.getByLabel("Fällig am").fill(day(-6));
+  await seite.getByLabel("Netto 1 (€)").fill("100,00");
+  await seite.getByLabel("Steuer 1 (€)").fill("19,00");
+  await kundeWaehlen(seite, KUNDE);
+}
+
+const absenden = (seite: Page) => seite.getByRole("button", { name: "Übernehmen", exact: true }).click();
+
+const mitDatenbank = async (run: (sql: postgres.Sql) => Promise<void>) => {
+  const sql = postgres(databaseUrlFuer("fremdrechnung"), { max: 2, onnotice: () => {} });
+  try {
+    await run(sql);
+  } finally {
+    await sql.end();
+  }
+};
+
+test("Aus dem Postfach: lässt sich der Eintrag nicht als übernommen markieren, entsteht auch keine Rechnung", async () => {
+  await mitDatenbank(async (sql) => {
+    await postfachFormular(sql, page, ["AB-1"], "Übernehmen AB-1");
+    await ausfuellen(page, "AB-1");
+    // Abbruch zwischen Buchen und Markieren: das Markieren scheitert in der Datenbank
+    await sql`alter table inbox_outgoing add constraint test_markieren check (status <> 'uebernommen')`;
+    try {
+      await absenden(page);
+      await expect(page.getByRole("alert")).toBeVisible();
+      const [rechnungen] = await sql`select count(*)::int as n from invoices where number = 'AB-1'`;
+      expect(rechnungen!.n).toBe(0);
+    } finally {
+      await sql`alter table inbox_outgoing drop constraint test_markieren`;
+    }
+  });
+});
+
+test("Aus dem Postfach: zwei Fenster übernehmen dieselbe Datei gleichzeitig, es entsteht nur eine Rechnung", async () => {
+  await mitDatenbank(async (sql) => {
+    await postfachFormular(sql, page, ["GL-1"], "Übernehmen GL-1");
+    const zweite = await page.context().newPage();
+    try {
+      await gehe(zweite, "/rechnungen");
+      await zweite.getByRole("region", { name: "Aus dem Postfach" }).getByRole("button", { name: "Übernehmen GL-1" }).click();
+      await ausfuellen(page, "GL-1a");
+      await ausfuellen(zweite, "GL-1b");
+      // Beide Anfragen kommen an der Prüfung vorbei und warten dann an der Sperre
+      await sql.begin(async (tx) => {
+        await tx`lock table invoices in exclusive mode`;
+        await absenden(page);
+        await absenden(zweite);
+        await expect
+          .poll(async () => (await sql`select count(*)::int as n from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'`)[0]!.n)
+          .toBeGreaterThanOrEqual(2);
+      });
+      const fertig = async (seite: Page) => /rechnungen\/[0-9a-f-]{36}$/.test(seite.url()) || (await seite.getByRole("alert").count()) > 0;
+      await expect.poll(async () => (await fertig(page)) && (await fertig(zweite))).toBe(true);
+      const rechnungen = await sql`select number from invoices where number in ('GL-1a', 'GL-1b')`;
+      expect(rechnungen).toHaveLength(1);
+    } finally {
+      await zweite.close();
+    }
+  });
+});
+
+test("Aus dem Postfach: wer eine Reihe abbricht, sieht die schon übernommene Rechnung in der Liste", async () => {
+  await mitDatenbank(async (sql) => {
+    await postfachFormular(sql, page, ["RH-1", "RH-2"], "Alle übernehmen");
+    await ausfuellen(page, "RH-1");
+    await absenden(page);
+    await expect(page.getByText("Aus dem Postfach:")).toContainText("Rechnung-RH-2.pdf");
+    await page.getByRole("button", { name: "Abbrechen" }).click();
+    await expect(page.getByRole("region", { name: "Aus dem Postfach" }).getByText("1 offen")).toBeVisible();
+    await expect(page.getByRole("link", { name: /RH-1/ })).toBeVisible();
+  });
+});
+
+test("Aus dem Postfach: wartet die nächste Datei der Reihe nicht mehr, steht die Meldung da und das erledigte Formular ist zu", async () => {
+  await mitDatenbank(async (sql) => {
+    await postfachFormular(sql, page, ["RW-1", "RW-2", "RW-3"], "Alle übernehmen");
+    await ausfuellen(page, "RW-1");
+    // In einem anderen Fenster verworfen
+    await sql`update inbox_outgoing set status = 'verworfen' where filename = 'Rechnung-RW-2.pdf'`;
+    await absenden(page);
+    await expect(page.getByRole("region", { name: "Aus dem Postfach" })).toContainText("wartet nicht mehr");
+    await expect(page.getByRole("form", { name: "Angaben zur Rechnung" })).toHaveCount(0);
+  });
+});
+
+test("Abgerufene Mails: eine abgelegte Ausgangsrechnung steht nicht als „Übersprungen“ da", async () => {
+  await mitDatenbank(async (sql) => {
+    // So protokolliert der Abruf eine Mail aus dem Ausgangsordner, deren PDF neu abgelegt wurde (inbox.ts, processMessage)
+    await sql`insert into inbox_messages (message_id, sender, subject, direction) values ('ausgang: <ml-1@shop.example>', 'rechnung@shop.example', 'Rechnung ML-1', 'ausgang')`;
+    await gehe(page, "/einstellungen?bereich=email");
+    const zeile = page.getByRole("region", { name: "Abgerufene Mails" }).getByRole("listitem").filter({ hasText: "Rechnung ML-1" });
+    await expect(zeile).toBeVisible();
+    await expect(zeile).not.toContainText("Übersprungen");
+  });
 });

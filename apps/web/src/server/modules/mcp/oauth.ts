@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
+import { readBodyLimited } from "../../body-limit.ts";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import { env } from "../../env.ts";
@@ -308,6 +309,27 @@ export async function handleMetadata(kind: "resource" | "server", rest = ""): Pr
   return json(kind === "resource" ? protectedResourceMetadata() : authorizationServerMetadata());
 }
 
+/**
+ * Register und Token sind ohne Anmeldung erreichbar; ihr Body ist klein (Client-Metadaten, ein Formular). Höchstens so viel
+ * wird gelesen, auch ohne Content-Length: Sonst puffert der Server je Anfrage bis zur Grenze des Proxys.
+ */
+export const OAUTH_BODY_LIMIT = 64 * 1024;
+
+async function smallBody(request: Request): Promise<string> {
+  if (Number(request.headers.get("content-length") ?? 0) > OAUTH_BODY_LIMIT) throw new OAuthError("invalid_request", "Anfrage zu groß.", 413);
+  const bytes = await readBodyLimited(request, OAUTH_BODY_LIMIT);
+  if (!bytes) throw new OAuthError("invalid_request", "Anfrage zu groß.", 413);
+  return new TextDecoder().decode(bytes);
+}
+
+const parseJson = (text: string): unknown => {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+};
+
 /** CORS-Vorabanfrage an die öffentlichen Endpunkte */
 export async function handlePreflight(): Promise<Response> {
   return (await mcpEnabled()) ? new Response(null, { status: 204, headers: CORS_HEADERS }) : notFound();
@@ -318,7 +340,7 @@ export async function handleRegister(request: Request): Promise<Response> {
   if (!(await mcpEnabled())) return notFound();
   try {
     if (limited(request, "register", 10, 3_600_000)) throw new OAuthError("temporarily_unavailable", "Zu viele Registrierungen.", 429);
-    const body: unknown = await request.json().catch(() => null);
+    const body = parseJson(await smallBody(request));
     return json(await registerClient(body), 201);
   } catch (error) {
     return oauthError(error);
@@ -330,9 +352,10 @@ export async function handleToken(request: Request, now = new Date()): Promise<R
   if (!(await mcpEnabled())) return notFound();
   try {
     if (limited(request, "token", 30, 60_000)) throw new OAuthError("temporarily_unavailable", "Zu viele Anfragen.", 429);
+    const text = await smallBody(request);
     const form = (request.headers.get("content-type") ?? "").includes("application/json")
-      ? new URLSearchParams((await request.json().catch(() => ({}))) as Record<string, string>)
-      : new URLSearchParams(await request.text());
+      ? new URLSearchParams((parseJson(text) ?? {}) as Record<string, string>)
+      : new URLSearchParams(text);
     const client = await authenticateClient(request, form);
     const grant = form.get("grant_type");
     if (grant === "authorization_code") return json(await exchangeCode(client, form, now));

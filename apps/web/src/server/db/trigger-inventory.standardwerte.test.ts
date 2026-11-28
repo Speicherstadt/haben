@@ -47,6 +47,9 @@ describe.skipIf(!testDatabaseUrl)("Standardwerte versiegelter Tabellen im Sollbe
     // Eine Tabelle ganz ohne Standardwerte gehört trotzdem zum Umfang
     expect(sealedTables).toContain("public.invoice_taxes");
     expect(defaults.filter((d) => d.table === "public.invoice_taxes")).toEqual([]);
+    // Audit-Log, Kopf der Kette und Siegel gehören dazu, obwohl sie nicht versiegelt sind
+    expect(sealedTables).toEqual(expect.arrayContaining(["public.audit_log", "public.audit_chain", "public.seals"]));
+    expect(defaults).toContainEqual({ table: "public.audit_log", column: "at", expression: "now()" });
   });
 
   it.each([

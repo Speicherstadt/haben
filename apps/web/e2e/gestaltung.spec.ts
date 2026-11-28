@@ -527,6 +527,50 @@ test("Eigene Fußzeile: Platzhalter, Prüfung und Übernahme aufs Blatt", async 
   await page.context().close();
 });
 
+test("Spalten der Fußzeile unten bündig, leere Zeilen bleiben in der Vorschau stehen (#2046)", async ({ browser }) => {
+  const page = await editor(browser, BREIT);
+  await page.goto("/einstellungen?bereich=gestaltung");
+  await page.waitForLoadState("networkidle");
+  const karte = page.getByRole("region", { name: "Fußzeile" });
+  const ausrichtung = karte.getByRole("group", { name: "Ausrichtung der Spalten" });
+  // Gilt auch für die automatische Fußzeile, darum ohne eigene Spalten zu sehen
+  await expect(ausrichtung.getByRole("button")).toHaveText(["Oben", "Unten"]);
+  await expect(ausrichtung.getByRole("button", { name: "Oben", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await karte.getByLabel("Eigene Fußzeile").check();
+  await karte.getByRole("button", { name: "3", exact: true }).click();
+  await karte.getByLabel("Spalte 1").fill("{firma}\n{strasse}\n{plz} {ort}\n{email}");
+  await karte.getByLabel("Spalte 2").fill("\nBankverbindung");
+  await karte.getByLabel("Spalte 3").fill("{steuernummer}");
+  const spalten = karte.locator(".footer-preview .footer-columns > div");
+  const zeile = (spalte: number, nr: number) => spalten.nth(spalte).locator(":scope > div").nth(nr);
+  const box = async (spalte: number, nr: number) => (await zeile(spalte, nr).boundingBox())!;
+  // Die leere erste Zeile hält ihre Höhe: „Bankverbindung“ steht auf der zweiten Zeile
+  expect(Math.abs((await box(1, 1)).y - (await box(0, 1)).y)).toBeLessThan(1);
+
+  await ausrichtung.getByRole("button", { name: "Unten", exact: true }).click();
+  const unterkante = async (spalte: number, nr: number) => {
+    const b = await box(spalte, nr);
+    return b.y + b.height;
+  };
+  await expect.poll(async () => Math.abs((await unterkante(2, 0)) - (await unterkante(0, 3)))).toBeLessThan(1);
+  expect(Math.abs((await unterkante(1, 1)) - (await unterkante(0, 3)))).toBeLessThan(1);
+  await karte.getByRole("button", { name: "Fußzeile speichern" }).click();
+  await expect(karte.getByRole("status").last()).toContainText("Fußzeile gespeichert");
+  await bereichHinUndZurueck(page);
+  try {
+    await expect(ausrichtung.getByRole("button", { name: "Unten", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(karte.getByLabel("Spalte 2")).toHaveValue("\nBankverbindung");
+  } finally {
+    await page.goto("/einstellungen?bereich=gestaltung");
+    await page.waitForLoadState("networkidle");
+    await ausrichtung.getByRole("button", { name: "Oben", exact: true }).click();
+    await karte.getByLabel("Eigene Fußzeile").uncheck();
+    await karte.getByRole("button", { name: "Fußzeile speichern" }).click();
+    await expect(karte.getByRole("status").last()).toContainText("Fußzeile gespeichert");
+    await page.context().close();
+  }
+});
+
 test("Eine Fußzeile über 400 Zeichen meldet das verständlich auf Deutsch", async ({ browser }) => {
   const page = await editor(browser, BREIT);
   await page.goto("/einstellungen?bereich=gestaltung");

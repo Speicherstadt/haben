@@ -62,10 +62,13 @@ Unter **Einstellungen › Beleggestaltung › Fußzeile** schaltest du von der a
 - Du wählst zwei bis vier Spalten mit je höchstens fünf Zeilen und schreibst freien Text mit Platzhaltern: `{firma}`, `{strasse}`, `{plz}`, `{ort}`, `{email}`, `{telefon}`, `{bank}`, `{kontoinhaber}`, `{iban}`, `{bic}`, `{steuernummer}`, `{ustid}`.
 - Text lässt sich auszeichnen wie in den Belegtexten: markieren und **F**, **K** oder **U** wählen, oder die Zeichen tippen (`*fett*`, `_kursiv_`, `__unterstrichen__`). Das gilt für deinen Text, auch um Platzhalter herum; Zeichen aus den Firmendaten bleiben wörtlich.
 - Fehlt der Wert zu einem Platzhalter, entfällt die ganze Zeile: Ohne Telefonnummer erscheint keine Zeile „Telefon“.
+- Eine leere Zeile bleibt als Abstand stehen, auch am Anfang einer Spalte, und zählt zu den fünf Zeilen. Leere Zeilen am Ende einer Spalte entfallen.
 - Steuernummer oder USt-IdNr. muss auf der Rechnung stehen (§ 14 Abs. 4 Nr. 2 UStG). Haben speichert die Fußzeile nur, wenn `{steuernummer}` oder `{ustid}` vorkommt.
 - Hat deine Firma die genannte Nummer nicht, setzt Haben die vorhandene ans Ende der letzten Spalte. Bei Reverse Charge und innergemeinschaftlicher Lieferung steht die USt-IdNr. immer auf der Rechnung (§ 14a UStG).
 - Bricht eine Zeile um oder sind die Spalten hoch, wächst der untere Rand mit; es steht dann weniger Inhalt auf der Seite.
 - Dein Text wird nicht übersetzt: Auf englischen Belegen steht er so, wie du ihn schreibst.
+
+**Spalten ausrichten** stellt die Spalten **oben** (ab Werk) oder **unten** bündig, auch die der automatischen Fußzeile und die Registerangaben als Spalte. In der Randspalte von Elegant und Atelier stehen die Spalten untereinander, dort wirkt die Einstellung nicht.
 
 ### Pflichtangaben einer GmbH oder UG
 
