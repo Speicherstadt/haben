@@ -151,7 +151,7 @@ export const documentInputSchema = documentFields
   })
   // Mit Aufteilung ist ein Privatanteil eine Zeile „Privatentnahme“; am Beleg gespeichert wird er nicht mehr (#1975)
   .refine((d) => d.splits.length === 0 || d.privateShare === 0, {
-    message: "Ein Privatanteil mit Aufteilung wird nicht unterstützt; erfasse ihn als Zeile „Privatentnahme“",
+    message: "Ein Privatanteil mit Aufteilung wird nicht unterstützt",
     path: ["privateShare"],
   })
   // Positionen tragen die ganze Kontierung; daneben gibt es keine Kategorie, Aufteilung oder Privatanteil am Beleg
