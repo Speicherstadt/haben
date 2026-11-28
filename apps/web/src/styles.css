@@ -275,7 +275,7 @@ button.nav-foot-link { width: 100%; background: none; border: 0; font: inherit; 
    Navigation, damit die Leiste außen sitzt und der Fokusring nicht abgeschnitten wird. Als Gegenstück zur Handy-Regel
    formuliert, damit bei Zoom auch Breiten zwischen 860 und 861 Pixel eine Regel haben */
 @media not all and (max-width: 860px) {
-  .nav-body { min-height: 0; overflow-y: auto; margin: -4px -16px -24px; padding: 4px 16px 24px; }
+  .nav-body { min-height: 0; overflow: hidden auto; margin: -4px -16px -24px; padding: 4px 16px 24px; }
   [data-nav="collapsed"] .nav-body { align-self: stretch; width: auto; align-items: center; margin: -4px -12px -20px; padding: 4px 12px 20px; }
 }
 /* Schmale Leiste nur beim Rollen; der Daumen hat mindestens 3 : 1 gegen --nav (WCAG 1.4.11). color-scheme hilft
