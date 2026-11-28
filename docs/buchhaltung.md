@@ -159,6 +159,33 @@ Ein Wechsel zum Jahreswechsel gilt nur für künftige Buchungen. Ein noch offene
 > [!IMPORTANT]
 > Die Konten sind sorgfältig gewählt, aber nicht von einer Steuerberatung abgenommen. Sie sollten vor dem Echtbetrieb mit der Steuerberatung abgeglichen werden, besonders wenn diese mit den Daten weiterarbeitet.
 
+### Neue Ausgabe des Kontenrahmens
+
+DATEV gibt SKR03 und SKR04 jedes Jahr neu heraus; dabei kommen Konten dazu, andere fallen weg. Haben ordnet nach der Ausgabe zu, die `HABEN_KONTENRAHMEN_STAND` nennt ([Jahreswerte](entwicklung.md#jahreswerte)), und richtet sich beim Konto nach dem Buchungsjahr:
+
+- **Neue Buchungen** stehen auf dem Konto, das DATEV im Jahr des Buchungsdatums führt. Trägst du etwas für ein früheres Jahr nach, nimmt Haben das Konto von damals; der [DATEV-Export](auswertungen.md#datev-export-für-die-steuerberatung) dieses Jahres passt so zum Kontenrahmen, mit dem die Steuerberatung das Jahr führt. Konten, die du selbst angibst (freie Buchung, Datenimport, Eröffnung), übernimmt Haben unverändert.
+- **Bestehende Buchungen** bucht Haben nie um. Sie bleiben auf ihrem Konto und zählen in EÜR, BWA und E-Bilanz wie bisher. Ein Storno bucht auf dasselbe Konto zurück. Die früheren Nummern bleiben für [eigene Konten](#eigene-konten) gesperrt.
+
+Diese Konten haben sich geändert:
+
+| Zweck | SKR03 | SKR04 | Buchungsjahre |
+| --- | --- | --- | --- |
+| [Homeoffice-Tagespauschale](pauschalen.md#homeoffice-tagespauschale) | 4288 | 6348 | bis 2024 |
+| | 4287 | 6347 | ab 2025 |
+| Erlöse als Kleinunternehmer § 19 UStG | 8195 | 4185 | bis 2024 |
+| | 8192 | 4184 | ab 2025 |
+| [Sachentnahme](#manuelle-und-freie-buchungen) 7 % | 8915 | 4610 | alle |
+
+Quelle für 2025 sind die [Programmänderungen zum DATEV-Kontenrahmen 2025](https://apps.datev.de/myupdates/product-change/details/rel.1037625.productversion_i20241002140543480010133).
+
+Auf einem früheren Konto steht auch, was Haben vor der jeweiligen Umstellung für spätere Jahre gebucht hat. Sprich diese Konten mit der Steuerberatung ab, bevor sie den Stapel einliest:
+
+- **Homeoffice-Pauschalen für 2025 und 2026 auf 4288 bzw. 6348**, gebucht bis einschließlich Version 0.15.1. Bei DATEV ist das das Konto des häuslichen Arbeitszimmers, auch für 2024, wo DATEV noch kein Konto der Tagespauschale führt. Haben zählt nur die Pauschalen dort als Tagespauschale; andere Buchungen auf dem Konto bleiben Arbeitszimmer.
+- **Kleinunternehmererlöse für 2025 und 2026 auf 8195 bzw. 4185**, gebucht vor Version 0.9.0. Im DATEV-Kontenrahmen 2026 tragen die Nummern das Kennzeichen R ([SKR03, Seite 26](https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf#page=26), [SKR04, Seite 14](https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf#page=14)): Sie sind dort erst nach Zuweisung einer anderen Kontenfunktion bebuchbar (Erläuterung auf Seite 37).
+- **Sachentnahmen 7 % im SKR04 auf 4630.** Eine Zeit lang buchte Haben sie dorthin; bei DATEV ist 4630 die Verwendung von Gegenständen zu 7 %.
+
+Warum Haben so vorgeht, steht in der [Entscheidung: Kontenrahmen je Jahr und frühere Konten](adr/kontenrahmen-ausgaben.md).
+
 ### Bestands- und Steuerkonten
 
 | Zweck | SKR03 | SKR04 |
@@ -206,7 +233,7 @@ Ein Wechsel zum Jahreswechsel gilt nur für künftige Buchungen. Ein noch offene
 
 Achtung bei der Nummer 1200: In SKR03 ist das die Bank, in SKR04 die Forderungen; in SKR03 ist 1800 die Privatentnahme, in SKR04 die Bank; 4970 sind in SKR03 die Nebenkosten des Geldverkehrs, in SKR04 die Schadenersatzleistungen.
 
-Neue Kleinunternehmererlöse verwenden die Standardkonten 8192/4184 aus den DATEV-Kontenrahmen 2026 ([SKR03, Seite 26](https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf#page=26), [SKR04, Seite 14](https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf#page=14)). Bisherige Buchungen auf 8195/4185 bleiben unverändert und zählen in EÜR und E-Bilanz weiter als Kleinunternehmererlöse. Auch der DATEV-Export behält ihre Nummern. Stimme deren Kontenfunktion in der DATEV-Zielbuchhaltung mit der Steuerberatung ab: DATEV führt diese Nummern mit Kennzeichen R; sie sind dort erst nach Zuweisung einer anderen Kontenfunktion bebuchbar (Erläuterung auf Seite 37).
+Für Buchungsjahre bis 2024 gehen Kleinunternehmererlöse auf 8195 bzw. 4185 ([Neue Ausgabe des Kontenrahmens](#neue-ausgabe-des-kontenrahmens)).
 
 In einer GmbH oder UG (siehe [Rechtsform](einrichtung.md#rechtsform-einzelunternehmen-gmbh-oder-ug)) bucht Haben überall, wo im Einzelunternehmen Privateinlage oder Privatentnahme stünde, auf das Gesellschafter-Verrechnungskonto: beim vom Gesellschafter ausgelegten Beleg, bei Bankumsätzen „Gesellschafter (Verrechnungskonto)“ und bei Kassenbuchungen vom und an den Gesellschafter. Privatanteile, Kfz-Privatnutzung und Pauschalen gibt es dort nicht.
 
