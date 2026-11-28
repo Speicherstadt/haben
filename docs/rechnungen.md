@@ -278,7 +278,7 @@ Alte Befreiungstexte werden nicht automatisch einer Vorschrift zugeordnet. Ihr g
 
 #### Verkauf aus dem Anlagevermögen
 
-Verkaufst du etwas aus deinem Anlagevermögen, etwa einen gebrauchten Laptop, stellst du **Verkauf aus dem Anlagevermögen** unter den Angaben zur Umsatzsteuer auf **Ja**. Die Umsatzsteuer wählst du wie für jede Lieferung. Haben bucht den Erlös dann auf „Erlöse aus Verkäufen Sachanlagevermögen“ statt auf das Erlöskonto ([Konten](anlagen.md#verkauf)); in der EÜR steht er in Zeile 19 „Veräußerung oder Entnahme von Anlagevermögen“ und im [Gesamtumsatz](auswertungen.md#gesamtumsatz-nach--19-ustg) nicht. Den Abgang trägst du zusätzlich an der [Anlage](anlagen.md#abgang) ein.
+Verkaufst du etwas aus deinem Anlagevermögen, etwa einen gebrauchten Laptop, stellst du **Verkauf aus dem Anlagevermögen** unter dem Feld **Umsatzsteuer** auf **Ja**. Die Umsatzsteuer wählst du wie für jede Lieferung. Haben bucht den Erlös dann auf „Erlöse aus Verkäufen Sachanlagevermögen“ statt auf das Erlöskonto ([Konten](anlagen.md#verkauf)); in der EÜR steht er in Zeile 19 „Veräußerung oder Entnahme von Anlagevermögen“ und im [Gesamtumsatz](auswertungen.md#gesamtumsatz-nach--19-ustg) nicht. Den Abgang trägst du zusätzlich an der [Anlage](anlagen.md#abgang) ein.
 
 ### Format wählen
 
