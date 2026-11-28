@@ -67,6 +67,21 @@ async function draftProblem(invoice: Invoice, senden: boolean): Promise<External
 }
 
 /**
+ * Festschreiben. Hat ein gleichzeitiger Aufruf denselben Entwurf schon festgeschrieben (etwa ein Wiederholen nach einer
+ * Zeitüberschreitung), kommt die Rechnung zurück statt des Fehlers aus lockDraft. Die Rückfrage zur
+ * Kleinunternehmergrenze kann ein Token nicht bestätigen: UmsatzgrenzeError wird zur 422.
+ */
+async function finalizeOrFinalized(actor: string, id: string, umsatzStand: UmsatzStand): Promise<{ invoice: Invoice; finalized: boolean }> {
+  try {
+    return { invoice: await finalizeInvoice(actor, id, umsatzStand), finalized: true };
+  } catch (error) {
+    const now = await getInvoice(id);
+    if (now && now.invoice.status !== "draft") return { invoice: now.invoice, finalized: false };
+    throw error;
+  }
+}
+
+/**
  * Schreibt den Entwurf fest und versendet ihn auf Wunsch. Idempotent: Eine schon festgeschriebene Rechnung kommt
  * unverändert zurück; mit `senden` geht sie nur dann per E-Mail, wenn sie noch nie erfolgreich gegangen ist.
  */
@@ -93,7 +108,6 @@ export async function finalizeExternalDraft(
   }
   const problem = await draftProblem(invoice, senden);
   if (problem) return problem;
-  // Die Rückfrage zur Kleinunternehmergrenze kann ein Token nicht bestätigen: UmsatzgrenzeError wird zur 422
-  const finalized = await finalizeInvoice(actor, id, umsatzStand);
-  return { ok: true, invoice: finalized, finalized: true, versand: senden ? await sendOnce(actor, id) : { status: "nicht_verlangt" } };
+  const result = await finalizeOrFinalized(actor, id, umsatzStand);
+  return { ok: true, ...result, versand: senden ? await sendOnce(actor, id) : { status: "nicht_verlangt" } };
 }
