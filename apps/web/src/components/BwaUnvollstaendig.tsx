@@ -26,6 +26,18 @@ export function ziel(h: UnvollstaendigHinweis): Ziel {
 }
 
 /**
+ * Die Links im gebündelten Hinweis: je Ziel nur einer, am ersten Hinweis dorthin. Zeigen mehrere auf die Bank, führt er zu
+ * allen Konten. null: kein Link an diesem Hinweis.
+ */
+export function zieleImBuendel(hinweise: readonly UnvollstaendigHinweis[]): (Ziel | null)[] {
+  const zurBank = hinweise.filter((h) => h.link === "/bank").length;
+  return hinweise.map((h, i) => {
+    if (hinweise.findIndex((v) => v.link === h.link) !== i) return null;
+    return h.link === "/bank" && zurBank > 1 ? { to: "/bank", search: { konto: "alle" } } : ziel(h);
+  });
+}
+
+/**
  * Was im Zeitraum der BWA noch fehlt (#1635), wie die Hinweise der Voranmeldung (-zeitraum-hinweise.tsx): Was die Zahlen
  * verfälscht, steht je als eigener Hinweis, was sie nur verfälschen kann, gebündelt in einem. Den Link sieht nur, wer die
  * Seite öffnen darf; die Steuerberatung etwa sieht die Bank nicht.
@@ -45,6 +57,7 @@ export function BwaUnvollstaendig({ hinweise, zeitraum, rolle }: { hinweise: rea
     </>
   );
   const ruhig = hinweise.filter((h) => h.ton === "info");
+  const ruhigZiele = zieleImBuendel(ruhig);
   return (
     <>
       {hinweise
@@ -59,11 +72,11 @@ export function BwaUnvollstaendig({ hinweise, zeitraum, rolle }: { hinweise: rea
         <div className="banner banner-info" role="status">
           <Icon name="info" />
           {ruhig.length === 1 ? (
-            <span>{inhalt(ruhig[0]!, ziel(ruhig[0]!))}</span>
+            <span>{inhalt(ruhig[0]!, ruhigZiele[0] ?? null)}</span>
           ) : (
             <ul className="banner-list">
-              {ruhig.map((h) => (
-                <li key={h.art}>{inhalt(h, ziel(h))}</li>
+              {ruhig.map((h, i) => (
+                <li key={h.art}>{inhalt(h, ruhigZiele[i] ?? null)}</li>
               ))}
             </ul>
           )}
