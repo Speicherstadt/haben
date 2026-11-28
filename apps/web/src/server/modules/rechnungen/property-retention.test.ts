@@ -80,9 +80,7 @@ describe.skipIf(!testDatabaseUrl)("Aufbewahrungshinweis für Grundstücksleistun
       ...externalReference.draftInputOf(loaded.invoice, loaded.lines),
       propertyRetention: false,
       // Nicht die ganze unbezahlte Rechnung aufheben, das ist seit #2037 ein Storno: Entwurf kürzen
-      lines: externalReference
-        .draftInputOf(loaded.invoice, loaded.lines)
-        .lines.map((z, n) => (n === 0 ? { ...z, unitPrice: Math.floor(z.unitPrice / 2) } : z)),
+      lines: externalReference.draftInputOf(loaded.invoice, loaded.lines).lines.map((z, n) => (n === 0 ? { ...z, unitPrice: Math.floor(z.unitPrice / 2) } : z)),
     };
     expect(await invoices.updateDraft(actor, correction.id, changed)).toMatchObject({ propertyRetention: true });
     await invoices.finalizeInvoice(actor, correction.id, kleinunternehmerStand);

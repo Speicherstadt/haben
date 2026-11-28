@@ -247,15 +247,11 @@ describe.skipIf(!testDatabaseUrl)("Verrechnung von Ausgangsrechnung und Kundenko
     expect(await offen(grosseKorrektur)).toBe(-9_100);
   }, 60_000);
 
-  it("lehnt ab, was keine Verrechnung ist: voller Betrag, falsches Paar, eigenes Datum, Zukunft", async () => {
+  it("lehnt ab, was keine Verrechnung ist: falsches Paar, eigenes Datum, Zukunft", async () => {
     const { rechnung, korrektur } = await paar();
-    // Eine Korrektur über den ganzen, noch unbezahlten Rechnungsbetrag ist ein Storno — eigene Rechnung, damit die
-    // Korrekturen zusammen die Rechnung nicht unter 0 mindern
-    const eigene = await beleg("rechnung", 13_361, "2026-09-05");
-    const volleKorrektur = await beleg("korrektur", -13_361, "2026-11-11", eigene);
-    await expect(
-      verrechnung.settleInvoices(actor, { invoiceId: eigene, counterInvoiceId: volleKorrektur, amount: 15_900, date: "2026-11-12", note: "voll" }),
-    ).rejects.toThrow(/ist ein Storno/);
+    // Der Fall „Korrektur über den vollen, unbezahlten Betrag" lässt sich seit #2037 nicht mehr herstellen: das
+    // Festschreiben weist ihn ab, bevor der Beleg versiegelt wird (correction-checks.test.ts). Die Regel in
+    // verrechnung.ts:129 bleibt als Netz für Altbestand stehen.
 
     // Zwei Rechnungen ohne Korrektur sind kein Paar
     const zweite = await beleg("rechnung", 1_000, "2026-09-02");

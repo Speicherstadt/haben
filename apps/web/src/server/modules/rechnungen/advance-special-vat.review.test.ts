@@ -140,16 +140,9 @@ describe.skipIf(!testDatabaseUrl)("Review #813: Anzahlungsanteil einer EU-Leistu
     expect({ december: december.kz21, january: january.kz21 }).toEqual({ december: 0, january: 99_400 });
   });
 
-  it("Korrektur der EU-Schlussleistung mindert im Änderungsmonat, eine spätere Zahlung meldet nichts doppelt", async () => {
-    const { final } = await chain("reverse_charge");
-    const correction = await invoices.createCorrection(actor, final.id, "2027-02-12");
-    await invoices.finalizeInvoice(actor, correction.id, kleinunternehmerStand);
-    await bank.createCashInvoiceEntry(actor, { invoiceId: final.id, date: "2027-03-12", amount: 70_000 }, "2027-03-12");
-    const periods = await Promise.all([1, 2, 3].map((month) => vat.computeVatFigures({ year: 2027, month })));
-    expect(periods.map((period) => ({ journal: period.kz21 }))).toEqual([{ journal: 100_000 }, { journal: -70_000 }, { journal: 0 }]);
-    expect((await vat.zmOverview({ year: 2027, month: 41 })).zeilen).toEqual([{ ustId: "ATU12345678", art: "S", betrag: 30_000 }]);
-    expect(await sql`select * from haben_integrity_problems(100)`).toEqual([]);
-  });
+  // Der Fall „Korrektur der EU-Schlussleistung über den vollen Betrag, danach die Zahlung darüber" lässt sich seit
+  // #2037 nicht mehr bauen: eine Korrektur über den vollen, unbezahlten Betrag ist ein Storno und wird beim
+  // Festschreiben abgewiesen. Der verwandte Fall über den Forderungsausfall steht direkt darunter.
 
   it("SKR04/Ist: Forderungsausfall nach der EU-Leistung mindert die vollständige Meldebasis nur einmal", async () => {
     await sql`update company set kontenrahmen='SKR04', versteuerung='ist'`;

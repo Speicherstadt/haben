@@ -33,7 +33,7 @@ export async function reductionProblem(invoice: Invoice, original: Invoice, q: D
   if (invoice.kind !== "korrektur") return null;
   const corrections = await correctionSum(invoice, original, "net", q);
   if (original.net + corrections + invoice.net < 0) return "Die Korrekturen mindern die Rechnung unter 0";
-  return aufgehobenProblem(invoice, original, corrections, q);
+  return aufgehobenProblem(invoice, original, q);
 }
 
 /**
@@ -44,7 +44,7 @@ export async function reductionProblem(invoice: Invoice, original: Invoice, q: D
  * `invoiceOpen` liefert 0, sobald der Beleg kein Festschreiben ist, deshalb darf hier nie der Entwurf stehen.
  * „Nichts bezahlt" heißt offener Rest gleich Rechnungsbetrag; Ausbuchungen und Verrechnungen zählen als Zahlung.
  */
-async function aufgehobenProblem(invoice: Invoice, original: Invoice, corrections: number, q: Db | Tx): Promise<string | null> {
+async function aufgehobenProblem(invoice: Invoice, original: Invoice, q: Db | Tx): Promise<string | null> {
   const brutto = await correctionSum(invoice, original, "gross", q);
   if (original.gross + brutto + invoice.gross !== 0) return null;
   const [offen] = await listInvoices(today(), original.id, q);
@@ -53,12 +53,7 @@ async function aufgehobenProblem(invoice: Invoice, original: Invoice, correction
 }
 
 /** Summe der festgeschriebenen Korrekturen einer Rechnung ohne die eigene Zeile */
-async function correctionSum(
-  invoice: Invoice,
-  original: Invoice,
-  feld: "net" | "gross",
-  q: Db | Tx,
-): Promise<number> {
+async function correctionSum(invoice: Invoice, original: Invoice, feld: "net" | "gross", q: Db | Tx): Promise<number> {
   const spalte = feld === "net" ? schema.invoices.net : schema.invoices.gross;
   const [row] = await q
     .select({ summe: sql<number>`coalesce(sum(${spalte}), 0)::int` })
