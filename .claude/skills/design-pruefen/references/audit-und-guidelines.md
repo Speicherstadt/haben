@@ -75,7 +75,7 @@ Grundlage für Sicht B in `design-pruefen` – verbindet das 5-Dimensionen-Audit
 
 ### 9. Navigation & State
 - Zustand (Filter, Reiter, Zeitraum, Seiten) nach Möglichkeit in der URL spiegeln; echte `<a>`/`<Link>` für Cmd/Ctrl-/Mittelklick.
-- Destruktive Aktionen (Löschen, Entfernen) immer mit Bestätigungsdialog oder Rückgängig – nie sofort ohne Schutz.
+- Wer Gespeichertes löscht oder Unumkehrbares auslöst, fragt erst über `ConfirmDialog`; ohne Rückfrage bleiben nur Umkehrbares und das Entfernen einer Zeile aus einem noch nicht gespeicherten Formular (`DESIGN.md`, Reihenfolge der Knöpfe und Rückfragen).
 - Horizontale `overflow-x-auto`-Tabellen per `tabindex="0"` und Fokus-Ring tastaturscrollbar.
 
 ### 10. Touch & Interaction
