@@ -61,7 +61,7 @@ describe.skipIf(!testDatabaseUrl)("SSO: Rückkehr nach erneuter Anmeldung (Postg
     expect(ziel(await login("/einstellungen?bereich=zugaenge", inhaber("start")))).toBe("/einstellungen?bereich=zugaenge");
   });
 
-  it.each(["https://evil.example/", "//evil.example/belege", "/\\evil.example", "/login?anmelden=erneut", "/api/auth/sign-out", 42])(
+  it.each(["https://evil.example/", "//evil.example/belege", "/\\evil.example", "/.//evil.example", "/login?anmelden=erneut", "/api/auth/sign-out", 42])(
     "führt bei %j zur Startseite",
     async (callbackURL) => {
       expect(ziel(await login(callbackURL, inhaber("start")))).toBe("/");

@@ -13,6 +13,11 @@ describe("weiterNachAnmeldung", () => {
       expect(weiterNachAnmeldung(`?weiter=${encodeURIComponent(ziel)}`)).toBeNull();
   });
 
+  it("lehnt Pfade ab, die erst nach dem Normalisieren mit // beginnen", () => {
+    for (const ziel of ["/.//evil.example", "/belege/..//evil.example", "/x/../..//evil.example/a"])
+      expect(weiterNachAnmeldung(`?weiter=${encodeURIComponent(ziel)}`)).toBeNull();
+  });
+
   it("kehrt nie zu Schnittstellen oder zur Anmeldung selbst zurück, auch nicht über Umwege im Pfad", () => {
     for (const ziel of ["/api/auth/sign-out", "/login", "/login?anmelden=sso", "/setup", "/einladung/abc", "/belege/../login", "/./api/mcp"])
       expect(weiterNachAnmeldung(`?weiter=${encodeURIComponent(ziel)}`)).toBeNull();
