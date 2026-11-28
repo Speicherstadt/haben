@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 import { EBILANZ_KONTEN } from "./ebilanz.ts";
 import { postenOf } from "./hgb.ts";
 import { euerZuordnung } from "./journal-euer.ts";
-import { fruehereKontoNamen, fruehereKonten, heutigesKonto, KONTENAENDERUNGEN, kontoImBuchungsjahr, zeilenImBuchungsjahr } from "./kontenaenderungen.ts";
+import {
+  fruehereKontoNamen,
+  fruehereKonten,
+  heutigesKonto,
+  KONTENAENDERUNGEN,
+  kontoImBuchungsjahr,
+  zeilenFuersJournal,
+  zeilenImBuchungsjahr,
+} from "./kontenaenderungen.ts";
 import { kontoImKontenrahmen } from "./kontenrahmen-wechsel.ts";
 import { ledgerManagedAccounts, SACHENTNAHME_KONTEN } from "./manual.ts";
 import { heuteBebuchteKonten, reservedAccountNumbers } from "./own-accounts.ts";
@@ -69,6 +77,48 @@ describe("Konto nach dem Buchungsjahr", () => {
       { account: "8195", debit: 0, credit: 10_000, taxCode: "KU" },
     ]);
     expect(zeilenImBuchungsjahr("SKR03", 2025, "kasse", zeilen)).toEqual(zeilen);
+  });
+});
+
+describe("Zeilen, wie sie ins Journal kommen", () => {
+  const konten = (kr: Kontenrahmen, buchung: { jahr: number; herkunft: string; ursprungsjahr?: number | null }, ...accounts: string[]) =>
+    zeilenFuersJournal(kr, { ...buchung, zeilen: accounts.map((account) => ({ account })) }).map((z) => z.account);
+
+  it("eine neue Buchung steht auf den Konten ihres Buchungsjahres", () => {
+    expect(konten("SKR03", { jahr: 2024, herkunft: "kasse" }, "1000", "8192")).toEqual(["1000", "8195"]);
+    expect(konten("SKR03", { jahr: 2025, herkunft: "kasse" }, "1000", "8192")).toEqual(["1000", "8192"]);
+    expect(konten("SKR04", { jahr: 2024, herkunft: "pauschale" }, "6347", "2180")).toEqual(["6348", "2180"]);
+    // Ein früheres Konto, das eine neue Buchung nennt, bleibt
+    expect(konten("SKR03", { jahr: 2026, herkunft: "pauschale" }, "4288", "1890")).toEqual(["4288", "1890"]);
+  });
+
+  it("freie Buchung, Datenimport und Eröffnung behalten die angegebenen Konten", () => {
+    for (const herkunft of ["manuell", "import", "eroeffnung"]) {
+      expect(konten("SKR03", { jahr: 2024, herkunft }, "1000", "8192")).toEqual(["1000", "8192"]);
+      expect(konten("SKR03", { jahr: 2026, herkunft, ursprungsjahr: 2024 }, "8195", "1000")).toEqual(["8195", "1000"]);
+    }
+  });
+
+  it("eine Gegenbuchung im Jahr ihrer Ursprungsbuchung spiegelt deren Konten", () => {
+    // Bestand: 2024 nachgetragen, als Haben jedes Jahr nach der neuesten Ausgabe buchte
+    expect(konten("SKR03", { jahr: 2024, herkunft: "pauschale", ursprungsjahr: 2024 }, "1890", "4287")).toEqual(["1890", "4287"]);
+    // Bestand: 2026 auf dem früheren Konto, von vor der Umstellung
+    expect(konten("SKR03", { jahr: 2026, herkunft: "kasse", ursprungsjahr: 2026 }, "8195", "1000")).toEqual(["8195", "1000"]);
+    expect(konten("SKR04", { jahr: 2025, herkunft: "asset", ursprungsjahr: 2025 }, "4630", "2100")).toEqual(["4630", "2100"]);
+  });
+
+  // DATEV hat 8195 bzw. 4185 im Jahr 2026 gelöscht (Kontenerläuterung Dok.-Nr. 5360713): Das Storno einer Bareinnahme von
+  // 2024, gebucht 2026, darf dort nicht landen
+  it("eine Gegenbuchung in einem anderen Jahr steht auf den Konten dieses Jahres", () => {
+    expect(konten("SKR03", { jahr: 2026, herkunft: "kasse", ursprungsjahr: 2024 }, "8195", "1000")).toEqual(["8192", "1000"]);
+    expect(konten("SKR04", { jahr: 2026, herkunft: "allocation", ursprungsjahr: 2024 }, "4185", "1800")).toEqual(["4184", "1800"]);
+    expect(konten("SKR03", { jahr: 2025, herkunft: "pauschale", ursprungsjahr: 2024 }, "1890", "4288")).toEqual(["1890", "4287"]);
+    // Das Arbeitszimmer selbst (kein Storno einer Pauschale) bleibt
+    expect(konten("SKR03", { jahr: 2025, herkunft: "document", ursprungsjahr: 2024 }, "1600", "4288")).toEqual(["1600", "4288"]);
+    // Eine berichtigte Zuordnung von Haben wird in keinem Jahr neu bebucht
+    expect(konten("SKR04", { jahr: 2026, herkunft: "asset", ursprungsjahr: 2025 }, "4630", "2100")).toEqual(["4610", "2100"]);
+    // Zurück in ein Jahr vor dem heutigen Konto
+    expect(konten("SKR03", { jahr: 2024, herkunft: "kasse", ursprungsjahr: 2025 }, "8192", "1000")).toEqual(["8195", "1000"]);
   });
 });
 

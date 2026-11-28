@@ -120,6 +120,17 @@ describe.skipIf(!testDatabaseUrl)("Konten nach dem Buchungsjahr (Postgres)", () 
         { account: privateinlagen, debit: 6_000, credit: 0 },
         { account: homeoffice.bis2024, debit: 0, credit: 6_000 },
       ]);
+      // Das Storno der Bareinnahme von 2024 bucht die Kasse heute: Es steht im Jahr 2026 und damit auf dem Konto von 2026,
+      // nicht auf dem, das DATEV 2026 gelöscht hat (Kontenerläuterung Dok.-Nr. 5360713)
+      const stornoKasse = await bank.reverseCashEntry(actor, alt.id, today);
+      expect(stornoKasse.date).toBe(today);
+      expect(await zeilenZu(stornoKasse.id)).toEqual([
+        { account: erloese.ab2025, debit: 20_000, credit: 0 },
+        { account: kasse, debit: 0, credit: 20_000 },
+      ]);
+      expect(await euerZeilen(2024)).toEqual({ einnahmenKleinunternehmer: 20_000 });
+      expect(await euerZeilen(2026)).toEqual({ einnahmenKleinunternehmer: -20_000 });
+      expect(await konten(2026)).toEqual([kasse, erloese.ab2025].sort());
       expect(await sql`select art, tabelle, zeile, befund from haben_integrity_problems(1000)`).toEqual([]);
     });
   }
