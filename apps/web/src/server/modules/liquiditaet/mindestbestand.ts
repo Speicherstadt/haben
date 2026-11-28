@@ -7,12 +7,15 @@ import { liquiditaetsvorschau } from "./vorschau.ts";
  * (STANDARD_HORIZONT, überfällige Forderungen eingerechnet), damit der Link dorthin denselben Tag zeigt.
  */
 
-/** Erster Tag in den nächsten 13 Wochen unter dem Mindestbestand; null ohne Mindestbestand oder wenn der Stand darüber bleibt */
+/**
+ * Erster Tag in den nächsten 13 Wochen unter dem Mindestbestand; null ohne Mindestbestand, ohne bekannten Kontostand (die
+ * Vorschau startete bei 0 €, die Seite nennt das fehlende Konto) oder wenn der Stand darüber bleibt
+ */
 export async function mindestbestandWarnung(heute: string): Promise<Unterschreitung | null> {
   const { mindestbestand } = await loadCompany();
   if (mindestbestand === null) return null;
-  const { vorschau } = await liquiditaetsvorschau(heute, STANDARD_HORIZONT);
-  return unterschreitung(vorschau, mindestbestand);
+  const { vorschau, konten } = await liquiditaetsvorschau(heute, STANDARD_HORIZONT);
+  return konten.bekannt ? unterschreitung(vorschau, mindestbestand) : null;
 }
 
 const datum = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;

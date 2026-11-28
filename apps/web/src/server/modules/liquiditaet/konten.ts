@@ -33,6 +33,8 @@ export interface Kontostaende {
   bestand: Cents;
   /** Summe der Rücklagekonten, nur ausgewiesen */
   ruecklage: Cents;
+  /** Mindestens ein Konto im Bestand hat einen Stand; sonst ist der Startwert 0 € nur geraten und der Mindestbestand warnt nicht */
+  bekannt: boolean;
 }
 
 export async function kontostaende(heute: string): Promise<Kontostaende> {
@@ -52,10 +54,12 @@ export async function kontostaende(heute: string): Promise<Kontostaende> {
       };
     });
   const summe = (liste: Kontostand[]) => liste.reduce((s, k) => s + (k.stand ?? 0), 0);
+  const imBestand = konten.filter((k) => k.zweck !== "ruecklage");
   return {
     konten,
-    bestand: summe(konten.filter((k) => k.zweck !== "ruecklage")),
+    bestand: summe(imBestand),
     ruecklage: summe(konten.filter((k) => k.zweck === "ruecklage")),
+    bekannt: imBestand.some((k) => k.stand !== null),
   };
 }
 

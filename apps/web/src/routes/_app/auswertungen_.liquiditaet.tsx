@@ -72,7 +72,7 @@ function LiquiditaetPage() {
       </div>
 
       <KontoHinweise konten={konten} rolle={user.role} />
-      {mindestbestand !== null && <MindestbestandHinweis vorschau={vorschau} mindestbestand={mindestbestand} />}
+      {mindestbestand !== null && konten.bekannt && <MindestbestandHinweis vorschau={vorschau} mindestbestand={mindestbestand} />}
       <Kennzahlen vorschau={vorschau} konten={konten} />
 
       <section className="card liq-kurve" aria-labelledby="liq-kurve-titel">
@@ -142,7 +142,7 @@ function Kennzahlen({ vorschau, konten }: { vorschau: Vorschau; konten: Kontosta
   );
 }
 
-/** Erster Tag im Horizont unter dem Mindestbestand (#1381); nichts, solange der Stand darüber bleibt */
+/** Erster Tag im Horizont unter dem Mindestbestand (#1381); nichts, solange der Stand darüber bleibt oder kein Kontostand bekannt ist */
 function MindestbestandHinweis({ vorschau, mindestbestand }: { vorschau: Vorschau; mindestbestand: number }) {
   const w = unterschreitung(vorschau, mindestbestand);
   if (!w) return null;
