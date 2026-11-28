@@ -185,6 +185,7 @@ describe.skipIf(!testDatabaseUrl)("Siegel für Angebote und Anlagen (Postgres)",
           "document_id",
           "opening_date",
           "opening_book_value",
+          "opening_entry_id",
           "private_use",
           "degressive_rate",
           "memo_value",
@@ -221,6 +222,19 @@ describe.skipIf(!testDatabaseUrl)("Siegel für Angebote und Anlagen (Postgres)",
       expect(await seals(a!.id)).toEqual([expect.objectContaining({ table_name: "assets" })]);
       const found = await rolledBack(async (tx) => {
         await tamper(tx, () => tx`update assets set opening_book_value = 1 where id = ${a!.id}`);
+        return problems(tx);
+      });
+      expect(found).toEqual([{ art: "siegel", tabelle: "assets", zeile: a!.id, befund: "Inhalt passt nicht zum Siegel" }]);
+    });
+
+    // Der Verweis ist ab dem Setzen fest (haben_reject_booked_asset); Übernahmen erkennt die Eröffnung über ihn
+    it("meldet eine still umgehängte Eröffnungsbuchung", async () => {
+      const [a] = await sql`insert into assets (name, kind, method, account, acquisition_date, cost, useful_life_months, opening_date, opening_book_value)
+        values ('Maschine', 'sonstige', 'linear', '0440', '2022-01-05', 500000, 120, '2026-01-01', 380000) returning id`;
+      await sql`update assets set opening_entry_id = ${await lockedEntry()} where id = ${a!.id}`;
+      const andere = await lockedEntry();
+      const found = await rolledBack(async (tx) => {
+        await tamper(tx, () => tx`update assets set opening_entry_id = ${andere} where id = ${a!.id}`);
         return problems(tx);
       });
       expect(found).toEqual([{ art: "siegel", tabelle: "assets", zeile: a!.id, befund: "Inhalt passt nicht zum Siegel" }]);

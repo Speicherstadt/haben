@@ -3787,8 +3787,8 @@
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "d894ccf6489a0eab3ed0b3a0ec535ebefde930b844422174839f4f89630ed4e3",
-      "definitionHash": "376eaaae01dc5a6872232d6fbab8b8d936845ce4e620b65a7e08709dcc60afcf"
+      "sourceHash": "4016a42e0a77bb5a818f6f9b60a0da21883fe267de449b4f48024dca4cbf7431",
+      "definitionHash": "1c204d4a079b34a5bddf99634d960323748e67afd9bf1323611cefe214f034f7"
     },
     {
       "name": "public.haben_loan_fixed()",
@@ -3963,8 +3963,8 @@
       "config": [],
       "language": "sql",
       "securityDefiner": false,
-      "sourceHash": "e64a266a9552fc6518774e8d2296d8cd8c7aa79935d78dcb15eb125c6062e1e8",
-      "definitionHash": "892809a88e2af2ef71f8b10a89edc4989583115686eeb33c34a18de99246aa23"
+      "sourceHash": "b9aabf07bbe68488b056c207beefa2c3547e22c2a9d4f014d7fccc451864ed3a",
+      "definitionHash": "2c3c8fdb1b655db055d294be35e63f2909e05597e9ba88c20fc473a5ad74949a"
     },
     {
       "name": "public.haben_seal_digest(tbl text, rid uuid, cols jsonb)",

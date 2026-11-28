@@ -36,10 +36,12 @@ LANGUAGE sql STABLE AS $$
     WHEN 'quotes' THEN jsonb_build_object(
       'quotes', haben_columns('quotes') - ARRAY['decision', 'decided_at', 'invoice_id', 'updated_at'],
       'quote_lines', haben_columns('quote_lines'), 'quote_attachments', haben_columns('quote_attachments'))
-    -- Nur die Spalten, die ab der ersten Buchung fest sind (haben_reject_booked_asset, 0330), als feste Liste: Eine spätere
-    -- Spalte kommt nicht von selbst dazu, weil Name, Notiz, Abgang und Sonder-AfA späterer Jahre änderbar bleiben.
+    -- Nur die Spalten, die ab der ersten Buchung fest sind (haben_reject_booked_asset, 0342), als feste Liste: Eine spätere
+    -- Spalte kommt nicht von selbst dazu, weil Name, Notiz, Abgang und Sonder-AfA späterer Jahre änderbar bleiben. Den
+    -- Verweis auf die Eröffnungsbuchung setzt die App vor der ersten AfA; ohne Übernahmewerte bleibt er leer.
     WHEN 'assets' THEN jsonb_build_object('assets', jsonb_build_array('id', 'kind', 'method', 'account', 'acquisition_date', 'cost',
-      'useful_life_months', 'document_id', 'opening_date', 'opening_book_value', 'private_use', 'degressive_rate', 'memo_value'))
+      'useful_life_months', 'document_id', 'opening_date', 'opening_book_value', 'opening_entry_id', 'private_use',
+      'degressive_rate', 'memo_value'))
   END
 $$;
 --> statement-breakpoint
@@ -232,7 +234,7 @@ BEGIN
                              'payslips', 'payslip_cancellations', 'quotes', 'assets'] LOOP
     locked := CASE WHEN tbl IN ('cash_entries', 'allocations', 'pauschalen', 'asset_depreciations', 'document_cancellations',
                                 'payslip_cancellations') THEN 'true'
-                   -- Gebucht wie in haben_reject_booked_asset (0330); beides lässt sich nicht zurücknehmen
+                   -- Gebucht wie in haben_reject_booked_asset (0342); beides lässt sich nicht zurücknehmen
                    WHEN tbl = 'assets' THEN '(EXISTS (SELECT 1 FROM asset_depreciations d WHERE d.asset_id = t.id) OR t.opening_entry_id IS NOT NULL)'
                    ELSE 't.locked_at IS NOT NULL' END;
     RETURN QUERY EXECUTE format($q$
