@@ -47,6 +47,16 @@ describe("workerEnvironment", () => {
     expect(env).toEqual({ PATH: "/usr/bin", LANG: "de_DE.UTF-8", ERIC_HOME: "/opt/eric", ERIC_WORKER_COMMAND: "qemu-x86_64" });
   });
 
+  it("entfernt auch weitere Datenbankadressen mit Zugangsdaten (Migration, Tests)", () => {
+    const env = workerEnvironment({
+      PATH: "/usr/bin",
+      MIGRATION_DATABASE_URL: "postgres://haben:eigentuemer@db/haben",
+      TEST_DATABASE_URL: "postgres://haben:haben@localhost:5432/haben_test",
+      E2E_DATABASE_URL: "postgres://haben:haben@localhost:5432/haben_e2e",
+    });
+    expect(env).toEqual({ PATH: "/usr/bin" });
+  });
+
   it("der gestartete Worker erbt die Schlüssel der App nicht", async () => {
     process.env.HABEN_ENCRYPTION_KEY = "nicht-an-den-worker";
     process.env.DATABASE_URL = "postgres://haben:geheim@db/haben";
