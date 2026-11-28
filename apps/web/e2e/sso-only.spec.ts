@@ -153,28 +153,41 @@ test("SSO-Modus: Einrichtung, automatische Anlage, Zugänge, Gruppenentzug und e
     await anonym.close();
     const [sessions] = await sql`select count(*)::int as n from session s join "user" u on u.id = s.user_id where u.email = 'kanzlei@example.de'`;
     expect(sessions!.n).toBe(0);
+    // Die beendete Sitzung führt nicht mehr in die App, sondern zur erneuten Prüfung beim Anbieter (#2048)
     await guest.goto(`${BASE}/steuerberatung`, { waitUntil: "networkidle" });
-    await expect(guest).toHaveURL(/\/login/);
+    await expect(guest.getByRole("heading", { name: "Testanbieter" })).toBeVisible();
+    await expect(guest).not.toHaveURL(new RegExp(`^${BASE}/`));
     await page.reload({ waitUntil: "networkidle" });
     await expect(page.getByRole("region", { name: "Zugänge" })).toContainText("Kein Zugang");
 
-    // Abgelaufene Berechtigung: Zugriff verweigert, Weg zur erneuten SSO-Anmeldung, keine automatische Schleife
-    await sql`update session set sso_expires_at = now() - interval '1 second' where user_id = (select id from "user" where email = 'inhaberin@example.de')`;
-    // Nach networkidle ist die Login-Seite hydriert; eine Schleife hätte die Anmeldung beim Anbieter dann schon gestartet
+    // Abgelaufene Berechtigung (#2048): Die Anmeldung startet von selbst und kehrt auf dieselbe Seite zurück
+    const ablaufen = () =>
+      sql`update session set sso_expires_at = now() - interval '1 second' where user_id = (select id from "user" where email = 'inhaberin@example.de')`;
     const anmeldungen: string[] = [];
     const mitzaehlen = (anfrage: { url: () => string }) => {
       if (new URL(anfrage.url()).pathname.startsWith("/api/auth/sign-in")) anmeldungen.push(anfrage.url());
     };
     page.on("request", mitzaehlen);
+    await ablaufen();
+    starts += 1;
+    await page.setExtraHTTPHeaders({ "x-forwarded-for": `198.51.100.${starts}` });
+    await page.goto("/einstellungen?bereich=zugaenge", { waitUntil: "networkidle" });
+    await providerLogin(page, "inhaberin@example.de", "haben-inhaber");
+    await page.waitForURL(`${BASE}/einstellungen?bereich=zugaenge`);
+    expect(anmeldungen).toHaveLength(1);
+
+    // Gilt die neue Sitzung gleich wieder nicht, keine Schleife: innerhalb einer Minute bleibt es bei der Anmeldeseite.
+    // Nach networkidle ist sie hydriert; eine Schleife hätte die Anmeldung beim Anbieter dann schon gestartet.
+    await ablaufen();
     await page.goto("/einstellungen?bereich=zugaenge", { waitUntil: "networkidle" });
     await abgearbeitet(page);
     page.off("request", mitzaehlen);
-    expect(anmeldungen).toEqual([]);
+    expect(anmeldungen).toHaveLength(1);
     await expect(page).toHaveURL(/\/login/);
     await expect(page.getByRole("button", { name: "Mit Test-SSO anmelden" })).toBeVisible();
     await startSso(page, "Mit Test-SSO anmelden");
     await providerLogin(page, "inhaberin@example.de", "haben-inhaber");
-    await page.waitForURL(`${BASE}/`);
+    await page.waitForURL(`${BASE}/einstellungen?bereich=zugaenge`);
 
     expect(await sql`select id from account where provider_id <> 'oidc'`).toHaveLength(0);
     expect(await sql`select id from passkey`).toHaveLength(0);
