@@ -130,7 +130,7 @@ Zwischen Unternehmen sind Nettopreise üblich, das ist die Vorgabe. Wer an Verbr
 Der Gesamtbetrag stimmt damit auf den Cent mit den Endpreisen überein. Weil die Steuer aus der Summe je Satz herausgerechnet wird und nicht je Zeile, kann sie einen Cent von der Summe der einzelnen Zeilen abweichen; so verlangt es auch EN 16931.
 
 - Bruttopreise gibt es nur bei „Regulär“. Ohne Steuerausweis (Kleinunternehmer, Reverse Charge, steuerfrei, Nicht-EU-Ausland) sind netto und brutto gleich; Haben speichert die Rechnung dann als netto.
-- Stornorechnung und Rechnungskorrektur rechnen immer wie die ursprüngliche Rechnung. Die Stornorechnung hebt sie auf den Cent genau auf; die Steuer mehrerer Korrekturen ergibt zusammen auf den Cent die Steuer des Gesamtstands ([Umsatzsteuer der Korrektur](#storno-und-rechnungskorrektur)).
+- Stornorechnung und Rechnungskorrektur rechnen immer im Preismodus der ursprünglichen Rechnung. Die Stornorechnung hebt sie auf den Cent genau auf; zur Steuer einer Korrektur siehe [Storno und Rechnungskorrektur](#storno-und-rechnungskorrektur).
 - Eine Schlussrechnung mit Bruttopreisen zieht die Abschlagsrechnungen brutto ab, also mit Netto und Umsatzsteuer der Abschlagsrechnung zusammen. Legst du sie aus einer Abschlagsrechnung an, übernimmt sie deren Preismodus.
 - Angebote und wiederkehrende Rechnungen haben dieselbe Auswahl. Eine Rechnung aus einem Angebot oder einer Vorlage übernimmt den Preismodus.
 - Den Preismodus zu wechseln rechnet die eingegebenen Preise nicht um. Die eingetragenen Beträge gelten ab dann als netto bzw. brutto.
@@ -693,7 +693,7 @@ Für beide gilt:
 
 Auf neuen Stornobelegen steht „Die ursprüngliche Rechnung wird storniert.“ Das gilt unabhängig von Zahlungen und Erstattungen, auch für das positive Storno einer Rechnungskorrektur. Der Hinweis nennt keinen Kundensaldo und sagt keine Auszahlung zu. Eine Rechnungskorrektur beschreibt die Minderung der ursprünglichen Rechnung. PDF und E-Rechnung verwenden denselben Inhalt, das englische PDF entsprechend übersetzt. Bereits gespeicherte Belege behalten ihren bisherigen Text.
 
-**Umsatzsteuer der Korrektur:** Haben rechnet sie aus dem Gesamtstand je Steuersatz, nicht aus dem Netto der Korrektur allein. Steuer der Korrektur = Steuer auf das Netto von Rechnung, festgeschriebenen Korrekturen und dieser Korrektur − Steuer, die auf Rechnung und festgeschriebenen Korrekturen steht. Gerundet wird nur der Gesamtstand. So nehmen mehrere Korrekturen zusammen genau die Steuer der Rechnung zurück ([§ 17 Abs. 1 UStG](https://www.gesetze-im-internet.de/ustg_1980/__17.html)). Beispiel einer schon bezahlten Rechnung (eine unbezahlte ganz aufzuheben ist ein Storno, siehe Bedingung oben):
+**Umsatzsteuer der Korrektur:** Haben rechnet sie aus dem Gesamtstand je Steuersatz, nicht aus dem Netto der Korrektur allein. Steuer der Korrektur = Steuer auf das Netto von Rechnung, festgeschriebenen Korrekturen und dieser Korrektur − Steuer, die auf Rechnung und festgeschriebenen Korrekturen steht. Gerundet wird nur der Gesamtstand. So steht nach jeder Korrektur genau die Steuer auf dem geminderten Entgelt ([§ 17 Abs. 1 UStG](https://www.gesetze-im-internet.de/ustg_1980/__17.html)). Beispiel einer schon bezahlten Rechnung (eine unbezahlte ganz aufzuheben ist ein Storno, siehe Bedingung oben):
 
 | | Netto | USt 19 % | Stand danach (Netto / USt) |
 | --- | --- | --- | --- |
@@ -701,13 +701,12 @@ Auf neuen Stornobelegen steht „Die ursprüngliche Rechnung wird storniert.“ 
 | Korrektur A | −0,50 | −0,09 | 99,50 / 18,91 |
 | Korrektur B | −99,50 | −18,91 | 0,00 / 0,00 |
 
-Je Korrektur für sich gerundet wären es −0,10 und −18,91, zusammen ein Cent zu viel. Auf dem Beleg der Korrektur A steht damit −0,09 € Steuer, obwohl −0,50 € × 19 % für sich gerundet −0,10 € wären. Das ist so entschieden: Auf den Cent genau berechnet und kaufmännisch gerundet wird die Steuer „für die … ausgeführte steuerpflichtige Leistung“ ([Abschn. 14.5 Abs. 20 UStAE](https://ao.bundesfinanzministerium.de/usth/2024/A-Umsatzsteuergesetz/IV-Steuer-und-Vorsteuer/Paragraf-14/ae-14-5.html)), also für das geminderte Entgelt der Rechnung (99,50 € → 18,91 €); berichtigt wird der Unterschied zum geschuldeten Betrag (§ 17 Abs. 1 UStG).
+Je Korrektur für sich gerundet wären es −0,10 und −18,91, zusammen ein Cent zu viel. Dass der Beleg einer Korrektur so von seinem Netto × Satz abweicht, ist so entschieden: Auf den Cent genau berechnet und kaufmännisch gerundet wird die Steuer „für die … ausgeführte steuerpflichtige Leistung“ ([Abschn. 14.5 Abs. 20 UStAE](https://ao.bundesfinanzministerium.de/usth/2024/A-Umsatzsteuergesetz/IV-Steuer-und-Vorsteuer/Paragraf-14/ae-14-5.html)), also für das geminderte Entgelt der Rechnung (99,50 € → 18,91 €); berichtigt wird der Unterschied zum geschuldeten Betrag (§ 17 Abs. 1 UStG).
 
 - Bruttopreise: Der Bruttobetrag der Korrektur bleibt, die Steuer kommt aus dem Brutto-Gesamtstand, das Netto ist die Differenz.
 - Fremdwährung: Die Regel gilt in der Währung der Rechnung und ebenso in Euro, mit dem Kurs der Rechnung; so bleibt auch in Euro kein Cent Umsatzsteuer stehen. Hätte die Steuer in Euro dann ein anderes Vorzeichen als in der Währung der Rechnung, was eine XRechnung abweist (PEPPOL-EN16931-R055), rechnet Haben die Korrektur in Euro für sich um.
-- Entwurf: Beim Festschreiben rechnet Haben auf dem Stand, den die Rechnung dann hat; die Steuer kann sich gegenüber dem gespeicherten Entwurf um einen Cent ändern.
-- Die Steuer kann von Netto × Satz der Korrektur abweichen, meist um einen Cent, nach älteren, je Beleg gerundeten Korrekturen auch um mehr. EN 16931 lässt eine Abweichung unter einer Währungseinheit zu (BR-CO-17); wäre sie größer, rechnet die Korrektur für sich.
-- Der Betrag im Editor und im Dialog **Festschreiben** rechnet schon so.
+- Entwurf: Editor, Vorschau und Dialog **Festschreiben** rechnen nach dieser Regel. Beim Festschreiben rechnet Haben auf dem Stand, den die Rechnung dann hat; die Steuer kann sich gegenüber dem Entwurf ändern, meist um einen Cent.
+- Die Steuer kann von Netto × Satz der Korrektur abweichen, meist um einen Cent, nach älteren, je Beleg gerundeten Korrekturen auch um mehr. EN 16931 lässt eine Abweichung unter einer Währungseinheit zu (BR-CO-17, BR-S-09); erreicht sie eine Währungseinheit, rechnet die Korrektur für sich.
 - Ein Storno nimmt jeden Beleg genau mit den Beträgen zurück, die auf ihm stehen.
 
 Die ursprüngliche Rechnung zeigt unter **Korrekturen** alle Stornos und Korrekturen, die sich auf sie beziehen, eine stornierte Rechnung zusätzlich einen roten Hinweis mit Link zur Stornorechnung.

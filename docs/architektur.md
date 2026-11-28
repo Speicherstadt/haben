@@ -161,8 +161,10 @@ Braucht ein Modul etwas von einem Modul über sich, gehört der Code woanders hi
     - Entwurf mit `SELECT … FOR UPDATE` sperren,
     - Firmendaten, Kunde, Positionen, Beträge, die umsatzsteuerliche Behandlung und die Pflichtfelder des gewählten E-Rechnungsformats prüfen (`finalizeIssues`, dieselbe Prüfung wie in der Oberfläche, hier mit der Transaktion),
     - den Nummernkreis sperren und die nächste Nummer nur lesen (`peekNumber` in `server/modules/rechnungen/number-counter.ts`, Advisory Lock je Kreis); ein Kreis ist das Jahr des Rechnungsdatums oder, bei durchlaufendem Zähler, `0` (`counterCircle`), beim Zähler je Kunde je Kontakt ein eigener (`contact_id` der Zählertabellen, `number_contact_id` der Belege; NULL bleibt der gemeinsame Kreis, #1426), so steht er auch in den Zählertabellen und in `number_year`,
-    - PDF und XML aus Positionen und den gespeicherten Steuerzeilen (`invoice_taxes`) erzeugen (siehe unten); bis hierhin hat die Transaktion nichts mit Audit-Eintrag geschrieben, die Hash-Kette ist also frei (außer wenn ein Entwurf in Fremdwährung den Kurs übernimmt, siehe unten),
-    - den Zähler auf diese Nummer setzen (`takeNumber`; ab hier ist die Kette gesperrt),
+    - bei einer Korrektur die Steuer aus dem Gesamtstand neu rechnen, nur im Speicher (`correctionRecalculation` in `korrektur-neuberechnung.ts`, #2079),
+    - PDF und XML aus Positionen und den gespeicherten Steuerzeilen (`invoice_taxes`) erzeugen, bei einer Korrektur aus den neu gerechneten Werten (siehe unten); bis hierhin hat die Transaktion nichts mit Audit-Eintrag geschrieben, die Hash-Kette ist also frei (außer wenn ein Entwurf in Fremdwährung den Kurs übernimmt, siehe unten),
+    - bei einer Korrektur die neu gerechneten Werte speichern und die Minderung erneut prüfen (`storeCorrectionRecalculation`; ab hier ist die Kette gesperrt),
+    - den Zähler auf diese Nummer setzen (`takeNumber`; spätestens ab hier ist die Kette gesperrt),
     - Rechnung auf `final` setzen, mit Verkäufer- und Käuferdaten, Summen, PDF, XML, SHA-256 und `locked_at`,
     - über `ledger.post` buchen und festschreiben; der Trigger prüft Soll = Haben.
 4. Schlägt ein Schritt fehl, wird alles zurückgerollt. Die Nummer ist dann nicht verbraucht; der Nummernkreis bleibt lückenlos.
