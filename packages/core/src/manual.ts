@@ -124,6 +124,7 @@ export function ledgerManagedAccounts(kontenrahmen: Kontenrahmen): Map<string, s
       assets.afaGwg,
       assets.afaSammelposten,
       assets.restbuchwert,
+      assets.restbuchwertGewinn,
     ].map((account): [string, string] => [account, "Anlagen"]),
     ...Object.values(LOHN_KONTEN[kontenrahmen]).map((account): [string, string] => [account, "Lohn"]),
   ];

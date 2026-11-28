@@ -32,7 +32,7 @@ Der Testlauf bricht ab, wenn beispielsweise:
 
 - Buchungsnummern fehlen oder doppelt sind,
 - BB- und DATEV-Export bei Betrag, Datum, Konten oder Steuerschlüssel abweichen,
-- ein PDF fehlt, kein PDF-Signaturheader hat oder nicht zugeordnet werden kann,
+- ein PDF fehlt, kein PDF-Signaturheader hat oder zu keiner Buchung mit Beleg-URL gehört,
 - die Kontenrichtung einer Buchung nicht eindeutig ist.
 
 Erst ein fehlerfreier Testlauf lässt den Import zu.
@@ -45,7 +45,13 @@ Erst ein fehlerfreier Testlauf lässt den Import zu.
 - die zugehörigen Original-PDFs, auch mehrere Dateien einer Buchung,
 - die unveränderten Originalexporte mit ihren SHA-256-Prüfsummen.
 
-Die Zuordnung erfolgt über die Buchungsnummer: `127` wird mit `127.pdf` verknüpft, Dateien wie `97_1.pdf` und `97_2.pdf` mit derselben Buchung. Buchungen ohne Beleg stehen nur im DATEV-Buchungsstapel.
+Die Belege in `Belege.zip` tragen ihren Originalnamen, etwa `Rechnung-EU-2026011.pdf`. Haben sucht die Dateien einer Buchung so:
+
+1. Die Namen stehen in der Spalte „Beleg-Dateinamen“ des BB Standardexports; ist sie leer, in „Original-Dateiname“ im DATEV-Buchungsstapel; sind beide leer, am Ende der Beleg-URL.
+2. Findet Haben so keine einzige Datei, gilt das ältere Muster: `127.pdf` gehört zur Buchung 127, `97_1.pdf` und `97_2.pdf` zur Buchung 97. Eine Datei, die nur andere Buchungen beim Namen nennen, zählt dabei nicht. Sind beide Felder leer und endet die Beleg-URL auf eine von mehreren solchen Dateien, gehören ebenfalls alle zur Buchung.
+3. Fehlt nur ein Teil der genannten Dateien, ersetzt Haben nichts: Der Testlauf bricht mit dem Namen der fehlenden Datei ab, ebenso ohne passende Datei nach dem älteren Muster.
+
+Eine Datei kann an mehreren Buchungen hängen und liegt nur einmal im ZIP; stehen mehrere Dateien in einem Feld, trennt Haben sie am Komma. Die `document.xml` im ZIP ist das Verzeichnis des DATEV-Belegtransfers und kein Beleg. Buchungen ohne Beleg stehen nur im DATEV-Buchungsstapel.
 
 Ob ein Archivbeleg Rechnung, Gutschrift, Eingangsrechnung oder Eingangsgutschrift ist, ergibt sich aus Soll und Haben im konfigurierten Kontenrahmen: mit BU-Schlüssel aus der Steuerart (2 und 3 Umsatzsteuer, 8 und 9 Vorsteuer), sonst aus den Bilanz- und GuV-Posten des DATEV-Kontenrahmens. Der Steuersatz kommt aus der Beleginfo, sonst aus dem BU-Schlüssel oder dem Automatikkonto (etwa SKR03 8400, SKR04 4400). Geldtransit, Privates und Zahlungen über Personenkonten tragen keine Umsatzsteuer.
 
@@ -66,7 +72,7 @@ Ein erneuter Import überspringt bereits vorhandene Belege und Originalexporte. 
 - **Keine aktiven Neubuchungen:** Die Altbelege erzeugen keine neuen Buchungen, Zahlungen, offenen Posten oder ELSTER-Meldungen.
 - **Keine Zahlungshistorie:** Der Export liefert keine verlässlichen Einzelzahlungen. Der Status lautet deshalb „archiviert“; bezahlte oder offene Beträge werden nicht geschätzt.
 - **Keine Rechnungspositionen:** Die Exporte enthalten Kopfdaten und Kontierungen, aber keine vollständigen Positionen wie Artikel, Menge und Einzelpreis.
-- **Keine vollständigen Kontakte:** Für Stammdaten verwendest du bei Bedarf den [CSV-Import](csv-import.md).
+- **Keine vollständigen Kontakte:** Den Stamm „Debitoren/Kreditoren“ (`EXTF_DebKred_Stamm_….csv`) übernimmst du bei Bedarf über den [CSV-Import der Kontakte](csv-import.md#kontakte-aus-datev).
 - **Keine Umsatzsteuer je Monat:** Die Summen des DATEV-Buchungsstapels gelten für das ganze Jahr, und ohne Einzelzahlungen lässt sich bei Ist-Versteuerung die Zahlungsperiode nicht rekonstruieren. Vergleiche historische Steuerwerte mit den Originalauswertungen und den ELSTER-Protokollen.
 
 Ergänze je Geschäftsjahr noch den Datenexport für die Betriebsprüfung, ELSTER-Protokolle und Kontoauszüge unter **Exporte ablegen**. Danach vergleichst du im **Abgleich je Jahr** Buchungen, Dateien und Summen mit BuchhaltungsButler.

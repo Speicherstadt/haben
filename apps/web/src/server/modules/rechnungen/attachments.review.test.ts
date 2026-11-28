@@ -27,7 +27,7 @@ describe.skipIf(!testDatabaseUrl)("Review: Anhänge an Rechnungen (Postgres)", (
 
   beforeEach(async () => {
     await leeren(sql)`truncate journal_lines, journal_entries, invoice_attachments, invoice_lines, invoices, invoice_number_counters, documents,
-      contact_versions, contacts, company cascade`;
+      contact_versions, contacts, company, seals, audit_log cascade`;
     await sql`insert into company (id, name, strasse, plz, ort, email, telefon, steuernummer, ust_id, bundesland, iban, bic, bank)
       values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '+49 941 123456',
               '198/113/10010', 'DE123456789', 'BY', 'DE89370400440532013000', 'COBADEFFXXX', 'Commerzbank')`;

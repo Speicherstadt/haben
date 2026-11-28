@@ -3,7 +3,6 @@ import {
   kategorieAnteil,
   kategorieArt,
   lastMonthOfPeriod,
-  monthsOfPeriod,
   periodRange,
   recordedTaxShares,
   type Cents,
@@ -11,9 +10,9 @@ import {
   type VatPeriod,
 } from "@haben/core";
 import { and, eq, gte, isNull, lt, ne, notInArray, or, sql } from "drizzle-orm";
-import { privateUseForMonth } from "../buchhaltung/index.ts";
 import { kleinunternehmerForMonth } from "../stammdaten/index.ts";
 import { ausbuchungsQuelle } from "./ausbuchung-quelle.ts";
+import { entnahmeQuellen } from "./entnahme-quellen.ts";
 import { vorsteuerAusBelegen } from "./vorsteuer-belege.ts";
 import { kennzahlenDerVoranmeldung } from "./umsaetze-nach-leistung.ts";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
@@ -22,12 +21,12 @@ import { advanceVatPlans, invoiceTaxReader, invoiceTotalsById, mixNachVerrechnun
 
 export interface RevenueSource {
   /**
-   * payment = Zahlungseingang (Ist), invoice = Rechnung (Soll), entnahme = private Kfz-Nutzung, ausbuchung = Skonto oder
+   * payment = Zahlungseingang (Ist), invoice = Rechnung (Soll), entnahme = private Kfz-Nutzung oder Entnahme einer Anlage, ausbuchung = Skonto oder
    * Forderungsausfall (§ 17), direkt = Bankumsatz direkt auf eine Einnahmekategorie gebucht (Ist und Soll), kasse =
    * Bareinnahme ohne Rechnung im Kassenbuch (Ist und Soll)
    */
   type: "payment" | "invoice" | "entnahme" | "ausbuchung" | "direkt" | "kasse";
-  /** Bei Entnahmen: das Fahrzeug */
+  /** Bei Entnahmen: das Fahrzeug bzw. die entnommene Anlage */
   assetId?: string;
   /** Bei Ausbuchungen: Skonto gewährt oder Forderungsausfall (dieser zählt bei 19 % und 7 % zusätzlich in Kz 50) */
   writeOffKind?: "skonto" | "forderungsausfall";
@@ -456,24 +455,8 @@ export async function computeVatFigures(period: VatPeriod, q: Db | Tx = db, cont
     }
   }
 
-  // Private Kfz-Nutzung: unentgeltliche Wertabgabe im Monat der Nutzung, auch bei Ist-Versteuerung
-  for (const { year, month } of monthsOfPeriod(period)) {
-    const lastDay = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
-    for (const use of await privateUseForMonth(year, month, q)) {
-      revenue.push({
-        type: "entnahme",
-        date: lastDay,
-        invoiceId: "",
-        assetId: use.assetId,
-        number: "Privatnutzung",
-        customer: use.name,
-        treatment: "regulaer",
-        rate: 1900,
-        base: use.base,
-        tax: use.tax,
-      });
-    }
-  }
+  // Private Kfz-Nutzung und entnommene Anlagen: unentgeltliche Wertabgaben im Monat der Leistung, auch bei Ist-Versteuerung
+  revenue.push(...(await entnahmeQuellen(period, q)));
 
   // Vorsteuer, § 13b, Erwerb und Einfuhrumsatzsteuer als Erläuterung aus den Belegen (vorsteuer-belege.ts)
   const { inputTax, reverseCharge, igErwerb, einfuhr } = await vorsteuerAusBelegen(period, q);

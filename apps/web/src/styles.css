@@ -572,7 +572,7 @@ textarea.autogrow { field-sizing: content; min-height: 8lh; max-height: 70vh; }
 .form-row.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .form-row.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .form-row.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.form-row.cols-address { grid-template-columns: 120px minmax(0, 1fr) 120px; }
+.form-row.cols-address { grid-template-columns: 120px minmax(0, 1fr) minmax(0, 15rem); }
 .form-row.cols-place { grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr); }
 /* Unten bündig, etwa für einen Knopf neben Feldern; nicht für Felder mit Hinweis oder Fehler, die schöben ihre Zeile nach oben (DESIGN.md, Felder) */
 .form-row.align-end { align-items: end; }
@@ -615,7 +615,7 @@ textarea.autogrow { field-sizing: content; min-height: 8lh; max-height: 70vh; }
 .form-section-zu > details > summary::-webkit-details-marker { display: none; }
 .form-section-zu > details > summary::before { content: "›"; content: "›" / ""; display: inline-block; width: 12px; color: var(--muted); transition: transform 0.15s; }
 .form-section-zu > details[open] > summary::before { transform: rotate(90deg); }
-.form-section-zu > details > summary > h3 { margin: 0; font-size: 13px; font-weight: 500; color: var(--muted); }
+.form-section-zu > details > summary > :is(h2, h3) { margin: 0; font-size: 13px; font-weight: 500; color: var(--muted); }
 .form-section-kurz { font-size: 13px; color: var(--ink); }
 /* Einklappabschnitt unmittelbar auf der Seite (Voranmeldung, #1253): bündig mit den Karten, ohne Einzug des Formulars */
 .main > .form-section-zu > details > summary, .main > .form-section-zu .form-section-inhalt,
@@ -623,6 +623,8 @@ textarea.autogrow { field-sizing: content; min-height: 8lh; max-height: 70vh; }
 .stack > .form-section-zu { border-top: 0; }
 /* In der schmalen Spalte steht die Auskunft unter der Überschrift, bündig mit ihr (12px Pfeil plus 12px Abstand) */
 .stack > .form-section-zu > details > summary > .form-section-kurz { flex-basis: 100%; padding-left: 24px; }
+/* GiroCode am Beleg (#1967): schwarz auf Weiß mit Ruhezone, auch im dunklen Modus; sonst lesen manche Banking-Apps ihn nicht */
+.girocode-bild { align-self: start; background: #fff; padding: 16px; line-height: 0; border-radius: 4px; }
 /* Ablauf der Voranmeldung (#1253): drei Schritte in einer Zeile, der aktuelle fett, Erledigtes mit Haken, darunter das Ergebnis */
 .ablauf-schritte { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; padding: 0; list-style: none; font-size: 14px; color: var(--muted); }
 .ablauf-schritte > li { display: flex; align-items: center; gap: 8px; }

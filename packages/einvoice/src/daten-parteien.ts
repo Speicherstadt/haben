@@ -84,6 +84,7 @@ export function buyerParty(doc: InvoiceDocument, outOfScope: boolean): Invoice["
       ...(buyer.kundennummer ? { "cac:PartyIdentification": { "cbc:ID": buyer.kundennummer } } : {}),
       "cac:PostalAddress": {
         "cbc:StreetName": buyer.strasse,
+        ...(buyer.adresszusatz ? { "cbc:AdditionalStreetName": buyer.adresszusatz } : {}),
         "cbc:CityName": buyer.ort,
         "cbc:PostalZone": buyer.plz,
         "cac:Country": { "cbc:IdentificationCode": buyer.land.toUpperCase() },

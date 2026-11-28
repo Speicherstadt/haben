@@ -1233,6 +1233,10 @@ test("Fahrzeug der GmbH übernehmen: keine Staffel nach § 7 Abs. 2a EStG, linea
   await form.getByLabel("Übernahmestichtag").fill("2026-01-01");
   // 5 von 72 Monaten abgeschrieben
   await form.getByLabel("Restbuchwert zum Stichtag (€)").fill("37.222,22");
+  // Entnahme ins Privatvermögen gibt es nur im Einzelunternehmen (verdeckte Gewinnausschüttung, #1970)
+  await form.getByRole("textbox", { name: /^Abgang/ }).fill("2031-07-31");
+  await expect(form.getByRole("radio", { name: "Entnahme ins Privatvermögen" })).toHaveCount(0);
+  await form.getByRole("textbox", { name: /^Abgang/ }).fill("");
   await form.getByRole("button", { name: "Anlage übernehmen" }).click();
   await page.waitForURL(/\/anlagen\/[0-9a-f-]{36}$/);
   await page.waitForLoadState("networkidle");

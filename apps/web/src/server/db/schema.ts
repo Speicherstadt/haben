@@ -52,6 +52,7 @@ import {
   type AssetKind,
   type AssetMethod,
   type CarPrivateUse,
+  type AssetWithdrawal,
   type MailTemplates,
   type SkontoStufe,
   type TaxShare,
@@ -1144,6 +1145,8 @@ export const contacts = pgTable(
     /** Nummer beim Lieferanten bzw. eigene Lieferantennummer, frei */
     lieferantennummer: text("lieferantennummer"),
     name: text("name").notNull(),
+    /** Adresszusatz (Abteilung, c/o, Gebäude): im PDF eine eigene Zeile, in der E-Rechnung BT-51 (#914) */
+    adresszusatz: text("adresszusatz").notNull().default(""),
     strasse: text("strasse").notNull().default(""),
     plz: text("plz").notNull().default(""),
     ort: text("ort").notNull().default(""),
@@ -4099,6 +4102,8 @@ export const assets = pgTable(
     openingEntryId: uuid("opening_entry_id"),
     specialDepreciation: jsonb("special_depreciation").$type<{ year: number; amount: Cents }[]>().notNull().default([]),
     disposalDate: date("disposal_date", { mode: "string" }),
+    /** Abgang als Entnahme ins Privatvermögen (#1970): Entnahmewert netto und ob beim Kauf Vorsteuer gezogen wurde; null = Verkauf oder Verschrottung */
+    disposalWithdrawal: jsonb("disposal_withdrawal").$type<AssetWithdrawal>(),
     /** Firmenwagen: private Nutzung nach der Listenpreismethode */
     privateUse: jsonb("private_use").$type<CarPrivateUse>(),
     note: text("note").notNull().default(""),
@@ -4109,6 +4114,7 @@ export const assets = pgTable(
     check("assets_opening_complete", sql`(${t.openingDate} is null) = (${t.openingBookValue} is null)`),
     check("assets_cost_positive", sql`${t.cost} > 0`),
     check("assets_private_use_car", sql`${t.privateUse} is null or ${t.kind} = 'kfz'`),
+    check("assets_withdrawal_disposal", sql`${t.disposalWithdrawal} is null or ${t.disposalDate} is not null`),
     check(
       "assets_degressive_rate",
       sql`(${t.method} = 'degressiv') = (${t.degressiveRate} is not null) and coalesce(${t.degressiveRate}, 1) between 1 and 3000`,

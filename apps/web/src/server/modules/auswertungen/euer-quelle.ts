@@ -5,13 +5,13 @@ import { euerAusJournal } from "./euer-journal.ts";
 
 /*
  * EÜR aus dem Journal (#542, #1116, docs/adr/journal-als-quelle.md, Entscheidung 3): die Zeilen aus euerAusJournal,
- * AfA und Privatnutzung aus dem Journal, sobald das Jahr gebucht ist, vorher aus dem Anlagenverzeichnis. Die Monate für die
- * Grafik netto wie computeEuer: Einnahmen und Ausgaben ohne Umsatz- und Vorsteuer, Zahlungen an das Finanzamt, AfA und
- * Privatnutzung.
+ * AfA, Privatnutzung und Entnahme von Anlagen aus dem Journal, sobald das Jahr gebucht ist, vorher aus dem
+ * Anlagenverzeichnis. Die Monate für die Grafik netto wie computeEuer: Einnahmen und Ausgaben ohne Umsatz- und Vorsteuer,
+ * Zahlungen an das Finanzamt, AfA, Privatnutzung und Entnahme.
  */
 
 /** Zeilen aus den Buchungen des Anlagenverzeichnisses */
-const ANLAGE: EuerLineKey[] = ["afa", "sonderAfa", "gwg", "sammelposten", "restbuchwert", "privateKfz", "ustEntnahmen"];
+const ANLAGE: EuerLineKey[] = ["afa", "sonderAfa", "gwg", "sammelposten", "restbuchwert", "anlagenabgang", "privateKfz", "ustEntnahmen"];
 const EINNAHMEN_IM_MONAT = new Set<EuerLineKey>(["einnahmenKleinunternehmer", "einnahmenSteuerpflichtig", "einnahmenSteuerfrei", "kursgewinne"]);
 const AUSGABEN_IM_MONAT = (key: EuerLineKey) =>
   key.startsWith("ausgabe:") ||

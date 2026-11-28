@@ -1,4 +1,14 @@
-import { ACCOUNTS, ASSET_ACCOUNTS, depreciationAccount, isKapitalgesellschaft, privateUsePosting, type PostingLine, type ScheduleYear } from "@haben/core";
+import {
+  ACCOUNTS,
+  ASSET_ACCOUNTS,
+  depreciationAccount,
+  entnahmePosting,
+  isKapitalgesellschaft,
+  privateUsePosting,
+  restbuchwertKonto,
+  type PostingLine,
+  type ScheduleYear,
+} from "@haben/core";
 import { asc, eq, inArray } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
 import { schema, type Tx } from "../../db/index.ts";
@@ -8,7 +18,7 @@ import { openBooks, post } from "./ledger.ts";
 
 /*
  * Buchen der Abschreibungen eines Jahres (assets.ts hält Anlagen und Plan): AfA, Abgang, Eröffnung übernommener
- * Anlagen und Privatnutzung, festgeschrieben.
+ * Anlagen, Privatnutzung und Entnahme, festgeschrieben.
  */
 
 type Books = Awaited<ReturnType<typeof openBooks>>;
@@ -71,10 +81,9 @@ async function bookDepreciationRow(tx: Tx, books: Books, asset: Asset, row: Sche
     lines.push({ account: konto, debit: special, credit: 0, taxCode: null }, { account: asset.account, debit: 0, credit: special, taxCode: null });
   }
   if (row.disposal !== 0) {
-    lines.push(
-      { account: ASSET_ACCOUNTS[kr].restbuchwert, debit: row.disposal, credit: 0, taxCode: null },
-      { account: asset.account, debit: 0, credit: row.disposal, taxCode: null },
-    );
+    // Bei einer Entnahme Restbuchwert bei Buchgewinn bzw. -verlust (DATEV 2315/2310, SKR04 4855/6895), sonst wie bisher
+    const konto = restbuchwertKonto(kr, disposalInYear ? asset.disposalWithdrawal : null, row.disposal);
+    lines.push({ account: konto, debit: row.disposal, credit: 0, taxCode: null }, { account: asset.account, debit: 0, credit: row.disposal, taxCode: null });
   }
   return post(tx, books, {
     date: disposalInYear ? asset.disposalDate! : `${year}-12-31`,
@@ -102,7 +111,14 @@ async function bookPrivateUse(tx: Tx, books: Books, asset: Asset, privateUse: No
   return first;
 }
 
-/** Eine Anlage im Jahr: Eröffnung, AfA und Abgang, Privatnutzung, dann die Zeile in asset_depreciations */
+/** Entnahme der Anlage zum Abgangsdatum (#1970): Privatentnahme an Erlöskonto und Umsatzsteuer; null ohne Entnahmewert */
+async function bookWithdrawal(tx: Tx, books: Books, asset: Asset, withdrawal: NonNullable<YearPlan["withdrawal"]>, restbuchwert: number) {
+  const lines = entnahmePosting(withdrawal.umsatz, withdrawal.value, restbuchwert, books.kontenrahmen);
+  if (lines.length === 0) return null;
+  return post(tx, books, { date: withdrawal.date, description: `Entnahme · ${asset.name}`, sourceType: "asset", sourceId: asset.id, lines });
+}
+
+/** Eine Anlage im Jahr: Eröffnung, AfA und Abgang, Privatnutzung, Entnahme, dann die Zeile in asset_depreciations */
 async function bookAssetYear(tx: Tx, books: Books, asset: Asset, plan: YearPlan, year: number): Promise<void> {
   const row: ScheduleYear = plan.row ?? { year, opening: 0, addition: 0, depreciation: 0, disposal: 0, closing: 0 };
   await bookOpening(tx, books, asset);
@@ -110,6 +126,10 @@ async function bookAssetYear(tx: Tx, books: Books, asset: Asset, plan: YearPlan,
   if (plan.privateUse) {
     const useId = await bookPrivateUse(tx, books, asset, plan.privateUse, year);
     entryId ??= useId;
+  }
+  if (plan.withdrawal) {
+    const withdrawalId = await bookWithdrawal(tx, books, asset, plan.withdrawal, row.disposal);
+    entryId ??= withdrawalId;
   }
   await tx.insert(schema.assetDepreciations).values({
     assetId: asset.id,

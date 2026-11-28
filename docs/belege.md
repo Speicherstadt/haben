@@ -102,7 +102,7 @@ Für Ausgaben, die in festen Abständen mit gleichem Betrag anfallen, etwa Büro
 | Erster Beleg am, später Nächster Beleg am | Belegdatum des nächsten Belegs, etwa der Zahlungsbeginn laut Vertrag. Bei Monaten liegen die folgenden Termine am selben Tag im Monat; der 31. wird in kürzeren Monaten zum Monatsende (28. oder im Schaltjahr 29. Februar) und springt danach zurück. Bei Wochen liegen sie 7, 14 bzw. 28 Tage später, am selben Wochentag. Beides wie bei [wiederkehrenden Rechnungen](rechnungen.md#wiederkehrende-rechnungen). |
 | Endet nach dem | optional. Der letzte Beleg entsteht am letzten Termin bis zu diesem Tag, danach ist der Dauerbeleg beendet. |
 | Fällig Tage nach dem Termin | **Fällig am** des Belegs: 0 am Termin, 3 etwa für eine Miete bis zum dritten des Monats. |
-| Vertrags- oder Kundennummer | steht als Rechnungsnummer an jedem Beleg, im Verwendungszweck einer [SEPA-Überweisung](belege-bezahlen.md#überweisen-sepa-datei) und hilft dem Bankabgleich. |
+| Vertrags- oder Kundennummer | steht als Rechnungsnummer an jedem Beleg, im Verwendungszweck einer [SEPA-Überweisung](belege-bezahlen.md#überweisen-sepa-datei) und des [GiroCodes](belege-bezahlen.md#überweisen-per-girocode) und hilft dem Bankabgleich. |
 | Bezahlung | wie am Beleg: Geschäftskonto, privat (bei GmbH und UG „Vom Gesellschafter ausgelegt“) oder Kasse (siehe [Bezahlung](belege-bezahlen.md#bezahlung)). |
 
 ### Was zu jedem Termin entsteht
@@ -383,7 +383,7 @@ Vorgaben je Kategorie stellst du in den [Einstellungen](einrichtung.md#privatant
 
 ## Bezahlen
 
-<a id="bezahlung"></a><a id="überweisen-sepa-datei"></a><a id="abweichende-iban-in-der-e-rechnung"></a><a id="skonto"></a><a id="vermerk-am-beleg"></a><a id="die-datei"></a><a id="verrechnen-ohne-zahlung"></a>Bezahlung über Geschäftskonto, privat oder Kasse, Überweisen per SEPA-Datei und Verrechnen ohne Zahlung stehen unter [Belege bezahlen](belege-bezahlen.md).
+<a id="bezahlung"></a><a id="überweisen-sepa-datei"></a><a id="abweichende-iban-in-der-e-rechnung"></a><a id="skonto"></a><a id="vermerk-am-beleg"></a><a id="die-datei"></a><a id="verrechnen-ohne-zahlung"></a>Bezahlung über Geschäftskonto, privat oder Kasse, Überweisen per SEPA-Datei oder GiroCode und Verrechnen ohne Zahlung stehen unter [Belege bezahlen](belege-bezahlen.md).
 
 ## Buchen
 

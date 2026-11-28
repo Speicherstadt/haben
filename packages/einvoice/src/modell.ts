@@ -6,6 +6,8 @@
 
 export interface Address {
   "cbc:StreetName": string;
+  /** Zweite Zeile der Anschrift (BT-51, BT-76), nur wenn es einen Adresszusatz gibt */
+  "cbc:AdditionalStreetName"?: string;
   "cbc:CityName": string;
   "cbc:PostalZone": string;
   "cac:Country": { "cbc:IdentificationCode": string };

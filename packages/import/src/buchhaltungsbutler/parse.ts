@@ -5,6 +5,7 @@ import type { LegacyVoucher } from "../lexoffice/map.ts";
 import { joinRows } from "./datev-info.ts";
 import { directionOf, type DirectionMapping } from "./direction.ts";
 import { readBbRows, readExportFiles, readReceiptFiles, type ExportPart } from "./export-files.ts";
+import { assignReceipts } from "./receipts.ts";
 import type { BuchhaltungsbutlerJoinedRow, BuchhaltungsbutlerPreview, BuchhaltungsbutlerVoucher } from "./types.ts";
 import { BuchhaltungsbutlerError } from "./types.ts";
 
@@ -12,18 +13,16 @@ export function previewBuchhaltungsbutlerExport(parts: ExportPart[], skr: Konten
   const files = readExportFiles(parts);
   const stack = parseDatevBuchungsstapel(files.datev);
   const rows = joinRows(readBbRows(files.bb), stack.bookings);
-  const receiptFiles = readReceiptFiles(files.receipts);
+  const archive = readReceiptFiles(files.receipts);
   const withReceipt = rows.filter((row) => row.info.url !== "");
-  const expectedIds = new Set(withReceipt.map((row) => row.info.bookingId));
-  for (const row of withReceipt) {
-    if (!receiptFiles.has(row.info.bookingId)) throw new BuchhaltungsbutlerError(`Buchung ${row.info.bookingId}: Beleg-URL vorhanden, aber PDF fehlt.`);
-  }
-  for (const id of receiptFiles.keys()) {
-    if (!expectedIds.has(id)) throw new BuchhaltungsbutlerError(`Belege.zip: PDF für Buchung ${id} hat keine Beleg-URL im DATEV-Export.`);
+  const receiptsByBooking = assignReceipts(withReceipt, archive);
+  const used = new Set([...receiptsByBooking.values()].flat());
+  for (const file of archive.byName.values()) {
+    if (!used.has(file)) throw new BuchhaltungsbutlerError(`Belege.zip: Datei „${file.filename}“ gehört zu keiner Buchung mit Beleg-URL im DATEV-Export.`);
   }
   const year = Number((stack.header.dateFrom ?? stack.header.fiscalYearStart).slice(0, 4));
   // Nur Belege mit PDF: Buchungen ohne Beleg stehen vollständig im DATEV-Buchungsstapel, aus dem auch der Jahresabgleich rechnet
-  const vouchers = withReceipt.map((row) => mapVoucher(row, directionOf(row, skr), receiptFiles.get(row.info.bookingId)!, year, skr));
+  const vouchers = withReceipt.map((row) => mapVoucher(row, directionOf(row, skr), receiptsByBooking.get(row.info.bookingId)!, year, skr));
   const warnings: string[] = [];
   const withoutNumber = vouchers.filter((item) => !item.voucher.number).length;
   if (withoutNumber > 0) warnings.push(`${withoutNumber} Belege haben keine Rechnungsnummer und sind nur über Kontakt und Datum suchbar.`);

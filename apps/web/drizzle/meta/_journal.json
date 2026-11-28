@@ -2378,8 +2378,43 @@
     {
       "idx": 339,
       "version": "7",
-      "when": 1795836816086,
-      "tag": "0339_kz60_bauleistungen",
+      "when": 1795825865984,
+      "tag": "0339_abgleich_audit_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 340,
+      "version": "7",
+      "when": 1795851655456,
+      "tag": "0340_betraege_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 341,
+      "version": "7",
+      "when": 1795852792978,
+      "tag": "0341_entnahme_anlage",
+      "breakpoints": true
+    },
+    {
+      "idx": 342,
+      "version": "7",
+      "when": 1795852802079,
+      "tag": "0342_entnahme_anlage_trigger",
+      "breakpoints": true
+    },
+    {
+      "idx": 343,
+      "version": "7",
+      "when": 1795853852378,
+      "tag": "0343_kontakt_adresszusatz",
+      "breakpoints": true
+    },
+    {
+      "idx": 344,
+      "version": "7",
+      "when": 1795854528637,
+      "tag": "0344_kz60_bauleistungen",
       "breakpoints": true
     }
   ]

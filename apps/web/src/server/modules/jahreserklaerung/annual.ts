@@ -305,6 +305,8 @@ function euerFigures(euer: EuerResult): EuerFigures {
         einnahmenKleinunternehmer: "kleinunternehmer",
         einnahmenSteuerpflichtig: "steuerpflichtig",
         einnahmenSteuerfrei: "steuerfrei",
+        // Zeile 19 „Veräußerung oder Entnahme von Anlagevermögen“ (E6000801), Entnahme einer Anlage (#1970)
+        anlagenabgang: "anlagenabgang",
         privateKfz: "privateKfz",
         sachentnahmen: "sachentnahmen",
         vereinnahmteUst: "vereinnahmteUst",

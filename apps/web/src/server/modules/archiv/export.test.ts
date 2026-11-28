@@ -279,7 +279,7 @@ describe.skipIf(!testDatabaseUrl)("Jahresarchiv (Postgres)", () => {
     expect(zuordnungen).toContain(`;Beleg;;2026-09-29_Mueller-Buero-GmbH-Filiale_${documentId.slice(0, 8)}.jpg;-45,90;`);
 
     expect(text(files["bank/importe.csv"])).toContain(";dkb.csv;");
-    expect(text(files["stammdaten/kontakte.csv"])).toContain("10001;Nordwerk Software GmbH;Hafenstraße 5;");
+    expect(text(files["stammdaten/kontakte.csv"])).toContain("10001;Nordwerk Software GmbH;;Hafenstraße 5;");
     expect(JSON.parse(text(files["stammdaten/firma.json"]))).toMatchObject({ name: "Testfirma", steuernummer: "198/113/10010" });
     expect(text(files["protokoll/audit.csv"])).toContain(";invoices;");
     expect(text(files["protokoll/audit.csv"])).toMatch(/^\uFEFFZeitpunkt;.*;Nr\.;Ketten-Nr\.;Vorgänger-Hash;Hash\r\n/);

@@ -41,7 +41,8 @@ export function useAnkerAufklappen(setOffen: Dispatch<SetStateAction<OffeneAbsch
  * Aufklappbarer Abschnitt eines Formulars oder einer Seite für Seltenes (#1253). `offen` und `onOffen` hält die Seite selbst, damit sie den
  * Abschnitt aufklappen kann, wenn ein Feld darin einen Fehler hat oder ein Link es anspringt: Ein Fehler im zugeklappten
  * Abschnitt fände weder Fokus noch Auge. Die Felder bleiben auch zugeklappt im Formular und gehen beim Speichern mit. Gesetztes
- * steht als `kurz` in der Überschrift.
+ * steht als `kurz` in der Überschrift. `ebene` 2 für einen Bereich direkt unter der Seitenüberschrift (Belegseite, #1967), damit
+ * die Folge der Überschriften keine Stufe überspringt.
  */
 export function EinklappAbschnitt({
   id,
@@ -49,6 +50,7 @@ export function EinklappAbschnitt({
   kurz,
   offen,
   onOffen,
+  ebene = 3,
   children,
 }: {
   id: string;
@@ -56,6 +58,7 @@ export function EinklappAbschnitt({
   kurz?: string;
   offen: boolean;
   onOffen: (offen: boolean) => void;
+  ebene?: 2 | 3;
   children: ReactNode;
 }) {
   return (
@@ -68,7 +71,7 @@ export function EinklappAbschnitt({
             onOffen(!offen);
           }}
         >
-          <h3 id={id}>{titel}</h3>
+          {ebene === 2 ? <h2 id={id}>{titel}</h2> : <h3 id={id}>{titel}</h3>}
           {kurz && <span className="form-section-kurz">{kurz}</span>}
         </summary>
         <div className="form-section-inhalt">{children}</div>

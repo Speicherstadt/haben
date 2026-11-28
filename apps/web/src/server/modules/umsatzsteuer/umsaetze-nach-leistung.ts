@@ -20,9 +20,9 @@ import { kennzahlenAusDemJournal } from "./vat-journal.ts";
  * am Tag der Zahlung: Ohne Rechnung kennt Haben keinen anderen Tag (bareinnahme.ts, direkt-kategorie.ts in @haben/core).
  *
  * Umsätze als Kleinunternehmer (#1268): Das Journal trägt sie mit dem Steuerschlüssel „KU“, der in keine Kennzahl führt;
- * die Summe kommt bei Ist und Soll aus Rechnungen, Bareinnahmen und Direktbuchungen. Erst ab 2025: Vorher war ein Umsatz
- * nach § 19 Abs. 1 nicht steuerfrei, Kz 48 der UStVA 2024 nennt nur § 4 Nr. 8 bis 29, die der UStVA 2025 auch § 19 Abs. 1
- * (ERiC 44.3.6.0, UStVA-2024.xsd und UStVA-2025.xsd, Element Kz48). Storno, Korrektur und Ausbuchung eines Umsatzes von
+ * die Summe kommt bei Ist und Soll aus Rechnungen, Bareinnahmen, Direktbuchungen und entnommenen Anlagen (#1970). Erst ab
+ * 2025: Vorher war ein Umsatz nach § 19 Abs. 1 nicht steuerfrei, Kz 48 der UStVA 2024 nennt nur § 4 Nr. 8 bis 29, die der
+ * UStVA 2025 auch § 19 Abs. 1 (ERiC 44.3.6.0, UStVA-2024.xsd und UStVA-2025.xsd, Element Kz48). Storno, Korrektur und Ausbuchung eines Umsatzes von
  * 2024 mindern Kz 48 deshalb auch 2025 nicht.
  *
  * § 4 UStG und Ausfuhr (#1312): steuerfrei-nach-leistung.ts, dort auch der Übergang (nur Rechnungen mit Kennzeichen).
@@ -42,7 +42,8 @@ const kleinunternehmerZaehlt: Zaehlt = async (r, taxes) => {
 /** Die Umsätze als Kleinunternehmer im Zeitraum: Rechnungen, Ausbuchungen, gehaltene Minderungen, Bareinnahmen und Direktbuchungen */
 async function kleinunternehmerUmsaetze(period: VatPeriod, revenue: readonly RevenueSource[], q: Db | Tx): Promise<RevenueSource[]> {
   if (periodRange(period).start < STEUERFREI_AB) return [];
-  const ohneRechnung = revenue.filter((r) => (r.type === "kasse" || r.type === "direkt") && r.treatment === "kleinunternehmer");
+  // Ohne Rechnung, dazu entnommene Anlagen, die beim Kauf zum Vorsteuerabzug berechtigt haben (#1970)
+  const ohneRechnung = revenue.filter((r) => (r.type === "kasse" || r.type === "direkt" || r.type === "entnahme") && r.treatment === "kleinunternehmer");
   return [
     ...ohneRechnung,
     ...(await rechnungenNachLeistung(period, ["kleinunternehmer"], kleinunternehmerZaehlt, q)),
@@ -53,7 +54,8 @@ async function kleinunternehmerUmsaetze(period: VatPeriod, revenue: readonly Rev
 
 /**
  * Die Kennzahlen der Voranmeldung: aus dem Journal (#542, #1116), wie bei DATEV aus Konto und Steuerschlüssel; dazu die
- * Privatnutzung von Fahrzeugen je Monat aus dem Anlagenverzeichnis (das Journal bucht sie erst mit der AfA), die Umsätze
+ * Privatnutzung von Fahrzeugen und entnommene Anlagen je Monat aus dem Anlagenverzeichnis (das Journal bucht sie erst mit
+ * der AfA, entnahme-quellen.ts), die Umsätze
  * als Kleinunternehmer in Kz 48, die das Journal ohne Kennzahl trägt (#1268), und Kz 43 und 48 für § 4 und Ausfuhr im
  * Zeitraum der Leistung, ohne Anzahlungen (#1312). `revenue` sind die Quellen unter den Kennzahlen, passend dazu.
  */
@@ -70,7 +72,7 @@ export async function kennzahlenDerVoranmeldung(
   }
 > {
   const { kennzahlen, ...journal } = await kennzahlenAusDemJournal(period, versteuerung, q);
-  const entnahme = revenue.filter((r) => r.type === "entnahme");
+  const entnahme = revenue.filter((r) => r.type === "entnahme" && r.treatment === "regulaer");
   kennzahlen.kz81 += summe(entnahme);
   kennzahlen.tax81 += entnahme.reduce((s, r) => s + r.tax, 0);
   const steuerfrei = await steuerfreiNachLeistung(period, versteuerung, journal, revenue, q);

@@ -153,7 +153,7 @@ Die spätere Zahlung wird wie jede andere gebucht. Für die Voranmeldung zählt 
 
 ## Anlagen und AfA
 
-Ein Beleg mit der Kategorie „Anlagegut“ bucht den Nettobetrag auf das Anlagekonto statt in den Aufwand (ohne Vorsteuerabzug Netto und Steuer). Zum Jahresende bucht **AfA … buchen** je Anlage AfA-Konto an Anlagekonto, beim Abgang zusätzlich den Restbuchwert (2310 bzw. 6895) an Anlagekonto. Übernommene Anlagen bekommen mit der ersten AfA ihre Eröffnung Anlagekonto an 9000. Konten und Beispiele stehen unter [Anlagen und AfA](anlagen.md).
+Ein Beleg mit der Kategorie „Anlagegut“ bucht den Nettobetrag auf das Anlagekonto statt in den Aufwand (ohne Vorsteuerabzug Netto und Steuer). Zum Jahresende bucht **AfA … buchen** je Anlage AfA-Konto an Anlagekonto, beim Abgang zusätzlich den Restbuchwert (2310 bzw. 6895, bei einer Entnahme mit Buchgewinn 2315 bzw. 4855) an Anlagekonto, bei einer Entnahme dazu Privatentnahmen an „Erlöse aus Verkäufen Sachanlagevermögen“. Übernommene Anlagen bekommen mit der ersten AfA ihre Eröffnung Anlagekonto an 9000. Konten und Beispiele stehen unter [Anlagen und AfA](anlagen.md).
 
 ## Pauschalen ohne Beleg
 

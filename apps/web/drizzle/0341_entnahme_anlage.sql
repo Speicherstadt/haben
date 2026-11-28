@@ -1,0 +1,2 @@
+ALTER TABLE "assets" ADD COLUMN "disposal_withdrawal" jsonb;--> statement-breakpoint
+ALTER TABLE "assets" ADD CONSTRAINT "assets_withdrawal_disposal" CHECK ("assets"."disposal_withdrawal" is null or "assets"."disposal_date" is not null);
