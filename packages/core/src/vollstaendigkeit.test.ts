@@ -45,9 +45,20 @@ describe("kontenNurBis", () => {
     expect(kontenNurBis([konto(null)], maerz, "2026-11-28")).toEqual([]);
   });
 
-  it("meldet auch ein Konto, dessen Umsätze vor dem Zeitraum aufhören", () => {
+  it("meldet auch ein Konto, dessen Umsätze bis 3 Monate vor dem Zeitraum aufhören", () => {
     expect(kontenNurBis([konto("2026-02-27")], maerz, "2026-11-28")).toEqual([{ id: "k", name: "Girokonto", bis: "2026-02-27" }]);
-    expect(kontenNurBis([konto("2025-10-20")], maerz, "2026-11-28")).toHaveLength(1);
+    // Grenze für März 2026: 01.12.2025
+    expect(kontenNurBis([konto("2025-12-02")], maerz, "2026-11-28")).toHaveLength(1);
+    expect(kontenNurBis([konto("2025-12-01")], maerz, "2026-11-28")).toHaveLength(1);
+    expect(kontenNurBis([konto("2025-11-30")], maerz, "2026-11-28")).toEqual([]);
+  });
+
+  it("schweigt bei einem Konto, das früher aufhört: es gilt als stillgelegt", () => {
+    expect(kontenNurBis([konto("2025-11-15")], maerz, "2026-11-28")).toEqual([]);
+    // Ein freier Zeitraum ab 31.05.: Die Grenze ist der 28.02., den 31.02. gibt es nicht
+    const ab31 = { von: "2026-05-31", bis: "2026-06-30" };
+    expect(kontenNurBis([konto("2026-02-28")], ab31, "2026-11-28")).toHaveLength(1);
+    expect(kontenNurBis([konto("2026-02-27")], ab31, "2026-11-28")).toEqual([]);
   });
 
   it("verlangt im laufenden Monat nur bis zum letzten Bankarbeitstag vor heute", () => {
