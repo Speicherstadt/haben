@@ -36,7 +36,7 @@ Die Umsatzrendite im Einzelunternehmen rechnet ohne Umsatzsteuer und Vorsteuer, 
 Darüber weist die BWA auf **Unvollständiges** im Zeitraum hin, mit Link dorthin, wo es sich beheben lässt (die Steuerberatung sieht den Link zur Bank nicht):
 
 - offene Ausgaben und Zahlungseingänge auf dem Konto, ungebuchte Belege und, nur bei GmbH und UG, Rechnungsentwürfe, gezählt wie in der [Vorprüfung der Voranmeldung](umsatzsteuer.md#vorprüfung);
-- „Umsätze von Konto … nur bis TT.MM.“, wenn Kontoauszug und Umsätze eines Geschäfts-, Steuer- oder Zahlungsdienstleisterkontos vor dem Ende des Zeitraums aufhören, im laufenden Zeitraum vor gestern, auch schon vor dem Zeitraum. Fällt dieser Tag auf ein Wochenende oder einen bundesweiten Feiertag, reicht der Bankarbeitstag davor. Das Jahr steht dabei, wenn der Tag oder der Zeitraum nicht in einem Jahr liegt („nur bis 20.10.2025“).
+- „Umsätze von Konto … nur bis TT.MM.“, wenn Kontoauszug und Umsätze eines Geschäfts-, Steuer- oder Zahlungsdienstleisterkontos vor dem Ende des Zeitraums aufhören, im laufenden Zeitraum vor gestern, auch bis 3 Monate vor Beginn des Zeitraums. Fällt dieser Tag auf ein Wochenende oder einen bundesweiten Feiertag, reicht der Bankarbeitstag davor. Das Jahr steht dabei, wenn der Tag oder der Zeitraum nicht in einem Jahr liegt („nur bis 20.10.2025“).
 
 Was die Zahlen sicher verfälscht, steht je als eigener Hinweis. Bei GmbH und UG zählt eine Rechnung schon festgeschrieben als Erlös und ein gebuchter Beleg als Aufwand; offene Ausgaben, Zahlungseingänge und Entwürfe stehen dort gebündelt als ruhiger Hinweis. Die Hinweise gelten für den Zeitraum, nicht für die kumulierte Spalte und den Vergleich.
 
@@ -56,7 +56,7 @@ Mit einem Vergleich steht darüber „Warum?“: die Abweichung der Zeile nach K
 Grenzen:
 
 - Abschreibungen, Restbuchwerte, die Entnahme von Anlagen und die Privatnutzung von Fahrzeugen zeigt die BWA erst, wenn das Jahr im [Anlagenverzeichnis](anlagen.md) gebucht ist. Die EÜR rechnet sie vorher schon aus dem Anlagenverzeichnis; bis dahin weicht der Gewinn ab, und die BWA weist darauf hin.
-- Ein Konto ohne Import meldet die BWA nicht, ebenso wenig Lücken mitten im Zeitraum. Ein aufgelöstes Konto meldet sie in jedem späteren Zeitraum; ausschließen lässt es sich unter Bank nur, solange keiner seiner Umsätze zugeordnet ist ([Fremdes Konto ausschließen](bank.md#fremdes-konto-ausschließen)). Nennt ein Kontoauszug keinen Zeitraum, reicht das Konto bis zum letzten Umsatz; ein Konto mit wenigen Umsätzen kann die BWA dann melden, obwohl nichts fehlt.
+- Ein Konto ohne Import meldet die BWA nicht, ebenso wenig Lücken mitten im Zeitraum. Endet ein Konto mehr als 3 Monate vor dem Zeitraum, gilt es als stillgelegt und fehlt ebenfalls; ein aufgelöstes Konto meldet sie also noch in Zeiträumen, die bis 3 Monate nach seinem letzten Umsatz beginnen. Nennt ein Kontoauszug keinen Zeitraum, reicht das Konto bis zum letzten Umsatz; ein Konto mit wenigen Umsätzen kann die BWA dann melden, obwohl nichts fehlt.
 - Im Einzelunternehmen stehen Zinserträge und andere steuerfreie Einnahmen bei den Erlösen, weil die EÜR sie in einer Zeile mit den steuerfreien Umsätzen führt.
 
 ## BWA für GmbH und UG
