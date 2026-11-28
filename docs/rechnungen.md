@@ -701,10 +701,10 @@ Auf neuen Stornobelegen steht „Die ursprüngliche Rechnung wird storniert.“ 
 | Korrektur A | −0,50 | −0,09 | 99,50 / 18,91 |
 | Korrektur B | −99,50 | −18,91 | 0,00 / 0,00 |
 
-Je Korrektur für sich gerundet wären es −0,10 und −18,91, zusammen ein Cent zu viel.
+Je Korrektur für sich gerundet wären es −0,10 und −18,91, zusammen ein Cent zu viel. Auf dem Beleg der Korrektur A steht damit −0,09 € Steuer, obwohl −0,50 € × 19 % für sich gerundet −0,10 € wären. Das ist so entschieden: Auf den Cent genau berechnet und kaufmännisch gerundet wird die Steuer „für die … ausgeführte steuerpflichtige Leistung“ ([Abschn. 14.5 Abs. 20 UStAE](https://ao.bundesfinanzministerium.de/usth/2024/A-Umsatzsteuergesetz/IV-Steuer-und-Vorsteuer/Paragraf-14/ae-14-5.html)), also für das geminderte Entgelt der Rechnung (99,50 € → 18,91 €); berichtigt wird der Unterschied zum geschuldeten Betrag (§ 17 Abs. 1 UStG).
 
 - Bruttopreise: Der Bruttobetrag der Korrektur bleibt, die Steuer kommt aus dem Brutto-Gesamtstand, das Netto ist die Differenz.
-- Fremdwährung: Die Regel gilt in der Währung der Rechnung. In Euro rechnet Haben jede Korrektur wie bisher für sich mit dem Kurs der Rechnung um; dort kann ein Cent Unterschied bleiben.
+- Fremdwährung: Die Regel gilt in der Währung der Rechnung. In Euro rechnet Haben jede Korrektur wie bisher für sich mit dem Kurs der Rechnung um; dort kann ein Cent Unterschied bleiben. Das ist so entschieden: Es betrifft nur Rechnungen in Fremdwährung mit deutscher Umsatzsteuer (ohne Steuer, etwa bei Reverse Charge, gibt es nichts zu runden), und ein Gesamtstand in Euro könnte in Belegwährung und Euro entgegengesetzte Vorzeichen der Steuer ergeben, die eine XRechnung nicht zulässt.
 - Entwurf: Beim Festschreiben rechnet Haben auf dem Stand, den die Rechnung dann hat; die Steuer kann sich gegenüber dem gespeicherten Entwurf um einen Cent ändern.
 - Die Steuer kann von Netto × Satz der Korrektur abweichen, meist um einen Cent, nach älteren, je Beleg gerundeten Korrekturen auch um mehr. EN 16931 lässt eine Abweichung unter einer Währungseinheit zu (BR-CO-17); wäre sie größer, rechnet die Korrektur für sich.
 - Der Betrag im Editor und im Dialog **Festschreiben** rechnet schon so.

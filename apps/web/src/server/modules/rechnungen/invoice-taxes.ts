@@ -69,7 +69,9 @@ export async function correctionBasis(q: Db | Tx, originalId: string): Promise<T
 
 /**
  * Steuerzeilen einer Korrektur aus der Differenz der Gesamtstände (correctionCalculation), in der Währung der Rechnung.
- * Bei Fremdwährung je Beleg in Euro umgerechnet wie jede Rechnung, mit dem Kurs der Rechnung (draftRate).
+ * Bei Fremdwährung je Beleg in Euro umgerechnet wie jede Rechnung, mit dem Kurs der Rechnung (draftRate). In Euro kann so
+ * ein Cent bleiben; ein Gesamtstand in Euro könnte aber Steuer in Belegwährung und Euro mit entgegengesetztem Vorzeichen
+ * ergeben (XRechnung R055). So entschieden in #2080.
  */
 export function correctionTaxes(
   calculation: InvoiceCalculation,

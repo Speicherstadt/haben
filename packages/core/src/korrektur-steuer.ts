@@ -6,6 +6,9 @@ import { taxIncluded, taxOf, type BasisPoints } from "./money.ts";
  * − Steuer, wie sie auf den festgeschriebenen Belegen steht (Rechnung und ihre Korrekturen, `sealed`). Gerundet wird nur
  * der Gesamtstand, nie die Differenz. So nehmen mehrere Korrekturen zusammen genau die Steuer der Rechnung zurück, die
  * § 17 Abs. 1 UStG berichtigt („dafür geschuldeter Steuerbetrag“), statt je Beleg gerundet einen Cent mehr oder weniger.
+ * Gerundet wird die Steuer der Leistung, nicht die des Belegs (Abschn. 14.5 Abs. 20 UStAE: „für die von ihm ausgeführte
+ * steuerpflichtige Leistung nach Cent genau berechnet“); so entschieden in #2080, auch wenn der einzelne Korrekturbeleg
+ * dann von seinem Netto × Satz abweicht.
  *
  * netto: Die Bemessungsgrundlage der Korrektur bleibt, die Steuer folgt aus dem Netto-Gesamtstand.
  * brutto: Der Bruttobetrag der Korrektur bleibt (er steht in den Preisen), die Steuer wird aus dem Brutto-Gesamtstand
