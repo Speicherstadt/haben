@@ -11,7 +11,7 @@ import { testDatabaseUrl } from "../test-db.ts";
 const MIGRATIONS = fileURLToPath(new URL("../../../drizzle", import.meta.url));
 
 /*
- * Migration „Hashes weggelassener Spalten“ (#2038, 0351): Einträge von vorher haben keine Hashes von PDF und XML. Die Migration trägt sie für jede solche
+ * Migration „Hashes weggelassener Spalten“ (#2038, 0354): Einträge von vorher haben keine Hashes von PDF und XML. Die Migration trägt sie für jede solche
  * Zeile nachträglich ein, mit Hinweis in der Kette; danach meldet der Abgleich nichts, und eine still getauschte Datei
  * fällt auf.
  */
@@ -71,6 +71,16 @@ describe.skipIf(!testDatabaseUrl)("Migration: Hashes von PDF und XML im Bestand 
         select 'test', 'vat_return_submissions', ${vorher.uebermittlung}, 'INSERT', null,
                (to_jsonb(u) - 'protocol_pdf' - 'request_xml' - 'response_xml' - 'server_response_xml') || '{"omitted_sha256": {}}'::jsonb
           from vat_return_submissions u where u.id = ${vorher.uebermittlung}`;
+      // Ebenso Einträge mit einem Hash, der erst nach dem Update stimmen soll: der einer untergeschobenen Datei und null
+      // (Datei gelöscht). Sie zählen nicht, weil sie vor dem Stichtag liegen (audit_hash_since).
+      await tx`insert into audit_log (actor, table_name, row_id, action, old_value, new_value)
+        select 'test', 'sepa_transfers', ${vorher.ueberweisung}, 'INSERT', null,
+               (to_jsonb(s) - 'xml') || jsonb_build_object('omitted_sha256', jsonb_build_object('xml', ${sha256("<Document>gefälscht</Document>")}::text))
+          from sepa_transfers s where s.id = ${vorher.ueberweisung}`;
+      await tx`insert into audit_log (actor, table_name, row_id, action, old_value, new_value)
+        select 'test', 'vat_return_submissions', ${vorher.uebermittlung}, 'INSERT', null,
+               (to_jsonb(u) - 'protocol_pdf' - 'request_xml' - 'response_xml' - 'server_response_xml') || '{"omitted_sha256": {"protocol_pdf": null}}'::jsonb
+          from vat_return_submissions u where u.id = ${vorher.uebermittlung}`;
     });
     const [kopf] = await sql`select seq from audit_chain`;
 
@@ -79,27 +89,37 @@ describe.skipIf(!testDatabaseUrl)("Migration: Hashes von PDF und XML im Bestand 
     await migrate(drizzle(sql), { migrationsFolder: MIGRATIONS });
 
     const nachgetragen = await sql`select table_name, row_id, actor, new_value from audit_log where seq > ${kopf!.seq} order by seq`;
+    expect(await sql`select id, seq from audit_hash_since`).toEqual([{ id: 1, seq: kopf!.seq }]);
     expect(nachgetragen.map((e) => [e.table_name, e.row_id, e.actor])).toEqual([
+      ["audit_hash_since", "1", "system:migration"],
       ["sepa_transfers", vorher.ueberweisung, "system:migration"],
       ["vat_return_submissions", vorher.uebermittlung, "system:migration"],
       ["audit_chain", "1", "system:migration"],
     ]);
-    expect(nachgetragen[0]!.new_value).toMatchObject({ id: vorher.ueberweisung, omitted_sha256: { xml: sha256("<Document/>") } });
-    expect(nachgetragen[1]!.new_value).not.toHaveProperty("protocol_pdf");
-    expect(nachgetragen[1]!.new_value).toMatchObject({ omitted_sha256: { protocol_pdf: sha256(pdf), request_xml: sha256("<Elster/>") } });
-    expect(nachgetragen[2]!.new_value).toEqual({
+    expect(nachgetragen[1]!.new_value).toMatchObject({ id: vorher.ueberweisung, omitted_sha256: { xml: sha256("<Document/>") } });
+    expect(nachgetragen[2]!.new_value).not.toHaveProperty("protocol_pdf");
+    expect(nachgetragen[2]!.new_value).toMatchObject({ omitted_sha256: { protocol_pdf: sha256(pdf), request_xml: sha256("<Elster/>") } });
+    expect(nachgetragen[3]!.new_value).toEqual({
       hinweis: expect.stringContaining("nachträglich eingetragen"),
       tabellen: { sepa_transfers: 1, vat_return_submissions: 1 },
     });
     expect(await problems(sql)).toEqual(nichtImAuditLog);
 
+    // Genau die Fälschungen, auf die die vorab angehängten Einträge passen
     const befunde = await rolledBack(sql, async (tx) => {
-      await tamper(tx, () => tx`update vat_return_submissions set protocol_pdf = ${Buffer.from("%PDF-1.7 anders")} where id = ${vorher.uebermittlung}`);
+      await tamper(tx, async () => {
+        await tx`update vat_return_submissions set protocol_pdf = null where id = ${vorher.uebermittlung}`;
+        await tx`update sepa_transfers set xml = '<Document>gefälscht</Document>' where id = ${vorher.ueberweisung}`;
+      });
       return problems(tx);
     });
-    expect(befunde).toEqual([
-      ...nichtImAuditLog,
-      expect.objectContaining({ tabelle: "vat_return_submissions", zeile: vorher.uebermittlung, befund: "Spalte protocol_pdf weicht vom Audit-Log ab" }),
-    ]);
+    expect(befunde).toHaveLength(3);
+    expect(befunde).toEqual(
+      expect.arrayContaining([
+        ...nichtImAuditLog,
+        expect.objectContaining({ tabelle: "sepa_transfers", zeile: vorher.ueberweisung, befund: "Spalte xml weicht vom Audit-Log ab" }),
+        expect.objectContaining({ tabelle: "vat_return_submissions", zeile: vorher.uebermittlung, befund: "Spalte protocol_pdf weicht vom Audit-Log ab" }),
+      ]),
+    );
   }, 120_000);
 });

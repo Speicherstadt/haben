@@ -52,6 +52,7 @@ const kiExtraction = {
 
 describe.skipIf(!testDatabaseUrl)("Eigene Ausgangsrechnung beim Beleg-Upload erkennen (Postgres)", () => {
   let documents: typeof import("./documents.ts");
+  let eingabe: typeof import("./beleg-eingabe.ts");
   let extraction: typeof import("./extraction.ts");
   let einvoice: typeof import("@haben/einvoice");
   let sql: postgres.Sql;
@@ -60,6 +61,7 @@ describe.skipIf(!testDatabaseUrl)("Eigene Ausgangsrechnung beim Beleg-Upload erk
   beforeAll(async () => {
     sql = await setupTestDb();
     documents = await import("./documents.ts");
+    eingabe = await import("./beleg-eingabe.ts");
     extraction = await import("./extraction.ts");
     einvoice = await import("@haben/einvoice");
   }, 30_000);
@@ -133,7 +135,8 @@ describe.skipIf(!testDatabaseUrl)("Eigene Ausgangsrechnung beim Beleg-Upload erk
       fields: { ...kiFields, supplierName: "Druckerei Schulze GmbH", supplierUstId: "DE812871812" },
     });
     const { id } = await documents.uploadDocument(actor, { bytes: new Uint8Array([...JPEG, 1]), filename: "druck.jpg" });
-    expect((await documents.getDocument(id))!.document).toMatchObject({ category: "werbung", extractionError: null });
+    const geladen = (await documents.getDocument(id))!;
+    expect(eingabe.formularansicht(geladen.document, geladen.positionen).document).toMatchObject({ category: "werbung", extractionError: null });
   });
 
   it.skipIf(!hasPdftotext)("ohne KI-Auslesung: eigene PDF-Rechnung ohne XML an der Textebene erkannt", async () => {
@@ -194,6 +197,7 @@ describe.skipIf(!testDatabaseUrl)("Eigene Ausgangsrechnung beim Beleg-Upload erk
     expect(sameDoc.category).toBeNull();
 
     const other = await documents.uploadDocument(actor, { bytes: new Uint8Array([...JPEG, 3]), filename: "b.jpg" });
-    expect((await documents.getDocument(other.id))!.document).toMatchObject({ extractionError: null, category: "werbung" });
+    const anderer = (await documents.getDocument(other.id))!;
+    expect(eingabe.formularansicht(anderer.document, anderer.positionen).document).toMatchObject({ extractionError: null, category: "werbung" });
   });
 });

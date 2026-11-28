@@ -25,6 +25,7 @@ import { documentPayments } from "./settled-amounts.ts";
 import { documentPayees, ibanDecisions, type DocumentPayee } from "./document-payees.ts";
 import { documentsMitEntnahme } from "../umsatzsteuer/index.ts";
 import { skontoMoeglich } from "./skonto-moeglich.ts";
+import { belegKategorieSql } from "../../db/beleg-kategorie.ts";
 
 /** Ein offener Beleg, der sich überweisen lässt, oder warum nicht */
 export interface TransferCandidate {
@@ -93,7 +94,7 @@ export async function transferCandidates(ids?: string[]): Promise<TransferCandid
       currency: schema.documents.currency,
       reverseCharge: schema.documents.reverseCharge,
       privateShare: schema.documents.privateShare,
-      category: schema.documents.category,
+      category: belegKategorieSql(schema.documents.id, schema.documents.category),
     })
     .from(schema.documents)
     .where(

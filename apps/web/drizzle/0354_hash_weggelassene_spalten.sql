@@ -7,7 +7,8 @@
 --    kommt jetzt aus haben_audit_omitted_columns statt aus einer eigenen Kopie.
 -- 3. Zeilen von vor dieser Migration bekommen einen nachträglichen Eintrag mit ihren Hashes und die Kette einen Hinweis wie
 --    in 0339.
--- 4. haben_append_only_problems vergleicht die Hashes mit den Spalten.
+-- 4. haben_append_only_problems vergleicht die Hashes mit den Spalten, nur aus Einträgen nach dem Stichtag in
+--    audit_hash_since (Tabelle aus 0353): Vorher kann ein Eintrag mit Hashes nur angehängt sein.
 --
 -- Quelle: GoBD, BMF-Schreiben vom 28.11.2019, Rz. 108 (keine Änderung ohne Kenntlichmachung), am Original gelesen in #861.
 --
@@ -65,6 +66,41 @@ BEGIN
   RETURN NULL;
 END;
 $$;
+--> statement-breakpoint
+-- Stichtag der Hashes: der Kopf der Kette vor dem Nachtrag. Ein Eintrag mit omitted_sha256 davor kann nur angehängt sein,
+-- denn haben_audit schreibt erst ab hier Hashes; der Abgleich zählt ihn nicht. Vor dem Update gibt es die Tabelle nicht,
+-- niemand kann sie vorab füllen. Sie ist nur anhängbar und steht im Audit-Log, ein späteres Verschieben fällt im Abgleich
+-- auf (haben_audited_append_only_tables).
+CREATE TRIGGER audit_hash_since_append_only BEFORE UPDATE OR DELETE ON audit_hash_since
+  FOR EACH ROW EXECUTE FUNCTION haben_append_only();
+--> statement-breakpoint
+CREATE TRIGGER audit_hash_since_no_truncate BEFORE TRUNCATE ON audit_hash_since
+  FOR EACH STATEMENT EXECUTE FUNCTION haben_reject_truncate();
+--> statement-breakpoint
+CREATE TRIGGER audit_hash_since_audit AFTER INSERT ON audit_hash_since
+  FOR EACH ROW EXECUTE FUNCTION haben_audit();
+--> statement-breakpoint
+-- Liste wie in 0339, dazu audit_hash_since
+CREATE OR REPLACE FUNCTION haben_audited_append_only_tables() RETURNS text[]
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT ARRAY['annual_submission_figures', 'annual_submissions', 'app_versions', 'archive_files', 'audit_hash_since', 'bank_duplicate_check',
+    'bank_duplicate_decisions', 'bank_duplicate_reviews', 'bank_import_transactions', 'bank_imports', 'bank_neutralizations',
+    'bank_transactions', 'brm_requests', 'contact_versions', 'datev_bookings', 'datev_personenkonten', 'dividends',
+    'document_iban_decisions', 'document_settlements', 'dunnings', 'elster_messages', 'external_import_settlements',
+    'external_imports', 'import_batches', 'import_conflicts', 'import_movements', 'import_resolutions', 'import_sources',
+    'inbox_messages', 'invoice_settlements', 'journal_umstellung', 'kapest_submissions', 'legacy_dunning_files',
+    'legacy_dunnings', 'legacy_file_states', 'legacy_order_documents', 'legacy_order_files', 'legacy_order_pdf_attempts',
+    'legacy_vat_report_files', 'legacy_vat_reports', 'legacy_voucher_payments', 'lexoffice_voucher_files',
+    'lexoffice_vouchers', 'local_owner_recoveries', 'lsta_submissions', 'lstb_submissions', 'mail_log', 'password_changes',
+    'postfach_documents', 'postfach_erledigt', 'postfach_requests', 'sepa_direct_debit_items', 'sepa_direct_debits',
+    'sepa_mandate_files', 'sepa_mandate_revocations', 'sepa_mandates', 'sepa_transfer_items', 'sepa_transfers',
+    'sevdesk_accounting_type_decisions', 'sevdesk_accounting_types', 'sevdesk_tax_sets', 'sso_issuers', 'sso_takeovers',
+    'store_payouts', 'store_reports', 'sv_portal_filings', 'token_events', 'user_logins', 'ustid_bestaetigungen',
+    'vast_belege', 'vast_requests', 'vat_extension_submissions', 'vat_items_since', 'vat_return_submissions', 'write_offs',
+    'year_closings', 'zm_submissions']
+$$;
+--> statement-breakpoint
+INSERT INTO audit_hash_since (id, seq) SELECT 1, coalesce(max(seq), 0) FROM audit_log;
 --> statement-breakpoint
 -- Bestand: jede Zeile mit weggelassenen Spalten, die einen INSERT-Eintrag hat, nachträglich eintragen, wie haben_audit es
 -- beim Einfügen getan hätte, in der Reihenfolge des Primärschlüssels. Auch wenn schon ein Eintrag omitted_sha256 trägt: Vor
@@ -135,7 +171,7 @@ BEGIN
   -- Triggern anhängen, ohne die Kette zu brechen.
   -- jsonb_populate_record wandelt den Wert in den Zeilentyp, damit etwa Zeitpunkte unabhängig von der Zeitzone der
   -- schreibenden Sitzung verglichen werden. Spalten, die eine spätere Migration ergänzt hat, fehlen in älteren Einträgen
-  -- und bleiben dort ungeprüft. Die Spalten, die haben_audit weglässt (PDF, XML), vergleicht er über ihren SHA-256 (0351).
+  -- und bleiben dort ungeprüft. Die Spalten, die haben_audit weglässt (PDF, XML), vergleicht er über ihren SHA-256 (0354).
   FOREACH tbl IN ARRAY haben_audited_append_only_tables() LOOP
     IF to_regclass(tbl) IS NULL THEN
       RETURN QUERY SELECT 'siegel'::text, tbl, NULL::text, NULL::bigint, 'Tabelle fehlt'::text;
@@ -186,9 +222,10 @@ BEGIN
          ORDER BY x.eintrag NULLS LAST, x.zeile
          LIMIT $1
       $q$, tbl, pk_match, pk_key, zeile_t, zeile_l, abweichung) USING max_rows;
-      -- PDF und XML (#2038): maßgeblich ist je Spalte der erste INSERT-Eintrag, der ihren Hash nennt, bei Zeilen von vor
-      -- 0351 der Nachtrag der Migration. Ein früher angehängter Eintrag ohne diese Spalte, etwa mit leerem omitted_sha256,
-      -- ersetzt ihn nicht. Ist omitted_sha256 kein Objekt, bricht jsonb_each ab und die Tabelle meldet unten, dass der
+      -- PDF und XML (#2038): maßgeblich ist je Spalte der erste INSERT-Eintrag nach dem Stichtag (audit_hash_since), der
+      -- ihren Hash nennt, bei Zeilen von vor 0354 der Nachtrag der Migration. Ein angehängter Eintrag ohne diese Spalte, etwa
+      -- mit leerem omitted_sha256, ersetzt ihn nicht; einer vor dem Stichtag zählt gar nicht. Fehlt die Zeile des Stichtags,
+      -- zählen alle Einträge, und der Abgleich von audit_hash_since meldet sie. Ist omitted_sha256 kein Objekt, bricht jsonb_each ab und die Tabelle meldet unten, dass der
       -- Abgleich nicht möglich ist.
       IF mit_hash THEN
         RETURN QUERY EXECUTE format($q$
@@ -197,6 +234,7 @@ BEGIN
               FROM audit_log a
              CROSS JOIN LATERAL jsonb_each(a.new_value -> 'omitted_sha256') s(spalte, soll)
              WHERE a.table_name = %1$L AND a.action = 'INSERT' AND a.new_value ? 'omitted_sha256'
+               AND a.seq > coalesce((SELECT h.seq FROM audit_hash_since h WHERE h.id = 1), 0)
           ), l AS (
             SELECT DISTINCT ON (%3$s, e.spalte) e.* FROM e ORDER BY %3$s, e.spalte, e.seq
           ), t AS (

@@ -1,5 +1,5 @@
 import {
-  allocateSplitTax,
+  EXPENSE_CATEGORIES,
   EXPENSE_CATEGORY_KEYS,
   PRIVATENTNAHME,
   privatZulaessig,
@@ -11,22 +11,18 @@ import {
   inBasisPoints,
   type Prozent,
 } from "@haben/core";
-import { asc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { db, schema, type Db, type Tx } from "../../db/index.ts";
-import { UserError } from "../../errors.ts";
+import { einzigePosition, istEntnahme, type Belegposition } from "./positionen.ts";
 
 /*
- * Aufteilung eines Belegs auf mehrere Kontierungszeilen (#271). Die Zeilen tragen Kategorie, Steuersatz und Netto; die
- * Vorsteuer des Satzes verteilt allocateSplitTax beim Speichern anteilig auf sie. Ohne Zeilen gilt wie bisher die
- * Kategorie des Belegs. Mit Zeilen steht am Beleg keine Kategorie.
+ * Eingabe und Prüfung der Positionen eines Belegs (#271, #1975). Die Positionen tragen Kategorie, Steuersatz und Netto;
+ * die Steuer des Satzes verteilt allocateSplitTax beim Speichern anteilig auf sie (beleg-eingabe.ts). Lesen und Schreiben stehen in
+ * positionen.ts.
  *
- * Die freie Beschreibung der Zeile (#1975) ist Persistenz- und Anzeigesache: Sie wird gespeichert und mit den Zeilen
- * ausgeliefert, steckt aber nicht in DocumentSplitLine/AllocatedSplitLine. Gebucht, gerechnet und geprüft wird über
- * Konto, Satz und Betrag; splitLines() lässt sie deshalb weg.
+ * Die freie Beschreibung der Position (#1975) ist Persistenz- und Anzeigesache: Sie wird gespeichert und mit den
+ * Positionen ausgeliefert, steckt aber nicht in DocumentSplitLine/AllocatedSplitLine. Gebucht, gerechnet und geprüft wird
+ * über Konto, Satz und Betrag; splitLines() lässt sie deshalb weg.
  */
-
-export type DocumentSplit = typeof schema.documentSplits.$inferSelect;
 
 export const splitInputSchema = z.object({
   category: z.enum(EXPENSE_CATEGORY_KEYS),
@@ -38,9 +34,6 @@ export const splitInputSchema = z.object({
   description: z.string().trim().max(200).default(""),
 });
 
-/** Höchstwert der int4-Spalten net und tax */
-const MAX_SPLIT_CENTS = 2_147_483_647;
-
 export type SplitInput = z.output<typeof splitInputSchema>;
 
 /**
@@ -48,57 +41,13 @@ export type SplitInput = z.output<typeof splitInputSchema>;
  * Zeile auf ihr eigenes Sachkonto (#270); ohne gilt das Konto der Kategorie.
  */
 export function splitLines(
-  splits: (Pick<DocumentSplit, "category" | "taxRate" | "net" | "tax"> & { ownAccountId?: string | null })[],
+  splits: readonly (Pick<Belegposition, "category" | "taxRate" | "net" | "tax"> & { ownAccountId?: string | null })[],
   eigene: ReadonlyMap<string, string> = new Map(),
 ): AllocatedSplitLine[] {
   return splits.map(({ category, taxRate, net, tax, ownAccountId }) => {
     const account = ownAccountId ? eigene.get(ownAccountId) : undefined;
     return { category: category as ExpenseCategory, ...(account ? { account } : {}), taxRate, net, tax };
   });
-}
-
-/** Ersetzt die Zeilen eines offenen Belegs; die Vorsteuer je Zeile kommt aus den Euro-Beträgen des Belegs je Satz */
-export async function replaceSplits(tx: Tx, documentId: string, splits: SplitInput[], amounts: { taxRate: number; net: number; tax: number }[]): Promise<void> {
-  await tx.delete(schema.documentSplits).where(eq(schema.documentSplits.documentId, documentId));
-  if (splits.length === 0) return;
-  // allocateSplitTax bekommt nur, was es rechnet: Kategorie, Satz und Netto. Die Beschreibung (#1975) bleibt hier,
-  // sonst trüge sie der Spread in AllocatedSplitLine bis in die Buchungszeile.
-  const allocated = allocateSplitTax(
-    splits.map(({ category, taxRate, net }) => ({ category, taxRate, net })),
-    amounts,
-  );
-  // Netto und verteilte Vorsteuer stehen in int4-Spalten; die Eingabe erlaubt wie bei den Beträgen mehr
-  if (allocated.some((line) => Math.abs(line.net) > MAX_SPLIT_CENTS || Math.abs(line.tax) > MAX_SPLIT_CENTS)) {
-    throw new UserError("Ein Betrag der Aufteilung ist zu groß. Stimmen die Nettobeträge der Zeilen?");
-  }
-  await tx
-    .insert(schema.documentSplits)
-    .values(allocated.map((line, i) => ({ documentId, position: i + 1, ...line, ownAccountId: splits[i]!.ownAccountId, description: splits[i]!.description })));
-}
-
-/**
- * Zeilen eines Belegs für die Anzeige (Belegseite, Duplizieren, Storno): die ganze Zeile samt Beschreibung (#1975). Wer
- * nur buchen will, nimmt splitLines().
- */
-export async function loadSplits(documentId: string, q: Db | Tx = db): Promise<DocumentSplit[]> {
-  return q.select().from(schema.documentSplits).where(eq(schema.documentSplits.documentId, documentId)).orderBy(asc(schema.documentSplits.position));
-}
-
-/** Zeilen mehrerer Belege, je Beleg in Reihenfolge; Belege ohne Aufteilung fehlen. `eigene` wie bei splitLines */
-export async function splitsByDocument(
-  ids: string[],
-  q: Db | Tx = db,
-  eigene: ReadonlyMap<string, string> = new Map(),
-): Promise<Map<string, AllocatedSplitLine[]>> {
-  if (ids.length === 0) return new Map();
-  const rows = await q
-    .select()
-    .from(schema.documentSplits)
-    .where(inArray(schema.documentSplits.documentId, ids))
-    .orderBy(asc(schema.documentSplits.documentId), asc(schema.documentSplits.position));
-  const result = new Map<string, AllocatedSplitLine[]>();
-  for (const row of rows) result.set(row.documentId, [...(result.get(row.documentId) ?? []), ...splitLines([row], eigene)]);
-  return result;
 }
 
 /**
@@ -109,7 +58,7 @@ export async function splitsByDocument(
 export function splitBookingIssues(
   doc: { reverseCharge: string | null; privateShare: Prozent; currency: string },
   amounts: { taxRate: number; net: number; tax: number }[],
-  splits: Pick<DocumentSplit, "category" | "taxRate" | "net" | "tax">[],
+  splits: readonly Pick<Belegposition, "category" | "taxRate" | "net" | "tax">[],
   /** Ohne Angabe wird die Rechtsform nicht geprüft; das Buchen prüft sie in jedem Fall */
   rechtsform?: Rechtsform,
 ): string[] {
@@ -124,4 +73,21 @@ export function splitBookingIssues(
   if (doc.privateShare > 0) issues.push("Ein Privatanteil mit Aufteilung wird nicht unterstützt");
   if (doc.currency !== "EUR") issues.push("Fremdwährung mit Aufteilung wird nicht unterstützt");
   return [...issues, ...splitIssues(splitLines(splits), amounts)];
+}
+
+/**
+ * Kontierung für Auswertungen, die zwischen einer Kategorie und einer Aufteilung rechnen (EÜR-Nebenbücher, #1975): Eine
+ * Kategorie mit einer Position je Satz und ohne Entnahme rechnet wie früher ein Beleg ohne Aufteilung, mit dem
+ * Privatanteil in Prozent am Beleg (Altbestand); alles andere über die Positionen als Zeilen (`splits`). Ohne Kategorie
+ * gilt „sonstiges“ wie bisher.
+ */
+export function auswertungsKontierung(
+  positionen: readonly Belegposition[],
+  eigene: ReadonlyMap<string, string> = new Map(),
+): { category: ExpenseCategory; splits?: AllocatedSplitLine[] } {
+  const eine = einzigePosition(positionen);
+  const jeSatzEine = new Set(positionen.map((p) => p.taxRate)).size === positionen.length;
+  const kategorie = eine?.category && eine.category in EXPENSE_CATEGORIES ? (eine.category as ExpenseCategory) : "sonstiges";
+  if (eine && jeSatzEine && !positionen.some(istEntnahme)) return { category: kategorie };
+  return { category: kategorie, splits: splitLines(positionen, eigene) };
 }

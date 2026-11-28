@@ -1,7 +1,7 @@
 import type { JournalZeile } from "./journal-kennzahlen.ts";
 import { privaterAnteil } from "./beleg-anteile.ts";
-import type { Cents, Prozent } from "./money.ts";
-import { ACCOUNTS, type Kontenrahmen } from "./posting.ts";
+import type { Cents } from "./money.ts";
+import { ACCOUNTS, type Kontenrahmen, type Privatteil } from "./posting.ts";
 
 /*
  * Belegbuchungen mit § 13b oder innergemeinschaftlichem Erwerb aus Versionen vor #551 (bis v0.6) tragen die
@@ -26,14 +26,18 @@ const SELBST_GESCHULDET: ReadonlySet<string> = new Set(["RC13bEU", "RC13bDrittla
 
 /**
  * Privater Teil (Netto und Steuer) je Steuerschlüssel eines Erwerbs, aus den Beträgen und dem Privatanteil des Belegs, je
- * Satz gerundet wie in documentRatePosting (#1502)
+ * Satz gerundet wie in documentRatePosting (#1502); mit Entnahmezeilen (#1975) deren Netto und Steuer je Satz
  */
-export function privatJeErwerbssatz(amounts: readonly { taxRate: number; net: Cents; tax: Cents }[], privateShare: Prozent): Map<string, Cents> {
+export function privatJeErwerbssatz(amounts: readonly { taxRate: number; net: Cents; tax: Cents }[], privateShare: Privatteil): Map<string, Cents> {
   const result = new Map<string, Cents>();
   for (const a of amounts) {
     const code = a.taxRate === 1900 ? "IGE19" : a.taxRate === 700 ? "IGE7" : null;
     if (!code) continue;
-    const privat = privaterAnteil(a.net, privateShare) + privaterAnteil(a.tax, privateShare);
+    const entnahme = typeof privateShare === "number" ? null : privateShare.find((satz) => satz.rate === a.taxRate);
+    const privat =
+      typeof privateShare === "number"
+        ? privaterAnteil(a.net, privateShare) + privaterAnteil(a.tax, privateShare)
+        : (entnahme?.base ?? 0) + (entnahme?.tax ?? 0);
     result.set(code, (result.get(code) ?? 0) + privat);
   }
   return result;

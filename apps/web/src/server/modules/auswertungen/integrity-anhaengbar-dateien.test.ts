@@ -5,7 +5,7 @@ import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 import { problems, rolledBack, tamper } from "./test-anhaengbar.ts";
 
 /*
- * PDF und XML nur anhängbarer Tabellen (#2038): haben_audit schreibt diese Spalten nicht ins Audit-Log, seit 0351 aber
+ * PDF und XML nur anhängbarer Tabellen (#2038): haben_audit schreibt diese Spalten nicht ins Audit-Log, seit 0354 aber
  * ihren SHA-256 unter omitted_sha256. Der Abgleich aus 0339 vergleicht ihn mit der Spalte, sonst ließe sich etwa das
  * Protokoll einer gesendeten Voranmeldung bei abgeschalteten Triggern still austauschen.
  */
@@ -130,7 +130,7 @@ describe.skipIf(!testDatabaseUrl)("PDF und XML nur anhängbarer Tabellen gegen d
   });
 
   // Ältere Einträge ohne Hashes bleiben ungeprüft, wie Spalten, die ein älterer Eintrag nicht kennt; für den Bestand trägt
-  // 0351 die Hashes nachträglich ein (migrate-hash-weggelassene-spalten.test.ts).
+  // 0354 die Hashes nachträglich ein (migrate-hash-weggelassene-spalten.test.ts).
   it("lässt Einträge ohne Hashes aus", async () => {
     const id = await ueberweisung();
     const found = await rolledBack(sql, async (tx) => {

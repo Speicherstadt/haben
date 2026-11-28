@@ -74,6 +74,7 @@ describe.skipIf(!testDatabaseUrl)("Firmendaten-Bestätigung bei einer bestehende
       // Bisherige Einträge unverändert; neu sind nur die Zeile der Prüfung beim Update (Migration 0275, #1116) und das
       // Briefkopf-Profil mit dem bisherigen Layout für die eingerichtete Firma (Migration 0312, #113)
       // Dazu der Nachtrag von vat_items_since, das 0138 vor seinem Audit-Trigger anlegt, mit Hinweis (Migration 0339, #861)
+      // und der Stichtag der Hashes von PDF und XML (Migration 0354, #2038)
       const audit = await sql`select * from audit_log order by seq`;
       expect(audit.slice(0, before.audit.length)).toEqual(before.audit);
       expect(audit.slice(before.audit.length).map((a) => [a.table_name, a.action])).toEqual([
@@ -81,6 +82,7 @@ describe.skipIf(!testDatabaseUrl)("Firmendaten-Bestätigung bei einer bestehende
         ["letterhead_profiles", "INSERT"],
         ["vat_items_since", "INSERT"],
         ["audit_chain", "INSERT"],
+        ["audit_hash_since", "INSERT"],
       ]);
       expect(await sql`select * from journal_entries order by id`).toEqual(before.entries);
       expect(await sql`select * from journal_lines order by id`).toEqual(before.lines);

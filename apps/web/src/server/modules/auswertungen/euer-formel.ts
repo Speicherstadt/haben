@@ -1,9 +1,10 @@
 import { ACCOUNTS, ASSET_ACCOUNTS, datevFormelKonto, istEuerEinnahme, zahlungsStand, type Cents, type EuerLineKey, type Kontenrahmen } from "@haben/core";
-import { and, eq, gte, inArray, lt, lte, ne, or, type SQL } from "drizzle-orm";
+import { and, gte, inArray, lt, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import { imEuerJahr } from "./euer-jahreswechsel.ts";
 import { buchungen, offenerPosten, type Buchung } from "./euer-journal-buchungen.ts";
 import { belegNebenbuecher, belegTeilzahlung, type BelegNebenbuch } from "./euer-journal-nebenbuch.ts";
+import { belegKategorieSql } from "../../db/beleg-kategorie.ts";
 
 /*
  * Gewinn der EÜR nach der DATEV-Formel (#542, Schritt 5c), als Gegenprobe zum Gewinn aus den Zeilen: der negative Saldo
@@ -130,7 +131,7 @@ export async function gewinnNachDatevFormel(year: number, nichtAbziehbar: Cents,
           await q
             .select({ id: schema.documents.id })
             .from(schema.documents)
-            .where(and(inArray(schema.documents.id, belegIds), eq(schema.documents.category, "anlage")))
+            .where(and(inArray(schema.documents.id, belegIds), sql`${belegKategorieSql(schema.documents.id, schema.documents.category)} = 'anlage'`))
         ).map((r) => r.id),
   );
   let formel = 0;

@@ -3,6 +3,7 @@ import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sampleDocument } from "../../../../../../packages/einvoice/src/samples.ts";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kuerzeKorrektur } from "./test-korrektur.ts";
 import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 import { cancellationMismatch } from "./fremdstorno-pruefung.ts";
 
@@ -212,6 +213,8 @@ describe.skipIf(!testDatabaseUrl)("Storno aus dem Fremdsystem übernehmen (Postg
     expect(teil.cancels).toMatchObject({ number: "2026-034" });
     expect(teil.cancels!.problem).toMatch(/nur das volle Storno/);
     const korrektur = await invoices.createCorrection(actor, rechnungId, "2026-10-05");
+    // Nicht die ganze unbezahlte Rechnung aufheben, das ist seit #2037 ein Storno: Entwurf kürzen
+    await kuerzeKorrektur(invoices, actor, korrektur.id);
     await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand);
     await expect(
       storno.adoptForeignCancellationFile(actor, { invoiceId: rechnungId, number: "2026-035", issueDate: "2026-10-02" }, datei(stornoPdf, "2026-035.pdf")),

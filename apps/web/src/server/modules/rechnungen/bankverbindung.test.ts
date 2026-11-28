@@ -1,6 +1,7 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kuerzeKorrektur } from "./test-korrektur.ts";
 import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /*
@@ -188,6 +189,8 @@ describe.skipIf(!testDatabaseUrl)("Weitere Zahlungskonten an Rechnung, Angebot u
     // Das alte Konto ist aufgelöst; in den Firmendaten steht ein neues
     await sql`update company set iban = 'DE75512108001245126199', bic = '', bank = 'Neue Bank' where id = 1`;
     const korrektur = await invoices.createCorrection(actor, rechnung.id, "2026-10-01");
+    // Nicht die ganze unbezahlte Rechnung aufheben, das ist seit #2037 ein Storno: Entwurf kürzen
+    await kuerzeKorrektur(invoices, actor, korrektur.id);
     expect(korrektur.bankverbindungId).toBeNull();
     const fest = await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand);
     expect(fest.seller).toMatchObject({ iban: "DE75512108001245126199", bank: "Neue Bank" });

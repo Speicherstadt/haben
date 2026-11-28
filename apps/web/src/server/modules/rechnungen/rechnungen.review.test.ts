@@ -167,6 +167,10 @@ describe.skipIf(!testDatabaseUrl)("Review: Storno und Korrektur (Postgres)", () 
   it("eine vollständig korrigierte Rechnung ist nicht zu mahnen", async () => {
     const dunning = await import("./dunning.ts");
     const original = await invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, draft())).id, kleinunternehmerStand);
+    // Eine Teilzahlung, damit die Korrektur über den vollen Betrag nicht als Storno abgewiesen wird (#2037); der
+    // Gegenstand bleibt: die Rechnung ist danach vollständig ausgeglichen.
+    const bank = await import("../bank/index.ts");
+    await bank.createCashInvoiceEntry(actor, { invoiceId: original.id, date: "2026-10-01", amount: 100 }, "2026-10-01");
     await invoices.finalizeInvoice(actor, (await invoices.createCorrection(actor, original.id, "2026-10-05")).id, kleinunternehmerStand);
     expect((await dunning.overdueInvoices("2026-10-29")).map((i) => i.id)).not.toContain(original.id);
     await expect(dunning.dunningDraft(original.id, "2026-10-29")).rejects.toThrow(/nichts offen/);

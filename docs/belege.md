@@ -365,7 +365,7 @@ Beispiel, alles zu 19 %: 100,00 € Handelsware, 50,00 € Software und 20,00 �
 
 Ohne Vorsteuerabzug (etwa als Kleinunternehmer oder mit steuerfreien Umsätzen: die Steuer nach § 13b schuldest du trotzdem) fehlt die Vorsteuerzeile, und neben jedem Netto steht auf demselben Konto sein Anteil an der Steuer als Aufwand (Steuerschlüssel `keineVSt`), im Beispiel 22,80 €, 11,40 €, 3,80 € und 9,50 €; zusammen genau Netto und Steuer des Belegs. So trägt das Journal die Bemessungsgrundlage (Kz 46 bzw. 84) netto, wie die Voranmeldung. Die Voranmeldung (Kz 46/47 bzw. 84/85 und 67) kommt wie ohne Aufteilung aus den Beträgen je Satz. In der [EÜR](auswertungen.md) zählt die Zahlung je Zeile mit ihrem Netto; die Summe ist dieselbe wie ohne Aufteilung, denn gezahlt ist nur netto, und die Steuer nach § 13b geht mit der Voranmeldung ans Finanzamt. Wie ohne Aufteilung gilt § 13b nicht für Wareneinkäufe und nur zu 19 % oder 7 %. Die Gebühren im Konto des Dienstleisters ordnest du dem aufgeteilten Beleg wie jedem anderen mit [Alle offenen Gebühren … diesem Beleg zuordnen](bank-zahlungsdienstleister.md) zu.
 
-**Noch nicht mit Aufteilung:** innergemeinschaftlicher Erwerb, Privatanteil, Fremdwährung und Anlagegüter. Haben lehnt das Buchen dann mit Grund ab („Innergemeinschaftlicher Erwerb mit Aufteilung wird nicht unterstützt“ usw.); solche Teile erfasst du als eigenen Beleg. Bei innergemeinschaftlichem Erwerb und Fremdwährung ist der Knopf zum Aufteilen gesperrt, mit Aufteilung fehlt das Feld **Privatanteil in %**.
+**Noch nicht mit Aufteilung:** innergemeinschaftlicher Erwerb, Privatanteil, Fremdwährung und Anlagegüter. Haben lehnt das Buchen dann mit Grund ab („Innergemeinschaftlicher Erwerb mit Aufteilung wird nicht unterstützt“ usw.); solche Teile erfasst du als eigenen Beleg. Bei innergemeinschaftlichem Erwerb und Fremdwährung ist der Knopf zum Aufteilen gesperrt, mit Aufteilung fehlt das Feld **Privatanteil in %**. Zeilen, die alle dieselbe Kategorie und dasselbe eigene Konto tragen, sind keine Aufteilung: Haben bucht sie wie einen Beleg mit dieser Kategorie, und Liste und `belege.csv` zeigen diese Kategorie ([Entscheidung](adr/belege-positionen.md)).
 
 ## Privatanteil
 
@@ -379,7 +379,7 @@ Den Privatanteil gibt es nur im Einzelunternehmen; bei einer GmbH oder UG fehlt 
 
 [Ohne Vorsteuerabzug](#ohne-vorsteuerabzug) wird der betriebliche Teil samt Steuer Ausgabe, im Beispiel 38,08 €.
 
-Vorgaben je Kategorie stellst du in den [Einstellungen](einrichtung.md#privatanteile) ein (Telefon, Internet). Sie werden beim Wählen der Kategorie und beim Auslesen übernommen. Bei Anlagegütern gibt es keinen Privatanteil; für Firmenwagen gilt die [Listenpreismethode](anlagen.md#private-nutzung-von-firmenwagen).
+Vorgaben je Kategorie stellst du in den [Einstellungen](einrichtung.md#privatanteile) ein (Telefon, Internet). Sie werden beim Wählen der Kategorie und beim Auslesen übernommen. Gespeichert wird der Privatanteil je Steuersatz als Position **Privatentnahme** mit dem privaten Teil von Netto und Steuer, gerundet wie die Buchung oben ([Entscheidung](adr/belege-positionen.md)). Bei Anlagegütern gibt es keinen Privatanteil; für Firmenwagen gilt die [Listenpreismethode](anlagen.md#private-nutzung-von-firmenwagen).
 
 ## Belege aus dem Ausland
 
