@@ -41,7 +41,7 @@ Es sind dieselben Tokens wie für die [KI-Assistenten](ki-assistenten.md); was e
 | `kontakte:schreiben` | dazu `POST /kontakte`, `PATCH /kontakte/{id}` |
 | `rechnungen:lesen` | `GET /rechnungen`, `GET /rechnungen/{id}` |
 | `rechnungen:entwuerfe` | dazu `POST /rechnungen`, `PATCH /rechnungen/{id}`, `DELETE /rechnungen/{id}` |
-| `rechnungen:festschreiben` | `GET /rechnungen`, `GET /rechnungen/{id}`, `POST /rechnungen/{id}/festschreiben`, nur für Entwürfe der gewählten Quelle |
+| `rechnungen:festschreiben` | `GET /rechnungen`, `GET /rechnungen/{id}` (alle Rechnungen), `POST /rechnungen/{id}/festschreiben` (nur Entwürfe der gewählten Quelle) |
 | `rechnungen:vorlagen-anlegen` | `POST /rechnungen/wiederkehrend` |
 | `rechnungen:vorlagen-bearbeiten` | `PATCH /rechnungen/wiederkehrend/{id}`, `DELETE /rechnungen/wiederkehrend/{id}` |
 | `angebote:lesen` | `GET /angebote`, `GET /angebote/{id}` |
