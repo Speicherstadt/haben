@@ -42,6 +42,7 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
     copySource,
     contactPersonId,
     corrects,
+    correctionBasis,
     currencyCode,
     deductionPreview,
     dirty,
@@ -144,6 +145,7 @@ export function InvoiceEditor(props: InvoiceEditorProps) {
               language,
               variant: kind === "rechnung" ? variant : null,
               corrects: corrects ?? null,
+              correctionBasis: kind === "korrektur" ? correctionBasis : null,
               // Auch bei einer Korrektur: Sie übernimmt Währung und Kurs der Rechnung, nur ohne eigenes Feld dafür
               currency: currencyCode !== "EUR" && CURRENCY_CODE.test(currencyCode) ? currencyCode : "EUR",
               skonto: skonto.stufen,

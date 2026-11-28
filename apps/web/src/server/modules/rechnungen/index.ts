@@ -61,7 +61,7 @@ export {
 export { rebuildInvoiceLines, type RebuiltInvoice } from "./positionen-nachbilden.ts";
 export { createTakenOverInvoice, type TakenOverInvoice } from "./rechnung-uebernehmen.ts";
 export { copyInvoice } from "./rechnung-kopieren.ts";
-export { invoiceDocumentTotals, invoiceTotalsById, storeInvoiceTaxes } from "./invoice-taxes.ts";
+export { correctionBasis, invoiceDocumentTotals, invoiceTotalsById, storeInvoiceTaxes } from "./invoice-taxes.ts";
 export {
   invoiceTaxReader,
   invoiceTaxYear,

@@ -134,6 +134,7 @@ function editorProps({
   bankverbindungen = [],
   standardIban = "",
   keptDeductions = [],
+  correctionBasis = null,
 }: InvoiceEditorProps) {
   return {
     kind,
@@ -166,6 +167,7 @@ function editorProps({
     bankverbindungen,
     standardIban,
     keptDeductions,
+    correctionBasis,
   };
 }
 

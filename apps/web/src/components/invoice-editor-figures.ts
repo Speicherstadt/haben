@@ -1,5 +1,6 @@
 import {
   computeInvoice,
+  correctionCalculation,
   circleKey,
   counterCircle,
   documentDiscountProblem,
@@ -14,6 +15,10 @@ import {
   quoteLineKindProblem,
   section4Note,
   skontoProblem,
+  type Discount,
+  type InvoiceTotals,
+  type PriceMode,
+  type TaxBreakdown,
   type UnitLabel,
   usesCustomerNumber,
 } from "@haben/core";
@@ -105,6 +110,17 @@ export function editorNumber(state: InvoiceEditorState, contact: InvoiceEditorPr
   return { term, termValid, dueDate, numberDate, nextNumber, customerNumberIssue, numberLengthIssue, earlierThanLast, ustIdPruefen, validUntilOk };
 }
 
+/** Summen der Vorschau; eine Korrektur rechnet ihre Steuer aus dem Gesamtstand wie beim Speichern und Festschreiben (#2079) */
+export function previewTotalsOf(
+  lines: Parameters<typeof computeInvoice>[0],
+  priceMode: PriceMode,
+  discount: Discount | null,
+  correctionBasis: TaxBreakdown[] | null,
+): InvoiceTotals {
+  const own = computeInvoice(lines, priceMode, discount);
+  return (correctionBasis ? correctionCalculation(own, lines, priceMode, correctionBasis) : own).totals;
+}
+
 /** Zahlungsweg, Skonto, Rabatt, Summen, Zahlungsplan und Steuerhinweis */
 export function editorPayment(
   state: InvoiceEditorState,
@@ -113,6 +129,7 @@ export function editorPayment(
   termValid: boolean,
 ) {
   const {
+    correctionBasis,
     discountText,
     editable,
     exemptionReason,
@@ -141,7 +158,7 @@ export function editorPayment(
   const counted = [...parsed.filter((l) => !quote || l.kind === null), ...deductionPreview].filter((l) => l.valid);
   const discountIssue =
     parsedDiscount === "ungültig" ? "Rabatt als Prozent (z. B. 5 %) oder Betrag (z. B. 100,00)" : documentDiscountProblem(counted, discount);
-  const previewTotals = computeInvoice(counted, grossPrices ? "brutto" : "netto", discountIssue ? null : discount).totals;
+  const previewTotals = previewTotalsOf(counted, grossPrices ? "brutto" : "netto", discountIssue ? null : discount, correctionBasis);
   const previewGross = previewTotals.gross;
   const kindIssue = quote ? quoteLineKindProblem(parsed.map((l, i) => ({ position: i + 1, kind: l.kind }))) : null;
   const plan = parsePlanRows(quote ? planRows : []);

@@ -13,6 +13,7 @@ export * from "./evatr.ts";
 export * from "./steuernummer.ts";
 export * from "./ustva.ts";
 export * from "./invoice.ts";
+export * from "./korrektur-steuer.ts";
 export * from "./rabatt.ts";
 export * from "./arbeitskosten.ts";
 export * from "./angebotspositionen.ts";

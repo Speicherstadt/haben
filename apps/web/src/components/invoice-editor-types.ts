@@ -8,6 +8,7 @@ import type {
   SkontoStufe,
   TaxTreatment,
   OutgoingTaxDetails,
+  TaxBreakdown,
 } from "@haben/core";
 import type { ReactNode } from "react";
 import type { useAction } from "../lib/use-action.ts";
@@ -137,4 +138,6 @@ export type InvoiceEditorProps = {
   standardIban?: string;
   /** Korrektur einer Schlussrechnung: die übernommenen Abzüge, fest; Haben behält sie beim Speichern */
   keptDeductions?: { description: string; quantity: number; unit: string; unitPrice: number; taxRate: 1900 | 700 | 0; deductionOf: string }[];
+  /** Entwurf einer Korrektur: Gesamtstand je Satz von Rechnung und festgeschriebenen Korrekturen (#2079) */
+  correctionBasis?: TaxBreakdown[] | null;
 };

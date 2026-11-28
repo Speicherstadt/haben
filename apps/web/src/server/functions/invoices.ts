@@ -1,6 +1,6 @@
 import { inCents, previousMonthKey } from "@haben/core";
 import { notFound } from "@tanstack/react-router";
-import { invoicesSentByMail, leistungsmonatHinweisFuer, listInvoiceAttachments, mailsForInvoice } from "../modules/rechnungen/index.ts";
+import { correctionBasis, invoicesSentByMail, leistungsmonatHinweisFuer, listInvoiceAttachments, mailsForInvoice } from "../modules/rechnungen/index.ts";
 import { createServerFn } from "@tanstack/react-start";
 import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { z } from "zod";
@@ -169,6 +169,11 @@ export const getInvoiceDetail = createServerFn({ method: "GET" })
       invoice: withoutFiles(result.invoice),
       ...(await replacementReferences(result)),
       issues,
+      // Entwurf einer Korrektur: der Editor rechnet ihre Steuer aus dem Gesamtstand wie der Server (#2079)
+      correctionBasis:
+        result.invoice.status === "draft" && result.invoice.kind === "korrektur" && result.invoice.correctsId
+          ? (await correctionBasis(db, result.invoice.correctsId)).document
+          : null,
       leistungsmonat,
       attachments: (await listInvoiceAttachments(data)).map(({ id, filename, size }) => ({ id, filename, size })),
       dunnings: await dunningsFor([data]),

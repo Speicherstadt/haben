@@ -31,7 +31,7 @@ import { draftRate, MAX_EURO_CENTS } from "./draft-rate.ts";
 import { effectivePriceMode, type DraftInput, type LineInput } from "./draft-schema.ts";
 import { InvoiceError } from "./invoice-error.ts";
 import { replacementQuote } from "./invoice-replacement.ts";
-import { euroTaxes, storeInvoiceTaxes } from "./invoice-taxes.ts";
+import { correctionBasis, correctionTaxes, euroTaxes, storeInvoiceTaxes, type CorrectionBasis } from "./invoice-taxes.ts";
 import type { Invoice, InvoiceLine } from "./invoices.ts";
 import { draftMandateProblem, paymentColumns } from "./lastschrift.ts";
 import { customerChangeProblem } from "./leistungen-kunde.ts";
@@ -98,14 +98,24 @@ async function allLines(tx: Tx, invoiceId: string | null, input: DraftInput): Pr
 }
 
 /**
- * Felder eines Entwurfs samt Summen. Netto und Umsatzsteuer je Satz werden nur hier berechnet; danach
- * lesen alle anderen Stellen die gespeicherten Werte (invoice_taxes).
+ * Felder eines Entwurfs samt Summen. Netto und Umsatzsteuer je Satz werden nur hier berechnet (und für die Korrektur beim
+ * Festschreiben in correctionRecalculation); danach lesen alle anderen Stellen die gespeicherten Werte (invoice_taxes).
+ * Eine Korrektur bekommt mit `basis` den Gesamtstand ihrer Rechnung: Ihre Steuer ist die Differenz der Stände (#2079).
  */
-function draftValues(input: DraftInput, bundesland: Company["bundesland"], lines: LineInput[], rate: { currency: string } & RateFields, kind = "rechnung") {
+function draftValues(
+  input: DraftInput,
+  bundesland: Company["bundesland"],
+  lines: LineInput[],
+  rate: { currency: string } & RateFields,
+  kind = "rechnung",
+  basis?: CorrectionBasis,
+) {
   const priceMode = effectivePriceMode(input);
-  const calculation = computeInvoice(lines, priceMode, input.discount ?? null);
+  const own = computeInvoice(lines, priceMode, input.discount ?? null);
   // Gebucht wird in Euro: bei Fremdwährung je Satz mit dem Kurs umgerechnet
-  const taxes = euroTaxes(calculation.totals.taxes, rate.currency, rate.exchangeRate);
+  const { calculation, taxes } = basis
+    ? correctionTaxes(own, lines, priceMode, basis, rate.currency, rate.exchangeRate)
+    : { calculation: own, taxes: euroTaxes(own.totals.taxes, rate.currency, rate.exchangeRate) };
   if (rate.currency !== "EUR" && taxes.some((t) => Math.abs(t.base) > MAX_EURO_CENTS || Math.abs(t.tax) > MAX_EURO_CENTS)) {
     throw new InvoiceError("Der umgerechnete Betrag ist zu groß. Stimmt der Kurs (1 EUR = … Fremdwährung)?");
   }
@@ -194,7 +204,9 @@ export async function insertDraft(tx: Tx, draft: DraftInput, extra: DraftExtra =
   const { bundesland } = await loadCompany(tx);
   await checkQuote(tx, input.quoteId);
   const lines = await allLines(tx, null, input);
-  const { values, calculation, taxes } = draftValues(input, bundesland, lines, await draftRate(tx, input, extra.correctsId ?? null, null), extra.kind);
+  const basis = extra.kind === "korrektur" && extra.correctsId ? await correctionBasis(tx, extra.correctsId) : undefined;
+  const rate = await draftRate(tx, input, extra.correctsId ?? null, null);
+  const { values, calculation, taxes } = draftValues(input, bundesland, lines, rate, extra.kind, basis);
   const mandateProblem = await draftMandateProblem(tx, values, values.contactId, values.dueDate);
   if (mandateProblem) throw new InvoiceError(mandateProblem);
   const personProblem = await contactPersonProblem(tx, values.contactId, values.contactPersonId);
@@ -248,6 +260,7 @@ export async function updateDraft(actor: string, id: string, proposed: DraftInpu
       lines,
       rate,
       draft.kind,
+      draft.kind === "korrektur" && draft.correctsId ? await correctionBasis(tx, draft.correctsId) : undefined,
     );
     const mandateProblem = await draftMandateProblem(tx, values, values.contactId, values.dueDate);
     if (mandateProblem) throw new InvoiceError(mandateProblem);

@@ -8,6 +8,7 @@ import type { LineInput } from "./draft-schema.ts";
 import { createDraft, insertDraft, lineInputOf } from "./invoice-drafts.ts";
 import { InvoiceError } from "./invoice-error.ts";
 import { finalizeDraft } from "./invoice-finalize.ts";
+import { sameTaxRows, storeInvoiceTaxes } from "./invoice-taxes.ts";
 import { getInvoice, type Invoice, type InvoiceLine } from "./invoices.ts";
 import { circleContact, circleFor, countsPerCustomer, lockNumbering } from "./number-counter.ts";
 import { referenceColumns } from "./order-references.ts";
@@ -36,6 +37,35 @@ function negatedLines(lines: InvoiceLine[]): LineInput[] {
     discount: negateDiscount(discountFromColumns(line.discountPercent, line.discountAmount)),
     ...(line.deductionOf ? { deductionOf: line.deductionOf } : {}),
   }));
+}
+
+/**
+ * Ein Storno nimmt genau zurück, was auf dem stornierten Beleg steht: Steuerzeilen (auch in der Währung der Rechnung),
+ * Summen und Zeilennetto negiert. Aus den negierten Positionen neu gerechnet wäre das bei der Rechnung dasselbe, bei einer
+ * Korrektur nicht: Ihre Steuer folgt aus dem Gesamtstand (#2079) und weicht bis zu einem Cent von ihrem Netto × Satz ab.
+ */
+async function negateSealedAmounts(tx: Tx, stornoId: string, target: Invoice, targetLines: InvoiceLine[]): Promise<void> {
+  const negate = (amount: number) => 0 - amount;
+  const negated = (await tx.select().from(schema.invoiceTaxes).where(eq(schema.invoiceTaxes.invoiceId, target.id))).map((t) => ({
+    rate: t.rate,
+    base: negate(t.base),
+    tax: negate(t.tax),
+    originalBase: t.originalBase === null ? null : negate(t.originalBase),
+    originalTax: t.originalTax === null ? null : negate(t.originalTax),
+  }));
+  const computed = await tx.select().from(schema.invoiceTaxes).where(eq(schema.invoiceTaxes.invoiceId, stornoId));
+  // Meist schon gleich (Storno einer Rechnung): dann nichts neu schreiben, auch nicht ins Audit-Log
+  if (!sameTaxRows(computed, negated)) await storeInvoiceTaxes(tx, stornoId, negated);
+  const stornoLines = await tx.select().from(schema.invoiceLines).where(eq(schema.invoiceLines.invoiceId, stornoId));
+  for (const line of stornoLines) {
+    const net = negate(targetLines.find((t) => t.position === line.position)!.net);
+    if (line.net !== net) await tx.update(schema.invoiceLines).set({ net }).where(eq(schema.invoiceLines.id, line.id));
+  }
+  const totals = { net: negate(target.net), tax: negate(target.tax), gross: negate(target.gross) };
+  const [storno] = await tx.select().from(schema.invoices).where(eq(schema.invoices.id, stornoId));
+  if (storno!.net !== totals.net || storno!.tax !== totals.tax || storno!.gross !== totals.gross) {
+    await tx.update(schema.invoices).set(totals).where(eq(schema.invoices.id, stornoId));
+  }
 }
 
 /** Gesamtrabatt für Storno und Korrektur: wie in der Rechnung, ein fester Betrag mit umgekehrtem Vorzeichen */
@@ -76,8 +106,8 @@ export async function cancelInvoice(actor: string, id: string, today: string): P
     await lockInvoice(tx, id);
     const { invoice, lines } = await finalOriginal(id, tx);
     // Festgeschriebene Korrekturen haben die Rechnung schon gemindert: jede bekommt ihr eigenes Storno. Je Beleg genau
-    // negiert hebt sich auch die Steuer auf den Cent auf, die jeder Beleg für sich rundet. Neue Korrekturen warten auf die
-    // Sperre des Originals oben.
+    // negiert (negateSealedAmounts) hebt sich auch die Steuer auf den Cent auf. Neue Korrekturen warten auf die Sperre
+    // des Originals oben.
     const corrections = await tx
       .select()
       .from(schema.invoices)
@@ -117,6 +147,7 @@ export async function cancelInvoice(actor: string, id: string, today: string): P
         },
         { kind: "storno", correctsId: target.id },
       );
+      await negateSealedAmounts(tx, draft.id, target, targetLines);
       return finalizeDraft(tx, draft.id, OHNE_UMSATZSTAND);
     };
     const storno = await stornoOf(invoice, lines);

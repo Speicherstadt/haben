@@ -1,5 +1,14 @@
-import { foreignToEuro, totalsFromTaxes, type InvoiceTotals, type TaxBreakdown } from "@haben/core";
-import { eq, inArray } from "drizzle-orm";
+import {
+  correctionCalculation,
+  foreignToEuro,
+  totalsFromTaxes,
+  type BasisPoints,
+  type InvoiceCalculation,
+  type InvoiceTotals,
+  type PriceMode,
+  type TaxBreakdown,
+} from "@haben/core";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 
 /*
@@ -30,12 +39,85 @@ export function euroTaxes(
   }));
 }
 
+/** Eine Steuerzeile, wie sie in invoice_taxes steht */
+type TaxRow = TaxBreakdown & { originalBase?: number | null; originalTax?: number | null };
+
+/** Dieselben Steuerzeilen, gleich in welcher Reihenfolge; dann muss nichts neu gespeichert werden */
+export function sameTaxRows(a: TaxRow[], b: TaxRow[]): boolean {
+  const key = (t: TaxRow) => `${t.rate}:${t.base}:${t.tax}:${t.originalBase ?? ""}:${t.originalTax ?? ""}`;
+  return a.map(key).sort().join() === b.map(key).sort().join();
+}
+
+/** Gesamtstand je Satz von Rechnung und festgeschriebenen Korrekturen, in der Währung der Rechnung und in Euro */
+export interface CorrectionBasis {
+  document: TaxBreakdown[];
+  euro: TaxBreakdown[];
+}
+
+/**
+ * Gesamtstand für die Steuer einer neuen Korrektur (#2079): die Rechnung und ihre festgeschriebenen Korrekturen je Satz,
+ * mit den Beträgen, wie sie auf den versiegelten Belegen stehen. Entwürfe zählen nicht mit.
+ */
+export async function correctionBasis(q: Db | Tx, originalId: string): Promise<CorrectionBasis> {
+  const t = schema.invoiceTaxes;
+  const i = schema.invoices;
+  const rows = await q
+    .select({
+      rate: t.rate,
+      base: sql<number>`sum(${t.base})::int`,
+      tax: sql<number>`sum(${t.tax})::int`,
+      originalBase: sql<number>`sum(coalesce(${t.originalBase}, ${t.base}))::int`,
+      originalTax: sql<number>`sum(coalesce(${t.originalTax}, ${t.tax}))::int`,
+    })
+    .from(t)
+    .innerJoin(i, eq(i.id, t.invoiceId))
+    .where(and(eq(i.status, "final"), or(eq(i.id, originalId), and(eq(i.correctsId, originalId), eq(i.kind, "korrektur")))))
+    .groupBy(t.rate);
+  return {
+    document: rows.map((r) => ({ rate: r.rate, base: r.originalBase, tax: r.originalTax })),
+    euro: rows.map((r) => ({ rate: r.rate, base: r.base, tax: r.tax })),
+  };
+}
+
+/** Haben die Gesamtsteuer in Belegwährung und in Euro entgegengesetzte Vorzeichen? (PEPPOL-EN16931-R055 in XRechnung) */
+const oppositeSigns = (a: number, b: number) => (a > 0 && b < 0) || (a < 0 && b > 0);
+
+/**
+ * Steuerzeilen einer Korrektur aus der Differenz der Gesamtstände (correctionCalculation), in der Währung der Rechnung.
+ * Bei Fremdwährung ebenso in Euro: umgerechnet wird der Gesamtstand mit dem Kurs der Rechnung, den Korrekturen und
+ * Rechnung teilen (draftRate), abzüglich der schon gebuchten Euro-Beträge; so bleibt auch in Euro kein Cent stehen.
+ * Hätte die Gesamtsteuer in Euro dann ein anderes Vorzeichen als in Belegwährung, was eine XRechnung abweist
+ * (PEPPOL-EN16931-R055), rechnet die Korrektur in Euro für sich um wie jede Rechnung; das ist vorzeichentreu.
+ */
+export function correctionTaxes(
+  calculation: InvoiceCalculation,
+  lines: { taxRate: BasisPoints }[],
+  priceMode: PriceMode,
+  basis: CorrectionBasis,
+  currency: string,
+  rate: string | null,
+): { calculation: InvoiceCalculation; taxes: ReturnType<typeof euroTaxes> } {
+  const adjusted = correctionCalculation(calculation, lines, priceMode, basis.document);
+  const own = euroTaxes(adjusted.totals.taxes, currency, rate);
+  if (currency === "EUR" || !rate) return { calculation: adjusted, taxes: own };
+  const zero = { base: 0, tax: 0 };
+  const cumulated = adjusted.totals.taxes.map((t) => {
+    const document = basis.document.find((b) => b.rate === t.rate) ?? zero;
+    const euro = basis.euro.find((b) => b.rate === t.rate) ?? zero;
+    return {
+      rate: t.rate,
+      base: foreignToEuro(document.base + t.base, rate) - euro.base,
+      tax: foreignToEuro(document.tax + t.tax, rate) - euro.tax,
+      originalBase: t.base,
+      originalTax: t.tax,
+    };
+  });
+  const sum = (taxes: { tax: number }[]) => taxes.reduce((s, t) => s + t.tax, 0);
+  return { calculation: adjusted, taxes: oppositeSigns(sum(cumulated), adjusted.totals.tax) ? own : cumulated };
+}
+
 /** Steuerzeilen einer Rechnung ersetzen; nur für Entwürfe, festgeschriebene sperrt ein Trigger */
-export async function storeInvoiceTaxes(
-  tx: Tx,
-  invoiceId: string,
-  taxes: (TaxBreakdown & { originalBase?: number | null; originalTax?: number | null })[],
-): Promise<void> {
+export async function storeInvoiceTaxes(tx: Tx, invoiceId: string, taxes: TaxRow[]): Promise<void> {
   await tx.delete(schema.invoiceTaxes).where(eq(schema.invoiceTaxes.invoiceId, invoiceId));
   if (taxes.length > 0) {
     await tx
