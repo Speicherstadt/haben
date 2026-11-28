@@ -106,12 +106,12 @@ function terminDer(datum: string, anker: number): string {
 interface Abbuchung {
   datum: string;
   /** Ausgang positiv */
-  betrag: number;
+  betrag: Cents;
 }
 
 /** Abbuchungen eines Teils je Tag, aufsteigend; ein Tag ohne Ausgang (Erstattung) zählt nicht */
 function abbuchungen(zahlungen: readonly DarlehenZahlung[], teil: "tilgung" | "zins"): Abbuchung[] {
-  const tage = new Map<string, number>();
+  const tage = new Map<string, Cents>();
   for (const z of zahlungen) if (z.teil === teil) tage.set(z.datum, (tage.get(z.datum) ?? 0) - z.betrag);
   return [...tage]
     .filter(([, betrag]) => betrag > 0)
@@ -168,7 +168,7 @@ export function darlehensPosten(input: Rahmen & { darlehen: DarlehenVerlauf }): 
   const schluss = getilgt ? tilgung.at(-1)!.datum : null;
   const zins = fortschreiben(zinsen, input).filter((t) => schluss === null || t.datum <= schluss);
 
-  const tage = new Map<string, { betrag: number; geschaetzt: boolean }>();
+  const tage = new Map<string, { betrag: Cents; geschaetzt: boolean }>();
   for (const t of [...tilgung, ...zins]) {
     const tag = tage.get(t.datum) ?? { betrag: 0, geschaetzt: false };
     tage.set(t.datum, { betrag: tag.betrag + t.betrag, geschaetzt: tag.geschaetzt || t.geschaetzt });
@@ -178,7 +178,7 @@ export function darlehensPosten(input: Rahmen & { darlehen: DarlehenVerlauf }): 
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([datum, { betrag, geschaetzt }]) => ({
         datum,
-        betrag: betrag as Cents,
+        betrag,
         richtung: "aus" as const,
         text: `${darlehen.name}, ${datum === schluss ? "Schlussrate" : geschaetzt ? "Rate wie zuletzt gezahlt, monatlich angenommen" : "Rate wie zuletzt gezahlt"}`,
         quelle: { art: "darlehen" as const, id: darlehen.id },
