@@ -2381,6 +2381,13 @@
       "when": 1795825865984,
       "tag": "0339_abgleich_audit_log",
       "breakpoints": true
+    },
+    {
+      "idx": 340,
+      "version": "7",
+      "when": 1795851655456,
+      "tag": "0340_betraege_audit",
+      "breakpoints": true
     }
   ]
 }

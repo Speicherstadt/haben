@@ -856,6 +856,13 @@
     },
     {
       "table": "public.document_amounts",
+      "name": "document_amounts_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER document_amounts_audit AFTER INSERT OR DELETE OR UPDATE ON public.document_amounts FOR EACH ROW EXECUTE FUNCTION public.haben_audit()",
+      "function": "public.haben_audit()"
+    },
+    {
+      "table": "public.document_amounts",
       "name": "document_amounts_locked",
       "enabled": "O",
       "definition": "CREATE TRIGGER document_amounts_locked BEFORE INSERT OR DELETE OR UPDATE ON public.document_amounts FOR EACH ROW EXECUTE FUNCTION public.haben_reject_locked_document_amount()",
@@ -1416,6 +1423,13 @@
     },
     {
       "table": "public.invoice_lines",
+      "name": "invoice_lines_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER invoice_lines_audit AFTER INSERT OR DELETE OR UPDATE ON public.invoice_lines FOR EACH ROW EXECUTE FUNCTION public.haben_audit()",
+      "function": "public.haben_audit()"
+    },
+    {
+      "table": "public.invoice_lines",
       "name": "invoice_lines_locked",
       "enabled": "O",
       "definition": "CREATE TRIGGER invoice_lines_locked BEFORE INSERT OR DELETE OR UPDATE ON public.invoice_lines FOR EACH ROW EXECUTE FUNCTION public.haben_reject_locked_invoice_line()",
@@ -1469,6 +1483,13 @@
       "enabled": "O",
       "definition": "CREATE TRIGGER invoice_settlements_no_truncate BEFORE TRUNCATE ON public.invoice_settlements FOR EACH STATEMENT EXECUTE FUNCTION public.haben_reject_truncate()",
       "function": "public.haben_reject_truncate()"
+    },
+    {
+      "table": "public.invoice_taxes",
+      "name": "invoice_taxes_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER invoice_taxes_audit AFTER INSERT OR DELETE OR UPDATE ON public.invoice_taxes FOR EACH ROW EXECUTE FUNCTION public.haben_audit()",
+      "function": "public.haben_audit()"
     },
     {
       "table": "public.invoice_taxes",
