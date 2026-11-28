@@ -11,7 +11,8 @@ import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
  * Je Fall entstehen zwei gleiche Entwürfe im Stand der bisherigen Version: Kategorie, Konto und Privatanteil am Beleg,
  * keine Positionen. Der erste wird so gebucht, wie Haben einen solchen Beleg bucht (Kategorie und Prozentsatz, wie vor dem
  * Update); danach läuft die Migration, die nur den zweiten, offenen Beleg umstellt, und er wird aus seinen Positionen
- * gebucht. Verglichen werden beide Buchungen Konto für Konto.
+ * gebucht. Verglichen werden alle Buchungen beider Belege Konto für Konto, auch die Freigabe der Vorsteuer bei späterer
+ * Leistung.
  */
 
 const MIGRATION = readFileSync(new URL("../../../../drizzle/0352_belege_positionen.sql", import.meta.url), "utf8");
@@ -89,6 +90,49 @@ const FAELLE: Fall[] = [
   { name: "Einfuhrumsatzsteuer", category: "einfuhrumsatzsteuer", amounts: [{ taxRate: 0, net: 1_234, tax: 0 }] },
   // 1 % von 0,20 € ergibt 0 Cent: keine Entnahme, eine Position
   { name: "Privatanteil ohne Cent", category: "telefon", privateShare: 1, amounts: [{ taxRate: 700, net: 20, tax: 1 }] },
+  {
+    // Vorsteuer erst im Oktober abziehbar: gebucht wird auch die Freigabe
+    name: "Leistung erst nach dem Belegdatum, mit Privatanteil",
+    category: "telefon",
+    privateShare: 40,
+    amounts: [{ taxRate: 1900, net: 4_999, tax: 950 }],
+    extra: { serviceFrom: "2026-10-01", serviceTo: "2026-10-31" },
+  },
+  {
+    name: "Fremdwährung zu 19 % mit Steuer und Privatanteil",
+    category: "telefon",
+    privateShare: 25,
+    amounts: [{ taxRate: 1900, net: 0, tax: 0, originalNet: 3_333, originalTax: 633 }],
+    extra: { currency: "USD", exchangeRate: "1,0812" },
+  },
+  {
+    name: "§ 13b Drittland mit Privatanteil über zwei Sätze",
+    category: "fremdleistung",
+    privateShare: 15,
+    amounts: [
+      { taxRate: 1900, net: 7_777, tax: 1_478 },
+      { taxRate: 700, net: 3_333, tax: 233 },
+    ],
+    extra: { reverseCharge: "drittland" },
+  },
+  {
+    name: "Ganz privat über zwei Sätze",
+    category: "internet",
+    privateShare: 100,
+    amounts: [
+      { taxRate: 1900, net: 1_001, tax: 190 },
+      { taxRate: 700, net: 501, tax: 35 },
+    ],
+  },
+  {
+    name: "Vorsteueranteil je Satz mit Privatanteil",
+    category: "sonstiges",
+    privateShare: 33,
+    amounts: [
+      { taxRate: 1900, net: 9_999, tax: 1_900, vorsteuerAnteil: 3_333 },
+      { taxRate: 700, net: 4_444, tax: 311, vorsteuerAnteil: null },
+    ],
+  },
 ];
 
 const EIGENES_KONTO = { SKR03: "4999", SKR04: "6999" } as const;
@@ -114,11 +158,11 @@ describe.skipIf(!testDatabaseUrl)("Migration 0352: offene Belege werden Position
     await sql?.end();
   });
 
-  async function reset(kontenrahmen: "SKR03" | "SKR04", versteuerung: "ist" | "soll") {
+  async function reset(kontenrahmen: "SKR03" | "SKR04", versteuerung: "ist" | "soll", kleinunternehmer = false) {
     await leeren(sql)`truncate document_cancellations, vat_returns, write_offs, allocations, cash_entries, asset_depreciations, assets,
       journal_lines, journal_entries, document_splits, document_amounts, documents, own_accounts, exchange_rates, year_closings, company cascade`;
     await sql`insert into company (id, name, strasse, plz, ort, email, steuernummer, bundesland, versteuerung, kontenrahmen, kleinunternehmer)
-      values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '198/113/10010', 'BY', ${versteuerung}, ${kontenrahmen}, false)`;
+      values (1, 'Testfirma', 'Musterstraße 1', '93047', 'Regensburg', 'rechnung@example.com', '198/113/10010', 'BY', ${versteuerung}, ${kontenrahmen}, ${kleinunternehmer})`;
     return konten.createOwnAccount(actor, { account: EIGENES_KONTO[kontenrahmen], name: "Software: Entwicklung", parentCategory: "software" });
   }
 
@@ -148,13 +192,13 @@ describe.skipIf(!testDatabaseUrl)("Migration 0352: offene Belege werden Position
     return id;
   }
 
-  /** Salden der Buchung je Konto und Steuerschlüssel, dazu die Bemessungsgrundlage */
+  /** Salden aller Buchungen des Belegs (Beleg und Freigabe) je Konto und Steuerschlüssel, dazu die Bemessungsgrundlage */
   async function salden(id: string) {
-    const rows = await sql<{ account: string; tax_code: string | null; saldo: number; basis: number }[]>`
-      select l.account, l.tax_code, sum(l.debit - l.credit)::int as saldo, coalesce(sum(l.basis), 0)::int as basis
+    const rows = await sql<{ source_type: string; account: string; tax_code: string | null; saldo: number; basis: number }[]>`
+      select e.source_type, l.account, l.tax_code, sum(l.debit - l.credit)::int as saldo, coalesce(sum(l.basis), 0)::int as basis
         from journal_lines l join journal_entries e on e.id = l.entry_id
-       where e.source_type = 'document' and e.source_id = ${id} and e.reverses_id is null
-       group by l.account, l.tax_code order by l.account, l.tax_code`;
+       where e.source_id = ${id} and e.reverses_id is null
+       group by e.source_type, l.account, l.tax_code order by e.source_type, l.account, l.tax_code`;
     return rows.map((r) => ({ ...r })).filter((r) => r.saldo !== 0 || r.basis !== 0);
   }
 
@@ -164,16 +208,19 @@ describe.skipIf(!testDatabaseUrl)("Migration 0352: offene Belege werden Position
     });
   }
 
-  for (const [kontenrahmen, versteuerung] of [
-    ["SKR03", "soll"],
-    ["SKR03", "ist"],
-    ["SKR04", "soll"],
-    ["SKR04", "ist"],
+  for (const [kontenrahmen, versteuerung, kleinunternehmer] of [
+    ["SKR03", "soll", false],
+    ["SKR03", "ist", false],
+    ["SKR04", "soll", false],
+    ["SKR04", "ist", false],
+    ["SKR03", "ist", true],
   ] as const) {
-    it(`${kontenrahmen}, ${versteuerung}: jede Buchung bleibt Konto für Konto gleich`, async () => {
-      const eigenesKonto = await reset(kontenrahmen, versteuerung);
+    it(`${kontenrahmen}, ${versteuerung}${kleinunternehmer ? ", Kleinunternehmer" : ""}: jede Buchung bleibt Konto für Konto gleich`, async () => {
+      const eigenesKonto = await reset(kontenrahmen, versteuerung, kleinunternehmer);
+      // Als Kleinunternehmer bucht Haben weder den Erwerb (Erwerbsschwelle, § 1a Abs. 3 UStG) noch Einfuhrumsatzsteuer für sich
+      const faelle = FAELLE.filter((fall) => !kleinunternehmer || (fall.extra?.reverseCharge !== "ig_erwerb" && fall.category !== "einfuhrumsatzsteuer"));
       const paare = [];
-      for (const fall of FAELLE) paare.push({ fall, vorher: await altEntwurf(fall, eigenesKonto), nachher: await altEntwurf(fall, eigenesKonto) });
+      for (const fall of faelle) paare.push({ fall, vorher: await altEntwurf(fall, eigenesKonto), nachher: await altEntwurf(fall, eigenesKonto) });
       for (const { vorher } of paare) await documents.bookDocument(actor, vorher);
 
       await migrieren();
@@ -207,18 +254,19 @@ describe.skipIf(!testDatabaseUrl)("Migration 0352: offene Belege werden Position
     return wert;
   };
 
-  /** EÜR des Jahres und Voranmeldung des Belegmonats, ohne Kennungen und Nummern der Belege */
+  /** EÜR des Jahres und Voranmeldung des Belegmonats und des Monats der späteren Leistung, ohne Kennungen und Nummern der Belege */
   async function auswertung() {
     const euer = await reports.euerForYear(2026);
-    const vat = await figures.computeVatFigures({ year: 2026, month: 9 });
-    return sortiert(JSON.parse(JSON.stringify({ euer, vat }, (key, value) => (/^(id|number)$|Id$/.test(key) ? undefined : value))));
+    const september = await figures.computeVatFigures({ year: 2026, month: 9 });
+    const oktober = await figures.computeVatFigures({ year: 2026, month: 10 });
+    return sortiert(JSON.parse(JSON.stringify({ euer, september, oktober }, (key, value) => (/^(id|number)$|Id$/.test(key) ? undefined : value))));
   }
 
   for (const [kontenrahmen, versteuerung] of [
     ["SKR03", "ist"],
     ["SKR04", "soll"],
   ] as const) {
-    it(`${kontenrahmen}, ${versteuerung}: EÜR und Voranmeldung bleiben gleich`, async () => {
+    it(`${kontenrahmen}, ${versteuerung}: EÜR und Voranmeldung (September und Oktober) bleiben gleich`, async () => {
       let eigenesKonto = await reset(kontenrahmen, versteuerung);
       const vorher = [];
       for (const fall of BEZAHLT) vorher.push(await altEntwurf(fall, eigenesKonto));
