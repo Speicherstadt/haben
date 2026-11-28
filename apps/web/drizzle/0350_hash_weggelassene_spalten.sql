@@ -39,11 +39,13 @@ DECLARE
   old_json jsonb := CASE WHEN TG_OP <> 'INSERT' THEN to_jsonb(OLD) END;
   new_json jsonb := CASE WHEN TG_OP <> 'DELETE' THEN to_jsonb(NEW) END;
   omit text[] := haben_audit_omitted_columns();
+  -- Nur anhängbare Tabellen gleicht haben_append_only_problems mit dem Audit-Log ab; ihre PDF und XML über den Hash (#2038).
+  -- Tabellen ohne solche Spalten rufen die Funktion gar nicht erst auf.
+  mit_hash boolean := TG_TABLE_NAME = ANY (haben_audited_append_only_tables()) AND coalesce(new_json, old_json) ?| omit;
 BEGIN
   old_json := old_json - omit;
   new_json := new_json - omit;
-  -- Nur anhängbare Tabellen gleicht haben_append_only_problems mit dem Audit-Log ab; ihre PDF und XML über den Hash (#2038)
-  IF TG_TABLE_NAME = ANY (haben_audited_append_only_tables()) THEN
+  IF mit_hash THEN
     IF TG_OP <> 'INSERT' THEN old_json := old_json || haben_audit_omitted_sha256(OLD); END IF;
     IF TG_OP <> 'DELETE' THEN new_json := new_json || haben_audit_omitted_sha256(NEW); END IF;
   END IF;
@@ -64,9 +66,10 @@ BEGIN
 END;
 $$;
 --> statement-breakpoint
--- Bestand: jede Zeile mit weggelassenen Spalten ohne Eintrag mit Hashes nachträglich eintragen, wie haben_audit es beim
--- Einfügen getan hätte, in der Reihenfolge des Primärschlüssels. Der Abgleich der übrigen Spalten bleibt beim ersten
--- Eintrag der Zeile.
+-- Bestand: jede Zeile mit weggelassenen Spalten, die einen INSERT-Eintrag hat, aber keinen mit Hashes, nachträglich
+-- eintragen, wie haben_audit es beim Einfügen getan hätte, in der Reihenfolge des Primärschlüssels. Der Abgleich der übrigen
+-- Spalten bleibt beim ersten Eintrag der Zeile. Eine Zeile ganz ohne Eintrag bleibt ein Befund („Zeile steht nicht im
+-- Audit-Log“); trüge die Migration sie ein, bezeugte sie eine an den Triggern vorbei eingefügte Zeile.
 DO $$
 DECLARE
   tbl text;
@@ -92,7 +95,10 @@ BEGIN
              coalesce(x.j ->> 'id', (x.j ->> 'year') || coalesce(':' || (x.j ->> 'contact_id'), '')), 'INSERT', NULL, x.j
         FROM (SELECT (to_jsonb(t) - haben_audit_omitted_columns()) || haben_audit_omitted_sha256(t) AS j
                 FROM %1$I t
-               WHERE NOT EXISTS (SELECT 1 FROM audit_log a
+               WHERE EXISTS (SELECT 1 FROM audit_log a
+                             CROSS JOIN LATERAL jsonb_populate_record(NULL::%1$I, a.new_value) p
+                              WHERE a.table_name = %1$L AND a.action = 'INSERT' AND %2$s)
+                 AND NOT EXISTS (SELECT 1 FROM audit_log a
                                  CROSS JOIN LATERAL jsonb_populate_record(NULL::%1$I, a.new_value) p
                                   WHERE a.table_name = %1$L AND a.action = 'INSERT' AND a.new_value ? 'omitted_sha256'
                                     AND %2$s)

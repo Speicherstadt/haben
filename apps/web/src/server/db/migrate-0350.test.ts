@@ -41,7 +41,7 @@ describe.skipIf(!testDatabaseUrl)("Migration 0350: Hashes von PDF und XML im Bes
 
   const sha256 = (inhalt: string | Buffer) => createHash("sha256").update(inhalt).digest("hex");
 
-  it("trägt die Hashes vorhandener Zeilen nachträglich ein, mit Hinweis, und meldet danach eine getauschte Datei", async () => {
+  it("trägt die Hashes vorhandener Zeilen nachträglich ein, mit Hinweis, und meldet danach eine getauschte Datei; eine Zeile ohne Eintrag bleibt ein Befund", async () => {
     const pdf = Buffer.from("%PDF-1.7 Protokoll");
     const vorher = await sql.begin(async (tx) => {
       await tx`select set_config('haben.actor', 'test:vorher', true)`;
@@ -52,9 +52,14 @@ describe.skipIf(!testDatabaseUrl)("Migration 0350: Hashes von PDF und XML im Bes
       const [konto] = await tx`insert into bank_accounts (name, iban) values ('Giro', 'DE89370400440532013000') returning id`;
       const [s] = await tx`insert into sepa_transfers (bank_account_id, message_id, execution_date, number_of_transactions, control_sum, xml)
         values (${konto!.id}, 'MSG-1', '2026-03-01', 1, 4999, '<Document/>') returning id`;
-      return { uebermittlung: u!.id as string, ueberweisung: s!.id as string };
+      // An den Triggern vorbei eingefügt: Der Nachtrag darf sie nicht bezeugen, sie bleibt ein Befund
+      await tx`set local session_replication_role = replica`;
+      const [still] = await tx`insert into sepa_transfers (bank_account_id, message_id, execution_date, number_of_transactions, control_sum, xml)
+        values (${konto!.id}, 'MSG-STILL', '2026-03-01', 1, 4999, '<Document>still</Document>') returning id`;
+      return { uebermittlung: u!.id as string, ueberweisung: s!.id as string, still: still!.id as string };
     });
-    expect(await sql`select * from haben_integrity_problems(100)`).toEqual([]);
+    const nichtImAuditLog = [{ art: "siegel", tabelle: "sepa_transfers", zeile: vorher.still, seq: null, befund: "Zeile steht nicht im Audit-Log" }];
+    expect(await problems(sql)).toEqual(nichtImAuditLog);
     const [kopf] = await sql`select seq from audit_chain`;
 
     const { drizzle } = await import("drizzle-orm/postgres-js");
@@ -74,13 +79,14 @@ describe.skipIf(!testDatabaseUrl)("Migration 0350: Hashes von PDF und XML im Bes
       hinweis: expect.stringContaining("nachträglich eingetragen"),
       tabellen: { sepa_transfers: 1, vat_return_submissions: 1 },
     });
-    expect(await sql`select * from haben_integrity_problems(100)`).toEqual([]);
+    expect(await problems(sql)).toEqual(nichtImAuditLog);
 
     const befunde = await rolledBack(sql, async (tx) => {
       await tamper(tx, () => tx`update vat_return_submissions set protocol_pdf = ${Buffer.from("%PDF-1.7 anders")} where id = ${vorher.uebermittlung}`);
       return problems(tx);
     });
     expect(befunde).toEqual([
+      ...nichtImAuditLog,
       expect.objectContaining({ tabelle: "vat_return_submissions", zeile: vorher.uebermittlung, befund: "Spalte protocol_pdf weicht vom Audit-Log ab" }),
     ]);
   }, 120_000);
