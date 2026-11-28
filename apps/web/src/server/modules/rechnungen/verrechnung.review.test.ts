@@ -92,7 +92,7 @@ describe.skipIf(!testDatabaseUrl)("Verrechnung von Rechnung und Korrektur, Revie
 
   it("Storno nach einer Verrechnung lässt keinen offenen Posten aus der Verrechnung zurück", async () => {
     const rechnung = await beleg("rechnung", [{ netto: 13_361, satz: 1900 }], "2026-11-01");
-    const korrektur = await beleg("korrektur", [{ netto: -1_471, satz: 1900 }], "2026-11-10", rechnung);
+    const korrektur = await beleg("korrektur", [{ netto: -1_470, satz: 1900 }], "2026-11-10", rechnung);
     await verrechnung.settleInvoices(actor, { invoiceId: rechnung, counterInvoiceId: korrektur, amount: 1_750, date: "2026-11-12", note: "Gutschrift" });
     // Wie bei einer Ausbuchung: erst die Verrechnung aufheben, dann stornieren. Kein Geld ist geflossen; nach dem Storno
     // darf weder eine Erstattung an den Kunden noch eine Forderung aus der Korrektur offen stehen.
@@ -110,7 +110,7 @@ describe.skipIf(!testDatabaseUrl)("Verrechnung von Rechnung und Korrektur, Revie
       it(`${kontenrahmen}, ${versteuerung}: Verrechnung bucht Forderungen gegen Verrechnungskonto ohne Steuer, Kz 81 Journal = Nebenbuch`, async () => {
         await firma(versteuerung, kontenrahmen);
         const rechnung = await beleg("rechnung", [{ netto: 13_361, satz: 1900 }], "2026-11-01");
-        const korrektur = await beleg("korrektur", [{ netto: -1_471, satz: 1900 }], "2026-11-10", rechnung);
+        const korrektur = await beleg("korrektur", [{ netto: -1_470, satz: 1900 }], "2026-11-10", rechnung);
         await verrechnung.settleInvoices(actor, { invoiceId: rechnung, counterInvoiceId: korrektur, amount: 1_750, date: "2026-11-12", note: "Gutschrift" });
         await zahle(rechnung, 14_150, "2026-11-13");
         const konten = kontenrahmen === "SKR03" ? { forderungen: "1400", verrechnung: "1590" } : { forderungen: "1200", verrechnung: "1370" };
@@ -121,8 +121,9 @@ describe.skipIf(!testDatabaseUrl)("Verrechnung von Rechnung und Korrektur, Revie
         expect([...zeilen].every((z) => z.saldo === 0 && (z as unknown as { steuer: number }).steuer === 0)).toBe(true);
         const [forderung] = await sql`select coalesce(sum(debit - credit), 0)::int as saldo from journal_lines where account = ${konten.forderungen}`;
         expect(forderung!.saldo).toBe(0);
-        // Soll: 133,61 − 14,71 = 118,90 im November; Ist: vereinnahmt 141,50 € brutto, davon 22,60 € Steuer
+        // Soll: 133,61 − 14,70 = 118,91 im November; Ist: vereinnahmt 141,50 € brutto, davon 22,59 € Steuer, genau
+        // die Steuer auf 118,91 € (Steuer der Korrektur aus dem Gesamtstand, #2079)
         const nov = await figures.computeVatFigures({ year: 2026, month: 11 });
-        expect({ kz81: nov.kz81, tax81: nov.tax81 }).toEqual({ kz81: 11_890, tax81: 2_260 });
+        expect({ kz81: nov.kz81, tax81: nov.tax81 }).toEqual({ kz81: 11_891, tax81: 2_259 });
       }, 60_000);
 });

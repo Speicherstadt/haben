@@ -46,27 +46,27 @@ function negatedLines(lines: InvoiceLine[]): LineInput[] {
  */
 async function negateSealedAmounts(tx: Tx, stornoId: string, target: Invoice, targetLines: InvoiceLine[]): Promise<void> {
   const negate = (amount: number) => 0 - amount;
-  const taxes = await tx.select().from(schema.invoiceTaxes).where(eq(schema.invoiceTaxes.invoiceId, target.id));
-  await storeInvoiceTaxes(
-    tx,
-    stornoId,
-    taxes.map((t) => ({
-      rate: t.rate,
-      base: negate(t.base),
-      tax: negate(t.tax),
-      originalBase: t.originalBase === null ? null : negate(t.originalBase),
-      originalTax: t.originalTax === null ? null : negate(t.originalTax),
-    })),
-  );
+  const negated = (await tx.select().from(schema.invoiceTaxes).where(eq(schema.invoiceTaxes.invoiceId, target.id))).map((t) => ({
+    rate: t.rate,
+    base: negate(t.base),
+    tax: negate(t.tax),
+    originalBase: t.originalBase === null ? null : negate(t.originalBase),
+    originalTax: t.originalTax === null ? null : negate(t.originalTax),
+  }));
+  const key = (t: (typeof negated)[number]) => `${t.rate}:${t.base}:${t.tax}:${t.originalBase}:${t.originalTax}`;
+  const computed = await tx.select().from(schema.invoiceTaxes).where(eq(schema.invoiceTaxes.invoiceId, stornoId));
+  // Meist schon gleich (Storno einer Rechnung): dann nichts neu schreiben, auch nicht ins Audit-Log
+  if (computed.map(key).sort().join() !== negated.map(key).sort().join()) await storeInvoiceTaxes(tx, stornoId, negated);
   const stornoLines = await tx.select().from(schema.invoiceLines).where(eq(schema.invoiceLines.invoiceId, stornoId));
   for (const line of stornoLines) {
     const net = negate(targetLines.find((t) => t.position === line.position)!.net);
     if (line.net !== net) await tx.update(schema.invoiceLines).set({ net }).where(eq(schema.invoiceLines.id, line.id));
   }
-  await tx
-    .update(schema.invoices)
-    .set({ net: negate(target.net), tax: negate(target.tax), gross: negate(target.gross), updatedAt: new Date() })
-    .where(eq(schema.invoices.id, stornoId));
+  const totals = { net: negate(target.net), tax: negate(target.tax), gross: negate(target.gross) };
+  const [storno] = await tx.select().from(schema.invoices).where(eq(schema.invoices.id, stornoId));
+  if (storno!.net !== totals.net || storno!.tax !== totals.tax || storno!.gross !== totals.gross) {
+    await tx.update(schema.invoices).set(totals).where(eq(schema.invoices.id, stornoId));
+  }
 }
 
 /** Gesamtrabatt für Storno und Korrektur: wie in der Rechnung, ein fester Betrag mit umgekehrtem Vorzeichen */

@@ -56,7 +56,8 @@ describe.skipIf(!testDatabaseUrl)("Anzeige nach einer Verrechnung (Postgres)", (
   /** Rechnung 159,00 EUR mit Korrektur -17,50 EUR: der Fall aus dem Issue */
   async function paar(): Promise<{ rechnung: string; korrektur: string }> {
     const rechnung = await beleg("rechnung", 13_361, "2026-09-01");
-    const korrektur = await beleg("korrektur", -1_471, "2026-11-10", rechnung);
+    // −14,70 € netto: Stand 118,91 € → 22,59 € Steuer, die Korrektur −2,80 €, brutto −17,50 € (#2079)
+    const korrektur = await beleg("korrektur", -1_470, "2026-11-10", rechnung);
     return { rechnung, korrektur };
   }
 
@@ -182,6 +183,7 @@ describe.skipIf(!testDatabaseUrl)("Anzeige nach einer Verrechnung (Postgres)", (
 
   it("verrechnet eine Korrektur nicht doppelt: Mahnwesen mahnt den Rest nur einmal", async () => {
     const { rechnung, korrektur } = await paar();
+    // Auf dem Stand nach der ersten Korrektur (118,91 €) ergeben −14,71 € netto wieder −17,50 € brutto
     const teil = await beleg("korrektur", -1_471, "2026-11-11", rechnung);
     await verrechnung.settleInvoices(actor, {
       invoiceId: rechnung,
