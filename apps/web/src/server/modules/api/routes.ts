@@ -7,6 +7,7 @@ import { createContactHandler, getContactHandler, listContactsHandler, updateCon
 import type { Handler } from "./http.ts";
 import { createDocumentHandler, getDocumentHandler, listDocumentsHandler } from "./documents.ts";
 import { createInvoiceHandler, deleteInvoiceHandler, getInvoiceHandler, listInvoicesHandler, updateInvoiceHandler } from "./invoices.ts";
+import { INVOICE_FINALIZE_ROUTES } from "./invoice-finalize.ts";
 import { createServiceEntryHandler, deleteServiceEntryHandler, getServiceEntryHandler, listServiceEntriesHandler } from "./leistungen.ts";
 import { serviceEntryQuerySchema } from "./leistungen-schemas.ts";
 import { createQuoteHandler, deleteQuoteHandler, getQuoteHandler, listQuotesHandler, updateQuoteHandler } from "./quotes.ts";
@@ -113,6 +114,7 @@ export const API_ROUTES: ApiRoute[] = [
     handler: createInvoiceHandler,
   },
   ...RECURRING_INVOICE_ROUTES,
+  ...INVOICE_FINALIZE_ROUTES,
   {
     method: "GET",
     path: "/rechnungen/{id}",
