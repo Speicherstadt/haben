@@ -246,7 +246,7 @@ Die Antwort `200` ist die Rechnung wie bei `GET /rechnungen/{id}`, dazu `festges
 | `schon_gesendet` | ging schon früher erfolgreich, keine zweite Mail |
 | `fehlgeschlagen` | festgeschrieben, die Mail nicht; `versand.fehler` nennt den Grund |
 
-Der Aufruf lässt sich gefahrlos wiederholen: Eine festgeschriebene Rechnung bekommt keine zweite Nummer, und eine Mail geht nur, solange noch keine erfolgreich gegangen ist. Nach `fehlgeschlagen` holt derselbe Aufruf den Versand nach. Storno und Korrektur gibt es nur in Haben.
+Der Aufruf lässt sich gefahrlos wiederholen: Eine festgeschriebene Rechnung bekommt keine zweite Nummer, und eine Mail geht nur, solange noch keine erfolgreich gegangen ist. Nach `fehlgeschlagen` holt derselbe Aufruf den Versand nach.
 
 ## Wiederkehrende Rechnungen
 
