@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ASSET_ACCOUNTS } from "./afa.ts";
 import { kontoImKontenrahmen, zeilenImKontenrahmen } from "./kontenrahmen-wechsel.ts";
 import { LOHN_KONTEN } from "./lohn-buchung.ts";
+import { PAUSCHALE_KONTEN, type PauschaleArt } from "./pauschalen.ts";
 import { ACCOUNTS, EXPENSE_CATEGORIES, EXPENSE_CATEGORY_KEYS, type Kontenrahmen } from "./posting.ts";
 
 /*
@@ -45,6 +46,14 @@ describe.each(RICHTUNGEN)("Konten von %s nach %s", (von, nach) => {
       // Teilen sich zwei Rollen ein Konto mit verschiedener Entsprechung, gibt es keine eindeutige
       if (ziel !== null) expect(ziel, kategorie).toBe(EXPENSE_CATEGORIES[kategorie][nach]);
     }
+  });
+
+  it("Pauschalen, auch auf dem früheren Konto der Homeoffice-Pauschale (#2015)", () => {
+    for (const art of Object.keys(PAUSCHALE_KONTEN) as PauschaleArt[]) {
+      expect(kontoImKontenrahmen(von, nach, PAUSCHALE_KONTEN[art][von].konto), art).toBe(PAUSCHALE_KONTEN[art][nach].konto);
+    }
+    const frueher = { SKR03: "4288", SKR04: "6348" };
+    expect(kontoImKontenrahmen(von, nach, frueher[von])).toBe(frueher[nach]);
   });
 
   it("ohne eindeutige Entsprechung null, im selben Kontenrahmen unverändert", () => {

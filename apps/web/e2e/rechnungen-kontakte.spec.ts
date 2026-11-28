@@ -429,6 +429,42 @@ test("Kontakt bearbeiten: Speichern schlägt fehl, der Fokus steht danach wieder
   await expect(page.getByRole("button", { name: "Wiederherstellen" })).toBeVisible();
 });
 
+test("Kontakt: Land aus der Liste, Adresszusatz und PLZ je Land (#914)", async () => {
+  await go("/kontakte/neu");
+  await page.getByLabel("Name oder Firma").fill("Grachtenwerk BV");
+  await page.getByLabel("Adresszusatz").fill("Afdeling Inkoop");
+  await page.getByLabel("Straße und Hausnummer").fill("Keizersgracht 123");
+  const plz = page.getByLabel("PLZ", { exact: true });
+  await plz.fill("1015 CJ");
+  await page.getByLabel("Ort", { exact: true }).fill("Amsterdam");
+
+  // In Deutschland, der Vorgabe, hat die PLZ fünf Ziffern: Der Fehler steht am Feld, der Fokus geht hinein
+  await expect(plz).toHaveAttribute("inputmode", "numeric");
+  await page.getByRole("button", { name: "Kontakt anlegen" }).click();
+  await expect(plz).toBeFocused();
+  await expect(plz).toHaveAccessibleDescription("Eine deutsche PLZ hat fünf Ziffern, etwa 93047.");
+
+  // Nach Name gesucht; mit den Niederlanden ist die PLZ frei und der Fehler verschwindet
+  const land = page.getByRole("combobox", { name: "Land", exact: true });
+  await land.fill("Nieder");
+  await trefferliste(page)
+    .getByRole("option", { name: /^Niederlande/ })
+    .click();
+  await expect(land).toHaveValue("Niederlande");
+  await expect(plz).toHaveAttribute("inputmode", "text");
+  await expect(plz).not.toHaveAttribute("aria-invalid", "true");
+  await page.getByRole("button", { name: "Kontakt anlegen" }).click();
+  await expect(page.getByRole("heading", { name: "Versionen" })).toBeVisible();
+
+  // Gespeichert ist der Code; nach dem Neuladen steht wieder der Name im Feld
+  await go(new URL(page.url()).pathname);
+  await expect(page.getByRole("combobox", { name: "Land", exact: true })).toHaveValue("Niederlande");
+  await expect(page.locator('input[name="land"]')).toHaveValue("NL");
+  await expect(page.getByLabel("Adresszusatz")).toHaveValue("Afdeling Inkoop");
+  await page.getByRole("button", { name: "Archivieren" }).click();
+  await expect(page.getByRole("button", { name: "Wiederherstellen" })).toBeVisible();
+});
+
 test("Kontakt mit beiden Rollen trägt DATEV-Debitor und -Kreditor, eine vergebene Nummer meldet das Formular (#327)", async () => {
   await go("/kontakte/neu");
   await page.getByLabel("Name oder Firma").fill("Musterpartner GmbH");

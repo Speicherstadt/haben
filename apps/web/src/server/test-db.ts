@@ -133,6 +133,11 @@ export async function setupTestDb(): Promise<postgres.Sql> {
  * anhängbaren Tabellen lehnen Trigger TRUNCATE ab (0201). Die Tests schalten dafür nur in dieser einen Transaktion die
  * Trigger ab, wie ein Replikat (`session_replication_role`, braucht einen Superuser wie den aus compose.yml und der CI);
  * die Sperren selbst bleiben unverändert. Nur für TRUNCATE, damit kein anderer Trigger nebenbei umgangen wird.
+ *
+ * Wird `audit_chain` geleert, legt leeren den Kopf der Kette neu an. Wird `audit_log` geleert, stehen die verbliebenen
+ * Zeilen nur anhängbarer Tabellen (etwa `vat_items_since` aus den Migrationen) nicht mehr darin, und der Abgleich aus 0339
+ * meldete sie. Sie kommen deshalb wieder hinein, wie beim Nachtrag in 0339, mit eingeschalteten Triggern, damit die Kette
+ * sie verkettet.
  */
 export function leeren(sql: postgres.Sql) {
   return async (strings: TemplateStringsArray, ...values: never[]): Promise<void> => {
@@ -140,8 +145,30 @@ export function leeren(sql: postgres.Sql) {
     await sql.begin(async (tx) => {
       await tx`set local session_replication_role = replica`;
       await tx(strings, ...values);
+      if (/\baudit_chain\b/.test(strings.join(""))) await tx`insert into audit_chain (id, seq, hash) values (1, 0, haben_audit_genesis())`;
+      if (/\baudit_log\b/.test(strings.join(""))) {
+        await tx`set local session_replication_role = origin`;
+        await auditNachtragen(tx);
+      }
     });
   };
+}
+
+/** Trägt jede Zeile der nur anhängbaren Tabellen ohne Eintrag ins Audit-Log ein (wie der Nachtrag in 0339) */
+export async function auditNachtragen(tx: postgres.TransactionSql): Promise<void> {
+  await tx.unsafe(`DO $$
+    DECLARE tbl text;
+    BEGIN
+      FOREACH tbl IN ARRAY haben_audited_append_only_tables() LOOP
+        EXECUTE format($q$
+          INSERT INTO audit_log (actor, table_name, row_id, action, old_value, new_value)
+          SELECT 'test:leeren', %1$L, coalesce(x.j ->> 'id', (x.j ->> 'year') || coalesce(':' || (x.j ->> 'contact_id'), '')),
+                 'INSERT', NULL, x.j
+            FROM (SELECT to_jsonb(t) - haben_audit_omitted_columns() AS j FROM %1$I t) x
+           WHERE NOT EXISTS (SELECT 1 FROM audit_log a WHERE a.table_name = %1$L)
+        $q$, tbl);
+      END LOOP;
+    END $$`);
 }
 
 /**

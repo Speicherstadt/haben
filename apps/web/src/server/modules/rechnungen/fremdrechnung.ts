@@ -275,8 +275,10 @@ export async function foreignInvoiceProposal(file: { bytes: Uint8Array; filename
   if (invoice.currency !== "EUR") warnings.push(`Die Rechnung lautet auf ${invoice.currency}; Haben übernimmt hier nur Rechnungen in Euro.`);
   if (invoice.typeCode === PREPAYMENT) warnings.push(PREPAYMENT_TEXT);
   const taxes = groupByRate(invoice.taxes.map((t) => ({ rate: t.rate, net: t.base, tax: t.tax })));
-  const special = invoice.taxes.map((t) => TREATMENT_OF_CATEGORY[t.category]).find((t) => t !== undefined);
   const buyerUst = invoice.buyer?.ustId?.replace(/\s/g, "").toUpperCase();
+  const category = invoice.taxes.map((t) => TREATMENT_OF_CATEGORY[t.category]).find((t) => t !== undefined);
+  // AE mit deutscher USt-IdNr. des Kunden: Bauleistung im Inland (§ 13b Abs. 5 UStG), nicht EU-Reverse-Charge (#1934)
+  const special = category === "reverse_charge" && buyerUst?.startsWith("DE") ? "bauleistung_13b" : category;
   const buyerName = invoice.buyer?.name?.trim() ?? null;
   const contacts = await db.select({ id: schema.contacts.id, name: schema.contacts.name, ustId: schema.contacts.ustId }).from(schema.contacts);
   const matches = contacts.filter((c) =>
@@ -343,7 +345,7 @@ const TREATMENTS_OF_CATEGORY: Record<string, readonly TaxTreatment[]> = {
   S: ["regulaer"],
   Z: ["regulaer"],
   E: ["steuerfrei", "kleinunternehmer"],
-  AE: ["reverse_charge"],
+  AE: ["reverse_charge", "bauleistung_13b"],
   K: ["ig_lieferung"],
   G: ["ausfuhr"],
   O: ["drittland", "eu_sonstige", "kleinunternehmer"],

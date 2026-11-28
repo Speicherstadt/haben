@@ -52,6 +52,7 @@ import {
   type AssetKind,
   type AssetMethod,
   type CarPrivateUse,
+  type AssetWithdrawal,
   type MailTemplates,
   type SkontoStufe,
   type TaxShare,
@@ -321,6 +322,8 @@ export const vatReturns = pgTable(
     /** Umsätze ohne Steuer: Reverse Charge im EU-Ausland, nicht steuerbar, steuerfrei ohne Vorsteuerabzug */
     kz21: integer("kz21").$type<Cents>().notNull().default(0),
     kz45: integer("kz45").$type<Cents>().notNull().default(0),
+    /** Bauleistungen, für die der Kunde die Steuer schuldet (§ 13b Abs. 5 UStG) */
+    kz60: integer("kz60").$type<Cents>().notNull().default(0),
     kz48: integer("kz48").$type<Cents>().notNull().default(0),
     kz66: integer("kz66").$type<Cents>().notNull().default(0),
     /** § 13b als Leistungsempfänger: Bemessungsgrundlagen 46/84, Steuer 47/85, Vorsteuer 67 */
@@ -365,6 +368,7 @@ export const vatReturns = pgTable(
       kz86: Cents;
       kz21?: Cents;
       kz45?: Cents;
+      kz60?: Cents;
       kz48?: Cents;
       kz66: Cents;
       kz46?: Cents;
@@ -1163,6 +1167,8 @@ export const contacts = pgTable(
     /** Nummer beim Lieferanten bzw. eigene Lieferantennummer, frei */
     lieferantennummer: text("lieferantennummer"),
     name: text("name").notNull(),
+    /** Adresszusatz (Abteilung, c/o, Gebäude): im PDF eine eigene Zeile, in der E-Rechnung BT-51 (#914) */
+    adresszusatz: text("adresszusatz").notNull().default(""),
     strasse: text("strasse").notNull().default(""),
     plz: text("plz").notNull().default(""),
     ort: text("ort").notNull().default(""),
@@ -2480,6 +2486,11 @@ export const documentSplits = pgTable(
     /** Reihenfolge wie eingegeben, ab 1 */
     position: smallint("position").notNull(),
     category: text("category").notNull(),
+    /**
+     * Freie Beschreibung der Zeile (#1975). Leer ist der leere Text, nie null: `0310` prüft eine Spalte, die einem
+     * alten Siegel fehlt, gegen den Katalog-Default, deshalb bleibt der Default für immer `''`.
+     */
+    description: text("description").notNull().default(""),
     /** Eigenes Sachkonto (#270) der Kategorie der Zeile */
     ownAccountId: uuid("own_account_id").references(() => ownAccounts.id),
     taxRate: smallint("tax_rate").$type<BasisPoints>().notNull(),
@@ -4113,6 +4124,8 @@ export const assets = pgTable(
     openingEntryId: uuid("opening_entry_id"),
     specialDepreciation: jsonb("special_depreciation").$type<{ year: number; amount: Cents }[]>().notNull().default([]),
     disposalDate: date("disposal_date", { mode: "string" }),
+    /** Abgang als Entnahme ins Privatvermögen (#1970): Entnahmewert netto und ob beim Kauf Vorsteuer gezogen wurde; null = Verkauf oder Verschrottung */
+    disposalWithdrawal: jsonb("disposal_withdrawal").$type<AssetWithdrawal>(),
     /** Firmenwagen: private Nutzung nach der Listenpreismethode */
     privateUse: jsonb("private_use").$type<CarPrivateUse>(),
     note: text("note").notNull().default(""),
@@ -4123,6 +4136,7 @@ export const assets = pgTable(
     check("assets_opening_complete", sql`(${t.openingDate} is null) = (${t.openingBookValue} is null)`),
     check("assets_cost_positive", sql`${t.cost} > 0`),
     check("assets_private_use_car", sql`${t.privateUse} is null or ${t.kind} = 'kfz'`),
+    check("assets_withdrawal_disposal", sql`${t.disposalWithdrawal} is null or ${t.disposalDate} is not null`),
     check(
       "assets_degressive_rate",
       sql`(${t.method} = 'degressiv') = (${t.degressiveRate} is not null) and coalesce(${t.degressiveRate}, 1) between 1 and 3000`,

@@ -1,18 +1,9 @@
-import {
-  ACCOUNTS,
-  ASSET_ACCOUNTS,
-  PRIVATE_USE_ACCOUNTS,
-  type Cents,
-  type Kontenrahmen,
-  formatEuro,
-  isKapitalgesellschaft,
-  periodKey,
-  type VatPeriod,
-} from "@haben/core";
+import { ASSET_ACCOUNTS, type Cents, type Kontenrahmen, formatEuro, isKapitalgesellschaft, periodKey, type VatPeriod } from "@haben/core";
 import { and, desc, gte, lt, ne, sql } from "drizzle-orm";
-import { depreciationForEuer, listAssets, withdrawalsForEuer } from "../buchhaltung/index.ts";
+import { depreciationForEuer, listAssets } from "../buchhaltung/index.ts";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import { versteuerungForYear } from "../stammdaten/index.ts";
+import { anlagenZeilen } from "./abgleich-anlagen.ts";
 import { bankZeilen } from "./abgleich-bank.ts";
 import { belegZeilen } from "./abgleich-beleg.ts";
 import { vorgangZeilen } from "./abgleich-vorgang.ts";
@@ -40,7 +31,8 @@ import { oposAbgleichJahr, oposYears } from "./opos-abgleich.ts";
  *   Vorgang (Beleg, Zuordnung, Kassenbuch, Pauschale) gegen seine Buchung, bei Ist die nicht fällige Umsatzsteuer erledigter
  *   Rechnungen (abgleich-vorgang.ts);
  * - Bank: Endsaldo des letzten Kontoauszugs gegen die gebuchten Zahlungen (abgleich-bank.ts);
- * - EÜR: AfA und Privatnutzung gegen das Anlagenverzeichnis, der Gewinn nach der DATEV-Formel gegen den Gewinn der Zeilen;
+ * - EÜR: AfA, Privatnutzung und Entnahme von Anlagen gegen das Anlagenverzeichnis (abgleich-anlagen.ts), der Gewinn nach
+ *   der DATEV-Formel gegen den Gewinn der Zeilen;
  * - OPOS-Abgleich der Anzahlungsbestände (opos-abgleich.ts).
  * Eine Abweichung heißt: eine Buchung passt nicht zu ihrem Beleg oder zur gesendeten Anmeldung, oder Daten wurden an Haben
  * vorbei geändert. Befunde, die beim Update ausdrücklich übernommen wurden (journal_umstellung), meldet der Abgleich
@@ -250,33 +242,8 @@ export async function euerAbgleich(year: number, q: Db | Tx = db): Promise<Abgle
       `AfA ${year} ist für ${pending === 1 ? "eine Anlage" : `${pending} Anlagen`} noch nicht gebucht; AfA und Privatnutzung werden danach abgeglichen.`,
     );
   } else {
-    const afa = await depreciationForEuer(year, q);
-    const privat = await withdrawalsForEuer(year, q);
     const anlage = (s: Summe) => s.sourceType === "asset";
-    zeilen.push(
-      row(
-        "AfA",
-        saldo(sums, (kr) => [ASSET_ACCOUNTS[kr].afa, ASSET_ACCOUNTS[kr].afaKfz], anlage),
-        afa.afa,
-      ),
-      row(
-        "Sofortabschreibung GWG",
-        saldo(sums, (kr) => [ASSET_ACCOUNTS[kr].afaGwg], anlage),
-        afa.gwg,
-      ),
-      row(
-        "Auflösung Sammelposten",
-        saldo(sums, (kr) => [ASSET_ACCOUNTS[kr].afaSammelposten], anlage),
-        afa.sammelposten,
-      ),
-      row(
-        "Restbuchwert ausgeschiedener Anlagen",
-        saldo(sums, (kr) => [ASSET_ACCOUNTS[kr].restbuchwert], anlage),
-        afa.restbuchwert,
-      ),
-      row("Private Kfz-Nutzung", -saldo(sums, (kr) => Object.values(PRIVATE_USE_ACCOUNTS[kr]), anlage), privat.privateKfz),
-      row("Umsatzsteuer auf die private Kfz-Nutzung", -saldo(sums, (kr) => [ACCOUNTS[kr].ust[1900]], anlage), privat.ustEntnahmen),
-    );
+    for (const z of await anlagenZeilen(year, (accounts) => saldo(sums, accounts, anlage), q)) zeilen.push(row(z.posten, z.journal, z.quelle));
     // Gegenprobe (#542): der Gewinn nach der DATEV-Formel aus Erfolgs- und Steuerkonten, Forderungen und Verbindlichkeiten;
     // erst, wenn AfA und Privatnutzung gebucht sind, denn die EÜR rechnet sie aus dem Anlagenverzeichnis
     if (ausJournal) {
@@ -284,7 +251,7 @@ export async function euerAbgleich(year: number, q: Db | Tx = db): Promise<Abgle
         row(
           "Sonder-AfA",
           saldo(sums, (kr) => [ASSET_ACCOUNTS[kr].sonderAfa, ASSET_ACCOUNTS[kr].sonderAfaKfz], anlage),
-          afa.sonderAfa ?? 0,
+          (await depreciationForEuer(year, q)).sonderAfa ?? 0,
         ),
       );
       const nichtAbziehbar = ausJournal.summe.bewirtungNichtAbziehbar + ausJournal.summe.gewerbesteuerNichtAbziehbar;

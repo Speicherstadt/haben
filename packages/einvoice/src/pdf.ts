@@ -35,7 +35,8 @@ const STEUERBESCHEINIGUNG_TEMPLATE = join(PACKAGE_DIR, "templates", "steuerbesch
 const HINTERLEGUNG_TEMPLATE = join(PACKAGE_DIR, "templates", "hinterlegung.typ");
 const USTID_BESTAETIGUNG_TEMPLATE = join(PACKAGE_DIR, "templates", "ustid-bestaetigung.typ");
 export function addressLines(address: Address, t: Texts = TEXTS.de): string[] {
-  const lines = [address.strasse, `${address.plz} ${address.ort}`];
+  // Der Adresszusatz (Abteilung, c/o) steht vor der Straße (#914)
+  const lines = [...(address.adresszusatz ? [address.adresszusatz] : []), address.strasse, `${address.plz} ${address.ort}`];
   if (address.land.toUpperCase() !== "DE") lines.push(countryName(address.land, t.countryLocale).toUpperCase());
   return lines;
 }

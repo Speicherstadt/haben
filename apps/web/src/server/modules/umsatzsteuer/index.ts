@@ -43,3 +43,4 @@ export { freigabeAmAusfuehrung, freigabeNachziehen, freigabeStornieren } from ".
 export { belegAusAlterVersion } from "./alte-version.ts";
 export { belegeWieHeute } from "./beleg-alte-version.ts";
 export { zahlungenWieHeute } from "./zahlung-alte-version.ts";
+export { documentsMitEntnahme } from "./entnahme-zeilen.ts";

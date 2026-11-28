@@ -3,7 +3,7 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 import postgres from "postgres";
 import { day, YEAR } from "./daten.ts";
 import { databaseUrlFuer } from "./durchlaeufe.ts";
-import { bestaetigen, durchlaufSeite, einrichten, gehe, kundeWaehlen } from "./einrichtung.ts";
+import { bestaetigen, durchlaufSeite, einrichten, gehe, kundeWaehlen, landWaehlen } from "./einrichtung.ts";
 import { HANDY, sichtbar } from "./kopfzeile.ts";
 
 /**
@@ -43,7 +43,7 @@ test.beforeAll(async ({ browser }) => {
   await page.getByLabel("Straße und Hausnummer").fill("Beispielweg 7");
   await page.getByLabel("PLZ", { exact: true }).fill("1010");
   await page.getByLabel("Ort", { exact: true }).fill("Wien");
-  await page.getByLabel("Land (z. B. DE)").fill("AT");
+  await landWaehlen(page, "AT");
   await page.getByRole("button", { name: "Kontakt anlegen", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Versionen" })).toBeVisible();
 });
@@ -273,6 +273,10 @@ test("Gesamtumsatz: bekannte Einnahme, eigene Befreiungen und unbekannter histor
   for (const id of exemptInvoices) {
     await expect(card.getByRole("row").filter({ has: page.locator(`a[href="/rechnungen/${id}"]`) })).toContainText("Ausgenommen");
   }
-  await page.setViewportSize(HANDY);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  // Tablet mit ausgeklappter Seitenleiste: die aufgeklappte Tabelle rollt in der Karte, statt die Seite zu verbreitern
+  for (const viewport of [{ width: 861, height: 1100 }, HANDY]) {
+    await page.setViewportSize(viewport);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `§ 19 aufgeklappt bei ${viewport.width}px ohne Seitenüberlauf`).toBeLessThanOrEqual(1);
+  }
 });

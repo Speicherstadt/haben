@@ -1,4 +1,4 @@
-import { AUFLADUNG, WRITE_OFF_KINDS } from "@haben/core";
+import { AUFLADUNG, DIRECT_BOOKING_TEXT, WRITE_OFF_KINDS } from "@haben/core";
 import { and, asc, eq, getTableColumns, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { bankAccountIncludedSql, bankDuplicateConfirmedSql, bankNeutralizedSql, bankOpenAmountSql } from "../../db/bank-open.ts";
 import { db, schema } from "../../db/index.ts";
@@ -12,24 +12,13 @@ import { yearEnd, yearStart } from "./jahr.ts";
 // Bankumsätze, Zuordnungen, Verrechnungen, Ausbuchungen und Importe des Jahresarchivs
 
 const ALLOCATION_LABELS: Record<(typeof schema.allocationKindEnum.enumValues)[number], string> = {
+  ...DIRECT_BOOKING_TEXT,
   invoice: "Rechnung",
   document: "Beleg",
-  privat: "Privat",
-  spende: "Spende (Zuwendungen, Spenden)",
-  geldtransit: "Geldtransit",
-  ustVorauszahlung: "USt-Vorauszahlung",
-  sondervorauszahlung: "USt-Sondervorauszahlung",
-  kapest: "Kapitalertragsteuer",
-  lohn: "Lohn/Gehalt",
-  lohnsteuer: "Lohnsteuer",
-  sozialversicherung: "SV-Beiträge",
   steuer: "Steuerzahlung",
-  zinsertrag: "Zinserträge",
   darlehen: "Darlehen",
   kategorie: "Direkt auf Kategorie",
   aufladung: AUFLADUNG.label,
-  gebuehren: "Bankgebühren",
-  mahnerloes: "Mahngebühren und Zinsen",
   kursdifferenz: "Kursdifferenz",
 };
 

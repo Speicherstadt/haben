@@ -3,6 +3,12 @@ import { z } from "zod";
 
 const isoDate = z.iso.date();
 
+/** Entnahmewert netto und ob beim Kauf Vorsteuer gezogen wurde (AssetWithdrawal in @haben/core) */
+const withdrawalSchema = z.object({
+  value: inCents(z.number().int().min(0).max(100_000_000_00)),
+  inputVat: z.boolean(),
+});
+
 /**
  * Anlage aus der Vorgänger-Buchhaltung übernehmen (z. B. aus dem Anlagenverzeichnis von Lexoffice).
  * Neue Anschaffungen entstehen beim Buchen eines Belegs mit Kategorie „Anlagegut“.
@@ -23,6 +29,8 @@ export const assetInputSchema = z.object({
   openingDate: isoDate,
   openingBookValue: inCents(z.number().int().min(0).max(100_000_000_00)),
   disposalDate: isoDate.nullable(),
+  /** Abgang als Entnahme ins Privatvermögen (#1970), nur mit Abgangsdatum und im Einzelunternehmen */
+  disposalWithdrawal: withdrawalSchema.nullable().default(null),
   /** Nur bei Fahrzeugen: private Nutzung nach der Listenpreismethode */
   privateUse: z
     .object({
@@ -45,6 +53,7 @@ export const assetUpdateSchema = assetInputSchema.partial().extend({
   degressiveRate: inBasisPoints(z.number().int().min(1).max(3000)).nullable().optional(),
   linearFromYear: z.number().int().min(2000).max(2200).nullable().optional(),
   memoValue: z.boolean().optional(),
+  disposalWithdrawal: withdrawalSchema.nullable().optional(),
   specialDepreciation: z
     .array(
       z.object({

@@ -1,7 +1,7 @@
 import type { BasisPoints } from "./money.ts";
 import type { OutgoingTaxDetails } from "./outgoing-tax.ts";
 import { vatTerritory } from "./vat-territories.ts";
-import { normalizeUstId, ustIdAufbauProblem, ustIdProblem } from "./zm.ts";
+import { isValidGermanUstId, normalizeUstId, ustIdAufbauProblem, ustIdProblem } from "./zm.ts";
 
 /**
  * Umsatzsteuerliche Behandlung einer Ausgangsrechnung. Außer „regulaer“ stehen alle Positionen
@@ -21,6 +21,16 @@ export const TAX_TREATMENTS = {
     category: "AE",
     reasonCode: "VATEX-EU-AE",
     note: "Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge, Art. 196 MwStSystRL).",
+  },
+  // Bauleistung an einen Unternehmer, der selbst Bauleistungen erbringt (§ 13b Abs. 2 Nr. 4, Abs. 5 Satz 2 UStG): Der
+  // Kunde im Inland schuldet die Steuer, die Rechnung trägt den Hinweis nach § 14a Abs. 5 UStG, der Umsatz steht in
+  // Kz 60 (Anleitung zur UStVA 2026, Zeile 34). In der E-Rechnung Kategorie AE wie beim EU-Reverse-Charge (#1934).
+  // https://www.gesetze-im-internet.de/ustg_1980/__13b.html
+  bauleistung_13b: {
+    label: "Inland, Bauleistung: Kunde schuldet die Steuer",
+    category: "AE",
+    reasonCode: "VATEX-EU-AE",
+    note: "Steuerschuldnerschaft des Leistungsempfängers.",
   },
   drittland: {
     label: "Nicht-EU-Ausland: Dienstleistung oder Nutzungsrecht",
@@ -117,6 +127,18 @@ export function treatmentNote(treatment: TaxTreatment, exemptionReason?: string 
   return exemptionReason?.trim() || TAX_TREATMENTS[treatment].note;
 }
 
+/**
+ * Was an der USt-IdNr. des Kunden das Festschreiben einer Rechnung mit Reverse Charge (#1433) oder innergemeinschaftlicher
+ * Lieferung (#1413) sperrt, für eine vorhandene, normalisierte Nummer; null = nichts. Prüfung wie in der Zusammenfassenden
+ * Meldung (Art S bzw. L) und nach dem Aufbau je Mitgliedstaat. Storno und Korrektur übernehmen die Nummer einer
+ * festgeschriebenen Rechnung: bei Reverse Charge ohne Prüfung, bei der Lieferung ohne den Aufbau. Auch die Rückfrage zum
+ * Festschreiben nennt damit die Sperre statt eines Hinweises (ustIdVorFestschreiben).
+ */
+export function kundenUstIdSperre(treatment: "reverse_charge" | "ig_lieferung", buyerUstId: string, correctsInvoice = false): string | null {
+  if (treatment === "reverse_charge") return correctsInvoice ? null : (ustIdProblem(buyerUstId, "S") ?? ustIdAufbauProblem(buyerUstId));
+  return ustIdProblem(buyerUstId, "L") ?? (correctsInvoice ? null : ustIdAufbauProblem(buyerUstId));
+}
+
 /** Was an einer Rechnung mit dieser Behandlung fehlt oder nicht passt; leer = in Ordnung. */
 export function treatmentIssues(
   treatment: TaxTreatment,
@@ -148,11 +170,22 @@ export function treatmentIssues(
     // jede Nummer festschreiben.
     const buyerUstId = normalizeUstId(input.buyerUstId ?? "");
     if (!buyerUstId) issues.push("Reverse Charge braucht die USt-IdNr. des Kunden");
-    else if (!input.correctsInvoice) {
-      const problem = ustIdProblem(buyerUstId, "S") ?? ustIdAufbauProblem(buyerUstId);
+    else {
+      const problem = kundenUstIdSperre(treatment, buyerUstId, input.correctsInvoice);
       if (problem) issues.push(problem);
     }
     if (country === "DE") issues.push("Reverse Charge gilt nur für Kunden im EU-Ausland");
+  }
+  if (treatment === "bauleistung_13b") {
+    // EN 16931 BR-AE-02: Kategorie AE braucht beim Käufer die USt-IdNr. (BT-48) oder eine Registernummer (BT-47), die Haben
+    // am Kontakt nicht führt. Auf der Rechnung selbst ist sie keine Pflichtangabe; beim Verkäufer genügt die Steuernummer
+    // (BT-32), deshalb hier keine Prüfung der eigenen USt-IdNr. (KoSIT-Validator, #1934)
+    const buyerUstId = normalizeUstId(input.buyerUstId ?? "");
+    if (!buyerUstId) issues.push("Bauleistung im Inland braucht die USt-IdNr. des Kunden (für die E-Rechnung)");
+    else if (!input.correctsInvoice && !isValidGermanUstId(buyerUstId)) {
+      issues.push(`${buyerUstId}: keine gültige deutsche USt-IdNr. (DE und neun Ziffern mit Prüfziffer)`);
+    }
+    if (country && country !== "DE") issues.push("Bauleistung im Inland nur an Kunden in Deutschland");
   }
   if (treatment === "ig_lieferung") {
     // § 14a Abs. 3 UStG: auf der Rechnung die USt-IdNr. von Lieferer und Abnehmer; § 6a Abs. 1 Satz 1 Nr. 4: der Abnehmer
@@ -163,7 +196,7 @@ export function treatmentIssues(
     const buyerUstId = normalizeUstId(input.buyerUstId ?? "");
     if (!buyerUstId) issues.push("Innergemeinschaftliche Lieferung braucht die USt-IdNr. des Kunden (§ 6a Abs. 1 Nr. 4 UStG)");
     else {
-      const problem = ustIdProblem(buyerUstId, "L") ?? (input.correctsInvoice ? null : ustIdAufbauProblem(buyerUstId));
+      const problem = kundenUstIdSperre(treatment, buyerUstId, input.correctsInvoice);
       if (problem) issues.push(problem);
     }
     // Nordirland gehört für Waren weiter zum Gemeinschaftsgebiet (XI-Nummer bei Ländercode GB)

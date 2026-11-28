@@ -49,6 +49,7 @@ export interface FiguresInput {
   kz86: Cents;
   kz21?: Cents;
   kz45?: Cents;
+  kz60?: Cents;
   kz48?: Cents;
   kz66: Cents;
   kz46?: Cents;
@@ -75,6 +76,7 @@ function stored(ustva: ReturnType<typeof computeUstva>) {
     kz86: ustva.kz86,
     kz21: ustva.kz21,
     kz45: ustva.kz45,
+    kz60: ustva.kz60,
     kz48: ustva.kz48,
     kz66: ustva.kz66,
     kz46: ustva.kz46,
@@ -190,6 +192,7 @@ export async function createCorrection(actor: string, period: VatPeriod): Promis
         kz86: latest.kz86,
         kz21: latest.kz21,
         kz45: latest.kz45,
+        kz60: latest.kz60,
         kz48: latest.kz48,
         kz66: latest.kz66,
         kz46: latest.kz46,

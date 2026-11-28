@@ -1,6 +1,6 @@
 import { formatEuro } from "@haben/core";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { type ReactNode, type RefObject, useCallback, useEffect, useId, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useCallback, useId, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "../../components/Icon.tsx";
 import { type ActionMenuItem, MoreActionsMenu } from "../../components/MoreActionsMenu.tsx";
 import { Status } from "../../components/Status.tsx";
@@ -51,7 +51,9 @@ function useRollen(ref: RefObject<HTMLElement | null>) {
     if (!el) return;
     setStand({ links: el.scrollLeft > 0, rechts: el.scrollLeft + el.clientWidth < el.scrollWidth - 1 });
   }, [ref]);
-  useEffect(() => {
+  // Vor dem Zeichnen messen: Kommt man im Browser auf die Seite, stehen die Pfeile bei Überlauf gleich da, ohne dass die
+  // Karten erst ohne sie zu sehen sind und dann rücken
+  useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     // Die gewählte Karte in den sichtbaren Bereich rollen, ohne die Seite zu bewegen. Gemessen an der Leiste selbst:
@@ -142,7 +144,8 @@ function KartenLeiste({ data, filter, aktionen }: Props) {
   const { links, rechts, rollen } = useRollen(ref);
   const { karten, alle } = data.karten;
   return (
-    // Ohne Überlauf bleiben die Pfeile unsichtbar an ihrem Platz, damit die Leiste nicht springt
+    // Ohne Überlauf fallen die Pfeile weg, damit die Karten bündig mit dem Seitenkopf stehen. Das schwingt nicht: Mit Pfeilen
+    // ist die Rollfläche schmaler, ein Überlauf bleibt also einer
     <div className="konten-leiste" data-rollbar={links || rechts ? "" : undefined}>
       <button type="button" className="btn btn-ghost btn-icon" aria-label="Konten nach links" onClick={() => rollen(-1)} disabled={!links}>
         <Icon name="chevron-left" />

@@ -1,4 +1,5 @@
 import { formatDecimal, formatEuro } from "@haben/core";
+import { useState } from "react";
 import { ArticleDialog } from "./ArticleDialog.tsx";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { FestschreibenHinweise } from "./FestschreibenHinweise.tsx";
@@ -37,12 +38,15 @@ export function InvoiceEditorDialogs({ editor }: { editor: InvoiceEditorModel })
     units,
     ustIdPruefen,
   } = editor;
+  // Sperrt die USt-IdNr. des Kunden das Festschreiben, geht der Knopf erst, wenn sie am Kontakt stimmt (#2004)
+  const [ustIdSperrt, setUstIdSperrt] = useState(false);
   return (
     <>
       <ConfirmDialog
         open={confirming}
         title={`${quote ? "Angebot" : "Rechnung"} festschreiben?`}
         confirmLabel="Festschreiben"
+        gesperrt={!quote && ustIdSperrt}
         facts={[
           { label: "Nummer", value: nextNumber },
           ...(contact ? [{ label: "Kunde", value: contact.name }] : []),
@@ -58,7 +62,7 @@ export function InvoiceEditorDialogs({ editor }: { editor: InvoiceEditorModel })
           </>
         ) : (
           <>
-            <FestschreibenHinweise open={confirming} earlierThanLast={earlierThanLast} numberDate={numberDate} ustId={ustIdPruefen} />
+            <FestschreibenHinweise open={confirming} earlierThanLast={earlierThanLast} numberDate={numberDate} ustId={ustIdPruefen} onSperre={setUstIdSperrt} />
             <p>{FINALIZE_DIALOG_TEXT}</p>
             <p>Danach ist die Rechnung nicht mehr änderbar; Korrekturen laufen über Storno oder Rechnungskorrektur.</p>
           </>

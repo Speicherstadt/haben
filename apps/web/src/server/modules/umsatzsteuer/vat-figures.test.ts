@@ -279,12 +279,19 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung aus Buchungen (Postgres)", () =>
     expect(xml).toContain("<Kz81>1000</Kz81>");
   }, 30_000);
 
-  async function specialInvoice(taxTreatment: "reverse_charge" | "drittland" | "steuerfrei", land: string, ustId: string, issueDate: string) {
+  async function specialInvoice(
+    taxTreatment: "reverse_charge" | "bauleistung_13b" | "drittland" | "steuerfrei",
+    land: string,
+    ustId: string,
+    issueDate: string,
+    serviceFrom: string | null = null,
+  ) {
     const contact = await contacts.createContact(actor, {
       kundennummer: "",
       name: "Alpenblick GmbH",
       strasse: "Ring 1",
-      plz: "1010",
+      // Eine deutsche PLZ hat fünf Ziffern (#914)
+      plz: land === "DE" ? "10115" : "1010",
       ort: "Wien",
       land,
       email: "a@b.example",
@@ -296,7 +303,7 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung aus Buchungen (Postgres)", () =>
     const draft = await invoices.createDraft(actor, {
       contactId: contact.id,
       issueDate,
-      serviceFrom: null,
+      serviceFrom,
       serviceTo: null,
       paymentTermDays: 14,
       format: "zugferd",
@@ -357,6 +364,116 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung aus Buchungen (Postgres)", () =>
     },
     30_000,
   );
+
+  // § 13b Abs. 2 Nr. 4, Abs. 5 Satz 2 UStG (#1934): Der Kunde schuldet die Steuer, die Rechnung meldet Kz 60 (Zeile 34) im
+  // Monat der Rechnung, auch bei Ist: Beim Kunden entsteht die Steuer mit der Rechnung (§ 13b Abs. 2 UStG)
+  it.each([
+    ["SKR03", "ist", "8337"],
+    ["SKR03", "soll", "8337"],
+    ["SKR04", "ist", "4337"],
+    ["SKR04", "soll", "4337"],
+  ] as const)(
+    "Bauleistung im Inland (%s, %s): Erlös auf %s, Kz 60 im Monat der Rechnung, ohne eigene USt-IdNr.",
+    async (kontenrahmen, versteuerung, konto) => {
+      await sql`update company set kontenrahmen = ${kontenrahmen}, versteuerung = ${versteuerung}, ust_id = ''`;
+      const bau = await specialInvoice("bauleistung_13b", "DE", "DE123456788", "2026-09-15");
+      const [line] = await sql`select l.account, l.tax_code from journal_lines l join journal_entries e on e.id = l.entry_id
+        where e.source_id = ${bau.id} and l.credit > 0`;
+      expect(line).toMatchObject({ account: konto, tax_code: "RC13bBau" });
+      await bank.importStatement(actor, { bytes: dkbCsv([row("02.10.26", "Beispielbau", `RE ${bau.number}`, "5.000,00")]), filename: "a.csv" }, null);
+      const [tx] = await sql`select id from bank_transactions`;
+      await bank.allocate(actor, { kind: "invoice", transactionId: tx!.id, invoiceId: bau.id, amount: 500_000 });
+
+      const september = await figures.computeVatFigures({ year: 2026, month: 9 });
+      expect(september).toMatchObject({ kz60: 500_000, kz81: 0, tax81: 0, kz21: 0, kz48: 0, steuerfrei: 0 });
+      expect(september.revenue.map((r) => r.treatment)).toEqual(["bauleistung_13b"]);
+      expect(await figures.computeVatFigures(october)).toMatchObject({ kz60: 0, kz81: 0 });
+    },
+    30_000,
+  );
+
+  // § 13b Abs. 2 UStG: Beim Kunden entsteht die Steuer mit der Rechnung, spätestens mit Ablauf des Monats nach der Leistung
+  it.each(["ist", "soll"] as const)(
+    "Bauleistung im Inland (%s): späte Rechnung meldet Kz 60 spätestens im Monat nach der Leistung",
+    async (versteuerung) => {
+      await sql`update company set versteuerung = ${versteuerung}`;
+      await specialInvoice("bauleistung_13b", "DE", "DE123456788", "2026-10-20", "2026-07-10");
+      await specialInvoice("bauleistung_13b", "DE", "DE123456788", "2026-09-05", "2026-09-01");
+      const kz60 = await Promise.all([7, 8, 9, 10].map(async (month) => (await figures.computeVatFigures({ year: 2026, month })).kz60));
+      expect(kz60).toEqual([0, 500_000, 500_000, 0]);
+    },
+    30_000,
+  );
+
+  it("Bauleistung im Inland: Storno mindert Kz 60 im Monat des Stornos, die ZM bleibt leer", async () => {
+    const bau = await specialInvoice("bauleistung_13b", "DE", "DE123456788", "2026-09-15");
+    await invoices.cancelInvoice(actor, bau.id, "2026-10-02");
+    expect((await figures.computeVatFigures({ year: 2026, month: 9 })).kz60).toBe(500_000);
+    expect((await figures.computeVatFigures(october)).kz60).toBe(-500_000);
+    expect((await (await import("./zm.ts")).zmOverview({ year: 2026, month: 43 })).zeilen).toEqual([]);
+  }, 30_000);
+
+  it("Bauleistung im Inland: Kz 60 in der gespeicherten Anmeldung und im ELSTER-XML", async () => {
+    await specialInvoice("bauleistung_13b", "DE", "DE123456788", "2026-10-15");
+    const draft = await vat.saveDraft(actor, october, { mode: "berechnet" });
+    expect(draft).toMatchObject({ kz60: 500_000, kz83: 0 });
+    let xml = "";
+    const spy = {
+      validate: async (body: string) => {
+        xml = body;
+        return new EricGeprueftClient().validate(body);
+      },
+      send: new EricGeprueftClient().send,
+      fetchPostfach: new EricGeprueftClient().fetchPostfach,
+      fetchBelege: new EricGeprueftClient().fetchBelege,
+    };
+    await vat.submitReturn(actor, draft.id, spy, { kind: "validate" });
+    expect(xml).toContain("<Kz60>5000</Kz60>");
+  }, 30_000);
+
+  it("Bauleistung im Inland: späte Rechnung erscheint auch in den Belegquellen (revenue) des Folgemonats", async () => {
+    const inv = await specialInvoice("bauleistung_13b", "DE", "DE123456788", "2026-10-20", "2026-07-10");
+    const august = await figures.computeVatFigures({ year: 2026, month: 8 });
+    expect(august.kz60).toBe(500_000);
+    expect(august.revenue).toMatchObject([{ type: "invoice", date: "2026-08-31", invoiceId: inv.id, base: 500_000, tax: 0 }]);
+  }, 30_000);
+
+  // § 13b Abs. 4 Satz 2 UStG: Bei Anzahlungen entsteht die Steuer des Kunden mit der Zahlung; das bildet Haben für Kz 60
+  // noch nicht ab, deshalb gehen Abschlags- und Schlussrechnungen mit dieser Behandlung nicht (#1934)
+  it("Bauleistung im Inland nicht als Abschlagsrechnung", async () => {
+    const contact = await contacts.createContact(actor, {
+      kundennummer: "",
+      name: "Beispielbau GmbH",
+      strasse: "Ring 1",
+      plz: "72070",
+      ort: "Tübingen",
+      land: "DE",
+      email: "a@b.example",
+      ustId: "DE123456788",
+      iban: "",
+      leitwegId: "",
+      defaultFormat: null,
+    });
+    const draft = await invoices.createDraft(actor, {
+      contactId: contact.id,
+      issueDate: "2026-10-15",
+      serviceFrom: null,
+      serviceTo: null,
+      paymentTermDays: 14,
+      format: "zugferd",
+      note: "",
+      variant: "abschlag",
+      advanceType: "anzahlung",
+      taxTreatment: "bauleistung_13b",
+      lines: [{ description: "Abschlag Dachstuhl", quantity: 1000, unit: "Psch." as const, unitPrice: 300_000, taxRate: 0 }],
+    });
+    await expect(invoices.finalizeInvoice(actor, draft.id, kleinunternehmerStand)).rejects.toThrow("Abschlags- und Schlussrechnungen");
+  }, 30_000);
+
+  it("Bauleistung im Inland nicht ohne USt-IdNr. des Kunden und nicht an Kunden im Ausland", async () => {
+    await expect(specialInvoice("bauleistung_13b", "DE", "", "2026-10-15")).rejects.toThrow("USt-IdNr. des Kunden");
+    await expect(specialInvoice("bauleistung_13b", "AT", "ATU12345678", "2026-10-15")).rejects.toThrow("nur an Kunden in Deutschland");
+  }, 30_000);
 
   it("Reverse Charge ohne USt-IdNr. des Kunden lässt sich nicht festschreiben", async () => {
     await expect(specialInvoice("reverse_charge", "AT", "", "2026-10-15")).rejects.toThrow("USt-IdNr. des Kunden");

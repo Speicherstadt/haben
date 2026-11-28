@@ -200,6 +200,42 @@ describe("Private Kfz-Nutzung auf den Automatikkonten", () => {
   }
 });
 
+describe("Entnahme einer Anlage auf den Automatikkonten (#1970)", () => {
+  // DATEV SKR03 8801/8820, SKR04 6885/4845 „Erlöse aus Verkäufen Sachanlagevermögen 19 % USt (bei Buchverlust bzw.
+  // Buchgewinn)“ sind AM-Konten, 8800/8829 bzw. 6889/4849 ohne USt nicht (DATEV-Kontenrahmen 2026, Art.-Nr. 11174/11175)
+  const entry = (privat: string, konto: string, ust: string | null) => ({
+    date: "2026-10-15",
+    description: "Entnahme · Kamera",
+    voucher: "",
+    locked: true,
+    lines: [
+      { account: privat, debit: ust ? 11_900 : 10_000, credit: 0 },
+      { account: konto, debit: 0, credit: 10_000 },
+      ...(ust ? [{ account: ust, debit: 0, credit: 1_900 }] : []),
+    ],
+  });
+  for (const [kr, privat, konto, ust] of [
+    ["SKR03", "1800", "8820", "1776"],
+    ["SKR03", "1800", "8801", "1776"],
+    ["SKR04", "2100", "4845", "3806"],
+    ["SKR04", "2100", "6885", "3806"],
+  ] as const) {
+    it(`${kr} ${konto} mit Umsatzsteuer: BU-Schlüssel 40`, () => {
+      const rows = splitEntry(entry(privat, konto, ust), kr);
+      expect(rows.find((r) => r.contraAccount === konto || r.account === konto)?.buKey).toBe("40");
+    });
+  }
+  for (const [kr, privat, konto] of [
+    ["SKR03", "1800", "8829"],
+    ["SKR04", "2100", "6889"],
+  ] as const) {
+    it(`${kr} ${konto} ohne Umsatzsteuer: kein BU-Schlüssel`, () => {
+      const rows = splitEntry(entry(privat, konto, null), kr);
+      expect(rows.find((r) => r.contraAccount === konto || r.account === konto)?.buKey ?? "").toBe("");
+    });
+  }
+});
+
 describe("Belegfeld 1 im Zeichensatz von DATEV (#675)", () => {
   // DATEV „ASCII-Import: Feldbeschreibungen für Standardformate“, Dok.-Nr. 1003221, Stand 13.08.2026, Feld 11: Ziffern,
   // Buchstaben und $ & % * + - /; unzulässig sind „insbesondere Leerzeichen, Umlaute, Punkt, Komma, Semikolon und Doppelpunkt“

@@ -254,7 +254,7 @@ test("Externe Quelle am Konto freigeben, danach Konflikt dieser Quelle klären (
   expect(await axeVerstoesse(page), "Dialog „Externe Quelle hinzufügen“").toEqual([]);
   await dialog.getByRole("button", { name: "Freigeben" }).click();
   await expect(dialog).toBeHidden();
-  await expect(zeile).toContainText("Externe Quelle · haben-ebay");
+  await expect(zeile).toContainText("haben-ebay · Externe Quelle");
   await expect(zeile).toContainText(`haben-ebay · verkaeufer-beispiel · seit ${deutsch(day(-10))} · noch keine Lieferung`);
   await zeile.getByRole("button", { name: "Weitere Aktionen für eBay" }).click();
   await expect(page.getByRole("menuitem", { name: "Externe Quelle hinzufügen …" })).toHaveCount(0);

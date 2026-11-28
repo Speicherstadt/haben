@@ -18,6 +18,8 @@ export const KATEGORIE_GRUPPEN: { label: string; kategorien: readonly ExpenseCat
   { label: "Waren und Fremdleistungen", kategorien: ["wareneinkauf", "fremdleistung"] },
   { label: "Sonstiges", kategorien: ["geldverkehr", "sonstiges"] },
   { label: "Anlagegut und Zoll", kategorien: ["anlage", "einfuhrumsatzsteuer"] },
+  // Nur in einer Aufteilung wählbar: die Entnahme entsteht beim Abspalten eines Privatanteils (#1975)
+  { label: "Privat", kategorien: ["privatentnahme"] },
 ];
 
 /** Gruppe je Kategorie (#1253); was in keiner Gruppe steht, kommt unter „Weitere“ ans Ende, nichts fällt weg */

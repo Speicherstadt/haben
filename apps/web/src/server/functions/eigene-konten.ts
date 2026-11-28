@@ -1,4 +1,7 @@
-import { EXPENSE_CATEGORIES } from "@haben/core";
+import { kategorienMit, type ExpenseCategory } from "@haben/core";
+
+/** Elternkategorien eines eigenen Sachkontos: der Steckbrief kennt die Eigenschaft (#1975) */
+const EIGENKONTO_KATEGORIEN = kategorienMit("eigenesKonto") as [ExpenseCategory, ...ExpenseCategory[]];
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { authMiddleware, readMiddleware } from "../middleware.ts";
@@ -12,12 +15,12 @@ export const getOwnAccounts = createServerFn({ method: "GET" })
 
 export const createOwnAccountFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(z.object({ account: z.string(), name: z.string(), parentCategory: z.enum(Object.keys(EXPENSE_CATEGORIES) as [string, ...string[]]) }))
+  .validator(z.object({ account: z.string(), name: z.string(), parentCategory: z.enum(EIGENKONTO_KATEGORIEN) }))
   .handler(async ({ data, context }) => ({
     id: await createOwnAccount(context.user.id, {
       account: data.account,
       name: data.name,
-      parentCategory: data.parentCategory as keyof typeof EXPENSE_CATEGORIES,
+      parentCategory: data.parentCategory as ExpenseCategory,
     }),
   }));
 

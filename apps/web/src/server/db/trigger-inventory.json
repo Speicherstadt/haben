@@ -513,6 +513,13 @@
     },
     {
       "table": "public.bank_transactions",
+      "name": "bank_transactions_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER bank_transactions_audit AFTER INSERT ON public.bank_transactions FOR EACH ROW EXECUTE FUNCTION public.haben_audit()",
+      "function": "public.haben_audit()"
+    },
+    {
+      "table": "public.bank_transactions",
       "name": "bank_transactions_konto_aktiv",
       "enabled": "O",
       "definition": "CREATE TRIGGER bank_transactions_konto_aktiv BEFORE INSERT ON public.bank_transactions FOR EACH ROW EXECUTE FUNCTION public.haben_check_account_included_for_import()",
@@ -695,6 +702,13 @@
     },
     {
       "table": "public.contact_versions",
+      "name": "contact_versions_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER contact_versions_audit AFTER INSERT ON public.contact_versions FOR EACH ROW EXECUTE FUNCTION public.haben_audit()",
+      "function": "public.haben_audit()"
+    },
+    {
+      "table": "public.contact_versions",
       "name": "contact_versions_no_truncate",
       "enabled": "O",
       "definition": "CREATE TRIGGER contact_versions_no_truncate BEFORE TRUNCATE ON public.contact_versions FOR EACH STATEMENT EXECUTE FUNCTION public.haben_reject_truncate()",
@@ -779,6 +793,13 @@
     },
     {
       "table": "public.datev_bookings",
+      "name": "datev_bookings_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER datev_bookings_audit AFTER INSERT ON public.datev_bookings FOR EACH ROW EXECUTE FUNCTION public.haben_audit()",
+      "function": "public.haben_audit()"
+    },
+    {
+      "table": "public.datev_bookings",
       "name": "datev_bookings_no_truncate",
       "enabled": "O",
       "definition": "CREATE TRIGGER datev_bookings_no_truncate BEFORE TRUNCATE ON public.datev_bookings FOR EACH STATEMENT EXECUTE FUNCTION public.haben_reject_truncate()",
@@ -832,6 +853,13 @@
       "enabled": "O",
       "definition": "CREATE TRIGGER dividends_no_truncate BEFORE TRUNCATE ON public.dividends FOR EACH STATEMENT EXECUTE FUNCTION public.haben_reject_truncate()",
       "function": "public.haben_reject_truncate()"
+    },
+    {
+      "table": "public.document_amounts",
+      "name": "document_amounts_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER document_amounts_audit AFTER INSERT OR DELETE OR UPDATE ON public.document_amounts FOR EACH ROW EXECUTE FUNCTION public.haben_audit()",
+      "function": "public.haben_audit()"
     },
     {
       "table": "public.document_amounts",
@@ -1409,6 +1437,13 @@
     },
     {
       "table": "public.invoice_lines",
+      "name": "invoice_lines_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER invoice_lines_audit AFTER INSERT OR DELETE OR UPDATE ON public.invoice_lines FOR EACH ROW EXECUTE FUNCTION public.haben_audit()",
+      "function": "public.haben_audit()"
+    },
+    {
+      "table": "public.invoice_lines",
       "name": "invoice_lines_locked",
       "enabled": "O",
       "definition": "CREATE TRIGGER invoice_lines_locked BEFORE INSERT OR DELETE OR UPDATE ON public.invoice_lines FOR EACH ROW EXECUTE FUNCTION public.haben_reject_locked_invoice_line()",
@@ -1462,6 +1497,13 @@
       "enabled": "O",
       "definition": "CREATE TRIGGER invoice_settlements_no_truncate BEFORE TRUNCATE ON public.invoice_settlements FOR EACH STATEMENT EXECUTE FUNCTION public.haben_reject_truncate()",
       "function": "public.haben_reject_truncate()"
+    },
+    {
+      "table": "public.invoice_taxes",
+      "name": "invoice_taxes_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER invoice_taxes_audit AFTER INSERT OR DELETE OR UPDATE ON public.invoice_taxes FOR EACH ROW EXECUTE FUNCTION public.haben_audit()",
+      "function": "public.haben_audit()"
     },
     {
       "table": "public.invoice_taxes",
@@ -1920,6 +1962,13 @@
     },
     {
       "table": "public.lexoffice_voucher_files",
+      "name": "lexoffice_voucher_files_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER lexoffice_voucher_files_audit AFTER INSERT ON public.lexoffice_voucher_files FOR EACH ROW EXECUTE FUNCTION public.haben_audit()",
+      "function": "public.haben_audit()"
+    },
+    {
+      "table": "public.lexoffice_voucher_files",
       "name": "lexoffice_voucher_files_no_truncate",
       "enabled": "O",
       "definition": "CREATE TRIGGER lexoffice_voucher_files_no_truncate BEFORE TRUNCATE ON public.lexoffice_voucher_files FOR EACH STATEMENT EXECUTE FUNCTION public.haben_reject_truncate()",
@@ -1931,6 +1980,13 @@
       "enabled": "O",
       "definition": "CREATE TRIGGER lexoffice_vouchers_append_only BEFORE DELETE OR UPDATE ON public.lexoffice_vouchers FOR EACH ROW EXECUTE FUNCTION public.haben_append_only()",
       "function": "public.haben_append_only()"
+    },
+    {
+      "table": "public.lexoffice_vouchers",
+      "name": "lexoffice_vouchers_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER lexoffice_vouchers_audit AFTER INSERT ON public.lexoffice_vouchers FOR EACH ROW EXECUTE FUNCTION public.haben_audit()",
+      "function": "public.haben_audit()"
     },
     {
       "table": "public.lexoffice_vouchers",
@@ -3324,6 +3380,14 @@
       "definitionHash": "4f7325bd8acafb9bf3652c807b77981f2bd344fad035efe47a82f75054cac615"
     },
     {
+      "name": "public.haben_append_only_problems(max_rows integer)",
+      "config": [],
+      "language": "plpgsql",
+      "securityDefiner": false,
+      "sourceHash": "75a7971a80052089062f7b6c6b22b2484f34302f0fcb792e711753b7a5000356",
+      "definitionHash": "a5306a56eff616d7e09392e4e999212b4ba887bfff1ad763b3589fe41e514c31"
+    },
+    {
       "name": "public.haben_audit()",
       "config": [],
       "language": "plpgsql",
@@ -3370,6 +3434,22 @@
       "securityDefiner": false,
       "sourceHash": "d08c867a2b358f4644a1270b885b8542dc6df7c6f8363a1e5af24e1f807ef571",
       "definitionHash": "d7a24cb4e12a7da196676232214b2f4ec674e1d47c2203bf9c0695160f3bff48"
+    },
+    {
+      "name": "public.haben_audit_omitted_columns()",
+      "config": [],
+      "language": "sql",
+      "securityDefiner": false,
+      "sourceHash": "0df688faa36dd7850928a440f0b891a579f2a905abd12dbff3540c5e75721ccd",
+      "definitionHash": "da60f9d481a52dafebc1143a24dd5618bb5d6b4226417d7b81f8811833be7845"
+    },
+    {
+      "name": "public.haben_audited_append_only_tables()",
+      "config": [],
+      "language": "sql",
+      "securityDefiner": false,
+      "sourceHash": "be684a372b436eb0488ce88d7c1feb0a0eed0043a3ffe55acbf4aa4f18329e8a",
+      "definitionHash": "8841be6b63f2b3d5a56f6e30d6a71aa52cfafdbb749a20106a6b75a26e34533b"
     },
     {
       "name": "public.haben_bank_duplicate(umsatz_id uuid)",
@@ -3672,8 +3752,8 @@
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "e54a15781f1553250169356e068bd27592f4f2b1a2d705ae39bd6f0f5b62af1b",
-      "definitionHash": "29b12393e082f3e40dfbb1ac2ceb12fca9b659202712902ff8353aef6be178cb"
+      "sourceHash": "e493b2fa7f9903ba7374cadff19443ed3e03511c32fb06ad68669fa8f6eb2e97",
+      "definitionHash": "24364f4fce64cf0103d8e4f3c967b94bece9f48671faea9dc50b312e999354a4"
     },
     {
       "name": "public.haben_loan_fixed()",
@@ -3736,8 +3816,8 @@
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "1fc63ab0a25c90d55c98728a2722ba55b5288ef993eda16d5bf8163b884babec",
-      "definitionHash": "2df4b013a99411fd8e76648f14ac2819b9df2d80c4b5275009beed055f91989a"
+      "sourceHash": "7591c24b0fa91d5f670da03e74d6b03adc260b8a09d1bdd930ebe738f2e1bba6",
+      "definitionHash": "f98366dcdc92f3c4be0c1a2c2ca8e95e7e1fa7a95b99662aed25884844f6dac2"
     },
     {
       "name": "public.haben_reject_locked()",
@@ -3926,6 +4006,7 @@
     { "table": "public.document_cancellations", "column": "created_at", "expression": "now()" },
     { "table": "public.document_cancellations", "column": "id", "expression": "gen_random_uuid()" },
     { "table": "public.document_cancellations", "column": "reason", "expression": "''::text" },
+    { "table": "public.document_splits", "column": "description", "expression": "''::text" },
     { "table": "public.document_splits", "column": "id", "expression": "gen_random_uuid()" },
     { "table": "public.documents", "column": "currency", "expression": "'EUR'::text" },
     { "table": "public.documents", "column": "erstattet_bezahltes", "expression": "false" },
@@ -4004,6 +4085,7 @@
     { "table": "public.vat_returns", "column": "kz47", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz48", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz50", "expression": "0" },
+    { "table": "public.vat_returns", "column": "kz60", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz61", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz62", "expression": "0" },
     { "table": "public.vat_returns", "column": "kz66", "expression": "0" },

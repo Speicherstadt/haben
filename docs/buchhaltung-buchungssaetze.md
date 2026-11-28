@@ -59,7 +59,7 @@ Bei Ist-Versteuerung kommt die Umbuchung des Steueranteils dazu:
 | 1766 / 1761 USt nicht fällig | 3816 / 3811 USt nicht fällig | Steueranteil je Satz | |
 | 1776 / 1771 Umsatzsteuer | 3806 / 3801 Umsatzsteuer | | Steueranteil je Satz |
 
-Der Steueranteil ist Zahlbetrag mal Steuer durch Bruttobetrag der Rechnung, je Satz gerundet; ein Rundungsrest geht auf den Satz mit der größten Bemessungsgrundlage. Bezahlt ein Kunde in Raten, wird jede Rate so gebucht.
+Der Steueranteil ist Zahlbetrag mal Steuer durch Bruttobetrag der Rechnung, je Satz gerundet; ein Steuer-Rundungsrest geht auf den steuerpflichtigen Satz mit dem größten Steuerbetrag (nie auf einen 0-%-Posten). Bezahlt ein Kunde in Raten, wird jede Rate so gebucht.
 
 ## Beleg buchen
 
@@ -153,7 +153,7 @@ Die spätere Zahlung wird wie jede andere gebucht. Für die Voranmeldung zählt 
 
 ## Anlagen und AfA
 
-Ein Beleg mit der Kategorie „Anlagegut“ bucht den Nettobetrag auf das Anlagekonto statt in den Aufwand (ohne Vorsteuerabzug Netto und Steuer). Zum Jahresende bucht **AfA … buchen** je Anlage AfA-Konto an Anlagekonto, beim Abgang zusätzlich den Restbuchwert (2310 bzw. 6895) an Anlagekonto. Übernommene Anlagen bekommen mit der ersten AfA ihre Eröffnung Anlagekonto an 9000. Konten und Beispiele stehen unter [Anlagen und AfA](anlagen.md).
+Ein Beleg mit der Kategorie „Anlagegut“ bucht den Nettobetrag auf das Anlagekonto statt in den Aufwand (ohne Vorsteuerabzug Netto und Steuer). Zum Jahresende bucht **AfA … buchen** je Anlage AfA-Konto an Anlagekonto, beim Abgang zusätzlich den Restbuchwert (2310 bzw. 6895, bei einer Entnahme mit Buchgewinn 2315 bzw. 4855) an Anlagekonto, bei einer Entnahme dazu Privatentnahmen an „Erlöse aus Verkäufen Sachanlagevermögen“. Übernommene Anlagen bekommen mit der ersten AfA ihre Eröffnung Anlagekonto an 9000. Konten und Beispiele stehen unter [Anlagen und AfA](anlagen.md).
 
 ## Pauschalen ohne Beleg
 
@@ -161,12 +161,12 @@ Homeoffice-Tage, Fahrten mit dem Privatfahrzeug, Verpflegungsmehraufwand und Weg
 
 | Pauschale | SKR03 | SKR04 |
 | --- | --- | --- |
-| Homeoffice-Tagespauschale | 4288 | 6348 |
+| Homeoffice-Tagespauschale | 4287 | 6347 |
 | Fahrten mit dem Privatfahrzeug | 4673 | 6673 |
 | Verpflegungsmehraufwand | 4674 | 6674 |
 | Wege zwischen Wohnung und Betriebsstätte (Entfernungspauschale) | 4678 | 6688 |
 
-Ein Storno ist eine Gegenbuchung am selben Tag. Sätze und Grenzen stehen unter [Pauschalen](pauschalen.md).
+Homeoffice-Pauschalen bis Version 0.15.0 stehen auf 4288 bzw. 6348 und zählen weiter als Tagespauschale. Ein Storno ist eine Gegenbuchung am selben Tag auf die Konten der ursprünglichen Buchung. Sätze und Grenzen stehen unter [Pauschalen](pauschalen.md).
 
 ## Lohnabrechnung
 

@@ -1,6 +1,16 @@
 import { expect, type Page, test } from "@playwright/test";
 import { day } from "./daten.ts";
-import { axeVerstoesse, kontoVerbinden, CUSTOMERS, durchlaufSeite, einrichten, gehe, INVOICES, kontaktAnlegen, rechnungFestschreiben } from "./einrichtung.ts";
+import {
+  axeVerstoesse,
+  CUSTOMERS,
+  durchlaufSeite,
+  einrichten,
+  gehe,
+  INVOICES,
+  kontaktAnlegen,
+  rechnungFestschreiben,
+  zahlungsdienstleisterKonto,
+} from "./einrichtung.ts";
 
 /**
  * Eigener Durchlauf zu #1417: Zahlung und Gebühr eines Zahlungsdienstleisters stehen in der Bankliste in einer Zeile und
@@ -33,13 +43,7 @@ test("Einrichtung mit einer festgeschriebenen Rechnung und einem Stripe-Konto mi
   rechnungPfad = new URL(page.url()).pathname;
 
   await gehe(page, "/bank");
-  await kontoVerbinden(page, "Konto ohne Abruf anlegen");
-  const neuesKonto = page.locator("form", { has: page.getByRole("button", { name: "Konto anlegen" }) });
-  await neuesKonto.getByLabel("Art", { exact: true }).selectOption("provider");
-  await neuesKonto.getByLabel("Dienstleister", { exact: true }).selectOption("stripe");
-  await neuesKonto.getByLabel("Name", { exact: true }).fill("Stripe");
-  await neuesKonto.getByRole("button", { name: "Konto anlegen" }).click();
-  await expect(page.getByText("Konto angelegt.")).toBeVisible();
+  await zahlungsdienstleisterKonto(page, { anbieter: "Stripe", name: "Stripe" });
 
   const csv = [
     "balance_transaction_id,created_utc,available_on_utc,currency,gross,fee,net,reporting_category,description,customer_name",

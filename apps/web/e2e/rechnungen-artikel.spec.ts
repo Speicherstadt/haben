@@ -227,17 +227,21 @@ test("Textbausteine: Kopftext für einen Kunden anlegen und im Rechnungseditor e
   await expect(insert).toHaveValue("");
 });
 
-// Die allgemeine Regel für Knopfzeilen (Knöpfe füllen die Zeile) steht vor der des Seitenkopfs und darf sie nicht schlagen: Im
-// Kopf scrollt die Zeile am Handy seitlich, die Knöpfe schrumpfen nicht und ihre Beschriftung bricht nicht um (DESIGN.md › Seitenkopf)
-test("Handy: Knöpfe im Seitenkopf schrumpfen nicht, die Zeile scrollt seitlich", async () => {
+// Kopf-Aktionen am Handy brechen um, statt seitlich aus dem Bild zu laufen (#1790); die Hauptaktion schließt rechts ab
+test("Handy: Knöpfe im Seitenkopf brechen um, ohne aus dem Bild zu ragen", async () => {
   const vorher = page.viewportSize();
   await page.setViewportSize(HANDY);
   try {
     await go("/bank");
-    const knoepfe = page.locator(".main > .page-head .actions > .btn");
-    await expect(knoepfe.first()).toBeVisible();
-    const schrumpfen = await knoepfe.evaluateAll((alle) => alle.map((k) => getComputedStyle(k).flexShrink));
-    expect(schrumpfen).toEqual(schrumpfen.map(() => "0"));
+    const aktionen = page.locator(".main > .page-head .actions");
+    await expect(aktionen).toBeVisible();
+    await expect(aktionen).toHaveCSS("flex-wrap", "wrap");
+    const ueberlauf = await aktionen.evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(ueberlauf).toBeLessThanOrEqual(1);
+    const verbinden = aktionen.getByRole("button", { name: "Konto verbinden" });
+    await expect(verbinden).toBeVisible();
+    const [zeileBox, knopfBox] = [await aktionen.boundingBox(), await verbinden.boundingBox()];
+    expect(Math.abs(knopfBox!.x + knopfBox!.width - (zeileBox!.x + zeileBox!.width))).toBeLessThanOrEqual(1);
   } finally {
     if (vorher) await page.setViewportSize(vorher);
   }

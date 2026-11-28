@@ -25,6 +25,14 @@ describe("Gemeinsame Regeln für Ausgangsbelege", () => {
     expect(outgoingTaxIssues(treatment, null, true).join(" ")).toContain("Als Kleinunternehmer");
   });
 
+  // #1934: § 13b erfasst nur steuerpflichtige Umsätze; die eines Kleinunternehmers sind steuerfrei (§ 19 Abs. 1 UStG)
+  it("lässt als Kleinunternehmer keine Bauleistung nach § 13b zu", () => {
+    expect(outgoingTaxIssues("bauleistung_13b", null, true)).toEqual([
+      "Als Kleinunternehmer gibt es keine Bauleistung nach § 13b: deine Umsätze sind steuerfrei (§ 19 Abs. 1 UStG); bitte § 19 wählen",
+    ]);
+    expect(outgoingTaxIssues("bauleistung_13b", null, false)).toEqual([]);
+  });
+
   it("lässt ohne KU-Einstellung weiterhin keine §-19-Rechnung zu", () => {
     expect(outgoingTaxIssues("kleinunternehmer", null, false)).not.toEqual([]);
   });

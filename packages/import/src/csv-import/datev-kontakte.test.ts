@@ -10,6 +10,7 @@ const gp = (line: number, values: Partial<DatevGpRow>): DatevGpRow => ({
   rolle: values.nr == null ? null : values.nr < 70000 ? "debitor" : "kreditor",
   nr: null,
   name: "",
+  adresszusatz: "",
   strasse: "",
   plz: "",
   ort: "",

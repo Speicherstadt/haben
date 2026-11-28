@@ -18,6 +18,11 @@ export function isKapitalgesellschaft(rechtsform: Rechtsform): boolean {
   return rechtsform !== "einzelunternehmen";
 }
 
+/** Ob es in dieser Rechtsform einen Privatanteil gibt (Prozent am Beleg oder Privatentnahme, #1975); GmbH und UG kennen kein Privat */
+export function privatZulaessig(rechtsform: Rechtsform): boolean {
+  return !isKapitalgesellschaft(rechtsform);
+}
+
 /** Bezeichnungen für Geld zwischen Unternehmen und Inhaber bzw. Gesellschafter, je nach Rechtsform */
 export interface OwnerLabels {
   /** Bankumsatz ohne Rechnung oder Beleg */

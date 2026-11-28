@@ -263,6 +263,7 @@ async function importContacts(actor: string, client: LexofficeSource, progress: 
         isSupplier: contact.isVendor,
         lieferantennummer: contact.lieferantennummer,
         name: contact.name,
+        adresszusatz: contact.adresszusatz,
         strasse: contact.strasse,
         plz: contact.plz,
         ort: contact.ort,

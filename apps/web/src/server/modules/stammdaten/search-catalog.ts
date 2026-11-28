@@ -2,7 +2,7 @@ import { and, asc, isNull, or } from "drizzle-orm";
 import { likePattern, numberRank, unaccentIlike } from "../../../lib/search.ts";
 import { db, schema } from "../../db/index.ts";
 import { firstHits, partsFor, runSearchParts, searchPart } from "../../db/search-parts.ts";
-import { contactsPart } from "./contacts.ts";
+import { contactsPart } from "./contact-search.ts";
 
 export interface ArticleHit {
   id: string;

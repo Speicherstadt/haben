@@ -1,6 +1,6 @@
 {
-  "id": "44dd4f77-0ae2-42e0-ad9e-3607d249053c",
-  "prevId": "02008fa7-64f6-4816-bb04-d31caad64255",
+  "id": "d050dc9f-4c9f-420c-bf66-08bd332ecfd0",
+  "prevId": "6a499e90-7f9b-415c-8da8-c452f444cb9e",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -5740,6 +5740,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
         "own_account_id": {
           "name": "own_account_id",
           "type": "uuid",
@@ -8761,110 +8768,6 @@
           "name": "inbox_messages_message_id_unique",
           "columns": [
             "message_id"
-          ],
-          "nullsNotDistinct": false
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.inbox_outgoing": {
-      "name": "inbox_outgoing",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "sha256": {
-          "name": "sha256",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "filename": {
-          "name": "filename",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "mime_type": {
-          "name": "mime_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "size": {
-          "name": "size",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sender": {
-          "name": "sender",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "subject": {
-          "name": "subject",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "received_at": {
-          "name": "received_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'offen'"
-        },
-        "invoice_id": {
-          "name": "invoice_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "inbox_outgoing_invoice_id_invoices_id_fk": {
-          "name": "inbox_outgoing_invoice_id_invoices_id_fk",
-          "tableFrom": "inbox_outgoing",
-          "columnsFrom": [
-            "invoice_id"
-          ],
-          "tableTo": "invoices",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "inbox_outgoing_sha256_unique": {
-          "name": "inbox_outgoing_sha256_unique",
-          "columns": [
-            "sha256"
           ],
           "nullsNotDistinct": false
         }

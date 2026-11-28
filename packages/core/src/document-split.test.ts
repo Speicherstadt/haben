@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { allocateSplitTax, documentSplitPosting, splitIssues, type DocumentSplitLine } from "./document-split.ts";
+import { allocateSplitTax, documentSplitPosting, privatanteilAbspalten, splitIssues, type DocumentSplitLine } from "./document-split.ts";
+import { istPrivatentnahme, PRIVATENTNAHME, type ExpenseCategory } from "./posting.ts";
 import { computeEuer } from "./euer.ts";
 import { totalsFromTaxes } from "./invoice.ts";
 import { documentPosting, paidTaxShares } from "./posting.ts";
@@ -10,6 +11,10 @@ import { documentPosting, paidTaxShares } from "./posting.ts";
  */
 
 const issueAmounts = [{ taxRate: 1900, net: 17_000, tax: 3_230 }];
+
+/** Die Privatentnahme steht noch nicht in EXPENSE_CATEGORIES (kommt mit der Buchung, #1975) und ist deshalb keine ExpenseCategory */
+const entnahmeKategorie = PRIVATENTNAHME as ExpenseCategory;
+const istPrivat = (line: DocumentSplitLine) => istPrivatentnahme(line.category);
 const issueLines: DocumentSplitLine[] = [
   { category: "wareneinkauf", taxRate: 1900, net: 10_000 },
   { category: "software", taxRate: 1900, net: 5_000 },
@@ -63,9 +68,49 @@ describe("allocateSplitTax", () => {
     expect(allocated.map((l) => l.tax)).toEqual([210, 380, 0, 70]);
   });
 
+  it("ohne Entnahme bleibt die Verteilung wie bisher: kaufmännisch gerundet, Rest auf die größte Zeile (#1976)", () => {
+    // Beispiel des Maintainers: 0,40 / 29,98 / 0,15 / 41,94 € netto zu 19 %, Steuer 13,77 €. Bisher 0,08 / 5,70 /
+    // 0,03 / 7,96 €; Abrunden nach größtem Bruchteil ergäbe 0,07 / 5,70 / 0,03 / 7,97 €.
+    const lines: DocumentSplitLine[] = [
+      { category: "wareneinkauf", taxRate: 1900, net: 40 },
+      { category: "software", taxRate: 1900, net: 2_998 },
+      { category: "buero", taxRate: 1900, net: 15 },
+      { category: "sonstiges", taxRate: 1900, net: 4_194 },
+    ];
+    const allocated = allocateSplitTax(lines, [{ taxRate: 1900, net: 7_247, tax: 1_377 }]);
+    expect(allocated.map((l) => l.tax)).toEqual([8, 570, 3, 796]);
+    expect(sumOf(allocated.map((l) => l.tax))).toBe(1_377);
+  });
+
   it("Gutschrift: negative Zeilen bekommen negative Steuer, exakt gespiegelt", () => {
     const negated = issueLines.map((l) => ({ ...l, net: -l.net }));
     expect(allocateSplitTax(negated, [{ taxRate: 1900, net: -17_000, tax: -3_230 }]).map((l) => l.tax)).toEqual([-1_900, -950, -380]);
+  });
+
+  it("teilt die Steuer je Satz zuerst zwischen Betrieb und Entnahme (#1976)", () => {
+    // Fünf Zeilen zu je 3 ct netto bei 19 %, Steuer des Belegs 3 ct: Vorher trug die erste Zeile den Rundungsrest,
+    // betrieblich waren es dann 4 ct (Entnahme vorn) oder 2 ct (hinten) — der abziehbare Teil hing an der Reihenfolge.
+    const betrieb: DocumentSplitLine[] = Array.from({ length: 4 }, () => ({ category: "wareneinkauf", taxRate: 1900, net: 3 }));
+    const entnahme: DocumentSplitLine = { category: entnahmeKategorie, taxRate: 1900, net: 3 };
+    const amounts = [{ taxRate: 1900, net: 15, tax: 3 }];
+    for (const lines of [
+      [entnahme, ...betrieb],
+      [...betrieb, entnahme],
+    ]) {
+      const allocated = allocateSplitTax(lines, amounts);
+      expect(sumOf(allocated.filter((line) => istPrivat(line)).map((line) => line.tax))).toBe(1);
+      expect(sumOf(allocated.filter((line) => !istPrivat(line)).map((line) => line.tax))).toBe(2);
+      expect(sumOf(allocated.map((line) => line.tax))).toBe(3);
+    }
+  });
+
+  it("Gutschrift: die Entnahme bekommt ihren negativen Anteil, der Betrieb bleibt negativ (#1976)", () => {
+    const betrieb: DocumentSplitLine[] = Array.from({ length: 4 }, () => ({ category: "wareneinkauf", taxRate: 1900, net: -3 }));
+    const entnahme: DocumentSplitLine = { category: entnahmeKategorie, taxRate: 1900, net: -3 };
+    const allocated = allocateSplitTax([entnahme, ...betrieb], [{ taxRate: 1900, net: -15, tax: -3 }]);
+    expect(allocated.filter((line) => istPrivat(line)).map((line) => line.tax)).toEqual([-1]);
+    expect(sumOf(allocated.filter((line) => !istPrivat(line)).map((line) => line.tax))).toBe(-2);
+    expect(sumOf(allocated.map((line) => line.tax))).toBe(-3);
   });
 });
 
@@ -317,5 +362,94 @@ describe("documentSplitPosting mit eigenem Konto (#270)", () => {
         ]),
       );
     });
+  });
+});
+
+describe("Gemischte Vorzeichen (#1976)", () => {
+  it("ohne Entnahme wie bisher: Gewicht ist das vorzeichenbehaftete Netto", () => {
+    // +100,00 € und −50,00 € zu 19 % mit 9,50 € Steuer: 19,00 € und −9,50 €, nicht 6,33 € und 3,17 € wie mit Σ|Netto|
+    const lines: DocumentSplitLine[] = [
+      { category: "buero", taxRate: 1900, net: 10_000 },
+      { category: "software", taxRate: 1900, net: -5_000 },
+    ];
+    expect(allocateSplitTax(lines, [{ taxRate: 1900, net: 5_000, tax: 950 }]).map((line) => line.tax)).toEqual([1_900, -950]);
+  });
+
+  it("weist einen Satz mit Entnahme und gemischten Vorzeichen ab, statt ihn zu verteilen", () => {
+    // −200,00 € betrieblich und +300,00 € Entnahme zu 19 %, Steuer 19,00 €: der Nenner der Entnahme verrechnet die
+    // Vorzeichen und ergäbe −38,00 € / +57,00 €. Ohne Zuteilung bleibt es bei 0 und splitIssues meldet den Satz.
+    const amounts = [{ taxRate: 1900, net: 10_000, tax: 1_900 }];
+    const lines: DocumentSplitLine[] = [
+      { category: "buero", taxRate: 1900, net: -20_000 },
+      { category: entnahmeKategorie, taxRate: 1900, net: 30_000 },
+    ];
+    const allocated = allocateSplitTax(lines, amounts);
+    expect(allocated.map((line) => line.tax)).toEqual([0, 0]);
+    expect(splitIssues(allocated, amounts)).toEqual([
+      "Aufteilung 19 %: Vorsteuer der Zeilen 0,00\u00a0€, Beleg 19,00\u00a0€",
+      "Aufteilung 19 %: Zeilen mit Plus und Minus gemischt; eine Gutschrift hat nur negative Zeilen",
+    ]);
+  });
+
+  it("hebt sich das Netto des Satzes auf, bleibt es nicht still bei 0", () => {
+    const amounts = [{ taxRate: 1900, net: 0, tax: 0 }];
+    const lines: DocumentSplitLine[] = [
+      { category: "buero", taxRate: 1900, net: -20_000 },
+      { category: entnahmeKategorie, taxRate: 1900, net: 20_000 },
+    ];
+    const allocated = allocateSplitTax(lines, amounts);
+    expect(allocated.map((line) => line.tax)).toEqual([0, 0]);
+    expect(splitIssues(allocated, amounts)).toEqual(["Aufteilung 19 %: Zeilen mit Plus und Minus gemischt; eine Gutschrift hat nur negative Zeilen"]);
+  });
+});
+
+describe("privatanteilAbspalten (#1975)", () => {
+  const internet: DocumentSplitLine = { category: "internet", taxRate: 1900, net: 3_360, account: "4926" };
+
+  it("teilt 33,60 € zu 25 % in 25,20 € betrieblich und 8,40 € Privatentnahme; das eigene Konto bleibt betrieblich", () => {
+    expect(privatanteilAbspalten(internet, 25)).toEqual({
+      betrieblich: { category: "internet", taxRate: 1900, net: 2_520, account: "4926" },
+      privat: { category: entnahmeKategorie, taxRate: 1900, net: 840 },
+    });
+  });
+
+  it("rundet den privaten Teil kaufmännisch, der betriebliche ist der Rest (Vorgabe der Steuerberatung)", () => {
+    // 3,34 € zu 25 % = 0,835 € → privat 0,84 €, betrieblich 2,50 €; den betrieblichen Teil zu runden ergäbe 2,51 €
+    const { betrieblich, privat } = privatanteilAbspalten({ category: "telefon", taxRate: 1900, net: 334 }, 25);
+    expect([betrieblich.net, privat.net]).toEqual([250, 84]);
+  });
+
+  it("behält bei einer Gutschrift das Vorzeichen, gespiegelt", () => {
+    const { betrieblich, privat } = privatanteilAbspalten({ category: "telefon", taxRate: 1900, net: -334 }, 25);
+    expect([betrieblich.net, privat.net]).toEqual([-250, -84]);
+  });
+
+  it("weist 0 und 100 Prozent, Bruchteile und das Abspalten von einer Privatentnahme ab", () => {
+    expect(() => privatanteilAbspalten(internet, 0)).toThrow(RangeError);
+    expect(() => privatanteilAbspalten(internet, 100)).toThrow(RangeError);
+    expect(() => privatanteilAbspalten(internet, 2.5)).toThrow(RangeError);
+    expect(() => privatanteilAbspalten({ category: entnahmeKategorie, taxRate: 1900, net: 840 }, 25)).toThrow(/Privatentnahme/);
+  });
+
+  it("weist ab, wenn gerundet eine Zeile mit 0 Cent entstünde", () => {
+    // 1 ct zu 25 % ist privat 0; 0,50 € zu 99 % ist betrieblich 0
+    expect(() => privatanteilAbspalten({ category: "telefon", taxRate: 1900, net: 1 }, 25)).toThrow(/0 Cent/);
+    expect(() => privatanteilAbspalten({ category: "telefon", taxRate: 1900, net: 50 }, 99)).toThrow(/0 Cent/);
+  });
+
+  it("Telefonrechnung: abgespalten und verteilt ergibt 5,76 € Vorsteuer und 2,25 € Steuer der Entnahme", () => {
+    // 42,13 € netto, 8,01 € Steuer; Internet 33,60 € zu 25 %, Telefon 8,53 € zu 40 % privat
+    const a = privatanteilAbspalten({ category: "internet", taxRate: 1900, net: 3_360 }, 25);
+    const b = privatanteilAbspalten({ category: "telefon", taxRate: 1900, net: 853 }, 40);
+    const allocated = allocateSplitTax([a.betrieblich, a.privat, b.betrieblich, b.privat], [{ taxRate: 1900, net: 4_213, tax: 801 }]);
+    expect(allocated.map((line) => [line.net, line.tax])).toEqual([
+      [2_520, 479],
+      [840, 160],
+      [512, 97],
+      [341, 65],
+    ]);
+    expect(sumOf(allocated.filter((line) => !istPrivat(line)).map((line) => line.tax))).toBe(576);
+    expect(sumOf(allocated.filter((line) => istPrivat(line)).map((line) => line.tax))).toBe(225);
+    expect(splitIssues(allocated, [{ taxRate: 1900, net: 4_213, tax: 801 }])).toEqual([]);
   });
 });

@@ -111,10 +111,16 @@ for (const [device, viewport] of [
         // Erst wenn das Netz ruht, ist die Seite hydriert; sonst entgingen späte Fehler im Browser (pageerror)
         await page.waitForLoadState("networkidle");
         await expect(page.getByRole("heading", { level: 1 }).first(), `${path} hat eine Überschrift`).toBeVisible();
-        // Kein waagrechtes Scrollen der ganzen Seite auf dem Handy
+        // Kein waagrechtes Scrollen der ganzen Seite und keine abgeschnittenen Kopf-Aktionen auf dem Handy (#1790)
         if (device === "mobil") {
           const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
           expect.soft(overflow, `${path} ist nicht breiter als das Handy`).toBeLessThanOrEqual(1);
+          const kopfUeberlauf = await page.evaluate(() => {
+            const act = document.querySelector(".page-head .actions");
+            if (!act || getComputedStyle(act).display === "none") return 0;
+            return act.scrollWidth - act.clientWidth;
+          });
+          expect.soft(kopfUeberlauf, `${path}: Aktionen im Seitenkopf ragen nicht aus dem Bild`).toBeLessThanOrEqual(1);
         }
       }
       if (device === "mobil" && half === 1) {
@@ -198,4 +204,129 @@ test("Jahres- und Monatswechsel enden an den Grenzen der gültigen Jahre", async
   await expect(page.getByRole("link", { name: /1999/ })).toHaveCount(0);
   await page.goto("/buchungen?jahr=2100&monat=12");
   await expect(page.getByRole("link", { name: /2101/ })).toHaveCount(0);
+});
+
+test("Tablet (768 px, 861 px) und schmales Handy (320 px): kein Überlauf und keine Überlappung", async ({ page }) => {
+  const month = Number(day(-12).slice(5, 7));
+  const tabletSeiten = [
+    "/rechnungen",
+    "/belege",
+    "/dauerbelege",
+    `/buchungen?jahr=${YEAR}&monat=${month}`,
+    "/buchungen/neu",
+    `/konten/1200?jahr=${YEAR}`,
+    `/auswertungen/bwa?jahr=${YEAR}&zeitraum=jahr`,
+    "/auswertungen/liquiditaet?horizont=12m",
+    "/einstellungen?bereich=rechnungen",
+  ];
+  for (const viewport of [
+    { width: 768, height: 1024 },
+    { width: 861, height: 1100 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const pfad of tabletSeiten) {
+      await page.goto(pfad);
+      await page.waitForLoadState("networkidle");
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect.soft(overflow, `${pfad} bei ${viewport.width}px ohne Seitenüberlauf`).toBeLessThanOrEqual(1);
+    }
+  }
+  // Zahlungsplan-Vorlagen in Einstellungen › Rechnungen: Auswahl „%/€ netto“ überlappt kein Nachbarfeld
+  await page.setViewportSize({ width: 861, height: 1100 });
+  await page.goto("/einstellungen?bereich=rechnungen");
+  await page.waitForLoadState("networkidle");
+  const planUeberlappungen = await page.evaluate(() => {
+    const treffer: string[] = [];
+    for (const row of document.querySelectorAll(".plan-row")) {
+      const felder = [...row.querySelectorAll<HTMLElement>("input, select")].filter((el) => el.getBoundingClientRect().width > 0);
+      for (let i = 0; i < felder.length; i++) {
+        const a = felder[i]!.getBoundingClientRect();
+        for (let j = i + 1; j < felder.length; j++) {
+          const b = felder[j]!.getBoundingClientRect();
+          if (Math.min(a.right, b.right) - Math.max(a.left, b.left) > 3 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 3) {
+            treffer.push(`${felder[i]!.tagName} überlappt ${felder[j]!.tagName}`);
+          }
+        }
+      }
+    }
+    return treffer;
+  });
+  expect(planUeberlappungen, "Zahlungsplan-Vorlagen bei 861px ohne Überlappung").toEqual([]);
+
+  // Schmales Handy (320 px, WCAG 1.4.10): lange Code-URLs laufen nicht aus dem Bild, versteckte Spaltenköpfe breiter
+  // Tabellen (Archiv › Offene Posten) nicht aus ihrem Rollbereich, Kurzwerte der Jahreserklärung nicht aus ihrem Block
+  await page.setViewportSize({ width: 320, height: 640 });
+  for (const pfad of ["/einstellungen?bereich=bank", "/archiv", `/jahreserklaerung/${YEAR - 1}`]) {
+    await page.goto(pfad);
+    await page.waitForLoadState("networkidle");
+    const overflow320 = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect.soft(overflow320, `${pfad} bei 320px ohne Seitenüberlauf`).toBeLessThanOrEqual(1);
+  }
+});
+
+test("Kontosuche auf /buchungen/neu wird bei Tablet-Breite nicht abgeschnitten", async ({ page }) => {
+  await page.setViewportSize({ width: 861, height: 1100 });
+  await page.goto("/buchungen/neu");
+  await page.waitForLoadState("networkidle");
+  const input = page.locator(".account-combobox input[role='combobox']").first();
+  await input.click();
+  const popup = page.locator(".account-combobox .combobox-popup").first();
+  await expect(popup).toBeVisible();
+  const clip = await page.evaluate(() => {
+    const p = document.querySelector<HTMLElement>(".account-combobox .combobox-popup");
+    const t = p?.closest("table");
+    if (!p || !t) return null;
+    const pRect = p.getBoundingClientRect();
+    const tRect = t.getBoundingClientRect();
+    const cs = getComputedStyle(t);
+    return {
+      overflowY: cs.overflowY,
+      popupBottom: Math.round(pRect.bottom),
+      tableBottom: Math.round(tRect.bottom),
+      clippedPx: cs.overflowY !== "visible" ? Math.round(pRect.bottom - tRect.bottom) : 0,
+    };
+  });
+  expect(clip?.clippedPx ?? 0, `Combobox-Liste abgeschnitten: ${JSON.stringify(clip)}`).toBeLessThanOrEqual(0);
+});
+
+test("Spalten in /rechnungen, /belege, /dauerbelege bei 861 px ohne Überlappung", async ({ page }) => {
+  await page.setViewportSize({ width: 861, height: 1100 });
+  for (const pfad of ["/rechnungen", "/belege", "/dauerbelege"]) {
+    await page.goto(pfad);
+    await page.waitForLoadState("networkidle");
+    const fehler = await page.evaluate(() => {
+      const out: string[] = [];
+      for (const row of document.querySelectorAll<HTMLElement>(".table-row")) {
+        const zellen = [...row.children].filter((el): el is HTMLElement => el instanceof HTMLElement && el.getBoundingClientRect().width > 0);
+        for (const z of zellen) {
+          if (z.scrollWidth > z.clientWidth + 2 && getComputedStyle(z).overflowX === "visible") {
+            out.push(`Zelle läuft über (${z.scrollWidth} > ${z.clientWidth}): "${z.textContent?.trim().slice(0, 30)}"`);
+          }
+        }
+      }
+      return out;
+    });
+    expect(fehler, `${pfad} bei 861px ohne überlaufende Spaltenzellen`).toEqual([]);
+  }
+});
+
+test("Beleg am Handy: Blättern in einer Zeile, Position mittig, nichts ragt aus dem Bild", async ({ page }) => {
+  const beleg = await firstLink(page, "/belege", /^\/belege\/[0-9a-f-]{36}$/);
+  for (const width of [320, 375]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto(beleg!);
+    const blaettern = page.getByRole("group", { name: "Zwischen Belegen wechseln" });
+    await expect(blaettern.getByRole("button", { name: /Nächster/ })).toBeVisible();
+    const [vor, position, weiter] = await Promise.all([
+      blaettern.getByRole("button", { name: /Vorheriger/ }).boundingBox(),
+      blaettern.getByText(/^\d+ von \d+$/).boundingBox(),
+      blaettern.getByRole("button", { name: /Nächster/ }).boundingBox(),
+    ]);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `Beleg bei ${width}px ohne Seitenüberlauf`).toBeLessThanOrEqual(1);
+    expect(weiter!.x + weiter!.width, `„Nächster“ bei ${width}px im Bild`).toBeLessThanOrEqual(width - 16 + 1);
+    // Eine Zeile: Zurück, Position und Weiter auf einer Höhe; die Position steht in der Mitte der Seite
+    expect(Math.abs(vor!.y - weiter!.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(position!.x + position!.width / 2 - width / 2), `Position bei ${width}px mittig`).toBeLessThanOrEqual(2);
+  }
 });

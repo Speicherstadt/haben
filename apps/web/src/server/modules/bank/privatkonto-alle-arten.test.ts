@@ -111,7 +111,6 @@ describe.skipIf(!testDatabaseUrl)("Privatkonto: jede Buchungsart gegen Entnahme 
       bank_accounts, vat_returns, loans, invoice_lines, invoices, invoice_number_counters, contact_versions, contacts,
       document_cancellations, document_settlements, document_amounts, document_splits, documents, payslip_cancellations, payslips,
       payroll_runs, employees, company cascade`;
-    await sql`insert into audit_chain (id, seq, hash) values (1, 0, haben_audit_genesis())`;
     await sql`insert into company (id, name, strasse, plz, ort, email, steuernummer, bundesland, iban, kontenrahmen, versteuerung, rechtsform)
       values (1, 'Beispielfirma', 'Beispielstraße 1', '28195', 'Bremen', 'rechnung@example.com', '60/145/12345', 'HB', ${FIRMEN_IBAN},
               ${optionen.kontenrahmen ?? "SKR03"}, ${optionen.versteuerung ?? "ist"}, ${optionen.rechtsform ?? "einzelunternehmen"})`;

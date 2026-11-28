@@ -4,7 +4,7 @@ import postgres from "postgres";
 import { receiptJpeg } from "./belegbild.ts";
 import { day, YEAR } from "./daten.ts";
 import { type Durchlauf, databaseUrlFuer, EVATR_PORT } from "./durchlaeufe.ts";
-import { bestaetigen, gehe, kontrasteInThemes, kundeWaehlen, lieferantWaehlen, ohneAxeVerstoesse } from "./einrichtung.ts";
+import { bestaetigen, gehe, kontrasteInThemes, kundeWaehlen, landWaehlen, lieferantWaehlen, ohneAxeVerstoesse } from "./einrichtung.ts";
 import { waehleKategorie } from "./kategorie.ts";
 import { serverAufrufe } from "./warten.ts";
 
@@ -65,7 +65,7 @@ export function ustIdBestaetigungPruefen(getPage: () => Page, durchlauf: Durchla
       await page.getByLabel("Straße und Hausnummer").fill("Hauptplatz 1");
       await page.getByLabel("PLZ").fill("8010");
       await page.getByLabel("Ort").fill("Graz");
-      await page.getByLabel("Land (z. B. DE)").fill("AT");
+      await landWaehlen(page, "AT");
       await page.getByLabel("USt-IdNr.").fill("ATU87654321");
       await page.getByRole("button", { name: "Kontakt anlegen" }).click();
       const karte = page.getByRole("region", { name: "Bestätigung beim BZSt" });
@@ -152,7 +152,7 @@ export function ustIdBestaetigungPruefen(getPage: () => Page, durchlauf: Durchla
       await gehe(page, "/kontakte/neu");
       await page.getByLabel("Name oder Firma").fill("Seeblick GmbH");
       await page.getByLabel("Ort").fill("Klagenfurt");
-      await page.getByLabel("Land (z. B. DE)").fill("AT");
+      await landWaehlen(page, "AT");
       await page.getByLabel("USt-IdNr.").fill("ATU33445566");
       const aufrufe = serverAufrufe(page);
       await page.getByRole("button", { name: "Kontakt anlegen" }).click();
@@ -216,6 +216,20 @@ export function ustIdBestaetigungPruefen(getPage: () => Page, durchlauf: Durchla
       await page.waitForLoadState("networkidle");
       expect(dienst.anfragen).toHaveLength(3);
       await dialog.getByRole("button", { name: "Abbrechen" }).click();
+
+      // Sperrt die Nummer das Festschreiben selbst (für AT zu kurz), ist der Knopf gesperrt, statt einen Klick zuzulassen,
+      // den der Server ablehnt (#2004); nach dem Schließen ist er für die nächste Rückfrage wieder frei
+      await sql.begin(async (tx) => {
+        await tx`select set_config('haben.actor', 'e2e', true)`;
+        await tx`update contacts set ust_id = 'ATU1234' where name = 'Bergsee GmbH'`;
+      });
+      await page.reload();
+      await page.waitForLoadState("networkidle");
+      await page.getByRole("button", { name: "Festschreiben", exact: true }).first().click();
+      await expect(dialog.getByRole("status")).toContainText("Festschreiben geht erst, wenn die USt-IdNr. am Kontakt stimmt");
+      await expect(dialog.getByRole("button", { name: "Festschreiben", exact: true })).toBeDisabled();
+      await dialog.getByRole("button", { name: "Abbrechen" }).click();
+      expect(dienst.anfragen).toHaveLength(3);
     } finally {
       // Nicht in den Zahlen der folgenden Tests: Entwurf weg, Kontakt archiviert
       await sql.begin(async (tx) => {

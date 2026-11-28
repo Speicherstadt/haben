@@ -1,4 +1,5 @@
 import { ASSET_ACCOUNTS } from "./afa.ts";
+import { istEntnahmeKonto } from "./afa-entnahme.ts";
 import { DARLEHEN_KONTEN } from "./darlehen.ts";
 import type { EuerLineKey } from "./euer.ts";
 import type { JournalZeile } from "./journal-kennzahlen.ts";
@@ -6,7 +7,7 @@ import { kontoart } from "./ledger.ts";
 import { isSachentnahmeKonto } from "./manual.ts";
 import { LOHN_KONTEN } from "./lohn-buchung.ts";
 import { roundHalfAwayFromZero, type Cents } from "./money.ts";
-import { PAUSCHALE_KONTEN, type PauschaleArt } from "./pauschalen.ts";
+import { pauschaleArtDesKontos } from "./pauschalen.ts";
 import { ACCOUNTS, EXPENSE_CATEGORIES, hatEigenschaft, KLEINUNTERNEHMER_FRUEHERE_KONTEN, type ExpenseCategory, type Kontenrahmen } from "./posting.ts";
 import { PRIVATE_USE_ACCOUNTS } from "./private-use.ts";
 import { abziehbareNebenleistungen, nichtAbziehbareNebenleistungen, STEUER_KONTEN } from "./steuerzahlung.ts";
@@ -38,6 +39,7 @@ const EINNAHMEN: ReadonlySet<EuerLineKey> = new Set<EuerLineKey>([
   "einnahmenKleinunternehmer",
   "einnahmenSteuerpflichtig",
   "einnahmenSteuerfrei",
+  "anlagenabgang",
   "privateKfz",
   "sachentnahmen",
   "ustEntnahmen",
@@ -67,10 +69,9 @@ export type EuerHerkunft = "pauschale" | "asset" | "anlage" | "darlehenAnlagever
  */
 export function euerZuordnung(kontenrahmen: Kontenrahmen, account: string, herkunft: EuerHerkunft = "sonst", kleinunternehmer = false): EuerZuordnung | null {
   const a = ACCOUNTS[kontenrahmen];
-  if (herkunft === "pauschale") {
-    for (const [art, konten] of Object.entries(PAUSCHALE_KONTEN) as [PauschaleArt, (typeof PAUSCHALE_KONTEN)[PauschaleArt]][])
-      if (konten[kontenrahmen].konto === account) return `pauschale:${art}`;
-  }
+  // Auch auf dem früheren Konto einer Pauschale (#2015), andere Buchungen dort zählen nach dem Konto
+  const pauschale = herkunft === "pauschale" ? pauschaleArtDesKontos(kontenrahmen, account) : null;
+  if (pauschale) return `pauschale:${pauschale}`;
   // Umsatzsteuer: vereinnahmt, auch noch nicht fällig (sie wird es mit der Zahlung); auf die Privatnutzung eigene Zeile
   if (account === a.ust[1900] || account === a.ust[700]) return herkunft === "asset" ? "ustEntnahmen" : "vereinnahmteUst";
   if (account === a.ustNichtFaellig[1900] || account === a.ustNichtFaellig[700]) return "vereinnahmteUst";
@@ -104,7 +105,10 @@ export function euerZuordnung(kontenrahmen: Kontenrahmen, account: string, herku
   if (account === anlage.sonderAfa || account === anlage.sonderAfaKfz) return "sonderAfa";
   if (account === anlage.afaGwg) return "gwg";
   if (account === anlage.afaSammelposten) return "sammelposten";
-  if (account === anlage.restbuchwert) return "restbuchwert";
+  if (account === anlage.restbuchwert || account === anlage.restbuchwertGewinn) return "restbuchwert";
+  // Entnahme einer Anlage (#1970): Zeile 19 „Veräußerung oder Entnahme von Anlagevermögen“ (Anleitung zur EÜR 2025), nur
+  // aus dem Anlagenverzeichnis; Verkaufserlöse auf diesen Konten ordnet #2022 zu
+  if (herkunft === "asset" && istEntnahmeKonto(kontenrahmen, account)) return "anlagenabgang";
   // Steuerzahlungen und Nebenleistungen
   if (abziehbareNebenleistungen(kontenrahmen).includes(account)) return "steuerNebenleistungen";
   if (account === steuer.gewst || account === steuer.gewstVorjahre || nichtAbziehbareNebenleistungen(kontenrahmen).includes(account)) return "nichtAbziehbar";

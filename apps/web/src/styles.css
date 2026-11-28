@@ -138,8 +138,14 @@ h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .mono { font-family: var(--mono); }
 .muted { color: var(--muted); }
 .fehlerseite { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 24px 0; }
+.seitenladen { padding: 24px 0; animation: seitenladen-einblenden var(--fade) 0.15s both; }
+@keyframes seitenladen-einblenden { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .seitenladen { animation: none; } }
 .small { font-size: 13px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Tabellen, die seitlich rollen, sind Bezugsrahmen für versteckten Text darin (.visually-hidden ist absolut): sonst
+   steht er an seiner Stelle in der breiten Tabelle außerhalb des Rollbereichs und macht die Seite breiter (Archiv, 320 px) */
+.table-scroll, .data-table, .report-table { position: relative; }
 
 /* Shell */
 .shell { display: flex; min-height: 100vh; }
@@ -375,7 +381,8 @@ button.nav-foot-link { width: 100%; background: none; border: 0; font: inherit; 
 /* Knopfzeilen (#394, DESIGN.md): Hauptaktion zuletzt im Markup; im Dialog rechtsbündig, sonst an der Kante der Felder */
 dialog .form-footer, .form-dialog > form > .actions:last-child { justify-content: flex-end; }
 /* Ein Hauch Schatten hebt die Karte vom Grund ab; auf Dunkel trägt ihn kaum etwas, dort hält die Linie die Kante */
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow-xs); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow-xs); min-width: 0; }
+code { overflow-wrap: anywhere; }
 /* Kachel als Link (Übersicht): sieht aus wie eine Karte, der Rahmen zeigt beim Überfahren, dass sie klickbar ist */
 .card-link { color: inherit; text-decoration: none; }
 .card-link:hover { border-color: var(--line-strong); }
@@ -391,7 +398,7 @@ dialog .form-footer, .form-dialog > form > .actions:last-child { justify-content
   .grid-3 .kpi-value, .grid-4 .kpi-value, .grid-5 .kpi-value { font-size: 18px !important; white-space: normal; overflow-wrap: anywhere; }
 }
 .grid-main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: start; }
-.stack { display: flex; flex-direction: column; gap: 16px; }
+.stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 /* Übersicht: Fehlt „Letzte Voranmeldungen“ (Kleinunternehmer, Befreite), nimmt „Letzte Rechnungen“ die ganze Breite */
 .uebersicht-listen > :only-child { grid-column: 1 / -1; }
 @media (max-width: 1100px) { .grid-main { grid-template-columns: minmax(0, 1fr); } }
@@ -428,8 +435,9 @@ dialog .form-footer, .form-dialog > form > .actions:last-child { justify-content
 /* In Tabellenzellen gilt sonst .report-table td input (auswertungen.css): Platz für den Pfeil, Fokusring auf dem Rahmen (DESIGN.md) */
 .report-table td .combobox input { padding: 0 36px 0 12px; }
 .report-table td .combobox input:focus-visible { outline-offset: -1px; border-color: var(--accent); }
-/* Am Handy steht die Zeile als Karte (stack-table): Feld und Liste so breit wie die Spalte des Werts */
-@media (max-width: 720px) { .account-combobox { min-width: 0; } .account-combobox .combobox-popup { min-width: 0; right: 0; } }.combobox-popup { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0; display: flex; flex-direction: column; max-height: min(320px, 50dvh); overflow: hidden; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 24px rgb(0 0 0 / 0.18); }
+/* Am Handy und Tablet steht die Zeile als Karte (stack-table): Feld und Liste so breit wie die Spalte des Werts */
+@media (max-width: 1024px) { .account-combobox { min-width: 0; } .account-combobox .combobox-popup { min-width: 0; right: 0; } }
+.combobox-popup { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0; display: flex; flex-direction: column; max-height: min(320px, 50dvh); overflow: hidden; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 24px rgb(0 0 0 / 0.18); }
 .combobox-popup [role="listbox"] { padding: 4px; overflow-y: auto; }
 .combobox-option { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: var(--control-h); padding: 6px 10px; border-radius: 6px; font-size: 14px; color: var(--ink); cursor: pointer; overflow-wrap: anywhere; }
 .combobox-option:hover { background: var(--ground); }
@@ -564,7 +572,7 @@ textarea.autogrow { field-sizing: content; min-height: 8lh; max-height: 70vh; }
 .form-row.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .form-row.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .form-row.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.form-row.cols-address { grid-template-columns: 120px minmax(0, 1fr) 120px; }
+.form-row.cols-address { grid-template-columns: 120px minmax(0, 1fr) minmax(0, 15rem); }
 .form-row.cols-place { grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr); }
 /* Unten bündig, etwa für einen Knopf neben Feldern; nicht für Felder mit Hinweis oder Fehler, die schöben ihre Zeile nach oben (DESIGN.md, Felder) */
 .form-row.align-end { align-items: end; }
@@ -607,7 +615,7 @@ textarea.autogrow { field-sizing: content; min-height: 8lh; max-height: 70vh; }
 .form-section-zu > details > summary::-webkit-details-marker { display: none; }
 .form-section-zu > details > summary::before { content: "›"; content: "›" / ""; display: inline-block; width: 12px; color: var(--muted); transition: transform 0.15s; }
 .form-section-zu > details[open] > summary::before { transform: rotate(90deg); }
-.form-section-zu > details > summary > h3 { margin: 0; font-size: 13px; font-weight: 500; color: var(--muted); }
+.form-section-zu > details > summary > :is(h2, h3) { margin: 0; font-size: 13px; font-weight: 500; color: var(--muted); }
 .form-section-kurz { font-size: 13px; color: var(--ink); }
 /* Einklappabschnitt unmittelbar auf der Seite (Voranmeldung, #1253): bündig mit den Karten, ohne Einzug des Formulars */
 .main > .form-section-zu > details > summary, .main > .form-section-zu .form-section-inhalt,
@@ -615,6 +623,8 @@ textarea.autogrow { field-sizing: content; min-height: 8lh; max-height: 70vh; }
 .stack > .form-section-zu { border-top: 0; }
 /* In der schmalen Spalte steht die Auskunft unter der Überschrift, bündig mit ihr (12px Pfeil plus 12px Abstand) */
 .stack > .form-section-zu > details > summary > .form-section-kurz { flex-basis: 100%; padding-left: 24px; }
+/* GiroCode am Beleg (#1967): schwarz auf Weiß mit Ruhezone, auch im dunklen Modus; sonst lesen manche Banking-Apps ihn nicht */
+.girocode-bild { align-self: start; background: #fff; padding: 16px; line-height: 0; border-radius: 4px; }
 /* Ablauf der Voranmeldung (#1253): drei Schritte in einer Zeile, der aktuelle fett, Erledigtes mit Haken, darunter das Ergebnis */
 .ablauf-schritte { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; padding: 0; list-style: none; font-size: 14px; color: var(--muted); }
 .ablauf-schritte > li { display: flex; align-items: center; gap: 8px; }
@@ -1242,19 +1252,24 @@ fieldset.card > legend + * { clear: both; }
      ganze Breite statt nur die ihrer Knöpfe */
   .actions > .btn:not(:where(table, .table, .banner) .btn-sm) { flex: 1 1 auto; }
   .history-row > .actions { width: 100%; }
-  /* Kopf kompakt, weil er stehen bleibt: Titel oben, Aktionen darunter in einer Zeile, die seitlich scrollt, statt
-     mehrerer Zeilen voller Knöpfe. Wenige Knöpfe füllen die Breite wie bisher. 4px Innenabstand halten den Fokusrahmen
-     in der scrollenden Zeile sichtbar */
-  /* nowrap: eine Spalte ist eine Zeile so breit wie der Kopf; mit wrap richtete sie sich nach der ungebrochenen Aktionszeile */
+  /* Kopf-Aktionen brechen am Handy um, statt seitlich aus dem Bild zu laufen (#1790);
+     Knöpfe füllen die Zeile, die Hauptaktion bleibt rechts (DESIGN.md, Reihenfolge der Knöpfe) */
   .page-head { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 8px; margin-block: -8px; padding-block: 8px; }
   .page-head h1 { font-size: 24px; }
   .page-head .eyebrow { margin-bottom: 2px; }
-  .page-head .actions { display: flex; flex-wrap: nowrap; gap: 8px; align-self: stretch; overflow: auto hidden; scrollbar-width: none; margin: -4px; padding: 4px; }
-  .page-head .actions > * { flex: 0 0 auto; }
-  .page-head .actions > .btn, .page-head .actions > .split-btn-solo > .btn { flex: 1 0 auto; justify-content: center; }
-  .page-head .actions > .field { flex: 1 0 140px; }
+  .page-head .actions { display: flex; flex-wrap: wrap; gap: 8px; align-self: stretch; }
+  .page-head .actions > * { flex: 0 1 auto; min-width: 0; }
+  .page-head .actions > .btn:not(:where(.btn-icon)), .page-head .actions > .split-btn-solo > .btn, .page-head .actions > .more-actions-menu:has(> .btn:not(.btn-icon)), .page-head .actions > .more-actions-menu > .btn:not(.btn-icon) { flex: 1 1 auto; justify-content: center; }
+  .page-head .actions > .more-actions-menu:has(> .btn:not(.btn-icon)) { display: flex; }
+  .page-head .actions > .field { flex: 1 1 140px; }
   /* Ein Feld direkt im Kopf (Zeitraum, Jahr) nimmt wie die Aktionszeile die ganze Breite, statt halb breit am Rand zu stehen */
   .page-head > .field { align-self: stretch; }
+  /* Blättern in der Beleg-Ansicht: eine eigene Zeile, „Vorheriger“ links, die Position genau in der Mitte, „Nächster“ rechts;
+     mit dem Innenabstand eines Knopfs passten die drei bei 320 px nicht in die Zeile */
+  .page-head .actions > .doc-nav { flex: 1 1 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; }
+  .doc-nav > .btn { min-width: 0; padding-inline: 8px; }
+  .doc-nav > .btn:first-child { justify-self: start; }
+  .doc-nav > .btn:last-child { justify-self: end; }
   /* Belegeditor: Vorschau, Entwurf als PDF, Entwurf speichern und Festschreiben passen nicht in eine Zeile (#357);
      seitlich gescrollt verschwänden Speichern und Festschreiben. Dort zwei Zeilen zu je zwei Knöpfen */
   .page-head .editor-actions { flex-wrap: wrap; overflow: visible; }
@@ -1284,7 +1299,20 @@ fieldset.card > legend + * { clear: both; }
   /* Übrige Tabellen: Text darf umbrechen (Beträge bleiben dank geschütztem Leerzeichen zusammen),
      was dann noch zu breit ist, scrollt in der Karte statt die Seite zu verbreitern */
   .report-table:not(.stack-table) { display: block; overflow-x: auto; }
-  .card { min-width: 0; }
+}
+
+/* Tablet mit ausgeklappter Seitenleiste (861–1024 px): die Arbeitsfläche ist schmaler als 760 px;
+   breite Tabellen scrollen in der Karte, feste Listenspalten rücken zusammen statt zu überlappen */
+@media (min-width: 721px) and (max-width: 1024px) {
+  :is(.card, .card > details) > .report-table:not(:has(.account-combobox)) { display: block; overflow-x: auto; }
+}
+@media (min-width: 861px) and (max-width: 1024px) {
+  :where(:root:not([data-nav="collapsed"])) .document-cols { grid-template-columns: 84px minmax(0, 1.1fr) minmax(0, 1fr) 88px 116px; }
+  :where(:root:not([data-nav="collapsed"])) .document-cols > * { min-width: 0; overflow-wrap: anywhere; }
+  :where(:root:not([data-nav="collapsed"])) .recurring-cols { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 88px 92px 88px; }
+  :where(:root:not([data-nav="collapsed"])) .recurring-cols > * { min-width: 0; overflow-wrap: anywhere; }
+  :where(:root:not([data-nav="collapsed"])) .invoice-cols { grid-template-columns: 84px minmax(0, 1fr) 76px 84px 108px; column-gap: 8px; }
+  :where(:root:not([data-nav="collapsed"])) .invoice-cols > * { min-width: 0; overflow-wrap: anywhere; }
 }
 
 /* Senden-Karte neben langen Formularen bleibt beim Scrollen sichtbar */
@@ -1367,6 +1395,10 @@ summary { cursor: pointer; min-height: 24px; }
 @media (max-width: 720px) {
   .plan-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .plan-amount { grid-column: 1 / -1; }
+}
+@media (min-width: 861px) and (max-width: 1100px) {
+  :where(:root:not([data-nav="collapsed"])) .plan-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  :where(:root:not([data-nav="collapsed"])) .plan-amount { grid-column: 1 / -1; }
 }
 
 /* Kontakt im Beleg oder Rechnungsentwurf anlegen (NewContactDialog) */

@@ -12,6 +12,7 @@ export function contactOut(contact: Contact, baseUrl: string): ContactOut {
     id: contact.id,
     kundennummer: contact.kundennummer,
     name: contact.name,
+    adresszusatz: contact.adresszusatz,
     strasse: contact.strasse,
     plz: contact.plz,
     ort: contact.ort,
@@ -42,6 +43,7 @@ function inputOf(contact: Contact) {
   return {
     kundennummer: kundennummer ?? "",
     name,
+    adresszusatz: contact.adresszusatz,
     strasse,
     plz,
     ort,

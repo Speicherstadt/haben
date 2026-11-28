@@ -89,6 +89,7 @@ export const contactPatchSchema = contactInputSchema.partial().strict().register
 
 export const CONTACT_DEFAULTS = {
   kundennummer: "",
+  adresszusatz: "",
   strasse: "",
   plz: "",
   ort: "",
@@ -107,6 +108,7 @@ export const contactSchema = z
     id: z.uuid(),
     kundennummer: z.string().nullable(),
     name: z.string(),
+    adresszusatz: z.string().describe("Abteilung, c/o, Gebäude; in der E-Rechnung BT-51, leer: keiner"),
     strasse: z.string(),
     plz: z.string(),
     ort: z.string(),

@@ -20,6 +20,7 @@ export const ACCOUNTS = {
     erloese: { 1900: "8400", 700: "8300", 0: "8200" },
     erloeseSonder: {
       reverse_charge: "8336",
+      bauleistung_13b: "8337",
       drittland: "8338",
       eu_sonstige: "8339",
       ig_lieferung: "8125",
@@ -93,6 +94,7 @@ export const ACCOUNTS = {
     erloese: { 1900: "4400", 700: "4300", 0: "4200" },
     erloeseSonder: {
       reverse_charge: "4336",
+      bauleistung_13b: "4337",
       drittland: "4338",
       eu_sonstige: "4339",
       ig_lieferung: "4125",
@@ -155,16 +157,20 @@ export function ownerAccount(kontenrahmen: Kontenrahmen, rechtsform: Rechtsform,
  * Was eine Ausgabenkategorie kann. Jede Kategorie nennt unter `nicht`, was für sie nicht gilt; so beantwortet eine neue
  * Kategorie jede Frage an einer Stelle, statt in verstreuten Listen zu fehlen (#1975):
  *
- * - `aufwand`: Betriebsausgabe in EÜR und BWA. Nicht beim Anlagegut (wirkt über die AfA) und bei der Einfuhrumsatzsteuer
- *   (ist Vorsteuer, Kz 62).
+ * - `aufwand`: Betriebsausgabe in EÜR und BWA. Nicht beim Anlagegut (wirkt über die AfA), bei der Einfuhrumsatzsteuer
+ *   (ist Vorsteuer, Kz 62) und bei der Privatentnahme (#1975): Sie ist keine Betriebsausgabe (§ 4 Abs. 1 Satz 2,
+ *   § 12 Nr. 1 EStG).
  * - `direkt`: unter „Direkt buchen“ ohne Beleg wählbar. Nicht, wo es den Beleg braucht: Anlagegut und geringwertiges
  *   Wirtschaftsgut für das Anlagenverzeichnis, Einfuhrumsatzsteuer für den Bescheid des Zolls, Bewirtung für den
  *   Bewirtungsbeleg (§ 4 Abs. 5 Satz 1 Nr. 2 Satz 2 EStG), Geschenke für die Empfänger (§ 4 Abs. 7 EStG); und nicht bei
- *   Kontoführung und Gebühren, die „Direkt buchen“ schon als eigenen Eintrag hat.
+ *   Kontoführung und Gebühren, die „Direkt buchen“ schon als eigenen Eintrag hat, und bei der Privatentnahme: Sie
+ *   entsteht nur in einer Aufteilung.
  * - `eigenesKonto`: Elternkategorie eines eigenen Sachkontos (#270). Nicht bei Kategorien ohne Aufwandsbuchung, mit eigener
- *   Behandlung oder als Wareneinsatz: Anlagegut, Hardware, Einfuhrumsatzsteuer, Kontoführung, Wareneinkauf, Fremdleistungen
- *   und Kfz-Steuer. Zusätzlich muss das Konto in der Aufwandsklasse liegen (ownAccountParents).
- * - `dauerbeleg`: Vorlage für wiederkehrende Belege. Nicht beim Anlagegut, das je Anschaffung eine eigene Anlage wird.
+ *   Behandlung oder als Wareneinsatz: Anlagegut, Hardware, Einfuhrumsatzsteuer, Kontoführung, Wareneinkauf, Fremdleistungen,
+ *   Kfz-Steuer und Privatentnahme, für die niemand ein Sachkonto anlegt. Zusätzlich muss das Konto in der Aufwandsklasse
+ *   liegen (ownAccountParents).
+ * - `dauerbeleg`: Vorlage für wiederkehrende Belege. Nicht beim Anlagegut, das je Anschaffung eine eigene Anlage wird, und
+ *   nicht bei der Privatentnahme: Eine wiederkehrende Entnahme ist keine Vorlage.
  */
 export type KategorieEigenschaft = "aufwand" | "direkt" | "eigenesKonto" | "dauerbeleg";
 
@@ -229,11 +235,36 @@ export const EXPENSE_CATEGORIES = {
   // Kein Aufwand: Bescheid des Zolls über die Einfuhrumsatzsteuer, der ganze Betrag ist Vorsteuer (§ 15 Abs. 1 Satz 1 Nr. 2
   // UStG, Kz 62); DATEV-Kontenrahmen 2026 „Entstandene Einfuhrumsatzsteuer“ (SKR03 1588, SKR04 1433)
   einfuhrumsatzsteuer: { label: "Einfuhrumsatzsteuer (Bescheid des Zolls)", SKR03: "1588", SKR04: "1433", nicht: ["aufwand", "direkt", "eigenesKonto"] },
+  // Kein Aufwand: die Privatentnahme (#1975). Sie steht brutto auf dem Entnahmekonto und trägt keine Vorsteuer: Eine
+  // Entnahme ist keine Betriebsausgabe (§ 4 Abs. 1 Satz 2, § 12 Nr. 1 EStG), abziehbar ist nur die betriebliche
+  // Verwendung (§ 15 Abs. 1 Satz 1 Nr. 1 UStG). Sie entsteht nur als Zeile einer Aufteilung, nicht als Kategorie eines
+  // Belegs (BELEGKATEGORIEN), und nur im Einzelunternehmen; GmbH und UG kennen kein Privat.
+  privatentnahme: { label: "Privatentnahme", SKR03: "1800", SKR04: "2100", nicht: ["aufwand", "direkt", "eigenesKonto", "dauerbeleg"] },
 } as const satisfies Record<string, Kategoriesteckbrief>;
 
 export type ExpenseCategory = keyof typeof EXPENSE_CATEGORIES;
 
 export const EXPENSE_CATEGORY_KEYS = Object.keys(EXPENSE_CATEGORIES) as [ExpenseCategory, ...ExpenseCategory[]];
+
+/**
+ * Die Kategorie der Privatentnahme (#1975); sie steht nur als Zeile einer Aufteilung, nie am ganzen Beleg
+ */
+export const PRIVATENTNAHME = "privatentnahme" as const satisfies ExpenseCategory;
+
+/** Ob eine Kategorie die Privatentnahme ist; die eine Stelle, an der das entschieden wird */
+export function istPrivatentnahme(kategorie: string): boolean {
+  return kategorie === PRIVATENTNAHME;
+}
+
+/**
+ * Kategorien, die ein Beleg tragen darf: Belegkategorie, Aufteilungszeile, KI-Auslesung, Vorgabe des Lieferanten,
+ * Vorbelegung des Privatanteils. Die Privatentnahme fehlt: Ein Beleg nur mit Entnahme hat keinen Betriebsanteil und
+ * keinen Vorsteuerabzug; sie entsteht erst beim Abspalten eines Privatanteils als eigene Zeile (#1975).
+ *
+ * Der Steckbrief kennt dafür keine Eigenschaft; die eine Ausnahme steht deshalb hier an dieser Stelle statt in jeder
+ * Auswahl einzeln.
+ */
+export const BELEGKATEGORIEN = EXPENSE_CATEGORY_KEYS.filter((k) => k !== PRIVATENTNAHME) as [ExpenseCategory, ...ExpenseCategory[]];
 
 /** Ob die Kategorie die Eigenschaft hat (KategorieEigenschaft); eine unbekannte Kategorie hat keine */
 export function hatEigenschaft(kategorie: string, eigenschaft: KategorieEigenschaft): boolean {
@@ -264,105 +295,4 @@ export function kategorieMitKonto(kontenrahmen: Kontenrahmen, kategorie: string)
   return `${eintrag[kontenrahmen]} · ${eintrag.label}`;
 }
 
-export const ACCOUNT_NAMES: Record<Kontenrahmen, Record<string, string>> = {
-  SKR03: {
-    // Kapitalgesellschaft: Gesellschafter und Eigenkapital (DATEV-Kontenrahmen SKR03 2026, Art.-Nr. 11174)
-    "0730": "Verbindlichkeiten gegenüber Gesellschaftern",
-    "0731": "Verbindlichkeiten gegenüber Gesellschaftern, Restlaufzeit bis 1 Jahr",
-    "0740": "Verbindlichkeiten gegenüber Gesellschaftern, Restlaufzeit 1 bis 5 Jahre",
-    "0750": "Verbindlichkeiten gegenüber Gesellschaftern, Restlaufzeit größer 5 Jahre",
-    "0800": "Gezeichnetes Kapital",
-    // Steuern vom Einkommen und Ertrag und ihre Rückstellungen (koerperschaft.ts)
-    "0955": "Steuerrückstellungen",
-    "0956": "Gewerbesteuerrückstellung nach § 4 Abs. 5b EStG",
-    "0963": "Körperschaftsteuerrückstellung",
-    "2200": "Körperschaftsteuer",
-    "2208": "Solidaritätszuschlag",
-    "4320": "Gewerbesteuer",
-    "0860": "Gewinnvortrag vor Verwendung",
-    "0868": "Verlustvortrag vor Verwendung",
-    "1000": "Kasse",
-    "1200": "Bank",
-    ...Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => [`136${i}`, "Verrechnungskonto Zahlungsdienstleister"])),
-    "1400": "Forderungen aus Lieferungen und Leistungen",
-    "1761": "Umsatzsteuer nicht fällig 7 %",
-    "1766": "Umsatzsteuer nicht fällig 19 %",
-    "1771": "Umsatzsteuer 7 %",
-    "1776": "Umsatzsteuer 19 %",
-    "1787": "Umsatzsteuer nach § 13b UStG",
-    "1548": "Vorsteuer in Folgeperiode/im Folgejahr abziehbar",
-    "1590": "Verrechnungskonto (durchlaufende Posten)",
-    "1572": "Abziehbare Vorsteuer aus innergemeinschaftlichem Erwerb",
-    "1574": "Abziehbare Vorsteuer aus innergemeinschaftlichem Erwerb 19 %",
-    "1772": "Umsatzsteuer aus innergemeinschaftlichem Erwerb",
-    "1774": "Umsatzsteuer aus innergemeinschaftlichem Erwerb 19 %",
-    "8120": "Steuerfreie Umsätze § 4 Nr. 1a UStG",
-    "8125": "Steuerfreie innergemeinschaftliche Lieferungen § 4 Nr. 1b UStG",
-    "2150": "Aufwendungen aus der Währungsumrechnung",
-    "2400": "Forderungsverluste (übliche Höhe)",
-    "2650": "Sonstige Zinsen und ähnliche Erträge",
-    "2660": "Erträge aus der Währungsumrechnung",
-    "2742": "Versicherungsentschädigungen und Schadenersatzleistungen",
-    "3730": "Erhaltene Skonti",
-    "8730": "Gewährte Skonti",
-    "8100": "Steuerfreie Umsätze § 4 Nr. 8 ff. UStG",
-    "8192": "Erlöse als Kleinunternehmer § 19 UStG",
-    "8195": "Erlöse als Kleinunternehmer § 19 UStG",
-    "8200": "Erlöse",
-    "8300": "Erlöse 7 % USt",
-    "8336": "Erlöse aus im anderen EU-Land steuerpflichtigen sonstigen Leistungen (Reverse Charge)",
-    "8338": "Erlöse aus im Drittland steuerbaren Leistungen",
-    "8339": "Erlöse aus im anderen EU-Land steuerbaren Leistungen, im Inland nicht steuerbare Umsätze",
-    "8400": "Erlöse 19 % USt",
-    "9000": "Saldenvorträge Sachkonten",
-  },
-  SKR04: {
-    "1200": "Forderungen aus Lieferungen und Leistungen",
-    "1600": "Kasse",
-    "1800": "Bank",
-    ...Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => [`146${i}`, "Verrechnungskonto Zahlungsdienstleister"])),
-    // Kapitalgesellschaft: Gesellschafter und Eigenkapital (DATEV-Kontenrahmen SKR04 2026, Art.-Nr. 11175)
-    "2900": "Gezeichnetes Kapital",
-    "3020": "Steuerrückstellungen",
-    "3035": "Gewerbesteuerrückstellung nach § 4 Abs. 5b EStG",
-    "3040": "Körperschaftsteuerrückstellung",
-    "7600": "Körperschaftsteuer",
-    "7608": "Solidaritätszuschlag",
-    "7610": "Gewerbesteuer",
-    "2970": "Gewinnvortrag vor Verwendung",
-    "2978": "Verlustvortrag vor Verwendung",
-    "3510": "Verbindlichkeiten gegenüber Gesellschaftern",
-    "3511": "Verbindlichkeiten gegenüber Gesellschaftern, Restlaufzeit bis 1 Jahr",
-    "3514": "Verbindlichkeiten gegenüber Gesellschaftern, Restlaufzeit 1 bis 5 Jahre",
-    "3801": "Umsatzsteuer 7 %",
-    "3806": "Umsatzsteuer 19 %",
-    "3837": "Umsatzsteuer nach § 13b UStG",
-    "1434": "Vorsteuer in Folgeperiode/im Folgejahr abziehbar",
-    "1370": "Verrechnungskonto (durchlaufende Posten)",
-    "1402": "Abziehbare Vorsteuer aus innergemeinschaftlichem Erwerb",
-    "1404": "Abziehbare Vorsteuer aus innergemeinschaftlichem Erwerb 19 %",
-    "3802": "Umsatzsteuer aus innergemeinschaftlichem Erwerb",
-    "3804": "Umsatzsteuer aus innergemeinschaftlichem Erwerb 19 %",
-    "4120": "Steuerfreie Umsätze § 4 Nr. 1a UStG",
-    "4125": "Steuerfreie innergemeinschaftliche Lieferungen § 4 Nr. 1b UStG",
-    "3811": "Umsatzsteuer nicht fällig 7 %",
-    "3816": "Umsatzsteuer nicht fällig 19 %",
-    "4100": "Steuerfreie Umsätze § 4 Nr. 8 ff. UStG",
-    "4184": "Erlöse als Kleinunternehmer § 19 UStG",
-    "4185": "Erlöse als Kleinunternehmer § 19 UStG",
-    "4200": "Erlöse",
-    "4300": "Erlöse 7 % USt",
-    "4336": "Erlöse aus im anderen EU-Land steuerpflichtigen sonstigen Leistungen (Reverse Charge)",
-    "4338": "Erlöse aus im Drittland steuerbaren Leistungen",
-    "4339": "Erlöse aus im anderen EU-Land steuerbaren Leistungen, im Inland nicht steuerbare Umsätze",
-    "4400": "Erlöse 19 % USt",
-    "4730": "Gewährte Skonti",
-    "4840": "Erträge aus der Währungsumrechnung",
-    "4970": "Versicherungsentschädigungen und Schadenersatzleistungen",
-    "5730": "Erhaltene Skonti",
-    "6880": "Aufwendungen aus der Währungsumrechnung",
-    "6930": "Forderungsverluste (übliche Höhe)",
-    "7100": "Sonstige Zinsen und ähnliche Erträge",
-    "9000": "Saldenvorträge Sachkonten",
-  },
-};
+export { ACCOUNT_NAMES } from "./kontennamen.ts";

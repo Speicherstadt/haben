@@ -9,6 +9,20 @@ const PROVIDER = {
   "openai-compatible": "Eigener Dienst (OpenAI-kompatibel)",
 } as const;
 
+/**
+ * Was bei PDFs an den eigenen Dienst geht, nach EXTRACTION_INPUT (#329, extraction-openai.ts › modelInput): Text der
+ * Textschicht und/oder Seitenbilder, beides höchstens für die ersten `maxPages` Seiten
+ */
+export function pdfEingabe(input: NonNullable<Settings["input"]>, maxPages: number | null): string {
+  const eine = maxPages === 1;
+  if (input === "text")
+    return `Text ${eine ? "der ersten Seite" : `der ersten ${maxPages} Seiten`} aus der Textschicht, keine Bilder; Scans und Fotos liest der Dienst nicht`;
+  if (input === "bild") return eine ? "Die erste Seite als Bild" : `Die ersten ${maxPages} Seiten als Bilder`;
+  return eine
+    ? "Text der ersten Seite aus der Textschicht und die Seite als Bild"
+    : `Text der ersten ${maxPages} Seiten aus der Textschicht und die Seiten als Bilder`;
+}
+
 /** Einstellungen → KI-Assistenten und API: wer Belege ausliest. Eingestellt wird über Umgebungsvariablen, hier nur angezeigt. */
 export function ExtractionCard({ settings }: { settings: Settings }) {
   const docs = (
@@ -44,7 +58,7 @@ export function ExtractionCard({ settings }: { settings: Settings }) {
                 <dt className="muted">Schlüssel</dt>
                 <dd style={{ margin: 0 }}>{settings.keySet ? "gesetzt" : "keiner"}</dd>
                 <dt className="muted">PDF</dt>
-                <dd style={{ margin: 0 }}>Die ersten {settings.maxPages} Seiten als Bilder</dd>
+                <dd style={{ margin: 0 }}>{pdfEingabe(settings.input ?? "text-und-bild", settings.maxPages)}</dd>
                 <dt className="muted">Wartezeit</dt>
                 <dd style={{ margin: 0 }}>{settings.timeoutSeconds} Sekunden</dd>
               </>

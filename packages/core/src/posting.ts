@@ -11,7 +11,7 @@ export * from "./eroeffnungsbuchung.ts";
 
 /**
  * Steuerschlüssel einer Buchungszeile, mit Kennzahl der Voranmeldung: USt19 (Kz 81), USt7 (86), frei,
- * RC (21), Drittland (45), Steuerfrei (48), KU (Kleinunternehmer), VSt19/VSt7 (66), keineVSt,
+ * RC (21), RC13bBau (60, Bauleistung im Inland als Leistender), Drittland (45), Steuerfrei (48), KU (Kleinunternehmer), VSt19/VSt7 (66), keineVSt,
  * RC13bEU (46/47), RC13bDrittland (84/85), VSt13b (67), IGL (41, innergemeinschaftliche Lieferung),
  * Ausfuhr (43), IGE19/IGE7 (89/93, innergemeinschaftlicher Erwerb), VStIGE (61), EUSt (62, Einfuhrumsatzsteuer)
  */
@@ -20,6 +20,7 @@ export type TaxCode =
   | "USt7"
   | "frei"
   | "RC"
+  | "RC13bBau"
   | "Drittland"
   | "NichtSteuerbar"
   | "Steuerfrei"
@@ -66,6 +67,7 @@ export const IG_ERWERB = {
 
 const TREATMENT_TAX_CODES = {
   reverse_charge: "RC",
+  bauleistung_13b: "RC13bBau",
   drittland: "Drittland",
   eu_sonstige: "NichtSteuerbar",
   ig_lieferung: "IGL",

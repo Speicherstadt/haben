@@ -24,6 +24,7 @@ const FESTE: EuerLineKey[] = [
   "einnahmenKleinunternehmer",
   "einnahmenSteuerpflichtig",
   "einnahmenSteuerfrei",
+  "anlagenabgang",
   "privateKfz",
   "sachentnahmen",
   "ustEntnahmen",
@@ -70,6 +71,8 @@ describe("Einnahmen-Ausgaben-BWA (DATEV-Form 43)", () => {
   const ERWARTET: [EuerLineKey, Form43Zeile][] = [
     ["einnahmenSteuerpflichtig", "erloese"],
     ["privateKfz", "sonstigeErloese"],
+    // Veräußerung oder Entnahme von Anlagevermögen: neutraler Ertrag wie bei DATEV (#1970)
+    ["anlagenabgang", "sonstigeErloese"],
     ["vereinnahmteUst", "umsatzsteuer"],
     ["erstatteteUst", "ustErstattung"],
     ["ausgabe:wareneinkauf", "material"],
@@ -188,6 +191,8 @@ describe("Form 43 bleibt für Kategorien und Pauschalen, wie sie vor der Form 01
     "ausgabe:sonstiges": "verschiedeneKosten",
     "ausgabe:anlage": "verschiedeneKosten",
     "ausgabe:einfuhrumsatzsteuer": "verschiedeneKosten",
+    // Die Entnahme steht nie in der EÜR (journal-euer.ts); als Kategorie fällt sie unter die verschiedenen Kosten (#1975)
+    "ausgabe:privatentnahme": "verschiedeneKosten",
     "pauschale:homeoffice": "raum",
     "pauschale:fahrt": "werbeReise",
     "pauschale:verpflegung": "werbeReise",

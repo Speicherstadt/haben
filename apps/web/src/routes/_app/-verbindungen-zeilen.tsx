@@ -40,7 +40,10 @@ export type Zeile = {
 /** Zeit aus der leisen Zeile der Karte („FinTS · heute 06:00“ → „heute 06:00“) */
 const zeitAus = (quelle: string) => quelle.split(" · ").slice(1).join(" · ");
 
-/** Name der Verbindung als Weg: Bank bei Enable Banking und FinTS, Anbieter beim Zahlungsdienstleister, sonst „Datei“ */
+/** Unterzeile einer Zeile, für alle Wege gleich gebaut: Bank bzw. Anbieter · Weg · Kennung, was davon bekannt ist */
+const kennungAus = (...teile: (string | null | undefined)[]) => teile.filter(Boolean).join(" · ");
+
+/** Unterzeile und Stand des Abrufs je Weg: Enable Banking und FinTS mit der Bank, Zahlungsdienstleister mit dem Anbieter */
 function weg(data: Seite, karte: Kontokarte, iban: string | null, provider: string | null): { kennung: string; abruf: string } {
   const z = karte.zugang;
   const eb = z?.art === "enablebanking" ? data.sync.connections.find((c) => c.id === z.verbindungId) : undefined;
@@ -50,14 +53,17 @@ function weg(data: Seite, karte: Kontokarte, iban: string | null, provider: stri
   const kurz = ibanKurz(iban);
   if (psp) {
     const anbieter = data.zahlungsdienstleister.anbieter.find((a) => a.provider === psp.provider)?.name ?? psp.provider;
-    return { kennung: `${anbieter} · ${psp.accountId}`, abruf: [RHYTHMUS_LABELS[psp.rhythmus], zeitAus(karte.quelle) || "noch kein Abruf"].join(" · ") };
+    return {
+      kennung: kennungAus(anbieter, "API", psp.accountId),
+      abruf: [RHYTHMUS_LABELS[psp.rhythmus], zeitAus(karte.quelle) || "noch kein Abruf"].join(" · "),
+    };
   }
-  if (quelle) return { kennung: `Externe Quelle · ${quelle.provider}`, abruf: quelleText(quelle) };
+  if (quelle) return { kennung: kennungAus(quelle.provider, "Externe Quelle"), abruf: quelleText(quelle) };
   // Seit wann der Bankabruf das Konto füllt, davor Dateien oder FinTS (#306)
-  if (eb)
-    return { kennung: [`${eb.aspspName} (Abruf)`, kurz].filter(Boolean).join(" · "), abruf: `${karte.quelle}${stichtagText(data.sync.stichtage, karte.id)}` };
-  const bank = fints ? `${fints.bankName} (FinTS)` : provider ? (PAYMENT_PROVIDERS[provider as keyof typeof PAYMENT_PROVIDERS]?.label ?? provider) : "Datei";
-  return { kennung: [bank, kurz].filter(Boolean).join(" · "), abruf: karte.quelle };
+  if (eb) return { kennung: kennungAus(eb.aspspName, "Abruf", kurz), abruf: `${karte.quelle}${stichtagText(data.sync.stichtage, karte.id)}` };
+  if (fints) return { kennung: kennungAus(fints.bankName, "FinTS", kurz), abruf: karte.quelle };
+  const anbieter = provider ? (PAYMENT_PROVIDERS[provider as keyof typeof PAYMENT_PROVIDERS]?.label ?? provider) : null;
+  return { kennung: kennungAus(anbieter, "Datei", kurz), abruf: karte.quelle };
 }
 
 /** Zeilen einer Gruppe: die Konten, dazu die Verbindungen ohne Karte; die mit Problem oben */
@@ -116,7 +122,7 @@ export function zeilenDerGruppe(data: Seite, gruppe: Kontokarte["gruppe"]): Zeil
         key: v.id,
         name: v.name,
         kontoId: null,
-        kennung: `${data.zahlungsdienstleister.anbieter.find((a) => a.provider === v.provider)?.name ?? v.provider} · kein Konto in Haben`,
+        kennung: kennungAus(data.zahlungsdienstleister.anbieter.find((a) => a.provider === v.provider)?.name ?? v.provider, "API", "kein Konto in Haben"),
         abruf: RHYTHMUS_LABELS[v.rhythmus],
         saldo: null,
         offen: 0,
@@ -128,7 +134,7 @@ export function zeilenDerGruppe(data: Seite, gruppe: Kontokarte["gruppe"]): Zeil
   return nachDringlichkeit(zeilen);
 }
 
-/** Menü `⋯` einer Zeile: Name und Zweck, Bearbeiten oder Zugang, Quelle, Ausschließen, Trennen bzw. Entfernen */
+/** Menü `⋯` einer Zeile: Datei importieren, Name und Zweck, Bearbeiten oder Zugang, Quelle, Ausschließen, Trennen bzw. Entfernen */
 export function zeilenMenue(
   zeile: Zeile,
   {
@@ -138,13 +144,18 @@ export function zeilenMenue(
     ausschliessen,
     kannQuelle,
     istBank,
+    gebunden,
+    dateiFuer,
   }: {
     abruf: KontoAbruf;
+    dateiFuer: (id: string) => void;
     nameUndZweck: (id: string) => void;
     quelleFreigeben: (id: string) => void;
     ausschliessen: (id: string) => void;
     kannQuelle: boolean;
     istBank: boolean;
+    /** Ein Abruf in Haben oder eine externe Quelle schreibt ins Konto */
+    gebunden: boolean;
   },
 ): ActionMenuItem[] {
   const z = zeile.zugang;
@@ -154,6 +165,8 @@ export function zeilenMenue(
   // Grund steht in der Zeile (grundId)
   const f = z?.art === "fints" ? abruf.finde(z).fints : undefined;
   const grund = (mitTrennen: boolean) => (f && abruf.fints.grund(f, mitTrennen) ? grundId(f, zeile, abruf) : undefined);
+  // Konten ohne Abruf bekommen Dateien; in ein abgerufenes (auch Etsy) oder eines mit externer Quelle nicht, solange #1988 offen ist
+  if (id && !z && !gebunden) items.push({ key: "datei", label: "Datei importieren …", onSelect: () => dateiFuer(id) });
   if (id) items.push({ key: "name", label: "Name und Zweck …", onSelect: () => nameUndZweck(id) });
   if (z) {
     const label = z.art === "psp" ? "Bearbeiten …" : z.art === "fints" ? "Zugang ändern" : "Neu anmelden";

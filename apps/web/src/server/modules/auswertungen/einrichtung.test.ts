@@ -38,7 +38,6 @@ describe.skipIf(!testDatabaseUrl)("Fragen zur Einrichtung (Postgres, #266)", () 
     await leeren(
       sql,
     )`truncate cash_entries, journal_lines, journal_entries, vat_frequencies, vat_returns, employees, einrichtung, company, seals, audit_log, audit_chain cascade`;
-    await sql`insert into audit_chain (id, seq, hash) values (1, 0, haben_audit_genesis())`;
   });
 
   const bereiche = async () => (await company.loadEinrichtung())?.ausgeblendeteBereiche;

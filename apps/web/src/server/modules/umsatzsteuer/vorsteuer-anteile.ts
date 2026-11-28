@@ -1,7 +1,9 @@
 import {
   ACCOUNTS,
   abziehbareSteuer,
-  betrieblicherAnteil,
+  belegPrivat,
+  betrieblichNetto,
+  betrieblichSteuer,
   gespeicherterAnteil,
   leistungsdatum,
   paidTaxShares,
@@ -11,6 +13,7 @@ import {
 } from "@haben/core";
 import { and, eq, sql } from "drizzle-orm";
 import { schema, type Tx } from "../../db/index.ts";
+import { entnahmeZeilen } from "./entnahme-zeilen.ts";
 
 /*
  * Wie viel Vorsteuer eines Belegs gerade abziehbar wird, wenn er seine Steuer auf dem Zwischenkonto (SKR03 1548, SKR04
@@ -165,11 +168,17 @@ export async function vorsteuerAnteile(
   // Der Privatanteil und der nicht abziehbare Teil (§ 15 Abs. 4 UStG) stehen schon beim Buchen nicht auf dem
   // Zwischenkonto: Das Ziel wird deshalb vor dem Abzug der bisherigen Umbuchungen auf den geschäftlichen, abziehbaren
   // Teil gebracht, kumuliert gerundet. So endet das Konto bei null statt um diese Teile im Soll.
-  const ziel = paidTaxShares(totals, (await steuerlichAusgeglichen(tx, doc.id, ausfuehrung)) + amount).map((s) => ({
-    rate: s.rate,
-    base: betrieblicherAnteil(s.base, doc.privateShare),
-    tax: abziehbareSteuer(betrieblicherAnteil(s.tax, doc.privateShare), gespeicherterAnteil({}, totals.taxes.find((t) => t.rate === s.rate)?.vorsteuerAnteil)),
-  }));
+  // Trägt der Beleg Zeilen privatentnahme, steht deren Anteil schon beim Buchen nicht auf dem Zwischenkonto (#1975);
+  // sonst gilt der Privatanteil in Prozent
+  const privat = belegPrivat(doc.privateShare, (await entnahmeZeilen([doc.id], tx)).get(doc.id) ?? []);
+  const ziel = paidTaxShares(totals, (await steuerlichAusgeglichen(tx, doc.id, ausfuehrung)) + amount).map((s) => {
+    const gesamt = totals.taxes.find((t) => t.rate === s.rate);
+    return {
+      rate: s.rate,
+      base: betrieblichNetto(privat, s.rate, s.base, gesamt?.base ?? s.base),
+      tax: abziehbareSteuer(betrieblichSteuer(privat, s.rate, s.tax, gesamt?.tax ?? s.tax), gespeicherterAnteil({}, gesamt?.vorsteuerAnteil)),
+    };
+  });
   return ziel.map((t) => {
     const recorded = bisher.filter((r) => r.rate === t.rate);
     return {

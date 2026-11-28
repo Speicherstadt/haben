@@ -3,7 +3,16 @@ import { NAV_BACKGROUNDS } from "@haben/core";
 import { describe, expect, it } from "vitest";
 import type { IconName } from "../components/Icon.tsx";
 import { BEREICHE } from "./bereiche.ts";
-import { firmaInNavigation, NAV_GROUPS, type NavBedingung, navLinkSichtbar, navMark, STEUERBERATUNG_NAV, sichtbareNavSeiten } from "./navigation.ts";
+import {
+  aktiverNavLink,
+  firmaInNavigation,
+  NAV_GROUPS,
+  type NavBedingung,
+  navLinkSichtbar,
+  navMark,
+  STEUERBERATUNG_NAV,
+  sichtbareNavSeiten,
+} from "./navigation.ts";
 
 /** Lohn ohne Bedingung */
 const lohn: NavBedingung = {};
@@ -233,5 +242,28 @@ describe("Hinweise der Arbeitsbereiche", () => {
     const belege = stb.find((s) => s.to === "/belege");
     expect(belege?.hinweis).toBeTruthy();
     expect(belege?.hinweis).toBe(STEUERBERATUNG_NAV[0]?.hinweis);
+  });
+});
+
+describe("aktiverNavLink", () => {
+  it("markiert nur den Link, der am genauesten passt: Verbindungen statt Bank", () => {
+    expect(aktiverNavLink("/bank", NAV_GROUPS)).toBe("/bank");
+    expect(aktiverNavLink("/bank/verbindungen", NAV_GROUPS)).toBe("/bank/verbindungen");
+  });
+
+  it("zählt die geführte Einrichtung zu den Verbindungen", () => {
+    expect(aktiverNavLink("/bank/verbinden/stripe", NAV_GROUPS)).toBe("/bank/verbindungen");
+    // Nur ganze Abschnitte des Pfads: /bank/verbindenX ist keine Einrichtung
+    expect(aktiverNavLink("/bank/verbindenX", NAV_GROUPS)).toBe("/bank");
+  });
+
+  it("nimmt Unterseiten zum Link darüber und ohne passenden Link keinen", () => {
+    expect(aktiverNavLink("/rechnungen/abc", NAV_GROUPS)).toBe("/rechnungen");
+    expect(aktiverNavLink("/einstellungen", NAV_GROUPS)).toBeNull();
+  });
+
+  it("fällt auf Bank zurück, wenn Verbindungen nicht in der Navigation steht", () => {
+    const ohne = NAV_GROUPS.map((g) => ({ ...g, links: g.links.filter((l) => l.to !== "/bank/verbindungen") }));
+    expect(aktiverNavLink("/bank/verbindungen", ohne)).toBe("/bank");
   });
 });

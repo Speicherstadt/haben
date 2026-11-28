@@ -22,6 +22,8 @@ type ConfirmDialogProps = {
   facts?: readonly ConfirmFact[];
   /** Nur für das Seltenste und Endgültigste: Text eines Häkchens, ohne das die Aktion gesperrt bleibt */
   acknowledge?: string;
+  /** Die Aktion geht gerade nicht, etwa weil eine Prüfung im Dialog sie sperrt; der Grund steht in children */
+  gesperrt?: boolean;
   /** Die Folgen, als ein oder mehrere Absätze */
   children: ReactNode;
 };
@@ -58,7 +60,17 @@ export function ConfirmDialog({ open, ...props }: ConfirmDialogProps) {
   return createPortal(<OpenConfirmDialog {...props} />, document.body);
 }
 
-function OpenConfirmDialog({ title, confirmLabel, danger = false, onConfirm, onClose, facts, acknowledge, children }: Omit<ConfirmDialogProps, "open">) {
+function OpenConfirmDialog({
+  title,
+  confirmLabel,
+  danger = false,
+  onConfirm,
+  onClose,
+  facts,
+  acknowledge,
+  gesperrt = false,
+  children,
+}: Omit<ConfirmDialogProps, "open">) {
   const titleId = useId();
   const bodyId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -109,7 +121,7 @@ function OpenConfirmDialog({ title, confirmLabel, danger = false, onConfirm, onC
         <button
           type="button"
           className={danger ? "btn btn-destructive" : "btn btn-primary"}
-          disabled={Boolean(acknowledge) && !acknowledged}
+          disabled={gesperrt || (Boolean(acknowledge) && !acknowledged)}
           onClick={(event) => {
             // Der zweite Klick eines Doppelklicks auf den Auslöser kann hier landen, wenn der Knopf über ihm liegt
             if (event.detail > 1) return;
