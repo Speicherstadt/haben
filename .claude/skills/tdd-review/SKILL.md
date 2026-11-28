@@ -31,7 +31,10 @@ Unabhängig ist, wer den Code nicht selbst geschrieben hat. Gemeint ist der Agen
   - Server mit Datenbank: Postgres-Test neben dem Modul in `apps/web/src/server/modules/`, mit `TEST_DATABASE_URL` (ohne die Variable wird er übersprungen und beweist nichts; ohne Bun im Dev-Container nach Skill `checks`).
   - Was ein Nutzer klickt: Playwright in `apps/web/e2e/`, nur wenn es nicht anders geht.
 - **Nur ein Test, der auf dem Stand des PR rot ist, ist ein Finding.**
-- Bleibt der Test grün oder lässt sich der Verdacht nicht testen, wird er verworfen (höchstens als Notiz unter „Nicht belegt“).
+- **Gegenprobe** (`docs/mitwirken.md`, Review, Punkt 2) für neue oder geänderte Logik, die schreibt, übernimmt, rechnet oder entscheidet, und ausnahmsweise ohne roten Test auf dem PR:
+  - Zeile probeweise entfernen oder verfälschen, die passenden Tests laufen lassen. Bleibt alles grün, einen Test schreiben, der auf dem PR grün und mit der Probeänderung rot ist, mit Werten, die nicht null, 0 oder der Standard sind.
+  - Beleg im Finding („ungetestet“) ist die rote Ausgabe mit der Probeänderung. Danach die Probeänderung zurücksetzen; in Schritt 4 wird nur der Test committet, ein Fix entfällt.
+- Bleibt ein anderer Test grün oder lässt sich der Verdacht nicht testen, wird er verworfen (höchstens als Notiz unter „Nicht belegt“).
 
 ## 3. Findings in den PR posten
 
@@ -41,7 +44,7 @@ Unabhängig ist, wer den Code nicht selbst geschrieben hat. Gemeint ist der Agen
 
 ## 4. Fixen (Red → Green)
 
-- Je Finding: Test committen, minimalen Fix, Test grün. Kleine Commits (`test: …`, `fix: …`, Beschreibung auf Deutsch).
+- Je Finding: Test committen, minimalen Fix, Test grün (bei der Gegenprobe nur der Test). Kleine Commits (`test: …`, `fix: …`, Beschreibung auf Deutsch).
 - Bestehende Tests nie abschwächen oder löschen, Sperren und Siegel nie lockern, um grün zu werden.
 - Fixes als neue Commits auf den Branch des Pull Requests, Commits von Beitragenden nie umschreiben; wie bei Forks und „Allow edits by maintainers“ vorzugehen ist, steht in `docs/mitwirken.md` unter „Review“, Schritt 4.
 - **PR aus einem fremden Fork:** pushen nach Skill `fork-pushen`.
