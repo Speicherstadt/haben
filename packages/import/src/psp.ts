@@ -57,8 +57,8 @@ const PAYPAL_HOLD =
 
 /**
  * Bankgutschrift zu einer Zahlung per Lastschrift: PayPal lässt sie im Export „Ausstehend“, sie gleicht das Guthaben aber
- * aus (Wirkung „Haben“) und ist das Gegenstück der Lastschrift auf dem Bankkonto, also Geldtransit (#2025). Beleg: echte
- * Exporte in hledger (`examples/csv/other/paypal-custom.csv`, „Bank Deposit to PP Account“ mit „Pending“, die Spalte
+ * aus (Wirkung „Haben“) und ist das Gegenstück der Lastschrift auf dem Bankkonto, also Geldtransit (#2025). Beleg: der
+ * Beispiel-Export in hledger (`examples/csv/other/paypal-custom.csv`, „Bank Deposit to PP Account“ mit „Pending“, die Spalte
  * „Balance“ geht damit von −6,99 auf 0,00 zurück) und das Beispiel im Issue.
  */
 function isBankFunding(type: string, impact: string): boolean {
