@@ -186,6 +186,13 @@ describe.skipIf(!testDatabaseUrl)("Entwürfe einer externen Quelle festschreiben
     expect(sent).toHaveLength(0);
   });
 
+  it("zwei gleichzeitige Aufrufe liefern beide die Rechnung, statt dass einer mit 422 scheitert", async () => {
+    const draft = await ebayDraft();
+    const results = await Promise.all([run(draft.id), run(draft.id)]);
+    expect(results.map((r) => r.ok && r.finalized).sort()).toEqual([false, true]);
+    expect(new Set(results.map((r) => r.ok && r.invoice.number)).size).toBe(1);
+  });
+
   it.each([
     ["SKR03", "ist"],
     ["SKR04", "soll"],
