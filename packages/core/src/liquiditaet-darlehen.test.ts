@@ -129,7 +129,8 @@ describe("Darlehensraten fortschreiben", () => {
   });
 
   it("eine Sondertilgung wird nicht fortgeschrieben, am Tag einer Rate wie an einem eigenen Tag", () => {
-    const amSelbenTag = darlehen([...rate("2026-08-31", 800_00, 200_00), ...rate("2026-09-30", 800_00, 200_00), ...rate("2026-10-30", 5800_00, 200_00)]);
+    // Zum Monatsende; der 31.10.2026 ist ein Samstag
+    const amSelbenTag = darlehen([...rate("2026-08-31", 800_00, 200_00), ...rate("2026-09-30", 800_00, 200_00), ...rate("2026-11-02", 5800_00, 200_00)]);
     expect(kurz(amSelbenTag, { bis: "2026-12-31" })).toEqual([
       ["2026-11-30", 1000_00],
       ["2026-12-31", 1000_00],
@@ -172,7 +173,7 @@ describe("Darlehensraten fortschreiben", () => {
     const ruhend = darlehen([...rate("2026-06-30", 800_00, 200_00), ...rate("2026-07-30", 800_00, 200_00)]);
     expect(posten(ruhend)).toEqual({ posten: [], hinweis: null });
     // Letzte Rate zum Monatsende August: 31.10. plus 30 Tage ist der 30.11., also noch nicht ruhend; der 31.10. ist ein Samstag
-    const knapp = darlehen([...rate("2026-07-30", 800_00, 200_00), ...rate("2026-08-31", 800_00, 200_00)]);
+    const knapp = darlehen([...rate("2026-07-31", 800_00, 200_00), ...rate("2026-08-31", 800_00, 200_00)]);
     expect(kurz(knapp, { bis: "2026-11-30" })).toEqual([
       ["2026-09-30", 1000_00],
       ["2026-11-02", 1000_00],

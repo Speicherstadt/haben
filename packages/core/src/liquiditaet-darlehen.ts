@@ -1,5 +1,5 @@
 import type { DarlehenTeil } from "./darlehen.ts";
-import { addDays, naechsterWerktag } from "./holidays.ts";
+import { addDays, isNonWorkingDay, naechsterWerktag } from "./holidays.ts";
 import type { LiquiditaetsPosten } from "./liquiditaet.ts";
 import { nachBankdatenBeginn } from "./liquiditaet-steuern.ts";
 import type { Cents } from "./money.ts";
@@ -17,7 +17,7 @@ import type { Bundesland } from "./steuernummer.ts";
  *   eine einmalig höhere Rate wird nicht fortgeschrieben.
  * - Der Rhythmus ist der Abstand der letzten Raten, gerundet auf 1, 3, 6 oder 12 Monate, der Tag im Monat der übliche der
  *   letzten Raten (ein Monatsende zählt als 31.). Fällt ein Termin auf ein Wochenende oder einen Feiertag, bucht die Bank am
- *   nächsten Werktag ab.
+ *   nächsten Werktag ab; der Tag im Monat ist deshalb der, zu dem die meisten der letzten drei Abbuchungen passen.
  * - Die Tilgungen enden am Bestand, die letzte Rate tilgt nur den Rest. Ohne Bestand steht nichts.
  * - Nur eine Rate: monatlich angenommen, geschätzt; sonst erwartet.
  * - Kam zwei Intervalle und 30 Tage lang keine Rate, gilt das Darlehen als ruhend (abgelöst, anders gezahlt) und steht nicht.
@@ -77,6 +77,26 @@ const monatsende = (datum: string) => addDays(datum, 1).slice(8) === "01";
 /** Tag im Monat; das Monatsende zählt als 31., damit der 28. Februar einen Termin am 31. nicht verschiebt */
 const tagImMonat = (datum: string) => (monatsende(datum) ? 31 : Number(datum.slice(8)));
 
+/** Tage, für die eine Abbuchung am Tag `datum` fällig gewesen sein kann: er selbst und die arbeitsfreien Tage direkt davor */
+function moeglicheTermine(datum: string, bundesland: Bundesland | null): string[] {
+  const tage = [datum];
+  for (let tag = addDays(datum, -1); isNonWorkingDay(tag, bundesland); tag = addDays(tag, -1)) tage.push(tag);
+  return tage;
+}
+
+/**
+ * Tag im Monat der Termine: der, zu dem die meisten der letzten drei Abbuchungen passen, auch über ein Wochenende oder einen
+ * Feiertag verschoben; bei Gleichstand der Tag der älteren Abbuchung
+ */
+function ankerAus(raten: readonly string[], bundesland: Bundesland | null): number {
+  const letzte = raten.slice(-3).map((datum) => moeglicheTermine(datum, bundesland));
+  const passend = (anker: number) => letzte.filter((tage) => tage.some((tag) => addMonthsAnchored(tag, 0, anker) === tag)).length;
+  return letzte
+    .flat()
+    .map(tagImMonat)
+    .reduce((bester, anker) => (passend(anker) > passend(bester) ? anker : bester));
+}
+
 /** Termin, zu dem die Abbuchung am Tag `datum` gehört: der letzte Tag `anker` bis `VERSCHIEBUNG_TAGE` vor ihr */
 function terminDer(datum: string, anker: number): string {
   const spaetestens = addDays(datum, VERSCHIEBUNG_TAGE);
@@ -124,7 +144,10 @@ export function darlehensPosten(input: {
     return { posten: [], hinweis: `Für das Darlehen „${darlehen.name}“ ist noch keine Rate zugeordnet; sie fehlt in der Vorschau.` };
   }
   const rhythmus = darlehenRhythmus(raten.map((r) => r.datum));
-  const anker = ueblich(raten.map((r) => tagImMonat(r.datum)));
+  const anker = ankerAus(
+    raten.map((r) => r.datum),
+    input.bundesland,
+  );
   const letzter = terminDer(raten.at(-1)!.datum, anker);
   if (addDays(addMonthsAnchored(letzter, RUHEND_INTERVALLE * rhythmus, anker), RUHEND_TAGE) < heute) return { posten: [], hinweis: null };
 
