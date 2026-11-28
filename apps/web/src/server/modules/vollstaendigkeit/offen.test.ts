@@ -172,32 +172,40 @@ describe.skipIf(!testDatabaseUrl)("Vollständigkeit: offene Vorgänge und Abdeck
 
   it("Abdeckung mit Abruf: ein fehlgeschlagener Anlauf zählt auch nach neuem Schlüssel oder anderem Konto nicht", async () => {
     const psp = await import("../zahlungsdienstleister/index.ts");
-    // Der alte Schlüssel ist abgelaufen; der neue gehört zum selben Konto bei Stripe, der dritte zu einem anderen
-    const acct: Record<string, string> = { rk_live_altaaaaaaaaaaa: "acct_shop", rk_live_neuaaaaaaaaaaa: "acct_shop", rk_live_andereaaaaaaa: "acct_kurse" };
+    // Der erste Schlüssel geht, der zweite ist abgelaufen; der dritte gehört zum selben Konto bei Stripe, der vierte zu einem anderen
+    const acct: Record<string, string> = {
+      rk_live_gutaaaaaaaaaaa: "acct_shop",
+      rk_live_altaaaaaaaaaaa: "acct_shop",
+      rk_live_neuaaaaaaaaaaa: "acct_shop",
+      rk_live_andereaaaaaaa: "acct_kurse",
+    };
     psp.setStripeClientFactory(
       ({ apiKey }) =>
         ({
           accountId: async () => acct[apiKey],
           balanceTransactions: async () => {
-            throw new Error("401 abgelaufen");
+            if (apiKey !== "rk_live_gutaaaaaaaaaaa") throw new Error("401 abgelaufen");
+            return [];
           },
         }) as unknown as StripeClient,
     );
     const konto = await bank.createProviderAccount(actor, { name: "Stripe", provider: "stripe" });
     const eingabe = { provider: "stripe", name: "Stripe", bankAccountId: konto.id, fetchFrom: "2026-10-01" } as const;
-    const { id } = await psp.speichereVerbindung(actor, { ...eingabe, eingabe: { apiKey: "rk_live_altaaaaaaaaaaa" } });
-    const fehlgeschlagen = async () => {
-      // Der Zeitplan setzt last_sync_at auch nach dem Fehler
-      expect((await psp.runDuePspSyncs(new Date("2026-11-24T10:00:00Z"))).errors).toHaveLength(1);
-      expect(await offen.kontoAbdeckung()).toEqual([{ id: konto.id, name: "Stripe", bis: null }]);
-    };
-    await fehlgeschlagen();
+    const { id } = await psp.speichereVerbindung(actor, { ...eingabe, eingabe: { apiKey: "rk_live_gutaaaaaaaaaaa" } });
+    expect((await psp.abrufen(actor, id, new Date("2026-11-20T10:00:00Z"))).error).toBeNull();
+    // Ein neuer Schlüssel nach einem erfolgreichen Abruf lässt die Abdeckung stehen
+    await psp.speichereVerbindung(actor, { ...eingabe, id, eingabe: { apiKey: "rk_live_altaaaaaaaaaaa" } });
+    expect(await offen.kontoAbdeckung()).toEqual([{ id: konto.id, name: "Stripe", bis: "2026-11-19" }]);
+    // Der Zeitplan setzt last_sync_at auch nach dem Fehler
+    expect((await psp.runDuePspSyncs(new Date("2026-11-24T10:00:00Z"))).errors).toHaveLength(1);
+    expect(await offen.kontoAbdeckung()).toEqual([{ id: konto.id, name: "Stripe", bis: null }]);
     // Der neue Schlüssel löscht den Fehler, abgerufen ist damit noch nichts
     await psp.speichereVerbindung(actor, { ...eingabe, id, eingabe: { apiKey: "rk_live_neuaaaaaaaaaaa" } });
     expect(await offen.kontoAbdeckung()).toEqual([{ id: konto.id, name: "Stripe", bis: null }]);
-    await sql`update psp_connections set last_sync_at = null, last_error = null where id = ${id}`;
-    await fehlgeschlagen();
-    // Ebenso ein anderes Konto beim Anbieter
+    // Ein anderes Konto beim Anbieter, auch nach einem erfolgreichen Abruf: Der war für das bisherige
+    await psp.speichereVerbindung(actor, { ...eingabe, id, eingabe: { apiKey: "rk_live_gutaaaaaaaaaaa" } });
+    expect((await psp.abrufen(actor, id, new Date("2026-11-22T10:00:00Z"))).error).toBeNull();
+    expect(await offen.kontoAbdeckung()).toEqual([{ id: konto.id, name: "Stripe", bis: "2026-11-21" }]);
     await psp.speichereVerbindung(actor, { ...eingabe, id, eingabe: { apiKey: "rk_live_andereaaaaaaa" } });
     expect(await offen.kontoAbdeckung()).toEqual([{ id: konto.id, name: "Stripe", bis: null }]);
   }, 60_000);
