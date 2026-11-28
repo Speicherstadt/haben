@@ -159,6 +159,31 @@ Ein Wechsel zum Jahreswechsel gilt nur für künftige Buchungen. Ein noch offene
 > [!IMPORTANT]
 > Die Konten sind sorgfältig gewählt, aber nicht von einer Steuerberatung abgenommen. Sie sollten vor dem Echtbetrieb mit der Steuerberatung abgeglichen werden, besonders wenn diese mit den Daten weiterarbeitet.
 
+### Neue Ausgabe des Kontenrahmens
+
+DATEV gibt SKR03 und SKR04 jedes Jahr neu heraus; Konten kommen dazu, andere fallen weg. Haben richtet sich nach dem Buchungsjahr:
+
+- **Neue Buchungen** stehen auf dem Konto, das im Jahr des Buchungsdatums galt, auch ein Nachtrag für ein früheres Jahr. So passt der [DATEV-Export](auswertungen.md#datev-export-für-die-steuerberatung) des Jahres zum Kontenrahmen der Steuerberatung. Konten, die du selbst angibst (manuelle und freie Buchung, Datenimport, Eröffnung), übernimmt Haben unverändert.
+- **Bestehende Buchungen** bucht Haben nie um. Sie zählen in EÜR, BWA und E-Bilanz wie auf dem heutigen Konto. Ein Storno im selben Jahr bucht auf dasselbe Konto zurück; ein Storno in einem späteren Jahr und eine Stornorechnung nehmen das Konto ihres eigenen Jahres. Die früheren Nummern bleiben für [eigene Konten](#eigene-konten) gesperrt.
+
+| Zweck | SKR03 | SKR04 | Buchungsjahre |
+| --- | --- | --- | --- |
+| [Homeoffice-Tagespauschale](pauschalen.md#homeoffice-tagespauschale) | 4288 | 6348 | bis 2024 |
+| | 4287 | 6347 | ab 2025 |
+| Erlöse als Kleinunternehmer § 19 UStG | 8195 | 4185 | bis 2024 |
+| | 8192 | 4184 | ab 2025 |
+
+Quellen: DATEV, [Programmänderungen zum Kontenrahmen 2025](https://apps.datev.de/myupdates/product-change/details/rel.1037625.productversion_i20241002140543480010133), [Kontenerläuterung zu 8195 bzw. 4185](https://wissensplattform.apps.datev.de/research/document/5360713).
+
+Mit der Steuerberatung abzustimmen ist, was im DATEV-Stapel nicht zum Kontenrahmen des Jahres passt:
+
+- **Homeoffice-Pauschalen auf 4288 bzw. 6348:** alle für 2024 und, gebucht bis einschließlich Version 0.15.1, auch die für 2025 und 2026. DATEV führt das Konto seit 2024 als häusliches Arbeitszimmer und ein Konto der Tagespauschale erst ab 2025. Haben zählt dort nur die Pauschalen als Tagespauschale.
+- **Kleinunternehmererlöse für 2025 und 2026 auf 8195 bzw. 4185**, gebucht vor Version 0.9.0. DATEV führt das Konto 2025 nur noch für den Vorjahresvergleich und hat es 2026 gelöscht: Im Kontenrahmen 2026 sind die Nummern reserviert (Kennzeichen R, [SKR03, Seite 26](https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf#page=26), [SKR04, Seite 15](https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf#page=15)) und erst mit einer eigenen Kontenfunktion bebuchbar.
+- **Kleinunternehmererlöse für 2024 und früher auf 8192 bzw. 4184**, gebucht mit Version 0.9.0 bis 0.15.1: Der Kontenrahmen dieser Jahre führt das Konto noch nicht.
+- **Sachentnahmen 7 % im SKR04 auf 4630**, wohin Haben sie eine Zeit lang statt auf 4610 buchte; bei DATEV ist 4630 die Verwendung von Gegenständen zu 7 %.
+
+Hintergrund: [Entscheidung zum Kontenrahmen je Jahr](adr/kontenrahmen-ausgaben.md).
+
 ### Bestands- und Steuerkonten
 
 | Zweck | SKR03 | SKR04 |
@@ -206,7 +231,7 @@ Ein Wechsel zum Jahreswechsel gilt nur für künftige Buchungen. Ein noch offene
 
 Achtung bei der Nummer 1200: In SKR03 ist das die Bank, in SKR04 die Forderungen; in SKR03 ist 1800 die Privatentnahme, in SKR04 die Bank; 4970 sind in SKR03 die Nebenkosten des Geldverkehrs, in SKR04 die Schadenersatzleistungen.
 
-Neue Kleinunternehmererlöse verwenden die Standardkonten 8192/4184 aus den DATEV-Kontenrahmen 2026 ([SKR03, Seite 26](https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11174%20SKR03%20BilrUg.pdf#page=26), [SKR04, Seite 14](https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/mandant/unternehmer/branche/bau/11175%20SKR04%20BilrUg.pdf#page=14)). Bisherige Buchungen auf 8195/4185 bleiben unverändert und zählen in EÜR und E-Bilanz weiter als Kleinunternehmererlöse. Auch der DATEV-Export behält ihre Nummern. Stimme deren Kontenfunktion in der DATEV-Zielbuchhaltung mit der Steuerberatung ab: DATEV führt diese Nummern mit Kennzeichen R; sie sind dort erst nach Zuweisung einer anderen Kontenfunktion bebuchbar (Erläuterung auf Seite 37).
+Kleinunternehmererlöse bis zum Buchungsjahr 2024: 8195 bzw. 4185 ([Neue Ausgabe des Kontenrahmens](#neue-ausgabe-des-kontenrahmens)).
 
 In einer GmbH oder UG (siehe [Rechtsform](einrichtung.md#rechtsform-einzelunternehmen-gmbh-oder-ug)) bucht Haben überall, wo im Einzelunternehmen Privateinlage oder Privatentnahme stünde, auf das Gesellschafter-Verrechnungskonto: beim vom Gesellschafter ausgelegten Beleg, bei Bankumsätzen „Gesellschafter (Verrechnungskonto)“ und bei Kassenbuchungen vom und an den Gesellschafter. Privatanteile, Kfz-Privatnutzung und Pauschalen gibt es dort nicht.
 
@@ -353,7 +378,7 @@ Im Einzelunternehmen steht neben einem Erfolgskonto nur ein Privatkonto, etwa ei
 - **Als Kleinunternehmer** gibt es keinen Steuerschlüssel (§ 19 Abs. 1 UStG).
 - **Datum:** nicht in einem gemeldeten Zeitraum, also nicht nach einer gesendeten Voranmeldung des Monats oder Quartals, einer gesendeten Jahreserklärung oder einem abgeschlossenen Jahr; das gilt auch für jede manuelle Buchung im Einzelunternehmen.
 - Voranmeldung und EÜR zählen die Buchung aus dem Journal; die [Verprobung](#abgleich-im-journal) prüft ihre Steuer wie jede andere.
-- **Sachentnahme:** Entnehmt ihr Waren oder Gegenstände des Betriebs für private Zwecke (unentgeltliche Wertabgabe, § 3 Abs. 1b UStG), bucht ihr Privat an das Konto der Sachentnahme mit Steuerschlüssel: SKR03 8910 (19 %) bzw. 8915 (7 %), SKR04 4620 bzw. 4610 (eine Zeit lang buchte Haben die 7 % in SKR04 auf 4630; was dort steht, zählt weiter als Sachentnahme, neu bebuchen lässt sich 4630 nicht). Als Betrag den Wert der Entnahme brutto: den Einkaufspreis zum Zeitpunkt der Entnahme bzw. die Selbstkosten zuzüglich Umsatzsteuer (§ 10 Abs. 4 Nr. 1 UStG). In der Voranmeldung zählt das Netto in Kz 81 bzw. 86, in der Anlage EÜR in der Zeile „Sonstige Sach-, Nutzungs- und Leistungsentnahmen“ (§ 6 Abs. 1 Nr. 4 Satz 1 EStG), die Umsatzsteuer darauf bei der vereinnahmten Umsatzsteuer. Ohne Steuerschlüssel lassen sich diese Konten nicht bebuchen; als Kleinunternehmer gibt es die Buchung deshalb nicht.
+- **Sachentnahme:** Entnehmt ihr Waren oder Gegenstände des Betriebs für private Zwecke (unentgeltliche Wertabgabe, § 3 Abs. 1b UStG), bucht ihr Privat an das Konto der Sachentnahme mit Steuerschlüssel: SKR03 8910 (19 %) bzw. 8915 (7 %), SKR04 4620 bzw. 4610 (zum früheren Konto 4630 im SKR04 siehe [Neue Ausgabe des Kontenrahmens](#neue-ausgabe-des-kontenrahmens)). Als Betrag den Wert der Entnahme brutto: den Einkaufspreis zum Zeitpunkt der Entnahme bzw. die Selbstkosten zuzüglich Umsatzsteuer (§ 10 Abs. 4 Nr. 1 UStG). In der Voranmeldung zählt das Netto in Kz 81 bzw. 86, in der Anlage EÜR in der Zeile „Sonstige Sach-, Nutzungs- und Leistungsentnahmen“ (§ 6 Abs. 1 Nr. 4 Satz 1 EStG), die Umsatzsteuer darauf bei der vereinnahmten Umsatzsteuer. Ohne Steuerschlüssel lassen sich diese Konten nicht bebuchen; als Kleinunternehmer gibt es die Buchung deshalb nicht.
 
 Nicht bebuchbar sind die Konten, die ein Nebenbuch führt, weil eine Buchung daran vorbei Nebenbuch und Journal auseinanderbrächte:
 

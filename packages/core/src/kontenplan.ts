@@ -8,9 +8,6 @@ import { isKapitalgesellschaft, type Rechtsform } from "./rechtsform.ts";
 export type Kontenrahmen = "SKR03" | "SKR04";
 export type Versteuerung = "ist" | "soll";
 
-/** Frühere Haben-Konten bleiben für Bestandsauswertungen und Gegenbuchungen erhalten; neue Erlöse folgen DATEV 2026. */
-export const KLEINUNTERNEHMER_FRUEHERE_KONTEN = { SKR03: "8195", SKR04: "4185" } as const;
-
 /** Konten, die Haben bisher bebucht. Vor dem Echtbetrieb mit dem Steuerberater abgleichen. */
 export const ACCOUNTS = {
   SKR03: {
