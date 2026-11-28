@@ -300,7 +300,8 @@ export async function computeVatFigures(period: VatPeriod, q: Db | Tx = db, cont
   // Soll: alle Rechnungen nach Rechnungsdatum. Ist: nur Reverse Charge, Bauleistungen (§ 13b), innergemeinschaftliche
   // Lieferungen und Leistungen ins Drittland, die Meldung richtet sich nach der Rechnung, nicht nach der Zahlung (NACH_RECHNUNGSDATUM).
   {
-    const [startYear, startMonth] = start.split("-").map(Number);
+    const startYear = Number(start.slice(0, 4));
+    const startMonth = Number(start.slice(5, 7));
     const bauleistungStart = startMonth === 1 ? `${startYear - 1}-12-01` : `${startYear}-${String(startMonth - 1).padStart(2, "0")}-01`;
     const issued = await q
       .select()

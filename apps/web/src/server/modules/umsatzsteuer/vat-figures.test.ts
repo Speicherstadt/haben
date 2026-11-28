@@ -432,7 +432,7 @@ describe.skipIf(!testDatabaseUrl)("Voranmeldung aus Buchungen (Postgres)", () =>
   }, 30_000);
 
   it("Bauleistung im Inland: späte Rechnung erscheint auch in den Belegquellen (revenue) des Folgemonats", async () => {
-    const invId = await specialInvoice("bauleistung_13b", "DE", "DE123456788", "2026-10-20", { serviceFrom: "2026-07-10", serviceTo: "2026-07-10" });
+    const invId = await specialInvoice("bauleistung_13b", "DE", "DE123456788", "2026-10-20", "2026-07-10");
     const august = await figures.computeVatFigures({ year: 2026, month: 8 });
     expect(august.kz60).toBe(500_000);
     expect(august.revenue).toMatchObject([{ type: "invoice", date: "2026-08-31", invoiceId: invId, base: 500_000, tax: 0 }]);
