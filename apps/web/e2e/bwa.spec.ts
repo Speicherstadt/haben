@@ -147,5 +147,5 @@ test("BWA: Hinweis auf Unvollständiges führt zur Bank (#1635)", async ({ page 
   await expect(hinweis).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "Rechnungsentw" })).toHaveCount(0);
   await hinweis.getByRole("link", { name: "Zur Bank" }).click();
-  await expect(page).toHaveURL(/\/bank$/);
+  await expect(page).toHaveURL(/\/bank\?konto=alle$/);
 });
