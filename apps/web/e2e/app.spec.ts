@@ -324,6 +324,8 @@ test("Rechnungen schreiben und festschreiben", async () => {
 test("Entwurf als PDF: speichert vorher, lädt herunter und vergibt keine Nummer (#342)", async () => {
   await go("/rechnungen/neu");
   const heading = await page.getByRole("heading", { level: 1 }).textContent();
+  // Der Entwurf trägt seinen Status neben dem Titel wie die festgeschriebene Rechnung (DESIGN.md, Seitenkopf)
+  await expect(page.locator(".main > .page-head .title-with-status .status-draft")).toHaveText("Entwurf");
   // Ohne Kunden gibt es noch kein Dokument: der Knopf sagt es am Feld Kunde (DESIGN.md, Gesperrte Knöpfe)
   await page.getByRole("button", { name: "Speichern und als PDF" }).click();
   await expect(page.getByRole("combobox", { name: "Kunde", exact: true })).toBeFocused();
@@ -688,7 +690,10 @@ test("Überweisung als SEPA-Datei: offenen Beleg wählen, Datei herunterladen, V
   await expect(form).toContainText("Überweisung erzeugt am");
   await form.getByRole("link", { name: "Funknetz Mobil GmbH" }).click();
   await page.waitForURL(/belege\/[0-9a-f-]{36}$/);
-  await expect(page.getByRole("status").filter({ hasText: "Überweisung erzeugt am" })).toContainText(endToEndId);
+  const erzeugt = page.getByRole("status").filter({ hasText: "Überweisung erzeugt am" });
+  await expect(erzeugt).toContainText(endToEndId);
+  // Auskunft, keine Warnung
+  await expect(erzeugt).toHaveClass(/\bbanner-info\b/);
 });
 
 test("Kontoauszug importieren und zuordnen", async () => {

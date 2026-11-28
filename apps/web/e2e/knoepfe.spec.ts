@@ -26,6 +26,15 @@ for (const mode of ["light", "dark"]) {
   });
 }
 
+test("Chips als Knopf haben die Schrift der Seite wie Chips als Link", async ({ page }) => {
+  const css = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+  await page.setContent(
+    `<html data-theme="wald" data-mode="light"><style>${css}</style><body><div class="chip-row"><a class="chip" href="#">Link</a><button type="button" class="chip">Knopf</button></div></body></html>`,
+  );
+  const schrift = (selector: string) => page.locator(selector).evaluate((el) => getComputedStyle(el).fontFamily);
+  expect(await schrift("button.chip")).toBe(await schrift("a.chip"));
+});
+
 test("Seitenkopf am Handy: Menüknopf mit Text füllt nach Umbruch die Zeile, Symbolknopf bleibt kompakt", async ({ page }) => {
   const css = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
   await page.setViewportSize({ width: 320, height: 640 });

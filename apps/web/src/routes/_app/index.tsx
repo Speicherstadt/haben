@@ -1,6 +1,6 @@
 import { formatEuro, lastMonthOfPeriod, periodKey, periodLabel } from "@haben/core";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { daysUntil, formatDate, formatDateTime, formatLongDate } from "../../lib/format.ts";
+import { daysUntil, formatDate, formatDateTime, formatLongDate, relativeDays } from "../../lib/format.ts";
 import { InvoiceStatus } from "../../components/InvoiceStatus.tsx";
 import { EricHinweis } from "../../components/EricHinweis.tsx";
 import { KleinunternehmerHinweise } from "../../components/KleinunternehmerHinweise.tsx";
@@ -64,7 +64,9 @@ function voranmeldungStand(data: UebersichtDaten) {
   const postenOffen = data.vatOpen.filter((p) => p.offen > 0).reduce((sum, p) => sum + p.offen, 0);
   const zahllastOffen = postenOffen + (sent || vorStart ? 0 : Math.max(0, data.computedKz83 - data.vatPaid));
   const taxShortfall = taxAccount && taxAccount.balance !== null && zahllastOffen > 0 ? zahllastOffen - taxAccount.balance : 0;
-  return { sent, vatRequired, vorStart, zahllast, periodOpen, showVatPeriod, zahllastOffen, taxAccount, taxShortfall };
+  // Nach der Frist sagen Aufgabe und Kennzahl „überfällig“ wie die Seite der Voranmeldung, nicht nur über die Farbe
+  const ueberfaellig = !sent && vatRequired && !vorStart && daysUntil(data.dueDate) < 0;
+  return { sent, vatRequired, vorStart, ueberfaellig, zahllast, periodOpen, showVatPeriod, zahllastOffen, taxAccount, taxShortfall };
 }
 
 /** Umsatzsteuer: die Voranmeldung des Zeitraums, unbezahlte Voranmeldungen und ein zu knappes Steuerkonto */
@@ -74,15 +76,16 @@ function umsatzsteuerAufgaben(
     sent,
     vatRequired,
     vorStart,
+    ueberfaellig,
     taxAccount,
     taxShortfall,
-  }: { sent: boolean; vatRequired: boolean; vorStart: boolean; taxAccount: Konto | undefined; taxShortfall: number },
+  }: { sent: boolean; vatRequired: boolean; vorStart: boolean; ueberfaellig: boolean; taxAccount: Konto | undefined; taxShortfall: number },
 ): Todo[] {
   const todos: Todo[] = [];
   if (!sent && vatRequired && !vorStart) {
     todos.push({
       title: `Voranmeldung ${periodLabel(data.period)} senden`,
-      detail: `Fällig ${formatLongDate(data.dueDate)}`,
+      detail: ueberfaellig ? `Überfällig ${relativeDays(daysUntil(data.dueDate))} (${formatLongDate(data.dueDate)})` : `Fällig ${formatLongDate(data.dueDate)}`,
       frist: data.dueDate,
       action: "Öffnen",
       tone: daysUntil(data.dueDate) <= 3 ? "warn" : "info",
@@ -220,13 +223,13 @@ function einstellungsAufgaben(data: UebersichtDaten, backup: Awaited<ReturnType<
 function OverviewPage() {
   const data = Route.useLoaderData();
   const key = periodKey(data.period);
-  const { sent, vatRequired, vorStart, zahllast, periodOpen, showVatPeriod, zahllastOffen, taxAccount, taxShortfall } = voranmeldungStand(data);
+  const { sent, vatRequired, vorStart, ueberfaellig, zahllast, periodOpen, showVatPeriod, zahllastOffen, taxAccount, taxShortfall } = voranmeldungStand(data);
 
   const schreiben = useBereichAktiv("rechnungserstellung");
   const mahnwesen = useBereichAktiv("mahnwesen");
   const todos: Todo[] = [...einrichtungsAufgaben(Route.useRouteContext().einrichtung), ...ustIdAufgaben(data.ustIdUngueltig)];
   todos.push(
-    ...umsatzsteuerAufgaben(data, { sent, vatRequired, vorStart, taxAccount, taxShortfall }),
+    ...umsatzsteuerAufgaben(data, { sent, vatRequired, vorStart, ueberfaellig, taxAccount, taxShortfall }),
     ...mindestbestandAufgaben(data.mindestbestand),
     ...bankAufgaben(data),
   );
@@ -311,6 +314,7 @@ function OverviewPage() {
           showVatPeriod={showVatPeriod}
           sent={sent}
           vatRequired={vatRequired}
+          ueberfaellig={ueberfaellig}
           periodOpen={periodOpen}
           zahllast={zahllast}
           zahllastOffen={zahllastOffen}

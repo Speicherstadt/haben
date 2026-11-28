@@ -85,9 +85,11 @@ describe("Übersicht: relevante Voranmeldungshinweise (#691)", () => {
   it("bei Regelbesteuerung bleiben Voranmeldung, Fälligkeit, Aufgabe und ERiC-Hinweis sichtbar", () => {
     state.data.kleinunternehmer = false;
     (state.data.invoices as { revenuePreviousMonth: number }).revenuePreviousMonth = 100000;
+    // Frist in der Zukunft, sonst stünde „überfällig“ da
+    state.data.dueDate = "2099-01-10";
     const html = render();
     expect(html).toContain("Voranmeldung Oktober 2026 senden");
-    expect(html).toContain("Voranmeldung fällig 10.11.2026");
+    expect(html).toContain("Voranmeldung fällig 10.01.2099");
     expect(html).toContain("USt-Zahllast Oktober 2026");
     expect(html).toContain(hinweis);
   });
@@ -109,7 +111,7 @@ describe("Übersicht: relevante Voranmeldungshinweise (#691)", () => {
     expect(html).toContain("Letzte Voranmeldungen");
     expect(html).toContain("19,00");
     expect(html).not.toContain("Voranmeldung Oktober 2026 senden");
-    expect(html).not.toContain("Voranmeldung fällig");
+    expect(html).not.toMatch(/Voranmeldung (über)?fällig/);
     // Weg 2 aus #1857: Der Zeitraum bleibt, wie er ist, die Übersicht sagt aber, dass er abgegeben ist
     expect(html).toContain("Voranmeldung Oktober 2026 · abgegeben");
   });
@@ -119,7 +121,7 @@ describe("Übersicht: relevante Voranmeldungshinweise (#691)", () => {
     const html = render();
     expect(html).toContain("Umsatzsteuer September 2026 nicht bezahlt");
     expect(html).not.toContain("Voranmeldung Oktober 2026 senden");
-    expect(html).not.toContain("Voranmeldung fällig");
+    expect(html).not.toMatch(/Voranmeldung (über)?fällig/);
   });
 
   it.each([1900, -1900])("berechnete Steuerbeträge bleiben auch ohne reguläre Abgabepflicht sichtbar (%i Cent)", (amount) => {
@@ -129,7 +131,7 @@ describe("Übersicht: relevante Voranmeldungshinweise (#691)", () => {
     expect(html).toContain("19,00");
     expect(html).toContain("/umsatzsteuer/$zeitraum");
     expect(html).not.toContain("Voranmeldung Oktober 2026 senden");
-    expect(html).not.toContain("Voranmeldung fällig");
+    expect(html).not.toMatch(/Voranmeldung (über)?fällig/);
   });
 });
 

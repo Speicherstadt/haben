@@ -23,6 +23,8 @@ interface Props {
   showVatPeriod: boolean;
   sent: boolean;
   vatRequired: boolean;
+  /** Die Frist der Voranmeldung des Zeitraums ist vorbei, ohne dass sie gesendet ist */
+  ueberfaellig: boolean;
   /** Was von der Voranmeldung des Zeitraums noch offen ist (Cent) */
   periodOpen: number;
   zahllast: number;
@@ -32,7 +34,18 @@ interface Props {
 }
 
 /** Die Kennzahlenreihe der Übersicht: nur Zahlen, jede Karte mit der Frage, die man beim Draufschauen hat */
-export function UebersichtKennzahlen({ data, showVatPeriod, sent, vatRequired, periodOpen, zahllast, zahllastOffen, taxShortfall, taxAccount }: Props) {
+export function UebersichtKennzahlen({
+  data,
+  showVatPeriod,
+  sent,
+  vatRequired,
+  ueberfaellig,
+  periodOpen,
+  zahllast,
+  zahllastOffen,
+  taxShortfall,
+  taxAccount,
+}: Props) {
   return (
     <div className="grid-4">
       <Link to="/auswertungen" hash="receivables" className="card card-link">
@@ -64,11 +77,12 @@ export function UebersichtKennzahlen({ data, showVatPeriod, sent, vatRequired, p
         <div className="card">
           <div className="kpi-label">USt-Zahllast {periodLabel(data.period)}</div>
           <div className="kpi-value">{formatEuro(data.current?.status === "sent" ? data.current.kz83 : data.computedKz83)}</div>
-          <div className="small muted">
+          {/* Wie bei den Rechnungen: Überfälliges steht als Wort in der Farbe der Warnung */}
+          <div className="small" style={{ color: ueberfaellig ? "var(--warn-ink)" : "var(--muted)" }}>
             {sent
               ? `gesendet ${formatDate(data.current!.sentAt!)} · ${periodOpen === 0 ? "ausgeglichen" : `${periodOpen > 0 ? "offen" : "Erstattung offen"} ${formatEuro(Math.abs(periodOpen))}`}`
               : vatRequired
-                ? `Voranmeldung fällig ${formatDate(data.dueDate)}`
+                ? `Voranmeldung ${ueberfaellig ? "überfällig seit" : "fällig"} ${formatDate(data.dueDate)}`
                 : "keine reguläre Voranmeldung"}
           </div>
         </div>
