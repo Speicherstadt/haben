@@ -143,7 +143,9 @@ test("BWA: Hinweis auf Unvollständiges führt zur Bank (#1635)", async ({ page 
   await page.goto(`/auswertungen/bwa?jahr=${YEAR}&zeitraum=jahr&vergleich=keiner`);
   // app.spec.ts lässt den Zahlungseingang von Rheinpixel offen. Ob das Girokonto bis zum Ende des Zeitraums reicht, hängt vom
   // Tag des Laufs ab (Anfang Januar liegen die Daten im Dezember, e2e/daten.ts); das prüfen bwa.test.ts und vollstaendigkeit.test.ts
-  const hinweis = page.getByRole("status").filter({ hasText: "1 Zahlungseingang im Zeitraum noch nicht zugeordnet; fehlt in den Erlösen, wenn es eine Einnahme ist." });
+  const hinweis = page
+    .getByRole("status")
+    .filter({ hasText: "1 Zahlungseingang im Zeitraum noch nicht zugeordnet; fehlt in den Erlösen, wenn es eine Einnahme ist." });
   await expect(hinweis).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "Rechnungsentw" })).toHaveCount(0);
   await hinweis.getByRole("link", { name: "Zur Bank" }).click();

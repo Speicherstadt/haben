@@ -5,10 +5,7 @@ import { Icon } from "./Icon.tsx";
 
 const ZIEL = { "/bank": "Zur Bank", "/belege": "Zu den Belegen", "/rechnungen": "Zu den Rechnungen" } as const;
 
-export type Ziel =
-  | { to: "/bank"; search: { konto: string } }
-  | { to: "/belege"; search: { status: "pruefen" } }
-  | { to: "/rechnungen"; search: undefined };
+export type Ziel = { to: "/bank"; search: { konto: string } } | { to: "/belege"; search: { status: "pruefen" } } | { to: "/rechnungen"; search: undefined };
 
 /**
  * Wohin der Link eines Hinweises führt: offene Umsätze zählen über alle Konten, also zu allen (ohne `konto` zeigte die Bank nur
