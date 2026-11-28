@@ -57,7 +57,7 @@ Grundlage für Sicht B in `design-pruefen` – verbindet das 5-Dimensionen-Audit
 
 ### 5. Typography
 - Typografische Zeichen: `…` statt `...`, typografische Anführungszeichen (`„…“` / `“…”`), geschützte Leerzeichen (`10&nbsp;MB`, `⌘&nbsp;K`).
-- Ladezustände enden mit `…` („Lädt…“, „Speichert…“).
+- Ladezustände enden mit Leerzeichen und `…` („Lädt …“, „Datei wird gelesen …“), wie überall in Haben.
 - `font-variant-numeric: tabular-nums` für Zahlenspalten, Zeiten und Vergleiche.
 - `text-wrap: balance` / `text-pretty` auf Überschriften.
 
