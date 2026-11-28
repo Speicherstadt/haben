@@ -11,7 +11,8 @@ import { Field } from "../../../components/Field.tsx";
 import { formatDate, formatDateTime } from "../../../lib/format.ts";
 import { menueGruppe } from "../../../lib/menue-gruppe.ts";
 import { getDocuments } from "../../../server/functions/documents.ts";
-import { AuslesungLeiste, BelegMarkierung, auslesungAktiv, useAuslesung } from "./-belege-auslesung.tsx";
+import { auslesungAktiv } from "./-auslesung-aktiv.ts";
+import { AuslesungLeiste, BelegMarkierung, useAuslesung } from "./-belege-auslesung.tsx";
 
 export const Route = createFileRoute("/_app/belege/")({
   validateSearch: z.object({
