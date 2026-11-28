@@ -133,7 +133,8 @@ a:hover { color: var(--link-hover); }
 .skip-link:focus { top: 12px; }
 .main:focus { outline: none; }
 h1 { margin: 0; font-size: 28px; font-weight: 600; }
-.title-with-status { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* Bricht der Status unter den Titel (Handy), steht er dicht darunter; nebeneinander 12px Abstand */
+.title-with-status { display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap; }
 h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .mono { font-family: var(--mono); }
 .muted { color: var(--muted); }
