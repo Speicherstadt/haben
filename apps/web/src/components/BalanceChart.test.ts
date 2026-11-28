@@ -1,7 +1,11 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BalanceChart, grenzeLabelSeite } from "./BalanceChart.tsx";
+
+// Breite des Diagramms: im Browser gemessen, beim Rendern auf dem Server 720
+const breite = vi.hoisted(() => ({ wert: 720 }));
+vi.mock("../lib/chart.ts", async (original) => ({ ...(await original<typeof import("../lib/chart.ts")>()), useChartWidth: () => [() => {}, breite.wert] }));
 
 /** Kurve von 8.000 € über 4.000 € bis ende, Grenze bei 5.000 € */
 const chart = (ende: number) =>
@@ -36,6 +40,27 @@ describe("BalanceChart: Grenze (#1381)", () => {
     const linie = attr(chart(300_000), "grenze", "y1");
     expect(attr(chart(300_000), "tick grenze-label", "y")).toBeLessThan(linie);
     expect(attr(chart(520_000), "tick grenze-label", "y")).toBeGreaterThan(linie);
+  });
+
+  it("bleibt über der Achse der Monate, wenn die Grenze unten auf der Nulllinie liegt (0 €) und die Kurve knapp darüber endet", () => {
+    // Am Handy (330 px) 13 Wochen ab 20.11.: „Jan“ steht unter dem rechten Ende der Linie
+    breite.wert = 330;
+    const svg = renderToStaticMarkup(
+      createElement(BalanceChart, {
+        title: "Liquiditätsvorschau",
+        from: "2026-11-20",
+        to: "2027-02-18",
+        start: 800_000,
+        points: [{ date: "2026-12-01", value: 10_000, label: "Miete" }],
+        grenze: { value: 0, label: "Mindestbestand" },
+      }),
+    );
+    breite.wert = 720;
+    const nulllinie = attr(svg, "grenze", "y1");
+    expect(nulllinie).toBe(attr(svg, "axis-base", "y1"));
+    // Die Beschriftung reicht rechtsbündig bis 318, grob 7 px je Zeichen
+    expect(Number(svg.match(/<text x="([^"]+)"[^>]*>Jan<\/text>/)?.[1])).toBeGreaterThan(318 - "Mindestbestand".length * 7);
+    expect(attr(svg, "tick grenze-label", "y")).toBeLessThanOrEqual(nulllinie);
   });
 });
 
