@@ -64,6 +64,14 @@ describe.skipIf(!testDatabaseUrl)("Migration: Hashes von PDF und XML im Bestand 
     });
     const nichtImAuditLog = [{ art: "siegel", tabelle: "sepa_transfers", zeile: vorher.still, seq: null, befund: "Zeile steht nicht im Audit-Log" }];
     expect(await problems(sql)).toEqual(nichtImAuditLog);
+    // Vor dem Update angehängt, mit eingeschalteten Triggern: ein INSERT-Eintrag mit leeren Hashes. Er darf weder den Nachtrag
+    // verhindern noch die Prüfung der Spalten ersetzen (Review zu #2072).
+    await sql.begin(async (tx) => {
+      await tx`insert into audit_log (actor, table_name, row_id, action, old_value, new_value)
+        select 'test', 'vat_return_submissions', ${vorher.uebermittlung}, 'INSERT', null,
+               (to_jsonb(u) - 'protocol_pdf' - 'request_xml' - 'response_xml' - 'server_response_xml') || '{"omitted_sha256": {}}'::jsonb
+          from vat_return_submissions u where u.id = ${vorher.uebermittlung}`;
+    });
     const [kopf] = await sql`select seq from audit_chain`;
 
     const { drizzle } = await import("drizzle-orm/postgres-js");

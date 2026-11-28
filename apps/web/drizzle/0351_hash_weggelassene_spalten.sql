@@ -66,9 +66,10 @@ BEGIN
 END;
 $$;
 --> statement-breakpoint
--- Bestand: jede Zeile mit weggelassenen Spalten, die einen INSERT-Eintrag hat, aber keinen mit Hashes, nachträglich
--- eintragen, wie haben_audit es beim Einfügen getan hätte, in der Reihenfolge des Primärschlüssels. Der Abgleich der übrigen
--- Spalten bleibt beim ersten Eintrag der Zeile. Eine Zeile ganz ohne Eintrag bleibt ein Befund („Zeile steht nicht im
+-- Bestand: jede Zeile mit weggelassenen Spalten, die einen INSERT-Eintrag hat, nachträglich eintragen, wie haben_audit es
+-- beim Einfügen getan hätte, in der Reihenfolge des Primärschlüssels. Auch wenn schon ein Eintrag omitted_sha256 trägt: Vor
+-- dieser Migration schreibt haben_audit keine Hashes, ein solcher Eintrag ist angehängt. Der Abgleich der übrigen Spalten
+-- bleibt beim ersten Eintrag der Zeile. Eine Zeile ganz ohne Eintrag bleibt ein Befund („Zeile steht nicht im
 -- Audit-Log“); trüge die Migration sie ein, bezeugte sie eine an den Triggern vorbei eingefügte Zeile.
 DO $$
 DECLARE
@@ -98,10 +99,6 @@ BEGIN
                WHERE EXISTS (SELECT 1 FROM audit_log a
                              CROSS JOIN LATERAL jsonb_populate_record(NULL::%1$I, a.new_value) p
                               WHERE a.table_name = %1$L AND a.action = 'INSERT' AND %2$s)
-                 AND NOT EXISTS (SELECT 1 FROM audit_log a
-                                 CROSS JOIN LATERAL jsonb_populate_record(NULL::%1$I, a.new_value) p
-                                  WHERE a.table_name = %1$L AND a.action = 'INSERT' AND a.new_value ? 'omitted_sha256'
-                                    AND %2$s)
                ORDER BY %3$s) x
     $q$, tbl, pk_match, pk_order);
     GET DIAGNOSTICS anzahl = ROW_COUNT;
@@ -189,26 +186,29 @@ BEGIN
          ORDER BY x.eintrag NULLS LAST, x.zeile
          LIMIT $1
       $q$, tbl, pk_match, pk_key, zeile_t, zeile_l, abweichung) USING max_rows;
-      -- PDF und XML (#2038): maßgeblich ist der erste INSERT-Eintrag der Zeile mit Hashes, bei Zeilen von vor 0351 der
-      -- Nachtrag der Migration. Verglichen werden nur die Spalten, die der Eintrag nennt, wie oben.
+      -- PDF und XML (#2038): maßgeblich ist je Spalte der erste INSERT-Eintrag, der ihren Hash nennt, bei Zeilen von vor
+      -- 0351 der Nachtrag der Migration. Ein früher angehängter Eintrag ohne diese Spalte, etwa mit leerem omitted_sha256,
+      -- ersetzt ihn nicht. Ist omitted_sha256 kein Objekt, bricht jsonb_each ab und die Tabelle meldet unten, dass der
+      -- Abgleich nicht möglich ist.
       IF mit_hash THEN
         RETURN QUERY EXECUTE format($q$
           WITH e AS (
-            SELECT a.seq, a.new_value -> 'omitted_sha256' AS h, jsonb_populate_record(NULL::%1$I, a.new_value) AS p
+            SELECT a.seq, s.spalte, s.soll, jsonb_populate_record(NULL::%1$I, a.new_value) AS p
               FROM audit_log a
+             CROSS JOIN LATERAL jsonb_each(a.new_value -> 'omitted_sha256') s(spalte, soll)
              WHERE a.table_name = %1$L AND a.action = 'INSERT' AND a.new_value ? 'omitted_sha256'
           ), l AS (
-            SELECT DISTINCT ON (%3$s) e.* FROM e ORDER BY %3$s, e.seq
+            SELECT DISTINCT ON (%3$s, e.spalte) e.* FROM e ORDER BY %3$s, e.spalte, e.seq
+          ), t AS (
+            SELECT z.*, haben_audit_omitted_sha256(z) -> 'omitted_sha256' AS _haben_ist FROM %1$I z
           )
-          SELECT 'siegel'::text, %1$L::text, %4$s, l.seq,
-                 format('Spalte %%s weicht vom Audit-Log ab', string_agg(s.spalte, ', ' ORDER BY s.spalte))
+          SELECT 'siegel'::text, %1$L::text, %4$s, min(l.seq),
+                 format('Spalte %%s weicht vom Audit-Log ab', string_agg(l.spalte, ', ' ORDER BY l.spalte))
             FROM l
-            JOIN %1$I t ON %2$s
-           CROSS JOIN LATERAL (SELECT haben_audit_omitted_sha256(t) -> 'omitted_sha256' AS h) ist
-           CROSS JOIN LATERAL jsonb_each(l.h) s(spalte, soll)
-           WHERE s.soll IS DISTINCT FROM ist.h -> s.spalte
-           GROUP BY l.seq, %4$s
-           ORDER BY l.seq
+            JOIN t ON %2$s
+           WHERE l.soll IS DISTINCT FROM t._haben_ist -> l.spalte
+           GROUP BY %4$s
+           ORDER BY min(l.seq)
            LIMIT $1
         $q$, tbl, pk_match, pk_key, zeile_t) USING max_rows;
       END IF;

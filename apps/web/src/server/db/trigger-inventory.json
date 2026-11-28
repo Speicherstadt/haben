@@ -3384,8 +3384,8 @@
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "6e2bd6f724449a2c091e44e7a1e338e66c37741f5961b4448c6a0be0d506d70d",
-      "definitionHash": "faa8a88aeeefd5333410d073670a8333878b60a2a7a035e54bf70ca9a8b7c192"
+      "sourceHash": "cb73e8415af9e98c8fd0b1123f18d76f51ce6863db49b70103976b40974a0e2e",
+      "definitionHash": "dbefd5c4466410f715180b334b4e0be951e169d6b56c5de6a47e62dbb90167c2"
     },
     {
       "name": "public.haben_audit()",
