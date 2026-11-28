@@ -19,6 +19,7 @@ import { and, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import { nebenbuecherLaden, type Nebenbuecher } from "./vorsteuer-nebenbuecher.ts";
 import { ZWISCHENKONTEN } from "./vorsteuer-anteile.ts";
+import { belegKategorieSql } from "../../db/beleg-kategorie.ts";
 
 /*
  * Vorsteuer nach Leistungsdatum (#693, Stufe 2): Bei einem Eingangsbeleg ist die Vorsteuer in dem Zeitraum abziehbar, in
@@ -151,7 +152,7 @@ async function kandidatenLaden(q: Db | Tx) {
       vorsteuerAbzug: d.vorsteuerAbzug,
       reverseCharge: d.reverseCharge,
       erstattetBezahltes: d.erstattetBezahltes,
-      category: d.category,
+      category: belegKategorieSql(d.id, d.category),
       net: d.net,
       tax: d.tax,
       gross: d.gross,

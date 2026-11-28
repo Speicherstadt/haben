@@ -141,7 +141,8 @@ describe.skipIf(!testDatabaseUrl)("sevDesk: Vorlagen wiederkehrender Belege als 
     expect(fortgesetzt).toMatchObject({ status: "aktiv", nextDate: "2026-12-01" });
     const lauf = await belege.runDueDauerbelege("2026-12-01");
     expect(lauf).toEqual({ created: 1, errors: [] });
-    const [beleg] = await sql`select filename, gross, category from documents`;
+    // Die Kategorie steht in der Position je Satz (#1975)
+    const [beleg] = await sql`select filename, gross, (select s.category from document_splits s where s.document_id = d.id) as category from documents d`;
     expect(beleg).toEqual({ filename: "mietvertrag.pdf", gross: 10000, category: "sonstiges" });
   });
 

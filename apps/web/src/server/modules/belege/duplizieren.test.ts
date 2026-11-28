@@ -36,6 +36,7 @@ const KONTEN = { SKR03: { privat: "1890" }, SKR04: { verbindlichkeiten: "3300" }
 
 describe.skipIf(!testDatabaseUrl)("Beleg duplizieren (Postgres)", () => {
   let documents: typeof import("./documents.ts");
+  let eingabe: typeof import("./beleg-eingabe.ts");
   let duplizieren: typeof import("./duplizieren.ts");
   let extraction: typeof import("./extraction.ts");
   let stammdaten: typeof import("../stammdaten/index.ts");
@@ -47,6 +48,7 @@ describe.skipIf(!testDatabaseUrl)("Beleg duplizieren (Postgres)", () => {
   beforeAll(async () => {
     sql = await setupTestDb();
     documents = await import("./documents.ts");
+    eingabe = await import("./beleg-eingabe.ts");
     duplizieren = await import("./duplizieren.ts");
     extraction = await import("./extraction.ts");
     stammdaten = await import("../stammdaten/index.ts");
@@ -118,7 +120,7 @@ describe.skipIf(!testDatabaseUrl)("Beleg duplizieren (Postgres)", () => {
     expect(result.duplicate).toBe(false);
     const copy = (await documents.getDocument(result.id))!;
     const [original] = await sql`select sha256, status, invoice_number from documents where id = ${id}`;
-    expect(copy.document).toMatchObject({
+    expect(eingabe.formularansicht(copy.document, copy.positionen).document).toMatchObject({
       status: "neu",
       lockedAt: null,
       filename: neu.filename,
@@ -154,7 +156,7 @@ describe.skipIf(!testDatabaseUrl)("Beleg duplizieren (Postgres)", () => {
     expect(await duplizieren.duplicateDocument(actor, id, datei)).toEqual({ id, duplicate: true });
 
     // Bereit zum Buchen; privat bezahlt an Privateinlage
-    expect(documents.bookingIssues(copy.document, copy.amounts)).toEqual([]);
+    expect(documents.bookingIssues(copy.document, copy.amounts, today(), copy.positionen)).toEqual([]);
     await documents.bookDocument(actor, result.id);
     const lines = await sql`select l.account, l.debit, l.credit from journal_lines l join journal_entries e on e.id = l.entry_id
       where e.source_id = ${result.id} and e.date = ${today()}`;
@@ -198,11 +200,11 @@ describe.skipIf(!testDatabaseUrl)("Beleg duplizieren (Postgres)", () => {
       vorsteuerAnteil: 5_000,
       documentDate: today(),
     });
-    expect(copy.splits.map(({ category, ownAccountId, taxRate, net, tax }) => ({ category, ownAccountId, taxRate, net, tax }))).toEqual([
+    expect(copy.positionen.map(({ category, ownAccountId, taxRate, net, tax }) => ({ category, ownAccountId, taxRate, net, tax }))).toEqual([
       { category: "software", ownAccountId: null, taxRate: 1900, net: 5_000, tax: 950 },
       { category: "buero", ownAccountId: null, taxRate: 1900, net: 2_000, tax: 380 },
     ]);
-    expect(documents.bookingIssues(copy.document, copy.amounts, today(), copy.splits)).toEqual([]);
+    expect(documents.bookingIssues(copy.document, copy.amounts, today(), copy.positionen)).toEqual([]);
     await documents.bookDocument(actor, copyId);
     const [bank] = await sql`select l.credit from journal_lines l join journal_entries e on e.id = l.entry_id
       where e.source_id = ${copyId} and l.account = ${KONTEN.SKR04.verbindlichkeiten}`;
@@ -250,5 +252,37 @@ describe.skipIf(!testDatabaseUrl)("Beleg duplizieren (Postgres)", () => {
     await sql`update documents set extraction_status = 'laeuft' where id = ${copyId}`;
     await expect(duplizieren.duplicateDocument(actor, copyId, jpeg())).rejects.toThrow(/gerade ausgelesen/);
     await expect(duplizieren.duplicateDocument(actor, "00000000-0000-4000-8000-000000000000", jpeg())).rejects.toThrow(/nicht gefunden/);
+  });
+
+  it("übernimmt eine Aufteilung in Fremdwährung aus dem bisherigen Formular mit den Beträgen laut Beleg", async () => {
+    await reset("SKR03", "soll");
+    // Das bisherige Formular behält eine Aufteilung, wenn die Währung danach umgestellt wird; ihre Zeilen haben kein
+    // Netto laut Beleg (#1975)
+    const { id } = await documents.uploadDocument(actor, jpeg());
+    await documents.updateDocument(actor, id, {
+      supplierName: "Figma Inc.",
+      supplierUstId: "",
+      invoiceNumber: "F-1002",
+      documentDate: "2026-09-15",
+      dueDate: null,
+      category: null,
+      payment: "bank",
+      note: "",
+      currency: "USD",
+      exchangeRate: null,
+      amounts: [{ taxRate: 1900, net: 0, tax: 0, originalNet: 10_000, originalTax: 1_900 }],
+      splits: [
+        { category: "telefon", taxRate: 1900, net: 7_500 },
+        { category: "privatentnahme", taxRate: 1900, net: 2_500 },
+      ],
+    });
+    const original = (await documents.getDocument(id))!;
+
+    const { id: copyId } = await duplizieren.duplicateDocument(actor, id, jpeg());
+    const copy = (await documents.getDocument(copyId))!;
+    const betraege = (d: typeof copy) => d.amounts.map((a) => [a.taxRate, a.originalNet, a.originalTax]);
+    const kontierung = (d: typeof copy) => d.positionen.map(({ category, taxRate, net }) => ({ category, taxRate, net }));
+    expect(betraege(copy)).toEqual([[1900, 10_000, 1_900]]);
+    expect(kontierung(copy)).toEqual(kontierung(original));
   });
 });

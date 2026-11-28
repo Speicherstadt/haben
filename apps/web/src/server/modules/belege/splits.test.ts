@@ -131,12 +131,12 @@ describe.skipIf(!testDatabaseUrl)("Beleg aufteilen (Postgres)", () => {
         const id = await draft();
         const saved = (await documents.getDocument(id))!;
         expect(saved.document.category).toBeNull();
-        expect(saved.splits.map(({ position, category, taxRate, net, tax }) => ({ position, category, taxRate, net, tax }))).toEqual([
+        expect(saved.positionen.map(({ position, category, taxRate, net, tax }) => ({ position, category, taxRate, net, tax }))).toEqual([
           { position: 1, category: "wareneinkauf", taxRate: 1900, net: 10_000, tax: 1_900 },
           { position: 2, category: "software", taxRate: 1900, net: 5_000, tax: 950 },
           { position: 3, category: "buero", taxRate: 1900, net: 2_000, tax: 380 },
         ]);
-        expect(documents.bookingIssues(saved.document, saved.amounts, "2026-09-20", saved.splits)).toEqual([]);
+        expect(documents.bookingIssues(saved.document, saved.amounts, "2026-09-20", saved.positionen)).toEqual([]);
         await documents.bookDocument(actor, id);
 
         expect(await entryLines(id)).toEqual(
@@ -203,12 +203,12 @@ describe.skipIf(!testDatabaseUrl)("Beleg aufteilen (Postgres)", () => {
         const euer = await reports.euerForYear(2026);
         for (const key of ["ausgabe:wareneinkauf", "ausgabe:software", "ausgabe:buero", "vorsteuer"]) expect(ausgabe(euer, key)).toBe(0);
         // Der gebuchte Beleg und seine Zeilen bleiben, wie sie sind
-        expect((await documents.getDocument(id))!.splits).toHaveLength(3);
+        expect((await documents.getDocument(id))!.positionen).toHaveLength(3);
 
         const reentry = await cancellation.reenterDocument(actor, id);
         const copy = (await documents.getDocument(reentry))!;
         expect(copy.document).toMatchObject({ status: "neu", category: null, replacesDocumentId: id });
-        expect(copy.splits.map(({ position, category, net, tax }) => ({ position, category, net, tax }))).toEqual([
+        expect(copy.positionen.map(({ position, category, net, tax }) => ({ position, category, net, tax }))).toEqual([
           { position: 1, category: "wareneinkauf", net: 10_000, tax: 1_900 },
           { position: 2, category: "software", net: 5_000, tax: 950 },
           { position: 3, category: "buero", net: 2_000, tax: 380 },
@@ -252,7 +252,7 @@ describe.skipIf(!testDatabaseUrl)("Beleg aufteilen (Postgres)", () => {
     });
     const saved = (await documents.getDocument(id))!;
     // 19,00 € auf drei gleiche Zeilen: je 6,33 €, der Cent Rest an die erste (größte) Zeile
-    expect(saved.splits.map((s) => s.tax)).toEqual([634, 633, 633, 140]);
+    expect(saved.positionen.map((s) => s.tax)).toEqual([634, 633, 633, 140]);
     await documents.bookDocument(actor, id);
     expect(await entryLines(id)).toEqual(
       byAccount([
@@ -274,8 +274,8 @@ describe.skipIf(!testDatabaseUrl)("Beleg aufteilen (Postgres)", () => {
     // § 13b mit Aufteilung geht seit #508 (splits-13b.test.ts), aber wie ohne Aufteilung nicht für Wareneinkäufe
     const rc = await draft({ reverseCharge: "eu" });
     await expect(documents.bookDocument(actor, rc)).rejects.toThrow(/§ 13b gilt nicht für Wareneinkäufe/);
-    const privat = await draft({ privateShare: 20 });
-    await expect(documents.bookDocument(actor, privat)).rejects.toThrow(/Privatanteil mit Aufteilung/);
+    // Der Privatanteil steht nur noch als Zeile (#1975): Mit Aufteilung lehnt schon das Speichern ihn ab
+    await expect(draft({ privateShare: 20 })).rejects.toThrow(/Privatanteil mit Aufteilung/);
     const usd = await draft({ currency: "USD" });
     await expect(documents.bookDocument(actor, usd)).rejects.toThrow(/Fremdwährung mit Aufteilung/);
     const asset = await draft({
@@ -298,7 +298,7 @@ describe.skipIf(!testDatabaseUrl)("Beleg aufteilen (Postgres)", () => {
     await expect(draft({ splits: tooLarge })).rejects.toThrow(/zu groß/);
   });
 
-  it("ohne Zeilen gilt wieder die Kategorie des Belegs", async () => {
+  it("ohne Aufteilung gilt die Kategorie für den ganzen Beleg, als eine Position je Satz (#1975)", async () => {
     await reset("SKR03", "soll");
     const id = await draft();
     await documents.updateDocument(actor, id, {
@@ -314,8 +314,10 @@ describe.skipIf(!testDatabaseUrl)("Beleg aufteilen (Postgres)", () => {
       splits: [],
     });
     const saved = (await documents.getDocument(id))!;
-    expect(saved.splits).toEqual([]);
-    expect(saved.document.category).toBe("buero");
+    expect(saved.positionen.map(({ category, taxRate, net, tax }) => ({ category, taxRate, net, tax }))).toEqual([
+      { category: "buero", taxRate: 1900, net: 17_000, tax: 3_230 },
+    ]);
+    expect(saved.document.category).toBeNull();
     await documents.bookDocument(actor, id);
     expect((await entryLines(id)).map((l) => l.account)).toEqual(["1576", "1600", "4930"]);
   });
