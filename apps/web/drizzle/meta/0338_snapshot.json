@@ -1,5 +1,5 @@
 {
-  "id": "5dd5fc09-439d-4f45-a27a-53cb946cbdc6",
+  "id": "6a499e90-7f9b-415c-8da8-c452f444cb9e",
   "prevId": "fdc620d7-a7a3-45b1-8c28-d552618f2ed2",
   "version": "7",
   "dialect": "postgresql",
@@ -4393,13 +4393,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "adresszusatz": {
-          "name": "adresszusatz",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
-        },
         "strasse": {
           "name": "strasse",
           "type": "text",
@@ -5746,6 +5739,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
         },
         "own_account_id": {
           "name": "own_account_id",

@@ -123,6 +123,7 @@ export type EuerLineKey =
   | "einnahmenKleinunternehmer"
   | "einnahmenSteuerpflichtig"
   | "einnahmenSteuerfrei"
+  | "anlagenabgang"
   | "privateKfz"
   | "sachentnahmen"
   | "ustEntnahmen"
@@ -174,6 +175,7 @@ export const EUER_LABELS = {
   einnahmenKleinunternehmer: "Betriebseinnahmen als umsatzsteuerlicher Kleinunternehmer",
   einnahmenSteuerpflichtig: "Umsatzsteuerpflichtige Betriebseinnahmen (netto)",
   einnahmenSteuerfrei: "Umsatzsteuerfreie und nicht steuerbare Betriebseinnahmen",
+  anlagenabgang: "Veräußerung oder Entnahme von Anlagevermögen",
   privateKfz: "Private Kfz-Nutzung",
   sachentnahmen: "Sonstige Sach-, Nutzungs- und Leistungsentnahmen",
   vereinnahmteUst: "Vereinnahmte Umsatzsteuer",
@@ -203,9 +205,11 @@ export interface EuerDepreciation {
   restbuchwert: Cents;
 }
 
-/** Private Nutzung von Firmenwagen im Jahr: Entnahme und Umsatzsteuer darauf */
+/** Entnahmen aus dem Anlagenverzeichnis im Jahr: private Nutzung von Firmenwagen, entnommene Anlagen und Umsatzsteuer darauf */
 export interface EuerWithdrawals {
   privateKfz: Cents;
+  /** Entnahmewert entnommener Anlagen (Zeile 19, #1970) */
+  anlagenabgang: Cents;
   ustEntnahmen: Cents;
 }
 
@@ -233,10 +237,12 @@ export function euerErgebnis(
   });
   if (withdrawals) {
     add("privateKfz", withdrawals.privateKfz);
+    add("anlagenabgang", withdrawals.anlagenabgang);
     add("ustEntnahmen", withdrawals.ustEntnahmen);
   }
   const optional = (
     key:
+      | "anlagenabgang"
       | "privateKfz"
       | "sachentnahmen"
       | "ustEntnahmen"
@@ -251,6 +257,7 @@ export function euerErgebnis(
     ...(sums.has("einnahmenKleinunternehmer") ? [line("einnahmenKleinunternehmer", EUER_LABELS.einnahmenKleinunternehmer)] : []),
     line("einnahmenSteuerpflichtig", EUER_LABELS.einnahmenSteuerpflichtig),
     line("einnahmenSteuerfrei", EUER_LABELS.einnahmenSteuerfrei),
+    ...optional("anlagenabgang"),
     ...optional("privateKfz"),
     ...optional("sachentnahmen"),
     ...optional("kursgewinne"),

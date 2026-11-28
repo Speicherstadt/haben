@@ -1,6 +1,6 @@
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { errorMessage, fehlerFelder } from "../lib/format.ts";
 import { useAction } from "../lib/use-action.ts";
 import { datumFehler, useSubmitCheck } from "../lib/use-submit-check.ts";
@@ -106,17 +106,20 @@ export function EinstellungFelder({
 }
 
 /**
- * Bearbeiten einer Verbindung zu einem Zahlungsdienstleister (#1729) an ihrer Zeile auf der Bankseite. Die Felder des
+ * Bearbeiten einer Verbindung zu einem Zahlungsdienstleister (#1729) an ihrer Zeile auf der Bankseite, im FormDialog. Die Felder des
  * Zugangs kommen aus dem Adapter; geheime Felder bleiben leer und behalten den gespeicherten Wert, wenn sie leer bleiben.
  * Neue Verbindungen entstehen in der geführten Einrichtung (#1951).
  */
 export function VerbindungFormular({
   daten,
   verbindung,
+  kopf,
   onFertig,
 }: {
   daten: PspDaten;
   verbindung: PspVerbindung;
+  /** Steht im Formular vor den Feldern, etwa der Stand der Verbindung */
+  kopf?: ReactNode;
   /** Geschlossen: nach dem Speichern mit den Hinweisen der Prüfung (etwa fehlende Rechte), nach „Abbrechen“ ohne */
   onFertig: (hinweise?: string[]) => void;
 }) {
@@ -160,12 +163,12 @@ export function VerbindungFormular({
         pruefung.form(element);
         zugangFehler.form.current = element;
       }}
-      className="stack"
       onSubmit={onSubmit}
       onInput={zugangFehler.zuruecksetzen}
       noValidate
       aria-label={`Verbindung ${verbindung.name} bearbeiten`}
     >
+      {kopf}
       <EinstellungFelder
         werte={werte}
         setWerte={setWerte}
@@ -175,6 +178,8 @@ export function VerbindungFormular({
         fehler={pruefung.error}
       />
       {anbieter && <ZugangFelder anbieter={anbieter} gespeichert config={config} setConfig={setConfig} fehler={zugangFehler.fehler} />}
+      {/* Vor der Knopfzeile: Sie bleibt als letztes Element im Dialog unten stehen */}
+      <NoticeBanner notice={notice} />
       <div className="actions">
         <button type="button" className="btn" disabled={busy} onClick={() => onFertig()}>
           Abbrechen
@@ -183,7 +188,6 @@ export function VerbindungFormular({
           {busy ? "Speichere …" : "Speichern"}
         </button>
       </div>
-      <NoticeBanner notice={notice} />
     </form>
   );
 }

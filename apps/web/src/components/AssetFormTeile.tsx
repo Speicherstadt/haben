@@ -85,6 +85,73 @@ export function AssetOpening({ v, set, locked, error }: TeilProps & { locked: bo
   );
 }
 
+/**
+ * Abgang mit Datum und, im Einzelunternehmen, der Art (#1970): Bei einer Entnahme Entnahmewert und Vorsteuer beim Kauf.
+ * `locked`: Die AfA des Abgangsjahres ist gebucht.
+ */
+export function AssetDisposal({ v, set, error, locked, withdrawalAvailable }: TeilProps & { locked: boolean; withdrawalAvailable: boolean }) {
+  const kindShown = withdrawalAvailable && v.disposalDate !== "";
+  const entnahme = kindShown && v.disposalKind === "entnahme";
+  return (
+    <section className="form-section" aria-labelledby="asset-disposal">
+      <h3 id="asset-disposal">Abgang</h3>
+      <fieldset className="stack fieldset-plain" disabled={locked}>
+        <div className="form-row cols-2">
+          <Field label="Abgang (Verkauf, Entnahme, Verschrottung)" describedBy="disposal-hint">
+            {(control) => <input {...control} type="date" value={v.disposalDate} onChange={(e) => set({ disposalDate: e.target.value })} />}
+          </Field>
+        </div>
+        {kindShown && (
+          <fieldset className="field" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+            <legend>Art des Abgangs</legend>
+            <label className="checkbox">
+              <input type="radio" name="disposal-kind" checked={v.disposalKind === "abgang"} onChange={() => set({ disposalKind: "abgang" })} />
+              Verkauf oder Verschrottung
+            </label>
+            <label className="checkbox">
+              <input type="radio" name="disposal-kind" checked={v.disposalKind === "entnahme"} onChange={() => set({ disposalKind: "entnahme" })} />
+              Entnahme ins Privatvermögen
+            </label>
+          </fieldset>
+        )}
+        {entnahme && (
+          <>
+            <div className="form-row cols-2">
+              <Field
+                label="Entnahmewert netto (€)"
+                hint="Was der Gegenstand zum Zeitpunkt der Entnahme im Einkauf kosten würde; für die EÜR der Teilwert."
+                error={error("withdrawalValue")}
+              >
+                {(control) => <input {...control} inputMode="decimal" value={v.withdrawalValue} onChange={(e) => set({ withdrawalValue: e.target.value })} />}
+              </Field>
+            </div>
+            <div className="checkbox-hinted">
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={v.withdrawalInputVat}
+                  onChange={(e) => set({ withdrawalInputVat: e.target.checked })}
+                  aria-describedby="withdrawal-vat-hint"
+                />
+                Beim Kauf Vorsteuer gezogen
+              </label>
+              <span id="withdrawal-vat-hint" className="field-hint">
+                Dann fällt im Monat der Entnahme Umsatzsteuer an, 19&nbsp;% auf den Entnahmewert; als Kleinunternehmer ist sie steuerfrei. Ohne Vorsteuer beim
+                Kauf ist die Entnahme nicht umsatzsteuerbar.
+              </span>
+            </div>
+          </>
+        )}
+        <p id="disposal-hint" className="field-hint">
+          {entnahme
+            ? "Bis zum Abgangsmonat wird abgeschrieben. Der Entnahmewert zählt in der EÜR als Einnahme, der Restbuchwert als Ausgabe; gebucht wird mit der AfA des Jahres."
+            : "Bis zum Abgangsmonat wird abgeschrieben, der Rest geht als Restbuchwert in die Ausgaben. Einen Verkauf stellst du als Rechnung."}
+        </p>
+      </fieldset>
+    </section>
+  );
+}
+
 /** Privatnutzung eines Fahrzeugs nach der Listenpreismethode */
 export function AssetPrivateUse({
   v,

@@ -13,6 +13,8 @@ import { Field } from "../../components/Field.tsx";
 import { UploadButton } from "../../components/UploadButton.tsx";
 import { ImportMeldungen, importMessages, type ImportMessage } from "../../components/BankImportMeldungen.tsx";
 import type { FintsZustand } from "../../components/FintsAbruf.tsx";
+import { DateiAnleitung } from "../../components/DateiAnleitung.tsx";
+import { type DateiWeg, dateiWeg } from "../../lib/psp-wege.ts";
 import { NeuesKontoForm } from "./-bank-konto-neu.tsx";
 import { type BankWeg, KontoVerbinden, type VerbindenDialog } from "./-bank-verbinden.tsx";
 import { type Data, offenerEntwurf, suchziel } from "./-bank-daten.ts";
@@ -144,7 +146,7 @@ export function SearchBox({ initial }: { initial: string }) {
 }
 
 /** Meldungen zu den hochgeladenen Kontoauszügen, je Datei */
-function importErgebnisse(results: Awaited<ReturnType<typeof importStatements>>, files: File[]): ImportMessage[] {
+export function importErgebnisse(results: Awaited<ReturnType<typeof importStatements>>, files: File[]): ImportMessage[] {
   return results.flatMap((r, i) =>
     "error" in r && r.error
       ? [
@@ -161,8 +163,46 @@ function importErgebnisse(results: Awaited<ReturnType<typeof importStatements>>,
   );
 }
 
+/** „Datei importieren“ an einem Konto eines Zahlungsdienstleisters (#2008): Format vom Konto, Anleitung eingeklappt */
+function DateiMitAnleitung({
+  name,
+  weg,
+  busy,
+  onFiles,
+  onClose,
+}: {
+  name: string;
+  weg: DateiWeg;
+  busy: boolean;
+  onFiles: (files: File[]) => void;
+  onClose: () => void;
+}) {
+  return (
+    <FormDialog open title={`Datei importieren: ${name}`} onClose={onClose}>
+      {/* Ein Formular, damit der Dialog Abstände und Fußzeile wie die übrigen bekommt; abgeschickt wird über die Dateiwahl */}
+      <form aria-label={`Datei importieren: ${name}`} onSubmit={(e) => e.preventDefault()}>
+        <p className="small muted" style={{ marginBottom: 0 }}>
+          {weg.datei}. Schon importierte Zeilen erkennt Haben wieder; eine Datei zweimal schadet nicht.
+        </p>
+        <details>
+          <summary>So bekommst du die Datei</summary>
+          <DateiAnleitung weg={weg} />
+        </details>
+        <div className="actions">
+          <button type="button" className="btn" onClick={onClose}>
+            Abbrechen
+          </button>
+          <UploadButton multiple accept={weg.accept} disabled={busy} className="btn btn-primary" inputLabel={`${weg.datei} für ${name}`} onFiles={onFiles}>
+            Dateien wählen
+          </UploadButton>
+        </div>
+      </form>
+    </FormDialog>
+  );
+}
+
 /** Was Kopf und „Konto hinzufügen“ von der Seite brauchen */
-type KopfDaten = Pick<Data, "accounts" | "providers" | "sync" | "fints" | "zahlungsdienstleister">;
+type KopfDaten = Pick<Data, "sync" | "fints" | "zahlungsdienstleister">;
 
 const DATEIEN = ".csv,.xml,.txt,text/csv,application/xml,text/xml";
 
@@ -179,6 +219,8 @@ export function useDateiImport(data: Pick<Data, "accounts" | "allAccounts" | "ac
   /** Konto für die nächste Wahl über das Menü einer Karte */
   const [ziel, setZiel] = useState<string | null>(null);
   const zielEingabe = useRef<HTMLInputElement>(null);
+  /** Konto eines Zahlungsdienstleisters mit bekanntem Format: erst der Dialog mit der Anleitung (#2008) */
+  const [mitAnleitung, setMitAnleitung] = useState<{ id: string; name: string; weg: DateiWeg } | null>(null);
 
   async function importieren(files: File[], accountId: string | null) {
     if (files.length === 0) return;
@@ -209,6 +251,9 @@ export function useDateiImport(data: Pick<Data, "accounts" | "allAccounts" | "ac
     importieren,
     /** Dateiauswahl für ein bestimmtes Konto, aus dem Menü seiner Karte oder dem Hinweis „Veraltet“ */
     oeffnenFuer: (kontoId: string) => {
+      const konto = data.accounts.find((a) => a.id === kontoId);
+      const weg = konto?.purpose === "zahlungsdienstleister" && konto.provider ? dateiWeg(konto.provider) : null;
+      if (konto && weg) return setMitAnleitung({ id: konto.id, name: konto.name, weg });
       setZiel(kontoId);
       zielEingabe.current?.click();
     },
@@ -220,21 +265,34 @@ export function useDateiImport(data: Pick<Data, "accounts" | "allAccounts" | "ac
     ),
     /** Unsichtbares Eingabefeld für den Import in ein gewähltes Konto; kein Knopf, die Menüs öffnen es */
     zielFeld: (
-      <input
-        ref={zielEingabe}
-        type="file"
-        multiple
-        accept={DATEIEN}
-        className="visually-hidden"
-        aria-label="Dateien für das gewählte Konto"
-        aria-hidden="true"
-        tabIndex={-1}
-        onChange={(event) => {
-          const files = [...(event.currentTarget.files ?? [])];
-          event.currentTarget.value = "";
-          if (files.length > 0 && ziel) void importieren(files, ziel);
-        }}
-      />
+      <>
+        {mitAnleitung && (
+          <DateiMitAnleitung
+            {...mitAnleitung}
+            busy={busy}
+            onFiles={(files) => {
+              setMitAnleitung(null);
+              void importieren(files, mitAnleitung.id);
+            }}
+            onClose={() => setMitAnleitung(null)}
+          />
+        )}
+        <input
+          ref={zielEingabe}
+          type="file"
+          multiple
+          accept={DATEIEN}
+          className="visually-hidden"
+          aria-label="Dateien für das gewählte Konto"
+          aria-hidden="true"
+          tabIndex={-1}
+          onChange={(event) => {
+            const files = [...(event.currentTarget.files ?? [])];
+            event.currentTarget.value = "";
+            if (files.length > 0 && ziel) void importieren(files, ziel);
+          }}
+        />
+      </>
     ),
     meldungen: (
       <ImportMeldungen
@@ -280,6 +338,10 @@ export function KontoVerbindenKopf({
 }) {
   /** Formular „Konto hinzufügen“: über den Weg „Datei“ mit Hinweis auf den Import */
   const [showAccount, setShowAccount] = useState<"datei" | "ohne" | null>(null);
+  // Der Dialog gehört der Seite, wenn sie ihn auch von anderswo öffnet; sonst diesem Kopf
+  const [eigener, setEigener] = useState<VerbindenDialog>(null);
+  const offen = setDialog ? (dialog ?? null) : eigener;
+  const setOffen = setDialog ?? setEigener;
   return (
     <div className="stack" style={{ gap: 8, alignItems: "flex-end" }}>
       <div className="actions">
@@ -290,11 +352,21 @@ export function KontoVerbindenKopf({
           onBankWeg={(weg) => (weg === "datei" ? setShowAccount("datei") : onBankWeg(weg))}
           onOhneAbruf={() => setShowAccount("ohne")}
           primary
-          {...(setDialog ? { dialog, setDialog } : {})}
+          dialog={offen}
+          setDialog={setOffen}
         />
       </div>
       {showAccount && (
-        <NeuesKontoForm data={data} datei={showAccount === "datei"} onClose={() => setShowAccount(null)} onCreated={onCreated} onMessage={onMessage} />
+        <NeuesKontoForm
+          datei={showAccount === "datei"}
+          onClose={() => setShowAccount(null)}
+          onCreated={onCreated}
+          onMessage={onMessage}
+          onZahlungsdienstleister={() => {
+            setShowAccount(null);
+            setOffen("anbieter");
+          }}
+        />
       )}
     </div>
   );

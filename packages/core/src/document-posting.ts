@@ -1,7 +1,7 @@
 import type { InvoiceTotals } from "./invoice.ts";
 import { belegAnteile } from "./beleg-anteile.ts";
 import type { BasisPoints, Prozent } from "./money.ts";
-import { isKapitalgesellschaft, type Rechtsform } from "./rechtsform.ts";
+import { privatZulaessig, type Rechtsform } from "./rechtsform.ts";
 import { abziehbareSteuer, buchungsAnteil } from "./vorsteuerabzug.ts";
 import {
   ACCOUNTS,
@@ -75,7 +75,7 @@ export function documentPosting(
   vorsteuerNochNichtAbziehbar = false,
 ): PostingLine[] {
   // Privat genutzt ist bei einer GmbH keine Entnahme, sondern Arbeitslohn oder verdeckte Gewinnausschüttung
-  if (privateShare !== 0 && isKapitalgesellschaft(rechtsform)) throw new RangeError("Privatanteil gibt es nur im Einzelunternehmen");
+  if (privateShare !== 0 && !privatZulaessig(rechtsform)) throw new RangeError("Privatanteil gibt es nur im Einzelunternehmen");
   const accounts = ACCOUNTS[kontenrahmen];
   const parken = vorsteuerParken(totals, category, reverseCharge, erstattetBezahltes, vorsteuerNochNichtAbziehbar);
   if (category === "einfuhrumsatzsteuer")

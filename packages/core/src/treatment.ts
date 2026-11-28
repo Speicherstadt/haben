@@ -117,6 +117,18 @@ export function treatmentNote(treatment: TaxTreatment, exemptionReason?: string 
   return exemptionReason?.trim() || TAX_TREATMENTS[treatment].note;
 }
 
+/**
+ * Was an der USt-IdNr. des Kunden das Festschreiben einer Rechnung mit Reverse Charge (#1433) oder innergemeinschaftlicher
+ * Lieferung (#1413) sperrt, für eine vorhandene, normalisierte Nummer; null = nichts. Prüfung wie in der Zusammenfassenden
+ * Meldung (Art S bzw. L) und nach dem Aufbau je Mitgliedstaat. Storno und Korrektur übernehmen die Nummer einer
+ * festgeschriebenen Rechnung: bei Reverse Charge ohne Prüfung, bei der Lieferung ohne den Aufbau. Auch die Rückfrage zum
+ * Festschreiben nennt damit die Sperre statt eines Hinweises (ustIdVorFestschreiben).
+ */
+export function kundenUstIdSperre(treatment: "reverse_charge" | "ig_lieferung", buyerUstId: string, correctsInvoice = false): string | null {
+  if (treatment === "reverse_charge") return correctsInvoice ? null : (ustIdProblem(buyerUstId, "S") ?? ustIdAufbauProblem(buyerUstId));
+  return ustIdProblem(buyerUstId, "L") ?? (correctsInvoice ? null : ustIdAufbauProblem(buyerUstId));
+}
+
 /** Was an einer Rechnung mit dieser Behandlung fehlt oder nicht passt; leer = in Ordnung. */
 export function treatmentIssues(
   treatment: TaxTreatment,
@@ -148,8 +160,8 @@ export function treatmentIssues(
     // jede Nummer festschreiben.
     const buyerUstId = normalizeUstId(input.buyerUstId ?? "");
     if (!buyerUstId) issues.push("Reverse Charge braucht die USt-IdNr. des Kunden");
-    else if (!input.correctsInvoice) {
-      const problem = ustIdProblem(buyerUstId, "S") ?? ustIdAufbauProblem(buyerUstId);
+    else {
+      const problem = kundenUstIdSperre(treatment, buyerUstId, input.correctsInvoice);
       if (problem) issues.push(problem);
     }
     if (country === "DE") issues.push("Reverse Charge gilt nur für Kunden im EU-Ausland");
@@ -163,7 +175,7 @@ export function treatmentIssues(
     const buyerUstId = normalizeUstId(input.buyerUstId ?? "");
     if (!buyerUstId) issues.push("Innergemeinschaftliche Lieferung braucht die USt-IdNr. des Kunden (§ 6a Abs. 1 Nr. 4 UStG)");
     else {
-      const problem = ustIdProblem(buyerUstId, "L") ?? (input.correctsInvoice ? null : ustIdAufbauProblem(buyerUstId));
+      const problem = kundenUstIdSperre(treatment, buyerUstId, input.correctsInvoice);
       if (problem) issues.push(problem);
     }
     // Nordirland gehört für Waren weiter zum Gemeinschaftsgebiet (XI-Nummer bei Ländercode GB)

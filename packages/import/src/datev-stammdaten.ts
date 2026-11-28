@@ -7,6 +7,9 @@ import {
   type PersonenkontoRolle,
   splitEmails,
   telefonProblem,
+  isValidGermanUstId,
+  ustIdAufbauProblem,
+  ustIdProblem,
 } from "@haben/core";
 import { ustIdImportProblem } from "./csv-import/contacts.ts";
 import { type CsvEncoding, type CsvEncodingChoice, decodeCsvBytes, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS } from "./csv-import/read.ts";
@@ -22,6 +25,19 @@ import { isDatevFile, normalizeName, splitLines } from "./datev.ts";
  */
 
 const STAMMDATEN = 16;
+
+/**
+ * BuchhaltungsButler schreibt die Spaltenköpfe etwas anders als sevDesk: „Adressattyp“ statt „Adressatentyp“, „EU-Land“ statt
+ * „EU-Mitgliedstaat“ und „EU-UStID“ statt „EU-UStId.“. Gelesen wird die Schreibweise von sevDesk, sonst die von BuchhaltungsButler.
+ */
+const SPALTEN_ALTERNATIVEN: Record<string, readonly string[]> = {
+  "EU-Mitgliedstaat": ["EU-Land"],
+  "EU-UStId.": ["EU-UStID"],
+};
+
+function alternativeNames(name: string): string[] {
+  return [name, name.replace("Adressatentyp", "Adressattyp"), ...(SPALTEN_ALTERNATIVEN[name] ?? [])];
+}
 
 export interface DatevGpRow {
   /** Zeile in der Datei; 1 ist die Kopfzeile, 2 die Spaltennamen */
@@ -76,7 +92,23 @@ function personenkonto(konto: string): { rolle: PersonenkontoRolle; nr: number }
  */
 function rawUstId(country: string, number: string): string {
   if (!number) return "";
-  return !country || number.toUpperCase().startsWith(country.toUpperCase()) ? number : `${country}${number}`;
+  // BuchhaltungsButler schreibt bei manchen Partnern eine Zahl als „EU-Land“ (die ersten Ziffern der Nummer, etwa 19 zu 199405147):
+  // Das ist keine USt-IdNr., also bleibt sie leer, statt die Zeile abzulehnen
+  if (country && !/^[A-Za-z]{2}$/.test(country)) return istUstId(number) ? number : "";
+  return !country || traegtKennzeichen(number, country) ? number : `${country}${number}`;
+}
+
+/** Eine USt-IdNr. für sich: deutsch mit richtiger Prüfziffer oder im Aufbau eines anderen Mitgliedstaats */
+function istUstId(number: string): boolean {
+  const ustId = normalizeUstId(number);
+  return isValidGermanUstId(ustId) || (!ustIdProblem(ustId, "L") && !ustIdAufbauProblem(ustId));
+}
+
+/** Griechenland steht als GR oder EL da; nordirische Nummern (XI) gehören zum Land GB */
+function traegtKennzeichen(number: string, country: string): boolean {
+  const ustId = normalizeUstId(number);
+  const land = normalizeUstId(country);
+  return ustId.startsWith(land) || (land === "GB" && ustId.startsWith("XI"));
 }
 
 const KONTO_FEHLER = (konto: string) =>
@@ -166,8 +198,10 @@ export function parseDatevStammdaten(bytes: Uint8Array, encoding: CsvEncodingCho
   if (filled.length > MAX_IMPORT_ROWS) return { ok: false, error: `Höchstens ${MAX_IMPORT_ROWS} Zeilen je Datei; teile die Datei auf.` };
   const rows = filled.map(({ line, fields }) =>
     readRow(line, (name) => {
-      const i = names.indexOf(normalizeName(name));
-      return i < 0 ? "" : (fields[i] ?? "").trim();
+      const i = alternativeNames(name)
+        .map((candidate) => names.indexOf(normalizeName(candidate)))
+        .find((index) => index >= 0);
+      return i === undefined ? "" : (fields[i] ?? "").trim();
     }),
   );
   return { ok: true, encoding: decoded.encoding, rows };

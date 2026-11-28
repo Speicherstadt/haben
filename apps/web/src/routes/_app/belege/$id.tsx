@@ -12,6 +12,7 @@ import { formatDate, formatDateTime } from "../../../lib/format.ts";
 import { getDocumentDetail } from "../../../server/functions/documents.ts";
 import { ConfirmDialog, isDialogOpen } from "../../../components/ConfirmDialog.tsx";
 import { DocumentForm } from "./-beleg-formular.tsx";
+import { BelegGirocode } from "./-beleg-girocode.tsx";
 import { type Detail, Preview } from "./-beleg-vorschau.tsx";
 
 export const Route = createFileRoute("/_app/belege/$id")({
@@ -93,6 +94,8 @@ function DocumentPage() {
       <div className="editor-grid doc-editor">
         <Preview doc={doc} />
         <div className="stack">
+          {/* Offener Beleg über die Bank: GiroCode zum Überweisen, oben, damit er auf dem Handy ohne Scrollen erreichbar ist (#1967) */}
+          {data.girocode && <BelegGirocode code={data.girocode} contactId={doc.supplierContactId} />}
           {/* key: nach dem Auslesen oder Speichern mit den neuen Werten aufsetzen, mit Millisekunden auch in derselben Sekunde (#1824) */}
           <DocumentForm key={doc.updatedAt.toISOString()} data={data} inhaber={inhaber} onDirtyChange={setDirty} />
           {/* Außerhalb des Formulars: Enter im Feld „Grund“ speichert nicht */}

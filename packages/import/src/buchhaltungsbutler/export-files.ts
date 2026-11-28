@@ -46,29 +46,50 @@ export function readBbRows(bytes: Uint8Array): BuchhaltungsbutlerRow[] {
   });
 }
 
-export function readReceiptFiles(bytes: Uint8Array): Map<string, BuchhaltungsbutlerFile[]> {
-  const files = unzip(bytes, "Belege.zip");
-  const result = new Map<string, BuchhaltungsbutlerFile[]>();
-  for (const [path, content] of Object.entries(files)) {
-    if (path.endsWith("/")) continue;
-    const filename = path.split("/").pop()!;
-    const match = /^(\d+)(?:_(\d+))?\.(pdf|xml)$/i.exec(filename);
-    if (!match)
-      throw new BuchhaltungsbutlerError(`Belege.zip: Dateiname „${path}“ passt nicht zu <Buchungsnummer>.pdf/.xml oder <Buchungsnummer>_<lfd>.pdf/.xml.`);
-    const role = match[3]!.toLowerCase() === "xml" ? "xml" : "pdf";
-    if (role === "pdf" && (content.subarray(0, 5).length !== 5 || new TextDecoder().decode(content.subarray(0, 5)) !== "%PDF-")) {
+/** Belege aus Belege.zip: nach Dateiname ohne Ordner, dazu die Dateien im älteren Muster <Buchungsnummer>.pdf */
+export interface ReceiptArchive {
+  byName: Map<string, BuchhaltungsbutlerFile>;
+  /** Nur Dateien, die wie <Buchungsnummer>.pdf/.xml oder <Buchungsnummer>_<lfd>.pdf/.xml heißen */
+  byBooking: Map<string, BuchhaltungsbutlerFile[]>;
+}
+
+/**
+ * BuchhaltungsButler legt die Belege unter ihrem Originalnamen ab (Rechnung-EU-2026011.pdf); welche Datei zu welcher Buchung
+ * gehört, steht in „Beleg-Dateinamen“ des BB Standardexports und als „Original-Dateiname“ im DATEV-Buchungsstapel.
+ * Eine Datei kann an mehreren Buchungen hängen und liegt trotzdem nur einmal im ZIP.
+ */
+export function readReceiptFiles(bytes: Uint8Array): ReceiptArchive {
+  const byName = new Map<string, BuchhaltungsbutlerFile>();
+  const byBooking = new Map<string, BuchhaltungsbutlerFile[]>();
+  for (const [path, content] of Object.entries(unzip(bytes, "Belege.zip"))) {
+    if (path.endsWith("/") || path.split("/").includes("__MACOSX") || baseName(path).startsWith("._")) continue;
+    const filename = baseName(path);
+    if (isBediManifest(filename, content)) continue;
+    const extension = /\.(pdf|xml)$/i.exec(filename)?.[1]?.toLowerCase();
+    if (!extension) throw new BuchhaltungsbutlerError(`Belege.zip: „${path}“ ist weder eine PDF- noch eine XML-Datei.`);
+    const role = extension === "xml" ? "xml" : "pdf";
+    if (role === "pdf" && new TextDecoder().decode(content.subarray(0, 5)) !== "%PDF-") {
       throw new BuchhaltungsbutlerError(`Belege.zip: ${path} ist keine PDF-Datei.`);
     }
     if (role === "xml" && !new TextDecoder().decode(content.subarray(0, 200)).trimStart().startsWith("<")) {
       throw new BuchhaltungsbutlerError(`Belege.zip: ${path} ist keine XML-Datei.`);
     }
-    const bookingId = String(Number(match[1]));
-    const list = result.get(bookingId) ?? [];
-    list.push({ filename, bytes: content, role });
-    result.set(bookingId, list);
+    if (byName.has(filename)) throw new BuchhaltungsbutlerError(`Belege.zip: Dateiname „${filename}“ kommt mehrfach vor.`);
+    const file: BuchhaltungsbutlerFile = { filename, bytes: content, role };
+    byName.set(filename, file);
+    const match = /^(\d+)(?:_\d+)?\.(?:pdf|xml)$/i.exec(filename);
+    if (match) {
+      const bookingId = String(Number(match[1]));
+      byBooking.set(bookingId, [...(byBooking.get(bookingId) ?? []), file]);
+    }
   }
-  for (const list of result.values()) list.sort((a, b) => a.filename.localeCompare(b.filename, "de", { numeric: true }));
-  return result;
+  for (const list of byBooking.values()) list.sort((a, b) => a.filename.localeCompare(b.filename, "de", { numeric: true }));
+  return { byName, byBooking };
+}
+
+/** Das Verzeichnis des DATEV-Belegtransfers (GUID zu Dateiname) liegt als document.xml neben den Belegen und ist kein Beleg. */
+function isBediManifest(filename: string, content: Uint8Array): boolean {
+  return filename.toLowerCase() === "document.xml" && new TextDecoder().decode(content.subarray(0, 600)).includes("xml.datev.de/bedi");
 }
 
 export function readExportFiles(parts: ExportPart[]): ExportFiles {

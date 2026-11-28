@@ -21,11 +21,11 @@ async function initialized(): Promise<boolean> {
   return (row?.n ?? 0) > 0;
 }
 
-async function einrichtungFuerNavigation(
+function einrichtungFuerNavigation(
   company: Company | null,
-): Promise<{ ausgeblendet: string[]; einrichtung: { fehlt: boolean; offen: OffeneFrage[] } | null }> {
+  einrichtung: Awaited<ReturnType<typeof loadEinrichtung>>,
+): { ausgeblendet: string[]; einrichtung: { fehlt: boolean; offen: OffeneFrage[] } | null } {
   if (!company) return { ausgeblendet: [], einrichtung: null };
-  const einrichtung = await loadEinrichtung();
   const fehlt = fragenFehlen({
     eingerichtet: einrichtung?.fragenAt != null,
     firmendatenGespeichert: company.companySavedAt !== null,
@@ -36,11 +36,20 @@ async function einrichtungFuerNavigation(
 
 /** Öffentlich: Betriebsart, ob Haben schon eingerichtet ist und ob jemand angemeldet ist. */
 export const getAuthState = createServerFn({ method: "GET" }).handler(async () => {
-  const user = await sessionUser(getRequestHeaders());
-  const company = user ? await loadCompany() : null;
+  const [user, init] = await Promise.all([sessionUser(getRequestHeaders()), initialized()]);
+  const inhaber = user?.role === "inhaber";
+  const [company, eigeneSeiten, hatMitarbeiter, einrichtung] = user
+    ? await Promise.all([
+        loadCompany(),
+        inhaber ? listCustomPages() : Promise.resolve([]),
+        inhaber ? hasEmployees() : Promise.resolve(false),
+        inhaber ? loadEinrichtung() : Promise.resolve(null),
+      ])
+    : [null, [], false, null];
+  const logo = company?.navLogo ? await logoInfo() : null;
   return {
     oidc: oidcPublicConfig(),
-    initialized: await initialized(),
+    initialized: init,
     user: user ? { name: user.name, email: user.email, role: user.role } : null,
     // Für die Navigation: eine GmbH oder UG hat keine Pauschalen; erst nach der Anmeldung
     rechtsform: company?.rechtsform ?? null,
@@ -49,16 +58,16 @@ export const getAuthState = createServerFn({ method: "GET" }).handler(async () =
     // Mehrere Firmen (#504): in welcher Instanz man gerade arbeitet, für alle Rollen dieser Instanz
     firma: company ? firmaInNavigation(company.name) : null,
     // Zeichen der Firma (#504), getrennt von der Beleggestaltung; das Logo nur auf ausdrückliche Wahl
-    zeichen: company ? navMark({ color: company.navColor, logo: company.navLogo }, company.navLogo ? ((await logoInfo())?.sha256 ?? null) : null) : null,
+    zeichen: company ? navMark({ color: company.navColor, logo: company.navLogo }, logo?.sha256 ?? null) : null,
     // Eigene Seiten (#199) als Menüeinträge des Inhabers, ebenfalls erst nach der Anmeldung
-    eigeneSeiten: user?.role === "inhaber" ? (await listCustomPages()).map(({ id, name, url, openInNewTab }) => ({ id, name, url, openInNewTab })) : [],
+    eigeneSeiten: eigeneSeiten.map(({ id, name, url, openInNewTab }) => ({ id, name, url, openInNewTab })),
     // Menüpunkt SV-Meldeportal erst mit dem ersten Mitarbeiter; die Steuerberatung hat ihre eigene Navigation
-    hatMitarbeiter: user?.role === "inhaber" ? await hasEmployees() : false,
+    hatMitarbeiter,
     // Bereiche ohne Menüpunkt und Erinnerung an die Fragen zur Einrichtung (#266); die Steuerberatung hat ihre eigene Navigation
-    ...(await einrichtungFuerNavigation(user?.role === "inhaber" ? company : null)),
+    ...einrichtungFuerNavigation(inhaber ? company : null, einrichtung),
     // Firma wechseln (#504): die Instanzen der anderen Firmen, nur für den Inhaber
     firmen: user ? andereFirmen(env().HABEN_FIRMEN, env().BETTER_AUTH_URL, user.role) : [],
     // Mit Firmenportal (#504, Stufe 2) führt „Zum Firmenportal“ dorthin, ebenfalls nur für den Inhaber
-    firmenportal: user?.role === "inhaber" ? (env().HABEN_FIRMENPORTAL_URL ?? null) : null,
+    firmenportal: inhaber ? (env().HABEN_FIRMENPORTAL_URL ?? null) : null,
   };
 });

@@ -155,16 +155,20 @@ export function ownerAccount(kontenrahmen: Kontenrahmen, rechtsform: Rechtsform,
  * Was eine Ausgabenkategorie kann. Jede Kategorie nennt unter `nicht`, was für sie nicht gilt; so beantwortet eine neue
  * Kategorie jede Frage an einer Stelle, statt in verstreuten Listen zu fehlen (#1975):
  *
- * - `aufwand`: Betriebsausgabe in EÜR und BWA. Nicht beim Anlagegut (wirkt über die AfA) und bei der Einfuhrumsatzsteuer
- *   (ist Vorsteuer, Kz 62).
+ * - `aufwand`: Betriebsausgabe in EÜR und BWA. Nicht beim Anlagegut (wirkt über die AfA), bei der Einfuhrumsatzsteuer
+ *   (ist Vorsteuer, Kz 62) und bei der Privatentnahme (#1975): Sie ist keine Betriebsausgabe (§ 4 Abs. 1 Satz 2,
+ *   § 12 Nr. 1 EStG).
  * - `direkt`: unter „Direkt buchen“ ohne Beleg wählbar. Nicht, wo es den Beleg braucht: Anlagegut und geringwertiges
  *   Wirtschaftsgut für das Anlagenverzeichnis, Einfuhrumsatzsteuer für den Bescheid des Zolls, Bewirtung für den
  *   Bewirtungsbeleg (§ 4 Abs. 5 Satz 1 Nr. 2 Satz 2 EStG), Geschenke für die Empfänger (§ 4 Abs. 7 EStG); und nicht bei
- *   Kontoführung und Gebühren, die „Direkt buchen“ schon als eigenen Eintrag hat.
+ *   Kontoführung und Gebühren, die „Direkt buchen“ schon als eigenen Eintrag hat, und bei der Privatentnahme: Sie
+ *   entsteht nur in einer Aufteilung.
  * - `eigenesKonto`: Elternkategorie eines eigenen Sachkontos (#270). Nicht bei Kategorien ohne Aufwandsbuchung, mit eigener
- *   Behandlung oder als Wareneinsatz: Anlagegut, Hardware, Einfuhrumsatzsteuer, Kontoführung, Wareneinkauf, Fremdleistungen
- *   und Kfz-Steuer. Zusätzlich muss das Konto in der Aufwandsklasse liegen (ownAccountParents).
- * - `dauerbeleg`: Vorlage für wiederkehrende Belege. Nicht beim Anlagegut, das je Anschaffung eine eigene Anlage wird.
+ *   Behandlung oder als Wareneinsatz: Anlagegut, Hardware, Einfuhrumsatzsteuer, Kontoführung, Wareneinkauf, Fremdleistungen,
+ *   Kfz-Steuer und Privatentnahme, für die niemand ein Sachkonto anlegt. Zusätzlich muss das Konto in der Aufwandsklasse
+ *   liegen (ownAccountParents).
+ * - `dauerbeleg`: Vorlage für wiederkehrende Belege. Nicht beim Anlagegut, das je Anschaffung eine eigene Anlage wird, und
+ *   nicht bei der Privatentnahme: Eine wiederkehrende Entnahme ist keine Vorlage.
  */
 export type KategorieEigenschaft = "aufwand" | "direkt" | "eigenesKonto" | "dauerbeleg";
 
@@ -229,11 +233,36 @@ export const EXPENSE_CATEGORIES = {
   // Kein Aufwand: Bescheid des Zolls über die Einfuhrumsatzsteuer, der ganze Betrag ist Vorsteuer (§ 15 Abs. 1 Satz 1 Nr. 2
   // UStG, Kz 62); DATEV-Kontenrahmen 2026 „Entstandene Einfuhrumsatzsteuer“ (SKR03 1588, SKR04 1433)
   einfuhrumsatzsteuer: { label: "Einfuhrumsatzsteuer (Bescheid des Zolls)", SKR03: "1588", SKR04: "1433", nicht: ["aufwand", "direkt", "eigenesKonto"] },
+  // Kein Aufwand: die Privatentnahme (#1975). Sie steht brutto auf dem Entnahmekonto und trägt keine Vorsteuer: Eine
+  // Entnahme ist keine Betriebsausgabe (§ 4 Abs. 1 Satz 2, § 12 Nr. 1 EStG), abziehbar ist nur die betriebliche
+  // Verwendung (§ 15 Abs. 1 Satz 1 Nr. 1 UStG). Sie entsteht nur als Zeile einer Aufteilung, nicht als Kategorie eines
+  // Belegs (BELEGKATEGORIEN), und nur im Einzelunternehmen; GmbH und UG kennen kein Privat.
+  privatentnahme: { label: "Privatentnahme", SKR03: "1800", SKR04: "2100", nicht: ["aufwand", "direkt", "eigenesKonto", "dauerbeleg"] },
 } as const satisfies Record<string, Kategoriesteckbrief>;
 
 export type ExpenseCategory = keyof typeof EXPENSE_CATEGORIES;
 
 export const EXPENSE_CATEGORY_KEYS = Object.keys(EXPENSE_CATEGORIES) as [ExpenseCategory, ...ExpenseCategory[]];
+
+/**
+ * Die Kategorie der Privatentnahme (#1975); sie steht nur als Zeile einer Aufteilung, nie am ganzen Beleg
+ */
+export const PRIVATENTNAHME = "privatentnahme" as const satisfies ExpenseCategory;
+
+/** Ob eine Kategorie die Privatentnahme ist; die eine Stelle, an der das entschieden wird */
+export function istPrivatentnahme(kategorie: string): boolean {
+  return kategorie === PRIVATENTNAHME;
+}
+
+/**
+ * Kategorien, die ein Beleg tragen darf: Belegkategorie, Aufteilungszeile, KI-Auslesung, Vorgabe des Lieferanten,
+ * Vorbelegung des Privatanteils. Die Privatentnahme fehlt: Ein Beleg nur mit Entnahme hat keinen Betriebsanteil und
+ * keinen Vorsteuerabzug; sie entsteht erst beim Abspalten eines Privatanteils als eigene Zeile (#1975).
+ *
+ * Der Steckbrief kennt dafür keine Eigenschaft; die eine Ausnahme steht deshalb hier an dieser Stelle statt in jeder
+ * Auswahl einzeln.
+ */
+export const BELEGKATEGORIEN = EXPENSE_CATEGORY_KEYS.filter((k) => k !== PRIVATENTNAHME) as [ExpenseCategory, ...ExpenseCategory[]];
 
 /** Ob die Kategorie die Eigenschaft hat (KategorieEigenschaft); eine unbekannte Kategorie hat keine */
 export function hatEigenschaft(kategorie: string, eigenschaft: KategorieEigenschaft): boolean {

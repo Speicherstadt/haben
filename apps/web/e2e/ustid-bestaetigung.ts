@@ -216,6 +216,20 @@ export function ustIdBestaetigungPruefen(getPage: () => Page, durchlauf: Durchla
       await page.waitForLoadState("networkidle");
       expect(dienst.anfragen).toHaveLength(3);
       await dialog.getByRole("button", { name: "Abbrechen" }).click();
+
+      // Sperrt die Nummer das Festschreiben selbst (für AT zu kurz), ist der Knopf gesperrt, statt einen Klick zuzulassen,
+      // den der Server ablehnt (#2004); nach dem Schließen ist er für die nächste Rückfrage wieder frei
+      await sql.begin(async (tx) => {
+        await tx`select set_config('haben.actor', 'e2e', true)`;
+        await tx`update contacts set ust_id = 'ATU1234' where name = 'Bergsee GmbH'`;
+      });
+      await page.reload();
+      await page.waitForLoadState("networkidle");
+      await page.getByRole("button", { name: "Festschreiben", exact: true }).first().click();
+      await expect(dialog.getByRole("status")).toContainText("Festschreiben geht erst, wenn die USt-IdNr. am Kontakt stimmt");
+      await expect(dialog.getByRole("button", { name: "Festschreiben", exact: true })).toBeDisabled();
+      await dialog.getByRole("button", { name: "Abbrechen" }).click();
+      expect(dienst.anfragen).toHaveLength(3);
     } finally {
       // Nicht in den Zahlen der folgenden Tests: Entwurf weg, Kontakt archiviert
       await sql.begin(async (tx) => {

@@ -95,11 +95,11 @@ async function fintsWahl(grund: string | null) {
 
 const banken = () => page.getByRole("region", { name: "Banken", exact: true });
 /** Zeilen der Konten, die eine Verbindung über FinTS abruft */
-const fintsZeilen = () => banken().locator("tbody tr").filter({ hasText: "(FinTS)" });
+const fintsZeilen = () => banken().locator("tbody tr").filter({ hasText: " · FinTS · " });
 /** Erste Zeile eines Kontos der Verbindung zu bankName */
 const zeile = (bankName: string) =>
   fintsZeilen()
-    .filter({ hasText: `${bankName} (FinTS)` })
+    .filter({ hasText: `${bankName} · FinTS` })
     .first();
 /** Zeile einer Verbindung an der Endung der IBAN ihres Girokontos; zwei Verbindungen heißen „Testbank“ (#1677) */
 const zeileMitKonto = (endung: string) => fintsZeilen().filter({ hasText: `Girokonto …${endung}` });
@@ -725,8 +725,8 @@ test("zweite Verbindung zu einer Bank mit demselben Namen", async () => {
   await freigabe().getByLabel("TAN-Verfahren").selectOption({ label: "chipTAN manuell" });
   await freigabe().getByRole("button", { name: "Weiter" }).click();
   await expect(abruf().getByText(/^Testbank verbunden/)).toBeVisible();
-  await expect(zeileMitKonto("2051")).toContainText("Testbank (FinTS)");
-  await expect(zeileMitKonto("3001")).toContainText("Testbank (FinTS)");
+  await expect(zeileMitKonto("2051")).toContainText("Testbank · FinTS");
+  await expect(zeileMitKonto("3001")).toContainText("Testbank · FinTS");
 });
 
 test("Heißen zwei Verbindungen gleich, nennt der Grund die wartende mit der Endung ihrer IBAN", async () => {

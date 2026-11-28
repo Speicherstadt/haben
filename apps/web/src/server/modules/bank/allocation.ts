@@ -13,7 +13,7 @@ import {
   directPosting,
   privatKontoPosting,
   exchangeDifferenceBankPosting,
-  isKapitalgesellschaft,
+  directBookingText,
   isLohnZahlung,
   aufKontoAngeboten,
   aufRechtsformAngeboten,
@@ -198,9 +198,7 @@ export async function bookPart(
   } else {
     if (isLohnZahlung(part.kind)) await assertLohnOffen(tx, part.kind, part.amount, company.kontenrahmen);
     lines = directPosting(part.kind as DirectBooking, part.amount, company.kontenrahmen, company.rechtsform);
-    // In GmbH und UG ist „privat“ das Gesellschafter-Verrechnungskonto; so steht es auch im Buchungstext
-    const label = part.kind === "privat" && isKapitalgesellschaft(company.rechtsform) ? "gesellschafter" : part.kind;
-    description = `${bank.counterpartyName || "Bankumsatz"} · ${label}`;
+    description = directBookingText(part.kind as DirectBooking, company.rechtsform, bank.counterpartyName);
   }
   // Privates Konto (#873): Die Richtung des Zahlungskontos gilt für jede Buchungsart — ein Eingang ist eine
   // Privatentnahme, ein Ausgang eine Privateinlage, in GmbH und UG das Gesellschafter-Verrechnungskonto. Die

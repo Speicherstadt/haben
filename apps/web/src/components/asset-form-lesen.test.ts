@@ -15,6 +15,7 @@ const pkw: AssetFormValues = {
   openingDate: "",
   openingBookValue: 0,
   disposalDate: null,
+  disposalWithdrawal: null,
   privateUse: null,
   note: "",
 };
@@ -49,5 +50,21 @@ describe("readAsset", () => {
     const { values, errors } = readAsset({ ...assetState(pkw), privateUsed: true, listPrice: "" }, false);
     expect(values).toBeNull();
     expect(errors.listPrice).not.toBeNull();
+  });
+
+  it("Entnahme (#1970): Entnahmewert und Vorsteuer beim Kauf gehen nur mit Abgangsdatum mit", () => {
+    const entnahme = { ...assetState(pkw), disposalDate: "2027-03-20", disposalKind: "entnahme" as const, withdrawalValue: "800,00", withdrawalInputVat: true };
+    expect(readAsset(entnahme, false).values?.disposalWithdrawal).toEqual({ value: 80_000, inputVat: true });
+    expect(readAsset({ ...entnahme, disposalKind: "abgang" }, false).values?.disposalWithdrawal).toBeNull();
+    expect(readAsset({ ...entnahme, disposalDate: "" }, false).values?.disposalWithdrawal).toBeNull();
+    expect(readAsset(assetState({ ...pkw, disposalDate: "2027-03-20", disposalWithdrawal: { value: 0, inputVat: false } }), false).values).toMatchObject({
+      disposalWithdrawal: { value: 0, inputVat: false },
+    });
+  });
+
+  it("Entnahme ohne gültigen Entnahmewert ist ein Fehler am Feld", () => {
+    const { values, errors } = readAsset({ ...assetState(pkw), disposalDate: "2027-03-20", disposalKind: "entnahme", withdrawalValue: "" }, false);
+    expect(values).toBeNull();
+    expect(errors.withdrawalValue).toContain("Entnahmewert");
   });
 });

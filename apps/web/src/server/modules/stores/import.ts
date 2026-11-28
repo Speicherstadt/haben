@@ -99,7 +99,7 @@ export async function importStoreReports(actor: string, store: Store): Promise<S
       added: 0,
       drafts: 0,
       messages: [
-        `Für ${label} gibt es noch kein Konto. Lege unter Bank ein Konto der Art Zahlungsdienstleister mit Anbieter ${label} an; dann übernimmt Haben die Berichte.`,
+        `Für ${label} gibt es noch kein Konto. Lege es unter Bank › Konto verbinden › Zahlungsdienstleister hinzufügen › ${label} an; dann übernimmt Haben die Berichte.`,
       ],
     };
   }

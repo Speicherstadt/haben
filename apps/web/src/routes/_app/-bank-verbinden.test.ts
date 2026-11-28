@@ -27,7 +27,7 @@ describe("„Wie verbinden?“ (#1951)", () => {
   });
 });
 
-describe("„Anbieter wählen“ (#1951)", () => {
+describe("„Zahlungsdienstleister hinzufügen“ (#1951, #2008)", () => {
   const stripe = {
     provider: "stripe",
     name: "Stripe",
@@ -36,18 +36,41 @@ describe("„Anbieter wählen“ (#1951)", () => {
   };
   const wahl = anbieterWahl({
     anbieter: [stripe],
-    verbindungen: [{ provider: "stripe", name: "Shop DE" }],
+    verbindungen: [{ provider: "stripe", name: "Shop DE", bankAccountId: "k1" }],
+    alleKonten: [
+      { id: "k1", provider: "stripe", name: "Shop DE" },
+      { id: "k2", provider: "amazon", name: "Amazon.de" },
+    ],
   } as unknown as Parameters<typeof anbieterWahl>[0]);
+  const zu = (wert: string) => wahl.find((w) => w.wert === wert);
 
-  it("Anbieter mit Adapter zuerst, mit Zugang, Zahl der Schritte und bestehenden Verbindungen", () => {
-    expect(wahl[0]).toEqual({ wert: "stripe", label: "Stripe", hint: "API-Schlüssel · 3 Schritte · verbunden: „Shop DE“", gesperrt: null });
+  it("Anbieter mit Adapter zuerst, mit Weg und bestehenden Verbindungen, ohne einen Namen doppelt", () => {
+    expect(wahl[0]).toEqual({
+      wert: "stripe",
+      label: "Stripe",
+      hint: "Abruf mit API-Schlüssel oder Saldenverlauf (CSV) als Datei · verbunden: „Shop DE“",
+      gesperrt: null,
+    });
   });
 
-  it("die übrigen ausgegraut mit Grund, ohne „Anderer Zahlungsdienstleister“", () => {
-    const uebrige = wahl.slice(1);
-    expect(uebrige.every((w) => w.gesperrt !== null)).toBe(true);
-    expect(uebrige.map((w) => w.wert)).toContain("etsy");
-    expect(uebrige.map((w) => w.wert)).not.toContain("sonstige");
-    expect(uebrige.find((w) => w.wert === "shopify")?.gesperrt).toBe("Noch kein Abruf; die Umsätze kommen als Datei über „Datei importieren“.");
+  it("Konten ohne Verbindung heißen bei Anbietern mit Abruf nicht „verbunden“", () => {
+    const [mitDatei] = anbieterWahl({
+      anbieter: [stripe],
+      verbindungen: [{ provider: "stripe", name: "Shop DE", bankAccountId: "k1" }],
+      alleKonten: [
+        { id: "k1", provider: "stripe", name: "Stripe Konto" },
+        { id: "k2", provider: "stripe", name: "Stripe CSV" },
+      ],
+    } as unknown as Parameters<typeof anbieterWahl>[0]);
+    expect(mitDatei?.hint).toBe("Abruf mit API-Schlüssel oder Saldenverlauf (CSV) als Datei · verbunden: „Shop DE“ · Konto: „Stripe CSV“");
+  });
+
+  it("jeder Anbieter ist wählbar, auch „Anderer Zahlungsdienstleister“, mit seinem Weg und Konten ohne Verbindung", () => {
+    expect(wahl.every((w) => w.gesperrt === null)).toBe(true);
+    expect(wahl.at(-1)?.wert).toBe("sonstige");
+    expect(zu("amazon")?.hint).toBe("Settlement Report (Flatfile V2) als Datei · Konto: „Amazon.de“");
+    expect(zu("etsy")?.hint).toBe("Abruf über Etsy unter Verbindungen oder Monatsabrechnung (CSV) als Datei · noch kein Konto");
+    expect(zu("googleplay")?.hint).toBe("Konto, dann Finanzberichte über die Verbindung unter Verbindungen · noch kein Konto");
+    expect(zu("sumup")?.hint).toBe("nur Konto, Umsätze per Hand · noch kein Konto");
   });
 });

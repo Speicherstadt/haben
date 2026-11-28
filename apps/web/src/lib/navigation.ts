@@ -51,6 +51,30 @@ export interface NavLink extends NavBedingung {
   to: string;
   icon: IconName;
   label: string;
+  /** Weitere Pfade, unter denen der Link als aktiv gilt, etwa eine Seite, die zu ihm gehört, aber nicht unter ihm liegt */
+  auch?: readonly string[];
+}
+
+const liegtUnter = (pathname: string, pfad: string) => pathname === pfad || pathname.startsWith(`${pfad}/`);
+
+/**
+ * Der eine aktive Link der Navigation: der, dessen Pfad (`to` oder `auch`) am genauesten zur Adresse passt. Ohne diese
+ * Auswahl wäre auf /bank/verbindungen auch „Bank“ markiert, weil /bank davor steht.
+ */
+export function aktiverNavLink(pathname: string, gruppen: readonly NavGroup[]): string | null {
+  let aktiv: string | null = null;
+  let laenge = -1;
+  for (const group of gruppen) {
+    for (const link of group.links) {
+      for (const pfad of [link.to, ...(link.auch ?? [])]) {
+        if (pfad.length > laenge && liegtUnter(pathname, pfad)) {
+          aktiv = link.to;
+          laenge = pfad.length;
+        }
+      }
+    }
+  }
+  return aktiv;
 }
 
 export interface NavGroup {
@@ -98,7 +122,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     links: [
       { to: "/bank", icon: "bank", label: "Bank" },
       // Abruf, Zugänge und Konten der Banken und Zahlungsdienstleister (#1951)
-      { to: "/bank/verbindungen", icon: "link", label: "Verbindungen" },
+      // Die geführte Einrichtung (/bank/verbinden/…) gehört zu den Verbindungen, ihr Kopf nennt sie auch so
+      { to: "/bank/verbindungen", icon: "link", label: "Verbindungen", auch: ["/bank/verbinden"] },
       { to: "/kasse", icon: "cash", label: "Kasse" },
       { to: "/darlehen", icon: "loan", label: "Darlehen" },
     ],

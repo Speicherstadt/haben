@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inEuVatArea, TAX_TREATMENTS, treatmentIssues, treatmentNote } from "./treatment.ts";
+import { inEuVatArea, kundenUstIdSperre, TAX_TREATMENTS, treatmentIssues, treatmentNote } from "./treatment.ts";
 
 describe("treatmentIssues", () => {
   it("Reverse Charge braucht beide USt-IdNrn. und einen Kunden im Ausland", () => {
@@ -108,5 +108,30 @@ describe("treatmentNote", () => {
     expect(treatmentNote("regulaer")).toBeNull();
     expect(treatmentNote("kleinunternehmer")).toContain("§ 19 UStG");
     expect(treatmentNote("steuerfrei", " Steuerfrei nach § 4 Nr. 21 UStG ")).toBe("Steuerfrei nach § 4 Nr. 21 UStG");
+  });
+});
+
+describe("kundenUstIdSperre", () => {
+  it("sperrt bei Reverse Charge und Lieferung dieselben Nummern wie treatmentIssues", () => {
+    for (const treatment of ["reverse_charge", "ig_lieferung"] as const) {
+      for (const ustId of ["ATU1234", "DE123456788", "CHE123456789", "XI123456789", "ATU12345678"]) {
+        const issues = treatmentIssues(treatment, { rates: [0], sellerUstId: "DE123456788", buyerUstId: ustId, buyerCountry: "AT" });
+        const sperre = kundenUstIdSperre(treatment, ustId);
+        expect(sperre === null ? [] : [sperre], `${treatment} ${ustId}`).toEqual(issues.filter((i) => i.startsWith(ustId)));
+      }
+    }
+  });
+
+  it("nennt den Aufbau, Nordirland nur bei einer Leistung", () => {
+    expect(kundenUstIdSperre("reverse_charge", "ATU1234")).toBe("ATU1234: eine USt-IdNr. aus Österreich hat nach AT ein U und acht Ziffern");
+    expect(kundenUstIdSperre("reverse_charge", "XI123456789")).toMatch(/^XI123456789: nordirische/);
+    expect(kundenUstIdSperre("ig_lieferung", "XI123456789")).toBeNull();
+    expect(kundenUstIdSperre("reverse_charge", "ATU12345678")).toBeNull();
+  });
+
+  it("Storno und Korrektur: bei Reverse Charge keine Sperre, bei der Lieferung ohne den Aufbau", () => {
+    expect(kundenUstIdSperre("reverse_charge", "CHE123456789", true)).toBeNull();
+    expect(kundenUstIdSperre("ig_lieferung", "ATU1234", true)).toBeNull();
+    expect(kundenUstIdSperre("ig_lieferung", "CHE123456789", true)).toMatch(/kein Länderkennzeichen/);
   });
 });

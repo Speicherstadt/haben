@@ -74,6 +74,11 @@ describe("Systemkonten", () => {
     // Eine SKR04-Nummer wird im SKR03 nicht gesperrt, wenn sie dort nichts bedeutet
     expect(skr03.has("6837")).toBe(false);
   });
+
+  it("enthalten das Konto der Homeoffice-Pauschale und das, auf dem bestehende Pauschalen stehen (#2015)", () => {
+    for (const nummer of ["4287", "4288"]) expect(reservedAccountNumbers("SKR03").has(nummer), nummer).toBe(true);
+    for (const nummer of ["6347", "6348"]) expect(reservedAccountNumbers("SKR04").has(nummer), nummer).toBe(true);
+  });
 });
 
 describe("Auflösung", () => {
