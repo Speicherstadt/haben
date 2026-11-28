@@ -137,6 +137,18 @@ describe("Darlehensraten fortschreiben", () => {
     ]);
   });
 
+  it("Sicherheit und letzter Termin je Teil, ohne Sondertilgung", () => {
+    // Zinsen dreimal, Tilgung erst einmal: Die Rate am selben Tag ist geschätzt
+    const neu = darlehen([...rate("2026-08-31", 0, 200_00), ...rate("2026-09-30", 0, 200_00), ...rate("2026-10-30", 800_00, 200_00)]);
+    expect(posten(neu, { bis: "2026-11-30" }).posten.map((p) => [p.datum, p.betrag, p.sicherheit])).toEqual([["2026-11-30", 1000_00, "geschaetzt"]]);
+    // Eine Rate und eine Sondertilgung am 10.12.: geschätzt, und die Rate zum 30.11. bleibt überfällig
+    const sonder = darlehen([...rate("2026-10-30", 800_00), ...rate("2026-12-10", 5000_00)]);
+    expect(posten(sonder, { heute: "2026-12-20", bis: "2026-12-31" }).posten.map((p) => [p.datum, p.betrag, p.sicherheit])).toEqual([
+      ["2026-11-30", 800_00, "geschaetzt"],
+      ["2026-12-30", 800_00, "geschaetzt"],
+    ]);
+  });
+
   it("Tilgungen enden am Bestand, die letzte tilgt den Rest und heißt Schlussrate", () => {
     const d = darlehen([...rate("2026-09-30", 800_00, 20_00), ...rate("2026-10-30", 800_00, 20_00)], 2000_00);
     const liste = posten(d).posten;
