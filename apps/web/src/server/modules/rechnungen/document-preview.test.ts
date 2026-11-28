@@ -133,6 +133,20 @@ describe.skipIf(!testDatabaseUrl)("Vorschau aus dem Formular (Postgres)", () => 
     expect(text(result.text)).toContain("2026-000");
   });
 
+  it("Korrektur: Steuer aus dem Gesamtstand der Rechnung, wie beim Festschreiben (#2079)", async () => {
+    // Rechnung 100,00 €: −0,50 € für sich −0,10 € Steuer, auf dem Stand 99,50 € → 18,91 € nur −0,09 €
+    const result = await preview.documentPreview(
+      input({
+        kind: "korrektur",
+        corrects: { number: "2026-000", issueDate: "2026-10-01" },
+        lines: [{ description: "Nachlass", quantity: 1000, unit: "Psch.", unitPrice: -50, taxRate: 1900 }],
+        correctionBasis: [{ rate: 1900, base: 10_000, tax: 1_900 }],
+      }),
+    );
+    expect(text(result.text)).toContain("0,59");
+    expect(text(result.text)).not.toContain("0,60");
+  });
+
   it("Schlussrechnung: Gesamtrabatt ohne die Abzüge der Abschlagsrechnungen, wie im Editor und beim Speichern", async () => {
     const abschlag = "00000000-0000-4000-8000-000000000001";
     const lines = [
