@@ -379,6 +379,15 @@ describe.skipIf(!testDatabaseUrl)("REST-API /api/v1 (Postgres)", () => {
       expect(seal!.columns.invoices).toEqual(expect.arrayContaining(["paid_via", "paid_on"]));
       await expect(sql`update invoices set paid_via = 'geändert' where id = ${invoice.id}`).rejects.toThrow(/festgeschrieben/);
       const correction = await rechnungen.createCorrection(actor, final.id, today);
+      // Nicht die ganze unbezahlte Rechnung aufheben, das ist seit #2037 ein Storno: Entwurf kürzen. Der Gegenstand ist
+      // die Vererbung von paidOn und paidVia, der Betrag spielt darin keine Rolle.
+      const { draftInputOf } = await import("../rechnungen/external-reference.ts");
+      const geladen = (await rechnungen.getInvoice(correction.id))!;
+      const eingabe = draftInputOf(geladen.invoice, geladen.lines);
+      await rechnungen.updateDraft(actor, correction.id, {
+        ...eingabe,
+        lines: eingabe.lines.map((z, n) => (n === 0 ? { ...z, unitPrice: Math.floor(z.unitPrice / 2) } : z)),
+      });
       expect(await rechnungen.finalizeInvoice(actor, correction.id, kleinunternehmerStand)).toMatchObject({ kind: "korrektur", paidOn: null, paidVia: null });
       expect(await rechnungen.cancelInvoice(actor, final.id, today)).toMatchObject({ kind: "storno", paidOn: null, paidVia: null });
     }, 30_000);

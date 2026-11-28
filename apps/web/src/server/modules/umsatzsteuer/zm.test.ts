@@ -164,6 +164,9 @@ describe.skipIf(!testDatabaseUrl)("Zusammenfassende Meldung (Postgres)", () => {
     const a = await rechnung("2026-09-10", 400_000);
     const b = await rechnung("2026-09-11", 100_000, { name: "Lumière SARL", land: "FR", ustId: "FR12345678901" });
     await invoices.cancelInvoice(actor, a.id, "2026-10-05");
+    // 1,00 EUR vorab: seit #2037 ist eine Korrektur über den vollen, unbezahlten Betrag ein Storno. Die Gutschrift muss
+    // hier voll sein, sonst mindert sie die ZM-Zeile nicht auf null.
+    await bank.createCashInvoiceEntry(actor, { invoiceId: b.id, date: "2026-09-20", amount: 100 }, "2026-09-20");
     const korrektur = await invoices.createCorrection(actor, b.id, "2026-10-06");
     await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand);
     await rechnung("2026-11-02", 500_000, { name: "Nordlicht AB", land: "SE", ustId: "SE123456789001" });
@@ -307,6 +310,9 @@ describe.skipIf(!testDatabaseUrl)("Zusammenfassende Meldung (Postgres)", () => {
       kunden.clear();
       const alt = await rechnung("2026-07-10", 100_000, { name: "Bergwerk AG", land: "CH" });
       await festgeschriebenVor1433(alt.id, "CHE123456789MWST");
+      // 1,00 EUR vorab, nur im Korrektur-Zweig: seit #2037 ist eine Korrektur über den vollen, unbezahlten Betrag ein
+      // Storno. Die Gutschrift muss hier voll sein, damit die Zeile aus Kz 21 und der ZM verschwindet.
+      if (weg === "Korrektur") await bank.createCashInvoiceEntry(actor, { invoiceId: alt.id, date: "2026-07-15", amount: 100 }, "2026-07-15");
       const gutschrift =
         weg === "Storno"
           ? await invoices.cancelInvoice(actor, alt.id, "2026-07-20")

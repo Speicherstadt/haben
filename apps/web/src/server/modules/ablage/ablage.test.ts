@@ -208,7 +208,17 @@ describe.skipIf(!testDatabaseUrl)("Ablage im Archiv (Postgres)", () => {
     await ablage.saveArchiveTarget(actor, zielMitId());
     const original = await festschreiben();
     const storno = await invoices.cancelInvoice(actor, original.id, "2026-10-05");
-    const korrektur = await invoices.finalizeInvoice(actor, (await invoices.createCorrection(actor, vorher.id, "2026-10-06")).id, kleinunternehmerStand);
+    // Nicht die ganze unbezahlte Rechnung aufheben, das ist seit #2037 ein Storno: Entwurf kürzen. Der Gegenstand ist,
+    // dass die Ablage die Korrektur mitnimmt, nicht ihr Betrag.
+    const entwurf = await invoices.createCorrection(actor, vorher.id, "2026-10-06");
+    const { draftInputOf } = await import("../rechnungen/external-reference.ts");
+    const geladen = (await invoices.getInvoice(entwurf.id))!;
+    const eingabe = draftInputOf(geladen.invoice, geladen.lines);
+    await invoices.updateDraft(actor, entwurf.id, {
+      ...eingabe,
+      lines: eingabe.lines.map((z, n) => (n === 0 ? { ...z, unitPrice: Math.floor(z.unitPrice / 2) } : z)),
+    });
+    const korrektur = await invoices.finalizeInvoice(actor, entwurf.id, kleinunternehmerStand);
     expect(await ablage.deliverInvoices(actor)).toEqual({ uebertragen: 3, fehler: 0 });
     expect(mitId.received.map((r) => r.files.datei!.name)).toEqual([original, storno, korrektur].map((i) => `Rechnung-${i.number}.pdf`));
     expect(await ablage.deliveryForInvoice(vorher)).toBeNull();
