@@ -131,6 +131,11 @@ describe.skipIf(!testDatabaseUrl)("Konten nach dem Buchungsjahr (Postgres)", () 
       expect(await euerZeilen(2024)).toEqual({ einnahmenKleinunternehmer: 20_000 });
       expect(await euerZeilen(2026)).toEqual({ einnahmenKleinunternehmer: -20_000 });
       expect(await konten(2026)).toEqual([kasse, erloese.ab2025].sort());
+      for (const jahr of [2024, 2026]) {
+        const pruefung = await abgleich.euerAbgleich(jahr);
+        expect(pruefung.hinweise).toEqual([]);
+        expect(abgleich.abweichungen(pruefung.zeilen)).toEqual([]);
+      }
       expect(await sql`select art, tabelle, zeile, befund from haben_integrity_problems(1000)`).toEqual([]);
     });
   }
