@@ -242,7 +242,7 @@ Zeigt ein Link auf eine Zeile einer Tabelle, etwa aus der BWA auf eine Buchung i
 
 **Hinweis mit Aktion:** Hat ein Hinweis genau eine Aktion, steht sie als neutraler Knopf (`btn btn-sm`, nie `btn-primary`: grün auf roter oder oranger Fläche schreit lauter als der Hinweis) rechts neben dem Text (`.banner-aktion`), auch am Handy: Der Text bricht links um, der Knopf bleibt eine Zeile hoch. Untereinander gestapelt wird der Hinweis doppelt so hoch, ohne dass er mehr sagt.
 
-Hinweise (`.banner`) als direkte Kinder von `<main>` stehen 24px von ihren Nachbarn, folgen zwei aufeinander, nur 12px. Der Hinweis „Senden ist noch nicht eingerichtet“ ist die Komponente `EricHinweis`, nie ein eigener Text; sein Link bricht nicht um. Was das Senden hindert oder Zahlen verfälscht, bleibt je ein eigener Hinweis; mehrere Hinweise, die nichts blockieren, stehen gebündelt in einem als Liste (`.banner-list`, so auf der Voranmeldung); die Einrichtungshinweise (ERiC, Hersteller-ID) stehen davon getrennt für sich.
+Hinweise (`.banner`) als direkte Kinder von `<main>` stehen 24px von ihren Nachbarn, folgen zwei aufeinander, nur 12px. Der Hinweis „Senden ist noch nicht eingerichtet“ ist die Komponente `EricHinweis`, nie ein eigener Text; sein Link bricht nicht um. Was das Senden hindert oder Zahlen verfälscht, bleibt je ein eigener Hinweis; mehrere Hinweise, die nichts blockieren, stehen gebündelt in einem als Liste (`.banner-list`, so auf der Voranmeldung und der BWA); die Einrichtungshinweise (ERiC, Hersteller-ID) stehen davon getrennt für sich.
 
 ### Kartenleiste der Konten
 

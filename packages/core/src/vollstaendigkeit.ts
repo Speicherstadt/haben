@@ -1,0 +1,129 @@
+import type { BwaForm } from "./bwa-kennzahlen.ts";
+import type { Zeitraum } from "./bwa-zeitraum.ts";
+import { addDays, isNonWorkingDay } from "./holidays.ts";
+import { addMonthsAnchored } from "./recurring.ts";
+
+/*
+ * Was in einem Zeitraum noch fehlt und die Zahlen einer Auswertung verfälscht (#1635): offene Bankumsätze, ungebuchte Belege,
+ * Rechnungsentwürfe und Konten, deren Umsätze vor dem Ende des Zeitraums aufhören. Rechnet ohne Datenbank, damit BWA,
+ * Liquidität, Vollständigkeitsampel, Export und MCP dieselben Hinweise bekommen. Die Zählung liefert der Server
+ * (modules/vollstaendigkeit), dieselbe wie in der Vorprüfung der Voranmeldung.
+ */
+
+/** Was im Zeitraum noch offen ist; Belege ohne Datum zählen mit */
+export interface OffeneVorgaenge {
+  /** Bankumsätze aus, ohne Beleg oder Zuordnung */
+  ausgaben: number;
+  /** Bankumsätze ein, nicht zugeordnet */
+  eingaenge: number;
+  /** Belege im Status „neu“ */
+  belege: number;
+  rechnungsentwuerfe: number;
+}
+
+/** Wie weit die Umsätze eines Kontos reichen: Ende des letzten Imports oder letzter Umsatz; null ohne Import */
+export interface KontoAbdeckung {
+  id: string;
+  name: string;
+  bis: string | null;
+}
+
+export type UnvollstaendigArt = "ausgaben" | "eingaenge" | "belege" | "rechnungsentwuerfe" | "konto";
+
+export interface UnvollstaendigHinweis {
+  art: UnvollstaendigArt;
+  /** warn: die Zahlen sind sicher zu niedrig oder zu hoch; info: sie können es sein */
+  ton: "warn" | "info";
+  /** Anzahl der Vorgänge; bei „konto“ die der Konten */
+  anzahl: number;
+  /** Nur bei „konto“: alle Konten, die zu früh aufhören, in einem Hinweis */
+  konten?: { id: string; name: string; bis: string }[];
+  /** Wo es sich beheben lässt; die Seite zeigt den Link nur, wer die Seite sieht */
+  link: "/bank" | "/belege" | "/rechnungen";
+}
+
+/**
+ * Bis zu welchem Tag Umsätze da sein sollten: das Ende des Zeitraums, im laufenden Zeitraum gestern, jeweils zurück auf den
+ * letzten Bankarbeitstag. Am Wochenende und an bundesweiten Feiertagen bucht keine Bank, sonst meldete fast jeder Monat ein
+ * Konto, dessen letzter Auszug am Freitag endet. null, wenn davon nichts im Zeitraum liegt.
+ */
+export function stichtag(zeitraum: Zeitraum, heute: string): string | null {
+  let tag = addDays(heute, -1);
+  if (zeitraum.bis < tag) tag = zeitraum.bis;
+  while (isNonWorkingDay(tag, null)) tag = addDays(tag, -1);
+  return tag < zeitraum.von ? null : tag;
+}
+
+/** Ohne Umsätze so lange vor dem Zeitraum gilt ein Konto als stillgelegt */
+const STILLGELEGT_NACH_MONATEN = 3;
+
+/**
+ * Konten, deren Umsätze vor dem Stichtag aufhören, auch bis 3 Monate vor dem Zeitraum. Endet die Abdeckung früher, gilt das
+ * Konto als stillgelegt, denn ein aufgelöstes Konto mit Zuordnungen lässt sich nicht ausschließen; ein ausgeschlossenes liefert
+ * der Server gar nicht. Ohne Import fehlt nichts Bekanntes, also kein Hinweis. Lücken mitten im Zeitraum erkennt das nicht.
+ */
+export function kontenNurBis(konten: readonly KontoAbdeckung[], zeitraum: Zeitraum, heute: string): { id: string; name: string; bis: string }[] {
+  const tag = stichtag(zeitraum, heute);
+  if (!tag) return [];
+  const stillgelegtVor = addMonthsAnchored(zeitraum.von, -STILLGELEGT_NACH_MONATEN, Number(zeitraum.von.slice(8, 10)));
+  return konten.flatMap((k) => (k.bis !== null && k.bis >= stillgelegtVor && k.bis < tag ? [{ id: k.id, name: k.name, bis: k.bis }] : []));
+}
+
+/**
+ * Die Hinweise für eine Form der BWA. Form 43 rechnet nach Zahlung: Jeder offene Bankumsatz fehlt in Erlösen oder Kosten,
+ * Rechnungsentwürfe ändern nichts. Form 01 rechnet periodengerecht: Ein Zahlungseingang zu einer festgeschriebenen Rechnung
+ * ist schon Erlös, eine Zahlung zu einem gebuchten Beleg schon Aufwand, ein Entwurf mit Datum im Zeitraum fehlt vielleicht,
+ * und nach dem letzten Umsatz eines Kontos fehlt nur, was erst die Bank bucht (Gebühren, Zinsen); alle nur als Hinweis.
+ */
+export function unvollstaendig(offen: OffeneVorgaenge, konten: readonly { id: string; name: string; bis: string }[], form: BwaForm): UnvollstaendigHinweis[] {
+  const hinweise: UnvollstaendigHinweis[] = [];
+  const dazu = (art: UnvollstaendigArt, anzahl: number, ton: UnvollstaendigHinweis["ton"], link: UnvollstaendigHinweis["link"]) => {
+    if (anzahl > 0) hinweise.push({ art, ton, anzahl, link });
+  };
+  const bankTon = form === "form43" ? "warn" : "info";
+  dazu("ausgaben", offen.ausgaben, bankTon, "/bank");
+  dazu("eingaenge", offen.eingaenge, bankTon, "/bank");
+  dazu("belege", offen.belege, "warn", "/belege");
+  if (form === "form01") dazu("rechnungsentwuerfe", offen.rechnungsentwuerfe, "info", "/rechnungen");
+  if (konten.length > 0) hinweise.push({ art: "konto", ton: bankTon, anzahl: konten.length, konten: [...konten], link: "/bank" });
+  return hinweise;
+}
+
+/** TT.MM., mit Jahr, sobald Tag und Zeitraum nicht in einem Jahr liegen; sonst wäre „nur bis 20.01.“ über den Jahreswechsel offen */
+const tagImZeitraum = (datum: string, zeitraum: Zeitraum) => {
+  const tagMonat = `${datum.slice(8, 10)}.${datum.slice(5, 7)}.`;
+  const jahr = datum.slice(0, 4);
+  return jahr === zeitraum.von.slice(0, 4) && jahr === zeitraum.bis.slice(0, 4) ? tagMonat : `${tagMonat}${jahr}`;
+};
+
+/**
+ * Ein Satz je Hinweis zum Zeitraum der Auswertung, für Seite und Export gleich, jeweils mit Folge für die Zahlen. Vorsichtig:
+ * Ein offener Umsatz kann auch eine Einlage, Entnahme, ein Geldtransit oder eine Tilgung sein.
+ */
+export function unvollstaendigText(h: UnvollstaendigHinweis, zeitraum: Zeitraum): string {
+  const n = h.anzahl;
+  const fehlt = n === 1 ? "fehlt" : "fehlen";
+  const warn = h.ton === "warn";
+  switch (h.art) {
+    case "ausgaben":
+      return `${n} ${n === 1 ? "Ausgabe" : "Ausgaben"} im Zeitraum ohne Beleg oder Zuordnung; ${fehlt} ${
+        warn
+          ? `in den Kosten, ${n === 1 ? "wenn es eine Betriebsausgabe ist" : "soweit es Betriebsausgaben sind"}`
+          : "im Aufwand, wenn kein gebuchter Beleg dazugehört"
+      }.`;
+    case "eingaenge":
+      return `${n} ${n === 1 ? "Zahlungseingang" : "Zahlungseingänge"} im Zeitraum noch nicht zugeordnet; ${fehlt} in den Erlösen, ${
+        warn ? (n === 1 ? "wenn es eine Einnahme ist" : "soweit es Einnahmen sind") : "wenn keine festgeschriebene Rechnung dazugehört"
+      }.`;
+    case "belege":
+      return `${n} ${n === 1 ? "Beleg" : "Belege"} im Zeitraum oder ohne Datum noch nicht gebucht; ${fehlt} in den Kosten.`;
+    case "rechnungsentwuerfe":
+      return `${n} ${n === 1 ? "Rechnungsentwurf" : "Rechnungsentwürfe"} mit Datum im Zeitraum; Erlöse zählen erst festgeschrieben.`;
+    case "konto": {
+      const konten = h.konten ?? [];
+      const liste = konten.map((k) => `„${k.name}“ nur bis ${tagImZeitraum(k.bis, zeitraum)}`).join(", ");
+      // Periodengerecht fehlt nach dem letzten Umsatz nur, was erst die Bank bucht
+      return `Umsätze ${konten.length === 1 ? "vom Konto" : "der Konten"} ${liste}; ${warn ? "was danach kam, fehlt in Erlösen und Kosten" : "Gebühren und Zinsen danach können fehlen"}.`;
+    }
+  }
+}

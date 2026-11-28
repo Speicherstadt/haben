@@ -277,6 +277,39 @@ describe.skipIf(!testDatabaseUrl)("BWA nach Zufluss und Abfluss (Postgres, #1380
     expect((await bwa.bwaBericht({ von: "2025-07-01", bis: "2026-06-30" }, "keiner")).afaOffen).toEqual([2025, 2026]);
   }, 60_000);
 
+  it("weist auf Unvollständiges im Zeitraum hin: offene Umsätze, ungebuchte Belege, Konto nur bis, auch vor dem Zeitraum; ohne Entwürfe (#1635)", async () => {
+    await reset("ist", "SKR03");
+    await bankumsaetze([umsatz("02.03.26", "Hosting", "-29,00"), umsatz("16.03.26", "Kunde", "500,00"), umsatz("20.03.26", "Kunde", "100,00")]);
+    await documents.uploadDocument(actor, { bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]), filename: "neu.jpg" });
+    await invoices.createDraft(actor, {
+      contactId,
+      issueDate: "2026-03-10",
+      serviceFrom: null,
+      serviceTo: null,
+      paymentTermDays: 14,
+      format: "zugferd",
+      note: "",
+      lines: [{ description: "Leistung", quantity: 1000, unit: "Psch." as const, unitPrice: 10_000, taxRate: 1900 }],
+    });
+    const maerz = await bwa.bwaBericht(bwaZeitraum("monat", 2026, 3), "vorjahr", undefined, "2026-11-28");
+    expect(maerz.unvollstaendig.stand).toBe("2026-11-28");
+    expect(maerz.unvollstaendig.hinweise.map((h) => [h.art, h.ton, h.anzahl, h.konten?.map((k) => k.bis) ?? null])).toEqual([
+      ["ausgaben", "warn", 1, null],
+      ["eingaenge", "warn", 2, null],
+      ["belege", "warn", 1, null],
+      ["konto", "warn", 1, ["2026-03-20"]],
+    ]);
+    // Im laufenden Monat bis gestern: Der Umsatz von gestern (Freitag) reicht, das Konto fehlt nicht
+    const laufend = await bwa.bwaBericht(bwaZeitraum("monat", 2026, 3), "keiner", undefined, "2026-03-21");
+    expect(laufend.unvollstaendig.hinweise.map((h) => h.art)).toEqual(["ausgaben", "eingaenge", "belege"]);
+    // April: Das Konto endet vor dem Zeitraum und bleibt gemeldet; der Beleg ohne Datum bleibt
+    const april = await bwa.bwaBericht(bwaZeitraum("monat", 2026, 4), "keiner", undefined, "2026-11-28");
+    expect(april.unvollstaendig.hinweise.map((h) => [h.art, h.konten?.map((k) => k.bis) ?? null])).toEqual([
+      ["belege", null],
+      ["konto", ["2026-03-20"]],
+    ]);
+  }, 60_000);
+
   it("GmbH: keine BWA nach Zufluss, sondern Form 01 (bwa-form01.test.ts)", async () => {
     await reset("soll", "SKR04", "gmbh");
     await beleg("2027-03-01", 5_000, "software", "privat");

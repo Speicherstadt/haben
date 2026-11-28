@@ -33,6 +33,13 @@ Zeilen, die in allen Spalten 0 sind, fehlen, Summen und Ergebnisse ausgenommen; 
 
 Die Umsatzrendite im Einzelunternehmen rechnet ohne Umsatzsteuer und Vorsteuer, denn die schwanken im Monat mit den Zahlungen an das Finanzamt; DATEV teilt dort das Ergebnis mit Steuern durch die Betriebseinnahmen. Ist der Nenner 0 oder negativ, steht „–“.
 
+Darüber weist die BWA auf **Unvollständiges** im Zeitraum hin, mit Link dorthin, wo es sich beheben lässt (die Steuerberatung sieht den Link zur Bank nicht):
+
+- offene Ausgaben und Zahlungseingänge auf dem Konto, ungebuchte Belege und, nur bei GmbH und UG, Rechnungsentwürfe, gezählt wie in der [Vorprüfung der Voranmeldung](umsatzsteuer.md#vorprüfung);
+- „Umsätze vom Konto … nur bis TT.MM.“, wenn Kontoauszug und Umsätze eines Kontos (außer privaten) vor dem Ende des Zeitraums aufhören, im laufenden Zeitraum vor gestern, auch bis 3 Monate vor Beginn des Zeitraums; mehrere Konten in einem Hinweis. Fällt dieser Tag auf ein Wochenende oder einen bundesweiten Feiertag, reicht der Bankarbeitstag davor. Das Jahr steht dabei, wenn Tag und Zeitraum nicht im selben Jahr liegen („nur bis 20.10.2025“).
+
+Jeder Hinweis sagt, was dadurch fehlen kann, vorsichtig, denn ein offener Umsatz kann auch eine Einlage, Entnahme, ein Geldtransit oder eine Tilgung sein. Was die Zahlen sicher verfälscht, steht je als eigener Hinweis. Bei GmbH und UG zählt eine Rechnung schon festgeschrieben als Erlös und ein gebuchter Beleg als Aufwand; offene Ausgaben, Zahlungseingänge, Entwürfe und „nur bis“ stehen dort gebündelt als ruhiger Hinweis, denn nach dem letzten Umsatz fehlt nur, was erst die Bank bucht (Gebühren, Zinsen). Die Hinweise gelten für den Zeitraum, nicht für die kumulierte Spalte und den Vergleich.
+
 Anders als die EÜR zählt die BWA nicht abziehbare Ausgaben (30 % der Bewirtung, Gewerbesteuer, nicht abziehbare Nebenleistungen) als Kosten, denn bezahlt sind sie trotzdem. Die Zeile „nicht abziehbare Ausgaben“ darunter führt zum Gewinn laut EÜR. Eine Umsatzsteuer-Vorauszahlung, die die EÜR dem Vorjahr zurechnet ([Vorauszahlung um den Jahreswechsel](auswertungen.md#umsatzsteuer-vorauszahlung-um-den-jahreswechsel)), steht in der BWA am 31. Dezember des Vorjahres.
 
 Ein Klick auf eine Zeile mit Beträgen zeigt darunter, was darin steht: je Zeile der EÜR die Zahlungen mit Datum, Betrag und Link zur Rechnung oder zum Beleg. Die Kontonummer führt zum Kontenblatt; das zeigt die Buchungen nach Buchungsdatum, nicht nach Zahlung. Zahlungen ohne Rechnung und Beleg, etwa Lohn oder Umsatzsteuer an das Finanzamt, führen zu ihrer Buchung im Kontenblatt: am Tag der Zahlung, auch wenn die BWA sie am 31. Dezember des Vorjahres zeigt, die Zeile markiert.
@@ -49,6 +56,7 @@ Mit einem Vergleich steht darüber „Warum?“: die Abweichung der Zeile nach K
 Grenzen:
 
 - Abschreibungen, Restbuchwerte, die Entnahme von Anlagen und die Privatnutzung von Fahrzeugen zeigt die BWA erst, wenn das Jahr im [Anlagenverzeichnis](anlagen.md) gebucht ist. Die EÜR rechnet sie vorher schon aus dem Anlagenverzeichnis; bis dahin weicht der Gewinn ab, und die BWA weist darauf hin.
+- Ein Konto ohne Import meldet die BWA nicht, ebenso wenig Lücken mitten im Zeitraum. Endet ein Konto mehr als 3 Monate vor dem Zeitraum, gilt es als stillgelegt und fehlt ebenfalls. Nennt ein Kontoauszug keinen Zeitraum, reicht das Konto bis zum letzten Umsatz; ein Konto mit wenigen Umsätzen kann die BWA dann melden, obwohl nichts fehlt. Ruft Haben einen Zahlungsdienstleister selbst ab (Stripe, PayPal …), reicht sein Konto bis zum Tag vor dem letzten Abruf, wenn der gelungen ist.
 - Im Einzelunternehmen stehen Zinserträge und andere steuerfreie Einnahmen bei den Erlösen, weil die EÜR sie in einer Zeile mit den steuerfreien Umsätzen führt.
 
 ## BWA für GmbH und UG

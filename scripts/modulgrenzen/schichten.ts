@@ -16,6 +16,7 @@ export const SCHICHTEN = [
   "rechnungen",
   "ablage",
   "leistungen",
+  "vollstaendigkeit",
   "umsatzsteuer",
   "lohn",
   "bank",

@@ -95,6 +95,10 @@ test("Einladung, lesen ja, ändern nein, sperren", async ({ page: owner, browser
   }
   // Zahlungen ohne Beleg führen auch für die Steuerberatung aus der BWA ins Kontenblatt (#1635)
   await stb.goto(`/auswertungen/bwa?jahr=${YEAR}&zeitraum=jahr&vergleich=keiner&zeile=ustZahlung`);
+  // Den Hinweis auf den offenen Zahlungseingang sieht sie ohne Link: Die Bank sieht sie nicht
+  const offen = stb.getByRole("status").filter({ hasText: "Zahlungseingang im Zeitraum noch nicht zugeordnet" });
+  await expect(offen).toBeVisible();
+  await expect(offen.getByRole("link")).toHaveCount(0);
   await stb
     .getByRole("region", { name: `Umsatzsteuer-Zahlungen · ${YEAR}` })
     .getByRole("link", { name: /^Bank · Konto \d{4}$/ })
