@@ -248,6 +248,9 @@ export async function speichereVerbindung(actor: string, input: z.input<typeof v
     // Ein anderer Start oder ein anderes Konto beginnt wieder am gewählten Tag
     fetchFrom: anderesKonto || startGeaendert || !existing ? data.fetchFrom : existing.row.fetchFrom,
     ...(anderesKonto || neuerZugang ? { lastError: null } : {}),
+    // Ohne Fehler gilt last_sync_at als erfolgreicher Abruf (BWA, kontoAbdeckung); der fehlgeschlagene Anlauf oder der Abruf
+    // eines anderen Kontos ist keiner. Der Zeitplan ruft dann gleich ab.
+    ...(anderesKonto || (neuerZugang && existing?.row.lastError) ? { lastSyncAt: null } : {}),
     updatedAt: new Date(),
   };
   const gespeichert = await withActor(actor, async (tx) => {
