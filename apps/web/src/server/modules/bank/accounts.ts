@@ -6,7 +6,7 @@ import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { withActor } from "../../db/actor.ts";
 import { db, schema, type Tx } from "../../db/index.ts";
-import { bankDuplicateConfirmedSql, bankOpenAmountSql as openAmountSql } from "../../db/bank-open.ts";
+import { bankDuplicateConfirmedSql, bankOpenAmountSql as openAmountSql, echterImport } from "../../db/bank-open.ts";
 import { today } from "../../today.ts";
 import { nichtPrivat, zaehlePrivat } from "./privat-kennzeichnung.ts";
 
@@ -22,14 +22,6 @@ export const accountSchema = z.object({
     .transform(normalizeIban)
     .pipe(z.string().regex(/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/, "IBAN ungültig")),
 });
-
-/**
- * Ein Import mit Inhalt: Der Eintrag eines abgelehnten Abrufs (`recordRefusedBatch`) hat weder Zeitraum noch Umsätze und
- * zählt nicht als letzter Import (Kontostand, Saldenfolge). Ohne diese Bedingung käme er bei `desc(periodTo)` zuerst. Ebenso
- * der Eintrag zu einem Umsatz, den Haben nach einem Konflikt übernommen hat (`resolveConflict`): ohne Zeitraum und Salden.
- */
-export const echterImport = sql`not (${schema.bankImports.periodTo} is null and ${schema.bankImports.added} = 0 and ${schema.bankImports.skipped} = 0)
-  and not exists (select 1 from import_resolutions r join bank_transactions t on t.id = r.transaction_id where t.import_id = ${schema.bankImports.id})`;
 
 export async function listAccounts() {
   const accounts = await db.select().from(schema.bankAccounts).where(isNull(schema.bankAccounts.excludedAt)).orderBy(asc(schema.bankAccounts.name));

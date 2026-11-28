@@ -47,3 +47,11 @@ export const bankDuplicatePendingSql = sql<boolean>`not ${bankDuplicateConfirmed
 
 /** Ein offener oder bestätigter Dublettenvermerk schließt den Umsatz aus Zuordnungsvorschlägen aus. */
 export const bankDuplicateProposalEligibleSql = sql<boolean>`not (${bankDuplicateConfirmedSql} or (${bankDuplicatePendingSql}))`;
+
+/**
+ * Ein Import mit Inhalt: Der Eintrag eines abgelehnten Abrufs (`recordRefusedBatch`) hat weder Zeitraum noch Umsätze und
+ * zählt nicht als letzter Import (Kontostand, Saldenfolge). Ohne diese Bedingung käme er bei `desc(periodTo)` zuerst. Ebenso
+ * der Eintrag zu einem Umsatz, den Haben nach einem Konflikt übernommen hat (`resolveConflict`): ohne Zeitraum und Salden.
+ */
+export const echterImport = sql`not (${schema.bankImports.periodTo} is null and ${schema.bankImports.added} = 0 and ${schema.bankImports.skipped} = 0)
+  and not exists (select 1 from import_resolutions r join bank_transactions t on t.id = r.transaction_id where t.import_id = ${schema.bankImports.id})`;

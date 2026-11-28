@@ -47,8 +47,8 @@ export interface UnvollstaendigHinweis {
  * Konto, dessen letzter Auszug am Freitag endet. null, wenn davon nichts im Zeitraum liegt.
  */
 export function stichtag(zeitraum: Zeitraum, heute: string): string | null {
-  const gestern = addDays(heute, -1);
-  let tag = zeitraum.bis < gestern ? zeitraum.bis : gestern;
+  let tag = addDays(heute, -1);
+  if (zeitraum.bis < tag) tag = zeitraum.bis;
   while (isNonWorkingDay(tag, null)) tag = addDays(tag, -1);
   return tag < zeitraum.von ? null : tag;
 }
@@ -68,11 +68,7 @@ export function kontenNurBis(konten: readonly KontoAbdeckung[], zeitraum: Zeitra
  * Rechnungsentwürfe ändern nichts. Form 01 rechnet periodengerecht: Ein Zahlungseingang zu einer festgeschriebenen Rechnung
  * ist schon Erlös, ein Entwurf mit Datum im Zeitraum fehlt vielleicht; beides nur als Hinweis.
  */
-export function unvollstaendig(
-  offen: OffeneVorgaenge,
-  konten: readonly { id: string; name: string; bis: string }[],
-  form: BwaForm,
-): UnvollstaendigHinweis[] {
+export function unvollstaendig(offen: OffeneVorgaenge, konten: readonly { id: string; name: string; bis: string }[], form: BwaForm): UnvollstaendigHinweis[] {
   const hinweise: UnvollstaendigHinweis[] = [];
   const dazu = (art: UnvollstaendigArt, anzahl: number, ton: UnvollstaendigHinweis["ton"], link: UnvollstaendigHinweis["link"]) => {
     if (anzahl > 0) hinweise.push({ art, ton, anzahl, link });

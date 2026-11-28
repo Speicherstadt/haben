@@ -16,9 +16,10 @@ import { importAccount } from "./import-konto.ts";
 import { recordDuplicateCandidates } from "./duplicate-scan.ts";
 import { lockImportObservations, recordImportObservations } from "./import-observations.ts";
 import { schema, type Tx } from "../../db/index.ts";
+import { echterImport } from "../../db/bank-open.ts";
 import { sha256Of } from "../../storage.ts";
 import { quellenHinweis } from "./quellen.ts";
-import { echterImport, normalizeIban } from "./accounts.ts";
+import { normalizeIban } from "./accounts.ts";
 
 /** Eine CSV, die keiner bekannten Bank gehört; die Seite bietet dann die Spaltenzuordnung an (#1275) */
 export class UnbekannteCsvError extends BankError {}

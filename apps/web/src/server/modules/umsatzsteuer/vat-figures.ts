@@ -16,7 +16,7 @@ import { entnahmeQuellen } from "./entnahme-quellen.ts";
 import { vorsteuerAusBelegen } from "./vorsteuer-belege.ts";
 import { kennzahlenDerVoranmeldung } from "./umsaetze-nach-leistung.ts";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
-import { bankAccountIncludedSql, bankNotPrivateMarkedSql, bankOpenAmountSql } from "../../db/bank-open.ts";
+import { offeneVorgaenge } from "../vollstaendigkeit/index.ts";
 import { advanceVatPlans, invoiceTaxReader, invoiceTotalsById, mixNachVerrechnungen } from "../rechnungen/index.ts";
 
 export interface RevenueSource {
@@ -496,58 +496,27 @@ export interface PreflightIssue {
 export async function preflight(period: VatPeriod, figures: VatFigures): Promise<PreflightIssue[]> {
   const { start, end } = periodRange(period);
   const issues: PreflightIssue[] = [];
-  // Verrechnete Umsätze (#457) sind erledigt wie zugeordnete
-  const open = bankOpenAmountSql;
-
-  const [bank] = await db
-    .select({
-      incoming: sql<number>`count(*) filter (where ${schema.bankTransactions.amount} > 0)::int`,
-      outgoing: sql<number>`count(*) filter (where ${schema.bankTransactions.amount} < 0)::int`,
-    })
-    .from(schema.bankTransactions)
-    .where(
-      and(
-        gte(schema.bankTransactions.bookingDate, start),
-        lt(schema.bankTransactions.bookingDate, end),
-        sql`${open} <> 0`,
-        bankNotPrivateMarkedSql,
-        bankAccountIncludedSql("bank_account_id"),
-      ),
-    );
-  if (bank && bank.outgoing > 0) {
+  const offen = await offeneVorgaenge(start, end);
+  if (offen.ausgaben > 0) {
     issues.push({
       tone: "warn",
-      text: `${bank.outgoing} ${bank.outgoing === 1 ? "Ausgabe" : "Ausgaben"} im Zeitraum ohne Beleg oder Zuordnung. Ohne Beleg wird keine Vorsteuer angesetzt.`,
+      text: `${offen.ausgaben} ${offen.ausgaben === 1 ? "Ausgabe" : "Ausgaben"} im Zeitraum ohne Beleg oder Zuordnung. Ohne Beleg wird keine Vorsteuer angesetzt.`,
       link: "/bank",
     });
   }
-  if (bank && bank.incoming > 0) {
+  if (offen.eingaenge > 0) {
     issues.push({
       tone: figures.versteuerung === "ist" ? "warn" : "info",
-      text: `${bank.incoming} ${bank.incoming === 1 ? "Zahlungseingang" : "Zahlungseingänge"} im Zeitraum noch nicht zugeordnet${figures.versteuerung === "ist" ? "; bei Ist-Versteuerung fehlt sonst Umsatzsteuer" : ""}.`,
+      text: `${offen.eingaenge} ${offen.eingaenge === 1 ? "Zahlungseingang" : "Zahlungseingänge"} im Zeitraum noch nicht zugeordnet${figures.versteuerung === "ist" ? "; bei Ist-Versteuerung fehlt sonst Umsatzsteuer" : ""}.`,
       link: "/bank",
     });
   }
-
-  const [docs] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(schema.documents)
-    .where(
-      and(
-        eq(schema.documents.status, "neu"),
-        or(and(gte(schema.documents.documentDate, start), lt(schema.documents.documentDate, end)), isNull(schema.documents.documentDate)),
-      ),
-    );
-  if (docs && docs.n > 0) {
-    issues.push({ tone: "warn", text: `${docs.n} ${docs.n === 1 ? "Beleg ist" : "Belege sind"} noch nicht gebucht.`, link: "/belege" });
+  if (offen.belege > 0) {
+    issues.push({ tone: "warn", text: `${offen.belege} ${offen.belege === 1 ? "Beleg ist" : "Belege sind"} noch nicht gebucht.`, link: "/belege" });
   }
-
-  const [drafts] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(schema.invoices)
-    .where(and(eq(schema.invoices.status, "draft"), gte(schema.invoices.issueDate, start), lt(schema.invoices.issueDate, end)));
-  if (drafts && drafts.n > 0) {
-    issues.push({ tone: "info", text: `${drafts.n} ${drafts.n === 1 ? "Rechnungsentwurf" : "Rechnungsentwürfe"} mit Datum im Zeitraum.`, link: "/rechnungen" });
+  if (offen.rechnungsentwuerfe > 0) {
+    const n = offen.rechnungsentwuerfe;
+    issues.push({ tone: "info", text: `${n} ${n === 1 ? "Rechnungsentwurf" : "Rechnungsentwürfe"} mit Datum im Zeitraum.`, link: "/rechnungen" });
   }
 
   if (figures.steuerfrei !== 0) {
