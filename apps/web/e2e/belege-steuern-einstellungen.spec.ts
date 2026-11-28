@@ -597,10 +597,19 @@ test("Farbe und Modus wechseln, bleiben nach dem Neuladen, Version unten in der 
   await expect(html).toHaveAttribute("data-mode", "dark");
   await expect(farbe).toHaveValue("pflaume");
   await expect(modus).toHaveValue("dunkel");
+  // Die Browserleiste am Handy nimmt die Farbe der Navigation, auch nach einem Seitenwechsel
+  const themeColor = page.locator('meta[name="theme-color"]');
+  const navFarbe = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--nav").trim());
+  expect(await navFarbe()).not.toBe("#16211c");
+  await expect(themeColor).toHaveAttribute("content", await navFarbe());
+  await nav.getByRole("link", { name: "Rechnungen", exact: true }).filter({ visible: true }).click();
+  await page.waitForURL(/\/rechnungen$/);
+  await expect(themeColor).toHaveAttribute("content", await navFarbe());
   await farbe.selectOption("wald");
   await modus.selectOption("hell");
   await expect(html).toHaveAttribute("data-theme", "wald");
   await expect(html).toHaveAttribute("data-mode", "light");
+  await expect(themeColor).toHaveAttribute("content", "#16211c");
 });
 
 test("Fristen und Kalender-Abo", async () => {

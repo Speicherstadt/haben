@@ -49,11 +49,27 @@ async function go(path: string) {
   await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
 }
 
-/** Setzt den Modus ohne Neuladen, damit Eingaben und Auswahl der Seite stehen bleiben; die Farbe bleibt Wald */
-async function theme(mode: "light" | "dark") {
+/**
+ * Setzt den Modus ohne Neuladen, damit Eingaben und Auswahl der Seite stehen bleiben; die Farbe bleibt Wald. Über die
+ * Auswahl „Modus“ unten in der Navigation, sonst zeigte sie im dunklen Bild „Hell“; die eingeklappte Leiste hat eine
+ * zweite Auswahl, beide lesen denselben gespeicherten Modus. Per Ereignis statt per Klick, weil die Navigation am Handy
+ * zugeklappt ist; steht dort keine Auswahl im DOM, wie die Auswahl es täte über localStorage.
+ */
+async function theme(mode: "hell" | "dunkel") {
   await page.evaluate((m) => {
-    document.documentElement.dataset.mode = m;
+    const select = [...document.querySelectorAll(".nav-theme label")]
+      .find((label) => label.querySelector("span")?.textContent === "Modus")
+      ?.querySelector("select");
+    if (select) {
+      // Über den Setter des Elements, sonst hält React den alten Wert und meldet keine Änderung
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(select, m);
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    } else {
+      localStorage.setItem("haben-modus", m);
+      (window as { __habenTheme?: () => void }).__habenTheme?.();
+    }
   }, mode);
+  await expect(page.locator("html")).toHaveAttribute("data-mode", mode === "dunkel" ? "dark" : "light");
   // Ein Bild erst, wenn der Browser mit den neuen Farben gezeichnet hat
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 }
@@ -79,8 +95,8 @@ async function einrichtungshinweiseAusblenden() {
 async function shot(name: string, fullPage = false) {
   await einrichtungshinweiseAusblenden();
   for (const [id, suffix] of [
-    ["light", ""],
-    ["dark", "-dunkel"],
+    ["hell", ""],
+    ["dunkel", "-dunkel"],
   ] as const) {
     await theme(id);
     // Kein blinkender Cursor, keine halb abgelaufene Animation im Bild
@@ -88,7 +104,7 @@ async function shot(name: string, fullPage = false) {
     const png = await (fullPage ? fullPageScreenshot(page, options) : page.screenshot(options));
     await writeFile(`${DOCS}/screenshot-${name}${suffix}.png`, png);
   }
-  await theme("light");
+  await theme("hell");
 }
 
 /** Rechnungen in den Monaten davor, nur im Jahr der übrigen Daten; alle bis auf die letzte nach zwölf Tagen bezahlt */

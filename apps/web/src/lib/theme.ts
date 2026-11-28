@@ -100,3 +100,20 @@ export function saveTheme(theme: ThemeId) {
 export function saveMode(mode: ModeId) {
   save(readTheme(), mode);
 }
+
+/**
+ * Die Farbe der Browserleiste (meta theme-color) folgt der Navigation in Farbe und Modus. Der Server kennt die Wahl
+ * nicht und liefert die Navigation von Wald hell; danach setzt das jede Änderung an data-theme oder data-mode neu,
+ * auch „System“, wenn das Gerät umschaltet. Gibt das Ende der Beobachtung zurück.
+ */
+export function syncThemeColor(): () => void {
+  const root = document.documentElement;
+  const update = () => {
+    const nav = getComputedStyle(root).getPropertyValue("--nav").trim();
+    if (nav) document.querySelector('meta[name="theme-color"]')?.setAttribute("content", nav);
+  };
+  update();
+  const observer = new MutationObserver(update);
+  observer.observe(root, { attributes: true, attributeFilter: ["data-theme", "data-mode"] });
+  return () => observer.disconnect();
+}

@@ -5,6 +5,7 @@ import { InvoiceCopyButton } from "./InvoiceCopyButton.tsx";
 import { InvoiceReplacementNotice } from "./InvoiceReplacementNotice.tsx";
 import { NoticeBanner } from "./NoticeBanner.tsx";
 import { PreviewButton, type DocumentPreview } from "./DocumentPreview.tsx";
+import { Status } from "./Status.tsx";
 import type { InvoiceEditorProps } from "./invoice-editor-types.ts";
 import type { InvoiceEditorModel } from "./use-invoice-editor.ts";
 
@@ -52,10 +53,17 @@ export function InvoiceEditorHead({
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">{quote ? <Link to="/angebote">Angebote</Link> : <Link to="/rechnungen">Rechnungen</Link>} › Entwurf</div>
-          <h1>
-            {title} {nextNumber}
-          </h1>
+          {/* „Entwurf“ sagt der Status neben dem Titel; der Pfad führt wie bei der festgeschriebenen Rechnung zur Liste */}
+          <div className="eyebrow">
+            {quote ? <Link to="/angebote">Angebote</Link> : <Link to="/rechnungen">Rechnungen</Link>} › {title}
+          </div>
+          {/* Wie bei der festgeschriebenen Rechnung steht der Status neben dem Titel: Der Ring zeigt, dass noch nichts festgeschrieben ist */}
+          <div className="title-with-status">
+            <h1>
+              {title} {nextNumber}
+            </h1>
+            <Status draft>Entwurf</Status>
+          </div>
         </div>
         <div className="actions editor-actions">
           <PreviewButton preview={preview} />

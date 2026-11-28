@@ -113,7 +113,8 @@ function BelegMeldungen({ data, inhaber, geprueft }: { data: Detail; inhaber: bo
   return (
     <>
       {data.sepaTransfers.map((t) => (
-        <div key={t.endToEndId} className="banner" role="status">
+        // Eine Auskunft, keine Warnung: Es fehlt nichts, bis der Bankabgleich die Abbuchung zuordnet
+        <div key={t.endToEndId} className="banner banner-info" role="status">
           <Icon name="bank" />
           <span>
             Überweisung erzeugt am {formatDateTime(t.createdAt)}: {formatEuro(t.amount)}

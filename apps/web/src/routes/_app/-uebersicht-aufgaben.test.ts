@@ -2,7 +2,7 @@ import { germanDay } from "@haben/core";
 import { createElement, type ComponentType, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { formatDate, formatDateTime, formatLongDate } from "../../lib/format.ts";
+import { formatDate, formatDateTime, formatDayMonth, formatLongDate } from "../../lib/format.ts";
 
 // Die Aufgaben der Übersicht im Einzelnen: Text, Ziel samt Bereich der Einstellungen und Reihenfolge der Seite
 const state = vi.hoisted(() => ({ data: {} as Record<string, unknown> }));
@@ -32,6 +32,9 @@ const inTagen = (n: number) => {
   tag.setUTCDate(tag.getUTCDate() + n);
   return tag.toISOString().slice(0, 10);
 };
+
+/** Frist der Voranmeldung in den Tests zum ersten Buchungsmonat: bewusst in der Zukunft, sie prüfen den Start, nicht „überfällig“ */
+const frist = inTagen(10);
 
 const konto = (felder: Record<string, unknown>) => ({
   id: "k",
@@ -172,13 +175,47 @@ describe("Übersicht: Reihenfolge der Aufgaben", () => {
   });
 });
 
+describe("Übersicht: überfällige Voranmeldung", () => {
+  // Nach der Frist sagt die Übersicht „überfällig“ wie die Seite der Voranmeldung, nicht nur über die Farbe des Punkts (WCAG 1.4.1)
+  it("die Aufgabe nennt die Tage seit der Frist", () => {
+    data.dueDate = inTagen(-18);
+    expect(aufgabe(render(), "Voranmeldung Oktober 2026 senden")?.detail).toBe(`Überfällig seit 18 Tagen (${formatLongDate(inTagen(-18))})`);
+  });
+
+  it("die Karte zur Zahllast sagt „überfällig“ in der Farbe der Warnung", () => {
+    data.dueDate = inTagen(-1);
+    data.invoices.openCount = 1;
+    expect(render()).toContain(`<div class="small" style="color:var(--warn-ink);">Voranmeldung überfällig seit ${formatDayMonth(inTagen(-1))}</div>`);
+  });
+
+  // Eine Berichtigung (§ 153 AO) ist ein neuer Entwurf im schon abgegebenen Zeitraum (vat.ts: berichtigt, correctsId);
+  // die Frist des Zeitraums ist eingehalten, die Fristen zählen ihn als abgegeben (abgegebeneZeitraeume)
+  it("eine offene Berichtigung nach der Frist steht nicht als überfällig da", () => {
+    data.dueDate = inTagen(-18);
+    data.invoices.openCount = 1;
+    data.current = { status: "draft", kz83: 0, berichtigt: true } as unknown as typeof data.current;
+    const html = render();
+    expect(aufgabe(html, "Voranmeldung Oktober 2026 senden")?.detail).not.toMatch(/Überfällig/);
+    expect(html).not.toMatch(/Voranmeldung überfällig/);
+    expect(html).not.toContain("color:var(--warn-ink);");
+  });
+
+  it("am Tag der Frist und davor bleibt es bei „fällig“", () => {
+    data.dueDate = germanDay();
+    data.invoices.openCount = 1;
+    const html = render();
+    expect(aufgabe(html, "Voranmeldung Oktober 2026 senden")?.detail).toBe(`Fällig ${formatLongDate(germanDay())}`);
+    expect(html).toContain(`<div class="small" style="color:var(--muted);">Voranmeldung fällig ${formatDate(germanDay())}</div>`);
+  });
+});
+
 describe("Übersicht: Voranmeldung vor dem ersten Buchungsmonat", () => {
   // Wie die Fristen (finanzamt/fristen.ts): Was vor dem Start in Haben endete, ist nicht in Haben zu melden, sondern lag davor
   const quartal3 = { year: 2026, month: 43 };
 
   it("ein Zeitraum, der vor dem ersten Buchungsmonat endete, steht nicht als fällig oder überfällig da", () => {
     data.period = quartal3;
-    data.dueDate = "2026-10-12";
+    data.dueDate = frist;
     data.ersterBuchungsmonat = "2026-11";
     expect(titel(render())).toEqual([]);
     expect(render()).not.toContain("Fällig");
@@ -186,11 +223,11 @@ describe("Übersicht: Voranmeldung vor dem ersten Buchungsmonat", () => {
 
   it("ab dem Monat, in dem der Zeitraum endet, bleibt die Aufgabe wie bisher", () => {
     data.period = quartal3;
-    data.dueDate = "2026-10-12";
+    data.dueDate = frist;
     data.ersterBuchungsmonat = "2026-09";
     expect(aufgabe(render(), "Voranmeldung 3. Quartal 2026 senden")).toEqual({
       href: "/umsatzsteuer/$zeitraum",
-      detail: `Fällig ${formatLongDate("2026-10-12")}`,
+      detail: `Fällig ${formatLongDate(frist)}`,
     });
     data.ersterBuchungsmonat = "2026-07";
     expect(titel(render())).toEqual(["Voranmeldung 3. Quartal 2026 senden"]);
@@ -219,7 +256,7 @@ describe("Übersicht: Kennzahl „USt-Zahllast“ vor dem ersten Buchungsmonat",
   // Die Kennzahlenreihe erscheint erst, wenn es Zahlen gibt (ohneKennzahlen)
   const mitZahlen = (start: string) => {
     data.period = { year: 2026, month: 43 };
-    data.dueDate = "2026-10-12";
+    data.dueDate = frist;
     data.ersterBuchungsmonat = start;
     data.invoices.openCount = 1;
   };
@@ -228,14 +265,14 @@ describe("Übersicht: Kennzahl „USt-Zahllast“ vor dem ersten Buchungsmonat",
     mitZahlen("2026-11");
     const html = render();
     expect(html).toContain("Offene Forderungen");
-    expect(html).not.toContain("Voranmeldung fällig");
+    expect(html).not.toMatch(/Voranmeldung (über)?fällig/);
     expect(html).not.toContain("USt-Zahllast");
   });
 
   it("eine Zahllast aus Kz 39 (Sondervorauszahlung) vor dem Start macht den Zeitraum nicht fällig", () => {
     mitZahlen("2026-11");
     data.computedKz83 = -100000;
-    expect(render()).not.toContain("Voranmeldung fällig");
+    expect(render()).not.toMatch(/Voranmeldung (über)?fällig/);
   });
 
   it("eine Zahllast vor dem Start meldet kein zu knappes Steuerkonto", () => {
@@ -280,7 +317,7 @@ describe("Übersicht: Kennzahl „USt-Zahllast“ vor dem ersten Buchungsmonat",
 
   it("ab dem Startmonat bleibt die Karte wie bisher", () => {
     mitZahlen("2026-09");
-    expect(render()).toContain(`Voranmeldung fällig ${formatDate("2026-10-12")}`);
+    expect(render()).toContain(`Voranmeldung fällig ${formatDate(frist)}`);
   });
 
   it("mit gespeichertem Entwurf bleibt alles wie bisher: Aufgabe und Karte", () => {
@@ -288,7 +325,7 @@ describe("Übersicht: Kennzahl „USt-Zahllast“ vor dem ersten Buchungsmonat",
     data.current = { status: "draft", kz83: 0 } as unknown as typeof data.current;
     const html = render();
     expect(titel(html)).toContain("Voranmeldung 3. Quartal 2026 senden");
-    expect(html).toContain(`Voranmeldung fällig ${formatDate("2026-10-12")}`);
+    expect(html).toContain(`Voranmeldung fällig ${formatDate(frist)}`);
   });
 });
 
