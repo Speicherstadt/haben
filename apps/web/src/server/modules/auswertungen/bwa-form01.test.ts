@@ -26,6 +26,7 @@ describe.skipIf(!testDatabaseUrl)("BWA nach DATEV-Form 01 (Postgres, #1380)", ()
   let abschluss: typeof import("../buchhaltung/abschluss.ts");
   let bwa: typeof import("./bwa.ts");
   let form01: typeof import("./bwa-form01.ts");
+  let bank: typeof import("../bank/index.ts");
   const actor = "test-user";
   let contactId: string;
   let docSeq = 0;
@@ -41,6 +42,7 @@ describe.skipIf(!testDatabaseUrl)("BWA nach DATEV-Form 01 (Postgres, #1380)", ()
     abschluss = await import("../buchhaltung/abschluss.ts");
     bwa = await import("./bwa.ts");
     form01 = await import("./bwa-form01.ts");
+    bank = await import("../bank/index.ts");
   }, 30_000);
 
   afterAll(async () => {
@@ -265,6 +267,38 @@ describe.skipIf(!testDatabaseUrl)("BWA nach DATEV-Form 01 (Postgres, #1380)", ()
       expect(zeile(bericht, "vorlaeufigesErgebnis").betrag).toBe(guv.report.jahresergebnis);
     }, 60_000);
   }
+
+  it("weist periodengerecht auf Unvollständiges hin: Eingänge und Entwürfe nur als Hinweis (#1635)", async () => {
+    await reset("soll", "SKR04");
+    const csv =
+      `"Girokonto";"DE12 1203 0000 1234 5678 90"\n""\n` +
+      `"Buchungsdatum";"Wertstellung";"Status";"Zahlungspflichtige*r";"Zahlungsempfänger*in";"Verwendungszweck";"Umsatztyp";"IBAN";"Betrag (€)";"Gläubiger-ID";"Mandatsreferenz";"Kundenreferenz"\n` +
+      [
+        ["02.03.27", "Testfirma GmbH", "Hosting Nord", "Server", "Ausgang", "-29,00"],
+        ["12.03.27", "Nordwerk", "Testfirma GmbH", "Rechnung", "Eingang", "1.190,00"],
+      ]
+        .map(([d, von, an, zweck, typ, betrag]) => [d, d, "Gebucht", von, an, zweck, typ, "", betrag, "", "", ""].map((c) => `"${c}"`).join(";"))
+        .join("\n") +
+      "\n";
+    await bank.importStatement(actor, { bytes: new TextEncoder().encode(csv), filename: "giro.csv" }, null);
+    await invoices.createDraft(actor, {
+      contactId,
+      issueDate: "2027-03-20",
+      serviceFrom: null,
+      serviceTo: null,
+      paymentTermDays: 14,
+      format: "zugferd",
+      note: "",
+      lines: [{ description: "Leistung", quantity: 1000, unit: "Psch." as const, unitPrice: 10_000, taxRate: 1900 }],
+    });
+    const bericht = await bwa.bwaBericht(bwaZeitraum("monat", 2027, 3), "keiner", undefined, "2027-11-28");
+    expect(bericht.unvollstaendig.hinweise.map((h) => [h.art, h.ton, h.anzahl, h.link])).toEqual([
+      ["ausgaben", "warn", 1, "/bank"],
+      ["eingaenge", "info", 1, "/bank"],
+      ["rechnungsentwuerfe", "info", 1, "/rechnungen"],
+      ["konto", "warn", 1, "/bank"],
+    ]);
+  }, 60_000);
 
   it("Einzelunternehmen bekommen weiter Form 43", async () => {
     await reset("ist", "SKR03", "einzelunternehmen");

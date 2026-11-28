@@ -31,12 +31,18 @@ import {
   type Vergleich,
   type Warum,
   type WarumPosten,
+  type UnvollstaendigHinweis,
   type Zeitraum,
+  addDays,
+  kontenNurBis,
+  unvollstaendig,
 } from "@haben/core";
 import { inArray, sql } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import { listAssets } from "../buchhaltung/index.ts";
 import { loadCompany } from "../stammdaten/index.ts";
+import { kontoAbdeckung, offeneVorgaenge } from "../vollstaendigkeit/index.ts";
+import { today } from "../../today.ts";
 import { euerAusJournal } from "./euer-journal.ts";
 import { bloecke, type EuerBeitraege } from "./euer-journal-buchungen.ts";
 import { form01Werte } from "./bwa-form01.ts";
@@ -82,6 +88,8 @@ export interface BwaBericht {
   kennzahlen: BwaKennzahlen;
   /** Jahre im Zeitraum, deren AfA noch nicht gebucht ist: Die BWA zeigt bis dahin keine Abschreibungen aus dem Anlagenverzeichnis */
   afaOffen: number[];
+  /** Was im Zeitraum noch offen ist (#1635), Stand heute; die kumulierte Spalte und der Vergleich bleiben außen vor */
+  unvollstaendig: { stand: string; hinweise: UnvollstaendigHinweis[] };
 }
 
 /** Die Wirkung aller Buchungen der Jahre in der EÜR, je Buchung mit Datum und Ausgleich */
@@ -151,7 +159,7 @@ function zeilenWerte(
   };
 }
 
-export async function bwaBericht(zeitraum: Zeitraum, vergleich: Vergleich, q: Db | Tx = db): Promise<BwaBericht> {
+export async function bwaBericht(zeitraum: Zeitraum, vergleich: Vergleich, q: Db | Tx = db, heute = today()): Promise<BwaBericht> {
   const kapitalgesellschaft = isKapitalgesellschaft((await loadCompany(q)).rechtsform);
   const kum = kumuliert(zeitraum);
   const vgl = vergleichszeitraum(zeitraum, vergleich);
@@ -169,7 +177,18 @@ export async function bwaBericht(zeitraum: Zeitraum, vergleich: Vergleich, q: Db
   const afaOffen: number[] = [];
   // Alle Jahre des Zeitraums; kumuliert liegt im letzten davon
   for (const jahr of jahreVon(zeitraum)) if ((await listAssets(jahr, q)).some((a) => a.pending)) afaOffen.push(jahr);
-  return { kapitalgesellschaft, zeitraum, kumuliert: kum, vergleich: vgl, vergleichKumuliert: vglKum, afaOffen, ...spalten };
+  const offen = await offeneVorgaenge(zeitraum.von, addDays(zeitraum.bis, 1), q);
+  const konten = kontenNurBis(await kontoAbdeckung(q), zeitraum, heute);
+  return {
+    kapitalgesellschaft,
+    zeitraum,
+    kumuliert: kum,
+    vergleich: vgl,
+    vergleichKumuliert: vglKum,
+    afaOffen,
+    unvollstaendig: { stand: heute, hinweise: unvollstaendig(offen, konten, kapitalgesellschaft ? "form01" : "form43") },
+    ...spalten,
+  };
 }
 
 export interface BwaVorgang {

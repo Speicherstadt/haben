@@ -16,6 +16,7 @@ import { z } from "zod/mini";
 import { BwaKonten, Form01Hinweis } from "../../components/BwaForm01.tsx";
 import { BwaKennzahlen } from "../../components/BwaKennzahlen.tsx";
 import { BwaTabelle, zeitraumText } from "../../components/BwaTabelle.tsx";
+import { BwaUnvollstaendig } from "../../components/BwaUnvollstaendig.tsx";
 import { BwaWarum } from "../../components/BwaWarum.tsx";
 import { Field } from "../../components/Field.tsx";
 import { JOURNAL_SOURCE, ZEITRAEUME } from "../../components/Ledger.tsx";
@@ -114,6 +115,7 @@ function BwaPage() {
         <FreierZeitraum zeitraum={zeitraum} onChange={(z) => neu({ von: z.von, bis: z.bis, jahr: Number(z.bis.slice(0, 4)), zeile: undefined })} />
       )}
 
+      <BwaUnvollstaendig hinweise={bericht.unvollstaendig.hinweise} rolle={user.role} />
       {bericht.afaOffen.length > 0 && (
         <div className="banner banner-info" role="note">
           Die Anlagen {bericht.afaOffen.join(", ")} sind im <Link to="/anlagen">Anlagenverzeichnis</Link> noch nicht gebucht. Bis dahin fehlen hier
