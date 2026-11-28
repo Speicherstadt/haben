@@ -48,12 +48,13 @@ describe("positionenAusSaetzen (#1975)", () => {
       { category: "privatentnahme", taxRate: 1900, net: 250, tax: 48 },
     ]);
     // Nach Netto verteilt bekäme die Entnahme 0,47 €: Deshalb trägt die Position die Steuer der bisherigen Rechnung
-    expect(allocateSplitTax(positionen, [{ taxRate: 1900, net: 1001, tax: 190 }])[1]!.tax).toBe(47);
+    const zeilen = positionen.map((p) => ({ ...p, category: p.category ?? "sonstiges" }));
+    expect(allocateSplitTax(zeilen, [{ taxRate: 1900, net: 1001, tax: 190 }])[1]!.tax).toBe(47);
   });
 
   it("behält bei 100 % die betriebliche Position mit 0, damit die Kategorie bleibt", () => {
-    expect(positionenAusSaetzen("kfz", 100, [{ taxRate: 1900, net: 1000, tax: 190 }])).toEqual([
-      { category: "kfz", taxRate: 1900, net: 0, tax: 0 },
+    expect(positionenAusSaetzen("kfzBetrieb", 100, [{ taxRate: 1900, net: 1000, tax: 190 }])).toEqual([
+      { category: "kfzBetrieb", taxRate: 1900, net: 0, tax: 0 },
       { category: "privatentnahme", taxRate: 1900, net: 1000, tax: 190 },
     ]);
   });
@@ -173,7 +174,8 @@ describe("documentPosting mit Entnahmezeilen statt Prozent (#1975)", () => {
         it(`${fall.name}, ${prozent} %, ${vorsteuerAbzug ? "mit" : "ohne"} Vorsteuerabzug: dieselben Salden wie der Prozentsatz`, () => {
           const t = totals(fall.rows, Boolean(fall.rc));
           const amounts = fall.rows.map((r) => ({ taxRate: r.rate, net: r.base, tax: r.tax }));
-          const entnahme = belegPrivat(0, positionenAusSaetzen("telefon", prozent, amounts)).entnahme;
+          const zeilen = positionenAusSaetzen("telefon", prozent, amounts).map((p) => ({ ...p, category: p.category ?? "" }));
+          const entnahme = belegPrivat(0, zeilen).entnahme;
           for (const kontenrahmen of ["SKR03", "SKR04"] as const) {
             const prozentual = documentPosting(t, "telefon", kontenrahmen, "einzelunternehmen", "bank", vorsteuerAbzug, undefined, prozent, fall.rc ?? null);
             const zeilen = documentPosting(t, "telefon", kontenrahmen, "einzelunternehmen", "bank", vorsteuerAbzug, undefined, entnahme, fall.rc ?? null);

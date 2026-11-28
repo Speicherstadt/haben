@@ -193,7 +193,7 @@ describe.skipIf(!testDatabaseUrl)("Migration 0340: offene Belege werden Position
     const usd = await altEntwurf(FAELLE[4]!, eigenesKonto);
     await migrieren();
     const positionen = (id: string) =>
-      sql`select position, category, tax_rate, net, tax, original_net from document_splits where document_id = ${id} order by position`;
+      sql`select position, category, tax_rate, net, tax, original_net::int as original_net from document_splits where document_id = ${id} order by position`;
     expect(await positionen(telefon)).toEqual([
       { position: 1, category: "telefon", tax_rate: 1900, net: 512, tax: 97, original_net: null },
       { position: 2, category: "privatentnahme", tax_rate: 1900, net: 341, tax: 65, original_net: null },
@@ -219,6 +219,7 @@ describe.skipIf(!testDatabaseUrl)("Migration 0340: offene Belege werden Position
     await migrieren();
     expect(await sql`select * from document_splits order by document_id, position`).toEqual(vorher);
     expect(await sql`select category, private_share from documents where id = ${gebucht}`).toEqual([{ category: "internet", private_share: 25 }]);
-    expect(await sql`select * from haben_integrity_problems(100)`).toEqual([]);
+    // Nur die Belege dieses Falls: die Siegel der Fälle davor zeigen nach dem Leeren der Tabellen auf nichts mehr
+    expect(await sql`select art, befund from haben_integrity_problems(100) where zeile in (${gebucht}, ${aufgeteilt})`).toEqual([]);
   });
 });

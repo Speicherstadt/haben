@@ -186,9 +186,11 @@ describe.skipIf(!testDatabaseUrl)("Kategorien aus dem Buchungskonto von sevDesk 
     await legacy.takeOverAll("test-user", "2025-12-31");
     // Die Kategorie steht in der Position je Satz (#1975)
     const category = async (id: string) =>
-      ((await sql`select s.category from document_splits s join documents d on d.id = s.document_id where d.lexoffice_voucher_id = ${id}`)[0] as {
-        category: string;
-      }).category;
+      (
+        (await sql`select s.category from document_splits s join documents d on d.id = s.document_id where d.lexoffice_voucher_id = ${id}`)[0] as {
+          category: string;
+        }
+      ).category;
     expect(await category(tanken)).toBe("kfzBetrieb");
     expect(await category(unklar)).toBe("sonstiges");
   });
