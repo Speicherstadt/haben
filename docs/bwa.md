@@ -33,11 +33,9 @@ Zeilen, die in allen Spalten 0 sind, fehlen, Summen und Ergebnisse ausgenommen; 
 
 Die Umsatzrendite im Einzelunternehmen rechnet ohne Umsatzsteuer und Vorsteuer, denn die schwanken im Monat mit den Zahlungen an das Finanzamt; DATEV teilt dort das Ergebnis mit Steuern durch die Betriebseinnahmen. Ist der Nenner 0 oder negativ, steht „–“.
 
-Darüber weist die BWA auf **Unvollständiges** im Zeitraum hin, mit Link dorthin, wo es sich beheben lässt (die Steuerberatung sieht den Link zur Bank nicht). Gezählt wird wie in der [Vorprüfung der Voranmeldung](umsatzsteuer.md#vorprüfung):
+Darüber weist die BWA auf **Unvollständiges** im Zeitraum hin, mit Link dorthin, wo es sich beheben lässt (die Steuerberatung sieht den Link zur Bank nicht):
 
-- Ausgaben und Zahlungseingänge auf dem Konto ohne Beleg oder Zuordnung;
-- Belege mit Datum im Zeitraum oder ohne Datum, die noch nicht gebucht sind;
-- Rechnungsentwürfe mit Datum im Zeitraum, nur bei GmbH und UG;
+- offene Ausgaben und Zahlungseingänge auf dem Konto, ungebuchte Belege und, nur bei GmbH und UG, Rechnungsentwürfe, gezählt wie in der [Vorprüfung der Voranmeldung](umsatzsteuer.md#vorprüfung);
 - „Umsätze von Konto … nur bis TT.MM.“, wenn Kontoauszug und Umsätze eines Geschäfts-, Steuer- oder Zahlungsdienstleisterkontos vor dem Ende des Zeitraums aufhören, im laufenden Zeitraum vor gestern. Fällt dieser Tag auf ein Wochenende oder einen bundesweiten Feiertag, reicht der Bankarbeitstag davor.
 
 Was die Zahlen sicher verfälscht, steht je als eigener Hinweis. Bei GmbH und UG zählt eine Rechnung schon festgeschrieben als Erlös; offene Zahlungseingänge und Entwürfe stehen dort gebündelt als ruhiger Hinweis. Die Hinweise gelten für den Zeitraum, nicht für die kumulierte Spalte und den Vergleich.
