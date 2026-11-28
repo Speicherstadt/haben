@@ -89,6 +89,9 @@ export function MailCard({ data }: { data: Data }) {
           {(control) => <input {...control} name="fromName" defaultValue={s?.fromName ?? ""} placeholder={data.companyName || "Haben"} />}
         </Field>
       </div>
+      <Field label="Antworten an" hint="Leer lassen: Antworten gehen an den Absender">
+        {(control) => <input {...control} name="replyTo" type="email" defaultValue={s?.replyTo ?? ""} />}
+      </Field>
       <ReminderFields stored={s} days={days} setDays={setDays} />
       <div className="checkbox-hinted">
         <label className="checkbox">

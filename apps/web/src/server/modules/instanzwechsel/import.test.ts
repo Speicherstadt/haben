@@ -139,7 +139,7 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     await sql`insert into custom_pages(name, url) values ('Wiki', 'https://wiki.example.org/')`;
     await sql`insert into procedure_details(id, verantwortlich) values (1, 'Erika Mustermann')`;
     await mailEinrichten();
-    await sql`update mail_settings set from_name = 'Muster Design', templates = ${JSON.stringify({ "rechnung:de": { subject: "Rechnung {nummer}", body: "Hallo" } })}::jsonb`;
+    await sql`update mail_settings set from_name = 'Muster Design', reply_to = 'antworten@muster.example', templates = ${JSON.stringify({ "rechnung:de": { subject: "Rechnung {nummer}", body: "Hallo" } })}::jsonb`;
   }
 
   /** Versand mit Zugang, wie ihn jemand vor dem Übernehmen einrichtet */
@@ -292,11 +292,12 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     const [anhang] = await sql`select filename, sha256 from quote_default_attachments`;
     expect(anhang!.filename).toBe("AGB.pdf");
     expect(new Uint8Array(await storage.loadFile(anhang!.sha256))).toEqual(PDF);
-    const [mail] = await sql`select host, username, from_name, templates from mail_settings`;
+    const [mail] = await sql`select host, username, from_name, reply_to, templates from mail_settings`;
     expect(mail).toEqual({
       host: "smtp.example.org",
       username: "versand@example.org",
       from_name: "Muster Design",
+      reply_to: "antworten@muster.example",
       templates: { "rechnung:de": { subject: "Rechnung {nummer}", body: "Hallo" } },
     });
   });
@@ -570,6 +571,19 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     const alt = withChecksum({ ...inhalt, version: 5, contacts: kontakte });
     await instanzwechsel.importSettings(actor, neuGepackt(unzipSync(zip), { "einstellungen.json": strToU8(JSON.stringify(alt)) }), HEUTE);
     expect(await sql`select adresszusatz from contacts where id = ${KUNDE}`).toEqual([{ adresszusatz: "" }]);
+  });
+
+  it("liest eine Datei der Version 6: E-Mail-Einstellungen ohne Antwortadresse bekommen eine leere (#2045)", async () => {
+    await testinstanz();
+    const zip = await exportierenUndNeu();
+    const { sha256: _, ...inhalt } = einstellungen(zip);
+    expect(inhalt.mail.replyTo).toBe("antworten@muster.example");
+    const { replyTo: _r, ...mail } = inhalt.mail;
+    const alt = withChecksum({ ...inhalt, version: 6, mail });
+    await mailEinrichten();
+    const result = await instanzwechsel.importSettings(actor, neuGepackt(unzipSync(zip), { "einstellungen.json": strToU8(JSON.stringify(alt)) }), HEUTE);
+    expect(result.mail).toBe(true);
+    expect(await sql`select from_name, reply_to from mail_settings`).toEqual([{ from_name: "Muster Design", reply_to: "" }]);
   });
 
   it("lehnt ein verändertes oder beschädigtes ZIP ab, bevor es etwas schreibt", async () => {
