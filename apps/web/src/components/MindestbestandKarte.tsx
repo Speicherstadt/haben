@@ -25,15 +25,21 @@ export function MindestbestandKarte({ mindestbestand, aendern }: { mindestbestan
   );
 }
 
+/** Eingabe des Felds: leer heißt kein Mindestbestand (betrag null); fehler sagt, was zu tun ist */
+export function mindestbestandEingabe(wert: string): { betrag: Cents | null; fehler: string | null } {
+  if (wert.trim() === "") return { betrag: null, fehler: null };
+  const betrag = parseEuro(wert);
+  if (betrag === null || betrag < 0) return { betrag: null, fehler: "Trag einen Betrag ab 0 € ein, etwa 5.000,00, oder lass das Feld leer." };
+  return { betrag, fehler: null };
+}
+
 function MindestbestandForm({ mindestbestand }: { mindestbestand: Cents | null }) {
   const router = useRouter();
   const save = useServerFn(saveMindestbestand);
   const { busy, notice, run } = useAction();
   const [wert, setWert] = useState(mindestbestand === null ? "" : formatDecimal(mindestbestand));
-  const betrag = wert.trim() === "" ? null : parseEuro(wert);
-  const { form, error, check } = useSubmitCheck({
-    mindestbestand: wert.trim() !== "" && (betrag === null || betrag < 0) ? "Trag einen Betrag ab 0 € ein, etwa 5.000,00, oder lass das Feld leer." : null,
-  });
+  const { betrag, fehler } = mindestbestandEingabe(wert);
+  const { form, error, check } = useSubmitCheck({ mindestbestand: fehler });
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
