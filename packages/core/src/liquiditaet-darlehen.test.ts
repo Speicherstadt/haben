@@ -87,6 +87,23 @@ describe("Darlehensraten fortschreiben", () => {
     ]);
   });
 
+  it("der Tag im Monat ist der Termin, nicht der wegen Wochenende oder Feiertag spätere Buchungstag", () => {
+    // Zum Monatsende: Der 31.01. und der 28.02.2026 sind Samstage, die Bank bucht am 02.02. und 02.03. ab
+    const monatsende = darlehen([...rate("2026-02-02", 800_00, 200_00), ...rate("2026-03-02", 800_00, 200_00), ...rate("2026-03-31", 800_00, 200_00)]);
+    expect(kurz(monatsende, { heute: "2026-04-10", bis: "2026-07-31" }).map(([datum]) => datum)).toEqual([
+      "2026-04-30",
+      "2026-06-01",
+      "2026-06-30",
+      "2026-07-31",
+    ]);
+    // Zum 1.: Neujahr und der Sonntag, 01.02.2026, schieben die Abbuchung auf den 2.
+    const erster = darlehen([...rate("2025-12-01", 800_00, 200_00), ...rate("2026-01-02", 800_00, 200_00), ...rate("2026-02-02", 800_00, 200_00)]);
+    expect(kurz(erster, { heute: "2026-02-10", bis: "2026-06-30" }).map(([datum]) => datum)).toEqual(["2026-03-02", "2026-04-01", "2026-05-04", "2026-06-01"]);
+    // Zum 15.: Der 15.02. und 15.03.2026 sind Sonntage
+    const mitte = darlehen([...rate("2026-02-16", 800_00, 200_00), ...rate("2026-03-16", 800_00, 200_00), ...rate("2026-04-15", 800_00, 200_00)]);
+    expect(kurz(mitte, { heute: "2026-04-20", bis: "2026-07-31" }).map(([datum]) => datum)).toEqual(["2026-05-15", "2026-06-15", "2026-07-15"]);
+  });
+
   it("Tilgungen enden am Bestand, die letzte tilgt den Rest und heißt Schlussrate", () => {
     const d = darlehen([...rate("2026-09-30", 800_00, 20_00), ...rate("2026-10-30", 800_00, 20_00)], 2000_00);
     const liste = posten(d).posten;
