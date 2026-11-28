@@ -8,7 +8,7 @@ import { isUniqueViolation } from "../../errors.ts";
 import { openBooks } from "../buchhaltung/index.ts";
 import { lockInvoice } from "./advance-vat.ts";
 import { originalProblem } from "./correction-checks.ts";
-import { FREMDSYSTEM, fremdNummerSchema, looksLikePdf } from "./fremdsystem.ts";
+import { FREMDSYSTEM, fremdNummerSchema, looksLikePdf, type NachDemBuchen } from "./fremdsystem.ts";
 import { assertNichtAusgebucht } from "./invoice-cancellation.ts";
 import { InvoiceError } from "./invoice-error.ts";
 import { sha256 } from "./invoice-finalize.ts";
@@ -122,6 +122,7 @@ export async function adoptForeignCancellationFile(
   actor: string,
   raw: ForeignCancellationInput,
   file: { bytes: Uint8Array; filename: string; mimeType: string },
+  danach?: NachDemBuchen,
 ): Promise<{ id: string }> {
   const input = foreignCancellationSchema.parse(raw);
   if (!looksLikePdf(file.bytes)) throw new InvoiceError("Das Original muss ein PDF sein.");
@@ -177,6 +178,7 @@ export async function adoptForeignCancellationFile(
         storno: { correctsId: original.id, buyer: original.buyer },
       });
       await postInvoice(tx, storno, totals, company, original, `Storno ${input.number} aus dem Fremdsystem · ${contact.name}`);
+      await danach?.(tx, storno.id);
       return { id: storno.id };
     });
   } catch (error) {

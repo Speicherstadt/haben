@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import postgres from "postgres";
+import { protokollEintragen } from "../src/server/db/test-protokoll.ts";
 import { day, YEAR } from "./daten.ts";
 import { type Durchlauf, databaseUrlFuer } from "./durchlaeufe.ts";
 import {
@@ -350,6 +351,54 @@ test("Anlage: Speichern schlägt fehl, der Fokus steht danach wieder im Feld (#1
   // Die Anlage aus den Tests davor
   await fokusNachFehlschlag(page, page.getByRole("region", { name: "Angaben" }).getByLabel("Bezeichnung"));
   // Die Anlage gehört nur diesen drei Tests: die folgenden rechnen ohne sie
+  await page.locator(".page-head").getByRole("button", { name: "Löschen", exact: true }).click();
+  await bestaetigen(page, "Anlage löschen");
+  await expect(page).toHaveURL(/\/anlagen(?:\?.*)?$/);
+});
+
+test("Anlage: Abgang als Entnahme ins Privatvermögen mit Entnahmewert und Vorsteuer beim Kauf (#1970)", async () => {
+  await go("/anlagen/neu");
+  const form = page.getByRole("region", { name: "Angaben" });
+  await form.getByLabel("Bezeichnung").fill("Kamera Entnahme");
+  await form.getByRole("combobox", { name: "Art", exact: true }).selectOption({ label: "Sonstige Betriebs- und Geschäftsausstattung" });
+  await form.getByLabel("Anschaffungsdatum").fill(`${YEAR - 2}-01-10`);
+  await form.getByLabel("Anschaffungskosten netto (€)").fill("2.400,00");
+  await form.getByLabel("Nutzungsdauer in Jahren").fill("4");
+  await form.getByLabel("Übernahmestichtag").fill(`${YEAR}-01-01`);
+  await form.getByLabel("Restbuchwert zum Stichtag (€)").fill("1.200,00");
+  // Die Art des Abgangs gibt es erst mit Abgangsdatum; vorgewählt ist der Verkauf wie bisher
+  const entnahme = form.getByRole("radio", { name: "Entnahme ins Privatvermögen" });
+  await expect(entnahme).toHaveCount(0);
+  await form.getByRole("textbox", { name: /^Abgang/ }).fill(`${YEAR}-10-15`);
+  await expect(form.getByRole("radio", { name: "Verkauf oder Verschrottung" })).toBeChecked();
+  await entnahme.check();
+  // Ohne Entnahmewert: Fehler am Feld, der Fokus steht dort
+  const wert = form.getByLabel("Entnahmewert netto (€)");
+  await form.getByRole("button", { name: "Anlage übernehmen" }).click();
+  await expect(wert).toBeFocused();
+  await expect(wert).toHaveAccessibleDescription(/Trag den Entnahmewert netto ein/);
+  await wert.fill("800,00");
+  const vorsteuer = form.getByRole("checkbox", { name: "Beim Kauf Vorsteuer gezogen" });
+  await expect(vorsteuer).not.toBeChecked();
+  await expect(vorsteuer).toHaveAccessibleDescription(/Umsatzsteuer an, 19\s%/);
+  await vorsteuer.check();
+  await form.getByRole("button", { name: "Anlage übernehmen" }).click();
+  await page.waitForURL(/\/anlagen\/[0-9a-f-]{36}$/);
+
+  const angaben = page.getByRole("region", { name: "Angaben" });
+  await expect(angaben.getByRole("radio", { name: "Entnahme ins Privatvermögen" })).toBeChecked();
+  await expect(angaben.getByLabel("Entnahmewert netto (€)")).toHaveValue("800,00");
+  await expect(angaben.getByRole("checkbox", { name: "Beim Kauf Vorsteuer gezogen" })).toBeChecked();
+  // Zurück zum Verkauf: die Entnahme fällt weg
+  await angaben.getByRole("radio", { name: "Verkauf oder Verschrottung" }).check();
+  await expect(angaben.getByLabel("Entnahmewert netto (€)")).toHaveCount(0);
+  await angaben.getByRole("button", { name: "Speichern", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Gespeichert." })).toBeVisible();
+  // Das Formular baut sich nach dem Speichern aus den gespeicherten Werten neu auf
+  await expect(angaben.getByRole("radio", { name: "Verkauf oder Verschrottung" })).toBeChecked();
+  await angaben.getByRole("radio", { name: "Entnahme ins Privatvermögen" }).check();
+  await expect(angaben.getByLabel("Entnahmewert netto (€)")).toHaveValue("");
+  // Die Anlage gehört nur diesem Test
   await page.locator(".page-head").getByRole("button", { name: "Löschen", exact: true }).click();
   await bestaetigen(page, "Anlage löschen");
   await expect(page).toHaveURL(/\/anlagen(?:\?.*)?$/);
@@ -777,6 +826,13 @@ test("Abweichende IBAN der E-Rechnung: Warnung am Beleg, gesperrt unter Überwei
   const pruefen = page.getByRole("region", { name: "Bankverbindung prüfen" });
   await expect(pruefen).toContainText("DE75 5121 0800 1245 1261 99");
   await expect(pruefen).toContainText("DE02 1203 0000 0000 2020 51");
+  // Zum Überweisen: ohne Entscheidung kein GiroCode, sondern der Grund (#1967)
+  const ueberweisen = page.getByRole("region", { name: "Zum Überweisen" });
+  await ueberweisen.locator("summary").click();
+  await expect(ueberweisen).toContainText("Die E-Rechnung nennt eine andere IBAN als der Kontakt: am Beleg entscheiden, welche gilt.");
+  await expect(ueberweisen.getByRole("img")).toHaveCount(0);
+  // Entschieden wird am Beleg, nicht im Kontakt
+  await expect(ueberweisen.getByRole("link", { name: "Zum Kontakt" })).toHaveCount(0);
 
   // Ohne Entscheidung nicht auswählbar, auch nicht über „Alle auswählen“
   await go("/ueberweisungen");
@@ -794,6 +850,12 @@ test("Abweichende IBAN der E-Rechnung: Warnung am Beleg, gesperrt unter Überwei
   // Am gebuchten Beleg entscheiden: die IBAN der E-Rechnung nur für diesen Beleg
   await pruefen.getByRole("button", { name: "IBAN der E-Rechnung nur für diesen Beleg" }).click();
   await expect(pruefen).toContainText("Es gilt die IBAN der E-Rechnung, nur für diesen Beleg. Entschieden von");
+  // Danach der GiroCode an die entschiedene IBAN über den offenen Betrag, mit den Angaben zum Gegenlesen (#1967)
+  await page.reload();
+  await ueberweisen.locator("summary").click();
+  await expect(ueberweisen.getByRole("img", { name: /^GiroCode: 215,63\s€ an Netzwerk Hosting GmbH$/ })).toBeVisible();
+  await expect(ueberweisen).toContainText("DE02 1203 0000 0000 2020 51");
+  await expect(ueberweisen).toContainText("RE-2026/0815");
   await go("/ueberweisungen");
   await expect(zeile.getByRole("checkbox")).toBeEnabled();
   await expect(zeile).toContainText("DE02 1203 0000 0000 2020 51");
@@ -887,9 +949,14 @@ test("Gelernte Erlöse als Kleinunternehmer, § 19 inzwischen aufgegeben: das Fo
   // Zwei Zahlungen von damals als Erlöse ohne Steuer zugeordnet.
   const sql = postgres(databaseUrlFuer(DURCHLAUF), { max: 1 });
   try {
-    await sql`insert into audit_log (at, actor, table_name, row_id, action, new_value)
-      values (${`${datum}T12:00:00Z`}::timestamptz, 'e2e', 'company', '1', 'UPDATE', ${sql.json({ kleinunternehmer: true })}),
-             (now(), 'e2e', 'company', '1', 'UPDATE', ${sql.json({ kleinunternehmer: false })})`;
+    await protokollEintragen(
+      sql,
+      [
+        { at: `${datum}T12:00:00Z`, tableName: "company", rowId: "1", action: "UPDATE", newValue: { kleinunternehmer: true } },
+        { at: new Date().toISOString(), tableName: "company", rowId: "1", action: "UPDATE", newValue: { kleinunternehmer: false } },
+      ],
+      "e2e",
+    );
     for (const zweck of ["Fenster putzen 1", "Fenster putzen 2"]) {
       await sql`insert into allocations (transaction_id, kind, amount, category, tax_rate)
         select id, 'kategorie', amount, 'erloese', 0 from bank_transactions where purpose = ${zweck}`;

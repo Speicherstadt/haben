@@ -68,16 +68,15 @@ export {
   getContact,
   listContactChoices,
   listContacts,
-  searchContacts,
   setContactArchived,
   updateContact,
   type Contact,
   type ContactChoice,
-  type ContactHit,
   type ContactInput,
   type ContactRole,
   type UstIdMatch,
 } from "./contacts.ts";
+export { searchContacts, type ContactHit } from "./contact-search.ts";
 export {
   deleteExchangeRate,
   ExchangeRateFetchError,

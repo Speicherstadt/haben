@@ -58,7 +58,8 @@ describe.skipIf(!testDatabaseUrl)("Zusammenfassende Meldung (Postgres)", () => {
       kundennummer: "",
       name,
       strasse: "Ring 1",
-      plz: "1010",
+      // Eine deutsche PLZ hat fünf Ziffern (#914)
+      plz: land === "DE" ? "10115" : "1010",
       ort: "Wien",
       land,
       email: "a@b.example",

@@ -23,7 +23,8 @@ export { setMailTransportForTests } from "./transport.ts";
 /**
  * E-Mail: Einstellungen und Versand mit Protokoll. Erinnerungen an Fristen (finanzamt/fristen-mail.ts) und die
  * Prüfwert-Mail (auswertungen/pruefwert-mail.ts) senden hierüber. Der Versandweg (SMTP, auch Gmail mit
- * App-Passwort) steckt hinter `transport.ts`; das Passwort liegt verschlüsselt wie das ELSTER-Zertifikat in der Datenbank.
+ * App-Passwort, oder Microsoft Graph) steckt hinter `transport.ts`; sein Geheimnis liegt verschlüsselt wie das
+ * ELSTER-Zertifikat in der Datenbank.
  */
 
 export const MAIL_ACTOR = "system:mail";
@@ -60,6 +61,7 @@ export async function send(actor: string, message: Message): Promise<{ ok: boole
       from: { name: senderName(settings.fromName, company?.name ?? ""), address: settings.fromAddress },
       to: message.to,
       ...(message.bcc ? { bcc: message.bcc } : {}),
+      ...(settings.replyTo ? { replyTo: settings.replyTo } : {}),
       subject: message.subject,
       text: message.text,
       html: message.html,

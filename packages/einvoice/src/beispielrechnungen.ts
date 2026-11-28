@@ -22,6 +22,8 @@ const sampleDirectDebit = {
   debtorIban: "DE02120300000000202051",
   collectionDate: "2026-11-30",
 };
+/** Bauunternehmen in Deutschland, das selbst Bauleistungen erbringt (§ 13b Abs. 5 Satz 2 UStG) */
+const bauBuyer = { ...sampleBuyer, name: "Beispielbau GmbH", ustId: "DE123456788" };
 const orderReferences = { buyerOrder: "4500012345", sellerOrder: "AN-2026-007", despatchAdvice: "LS-0815" };
 
 /** Name → Rechnung; der Name endet auf das Format (zugferd, xr-cii, xr-ubl oder das Format selbst) */
@@ -89,6 +91,13 @@ export const BEISPIELRECHNUNGEN: Record<string, InvoiceDocument> = {
       }),
     ]),
   ),
+  // Adresszusatz (#914): BT-51 am Käufer und, als innergemeinschaftliche Lieferung, BT-76 in der Lieferanschrift
+  ...Object.fromEntries(
+    (["zugferd", "xrechnung-cii", "xrechnung-ubl"] as const).map((format) => [
+      `adresszusatz-${format}`,
+      sampleDocument({ format, buyer: { ...euBuyer, adresszusatz: "Afdeling Inkoop" }, lines: zeroRateLines, taxTreatment: "ig_lieferung" }),
+    ]),
+  ),
   "leitweg-xr-cii": sampleDocument({ format: "xrechnung-cii", buyer: publicBuyer }),
   "leitweg-xr-ubl": sampleDocument({ format: "xrechnung-ubl", buyer: publicBuyer }),
   "leistungsdatum-xr-ubl": { ...sampleDocument({ format: "xrechnung-ubl" }), serviceFrom: "2026-09-30", serviceTo: undefined },
@@ -123,6 +132,16 @@ export const BEISPIELRECHNUNGEN: Record<string, InvoiceDocument> = {
           ];
           return { ...doc, lines: doc.lines.map((line, i) => ({ ...line, ...eigene[i % eigene.length] })) };
         })(),
+      ],
+      // Bauleistung im Inland (§ 13b Abs. 5 UStG, #1934): Kategorie AE an einen Kunden in Deutschland mit USt-IdNr. (BR-AE-02),
+      // auch ohne eigene USt-IdNr., dann mit der Steuernummer (BT-32)
+      [`bauleistung-13b-${format}`, sampleDocument({ format, buyer: bauBuyer, lines: zeroRateLines, taxTreatment: "bauleistung_13b" })],
+      [
+        `bauleistung-13b-nur-steuernummer-${format}`,
+        {
+          ...sampleDocument({ format, buyer: bauBuyer, lines: zeroRateLines, taxTreatment: "bauleistung_13b" }),
+          seller: { ...sampleSeller, ustId: undefined },
+        },
       ],
       [`drittland-${format}`, sampleDocument({ format, buyer: thirdCountryBuyer, lines: zeroRateLines, taxTreatment: "drittland" })],
       [

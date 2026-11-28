@@ -121,7 +121,7 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     // Weitere Zahlungskonten (#1887): eins als bevorzugtes des Kunden, eins ohne Kontakt
     await sql`insert into bankverbindungen(id, bezeichnung, iban, bank) values (${NORD}, 'Objekt Nord', 'DE02120300000000202051', 'Deutsche Kreditbank')`;
     await sql`insert into bankverbindungen(bezeichnung, iban) values ('Rücklage', 'DE75512108001245126199')`;
-    await sql`insert into contacts(id, kundennummer, name, ort, email, debitor_nr, lexoffice_id, bankverbindung_id) values (${KUNDE}, 'K-0041', 'Nordwerk GmbH', 'Hamburg', 'einkauf@nordwerk.example', 10041, 'lx-41', ${NORD})`;
+    await sql`insert into contacts(id, kundennummer, name, adresszusatz, ort, email, debitor_nr, lexoffice_id, bankverbindung_id) values (${KUNDE}, 'K-0041', 'Nordwerk GmbH', 'Abteilung Einkauf', 'Hamburg', 'einkauf@nordwerk.example', 10041, 'lx-41', ${NORD})`;
     await sql`insert into contacts(id, is_customer, is_supplier, name, archived_at) values (${LIEFERANT}, false, true, 'Altlieferant KG', now())`;
     await sql`insert into contact_persons(contact_id, name, funktion, created_by) values (${KUNDE}, 'Jana Peters', 'Einkauf', 'test-user')`;
     await sql`insert into text_blocks(name, kind, text, contact_id) values ('Rahmenvertrag', 'kopf', 'Gemäß Rahmenvertrag RV-17 berechnen wir:', ${KUNDE})`;
@@ -139,7 +139,7 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     await sql`insert into custom_pages(name, url) values ('Wiki', 'https://wiki.example.org/')`;
     await sql`insert into procedure_details(id, verantwortlich) values (1, 'Erika Mustermann')`;
     await mailEinrichten();
-    await sql`update mail_settings set from_name = 'Muster Design', templates = ${JSON.stringify({ "rechnung:de": { subject: "Rechnung {nummer}", body: "Hallo" } })}::jsonb`;
+    await sql`update mail_settings set from_name = 'Muster Design', reply_to = 'antworten@muster.example', templates = ${JSON.stringify({ "rechnung:de": { subject: "Rechnung {nummer}", body: "Hallo" } })}::jsonb`;
   }
 
   /** Versand mit Zugang, wie ihn jemand vor dem Übernehmen einrichtet */
@@ -188,7 +188,10 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
       [LIEFERANT, null, "Altlieferant KG", null, null, true],
       [KUNDE, "K-0041", "Nordwerk GmbH", 10041, "lx-41", false],
     ]);
-    expect((await sql`select bankverbindung_id from contacts where id = ${KUNDE}`)[0]!.bankverbindung_id).toBe(NORD);
+    expect((await sql`select bankverbindung_id, adresszusatz from contacts where id = ${KUNDE}`)[0]).toEqual({
+      bankverbindung_id: NORD,
+      adresszusatz: "Abteilung Einkauf",
+    });
     const bankverbindungen = await sql`select id, bezeichnung, iban, bank from bankverbindungen order by bezeichnung`;
     expect(bankverbindungen.map((b) => [b.bezeichnung, b.iban, b.bank])).toEqual([
       ["Objekt Nord", "DE02120300000000202051", "Deutsche Kreditbank"],
@@ -289,11 +292,12 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     const [anhang] = await sql`select filename, sha256 from quote_default_attachments`;
     expect(anhang!.filename).toBe("AGB.pdf");
     expect(new Uint8Array(await storage.loadFile(anhang!.sha256))).toEqual(PDF);
-    const [mail] = await sql`select host, username, from_name, templates from mail_settings`;
+    const [mail] = await sql`select host, username, from_name, reply_to, templates from mail_settings`;
     expect(mail).toEqual({
       host: "smtp.example.org",
       username: "versand@example.org",
       from_name: "Muster Design",
+      reply_to: "antworten@muster.example",
       templates: { "rechnung:de": { subject: "Rechnung {nummer}", body: "Hallo" } },
     });
   });
@@ -556,6 +560,30 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     const alt = withChecksum({ ...inhalt, version: 2, articles: artikel });
     await instanzwechsel.importSettings(actor, neuGepackt(unzipSync(zip), { "einstellungen.json": strToU8(JSON.stringify(alt)) }), HEUTE);
     expect(await sql`select description, arbeitskosten from articles`).toEqual([{ description: "Jahreslizenz", arbeitskosten: false }]);
+  });
+
+  it("liest eine Datei der Version 5: Kontakte ohne Adresszusatz bekommen einen leeren (#914)", async () => {
+    await testinstanz();
+    const zip = await exportierenUndNeu();
+    const { sha256: _, ...inhalt } = einstellungen(zip);
+    expect(inhalt.contacts).toContainEqual(expect.objectContaining({ adresszusatz: "Abteilung Einkauf" }));
+    const kontakte = inhalt.contacts.map(({ adresszusatz: _z, ...rest }: Record<string, unknown>) => rest);
+    const alt = withChecksum({ ...inhalt, version: 5, contacts: kontakte });
+    await instanzwechsel.importSettings(actor, neuGepackt(unzipSync(zip), { "einstellungen.json": strToU8(JSON.stringify(alt)) }), HEUTE);
+    expect(await sql`select adresszusatz from contacts where id = ${KUNDE}`).toEqual([{ adresszusatz: "" }]);
+  });
+
+  it("liest eine Datei der Version 6: E-Mail-Einstellungen ohne Antwortadresse bekommen eine leere (#2045)", async () => {
+    await testinstanz();
+    const zip = await exportierenUndNeu();
+    const { sha256: _, ...inhalt } = einstellungen(zip);
+    expect(inhalt.mail.replyTo).toBe("antworten@muster.example");
+    const { replyTo: _r, ...mail } = inhalt.mail;
+    const alt = withChecksum({ ...inhalt, version: 6, mail });
+    await mailEinrichten();
+    const result = await instanzwechsel.importSettings(actor, neuGepackt(unzipSync(zip), { "einstellungen.json": strToU8(JSON.stringify(alt)) }), HEUTE);
+    expect(result.mail).toBe(true);
+    expect(await sql`select from_name, reply_to from mail_settings`).toEqual([{ from_name: "Muster Design", reply_to: "" }]);
   });
 
   it("lehnt ein verändertes oder beschädigtes ZIP ab, bevor es etwas schreibt", async () => {

@@ -82,7 +82,7 @@ describe("computeEuer", () => {
       2026,
       [{ kind: "document", date: "2026-03-02", paid: telefon.gross, totals: telefon, category: "telefon", privateShare: 20 }],
       undefined,
-      { privateKfz: 176_700, ustEntnahmen: 107_436 },
+      { privateKfz: 176_700, anlagenabgang: 0, ustEntnahmen: 107_436 },
     );
     expect(amount(euer, "ausgabe:telefon")).toBe(3_086);
     expect(amount(euer, "vorsteuer")).toBe(586);

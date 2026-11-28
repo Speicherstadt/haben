@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { z } from "zod/mini";
 import { Field } from "../../../components/Field.tsx";
 import { ForeignInvoiceImport } from "../../../components/ForeignInvoiceImport.tsx";
+import { PostfachAusgang } from "../../../components/PostfachAusgang.tsx";
 import { InvoiceTabs } from "../../../components/InvoiceTabs.tsx";
 import { InvoiceStatus } from "../../../components/InvoiceStatus.tsx";
 import { useBereichAktiv } from "../../../lib/use-bereich.ts";
@@ -64,6 +65,7 @@ function InvoicesPage() {
       {/* Wiederkehrend und Mahnwesen sind Arbeit des Inhabers */}
       {inhaber && <InvoiceTabs />}
       {inhaber && importing && <ForeignInvoiceImport onClose={() => setImporting(false)} />}
+      {inhaber && <PostfachAusgang />}
       {invoices.length > 0 && (
         <div className="filter-row" style={{ marginBottom: 0 }}>
           <Field label="Rechnungen durchsuchen" hideLabel style={{ flex: "1 1 260px", maxWidth: 420 }}>

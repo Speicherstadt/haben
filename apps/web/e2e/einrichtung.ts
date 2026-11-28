@@ -136,6 +136,13 @@ export async function kundeWaehlen(page: Page, kunde?: string): Promise<void> {
   await expect(feld).toHaveValue(kunde);
 }
 
+/** Land der Anschrift wählen (#914): den Code tippen, der genau passende Treffer steht vorn */
+export async function landWaehlen(page: Page, code: string): Promise<void> {
+  await page.getByRole("combobox", { name: "Land", exact: true }).fill(code);
+  await trefferliste(page).getByRole("option").first().click();
+  await expect(page.locator('input[name="land"]')).toHaveValue(code);
+}
+
 /** Dialog für einen neuen Kunden über den letzten Eintrag der Trefferliste öffnen */
 export async function neuenKontaktOeffnen(page: Page): Promise<void> {
   await page.getByRole("combobox", { name: "Kunde", exact: true }).click();

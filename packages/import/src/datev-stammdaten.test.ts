@@ -75,6 +75,7 @@ describe("parseDatevStammdaten", () => {
           "EU-Mitgliedstaat": "DE",
           "EU-UStId.": "136695976",
           Straße: "Hauptstraße 5",
+          Adresszusatz: "Abteilung Buchhaltung",
           Postleitzahl: "50667",
           Ort: "Köln",
           Land: "DE",
@@ -100,6 +101,7 @@ describe("parseDatevStammdaten", () => {
         rolle: "debitor",
         nr: 10010,
         name: "Müller & Söhne GmbH",
+        adresszusatz: "Abteilung Buchhaltung",
         strasse: "Hauptstraße 5",
         plz: "50667",
         ort: "Köln",
@@ -234,5 +236,72 @@ describe("parseDatevStammdaten", () => {
     const { encoding, rows } = parsed(new Uint8Array([0xef, 0xbb, 0xbf, ...bytes]));
     expect(encoding).toBe("utf-8-bom");
     expect(rows.map((r) => r.name)).toEqual(["Bäckerei Süß"]);
+  });
+});
+
+// Stamm aus BuchhaltungsButler (#1829): dieselben Spalten wie oben, drei Köpfe anders geschrieben; Werte erfunden
+describe("parseDatevStammdaten: Köpfe von BuchhaltungsButler", () => {
+  const bbName = (name: string) => name.replace("Adressatentyp", "Adressattyp").replace("EU-Mitgliedstaat", "EU-Land").replace("EU-UStId.", "EU-UStID");
+  const bbColumns = COLUMNS.map(bbName);
+  const bbRow = (values: Record<string, string>) => {
+    // Jede Angabe muss eine Spalte treffen, sonst prüfte der Test nichts
+    for (const name of Object.keys(values)) expect(bbColumns).toContain(name);
+    return bbColumns.map((name) => values[name] ?? "").join(";");
+  };
+  const bb = (...lines: string[]) => parsed(new TextEncoder().encode([HEADER, bbColumns.join(";"), ...lines].join("\r\n"))).rows;
+
+  it("schreibt die drei Köpfe anders als sevDesk", () => {
+    expect(bbColumns).toEqual(expect.arrayContaining(["Name (Adressattyp Unternehmen)", "Name (Adressattyp keine Angabe)", "EU-Land", "EU-UStID"]));
+    expect(bbColumns.join(";")).not.toMatch(/Adressatentyp|EU-Mitgliedstaat|EU-UStId\./);
+  });
+
+  it("liest Konto, Namen von Unternehmen, Person und „keine Angabe“ und die USt-IdNr.", () => {
+    const rows = bb(
+      bbRow({ Konto: "10000", "Name (Adressattyp Unternehmen)": "Beispiel GmbH", "EU-Land": "DE", "EU-UStID": "136695976" }),
+      bbRow({ Konto: "69999", "Vorname (Adressattyp natürl. Person)": "Erika", "Name (Adressattyp natürl. Person)": "Muster" }),
+      bbRow({ Konto: "70000", "Name (Adressattyp keine Angabe)": "Ohne Angabe", "EU-Land": "AT", "EU-UStID": "ATU12345678" }),
+      bbRow({ Konto: "99999", "Name (Adressattyp Unternehmen)": "Lieferant AG" }),
+    );
+    expect(rows.map((r) => [r.nr, r.rolle, r.name, r.ustId, r.errors])).toEqual([
+      [10000, "debitor", "Beispiel GmbH", "DE136695976", []],
+      [69999, "debitor", "Erika Muster", "", []],
+      [70000, "kreditor", "Ohne Angabe", "ATU12345678", []],
+      [99999, "kreditor", "Lieferant AG", "", []],
+    ]);
+  });
+
+  it("übernimmt eine Zeile mit Zahl in „EU-Land“ ohne USt-IdNr. und ohne Fehler", () => {
+    const [zeile] = bb(bbRow({ Konto: "70001", "Name (Adressattyp Unternehmen)": "Zahl KG", "EU-Land": "19", "EU-UStID": "199405147" }));
+    expect([zeile!.name, zeile!.ustId, zeile!.errors]).toEqual(["Zahl KG", "", []]);
+  });
+
+  it("meldet eine falsche USt-IdNr. mit Länderkürzel weiter als Fehler", () => {
+    const [zeile] = bb(bbRow({ Konto: "70002", "Name (Adressattyp Unternehmen)": "Falsch KG", "EU-Land": "DE", "EU-UStID": "12" }));
+    expect(zeile!.errors).toEqual(["USt-IdNr.: „DE12“ hat eine falsche Prüfziffer"]);
+  });
+});
+
+describe("parseDatevStammdaten: USt-IdNr., die ihr Länderkennzeichen selbst trägt (#1829)", () => {
+  const lesen = (land: string, nummer: string) => {
+    const [zeile] = parsed(
+      utf8(row({ Konto: "70001", "Name (Adressatentyp Unternehmen)": "Kennzeichen KG", "EU-Mitgliedstaat": land, "EU-UStId.": nummer })),
+    ).rows;
+    return [zeile!.ustId, zeile!.errors];
+  };
+
+  it.each([
+    ["19", "DE136695976", "DE136695976"],
+    ["13", "ATU12345678", "ATU12345678"],
+  ])("behält bei Zahl %s in „EU-Land“ die gültige Nummer %s", (land, nummer, erwartet) => {
+    expect(lesen(land, nummer)).toEqual([erwartet, []]);
+  });
+
+  it.each([
+    ["GR", "EL123456789", "EL123456789"],
+    ["gr", "el 123 456 789", "EL123456789"],
+    ["EL", "GR123456789", "EL123456789"],
+    ["GB", "XI123456789", "XI123456789"],
+  ])("setzt bei Land %s kein zweites Kennzeichen vor %s", (land, nummer, erwartet) => {
+    expect(lesen(land, nummer)).toEqual([erwartet, []]);
   });
 });

@@ -217,6 +217,7 @@ export const saveVatDraft = createServerFn({ method: "POST" })
         kz86: centsSchema,
         kz21: centsSchema,
         kz45: centsSchema,
+        kz60: centsSchema.default(0),
         kz48: centsSchema,
         kz66: centsSchema,
         kz46: centsSchema.default(0),

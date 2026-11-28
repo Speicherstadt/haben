@@ -3,7 +3,7 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 import postgres from "postgres";
 import { day, YEAR } from "./daten.ts";
 import { databaseUrlFuer } from "./durchlaeufe.ts";
-import { bestaetigen, durchlaufSeite, einrichten, gehe, kundeWaehlen } from "./einrichtung.ts";
+import { bestaetigen, durchlaufSeite, einrichten, gehe, kundeWaehlen, landWaehlen } from "./einrichtung.ts";
 import { HANDY, sichtbar } from "./kopfzeile.ts";
 
 /**
@@ -43,7 +43,7 @@ test.beforeAll(async ({ browser }) => {
   await page.getByLabel("Straße und Hausnummer").fill("Beispielweg 7");
   await page.getByLabel("PLZ", { exact: true }).fill("1010");
   await page.getByLabel("Ort", { exact: true }).fill("Wien");
-  await page.getByLabel("Land (z. B. DE)").fill("AT");
+  await landWaehlen(page, "AT");
   await page.getByRole("button", { name: "Kontakt anlegen", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Versionen" })).toBeVisible();
 });
@@ -212,6 +212,33 @@ test("Handy: neue Steuerfelder per Tastatur, Speichern und Vorschau ohne horizon
     }
   } finally {
     await page.setViewportSize({ width: 1440, height: 1000 });
+  }
+});
+
+test("Verkauf aus dem Anlagevermögen: sichtbar bei den Steuerangaben, gespeichert und auf dem Verkaufskonto gebucht (#2022)", async () => {
+  const [{ kontenrahmen }] = await sql`select kontenrahmen from company`;
+  for (const editor of editors) {
+    await test.step(editor.kind, async () => {
+      await newDraft(editor);
+      // Nicht mehr im eingeklappten Bereich „Angaben zum Gesamtumsatz“: ohne Aufklappen zu sehen
+      const feld = page.getByLabel("Verkauf aus dem Anlagevermögen", { exact: true });
+      await expect(feld).toBeVisible();
+      await expect(feld).toHaveValue("nein");
+      await expect(feld).toHaveAccessibleDescription(/in der EÜR in Zeile 19 und nicht im Gesamtumsatz\. Den Abgang trägst du zusätzlich an der Anlage ein\./);
+      await feld.selectOption("ja");
+      const id = await saveAndReopen(editor);
+      await expect(page.getByLabel("Verkauf aus dem Anlagevermögen", { exact: true })).toHaveValue("ja");
+      const [stored] = await sql`select tax_details from ${sql(editor.table)} where id = ${id}`;
+      expect(stored!.tax_details.assetDisposal).toBe(true);
+      if (editor.kind !== "Rechnung") return;
+      await page.getByRole("button", { name: "Festschreiben", exact: true }).click();
+      await bestaetigen(page, "Festschreiben");
+      await expect(page.getByText(/Festgeschrieben/).first()).toBeVisible();
+      const konten = await sql`select l.account from journal_lines l join journal_entries e on e.id = l.entry_id
+        where e.source_type = 'invoice' and e.source_id = ${id} and l.credit > 0`;
+      // Kleinunternehmer: „Erlöse aus Verkäufen Sachanlagevermögen (bei Buchgewinn)“ ohne USt
+      expect(konten.map((k) => k.account)).toEqual([kontenrahmen === "SKR04" ? "4849" : "8829"]);
+    });
   }
 });
 

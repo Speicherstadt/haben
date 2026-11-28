@@ -2378,15 +2378,92 @@
     {
       "idx": 339,
       "version": "7",
-      "when": 1795828718847,
-      "tag": "0339_belege_positionen_schema",
+      "when": 1795825865984,
+      "tag": "0339_abgleich_audit_log",
       "breakpoints": true
     },
     {
       "idx": 340,
       "version": "7",
-      "when": 1795828722075,
-      "tag": "0340_belege_positionen",
+      "when": 1795851655456,
+      "tag": "0340_betraege_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 341,
+      "version": "7",
+      "when": 1795852792978,
+      "tag": "0341_entnahme_anlage",
+      "breakpoints": true
+    },
+    {
+      "idx": 342,
+      "version": "7",
+      "when": 1795852802079,
+      "tag": "0342_entnahme_anlage_trigger",
+      "breakpoints": true
+    },
+    {
+      "idx": 343,
+      "version": "7",
+      "when": 1795853852378,
+      "tag": "0343_kontakt_adresszusatz",
+      "breakpoints": true
+    },
+    {
+      "idx": 344,
+      "version": "7",
+      "when": 1795854528637,
+      "tag": "0344_kz60_bauleistungen",
+      "breakpoints": true
+    },
+    {
+      "idx": 345,
+      "version": "7",
+      "when": 1795856490425,
+      "tag": "0345_postfach_ausgang",
+      "breakpoints": true
+    },
+    {
+      "idx": 346,
+      "version": "7",
+      "when": 1795856500277,
+      "tag": "0346_postfach_ausgang_trigger",
+      "breakpoints": true
+    },
+    {
+      "idx": 347,
+      "version": "7",
+      "when": 1795857989861,
+      "tag": "0347_zeitpunkte_selbst_setzen",
+      "breakpoints": true
+    },
+    {
+      "idx": 348,
+      "version": "7",
+      "when": 1795871745176,
+      "tag": "0348_mail_reply_to",
+      "breakpoints": true
+    },
+    {
+      "idx": 349,
+      "version": "7",
+      "when": 1795872642089,
+      "tag": "0349_festschreiben_quelle",
+      "breakpoints": true
+    },
+    {
+      "idx": 350,
+      "version": "7",
+      "when": 1795878899111,
+      "tag": "0350_belege_positionen_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 351,
+      "version": "7",
+      "when": 1795878903907,
+      "tag": "0351_belege_positionen",
       "breakpoints": true
     }
   ]

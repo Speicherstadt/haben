@@ -688,8 +688,8 @@ describe.skipIf(!testDatabaseUrl)("Belege (Postgres)", () => {
     await sql`delete from document_splits where document_id = ${id}`;
     await sql`delete from document_amounts where document_id = ${id}`;
     await sql`insert into document_amounts (document_id, tax_rate, net, tax) values (${id}, 0, 10000, 0)`;
-    // Erst 0075, dann die Positionen aus 0340, beide wie beim Update je in einer Transaktion
-    for (const datei of ["0075_fremdwaehrung_bestand.sql", "0340_belege_positionen.sql"]) {
+    // Erst 0075, dann die Positionen aus 0351, beide wie beim Update je in einer Transaktion
+    for (const datei of ["0075_fremdwaehrung_bestand.sql", "0351_belege_positionen.sql"]) {
       const migration = readFileSync(new URL(`../../../../drizzle/${datei}`, import.meta.url), "utf8");
       await sql.begin(async (tx) => {
         for (const statement of migration.split("--> statement-breakpoint")) await tx.unsafe(statement);

@@ -195,10 +195,16 @@ test("Rechnung per E-Mail: Zugang einrichten, Vorlage, Fehler im Protokoll", asy
   // Leer gelassen gilt der Firmenname; die Vorgabe zeigt ihn an
   await expect(zugang.getByLabel("Absendername")).toHaveAttribute("placeholder", /Mustermann IT/);
   await zugang.getByLabel("Absendername").fill("Max Mustermann IT");
+  // Optional: Antworten der Kunden an ein anderes Postfach als den Absender (#2045)
+  await expect(zugang.getByLabel("Antworten an")).toHaveValue("");
+  await zugang.getByLabel("Antworten an").fill("buchhaltung@mustermann.example");
   await zugang.getByLabel("Erinnerungen an", { exact: true }).fill("max@mustermann.example");
   await zugang.getByRole("button", { name: "Speichern" }).click();
   await expect(zugang.getByRole("status")).toHaveText("E-Mail-Zugang gespeichert.");
   await expect(zugang.getByLabel("Absendername")).toHaveValue("Max Mustermann IT");
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(zugang.getByLabel("Antworten an")).toHaveValue("buchhaltung@mustermann.example");
 
   const rechnung = await firstLink(page, "/rechnungen", /^\/rechnungen\/[0-9a-f-]{36}$/);
   await go(rechnung!);

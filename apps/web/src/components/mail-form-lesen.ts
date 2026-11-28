@@ -13,6 +13,7 @@ export async function mailInput(form: FormData, { transport, graphAuth, server, 
   const common = {
     fromAddress: text("fromAddress"),
     fromName: text("fromName"),
+    replyTo: text("replyTo"),
     reminderTo: text("reminderTo"),
     remindersEnabled: form.get("remindersEnabled") === "on",
     reminderDays: days,

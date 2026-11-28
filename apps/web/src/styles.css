@@ -275,7 +275,7 @@ button.nav-foot-link { width: 100%; background: none; border: 0; font: inherit; 
    Navigation, damit die Leiste außen sitzt und der Fokusring nicht abgeschnitten wird. Als Gegenstück zur Handy-Regel
    formuliert, damit bei Zoom auch Breiten zwischen 860 und 861 Pixel eine Regel haben */
 @media not all and (max-width: 860px) {
-  .nav-body { min-height: 0; overflow-y: auto; margin: -4px -16px -24px; padding: 4px 16px 24px; }
+  .nav-body { min-height: 0; overflow: hidden auto; margin: -4px -16px -24px; padding: 4px 16px 24px; }
   [data-nav="collapsed"] .nav-body { align-self: stretch; width: auto; align-items: center; margin: -4px -12px -20px; padding: 4px 12px 20px; }
 }
 /* Schmale Leiste nur beim Rollen; der Daumen hat mindestens 3 : 1 gegen --nav (WCAG 1.4.11). color-scheme hilft
@@ -572,7 +572,7 @@ textarea.autogrow { field-sizing: content; min-height: 8lh; max-height: 70vh; }
 .form-row.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .form-row.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .form-row.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.form-row.cols-address { grid-template-columns: 120px minmax(0, 1fr) 120px; }
+.form-row.cols-address { grid-template-columns: 120px minmax(0, 1fr) minmax(0, 15rem); }
 .form-row.cols-place { grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr); }
 /* Unten bündig, etwa für einen Knopf neben Feldern; nicht für Felder mit Hinweis oder Fehler, die schöben ihre Zeile nach oben (DESIGN.md, Felder) */
 .form-row.align-end { align-items: end; }
@@ -615,7 +615,7 @@ textarea.autogrow { field-sizing: content; min-height: 8lh; max-height: 70vh; }
 .form-section-zu > details > summary::-webkit-details-marker { display: none; }
 .form-section-zu > details > summary::before { content: "›"; content: "›" / ""; display: inline-block; width: 12px; color: var(--muted); transition: transform 0.15s; }
 .form-section-zu > details[open] > summary::before { transform: rotate(90deg); }
-.form-section-zu > details > summary > h3 { margin: 0; font-size: 13px; font-weight: 500; color: var(--muted); }
+.form-section-zu > details > summary > :is(h2, h3) { margin: 0; font-size: 13px; font-weight: 500; color: var(--muted); }
 .form-section-kurz { font-size: 13px; color: var(--ink); }
 /* Einklappabschnitt unmittelbar auf der Seite (Voranmeldung, #1253): bündig mit den Karten, ohne Einzug des Formulars */
 .main > .form-section-zu > details > summary, .main > .form-section-zu .form-section-inhalt,
@@ -623,6 +623,8 @@ textarea.autogrow { field-sizing: content; min-height: 8lh; max-height: 70vh; }
 .stack > .form-section-zu { border-top: 0; }
 /* In der schmalen Spalte steht die Auskunft unter der Überschrift, bündig mit ihr (12px Pfeil plus 12px Abstand) */
 .stack > .form-section-zu > details > summary > .form-section-kurz { flex-basis: 100%; padding-left: 24px; }
+/* GiroCode am Beleg (#1967): schwarz auf Weiß mit Ruhezone, auch im dunklen Modus; sonst lesen manche Banking-Apps ihn nicht */
+.girocode-bild { align-self: start; background: #fff; padding: 16px; line-height: 0; border-radius: 4px; }
 /* Ablauf der Voranmeldung (#1253): drei Schritte in einer Zeile, der aktuelle fett, Erledigtes mit Haken, darunter das Ergebnis */
 .ablauf-schritte { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; padding: 0; list-style: none; font-size: 14px; color: var(--muted); }
 .ablauf-schritte > li { display: flex; align-items: center; gap: 8px; }
@@ -1538,6 +1540,9 @@ summary { cursor: pointer; min-height: 24px; }
 /* Pflichtangaben als Zeile unter den Spalten, wie auf dem Blatt durch eine feine Linie abgesetzt (#1651) */
 .footer-preview-legal { margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--line); }
 .footer-legal-hint { margin-top: 8px; }
+/* Wie auf dem Blatt: unten bündig stehen die letzten Zeilen auf einer Linie, eine leere Zeile hält ihre Höhe (#2046) */
+.footer-preview[data-align="unten"] .footer-columns { align-items: end; }
+.footer-preview .footer-columns > div > div { min-height: 1lh; }
 /* Randspalte (Elegant, Atelier): alles untereinander, so schmal wie auf dem Blatt */
 .footer-preview[data-stelle="rand"] .footer-columns { max-width: 224px; gap: 12px; }
 /* Eigene Layouts in den Einstellungen; ab sieben Einträgen scrollt die Liste */
@@ -1601,4 +1606,44 @@ summary { cursor: pointer; min-height: 24px; }
 }
 @media (forced-colors: active) {
   .cmd-option[aria-selected="true"] { outline: 2px solid Highlight; }
+}
+
+/* Karte „Aus dem Postfach“ (Rechnungen): Tabelle mit festen Spalten, am Handy Absender und Eingang unter der Nummer */
+.postfach-zeile {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1.3fr) minmax(0, 1fr) 96px 192px;
+  gap: 12px;
+  align-items: center;
+}
+.postfach-info {
+  display: contents;
+}
+.postfach-kurz {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.postfach-aktion {
+  justify-content: flex-end;
+}
+@media (max-width: 640px) {
+  .postfach-zeile {
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+  }
+  .postfach-kopf > :nth-child(n + 3) {
+    display: none;
+  }
+  .postfach-info {
+    display: block;
+    min-width: 0;
+  }
+  .postfach-eingang {
+    display: inline;
+  }
+  .postfach-aktion {
+    flex-wrap: nowrap;
+  }
+  .postfach-aktion .btn-primary {
+    padding-inline: 12px;
+  }
 }

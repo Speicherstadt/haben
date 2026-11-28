@@ -1,15 +1,23 @@
 import { formatEuro, kategorieFehler, kategorieVorschlag, type Kontenrahmen } from "@haben/core";
 import type { KategorieWahl } from "./KategorieFelder.tsx";
 
+interface Props {
+  wahl: KategorieWahl;
+  amount: number | null;
+  kontenrahmen: Kontenrahmen;
+  /** Jahr des Buchungstags: Das Konto richtet sich nach dem Buchungsjahr */
+  jahr: number;
+}
+
 /**
  * Zeigt vor dem Buchen, was Direkt buchen auf eine Kategorie bucht (#1440, Stufe 1): Konto mit Nummer, Betrag und Steuer.
  * Nur Anzeige; gebucht wird weiter mit dem Knopf darunter.
  */
-export function BuchungsVorschlag({ wahl, amount, kontenrahmen }: { wahl: KategorieWahl; amount: number | null; kontenrahmen: Kontenrahmen }) {
+export function BuchungsVorschlag({ wahl, amount, kontenrahmen, jahr }: Props) {
   if (amount === null || amount === 0) return null;
   // Eine Angabe, die der Server ablehnen würde (etwa 0 % ohne Kleinunternehmer), zeigt keine Zeilen; das Feld nennt den Fehler
   if (kategorieFehler(wahl, wahl.kategorie === "erloese" && wahl.steuersatz === 0)) return null;
-  const zeilen = kategorieVorschlag(wahl, amount, kontenrahmen);
+  const zeilen = kategorieVorschlag(wahl, amount, kontenrahmen, jahr);
   const zelle = {
     padding: "6px 8px 6px 0",
     borderBottom: "1px solid var(--line-soft)",

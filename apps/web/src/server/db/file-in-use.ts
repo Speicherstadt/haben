@@ -31,6 +31,7 @@ export const FILE_REFERENCES: readonly FileReference[] = [
   { table: "recurring_documents", column: "sha256", nameColumn: "filename", label: "Vertrag eines Dauerbelegs" },
   { table: "sepa_mandate_files", column: "sha256", nameColumn: "filename", label: "Lastschriftmandat" },
   { table: "fastbill_receipts", column: "sha256", nameColumn: "filename", label: "Ausgabenbeleg aus FastBill vor dem Archivieren" },
+  { table: "inbox_outgoing", column: "sha256", nameColumn: "filename", label: "Ausgangsrechnung aus dem Postfach" },
 ];
 
 /** Ob ein Datensatz die Datei nutzt; gelöscht wird eine Datei erst, wenn keiner sie mehr braucht. */

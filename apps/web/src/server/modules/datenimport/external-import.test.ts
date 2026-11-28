@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { auditNachtragen, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
 describe.skipIf(!testDatabaseUrl)("Allgemeiner Belegimport im gemeinsamen Umzugsbestand (Postgres)", () => {
   let sql: postgres.Sql;
@@ -66,6 +66,8 @@ describe.skipIf(!testDatabaseUrl)("Allgemeiner Belegimport im gemeinsamen Umzugs
       await tx`set local session_replication_role = replica`;
       await tx`truncate seals, audit_log, audit_chain, company, contacts, quotes, invoices, cash_entries, journal_entries, external_imports, lexoffice_imports, invoice_number_counters, quote_number_counters cascade`;
       await tx`insert into audit_chain (id, seq, hash) values (1, 0, haben_audit_genesis())`;
+      await tx`set local session_replication_role = origin`;
+      await auditNachtragen(tx);
     });
     await sql`insert into company (id,name,kleinunternehmer,rechtsform,kontenrahmen,bundesland) values (1,'Testbetrieb',true,'einzelunternehmen','SKR03','NI')`;
   });

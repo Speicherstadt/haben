@@ -7,6 +7,7 @@ import {
   PERSONENKONTO_LABEL,
   type PersonenkontoRolle,
   personenkontoProblem,
+  plzProblem,
   skontoProblem,
   skontoStufenSchema,
   sortSkonto,
@@ -14,14 +15,13 @@ import {
   telefonProblem,
   inCents,
 } from "@haben/core";
-import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
-import { likePattern, numberRank, unaccentIlike } from "../../../lib/search.ts";
 import { withActor } from "../../db/actor.ts";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
-import { firstHits, runSearchParts, searchPart } from "../../db/search-parts.ts";
 import { isUniqueViolation } from "../../errors.ts";
 import { assertBankverbindungWaehlbar } from "./bankverbindungen.ts";
+import { contactSearchFilter } from "./contact-search.ts";
 import { takeCustomerNumber } from "./customer-numbers.ts";
 import { customerNumberLocked } from "./kundennummer-sperre.ts";
 
@@ -37,6 +37,8 @@ function personenkonto(rolle: PersonenkontoRolle) {
 export const contactSchema = z.object({
   kundennummer: z.string().trim().max(40),
   name: z.string().trim().min(1, "Name fehlt").max(200),
+  /** Abteilung, c/o, Gebäude oder Stockwerk (#914); fehlt = leer */
+  adresszusatz: z.string().trim().max(100).default(""),
   strasse: z.string().trim().max(200),
   plz: z.string().trim().max(10),
   ort: z.string().trim().max(100),
@@ -250,12 +252,25 @@ function clean(input: ContactInput) {
   };
 }
 
+/**
+ * PLZ je Land (#914) für Formular und API. Nicht in insertContact: Die Übernahme aus einer anderen Instanz und die
+ * Umzüge nehmen die PLZ, wie sie dort stand; der CSV-Import meldet sie schon in der Vorschau (contactCandidates).
+ * Beim Ändern nur, wenn PLZ oder Land sich ändern: Eine alte PLZ hält das Speichern anderer Felder nicht auf, auch
+ * nicht ein PATCH der API.
+ */
+function assertPlz(input: ContactInput, bisher?: { plz: string; land: string }) {
+  if (bisher && bisher.plz === input.plz.trim() && bisher.land === input.land) return;
+  const problem = plzProblem(input.land, input.plz);
+  if (problem) throw new ContactError(problem, { felder: ["plz"] });
+}
+
 export async function createContact(actor: string, input: ContactInput): Promise<Contact> {
+  assertPlz(input);
   return withActor(actor, (tx) => insertContact(tx, input));
 }
 
-/** Legt einen Kontakt in der laufenden Transaktion an; auch für den CSV-Import, der alle Zeilen in einer Transaktion anlegt */
 /**
+ * Legt einen Kontakt in der laufenden Transaktion an; auch für den CSV-Import, der alle Zeilen in einer Transaktion anlegt.
  * `id` und `vergeben: false` nur für die Übernahme aus einer anderen Instanz (#488): Ansprechpartner und Textbausteine
  * behalten ihren Kontakt, und ein Kunde ohne Nummer bleibt ohne, wie er dort war.
  */
@@ -298,8 +313,12 @@ async function samePersonenkonto<T>(tx: Tx, write: () => Promise<T>): Promise<T>
 export async function updateContact(actor: string, id: string, input: ContactInput): Promise<Contact> {
   return withActor(actor, async (tx) => {
     const values = clean(input);
-    const [current] = await tx.select({ kundennummer: schema.contacts.kundennummer }).from(schema.contacts).where(eq(schema.contacts.id, id));
+    const [current] = await tx
+      .select({ kundennummer: schema.contacts.kundennummer, plz: schema.contacts.plz, land: schema.contacts.land })
+      .from(schema.contacts)
+      .where(eq(schema.contacts.id, id));
     if (!current) throw new ContactError("Kontakt nicht gefunden.");
+    assertPlz(input, current);
     await assertBankverbindungWaehlbar(tx, values.bankverbindungId);
     if (current.kundennummer !== values.kundennummer && (await customerNumberLocked(tx, id))) {
       throw new ContactError(
@@ -318,73 +337,5 @@ export async function setContactArchived(actor: string, id: string, archived: bo
       .update(schema.contacts)
       .set({ archivedAt: archived ? new Date() : null })
       .where(eq(schema.contacts.id, id)),
-  );
-}
-
-export interface ContactHit {
-  id: string;
-  name: string;
-  kundennummer: string | null;
-  lieferantennummer: string | null;
-  ort: string;
-  isCustomer: boolean;
-  isSupplier: boolean;
-}
-
-/** Kontakte als Teil der gemeinsamen Abfrage der Stammdaten (#617): Name, Kunden- oder Lieferantennummer, ohne archivierte */
-export function contactsPart(query: string | { id: string }, limit = 5) {
-  const contacts = schema.contacts;
-  return searchPart(
-    {
-      id: contacts.id,
-      name: contacts.name,
-      kundennummer: contacts.kundennummer,
-      lieferantennummer: contacts.lieferantennummer,
-      ort: contacts.ort,
-      isCustomer: contacts.isCustomer,
-      isSupplier: contacts.isSupplier,
-    },
-    (fields) =>
-      db
-        .select(fields)
-        .from(contacts)
-        .where(and(isNull(contacts.archivedAt), typeof query === "string" ? contactSearchFilter(query) : eq(contacts.id, query.id)))
-        .orderBy(
-          ...(typeof query === "string" ? [sql`least(${numberRank(contacts.kundennummer, query)}, ${numberRank(contacts.lieferantennummer, query)})`] : []),
-          asc(contacts.name),
-        )
-        .limit(limit + 1),
-    (rows): { hits: ContactHit[]; more: boolean } => firstHits(rows, limit),
-  );
-}
-
-/** Ein Kontakt für „Zuletzt angesehen“ in der Befehlspalette */
-export async function searchContacts(query: string | { id: string }, limit = 5): Promise<{ hits: ContactHit[]; more: boolean }> {
-  return (await runSearchParts({ contacts: contactsPart(query, limit) })).contacts;
-}
-
-function contactSearchFilter(query: string, listFields = false) {
-  const contacts = schema.contacts;
-  const persons = schema.contactPersons;
-  const pattern = likePattern(query);
-  return or(
-    unaccentIlike(contacts.name, pattern),
-    unaccentIlike(contacts.kundennummer, pattern),
-    unaccentIlike(contacts.lieferantennummer, pattern),
-    unaccentIlike(contacts.email, pattern),
-    unaccentIlike(contacts.ort, pattern),
-    unaccentIlike(contacts.ustId, pattern),
-    unaccentIlike(sql`${contacts.debitorNr}::text`, pattern),
-    unaccentIlike(sql`${contacts.kreditorNr}::text`, pattern),
-    /^\d{4,}$/.test(query) ? unaccentIlike(contacts.iban, `%${query}`) : undefined,
-    inArray(
-      contacts.id,
-      db
-        .select({ id: persons.contactId })
-        .from(persons)
-        .where(or(unaccentIlike(persons.name, pattern), unaccentIlike(persons.email, pattern))),
-    ),
-    listFields ? unaccentIlike(contacts.telefon, pattern) : undefined,
-    listFields ? unaccentIlike(contacts.plz, pattern) : undefined,
   );
 }

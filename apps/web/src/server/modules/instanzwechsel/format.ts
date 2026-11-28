@@ -12,4 +12,6 @@ export const SETTINGS_EXPORT_FORMAT = "haben-einstellungen";
 // für jede Stufe (alterMahnungsStandard in stammdaten/uebernahme.ts).
 // 5: weitere Zahlungskonten und das bevorzugte Zahlungskonto am Kontakt (#1887). Eine ältere Datei hat keine; ihre Kontakte
 // bekommen den Standard.
-export const SETTINGS_EXPORT_VERSION = 5;
+// 6: Adresszusatz am Kontakt (#914). Eine ältere Datei hat keinen; ihre Kontakte bekommen einen leeren (contactSchema).
+// 7: Antwortadresse im E-Mail-Versand (#2045). Eine ältere Datei hat keine; übernommen wird eine leere (mailCommonSchema).
+export const SETTINGS_EXPORT_VERSION = 7;

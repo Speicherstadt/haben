@@ -3,7 +3,7 @@ import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
-type Sent = { from: { name: string; address: string } };
+type Sent = { from: { name: string; address: string }; replyTo?: string };
 
 describe.skipIf(!testDatabaseUrl)("Absender der E-Mails (Postgres)", () => {
   let mail: typeof import("./mail.ts");
@@ -12,6 +12,9 @@ describe.skipIf(!testDatabaseUrl)("Absender der E-Mails (Postgres)", () => {
   let sql: postgres.Sql;
   const actor = "test-user";
   const sent: Sent[] = [];
+  /** Die fertige Nachricht, wie nodemailer sie per SMTP übergäbe (Kopf und Inhalt) */
+  const raw: string[] = [];
+  const envelopes: { from: string | false }[] = [];
 
   const settings = {
     host: "smtp.example.com",
@@ -31,13 +34,16 @@ describe.skipIf(!testDatabaseUrl)("Absender der E-Mails (Postgres)", () => {
     dbModule = await import("../../db/index.ts");
     actorModule = await import("../../db/actor.ts");
     mail.setMailTransportForTests(() => {
-      const transport = nodemailer.createTransport({ jsonTransport: true });
+      const transport = nodemailer.createTransport({ streamTransport: true, buffer: true, newline: "unix" });
       return {
         sendMail: async (message: Sent) => {
           sent.push(message);
-          return transport.sendMail(message);
+          const info = await transport.sendMail(message);
+          raw.push((info.message as Buffer).toString("utf8"));
+          envelopes.push(info.envelope);
+          return info;
         },
-      } as unknown as ReturnType<typeof nodemailer.createTransport>;
+      };
     });
   }, 30_000);
 
@@ -47,7 +53,12 @@ describe.skipIf(!testDatabaseUrl)("Absender der E-Mails (Postgres)", () => {
 
   beforeEach(() => {
     sent.length = 0;
+    raw.length = 0;
+    envelopes.length = 0;
   });
+
+  /** Die Kopfzeilen der fertigen Nachricht, bis zur ersten Leerzeile */
+  const header = () => raw[0]!.split("\n\n")[0]!;
 
   async function setCompanyName(name: string) {
     const { schema } = dbModule;
@@ -75,5 +86,23 @@ describe.skipIf(!testDatabaseUrl)("Absender der E-Mails (Postgres)", () => {
     await mail.saveMailSettings(actor, settings);
     await mail.sendTestMail(actor);
     expect(sent[0]!.from.name).toBe("Haben");
+  });
+
+  // RFC 5322, 3.6.2: „Reply-To:“ nennt die Adresse, an die der Absender Antworten erbittet; ohne das Feld gehen Antworten
+  // an „From:“. Der Umschlagabsender (MAIL FROM, für SPF und DMARC) bleibt die Absenderadresse.
+  it("setzt die Antwortadresse als Kopfzeile Reply-To, der Absender bleibt", async () => {
+    await mail.saveMailSettings(actor, { ...settings, fromName: "Muster IT-Beratung", replyTo: "antworten@testfirma.example" });
+    await mail.sendTestMail(actor);
+    expect(header()).toMatch(/^Reply-To: antworten@testfirma\.example$/m);
+    expect(header()).toMatch(/^From: "?Muster IT-Beratung"? <rechnung@testfirma\.example>$/m);
+    expect(envelopes[0]!.from).toBe("rechnung@testfirma.example");
+  });
+
+  it("setzt ohne Antwortadresse keine Kopfzeile Reply-To", async () => {
+    await mail.saveMailSettings(actor, { ...settings, fromName: "Muster IT-Beratung" });
+    expect(await mail.sendTestMail(actor)).toEqual({ ok: true, error: null });
+    expect(sent[0]).not.toHaveProperty("replyTo");
+    expect(header()).not.toMatch(/^Reply-To:/im);
+    expect(header()).toMatch(/^From: "?Muster IT-Beratung"? <rechnung@testfirma\.example>$/m);
   });
 });

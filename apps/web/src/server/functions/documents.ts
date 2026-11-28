@@ -44,7 +44,7 @@ import {
 import { authMiddleware, readMiddleware } from "../middleware.ts";
 import { ownAccountsOverview } from "../modules/eigene-konten/index.ts";
 import { extractionLimitsSchema, listContactChoices, loadCompany, saveExtractionLimits, setExtractionPaused } from "../modules/stammdaten/index.ts";
-import { documentBankAllocations, documentIbanCheck, documentSepaTransfers } from "../modules/bank/index.ts";
+import { belegGirocodeFuer, documentBankAllocations, documentIbanCheck, documentSepaTransfers } from "../modules/bank/index.ts";
 import { buchungenZu } from "../modules/buchhaltung/index.ts";
 import { db, schema } from "../db/index.ts";
 import { eq } from "drizzle-orm";
@@ -74,7 +74,7 @@ export const getDocuments = createServerFn({ method: "GET" })
 export const getDocumentDetail = createServerFn({ method: "GET" })
   .middleware([readMiddleware])
   .validator(detailId)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const result = await getDocument(data);
     if (!result) throw notFound();
     const company = await loadCompany();
@@ -92,6 +92,8 @@ export const getDocumentDetail = createServerFn({ method: "GET" })
       buchungen: result.document.lockedAt ? ((await buchungenZu(["document", "freigabe"], [data])).get(data) ?? []) : [],
       // Vermerk: für diesen Beleg erzeugte SEPA-Überweisungen
       sepaTransfers: await documentSepaTransfers(data),
+      // GiroCode zum Überweisen, solange der Beleg über die Bank offen ist; bezahlen kann nur der Inhaber (#1967)
+      girocode: await belegGirocodeFuer(context.user.role, data, today()),
       // IBAN der E-Rechnung gegen die des Kontakts (#410)
       ibanCheck: await documentIbanCheck(data),
       // Bestätigter Umfang einschließlich ganzer Aufteilungen; der Storno prüft ihn erneut in seiner Transaktion.

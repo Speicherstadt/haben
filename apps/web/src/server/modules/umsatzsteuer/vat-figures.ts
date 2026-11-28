@@ -3,7 +3,6 @@ import {
   kategorieAnteil,
   kategorieArt,
   lastMonthOfPeriod,
-  monthsOfPeriod,
   periodRange,
   recordedTaxShares,
   type Cents,
@@ -11,9 +10,9 @@ import {
   type VatPeriod,
 } from "@haben/core";
 import { and, eq, gte, isNull, lt, ne, notInArray, or, sql } from "drizzle-orm";
-import { privateUseForMonth } from "../buchhaltung/index.ts";
 import { kleinunternehmerForMonth } from "../stammdaten/index.ts";
 import { ausbuchungsQuelle } from "./ausbuchung-quelle.ts";
+import { entnahmeQuellen } from "./entnahme-quellen.ts";
 import { vorsteuerAusBelegen } from "./vorsteuer-belege.ts";
 import { kennzahlenDerVoranmeldung } from "./umsaetze-nach-leistung.ts";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
@@ -22,12 +21,12 @@ import { advanceVatPlans, invoiceTaxReader, invoiceTotalsById, mixNachVerrechnun
 
 export interface RevenueSource {
   /**
-   * payment = Zahlungseingang (Ist), invoice = Rechnung (Soll), entnahme = private Kfz-Nutzung, ausbuchung = Skonto oder
+   * payment = Zahlungseingang (Ist), invoice = Rechnung (Soll), entnahme = private Kfz-Nutzung oder Entnahme einer Anlage, ausbuchung = Skonto oder
    * Forderungsausfall (§ 17), direkt = Bankumsatz direkt auf eine Einnahmekategorie gebucht (Ist und Soll), kasse =
    * Bareinnahme ohne Rechnung im Kassenbuch (Ist und Soll)
    */
   type: "payment" | "invoice" | "entnahme" | "ausbuchung" | "direkt" | "kasse";
-  /** Bei Entnahmen: das Fahrzeug */
+  /** Bei Entnahmen: das Fahrzeug bzw. die entnommene Anlage */
   assetId?: string;
   /** Bei Ausbuchungen: Skonto gewährt oder Forderungsausfall (dieser zählt bei 19 % und 7 % zusätzlich in Kz 50) */
   writeOffKind?: "skonto" | "forderungsausfall";
@@ -76,8 +75,12 @@ export interface IgErwerbSource extends InputTaxSource {
  * spätestens im Folgemonat der Leistung (§ 18b Satz 1 und 2 UStG); Haben nimmt das Rechnungsdatum. Ebenso nicht steuerbare
  * Leistungen ins Drittland (Kz 45): DATEV weist bei Ist-Versteuerung nur steuerpflichtige und steuerfreie inländische
  * Umsätze mit der Zahlung aus, nicht steuerbare Umsätze im Drittland schon mit der Rechnung (DATEV-Dok. 1080673).
+ * Bauleistungen nach § 13b Abs. 5 UStG (Kz 60): Beim Kunden entsteht die Steuer mit der Rechnung, spätestens mit Ablauf
+ * des Monats nach der Leistung (§ 13b Abs. 2 UStG); den Tag setzt invoiceTaxReader().date. Auch bei Ist-Versteuerung
+ * erfolgt der Ausweis in Kz 60 bereits mit der Rechnung, nicht erst bei Zahlung (DATEV-Dok. 1007335, Abschn. 3.1 zu
+ * SKR03 8337 / SKR04 4337; #1934).
  */
-export const NACH_RECHNUNGSDATUM = ["reverse_charge", "ig_lieferung", "drittland", "eu_sonstige"] as const satisfies readonly TaxTreatment[];
+export const NACH_RECHNUNGSDATUM = ["reverse_charge", "bauleistung_13b", "ig_lieferung", "drittland", "eu_sonstige"] as const satisfies readonly TaxTreatment[];
 
 /**
  * Kennzahlen der Voranmeldung aus dem Journal (#542, #1116, docs/adr/journal-als-quelle.md). Die Listen (revenue,
@@ -96,6 +99,8 @@ export interface VatFigures {
   /** Reverse Charge im EU-Ausland, nicht steuerbar (Drittland), steuerfrei ohne Vorsteuerabzug */
   kz21: Cents;
   kz45: Cents;
+  /** Bauleistungen, für die der Kunde die Steuer schuldet (§ 13b Abs. 5 UStG, Kz 60) */
+  kz60: Cents;
   kz48: Cents;
   kz66: Cents;
   /** § 13b als Leistungsempfänger: EU (46/47), Drittland (84/85), Vorsteuer daraus (67) */
@@ -292,9 +297,12 @@ export async function computeVatFigures(period: VatPeriod, q: Db | Tx = db, cont
     }
   }
 
-  // Soll: alle Rechnungen nach Rechnungsdatum. Ist: nur Reverse Charge, innergemeinschaftliche Lieferungen und Leistungen
-  // ins Drittland, die Meldung in Kz 21, 41 und 45 richtet sich nach der Rechnung, nicht nach der Zahlung (NACH_RECHNUNGSDATUM).
+  // Soll: alle Rechnungen nach Rechnungsdatum. Ist: nur Reverse Charge, Bauleistungen (§ 13b), innergemeinschaftliche
+  // Lieferungen und Leistungen ins Drittland, die Meldung richtet sich nach der Rechnung, nicht nach der Zahlung (NACH_RECHNUNGSDATUM).
   {
+    const startYear = Number(start.slice(0, 4));
+    const startMonth = Number(start.slice(5, 7));
+    const bauleistungStart = startMonth === 1 ? `${startYear - 1}-12-01` : `${startYear}-${String(startMonth - 1).padStart(2, "0")}-01`;
     const issued = await q
       .select()
       .from(schema.invoices)
@@ -305,6 +313,14 @@ export async function computeVatFigures(period: VatPeriod, q: Db | Tx = db, cont
             and(gte(schema.invoices.issueDate, start), lt(schema.invoices.issueDate, end)),
             and(gte(schema.invoices.serviceFrom, start), lt(schema.invoices.serviceFrom, end)),
             and(gte(schema.invoices.serviceTo, start), lt(schema.invoices.serviceTo, end)),
+            // Bauleistungen (§ 13b Abs. 2 UStG): spätestens im Folgemonat nach Leistung gemeldet, auch bei späterer Rechnung
+            and(
+              eq(schema.invoices.taxTreatment, "bauleistung_13b"),
+              or(
+                and(gte(schema.invoices.serviceFrom, bauleistungStart), lt(schema.invoices.serviceFrom, start)),
+                and(gte(schema.invoices.serviceTo, bauleistungStart), lt(schema.invoices.serviceTo, start)),
+              ),
+            ),
           ),
           // aus Lexoffice übernommen: die Steuer ist dort schon angemeldet
           isNull(schema.invoices.lexofficeVoucherId),
@@ -450,24 +466,8 @@ export async function computeVatFigures(period: VatPeriod, q: Db | Tx = db, cont
     }
   }
 
-  // Private Kfz-Nutzung: unentgeltliche Wertabgabe im Monat der Nutzung, auch bei Ist-Versteuerung
-  for (const { year, month } of monthsOfPeriod(period)) {
-    const lastDay = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
-    for (const use of await privateUseForMonth(year, month, q)) {
-      revenue.push({
-        type: "entnahme",
-        date: lastDay,
-        invoiceId: "",
-        assetId: use.assetId,
-        number: "Privatnutzung",
-        customer: use.name,
-        treatment: "regulaer",
-        rate: 1900,
-        base: use.base,
-        tax: use.tax,
-      });
-    }
-  }
+  // Private Kfz-Nutzung und entnommene Anlagen: unentgeltliche Wertabgaben im Monat der Leistung, auch bei Ist-Versteuerung
+  revenue.push(...(await entnahmeQuellen(period, q)));
 
   // Vorsteuer, § 13b, Erwerb und Einfuhrumsatzsteuer als Erläuterung aus den Belegen (vorsteuer-belege.ts)
   const { inputTax, reverseCharge, igErwerb, einfuhr } = await vorsteuerAusBelegen(period, q);

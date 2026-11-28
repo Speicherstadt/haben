@@ -12,7 +12,7 @@ const CUSTOMIZATION_ID = "urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosi
 const PROFILE_ID = "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0";
 
 const PARTY = ["cbc:EndpointID", "cac:PartyIdentification", "cac:PostalAddress", "cac:PartyTaxScheme", "cac:PartyLegalEntity", "cac:Contact"];
-const ADDRESS = ["cbc:StreetName", "cbc:CityName", "cbc:PostalZone", "cac:Country"];
+const ADDRESS = ["cbc:StreetName", "cbc:AdditionalStreetName", "cbc:CityName", "cbc:PostalZone", "cac:Country"];
 const ALLOWANCE = [
   "cbc:ChargeIndicator",
   "cbc:AllowanceChargeReasonCode",

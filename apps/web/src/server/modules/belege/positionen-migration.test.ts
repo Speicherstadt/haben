@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 
 /*
- * Migration 0340 (#1975, docs/adr/belege-positionen.md): Offene Belege aus der Zeit vor den Positionen, mit Kategorie,
+ * Migration 0351 (#1975, docs/adr/belege-positionen.md): Offene Belege aus der Zeit vor den Positionen, mit Kategorie,
  * eigenem Konto und Privatanteil am Beleg, werden zu Positionen. Bedingung: Jede Buchung ergibt danach auf jedem Konto
  * (mit Steuerschlüssel und Bemessungsgrundlage) dasselbe wie vorher.
  *
@@ -14,7 +14,7 @@ import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
  * gebucht. Verglichen werden beide Buchungen Konto für Konto.
  */
 
-const MIGRATION = readFileSync(new URL("../../../../drizzle/0340_belege_positionen.sql", import.meta.url), "utf8");
+const MIGRATION = readFileSync(new URL("../../../../drizzle/0351_belege_positionen.sql", import.meta.url), "utf8");
 
 type Fall = {
   name: string;
@@ -93,7 +93,7 @@ const FAELLE: Fall[] = [
 
 const EIGENES_KONTO = { SKR03: "4999", SKR04: "6999" } as const;
 
-describe.skipIf(!testDatabaseUrl)("Migration 0340: offene Belege werden Positionen, ihre Buchung bleibt (Postgres, #1975)", () => {
+describe.skipIf(!testDatabaseUrl)("Migration 0351: offene Belege werden Positionen, ihre Buchung bleibt (Postgres, #1975)", () => {
   let documents: typeof import("./documents.ts");
   let konten: typeof import("../eigene-konten/index.ts");
   let reports: typeof import("../auswertungen/reports.ts");

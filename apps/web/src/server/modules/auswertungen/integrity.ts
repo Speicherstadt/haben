@@ -27,7 +27,10 @@ export interface ChainHead {
 }
 
 export interface IntegrityProblem {
-  /** kette: Audit-Log; kopf: Kettenkopf; siegel: festgeschriebener Datensatz; sperre: Trigger, Funktion oder Standardwert einer Spalte */
+  /**
+   * kette: Audit-Log; kopf: Kettenkopf; siegel: festgeschriebener Datensatz oder Zeile einer nur anhängbaren Tabelle
+   * (Abgleich mit dem Audit-Log); sperre: Trigger, Funktion oder Standardwert einer Spalte
+   */
   art: "kette" | "kopf" | "siegel" | "sperre";
   tabelle: string;
   zeile: string | null;
@@ -50,7 +53,7 @@ export interface IntegrityReport {
   abgleich: { abweichungen: AbgleichZeile[]; hinweise: string[] };
   /** Eigene Nummern, die eine spätere Version von Haben selbst nutzt; kein Beweis einer Manipulation. */
   accountCollisions: { kontenrahmen: Kontenrahmen; account: string; name: string }[];
-  /** Zusätzliche Betreibertrigger sind Hinweise, keine Korruptionsbefunde. */
+  /** Zusätzliche Betreibertrigger sind Hinweise, keine Korruptionsbefunde; auf audit_log und audit_chain stehen sie unter den Befunden. */
   triggerHints: string[];
   /** Prüfsumme der Sperren: eigener Bestand und ausgelieferter Sollbestand (#1683) */
   inventoryChecksum: InventoryChecksum;

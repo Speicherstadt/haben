@@ -1,5 +1,5 @@
 import { formatRateMonth, foreignToEuro } from "@haben/core";
-import { gunzipSync } from "fflate";
+import { EntpackGrenzeError, gunzipBegrenzt } from "../entpack-grenze.ts";
 import { StatementParseError } from "../errors.ts";
 import type { ParsedTransaction } from "../types.ts";
 import { euro, headerIndex, microsToCents, parseMicros, reportText, type ParsedStoreReport, type StoreSettlement } from "./reports.ts";
@@ -108,8 +108,9 @@ export function parseAppStoreFinanceDetail(bytes: Uint8Array, options: { rateFor
   let raw = bytes;
   if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
     try {
-      raw = gunzipSync(bytes);
-    } catch {
+      raw = gunzipBegrenzt(bytes);
+    } catch (error) {
+      if (error instanceof EntpackGrenzeError) throw new StatementParseError(error.message);
       throw new StatementParseError("Die gzip-Datei lässt sich nicht entpacken.");
     }
   }

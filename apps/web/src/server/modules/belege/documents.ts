@@ -556,10 +556,6 @@ async function updateDocumentIn(tx: Tx, id: string, input: DocumentInput): Promi
       );
     }
   }
-  await tx.delete(schema.documentAmounts).where(eq(schema.documentAmounts.documentId, id));
-  if (amounts.length > 0) {
-    await tx.insert(schema.documentAmounts).values(amounts.map((a) => ({ documentId: id, ...a })));
-  }
   await schreibePositionen(tx, id, positionen);
   const {
     amounts: _amounts,
@@ -587,6 +583,12 @@ async function updateDocumentIn(tx: Tx, id: string, input: DocumentInput): Promi
       updatedAt: new Date(),
     })
     .where(eq(schema.documents.id, id));
+  // Beträge zuletzt: Ihr Audit-Eintrag sperrt die Hash-Kette, Zeilen und Beleg prüfen davor ihre eigenen Konten
+  // (Fremdschlüssel). Sonst wartete das Speichern mit der Kette auf ein Konto, das gerade jemand umbenennt (Deadlock).
+  await tx.delete(schema.documentAmounts).where(eq(schema.documentAmounts.documentId, id));
+  if (amounts.length > 0) {
+    await tx.insert(schema.documentAmounts).values(amounts.map((a) => ({ documentId: id, ...a })));
+  }
 }
 
 export async function getDocument(id: string) {

@@ -86,6 +86,7 @@ function postalAddress(address: Address | undefined) {
   return el("ram:PostalTradeAddress", [
     txt("ram:PostcodeCode", address["cbc:PostalZone"]),
     txt("ram:LineOne", address["cbc:StreetName"]),
+    txt("ram:LineTwo", address["cbc:AdditionalStreetName"]),
     txt("ram:CityName", address["cbc:CityName"]),
     txt("ram:CountryID", address["cac:Country"]["cbc:IdentificationCode"]),
   ]);

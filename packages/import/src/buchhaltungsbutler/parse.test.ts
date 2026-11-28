@@ -21,6 +21,7 @@ const BB_HEADERS = [
   "Festschreibung",
   "Kommentar",
   "Leistungsdatum",
+  "Beleg-Dateinamen",
 ] as const;
 
 const DATEV_HEADERS = [
@@ -47,6 +48,11 @@ interface TestRow {
   contact?: string;
   documentDate?: string;
   rate?: string;
+  /** Spalte „Beleg-Dateinamen“ des BB Standardexports */
+  names?: string;
+  /** Beleginfo „Original-Dateiname“ im DATEV-Buchungsstapel */
+  original?: string;
+  url?: string;
 }
 
 function csv(rows: (readonly string[])[]): Uint8Array {
@@ -70,12 +76,13 @@ function makeParts(rows: TestRow[], pdfIds = rows.filter((row) => row.number).ma
     const addInfo = (name: string, value: string) => info.push(name, value);
     addInfo("Buchungsnummer", row.id);
     if (row.number) {
-      addInfo("URL", `https://bb.example/${row.number}.pdf`);
+      addInfo("URL", row.url ?? `https://bb.example/${row.number}.pdf`);
       addInfo("Gegenpartei", contact);
       addInfo("Rechnungsnummer", row.number);
       addInfo("Betrag", amount);
       addInfo("Umsatzsteuer", rate);
       addInfo("Rechnungsdatum", documentDate);
+      if (row.original) addInfo("Original-Dateiname", row.original);
     }
     datevRows.push([amount, side, "EUR", account, contra, row.bu ?? "9", "0401", row.number ?? "", contact, ...info]);
     bbRows.push([
@@ -95,6 +102,7 @@ function makeParts(rows: TestRow[], pdfIds = rows.filter((row) => row.number).ma
       "1",
       "",
       documentDate,
+      row.names ?? "",
     ]);
     if (pdfIds.includes(row.id)) receipts[`Belege/${row.id}.pdf`] = new TextEncoder().encode("%PDF-1.4\n%%EOF");
   }
@@ -258,5 +266,112 @@ describe("BuchhaltungsButler-Export", () => {
       ["invoice", 11900, 1900, false],
       ["purchaseinvoice", 11900, 1900, false],
     ]);
+  });
+});
+
+// Belege unter ihrem Originalnamen (#1828); Namen und Werte erfunden
+describe("BuchhaltungsButler: Belege über den Dateinamen", () => {
+  const pdf = (text: string) => new TextEncoder().encode(`%PDF-1.4\n${text}`);
+  const verzeichnis = new TextEncoder().encode(
+    '<?xml version="1.0" encoding="utf-8"?><archive xmlns="http://xml.datev.de/bedi/tps/document/v04.0" version="4.0"></archive>',
+  );
+  const buchung = (id: string, extra: Partial<TestRow> = {}): TestRow => ({ id, number: `R-${id}`, debit: "4964", credit: "1203", ...extra });
+  const vorschau = (rows: TestRow[], zip: Record<string, Uint8Array>) => {
+    const parts = makeParts(rows, []);
+    parts[2] = { name: "Belege.zip", bytes: zipSync(zip) };
+    return previewBuchhaltungsbutlerExport(parts, "SKR03");
+  };
+  const dateien = (result: ReturnType<typeof vorschau>) => result.vouchers.map((v) => v.files.map((f) => f.filename));
+
+  it("ordnet Originalnamen zu und hält die document.xml des Belegtransfers nicht für einen Beleg", () => {
+    const result = vorschau([buchung("1", { names: "Rechnung-A.pdf" }), buchung("2", { names: "Beleg B.pdf" })], {
+      "Belege/Rechnung-A.pdf": pdf("a"),
+      "Belege/Beleg B.pdf": pdf("b"),
+      "Belege/document.xml": verzeichnis,
+    });
+    expect(dateien(result)).toEqual([["Rechnung-A.pdf"], ["Beleg B.pdf"]]);
+    expect(result.files).toBe(2);
+  });
+
+  it("hängt eine Datei an jede Buchung, die sie nennt", () => {
+    const result = vorschau([buchung("1", { names: "Sammel.pdf" }), buchung("2", { names: "Sammel.pdf" })], { "Sammel.pdf": pdf("s") });
+    expect(dateien(result)).toEqual([["Sammel.pdf"], ["Sammel.pdf"]]);
+  });
+
+  it("trennt zwei Dateien in einem Feld am Komma", () => {
+    const result = vorschau([buchung("1", { names: "a.pdf, b.pdf" })], { "a.pdf": pdf("a"), "b.pdf": pdf("b") });
+    expect(dateien(result)).toEqual([["a.pdf", "b.pdf"]]);
+    expect(result.multipleFiles).toBe(1);
+  });
+
+  it("nimmt einen Namen mit Komma als Ganzes, wenn er so im ZIP liegt", () => {
+    const result = vorschau([buchung("1", { names: "Miete, Mai.pdf" })], { "Miete, Mai.pdf": pdf("m") });
+    expect(dateien(result)).toEqual([["Miete, Mai.pdf"]]);
+  });
+
+  it("nimmt ohne „Beleg-Dateinamen“ den „Original-Dateiname“ aus dem DATEV-Stapel", () => {
+    const result = vorschau([buchung("1", { original: "Original.pdf" })], { "Original.pdf": pdf("o") });
+    expect(dateien(result)).toEqual([["Original.pdf"]]);
+  });
+
+  it("nimmt ohne beide den Namen vom Ende der Beleg-URL, ohne Abfrage und dekodiert", () => {
+    const result = vorschau([buchung("1", { url: "https://bb.example/belege/Quittung%20Mai.pdf?sig=abc" })], { "Quittung Mai.pdf": pdf("q") });
+    expect(dateien(result)).toEqual([["Quittung Mai.pdf"]]);
+  });
+
+  it("nennt eine fehlende Datei beim Namen", () => {
+    expect(() => vorschau([buchung("1", { names: "a.pdf, fehlt.pdf" })], { "a.pdf": pdf("a") })).toThrow("PDF fehlt in Belege.zip (gesucht: fehlt.pdf)");
+  });
+
+  it("nennt eine Datei, die zu keiner Buchung gehört, beim Namen", () => {
+    expect(() => vorschau([buchung("1", { names: "a.pdf" })], { "a.pdf": pdf("a"), "zuviel.pdf": pdf("z") })).toThrow("„zuviel.pdf“ gehört zu keiner Buchung");
+  });
+
+  it("hält eine andere document.xml für einen Beleg", () => {
+    const rechnung = new TextEncoder().encode('<?xml version="1.0"?><rsm:CrossIndustryInvoice />');
+    const result = vorschau([buchung("1", { names: "document.xml" })], { "document.xml": rechnung });
+    expect(dateien(result)).toEqual([["document.xml"]]);
+  });
+});
+
+// TDD-Review zu #1830; Namen und Werte erfunden
+describe("BuchhaltungsButler: Belegzuordnung, Randfälle", () => {
+  const pdf = (text: string) => new TextEncoder().encode(`%PDF-1.4\n${text}`);
+  const buchung = (id: string, extra: Partial<TestRow> = {}): TestRow => ({ id, number: `R-${id}`, debit: "4964", credit: "1203", ...extra });
+  const vorschau = (rows: TestRow[], zip: Record<string, Uint8Array>) => {
+    const parts = makeParts(rows, []);
+    parts[2] = { name: "Belege.zip", bytes: zipSync(zip) };
+    return previewBuchhaltungsbutlerExport(parts, "SKR03");
+  };
+  const dateien = (result: ReturnType<typeof vorschau>) => result.vouchers.map((v) => v.files.map((f) => f.filename));
+
+  it("hängt statt einer fehlenden Datei nicht die Datei einer anderen Buchung an, die wie die Buchungsnummer heißt", () => {
+    expect(() => vorschau([buchung("12", { names: "Lieferant.pdf" }), buchung("40", { names: "12.pdf" })], { "12.pdf": pdf("von 40") })).toThrow(
+      "Lieferant.pdf",
+    );
+  });
+
+  it("lässt eine fehlende Datei nicht wegfallen, wenn eine andere genannte da ist und eine Nummerndatei existiert", () => {
+    expect(() => vorschau([buchung("5", { names: "a.pdf, fehlt.pdf" }), buchung("6", { names: "a.pdf" })], { "a.pdf": pdf("a"), "5.pdf": pdf("5") })).toThrow(
+      "fehlt.pdf",
+    );
+  });
+
+  it("behält beide Dateien im älteren Muster, wenn die Beleg-URL auf eine davon endet", () => {
+    const result = vorschau([buchung("97", { url: "https://bb.example/belege/97_1.pdf" })], { "97_1.pdf": pdf("1"), "97_2.pdf": pdf("2") });
+    expect(dateien(result)).toEqual([["97_1.pdf", "97_2.pdf"]]);
+  });
+
+  it("findet in einem Feld mit mehreren Dateien auch den Namen mit Komma", () => {
+    const result = vorschau([buchung("1", { names: "Miete, Mai.pdf, b.pdf" })], { "Miete, Mai.pdf": pdf("m"), "b.pdf": pdf("b") });
+    expect(dateien(result)).toEqual([["Miete, Mai.pdf", "b.pdf"]]);
+  });
+
+  it("trennt zwei Beleg-URLs auch bei Komma mit Leerzeichen", () => {
+    const result = vorschau([buchung("1", { url: "https://bb.example/a.pdf, https://bb.example/b.pdf" }), buchung("2", { url: "https://bb.example/a.pdf" })], {
+      "a.pdf": pdf("a"),
+      "b.pdf": pdf("b"),
+    });
+    expect(dateien(result)).toEqual([["a.pdf", "b.pdf"], ["a.pdf"]]);
   });
 });

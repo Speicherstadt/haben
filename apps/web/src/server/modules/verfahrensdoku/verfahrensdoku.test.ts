@@ -66,6 +66,8 @@ describe.skipIf(!testDatabaseUrl)("Verfahrensdokumentation aus der Instanz (Post
     await sql`delete from mcp_tokens`;
     await sql`insert into mcp_tokens (name, token_hash, prefix, scopes, expires_at)
       values ('Claude am Laptop', ${GEHEIMNISSE.tokenHash}, ${GEHEIMNISSE.tokenPrefix}, ${["haben:lesen"]}, '2027-06-01T00:00:00Z')`;
+    await sql`insert into mcp_tokens (name, token_hash, prefix, scopes, finalize_source, expires_at)
+      values ('Shop', ${`${GEHEIMNISSE.tokenHash}-2`}, ${GEHEIMNISSE.tokenPrefix}, ${["rechnungen:festschreiben"]}, 'ebay', '2027-06-01T00:00:00Z')`;
     await sql`delete from elster_certificates`;
     await sql`insert into elster_certificates (filename, ciphertext, valid_until, pin_ciphertext)
       values ('zertifikat.pfx', ${Buffer.from(GEHEIMNISSE.zertifikat)}, '2028-03-31', ${Buffer.from(GEHEIMNISSE.zertifikat)})`;
@@ -89,6 +91,8 @@ describe.skipIf(!testDatabaseUrl)("Verfahrensdokumentation aus der Instanz (Post
       ]),
     );
     expect(zugaenge.liste).toContainEqual(expect.stringMatching(/^API-Token „Claude am Laptop“: haben:lesen, gültig bis/));
+    // Festschreiben über die API gilt nur für eine Quelle (#1918); die gehört zum Recht
+    expect(zugaenge.liste).toContainEqual(expect.stringMatching(/^API-Token „Shop“: rechnungen:festschreiben \(nur Entwürfe der Quelle „ebay“\), gültig bis/));
     const [rolle] = await sql<{ login: string }[]>`select session_user as login`;
     expect(text.abschnitte.find((a) => a.titel.startsWith("3."))!.absaetze.join("\n")).toContain(`„${rolle!.login}“`);
     const betrieb = text.abschnitte.find((a) => a.titel.startsWith("6."))!.absaetze.join("\n");

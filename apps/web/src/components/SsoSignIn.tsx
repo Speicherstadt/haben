@@ -19,19 +19,40 @@ export function ssoReasonMessage(search: string, provider: string): string | nul
   return reason ? (reasons[reason] ?? reasons.fehler!) : null;
 }
 
+/** Höchstens einmal je Minute startet die erneute Anmeldung nach Ablauf der Frist von selbst */
+export const ERNEUT_PAUSE_MS = 60_000;
+const ERNEUT_SCHLUESSEL = "haben.sso-erneut";
+
 /**
- * Ob die Anmeldung von selbst starten soll: aus dem Firmenportal (#504) mit ?anmelden=sso. Nicht nach einem abgewiesenen
- * Callback (?sso=…), sonst ginge es im Kreis.
+ * Ob die Anmeldung von selbst starten soll: aus dem Firmenportal (#504) mit ?anmelden=sso, nach Ablauf der Frist (#2048)
+ * mit ?anmelden=erneut. Nicht nach einem abgewiesenen Callback (?sso=…), sonst ginge es im Kreis. Die erneute Anmeldung
+ * zusätzlich nur, wenn ihr letzter Start (`letzterStart`, ms) länger als eine Minute zurückliegt: Gilt die neue Sitzung
+ * gleich wieder nicht, etwa bei falsch gehender Uhr, bleibt es bei der Anmeldeseite.
  */
-export const ssoAutoStart = (search: string): boolean => {
+export const ssoAutoStart = (search: string, letzterStart: number | null = null, jetzt = Date.now()): boolean => {
   const params = new URLSearchParams(search);
-  return params.get("anmelden") === "sso" && !params.has("sso");
+  if (params.has("sso")) return false;
+  if (params.get("anmelden") === "sso") return true;
+  return params.get("anmelden") === "erneut" && (letzterStart === null || jetzt - letzterStart >= ERNEUT_PAUSE_MS);
 };
+
+/** Merkt sich den Start der erneuten Anmeldung im Speicher des Tabs; ohne ihn (gesperrt) startet sie nicht von selbst */
+function startetVonSelbst(search: string): boolean {
+  if (new URLSearchParams(search).get("anmelden") !== "erneut") return ssoAutoStart(search);
+  try {
+    const wert = Number(window.sessionStorage.getItem(ERNEUT_SCHLUESSEL));
+    if (!ssoAutoStart(search, wert > 0 ? wert : null)) return false;
+    window.sessionStorage.setItem(ERNEUT_SCHLUESSEL, String(Date.now()));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Einziger Weg hinein im SSO-Modus: startet die Anmeldung beim konfigurierten Anbieter, ohne weitere Angaben. Mit `weiter`
- * geht es danach zu ?weiter=… (Zustimmungsseite eines KI-Assistenten), sonst zur Startseite. Mit `autoStart` (Login-Seite)
- * startet sie bei ?anmelden=sso von selbst, damit der Wechsel aus dem Firmenportal ohne Klick geht.
+ * geht es danach zu ?weiter=… (eigene Seite, etwa die Zustimmungsseite eines KI-Assistenten), sonst zur Startseite. Mit
+ * `autoStart` (Login-Seite) startet sie bei ?anmelden=sso oder ?anmelden=erneut von selbst (siehe `ssoAutoStart`).
  */
 export function SsoSignIn({ name, label, weiter = false, autoStart = false }: { name: string; label?: string; weiter?: boolean; autoStart?: boolean }) {
   const [busy, setBusy] = useState(false);
@@ -41,7 +62,7 @@ export function SsoSignIn({ name, label, weiter = false, autoStart = false }: { 
   // biome-ignore lint/correctness/useExhaustiveDependencies: start nur einmal beim Öffnen, nicht bei jedem Rendern
   useEffect(() => {
     setReason(ssoReasonMessage(window.location.search, name));
-    if (autoStart && ssoAutoStart(window.location.search)) void start();
+    if (autoStart && startetVonSelbst(window.location.search)) void start();
   }, [name, autoStart]);
 
   async function start() {

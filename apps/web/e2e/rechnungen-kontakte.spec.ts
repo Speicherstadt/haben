@@ -429,6 +429,42 @@ test("Kontakt bearbeiten: Speichern schlägt fehl, der Fokus steht danach wieder
   await expect(page.getByRole("button", { name: "Wiederherstellen" })).toBeVisible();
 });
 
+test("Kontakt: Land aus der Liste, Adresszusatz und PLZ je Land (#914)", async () => {
+  await go("/kontakte/neu");
+  await page.getByLabel("Name oder Firma").fill("Grachtenwerk BV");
+  await page.getByLabel("Adresszusatz").fill("Afdeling Inkoop");
+  await page.getByLabel("Straße und Hausnummer").fill("Keizersgracht 123");
+  const plz = page.getByLabel("PLZ", { exact: true });
+  await plz.fill("1015 CJ");
+  await page.getByLabel("Ort", { exact: true }).fill("Amsterdam");
+
+  // In Deutschland, der Vorgabe, hat die PLZ fünf Ziffern: Der Fehler steht am Feld, der Fokus geht hinein
+  await expect(plz).toHaveAttribute("inputmode", "numeric");
+  await page.getByRole("button", { name: "Kontakt anlegen" }).click();
+  await expect(plz).toBeFocused();
+  await expect(plz).toHaveAccessibleDescription("Eine deutsche PLZ hat fünf Ziffern, etwa 93047.");
+
+  // Nach Name gesucht; mit den Niederlanden ist die PLZ frei und der Fehler verschwindet
+  const land = page.getByRole("combobox", { name: "Land", exact: true });
+  await land.fill("Nieder");
+  await trefferliste(page)
+    .getByRole("option", { name: /^Niederlande/ })
+    .click();
+  await expect(land).toHaveValue("Niederlande");
+  await expect(plz).toHaveAttribute("inputmode", "text");
+  await expect(plz).not.toHaveAttribute("aria-invalid", "true");
+  await page.getByRole("button", { name: "Kontakt anlegen" }).click();
+  await expect(page.getByRole("heading", { name: "Versionen" })).toBeVisible();
+
+  // Gespeichert ist der Code; nach dem Neuladen steht wieder der Name im Feld
+  await go(new URL(page.url()).pathname);
+  await expect(page.getByRole("combobox", { name: "Land", exact: true })).toHaveValue("Niederlande");
+  await expect(page.locator('input[name="land"]')).toHaveValue("NL");
+  await expect(page.getByLabel("Adresszusatz")).toHaveValue("Afdeling Inkoop");
+  await page.getByRole("button", { name: "Archivieren" }).click();
+  await expect(page.getByRole("button", { name: "Wiederherstellen" })).toBeVisible();
+});
+
 test("Kontakt mit beiden Rollen trägt DATEV-Debitor und -Kreditor, eine vergebene Nummer meldet das Formular (#327)", async () => {
   await go("/kontakte/neu");
   await page.getByLabel("Name oder Firma").fill("Musterpartner GmbH");
@@ -920,6 +956,50 @@ test("REST-API: Token mit Rechten anlegen, Rechnungsentwurf mit Bestellnummer un
   const calls = page.getByRole("region", { name: "Letzte Aufrufe" });
   await expect(calls.getByText("POST /rechnungen").first()).toBeVisible();
   await expect(calls.getByText("POST /belege").first()).toBeVisible();
+});
+
+test("REST-API: Recht zum Festschreiben nur mit Quelle (#1918)", async () => {
+  await go("/einstellungen?bereich=ki");
+  const zugang = page.getByLabel("Zugang für KI-Assistenten und API einschalten");
+  if (!(await zugang.isChecked())) await zugang.click();
+  await expect(zugang).toBeChecked();
+  const form = page.getByRole("form", { name: "Neues Token" });
+  const rechte = form.getByRole("group", { name: "Rechte" });
+
+  // Ein Dienst legt zuerst einen Entwurf mit externer Referenz an; erst dann gibt es eine Quelle zur Wahl
+  await form.getByLabel("Name").fill("Shop-Entwürfe");
+  await rechte.getByRole("checkbox", { name: /haben:lesen/ }).uncheck();
+  await rechte.getByRole("checkbox", { name: /kontakte:lesen/ }).check();
+  await rechte.getByRole("checkbox", { name: /rechnungen:entwuerfe/ }).check();
+  await form.getByRole("button", { name: "Token anlegen" }).click();
+  const auth = { Authorization: `Bearer ${await page.getByLabel(/Token für „Shop-Entwürfe“/).inputValue()}` };
+  const kontakte = (await (await page.request.get("/api/v1/kontakte?q=Nordwerk", { headers: auth })).json()) as { data: { id: string }[] };
+  const entwurf = await page.request.post("/api/v1/rechnungen", {
+    headers: auth,
+    data: {
+      contactId: kontakte.data[0]!.id,
+      externalSource: "e2eshop",
+      externalId: "1918-1",
+      lines: [{ description: "Becher", quantity: 1000, unit: "Stk.", unitPrice: 1990, taxRate: 1900 }],
+    },
+  });
+  expect(entwurf.status()).toBe(201);
+  const invoice = (await entwurf.json()) as { id: string };
+
+  await go("/einstellungen?bereich=ki");
+  await form.getByLabel("Name").fill("Shop-Festschreiben");
+  await rechte.getByRole("checkbox", { name: /haben:lesen/ }).uncheck();
+  await rechte.getByRole("checkbox", { name: /rechnungen:festschreiben/ }).check();
+  await form.getByLabel("Quelle zum Festschreiben").selectOption("e2eshop");
+  await form.getByRole("button", { name: "Token anlegen" }).click();
+  const festschreiben = { Authorization: `Bearer ${await page.getByLabel(/Token für „Shop-Festschreiben“/).inputValue()}` };
+  await expect(page.getByText(/Festschreiben nur für die Quelle e2eshop/)).toBeVisible();
+
+  // Ohne „Bereits bezahlt“ bleibt der Entwurf stehen; so ändert der Test keine Nummern und keine Buchungen
+  const abgelehnt = await page.request.post(`/api/v1/rechnungen/${invoice.id}/festschreiben`, { headers: festschreiben, data: {} });
+  expect(abgelehnt.status()).toBe(422);
+  expect(((await abgelehnt.json()) as { error: { message: string } }).error.message).toMatch(/Bereits bezahlt/);
+  expect((await page.request.delete(`/api/v1/rechnungen/${invoice.id}`, { headers: auth })).status()).toBe(204);
 });
 
 test("Connector per OAuth (#96): registrieren, im Browser zustimmen, lesen und in den Einstellungen widerrufen", async () => {

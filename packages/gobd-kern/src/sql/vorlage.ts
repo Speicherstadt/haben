@@ -157,6 +157,8 @@ BEGIN
   SELECT * INTO last FROM audit_log ORDER BY seq DESC LIMIT 1;
   NEW.seq := coalesce(last.seq, 0) + 1;
   NEW.prev_hash := coalesce(last.row_hash, ${p}_audit_genesis());
+  -- Zeitpunkt direkt vor dem Hash, nicht aus dem Standardwert: Ein geänderter Standardwert datierte sonst zurück
+  NEW.at := now();
   NEW.row_hash := ${p}_audit_hash(NEW.prev_hash, NEW);
   RETURN NEW;
 END;
@@ -235,8 +237,8 @@ LANGUAGE plpgsql AS $$
 DECLARE
   cols jsonb := jsonb_build_object(TG_TABLE_NAME, ${p}_columns(TG_RELID));
 BEGIN
-  INSERT INTO seals (table_name, row_id, columns, digest)
-  VALUES (TG_TABLE_NAME, NEW.id, cols, ${p}_seal_digest(TG_TABLE_NAME, NEW.id, cols));
+  INSERT INTO seals (table_name, row_id, columns, digest, created_at)
+  VALUES (TG_TABLE_NAME, NEW.id, cols, ${p}_seal_digest(TG_TABLE_NAME, NEW.id, cols), now());
   RETURN NULL;
 END;
 $$`,

@@ -104,6 +104,7 @@ Was sich sicher entscheiden lässt, prüft ein Skript; was nicht, erscheint als 
 | Jede Seite in `docs/` mit `description:` im Front Matter | Workflow „Docs“ (`docs.yml`) | Fehler |
 | Leerzeile vor jeder Liste in `docs/` ([Seiten der Doku](entwicklung.md#befehle), „Listen“) | `scripts/doku-listen/` im Workflow „Docs“ | Fehler |
 | Jede versiegelte, nur anhängbare oder gegen Löschen gesperrte Tabelle und jede, deren Löschen das Audit-Log aufzeichnet, hat einen Trigger vor `TRUNCATE` | `apps/web/src/server/db/truncate.test.ts` in `bun run test` (mit Postgres) | Fehler |
+| Jede nur anhängbare Tabelle hat ein Siegel oder steht mit Audit-Trigger in `haben_audited_append_only_tables()` | `apps/web/src/server/modules/auswertungen/integrity-anhaengbar.test.ts` in `bun run test` (mit Postgres) | Fehler |
 
 `checks` ist das gemeinsame Paket [`@firsttris/checks`](https://github.com/firsttris/workflows#checks), eingestellt in `checks.json`. Nennt `bun run lint` einen Befehl mit `--clean` (`.checks/large-files.txt`) oder `--aufraeumen` (`altstellen.json`), läuft er im selben Pull Request, und die geänderte Liste wird mitcommittet.
 

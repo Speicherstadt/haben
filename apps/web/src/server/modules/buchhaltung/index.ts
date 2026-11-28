@@ -22,6 +22,7 @@ export {
   withdrawalsForEuer,
 } from "./assets.ts";
 export { bookDepreciation } from "./assets-buchen.ts";
+export { assetWithdrawalsForMonth } from "./asset-entnahme.ts";
 export { assetImportStichtagProblem, insertImportedAssets, planAssetCandidates, planAssetImport } from "./asset-import.ts";
 export { accountName, buchungenZu, knownAccounts, loadJournal, transitBalance, type BuchungVerweis } from "./journal.ts";
 export {

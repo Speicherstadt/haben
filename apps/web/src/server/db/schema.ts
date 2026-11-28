@@ -52,6 +52,7 @@ import {
   type AssetKind,
   type AssetMethod,
   type CarPrivateUse,
+  type AssetWithdrawal,
   type MailTemplates,
   type SkontoStufe,
   type TaxShare,
@@ -321,6 +322,8 @@ export const vatReturns = pgTable(
     /** Umsätze ohne Steuer: Reverse Charge im EU-Ausland, nicht steuerbar, steuerfrei ohne Vorsteuerabzug */
     kz21: integer("kz21").$type<Cents>().notNull().default(0),
     kz45: integer("kz45").$type<Cents>().notNull().default(0),
+    /** Bauleistungen, für die der Kunde die Steuer schuldet (§ 13b Abs. 5 UStG) */
+    kz60: integer("kz60").$type<Cents>().notNull().default(0),
     kz48: integer("kz48").$type<Cents>().notNull().default(0),
     kz66: integer("kz66").$type<Cents>().notNull().default(0),
     /** § 13b als Leistungsempfänger: Bemessungsgrundlagen 46/84, Steuer 47/85, Vorsteuer 67 */
@@ -365,6 +368,7 @@ export const vatReturns = pgTable(
       kz86: Cents;
       kz21?: Cents;
       kz45?: Cents;
+      kz60?: Cents;
       kz48?: Cents;
       kz66: Cents;
       kz46?: Cents;
@@ -874,6 +878,8 @@ export const mailSettings = pgTable(
     fromAddress: text("from_address").notNull(),
     /** Name vor der Absenderadresse; leer: der Firmenname, ohne den „Haben“ (senderName in mail.ts) */
     fromName: text("from_name").notNull().default(""),
+    /** Antwortadresse (Reply-To) aller Mails, wenn Antworten nicht an `from_address` gehen sollen; leer: keine (#2045) */
+    replyTo: text("reply_to").notNull().default(""),
     /** Empfänger der Erinnerungen */
     reminderTo: text("reminder_to").notNull(),
     remindersEnabled: boolean("reminders_enabled").notNull().default(true),
@@ -965,6 +971,28 @@ export const inboxMessages = pgTable("inbox_messages", {
   duplicates: integer("duplicates").notNull().default(0),
   /** Übersprungene Anhänge mit Grund */
   skipped: text("skipped").array().notNull().default(sql`'{}'::text[]`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Ausgangsrechnungen aus dem Ordner für Ausgangsrechnungen des Postfachs (#660): Das PDF liegt abgelegt, die Angaben
+ * prüft der Nutzer beim Übernehmen. Eine Datei steht nur einmal da (SHA-256); verworfene Einträge bleiben, damit der
+ * Abruf dieselbe Datei nicht wieder anbietet.
+ */
+export const inboxOutgoing = pgTable("inbox_outgoing", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sha256: text("sha256").notNull().unique(),
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(),
+  sender: text("sender").notNull(),
+  subject: text("subject").notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true }),
+  status: text("status", { enum: ["offen", "uebernommen", "verworfen"] })
+    .notNull()
+    .default("offen"),
+  /** Die daraus übernommene Rechnung */
+  invoiceId: uuid("invoice_id").references(() => invoices.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -1141,6 +1169,8 @@ export const contacts = pgTable(
     /** Nummer beim Lieferanten bzw. eigene Lieferantennummer, frei */
     lieferantennummer: text("lieferantennummer"),
     name: text("name").notNull(),
+    /** Adresszusatz (Abteilung, c/o, Gebäude): im PDF eine eigene Zeile, in der E-Rechnung BT-51 (#914) */
+    adresszusatz: text("adresszusatz").notNull().default(""),
     strasse: text("strasse").notNull().default(""),
     plz: text("plz").notNull().default(""),
     ort: text("ort").notNull().default(""),
@@ -4105,6 +4135,8 @@ export const assets = pgTable(
     openingEntryId: uuid("opening_entry_id"),
     specialDepreciation: jsonb("special_depreciation").$type<{ year: number; amount: Cents }[]>().notNull().default([]),
     disposalDate: date("disposal_date", { mode: "string" }),
+    /** Abgang als Entnahme ins Privatvermögen (#1970): Entnahmewert netto und ob beim Kauf Vorsteuer gezogen wurde; null = Verkauf oder Verschrottung */
+    disposalWithdrawal: jsonb("disposal_withdrawal").$type<AssetWithdrawal>(),
     /** Firmenwagen: private Nutzung nach der Listenpreismethode */
     privateUse: jsonb("private_use").$type<CarPrivateUse>(),
     note: text("note").notNull().default(""),
@@ -4115,6 +4147,7 @@ export const assets = pgTable(
     check("assets_opening_complete", sql`(${t.openingDate} is null) = (${t.openingBookValue} is null)`),
     check("assets_cost_positive", sql`${t.cost} > 0`),
     check("assets_private_use_car", sql`${t.privateUse} is null or ${t.kind} = 'kfz'`),
+    check("assets_withdrawal_disposal", sql`${t.disposalWithdrawal} is null or ${t.disposalDate} is not null`),
     check(
       "assets_degressive_rate",
       sql`(${t.method} = 'degressiv') = (${t.degressiveRate} is not null) and coalesce(${t.degressiveRate}, 1) between 1 and 3000`,
@@ -4399,6 +4432,8 @@ export const mcpTokens = pgTable("mcp_tokens", {
   prefix: text("prefix").notNull(),
   /** Rechte des Tokens, TOKEN_SCOPES in modules/mcp/tokens.ts: haben:lesen für MCP, kontakte:…, rechnungen:… und belege:… für die REST-API */
   scopes: text("scopes").array().notNull(),
+  /** Mit rechnungen:festschreiben: die externe Quelle (invoices.external_source), deren Entwürfe das Token festschreiben darf (#1918) */
+  finalizeSource: text("finalize_source"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),

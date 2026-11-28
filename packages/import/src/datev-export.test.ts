@@ -1,5 +1,14 @@
+import { computeInvoiceTotals, gleichgestellteKonten, invoicePosting, type TaxTreatment } from "@haben/core";
 import { describe, expect, it } from "vitest";
-import { buildDatevBuchungsstapel, DATEV_COLUMNS, encodeCp1252, splitEntry, type DatevExportEntry, type DatevExportHeader } from "./datev-export.ts";
+import {
+  buildDatevBuchungsstapel,
+  DATEV_AUTOMATIC_ACCOUNTS,
+  DATEV_COLUMNS,
+  encodeCp1252,
+  splitEntry,
+  type DatevExportEntry,
+  type DatevExportHeader,
+} from "./datev-export.ts";
 import { parseDatevBuchungsstapel } from "./datev.ts";
 
 const header: DatevExportHeader = {
@@ -200,6 +209,106 @@ describe("Private Kfz-Nutzung auf den Automatikkonten", () => {
   }
 });
 
+describe("Entnahme einer Anlage auf den Automatikkonten (#1970)", () => {
+  // DATEV SKR03 8801/8820, SKR04 6885/4845 „Erlöse aus Verkäufen Sachanlagevermögen 19 % USt (bei Buchverlust bzw.
+  // Buchgewinn)“ sind AM-Konten, 8800/8829 bzw. 6889/4849 ohne USt nicht (DATEV-Kontenrahmen 2026, Art.-Nr. 11174/11175)
+  const entry = (privat: string, konto: string, ust: string | null) => ({
+    date: "2026-10-15",
+    description: "Entnahme · Kamera",
+    voucher: "",
+    locked: true,
+    lines: [
+      { account: privat, debit: ust ? 11_900 : 10_000, credit: 0 },
+      { account: konto, debit: 0, credit: 10_000 },
+      ...(ust ? [{ account: ust, debit: 0, credit: 1_900 }] : []),
+    ],
+  });
+  for (const [kr, privat, konto, ust] of [
+    ["SKR03", "1800", "8820", "1776"],
+    ["SKR03", "1800", "8801", "1776"],
+    ["SKR04", "2100", "4845", "3806"],
+    ["SKR04", "2100", "6885", "3806"],
+  ] as const) {
+    it(`${kr} ${konto} mit Umsatzsteuer: BU-Schlüssel 40`, () => {
+      const rows = splitEntry(entry(privat, konto, ust), kr);
+      expect(rows.find((r) => r.contraAccount === konto || r.account === konto)?.buKey).toBe("40");
+    });
+  }
+  for (const [kr, privat, konto] of [
+    ["SKR03", "1800", "8829"],
+    ["SKR04", "2100", "6889"],
+  ] as const) {
+    it(`${kr} ${konto} ohne Umsatzsteuer: kein BU-Schlüssel`, () => {
+      const rows = splitEntry(entry(privat, konto, null), kr);
+      expect(rows.find((r) => r.contraAccount === konto || r.account === konto)?.buKey ?? "").toBe("");
+    });
+  }
+});
+
+describe("Verkauf einer Anlage per Rechnung (#2022)", () => {
+  // DATEV-Kontenrahmen 2026 (Art.-Nr. 11174/11175): 8827/8828 bzw. 4844/4848 „… steuerfrei § 4 Nr. 1a/1b UStG (bei Buchgewinn)“
+  // sind AM-Konten ohne Steuer; wie bei 8120/8125 bzw. 4120/4125 ordnet die Automatik nur die Kennzahl zu und bleibt an.
+  // 8820 bzw. 4845 mit 19 % trägt BU 40, weil Haben die Steuer als eigene Zeile bucht.
+  const rechnung = (forderung: string, konto: string, ust: string | null) => ({
+    date: "2026-10-15",
+    description: "Rechnung RE-1 · Kamera",
+    voucher: "RE-1",
+    locked: true,
+    lines: [
+      { account: forderung, debit: ust ? 47_600 : 40_000, credit: 0 },
+      { account: konto, debit: 0, credit: 40_000 },
+      ...(ust ? [{ account: ust, debit: 0, credit: 7_600 }] : []),
+    ],
+  });
+  for (const [kr, forderung, konto, ust] of [
+    ["SKR03", "1400", "8820", "1776"],
+    ["SKR04", "1200", "4845", "3806"],
+  ] as const) {
+    it(`${kr} ${konto} mit 19 %: BU-Schlüssel 40`, () => {
+      expect(splitEntry(rechnung(forderung, konto, ust), kr).find((r) => r.contraAccount === konto)?.buKey).toBe("40");
+    });
+  }
+  for (const [kr, forderung, konto] of [
+    ["SKR03", "1400", "8827"],
+    ["SKR03", "1400", "8828"],
+    ["SKR03", "1400", "8829"],
+    ["SKR04", "1200", "4844"],
+    ["SKR04", "1200", "4848"],
+    ["SKR04", "1200", "4849"],
+  ] as const) {
+    it(`${kr} ${konto} ohne Steuer: kein BU-Schlüssel, die Automatik ordnet die Kennzahl zu`, () => {
+      expect(splitEntry(rechnung(forderung, konto, null), kr).find((r) => r.contraAccount === konto)?.buKey).toBe("");
+    });
+  }
+});
+
+describe("Verkauf einer Anlage ohne Verkaufskonto bei DATEV (#2022)", () => {
+  // Zu 7 %, steuerfrei nach § 4 Nr. 8 ff., § 13b, Drittland und nicht steuerbar bleibt der Erlös auf dem normalen
+  // Erlöskonto mit Automatik (DATEV-Kontenrahmen 2026): 8829/4849 hätte keine und brächte in DATEV keine Kennzahl.
+  const verkauf = (kr: "SKR03" | "SKR04", treatment: TaxTreatment, rate: 700 | 0) => {
+    const totals = computeInvoiceTotals([{ quantity: 1000, unitPrice: 40_000, taxRate: rate }]);
+    const lines = invoicePosting(totals, kr, "soll", treatment, true).map(({ account, debit, credit }) => ({ account, debit, credit }));
+    return splitEntry({ date: "2026-10-15", description: "Rechnung RE-2 · Kamera", voucher: "RE-2", locked: true, lines }, kr);
+  };
+  for (const [kr, konto] of [
+    ["SKR03", "8100"],
+    ["SKR04", "4100"],
+  ] as const) {
+    it(`${kr} steuerfrei: auf ${konto} ohne BU-Schlüssel, die Automatik ordnet die Kennzahl zu`, () => {
+      const row = verkauf(kr, "steuerfrei", 0).find((r) => r.contraAccount === konto);
+      expect(row?.buKey).toBe("");
+    });
+  }
+  for (const [kr, konto] of [
+    ["SKR03", "8300"],
+    ["SKR04", "4300"],
+  ] as const) {
+    it(`${kr} 7 %: auf ${konto} mit BU 40 wie jede Rechnung zu 7 %`, () => {
+      expect(verkauf(kr, "regulaer", 700).find((r) => r.contraAccount === konto)?.buKey).toBe("40");
+    });
+  }
+});
+
 describe("Belegfeld 1 im Zeichensatz von DATEV (#675)", () => {
   // DATEV „ASCII-Import: Feldbeschreibungen für Standardformate“, Dok.-Nr. 1003221, Stand 13.08.2026, Feld 11: Ziffern,
   // Buchstaben und $ & % * + - /; unzulässig sind „insbesondere Leerzeichen, Umlaute, Punkt, Komma, Semikolon und Doppelpunkt“
@@ -257,4 +366,15 @@ describe("Belegfeld 1 im Zeichensatz von DATEV (#675)", () => {
     expect(warnings[0]).toContain(`„${lang}-1“`);
     expect(warnings[0]).toContain(`„${lang}-2“`);
   });
+});
+
+// Die Liste der Automatikkonten steht für sich; ein früheres Konto (kontenaenderungen.ts in @haben/core) muss dort stehen
+// wie sein heutiges, sonst rechnete DATEV aus Bestandsbuchungen die Steuer ein zweites Mal heraus (SKR04 4630 neben 4610)
+describe("Automatikkonten und frühere Konten", () => {
+  it.each((["SKR03", "SKR04"] as const).flatMap((kr) => gleichgestellteKonten(kr).map((f) => [kr, f.konto, f.heute] as const)))(
+    "%s %s hebt die Automatik auf wie %s",
+    (kr, frueher, heute) => {
+      expect(DATEV_AUTOMATIC_ACCOUNTS[kr].has(frueher)).toBe(DATEV_AUTOMATIC_ACCOUNTS[kr].has(heute));
+    },
+  );
 });

@@ -1,4 +1,4 @@
-import type { Momentaufnahme, ReplicaVorgabe, Sollbestand, Standardwert, Zeilensicherheit } from "./bestand.ts";
+import type { Momentaufnahme, Regel, ReplicaVorgabe, Sollbestand, Standardwert, Zeilensicherheit } from "./bestand.ts";
 import type { Eingebaute, Eintrag, Gefunden, Katalogobjekte, Erweiterungen } from "./katalog.ts";
 
 /** Art eines fremden Objekts, das einen Aufruf übernehmen kann */
@@ -6,17 +6,20 @@ export type Objektart = "funktion" | "operator" | "relation";
 
 /**
  * Ein Befund als Daten; den Text dazu macht die App. `tabelle` ist der Name mit Schema, wie er im Sollbestand steht,
- * bei Zeilensicherheit und Policies der Name ohne Schema.
+ * bei Zeilensicherheit, Policies und Regeln der Name ohne Schema.
  */
 export type Befund =
   | { art: "replica"; vorgabe: ReplicaVorgabe }
   | { art: "trigger-fehlt" | "trigger-veraendert"; tabelle: string; trigger: string }
   | { art: "trigger-aus"; tabelle: string; trigger: string; zustand: "D" | "R" }
+  /** zusätzlicher Trigger auf audit_log oder audit_chain */
+  | { art: "trigger-am-audit-log"; tabelle: string; trigger: string }
   /** `tabelle` ist die Tabelle des ersten Triggers, der die Funktion aufruft, oder null */
   | { art: "funktion-fehlt" | "funktion-veraendert"; tabelle: string | null; funktion: string }
   | { art: "standardwert-fehlt" | "standardwert-veraendert" | "standardwert-zusaetzlich"; tabelle: string; spalte: string }
   | { art: "zeilensicherheit-eingeschaltet" | "zeilensicherheit-erzwungen"; tabelle: string }
   | { art: "policy"; tabelle: string; policy: string }
+  | { art: "regel"; tabelle: string; regel: string }
   /** im Systemschema pg_catalog angelegt */
   | { art: "objekt-im-systemschema"; objektart: Objektart; name: string }
   /** überdeckt ein gleichnamiges eingebautes oder eigenes Objekt */
@@ -36,8 +39,8 @@ const nachName = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 /**
  * Vergleicht eine Momentaufnahme mit dem ausgelieferten Sollbestand. Der Sollbestand stammt aus frischen Migrationen,
- * niemals aus der geprüften Instanz. Befunde in fester Reihenfolge: Vorgaben, Trigger, Funktionen, Standardwerte,
- * Zeilensicherheit, fremde Objekte, eingebaute Funktionen.
+ * niemals aus der geprüften Instanz. Befunde in fester Reihenfolge: Vorgaben, Trigger (auch zusätzliche auf dem Audit-Log),
+ * Funktionen, Standardwerte, Zeilensicherheit, Regeln, fremde Objekte, eingebaute Funktionen.
  */
 export function vergleiche(soll: Sollbestand, ist: Momentaufnahme, schema: string): { befunde: Befund[]; hinweise: Hinweis[] } {
   const befunde: Befund[] = ist.replica.map((vorgabe) => ({ art: "replica", vorgabe }));
@@ -58,6 +61,14 @@ export function vergleiche(soll: Sollbestand, ist: Momentaufnahme, schema: strin
     if (gefunden.definition !== trigger.definition || gefunden.function !== trigger.function) befunde.push({ art: "trigger-veraendert", ...ort });
     triggers.delete(schluessel(trigger));
   }
+  // Eigene Betreibertrigger gehören nicht zum Sollbestand und beweisen keine beschädigte Sperre, auch wenn sie aus sind;
+  // auf dem Audit-Log aber schon: Ein BEFORE-Trigger, der vor dem der Kette feuert, kann einen Eintrag verwerfen (RETURN NULL)
+  // oder vor dem Hashen ändern, und die Kette bleibt in sich stimmig. Die Tabellen heißen fest so (sql/vorlage.ts). Gelesen
+  // sind nur Trigger des Schemas; verglichen wird ohne den Schemanamen, der mit %I in Anführungszeichen stehen kann.
+  // https://www.postgresql.org/docs/18/trigger-definition.html
+  const zusaetzlich = [...triggers.values()];
+  const amAuditLog = (trigger: (typeof zusaetzlich)[number]) => trigger.table.endsWith(".audit_log") || trigger.table.endsWith(".audit_chain");
+  for (const trigger of zusaetzlich.filter(amAuditLog)) befunde.push({ art: "trigger-am-audit-log", tabelle: trigger.table, trigger: trigger.name });
   for (const fn of soll.functions) {
     const gefunden = funktionen.get(fn.name);
     const tabelle = soll.triggers.find((trigger) => trigger.function === fn.name)?.table ?? null;
@@ -66,6 +77,7 @@ export function vergleiche(soll: Sollbestand, ist: Momentaufnahme, schema: strin
   }
   befunde.push(...standardwertBefunde(soll.defaults, ist.bestand.defaults));
   befunde.push(...zeilensicherheitBefunde(ist.zeilensicherheit));
+  befunde.push(...regelBefunde(ist.regeln));
   // Fremde Objekte, die Aufrufe der Prüffunktionen übernehmen können
   const fremde = katalogBefunde(ist.katalog, {
     schema,
@@ -76,8 +88,7 @@ export function vergleiche(soll: Sollbestand, ist: Momentaufnahme, schema: strin
   });
   const eingebaute = eingebauteBefunde(soll.builtins, ist.bestand.builtins);
   befunde.push(...fremde.befunde, ...eingebaute.befunde);
-  // Eigene Betreibertrigger gehören nicht zum Sollbestand und beweisen keine beschädigte Sperre, auch wenn sie aus sind.
-  for (const trigger of triggers.values()) hinweise.push({ art: "trigger-zusaetzlich", tabelle: trigger.table, trigger: trigger.name });
+  for (const trigger of zusaetzlich) if (!amAuditLog(trigger)) hinweise.push({ art: "trigger-zusaetzlich", tabelle: trigger.table, trigger: trigger.name });
   hinweise.push(...fremde.hinweise, ...eingebaute.hinweise);
   return { befunde, hinweise };
 }
@@ -116,6 +127,13 @@ function zeilensicherheitBefunde(gefunden: Zeilensicherheit): Befund[] {
       ...policies.map((policy) => ({ art: "policy" as const, tabelle, policy })),
     ];
   });
+}
+
+/** Jede Regel ist ein Befund, wie die Zeilensicherheit: Sie kann Schreibzugriffe und Einträge ins Audit-Log verschlucken */
+function regelBefunde(regeln: Regel[]): Befund[] {
+  return [...regeln]
+    .sort((a, b) => nachName(a.table, b.table) || nachName(a.name, b.name))
+    .map((regel) => ({ art: "regel" as const, tabelle: regel.table, regel: regel.name }));
 }
 
 /**

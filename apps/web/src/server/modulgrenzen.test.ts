@@ -185,6 +185,7 @@ describe("Struktur der Module", () => {
         "anmeldung.ts",
         "auth.ts",
         "auth-transaction.ts",
+        "body-limit.ts",
         "change-password.ts",
         "oidc.ts",
         "pdf-anhang.ts",

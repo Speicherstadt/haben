@@ -46,13 +46,13 @@ export interface InstanzStand {
   } | null;
   sso: boolean;
   zugaenge: Zugang[];
-  tokens: { name: string; scopes: string[]; expiresAt: Date }[];
+  tokens: { name: string; scopes: string[]; finalizeSource: string | null; expiresAt: Date }[];
   datenbank: DatabaseAccessInfo;
   backup: BackupOverview;
   versionen: AppVersionEntry[];
   pruefwert: { seq: number; hash: string } | null;
   pruefwertMail: string | null;
-  postfach: { username: string; host: string; folder: string } | null;
+  postfach: { username: string; host: string; folder: string; outboundFolder: string | null } | null;
   /** Ablage festgeschriebener Rechnungen im Archiv: nur der Ursprung der Adresse, Pfad und Anfrage können Kennungen tragen */
   ablage: { origin: string; since: Date } | null;
   elster: { validUntil: string | null } | null;
@@ -100,11 +100,11 @@ async function zugaenge(): Promise<Zugang[]> {
   return accounts.map((a) => ({ name: a.name, email: a.email, role: a.role, createdAt: a.createdAt, lockedAt: a.lockedAt, lastLoginAt: a.lastLoginAt }));
 }
 
-/** Nur gültige Tokens: Name, Rechte und Ablauf, nie Hash oder Anfang des Tokens */
+/** Nur gültige Tokens: Name, Rechte samt Quelle zum Festschreiben und Ablauf, nie Hash oder Anfang des Tokens */
 async function tokens(now: Date) {
   const t = schema.mcpTokens;
   const rows = await db
-    .select({ name: t.name, scopes: t.scopes, expiresAt: t.expiresAt })
+    .select({ name: t.name, scopes: t.scopes, finalizeSource: t.finalizeSource, expiresAt: t.expiresAt })
     .from(t)
     .where(and(isNull(t.revokedAt), isNull(t.disabledAt)))
     .orderBy(t.createdAt);
@@ -114,7 +114,7 @@ async function tokens(now: Date) {
 async function postfach() {
   const i = schema.inboxSettings;
   const [row] = await db
-    .select({ username: i.username, host: i.host, folder: i.folder })
+    .select({ username: i.username, host: i.host, folder: i.folder, outboundFolder: i.outboundFolder })
     .from(i)
     .where(and(eq(i.id, 1), eq(i.enabled, true)));
   return row ?? null;

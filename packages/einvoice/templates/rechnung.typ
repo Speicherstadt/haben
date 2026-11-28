@@ -111,6 +111,8 @@
   grid(
     columns: range(fuss-spalten-zahl).map(_ => 1fr),
     column-gutter: 6mm,
+    // look.footerAlign kam nach Version 1 in den Vertrag (#2046); „unten“ stellt die letzten Zeilen auf eine Linie
+    align: if look.at("footerAlign", default: "oben") == "unten" { bottom } else { top },
     ..if d.at("footerFormatted", default: none) != none { d.footerFormatted.map(footer-col-formatted) } else { d.footer.map(footer-col) },
     ..if legal-spalte { (footer-col(legal.split(" · ")),) },
   )

@@ -27,7 +27,7 @@ Rechnungen ohne Steuerausweis (siehe [Rechnungen](rechnungen.md#umsatzsteuer-auf
 | 1400 Forderungen | 1200 Forderungen | 1.000,00 | |
 | 8336 Erlöse Reverse Charge | 4336 Erlöse Reverse Charge | | 1.000,00 |
 
-Leistungen ins Drittland gehen auf 8338 bzw. 4338, steuerfreie Umsätze nach § 4 UStG auf 8100 bzw. 4100, Kleinunternehmer-Rechnungen auf 8192 bzw. 4184.
+Leistungen ins Drittland gehen auf 8338 bzw. 4338, steuerfreie Umsätze nach § 4 UStG auf 8100 bzw. 4100, Kleinunternehmer-Rechnungen auf 8192 bzw. 4184 (für Buchungsjahre bis 2024 auf 8195 bzw. 4185, siehe [Neue Ausgabe des Kontenrahmens](buchhaltung.md#neue-ausgabe-des-kontenrahmens)), der [Verkauf einer Anlage](anlagen.md#verkauf) zu 19 %, bei Ausfuhr, innergemeinschaftlicher Lieferung und als Kleinunternehmer auf 8820, 8827, 8828 bzw. 8829 (SKR04 4845, 4844, 4848, 4849), sonst auf dasselbe Erlöskonto wie ohne das Feld.
 
 ## Stornorechnung und Rechnungskorrektur
 
@@ -153,7 +153,7 @@ Die spätere Zahlung wird wie jede andere gebucht. Für die Voranmeldung zählt 
 
 ## Anlagen und AfA
 
-Ein Beleg mit der Kategorie „Anlagegut“ bucht den Nettobetrag auf das Anlagekonto statt in den Aufwand (ohne Vorsteuerabzug Netto und Steuer). Zum Jahresende bucht **AfA … buchen** je Anlage AfA-Konto an Anlagekonto, beim Abgang zusätzlich den Restbuchwert (2310 bzw. 6895) an Anlagekonto. Übernommene Anlagen bekommen mit der ersten AfA ihre Eröffnung Anlagekonto an 9000. Konten und Beispiele stehen unter [Anlagen und AfA](anlagen.md).
+Ein Beleg mit der Kategorie „Anlagegut“ bucht den Nettobetrag auf das Anlagekonto statt in den Aufwand (ohne Vorsteuerabzug Netto und Steuer). Zum Jahresende bucht **AfA … buchen** je Anlage AfA-Konto an Anlagekonto, beim Abgang zusätzlich den Restbuchwert (2310 bzw. 6895, bei einer Entnahme mit Buchgewinn 2315 bzw. 4855) an Anlagekonto, bei einer Entnahme dazu Privatentnahmen an „Erlöse aus Verkäufen Sachanlagevermögen“. Übernommene Anlagen bekommen mit der ersten AfA ihre Eröffnung Anlagekonto an 9000. Konten und Beispiele stehen unter [Anlagen und AfA](anlagen.md).
 
 ## Pauschalen ohne Beleg
 
@@ -166,7 +166,7 @@ Homeoffice-Tage, Fahrten mit dem Privatfahrzeug, Verpflegungsmehraufwand und Weg
 | Verpflegungsmehraufwand | 4674 | 6674 |
 | Wege zwischen Wohnung und Betriebsstätte (Entfernungspauschale) | 4678 | 6688 |
 
-Homeoffice-Pauschalen bis Version 0.15.0 stehen auf 4288 bzw. 6348 und zählen weiter als Tagespauschale. Ein Storno ist eine Gegenbuchung am selben Tag auf die Konten der ursprünglichen Buchung. Sätze und Grenzen stehen unter [Pauschalen](pauschalen.md).
+Homeoffice-Pauschalen für Buchungsjahre bis 2024 und alle, die Haben bis einschließlich Version 0.15.1 gebucht hat, stehen auf 4288 bzw. 6348 und zählen als Tagespauschale ([Neue Ausgabe des Kontenrahmens](buchhaltung.md#neue-ausgabe-des-kontenrahmens)). Ein Storno ist eine Gegenbuchung am selben Tag auf die Konten der ursprünglichen Buchung. Sätze und Grenzen stehen unter [Pauschalen](pauschalen.md).
 
 ## Lohnabrechnung
 

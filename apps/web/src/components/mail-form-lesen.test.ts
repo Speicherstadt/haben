@@ -19,6 +19,7 @@ function formular(felder: Record<string, string | File>) {
   const alle: Record<string, string | File> = {
     fromAddress: " rechnung@firma.de ",
     fromName: "",
+    replyTo: " antworten@firma.de ",
     reminderTo: "ich@firma.de",
     remindersEnabled: "on",
     ...felder,
@@ -41,6 +42,7 @@ describe("mailInput", () => {
       password: undefined,
       fromAddress: "rechnung@firma.de",
       fromName: "",
+      replyTo: "antworten@firma.de",
       reminderTo: "ich@firma.de",
       remindersEnabled: true,
       reminderDays: [7, 1],
@@ -68,6 +70,7 @@ describe("mailInput", () => {
       privateKeyPem: undefined,
       fromAddress: "rechnung@firma.de",
       fromName: "",
+      replyTo: "antworten@firma.de",
       reminderTo: "ich@firma.de",
       remindersEnabled: true,
       reminderDays: [7, 1],

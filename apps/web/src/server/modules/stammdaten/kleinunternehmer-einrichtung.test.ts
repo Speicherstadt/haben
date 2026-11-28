@@ -28,7 +28,6 @@ describe.skipIf(!testDatabaseUrl)("Kleinunternehmer: technische Erstanlage und f
     await leeren(
       sql,
     )`truncate journal_lines, journal_entries, vat_return_submissions, vat_returns, annual_submissions, company, seals, audit_log, audit_chain cascade`;
-    await sql`insert into audit_chain (id, seq, hash) values (1, 0, haben_audit_genesis())`;
   });
 
   it.each([
