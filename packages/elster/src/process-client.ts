@@ -44,8 +44,9 @@ function spawnWorker(workerPath: string, command: readonly string[] = [process.e
 }
 
 /** Variablen der App, die der Worker nicht braucht, weil er seine Konfiguration über den IPC-Kanal bekommt. */
-const WORKER_BLOCKED_ENV = new Set(["DATABASE_URL", "HABEN_SETUP_CODE", "ENABLE_BANKING_KEY", "ENABLE_BANKING_KEY_FILE"]);
-const WORKER_BLOCKED_ENV_PATTERN = /SECRET|PASSWORD|PASSWD|TOKEN|API_KEY|ENCRYPTION_KEY|PRIVATE_KEY/i;
+const WORKER_BLOCKED_ENV = new Set(["HABEN_SETUP_CODE", "ENABLE_BANKING_KEY", "ENABLE_BANKING_KEY_FILE"]);
+/** DATABASE_URL auch mit Vorsilbe: MIGRATION_DATABASE_URL (Eigentümer), TEST_DATABASE_URL, E2E_DATABASE_URL */
+const WORKER_BLOCKED_ENV_PATTERN = /DATABASE_URL|SECRET|PASSWORD|PASSWD|TOKEN|API_KEY|ENCRYPTION_KEY|PRIVATE_KEY/i;
 
 /**
  * Die Umgebung des Workers: die der App ohne Schlüssel, Zugangsdaten und Datenbankadresse. ERiC ist Software eines
