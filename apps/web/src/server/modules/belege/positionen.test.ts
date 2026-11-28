@@ -216,6 +216,33 @@ describe.skipIf(!testDatabaseUrl)("Belege aus Positionen (Postgres, #1975)", () 
     ]);
   });
 
+  it("Fremdwährung mit Aufteilung aus dem bisherigen Formular: die Positionen bleiben, auch mit dem Kurs", async () => {
+    await reset("SKR03", "soll");
+    // Das bisherige Formular behält eine Aufteilung, wenn die Währung danach umgestellt wird; ihre Zeilen haben kein
+    // Netto laut Beleg
+    const id = await beleg({
+      currency: "USD",
+      exchangeRate: null,
+      amounts: [{ taxRate: 1900, net: 0, tax: 0, originalNet: 10_000, originalTax: 1_900 }],
+      splits: [
+        { category: "telefon", taxRate: 1900, net: 7_500 },
+        { category: "privatentnahme", taxRate: 1900, net: 2_500 },
+      ],
+    });
+    const geladen = (await documents.getDocument(id))!;
+    // Ohne Netto laut Beleg ergibt keine Prozentzahl diese Positionen: Das Formular zeigt sie als Aufteilung wie vorher
+    const ansicht = eingabe.formularansicht(geladen.document, geladen.positionen);
+    expect(ansicht.document.privateShare).toBe(0);
+    expect(ansicht.splits.map((p) => p.category)).toEqual(["telefon", "privatentnahme"]);
+    // Mit dem Kurs folgen die Positionen dem Euro-Netto im Verhältnis ihrer Beträge, statt zu einem Privatanteil zu werden
+    await stammdaten.storeExchangeRates(actor, [{ currency: "USD", month: "2026-09", rate: "1.25" }], "bmf");
+    expect(await documents.applyPublishedRates(actor)).toBe(1);
+    expect((await positionen(id)).map(({ category, net }) => ({ category, net }))).toEqual([
+      { category: "telefon", net: 6_000 },
+      { category: "privatentnahme", net: 2_000 },
+    ]);
+  });
+
   it("ein Entwurf ohne Kategorie hat Positionen ohne Kategorie und lässt sich erst mit einer buchen", async () => {
     await reset("SKR03", "soll");
     const id = await beleg({ category: null, amounts: [{ taxRate: 1900, net: 1_000, tax: 190 }] });
