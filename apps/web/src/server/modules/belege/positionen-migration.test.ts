@@ -200,11 +200,18 @@ describe.skipIf(!testDatabaseUrl)("Migration 0340: offene Belege werden Position
     ] satisfies Fall[]
   ).map((fall: Fall) => ({ ...fall, extra: { ...fall.extra, payment: "privat" } }));
 
+  /** Listen in fester Reihenfolge: Belege gleichen Datums und Lieferanten ordnen die Nebenbücher nach ihrer zufälligen ID */
+  const sortiert = (wert: unknown): unknown => {
+    if (Array.isArray(wert)) return wert.map(sortiert).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+    if (wert && typeof wert === "object") return Object.fromEntries(Object.entries(wert).map(([key, value]) => [key, sortiert(value)]));
+    return wert;
+  };
+
   /** EÜR des Jahres und Voranmeldung des Belegmonats, ohne Kennungen und Nummern der Belege */
   async function auswertung() {
     const euer = await reports.euerForYear(2026);
     const vat = await figures.computeVatFigures({ year: 2026, month: 9 });
-    return JSON.parse(JSON.stringify({ euer, vat }, (key, value) => (/^(id|number)$|Id$/.test(key) ? undefined : value)));
+    return sortiert(JSON.parse(JSON.stringify({ euer, vat }, (key, value) => (/^(id|number)$|Id$/.test(key) ? undefined : value))));
   }
 
   for (const [kontenrahmen, versteuerung] of [
