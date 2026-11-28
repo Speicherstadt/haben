@@ -227,7 +227,7 @@ Ist die Rechnung schon festgeschrieben, antworten Ändern und Löschen mit `409`
 
 ## Festschreiben und versenden
 
-`POST /rechnungen/{id}/festschreiben` mit dem Body `{}` schreibt einen Entwurf fest, `{"senden": true}` schickt ihn danach mit der Vorlage an die E-Mail-Adresse des Kunden. Haben macht dabei dasselbe wie **Direkt festschreiben** einer [wiederkehrenden Rechnung](rechnungen.md#wiederkehrende-rechnungen): Nummer, PDF, E-Rechnung und Buchung entstehen wie beim Festschreiben von Hand, im Änderungsprotokoll steht das Token. Der Versand steht an der Rechnung unter **Per E-Mail**.
+`POST /rechnungen/{id}/festschreiben` mit dem Body `{}` schreibt einen Entwurf fest, `{"senden": true}` schickt ihn danach mit der Vorlage an die E-Mail-Adresse des Kunden. Haben macht dabei dasselbe wie **Direkt festschreiben** einer [wiederkehrenden Rechnung](rechnungen.md#wiederkehrende-rechnungen): Nummer, PDF, E-Rechnung und Buchung entstehen wie beim Festschreiben von Hand. Der Versand steht an der Rechnung unter **Per E-Mail**.
 
 Festgeschrieben wird nur ein Entwurf, der
 
