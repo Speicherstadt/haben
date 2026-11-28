@@ -1,4 +1,4 @@
-import { formatDecimal, formatEuro, parseEuro, type Cents } from "@haben/core";
+import { amountError, formatDecimal, formatEuro, MINDESTBESTAND_MAX, parseEuro, type Cents } from "@haben/core";
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { type FormEvent, useState } from "react";
@@ -29,7 +29,10 @@ export function MindestbestandKarte({ mindestbestand, aendern }: { mindestbestan
 export function mindestbestandEingabe(wert: string): { betrag: Cents | null; fehler: string | null } {
   if (wert.trim() === "") return { betrag: null, fehler: null };
   const betrag = parseEuro(wert);
-  if (betrag === null || betrag < 0) return { betrag: null, fehler: "Trag einen Betrag ab 0 € ein, etwa 5.000,00, oder lass das Feld leer." };
+  if (betrag === null || betrag < 0) return { betrag: null, fehler: amountError("einen Betrag ab 0 €", 500_000, { optional: true }) };
+  // Dieselbe Grenze wie die Server-Funktion, damit die Meldung am Feld steht
+  if (betrag > MINDESTBESTAND_MAX)
+    return { betrag: null, fehler: amountError(`einen Betrag von 0 bis ${formatEuro(MINDESTBESTAND_MAX)}`, 500_000, { optional: true }) };
   return { betrag, fehler: null };
 }
 
