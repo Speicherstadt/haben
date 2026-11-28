@@ -2472,6 +2472,20 @@
       "when": 1795884182863,
       "tag": "0352_belege_positionen",
       "breakpoints": true
+    },
+    {
+      "idx": 353,
+      "version": "7",
+      "when": 1795899014440,
+      "tag": "0353_amazon_sp_abruf",
+      "breakpoints": true
+    },
+    {
+      "idx": 354,
+      "version": "7",
+      "when": 1795899022843,
+      "tag": "0354_amazon_sp_abruf_trigger",
+      "breakpoints": true
     }
   ]
 }
