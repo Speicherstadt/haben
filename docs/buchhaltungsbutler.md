@@ -66,7 +66,7 @@ Ein erneuter Import überspringt bereits vorhandene Belege und Originalexporte. 
 - **Keine aktiven Neubuchungen:** Die Altbelege erzeugen keine neuen Buchungen, Zahlungen, offenen Posten oder ELSTER-Meldungen.
 - **Keine Zahlungshistorie:** Der Export liefert keine verlässlichen Einzelzahlungen. Der Status lautet deshalb „archiviert“; bezahlte oder offene Beträge werden nicht geschätzt.
 - **Keine Rechnungspositionen:** Die Exporte enthalten Kopfdaten und Kontierungen, aber keine vollständigen Positionen wie Artikel, Menge und Einzelpreis.
-- **Keine vollständigen Kontakte:** Für Stammdaten verwendest du bei Bedarf den [CSV-Import](csv-import.md).
+- **Keine vollständigen Kontakte:** Den Stamm „Debitoren/Kreditoren“ (`EXTF_DebKred_Stamm_….csv`) übernimmst du bei Bedarf über den [CSV-Import der Kontakte](csv-import.md#kontakte-aus-datev).
 - **Keine Umsatzsteuer je Monat:** Die Summen des DATEV-Buchungsstapels gelten für das ganze Jahr, und ohne Einzelzahlungen lässt sich bei Ist-Versteuerung die Zahlungsperiode nicht rekonstruieren. Vergleiche historische Steuerwerte mit den Originalauswertungen und den ELSTER-Protokollen.
 
 Ergänze je Geschäftsjahr noch den Datenexport für die Betriebsprüfung, ELSTER-Protokolle und Kontoauszüge unter **Exporte ablegen**. Danach vergleichst du im **Abgleich je Jahr** Buchungen, Dateien und Summen mit BuchhaltungsButler.
