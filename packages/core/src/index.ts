@@ -31,6 +31,7 @@ export * from "./bwa-zeitraum.ts";
 export * from "./bwa-ansicht.ts";
 export * from "./bwa-kennzahlen.ts";
 export * from "./bwa-warum.ts";
+export * from "./vollstaendigkeit.ts";
 export * from "./lieferant.ts";
 export * from "./datev-eroeffnung.ts";
 export * from "./hinterlegung.ts";
