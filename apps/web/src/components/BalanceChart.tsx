@@ -103,15 +103,14 @@ export function BalanceChart({
               ) : null,
             )}
         </g>
-        {grenze && (
-          <g aria-hidden="true">
-            <line x1={M.left} x2={W - M.right} y1={y(grenze.value)} y2={y(grenze.value)} className="grenze" />
-            <text x={W - M.right} y={y(grenze.value) - 4} style={{ textAnchor: "end" }} className="tick grenze-label">
-              {grenze.label}
-            </text>
-          </g>
-        )}
+        {/* Die Linie liegt unter der Kurve, ihre Beschriftung darüber, sonst übermalt die Kurve den Text */}
+        {grenze && <line x1={M.left} x2={W - M.right} y1={y(grenze.value)} y2={y(grenze.value)} className="grenze" aria-hidden="true" />}
         <path d={d} className="line-series" />
+        {grenze && (
+          <text x={W - M.right} y={y(grenze.value) - 4} style={{ textAnchor: "end" }} className="tick grenze-label" aria-hidden="true">
+            {grenze.label}
+          </text>
+        )}
         {point && (
           <g aria-hidden="true">
             <line x1={x(point.date)} x2={x(point.date)} y1={M.top} y2={M.top + plotH} className="crosshair" />
