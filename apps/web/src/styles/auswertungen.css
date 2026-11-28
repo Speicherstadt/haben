@@ -98,10 +98,9 @@
 .chart .line-series { fill: none; stroke: var(--series-in); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .chart .crosshair { stroke: var(--line-strong); stroke-width: 1; }
 .chart .marker { fill: var(--series-in); stroke: var(--surface); stroke-width: 2; }
-/* Mindestbestand der Liquiditätsvorschau (#1381): gestrichelt in der Farbe der Warnung, die Beschriftung darüber */
+/* Mindestbestand der Liquiditätsvorschau (#1381): gestrichelt in der Farbe der Warnung, die Beschriftung über oder unter der Linie (BalanceChart) */
 .chart .grenze { stroke: var(--warn-dot); stroke-width: 1.5; stroke-dasharray: 6 4; }
-/* Über der Kurve mit einem Rand in der Farbe der Karte, damit sie lesbar bleibt, wo die Kurve die Grenze kreuzt */
-.chart .grenze-label { fill: var(--warn-ink); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.chart .grenze-label { fill: var(--warn-ink); }
 
 /* Ziel eines Links auf eine Buchung (BWA → Kontenblatt, #1635) */
 .report-table tr[aria-current] > td { background: var(--accent-soft); }

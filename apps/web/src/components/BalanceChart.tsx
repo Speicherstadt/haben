@@ -16,6 +16,27 @@ export interface BalancePoint {
 
 const day = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 86_400_000;
 
+/** Beschriftung der Grenze in .tick (12 px): grob 7 px je Zeichen, 4 px Abstand zur Linie, das Band ist so hoch wie der Text samt Abstand */
+const LABEL_ZEICHEN = 7;
+const LABEL_ABSTAND = 4;
+const LABEL_BAND = 14;
+
+/**
+ * Wohin die Beschriftung der Grenze kommt (#1381): über die Linie, außer die Kurve verläuft im x-Bereich der Beschriftung
+ * (von bis bis) im Band direkt darüber und lässt das Band darunter frei; belegt sie beide, bleibt sie oben. stufen sind die
+ * Ecken der Kurve (nur waagrechte und senkrechte Strecken), linie die y-Koordinate der Grenze; y wächst nach unten. Es zählen
+ * die waagrechten Strecken: Eine senkrechte Stufe kreuzt den Text nur auf zwei Pixeln und bleibt neben ihm sichtbar.
+ */
+export function grenzeLabelSeite(stufen: readonly { x: number; y: number }[], von: number, bis: number, linie: number): "oben" | "unten" {
+  const stand = stufen
+    .slice(1)
+    .filter((p, i) => p.y === stufen[i]!.y && Math.max(p.x, stufen[i]!.x) >= von && Math.min(p.x, stufen[i]!.x) <= bis)
+    .map((p) => p.y);
+  const oben = stand.some((y) => y < linie && y >= linie - LABEL_BAND);
+  const unten = stand.some((y) => y > linie && y <= linie + LABEL_BAND);
+  return oben && !unten ? "unten" : "oben";
+}
+
 /**
  * Saldoverlauf eines Kontos als Stufenlinie: zwischen zwei Buchungen bleibt der Saldo gleich.
  * Eine Reihe, daher keine Legende; Titel und Tabelle darunter benennen sie. `grenze` zeichnet einen Wert als gestrichelte
@@ -51,11 +72,16 @@ export function BalanceChart({
 
   let d = `M${M.left},${y(start)}`;
   let current = start;
+  const stufen = [{ x: M.left, y: y(start) }];
   for (const p of points) {
     d += `H${x(p.date)}V${y(p.value)}`;
+    stufen.push({ x: x(p.date), y: y(current) }, { x: x(p.date), y: y(p.value) });
     current = p.value;
   }
   d += `H${W - M.right}`;
+  stufen.push({ x: W - M.right, y: y(current) });
+  const linie = grenze ? y(grenze.value) : 0;
+  const labelUnten = grenze ? grenzeLabelSeite(stufen, W - M.right - grenze.label.length * LABEL_ZEICHEN, W - M.right, linie) === "unten" : false;
 
   // Monatsanfänge im Zeitraum als Achsenbeschriftung
   const monthTicks: { iso: string; label: string }[] = [];
@@ -103,11 +129,17 @@ export function BalanceChart({
               ) : null,
             )}
         </g>
-        {/* Die Linie liegt unter der Kurve, ihre Beschriftung darüber, sonst übermalt die Kurve den Text */}
-        {grenze && <line x1={M.left} x2={W - M.right} y1={y(grenze.value)} y2={y(grenze.value)} className="grenze" aria-hidden="true" />}
+        {/* Die Linie liegt unter der Kurve, die Beschriftung darüber ohne Rand: Überlappen sich Text und Kurve, bleiben beide sichtbar */}
+        {grenze && <line x1={M.left} x2={W - M.right} y1={linie} y2={linie} className="grenze" aria-hidden="true" />}
         <path d={d} className="line-series" />
         {grenze && (
-          <text x={W - M.right} y={y(grenze.value) - 4} style={{ textAnchor: "end" }} className="tick grenze-label" aria-hidden="true">
+          <text
+            x={W - M.right}
+            y={labelUnten ? linie + LABEL_BAND - 1 : linie - LABEL_ABSTAND}
+            style={{ textAnchor: "end" }}
+            className="tick grenze-label"
+            aria-hidden="true"
+          >
             {grenze.label}
           </text>
         )}
