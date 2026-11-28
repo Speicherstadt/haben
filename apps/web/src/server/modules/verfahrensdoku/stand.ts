@@ -46,7 +46,7 @@ export interface InstanzStand {
   } | null;
   sso: boolean;
   zugaenge: Zugang[];
-  tokens: { name: string; scopes: string[]; expiresAt: Date }[];
+  tokens: { name: string; scopes: string[]; finalizeSource: string | null; expiresAt: Date }[];
   datenbank: DatabaseAccessInfo;
   backup: BackupOverview;
   versionen: AppVersionEntry[];
@@ -100,11 +100,11 @@ async function zugaenge(): Promise<Zugang[]> {
   return accounts.map((a) => ({ name: a.name, email: a.email, role: a.role, createdAt: a.createdAt, lockedAt: a.lockedAt, lastLoginAt: a.lastLoginAt }));
 }
 
-/** Nur gültige Tokens: Name, Rechte und Ablauf, nie Hash oder Anfang des Tokens */
+/** Nur gültige Tokens: Name, Rechte samt Quelle zum Festschreiben und Ablauf, nie Hash oder Anfang des Tokens */
 async function tokens(now: Date) {
   const t = schema.mcpTokens;
   const rows = await db
-    .select({ name: t.name, scopes: t.scopes, expiresAt: t.expiresAt })
+    .select({ name: t.name, scopes: t.scopes, finalizeSource: t.finalizeSource, expiresAt: t.expiresAt })
     .from(t)
     .where(and(isNull(t.revokedAt), isNull(t.disabledAt)))
     .orderBy(t.createdAt);

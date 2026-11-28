@@ -2430,6 +2430,27 @@
       "when": 1795856500277,
       "tag": "0346_postfach_ausgang_trigger",
       "breakpoints": true
+    },
+    {
+      "idx": 347,
+      "version": "7",
+      "when": 1795857989861,
+      "tag": "0347_zeitpunkte_selbst_setzen",
+      "breakpoints": true
+    },
+    {
+      "idx": 348,
+      "version": "7",
+      "when": 1795871745176,
+      "tag": "0348_mail_reply_to",
+      "breakpoints": true
+    },
+    {
+      "idx": 349,
+      "version": "7",
+      "when": 1795872642089,
+      "tag": "0349_festschreiben_quelle",
+      "breakpoints": true
     }
   ]
 }

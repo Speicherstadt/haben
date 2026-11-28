@@ -86,14 +86,15 @@ export function layoutBeispiele(): LayoutBeispiel[] {
     references: { buyerOrder: "4500012345", sellerOrder: "A-2026-117", despatchAdvice: "LS-2026-089" },
   };
   const storno = sampleDocument({ kind: "storno" });
-  // Platzhalter der Pflichtangaben in der eigenen Fußzeile: legal ist null (#1651)
+  // Platzhalter der Pflichtangaben in der eigenen Fußzeile: legal ist null (#1651); leere Zeilen am Anfang und in der Mitte (#2046)
   const mitPflichtangaben = briefkopf({
     footerColumns: [
-      "{firma}\n{strasse}",
+      "\n{firma}\n\n{strasse}",
       "Sitz {sitz}\n{registergericht} {registernummer}\nGeschäftsführung {geschaeftsfuehrung}\n{rechtsform}\n{aufsichtsratsvorsitz}",
       "{steuernummer}",
     ],
     legalPosition: "zeile",
+    footerAlign: "unten",
   });
   const totals = sampleDocument({}).totals;
   const angebot = {

@@ -53,6 +53,7 @@ export {
 export {
   createDraftForReference,
   draftInputOf,
+  externalInvoiceSources,
   externalReferenceSchema,
   findInvoiceByReference,
   type ExternalReference,
@@ -89,6 +90,7 @@ export { cancelInvoice, createCorrection } from "./invoice-cancellation.ts";
 export { buyerFrom, sellerFrom } from "./invoice-document.ts";
 export { assertCustomer, createDraft, deleteDraft, insertDraft, newDraftDefaults, updateDraft } from "./invoice-drafts.ts";
 export { finalizeInvoice, finalizeIssues } from "./invoice-finalize.ts";
+export { finalizeExternalDraft, type ExternalFinalizeResult, type Versand } from "./external-finalize.ts";
 export { contactNumbering, numbering, setNextNumber } from "./invoice-numbering.ts";
 export { getInvoice, invoiceSummary, listInvoices, type Invoice, type InvoiceLine, type InvoiceListStatus } from "./invoices.ts";
 export { confirmationPdf, deliveryNotePdf, OrderDocumentError } from "./order-documents.ts";

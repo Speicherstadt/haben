@@ -192,7 +192,13 @@ export async function adoptForeignInvoice(
         description: `Rechnung ${input.number} aus dem Fremdsystem · ${contact.name}`,
         sourceType: "invoice",
         sourceId: id,
-        lines: invoicePosting(totals, company.kontenrahmen, await invoicePostingMode(invoice, tx), input.taxTreatment),
+        lines: invoicePosting(
+          totals,
+          company.kontenrahmen,
+          await invoicePostingMode(invoice, tx),
+          input.taxTreatment,
+          input.taxDetails?.assetDisposal ?? false,
+        ),
       });
       await danach?.(tx, id);
       return { id };

@@ -9,7 +9,7 @@ files: `checks` (checks with and without Bun), `beitrag` (branch, commits, draft
 then self-check and independent review), `beitrag-pruefen` (wanted, sources, simplest solution, rules: contributors
 check their own pull request first, maintainers and collaborators then judge it), `tdd-review`
 (independent review, a finding needs a failing test), `doku-pruefen` (review of the Markdown in a pull request, alongside `tdd-review` if code changes too: matches code
-and sources, short, every rule in one place), `fork-pushen` (push to someone else's fork, from the cloud through a
+and sources, short, every rule in one place), `design-pruefen` (audit of the interface or review of a UI pull request against `DESIGN.md`, screenshots and accessibility, in two isolated views), `fork-pushen` (push to someone else's fork, from the cloud through a
 session with the fork as source), `prs-abarbeiten` (all open pull requests as a ranking from easiest to merge, then one by one), `issue-schreiben`, `pr-screenshots`, `belegvorlage` (own
 Typst layouts for documents, with the field contract), `board-pflegen` (the roadmap board on GitHub), `jahreswerte` (official yearly values, ERiC and laws after a
 `jahreswerte` issue), `schnellsuche-erweitern` (a new group or field in the quick search), `fehler-eingrenzen` (find the cause of a bug through a check that fails on it first), `vorhaben-klaeren` (question the person about a plan until no decision is open, before building), `anbindung-hinzufuegen` (a new bank format or payment provider, through an API adapter or a file) and `release` (choose and check a release, trigger it only with the maintainer's approval).

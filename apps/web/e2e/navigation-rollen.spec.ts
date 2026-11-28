@@ -55,6 +55,22 @@ for (const eingeklappt of [false, true]) {
   });
 }
 
+test("die eingeklappte Desktop-Navigation zeigt nur die senkrechte Bildlaufleiste", async ({ playwright }, testInfo) => {
+  const browser = await playwright.chromium.launch({ ...testInfo.project.use.launchOptions, ignoreDefaultArgs: ["--hide-scrollbars"] });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 600 } });
+    await navigationLaden(page, "wald", "light", true);
+    const leisten = await page.locator(".nav-body").evaluate((body) => ({
+      senkrecht: body.offsetWidth - body.clientWidth,
+      waagrecht: body.offsetHeight - body.clientHeight,
+    }));
+    expect(leisten.senkrecht).toBeGreaterThan(0);
+    expect(leisten.waagrecht).toBe(0);
+  } finally {
+    await browser.close();
+  }
+});
+
 // Mit Zoom oder Skalierung ist das Fenster auch zwischen 860 und 861 CSS-Pixel breit (hier 1,17-fach: 860,68). Dort
 // darf keine der beiden Regeln fehlen, sonst schneidet .nav ab, .nav-body rollt nicht und mit Maus oder Touchpad ist
 // der Fuß unerreichbar

@@ -19,6 +19,17 @@ export function reassignmentError(sources: Sources, amount: number | null, value
   return null;
 }
 
+/**
+ * Der Tag, an dem der Server eine neue Zuordnung bucht (bookPart): der Tag der Aufhebung, auf die sie sich bezieht, sonst
+ * der des Umsatzes. Ohne Wahl nimmt der Server die erste Aufhebung mit demselben Vorzeichen.
+ */
+export function buchungstag(sources: Sources, amount: number | null, value: string | undefined, bookingDate: string): string {
+  if (value === "neu") return bookingDate;
+  const candidates = eligible(sources, amount);
+  const selected = value ? candidates.find((candidate) => candidate.id === value) : candidates[0];
+  return selected?.date ?? bookingDate;
+}
+
 export function reassignmentId(value: string | undefined, sources: Sources, amount: number) {
   if (!value || eligible(sources, amount).length === 0) return undefined;
   return value === "neu" ? null : value;

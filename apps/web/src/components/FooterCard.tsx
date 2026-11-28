@@ -17,6 +17,7 @@ import {
   MAX_FOOTER_COLUMNS,
   MAX_FOOTER_TEXT,
   MIN_FOOTER_COLUMNS,
+  type FooterAlign,
   type FooterPlaceholder,
   type FormattedTextRun,
   type LegalInfoSource,
@@ -27,9 +28,10 @@ import {
 import { useAction } from "../lib/use-action.ts";
 import { saveLetterheadDesign } from "../server/functions/logo.ts";
 import { Segmented } from "./Segmented.tsx";
+import { FooterAlignField, LegalPositionField } from "./FooterLayoutFields.tsx";
 import { FormattedRuns } from "./FormattedText.tsx";
 import { FormattedTextarea } from "./FormattedTextarea.tsx";
-import { layoutHint, LayoutHintText, layoutHintId, type LayoutHints } from "./LayoutHint.tsx";
+import { layoutHint, type LayoutHints } from "./LayoutHint.tsx";
 import { NoticeBanner } from "./NoticeBanner.tsx";
 import { Field } from "./Field.tsx";
 
@@ -37,12 +39,6 @@ const COUNT_OPTIONS = Array.from({ length: MAX_FOOTER_COLUMNS - MIN_FOOTER_COLUM
   const count = String(MIN_FOOTER_COLUMNS + i);
   return { value: count, label: count, name: `${count} Spalten` };
 });
-
-const LEGAL_OPTIONS: { value: LegalPosition; label: string; name: string }[] = [
-  { value: "layout", label: "Wie im Layout", name: "Wie im Layout: Klassisch als Zeile darunter, die anderen als Spalte" },
-  { value: "spalte", label: "Als Spalte", name: "Als eigene Spalte neben den übrigen" },
-  { value: "zeile", label: "Als Zeile darunter", name: "Als Zeile unter den Spalten" },
-];
 
 type FooterSeller = Parameters<typeof footerValues>[0] & LegalInfoSource;
 
@@ -65,8 +61,9 @@ const previewStelle = (design: LetterheadDesign, stellen: readonly Pflichtangabe
 const plain = (lines: readonly string[]): FormattedTextRun[][] => lines.map((text) => [{ text, bold: false, italic: false, underline: false }]);
 
 /**
- * Fußzeile der Belege: automatisch aus den Firmendaten oder eigene Spalten mit Platzhaltern; bei GmbH und UG dazu die Stelle
- * der Registerangaben (#1651). Die Vorschau zeigt sie, wie sie auf der Rechnung stehen.
+ * Fußzeile der Belege: automatisch aus den Firmendaten oder eigene Spalten mit Platzhaltern, die Spalten oben oder unten
+ * bündig (#2046); bei GmbH und UG dazu die Stelle der Registerangaben (#1651). Die Vorschau zeigt sie, wie sie auf der
+ * Rechnung stehen.
  */
 export function FooterCard({
   design,
@@ -84,27 +81,8 @@ export function FooterCard({
   const save = useServerFn(saveLetterheadDesign);
   const router = useRouter();
   const { busy, notice, run } = useAction();
-  const columns = design.footerColumns;
-  const [own, setOwn] = useState(design.footerCustom);
-  const [texts, setTexts] = useState<string[]>(columns ?? [...DEFAULT_FOOTER_COLUMNS]);
-  const [count, setCount] = useState((columns ?? DEFAULT_FOOTER_COLUMNS).length);
-  const [position, setPosition] = useState(design.legalPosition);
+  const { own, setOwn, shown, edit, setCount, position, setPosition, align, setAlign } = useFooterDraft(design);
   const [focused, setActive] = useState(0);
-  // Neuer Stand vom Server: übernehmen, ohne die Karte zu ersetzen, sonst verschwände die Meldung „gespeichert“ mit ihr
-  const loaded = JSON.stringify([columns, design.footerCustom, design.legalPosition]);
-  const [seen, setSeen] = useState(loaded);
-  if (loaded !== seen) {
-    setSeen(loaded);
-    setOwn(design.footerCustom);
-    setTexts(columns ?? [...DEFAULT_FOOTER_COLUMNS]);
-    setCount((columns ?? DEFAULT_FOOTER_COLUMNS).length);
-    setPosition(design.legalPosition);
-  }
-
-  // Weniger Spalten behalten den Text der übrigen: Wer zurückschaltet, verliert nichts
-  const shown = Array.from({ length: count }, (_, i) => texts[i] ?? "");
-  // Nach dem Verringern kann die zuletzt fokussierte Spalte verborgen sein
-  const active = Math.min(focused, count - 1);
   const kapitalgesellschaft = isKapitalgesellschaft(seller.rechtsform);
   // Registerangaben hat heute jede Rechtsform außer dem Einzelunternehmen (legalInfo); nur dann gibt es ihre Einstellung
   const info = legalInfo(seller);
@@ -114,86 +92,25 @@ export function FooterCard({
   const values = previewValues(seller, info);
   const noBank = own && !shown.some((text) => text.includes("{iban}"));
   const stellen = legalStellen(withPosition);
-  const edit = (index: number, text: string) =>
-    setTexts(Array.from({ length: Math.max(texts.length, index + 1) }, (_, i) => (i === index ? text : (texts[i] ?? ""))));
-
-  const { fields, touched, insert } = usePlaceholderInsert(shown, active, edit);
-  const placeholders = info ? FOOTER_PLACEHOLDERS : FOOTER_PLACEHOLDERS.filter((name) => !(LEGAL_PLACEHOLDERS as readonly string[]).includes(name));
 
   const onSave = () =>
     run(async () => {
       // Ausgeschaltet bleiben die Spalten gespeichert und kommen beim Einschalten wieder
-      await save({ data: { footerCustom: own, ...(own ? { footerColumns: shown } : {}), ...(info ? { legalPosition: position } : {}) } });
+      await save({ data: { footerCustom: own, footerAlign: align, ...(own ? { footerColumns: shown } : {}), ...(info ? { legalPosition: position } : {}) } });
       await router.invalidate();
     }, "Fußzeile gespeichert. Sie gilt für alle Belege, die ab jetzt festgeschrieben werden.");
 
   return (
     <section className="card design-card" aria-labelledby="footer-heading">
       <h2 id="footer-heading">Fußzeile</h2>
-      {hidden && (
-        <div className="banner banner-info" role="status">
-          Ausgeschaltet: Die Fußzeile steht auf dem Briefpapier. Was du hier einstellst, gilt erst wieder, wenn du das unter „Briefpapier“ änderst.
-        </div>
-      )}
-      <div className="checkbox-hinted">
-        <label className="checkbox">
-          <input type="checkbox" checked={own} onChange={(event) => setOwn(event.target.checked)} aria-describedby={own ? undefined : "footer-own-hint"} />
-          Eigene Fußzeile
-        </label>
-        {!own && (
-          <span id="footer-own-hint" className="field-hint">
-            Haben setzt die Fußzeile aus den Firmendaten zusammen: Kontakt, Bank, Steuernummern
-            {info && " und die Registerangaben der Gesellschaft"}.
-          </span>
-        )}
-      </div>
+      <OwnFooterToggle hidden={hidden} own={own} onChange={setOwn} withLegal={Boolean(info)} />
       {own && (
         <>
-          <div>
-            <h3>Anzahl Spalten</h3>
-            <Segmented label="Anzahl der Spalten" options={COUNT_OPTIONS} value={String(count)} onChange={(value) => setCount(Number(value))} />
-          </div>
-          <div className="footer-columns" style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}>
-            {shown.map((text, index) => (
-              <Field key={index} label={`Spalte ${index + 1}`}>
-                {(control) => (
-                  <FormattedTextarea
-                    {...control}
-                    fieldRef={(element) => {
-                      fields.current[index] = element;
-                    }}
-                    className="mono autogrow"
-                    rows={5}
-                    maxLength={MAX_FOOTER_TEXT}
-                    value={text}
-                    onFocus={(event) => {
-                      setActive(index);
-                      touched.current.add(event.currentTarget);
-                    }}
-                    onChange={(event) => edit(index, event.target.value)}
-                  />
-                )}
-              </Field>
-            ))}
-          </div>
-          <div className="footer-chips" role="group" aria-label="Platzhalter einfügen">
-            <span className="small muted">Einfügen in Spalte {active + 1}:</span>
-            {placeholders.map((placeholder) => (
-              <button
-                key={placeholder}
-                type="button"
-                className="btn btn-sm mono"
-                // Der Fokus bleibt im Feld, sonst wäre die Stelle im Text weg
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => insert(placeholder)}
-              >
-                {`{${placeholder}}`}
-              </button>
-            ))}
-          </div>
+          <OwnFooterColumns shown={shown} onCount={setCount} edit={edit} focused={focused} onFocusColumn={setActive} withLegal={Boolean(info)} />
           <FooterIssues issues={issues} noBank={noBank} />
         </>
       )}
+      <FooterAlignField align={align} onChange={setAlign} stellen={stellen} hint={layoutHint(hints, "footerAlign")} />
       {info && (
         <LegalPositionField
           position={position}
@@ -210,6 +127,7 @@ export function FooterCard({
           columns={own ? customFooterRuns(shown, values) : preview.automatic.map(plain)}
           legal={info && !inFooter ? preview.legal : []}
           stelle={previewStelle(design, stellen, position)}
+          align={align}
         />
       </div>
       <div className="actions">
@@ -219,6 +137,126 @@ export function FooterCard({
       </div>
       <NoticeBanner notice={notice} />
     </section>
+  );
+}
+
+/** Stand der Karte; ein neuer Stand vom Server wird übernommen, ohne die Karte zu ersetzen, sonst verschwände die Meldung „gespeichert“ mit ihr */
+function useFooterDraft(design: LetterheadDesign) {
+  const columns = design.footerColumns;
+  const [own, setOwn] = useState(design.footerCustom);
+  const [texts, setTexts] = useState<string[]>(columns ?? [...DEFAULT_FOOTER_COLUMNS]);
+  const [count, setCount] = useState((columns ?? DEFAULT_FOOTER_COLUMNS).length);
+  const [position, setPosition] = useState(design.legalPosition);
+  const [align, setAlign] = useState(design.footerAlign);
+  const loaded = JSON.stringify([columns, design.footerCustom, design.legalPosition, design.footerAlign]);
+  const [seen, setSeen] = useState(loaded);
+  if (loaded !== seen) {
+    setSeen(loaded);
+    setOwn(design.footerCustom);
+    setTexts(columns ?? [...DEFAULT_FOOTER_COLUMNS]);
+    setCount((columns ?? DEFAULT_FOOTER_COLUMNS).length);
+    setPosition(design.legalPosition);
+    setAlign(design.footerAlign);
+  }
+  // Weniger Spalten behalten den Text der übrigen: Wer zurückschaltet, verliert nichts
+  const shown = Array.from({ length: count }, (_, i) => texts[i] ?? "");
+  const edit = (index: number, text: string) =>
+    setTexts(Array.from({ length: Math.max(texts.length, index + 1) }, (_, i) => (i === index ? text : (texts[i] ?? ""))));
+  return { own, setOwn, shown, edit, setCount, position, setPosition, align, setAlign };
+}
+
+/** Hinweis, wenn das Briefpapier den Fuß trägt, und der Schalter für die eigene Fußzeile */
+function OwnFooterToggle({ hidden, own, onChange, withLegal }: { hidden: boolean; own: boolean; onChange: (own: boolean) => void; withLegal: boolean }) {
+  return (
+    <>
+      {hidden && (
+        <div className="banner banner-info" role="status">
+          Ausgeschaltet: Die Fußzeile steht auf dem Briefpapier. Was du hier einstellst, gilt erst wieder, wenn du das unter „Briefpapier“ änderst.
+        </div>
+      )}
+      <div className="checkbox-hinted">
+        <label className="checkbox">
+          <input type="checkbox" checked={own} onChange={(event) => onChange(event.target.checked)} aria-describedby={own ? undefined : "footer-own-hint"} />
+          Eigene Fußzeile
+        </label>
+        {!own && (
+          <span id="footer-own-hint" className="field-hint">
+            Haben setzt die Fußzeile aus den Firmendaten zusammen: Kontakt, Bank, Steuernummern
+            {withLegal && " und die Registerangaben der Gesellschaft"}.
+          </span>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** Anzahl und Text der eigenen Spalten, darunter die Platzhalter zum Einfügen in die zuletzt fokussierte Spalte */
+function OwnFooterColumns({
+  shown,
+  onCount,
+  edit,
+  focused,
+  onFocusColumn,
+  withLegal,
+}: {
+  shown: string[];
+  onCount: (count: number) => void;
+  edit: (index: number, text: string) => void;
+  /** Bleibt beim Aus- und Einschalten der eigenen Fußzeile, darum in der Karte */
+  focused: number;
+  onFocusColumn: (index: number) => void;
+  withLegal: boolean;
+}) {
+  const count = shown.length;
+  // Nach dem Verringern kann die zuletzt fokussierte Spalte verborgen sein
+  const active = Math.min(focused, count - 1);
+  const { fields, touched, insert } = usePlaceholderInsert(shown, active, edit);
+  const placeholders = withLegal ? FOOTER_PLACEHOLDERS : FOOTER_PLACEHOLDERS.filter((name) => !(LEGAL_PLACEHOLDERS as readonly string[]).includes(name));
+  return (
+    <>
+      <div>
+        <h3>Anzahl Spalten</h3>
+        <Segmented label="Anzahl der Spalten" options={COUNT_OPTIONS} value={String(count)} onChange={(value) => onCount(Number(value))} />
+      </div>
+      <div className="footer-columns" style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}>
+        {shown.map((text, index) => (
+          <Field key={index} label={`Spalte ${index + 1}`}>
+            {(control) => (
+              <FormattedTextarea
+                {...control}
+                fieldRef={(element) => {
+                  fields.current[index] = element;
+                }}
+                className="mono autogrow"
+                rows={5}
+                maxLength={MAX_FOOTER_TEXT}
+                value={text}
+                onFocus={(event) => {
+                  onFocusColumn(index);
+                  touched.current.add(event.currentTarget);
+                }}
+                onChange={(event) => edit(index, event.target.value)}
+              />
+            )}
+          </Field>
+        ))}
+      </div>
+      <div className="footer-chips" role="group" aria-label="Platzhalter einfügen">
+        <span className="small muted">Einfügen in Spalte {active + 1}:</span>
+        {placeholders.map((placeholder) => (
+          <button
+            key={placeholder}
+            type="button"
+            className="btn btn-sm mono"
+            // Der Fokus bleibt im Feld, sonst wäre die Stelle im Text weg
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => insert(placeholder)}
+          >
+            {`{${placeholder}}`}
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -240,55 +278,22 @@ function FooterIssues({ issues, noBank }: { issues: readonly string[]; noBank: b
   );
 }
 
-/** Stelle der Registerangaben; aus, wenn ihre Platzhalter in der Fußzeile stehen oder jedes Layout sie in die Randspalte setzt */
-function LegalPositionField({
-  position,
-  onChange,
-  stellen,
-  inFooter,
-  own,
-  hint,
-}: {
-  position: LegalPosition;
-  onChange: (position: LegalPosition) => void;
-  stellen: readonly PflichtangabenStelle[];
-  inFooter: boolean;
-  own: boolean;
-  hint: ReturnType<typeof layoutHint>;
-}) {
-  const nurRand = stellen.length > 0 && stellen.every((s) => s === "rand");
-  return (
-    <div>
-      <h3>Registerangaben</h3>
-      <Segmented
-        label="Stelle der Registerangaben"
-        options={LEGAL_OPTIONS}
-        value={position}
-        onChange={onChange}
-        disabled={inFooter || nurRand || hint?.aus}
-        describedBy={["footer-legal-hint", layoutHintId("legalPosition", hint)].filter(Boolean).join(" ")}
-      />
-      <p id="footer-legal-hint" className="field-hint footer-legal-hint">
-        {inFooter
-          ? "Steht in deiner Fußzeile: Wo die Platzhalter stehen, stehen auch die Angaben."
-          : nurRand
-            ? "Wirkt nicht in der Randspalte: Dort stehen die Angaben unter den übrigen."
-            : own
-              ? "Ohne ihre Platzhalter in der Fußzeile setzt Haben die Registerangaben (§ 35a GmbHG) selbst; mit einem davon brauchst du alle."
-              : "Sitz, Registergericht und Nummer, Geschäftsführung (§ 35a GmbHG)."}
-        {!inFooter && !nurRand && stellen.includes("rand") && " In der Randspalte von Elegant und Atelier stehen sie immer unter den übrigen Angaben."}
-      </p>
-      <LayoutHintText option="legalPosition" hint={hint} />
-    </div>
-  );
-}
-
 /** Spalten des Fußes und die Registerangaben an ihrer Stelle: als weitere Spalte, als Zeile darunter oder untereinander in der Randspalte */
-function FooterSheetPreview({ columns, legal, stelle }: { columns: FormattedTextRun[][][]; legal: string[]; stelle: PflichtangabenStelle }) {
+function FooterSheetPreview({
+  columns,
+  legal,
+  stelle,
+  align,
+}: {
+  columns: FormattedTextRun[][][];
+  legal: string[];
+  stelle: PflichtangabenStelle;
+  align: FooterAlign;
+}) {
   const asColumn = legal.length > 0 && stelle !== "zeile";
   const all = asColumn ? [...columns, plain(legal)] : columns;
   return (
-    <div className="footer-preview" data-stelle={stelle}>
+    <div className="footer-preview" data-stelle={stelle} data-align={align}>
       <div className="footer-columns" style={stelle === "rand" ? undefined : { gridTemplateColumns: `repeat(${all.length}, minmax(0, 1fr))` }}>
         {all.map((lines, index) => (
           <div key={index}>

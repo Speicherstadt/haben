@@ -7,6 +7,7 @@ import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { NoticeBanner } from "./NoticeBanner.tsx";
 import { createMcpTokenFn, reactivateMcpTokenFn, revokeMcpTokenFn, setMcpEnabledFn, type getMcpSettings } from "../server/functions/mcp.ts";
 import { Field } from "./Field.tsx";
+import { TokenAnlegen } from "./McpTokenAnlegen.tsx";
 import { Status, type StatusLook } from "./Status.tsx";
 
 type Data = Awaited<ReturnType<typeof getMcpSettings>>;
@@ -47,8 +48,9 @@ export function McpCard({ data }: { data: Data }) {
     const values = new FormData(form);
     const name = String(values.get("name") ?? "").trim();
     const scopes = values.getAll("scopes").map(String) as Data["scopes"][number]["id"][];
+    const finalizeSource = scopes.includes("rechnungen:festschreiben") ? String(values.get("finalizeSource") ?? "") : null;
     void run(async () => {
-      const { token } = await create({ data: { name, days: Number(values.get("days")) as 30 | 90 | 365, scopes } });
+      const { token } = await create({ data: { name, days: Number(values.get("days")) as 30 | 90 | 365, scopes, finalizeSource } });
       setCopied(false);
       setCreated({ name, token, scopes });
       form.reset();
@@ -129,7 +131,7 @@ export function McpCard({ data }: { data: Data }) {
               <TokenZeile key={token.id} token={token} label={label} busy={busy} onTakeOver={() => setTakingOver(token)} onRevoke={() => setRevoking(token)} />
             ))
           )}
-          <TokenAnlegen scopes={data.scopes} busy={busy} onCreate={onCreate} />
+          <TokenAnlegen scopes={data.scopes} quellen={data.quellen} busy={busy} onCreate={onCreate} />
         </section>
       )}
 
@@ -149,7 +151,9 @@ function McpIntro() {
       </p>
       <p className="small muted" style={{ margin: 0, maxWidth: 760 }}>
         Über die REST-API legen eigene Werkzeuge und Automationen Kontakte und Rechnungsentwürfe an, etwa aus Bestellungen bei Etsy oder eBay, und liefern
-        Belege, etwa aus einem Dokumentenarchiv; sie landen unter Belege als „Zu prüfen“. Auch die API bucht nichts und schreibt nichts fest.{" "}
+        Belege, etwa aus einem Dokumentenarchiv; sie landen unter Belege als „Zu prüfen“. Die API bucht nichts und schreibt nichts fest, mit einer Ausnahme: Ein
+        Token mit dem Recht <span className="mono">rechnungen:festschreiben</span> schreibt bereits bezahlte Entwürfe der Quelle, die du beim Anlegen wählst,
+        fest (samt Buchung) und versendet sie auf Wunsch per E-Mail.{" "}
         <a href={API_DOCS} target="_blank" rel="noreferrer">
           Anleitung zur API
         </a>
@@ -268,6 +272,11 @@ function TokenZeile({
           <span className="small muted">Gilt erst wieder, wenn der Verantwortliche sich angemeldet hat oder jemand den Token übernimmt.</span>
         )}
         <span className="small muted">Rechte: {token.scopes.map(label).join(" · ")}</span>
+        {token.finalizeSource && (
+          <span className="small muted">
+            Festschreiben nur für die Quelle <span className="mono">{token.finalizeSource}</span>
+          </span>
+        )}
       </div>
       {token.canTakeOver && (
         <button type="button" className="btn" disabled={busy} onClick={onTakeOver}>
@@ -280,41 +289,6 @@ function TokenZeile({
         </button>
       )}
     </div>
-  );
-}
-
-function TokenAnlegen({ scopes, busy, onCreate }: { scopes: Data["scopes"]; busy: boolean; onCreate: (event: FormEvent<HTMLFormElement>) => void }) {
-  return (
-    <form className="form-grid" onSubmit={onCreate} aria-label="Neues Token">
-      <Field label="Name">{(control) => <input {...control} name="name" required maxLength={80} placeholder="Claude Code am Laptop" />}</Field>
-      <Field label="Gültig">
-        {(control) => (
-          <select {...control} name="days" defaultValue="90">
-            <option value="30">30 Tage</option>
-            <option value="90">90 Tage</option>
-            <option value="365">1 Jahr</option>
-          </select>
-        )}
-      </Field>
-      <fieldset style={{ border: 0, padding: 0, margin: 0, gridColumn: "1 / -1" }}>
-        <legend className="small" style={{ fontWeight: 500, marginBottom: 4 }}>
-          Rechte
-        </legend>
-        {scopes.map((scope) => (
-          <label key={scope.id} className="checkbox">
-            <input type="checkbox" name="scopes" value={scope.id} defaultChecked={scope.id === "haben:lesen"} />
-            <span>
-              {scope.label} <span className="mono small muted">{scope.id}</span>
-            </span>
-          </label>
-        ))}
-      </fieldset>
-      <div className="actions" style={{ gridColumn: "1 / -1" }}>
-        <button type="submit" className="btn" disabled={busy}>
-          Token anlegen
-        </button>
-      </div>
-    </form>
   );
 }
 

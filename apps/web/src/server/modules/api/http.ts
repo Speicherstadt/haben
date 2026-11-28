@@ -32,6 +32,8 @@ export interface ApiRequest {
   baseUrl: string;
   /** Heutiges Datum in Deutschland, JJJJ-MM-TT */
   today: string;
+  /** Externe Quelle, deren Entwürfe das Token festschreiben darf (rechnungen:festschreiben), sonst null */
+  finalizeSource: string | null;
 }
 
 export type Handler = (request: ApiRequest) => Promise<ApiResult>;

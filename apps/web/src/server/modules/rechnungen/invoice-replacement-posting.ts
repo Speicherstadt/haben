@@ -1,4 +1,12 @@
-import { invoicePosting, legacyCorrectionPosting, type InvoiceTotals, type Kontenrahmen, type PostingLine } from "@haben/core";
+import {
+  invoicePosting,
+  istAnlagenabgangKonto,
+  istRechnungsErloesKonto,
+  legacyCorrectionPosting,
+  type InvoiceTotals,
+  type Kontenrahmen,
+  type PostingLine,
+} from "@haben/core";
 import { and, eq } from "drizzle-orm";
 import { schema, type Db, type Tx } from "../../db/index.ts";
 import { type openBooks, post, reverseLinesIn } from "../buchhaltung/index.ts";
@@ -50,16 +58,17 @@ export async function postInvoice(
   const replacedId = normalReplacementId(invoice);
   if (replacedId) return restorePaperCancellation(tx, company, invoice.id, replacedId, description);
   const versteuerung = await invoicePostingMode(invoice, tx);
+  const assetDisposal = await alsAnlagenverkauf(tx, invoice, corrects);
   const bookings =
     invoice.advanceAccounting === "deferred"
-      ? await advanceInvoicePosting(invoice, totals, company.kontenrahmen, tx)
+      ? await advanceInvoicePosting(invoice, totals, company.kontenrahmen, tx, assetDisposal)
       : [
           {
             date: await invoiceVatDate(invoice, tx),
             // Übernommene Erlöse stehen in den alten Büchern; auch spätere Korrektur-Stornos folgen deren Ursprung.
             lines: (await correctsLegacyInvoice(tx, corrects))
               ? legacyCorrectionPosting(totals, company.kontenrahmen, versteuerung)
-              : invoicePosting(totals, company.kontenrahmen, versteuerung, invoice.taxTreatment),
+              : invoicePosting(totals, company.kontenrahmen, versteuerung, invoice.taxTreatment, assetDisposal),
           },
         ];
   for (const booking of bookings)
@@ -71,6 +80,26 @@ export async function postInvoice(
         sourceId: invoice.id,
         lines: booking.lines,
       });
+}
+
+/**
+ * Bucht die Rechnung auf die Verkaufskonten einer Anlage (#2022)? Eine neue nach ihrem Kennzeichen „Verkauf aus dem
+ * Anlagevermögen“. Storno und Korrektur folgen den Konten der Rechnung, die sie korrigieren: Vor #2022 buchte eine Rechnung
+ * mit dem Kennzeichen auf das normale Erlöskonto, ihr Storno muss es dort ausgleichen. Ohne Erlös in der Buchung (etwa ein
+ * Abschlag, dessen Plan die Buchung ersetzt) zählt das Kennzeichen.
+ */
+async function alsAnlagenverkauf(tx: Tx, invoice: Invoice, corrects: Invoice | undefined): Promise<boolean> {
+  const kennzeichen = invoice.taxDetails?.assetDisposal ?? false;
+  if (!corrects) return kennzeichen;
+  const { journalEntries, journalLines } = schema;
+  const lines = await tx
+    .select({ account: journalLines.account, kontenrahmen: journalEntries.kontenrahmen })
+    .from(journalLines)
+    .innerJoin(journalEntries, eq(journalEntries.id, journalLines.entryId))
+    .where(and(eq(journalEntries.sourceType, "invoice"), eq(journalEntries.sourceId, corrects.id)));
+  if (lines.some((l) => istAnlagenabgangKonto(l.kontenrahmen as Kontenrahmen, l.account))) return true;
+  if (lines.some((l) => istRechnungsErloesKonto(l.kontenrahmen as Kontenrahmen, l.account))) return false;
+  return kennzeichen;
 }
 
 /** Korrigiert die Rechnung (über Korrekturen hinweg) eine aus Lexoffice übernommene? Dann gehören ihre Erlöse zu den alten Büchern */

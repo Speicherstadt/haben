@@ -134,6 +134,22 @@ describe("Gemeinsame Steuerfelder der Ausgangsbelege", () => {
     expect(html).toContain('<option value="nein" selected="">Nein</option>');
   });
 
+  it.each([
+    ["regulaer", false],
+    ["kleinunternehmer", true],
+    ["ausfuhr", false],
+  ] as const)(
+    "%s: „Verkauf aus dem Anlagevermögen“ steht sichtbar bei den Steuerangaben, mit Hinweis auf Zeile 19 und die Anlage (#2022)",
+    (treatment, kleinunternehmer) => {
+      const html = render({ treatment, kleinunternehmer });
+      const ausserhalb = html.replace(/<details\b.*?<\/details>/gs, "");
+      expect(ausserhalb).toContain(">Verkauf aus dem Anlagevermögen</label>");
+      expect(ausserhalb).toContain("Der Erlös zählt in der EÜR in Zeile 19 und nicht im Gesamtumsatz. Den Abgang trägst du zusätzlich an der Anlage ein.");
+      // Ohne Befreiung nach § 4 bleibt nichts für den eingeklappten Bereich
+      expect(html).not.toContain("<details");
+    },
+  );
+
   it("sperrt übernommene Steuerangaben einer Rechnungskorrektur vollständig", () => {
     const html = render({ treatment: "steuerfrei", exemptionReason: "Bisheriger Belegtext", disabled: true });
     const selects = html.match(/<select\b[^>]*>/g) ?? [];

@@ -1,6 +1,7 @@
 import type { BasisPoints, Cents } from "./money.ts";
 import type { InvoiceTotals, TaxRate } from "./invoice.ts";
 import type { TaxTreatment } from "./treatment.ts";
+import { anlagenverkaufKonto } from "./anlagenverkauf.ts";
 import { ACCOUNTS, type Kontenrahmen, type Versteuerung } from "./kontenplan.ts";
 import { paidTaxShares, type TaxShare } from "./steueranteile.ts";
 
@@ -114,23 +115,33 @@ export function side(account: string, amount: Cents, debitIfPositive: boolean, t
   return { account, debit: debit ? Math.abs(amount) : 0, credit: debit ? 0 : Math.abs(amount), taxCode };
 }
 
+/** Erlöskonto einer Ausgangsrechnung je Satz; bei „Verkauf aus dem Anlagevermögen“ das Verkaufskonto, wo es eins gibt (#2022) */
+function revenueAccount(kontenrahmen: Kontenrahmen, treatment: TaxTreatment, rate: BasisPoints, assetDisposal: boolean): string {
+  const verkauf = assetDisposal ? anlagenverkaufKonto(kontenrahmen, treatment, rate) : null;
+  if (verkauf) return verkauf;
+  const accounts = ACCOUNTS[kontenrahmen];
+  return treatment === "regulaer" ? accounts.erloese[rate === 0 ? 0 : vatRate(rate)] : accounts.erloeseSonder[treatment];
+}
+
 /**
  * Buchung einer festgeschriebenen Ausgangsrechnung: Forderung an Erlöse und Umsatzsteuer.
  * Bei Ist-Versteuerung auf „Umsatzsteuer nicht fällig“; fällig wird sie mit dem Zahlungseingang.
  * Negative Summen (Storno, Korrektur) drehen die Seiten. Reverse Charge, Drittland, steuerfreie
- * und Kleinunternehmer-Umsätze gehen auf eigene Erlöskonten.
+ * und Kleinunternehmer-Umsätze gehen auf eigene Erlöskonten, der Verkauf einer Anlage (`assetDisposal`) auf die
+ * Verkaufskonten, soweit es sie bei DATEV gibt (anlagenverkauf.ts).
  */
 export function invoicePosting(
   totals: InvoiceTotals,
   kontenrahmen: Kontenrahmen,
   versteuerung: Versteuerung,
   treatment: TaxTreatment = "regulaer",
+  assetDisposal = false,
 ): PostingLine[] {
   const accounts = ACCOUNTS[kontenrahmen];
   const lines: PostingLine[] = [side(accounts.forderungen, totals.gross, true, null)];
   for (const { rate, base, tax } of totals.taxes) {
     const code = revenueTaxCode(rate, treatment);
-    const revenue = treatment === "regulaer" ? accounts.erloese[rate === 0 ? 0 : vatRate(rate)] : accounts.erloeseSonder[treatment];
+    const revenue = revenueAccount(kontenrahmen, treatment, rate, assetDisposal);
     if (base !== 0) lines.push(side(revenue, base, false, code));
     if (tax !== 0) {
       const taxAccounts = versteuerung === "ist" ? accounts.ustNichtFaellig : accounts.ust;
