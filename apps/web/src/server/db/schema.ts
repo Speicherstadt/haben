@@ -878,6 +878,8 @@ export const mailSettings = pgTable(
     fromAddress: text("from_address").notNull(),
     /** Name vor der Absenderadresse; leer: der Firmenname, ohne den „Haben“ (senderName in mail.ts) */
     fromName: text("from_name").notNull().default(""),
+    /** Antwortadresse (Reply-To) aller Mails, wenn Antworten nicht an `from_address` gehen sollen; leer: keine (#2045) */
+    replyTo: text("reply_to").notNull().default(""),
     /** Empfänger der Erinnerungen */
     reminderTo: text("reminder_to").notNull(),
     remindersEnabled: boolean("reminders_enabled").notNull().default(true),

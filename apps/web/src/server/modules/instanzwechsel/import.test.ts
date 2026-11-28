@@ -573,6 +573,19 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     expect(await sql`select adresszusatz from contacts where id = ${KUNDE}`).toEqual([{ adresszusatz: "" }]);
   });
 
+  it("liest eine Datei der Version 6: E-Mail-Einstellungen ohne Antwortadresse bekommen eine leere (#2045)", async () => {
+    await testinstanz();
+    const zip = await exportierenUndNeu();
+    const { sha256: _, ...inhalt } = einstellungen(zip);
+    expect(inhalt.mail.replyTo).toBe("antworten@muster.example");
+    const { replyTo: _r, ...mail } = inhalt.mail;
+    const alt = withChecksum({ ...inhalt, version: 6, mail });
+    await mailEinrichten();
+    const result = await instanzwechsel.importSettings(actor, neuGepackt(unzipSync(zip), { "einstellungen.json": strToU8(JSON.stringify(alt)) }), HEUTE);
+    expect(result.mail).toBe(true);
+    expect(await sql`select from_name, reply_to from mail_settings`).toEqual([{ from_name: "Muster Design", reply_to: "" }]);
+  });
+
   it("lehnt ein verändertes oder beschädigtes ZIP ab, bevor es etwas schreibt", async () => {
     await testinstanz();
     const zip = await exportierenUndNeu();

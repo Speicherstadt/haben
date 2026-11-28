@@ -24,6 +24,12 @@ const common = {
   fromAddress: email,
   /** leer: der Firmenname */
   fromName: z.string().trim().max(200).default(""),
+  /** Antwortadresse (Reply-To), genau eine; leer: keine, Antworten gehen an den Absender */
+  replyTo: z
+    .string()
+    .trim()
+    .refine((value) => value === "" || email.safeParse(value).success, "Keine gültige E-Mail-Adresse")
+    .default(""),
   reminderTo: email,
   remindersEnabled: z.boolean(),
   reminderDays: z.array(z.number().int().min(0).max(60)).max(5),
@@ -148,6 +154,7 @@ export async function saveMailSettings(actor: string, input: MailSettingsInput):
   const values = {
     fromAddress: data.fromAddress,
     fromName: data.fromName,
+    replyTo: data.replyTo,
     reminderTo: data.reminderTo,
     remindersEnabled: data.remindersEnabled,
     reminderDays: [...new Set(data.reminderDays)].sort((a, b) => b - a),

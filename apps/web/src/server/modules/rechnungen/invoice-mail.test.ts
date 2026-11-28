@@ -44,7 +44,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres
           sent.push(message);
           return transport.sendMail(message);
         },
-      } as unknown as ReturnType<typeof nodemailer.createTransport>;
+      };
     });
   }, 30_000);
 

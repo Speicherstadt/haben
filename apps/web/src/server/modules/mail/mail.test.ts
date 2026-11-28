@@ -41,7 +41,7 @@ describe.skipIf(!testDatabaseUrl)("Absender der E-Mails (Postgres)", () => {
           raw.push((info.message as Buffer).toString("utf8"));
           return info;
         },
-      } as unknown as ReturnType<typeof nodemailer.createTransport>;
+      };
     });
   }, 30_000);
 
