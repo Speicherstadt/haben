@@ -68,6 +68,23 @@ describe.skipIf(!url)("SQL-Vorlage gegen Postgres", () => {
     expect(await befunde()).toEqual([]);
   });
 
+  it("setzt die Zeitpunkte von Eintrag und Siegel selbst, nicht aus den Standardwerten", async () => {
+    const zurueck = new Error("zurückrollen");
+    await sql
+      .begin(async (tx) => {
+        await tx`alter table audit_log alter column at set default '2020-01-01 00:00:00+00'`;
+        await tx`alter table seals alter column created_at set default '2020-01-01 00:00:00+00'`;
+        await tx`select set_config(${akteurEinstellung("kern")}, 'anna', true)`;
+        const [beleg] = await tx`insert into eingaenge (sha256) values ('ab') returning id`;
+        expect(await tx`select at = now() as jetzt from audit_log order by seq desc limit 1`).toEqual([{ jetzt: true }]);
+        expect(await tx`select created_at = now() as jetzt from seals where row_id = ${beleg!.id}`).toEqual([{ jetzt: true }]);
+        throw zurueck;
+      })
+      .catch((error: unknown) => {
+        if (error !== zurueck) throw error;
+      });
+  });
+
   it("lehnt Ändern, Löschen und Leeren von Audit-Log, Kopf und Siegeln ab", async () => {
     await expect(sql`update audit_log set actor = 'x'`).rejects.toThrow(/darf nur ergänzt werden/);
     await expect(sql`delete from audit_log`).rejects.toThrow(/darf nur ergänzt werden/);

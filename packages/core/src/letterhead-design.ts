@@ -70,6 +70,9 @@ export type BackgroundPages = "erste" | "alle";
 /** Stelle der Pflichtangaben einer GmbH oder UG im Fuß (#1651); „layout“ = die Vorgabe des Layouts (footer-legal.ts) */
 export type LegalPosition = "layout" | "spalte" | "zeile";
 
+/** Spalten des Fußes oben oder unten bündig (#2046), für alle gemeinsam; die Randspalte von Elegant und Atelier stapelt sie */
+export type FooterAlign = "oben" | "unten";
+
 /** Was die Gestaltung auf dem Blatt ändert, ohne Inhalt und Layoutwahl */
 export interface LetterheadOptions {
   logoSize: LogoSize;
@@ -89,6 +92,7 @@ export interface LetterheadOptions {
    */
   footerCustom?: boolean;
   legalPosition: LegalPosition;
+  footerAlign: FooterAlign;
   /** Schrift der Belege; „layout“ = die Vorgabe des jeweiligen Layouts */
   font: LetterheadFont | "layout";
   /** Akzentfarbe aus dem Layout statt der eigenen (accent); gilt, solange nichts eigenes gewählt ist */
@@ -118,6 +122,7 @@ export const DEFAULT_OPTIONS: LetterheadOptions = {
   vatColumn: true,
   footerColumns: null,
   legalPosition: "layout",
+  footerAlign: "oben",
   font: "layout",
   accentFromLayout: true,
   backgroundPages: "erste",
@@ -170,6 +175,7 @@ export const letterheadDesignInputSchema = z
     footerHidden: z.boolean(),
     footerCustom: z.boolean(),
     legalPosition: z.enum(["layout", "spalte", "zeile"]),
+    footerAlign: z.enum(["oben", "unten"]),
     footerColumns: z
       .array(z.string().max(MAX_FOOTER_TEXT))
       .min(MIN_FOOTER_COLUMNS)

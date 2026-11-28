@@ -1,6 +1,7 @@
 import { EricGeprueftClient } from "../../test-eric.ts";
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { protokollEintragen } from "../../db/test-protokoll.ts";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
@@ -247,8 +248,7 @@ describe.skipIf(!testDatabaseUrl)("Jahreserklärungen (Postgres)", () => {
   it("Kleinunternehmer schon 2023: für 2023 ist die Umsatzsteuererklärung noch geschuldet, erst ab 2024 nicht mehr (§ 18 Abs. 3 UStG)", async () => {
     // Stand am 31.12.2023 laut Protokoll, wie in den Fristen. Das Protokoll leert kein beforeEach; die späteren Tests
     // dieser Datei sähen sonst auch für ihre Jahre einen Kleinunternehmer, daher danach leeren
-    await sql`insert into audit_log (at, actor, table_name, row_id, action, new_value)
-      values ('2023-06-01T12:00:00Z', 'test', 'company', '1', 'UPDATE', '{"kleinunternehmer": true}'::jsonb)`;
+    await protokollEintragen(sql, [{ at: "2023-06-01T12:00:00Z", tableName: "company", rowId: "1", action: "UPDATE", newValue: { kleinunternehmer: true } }]);
     try {
       const ust2023 = (await annual.annualOverview(2023, TODAY)).ust;
       expect(ust2023.issues.some((i) => /Für 2023 gibst du auch als Kleinunternehmer/.test(i.text))).toBe(true);

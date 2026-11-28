@@ -13,6 +13,7 @@ export const SETTINGS_EXPORT_FORMAT = "haben-einstellungen";
 // 5: weitere Zahlungskonten und das bevorzugte Zahlungskonto am Kontakt (#1887). Eine ältere Datei hat keine; ihre Kontakte
 // bekommen den Standard.
 // 6: Adresszusatz am Kontakt (#914). Eine ältere Datei hat keinen; ihre Kontakte bekommen einen leeren (contactSchema).
-// 7: Mindestbestand der Liquiditätsvorschau in den Firmendaten (#1381). Eine ältere Datei hat keinen; die Firma bekommt
+// 7: Antwortadresse im E-Mail-Versand (#2045). Eine ältere Datei hat keine; übernommen wird eine leere (mailCommonSchema).
+// 8: Mindestbestand der Liquiditätsvorschau in den Firmendaten (#1381). Eine ältere Datei hat keinen; die Firma bekommt
 // keinen (firmaErgaenzen in stammdaten/uebernahme.ts).
-export const SETTINGS_EXPORT_VERSION = 7;
+export const SETTINGS_EXPORT_VERSION = 8;

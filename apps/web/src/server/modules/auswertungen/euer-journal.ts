@@ -1,6 +1,6 @@
 import { kleinunternehmerForMonth } from "../stammdaten/index.ts";
 import { leereEuerAusJournal, type EuerAusJournal, type Kontenrahmen } from "@haben/core";
-import { and, asc, eq, gte, inArray, lt, ne } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lt, ne, sql } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 import { imEuerJahr } from "./euer-jahreswechsel.ts";
 import {
@@ -49,6 +49,22 @@ async function verrechnungenImJahr(q: Db | Tx, year: number): Promise<Verrechnun
     .from(s)
     .where(and(gte(s.date, `${year}-01-01`), lt(s.date, `${year + 1}-01-01`)))
     .orderBy(asc(s.date), asc(s.createdAt), asc(s.id));
+}
+
+/**
+ * Rechnungen mit „Verkauf aus dem Anlagevermögen“ (#2022): Ihr Erlös zählt in Zeile 19, auch wenn sie vor #2022 auf das
+ * normale Erlöskonto gebucht haben (Herkunft „anlagenverkauf“ in journal-euer.ts)
+ */
+async function anlagenverkaeufe(q: Db | Tx, ids: string[]): Promise<Set<string>> {
+  const result = new Set<string>();
+  const i = schema.invoices;
+  for (const block of bloecke(ids))
+    for (const r of await q
+      .select({ id: i.id })
+      .from(i)
+      .where(and(inArray(i.id, block), sql`(${i.taxDetails} ->> 'assetDisposal')::boolean`)))
+      result.add(r.id);
+  return result;
 }
 
 /** Kontenrahmen der Firma: für einen Beleg ganz ohne Buchung die einzige Angabe zum Rahmen (aus Lexoffice übernommen) */
@@ -135,6 +151,7 @@ export async function euerAusJournal(year: number, q: Db | Tx = db, ohneManuelle
     verrechnungenVon,
     nebenbuchVon,
     anlagen,
+    anlagenverkaeufe: await anlagenverkaeufe(q, rechnungIds),
     zaehler: { ungeklaerteImporte: 0 },
     ursprung: new Map(),
   };

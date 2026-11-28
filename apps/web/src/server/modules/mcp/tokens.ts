@@ -5,6 +5,7 @@ import { z } from "zod";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
 import { UserError } from "../../errors.ts";
+import { externalInvoiceSources } from "../rechnungen/index.ts";
 import { loadCompany } from "../stammdaten/index.ts";
 
 /*
@@ -20,8 +21,9 @@ import { loadCompany } from "../stammdaten/index.ts";
 export class McpError extends UserError {}
 
 /**
- * Rechte eines Tokens. haben:lesen gilt für die Werkzeuge über MCP, die übrigen für die REST-API. Kein Recht bucht,
- * schreibt fest oder versendet; das bleibt wegen GoBD ein Klick in Haben.
+ * Rechte eines Tokens. haben:lesen gilt für die Werkzeuge über MCP, die übrigen für die REST-API. Gebucht wird über ein
+ * Token nur mit rechnungen:festschreiben: Es schreibt Entwürfe der einen externen Quelle fest, die beim Anlegen in Haben
+ * gewählt wird, samt Buchung, und versendet sie (#1918); Storno, Korrektur und ELSTER bleiben ein Klick in Haben.
  */
 export const TOKEN_SCOPES = [
   "haben:lesen",
@@ -29,6 +31,7 @@ export const TOKEN_SCOPES = [
   "kontakte:schreiben",
   "rechnungen:lesen",
   "rechnungen:entwuerfe",
+  "rechnungen:festschreiben",
   "rechnungen:vorlagen-anlegen",
   "rechnungen:vorlagen-bearbeiten",
   "angebote:lesen",
@@ -50,6 +53,7 @@ export const TOKEN_SCOPE_LABELS: Record<TokenScope, string> = {
   "kontakte:schreiben": "API: Kontakte lesen, anlegen und ändern",
   "rechnungen:lesen": "API: Rechnungen und Entwürfe lesen",
   "rechnungen:entwuerfe": "API: Rechnungen lesen, Entwürfe anlegen, ändern und löschen",
+  "rechnungen:festschreiben": "API: Entwürfe einer externen Quelle festschreiben und auf Wunsch per E-Mail versenden; Storno und Korrektur bleiben in Haben",
   "rechnungen:vorlagen-anlegen": "API: Vorlagen für wiederkehrende Rechnungen anlegen",
   "rechnungen:vorlagen-bearbeiten": "API: Pausierte Vorlagen ändern und Vorlagen ohne erzeugte Rechnungen löschen",
   "angebote:lesen": "API: Angebote und Entwürfe lesen",
@@ -67,6 +71,7 @@ export const TOKEN_SCOPE_LABELS: Record<TokenScope, string> = {
 const IMPLIED: Partial<Record<TokenScope, TokenScope>> = {
   "kontakte:schreiben": "kontakte:lesen",
   "rechnungen:entwuerfe": "rechnungen:lesen",
+  "rechnungen:festschreiben": "rechnungen:lesen",
   "angebote:entwuerfe": "angebote:lesen",
   "belege:anlegen": "belege:lesen",
   "artikel:schreiben": "artikel:lesen",
@@ -83,22 +88,35 @@ export const OAUTH_ACCESS_PREFIX = "hba_";
 /** Protokoll der Aufrufe so lange aufheben */
 const CALL_RETENTION_DAYS = 90;
 
-export const mcpTokenInputSchema = z.object({
-  name: z.string().trim().min(1, "Bitte einen Namen angeben.").max(80),
-  days: z.union([z.literal(30), z.literal(90), z.literal(365)]),
-  /** Ohne Angabe wie vor der REST-API: nur der KI-Assistent liest */
-  scopes: z
-    .array(z.enum(TOKEN_SCOPES))
-    .min(1, "Bitte mindestens ein Recht wählen.")
-    .default(["haben:lesen"])
-    .transform((scopes) => TOKEN_SCOPES.filter((scope) => scopes.includes(scope))),
-});
+export const mcpTokenInputSchema = z
+  .object({
+    name: z.string().trim().min(1, "Bitte einen Namen angeben.").max(80),
+    days: z.union([z.literal(30), z.literal(90), z.literal(365)]),
+    /** Ohne Angabe wie vor der REST-API: nur der KI-Assistent liest */
+    scopes: z
+      .array(z.enum(TOKEN_SCOPES))
+      .min(1, "Bitte mindestens ein Recht wählen.")
+      .default(["haben:lesen"])
+      .transform((scopes) => TOKEN_SCOPES.filter((scope) => scopes.includes(scope))),
+    /** Nur mit rechnungen:festschreiben: die externe Quelle, deren Entwürfe das Token festschreiben darf */
+    finalizeSource: z.string().trim().max(50).nullish(),
+  })
+  .refine((input) => !input.scopes.includes("rechnungen:festschreiben") || !!input.finalizeSource, {
+    message: "Bitte die Quelle wählen, deren Entwürfe das Token festschreiben darf.",
+    path: ["finalizeSource"],
+  })
+  .transform(({ finalizeSource, ...input }) => ({
+    ...input,
+    finalizeSource: input.scopes.includes("rechnungen:festschreiben") ? finalizeSource! : null,
+  }));
 
 export interface McpAccess {
   tokenId: string;
   /** Name des Zugangs, für Protokoll und Anzeige */
   clientName: string;
   scopes: TokenScope[];
+  /** Externe Quelle für rechnungen:festschreiben, sonst null */
+  finalizeSource: string | null;
 }
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
@@ -114,8 +132,11 @@ export async function setMcpEnabled(actor: string, enabled: boolean): Promise<vo
 
 /** Legt ein Token an; den Klartext gibt es nur in dieser Antwort. */
 export async function createMcpToken(input: z.input<typeof mcpTokenInputSchema>, now = new Date(), actor?: string): Promise<{ id: string; token: string }> {
-  const { name, days, scopes } = mcpTokenInputSchema.parse(input);
+  const { name, days, scopes, finalizeSource } = mcpTokenInputSchema.parse(input);
   if (!(await mcpEnabled())) throw new McpError("Erst den Zugang für KI-Assistenten und API einschalten.");
+  if (finalizeSource && !(await externalInvoiceSources()).includes(finalizeSource)) {
+    throw new McpError(`Aus der Quelle „${finalizeSource}“ gibt es noch keine Rechnungen.`);
+  }
   const token = `${TOKEN_PREFIX}${randomBytes(32).toString("base64url")}`;
   if (!actor) throw new McpError("Der verantwortliche Inhaber fehlt.");
   const row = await withActor(actor, async (tx) => {
@@ -129,6 +150,7 @@ export async function createMcpToken(input: z.input<typeof mcpTokenInputSchema>,
         tokenHash: hashToken(token),
         prefix: token.slice(0, TOKEN_PREFIX.length + 4),
         scopes,
+        finalizeSource,
         createdAt: now,
         expiresAt: new Date(now.getTime() + days * 86_400_000),
       })
@@ -163,6 +185,7 @@ export async function listMcpTokens(now = new Date(), actor?: string) {
       name: schema.mcpTokens.name,
       prefix: schema.mcpTokens.prefix,
       scopes: schema.mcpTokens.scopes,
+      finalizeSource: schema.mcpTokens.finalizeSource,
       createdAt: schema.mcpTokens.createdAt,
       expiresAt: schema.mcpTokens.expiresAt,
       lastUsedAt: schema.mcpTokens.lastUsedAt,
@@ -215,7 +238,13 @@ export async function authenticateMcp(request: Request, now = new Date()): Promi
   // Gesucht wird über den Hash; ein Vergleich in konstanter Zeit ist damit nicht nötig. Ein OAuth-Access-Token gilt
   // zusätzlich nur bis access_expires_at, ein selbst angelegtes Token hat dort nichts stehen.
   const [row] = await db
-    .select({ id: schema.mcpTokens.id, name: schema.mcpTokens.name, scopes: schema.mcpTokens.scopes, responsibleId: schema.mcpTokens.responsibleId })
+    .select({
+      id: schema.mcpTokens.id,
+      name: schema.mcpTokens.name,
+      scopes: schema.mcpTokens.scopes,
+      finalizeSource: schema.mcpTokens.finalizeSource,
+      responsibleId: schema.mcpTokens.responsibleId,
+    })
     .from(schema.mcpTokens)
     .where(
       and(
@@ -228,7 +257,12 @@ export async function authenticateMcp(request: Request, now = new Date()): Promi
     );
   if (!row?.responsibleId || !(await currentTokenOwners(db, now)).has(row.responsibleId)) return null;
   await db.update(schema.mcpTokens).set({ lastUsedAt: now }).where(eq(schema.mcpTokens.id, row.id));
-  return { tokenId: row.id, clientName: row.name, scopes: row.scopes.filter((s): s is TokenScope => (TOKEN_SCOPES as readonly string[]).includes(s)) };
+  return {
+    tokenId: row.id,
+    clientName: row.name,
+    scopes: row.scopes.filter((s): s is TokenScope => (TOKEN_SCOPES as readonly string[]).includes(s)),
+    finalizeSource: row.finalizeSource,
+  };
 }
 
 /** Ein Werkzeug- oder API-Aufruf ins Protokoll, ohne Eingaben und Ergebnis; Älteres als 90 Tage fällt dabei weg */

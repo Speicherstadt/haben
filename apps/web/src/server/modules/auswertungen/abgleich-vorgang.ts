@@ -1,6 +1,7 @@
 import {
   ACCOUNTS,
   gleicheSalden,
+  heutigesKonto,
   IST_NACH_ZAHLUNG,
   kennzahlenAusJournal,
   paymentProviderAccount,
@@ -96,7 +97,11 @@ async function belege(year: number, q: Db | Tx, rechtsform: Rechtsform): Promise
   const eigene = await loadOwnAccountNumbers(q);
   const result: VorgangZeile[] = [];
   for (const r of rows) {
-    const gebucht = (zeilen.get(r.entryId) ?? []) as PostingLine[];
+    // Ein früheres Konto zählt wie sein heutiges (kontenaenderungen.ts): Erwartet wird mit den Konten der neuesten Ausgabe
+    const gebucht = ((zeilen.get(r.entryId) ?? []) as PostingLine[]).map((z) => ({
+      ...z,
+      account: heutigesKonto(r.kontenrahmen as Kontenrahmen, z.account, "document"),
+    }));
     let erwartet: PostingLine[];
     let bestand: PostingLine[];
     try {

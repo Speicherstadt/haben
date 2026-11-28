@@ -4,7 +4,15 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
-type Sent = { to: string; bcc?: string; subject: string; text: string; html: string; attachments?: { filename: string; contentType: string }[] };
+type Sent = {
+  to: string;
+  bcc?: string;
+  replyTo?: string;
+  subject: string;
+  text: string;
+  html: string;
+  attachments?: { filename: string; contentType: string }[];
+};
 
 describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres)", () => {
   let invoiceMail: typeof import("./invoice-mail.ts");
@@ -36,7 +44,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres
           sent.push(message);
           return transport.sendMail(message);
         },
-      } as unknown as ReturnType<typeof nodemailer.createTransport>;
+      };
     });
   }, 30_000);
 
@@ -100,7 +108,8 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres
     expect(before.configured).toBe(false);
     await expect(invoiceMail.sendInvoiceMail(actor, invoiceId, { to: "a@example.com", subject: "x", body: "y" })).rejects.toThrow(/kein E-Mail-Zugang/);
 
-    await mail.saveMailSettings(actor, settings);
+    // Antworten der Kunden gehen an die eingestellte Adresse statt an den Absender (#2045)
+    await mail.saveMailSettings(actor, { ...settings, replyTo: "antworten@testfirma.example" });
     const draft = await invoiceMail.invoiceMailDraft(invoiceId);
     expect(draft).toMatchObject({
       to: "buchhaltung@nordwerk.example",
@@ -120,6 +129,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres
     expect(sent[0]).toMatchObject({
       to: "buchhaltung@nordwerk.example, chef@nordwerk.example",
       bcc: "rechnung@testfirma.example",
+      replyTo: "antworten@testfirma.example",
       subject: "Rechnung 2026-001 von Testfirma",
     });
     expect(sent[0]!.attachments!.map((a) => [a.filename, a.contentType])).toEqual([["Rechnung-2026-001.pdf", "application/pdf"]]);
@@ -216,7 +226,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres
     });
     await expect(invoiceMail.quoteMailDraft(draft.id)).rejects.toThrow(/Nur festgeschriebene Angebote/);
     const quote = await quotes.finalizeQuote(actor, draft.id);
-    await mail.saveMailSettings(actor, settings);
+    await mail.saveMailSettings(actor, { ...settings, replyTo: "antworten@testfirma.example" });
     const prepared = await invoiceMail.quoteMailDraft(quote.id);
     expect(prepared).toMatchObject({
       to: "buchhaltung@nordwerk.example",
@@ -229,6 +239,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres
       error: null,
     });
     expect(sent[0]!.attachments!.map((a) => a.filename)).toEqual(["Angebot-AN-2026-001.pdf"]);
+    expect(sent[0]!.replyTo).toBe("antworten@testfirma.example");
     expect(await invoiceMail.mailsForQuote(quote.id)).toEqual([expect.objectContaining({ recipient: "buchhaltung@nordwerk.example", ok: true })]);
     expect(await invoiceMail.quotesSentByMail()).toEqual(new Set([quote.id]));
     expect(await invoiceMail.mailsForInvoice(invoiceId)).toEqual([]);
@@ -371,7 +382,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres
   });
 
   it("schickt Mahnungen mit eigenem PDF", async () => {
-    await mail.saveMailSettings(actor, settings);
+    await mail.saveMailSettings(actor, { ...settings, replyTo: "antworten@testfirma.example" });
     const created = await dunning.createDunning(
       actor,
       { invoiceId, level: 1, dueDate: "2026-10-25", fee: 0, flatFee: false, interest: null, intro: "Bitte zahlen.", closing: "" },
@@ -384,6 +395,7 @@ describe.skipIf(!testDatabaseUrl)("Rechnungen und Mahnungen per E-Mail (Postgres
     expect(draft.attachments).toEqual(["Zahlungserinnerung-2026-001.pdf"]);
     expect((await invoiceMail.sendDunningMail(actor, created.id, { to: draft.to, subject: draft.subject, body: draft.body })).ok).toBe(true);
     expect(sent[0]!.attachments![0]!.filename).toBe("Zahlungserinnerung-2026-001.pdf");
+    expect(sent[0]!.replyTo).toBe("antworten@testfirma.example");
     expect((await invoiceMail.mailsForInvoice(invoiceId))[0]).toMatchObject({ kind: "mahnung", dunningId: created.id });
   });
 

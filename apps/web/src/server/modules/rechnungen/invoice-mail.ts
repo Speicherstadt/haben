@@ -110,7 +110,7 @@ async function loadInvoice(id: string) {
  * Empfänger beim Kunden: alle Adressen aus dem Kontakt (etwa Rechnungseingang und Freigeber), sonst die Adresse
  * auf der Rechnung. Auf der festgeschriebenen Rechnung steht nur die erste, weil die E-Rechnung nur eine kennt.
  */
-async function customerEmail(invoice: { buyer: unknown; contactId: string | null }): Promise<string> {
+export async function customerEmail(invoice: { buyer: unknown; contactId: string | null }): Promise<string> {
   const fromInvoice = (invoice.buyer as { email?: string } | null)?.email?.trim() ?? "";
   if (!invoice.contactId) return fromInvoice;
   const [contact] = await db.select({ email: schema.contacts.email }).from(schema.contacts).where(eq(schema.contacts.id, invoice.contactId));

@@ -1,5 +1,5 @@
 import { discountFromColumns, formatExchangeRate, type UnitLabel } from "@haben/core";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { withActor } from "../../db/actor.ts";
 import { db, schema } from "../../db/index.ts";
@@ -40,6 +40,16 @@ export async function findInvoiceByReference(reference: ExternalReference): Prom
     .from(schema.invoices)
     .where(and(eq(schema.invoices.externalSource, reference.externalSource), eq(schema.invoices.externalId, reference.externalId)));
   return invoice ?? null;
+}
+
+/** Alle Quellen, aus denen schon Rechnungen kommen, für die Wahl beim Recht rechnungen:festschreiben (#1918) */
+export async function externalInvoiceSources(): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ source: schema.invoices.externalSource })
+    .from(schema.invoices)
+    .where(isNotNull(schema.invoices.externalSource))
+    .orderBy(asc(schema.invoices.externalSource));
+  return rows.flatMap((row) => (row.source ? [row.source] : []));
 }
 
 /**

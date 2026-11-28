@@ -881,6 +881,8 @@ export const mailSettings = pgTable(
     fromAddress: text("from_address").notNull(),
     /** Name vor der Absenderadresse; leer: der Firmenname, ohne den „Haben“ (senderName in mail.ts) */
     fromName: text("from_name").notNull().default(""),
+    /** Antwortadresse (Reply-To) aller Mails, wenn Antworten nicht an `from_address` gehen sollen; leer: keine (#2045) */
+    replyTo: text("reply_to").notNull().default(""),
     /** Empfänger der Erinnerungen */
     reminderTo: text("reminder_to").notNull(),
     remindersEnabled: boolean("reminders_enabled").notNull().default(true),
@@ -4424,6 +4426,8 @@ export const mcpTokens = pgTable("mcp_tokens", {
   prefix: text("prefix").notNull(),
   /** Rechte des Tokens, TOKEN_SCOPES in modules/mcp/tokens.ts: haben:lesen für MCP, kontakte:…, rechnungen:… und belege:… für die REST-API */
   scopes: text("scopes").array().notNull(),
+  /** Mit rechnungen:festschreiben: die externe Quelle (invoices.external_source), deren Entwürfe das Token festschreiben darf (#1918) */
+  finalizeSource: text("finalize_source"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),

@@ -285,6 +285,8 @@ Umgesetzt wie vorgeschlagen: `replyTo` nur im Vertrag (`OutgoingMail`) und im Re
 unter Bun (Test mit gemocktem Entra-ID-Endpunkt in `graph/token.test.ts`), die Alternative mit `fetch` und `node:crypto` wurde
 deshalb nicht gebraucht.
 
+> Überholt durch [#2045](https://github.com/Speicherstadt/haben/issues/2045): `send()` setzt `replyTo` aus der Einstellung „Antworten an“.
+
 ## Reihenfolge der Commits
 
 1. Vertrag `MailTransport`, SMTP in `transport-smtp.ts`, `mail.ts` unter 400 Zeilen, **keine Verhaltensänderung**.

@@ -110,6 +110,12 @@ export function anwender(s: InstanzStand, angaben: ProcedureDetails): Verfahrens
 
 const rolle = (r: string | null) => (r && isRolle(r) ? ROLLEN_LABEL[r] : "ohne Rolle");
 
+/** Rechte eines Tokens; das Recht zum Festschreiben gilt nur für die eine Quelle, die beim Anlegen gewählt wurde (#1918) */
+const tokenRechte = (t: InstanzStand["tokens"][number]) =>
+  t.scopes
+    .map((scope) => (scope === "rechnungen:festschreiben" && t.finalizeSource ? `${scope} (nur Entwürfe der Quelle „${t.finalizeSource}“)` : scope))
+    .join(", ");
+
 export function zugaenge(s: InstanzStand): VerfahrensdokuAbschnitt {
   return abschnitt("5. Betriebsdokumentation: Zugänge und Rechte", {
     absaetze: [
@@ -133,7 +139,7 @@ export function zugaenge(s: InstanzStand): VerfahrensdokuAbschnitt {
           .filter(Boolean)
           .join(", "),
       ),
-      ...(s.company?.mcpEnabled ? s.tokens.map((t) => `API-Token „${t.name}“: ${t.scopes.join(", ")}, gültig bis ${tag(t.expiresAt)}`) : []),
+      ...(s.company?.mcpEnabled ? s.tokens.map((t) => `API-Token „${t.name}“: ${tokenRechte(t)}, gültig bis ${tag(t.expiresAt)}`) : []),
     ],
   });
 }
