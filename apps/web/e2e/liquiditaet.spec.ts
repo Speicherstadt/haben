@@ -139,8 +139,8 @@ test.describe("Mindestbestand", () => {
     // Tiefpunkt in 4 Wochen als Mindestbestand: darüber, in 12 Monaten (Miete jeden Monat) darunter
     const tiefpunkt = async (horizont: string) => {
       await page.goto(`/auswertungen/liquiditaet?horizont=${horizont}`);
-      const text = await page.locator(".liq-kennzahlen .card").filter({ hasText: "Tiefpunkt" }).locator(".kpi-value").innerText();
-      return text.replace(/\s*€$/, "");
+      const text = await page.locator(".liq-kennzahlen .card").filter({ hasText: "Tiefpunkt" }).locator(".kpi-value").textContent();
+      return (text ?? "").trim().replace(/\s*€$/, "");
     };
     const euro = (betrag: string) => Number(betrag.replace(/\./g, "").replace(",", "."));
     const imMonat = await tiefpunkt("4w");
