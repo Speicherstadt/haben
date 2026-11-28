@@ -62,6 +62,8 @@ export function templateInputs(data: object, letterhead: Letterhead): object {
     foldMarks: options.foldMarks,
     backgroundPages: options.backgroundPages,
     legalPosition: legalPosition(letterhead, layout, optionen),
+    // Ältere gespeicherte Gestaltung kennt die Wahl nicht (#2046)
+    footerAlign: options.footerAlign ?? "oben",
     // Feldvertrag: leer bei eigenen Layouts; die tragen kein eingebautes Layout im Briefkopf (withCustomLayout)
     options: letterhead.layout ? optionen : {},
   };
