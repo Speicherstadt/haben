@@ -110,9 +110,6 @@ describe.skipIf(!testDatabaseUrl)("Schlussrechnung mit Gesamtrabatt (Postgres)",
 
     it("Korrektur einer Schlussrechnung mit Gesamtrabatt übernimmt sie zunächst genau negiert", async () => {
       const schluss = await finalSchluss();
-      // Eine Teilzahlung, damit die Korrektur über den vollen Betrag nicht als Storno abgewiesen wird (#2037)
-      const bank = await import("../bank/index.ts");
-      await bank.createCashInvoiceEntry(actor, { invoiceId: schluss.id, date: "2026-12-01", amount: 100 }, "2026-12-01");
       const correction = await invoices.createCorrection(actor, schluss.id, "2026-12-05");
       expect(correction).toMatchObject({ net: -schluss.net, tax: -schluss.tax, gross: -schluss.gross });
 

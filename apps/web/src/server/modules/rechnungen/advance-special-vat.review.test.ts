@@ -142,12 +142,9 @@ describe.skipIf(!testDatabaseUrl)("Review #813: Anzahlungsanteil einer EU-Leistu
 
   it("Korrektur der EU-Schlussleistung mindert im Änderungsmonat, eine spätere Zahlung meldet nichts doppelt", async () => {
     const { final } = await chain("reverse_charge");
-    // 1,00 EUR vorab: seit #2037 wird eine Korrektur über den vollen, unbezahlten Betrag beim Festschreiben als
-    // Storno abgewiesen. Die spätere Zahlung sinkt um denselben Euro, in Summe bleiben es 700,00 EUR.
-    await bank.createCashInvoiceEntry(actor, { invoiceId: final.id, date: "2027-02-01", amount: 100 }, "2027-02-01");
     const correction = await invoices.createCorrection(actor, final.id, "2027-02-12");
     await invoices.finalizeInvoice(actor, correction.id, kleinunternehmerStand);
-    await bank.createCashInvoiceEntry(actor, { invoiceId: final.id, date: "2027-03-12", amount: 69_900 }, "2027-03-12");
+    await bank.createCashInvoiceEntry(actor, { invoiceId: final.id, date: "2027-03-12", amount: 70_000 }, "2027-03-12");
     const periods = await Promise.all([1, 2, 3].map((month) => vat.computeVatFigures({ year: 2027, month })));
     expect(periods.map((period) => ({ journal: period.kz21 }))).toEqual([{ journal: 100_000 }, { journal: -70_000 }, { journal: 0 }]);
     expect((await vat.zmOverview({ year: 2027, month: 41 })).zeilen).toEqual([{ ustId: "ATU12345678", art: "S", betrag: 30_000 }]);
