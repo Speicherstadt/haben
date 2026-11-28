@@ -38,7 +38,7 @@ Darüber weist die BWA auf **Unvollständiges** im Zeitraum hin, mit Link dorthi
 - Ausgaben und Zahlungseingänge auf dem Konto ohne Beleg oder Zuordnung;
 - Belege mit Datum im Zeitraum oder ohne Datum, die noch nicht gebucht sind;
 - Rechnungsentwürfe mit Datum im Zeitraum, nur bei GmbH und UG;
-- „Umsätze von Konto … nur bis TT.MM.“, wenn Kontoauszug und Umsätze eines Geschäfts-, Steuer- oder Zahlungsdienstleisterkontos vor dem Ende des Zeitraums aufhören. Im laufenden Zeitraum reicht es bis gestern; fällt der Tag auf ein Wochenende oder einen bundesweiten Feiertag, bis zum Bankarbeitstag davor.
+- „Umsätze von Konto … nur bis TT.MM.“, wenn Kontoauszug und Umsätze eines Geschäfts-, Steuer- oder Zahlungsdienstleisterkontos vor dem Ende des Zeitraums aufhören, im laufenden Zeitraum vor gestern. Fällt dieser Tag auf ein Wochenende oder einen bundesweiten Feiertag, reicht der Bankarbeitstag davor.
 
 Was die Zahlen sicher verfälscht, steht je als eigener Hinweis. Bei GmbH und UG zählt eine Rechnung schon festgeschrieben als Erlös; offene Zahlungseingänge und Entwürfe stehen dort gebündelt als ruhiger Hinweis. Die Hinweise gelten für den Zeitraum, nicht für die kumulierte Spalte und den Vergleich.
 
@@ -58,7 +58,7 @@ Mit einem Vergleich steht darüber „Warum?“: die Abweichung der Zeile nach K
 Grenzen:
 
 - Abschreibungen, Restbuchwerte, die Entnahme von Anlagen und die Privatnutzung von Fahrzeugen zeigt die BWA erst, wenn das Jahr im [Anlagenverzeichnis](anlagen.md) gebucht ist. Die EÜR rechnet sie vorher schon aus dem Anlagenverzeichnis; bis dahin weicht der Gewinn ab, und die BWA weist darauf hin.
-- Ein Konto ohne Import und eines, dessen Umsätze vor dem Zeitraum aufhören (etwa ein aufgelöstes), meldet die BWA nicht, ebenso wenig Lücken mitten im Zeitraum.
+- Ein Konto ohne Import und eines, dessen Umsätze vor dem Zeitraum aufhören (etwa ein aufgelöstes), meldet die BWA nicht, ebenso wenig Lücken mitten im Zeitraum. Nennt ein Kontoauszug keinen Zeitraum, reicht das Konto bis zum letzten Umsatz; ein Konto mit wenigen Umsätzen kann die BWA dann melden, obwohl nichts fehlt.
 - Im Einzelunternehmen stehen Zinserträge und andere steuerfreie Einnahmen bei den Erlösen, weil die EÜR sie in einer Zeile mit den steuerfreien Umsätzen führt.
 
 ## BWA für GmbH und UG
