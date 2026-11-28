@@ -9,7 +9,8 @@ import {
   vorsteuerWartetAufAusfuehrung,
 } from "@haben/core";
 import type { schema } from "../../db/index.ts";
-import { splitLines, type DocumentSplit } from "./splits.ts";
+import { belegKategorie, einzigePosition, privatteil, type Belegposition } from "./positionen.ts";
+import { splitLines } from "./splits.ts";
 
 /*
  * Buchungszeilen eines Belegs: beim Buchen und beim Storno (Gegenbuchung im heutigen Format, wenn es auf jedem Konto
@@ -40,7 +41,7 @@ export function belegSummen(doc: Pick<Document, "reverseCharge">, amounts: Amoun
  * und privat ist der Beleg mit der Buchung bezahlt, da gäbe es kein Ereignis, das sie nachzieht. Welche Belege
  * überhaupt warten, sagt vorsteuerWartetAufAusfuehrung.
  */
-export function leistungNochNichtAusgefuehrt(doc: Document): boolean {
+export function leistungNochNichtAusgefuehrt(doc: Document, positionen: readonly Belegposition[]): boolean {
   return (
     doc.payment === "bank" &&
     vorsteuerWartetAufAusfuehrung({
@@ -48,56 +49,60 @@ export function leistungNochNichtAusgefuehrt(doc: Document): boolean {
       leistungVon: doc.serviceFrom,
       leistungBis: doc.serviceTo,
       reverseCharge: doc.reverseCharge,
-      category: doc.category,
+      category: belegKategorie(positionen),
       gross: doc.gross,
       erstattetBezahltes: doc.erstattetBezahltes,
     })
   );
 }
 
-/** Die Zeilen der Belegbuchung; `vorsteuerAbzug` wie am Beleg festgehalten (Kleinunternehmer ziehen keine Vorsteuer ab) */
+/**
+ * Die Zeilen der Belegbuchung aus den Positionen (#1975); `vorsteuerAbzug` wie am Beleg festgehalten (Kleinunternehmer
+ * ziehen keine Vorsteuer ab). Eine betriebliche Kontierung neben Entnahmen bucht wie ein Beleg mit einer Kategorie
+ * (documentPosting), auch für Anlagen, Einfuhrumsatzsteuer und Erwerb; mehrere wie eine Aufteilung (documentSplitPosting).
+ */
 export function belegZeilen(
   doc: Document,
   amounts: Amount[],
-  splits: DocumentSplit[],
+  positionen: readonly Belegposition[],
   books: { kontenrahmen: Kontenrahmen; rechtsform: Rechtsform },
   vorsteuerAbzug: boolean | number,
-  /** Eigene Sachkonten (#270): ID → Nummer; ein Beleg oder eine Zeile mit eigenem Konto bucht dort statt auf das Konto der Kategorie */
+  /** Eigene Sachkonten (#270): ID → Nummer; eine Position mit eigenem Konto bucht dort statt auf das Konto der Kategorie */
   eigene: ReadonlyMap<string, string> = new Map(),
 ): PostingLine[] {
   const totals = belegSummen(doc, amounts);
+  const eine = einzigePosition(positionen);
+  const spaeter = leistungNochNichtAusgefuehrt(doc, positionen);
+  if (!eine) {
+    return documentSplitPosting(
+      totals,
+      splitLines(positionen, eigene),
+      books.kontenrahmen,
+      books.rechtsform,
+      doc.payment,
+      vorsteuerAbzug,
+      // ig_erwerb lehnt splitBookingIssues mit Aufteilung ab; § 13b (#508) bucht je Zeile mit RC13bEU bzw. RC13bDrittland
+      doc.reverseCharge === "eu" || doc.reverseCharge === "drittland" ? doc.reverseCharge : null,
+      // Gutschrift, die bereits Bezahltes erstattet: Vorsteuerminderung erst mit dem Ausgleich (#786)
+      doc.erstattetBezahltes,
+      // Leistung beim Buchen noch nicht ausgeführt: Vorsteuer auf das Zwischenkonto bis zur Freigabe oder Zahlung (#693)
+      spaeter,
+    );
+  }
   // Anlage: auf das Anlagekonto statt in den Aufwand; ohne Vorsteuerabzug gehört die Steuer zu den Anschaffungskosten
-  const asset = doc.category === "anlage" ? doc.asset : null;
-  const eigenesKonto = doc.ownAccountId ? eigene.get(doc.ownAccountId) : undefined;
-  const assetAccountNo = asset ? assetAccount(asset.kind, asset.method, books.kontenrahmen) : eigenesKonto;
-  // Aufgeteilt (#271): eine Buchung mit einer Aufwandszeile je Kategorie; sonst über die Kategorie des Belegs
-  const spaeter = leistungNochNichtAusgefuehrt(doc);
-  return splits.length > 0
-    ? documentSplitPosting(
-        totals,
-        splitLines(splits, eigene),
-        books.kontenrahmen,
-        books.rechtsform,
-        doc.payment,
-        vorsteuerAbzug,
-        // ig_erwerb lehnt splitBookingIssues mit Aufteilung ab; § 13b (#508) bucht je Zeile mit RC13bEU bzw. RC13bDrittland
-        doc.reverseCharge === "eu" || doc.reverseCharge === "drittland" ? doc.reverseCharge : null,
-        // Gutschrift, die bereits Bezahltes erstattet: Vorsteuerminderung erst mit dem Ausgleich (#786)
-        doc.erstattetBezahltes,
-        // Leistung beim Buchen noch nicht ausgeführt: Vorsteuer auf das Zwischenkonto bis zur Freigabe oder Zahlung (#693)
-        spaeter,
-      )
-    : documentPosting(
-        totals,
-        doc.category as ExpenseCategory,
-        books.kontenrahmen,
-        books.rechtsform,
-        doc.payment,
-        vorsteuerAbzug,
-        assetAccountNo,
-        doc.privateShare,
-        doc.reverseCharge,
-        doc.erstattetBezahltes,
-        spaeter,
-      );
+  const asset = eine.category === "anlage" ? doc.asset : null;
+  const eigenesKonto = eine.ownAccountId ? eigene.get(eine.ownAccountId) : undefined;
+  return documentPosting(
+    totals,
+    eine.category as ExpenseCategory,
+    books.kontenrahmen,
+    books.rechtsform,
+    doc.payment,
+    vorsteuerAbzug,
+    asset ? assetAccount(asset.kind, asset.method, books.kontenrahmen) : eigenesKonto,
+    privatteil(doc, positionen),
+    doc.reverseCharge,
+    doc.erstattetBezahltes,
+    spaeter,
+  );
 }

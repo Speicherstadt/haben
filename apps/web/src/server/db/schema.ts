@@ -2444,9 +2444,11 @@ export const documentAmounts = pgTable(
 );
 
 /**
- * Aufteilung eines Belegs auf mehrere Kontierungszeilen (#271): Kategorie, Steuersatz und Netto je Zeile, dazu der
- * anteilige Betrag der Vorsteuer des Satzes (allocateSplitTax). Ohne Zeilen gilt documents.category. Gesperrt mit dem
- * Beleg und Teil seines Siegels.
+ * Positionen eines Belegs (#271, #1975, docs/adr/belege-positionen.md): Kategorie, Steuersatz, Netto und der Anteil an
+ * der Steuer des Satzes je Position. Jeder neue oder offene Beleg hat hier seine Kontierung; ein Privatanteil ist eine
+ * Position `privatentnahme`. Nur festgeschriebene Belege aus der Zeit davor haben keine Zeilen, für sie gelten
+ * `documents.category` und `private_share` (belege/positionen.ts liest beides als Positionen). Der Name der Tabelle
+ * bleibt, weil Siegel und `haben_integrity_problems` ihn tragen. Gesperrt mit dem Beleg und Teil seines Siegels.
  */
 export const documentSplits = pgTable(
   "document_splits",
@@ -2457,7 +2459,8 @@ export const documentSplits = pgTable(
       .references(() => documents.id, { onDelete: "cascade" }),
     /** Reihenfolge wie eingegeben, ab 1 */
     position: smallint("position").notNull(),
-    category: text("category").notNull(),
+    /** Leer, solange ein Entwurf keiner Kategorie zugeordnet ist; gebucht wird nur mit Kategorie in jeder Position */
+    category: text("category"),
     /**
      * Freie Beschreibung der Zeile (#1975). Leer ist der leere Text, nie null: `0310` prüft eine Spalte, die einem
      * alten Siegel fehlt, gegen den Katalog-Default, deshalb bleibt der Default für immer `''`.
@@ -2468,6 +2471,12 @@ export const documentSplits = pgTable(
     taxRate: smallint("tax_rate").$type<BasisPoints>().notNull(),
     net: integer("net").$type<Cents>().notNull(),
     tax: integer("tax").$type<Cents>().notNull(),
+    /**
+     * Nur bei Fremdwährung: Netto der Position laut Beleg (#1975). Euro ergeben sich je Satz aus dem Kurs; die Position
+     * behält so ihren Anteil, auch solange der Kurs fehlt und alle Euro-Beträge 0 sind. Ohne Standardwert, damit ältere
+     * Siegel ohne die Spalte gültig bleiben.
+     */
+    originalNet: bigint("original_net", { mode: "number" }).$type<Cents>(),
   },
   (t) => [uniqueIndex("document_splits_position").on(t.documentId, t.position)],
 );

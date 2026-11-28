@@ -1,6 +1,7 @@
 import type { Rechtsform } from "@haben/core";
 import type { z } from "zod";
 import {
+  belegKategorie,
   bookingIssues,
   documentCancellation,
   documentFileProblem,
@@ -54,9 +55,9 @@ function summaryOut(row: ListRow, baseUrl: string): z.output<typeof documentSumm
   };
 }
 
-function documentOut({ document, amounts, splits, cancellation, reentryId, rechtsform }: Loaded, request: ApiRequest): z.output<typeof documentSchema> {
+function documentOut({ document, amounts, positionen, cancellation, reentryId, rechtsform }: Loaded, request: ApiRequest): z.output<typeof documentSchema> {
   return {
-    ...summaryOut({ ...document, cancelledOn: cancellation?.date ?? null }, request.baseUrl),
+    ...summaryOut({ ...document, category: belegKategorie(positionen), cancelledOn: cancellation?.date ?? null }, request.baseUrl),
     size: document.size,
     extractedBy: document.extractedBy,
     extractionError: document.extractionError,
@@ -69,7 +70,8 @@ function documentOut({ document, amounts, splits, cancellation, reentryId, recht
     vorsteuerAnteil: document.vorsteuerAnteil,
     vorsteuerAbzug: document.vorsteuerAbzug,
     amounts: amounts.map(({ taxRate, net, tax, vorsteuerAnteil }) => ({ taxRate, net, tax, vorsteuerAnteil })),
-    issues: document.lockedAt ? [] : bookingIssues(document, amounts, request.today, splits, rechtsform),
+    positions: positionen.map(({ category, description, taxRate, net, tax }) => ({ category, description, taxRate, net, tax })),
+    issues: document.lockedAt ? [] : bookingIssues(document, amounts, request.today, positionen, rechtsform),
     replacedById: reentryId,
     replacesId: document.replacesDocumentId,
     updatedAt: document.updatedAt.toISOString(),

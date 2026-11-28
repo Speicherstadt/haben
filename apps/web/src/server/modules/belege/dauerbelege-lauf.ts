@@ -13,6 +13,7 @@ import { reportInternalError, userMessage } from "../../errors.ts";
 import { allocateIn } from "../bank/index.ts";
 import { DauerbelegError, type Dauerbeleg } from "./dauerbelege.ts";
 import { bookDocumentIn } from "./documents.ts";
+import { schreibePositionenAusBeleg } from "./positionen.ts";
 
 /** Wer die Belege eines Laufs im Audit-Log angelegt hat */
 export const DAUERBELEG_ACTOR = "system:dauerbelege";
@@ -61,9 +62,7 @@ async function insertBeleg(tx: Tx, vorlage: Dauerbeleg, termin: string): Promise
       invoiceNumber: vorlage.reference,
       documentDate: termin,
       dueDate: dauerbelegFaellig(termin, vorlage.dueDays),
-      category: vorlage.category,
       payment: vorlage.payment,
-      privateShare: vorlage.privateShare,
       note: noteFor(vorlage, termin),
       ...totals,
       recurringDocumentId: vorlage.id,
@@ -74,6 +73,8 @@ async function insertBeleg(tx: Tx, vorlage: Dauerbeleg, termin: string): Promise
   if (!created) return false;
   const rows = vorlage.amounts.filter((a) => a.net !== 0 || a.tax !== 0);
   if (rows.length > 0) await tx.insert(schema.documentAmounts).values(rows.map((a) => ({ documentId: created.id, ...a })));
+  // Kategorie und Privatanteil der Vorlage als Positionen (#1975), gerundet wie bisher gebucht
+  await schreibePositionenAusBeleg(tx, created.id, { category: vorlage.category, ownAccountId: null, privateShare: vorlage.privateShare, fremd: false }, rows);
   return true;
 }
 

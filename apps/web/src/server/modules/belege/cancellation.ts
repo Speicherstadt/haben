@@ -12,7 +12,15 @@ import { freigabeStornieren, ZWISCHENKONTEN } from "../umsatzsteuer/index.ts";
 
 export { vatPeriodsOf } from "../buchhaltung/index.ts";
 import { DocumentError, type Document } from "./documents.ts";
-import { loadSplits } from "./splits.ts";
+import {
+  belegKategorie,
+  hatGespeichertePositionen,
+  loadPositionen,
+  ohnePlatz,
+  positionenAusBeleg,
+  schreibePositionen,
+  type Belegposition,
+} from "./positionen.ts";
 
 /*
  * Storno gebuchter Belege (#237), nach dem Muster der Stornorechnung: Die Belegbuchung wird mit vertauschten Seiten
@@ -34,11 +42,12 @@ export type CancellationInput = z.input<typeof cancellationInputSchema>;
 export type DocumentCancellation = typeof schema.documentCancellations.$inferSelect;
 
 /** Was gegen einen Storno spricht; leere Liste = stornierbar. Bank- und Kassenstand prüft cancelDocument selbst. */
-export function cancellationIssues(doc: Pick<Document, "lockedAt" | "lexofficeVoucherId" | "category">): string[] {
+export function cancellationIssues(doc: Pick<Document, "lockedAt" | "lexofficeVoucherId">, positionen: readonly Belegposition[]): string[] {
   if (!doc.lockedAt) return ["Der Beleg ist noch nicht gebucht; einen Entwurf änderst oder löschst du einfach."];
   if (doc.lexofficeVoucherId) return ["Aus einem Umzug übernommene Belege sind im bisherigen Programm angemeldet und lassen sich hier nicht stornieren."];
   // Die Anlage aus dem Beleg bleibt im Verzeichnis und würde weiter abgeschrieben; ihr Abgang gehört ins Anlagenverzeichnis
-  if (doc.category === "anlage") return ["Belege zu Anlagegütern lassen sich nicht stornieren. Erfasse stattdessen den Abgang im Anlagenverzeichnis."];
+  if (belegKategorie(positionen) === "anlage")
+    return ["Belege zu Anlagegütern lassen sich nicht stornieren. Erfasse stattdessen den Abgang im Anlagenverzeichnis."];
   return [];
 }
 
@@ -129,12 +138,12 @@ export async function plannedCancellationDate(id: string, todayDate: string): Pr
 function heutigeBelegZeilen(
   doc: Document,
   amounts: { taxRate: number; net: number; tax: number }[],
-  splits: Awaited<ReturnType<typeof loadSplits>>,
+  positionen: readonly Belegposition[],
   books: Awaited<ReturnType<typeof openBooks>>,
   eigene: ReadonlyMap<string, string>,
 ): PostingLine[] | null {
   try {
-    return belegZeilen(doc, amounts, splits, books, doc.vorsteuerAnteil ?? doc.vorsteuerAbzug, eigene);
+    return belegZeilen(doc, amounts, positionen, books, doc.vorsteuerAnteil ?? doc.vorsteuerAbzug, eigene);
   } catch {
     return null;
   }
@@ -154,7 +163,8 @@ export async function cancelDocument(actor: string, id: string, input: Cancellat
     if (peek.payment === "kasse") await lockCash(tx);
     const [doc] = await tx.select().from(schema.documents).where(eq(schema.documents.id, id)).for("update");
     if (!doc) throw new DocumentError("Beleg nicht gefunden.");
-    const issues = cancellationIssues(doc);
+    const positionen = await loadPositionen(id, tx);
+    const issues = cancellationIssues(doc, positionen);
     if (issues.length > 0) throw new DocumentError(issues[0]!);
     const [already] = await tx
       .select({ id: schema.documentCancellations.id })
@@ -197,7 +207,7 @@ export async function cancelDocument(actor: string, id: string, input: Cancellat
     // Steuerschlüssel am privaten Teil noch nicht (#551, #1116)
     const gebucht: PostingLine[] = lines.map((l) => ({ ...l, taxCode: l.taxCode as TaxCode | null }));
     const amounts = await tx.select().from(schema.documentAmounts).where(eq(schema.documentAmounts.documentId, id));
-    const zeilen = zeilenWieHeute(gebucht, heutigeBelegZeilen(doc, amounts, await loadSplits(id, tx), books, await loadOwnAccountNumbers(tx)) ?? []);
+    const zeilen = zeilenWieHeute(gebucht, heutigeBelegZeilen(doc, amounts, positionen, books, await loadOwnAccountNumbers(tx)) ?? []);
     const journalEntryId = await post(tx, books, {
       date,
       description: `Storno: ${original.description}`,
@@ -265,8 +275,6 @@ export async function reenterDocument(actor: string, id: string): Promise<string
           invoiceNumber: d.invoiceNumber,
           documentDate: d.documentDate,
           dueDate: d.dueDate,
-          category: d.category,
-          ownAccountId: d.ownAccountId,
           payment: d.payment,
           note: d.note,
           currency: d.currency,
@@ -277,7 +285,6 @@ export async function reenterDocument(actor: string, id: string): Promise<string
           tax: d.tax,
           gross: d.gross,
           asset: d.asset,
-          privateShare: d.privateShare,
           vorsteuerAnteil: d.vorsteuerAnteil ?? (d.vorsteuerAbzug ? 10_000 : 0),
           reverseCharge: d.reverseCharge,
           // Die Neuerfassung mindert dasselbe Entgelt; die Angabe „erstattet bereits Bezahltes“ bleibt (#786)
@@ -298,11 +305,12 @@ export async function reenterDocument(actor: string, id: string): Promise<string
           })),
         );
       }
-      // Aufteilung (#271) wie gebucht, mit derselben Vorsteuer je Zeile
-      const splits = await loadSplits(id, tx);
-      if (splits.length > 0) {
-        await tx.insert(schema.documentSplits).values(splits.map(({ id: _id, documentId: _documentId, ...line }) => ({ documentId: created!.id, ...line })));
-      }
+      // Positionen (#1975) wie gebucht, mit derselben Steuer je Position. Ein Beleg aus der Zeit davor bekommt sie aus
+      // Kategorie, eigenem Konto und Privatanteil, gerundet, wie er gebucht ist
+      const positionen = (await hatGespeichertePositionen(id, tx))
+        ? await loadPositionen(id, tx)
+        : positionenAusBeleg({ ...d, fremd: d.currency !== "EUR" }, amounts);
+      await schreibePositionen(tx, created!.id, ohnePlatz(positionen));
       return created!.id;
     });
   } catch (error) {

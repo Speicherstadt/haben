@@ -148,7 +148,7 @@ export function inputTaxCode(rate: BasisPoints): TaxCode {
 /** Wie ein Beleg bezahlt wird: offen über die Bank (Abgleich in Phase 4) oder privat ausgelegt. */
 export type DocumentPayment = "bank" | "privat" | "kasse";
 
-export { documentPosting, einfuhrumsatzsteuerIssues } from "./document-posting.ts";
+export { documentPosting, einfuhrumsatzsteuerIssues, hatPrivatteil, type Privatteil } from "./document-posting.ts";
 /** Zeilen ohne Betrag fallen weg, außer sie tragen eine Bemessungsgrundlage (Anteil ohne Steuer bei Ist) */
 const mitBetragOderBasis = (line: PostingLine) => line.debit !== 0 || line.credit !== 0 || (line.basis ?? 0) !== 0;
 

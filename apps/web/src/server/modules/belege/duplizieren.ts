@@ -5,7 +5,8 @@ import { today } from "../../today.ts";
 import { ownAccountAssignmentProblem } from "../eigene-konten/index.ts";
 import { getContact, loadCompany } from "../stammdaten/index.ts";
 import { DocumentError, uploadDocument, type Document, type DocumentAmount, type DocumentInput, type UploadResult } from "./documents.ts";
-import { loadSplits, type DocumentSplit } from "./splits.ts";
+import { formularansicht } from "./beleg-eingabe.ts";
+import { loadPositionen, type Belegposition } from "./positionen.ts";
 
 /*
  * Beleg duplizieren (#1295): ein neuer Entwurf mit der Kontierung eines vorhandenen Belegs, für wiederkehrende Einkäufe
@@ -18,17 +19,22 @@ import { loadSplits, type DocumentSplit } from "./splits.ts";
 type Satz = DocumentInput["amounts"][number]["taxRate"];
 
 /**
- * Felder des Duplikats: Lieferant, Kategorie (mit eigenem Konto und Aufteilung), Bezahlung, Privatanteil,
- * Steuerbehandlung und Beträge je Satz wie am Original, das Belegdatum heute. Leer bleiben Rechnungsnummer, Fälligkeit,
+ * Felder des Duplikats: Lieferant, Positionen (Kategorie, eigenes Konto, Privatanteil), Bezahlung, Steuerbehandlung und
+ * Beträge je Satz wie am Original, das Belegdatum heute. Lassen sich die Positionen als Kategorie mit Privatanteil
+ * darstellen (formularansicht), geht das Duplikat diesen Weg und rundet wie das Original; sonst als Positionen mit der
+ * Steuer je Satz des Originals. Leer bleiben Rechnungsnummer, Fälligkeit,
  * Leistungszeitraum, Notiz und „erstattet bereits Bezahltes“; der Kurs einer Fremdwährung gilt neu für den Monat des
  * Belegdatums (resolveExchangeRate). `vorgabe`: Vorsteueranteil nach den Firmendaten ohne Angabe am Beleg.
  */
-function duplicateFields(original: Document, amounts: DocumentAmount[], splits: DocumentSplit[], vorgabe: BasisPoints, todayDate: string): DocumentInput {
+function duplicateFields(original: Document, amounts: DocumentAmount[], positionen: Belegposition[], vorgabe: BasisPoints, todayDate: string): DocumentInput {
   const anteile = uebernommeneAnteile(
     { gebucht: original.lockedAt !== null, ...original },
     amounts.map((a) => a.vorsteuerAnteil),
     vorgabe,
   );
+  const ansicht = formularansicht(original, positionen);
+  const alsPositionen = ansicht.splits.length > 0;
+  const fremd = original.currency !== "EUR";
   return {
     supplierName: original.supplierName,
     supplierUstId: original.supplierUstId,
@@ -36,11 +42,11 @@ function duplicateFields(original: Document, amounts: DocumentAmount[], splits: 
     invoiceNumber: "",
     documentDate: todayDate,
     dueDate: null,
-    category: original.category as ExpenseCategory | null,
-    ownAccountId: original.ownAccountId,
+    category: alsPositionen ? null : (ansicht.document.category as ExpenseCategory | null),
+    ownAccountId: alsPositionen ? null : ansicht.document.ownAccountId,
     payment: original.payment,
     note: "",
-    privateShare: original.privateShare,
+    privateShare: alsPositionen ? 0 : ansicht.document.privateShare,
     vorsteuerAnteil: anteile.beleg,
     reverseCharge: original.reverseCharge,
     asset: original.asset,
@@ -53,7 +59,13 @@ function duplicateFields(original: Document, amounts: DocumentAmount[], splits: 
       originalNet: a.originalNet,
       originalTax: a.originalTax,
     })),
-    splits: splits.map((s) => ({ category: s.category as ExpenseCategory, ownAccountId: s.ownAccountId, taxRate: s.taxRate as Satz, net: s.net })),
+    positions: ansicht.splits.map((p) => ({
+      category: p.category as ExpenseCategory,
+      ownAccountId: p.ownAccountId,
+      taxRate: p.taxRate as Satz,
+      net: fremd ? (p.originalNet ?? 0) : p.net,
+      description: p.description,
+    })),
   };
 }
 
@@ -75,7 +87,7 @@ export async function duplicateDocument(actor: string, id: string, file: { bytes
   const konto = async (ownAccountId: string | null, category: string | null) =>
     ownAccountId && !(await ownAccountAssignmentProblem(db, ownAccountId, category)) ? ownAccountId : null;
   const beleg = { ...original, supplierContactId: kontakt, ownAccountId: await konto(original.ownAccountId, original.category) };
-  const zeilen = await Promise.all((await loadSplits(id)).map(async (s) => ({ ...s, ownAccountId: await konto(s.ownAccountId, s.category) })));
+  const zeilen = await Promise.all((await loadPositionen(id)).map(async (p) => ({ ...p, ownAccountId: await konto(p.ownAccountId, p.category) })));
   const fields = duplicateFields(beleg, amounts, zeilen, abziehbarerAnteil(await loadCompany(), null), today());
   return uploadDocument(actor, file, { fields });
 }

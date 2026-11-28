@@ -1,4 +1,4 @@
-import { inCents } from "@haben/core";
+import { inBasisPoints, inCents } from "@haben/core";
 import { z } from "zod";
 import { documentReferenceSchema, MAX_DOCUMENT_SIZE } from "../belege/index.ts";
 import { documentTaxShape } from "./document-tax-schema.ts";
@@ -63,7 +63,7 @@ const documentSummaryShape = {
   supplierName: z.string().describe("Lieferant, leer bis ausgelesen oder eingetragen"),
   invoiceNumber: z.string(),
   documentDate: isoDate.nullable().describe("Belegdatum"),
-  category: z.string().nullable().describe("Kategorie der Ausgabe, z. B. software"),
+  category: z.string().nullable().describe("Kategorie der Ausgabe, z. B. software; null bei mehreren Kategorien (siehe positions in der Einzelansicht)"),
   currency: z.string(),
   gross: inCents(z.number().int()).describe(`Brutto in Euro; ${CENTS}`),
   externalSource: z.string().nullable(),
@@ -94,6 +94,22 @@ export const documentSchema = z
     net: inCents(z.number().int()).describe(`Netto in Euro; ${CENTS}`),
     tax: inCents(z.number().int()).describe(`Steuer in Euro; ${CENTS}`),
     ...documentTaxShape,
+    positions: z
+      .array(
+        z.object({
+          category: z
+            .string()
+            .nullable()
+            .describe("Kategorie der Position, z. B. software; privatentnahme für einen Privatanteil; null, solange nicht zugeordnet"),
+          description: z.string().describe("Freie Beschreibung der Position; leer ohne"),
+          taxRate: inBasisPoints(z.number().int()).describe("Steuersatz in Basispunkten, 1900 = 19 %"),
+          net: inCents(z.number().int()).describe(`Netto in Euro; ${CENTS}`),
+          tax: inCents(z.number().int()).describe(`Anteil an der Steuer des Satzes in Euro; ${CENTS}`),
+        }),
+      )
+      .describe(
+        "Positionen des Belegs (Kontierung); je Satz ergeben sie Netto und Steuer aus amounts. Ein gebuchter Beleg aus der Zeit vor den Positionen hat eine je Satz",
+      ),
     issues: z.array(z.string()).describe("Was vor dem Buchen noch fehlt; leer, wenn bereit oder gebucht"),
     replacedById: z.uuid().nullable().describe("Bei einem stornierten Beleg: der neu erfasste Beleg mit derselben Datei"),
     replacesId: z.uuid().nullable().describe("Bei einer Neuerfassung: der stornierte Beleg, den dieser ersetzt"),

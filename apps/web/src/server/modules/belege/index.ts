@@ -40,7 +40,19 @@ export {
 export { extractionAvailable, extractionSettings } from "./extraction.ts";
 export { loadExtractionLimits, queueOverview, type QueueOverview } from "./extraction-queue.ts";
 export { supplierSuggestion, type SupplierSuggestion } from "./lieferantenvorschlag.ts";
-export { loadSplits, splitsByDocument, type DocumentSplit } from "./splits.ts";
+export {
+  belegKategorie,
+  einzigePosition,
+  istEntnahme,
+  loadPositionen,
+  positionenJeBeleg,
+  privatteil,
+  schreibePositionenAusBeleg,
+  type Belegposition,
+  type DocumentSplit,
+} from "./positionen.ts";
+export { auswertungsKontierung, splitLines } from "./splits.ts";
+export { formularansicht } from "./beleg-eingabe.ts";
 export { belegZeilen } from "./belegbuchung.ts";
 export { supplierDocuments } from "./lieferant-belege.ts";
 export { pdfPageTexts } from "./pdf-seitentext.ts";

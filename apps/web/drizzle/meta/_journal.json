@@ -2374,6 +2374,20 @@
       "when": 1795803242773,
       "tag": "0338_aufteilung_beschreibung",
       "breakpoints": true
+    },
+    {
+      "idx": 339,
+      "version": "7",
+      "when": 1795828718847,
+      "tag": "0339_belege_positionen_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 340,
+      "version": "7",
+      "when": 1795828722075,
+      "tag": "0340_belege_positionen",
+      "breakpoints": true
     }
   ]
 }
