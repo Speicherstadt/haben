@@ -54,13 +54,14 @@ export function stichtag(zeitraum: Zeitraum, heute: string): string | null {
 }
 
 /**
- * Konten, deren Umsätze vor dem Stichtag aufhören. Ohne Import fehlt nichts Bekanntes, und eine Abdeckung, die vor dem
- * Zeitraum endet, gilt als geschlossenes Konto: beide ohne Hinweis. Lücken mitten im Zeitraum erkennt das nicht.
+ * Konten, deren Umsätze vor dem Stichtag aufhören, auch schon vor dem Zeitraum: Ein stillgelegtes Konto schließt man unter
+ * Bank aus, dann zählt es nicht mehr. Ohne Import fehlt nichts Bekanntes, also kein Hinweis. Lücken mitten im Zeitraum
+ * erkennt das nicht.
  */
 export function kontenNurBis(konten: readonly KontoAbdeckung[], zeitraum: Zeitraum, heute: string): { id: string; name: string; bis: string }[] {
   const tag = stichtag(zeitraum, heute);
   if (!tag) return [];
-  return konten.flatMap((k) => (k.bis !== null && k.bis >= zeitraum.von && k.bis < tag ? [{ id: k.id, name: k.name, bis: k.bis }] : []));
+  return konten.flatMap((k) => (k.bis !== null && k.bis < tag ? [{ id: k.id, name: k.name, bis: k.bis }] : []));
 }
 
 /**
@@ -81,10 +82,15 @@ export function unvollstaendig(offen: OffeneVorgaenge, konten: readonly { id: st
   return hinweise;
 }
 
-const tagMonat = (datum: string) => `${datum.slice(8, 10)}.${datum.slice(5, 7)}.`;
+/** TT.MM., mit Jahr, sobald Tag oder Zeitraum nicht in einem Jahr liegen; sonst wäre „nur bis 20.01.“ über den Jahreswechsel offen */
+const tagImZeitraum = (datum: string, zeitraum: Zeitraum) => {
+  const tagMonat = `${datum.slice(8, 10)}.${datum.slice(5, 7)}.`;
+  const jahr = datum.slice(0, 4);
+  return jahr === zeitraum.von.slice(0, 4) && jahr === zeitraum.bis.slice(0, 4) ? tagMonat : `${tagMonat}${jahr}`;
+};
 
-/** Ein Satz je Hinweis, für Seite und Export gleich */
-export function unvollstaendigText(h: UnvollstaendigHinweis): string {
+/** Ein Satz je Hinweis zum Zeitraum der Auswertung, für Seite und Export gleich */
+export function unvollstaendigText(h: UnvollstaendigHinweis, zeitraum: Zeitraum): string {
   const n = h.anzahl;
   switch (h.art) {
     case "ausgaben":
@@ -98,6 +104,6 @@ export function unvollstaendigText(h: UnvollstaendigHinweis): string {
     case "rechnungsentwuerfe":
       return `${n} ${n === 1 ? "Rechnungsentwurf" : "Rechnungsentwürfe"} mit Datum im Zeitraum; Erlöse zählen erst festgeschrieben.`;
     case "konto":
-      return `Umsätze von Konto „${h.konto?.name}“ nur bis ${tagMonat(h.konto?.bis ?? "")}`;
+      return `Umsätze von Konto „${h.konto?.name}“ nur bis ${tagImZeitraum(h.konto?.bis ?? "", zeitraum)}`;
   }
 }

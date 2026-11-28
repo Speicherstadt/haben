@@ -115,7 +115,7 @@ function BwaPage() {
         <FreierZeitraum zeitraum={zeitraum} onChange={(z) => neu({ von: z.von, bis: z.bis, jahr: Number(z.bis.slice(0, 4)), zeile: undefined })} />
       )}
 
-      <BwaUnvollstaendig hinweise={bericht.unvollstaendig.hinweise} rolle={user.role} />
+      <BwaUnvollstaendig hinweise={bericht.unvollstaendig.hinweise} zeitraum={bericht.zeitraum} rolle={user.role} />
       {bericht.afaOffen.length > 0 && (
         <div className="banner banner-info" role="note">
           Die Anlagen {bericht.afaOffen.join(", ")} sind im <Link to="/anlagen">Anlagenverzeichnis</Link> noch nicht gebucht. Bis dahin fehlen hier

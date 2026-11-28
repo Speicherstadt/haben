@@ -1,4 +1,4 @@
-import { unvollstaendigText, type UnvollstaendigHinweis } from "@haben/core";
+import { unvollstaendigText, type UnvollstaendigHinweis, type Zeitraum } from "@haben/core";
 import { Link } from "@tanstack/react-router";
 import { siehtSeite } from "../lib/rollen.ts";
 import { Icon } from "./Icon.tsx";
@@ -10,10 +10,10 @@ const ZIEL = { "/bank": "Zur Bank", "/belege": "Zu den Belegen", "/rechnungen": 
  * verfälscht, steht je als eigener Hinweis, was sie nur verfälschen kann, gebündelt in einem. Den Link sieht nur, wer die
  * Seite öffnen darf; die Steuerberatung etwa sieht die Bank nicht.
  */
-export function BwaUnvollstaendig({ hinweise, rolle }: { hinweise: readonly UnvollstaendigHinweis[]; rolle: string }) {
+export function BwaUnvollstaendig({ hinweise, zeitraum, rolle }: { hinweise: readonly UnvollstaendigHinweis[]; zeitraum: Zeitraum; rolle: string }) {
   const inhalt = (h: UnvollstaendigHinweis) => (
     <>
-      {unvollstaendigText(h)}
+      {unvollstaendigText(h, zeitraum)}
       {siehtSeite(rolle, h.link) && (
         <>
           {" "}
