@@ -10,17 +10,16 @@ import type { Bundesland } from "./steuernummer.ts";
  * Darlehensraten in der Liquiditätsvorschau (#1381). Haben speichert am Darlehen weder Rate noch Intervall; bis sie sich
  * erfassen lassen (#326), schreibt die Vorschau die im Bankabgleich zugeordneten Zahlungen fort:
  *
- * - Eine Rate ist alles, was an einem Tag als Tilgung und Zinsen zugeordnet ist. Hat das Darlehen Zinsen, zählt nur ein Tag
- *   mit Zinsen als Rate: Eine Sondertilgung an einem eigenen Tag verschiebt den Rhythmus so nicht. Gebühren werden nicht
- *   fortgeschrieben.
- * - Tilgung und Zinsen je Rate sind der häufigste Betrag der letzten drei Raten, sonst der mittlere: Eine Sondertilgung oder
- *   eine einmalig höhere Rate wird nicht fortgeschrieben.
- * - Der Rhythmus ist der Abstand der letzten Raten, gerundet auf 1, 3, 6 oder 12 Monate, der Tag im Monat der übliche der
+ * - Tilgung und Zinsen sind je ein eigener Strom mit eigenem Rhythmus und Termin (getrennte Lastschriften); was an einem
+ *   Tag fällig wird, steht als eine Rate. Gebühren werden nicht fortgeschrieben.
+ * - Eine Abbuchung, die nicht zum Tag ihres Stroms passt, ist eine Sondertilgung und zählt nicht. Der Betrag je Teil ist der
+ *   häufigste der letzten drei Abbuchungen, sonst der mittlere: Eine Sondertilgung am Tag einer Rate wird nicht fortgeschrieben.
+ * - Der Rhythmus ist der Abstand der letzten Abbuchungen, gerundet auf 1, 3, 6 oder 12 Monate, der Tag im Monat der übliche der
  *   letzten Raten (ein Monatsende zählt als 31.). Fällt ein Termin auf ein Wochenende oder einen Feiertag, bucht die Bank am
  *   nächsten Werktag ab; der Tag im Monat ist deshalb der, zu dem die meisten der letzten drei Abbuchungen passen.
- * - Die Tilgungen enden am Bestand, die letzte Rate tilgt nur den Rest. Ohne Bestand steht nichts.
- * - Nur eine Rate: monatlich angenommen, geschätzt; sonst erwartet.
- * - Kam zwei Intervalle und 30 Tage lang keine Rate, gilt das Darlehen als ruhend (abgelöst, anders gezahlt) und steht nicht.
+ * - Die Tilgungen enden am Bestand, die letzte tilgt nur den Rest; Zinsen danach stehen nicht. Ohne Bestand steht nichts.
+ * - Nur eine Abbuchung eines Teils: monatlich angenommen, geschätzt; sonst erwartet.
+ * - Kam zwei Intervalle und 30 Tage lang keine Abbuchung eines Teils, ruht er (abgelöst, anders gezahlt) und steht nicht.
  * - Ein Termin vor heute bleibt überfällig stehen, wenn er nach dem ersten Bankumsatz liegt (wie bei den Steuern).
  */
 
@@ -104,73 +103,87 @@ function terminDer(datum: string, anker: number): string {
   return imMonat <= spaetestens ? imMonat : addMonthsAnchored(spaetestens, -1, anker);
 }
 
-interface Rate {
+interface Abbuchung {
   datum: string;
-  tilgung: Cents;
-  zinsen: Cents;
+  /** Ausgang positiv */
+  betrag: number;
 }
 
-/** Raten je Tag aus den Zahlungen: Ausgänge für Tilgung und Zinsen, aufsteigend; Auszahlung und Gebühren zählen nicht */
-function ratenAus(zahlungen: readonly DarlehenZahlung[]): Rate[] {
-  const tage = new Map<string, Rate>();
-  for (const z of zahlungen) {
-    if (z.teil !== "tilgung" && z.teil !== "zins") continue;
-    const rate = tage.get(z.datum) ?? { datum: z.datum, tilgung: 0, zinsen: 0 };
-    if (z.teil === "tilgung") rate.tilgung -= z.betrag;
-    else rate.zinsen -= z.betrag;
-    tage.set(z.datum, rate);
+/** Abbuchungen eines Teils je Tag, aufsteigend; ein Tag ohne Ausgang (Erstattung) zählt nicht */
+function abbuchungen(zahlungen: readonly DarlehenZahlung[], teil: "tilgung" | "zins"): Abbuchung[] {
+  const tage = new Map<string, number>();
+  for (const z of zahlungen) if (z.teil === teil) tage.set(z.datum, (tage.get(z.datum) ?? 0) - z.betrag);
+  return [...tage]
+    .filter(([, betrag]) => betrag > 0)
+    .map(([datum, betrag]) => ({ datum, betrag }))
+    .sort((a, b) => a.datum.localeCompare(b.datum));
+}
+
+interface Rahmen {
+  heute: string;
+  bis: string;
+  bundesland: Bundesland | null;
+  bankdatenAb: string | null;
+}
+
+/** Künftige und überfällige Termine eines Teils bis `rahmen.bis`; ihre Summe endet bei `rest` (Tilgung am Bestand) */
+function fortschreiben(liste: readonly Abbuchung[], rahmen: Rahmen, rest = Number.POSITIVE_INFINITY) {
+  if (liste.length === 0) return [];
+  const anker = ankerAus(
+    liste.map((a) => a.datum),
+    rahmen.bundesland,
+  );
+  // Sondertilgung: eine Abbuchung, die weder am Termin noch bis zum nächsten Werktag danach oder kurz davor liegt
+  const raten = liste.filter((a) => a.datum <= naechsterWerktag(terminDer(a.datum, anker), rahmen.bundesland));
+  const rhythmus = darlehenRhythmus(raten.map((r) => r.datum));
+  const letzter = terminDer(raten.at(-1)!.datum, anker);
+  if (addDays(addMonthsAnchored(letzter, RUHEND_INTERVALLE * rhythmus, anker), RUHEND_TAGE) < rahmen.heute) return [];
+  const betrag = ueblich(raten.map((r) => r.betrag));
+  const termine: (Abbuchung & { geschaetzt: boolean })[] = [];
+  for (let k = 1; rest > 0; k++) {
+    const datum = naechsterWerktag(addMonthsAnchored(letzter, k * rhythmus, anker), rahmen.bundesland);
+    if (datum > rahmen.bis) break;
+    if (datum < rahmen.heute && !nachBankdatenBeginn(datum, rahmen.bankdatenAb)) continue;
+    const teil = Math.min(betrag, rest);
+    rest -= teil;
+    termine.push({ datum, betrag: teil, geschaetzt: raten.length === 1 });
   }
-  const raten = [...tage.values()].filter((r) => r.tilgung > 0 || r.zinsen > 0).sort((a, b) => a.datum.localeCompare(b.datum));
-  // Mit Zinsen ist ein Tag ohne Zinsen eine Sondertilgung, keine Rate
-  return raten.slice(-3).some((r) => r.zinsen > 0) ? raten.filter((r) => r.zinsen > 0) : raten;
+  return termine;
 }
 
 /**
  * Künftige und überfällige Raten eines Darlehens bis `bis` (einschließlich), dazu ein Hinweis, wenn Haben die Rate nicht
  * kennt. Regeln oben im Kopf der Datei.
  */
-export function darlehensPosten(input: {
-  darlehen: DarlehenVerlauf;
-  heute: string;
-  bis: string;
-  bundesland: Bundesland | null;
-  /** Tag des ersten Bankumsatzes der Konten im Bestand; null ohne Umsätze */
-  bankdatenAb: string | null;
-}): { posten: LiquiditaetsPosten[]; hinweis: string | null } {
-  const { darlehen, heute, bis } = input;
+export function darlehensPosten(input: Rahmen & { darlehen: DarlehenVerlauf }): { posten: LiquiditaetsPosten[]; hinweis: string | null } {
+  const { darlehen } = input;
   if (darlehen.bestand <= 0) return { posten: [], hinweis: null };
-  const raten = ratenAus(darlehen.zahlungen);
-  if (raten.length === 0) {
+  const tilgungen = abbuchungen(darlehen.zahlungen, "tilgung");
+  const zinsen = abbuchungen(darlehen.zahlungen, "zins");
+  if (tilgungen.length === 0 && zinsen.length === 0) {
     return { posten: [], hinweis: `Für das Darlehen „${darlehen.name}“ ist noch keine Rate zugeordnet; sie fehlt in der Vorschau.` };
   }
-  const rhythmus = darlehenRhythmus(raten.map((r) => r.datum));
-  const anker = ankerAus(
-    raten.map((r) => r.datum),
-    input.bundesland,
-  );
-  const letzter = terminDer(raten.at(-1)!.datum, anker);
-  if (addDays(addMonthsAnchored(letzter, RUHEND_INTERVALLE * rhythmus, anker), RUHEND_TAGE) < heute) return { posten: [], hinweis: null };
+  const tilgung = fortschreiben(tilgungen, input, darlehen.bestand);
+  const getilgt = tilgung.reduce((s, t) => s + t.betrag, 0) === darlehen.bestand;
+  const schluss = getilgt ? tilgung.at(-1)!.datum : null;
+  const zins = fortschreiben(zinsen, input).filter((t) => schluss === null || t.datum <= schluss);
 
-  const tilgung = ueblich(raten.map((r) => r.tilgung));
-  const zinsen = ueblich(raten.map((r) => r.zinsen));
-  const geschaetzt = raten.length === 1;
-  const posten: LiquiditaetsPosten[] = [];
-  let rest = darlehen.bestand;
-  for (let k = 1; rest > 0; k++) {
-    const datum = naechsterWerktag(addMonthsAnchored(letzter, k * rhythmus, anker), input.bundesland);
-    if (datum > bis) break;
-    if (datum < heute && !nachBankdatenBeginn(datum, input.bankdatenAb)) continue;
-    const getilgt = Math.min(tilgung, rest);
-    rest -= getilgt;
-    const schluss = rest === 0;
-    posten.push({
-      datum,
-      betrag: getilgt + zinsen,
-      richtung: "aus",
-      text: `${darlehen.name}, ${schluss ? "Schlussrate" : geschaetzt ? "Rate wie zuletzt gezahlt, monatlich angenommen" : "Rate wie zuletzt gezahlt"}`,
-      quelle: { art: "darlehen", id: darlehen.id },
-      sicherheit: geschaetzt ? "geschaetzt" : "erwartet",
-    });
+  const tage = new Map<string, { betrag: number; geschaetzt: boolean }>();
+  for (const t of [...tilgung, ...zins]) {
+    const tag = tage.get(t.datum) ?? { betrag: 0, geschaetzt: false };
+    tage.set(t.datum, { betrag: tag.betrag + t.betrag, geschaetzt: tag.geschaetzt || t.geschaetzt });
   }
-  return { posten, hinweis: null };
+  return {
+    posten: [...tage]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([datum, { betrag, geschaetzt }]) => ({
+        datum,
+        betrag: betrag as Cents,
+        richtung: "aus" as const,
+        text: `${darlehen.name}, ${datum === schluss ? "Schlussrate" : geschaetzt ? "Rate wie zuletzt gezahlt, monatlich angenommen" : "Rate wie zuletzt gezahlt"}`,
+        quelle: { art: "darlehen" as const, id: darlehen.id },
+        sicherheit: geschaetzt ? ("geschaetzt" as const) : ("erwartet" as const),
+      })),
+    hinweis: null,
+  };
 }
