@@ -31,9 +31,9 @@ export async function originalProblem(original: Invoice, q: Db | Tx = db, of?: I
 /** Mehrere Korrekturen zusammen mindern eine Rechnung höchstens bis auf 0, netto (die Steuer rundet jeder Beleg für sich) */
 export async function reductionProblem(invoice: Invoice, original: Invoice, q: Db | Tx = db): Promise<string | null> {
   if (invoice.kind !== "korrektur") return null;
-  const corrections = await correctionSum(invoice, original, "net", q);
-  if (original.net + corrections + invoice.net < 0) return "Die Korrekturen mindern die Rechnung unter 0";
-  return aufgehobenProblem(invoice, original, q);
+  const corrections = await correctionSums(invoice, original, q);
+  if (original.net + corrections.net + invoice.net < 0) return "Die Korrekturen mindern die Rechnung unter 0";
+  return aufgehobenProblem(invoice, original, corrections, q);
 }
 
 /**
@@ -44,19 +44,21 @@ export async function reductionProblem(invoice: Invoice, original: Invoice, q: D
  * `invoiceOpen` liefert 0, sobald der Beleg kein Festschreiben ist, deshalb darf hier nie der Entwurf stehen.
  * „Nichts bezahlt" heißt offener Rest gleich Rechnungsbetrag; Ausbuchungen und Verrechnungen zählen als Zahlung.
  */
-async function aufgehobenProblem(invoice: Invoice, original: Invoice, q: Db | Tx): Promise<string | null> {
-  const brutto = await correctionSum(invoice, original, "gross", q);
-  if (original.gross + brutto + invoice.gross !== 0) return null;
+async function aufgehobenProblem(invoice: Invoice, original: Invoice, corrections: { net: number; gross: number }, q: Db | Tx): Promise<string | null> {
+  const brutto = original.gross + corrections.gross + invoice.gross;
+  if (brutto !== 0) return null;
   const [offen] = await listInvoices(today(), original.id, q);
   if (offen?.open !== original.gross) return null;
   return "Diese Korrektur hebt die ganze Rechnung auf. Das ist ein Storno: storniere die Rechnung, statt die Korrektur festzuschreiben";
 }
 
-/** Summe der festgeschriebenen Korrekturen einer Rechnung ohne die eigene Zeile */
-async function correctionSum(invoice: Invoice, original: Invoice, feld: "net" | "gross", q: Db | Tx): Promise<number> {
-  const spalte = feld === "net" ? schema.invoices.net : schema.invoices.gross;
+/** Summen der festgeschriebenen Korrekturen einer Rechnung ohne die eigene Zeile, netto und brutto in einer Abfrage */
+async function correctionSums(invoice: Invoice, original: Invoice, q: Db | Tx): Promise<{ net: number; gross: number }> {
   const [row] = await q
-    .select({ summe: sql<number>`coalesce(sum(${spalte}), 0)::int` })
+    .select({
+      net: sql<number>`coalesce(sum(${schema.invoices.net}), 0)::int`,
+      gross: sql<number>`coalesce(sum(${schema.invoices.gross}), 0)::int`,
+    })
     .from(schema.invoices)
     .where(
       and(
@@ -66,5 +68,5 @@ async function correctionSum(invoice: Invoice, original: Invoice, feld: "net" | 
         ne(schema.invoices.id, invoice.id),
       ),
     );
-  return row!.summe;
+  return { net: row!.net, gross: row!.gross };
 }
