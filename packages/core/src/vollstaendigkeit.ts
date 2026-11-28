@@ -67,15 +67,17 @@ export function kontenNurBis(konten: readonly KontoAbdeckung[], zeitraum: Zeitra
 /**
  * Die Hinweise für eine Form der BWA. Form 43 rechnet nach Zahlung: Jeder offene Bankumsatz fehlt in Erlösen oder Kosten,
  * Rechnungsentwürfe ändern nichts. Form 01 rechnet periodengerecht: Ein Zahlungseingang zu einer festgeschriebenen Rechnung
- * ist schon Erlös, ein Entwurf mit Datum im Zeitraum fehlt vielleicht; beides nur als Hinweis.
+ * ist schon Erlös, eine Zahlung zu einem gebuchten Beleg schon Aufwand, ein Entwurf mit Datum im Zeitraum fehlt vielleicht;
+ * alle drei nur als Hinweis.
  */
 export function unvollstaendig(offen: OffeneVorgaenge, konten: readonly { id: string; name: string; bis: string }[], form: BwaForm): UnvollstaendigHinweis[] {
   const hinweise: UnvollstaendigHinweis[] = [];
   const dazu = (art: UnvollstaendigArt, anzahl: number, ton: UnvollstaendigHinweis["ton"], link: UnvollstaendigHinweis["link"]) => {
     if (anzahl > 0) hinweise.push({ art, ton, anzahl, link });
   };
-  dazu("ausgaben", offen.ausgaben, "warn", "/bank");
-  dazu("eingaenge", offen.eingaenge, form === "form43" ? "warn" : "info", "/bank");
+  const bankTon = form === "form43" ? "warn" : "info";
+  dazu("ausgaben", offen.ausgaben, bankTon, "/bank");
+  dazu("eingaenge", offen.eingaenge, bankTon, "/bank");
   dazu("belege", offen.belege, "warn", "/belege");
   if (form === "form01") dazu("rechnungsentwuerfe", offen.rechnungsentwuerfe, "info", "/rechnungen");
   for (const konto of konten) hinweise.push({ art: "konto", ton: "warn", anzahl: 1, konto, link: "/bank" });
@@ -94,7 +96,9 @@ export function unvollstaendigText(h: UnvollstaendigHinweis, zeitraum: Zeitraum)
   const n = h.anzahl;
   switch (h.art) {
     case "ausgaben":
-      return `${n} ${n === 1 ? "Ausgabe" : "Ausgaben"} im Zeitraum ohne Beleg oder Zuordnung; ${n === 1 ? "sie fehlt" : "sie fehlen"} in den Kosten.`;
+      return h.ton === "warn"
+        ? `${n} ${n === 1 ? "Ausgabe" : "Ausgaben"} im Zeitraum ohne Beleg oder Zuordnung; ${n === 1 ? "sie fehlt" : "sie fehlen"} in den Kosten.`
+        : `${n} ${n === 1 ? "Ausgabe" : "Ausgaben"} im Zeitraum ohne Beleg oder Zuordnung; ohne Beleg fehlt der Aufwand.`;
     case "eingaenge":
       return h.ton === "warn"
         ? `${n} ${n === 1 ? "Zahlungseingang" : "Zahlungseingänge"} im Zeitraum noch nicht zugeordnet; ${n === 1 ? "er fehlt" : "sie fehlen"} in den Erlösen.`
