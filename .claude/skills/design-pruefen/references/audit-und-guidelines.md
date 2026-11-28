@@ -11,17 +11,10 @@ Grundlage für Sicht B in `design-pruefen` – verbindet das 5-Dimensionen-Audit
 | 1 | **Accessibility (A11y)** | Textkontrast (< 4,5:1 / Großtext < 3:1), Bedienelement-Rahmen WCAG 1.4.11 (< 3:1), sinnvolles `prefers-reduced-motion` (kein pauschaler `0.01ms`-Kill, der Status-Feedback zerstört), ARIA-Rollen/-Zustände, Tastaturnavigation & Fokus-Ringe, semantisches HTML, Alt-Texte, Formular-Labels & Fehlermeldungen | 0 WCAG A verfehlt · 1 große Lücken · 2 teilweise · 3 WCAG AA weitgehend erfüllt · 4 WCAG AA voll erfüllt |
 | 2 | **Performance** | Layout-Thrashing (DOM-Reads/Writes gemischt), teure Animationen (`width`/`top`/`left`, unbegrenzter Blur/Schatten), `will-change`-Übernutzung im Ruhezustand, Bilder ohne Dimensionen/Lazy-Loading, unnötige Re-Renders, unvirtualisierte große Listen (> 50 Einträge) | 0 schwerwiegend · 1 große Bremsen · 2 teilweise optimiert · 3 gut · 4 schlank & schnell |
 | 3 | **Theming** | Hartkodierte Farben statt Design-Tokens, kaputter Dark Mode (`<select>`/`<option>`, Canvas/SVG, Kontrast), inkonsistente Tokens, fehlende Reaktion bei Theme-Wechsel, `<meta name="theme-color">` (bei manueller Wahl vor Media-Query-Metas im `<head>`) | 0 kein Theming · 1 kaum Tokens · 2 gemischt · 3 gut · 4 vollständig sauber in Hell/Dunkel |
-| 4 | **Responsive Design** | Feste Pixelbreiten, Touch-Ziele (< 44×44 px mobil; WCAG 2.5.8 mind. 24×24 px bzw. Abstand), echte Touch-Interaktion (Drag/Slider/Menüs mit `touch-action`, kein Hängenbleiben bei Cancel/LostPointerCapture, kein Auslösen beim Scrollen), horizontaler Überlauf, Textskalierung, **RTL-Prüfung** (s. u.) | 0 nur Desktop · 1 viele Brüche · 2 raue Kanten · 3 gut · 4 flüssig auf allen Größen (bei durchgängigen RTL-Fehlern −1) |
+| 4 | **Responsive Design** | Feste Pixelbreiten, Touch-Ziele (< 44×44 px mobil; WCAG 2.5.8 mind. 24×24 px bzw. Abstand), echte Touch-Interaktion (Drag/Slider/Menüs mit `touch-action`, kein Hängenbleiben bei Cancel/LostPointerCapture, kein Auslösen beim Scrollen), horizontaler Überlauf, Textskalierung | 0 nur Desktop · 1 viele Brüche · 2 raue Kanten · 3 gut · 4 flüssig auf allen Größen |
 | 5 | **Implementation Integrity** | Wiederholte Abkürzungen, Drift weg von `DESIGN.md`/Komponentenbibliothek, dekorativer Ballast, Fehlalarm-Filterung bei Detektor-Funden (wenn `impeccable detect` oder Axe läuft, getrennte Ausweisung) | 0 systemischer Drift · 1 schwere Wiederholungen · 2 mehrere Funde · 3 isolierte Kleinigkeiten · 4 kohärent & bewusst |
 
 **Bewertungsbänder (/20):** **18–20** Exzellent · **14–17** Gut · **10–13** Akzeptabel · **6–9** Schwach · **0–5** Kritisch.
-
-### RTL-Sonderregeln (nur bei Seiten mit `dir="rtl"` auf `<html>`/`<body>`)
-
-- Physische Richtungs-Properties (`margin-left/right`, `padding-left/right`, `text-align: left/right`, `border-left/right`, `left`/`right`) zugunsten logischer CSS-Properties (`margin-inline-start/end`, `padding-inline-start/end`, `text-align: start/end`, `border-inline-start/end`, `inset-inline-start/end`) prüfen – nur melden, wenn gerendert tatsächlich falsch.
-- Ausnahme: `left: 50%; transform: translateX(-50%)` ist richtungsneutral; Umstellung auf `inset-inline-start` bricht die Zentrierung.
-- Richtungs-Icons (Pfeile, Chevrons) und Kalender-Pfeiltasten auf korrekte Spiegelung prüfen; `lang` einer RTL-Sprache (`ar`, `he`, `fa`, `ur` …) ohne `dir="rtl"` melden.
-- Uhrzeiten, Zahlen, Salden und Codes mit `dir="ltr"` schützen.
 
 ---
 
@@ -92,7 +85,7 @@ Grundlage für Sicht B in `design-pruefen` – verbindet das 5-Dimensionen-Audit
 - `color-scheme: dark` auf `<html>` im dunklen Theme; `<meta name="theme-color">` passend zur Fläche; explizite Farben auf nativem `<select>`/`<option>`.
 
 ### 13. Locale & i18n
-- Daten, Uhrzeiten, Zahlen und Währungen über `Intl.DateTimeFormat` / `Intl.NumberFormat` / `Intl.DisplayNames` statt hartkodierter Formate; alle Sprachdateien vollständig.
+- Daten, Uhrzeiten, Zahlen und Währungen über `Intl.DateTimeFormat` / `Intl.NumberFormat` / `Intl.DisplayNames` statt hartkodierter Formate.
 - Markennamen, Codes und Bezeichner mit `translate="no"` schützen.
 
 ### 14. Hydration & Framework-Sicherheit
