@@ -131,6 +131,8 @@ export function bisherigeForm(
   const eine = einzigePosition(positionen);
   if (positionen.length > 0 && !eine) return null;
   if (positionen.some((p) => p.description !== "")) return null;
+  // Eine Aufteilung des bisherigen Formulars in Fremdwährung hat kein Netto laut Beleg; daraus ergäbe jede Prozentzahl 0
+  if (istFremd && positionen.some((p) => p.originalNet === null)) return null;
   const zeilen = positionen.map((p) => ({ ...p, net: istFremd ? (p.originalNet ?? 0) : p.net, tax: istFremd ? 0 : p.tax }));
   const vorschlag = vorgabe(eine?.category ?? null);
   const privateShare = privatanteilDerPositionen(zeilen, vorschlag === undefined ? [] : [vorschlag]);
@@ -145,7 +147,8 @@ export function bisherigeForm(
 export function positionenZumKurs(positionen: readonly Belegposition[], euro: readonly Satzzeile[]): NeuePosition[] {
   const form = bisherigeForm(positionen, true);
   if (form) return ohnePlatz(positionenAusBeleg({ ...form, fremd: true }, euro));
-  const nachBeleg = positionen.map((p) => ({ ...p, net: p.originalNet ?? 0 }));
+  // Ohne Netto laut Beleg (Aufteilung des bisherigen Formulars) zählt das Verhältnis der gespeicherten Beträge
+  const nachBeleg = positionen.map((p) => ({ ...p, net: p.originalNet ?? p.net }));
   const netto = inEuro(nachBeleg, euro);
   return mitSteuer(
     positionen.map(({ position: _position, tax: _tax, ...p }, i) => ({ ...p, net: netto[i]! })),
