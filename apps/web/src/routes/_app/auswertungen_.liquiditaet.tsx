@@ -1,4 +1,4 @@
-import { HORIZONTE, HORIZONT_KEYS, addDays, formatEuro, unterschreitung, type Horizont, type Vorschau } from "@haben/core";
+import { HORIZONTE, HORIZONT_KEYS, STANDARD_HORIZONT, addDays, formatEuro, unterschreitung, type Horizont, type Vorschau } from "@haben/core";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod/mini";
 import { BalanceChart } from "../../components/BalanceChart.tsx";
@@ -29,7 +29,7 @@ type Suche = z.infer<typeof search>;
 export const Route = createFileRoute("/_app/auswertungen_/liquiditaet")({
   validateSearch: search,
   loaderDeps: ({ search: { horizont, ueberfaellige } }) => ({ horizont, ueberfaellige }),
-  loader: ({ deps }) => getLiquiditaet({ data: { horizont: deps.horizont ?? "13w", ueberfaellige: deps.ueberfaellige ?? true } }),
+  loader: ({ deps }) => getLiquiditaet({ data: { horizont: deps.horizont ?? STANDARD_HORIZONT, ueberfaellige: deps.ueberfaellige ?? true } }),
   head: () => ({ meta: [{ title: "Liquiditätsvorschau · Haben" }], links: [{ rel: "stylesheet", href: styles }] }),
   component: LiquiditaetPage,
 });
@@ -39,7 +39,7 @@ function LiquiditaetPage() {
   const { user } = Route.useRouteContext();
   const suche = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const horizont = suche.horizont ?? "13w";
+  const horizont = suche.horizont ?? STANDARD_HORIZONT;
   const ueberfaellige = suche.ueberfaellige ?? true;
   const neu = (s: Partial<Suche>) => navigate({ search: { ...suche, zeitraum: undefined, ...s } });
 

@@ -75,6 +75,8 @@ export const HORIZONTE = {
 } as const;
 export type Horizont = keyof typeof HORIZONTE;
 export const HORIZONT_KEYS = Object.keys(HORIZONTE) as [Horizont, ...Horizont[]];
+/** Horizont der Seite ohne Auswahl; darin prüfen Übersicht und Fristen-Mail den Mindestbestand, damit ihr Link denselben Tag zeigt */
+export const STANDARD_HORIZONT: Horizont = "13w";
 
 /** Letzter Tag des Horizonts, einschließlich: 4 Wochen ab Freitag, dem 20., enden am Donnerstag, dem 17. des Folgemonats */
 export function horizontEnde(heute: string, horizont: Horizont): string {
