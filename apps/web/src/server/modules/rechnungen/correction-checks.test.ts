@@ -115,7 +115,8 @@ describe.skipIf(!testDatabaseUrl)("Rechnungskorrektur: Festschreiben (Postgres)"
 
   it("lässt eine Teilkorrektur festzuschreiben", async () => {
     const rechnung = await fest("rechnung", 13_361);
-    const teil = await fest("korrektur", -1_471, rechnung);
+    // −14,70 € netto: Stand 118,91 € → 22,59 € Steuer, die Korrektur −2,80 €, brutto −17,50 € (#2079)
+    const teil = await fest("korrektur", -1_470, rechnung);
     expect(await offen(rechnung)).toBe(15_900);
     expect(await offen(teil)).toBe(-1_750);
   }, 60_000);

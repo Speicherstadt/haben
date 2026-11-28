@@ -64,6 +64,11 @@ describe.skipIf(!testDatabaseUrl)("Steuer der Korrektur aus dem Gesamtstand (Pos
     unitPrice,
     taxRate,
   });
+  /**
+   * Position zu 7 %, die keine Korrektur berührt: Korrekturen, die die ganze unbezahlte Rechnung aufheben, weist Haben
+   * seit #2037 als Storno ab. Der Satz 19 % geht so weiter genau auf 0, ohne dass die Rechnung aufgehoben ist.
+   */
+  const bleibt = (priceMode: "netto" | "brutto" = "netto") => beratung(priceMode === "netto" ? 1_000 : 1_070, 700);
   type Extra = Partial<Parameters<typeof invoices.createDraft>[1]>;
   const fields = (issueDate: string, lines: Line[], extra: Extra = {}) => ({
     contactId,
@@ -91,9 +96,9 @@ describe.skipIf(!testDatabaseUrl)("Steuer der Korrektur aus dem Gesamtstand (Pos
     invoices.finalizeInvoice(actor, (await correctionDraft(originalId, date, lines, extra)).id, kleinunternehmerStand);
 
   const storedTaxes = async (invoiceId: string) =>
-    (await sql`select rate, base, tax, original_base::int, original_tax::int from invoice_taxes where invoice_id = ${invoiceId} order by rate desc`).map(
-      (r) => ({ ...r }),
-    );
+    (await sql`select rate, base, tax, original_base::int, original_tax::int from invoice_taxes where invoice_id = ${invoiceId} and rate = 1900`).map((r) => ({
+      ...r,
+    }));
 
   async function pay(invoiceId: string, date: string, amount: number) {
     const germanDate = `${date.slice(8)}.${date.slice(5, 7)}.${date.slice(2, 4)}`;
@@ -128,7 +133,7 @@ describe.skipIf(!testDatabaseUrl)("Steuer der Korrektur aus dem Gesamtstand (Pos
   for (const frame of ["SKR03", "SKR04"] as const)
     it(`${frame}, Soll: 100,00 € mit −0,50 € und −99,50 € nehmen genau 19,00 € zurück, gemeldet im Monat der Änderung`, async () => {
       await sql`update company set kontenrahmen = ${frame}`;
-      const original = await invoice([beratung(10_000)]);
+      const original = await invoice([beratung(10_000), bleibt()]);
       const a = await correction(original.id, "2026-06-10", [beratung(-50)]);
       expect(a).toMatchObject({ net: -50, tax: -9, gross: -59 });
       // PDF und XML zeigen die Steuer, die gebucht wird
@@ -140,12 +145,13 @@ describe.skipIf(!testDatabaseUrl)("Steuer der Korrektur aus dem Gesamtstand (Pos
       expect(await kz(6)).toEqual({ kz81: -50, tax81: -9 });
       expect(await kz(7)).toEqual({ kz81: -9_950, tax81: -1_891 });
       expect(await balance(ACCOUNTS[frame].ust[1900])).toBe(0);
-      expect(await balance(ACCOUNTS[frame].forderungen)).toBe(0);
+      expect(await balance(ACCOUNTS[frame].forderungen)).toBe(1_070);
       await integrity();
     }, 40_000);
 
   it("SKR03, Ist: Rechnung bezahlt, die Korrekturen mindern mit den Erstattungen genau um die Steuer der Rechnung", async () => {
     await sql`update company set versteuerung = 'ist'`;
+    // Bezahlt: hier dürfen die Korrekturen die ganze Rechnung aufheben (#2037)
     const original = await invoice([beratung(10_000)]);
     await pay(original.id, "2026-05-20", 11_900);
     const a = await correction(original.id, "2026-06-10", [beratung(-50)]);
@@ -161,8 +167,8 @@ describe.skipIf(!testDatabaseUrl)("Steuer der Korrektur aus dem Gesamtstand (Pos
   }, 40_000);
 
   it("1,03 € mit −0,34 €, −0,34 € und −0,35 €: brutto bleibt nichts offen", async () => {
-    const original = await invoice([beratung(103)]);
-    expect(original).toMatchObject({ tax: 20, gross: 123 });
+    const original = await invoice([beratung(103), bleibt()]);
+    expect(original).toMatchObject({ tax: 20 + 70, gross: 123 + 1_070 });
     const parts = [];
     for (const [net, date] of [
       [-34, "2026-06-01"],
@@ -171,13 +177,13 @@ describe.skipIf(!testDatabaseUrl)("Steuer der Korrektur aus dem Gesamtstand (Pos
     ] as const)
       parts.push(await correction(original.id, date, [beratung(net)]));
     expect(parts.map((p) => p.tax)).toEqual([-7, -6, -7]);
-    expect(original.gross + parts.reduce((s, p) => s + p.gross, 0)).toBe(0);
-    expect(await balance(ACCOUNTS.SKR03.forderungen)).toBe(0);
+    expect(original.gross + parts.reduce((s, p) => s + p.gross, 0)).toBe(1_070);
+    expect(await balance(ACCOUNTS.SKR03.forderungen)).toBe(1_070);
     await integrity();
   }, 40_000);
 
   it("ein Entwurf, der vor einer anderen Korrektur gespeichert wurde, rechnet beim Festschreiben auf deren Stand", async () => {
-    const original = await invoice([beratung(10_000)]);
+    const original = await invoice([beratung(10_000), bleibt()]);
     const later = await correctionDraft(original.id, "2026-06-10", [beratung(-9_950)]);
     // Auf dem Stand der Rechnung gespeichert: 0,50 € → 0,10 € (0,095), also −18,90 €
     expect(later).toMatchObject({ net: -9_950, tax: -1_890 });
@@ -188,7 +194,7 @@ describe.skipIf(!testDatabaseUrl)("Steuer der Korrektur aus dem Gesamtstand (Pos
     expect(await storedTaxes(final.id)).toEqual([{ rate: 1900, base: -9_950, tax: -1_891, original_base: null, original_tax: null }]);
 
     // Umgekehrt: −0,50 € zuerst gespeichert (−0,09 € auf dem Stand der Rechnung), dann −99,50 € festgeschrieben
-    const second = await invoice([beratung(10_000)]);
+    const second = await invoice([beratung(10_000), bleibt()]);
     const small = await correctionDraft(second.id, "2026-06-10", [beratung(-50)]);
     expect(small).toMatchObject({ tax: -9 });
     await correction(second.id, "2026-06-09", [beratung(-9_950)]);
@@ -204,7 +210,7 @@ describe.skipIf(!testDatabaseUrl)("Steuer der Korrektur aus dem Gesamtstand (Pos
   }, 30_000);
 
   it("Storno nach mehreren Korrekturen hebt alles auf den Cent auf, je Beleg genau negiert", async () => {
-    const original = await invoice([beratung(10_000)]);
+    const original = await invoice([beratung(10_000), bleibt()]);
     const a = await correction(original.id, "2026-06-10", [beratung(-50)]);
     await correction(original.id, "2026-06-11", [beratung(-50)]);
     await invoices.cancelInvoice(actor, original.id, "2026-06-20");
@@ -218,8 +224,8 @@ describe.skipIf(!testDatabaseUrl)("Steuer der Korrektur aus dem Gesamtstand (Pos
 
   it("Bruttopreise: Steuer aus dem Gesamtstand brutto, Zeilennetto ergibt die Bemessungsgrundlage", async () => {
     // 1,01 € brutto: 0,85 € netto, 0,16 € Steuer
-    const original = await invoice([beratung(101)], { priceMode: "brutto" });
-    expect(original).toMatchObject({ net: 85, tax: 16, gross: 101 });
+    const original = await invoice([beratung(101), bleibt("brutto")], { priceMode: "brutto" });
+    expect(original).toMatchObject({ net: 85 + 1_000, tax: 16 + 70, gross: 101 + 1_070 });
     // −0,10 € brutto für sich: −0,02 € Steuer; Stand danach 0,91 € mit 0,15 € Steuer, also −0,01 €
     const a = await correction(original.id, "2026-06-10", [beratung(-4), beratung(-6)], { priceMode: "brutto" });
     expect(a).toMatchObject({ priceMode: "brutto", net: -9, tax: -1, gross: -10 });
@@ -233,8 +239,8 @@ describe.skipIf(!testDatabaseUrl)("Steuer der Korrektur aus dem Gesamtstand (Pos
 
   it("Gesamtrabatt: die Steuer folgt aus der Bemessungsgrundlage nach Rabatt", async () => {
     // 2,02 € abzüglich 50 %: 1,01 € netto, 0,19 € Steuer
-    const original = await invoice([beratung(202)], { discount: { kind: "prozent", value: 5000 } });
-    expect(original).toMatchObject({ net: 101, tax: 19 });
+    const original = await invoice([beratung(202), bleibt()], { discount: { kind: "prozent", value: 5000 } });
+    expect(original).toMatchObject({ net: 101 + 500, tax: 19 + 35 });
     // −1,00 € abzüglich 50 %: −0,50 €; Stand 0,51 € → 0,10 €, also −0,09 € statt −0,10 €
     const discount = { discount: { kind: "prozent" as const, value: 5000 } };
     const a = await correction(original.id, "2026-06-10", [beratung(-100)], discount);
@@ -245,7 +251,7 @@ describe.skipIf(!testDatabaseUrl)("Steuer der Korrektur aus dem Gesamtstand (Pos
   }, 40_000);
 
   it("Fremdwährung: Gesamtstand in der Währung der Rechnung, in Euro mit dem Kurs der Rechnung", async () => {
-    const original = await invoice([beratung(10_000)], { currency: "GBP", exchangeRate: "0,85" });
+    const original = await invoice([beratung(10_000), bleibt()], { currency: "GBP", exchangeRate: "0,85" });
     expect(await storedTaxes(original.id)).toEqual([{ rate: 1900, base: 11_765, tax: 2_235, original_base: 10_000, original_tax: 1_900 }]);
     const a = await correction(original.id, "2026-06-10", [beratung(-50)]);
     // GBP: −0,09 (Stand 18,91); Euro: Stand 99,50 GBP = 117,06 €, 18,91 GBP = 22,25 €

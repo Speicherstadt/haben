@@ -30,7 +30,7 @@ export async function originalProblem(original: Invoice, q: Db | Tx = db, of?: I
 
 /**
  * Mehrere Korrekturen zusammen mindern eine Rechnung höchstens bis auf 0. Gerechnet wird das Netto in der Währung der
- * Rechnung: Steuer und Euro-Betrag rundet jeder Beleg für sich, über mehrere Korrekturen bliebe 1 Cent über oder fehlte.
+ * Rechnung: Steuer und Euro-Betrag folgen daraus (Gesamtstand, #2079), das Netto entscheidet.
  */
 export async function reductionProblem(invoice: Invoice, original: Invoice, q: Db | Tx = db): Promise<string | null> {
   if (invoice.kind !== "korrektur") return null;
@@ -43,8 +43,8 @@ export async function reductionProblem(invoice: Invoice, original: Invoice, q: D
  * Eine Korrektur, die eine noch unbezahlte Rechnung genau aufhebt, ist ein Storno (#877, #2037). Das wird schon beim
  * Festschreiben abgewiesen, weil der Beleg danach versiegelt ist und nur noch ein Storno der Rechnung hilft.
  *
- * Aufgehoben ist die Rechnung, wenn das Netto von Rechnung und allen Korrekturen in der Währung der Rechnung 0 ergibt
- * (#2079: brutto bliebe durch die Rundung je Beleg 1 Cent über oder fehlte).
+ * Aufgehoben ist die Rechnung, wenn das Netto von Rechnung und allen Korrekturen in der Währung der Rechnung 0 ergibt;
+ * Steuer und Brutto sind dann ebenfalls 0, weil die Korrektur ihre Steuer aus dem Gesamtstand rechnet (#2079).
  * „Nichts bezahlt" heißt offener Rest gleich Rechnungsbetrag, gelesen auf der festgeschriebenen Rechnung (`invoiceOpen`
  * liefert für einen Entwurf 0); Ausbuchungen und Verrechnungen zählen als Zahlung, ebenso eine als bereits bezahlt
  * ausgestellte Rechnung, deren Zahlung erst der Bankabgleich zuordnet.
