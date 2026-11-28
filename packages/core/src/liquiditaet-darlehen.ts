@@ -162,7 +162,7 @@ export function darlehensPosten(input: {
     if (datum < heute && !nachBankdatenBeginn(datum, input.bankdatenAb)) continue;
     const getilgt = Math.min(tilgung, rest);
     rest -= getilgt;
-    const schluss = tilgung > 0 && rest === 0;
+    const schluss = rest === 0;
     posten.push({
       datum,
       betrag: getilgt + zinsen,
