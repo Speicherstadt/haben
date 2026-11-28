@@ -2,7 +2,7 @@ import { germanDay } from "@haben/core";
 import { createElement, type ComponentType, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { formatDate, formatDateTime, formatLongDate } from "../../lib/format.ts";
+import { formatDate, formatDateTime, formatDayMonth, formatLongDate } from "../../lib/format.ts";
 
 // Die Aufgaben der Übersicht im Einzelnen: Text, Ziel samt Bereich der Einstellungen und Reihenfolge der Seite
 const state = vi.hoisted(() => ({ data: {} as Record<string, unknown> }));
@@ -185,7 +185,7 @@ describe("Übersicht: überfällige Voranmeldung", () => {
   it("die Karte zur Zahllast sagt „überfällig“ in der Farbe der Warnung", () => {
     data.dueDate = inTagen(-1);
     data.invoices.openCount = 1;
-    expect(render()).toContain(`<div class="small" style="color:var(--warn-ink);">Voranmeldung überfällig seit ${formatDate(inTagen(-1))}</div>`);
+    expect(render()).toContain(`<div class="small" style="color:var(--warn-ink);">Voranmeldung überfällig seit ${formatDayMonth(inTagen(-1))}</div>`);
   });
 
   // Eine Berichtigung (§ 153 AO) ist ein neuer Entwurf im schon abgegebenen Zeitraum (vat.ts: berichtigt, correctsId);

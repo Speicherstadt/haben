@@ -1,6 +1,6 @@
 import { formatEuro, periodLabel } from "@haben/core";
 import { Link } from "@tanstack/react-router";
-import { formatDate } from "../lib/format.ts";
+import { formatDate, formatDayMonth } from "../lib/format.ts";
 import type { getInvoiceSummary } from "../server/functions/invoices.ts";
 import type { getOverview } from "../server/functions/vat.ts";
 
@@ -82,7 +82,10 @@ export function UebersichtKennzahlen({
             {sent
               ? `gesendet ${formatDate(data.current!.sentAt!)} · ${periodOpen === 0 ? "ausgeglichen" : `${periodOpen > 0 ? "offen" : "Erstattung offen"} ${formatEuro(Math.abs(periodOpen))}`}`
               : vatRequired
-                ? `Voranmeldung ${ueberfaellig ? "überfällig seit" : "fällig"} ${formatDate(data.dueDate)}`
+                ? // Überfällig ohne Jahr wie die Auskunft eines Status, sonst stünde die Auskunft am Handy auf drei Zeilen (DESIGN.md › Kennzahlen)
+                  ueberfaellig
+                  ? `Voranmeldung überfällig seit ${formatDayMonth(data.dueDate)}`
+                  : `Voranmeldung fällig ${formatDate(data.dueDate)}`
                 : "keine reguläre Voranmeldung"}
           </div>
         </div>
