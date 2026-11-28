@@ -1,4 +1,14 @@
-import { HORIZONTE, HORIZONT_KEYS, STANDARD_HORIZONT, addDays, formatEuro, unterschreitung, type Horizont, type Vorschau } from "@haben/core";
+import {
+  HORIZONTE,
+  HORIZONT_KEYS,
+  STANDARD_HORIZONT,
+  addDays,
+  formatEuro,
+  unterschreitung,
+  unterschreitungText,
+  type Horizont,
+  type Vorschau,
+} from "@haben/core";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod/mini";
 import { BalanceChart } from "../../components/BalanceChart.tsx";
@@ -146,10 +156,10 @@ function Kennzahlen({ vorschau, konten }: { vorschau: Vorschau; konten: Kontosta
 function MindestbestandHinweis({ vorschau, mindestbestand }: { vorschau: Vorschau; mindestbestand: number }) {
   const w = unterschreitung(vorschau, mindestbestand);
   if (!w) return null;
+  const { titel, detail } = unterschreitungText(w);
   return (
     <div className="banner" role="note">
-      Der Kontostand unterschreitet den Mindestbestand von {formatEuro(w.mindestbestand)} am {formatDate(w.datum)}: erwartet {formatEuro(w.stand)}, es fehlen{" "}
-      {formatEuro(w.fehlt)}.
+      {titel}. {detail}.
     </div>
   );
 }

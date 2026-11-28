@@ -5,6 +5,7 @@ import {
   liquiditaetsVorschau,
   postenAus,
   unterschreitung,
+  unterschreitungText,
   vorschauZeitraeume,
   wirkung,
   type LiquiditaetsPosten,
@@ -176,5 +177,12 @@ describe("Unterschreitung des Mindestbestands", () => {
   it("Mindestbestand 0 warnt erst bei einem Minus", () => {
     expect(unterschreitung(vorschau(100_000, posten("2026-12-10", 100_000, "aus")), 0)).toBeNull();
     expect(unterschreitung(vorschau(100_000, posten("2026-12-10", 100_001, "aus")), 0)?.fehlt).toBe(1);
+  });
+
+  it("hat einen Wortlaut mit Tag, Stand und Fehlbetrag „unter dem Mindestbestand von“", () => {
+    expect(unterschreitungText({ datum: "2026-12-01", stand: 500_000, mindestbestand: 600_000, fehlt: 100_000 })).toEqual({
+      titel: "Kontostand unterschreitet Mindestbestand am 01.12.2026",
+      detail: "Erwartet 5.000,00\u00a0€, 1.000,00\u00a0€ unter dem Mindestbestand von 6.000,00\u00a0€",
+    });
   });
 });

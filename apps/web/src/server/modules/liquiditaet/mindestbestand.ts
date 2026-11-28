@@ -1,4 +1,4 @@
-import { formatEuro, STANDARD_HORIZONT, unterschreitung, type Unterschreitung } from "@haben/core";
+import { STANDARD_HORIZONT, unterschreitung, unterschreitungText, type Unterschreitung } from "@haben/core";
 import { loadCompany } from "../stammdaten/index.ts";
 import { liquiditaetsvorschau } from "./vorschau.ts";
 
@@ -18,14 +18,10 @@ export async function mindestbestandWarnung(heute: string): Promise<Unterschreit
   return konten.bekannt ? unterschreitung(vorschau, mindestbestand) : null;
 }
 
-const datum = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
-
 /** Zeile für die Fristen-Mail mit dem Pfad der Liquiditätsvorschau; null ohne Warnung */
 export async function mindestbestandHinweis(heute: string): Promise<{ text: string; link: string } | null> {
   const w = await mindestbestandWarnung(heute);
   if (!w) return null;
-  return {
-    text: `Kontostand unterschreitet Mindestbestand am ${datum(w.datum)}: erwartet ${formatEuro(w.stand)}, ${formatEuro(w.fehlt)} unter ${formatEuro(w.mindestbestand)}`,
-    link: "/auswertungen/liquiditaet",
-  };
+  const { titel, detail } = unterschreitungText(w);
+  return { text: `${titel}. ${detail}`, link: "/auswertungen/liquiditaet" };
 }

@@ -1,5 +1,5 @@
 import { addDays } from "./holidays.ts";
-import type { Cents } from "./money.ts";
+import { formatEuro, type Cents } from "./money.ts";
 import { addMonthsAnchored } from "./recurring.ts";
 
 /*
@@ -228,4 +228,14 @@ export function unterschreitung(vorschau: Pick<Vorschau, "heute" | "start" | "ve
   const heute = vorschau.verlauf[0]?.datum === vorschau.heute ? [] : [{ datum: vorschau.heute, stand: vorschau.start }];
   const tag = [...heute, ...vorschau.verlauf].find((s) => s.stand < mindestbestand);
   return tag ? { datum: tag.datum, stand: tag.stand, mindestbestand, fehlt: mindestbestand - tag.stand } : null;
+}
+
+const tagDe = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
+
+/** Wortlaut der Warnung für Liquiditätsseite, Übersicht und Fristen-Mail (#1381): titel nennt den Tag, detail Stand und Fehlbetrag */
+export function unterschreitungText(w: Unterschreitung): { titel: string; detail: string } {
+  return {
+    titel: `Kontostand unterschreitet Mindestbestand am ${tagDe(w.datum)}`,
+    detail: `Erwartet ${formatEuro(w.stand)}, ${formatEuro(w.fehlt)} unter dem Mindestbestand von ${formatEuro(w.mindestbestand)}`,
+  };
 }

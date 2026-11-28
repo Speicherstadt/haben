@@ -103,7 +103,11 @@ test.describe("Mindestbestand", () => {
     await feld.fill("10.000.000,00");
     await karte.getByRole("button", { name: "Speichern" }).click();
     await expect(karte.getByText("Mindestbestand gespeichert.")).toBeVisible();
-    await expect(page.getByRole("note").filter({ hasText: "unterschreitet den Mindestbestand von 10.000.000,00" })).toBeVisible();
+    await expect(
+      page
+        .getByRole("note")
+        .filter({ hasText: /^Kontostand unterschreitet Mindestbestand am \d\d\.\d\d\.\d{4}\. Erwartet .+ unter dem Mindestbestand von 10\.000\.000,00/ }),
+    ).toBeVisible();
     await expect(page.locator(".chart .grenze")).toHaveCount(1);
     // barrierefreiheit.spec.ts sieht die Seite ohne Mindestbestand; Hinweis und Linie nur hier
     expect(await axeVerstoesse(page)).toEqual([]);

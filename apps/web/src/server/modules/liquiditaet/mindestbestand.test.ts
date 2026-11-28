@@ -52,7 +52,7 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Mindestbestand (Postgre
     expect(await liquiditaet.mindestbestandWarnung("2026-11-20")).toEqual({ datum: "2026-12-01", stand: 500_000, mindestbestand: 600_000, fehlt: 100_000 });
     expect(await liquiditaet.mindestbestandHinweis("2026-11-20")).toEqual({
       // formatEuro trennt das Eurozeichen mit einem geschützten Leerzeichen
-      text: "Kontostand unterschreitet Mindestbestand am 01.12.2026: erwartet 5.000,00\u00a0€, 1.000,00\u00a0€ unter 6.000,00\u00a0€",
+      text: "Kontostand unterschreitet Mindestbestand am 01.12.2026. Erwartet 5.000,00\u00a0€, 1.000,00\u00a0€ unter dem Mindestbestand von 6.000,00\u00a0€",
       link: "/auswertungen/liquiditaet",
     });
 

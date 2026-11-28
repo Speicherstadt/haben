@@ -1,7 +1,7 @@
-import { formatEuro, type Unterschreitung } from "@haben/core";
+import { unterschreitungText, type Unterschreitung } from "@haben/core";
 import { Link } from "@tanstack/react-router";
 import { useAction } from "../lib/use-action.ts";
-import { daysUntil, formatDate } from "../lib/format.ts";
+import { daysUntil } from "../lib/format.ts";
 import type { SettingsArea } from "../lib/settings-areas.ts";
 import { useBescheidAbhaken } from "../routes/_app/-uebersicht-abhaken.ts";
 
@@ -36,10 +36,11 @@ export interface Todo {
 /** Die Liquiditätsvorschau sieht den Kontostand unter dem Mindestbestand (#1381); der Tag zählt wie eine Frist */
 export function mindestbestandAufgaben(w: Unterschreitung | null): Todo[] {
   if (!w) return [];
+  const { titel, detail } = unterschreitungText(w);
   return [
     {
-      title: `Kontostand unterschreitet Mindestbestand am ${formatDate(w.datum)}`,
-      detail: `Erwartet ${formatEuro(w.stand)}, ${formatEuro(w.fehlt)} unter dem Mindestbestand von ${formatEuro(w.mindestbestand)}`,
+      title: titel,
+      detail,
       frist: w.datum,
       action: "Vorschau",
       tone: "warn",

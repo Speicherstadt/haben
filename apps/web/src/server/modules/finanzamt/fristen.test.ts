@@ -245,17 +245,17 @@ describe.skipIf(!testDatabaseUrl)("Fristen, Kalender-Abo und Erinnerungen per E-
     const hinweis = async () => {
       gefragt++;
       return {
-        text: "Kontostand unterschreitet Mindestbestand am 01.12.2026: erwartet 5.000,00 €, 1.000,00 € unter 6.000,00 €",
+        text: "Kontostand unterschreitet Mindestbestand am 01.12.2026. Erwartet 5.000,00 €, 1.000,00 € unter dem Mindestbestand von 6.000,00 €",
         link: "/auswertungen/liquiditaet",
       };
     };
     expect(await erinnerung.runDueFristenMails("2026-10-05", morgens, hinweis)).toEqual({ sent: 3 });
     expect(sent.at(-1)!.text).toMatch(
-      /\n\nKontostand unterschreitet Mindestbestand am 01\.12\.2026: erwartet 5\.000,00 €, 1\.000,00 € unter 6\.000,00 €\nhttps?:\/\/[^\n]+\/auswertungen\/liquiditaet\n/,
+      /\n\nKontostand unterschreitet Mindestbestand am 01\.12\.2026\. Erwartet 5\.000,00 €, 1\.000,00 € unter dem Mindestbestand von 6\.000,00 €\nhttps?:\/\/[^\n]+\/auswertungen\/liquiditaet\n/,
     );
     // In der HTML-Fassung ein Link mit dem Text, vor dem Link auf alle Fristen
     expect(sent.at(-1)!.html).toMatch(
-      /<p><a href="https?:\/\/[^"]+\/auswertungen\/liquiditaet">Kontostand unterschreitet Mindestbestand am 01\.12\.2026: [^<]+<\/a><\/p>\n<p><a href="[^"]+\/fristen">/,
+      /<p><a href="https?:\/\/[^"]+\/auswertungen\/liquiditaet">Kontostand unterschreitet Mindestbestand am 01\.12\.2026\. [^<]+<\/a><\/p>\n<p><a href="[^"]+\/fristen">/,
     );
     // Nichts Neues: keine Mail und keine Vorschau gerechnet
     expect(await erinnerung.runDueFristenMails("2026-10-05", morgens, hinweis)).toEqual({ sent: 0 });
