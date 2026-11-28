@@ -1,6 +1,7 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kuerzeKorrektur } from "./test-korrektur.ts";
 import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 describe.skipIf(!testDatabaseUrl)("Aufbewahrungshinweis für Grundstücksleistungen (Postgres)", () => {
@@ -75,6 +76,8 @@ describe.skipIf(!testDatabaseUrl)("Aufbewahrungshinweis für Grundstücksleistun
     expect(original.xml).toContain("14b");
     const correction = await invoices.createCorrection(actor, original.id, "2026-11-03");
     expect(correction).toMatchObject({ propertyRetention: true });
+    // Nicht die ganze unbezahlte Rechnung aufheben, das ist seit #2037 ein Storno: Entwurf kürzen
+    await kuerzeKorrektur(invoices, actor, correction.id);
     const loaded = (await invoices.getInvoice(correction.id))!;
     const changed = { ...externalReference.draftInputOf(loaded.invoice, loaded.lines), propertyRetention: false };
     expect(await invoices.updateDraft(actor, correction.id, changed)).toMatchObject({ propertyRetention: true });

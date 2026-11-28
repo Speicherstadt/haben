@@ -108,6 +108,33 @@ describe.skipIf(!testDatabaseUrl)("Verkauf einer Anlage per Rechnung in der EÜR
     return invoice;
   }
 
+  /**
+   * Entwurf einer Korrektur ueber eine Position. Fuer Faelle, die nicht den vollen Betrag aufheben sollen:
+   * Eine Korrektur ueber den vollen Betrag einer unbezahlten Rechnung ist ein Storno und wird seit #2037 abgewiesen.
+   */
+  function teilkorrektur(net: number, issueDate: string) {
+    return {
+      contactId,
+      issueDate,
+      serviceFrom: null,
+      serviceTo: null,
+      paymentTermDays: 0,
+      format: "zugferd" as const,
+      note: "",
+      taxTreatment: (kleinunternehmer ? "kleinunternehmer" : "regulaer") as TaxTreatment,
+      taxDetails: { exemption: null, ancillary: null, foreignPlace: null, assetDisposal: true },
+      lines: [
+        {
+          description: "Gebrauchte Kamera",
+          quantity: 1000,
+          unit: "Stk." as const,
+          unitPrice: net,
+          taxRate: (kleinunternehmer ? 0 : 1900) as 1900 | 700 | 0,
+        },
+      ],
+    };
+  }
+
   const bar = (invoiceId: string, date: string, amount: number) => cashInvoice.createCashInvoiceEntry(actor, { invoiceId, date, amount }, date);
 
   /** Haben-Saldo je Konto der Buchungen einer Rechnung, ohne Forderungen */
@@ -216,8 +243,11 @@ describe.skipIf(!testDatabaseUrl)("Verkauf einer Anlage per Rechnung in der EÜR
 
       const korrigiert = await alteRechnung("2026-03-02", 30_000);
       const korrektur = await invoices.createCorrection(actor, korrigiert.id, "2026-03-25");
+      // Teilkorrektur statt voller Aufhebung: Geprueft wird das Konto, auf das die Korrektur bucht. Die volle
+      // Aufhebung einer unbezahlten Rechnung ist ein Storno und seit #2037 abgewiesen (siehe correction-checks.test.ts).
+      await invoices.updateDraft(actor, korrektur.id, teilkorrektur(-10_000, "2026-03-25"));
       const fertig = await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand);
-      expect((await konten(fertig.id, kontenrahmen))[erloes]).toBe(-30_000);
+      expect((await konten(fertig.id, kontenrahmen))[erloes]).toBe(-10_000);
       // Das Storno der Rechnung storniert auch die Korrektur, beides auf dem Erlöskonto
       await invoices.cancelInvoice(actor, korrigiert.id, "2026-03-26");
       const saldo = await sql<{ account: string; saldo: number }[]>`select account, sum(credit - debit)::int as saldo from journal_lines

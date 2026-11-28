@@ -384,6 +384,9 @@ describe.skipIf(!testDatabaseUrl)("Innergemeinschaftlicher Erwerb, Lieferung und
       });
       expect((await zm.zmOverview({ year: 2026, month: 43 })).zeilen).toEqual([{ ustId: "ATU1234", art: "L", betrag: 100_000 }]);
 
+      // 1,00 EUR vorab, nur im Korrektur-Zweig: seit #2037 ist eine Korrektur über den vollen, unbezahlten Betrag ein
+      // Storno. Die Gutschrift muss hier voll sein, damit die Lieferung aus Kz 41 und der ZM verschwindet.
+      if (weg === "Korrektur") await bank.createCashInvoiceEntry(actor, { invoiceId: rechnung.id, date: "2026-09-25", amount: 100 }, "2026-09-25");
       const gutschrift =
         weg === "Storno"
           ? await invoices.cancelInvoice(actor, rechnung.id, "2026-09-28")

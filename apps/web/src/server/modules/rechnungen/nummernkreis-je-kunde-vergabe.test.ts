@@ -2,6 +2,7 @@ import { issueDateBeforeLastFinalized } from "@haben/core";
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kuerzeKorrektur } from "./test-korrektur.ts";
 import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /*
@@ -107,6 +108,8 @@ describe.skipIf(!testDatabaseUrl)("Nummernkreis je Kunde, Vergabe (Postgres, #14
     const b1 = await invoices.finalizeInvoice(actor, (await invoiceDraft(contactB)).id, kleinunternehmerStand);
     await formats.saveNumberFormats(actor, GEMEINSAM);
     const korrektur = await invoices.createCorrection(actor, a1.id, "2026-12-16");
+    // Nicht die ganze unbezahlte Rechnung aufheben, das ist seit #2037 ein Storno: Entwurf kürzen
+    await kuerzeKorrektur(invoices, actor, korrektur.id);
     const korrigiert = await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand);
     const storno = await invoices.cancelInvoice(actor, a2.id, "2026-12-17");
     // Zwei Rechnungen aus zwei Kundenkreisen stornieren im gemeinsamen Kreis ohne Kollision hintereinander weg
@@ -188,6 +191,8 @@ describe.skipIf(!testDatabaseUrl)("Nummernkreis je Kunde, Vergabe (Postgres, #14
     const [beleg] = await sql`select number_contact_id from invoices where id = ${storno.id}`;
     expect(beleg!.number_contact_id).toBe(contactA);
     const korrektur = await invoices.createCorrection(actor, zweites.id, "2026-12-16");
+    // Nicht die ganze unbezahlte Rechnung aufheben, das ist seit #2037 ein Storno: Entwurf kürzen
+    await kuerzeKorrektur(invoices, actor, korrektur.id);
     const korrigiert = await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand);
     expect(korrigiert.number).toBe("RE-2026-ACME-004");
     // Festschreiben eines neuen Belegs im Kreis des Nachzüglers scheitert weiterhin an der Eindeutigkeit
