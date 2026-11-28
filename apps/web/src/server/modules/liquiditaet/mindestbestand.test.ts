@@ -1,6 +1,6 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
 import { ACTOR, firma } from "./test-liquiditaet.ts";
 
 /*
@@ -63,6 +63,35 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Mindestbestand (Postgre
     expect(await liquiditaet.mindestbestandWarnung("2026-11-20")).toMatchObject({ datum: "2027-02-01", stand: -500_000 });
     await stammdaten.setMindestbestand(ACTOR, null);
     expect(await liquiditaet.mindestbestandWarnung("2026-11-20")).toBeNull();
+  });
+
+  it("ohne bekannten Kontostand keine Warnung: die Vorschau startet sonst bei 0 € und meldete „heute“", async () => {
+    await bestand();
+    await stammdaten.setMindestbestand(ACTOR, 600_000);
+    const ohneStand = async () => {
+      expect((await liquiditaet.liquiditaetsvorschau("2026-11-20", "13w")).konten.bekannt).toBe(false);
+      expect(await liquiditaet.mindestbestandWarnung("2026-11-20")).toBeNull();
+      expect(await liquiditaet.mindestbestandHinweis("2026-11-20")).toBeNull();
+    };
+
+    // Kein Konto
+    await leeren(sql)`truncate bank_imports, bank_accounts cascade`;
+    await ohneStand();
+
+    // Ein Konto, dessen Datei keinen Saldo hat
+    const [ohne] = await sql<{ id: string }[]>`insert into bank_accounts (name, purpose, iban)
+      values ('Ohne Saldo', 'geschaeft', 'DE02100100100006820101') returning id`;
+    await sql`insert into bank_imports (bank_account_id, filename, sha256, format, period_from, period_to, closing_balance, added, skipped)
+      values (${ohne!.id}, 'b.csv', ${"c".repeat(64)}, 'csv', '2026-11-01', '2026-11-19', null, 1, 0)`;
+    await ohneStand();
+
+    // Ein Konto mit Stand genügt; das ohne fehlt im Startwert, wie die Seite sagt
+    const [giro] = await sql<{ id: string }[]>`insert into bank_accounts (name, purpose, iban)
+      values ('Giro', 'geschaeft', 'DE89370400440532013000') returning id`;
+    await sql`insert into bank_imports (bank_account_id, filename, sha256, format, period_from, period_to, closing_balance, added, skipped)
+      values (${giro!.id}, 'a.csv', ${"a".repeat(64)}, 'camt', '2026-11-01', '2026-11-19', 1000000, 1, 0)`;
+    expect((await liquiditaet.liquiditaetsvorschau("2026-11-20", "13w")).konten.bekannt).toBe(true);
+    expect(await liquiditaet.mindestbestandWarnung("2026-11-20")).toMatchObject({ datum: "2026-12-01", stand: 500_000 });
   });
 
   it("die Datenbank nimmt keinen negativen Mindestbestand", async () => {
