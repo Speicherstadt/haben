@@ -2472,6 +2472,13 @@
       "when": 1795884182863,
       "tag": "0352_belege_positionen",
       "breakpoints": true
+    },
+    {
+      "idx": 353,
+      "version": "7",
+      "when": 1795889202380,
+      "tag": "0353_siegel_angebote_anlagen",
+      "breakpoints": true
     }
   ]
 }

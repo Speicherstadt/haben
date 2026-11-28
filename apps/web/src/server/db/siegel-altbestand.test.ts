@@ -157,6 +157,8 @@ describe.skipIf(!testDatabaseUrl)("Siegel aus älteren Schemaständen (Postgres)
     expect(siegel.map((s) => s.table_name)).toEqual([
       ...["journal_entries", "invoices", "documents", "vat_returns", "cash_entries", "allocations"],
       ...["invoices", "documents", "pauschalen", "asset_depreciations", "document_cancellations"],
+      // Die gebuchte Anlage versiegelt erst das Update auf 0353 (#2039)
+      "assets",
     ]);
     const spalten = (id: string) => siegel.find((s) => s.row_id === id)!.columns;
     // Die Voraussetzung des Tests: Die Siegel von 0064 kennen weder basis noch die später versiegelten Kindtabellen

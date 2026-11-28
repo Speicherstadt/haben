@@ -146,5 +146,5 @@ Beide entstehen bei jedem Abruf neu aus dem festgeschriebenen Angebot und buchen
 
 Angebote sind Handelsbriefe (§ 257 HGB, § 147 AO) und werden sechs Jahre aufbewahrt.
 
-- In der Datenbank sind sie nach dem Festschreiben gesperrt, mit Rabatten, Art der Positionen, Zahlungsplan und Anhängen. Ein Trigger lässt nur noch die Antwort des Kunden und den Verweis auf die Rechnung zu. Die Auswahl des Kunden steht in einer eigenen Tabelle mit Änderungsprotokoll und ist fest, sobald eine Rechnung zum Angebot festgeschrieben ist.
+- In der Datenbank sind sie nach dem Festschreiben gesperrt, mit Rabatten, Art der Positionen, Zahlungsplan und Anhängen. Ein Trigger lässt nur noch die Antwort des Kunden und den Verweis auf die Rechnung zu. Ab dem Festschreiben tragen sie samt Positionen, Anhängen und PDF ein [Siegel](buchhaltung.md#manipulationserkennung-hash-kette-und-siegel); Antwort und Rechnung gehören nicht dazu. Die Auswahl des Kunden steht in einer eigenen Tabelle mit Änderungsprotokoll und ist fest, sobald eine Rechnung zum Angebot festgeschrieben ist.
 - Im [Jahresarchiv](auswertungen.md#jahresexport) liegen sie unter `angebote/`: die PDFs plus `angebote.csv` mit Beträgen, Antwort, Rechnungsnummer und SHA-256, die Anhänge unter `angebote/anhaenge/` mit `anhaenge.csv`.

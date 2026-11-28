@@ -142,7 +142,7 @@ Solange nichts gebucht ist, lässt sich eine übernommene Anlage ändern und lö
 4832 Abschreibungen auf Kfz   6.000,00   an  0320 Pkw   6.000,00
 ```
 
-Die Buchungen sind wie alle anderen sofort festgeschrieben. Danach sind die Berechnungsgrundlagen der Anlage gesperrt (Art, Abschreibung, Datum, Kosten, Nutzungsdauer, degressiver Satz, Erinnerungswert, Übernahmewerte), auch in der Datenbank per Trigger. Bezeichnung und Notiz bleiben änderbar, ebenso für noch nicht gebuchte Jahre die Sonder-AfA, ein Abgang und bei degressiver AfA der Wechsel zur linearen.
+Die Buchungen sind wie alle anderen sofort festgeschrieben. Danach sind die Berechnungsgrundlagen der Anlage gesperrt (Art, Abschreibung, Konto, Datum, Kosten, Nutzungsdauer, Beleg, Übernahmewerte, Privatnutzung, degressiver Satz, Erinnerungswert), auch in der Datenbank per Trigger, und [versiegelt](buchhaltung.md#manipulationserkennung-hash-kette-und-siegel). Bezeichnung und Notiz bleiben änderbar, ebenso für noch nicht gebuchte Jahre die Sonder-AfA, ein Abgang und bei degressiver AfA der Wechsel zur linearen.
 
 ## Abgang
 
