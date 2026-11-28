@@ -85,6 +85,8 @@ export function problem(befund: Befund): { tabelle: string; befund: string } {
             : "wurde verändert";
       return { tabelle: ohneSchema(befund.tabelle), befund: `Trigger ${befund.tabelle}.${befund.trigger} ${zustand}` };
     }
+    case "trigger-am-audit-log":
+      return { tabelle: ohneSchema(befund.tabelle), befund: `Zusätzlicher Trigger ${befund.tabelle}.${befund.trigger} auf dem Audit-Log` };
     case "funktion-fehlt":
     case "funktion-veraendert":
       return {
@@ -109,6 +111,8 @@ export function problem(befund: Befund): { tabelle: string; befund: string } {
       return { tabelle: befund.tabelle, befund: `Zeilensicherheit auf ${befund.tabelle} erzwungen` };
     case "policy":
       return { tabelle: befund.tabelle, befund: `Policy ${befund.policy} auf ${befund.tabelle} angelegt` };
+    case "regel":
+      return { tabelle: befund.tabelle, befund: `Regel ${befund.regel} auf ${befund.tabelle} angelegt` };
     case "objekt-im-systemschema":
       return datenbank(`${zusaetzlich[befund.objektart]} ${befund.name} im Systemschema pg_catalog`);
     case "objekt-ueberdeckt":

@@ -25,6 +25,23 @@ describe.skipIf(!url)("Sperren gegen einen Sollbestand", () => {
   });
   const pruefen = async () => vergleiche(soll, await leseMomentaufnahme(leser(), { ...optionen, tabellen: soll.sealedTables }), optionen.schema);
 
+  /** Ändert die Datenbank in einer Transaktion, prüft darin und rollt danach zurück */
+  async function pruefenZurueckgerollt(aendern: (tx: postgres.TransactionSql) => Promise<unknown>) {
+    const zurueck = new Error("zurückrollen");
+    let ergebnis: ReturnType<typeof vergleiche> | undefined;
+    await sql
+      .begin(async (tx) => {
+        await aendern(tx);
+        const inTransaktion: Leser = { transaktion: (lesen) => lesen(((text, werte = []) => tx.unsafe(text, werte as never[])) as Abfrage) };
+        ergebnis = vergleiche(soll, await leseMomentaufnahme(inTransaktion, { ...optionen, tabellen: soll.sealedTables }), optionen.schema);
+        throw zurueck;
+      })
+      .catch((error: unknown) => {
+        if (error !== zurueck) throw error;
+      });
+    return ergebnis!;
+  }
+
   beforeAll(async () => {
     admin = postgres(url!, { max: 1, onnotice: () => {} });
     await admin.unsafe(`CREATE DATABASE ${name}`);
@@ -74,19 +91,8 @@ describe.skipIf(!url)("Sperren gegen einen Sollbestand", () => {
 
   it("meldet einen gelöschten Trigger", async () => {
     const [trigger] = soll.triggers.filter((t) => t.table === "public.belege");
-    const zurueck = new Error("zurückrollen");
-    // Gelöscht und geprüft in einer Transaktion, die danach zurückrollt
-    await sql
-      .begin(async (tx) => {
-        await tx.unsafe(`DROP TRIGGER ${trigger!.name} ON belege`);
-        const inTransaktion: Leser = { transaktion: (lesen) => lesen(((text, werte = []) => tx.unsafe(text, werte as never[])) as Abfrage) };
-        const ist = await leseMomentaufnahme(inTransaktion, { ...optionen, tabellen: soll.sealedTables });
-        expect(vergleiche(soll, ist, optionen.schema).befunde).toEqual([{ art: "trigger-fehlt", tabelle: "public.belege", trigger: trigger!.name }]);
-        throw zurueck;
-      })
-      .catch((error: unknown) => {
-        if (error !== zurueck) throw error;
-      });
+    const { befunde } = await pruefenZurueckgerollt((tx) => tx.unsafe(`DROP TRIGGER ${trigger!.name} ON belege`));
+    expect(befunde).toEqual([{ art: "trigger-fehlt", tabelle: "public.belege", trigger: trigger!.name }]);
     expect(await pruefen()).toEqual({ befunde: [], hinweise: [] });
   });
 
@@ -103,21 +109,68 @@ describe.skipIf(!url)("Sperren gegen einen Sollbestand", () => {
 
   it("meldet Vorgaben replica für Datenbank und Rolle in fester Reihenfolge", async () => {
     const rolle = `probe_replica_${randomBytes(4).toString("hex")}`;
-    const zurueck = new Error("zurückrollen");
     // ALTER ROLE und ALTER DATABASE sind transaktional: Nach dem Zurückrollen bleibt keine Vorgabe.
+    const { befunde } = await pruefenZurueckgerollt(async (tx) => {
+      await tx.unsafe(`CREATE ROLE ${rolle} NOLOGIN`);
+      await tx.unsafe(`ALTER ROLE ${rolle} IN DATABASE ${name} SET session_replication_role = replica`);
+      await tx.unsafe(`ALTER ROLE ${rolle} SET session_replication_role = replica`);
+      await tx.unsafe(`ALTER DATABASE ${name} SET session_replication_role = replica`);
+    });
+    expect(befunde).toEqual([
+      { art: "replica", vorgabe: { bereich: "datenbank", datenbank: name } },
+      { art: "replica", vorgabe: { bereich: "rolle", rolle, datenbank: null } },
+      { art: "replica", vorgabe: { bereich: "rolle", rolle, datenbank: name } },
+    ]);
+  });
+
+  // Eine Regel schreibt eine Anweisung um, bevor Trigger feuern: ON INSERT … DO INSTEAD NOTHING verwirft etwa jeden Eintrag
+  // ins Audit-Log, ohne dass die Kette bricht. Die Regel _RETURN einer Sicht ist deren Abfrage und kein Befund.
+  // https://www.postgresql.org/docs/18/rules.html
+  it("meldet eine Regel auf einer Tabelle, nicht die Abfrage einer Sicht", async () => {
+    const { befunde } = await pruefenZurueckgerollt(async (tx) => {
+      await tx.unsafe("CREATE VIEW belege_sicht AS SELECT id FROM belege");
+      await tx.unsafe("CREATE RULE verwerfen AS ON INSERT TO belege DO INSTEAD NOTHING");
+    });
+    expect(befunde).toEqual([{ art: "regel", tabelle: "belege", regel: "verwerfen" }]);
+    expect(await pruefen()).toEqual({ befunde: [], hinweise: [] });
+  });
+
+  // Ein zusätzlicher Trigger auf audit_log oder audit_chain kann Einträge verwerfen oder vor dem Hashen ändern; auf anderen
+  // Tabellen bleibt er ein Hinweis.
+  it("meldet einen zusätzlichen Trigger auf dem Audit-Log als Befund, auf einer anderen Tabelle als Hinweis", async () => {
+    const { befunde, hinweise } = await pruefenZurueckgerollt(async (tx) => {
+      await tx.unsafe("CREATE FUNCTION fremd_verwerfen() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$");
+      await tx.unsafe("CREATE TRIGGER audit_log_a BEFORE INSERT ON audit_log FOR EACH ROW EXECUTE FUNCTION fremd_verwerfen()");
+      await tx.unsafe("CREATE TRIGGER audit_chain_a BEFORE UPDATE ON audit_chain FOR EACH ROW EXECUTE FUNCTION fremd_verwerfen()");
+      await tx.unsafe("CREATE TRIGGER belege_a BEFORE INSERT ON belege FOR EACH ROW EXECUTE FUNCTION fremd_verwerfen()");
+    });
+    expect(befunde).toEqual([
+      { art: "trigger-am-audit-log", tabelle: "public.audit_chain", trigger: "audit_chain_a" },
+      { art: "trigger-am-audit-log", tabelle: "public.audit_log", trigger: "audit_log_a" },
+    ]);
+    expect(hinweise.filter((hinweis) => hinweis.art === "trigger-zusaetzlich")).toEqual([
+      { art: "trigger-zusaetzlich", tabelle: "public.belege", trigger: "belege_a" },
+    ]);
+    expect(await pruefen()).toEqual({ befunde: [], hinweise: [] });
+  });
+
+  // Der Kern liest Trigger mit format('%I.%I'); ein Schema mit Großbuchstaben steht dabei in Anführungszeichen.
+  it("erkennt einen zusätzlichen Trigger auf dem Audit-Log auch in einem Schema, das Anführungszeichen braucht", async () => {
+    const zurueck = new Error("zurückrollen");
+    const kern = { schema: "Kern", praefix: "kern" };
     await sql
       .begin(async (tx) => {
-        await tx.unsafe(`CREATE ROLE ${rolle} NOLOGIN`);
-        await tx.unsafe(`ALTER ROLE ${rolle} IN DATABASE ${name} SET session_replication_role = replica`);
-        await tx.unsafe(`ALTER ROLE ${rolle} SET session_replication_role = replica`);
-        await tx.unsafe(`ALTER DATABASE ${name} SET session_replication_role = replica`);
+        await tx.unsafe('CREATE SCHEMA "Kern"');
+        await tx.unsafe('CREATE TABLE "Kern".audit_log (id int)');
         const inTransaktion: Leser = { transaktion: (lesen) => lesen(((text, werte = []) => tx.unsafe(text, werte as never[])) as Abfrage) };
-        const ist = await leseMomentaufnahme(inTransaktion, { ...optionen, tabellen: soll.sealedTables });
-        expect(vergleiche(soll, ist, optionen.schema).befunde).toEqual([
-          { art: "replica", vorgabe: { bereich: "datenbank", datenbank: name } },
-          { art: "replica", vorgabe: { bereich: "rolle", rolle, datenbank: null } },
-          { art: "replica", vorgabe: { bereich: "rolle", rolle, datenbank: name } },
+        const sollKern = (await leseMomentaufnahme(inTransaktion, { ...kern, tabellen: [] })).bestand;
+        await tx.unsafe("CREATE FUNCTION fremd_verwerfen() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$");
+        await tx.unsafe('CREATE TRIGGER x BEFORE INSERT ON "Kern".audit_log FOR EACH ROW EXECUTE FUNCTION public.fremd_verwerfen()');
+        const { befunde, hinweise } = vergleiche(sollKern, await leseMomentaufnahme(inTransaktion, { ...kern, tabellen: [] }), kern.schema);
+        expect(befunde.filter((befund) => befund.art === "trigger-am-audit-log")).toEqual([
+          { art: "trigger-am-audit-log", tabelle: '"Kern".audit_log', trigger: "x" },
         ]);
+        expect(hinweise.filter((hinweis) => hinweis.art === "trigger-zusaetzlich")).toEqual([]);
         throw zurueck;
       })
       .catch((error: unknown) => {
