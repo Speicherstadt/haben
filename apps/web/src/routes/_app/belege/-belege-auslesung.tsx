@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { NoticeBanner } from "../../../components/NoticeBanner.tsx";
 import { useAction } from "../../../lib/use-action.ts";
 import { pauseExtraction, reextractDocuments } from "../../../server/functions/documents.ts";
+import type { QueueOverview } from "./-auslesung-aktiv.ts";
 
 /*
  * Warteschlange der KI-Auslesung in der Belegliste (#1735): wie viele Belege warten, gerade ausgelesen werden und
@@ -11,20 +12,10 @@ import { pauseExtraction, reextractDocuments } from "../../../server/functions/d
  * ausgelesen wird in der Reihenfolge, in der die Liste die Belege beim Klick zeigt.
  */
 
-export interface QueueOverview {
-  waiting: number;
-  running: number;
-  failed: number;
-  paused: boolean;
-}
-
 type Row = { id: string; status: "neu" | "gebucht"; extractionStatus: string; mimeType: string };
 
 /** Dateien, die die KI liest; E-Rechnungs-XML liest Haben selbst, HEIC nimmt kein Dienst an */
 const lesbar = (row: Row) => row.status === "neu" && row.mimeType !== "application/xml" && row.mimeType !== "image/heic";
-
-/** Solange etwas läuft oder wartet und nicht angehalten ist, frischt die Liste sich auf */
-export const auslesungAktiv = (queue: QueueOverview) => queue.running > 0 || (queue.waiting > 0 && !queue.paused);
 
 /** Markierung der Belege, die sich neu auslesen lassen; was nicht mehr in der Liste steht, fällt heraus */
 export function useAuslesung(rows: readonly Row[]) {

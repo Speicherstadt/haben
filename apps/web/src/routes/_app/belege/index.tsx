@@ -11,7 +11,8 @@ import { Field } from "../../../components/Field.tsx";
 import { formatDate, formatDateTime } from "../../../lib/format.ts";
 import { menueGruppe } from "../../../lib/menue-gruppe.ts";
 import { getDocuments } from "../../../server/functions/documents.ts";
-import { AuslesungLeiste, BelegMarkierung, auslesungAktiv, useAuslesung } from "./-belege-auslesung.tsx";
+import { auslesungAktiv } from "./-auslesung-aktiv.ts";
+import { AuslesungLeiste, BelegMarkierung, useAuslesung } from "./-belege-auslesung.tsx";
 
 export const Route = createFileRoute("/_app/belege/")({
   validateSearch: z.object({
@@ -93,7 +94,7 @@ function DocumentsPage() {
       </Link>
     );
   };
-  const running = auslesungAktiv(queue);
+  const running = auslesungAktiv(queue, documents);
   const open = documents.filter((d) => d.status === "neu").length;
   // Neu auslesen in der Reihenfolge, die die Liste gerade zeigt (#1735)
   const auslesung = useAuslesung(sorted);
