@@ -1,6 +1,7 @@
 import type { BwaForm } from "./bwa-kennzahlen.ts";
 import type { Zeitraum } from "./bwa-zeitraum.ts";
 import { addDays, isNonWorkingDay } from "./holidays.ts";
+import { addMonthsAnchored } from "./recurring.ts";
 
 /*
  * Was in einem Zeitraum noch fehlt und die Zahlen einer Auswertung verfälscht (#1635): offene Bankumsätze, ungebuchte Belege,
@@ -53,15 +54,19 @@ export function stichtag(zeitraum: Zeitraum, heute: string): string | null {
   return tag < zeitraum.von ? null : tag;
 }
 
+/** Ohne Umsätze so lange vor dem Zeitraum gilt ein Konto als stillgelegt */
+const STILLGELEGT_NACH_MONATEN = 3;
+
 /**
- * Konten, deren Umsätze vor dem Stichtag aufhören, auch schon vor dem Zeitraum; ein ausgeschlossenes Konto liefert der Server
- * gar nicht. Ein aufgelöstes Konto mit Zuordnungen lässt sich nicht ausschließen und bleibt gemeldet. Ohne Import fehlt nichts
- * Bekanntes, also kein Hinweis. Lücken mitten im Zeitraum erkennt das nicht.
+ * Konten, deren Umsätze vor dem Stichtag aufhören, auch bis 3 Monate vor dem Zeitraum. Endet die Abdeckung früher, gilt das
+ * Konto als stillgelegt, denn ein aufgelöstes Konto mit Zuordnungen lässt sich nicht ausschließen; ein ausgeschlossenes liefert
+ * der Server gar nicht. Ohne Import fehlt nichts Bekanntes, also kein Hinweis. Lücken mitten im Zeitraum erkennt das nicht.
  */
 export function kontenNurBis(konten: readonly KontoAbdeckung[], zeitraum: Zeitraum, heute: string): { id: string; name: string; bis: string }[] {
   const tag = stichtag(zeitraum, heute);
   if (!tag) return [];
-  return konten.flatMap((k) => (k.bis !== null && k.bis < tag ? [{ id: k.id, name: k.name, bis: k.bis }] : []));
+  const stillgelegtVor = addMonthsAnchored(zeitraum.von, -STILLGELEGT_NACH_MONATEN, Number(zeitraum.von.slice(8, 10)));
+  return konten.flatMap((k) => (k.bis !== null && k.bis >= stillgelegtVor && k.bis < tag ? [{ id: k.id, name: k.name, bis: k.bis }] : []));
 }
 
 /**
