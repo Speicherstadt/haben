@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { EricConfig, EricRawResult, EricRequest } from "./eric.ts";
 import type { WorkerRequest, WorkerResponse } from "./protocol.ts";
@@ -29,12 +29,17 @@ export interface EricProcessClientOptions extends EricConfig {
  * über sh ohne Core-Dump: Der Dump eines abgestürzten Bun-Prozesses ist mehrere GB groß (reservierter Speicher).
  * Wo ein Dienst ihn annimmt (apport, systemd-coredump), käme die Meldung des Absturzes erst nach Sekunden bis
  * Minuten, und auf dem Host landeten GB pro Absturz von ERiC. exec behält den IPC-Kanal (NODE_CHANNEL_FD).
+ *
+ * Bun liest beim Start die `.env` im Arbeitsverzeichnis und holte so zurück, was workerEnvironment herausnimmt (in der
+ * Entwicklung liegt dort `apps/web/.env` mit Schlüsseln und DATABASE_URL). Deshalb `--no-env-file` beim eigenen Start
+ * und als Arbeitsverzeichnis das des Workers statt dem der App, auch bei einem Worker-Befehl.
  */
-function spawnWorker(workerPath: string, command: readonly string[] = [process.execPath]) {
+function spawnWorker(workerPath: string, command: readonly string[] = [process.execPath, "--no-env-file"]) {
   return spawn("/bin/sh", ["-c", 'ulimit -c 0 && exec "$@"', "sh", ...command, workerPath], {
     stdio: ["ignore", "ignore", "pipe", "ipc"],
     serialization: "json",
     env: workerEnvironment(),
+    cwd: dirname(workerPath),
   });
 }
 

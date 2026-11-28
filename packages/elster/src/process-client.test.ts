@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -58,6 +58,21 @@ describe("workerEnvironment", () => {
     } finally {
       delete process.env.HABEN_ENCRYPTION_KEY;
       delete process.env.DATABASE_URL;
+    }
+  });
+
+  it("der Worker lädt die Schlüssel auch nicht aus einer .env neben sich", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "haben-worker-env-"));
+    try {
+      copyFileSync(join(fixtures, "worker-answer.mjs"), join(dir, "worker-answer.mjs"));
+      writeFileSync(join(dir, ".env"), "HABEN_ENCRYPTION_KEY=aus-der-env-datei\nDATABASE_URL=postgres://haben:geheim@db/haben\n");
+      const client = new EricProcessClient({ ericHome: "/opt/eric", workerPath: join(dir, "worker-answer.mjs") });
+      const { envNames } = JSON.parse((await client.validate(xml())).responseXml) as { envNames: string[] };
+      expect(envNames).toContain("PATH");
+      expect(envNames).not.toContain("HABEN_ENCRYPTION_KEY");
+      expect(envNames).not.toContain("DATABASE_URL");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });
