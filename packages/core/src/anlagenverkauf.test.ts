@@ -100,7 +100,10 @@ describe.each(["SKR03", "SKR04"] as const)("Rechnung mit „Verkauf aus dem Anla
   });
 
   it("EÜR: eine Rechnung mit Kennzeichen auf dem Erlöskonto (vor #2022 gebucht) zählt in Zeile 19, die Steuer bleibt Umsatzsteuer", () => {
-    const erloese = [...Object.values(a.erloese), ...Object.values(a.erloeseSonder), ...fruehereKonten(kr, a.erloeseSonder.kleinunternehmer)];
+    const kuFrueher = fruehereKonten(kr)
+      .filter((f) => f.heute === a.erloeseSonder.kleinunternehmer)
+      .map((f) => f.konto);
+    const erloese = [...Object.values(a.erloese), ...Object.values(a.erloeseSonder), ...kuFrueher];
     for (const konto of erloese) {
       expect(euerZuordnung(kr, konto, "anlagenverkauf"), konto).toBe("anlagenabgang");
       expect(euerZuordnung(kr, konto, "anlagenverkauf", true), konto).toBe("anlagenabgang");
