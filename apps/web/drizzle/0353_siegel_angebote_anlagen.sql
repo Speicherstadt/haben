@@ -108,12 +108,17 @@ BEGIN
       -- Werte der Anlage bis zum Jahr dieser AfA, so wie die Sperre sie ab der Buchung festhält: Sonder-AfA bis zu diesem Jahr,
       -- Abgang samt Entnahme und Wechsel zur linearen AfA, wenn sie in diesem Jahr oder früher liegen. Spätere Jahre bleiben
       -- änderbar und gehen nicht ein. Nur Siegel ab 0353 kennen den Teil; ältere behalten ihren Hash.
+      -- Die Spalte erzwingt keine Form: Ist sie keine Liste oder ein Eintrag ohne Jahr als Zahl, geht sie ganz bzw. der
+      -- Eintrag ein. Das weicht vom Siegel ab und ist ein Befund statt eines Abbruchs der ganzen Prüfung (wie #1716).
       IF cols ? 'assets' THEN
         content := content || jsonb_build_object('assets', (
           SELECT haben_pick(jsonb_build_object(
-                   'special_depreciation', (SELECT coalesce(jsonb_agg(e ORDER BY e), '[]'::jsonb)
-                                              FROM jsonb_array_elements(a.special_depreciation) e
-                                             WHERE (e ->> 'year')::integer <= d.year),
+                   'special_depreciation', CASE WHEN jsonb_typeof(a.special_depreciation) = 'array' THEN
+                     (SELECT coalesce(jsonb_agg(e ORDER BY e), '[]'::jsonb)
+                        FROM jsonb_array_elements(a.special_depreciation) e
+                       WHERE CASE WHEN coalesce(e ->> 'year', '') ~ '^[0-9]{1,4}$' THEN (e ->> 'year')::integer <= d.year
+                                  ELSE true END)
+                     ELSE a.special_depreciation END,
                    'disposal_date', CASE WHEN extract(year FROM a.disposal_date) <= d.year THEN a.disposal_date END,
                    'disposal_withdrawal', CASE WHEN extract(year FROM a.disposal_date) <= d.year THEN a.disposal_withdrawal END,
                    'linear_from_year', CASE WHEN a.linear_from_year <= d.year THEN a.linear_from_year END),

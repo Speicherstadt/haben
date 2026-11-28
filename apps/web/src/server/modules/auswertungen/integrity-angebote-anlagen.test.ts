@@ -310,6 +310,22 @@ describe.skipIf(!testDatabaseUrl)("Siegel für Angebote und Anlagen (Postgres)",
       expect(found).toEqual([{ art: "siegel", tabelle: "asset_depreciations", zeile: afa, befund: "Inhalt passt nicht zum Siegel" }]);
     });
 
+    // Die Spalte erzwingt keine Form; eine still eingetragene andere bricht die Prüfung nicht ab, sondern weicht vom Siegel ab
+    // (wie #1716)
+    it.each([
+      { was: "Objekt statt Liste", wert: '{"year": 2026, "amount": 1}' },
+      { was: "Jahr keine Zahl", wert: '[{"year": "2026a", "amount": 20000}]' },
+      { was: "Eintrag ohne Jahr", wert: '[{"year": 2026, "amount": 20000}, {"amount": 1}]' },
+      { was: "Eintrag kein Objekt", wert: '[{"year": 2026, "amount": 20000}, 1]' },
+    ])("meldet still geänderte Sonder-AfA ($was) am Siegel der AfA, statt die Prüfung abzubrechen", async ({ wert }) => {
+      const { afa, id } = await degressiv({ special: '[{"year": 2026, "amount": 20000}]' });
+      const found = await rolledBack(async (tx) => {
+        await tamper(tx, () => tx`update assets set special_depreciation = ${wert}::jsonb where id = ${id}`);
+        return problems(tx);
+      });
+      expect(found).toEqual([{ art: "siegel", tabelle: "asset_depreciations", zeile: afa, befund: "Inhalt passt nicht zum Siegel" }]);
+    });
+
     // Den Verweis setzt die App vor der ersten AfA; danach lehnt die Sperre auch das erste Setzen ab, sonst meldete das
     // Siegel der Anlage eine erlaubte Änderung
     it("lehnt einen Verweis auf die Eröffnungsbuchung nach gebuchter AfA ab", async () => {
