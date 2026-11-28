@@ -1,4 +1,4 @@
-import { ASSET_ACCOUNTS } from "./afa.ts";
+import { anlagenKonten } from "./ebilanz-anlagen.ts";
 import { postenForSaldo, type Posten } from "./hgb.ts";
 import { LOHN_KONTEN } from "./lohn-buchung.ts";
 import type { Cents } from "./money.ts";
@@ -24,8 +24,6 @@ const SALES = `${IS}.grossTradingProfit.totalOutput.netSales`;
 const GS = `${SALES}.grossSales`;
 const MAT = `${IS}.grossTradingProfit.materialServices`;
 const OC = `${IS}.otherCost`;
-const DEPR = `${IS}.deprAmort.fixAss.tan`;
-const EQUIPM = "bs.ass.fixAss.tan.otherEquipm";
 
 /** Position bei Soll-Saldo, Position bei Haben-Saldo; fehlt die zweite, gilt die erste mit negativem Wert */
 export type EbilanzZiel = readonly [soll: string, haben?: string];
@@ -257,7 +255,6 @@ function darlehenKonten(kontenrahmen: Kontenrahmen): [string, EbilanzZiel][] {
 
 function kontenOf(kontenrahmen: Kontenrahmen): Record<string, EbilanzZiel> {
   const a = ACCOUNTS[kontenrahmen];
-  const anlagen = ASSET_ACCOUNTS[kontenrahmen];
   const entries: [string, EbilanzZiel][] = [
     [a.kasse, ["bs.ass.currAss.cashEquiv.cash"]],
     [a.bank, ["bs.ass.currAss.cashEquiv.bank", "bs.eqLiab.liab.bank.other"]],
@@ -315,18 +312,7 @@ function kontenOf(kontenrahmen: Kontenrahmen): Record<string, EbilanzZiel> {
       EXPENSE_CATEGORIES[key][kontenrahmen],
       [position],
     ]),
-    [anlagen.anlage.kfz, [`${EQUIPM}.passengerCars`]],
-    [anlagen.anlage.edv, [`${EQUIPM}.office`]],
-    [anlagen.anlage.buero, [`${EQUIPM}.office`]],
-    [anlagen.anlage.sonstiges, [`${EQUIPM}.otherbga`]],
-    [anlagen.anlage.transport, [`${EQUIPM}.otherTransportMeans`]],
-    [anlagen.gwg, [`${EQUIPM}.gwg`]],
-    [anlagen.sammelposten, [`${EQUIPM}.gwgsammelposten`]],
-    [anlagen.afa, [`${DEPR}.other`]],
-    [anlagen.afaKfz, [`${DEPR}.other`]],
-    [anlagen.afaGwg, [`${DEPR}.lowValueAs`]],
-    [anlagen.afaSammelposten, [`${DEPR}.lowValueAsCollItem`]],
-    [anlagen.restbuchwert, [`${OC}.disposFixAss.bookValue.tan.other`]],
+    ...anlagenKonten(kontenrahmen),
     ...Object.entries(ERTRAGSTEUERN[kontenrahmen]),
     ...Object.entries(KAPITAL[kontenrahmen]),
     ...lohnKonten(kontenrahmen),

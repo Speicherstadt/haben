@@ -236,6 +236,43 @@ describe("Entnahme einer Anlage auf den Automatikkonten (#1970)", () => {
   }
 });
 
+describe("Verkauf einer Anlage per Rechnung (#2022)", () => {
+  // DATEV-Kontenrahmen 2026 (Art.-Nr. 11174/11175): 8827/8828 bzw. 4844/4848 „… steuerfrei § 4 Nr. 1a/1b UStG (bei Buchgewinn)“
+  // sind AM-Konten ohne Steuer; wie bei 8120/8125 bzw. 4120/4125 ordnet die Automatik nur die Kennzahl zu und bleibt an.
+  // 8820 bzw. 4845 mit 19 % trägt BU 40, weil Haben die Steuer als eigene Zeile bucht.
+  const rechnung = (forderung: string, konto: string, ust: string | null) => ({
+    date: "2026-10-15",
+    description: "Rechnung RE-1 · Kamera",
+    voucher: "RE-1",
+    locked: true,
+    lines: [
+      { account: forderung, debit: ust ? 47_600 : 40_000, credit: 0 },
+      { account: konto, debit: 0, credit: 40_000 },
+      ...(ust ? [{ account: ust, debit: 0, credit: 7_600 }] : []),
+    ],
+  });
+  for (const [kr, forderung, konto, ust] of [
+    ["SKR03", "1400", "8820", "1776"],
+    ["SKR04", "1200", "4845", "3806"],
+  ] as const) {
+    it(`${kr} ${konto} mit 19 %: BU-Schlüssel 40`, () => {
+      expect(splitEntry(rechnung(forderung, konto, ust), kr).find((r) => r.contraAccount === konto)?.buKey).toBe("40");
+    });
+  }
+  for (const [kr, forderung, konto] of [
+    ["SKR03", "1400", "8827"],
+    ["SKR03", "1400", "8828"],
+    ["SKR03", "1400", "8829"],
+    ["SKR04", "1200", "4844"],
+    ["SKR04", "1200", "4848"],
+    ["SKR04", "1200", "4849"],
+  ] as const) {
+    it(`${kr} ${konto} ohne Steuer: kein BU-Schlüssel, die Automatik ordnet die Kennzahl zu`, () => {
+      expect(splitEntry(rechnung(forderung, konto, null), kr).find((r) => r.contraAccount === konto)?.buKey).toBe("");
+    });
+  }
+});
+
 describe("Belegfeld 1 im Zeichensatz von DATEV (#675)", () => {
   // DATEV „ASCII-Import: Feldbeschreibungen für Standardformate“, Dok.-Nr. 1003221, Stand 13.08.2026, Feld 11: Ziffern,
   // Buchstaben und $ & % * + - /; unzulässig sind „insbesondere Leerzeichen, Umlaute, Punkt, Komma, Semikolon und Doppelpunkt“

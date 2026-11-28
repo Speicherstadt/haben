@@ -66,6 +66,7 @@ export * from "./afa.ts";
 export * from "./afa-sonder.ts";
 export * from "./afa-methoden.ts";
 export * from "./afa-entnahme.ts";
+export * from "./anlagenverkauf.ts";
 export * from "./private-use.ts";
 export * from "./recurrence.ts";
 export * from "./recurring.ts";

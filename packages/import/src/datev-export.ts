@@ -56,8 +56,11 @@ export interface DatevBookingRow {
  * private Kfz-Nutzung mit Umsatzsteuer (Verwendung von Gegenständen … 19 % USt (Fahrzeug-Nutzung)). Das Konto der
  * Kfz-Nutzung ohne Umsatzsteuer (SKR03 8924, SKR04 4639) ist ein KU-Konto ohne Automatik. SKR04 4630 („Verwendung von
  * Gegenständen … 7 % USt“, ebenfalls AM) trägt Sachentnahmen 7 %, die Haben vor #598 dort gebucht hat. Die Entnahme einer
- * Anlage (#1970) bucht auf „Erlöse aus Verkäufen Sachanlagevermögen 19 % USt“ bei Buchgewinn bzw. Buchverlust (SKR03
- * 8820/8801, SKR04 4845/6885, AM); die Konten ohne USt (8829/8800, 4849/6889) haben keine Automatik. Quelle: DATEV-Kontenrahmen
+ * Anlage (#1970) und ihr Verkauf per Rechnung mit 19 % (#2022) buchen auf „Erlöse aus Verkäufen Sachanlagevermögen 19 % USt“
+ * bei Buchgewinn bzw. Buchverlust (SKR03 8820/8801, SKR04 4845/6885, AM); die Konten ohne USt (8829/8800, 4849/6889) haben
+ * keine Automatik. Die steuerfreien Verkaufskonten nach § 4 Nr. 1a und 1b UStG (SKR03 8827/8828, SKR04 4844/4848) sind
+ * AM-Konten ohne Steuer: Wie bei den Erlösen aus Ausfuhr und innergemeinschaftlicher Lieferung (8120/8125 bzw. 4120/4125)
+ * rechnet DATEV dort keine Steuer heraus und ordnet nur die Kennzahl zu, deshalb kein BU 40. Quelle: DATEV-Kontenrahmen
  * SKR03 Art.-Nr. 11174 und SKR04 Art.-Nr. 11175, gültig für 2026.
  */
 export const DATEV_AUTOMATIC_ACCOUNTS: Record<DatevExportHeader["kontenrahmen"], ReadonlySet<string>> = {
