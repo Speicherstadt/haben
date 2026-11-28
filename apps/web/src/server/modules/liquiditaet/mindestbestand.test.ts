@@ -85,6 +85,21 @@ describe.skipIf(!testDatabaseUrl)("Liquiditätsvorschau: Mindestbestand (Postgre
       values (${ohne!.id}, 'b.csv', ${"c".repeat(64)}, 'csv', '2026-11-01', '2026-11-19', null, 1, 0)`;
     await ohneStand();
 
+    // Ein Zahlungsdienstleister ohne Umsätze steht mit 0 € im Bestand, sein Stand ist aber ebenso unbekannt
+    await sql`insert into bank_accounts (name, purpose, provider, ledger_index) values ('PayPal', 'zahlungsdienstleister', 'paypal', 1)`;
+    await ohneStand();
+
+    // Rücklage und privates Konto mit Stand zählen nicht
+    for (const [name, purpose, iban] of [
+      ["Rücklage", "ruecklage", "DE02500105170137075030"],
+      ["Privat", "privat", "DE02370501980001802057"],
+    ] as const) {
+      const [k] = await sql<{ id: string }[]>`insert into bank_accounts (name, purpose, iban) values (${name}, ${purpose}, ${iban}) returning id`;
+      await sql`insert into bank_imports (bank_account_id, filename, sha256, format, period_from, period_to, closing_balance, added, skipped)
+        values (${k!.id}, ${`${purpose}.csv`}, ${purpose.padEnd(64, "0")}, 'camt', '2026-11-01', '2026-11-19', 5000000, 1, 0)`;
+    }
+    await ohneStand();
+
     // Ein Konto mit Stand genügt; das ohne fehlt im Startwert, wie die Seite sagt
     const [giro] = await sql<{ id: string }[]>`insert into bank_accounts (name, purpose, iban)
       values ('Giro', 'geschaeft', 'DE89370400440532013000') returning id`;
