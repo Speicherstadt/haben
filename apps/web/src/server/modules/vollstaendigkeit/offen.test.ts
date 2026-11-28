@@ -46,7 +46,9 @@ describe.skipIf(!testDatabaseUrl)("Vollständigkeit: offene Vorgänge und Abdeck
   });
 
   beforeEach(async () => {
-    await leeren(sql)`truncate allocations, bank_transactions, bank_imports, bank_accounts, document_amounts, documents, invoice_lines, invoices,
+    await leeren(
+      sql,
+    )`truncate psp_connections, allocations, bank_transactions, bank_imports, bank_accounts, document_amounts, documents, invoice_lines, invoices,
       invoice_number_counters, contact_versions, contacts, journal_lines, journal_entries, company cascade`;
     await sql`insert into company (id, name, strasse, plz, ort, email, steuernummer, bundesland, kontenrahmen, versteuerung)
       values (1, 'Nordlicht Software', 'Hafenallee 3', '28217', 'Bremen', 'rechnung@example.com', '60/145/12345', 'HB', 'SKR03', 'ist')`;
@@ -142,6 +144,26 @@ describe.skipIf(!testDatabaseUrl)("Vollständigkeit: offene Vorgänge und Abdeck
       { id: giro.accountId, name: "Girokonto", bis: "2026-03-31" },
       { id: leer.id, name: "Tagesgeld", bis: null },
       { id: visa.accountId, name: "Visa", bis: "2026-03-12" },
+    ]);
+  }, 60_000);
+
+  it("Abdeckung mit Abruf: der Tag vor dem letzten erfolgreichen Abruf, in Berlin; nach einem Fehler nur der Import", async () => {
+    // Der Abruf speichert als Ende nur seinen letzten Umsatz (30.10.), ein Abruf ohne neue Umsätze gar keinen Import
+    const stripe = await bank.createProviderAccount(actor, { name: "Stripe", provider: "stripe" });
+    const paypal = await bank.createProviderAccount(actor, { name: "PayPal", provider: "paypal" });
+    for (const konto of [stripe, paypal])
+      await sql`insert into bank_imports (bank_account_id, filename, sha256, format, period_from, period_to, added, skipped)
+        values (${konto.id}, 'abruf.json', 'abc', 'stripe', '2026-10-01', '2026-10-30', 1, 0)`;
+    // 23:30 UTC ist in Berlin schon der 24.11.
+    await sql`insert into psp_connections (provider, name, account_id, ciphertext, fetch_from, abruf_start, bank_account_id, last_sync_at)
+      values ('stripe', 'Stripe', 'acct_beispiel', '\\x00', '2026-11-20', '2026-10-01', ${stripe.id}, '2026-11-23T23:30:00Z')`;
+    // Der letzte Anlauf schlug fehl: Der Zeitplan setzt last_sync_at trotzdem, abgerufen ist damit nichts
+    await sql`insert into psp_connections (provider, name, account_id, ciphertext, fetch_from, abruf_start, bank_account_id, last_sync_at, last_error)
+      values ('paypal', 'PayPal', 'HAENDLER1', '\\x00', '2026-11-20', '2026-10-01', ${paypal.id}, '2026-11-24T10:00:00Z', 'Abruf fehlgeschlagen: 503')`;
+
+    expect(await offen.kontoAbdeckung()).toEqual([
+      { id: paypal.id, name: "PayPal", bis: "2026-10-30" },
+      { id: stripe.id, name: "Stripe", bis: "2026-11-23" },
     ]);
   }, 60_000);
 });
