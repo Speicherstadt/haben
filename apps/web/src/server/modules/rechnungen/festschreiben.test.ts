@@ -1,6 +1,7 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kuerzeKorrektur } from "./test-korrektur.ts";
 import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /** Wird während des Renderns von PDF und XML aufgerufen; der Test misst dort, ob die Hash-Kette gesperrt ist */
@@ -281,13 +282,7 @@ describe.skipIf(!testDatabaseUrl)("Festschreiben: PDF und XML vor der Sperre der
     const original = await invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, draft())).id, kleinunternehmerStand);
     const correction = await invoices.createCorrection(actor, original.id, `${year}-06-01`);
     // Nicht die ganze unbezahlte Rechnung aufheben, das ist seit #2037 ein Storno: Entwurf kürzen
-    const geladen_correction = (await invoices.getInvoice(correction.id))!;
-    const { draftInputOf: zuEingabe } = await import("./external-reference.ts");
-    const eingabe_correction = zuEingabe(geladen_correction.invoice, geladen_correction.lines);
-    await invoices.updateDraft(actor, correction.id, {
-      ...eingabe_correction,
-      lines: eingabe_correction.lines.map((z, n) => (n === 0 ? { ...z, unitPrice: Math.floor(z.unitPrice / 2) } : z)),
-    });
+    await kuerzeKorrektur(invoices, actor, correction.id);
     const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     let release!: () => void;
     const released = new Promise<void>((resolve) => (release = resolve));

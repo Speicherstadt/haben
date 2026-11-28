@@ -5,6 +5,7 @@ import { parseEInvoiceXml } from "@haben/einvoice";
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kuerzeKorrektur } from "./test-korrektur.ts";
 import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 describe.skipIf(!testDatabaseUrl)("Zahlungssatz bei Storno und Korrektur (Postgres)", () => {
@@ -101,13 +102,7 @@ describe.skipIf(!testDatabaseUrl)("Zahlungssatz bei Storno und Korrektur (Postgr
     const invoice = await original();
     const entwurf = await invoices.createCorrection(actor, invoice.id, "2026-11-12");
     // Nicht die ganze unbezahlte Rechnung aufheben, das ist seit #2037 ein Storno: Entwurf kürzen
-    const geladen_entwurf = (await invoices.getInvoice(entwurf.id))!;
-    const { draftInputOf: zuEingabe } = await import("./external-reference.ts");
-    const eingabe_entwurf = zuEingabe(geladen_entwurf.invoice, geladen_entwurf.lines);
-    await invoices.updateDraft(actor, entwurf.id, {
-      ...eingabe_entwurf,
-      lines: eingabe_entwurf.lines.map((z, n) => (n === 0 ? { ...z, unitPrice: Math.floor(z.unitPrice / 2) } : z)),
-    });
+    await kuerzeKorrektur(invoices, actor, entwurf.id);
     const correction = await invoices.finalizeInvoice(actor, entwurf.id, kleinunternehmerStand);
     expect(textOf(correction.pdf!)).not.toContain("Der Betrag wird Ihnen erstattet.");
     expect(correction.xml).not.toContain("Der Betrag wird Ihnen erstattet.");

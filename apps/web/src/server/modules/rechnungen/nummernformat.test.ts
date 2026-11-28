@@ -1,6 +1,7 @@
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kuerzeKorrektur } from "./test-korrektur.ts";
 import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 describe.skipIf(!testDatabaseUrl)("Nummernformat (Postgres)", () => {
@@ -283,13 +284,7 @@ describe.skipIf(!testDatabaseUrl)("Nummernformat (Postgres)", () => {
     await formats.saveNumberFormats(actor, { invoice: "RE-{KUNDENNR}-{NNN}", quote: "AN-{JJJJ}-{NNN}", invoiceRunning: true });
     const korrektur = await invoices.createCorrection(actor, original.id, "2026-03-05");
     // Nicht die ganze unbezahlte Rechnung aufheben, das ist seit #2037 ein Storno: Entwurf kürzen
-    const geladen_korrektur = (await invoices.getInvoice(korrektur.id))!;
-    const { draftInputOf: zuEingabe } = await import("./external-reference.ts");
-    const eingabe_korrektur = zuEingabe(geladen_korrektur.invoice, geladen_korrektur.lines);
-    await invoices.updateDraft(actor, korrektur.id, {
-      ...eingabe_korrektur,
-      lines: eingabe_korrektur.lines.map((z, n) => (n === 0 ? { ...z, unitPrice: Math.floor(z.unitPrice / 2) } : z)),
-    });
+    await kuerzeKorrektur(invoices, actor, korrektur.id);
     await expect(invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand)).rejects.toThrow(/Kundennummer/);
     await updateKundennummer(ohne, "ACME");
     const final = await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand);

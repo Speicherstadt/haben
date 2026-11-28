@@ -2,6 +2,7 @@ import { issueDateBeforeLastFinalized } from "@haben/core";
 import type postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { leeren, setupTestDb, testDatabaseUrl } from "../../test-db.ts";
+import { kuerzeKorrektur } from "./test-korrektur.ts";
 import { kleinunternehmerStand } from "../auswertungen/test-umsatz-stand.ts";
 
 /*
@@ -108,13 +109,7 @@ describe.skipIf(!testDatabaseUrl)("Nummernkreis je Kunde, Vergabe (Postgres, #14
     await formats.saveNumberFormats(actor, GEMEINSAM);
     const korrektur = await invoices.createCorrection(actor, a1.id, "2026-12-16");
     // Nicht die ganze unbezahlte Rechnung aufheben, das ist seit #2037 ein Storno: Entwurf kürzen
-    const geladen_korrektur = (await invoices.getInvoice(korrektur.id))!;
-    const { draftInputOf: zuEingabe } = await import("./external-reference.ts");
-    const eingabe_korrektur = zuEingabe(geladen_korrektur.invoice, geladen_korrektur.lines);
-    await invoices.updateDraft(actor, korrektur.id, {
-      ...eingabe_korrektur,
-      lines: eingabe_korrektur.lines.map((z, n) => (n === 0 ? { ...z, unitPrice: Math.floor(z.unitPrice / 2) } : z)),
-    });
+    await kuerzeKorrektur(invoices, actor, korrektur.id);
     const korrigiert = await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand);
     const storno = await invoices.cancelInvoice(actor, a2.id, "2026-12-17");
     // Zwei Rechnungen aus zwei Kundenkreisen stornieren im gemeinsamen Kreis ohne Kollision hintereinander weg
@@ -197,13 +192,7 @@ describe.skipIf(!testDatabaseUrl)("Nummernkreis je Kunde, Vergabe (Postgres, #14
     expect(beleg!.number_contact_id).toBe(contactA);
     const korrektur = await invoices.createCorrection(actor, zweites.id, "2026-12-16");
     // Nicht die ganze unbezahlte Rechnung aufheben, das ist seit #2037 ein Storno: Entwurf kürzen
-    const geladen_korrektur = (await invoices.getInvoice(korrektur.id))!;
-    const { draftInputOf: zuEingabe } = await import("./external-reference.ts");
-    const eingabe_korrektur = zuEingabe(geladen_korrektur.invoice, geladen_korrektur.lines);
-    await invoices.updateDraft(actor, korrektur.id, {
-      ...eingabe_korrektur,
-      lines: eingabe_korrektur.lines.map((z, n) => (n === 0 ? { ...z, unitPrice: Math.floor(z.unitPrice / 2) } : z)),
-    });
+    await kuerzeKorrektur(invoices, actor, korrektur.id);
     const korrigiert = await invoices.finalizeInvoice(actor, korrektur.id, kleinunternehmerStand);
     expect(korrigiert.number).toBe("RE-2026-ACME-004");
     // Festschreiben eines neuen Belegs im Kreis des Nachzüglers scheitert weiterhin an der Eindeutigkeit

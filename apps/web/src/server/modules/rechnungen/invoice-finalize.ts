@@ -343,6 +343,9 @@ async function prepareReferences(tx: Tx, invoice: Invoice, lines: InvoiceLine[],
   let corrects: Invoice | undefined;
   if (invoice.correctsId) {
     [corrects] = await tx.select().from(schema.invoices).where(eq(schema.invoices.id, invoice.correctsId));
+    // Verteidigungslinie ohne eigenen Test: finalizeIssues prüft dieselben zwei Bedingungen weiter oben in derselben
+    // Transaktion und wirft dort schon (finalizeDraft, Schritt „Noch nicht bereit"). Diese Stelle ist damit verdeckt und
+    // greift nur, wenn die Prüfung dort entfällt; ein Test erreichte sie nur mit einer Attrappe für finalizeIssues.
     const problem = corrects
       ? ((await originalProblem(corrects, tx, invoice)) ?? (await reductionProblem(invoice, corrects, tx)))
       : "Die korrigierte Rechnung fehlt";
