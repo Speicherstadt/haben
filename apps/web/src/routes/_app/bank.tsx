@@ -16,6 +16,8 @@ import { Icon } from "../../components/Icon.tsx";
 import type { ActionMenuItem } from "../../components/MoreActionsMenu.tsx";
 import type { Kontokarte } from "../../lib/kontenkarten.ts";
 import { KontoVerbindenKopf, NameUndZweckDialog, SearchBox, useDateiImport } from "./-bank-konto.tsx";
+import { AmazonAbrufStatus, amazonMenuePunkt, useAmazonAbruf } from "../../components/AmazonAbruf.tsx";
+import { amazonSpEingerichtetFn } from "../../server/functions/amazon.ts";
 import { menueGruppe } from "../../lib/menue-gruppe.ts";
 import bankStyles from "../../styles/bank.css?url";
 import { type KontoAbruf, KontoHinweis, useKontoAbruf } from "./-bank-abruf.tsx";
@@ -45,17 +47,23 @@ export const Route = createFileRoute("/_app/bank")({
     sort: search.sort,
     dir: search.dir,
   }),
-  loader: ({ deps }) =>
-    getBankOverview({
-      data: {
-        konto: deps.konto,
-        filter: deps.filter ?? "offen",
-        suche: deps.suche ?? "",
-        umsatz: deps.umsatz,
-        sort: deps.sort ?? "datum",
-        dir: deps.dir ?? "ab",
-      },
-    }),
+  loader: async ({ deps }) => {
+    const [overview, amazonAbruf] = await Promise.all([
+      getBankOverview({
+        data: {
+          konto: deps.konto,
+          filter: deps.filter ?? "offen",
+          suche: deps.suche ?? "",
+          umsatz: deps.umsatz,
+          sort: deps.sort ?? "datum",
+          dir: deps.dir ?? "ab",
+        },
+      }),
+      // „Amazon Datenabruf“ nur mit eingerichtetem Zugang (#1947)
+      amazonSpEingerichtetFn(),
+    ]);
+    return { ...overview, amazonAbruf };
+  },
   head: () => ({ meta: [{ title: "Bank · Haben" }], links: [{ rel: "stylesheet", href: bankStyles }] }),
   component: BankPage,
 });
@@ -90,7 +98,16 @@ function kartenAktionen(
     nameUndZweck,
     zuVerbindungen,
     hatVerbindungen,
-  }: { abruf: KontoAbruf; dateiFuer: (id: string) => void; nameUndZweck: (id: string) => void; zuVerbindungen: () => void; hatVerbindungen: boolean },
+    amazon,
+  }: {
+    abruf: KontoAbruf;
+    dateiFuer: (id: string) => void;
+    nameUndZweck: (id: string) => void;
+    zuVerbindungen: () => void;
+    hatVerbindungen: boolean;
+    /** „Amazon Datenabruf“ an den Amazon-Karten, sobald der Zugang eingerichtet ist (#1947) */
+    amazon: { konten: Set<string>; starten: () => void; laeuft: boolean } | null;
+  },
 ): ActionMenuItem[] {
   const alle: ActionMenuItem = { key: "verbindungen", label: "Alle Verbindungen", trenner: true, onSelect: zuVerbindungen };
   if (karte === "alle")
@@ -99,7 +116,9 @@ function kartenAktionen(
       { ...alle, trenner: hatVerbindungen },
     ];
   const z = karte.zugang;
+  const amazonKarte = amazon?.konten.has(karte.id) ?? false;
   return [
+    ...(amazonKarte && amazon ? [amazonMenuePunkt(amazon)] : []),
     z
       ? { key: "abrufen", label: "Jetzt abrufen", disabled: !abruf.abrufbar(z).geht, onSelect: () => void abruf.abrufen(z) }
       : { key: "datei", label: "Datei importieren", onSelect: () => dateiFuer(karte.id) },
@@ -128,12 +147,22 @@ function BankPage() {
     von: "/bank",
   });
   const datei = useDateiImport(data);
+  const amazon = useAmazonAbruf(datei.setMessages);
+  const hatAmazonKonto = data.accounts.some((a) => a.provider === "amazon");
+  const amazonKonten = new Set(data.accounts.filter((a) => a.provider === "amazon").map((a) => a.id));
   const [nameFuer, setNameFuer] = useState<string | null>(null);
   const nameKonto = data.accounts.find((a) => a.id === nameFuer);
   const zuVerbindungen = () => void navigate({ to: "/bank/verbindungen" });
   const hatVerbindungen = data.karten.karten.some((k) => k.zugang);
   const aktionen = (k: Kontokarte | "alle") =>
-    kartenAktionen(k, { abruf, dateiFuer: datei.oeffnenFuer, nameUndZweck: setNameFuer, zuVerbindungen, hatVerbindungen });
+    kartenAktionen(k, {
+      abruf,
+      dateiFuer: datei.oeffnenFuer,
+      nameUndZweck: setNameFuer,
+      zuVerbindungen,
+      hatVerbindungen,
+      amazon: data.amazonAbruf && hatAmazonKonto ? { konten: amazonKonten, starten: () => void amazon.start(), laeuft: amazon.laeuft } : null,
+    });
 
   const bestaetigen = useBestaetigen(sichtbar);
   useLeertasteMarkiert(bestaetigen);
@@ -144,6 +173,7 @@ function BankPage() {
   const bereich = (
     <section key="abruf" className="bank-abruf" aria-label="Automatischer Abruf">
       {abruf.bereich}
+      <AmazonAbrufStatus abruf={amazon} />
       {datei.meldungen}
     </section>
   );
