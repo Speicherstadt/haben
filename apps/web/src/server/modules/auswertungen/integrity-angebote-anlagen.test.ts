@@ -301,6 +301,15 @@ describe.skipIf(!testDatabaseUrl)("Siegel für Angebote und Anlagen (Postgres)",
       expect(found).toEqual([{ art: "siegel", tabelle: "asset_depreciations", zeile: afa, befund: "Inhalt passt nicht zum Siegel" }]);
     });
 
+    it("meldet eine still geänderte Entnahme im gebuchten Abgangsjahr", async () => {
+      const { afa, id } = await degressiv({ disposal: "2026-09-30" });
+      const found = await rolledBack(async (tx) => {
+        await tamper(tx, () => tx`update assets set disposal_withdrawal = '{"value": 1, "inputVat": false}' where id = ${id}`);
+        return problems(tx);
+      });
+      expect(found).toEqual([{ art: "siegel", tabelle: "asset_depreciations", zeile: afa, befund: "Inhalt passt nicht zum Siegel" }]);
+    });
+
     // Den Verweis setzt die App vor der ersten AfA; danach lehnt die Sperre auch das erste Setzen ab, sonst meldete das
     // Siegel der Anlage eine erlaubte Änderung
     it("lehnt einen Verweis auf die Eröffnungsbuchung nach gebuchter AfA ab", async () => {
