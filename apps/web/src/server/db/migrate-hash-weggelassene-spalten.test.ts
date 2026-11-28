@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,14 +25,18 @@ describe.skipIf(!testDatabaseUrl)("Migration: Hashes von PDF und XML im Bestand 
     await admin`create database ${admin(name)}`;
     await admin.end();
     const previous = mkdtempSync(join(tmpdir(), "haben-migrationen-"));
-    cpSync(MIGRATIONS, previous, { recursive: true });
-    const full = JSON.parse(readFileSync(join(MIGRATIONS, "meta", "_journal.json"), "utf8"));
-    const idx = full.entries.findIndex((e: { tag: string }) => e.tag.endsWith("_hash_weggelassene_spalten"));
-    writeFileSync(join(previous, "meta", "_journal.json"), JSON.stringify({ ...full, entries: full.entries.slice(0, idx) }));
-    sql = postgres(testDatabaseUrl!, { max: 1, onnotice: () => {} });
-    const { drizzle } = await import("drizzle-orm/postgres-js");
-    const { migrate } = await import("drizzle-orm/postgres-js/migrator");
-    await migrate(drizzle(sql), { migrationsFolder: previous });
+    try {
+      cpSync(MIGRATIONS, previous, { recursive: true });
+      const full = JSON.parse(readFileSync(join(MIGRATIONS, "meta", "_journal.json"), "utf8"));
+      const idx = full.entries.findIndex((e: { tag: string }) => e.tag.endsWith("_hash_weggelassene_spalten"));
+      writeFileSync(join(previous, "meta", "_journal.json"), JSON.stringify({ ...full, entries: full.entries.slice(0, idx) }));
+      sql = postgres(testDatabaseUrl!, { max: 1, onnotice: () => {} });
+      const { drizzle } = await import("drizzle-orm/postgres-js");
+      const { migrate } = await import("drizzle-orm/postgres-js/migrator");
+      await migrate(drizzle(sql), { migrationsFolder: previous });
+    } finally {
+      rmSync(previous, { recursive: true, force: true });
+    }
   }, 120_000);
 
   afterAll(async () => {
