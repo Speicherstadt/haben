@@ -35,6 +35,16 @@ function duplicateFields(original: Document, amounts: DocumentAmount[], position
   const ansicht = formularansicht(original, positionen);
   const alsPositionen = ansicht.splits.length > 0;
   const fremd = original.currency !== "EUR";
+  // Eine Aufteilung des bisherigen Formulars in Fremdwährung hat kein Netto laut Beleg; als Positionen ergäbe sie 0, als
+  // Aufteilung bleibt sie wie gespeichert neben den Beträgen je Satz
+  const alsAufteilung = fremd && ansicht.splits.some((p) => p.originalNet === null);
+  const zeilen = ansicht.splits.map((p) => ({
+    category: p.category as ExpenseCategory,
+    ownAccountId: p.ownAccountId,
+    taxRate: p.taxRate as Satz,
+    net: fremd && !alsAufteilung ? (p.originalNet ?? 0) : p.net,
+    description: p.description,
+  }));
   return {
     supplierName: original.supplierName,
     supplierUstId: original.supplierUstId,
@@ -59,13 +69,8 @@ function duplicateFields(original: Document, amounts: DocumentAmount[], position
       originalNet: a.originalNet,
       originalTax: a.originalTax,
     })),
-    positions: ansicht.splits.map((p) => ({
-      category: p.category as ExpenseCategory,
-      ownAccountId: p.ownAccountId,
-      taxRate: p.taxRate as Satz,
-      net: fremd ? (p.originalNet ?? 0) : p.net,
-      description: p.description,
-    })),
+    splits: alsAufteilung ? zeilen : [],
+    positions: alsAufteilung ? [] : zeilen,
   };
 }
 
