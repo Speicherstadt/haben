@@ -31,6 +31,8 @@ describe("Rhythmus der Darlehensraten", () => {
     expect(darlehenRhythmus(["2026-01-31", "2026-09-30"])).toBe(6);
     expect(darlehenRhythmus(["2026-01-31", "2026-06-20"])).toBe(6);
     expect(darlehenRhythmus(["2026-01-31", "2026-11-30"])).toBe(12);
+    // 8½ Monate sind noch halbjährlich, erst ab 9 jährlich
+    expect(darlehenRhythmus(["2026-01-01", "2026-09-16"])).toBe(6);
     // Eine Rate außer der Reihe ändert den Rhythmus nicht: der häufigste der letzten drei Abstände
     expect(darlehenRhythmus(["2026-03-31", "2026-06-30", "2026-09-30", "2026-10-30"])).toBe(3);
   });
@@ -120,6 +122,12 @@ describe("Darlehensraten fortschreiben", () => {
     // Zum Monatsende: Den 31.01.2027 (Sonntag) bucht die Bank schon am Freitag, dem 29., ab; keine Rate zum 01.02. steht offen
     const d = darlehen([...rate("2026-11-30", 800_00, 200_00), ...rate("2026-12-31", 800_00, 200_00), ...rate("2027-01-29", 800_00, 200_00)]);
     expect(kurz(d, { heute: "2027-02-10", bis: "2027-03-31" }).map(([datum]) => datum)).toEqual(["2027-03-01", "2027-03-31"]);
+  });
+
+  it("auch drei Tage vor dem Termin abgebucht gehört die Rate zu ihm", () => {
+    // Zum 15.: Der 15.02. und 15.03.2026 sind Sonntage; die Bank bucht im März schon am Donnerstag, dem 12., ab
+    const d = darlehen([...rate("2026-01-15", 800_00, 200_00), ...rate("2026-02-16", 800_00, 200_00), ...rate("2026-03-12", 800_00, 200_00)]);
+    expect(kurz(d, { heute: "2026-03-20", bis: "2026-05-31" }).map(([datum]) => datum)).toEqual(["2026-04-15", "2026-05-15"]);
   });
 
   it("Tilgung und Zinsen an verschiedenen Tagen: je Teil ein eigener Termin", () => {
@@ -229,6 +237,13 @@ describe("Darlehensraten fortschreiben", () => {
     expect(kurz(quartal).map(([datum]) => datum)).toEqual(["2026-09-30", "2026-12-31", "2027-03-31"]);
   });
 
+  it("ruhend genau ab dem Tag nach zwei Intervallen und 30 Tagen", () => {
+    // Letzte Rate zum 31.08.: 31.10. plus 30 Tage ist der 30.11.
+    const d = darlehen([...rate("2026-07-31", 800_00, 200_00), ...rate("2026-08-31", 800_00, 200_00)]);
+    expect(kurz(d, { heute: "2026-11-30", bis: "2026-12-31" }).map(([datum]) => datum)).toEqual(["2026-09-30", "2026-11-02", "2026-11-30", "2026-12-31"]);
+    expect(kurz(d, { heute: "2026-12-01", bis: "2026-12-31" })).toEqual([]);
+  });
+
   it("überfällig nur nach dem ersten Bankumsatz, ohne Bankumsätze nie", () => {
     const d = darlehen([...rate("2026-08-31", 800_00, 200_00), ...rate("2026-09-30", 800_00, 200_00)]);
     // Rate zum 31.10. (Samstag) am Montag, dem 2. November
@@ -240,10 +255,29 @@ describe("Darlehensraten fortschreiben", () => {
     expect(kurz(d, { bis: "2026-11-30", bankdatenAb: null })).toEqual([["2026-11-30", 1000_00]]);
   });
 
+  it("ein Termin heute ist nicht überfällig und steht auch ohne Bankumsätze", () => {
+    const d = darlehen([...rate("2026-09-30", 800_00, 200_00), ...rate("2026-10-30", 800_00, 200_00)]);
+    expect(kurz(d, { heute: "2026-11-30", bis: "2026-12-31", bankdatenAb: null })).toEqual([
+      ["2026-11-30", 1000_00],
+      ["2026-12-30", 1000_00],
+    ]);
+  });
+
   it("Tage ohne Ausgang und ohne Zinsen", () => {
     // Eine Erstattung an einem eigenen Tag ist keine Rate: Die Rate zum 30.11. bleibt überfällig
     const erstattung = darlehen([...rate("2026-09-30", 500_00), ...rate("2026-10-30", 500_00), { datum: "2026-12-02", teil: "tilgung", betrag: 50_00 }]);
     expect(kurz(erstattung, { heute: "2026-12-10", bis: "2026-12-31" })).toEqual([
+      ["2026-11-30", 500_00],
+      ["2026-12-30", 500_00],
+    ]);
+    // Eine Rücklastschrift am Tag der Rate hebt sie auf: Der Tag zählt nicht, die Rate zum 30.11. bleibt überfällig
+    const zurueck = darlehen([
+      ...rate("2026-09-30", 500_00),
+      ...rate("2026-10-30", 500_00),
+      ...rate("2026-11-30", 500_00),
+      { datum: "2026-11-30", teil: "tilgung", betrag: 500_00 },
+    ]);
+    expect(kurz(zurueck, { heute: "2026-12-10", bis: "2026-12-31" })).toEqual([
       ["2026-11-30", 500_00],
       ["2026-12-30", 500_00],
     ]);
