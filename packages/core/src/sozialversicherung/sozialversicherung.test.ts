@@ -235,6 +235,18 @@ describe("Minijob (gewerblich)", () => {
     });
   });
 
+  it("rundet über 175 € den vollen RV-Beitrag und den Anteil des Beschäftigten, der Arbeitgeber trägt die Differenz", () => {
+    // 542,10 € (#1619), Ausdruck des Minijob-Rechners der Minijob-Zentrale: RV 18,6 % = 100,83 € (Beitragsgruppe 0100),
+    // Anteil des Beschäftigten 3,6 % = 19,52 €, Arbeitgeber 100,83 € − 19,52 € = 81,31 € (nicht 15 % = 81,32 €);
+    // Abgaben an die Minijob-Zentrale zusammen 188,48 €
+    // https://www.minijob-zentrale.de/DE/fuer-gewerbetreibende/minijob-rechner
+    const r = rechne({ ...MINIJOB, entgelt: 542_10 });
+    expect(r.rv).toEqual({ an: 19_52, ag: 81_31 });
+    expect(r.rv.an + r.rv.ag).toBe(100_83);
+    expect(r.arbeitgeber).toBe(168_96);
+    expect(r.arbeitnehmer + r.arbeitgeber).toBe(188_48);
+  });
+
   it("rechnet den RV-Anteil unter 175 € aus der Mindestbemessung", () => {
     // Minijob-Zentrale, FAQ „Kann ich von jedem noch so kleinen Gehalt in die Rentenversicherung einzahlen?“: 150 € →
     // Mindestbeitrag 32,55 €, AG 22,50 €, AN 10,05 € (§ 2 Abs. 1 Satz 5 BVV)
