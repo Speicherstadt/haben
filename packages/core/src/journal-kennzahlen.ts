@@ -18,6 +18,8 @@ export const JOURNAL_KENNZAHLEN = [
   "kz86",
   "tax86",
   "kz21",
+  /** Steuerpflichtige Umsätze, für die der Leistungsempfänger die Steuer nach § 13b Abs. 5 UStG schuldet (Zeile 34) */
+  "kz60",
   "kz45",
   "kz48",
   "kz66",
@@ -69,6 +71,7 @@ const BEMESSUNG: Record<string, Ziel> = {
   USt19: { feld: "kz81", seite: "haben" },
   USt7: { feld: "kz86", seite: "haben" },
   RC: { feld: "kz21", seite: "haben" },
+  RC13bBau: { feld: "kz60", seite: "haben" },
   Drittland: { feld: "kz45", seite: "haben" },
   NichtSteuerbar: { feld: "kz45", seite: "haben" },
   Steuerfrei: { feld: "kz48", seite: "haben" },
@@ -149,7 +152,7 @@ export function leereJournalKennzahlen(): JournalKennzahlen {
 /**
  * Bemessungsgrundlagen, die das Journal bei Ist-Versteuerung erst mit der Zahlung bucht: steuerpflichtige und steuerfreie
  * inländische Umsätze (Kz 81, 86, 43, 48, 0 %), dazu Kz 50: Ein ausgefallener Rest war bei Ist nie gemeldet. Reverse
- * Charge, innergemeinschaftliche Lieferung und Drittland zählen auch bei Ist mit der Rechnung (DATEV-Dok. 1080673;
+ * Charge (auch § 13b im Inland, Kz 60), innergemeinschaftliche Lieferung und Drittland zählen auch bei Ist mit der Rechnung (DATEV-Dok. 1080673;
  * NACH_RECHNUNGSDATUM in vat-figures.ts). Kz 43 und 48 meldet die Voranmeldung trotzdem im Zeitraum der Leistung
  * (IST_NACH_LEISTUNG).
  */

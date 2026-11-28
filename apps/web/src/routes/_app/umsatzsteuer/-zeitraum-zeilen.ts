@@ -20,6 +20,14 @@ export function kennzahlZeilen(data: PageData, shown: Ustva, computed: Ustva, ed
       sources: treated("reverse_charge"),
     },
     {
+      kz: "60",
+      field: "kz60" as const,
+      label: "Bauleistungen, für die der Kunde die Steuer schuldet (§ 13b UStG)",
+      base: shown.kz60,
+      tax: null,
+      sources: treated("bauleistung_13b"),
+    },
+    {
       kz: "45",
       field: "kz45" as const,
       label: "Übrige nicht steuerbare Umsätze (Leistungsort nicht im Inland)",

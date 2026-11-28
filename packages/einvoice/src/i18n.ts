@@ -17,6 +17,7 @@ const EN_UNITS: Record<UnitLabel, [string, string]> = {
 
 const EN_NOTES: Record<Exclude<TaxTreatment, "regulaer">, string> = {
   reverse_charge: "Reverse charge: VAT liability of the recipient (Art. 196 VAT Directive).",
+  bauleistung_13b: "Reverse charge: VAT liability of the recipient for construction services (§ 13b(2) No. 4, (5) UStG).",
   drittland: "Not taxable in Germany (place of supply outside the EU).",
   eu_sonstige: "Not taxable in Germany (confirmed place of supply in another EU member state).",
   ig_lieferung: "VAT-exempt intra-Community supply of goods (Art. 138 VAT Directive; § 4 No. 1(b), § 6a UStG).",

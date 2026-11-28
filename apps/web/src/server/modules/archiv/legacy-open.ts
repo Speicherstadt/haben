@@ -9,6 +9,7 @@ import {
   type ExpenseCategory,
   type LegacyOpenAt,
   type TakeoverCutoff,
+  type TaxTreatment,
 } from "@haben/core";
 import { and, eq, getTableColumns, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import { withActor } from "../../db/actor.ts";
@@ -336,6 +337,23 @@ async function lockedCovering(tx: Tx, voucher: LegacyVoucher, cutoff: TakeoverCu
   return covering;
 }
 
+/**
+ * Kz 45 und Kz 60 meldet Haben auch bei Ist mit der Rechnung (NACH_RECHNUNGSDATUM). Ob das Quellprogramm bei Ist ebenso oder
+ * mit der Zahlung gemeldet hat, ist nicht belegt (#1402, #1934); im zweiten Fall stünde ein am Stichtag offener Posten in
+ * keiner Voranmeldung.
+ */
+function assertIstMeldung(taxTreatment: TaxTreatment, versteuerung: string): void {
+  if (versteuerung !== "ist") return;
+  if (taxTreatment === "drittland")
+    throw new TakeoverError(
+      "Leistung ins Drittland bei Ist-Versteuerung: Haben meldet Kz 45 mit der Rechnung, das Quellprogramm womöglich erst mit der Zahlung. Den Posten von Hand erfassen.",
+    );
+  if (taxTreatment === "bauleistung_13b")
+    throw new TakeoverError(
+      "Bauleistung nach § 13b bei Ist-Versteuerung: Haben meldet Kz 60 mit der Rechnung, das Quellprogramm womöglich erst mit der Zahlung. Den Posten von Hand erfassen.",
+    );
+}
+
 async function takeOverInvoice(
   actor: string,
   voucher: LegacyVoucher,
@@ -368,13 +386,7 @@ async function takeOverInvoice(
   return withActor(actor, async (tx) => {
     const covering = await lockedCovering(tx, voucher, cutoff);
     const company = await openBooks(tx);
-    // Kz 45 meldet Haben auch bei Ist mit der Rechnung (NACH_RECHNUNGSDATUM). Ob das Quellprogramm bei Ist ebenso oder mit
-    // der Zahlung gemeldet hat, ist nicht belegt (#1402); im zweiten Fall stünde eine am Stichtag offene Drittlandsleistung
-    // in keiner Voranmeldung.
-    if (taxTreatment === "drittland" && company.versteuerung === "ist")
-      throw new TakeoverError(
-        "Leistung ins Drittland bei Ist-Versteuerung: Haben meldet Kz 45 mit der Rechnung, das Quellprogramm womöglich erst mit der Zahlung. Den Posten von Hand erfassen.",
-      );
+    assertIstMeldung(taxTreatment, company.versteuerung);
     let [contact] = voucher.contactId ? await tx.select().from(schema.contacts).where(eq(schema.contacts.id, voucher.contactId)) : [];
     if (!contact) {
       const raw = voucher.raw as { address?: { name?: string; street?: string; zip?: string; city?: string; countryCode?: string } };

@@ -322,6 +322,8 @@ export const vatReturns = pgTable(
     /** Umsätze ohne Steuer: Reverse Charge im EU-Ausland, nicht steuerbar, steuerfrei ohne Vorsteuerabzug */
     kz21: integer("kz21").$type<Cents>().notNull().default(0),
     kz45: integer("kz45").$type<Cents>().notNull().default(0),
+    /** Bauleistungen, für die der Kunde die Steuer schuldet (§ 13b Abs. 5 UStG) */
+    kz60: integer("kz60").$type<Cents>().notNull().default(0),
     kz48: integer("kz48").$type<Cents>().notNull().default(0),
     kz66: integer("kz66").$type<Cents>().notNull().default(0),
     /** § 13b als Leistungsempfänger: Bemessungsgrundlagen 46/84, Steuer 47/85, Vorsteuer 67 */
@@ -366,6 +368,7 @@ export const vatReturns = pgTable(
       kz86: Cents;
       kz21?: Cents;
       kz45?: Cents;
+      kz60?: Cents;
       kz48?: Cents;
       kz66: Cents;
       kz46?: Cents;

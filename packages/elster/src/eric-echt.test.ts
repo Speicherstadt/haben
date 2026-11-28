@@ -92,6 +92,8 @@ const alleKennzahlen: Omit<UstvaXmlInput["figures"], "kz83"> = {
   kz62: 38_000,
   // Minderung bei Uneinbringlichkeit, in Kz 81 enthalten (#1267)
   kz50: 200_000,
+  // Bauleistungen nach § 13b Abs. 5 UStG als Leistender (#1934)
+  kz60: 150_000,
 };
 
 // ---------------------------------------------------------------------------
