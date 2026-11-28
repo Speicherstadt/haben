@@ -125,7 +125,7 @@ describe.skipIf(!testDatabaseUrl)("Vollständigkeit: offene Vorgänge und Abdeck
     expect(await offen.offeneVorgaenge("2026-01-01", "2026-02-01")).toEqual({ ausgaben: 0, eingaenge: 0, belege: 1, rechnungsentwuerfe: 0 });
   }, 60_000);
 
-  it("Abdeckung: spätestes Importende oder letzter Umsatz; ohne private, Rücklage- und ausgeschlossene Konten", async () => {
+  it("Abdeckung: spätestes Importende oder letzter Umsatz; mit Rücklagekonten, ohne private und ausgeschlossene", async () => {
     // Auszug bis Monatsende, letzter Umsatz am 20.: Der Auszug sagt, dass danach nichts kam
     const giro = await bank.importStatement(actor, dkbCsv(GIRO, [["20.03.26", "Hosting", "-20,00"]], "01.03.2026 - 31.03.2026"), null);
     // Ohne Zeitraum im Auszug reicht er bis zum letzten Umsatz
@@ -142,6 +142,8 @@ describe.skipIf(!testDatabaseUrl)("Vollständigkeit: offene Vorgänge und Abdeck
 
     expect(await offen.kontoAbdeckung()).toEqual([
       { id: giro.accountId, name: "Girokonto", bis: "2026-03-31" },
+      // Rücklagekonten buchen auf 1200/1800, ihre Zinsen sind Betriebseinnahmen
+      { id: ruecklage.accountId, name: "Rücklage", bis: "2026-03-01" },
       { id: leer.id, name: "Tagesgeld", bis: null },
       { id: visa.accountId, name: "Visa", bis: "2026-03-12" },
     ]);
