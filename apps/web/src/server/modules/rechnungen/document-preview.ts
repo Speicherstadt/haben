@@ -1,6 +1,7 @@
 import {
   alternativeMain,
   computeInvoice,
+  correctionCalculation,
   DEFAULT_OPTIONS,
   discountSchema,
   ITEM_NUMBER_MAX,
@@ -120,6 +121,12 @@ export const documentPreviewSchema = z.object({
   language: z.enum(["de", "en"]),
   variant: z.enum(["abschlag", "schluss"]).nullable(),
   corrects: z.object({ number: z.string().nullable(), issueDate: z.string() }).nullable(),
+  /** Korrektur: Gesamtstand je Satz von Rechnung und festgeschriebenen Korrekturen, wie im Editor (#2079) */
+  correctionBasis: z
+    .array(z.object({ rate: inBasisPoints(z.number().int()), base: inCents(z.number().int()), tax: inCents(z.number().int()) }))
+    .max(10)
+    .nullable()
+    .default(null),
   currency: z.string().max(3),
   // Beim Tippen lässt der Editor auch Fristen über 120 Tage durch; solche Stufen fehlen auf dem Blatt, wie das Speichern sie ablehnt
   skonto: z
@@ -168,7 +175,10 @@ function invoiceDocument(
   deducted: NonNullable<InvoiceDocument["deducted"]>,
 ): InvoiceDocument {
   if (input.kind === "angebot") throw new DocumentPreviewError("Ein Angebot ist keine Rechnung.");
-  const { lineNets, totals } = computeInvoice(input.lines, input.priceMode, input.discount);
+  const own = computeInvoice(input.lines, input.priceMode, input.discount);
+  // Eine Korrektur rechnet ihre Steuer aus dem Gesamtstand wie beim Speichern und Festschreiben (#2079)
+  const { lineNets, totals } =
+    input.kind === "korrektur" && input.correctionBasis ? correctionCalculation(own, input.lines, input.priceMode, input.correctionBasis) : own;
   const treatment = input.taxTreatment;
   const { exemptionReason } = outgoingTaxColumns(input);
   return {
