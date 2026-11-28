@@ -139,7 +139,7 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     await sql`insert into custom_pages(name, url) values ('Wiki', 'https://wiki.example.org/')`;
     await sql`insert into procedure_details(id, verantwortlich) values (1, 'Erika Mustermann')`;
     await mailEinrichten();
-    await sql`update mail_settings set from_name = 'Muster Design', templates = ${JSON.stringify({ "rechnung:de": { subject: "Rechnung {nummer}", body: "Hallo" } })}::jsonb`;
+    await sql`update mail_settings set from_name = 'Muster Design', reply_to = 'antworten@muster.example', templates = ${JSON.stringify({ "rechnung:de": { subject: "Rechnung {nummer}", body: "Hallo" } })}::jsonb`;
   }
 
   /** Versand mit Zugang, wie ihn jemand vor dem Übernehmen einrichtet */
@@ -292,11 +292,12 @@ describe.skipIf(!testDatabaseUrl)("Einstellungen übernehmen (Postgres)", () => 
     const [anhang] = await sql`select filename, sha256 from quote_default_attachments`;
     expect(anhang!.filename).toBe("AGB.pdf");
     expect(new Uint8Array(await storage.loadFile(anhang!.sha256))).toEqual(PDF);
-    const [mail] = await sql`select host, username, from_name, templates from mail_settings`;
+    const [mail] = await sql`select host, username, from_name, reply_to, templates from mail_settings`;
     expect(mail).toEqual({
       host: "smtp.example.org",
       username: "versand@example.org",
       from_name: "Muster Design",
+      reply_to: "antworten@muster.example",
       templates: { "rechnung:de": { subject: "Rechnung {nummer}", body: "Hallo" } },
     });
   });

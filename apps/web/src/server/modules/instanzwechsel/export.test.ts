@@ -40,9 +40,9 @@ describe.skipIf(!testDatabaseUrl)("Export der Einstellungen (Postgres)", () => {
       values (1, 'Muster Design', 'Leipzig', '231/815/08150', 'DE02120300000000202051', 'SKR04', 'RE-{JJJJ}-{NNNN}', 'K-{NNNN}', 42,
         ${JSON.stringify({ a: { vorname: "Erika", name: "Mustermann" } })}::jsonb, true, now(), 'hash-des-kalender-abos', now())`;
     await sql`insert into einrichtung(id, ausgeblendete_bereiche) values (1, ${JSON.stringify(["lohn"])}::jsonb)`;
-    await sql`insert into mail_settings(id, transport, host, port, secure, username, ciphertext, from_address, from_name, reminder_to, templates)
+    await sql`insert into mail_settings(id, transport, host, port, secure, username, ciphertext, from_address, from_name, reply_to, reminder_to, templates)
       values (1, 'smtp', 'smtp.example.org', 587, false, 'versand@example.org', ${Buffer.from("geheimes-passwort")}, 'rechnung@example.org',
-        'Muster Design', 'erika@example.org', ${JSON.stringify({ rechnung: { betreff: "Rechnung {nummer}", text: "Hallo {name}" } })}::jsonb)`;
+        'Muster Design', 'antworten@example.org', 'erika@example.org', ${JSON.stringify({ rechnung: { betreff: "Rechnung {nummer}", text: "Hallo {name}" } })}::jsonb)`;
     await sql`insert into contacts(id, kundennummer, name, ort, email, debitor_nr, lexoffice_id) values (${KUNDE}, 'K-0041', 'Nordwerk GmbH', 'Hamburg', 'buchhaltung@nordwerk.example', 10041, 'lx-41')`;
     await sql`insert into contact_persons(contact_id, name, funktion, created_by) values (${KUNDE}, 'Jana Peters', 'Einkauf', 'test-user')`;
     await sql`insert into text_blocks(name, kind, text, contact_id) values ('Rahmenvertrag', 'kopf', 'Gemäß Rahmenvertrag RV-17 berechnen wir:', ${KUNDE})`;
@@ -90,6 +90,7 @@ describe.skipIf(!testDatabaseUrl)("Export der Einstellungen (Postgres)", () => {
     expect(export_.mail).toEqual({
       fromAddress: "rechnung@example.org",
       fromName: "Muster Design",
+      replyTo: "antworten@example.org",
       reminderTo: "erika@example.org",
       remindersEnabled: true,
       reminderDays: [7, 1],
