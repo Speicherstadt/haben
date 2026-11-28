@@ -9,12 +9,6 @@ export const ANONYMOUS_BODY_LIMIT = 1_000_000;
 
 type HasSession = (headers: Headers) => Promise<boolean>;
 
-const hasSession: HasSession = async (headers) => {
-  // Erst hier laden: Kleine Anfragen, also fast alle, brauchen weder Datenbank noch Anmeldemodul
-  const { sessionUser } = await import("./rollen.ts");
-  return (await sessionUser(headers)) !== null;
-};
-
 /**
  * Lehnt große schreibende Anfragen an Server Functions ohne gültige Sitzung mit 413 ab, bevor der Body gelesen wird.
  * Sonst puffert der Server bis zu 250 MB (Grenze in Caddy) je Anfrage im Speicher, bevor die Funktion „nicht angemeldet“
@@ -22,7 +16,7 @@ const hasSession: HasSession = async (headers) => {
  * mitschicken. Anmeldung und Einrichtung sind klein und bleiben unberührt, ebenso Uploads angemeldeter Konten.
  * Fehlt die Größenangabe, gilt die Anfrage als groß.
  */
-export async function rejectLargeAnonymousBody(request: Request, pathname: string, sessionCheck: HasSession = hasSession): Promise<Response | null> {
+export async function rejectLargeAnonymousBody(request: Request, pathname: string, sessionCheck: HasSession): Promise<Response | null> {
   if (!pathname.startsWith(SERVER_FN_PREFIX) || SAFE_METHODS.has(request.method)) return null;
   const declared = request.headers.get("content-length");
   const length = declared === null ? Number.NaN : Number(declared);
@@ -35,7 +29,12 @@ export async function rejectLargeAnonymousBody(request: Request, pathname: strin
 }
 
 export const bodyLimitMiddleware = createMiddleware().server(async ({ request, pathname, next }) => {
-  const rejection = await rejectLargeAnonymousBody(request, pathname);
+  // Der Import steht im Server-Teil: start.ts läuft auch im Browser-Bundle, und rollen.ts zöge den ganzen Server mit
+  // (bis zum nativen Typst-Compiler). Erst hier geladen, brauchen kleine Anfragen, also fast alle, kein Anmeldemodul.
+  const rejection = await rejectLargeAnonymousBody(request, pathname, async (headers) => {
+    const { sessionUser } = await import("./rollen.ts");
+    return (await sessionUser(headers)) !== null;
+  });
   return rejection ?? next();
 });
 
