@@ -228,7 +228,8 @@ Ein Forderungsausfall bei Soll steht zusätzlich in Kz 50, der Minderung der Bem
 
 Kz 81 ist die Bemessungsgrundlage zu 19 %, Kz 86 die zu 7 %. Dazu zählen regulär besteuerte Rechnungen, Direktbuchungen, Bareinnahmen ohne Rechnung im [Kassenbuch](kasse.md), [freie Buchungen mit Steuerschlüssel](buchhaltung.md#manuelle-und-freie-buchungen) einschließlich der Sachentnahme und, in Kz 81, die private Nutzung von Firmenwagen im Monat der Nutzung ([Anlagen und AfA](anlagen.md#private-nutzung-von-firmenwagen)) und die Entnahme einer Anlage, für die du beim Kauf Vorsteuer gezogen hast, im Monat der Entnahme ([Entnahme](anlagen.md#entnahme)), beide auch bei Ist-Versteuerung. Belege mit Privatanteil zählen in Kz 66 nur mit dem betrieblichen Teil. Regulär besteuerte Umsätze zu 0 % meldet Haben nicht; die Vorprüfung weist darauf hin.
 
-### Umsätze ohne Steuer (Kz 21, 41, 43, 45 und 48)
+<a id="umsätze-ohne-steuer-kz-21-41-43-45-und-48"></a>
+### Umsätze ohne Steuer (Kz 21, 41, 43, 45, 48 und 60)
 
 Rechnungen ohne Steuerausweis (siehe [Rechnungen](rechnungen.md#umsatzsteuer-auf-der-rechnung)) meldet Haben mit ihrer Bemessungsgrundlage, ohne Steuer. Sie ändern Kz 83 nicht.
 
