@@ -2451,6 +2451,13 @@
       "when": 1795872642089,
       "tag": "0349_festschreiben_quelle",
       "breakpoints": true
+    },
+    {
+      "idx": 350,
+      "version": "7",
+      "when": 1795873777496,
+      "tag": "0350_hash_weggelassene_spalten",
+      "breakpoints": true
     }
   ]
 }

@@ -3384,16 +3384,16 @@
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "75a7971a80052089062f7b6c6b22b2484f34302f0fcb792e711753b7a5000356",
-      "definitionHash": "a5306a56eff616d7e09392e4e999212b4ba887bfff1ad763b3589fe41e514c31"
+      "sourceHash": "17278516ec6fe1e6dec74a27c9e16c0d31d410a59972d2773ae1ea90cf2ac701",
+      "definitionHash": "cbe69c491b57efc9d692074408547d35911abb3c28d802ff3d9db88ba9a5683f"
     },
     {
       "name": "public.haben_audit()",
       "config": [],
       "language": "plpgsql",
       "securityDefiner": false,
-      "sourceHash": "b5ffdf40a6416a8cb22143de6df8aa69b4dd13d42039ce95ec59d01038c9bd20",
-      "definitionHash": "78acdbe6c38396d351a38da411c8ae403cf3c976b413938a8ab1030a7271cf6f"
+      "sourceHash": "a69d22b5fb41720b10785716585ab8d5340f0f9b86286ae93631c6de9216e900",
+      "definitionHash": "8544d1ef6c18c3b385584abef45b59e881be2f46aaea718f08beb68a004803bc"
     },
     {
       "name": "public.haben_audit_chain()",
@@ -3442,6 +3442,14 @@
       "securityDefiner": false,
       "sourceHash": "0df688faa36dd7850928a440f0b891a579f2a905abd12dbff3540c5e75721ccd",
       "definitionHash": "da60f9d481a52dafebc1143a24dd5618bb5d6b4226417d7b81f8811833be7845"
+    },
+    {
+      "name": "public.haben_audit_omitted_sha256(rec anyelement)",
+      "config": ["bytea_output=hex"],
+      "language": "sql",
+      "securityDefiner": false,
+      "sourceHash": "afb954333f586bfd3033af4c3f3977d566749c6466aaa556e04761d594ce3a83",
+      "definitionHash": "bce3cec44fd76d4bdffd29451f4bac4167ec21968137b67f8c7d8c561370e7a9"
     },
     {
       "name": "public.haben_audited_append_only_tables()",
