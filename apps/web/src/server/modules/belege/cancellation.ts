@@ -19,6 +19,7 @@ import {
   ohnePlatz,
   positionenAusBeleg,
   schreibePositionen,
+  sperreEigeneKonten,
   type Belegposition,
 } from "./positionen.ts";
 
@@ -261,6 +262,13 @@ export async function reenterDocument(actor: string, id: string): Promise<string
       const [doc] = await tx.select().from(schema.documents).where(eq(schema.documents.id, id));
       const amounts = await tx.select().from(schema.documentAmounts).where(eq(schema.documentAmounts.documentId, id));
       const d = doc!;
+      // Positionen (#1975) wie gebucht, mit derselben Steuer je Position. Ein Beleg aus der Zeit davor bekommt sie aus
+      // Kategorie, eigenem Konto und Privatanteil, gerundet, wie er gebucht ist. Ihre Konten vor dem Anlegen sperren: Das
+      // schreibt schon ins Audit-Log
+      const positionen = (await hatGespeichertePositionen(id, tx))
+        ? await loadPositionen(id, tx)
+        : positionenAusBeleg({ ...d, fremd: d.currency !== "EUR" }, amounts);
+      await sperreEigeneKonten(tx, positionen);
       const [created] = await tx
         .insert(schema.documents)
         .values({
@@ -305,11 +313,6 @@ export async function reenterDocument(actor: string, id: string): Promise<string
           })),
         );
       }
-      // Positionen (#1975) wie gebucht, mit derselben Steuer je Position. Ein Beleg aus der Zeit davor bekommt sie aus
-      // Kategorie, eigenem Konto und Privatanteil, gerundet, wie er gebucht ist
-      const positionen = (await hatGespeichertePositionen(id, tx))
-        ? await loadPositionen(id, tx)
-        : positionenAusBeleg({ ...d, fremd: d.currency !== "EUR" }, amounts);
       await schreibePositionen(tx, created!.id, ohnePlatz(positionen));
       return created!.id;
     });

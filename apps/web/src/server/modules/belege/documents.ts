@@ -43,7 +43,7 @@ import { euroAmounts } from "./belegbetraege.ts";
 import { belegSummen, belegZeilen, totalsOf, leistungNochNichtAusgefuehrt } from "./belegbuchung.ts";
 import { betraegeDerEingabe, positionenDerEingabe, positionenZumKurs } from "./beleg-eingabe.ts";
 import { documentAssetMethod, erstattetBezahltesProblem, pruefeBuchungsreife } from "./buchungsreife.ts";
-import { belegKategorie, einzigePosition, loadPositionen, schreibePositionen, schreibePositionenAusBeleg } from "./positionen.ts";
+import { belegKategorie, einzigePosition, loadPositionen, schreibePositionen, schreibePositionenAusBeleg, sperreEigeneKonten } from "./positionen.ts";
 import { belegAufteilungSql, belegKategorieSql, belegKontoSql } from "../../db/beleg-kategorie.ts";
 
 export { bookingIssueList, bookingIssues, type BookingIssue } from "./buchungsreife.ts";
@@ -645,10 +645,12 @@ export async function applyPublishedRates(actor: string): Promise<number> {
         // Umgerechnet zu groß: bleibt ohne Kurs, der Beleg zeigt es beim Speichern
         return false;
       }
+      // Die Positionen folgen dem neuen Euro-Netto je Satz (#1975); ihre Konten vor dem ersten Eintrag ins Audit-Log sperren
+      const positionen = positionenZumKurs(await loadPositionen(doc.id, tx), amounts);
+      await sperreEigeneKonten(tx, positionen);
       await tx.delete(schema.documentAmounts).where(eq(schema.documentAmounts.documentId, doc.id));
       if (amounts.length > 0) await tx.insert(schema.documentAmounts).values(amounts.map((a) => ({ documentId: doc.id, ...a })));
-      // Die Positionen folgen dem neuen Euro-Netto je Satz (#1975)
-      await schreibePositionen(tx, doc.id, positionenZumKurs(await loadPositionen(doc.id, tx), amounts));
+      await schreibePositionen(tx, doc.id, positionen);
       await tx
         .update(schema.documents)
         .set({ ...rate, ...totalsOf(amounts, doc.reverseCharge), updatedAt: new Date() })

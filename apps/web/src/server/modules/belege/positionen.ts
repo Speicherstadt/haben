@@ -130,13 +130,23 @@ const MAX_SPLIT_CENTS = 2_147_483_647;
 /** Eine Position zum Speichern, mit ihrem Anteil an der Steuer des Satzes */
 export type NeuePosition = Omit<Belegposition, "position">;
 
-/** Ersetzt die Positionen eines offenen Belegs; die Steuer je Position steht schon fest */
-export async function schreibePositionen(tx: Tx, documentId: string, positionen: readonly NeuePosition[]): Promise<void> {
-  // Erst die eigenen Konten der neuen Positionen sperren, wie es ihr Fremdschlüssel ohnehin tut, dann löschen: Das Löschen
-  // der alten Positionen schreibt ins Audit-Log und hält ab da die Hash-Kette. Wer gleichzeitig ein Konto umbenennt, hält
-  // dessen Zeile und wartet auf die Kette; sperrte erst danach der Fremdschlüssel, wäre das ein Deadlock (#1978).
+/**
+ * Sperrt die eigenen Konten der Positionen, wie es ihr Fremdschlüssel ohnehin tut, und zwar vor dem ersten Eintrag ins
+ * Audit-Log der Transaktion: Ab dem hält sie die Hash-Kette. Wer gleichzeitig ein Konto umbenennt, hält dessen Zeile und
+ * wartet auf die Kette; sperrte erst danach der Fremdschlüssel, wäre das ein Deadlock (#1978).
+ */
+export async function sperreEigeneKonten(tx: Tx, positionen: readonly Pick<NeuePosition, "ownAccountId">[]): Promise<void> {
   const konten = [...new Set(positionen.flatMap((p) => (p.ownAccountId ? [p.ownAccountId] : [])))];
   if (konten.length > 0) await tx.select({ id: schema.ownAccounts.id }).from(schema.ownAccounts).where(inArray(schema.ownAccounts.id, konten)).for("key share");
+}
+
+/**
+ * Ersetzt die Positionen eines offenen Belegs; die Steuer je Position steht schon fest. Hat die Transaktion schon ins
+ * Audit-Log geschrieben, ruft sie vorher sperreEigeneKonten auf.
+ */
+export async function schreibePositionen(tx: Tx, documentId: string, positionen: readonly NeuePosition[]): Promise<void> {
+  // Das Löschen der alten Positionen schreibt ins Audit-Log
+  await sperreEigeneKonten(tx, positionen);
   await tx.delete(schema.documentSplits).where(eq(schema.documentSplits.documentId, documentId));
   if (positionen.length === 0) return;
   // Netto und Steuer stehen in int4-Spalten; die Eingabe erlaubt wie bei den Beträgen mehr
