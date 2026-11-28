@@ -11,6 +11,8 @@ export type FruehererEintrag = { at: string; tableName: string; rowId: string; a
 export async function protokollEintragen(sql: postgres.Sql, eintraege: FruehererEintrag[], actor = "test"): Promise<void> {
   await sql.begin(async (tx) => {
     await tx`set local session_replication_role = replica`;
+    // Dieselbe Sperre wie haben_audit_chain, sonst vergäbe ein gleichzeitiger Eintrag der App dieselbe seq
+    await tx`select pg_advisory_xact_lock(hashtext('haben.audit_chain'))`;
     for (const eintrag of eintraege) {
       const [neu] = await tx<{ seq: string }[]>`
         insert into audit_log (at, actor, table_name, row_id, action, new_value, seq, prev_hash, row_hash)
