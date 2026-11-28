@@ -232,7 +232,7 @@ Ist die Rechnung schon festgeschrieben, antworten Ändern und Löschen mit `409`
 Festgeschrieben wird nur ein Entwurf, der
 
 - die `externalSource` des Tokens trägt, sonst `403`; ohne externe Referenz `422`,
-- die Zahlungsart `bereits_bezahlt` hat ([Bereits bezahlte Rechnungen](#bereits-bezahlte-rechnungen)), sonst `422`,
+- die Zahlungsart `bereits_bezahlt` hat ([Bereits bezahlte Rechnungen](#bereits-bezahlte-rechnungen)), sonst `422`; das gilt auch für eine schon in Haben festgeschriebene Rechnung, die versendet werden soll,
 - keinen Hinweis hat, der im Editor das Festschreiben verhindert. Sonst kommt `422` mit den Hinweisen in `issues`. Als `422` kommt auch die Rückfrage zur Kleinunternehmergrenze, die ein Token nicht bestätigen kann.
 
 Mit `senden` braucht Haben einen [E-Mail-Zugang](einrichtung-email.md) und am Kontakt eine E-Mail-Adresse. Fehlt eins davon, kommt `422`, und nichts wird festgeschrieben. Bei `422` bleibt der Entwurf unverändert.

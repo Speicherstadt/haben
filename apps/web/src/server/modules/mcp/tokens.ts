@@ -21,9 +21,9 @@ import { loadCompany } from "../stammdaten/index.ts";
 export class McpError extends UserError {}
 
 /**
- * Rechte eines Tokens. haben:lesen gilt für die Werkzeuge über MCP, die übrigen für die REST-API. Kein Recht bucht.
- * Festschreiben und Versenden kann nur rechnungen:festschreiben, und nur für Entwürfe der einen externen Quelle, die beim
- * Anlegen in Haben gewählt wird (#1918); Storno, Korrektur und ELSTER bleiben ein Klick in Haben.
+ * Rechte eines Tokens. haben:lesen gilt für die Werkzeuge über MCP, die übrigen für die REST-API. Gebucht wird über ein
+ * Token nur mit rechnungen:festschreiben: Es schreibt Entwürfe der einen externen Quelle fest, die beim Anlegen in Haben
+ * gewählt wird, samt Buchung, und versendet sie (#1918); Storno, Korrektur und ELSTER bleiben ein Klick in Haben.
  */
 export const TOKEN_SCOPES = [
   "haben:lesen",
