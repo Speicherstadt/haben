@@ -268,7 +268,7 @@ describe.skipIf(!testDatabaseUrl)("BWA nach DATEV-Form 01 (Postgres, #1380)", ()
     }, 60_000);
   }
 
-  it("weist periodengerecht auf Unvollständiges hin: Eingänge und Entwürfe nur als Hinweis (#1635)", async () => {
+  it("weist periodengerecht auf Unvollständiges hin: offene Umsätze und Entwürfe nur als Hinweis (#1635)", async () => {
     await reset("soll", "SKR04");
     const csv =
       `"Girokonto";"DE12 1203 0000 1234 5678 90"\n""\n` +
@@ -293,7 +293,7 @@ describe.skipIf(!testDatabaseUrl)("BWA nach DATEV-Form 01 (Postgres, #1380)", ()
     });
     const bericht = await bwa.bwaBericht(bwaZeitraum("monat", 2027, 3), "keiner", undefined, "2027-11-28");
     expect(bericht.unvollstaendig.hinweise.map((h) => [h.art, h.ton, h.anzahl, h.link])).toEqual([
-      ["ausgaben", "warn", 1, "/bank"],
+      ["ausgaben", "info", 1, "/bank"],
       ["eingaenge", "info", 1, "/bank"],
       ["rechnungsentwuerfe", "info", 1, "/rechnungen"],
       ["konto", "warn", 1, "/bank"],

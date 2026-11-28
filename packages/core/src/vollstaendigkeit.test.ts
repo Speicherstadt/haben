@@ -74,9 +74,9 @@ describe("unvollstaendig", () => {
     ]);
   });
 
-  it("Form 01 periodengerecht: Eingänge und Entwürfe nur als Hinweis", () => {
+  it("Form 01 periodengerecht: offene Umsätze und Entwürfe nur als Hinweis", () => {
     expect(kurz("form01")).toEqual([
-      ["ausgaben", "warn", 2, "/bank"],
+      ["ausgaben", "info", 2, "/bank"],
       ["eingaenge", "info", 1, "/bank"],
       ["belege", "warn", 3, "/belege"],
       ["rechnungsentwuerfe", "info", 4, "/rechnungen"],
@@ -95,7 +95,7 @@ describe("unvollstaendigText", () => {
 
   it("Einzahl und Mehrzahl", () => {
     expect(texte({ ausgaben: 1, eingaenge: 1, belege: 1, rechnungsentwuerfe: 1 }, "form01")).toEqual([
-      "1 Ausgabe im Zeitraum ohne Beleg oder Zuordnung; sie fehlt in den Kosten.",
+      "1 Ausgabe im Zeitraum ohne Beleg oder Zuordnung; ohne Beleg fehlt der Aufwand.",
       "1 Zahlungseingang im Zeitraum noch nicht zugeordnet; ohne Rechnung fehlt der Erlös.",
       "1 Beleg im Zeitraum oder ohne Datum noch nicht gebucht.",
       "1 Rechnungsentwurf mit Datum im Zeitraum; Erlöse zählen erst festgeschrieben.",
@@ -106,6 +106,7 @@ describe("unvollstaendigText", () => {
       "4 Belege im Zeitraum oder ohne Datum noch nicht gebucht.",
     ]);
     expect(texte({ ...nichts, eingaenge: 1 }, "form43")).toEqual(["1 Zahlungseingang im Zeitraum noch nicht zugeordnet; er fehlt in den Erlösen."]);
+    expect(texte({ ...nichts, ausgaben: 2 }, "form01")).toEqual(["2 Ausgaben im Zeitraum ohne Beleg oder Zuordnung; ohne Beleg fehlt der Aufwand."]);
   });
 
   const bis = (datum: string, zeitraum: { von: string; bis: string }) =>
