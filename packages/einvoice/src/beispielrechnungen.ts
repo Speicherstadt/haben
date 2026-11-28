@@ -1,6 +1,7 @@
 // Beispielrechnungen aller Fälle, die Haben als E-Rechnung erzeugt: geprüft mit dem KoSIT-Validator
 // (scripts/kosit-check.ts) und als festgehaltenes XML (e-rechnung-vergleich.test.ts)
 import type { Discount } from "@haben/core";
+import { KORREKTUREN_AUS_GESAMTSTAND } from "./beispielrechnungen-korrektur.ts";
 import {
   discountLines,
   euBuyer,
@@ -287,6 +288,7 @@ export const BEISPIELRECHNUNGEN: Record<string, InvoiceDocument> = {
     ],
     priceMode: "brutto",
   }),
+  ...KORREKTUREN_AUS_GESAMTSTAND,
   "nullsatz-xr-cii": sampleDocument({
     format: "xrechnung-cii",
     lines: [{ description: "Leistung zum Nullsatz", quantity: 1000, unit: "Psch.", unitPrice: 50000, taxRate: 0 }],

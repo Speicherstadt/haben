@@ -10,12 +10,12 @@ import { openBooks } from "../buchhaltung/index.ts";
 import { ansprechpartnerSnapshot, type Contact, loadCompany, loadLetterhead, loadUnitCodes, sellerIssues, withCustomLayout } from "../stammdaten/index.ts";
 import { deductedRefs, deductionIds, deductionProblems, openAbschlaege } from "./advance-deductions.ts";
 import { advanceProcedure } from "./advance-procedure.ts";
-import { withAdvanceVatChange } from "./advance-vat.ts";
+import { lockInvoice, withAdvanceVatChange } from "./advance-vat.ts";
 import { cancelledIds } from "./cancelled-invoices.ts";
 import { originalProblem, reductionProblem } from "./correction-checks.ts";
 import { applyRateToDraft, serviceDate } from "./draft-rate.ts";
 import { buyerFrom, buyerIssues, documentFor, draftSeller, invoiceTitle, numberedBuyer } from "./invoice-document.ts";
-import { lockDraft } from "./invoice-drafts.ts";
+import { lockDraft, recalculateCorrection } from "./invoice-drafts.ts";
 import { InvoiceError } from "./invoice-error.ts";
 import { loadReplacement, normalReplacementId, replacementPerformanceDate, replacementProblem } from "./invoice-replacement.ts";
 import { postInvoice } from "./invoice-replacement-posting.ts";
@@ -213,6 +213,12 @@ export async function finalizeDraft(tx: Tx, id: string, umsatzStand: UmsatzStand
   await assertQuotesLocked(tx, quoteIds, [id, invoice.correctsId]);
   // Inzwischen veröffentlichten Kurs übernehmen, bevor geprüft wird
   if (await applyRateToDraft(tx, invoice)) invoice = await lockDraft(tx, id);
+  // Korrektur: Steuer aus dem Gesamtstand der Rechnung, wie er jetzt ist (#2079). Die Rechnung zuerst sperren, wie
+  // cancelInvoice und eine zweite Korrektur auch: Die nächste Korrektur wartet und rechnet auf dieser weiter.
+  if (invoice.kind === "korrektur" && invoice.correctsId) {
+    await lockInvoice(tx, invoice.correctsId);
+    if (await recalculateCorrection(tx, invoice)) invoice = await lockDraft(tx, id);
+  }
   // Nur bereits festgeschriebene Altabschläge behalten ihr Verfahren; offene Altentwürfe erhalten die neue Vorgabe.
   // Erst mit der Festschreibung speichern, damit die Audit-Kette nicht vor der Nummernkreissperre gehalten wird.
   if (invoice.variant === "abschlag" && invoice.advanceType === null) invoice = { ...invoice, advanceType: "anzahlung" };

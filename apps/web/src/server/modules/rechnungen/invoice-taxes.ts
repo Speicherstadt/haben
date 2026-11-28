@@ -1,5 +1,14 @@
-import { foreignToEuro, totalsFromTaxes, type InvoiceTotals, type TaxBreakdown } from "@haben/core";
-import { eq, inArray } from "drizzle-orm";
+import {
+  correctionCalculation,
+  foreignToEuro,
+  totalsFromTaxes,
+  type BasisPoints,
+  type InvoiceCalculation,
+  type InvoiceTotals,
+  type PriceMode,
+  type TaxBreakdown,
+} from "@haben/core";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "../../db/index.ts";
 
 /*
@@ -28,6 +37,68 @@ export function euroTaxes(
     originalBase: t.base,
     originalTax: t.tax,
   }));
+}
+
+/** Gesamtstand je Satz einer Rechnung samt festgeschriebener Korrekturen, in der Währung der Rechnung und in Euro */
+export interface CorrectionBasis {
+  document: TaxBreakdown[];
+  euro: TaxBreakdown[];
+}
+
+/**
+ * Gesamtstand für die Steuer einer neuen Korrektur (#2079): die Rechnung und ihre festgeschriebenen Korrekturen, mit den
+ * Beträgen, wie sie auf den versiegelten Belegen stehen. Entwürfe zählen nicht mit.
+ */
+export async function correctionBasis(q: Db | Tx, originalId: string): Promise<CorrectionBasis> {
+  const t = schema.invoiceTaxes;
+  const i = schema.invoices;
+  const list = await q
+    .select({
+      rate: t.rate,
+      base: sql<number>`sum(${t.base})::int`,
+      tax: sql<number>`sum(${t.tax})::int`,
+      originalBase: sql<number>`sum(coalesce(${t.originalBase}, ${t.base}))::int`,
+      originalTax: sql<number>`sum(coalesce(${t.originalTax}, ${t.tax}))::int`,
+    })
+    .from(t)
+    .innerJoin(i, eq(i.id, t.invoiceId))
+    .where(and(eq(i.status, "final"), or(eq(i.id, originalId), and(eq(i.correctsId, originalId), eq(i.kind, "korrektur")))))
+    .groupBy(t.rate);
+  return {
+    document: list.map((r) => ({ rate: r.rate, base: r.originalBase, tax: r.originalTax })),
+    euro: list.map((r) => ({ rate: r.rate, base: r.base, tax: r.tax })),
+  };
+}
+
+/**
+ * Steuerzeilen einer Korrektur aus der Differenz der Gesamtstände (correctionCalculation), in der Währung der Rechnung.
+ * Bei Fremdwährung ebenso in Euro: umgerechnet wird der Gesamtstand mit dem Kurs der Rechnung, den Korrekturen und
+ * Rechnung teilen (draftRate), abzüglich der schon gebuchten Euro-Beträge. So heben Korrekturen auch in Euro genau auf,
+ * was die Rechnung gebucht hat.
+ */
+export function correctionTaxes(
+  calculation: InvoiceCalculation,
+  lines: { taxRate: BasisPoints }[],
+  priceMode: PriceMode,
+  basis: CorrectionBasis,
+  currency: string,
+  rate: string | null,
+): { calculation: InvoiceCalculation; taxes: ReturnType<typeof euroTaxes> } {
+  const adjusted = correctionCalculation(calculation, lines, priceMode, basis.document);
+  if (currency === "EUR" || !rate) return { calculation: adjusted, taxes: euroTaxes(adjusted.totals.taxes, currency, rate) };
+  const zero = { base: 0, tax: 0 };
+  const taxes = adjusted.totals.taxes.map((t) => {
+    const document = basis.document.find((b) => b.rate === t.rate) ?? zero;
+    const euro = basis.euro.find((b) => b.rate === t.rate) ?? zero;
+    return {
+      rate: t.rate,
+      base: foreignToEuro(document.base + t.base, rate) - euro.base,
+      tax: foreignToEuro(document.tax + t.tax, rate) - euro.tax,
+      originalBase: t.base,
+      originalTax: t.tax,
+    };
+  });
+  return { calculation: adjusted, taxes };
 }
 
 /** Steuerzeilen einer Rechnung ersetzen; nur für Entwürfe, festgeschriebene sperrt ein Trigger */

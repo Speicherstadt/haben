@@ -31,7 +31,7 @@ import { draftRate, MAX_EURO_CENTS } from "./draft-rate.ts";
 import { effectivePriceMode, type DraftInput, type LineInput } from "./draft-schema.ts";
 import { InvoiceError } from "./invoice-error.ts";
 import { replacementQuote } from "./invoice-replacement.ts";
-import { euroTaxes, storeInvoiceTaxes } from "./invoice-taxes.ts";
+import { correctionBasis, correctionTaxes, euroTaxes, storeInvoiceTaxes, type CorrectionBasis } from "./invoice-taxes.ts";
 import type { Invoice, InvoiceLine } from "./invoices.ts";
 import { draftMandateProblem, paymentColumns } from "./lastschrift.ts";
 import { customerChangeProblem } from "./leistungen-kunde.ts";
@@ -98,14 +98,24 @@ async function allLines(tx: Tx, invoiceId: string | null, input: DraftInput): Pr
 }
 
 /**
- * Felder eines Entwurfs samt Summen. Netto und Umsatzsteuer je Satz werden nur hier berechnet; danach
- * lesen alle anderen Stellen die gespeicherten Werte (invoice_taxes).
+ * Felder eines Entwurfs samt Summen. Netto und Umsatzsteuer je Satz werden nur hier berechnet (und für die Korrektur beim
+ * Festschreiben in recalculateCorrection); danach lesen alle anderen Stellen die gespeicherten Werte (invoice_taxes).
+ * Eine Korrektur bekommt mit `basis` den Gesamtstand ihrer Rechnung: Ihre Steuer ist die Differenz der Stände (#2079).
  */
-function draftValues(input: DraftInput, bundesland: Company["bundesland"], lines: LineInput[], rate: { currency: string } & RateFields, kind = "rechnung") {
+function draftValues(
+  input: DraftInput,
+  bundesland: Company["bundesland"],
+  lines: LineInput[],
+  rate: { currency: string } & RateFields,
+  kind = "rechnung",
+  basis?: CorrectionBasis,
+) {
   const priceMode = effectivePriceMode(input);
-  const calculation = computeInvoice(lines, priceMode, input.discount ?? null);
+  const own = computeInvoice(lines, priceMode, input.discount ?? null);
   // Gebucht wird in Euro: bei Fremdwährung je Satz mit dem Kurs umgerechnet
-  const taxes = euroTaxes(calculation.totals.taxes, rate.currency, rate.exchangeRate);
+  const { calculation, taxes } = basis
+    ? correctionTaxes(own, lines, priceMode, basis, rate.currency, rate.exchangeRate)
+    : { calculation: own, taxes: euroTaxes(own.totals.taxes, rate.currency, rate.exchangeRate) };
   if (rate.currency !== "EUR" && taxes.some((t) => Math.abs(t.base) > MAX_EURO_CENTS || Math.abs(t.tax) > MAX_EURO_CENTS)) {
     throw new InvoiceError("Der umgerechnete Betrag ist zu groß. Stimmt der Kurs (1 EUR = … Fremdwährung)?");
   }
@@ -194,7 +204,9 @@ export async function insertDraft(tx: Tx, draft: DraftInput, extra: DraftExtra =
   const { bundesland } = await loadCompany(tx);
   await checkQuote(tx, input.quoteId);
   const lines = await allLines(tx, null, input);
-  const { values, calculation, taxes } = draftValues(input, bundesland, lines, await draftRate(tx, input, extra.correctsId ?? null, null), extra.kind);
+  const basis = extra.kind === "korrektur" && extra.correctsId ? await correctionBasis(tx, extra.correctsId) : undefined;
+  const rate = await draftRate(tx, input, extra.correctsId ?? null, null);
+  const { values, calculation, taxes } = draftValues(input, bundesland, lines, rate, extra.kind, basis);
   const mandateProblem = await draftMandateProblem(tx, values, values.contactId, values.dueDate);
   if (mandateProblem) throw new InvoiceError(mandateProblem);
   const personProblem = await contactPersonProblem(tx, values.contactId, values.contactPersonId);
@@ -248,6 +260,7 @@ export async function updateDraft(actor: string, id: string, proposed: DraftInpu
       lines,
       rate,
       draft.kind,
+      draft.kind === "korrektur" && draft.correctsId ? await correctionBasis(tx, draft.correctsId) : undefined,
     );
     const mandateProblem = await draftMandateProblem(tx, values, values.contactId, values.dueDate);
     if (mandateProblem) throw new InvoiceError(mandateProblem);
@@ -267,6 +280,39 @@ export async function updateDraft(actor: string, id: string, proposed: DraftInpu
     await syncQuoteBilling(tx, quoteIds);
     return updated!;
   });
+}
+
+/**
+ * Steuer einer Korrektur beim Festschreiben neu aus dem Gesamtstand (#2079): Seit dem Speichern des Entwurfs kann eine
+ * andere Korrektur derselben Rechnung festgeschrieben worden sein. Läuft unter der Sperre der Rechnung; true, wenn sich
+ * Steuerzeilen, Summen oder Zeilennetto geändert haben.
+ */
+export async function recalculateCorrection(tx: Tx, invoice: Invoice): Promise<boolean> {
+  if (invoice.kind !== "korrektur" || !invoice.correctsId) return false;
+  const rows = await tx.select().from(schema.invoiceLines).where(eq(schema.invoiceLines.invoiceId, invoice.id)).orderBy(asc(schema.invoiceLines.position));
+  const lines = rows.map((line) => ({ ...lineInputOf(line), ...(line.deductionOf ? { deductionOf: line.deductionOf } : {}) }));
+  const own = computeInvoice(lines, invoice.priceMode, discountFromColumns(invoice.discountPercent, invoice.discountAmount));
+  const basis = await correctionBasis(tx, invoice.correctsId);
+  const { calculation, taxes } = correctionTaxes(own, lines, invoice.priceMode, basis, invoice.currency, invoice.exchangeRate);
+  const stored = await tx.select().from(schema.invoiceTaxes).where(eq(schema.invoiceTaxes.invoiceId, invoice.id));
+  const key = (t: { rate: number; base: number; tax: number; originalBase?: number | null; originalTax?: number | null }) =>
+    `${t.rate}:${t.base}:${t.tax}:${t.originalBase ?? ""}:${t.originalTax ?? ""}`;
+  const sameTaxes = stored.map(key).sort().join() === taxes.map(key).sort().join();
+  const changedLines = rows.filter((line, i) => line.net !== calculation.lineNets[i]);
+  if (sameTaxes && changedLines.length === 0) return false;
+  for (const line of changedLines) {
+    await tx
+      .update(schema.invoiceLines)
+      .set({ net: calculation.lineNets[rows.indexOf(line)]! })
+      .where(eq(schema.invoiceLines.id, line.id));
+  }
+  await storeInvoiceTaxes(tx, invoice.id, taxes);
+  const totals = totalsFromTaxes(taxes);
+  await tx
+    .update(schema.invoices)
+    .set({ net: totals.net, tax: totals.tax, gross: totals.gross, updatedAt: new Date() })
+    .where(eq(schema.invoices.id, invoice.id));
+  return true;
 }
 
 export async function deleteDraft(actor: string, id: string) {
