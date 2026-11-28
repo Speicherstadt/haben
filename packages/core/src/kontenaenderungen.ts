@@ -5,7 +5,7 @@ import type { Kontenrahmen } from "./kontenplan.ts";
  * bebucht hat. DATEV gibt SKR03 und SKR04 je Jahr heraus („Gültig für 2026“); ein Konto kommt mit einer Ausgabe dazu, wird
  * reserviert und kann nach zwei Jahren neu belegt werden (DATEV Dok.-Nr. 1029365). Daraus folgt:
  *
- * - Eine neue Buchung steht auf dem Konto, das in ihrem Buchungsjahr galt (kontoImBuchungsjahr, eingesetzt in ledger.post).
+ * - Eine neue Buchung steht auf dem Konto, das in ihrem Buchungsjahr galt (zeilenFuersJournal, eingesetzt in ledger.post).
  * - Bestehende Buchungen bleiben, wie sie sind. Auswertungen lesen ein früheres Konto als sein heutiges (heutigesKonto).
  * - Frühere Nummern bleiben für eigene Konten gesperrt, behalten ihren Namen und wandern beim Wechsel des Kontenrahmens mit.
  *
@@ -56,7 +56,9 @@ export const KONTENAENDERUNGEN: readonly Kontenaenderung[] = [
     SKR03: { heute: "8192", frueher: { konto: "8195", name: "Erlöse als Kleinunternehmer § 19 UStG" } },
     SKR04: { heute: "4184", frueher: { konto: "4185", name: "Erlöse als Kleinunternehmer § 19 UStG" } },
     bisJahr: 2024,
-    quelle: `DATEV: Konto 8192 bzw. 4184 „ab dem Jahr 2025 eingeführt“ (${DATEV_2025}); in Haben mit #899`,
+    // Kontenerläuterung Dok.-Nr. 5360713: Auf 8195 bzw. 4185 „werden bis 2024 die Erlöse der Kleinunternehmer“ gebucht,
+    // 2025 dient das Konto nur noch dem Vorjahresvergleich, 2026 ist es gelöscht
+    quelle: `DATEV: Konto 8192 bzw. 4184 „ab dem Jahr 2025 eingeführt“ (${DATEV_2025}), 8195 bzw. 4185 „bis 2024“ (https://wissensplattform.apps.datev.de/research/document/5360713); in Haben mit #899`,
   },
   {
     // DATEV-Kontenrahmen SKR04: 4610 ist die Entnahme von Waren zu 7 %, 4630 die Verwendung von Gegenständen zu 7 %
@@ -139,4 +141,39 @@ export function zeilenImBuchungsjahr<Z extends { account: string }>(kontenrahmen
     const account = kontoImBuchungsjahr(kontenrahmen, zeile.account, jahr, herkunft);
     return account === zeile.account ? zeile : { ...zeile, account };
   });
+}
+
+/** Herkünfte (source_type), bei denen der Nutzer oder eine Datei die Konten vorgibt: manuelle und freie Buchung, Datenimport, Eröffnung */
+const KONTEN_WIE_ANGEGEBEN: ReadonlySet<string> = new Set(["manuell", "import", "eroeffnung"]);
+
+export interface BuchungFuersJournal<Z> {
+  /** Jahr des Buchungsdatums */
+  jahr: number;
+  /** Herkunft der Buchung (source_type) */
+  herkunft: string;
+  /** Bei einer Gegenbuchung das Buchungsjahr der Buchung, die sie aufhebt */
+  ursprungsjahr?: number | null;
+  zeilen: readonly Z[];
+}
+
+/**
+ * Die Zeilen einer Buchung, wie sie ins Journal kommen. Die Module kontieren mit den Konten der neuesten Ausgabe; hier
+ * bekommt die Buchung die Konten ihres Buchungsjahres:
+ *
+ * - Konten, die der Nutzer oder eine Datei vorgibt, bleiben wie angegeben.
+ * - Eine Gegenbuchung im Jahr ihrer Ursprungsbuchung spiegelt deren Konten, auch frühere: Beide heben sich auf demselben
+ *   Konto auf.
+ * - Eine Gegenbuchung in einem anderen Jahr (Storno einer Bareinnahme von 2024, gebucht 2026) steht auf den Konten dieses
+ *   Jahres. Ihre Zeilen stammen aus dem Journal und können auf einem früheren Konto stehen, das es dort nicht mehr gibt.
+ * - Jede andere Buchung steht auf den Konten ihres Buchungsjahres.
+ */
+export function zeilenFuersJournal<Z extends { account: string }>(kontenrahmen: Kontenrahmen, buchung: BuchungFuersJournal<Z>): Z[] {
+  const { jahr, herkunft, ursprungsjahr, zeilen } = buchung;
+  if (KONTEN_WIE_ANGEGEBEN.has(herkunft) || ursprungsjahr === jahr) return [...zeilen];
+  if (ursprungsjahr == null) return zeilenImBuchungsjahr(kontenrahmen, jahr, herkunft, zeilen);
+  const heutige = zeilen.map((zeile) => {
+    const account = heutigesKonto(kontenrahmen, zeile.account, herkunft);
+    return account === zeile.account ? zeile : { ...zeile, account };
+  });
+  return zeilenImBuchungsjahr(kontenrahmen, jahr, herkunft, heutige);
 }

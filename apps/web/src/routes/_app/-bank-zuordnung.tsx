@@ -20,7 +20,7 @@ import { DIRECT_HINT, type Detail, korrekturText, zuAufhebendeZuordnung } from "
 import { SplitForm } from "./-bank-aufteilen.tsx";
 import { RestAktionen } from "./-bank-zuordnung-rest.tsx";
 import { BuchungsartWahl, KandidatWahl } from "./-bank-zuordnung-wahl.tsx";
-import { ReassignmentField } from "./-bank-wiederzuordnung.tsx";
+import { buchungstag, ReassignmentField } from "./-bank-wiederzuordnung.tsx";
 import { BesterTreffer, DirektVorschlagKarte, UmsatzKopf, ZuordnungenListe } from "./-bank-zuordnung-teile.tsx";
 import { type Gebuehr, type Optionen, useZuordnung, type Zuordnung } from "./-bank-zuordnung-zustand.ts";
 
@@ -189,7 +189,12 @@ function Auswahl({ z }: { z: Zuordnung }) {
         />
       )}
       {mode === "direct" && directKind === "kategorie" && (
-        <BuchungsVorschlag wahl={wahl.kategorie} amount={wahl.signedAmount} kontenrahmen={kontenrahmen} jahr={Number(tx.bookingDate.slice(0, 4))} />
+        <BuchungsVorschlag
+          wahl={wahl.kategorie}
+          amount={wahl.signedAmount}
+          kontenrahmen={kontenrahmen}
+          jahr={Number(buchungstag(z.detail.reassignment, wahl.signedAmount, z.reassignment, tx.bookingDate).slice(0, 4))}
+        />
       )}
     </>
   );

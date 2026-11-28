@@ -1,7 +1,10 @@
+import { fruehereKontoNamen } from "./kontenaenderungen.ts";
 import type { Kontenrahmen } from "./kontenplan.ts";
 
 export const ACCOUNT_NAMES: Record<Kontenrahmen, Record<string, string>> = {
   SKR03: {
+    // Frühere Konten mit ihrem letzten Namen (kontenaenderungen.ts)
+    ...fruehereKontoNamen("SKR03"),
     // Kapitalgesellschaft: Gesellschafter und Eigenkapital (DATEV-Kontenrahmen SKR03 2026, Art.-Nr. 11174)
     "0730": "Verbindlichkeiten gegenüber Gesellschaftern",
     "0731": "Verbindlichkeiten gegenüber Gesellschaftern, Restlaufzeit bis 1 Jahr",
@@ -53,6 +56,8 @@ export const ACCOUNT_NAMES: Record<Kontenrahmen, Record<string, string>> = {
     "9000": "Saldenvorträge Sachkonten",
   },
   SKR04: {
+    // Frühere Konten mit ihrem letzten Namen (kontenaenderungen.ts)
+    ...fruehereKontoNamen("SKR04"),
     "1200": "Forderungen aus Lieferungen und Leistungen",
     "1600": "Kasse",
     "1800": "Bank",

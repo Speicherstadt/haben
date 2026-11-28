@@ -55,13 +55,13 @@ function tabelle(): Record<Kontenrahmen, Map<string, string | null>> {
   }
   // Frühere Konten (kontenaenderungen.ts) nur in eine Richtung, auf das heutige Konto ihres Zwecks. Hat das frühere Konto
   // bei DATEV eine eigene Bedeutung (Arbeitszimmer), auf dasselbe Konto im anderen Rahmen
-  for (const [von, nach] of [
-    ["SKR03", "SKR04"],
-    ["SKR04", "SKR03"],
+  for (const [von, nach, tabelle] of [
+    ["SKR03", "SKR04", nach04],
+    ["SKR04", "SKR03", nach03],
   ] as const) {
     for (const { konto, aenderung } of fruehereKonten(von)) {
       const ziel = aenderung.nurHerkunft ? aenderung[nach].frueher?.konto : aenderung[nach].heute;
-      if (ziel) eintragen(von === "SKR03" ? nach04 : nach03, konto, ziel);
+      if (ziel) eintragen(tabelle, konto, ziel);
     }
   }
   zuordnung = { SKR03: nach04, SKR04: nach03 };

@@ -1,4 +1,4 @@
-import { fruehereKontoNamen, kontoImBuchungsjahr } from "./kontenaenderungen.ts";
+import { kontoImBuchungsjahr } from "./kontenaenderungen.ts";
 import { taxIncluded, type BasisPoints, type Cents } from "./money.ts";
 import {
   ACCOUNT_NAMES,
@@ -209,7 +209,6 @@ const STEUER_ANZEIGE: Partial<Record<string, string>> = { USt19: "19 %", USt7: "
 export function kategorieVorschlag(angabe: KategorieAngabe, amount: Cents, kontenrahmen: Kontenrahmen, jahr: number): VorschlagZeile[] {
   const bank = ACCOUNTS[kontenrahmen].bank;
   const aufwandskonto = istEinnahme(angabe.kategorie) ? null : EXPENSE_CATEGORIES[angabe.kategorie as ExpenseCategory][kontenrahmen];
-  const namen = { ...fruehereKontoNamen(kontenrahmen), ...ACCOUNT_NAMES[kontenrahmen] };
   return kategoriePosting(angabe, amount, kontenrahmen)
     .filter((line) => line.account !== bank)
     .map((line) => {
@@ -217,7 +216,7 @@ export function kategorieVorschlag(angabe: KategorieAngabe, amount: Cents, konte
       return {
         konto,
         // Das Aufwandskonto einer Kategorie steht nicht in ACCOUNT_NAMES; dort gilt die Bezeichnung der Kategorie
-        kontoName: namen[konto] ?? (aufwandskonto === line.account ? kategorieText(angabe) : ""),
+        kontoName: ACCOUNT_NAMES[kontenrahmen][konto] ?? (aufwandskonto === line.account ? kategorieText(angabe) : ""),
         betrag: line.credit - line.debit,
         steuer: (line.taxCode && STEUER_ANZEIGE[line.taxCode]) || "ohne",
       };
