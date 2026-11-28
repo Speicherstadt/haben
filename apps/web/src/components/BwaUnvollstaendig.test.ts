@@ -1,6 +1,6 @@
 import type { UnvollstaendigHinweis } from "@haben/core";
 import { describe, expect, it } from "vitest";
-import { ziel } from "./BwaUnvollstaendig.tsx";
+import { ziel, zieleImBuendel } from "./BwaUnvollstaendig.tsx";
 
 /* Wohin die Hinweise der BWA auf Unvollständiges führen (#1635) */
 
@@ -31,5 +31,18 @@ describe("ziel", () => {
   it("Belege führen zu denen „Zu prüfen“, Entwürfe zu den Rechnungen", () => {
     expect(ziel(hinweis("belege", "/belege"))).toEqual({ to: "/belege", search: { status: "pruefen" } });
     expect(ziel(hinweis("rechnungsentwuerfe", "/rechnungen"))).toEqual({ to: "/rechnungen", search: undefined });
+  });
+});
+
+describe("zieleImBuendel", () => {
+  it("je Ziel nur ein Link, am ersten Hinweis; zeigen mehrere auf die Bank, zu allen Konten", () => {
+    const visa = { id: "k1", name: "Visa", bis: "2026-03-05" };
+    const buendel = [hinweis("ausgaben", "/bank"), hinweis("rechnungsentwuerfe", "/rechnungen"), hinweis("konto", "/bank", { konten: [visa] })];
+    expect(zieleImBuendel(buendel)).toEqual([{ to: "/bank", search: { konto: "alle" } }, { to: "/rechnungen", search: undefined }, null]);
+    // Nur das Konto: zu ihm
+    expect(zieleImBuendel([hinweis("rechnungsentwuerfe", "/rechnungen"), hinweis("konto", "/bank", { konten: [visa] })])).toEqual([
+      { to: "/rechnungen", search: undefined },
+      { to: "/bank", search: { konto: "k1" } },
+    ]);
   });
 });
