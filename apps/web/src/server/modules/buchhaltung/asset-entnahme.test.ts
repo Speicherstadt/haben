@@ -37,7 +37,6 @@ describe.skipIf(!testDatabaseUrl)("Entnahme einer Anlage (Postgres)", () => {
   beforeEach(async () => {
     await leeren(sql)`truncate asset_depreciations, assets, allocations, bank_transactions, bank_imports, bank_accounts,
       journal_lines, journal_entries, document_amounts, documents, company, seals, audit_log, audit_chain cascade`;
-    await sql`insert into audit_chain (id, seq, hash) values (1, 0, haben_audit_genesis())`;
   });
 
   // Kamera, linear über 4 Jahre ab Januar 2024, zum 01.01.2026 übernommen: 24 Restmonate zu 50 €
