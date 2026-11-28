@@ -96,6 +96,8 @@ const EIGENES_KONTO = { SKR03: "4999", SKR04: "6999" } as const;
 describe.skipIf(!testDatabaseUrl)("Migration 0340: offene Belege werden Positionen, ihre Buchung bleibt (Postgres, #1975)", () => {
   let documents: typeof import("./documents.ts");
   let konten: typeof import("../eigene-konten/index.ts");
+  let reports: typeof import("../auswertungen/reports.ts");
+  let figures: typeof import("../umsatzsteuer/vat-figures.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
   let fileSeq = 0;
@@ -104,6 +106,8 @@ describe.skipIf(!testDatabaseUrl)("Migration 0340: offene Belege werden Position
     sql = await setupTestDb();
     documents = await import("./documents.ts");
     konten = await import("../eigene-konten/index.ts");
+    reports = await import("../auswertungen/reports.ts");
+    figures = await import("../umsatzsteuer/vat-figures.ts");
   }, 30_000);
 
   afterAll(async () => {
@@ -184,6 +188,42 @@ describe.skipIf(!testDatabaseUrl)("Migration 0340: offene Belege werden Position
         expect(erwartet.length, fall.name).toBeGreaterThan(0);
         expect(await salden(nachher), fall.name).toEqual(erwartet);
       }
+    }, 120_000);
+  }
+
+  // Privat bezahlt, damit auch die EÜR bei Ist jeden Beleg im Jahr zählt; dazu Bewirtung mit Privatanteil und ganz privat
+  const BEZAHLT: Fall[] = (
+    [
+      ...FAELLE,
+      { name: "Bewirtung mit Privatanteil", category: "bewirtung", privateShare: 33, amounts: [{ taxRate: 1900, net: 8_403, tax: 1_597 }] },
+      { name: "Ganz privat", category: "telefon", privateShare: 100, amounts: [{ taxRate: 1900, net: 999, tax: 190 }] },
+    ] satisfies Fall[]
+  ).map((fall: Fall) => ({ ...fall, extra: { ...fall.extra, payment: "privat" } }));
+
+  /** EÜR des Jahres und Voranmeldung des Belegmonats, ohne Kennungen und Nummern der Belege */
+  async function auswertung() {
+    const euer = await reports.euerForYear(2026);
+    const vat = await figures.computeVatFigures({ year: 2026, month: 9 });
+    return JSON.parse(JSON.stringify({ euer, vat }, (key, value) => (/^(id|number)$|Id$/.test(key) ? undefined : value)));
+  }
+
+  for (const [kontenrahmen, versteuerung] of [
+    ["SKR03", "ist"],
+    ["SKR04", "soll"],
+  ] as const) {
+    it(`${kontenrahmen}, ${versteuerung}: EÜR und Voranmeldung bleiben gleich`, async () => {
+      let eigenesKonto = await reset(kontenrahmen, versteuerung);
+      const vorher = [];
+      for (const fall of BEZAHLT) vorher.push(await altEntwurf(fall, eigenesKonto));
+      for (const id of vorher) await documents.bookDocument(actor, id);
+      const erwartet = await auswertung();
+
+      eigenesKonto = await reset(kontenrahmen, versteuerung);
+      const nachher = [];
+      for (const fall of BEZAHLT) nachher.push(await altEntwurf(fall, eigenesKonto));
+      await migrieren();
+      for (const id of nachher) await documents.bookDocument(actor, id);
+      expect(await auswertung()).toEqual(erwartet);
     }, 120_000);
   }
 
