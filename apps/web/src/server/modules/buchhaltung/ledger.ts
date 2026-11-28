@@ -109,7 +109,7 @@ export async function post(tx: Tx, books: Books, posting: Posting): Promise<stri
   // Zeilen ohne Betrag fallen weg, außer sie tragen eine Bemessungsgrundlage (Anteil ohne Steuer bei Ist, #542)
   // Konten nach dem Buchungsjahr (#2043, docs/adr/kontenrahmen-ausgaben.md): Die Module kontieren mit den Konten der
   // neuesten DATEV-Ausgabe, ins Journal kommen die, die im Buchungsjahr galten. Eine Gegenbuchung im Jahr ihrer
-  // Ursprungsbuchung spiegelt deren Konten.
+  // Ursprungsbuchung spiegelt deren Konten; sie übergibt dafür die Zeilen, wie sie im Journal stehen, nicht neu gerechnete.
   const [ursprung] = posting.reversesId
     ? await tx.select({ date: schema.journalEntries.date }).from(schema.journalEntries).where(eq(schema.journalEntries.id, posting.reversesId))
     : [];

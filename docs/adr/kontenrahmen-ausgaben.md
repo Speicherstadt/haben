@@ -70,7 +70,8 @@ Unverändert bleiben Konten, die der Nutzer oder eine Datei vorgibt: freie Buchu
 ### 2. Bestehende Buchungen bleiben, wie sie sind
 
 - Nie umbuchen. Was festgeschrieben ist, bleibt auf seinem Konto, auch wenn es nach dieser Regel heute woanders stünde.
-- Auswertungen lesen ein früheres Konto als sein heutiges (`heutigesKonto`): EÜR, BWA, E-Bilanz, Gesamtumsatz, Nebenbuch.
+- Auswertungen lesen ein früheres Konto als sein heutiges (`heutigesKonto`): EÜR, BWA, E-Bilanz, Gesamtumsatz, Nebenbuch,
+  Abgleich. Wo eine Auswertung ein Konto nennt oder verlinkt, ist es das, auf dem die Buchungen stehen.
 - Eine Gegenbuchung im Jahr ihrer Ursprungsbuchung spiegelt deren Konten, damit sich beide auf demselben Konto
   aufheben. Steht sie in einem anderen Jahr, etwa das Storno einer Bareinnahme von 2024, das die Kasse heute bucht, gilt
   das Konto dieses Jahres: Auf 8195 bzw. 4185 ließe sich 2026 bei DATEV nicht mehr buchen.
