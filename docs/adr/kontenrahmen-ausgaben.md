@@ -7,7 +7,7 @@ description: >-
 
 # Entscheidung: Kontenrahmen je Jahr und frühere Konten
 
-**Status:** Entwurf im Pull Request zu #2043; angenommen ist die Entscheidung mit dem Merge. **Stand:** DATEV-Kontenrahmen 2026 (`HABEN_KONTENRAHMEN_STAND`).
+**Status:** angenommen und umgesetzt mit [#2065](https://github.com/Speicherstadt/haben/pull/2065). **Stand:** DATEV-Kontenrahmen 2026 (`HABEN_KONTENRAHMEN_STAND`).
 **Bezug:** [#2043](https://github.com/Speicherstadt/haben/issues/2043), [#2015](https://github.com/Speicherstadt/haben/issues/2015) (Homeoffice),
 [#899](https://github.com/Speicherstadt/haben/issues/899) (Kleinunternehmer), [Buchhaltung: Neue Ausgabe des Kontenrahmens](../buchhaltung.md#neue-ausgabe-des-kontenrahmens).
 DATEV: [Programmänderungen Kanzlei-Rechnungswesen 13.3](https://apps.datev.de/myupdates/product-change/details/rel.1037625.productversion_i20241002140543480010133) (Kontenrahmen 2025),
