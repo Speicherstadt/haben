@@ -85,13 +85,14 @@ describe("unvollstaendig", () => {
     ]);
   });
 
-  it("Form 01 periodengerecht: offene Umsätze und Entwürfe nur als Hinweis", () => {
+  it("Form 01 periodengerecht: offene Umsätze, Entwürfe und Konten nur als Hinweis, ungebuchte Belege warnen", () => {
+    // Rechnungen und Belege sind schon gebucht; nach dem letzten Umsatz fehlt nur, was erst die Bank bucht (Gebühren, Zinsen)
     expect(kurz("form01")).toEqual([
       ["ausgaben", "info", 2, "/bank"],
       ["eingaenge", "info", 1, "/bank"],
       ["belege", "warn", 3, "/belege"],
       ["rechnungsentwuerfe", "info", 4, "/rechnungen"],
-      ["konto", "warn", 1, "/bank"],
+      ["konto", "info", 1, "/bank"],
     ]);
   });
 
