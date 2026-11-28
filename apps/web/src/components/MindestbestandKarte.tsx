@@ -20,7 +20,7 @@ export function MindestbestandKarte({ mindestbestand, vorschau, aendern }: { min
     <section className="card" aria-labelledby="liq-mindestbestand-titel">
       <h2 id="liq-mindestbestand-titel">Mindestbestand</h2>
       <p className="small muted" style={{ margin: 0 }}>
-        Fällt der erwartete Kontostand darunter, warnen der Hinweis hier, die Übersicht und die Fristen-Mail.
+        Fällt der erwartete Kontostand darunter, warnen ein Hinweis oben auf dieser Seite, die Übersicht und die Fristen-Mail.
       </p>
       {aendern ? (
         <MindestbestandForm mindestbestand={mindestbestand} vorschau={vorschau} />
@@ -78,7 +78,7 @@ function MindestbestandForm({ mindestbestand, vorschau }: { mindestbestand: Cent
   return (
     <form ref={form} className="stack" style={{ gap: 12 }} onSubmit={(e) => void onSubmit(e)} noValidate>
       <div className="form-row liq-mindestbestand">
-        <Field label="Mindestbestand" hint="In Euro; leer heißt keine Warnung" error={error("mindestbestand")}>
+        <Field label="Mindestbestand" hint="In Euro; leer heißt keine Warnung, 0 € warnt vor einem Minus" error={error("mindestbestand")}>
           {(control) => <input {...control} name="mindestbestand" inputMode="decimal" className="num" value={wert} onChange={(e) => setWert(e.target.value)} />}
         </Field>
       </div>

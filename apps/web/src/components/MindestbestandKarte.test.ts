@@ -1,8 +1,24 @@
 import { liquiditaetsVorschau } from "@haben/core";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { mindestbestandEingabe, speicherMeldung } from "./MindestbestandKarte.tsx";
+import { MindestbestandKarte, mindestbestandEingabe, speicherMeldung } from "./MindestbestandKarte.tsx";
 
-vi.mock("../server/functions/liquiditaet.ts", () => ({}));
+vi.mock("../server/functions/liquiditaet.ts", () => ({ saveMindestbestand: vi.fn() }));
+vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
+vi.mock("@tanstack/react-router", () => ({ useRouter: () => ({ invalidate: vi.fn() }) }));
+
+const karte = (aendern: boolean) => renderToStaticMarkup(createElement(MindestbestandKarte, { mindestbestand: 500_000, vorschau: null, aendern }));
+
+describe("Mindestbestand: Karte (#1381)", () => {
+  it("sagt, wo gewarnt wird: der Hinweis steht oben auf der Seite, nicht in der Karte", () => {
+    expect(karte(false)).toContain("warnen ein Hinweis oben auf dieser Seite, die Übersicht und die Fristen-Mail.");
+  });
+
+  it("nennt am Feld, was leer und was 0 € heißt", () => {
+    expect(karte(true)).toContain("In Euro; leer heißt keine Warnung, 0 € warnt vor einem Minus");
+  });
+});
 
 describe("Mindestbestand: Eingabe (#1381)", () => {
   it("leer heißt kein Mindestbestand, ein Betrag ab 0 € gilt", () => {
