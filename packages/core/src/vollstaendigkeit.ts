@@ -96,27 +96,34 @@ const tagImZeitraum = (datum: string, zeitraum: Zeitraum) => {
   return jahr === zeitraum.von.slice(0, 4) && jahr === zeitraum.bis.slice(0, 4) ? tagMonat : `${tagMonat}${jahr}`;
 };
 
-/** Ein Satz je Hinweis zum Zeitraum der Auswertung, für Seite und Export gleich */
+/**
+ * Ein Satz je Hinweis zum Zeitraum der Auswertung, für Seite und Export gleich, jeweils mit Folge für die Zahlen. Vorsichtig:
+ * Ein offener Umsatz kann auch eine Einlage, Entnahme, ein Geldtransit oder eine Tilgung sein.
+ */
 export function unvollstaendigText(h: UnvollstaendigHinweis, zeitraum: Zeitraum): string {
   const n = h.anzahl;
+  const fehlt = n === 1 ? "fehlt" : "fehlen";
+  const warn = h.ton === "warn";
   switch (h.art) {
     case "ausgaben":
-      return h.ton === "warn"
-        ? `${n} ${n === 1 ? "Ausgabe" : "Ausgaben"} im Zeitraum ohne Beleg oder Zuordnung; ${n === 1 ? "sie fehlt" : "sie fehlen"} in den Kosten.`
-        : `${n} ${n === 1 ? "Ausgabe" : "Ausgaben"} im Zeitraum ohne Beleg oder Zuordnung; ohne Beleg fehlt der Aufwand.`;
+      return `${n} ${n === 1 ? "Ausgabe" : "Ausgaben"} im Zeitraum ohne Beleg oder Zuordnung; ${fehlt} ${
+        warn
+          ? `in den Kosten, ${n === 1 ? "wenn es eine Betriebsausgabe ist" : "soweit es Betriebsausgaben sind"}`
+          : "im Aufwand, wenn kein gebuchter Beleg dazugehört"
+      }.`;
     case "eingaenge":
-      return h.ton === "warn"
-        ? `${n} ${n === 1 ? "Zahlungseingang" : "Zahlungseingänge"} im Zeitraum noch nicht zugeordnet; ${n === 1 ? "er fehlt" : "sie fehlen"} in den Erlösen.`
-        : `${n} ${n === 1 ? "Zahlungseingang" : "Zahlungseingänge"} im Zeitraum noch nicht zugeordnet; ohne Rechnung fehlt der Erlös.`;
+      return `${n} ${n === 1 ? "Zahlungseingang" : "Zahlungseingänge"} im Zeitraum noch nicht zugeordnet; ${fehlt} in den Erlösen, ${
+        warn ? (n === 1 ? "wenn es eine Einnahme ist" : "soweit es Einnahmen sind") : "wenn keine festgeschriebene Rechnung dazugehört"
+      }.`;
     case "belege":
-      return `${n} ${n === 1 ? "Beleg" : "Belege"} im Zeitraum oder ohne Datum noch nicht gebucht.`;
+      return `${n} ${n === 1 ? "Beleg" : "Belege"} im Zeitraum oder ohne Datum noch nicht gebucht; ${fehlt} in den Kosten.`;
     case "rechnungsentwuerfe":
       return `${n} ${n === 1 ? "Rechnungsentwurf" : "Rechnungsentwürfe"} mit Datum im Zeitraum; Erlöse zählen erst festgeschrieben.`;
     case "konto": {
       const konten = h.konten ?? [];
       const liste = konten.map((k) => `„${k.name}“ nur bis ${tagImZeitraum(k.bis, zeitraum)}`).join(", ");
-      // Endet mit dem Jahr, schließt der Punkt den Satz; nach TT.MM. steht er schon
-      return `Umsätze ${konten.length === 1 ? "von Konto" : "der Konten"} ${liste}${liste.endsWith(".") ? "" : "."}`;
+      // Periodengerecht fehlt nach dem letzten Umsatz nur, was erst die Bank bucht
+      return `Umsätze ${konten.length === 1 ? "vom Konto" : "der Konten"} ${liste}; ${warn ? "was danach kam, fehlt in Erlösen und Kosten" : "Gebühren und Zinsen danach können fehlen"}.`;
     }
   }
 }

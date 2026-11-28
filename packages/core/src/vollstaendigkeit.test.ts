@@ -114,33 +114,39 @@ describe("unvollstaendigText", () => {
 
   it("Einzahl und Mehrzahl", () => {
     expect(texte({ ausgaben: 1, eingaenge: 1, belege: 1, rechnungsentwuerfe: 1 }, "form01")).toEqual([
-      "1 Ausgabe im Zeitraum ohne Beleg oder Zuordnung; ohne Beleg fehlt der Aufwand.",
-      "1 Zahlungseingang im Zeitraum noch nicht zugeordnet; ohne Rechnung fehlt der Erlös.",
-      "1 Beleg im Zeitraum oder ohne Datum noch nicht gebucht.",
+      "1 Ausgabe im Zeitraum ohne Beleg oder Zuordnung; fehlt im Aufwand, wenn kein gebuchter Beleg dazugehört.",
+      "1 Zahlungseingang im Zeitraum noch nicht zugeordnet; fehlt in den Erlösen, wenn keine festgeschriebene Rechnung dazugehört.",
+      "1 Beleg im Zeitraum oder ohne Datum noch nicht gebucht; fehlt in den Kosten.",
       "1 Rechnungsentwurf mit Datum im Zeitraum; Erlöse zählen erst festgeschrieben.",
     ]);
     expect(texte({ ausgaben: 2, eingaenge: 3, belege: 4, rechnungsentwuerfe: 5 }, "form43")).toEqual([
-      "2 Ausgaben im Zeitraum ohne Beleg oder Zuordnung; sie fehlen in den Kosten.",
-      "3 Zahlungseingänge im Zeitraum noch nicht zugeordnet; sie fehlen in den Erlösen.",
-      "4 Belege im Zeitraum oder ohne Datum noch nicht gebucht.",
+      "2 Ausgaben im Zeitraum ohne Beleg oder Zuordnung; fehlen in den Kosten, soweit es Betriebsausgaben sind.",
+      "3 Zahlungseingänge im Zeitraum noch nicht zugeordnet; fehlen in den Erlösen, soweit es Einnahmen sind.",
+      "4 Belege im Zeitraum oder ohne Datum noch nicht gebucht; fehlen in den Kosten.",
     ]);
-    expect(texte({ ...nichts, eingaenge: 1 }, "form43")).toEqual(["1 Zahlungseingang im Zeitraum noch nicht zugeordnet; er fehlt in den Erlösen."]);
-    expect(texte({ ...nichts, ausgaben: 2 }, "form01")).toEqual(["2 Ausgaben im Zeitraum ohne Beleg oder Zuordnung; ohne Beleg fehlt der Aufwand."]);
+    expect(texte({ ...nichts, eingaenge: 1, ausgaben: 1 }, "form43")).toEqual([
+      "1 Ausgabe im Zeitraum ohne Beleg oder Zuordnung; fehlt in den Kosten, wenn es eine Betriebsausgabe ist.",
+      "1 Zahlungseingang im Zeitraum noch nicht zugeordnet; fehlt in den Erlösen, wenn es eine Einnahme ist.",
+    ]);
+    expect(texte({ ...nichts, ausgaben: 2, eingaenge: 3 }, "form01")).toEqual([
+      "2 Ausgaben im Zeitraum ohne Beleg oder Zuordnung; fehlen im Aufwand, wenn kein gebuchter Beleg dazugehört.",
+      "3 Zahlungseingänge im Zeitraum noch nicht zugeordnet; fehlen in den Erlösen, wenn keine festgeschriebene Rechnung dazugehört.",
+    ]);
   });
 
   const bis = (datum: string, zeitraum: { von: string; bis: string }) =>
     unvollstaendigText(unvollstaendig(nichts, [{ id: "k", name: "Visa", bis: datum }], "form43")[0]!, zeitraum);
 
   it("nennt Konto und letzten Tag, ohne Jahr, wenn Zeitraum und Tag im selben Jahr liegen", () => {
-    expect(bis("2026-03-05", maerz)).toBe("Umsätze von Konto „Visa“ nur bis 05.03.");
-    expect(bis("2026-02-27", maerz)).toBe("Umsätze von Konto „Visa“ nur bis 27.02.");
+    expect(bis("2026-03-05", maerz)).toBe("Umsätze vom Konto „Visa“ nur bis 05.03.; was danach kam, fehlt in Erlösen und Kosten.");
+    expect(bis("2026-02-27", maerz)).toBe("Umsätze vom Konto „Visa“ nur bis 27.02.; was danach kam, fehlt in Erlösen und Kosten.");
   });
 
   it("nennt das Jahr, sobald der Tag in einem anderen Jahr liegt oder der Zeitraum über den Jahreswechsel geht", () => {
-    expect(bis("2025-10-20", maerz)).toBe("Umsätze von Konto „Visa“ nur bis 20.10.2025.");
+    expect(bis("2025-10-20", maerz)).toBe("Umsätze vom Konto „Visa“ nur bis 20.10.2025; was danach kam, fehlt in Erlösen und Kosten.");
     const winter = { von: "2025-12-01", bis: "2026-01-31" };
-    expect(bis("2025-12-19", winter)).toBe("Umsätze von Konto „Visa“ nur bis 19.12.2025.");
-    expect(bis("2026-01-09", winter)).toBe("Umsätze von Konto „Visa“ nur bis 09.01.2026.");
+    expect(bis("2025-12-19", winter)).toBe("Umsätze vom Konto „Visa“ nur bis 19.12.2025; was danach kam, fehlt in Erlösen und Kosten.");
+    expect(bis("2026-01-09", winter)).toBe("Umsätze vom Konto „Visa“ nur bis 09.01.2026; was danach kam, fehlt in Erlösen und Kosten.");
   });
 
   it("nennt mehrere Konten in einem Satz, das Jahr auch mitten im Satz ohne Punkt", () => {
@@ -152,6 +158,13 @@ describe("unvollstaendigText", () => {
       ],
       "form43",
     );
-    expect(unvollstaendigText(zwei[0]!, maerz)).toBe("Umsätze der Konten „Visa“ nur bis 20.10.2025, „Girokonto“ nur bis 05.03.");
+    expect(unvollstaendigText(zwei[0]!, maerz)).toBe(
+      "Umsätze der Konten „Visa“ nur bis 20.10.2025, „Girokonto“ nur bis 05.03.; was danach kam, fehlt in Erlösen und Kosten.",
+    );
+  });
+
+  it("in Form 01 ruhiger: nach dem letzten Umsatz fehlt nur, was erst die Bank bucht", () => {
+    const [h] = unvollstaendig(nichts, [{ id: "k", name: "Visa", bis: "2026-03-05" }], "form01");
+    expect(unvollstaendigText(h!, maerz)).toBe("Umsätze vom Konto „Visa“ nur bis 05.03.; Gebühren und Zinsen danach können fehlen.");
   });
 });
