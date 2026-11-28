@@ -166,6 +166,26 @@ describe.skipIf(!testDatabaseUrl)("Steuer der Korrektur aus dem Gesamtstand (Pos
     await integrity();
   }, 40_000);
 
+  for (const frame of ["SKR03", "SKR04"] as const)
+    it(`${frame}, Soll: bezahlte Rechnung, die Korrekturen mindern mit der Rückzahlung genau um die Steuer der Rechnung`, async () => {
+      await sql`update company set kontenrahmen = ${frame}`;
+      const original = await invoice([beratung(10_000)]);
+      await pay(original.id, "2026-05-20", 11_900);
+      const a = await correction(original.id, "2026-06-10", [beratung(-50)]);
+      expect(a).toMatchObject({ net: -50, tax: -9, gross: -59 });
+      await pay(a.id, "2026-07-15", -59);
+      const b = await correction(original.id, "2026-08-10", [beratung(-9_950)]);
+      await pay(b.id, "2026-09-14", -11_841);
+      expect(await kz(5)).toEqual({ kz81: 10_000, tax81: 1_900 });
+      expect(await kz(6)).toEqual({ kz81: 0, tax81: 0 });
+      expect(await kz(7)).toEqual({ kz81: -50, tax81: -9 });
+      expect(await kz(8)).toEqual({ kz81: 0, tax81: 0 });
+      expect(await kz(9)).toEqual({ kz81: -9_950, tax81: -1_891 });
+      expect(await balance(ACCOUNTS[frame].ust[1900])).toBe(0);
+      expect(await balance(ACCOUNTS[frame].forderungen)).toBe(0);
+      await integrity();
+    }, 40_000);
+
   it("1,03 € mit −0,34 €, −0,34 € und −0,35 €: brutto bleibt nichts offen", async () => {
     const original = await invoice([beratung(103), bleibt()]);
     expect(original).toMatchObject({ tax: 20 + 70, gross: 123 + 1_070 });
