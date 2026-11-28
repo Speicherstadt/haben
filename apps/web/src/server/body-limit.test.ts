@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ANONYMOUS_BODY_LIMIT, readBodyLimited, rejectLargeAnonymousBody } from "./body-limit.ts";
+import { ANONYMOUS_BODY_LIMIT, AUTH_BODY_LIMIT, limitAuthBody, readBodyLimited, rejectLargeAnonymousBody } from "./body-limit.ts";
 
 describe("Große Anfragen ohne Anmeldung", () => {
   const serverFn = "/_serverFn/abc";
@@ -69,5 +69,46 @@ describe("readBodyLimited", () => {
 
   it("liefert ohne Body ein leeres Array", async () => {
     expect((await readBodyLimited(new Request("http://app:3000/api", { method: "POST" }), 100))?.byteLength).toBe(0);
+  });
+});
+
+describe("limitAuthBody (/api/auth)", () => {
+  const chunked = (bytes: number) =>
+    new Request("http://app:3000/api/auth/sign-out", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (let sent = 0; sent < bytes; sent += 16 * 1024) controller.enqueue(new Uint8Array(16 * 1024).fill(0x20));
+          controller.close();
+        },
+      }),
+      duplex: "half",
+    } as RequestInit);
+
+  it("lehnt große Bodys ab, mit und ohne Content-Length", async () => {
+    expect(await limitAuthBody(chunked(AUTH_BODY_LIMIT + 16 * 1024))).toBeNull();
+    const declared = new Request("http://app:3000/api/auth/sign-in/email", {
+      method: "POST",
+      headers: { "Content-Length": String(AUTH_BODY_LIMIT + 1) },
+      body: "{}",
+    });
+    expect(await limitAuthBody(declared)).toBeNull();
+  });
+
+  it("gibt kleine Bodys unverändert weiter, samt Methode, Headern und Adresse", async () => {
+    const body = JSON.stringify({ email: "inhaber@example.de", password: "geheim" });
+    const request = await limitAuthBody(
+      new Request("http://app:3000/api/auth/sign-in/email", { method: "POST", headers: { "Content-Type": "application/json", Cookie: "a=b" }, body }),
+    );
+    expect(request?.method).toBe("POST");
+    expect(request?.url).toBe("http://app:3000/api/auth/sign-in/email");
+    expect(request?.headers.get("cookie")).toBe("a=b");
+    expect(await request?.json()).toEqual(JSON.parse(body));
+  });
+
+  it("lässt GET ohne Body unverändert", async () => {
+    const get = new Request("http://app:3000/api/auth/get-session");
+    expect(await limitAuthBody(get)).toBe(get);
   });
 });

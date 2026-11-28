@@ -63,3 +63,19 @@ export async function readBodyLimited(request: Request, limit: number): Promise<
   }
   return bytes;
 }
+
+/**
+ * /api/auth ist ohne Anmeldung erreichbar, und Better Auth liest den Body jeder POST-Route vollständig (request.json()).
+ * Anmeldung, Einrichtung und Passkeys senden wenige KB; mehr wird nicht gelesen, auch ohne Content-Length (chunked).
+ * Sonst puffert der Server je Anfrage bis zur Grenze des Proxys (250 MB).
+ */
+export const AUTH_BODY_LIMIT = 128 * 1024;
+
+/** Der Body begrenzt gelesen und neu verpackt; null, wenn er größer als AUTH_BODY_LIMIT ist */
+export async function limitAuthBody(request: Request): Promise<Request | null> {
+  if (request.method === "GET" || request.method === "HEAD" || !request.body) return request;
+  if (Number(request.headers.get("content-length") ?? 0) > AUTH_BODY_LIMIT) return null;
+  const bytes = await readBodyLimited(request, AUTH_BODY_LIMIT);
+  if (!bytes) return null;
+  return new Request(request.url, { method: request.method, headers: request.headers, body: bytes, signal: request.signal });
+}
