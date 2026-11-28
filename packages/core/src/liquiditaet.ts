@@ -206,3 +206,24 @@ export function liquiditaetsVorschau(input: { heute: string; horizont: Horizont;
     ende: start + eingaenge - ausgaenge,
   };
 }
+
+/** Höchster Mindestbestand, den Formular und Übernahme annehmen: 1 Mrd. € */
+export const MINDESTBESTAND_MAX: Cents = 100_000_000_000;
+
+/** Der erwartete Kontostand fällt unter den Mindestbestand: am Tag `datum` auf `stand`, es fehlen `fehlt` */
+export interface Unterschreitung extends Stand {
+  mindestbestand: Cents;
+  /** Mindestbestand minus Stand, positiv */
+  fehlt: Cents;
+}
+
+/**
+ * Erster Tag im Horizont, an dem der Tagesendstand unter dem Mindestbestand liegt (#1381); null, wenn er nie darunter
+ * fällt. Ohne Posten heute zählt der Stand zu Beginn als Stand von heute, liegt er schon darunter, ist es heute. Für
+ * Übersicht, Fristen-Mail und Liquiditätsseite, unabhängig vom Horizont der Vorschau.
+ */
+export function unterschreitung(vorschau: Pick<Vorschau, "heute" | "start" | "verlauf">, mindestbestand: Cents): Unterschreitung | null {
+  const heute = vorschau.verlauf[0]?.datum === vorschau.heute ? [] : [{ datum: vorschau.heute, stand: vorschau.start }];
+  const tag = [...heute, ...vorschau.verlauf].find((s) => s.stand < mindestbestand);
+  return tag ? { datum: tag.datum, stand: tag.stand, mindestbestand, fehlt: mindestbestand - tag.stand } : null;
+}
