@@ -12,7 +12,7 @@ describe.skipIf(!testDatabaseUrl)("Fristen, Kalender-Abo und Erinnerungen per E-
   let crypto: typeof import("../../crypto.ts");
   let sql: postgres.Sql;
   const actor = "test-user";
-  const sent: { to: string; subject: string; text: string }[] = [];
+  const sent: { to: string; subject: string; text: string; html?: string }[] = [];
   let failNext = false;
 
   beforeAll(async () => {
@@ -27,12 +27,12 @@ describe.skipIf(!testDatabaseUrl)("Fristen, Kalender-Abo und Erinnerungen per E-
     mail.setMailTransportForTests(() => {
       const transport = nodemailer.createTransport({ jsonTransport: true });
       return {
-        sendMail: async (message: { to: string; subject: string; text: string }) => {
+        sendMail: async (message: { to: string; subject: string; text: string; html?: string }) => {
           if (failNext) {
             failNext = false;
             throw new Error("Authentifizierung fehlgeschlagen");
           }
-          sent.push({ to: message.to, subject: message.subject, text: message.text });
+          sent.push({ to: message.to, subject: message.subject, text: message.text, html: message.html });
           return transport.sendMail(message);
         },
       } as unknown as ReturnType<typeof nodemailer.createTransport>;
@@ -252,6 +252,10 @@ describe.skipIf(!testDatabaseUrl)("Fristen, Kalender-Abo und Erinnerungen per E-
     expect(await erinnerung.runDueFristenMails("2026-10-05", morgens, hinweis)).toEqual({ sent: 3 });
     expect(sent.at(-1)!.text).toMatch(
       /\n\nKontostand unterschreitet Mindestbestand am 01\.12\.2026: erwartet 5\.000,00 €, 1\.000,00 € unter 6\.000,00 €\nhttps?:\/\/[^\n]+\/auswertungen\/liquiditaet\n/,
+    );
+    // In der HTML-Fassung ein Link mit dem Text, vor dem Link auf alle Fristen
+    expect(sent.at(-1)!.html).toMatch(
+      /<p><a href="https?:\/\/[^"]+\/auswertungen\/liquiditaet">Kontostand unterschreitet Mindestbestand am 01\.12\.2026: [^<]+<\/a><\/p>\n<p><a href="[^"]+\/fristen">/,
     );
     // Nichts Neues: keine Mail und keine Vorschau gerechnet
     expect(await erinnerung.runDueFristenMails("2026-10-05", morgens, hinweis)).toEqual({ sent: 0 });
