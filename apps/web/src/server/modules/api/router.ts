@@ -125,6 +125,7 @@ async function authorized(route: ApiRoute, access: McpAccess, params: Record<str
     body: body.body,
     baseUrl: env().BETTER_AUTH_URL.replace(/\/$/, ""),
     today: today(),
+    finalizeSource: access.finalizeSource,
   });
 }
 

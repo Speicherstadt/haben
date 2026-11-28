@@ -4423,6 +4423,8 @@ export const mcpTokens = pgTable("mcp_tokens", {
   prefix: text("prefix").notNull(),
   /** Rechte des Tokens, TOKEN_SCOPES in modules/mcp/tokens.ts: haben:lesen für MCP, kontakte:…, rechnungen:… und belege:… für die REST-API */
   scopes: text("scopes").array().notNull(),
+  /** Mit rechnungen:festschreiben: die externe Quelle (invoices.external_source), deren Entwürfe das Token festschreiben darf (#1918) */
+  finalizeSource: text("finalize_source"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
