@@ -1,5 +1,5 @@
 import { ASSET_ACCOUNTS } from "./afa.ts";
-import { istEntnahmeKonto } from "./afa-entnahme.ts";
+import { istAnlagenabgangKonto, istRechnungsErloesKonto } from "./anlagenverkauf.ts";
 import { DARLEHEN_KONTEN } from "./darlehen.ts";
 import type { EuerLineKey } from "./euer.ts";
 import type { JournalZeile } from "./journal-kennzahlen.ts";
@@ -30,7 +30,9 @@ import { abziehbareNebenleistungen, nichtAbziehbareNebenleistungen, STEUER_KONTE
  *
  * Was die Buchung allein nicht sagt, gibt der Aufrufer als Herkunft mit: Gebühren eines Darlehens stehen auf einem Konto,
  * die EÜR trennt sie nach dem Zweck (Herkunft „darlehenAnlagevermoegen“); das GWG-Konto (SKR03 0480, SKR04 0670) ist bei
- * einem Beleg die Kategorie „Hardware“, bei einer Anlage (Herkunft „anlage“ bzw. „asset“) Anlagevermögen ohne Wirkung.
+ * einem Beleg die Kategorie „Hardware“, bei einer Anlage (Herkunft „anlage“ bzw. „asset“) Anlagevermögen ohne Wirkung; der
+ * Erlös einer Rechnung mit „Verkauf aus dem Anlagevermögen“ (Herkunft „anlagenverkauf“) steht in Zeile 19, auch wenn sie
+ * vor #2022 auf das normale Erlöskonto gebucht hat.
  *
  * Eine Zahlung auf eine Rechnung oder einen Beleg verteilt `zahlungsAnteil` auf deren Zeilen (#542, Schritt 5b).
  */
@@ -59,9 +61,10 @@ export type EuerZuordnung = EuerLineKey | "ustZahlung" | "nichtAbziehbar";
 
 /**
  * Herkunft der Buchung, soweit sie die Zuordnung ändert: „anlage“ ist ein Beleg der Kategorie Anlage, „asset“ eine Buchung
- * des Anlagenverzeichnisses, „darlehenAnlagevermoegen“ eine Zahlung auf ein Darlehen für Anlagevermögen
+ * des Anlagenverzeichnisses, „darlehenAnlagevermoegen“ eine Zahlung auf ein Darlehen für Anlagevermögen, „anlagenverkauf“
+ * eine Rechnung mit „Verkauf aus dem Anlagevermögen“ (#2022)
  */
-export type EuerHerkunft = "pauschale" | "asset" | "anlage" | "darlehenAnlagevermoegen" | "sonst";
+export type EuerHerkunft = "pauschale" | "asset" | "anlage" | "darlehenAnlagevermoegen" | "anlagenverkauf" | "sonst";
 
 /**
  * Die EÜR-Zeile eines Kontos, oder null, wenn es in der EÜR nicht wirkt (Bank, Kasse, Forderungen, Verbindlichkeiten,
@@ -85,6 +88,10 @@ export function euerZuordnung(kontenrahmen: Kontenrahmen, konto: string, herkunf
   // Anleitung EÜR 2025, Zeile 12: auch eigene Befreiungen und nicht steuerbare Leistungen sind KU-Einnahmen.
   // https://www.elster.de/eportal/helpGlobal?themaGlobal=help_euer_ufa_77_2025
   const steuerfrei = kleinunternehmer ? "einnahmenKleinunternehmer" : "einnahmenSteuerfrei";
+  // Verkauf einer Anlage (#2022): Zeile 19 „Veräußerung oder Entnahme von Anlagevermögen“ (Anleitung zur EÜR 2025), auf den
+  // Verkaufskonten bei jeder Herkunft, auf den Erlöskonten bei einer Rechnung mit dem Kennzeichen von vor #2022
+  if (istAnlagenabgangKonto(kontenrahmen, account)) return "anlagenabgang";
+  if (herkunft === "anlagenverkauf" && istRechnungsErloesKonto(kontenrahmen, account)) return "anlagenabgang";
   // Erlöse
   if (account === a.erloese[1900] || account === a.erloese[700]) return "einnahmenSteuerpflichtig";
   if (account === a.erloeseSonder.kleinunternehmer) return "einnahmenKleinunternehmer";
@@ -109,9 +116,6 @@ export function euerZuordnung(kontenrahmen: Kontenrahmen, konto: string, herkunf
   if (account === anlage.afaGwg) return "gwg";
   if (account === anlage.afaSammelposten) return "sammelposten";
   if (account === anlage.restbuchwert || account === anlage.restbuchwertGewinn) return "restbuchwert";
-  // Entnahme einer Anlage (#1970): Zeile 19 „Veräußerung oder Entnahme von Anlagevermögen“ (Anleitung zur EÜR 2025), nur
-  // aus dem Anlagenverzeichnis; Verkaufserlöse auf diesen Konten ordnet #2022 zu
-  if (herkunft === "asset" && istEntnahmeKonto(kontenrahmen, account)) return "anlagenabgang";
   // Steuerzahlungen und Nebenleistungen
   if (abziehbareNebenleistungen(kontenrahmen).includes(account)) return "steuerNebenleistungen";
   if (account === steuer.gewst || account === steuer.gewstVorjahre || nichtAbziehbareNebenleistungen(kontenrahmen).includes(account)) return "nichtAbziehbar";
@@ -133,6 +137,11 @@ export function euerZuordnung(kontenrahmen: Kontenrahmen, konto: string, herkunf
 
 export interface EuerAusJournal {
   zeilen: Partial<Record<EuerLineKey, Cents>>;
+  /**
+   * Teil von Zeile 19, der nicht aus dem Anlagenverzeichnis kommt: Verkaufserlöse (#2022). Fehlt, solange es keinen gibt.
+   * Die EÜR braucht ihn getrennt, solange Anlagen des Jahres noch nicht gebucht sind (euer-quelle.ts).
+   */
+  anlagenverkauf?: Cents;
   /** Nicht abziehbarer Teil der Bewirtung (30 %), wie EuerResult.bewirtungNichtAbziehbar */
   bewirtungNichtAbziehbar: Cents;
   /** Gewerbesteuer und nicht abziehbare Nebenleistungen, wie EuerResult.gewerbesteuerNichtAbziehbar */
@@ -184,6 +193,7 @@ export function euerAusZeilen(
       summe.bewirtungNichtAbziehbar += soll - abziehbar;
     } else {
       add(zuordnung, EINNAHMEN.has(zuordnung) ? -soll : soll);
+      if (zuordnung === "anlagenabgang" && herkunft !== "asset" && soll !== 0) summe.anlagenverkauf = (summe.anlagenverkauf ?? 0) - soll;
     }
   }
   return summe;

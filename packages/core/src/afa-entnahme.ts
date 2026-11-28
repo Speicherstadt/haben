@@ -58,10 +58,6 @@ function entnahmeKonto(kontenrahmen: Kontenrahmen, mitUst: boolean, gewinn: bool
   return gewinn ? konten.ohneUstGewinn : konten.ohneUstVerlust;
 }
 
-/** Ob ein Konto ein Erlöskonto der Entnahme ist (Zeile 19 der EÜR bei Buchungen des Anlagenverzeichnisses) */
-export const istEntnahmeKonto = (kontenrahmen: Kontenrahmen, account: string): boolean =>
-  Object.values(ASSET_ACCOUNTS[kontenrahmen].entnahme).includes(account as never);
-
 /** Buchung zum Abgangsdatum: Privatentnahmen an Erlöskonto und Umsatzsteuer; leer bei einem Entnahmewert von 0 */
 export function entnahmePosting(umsatz: EntnahmeUmsatz, value: Cents, restbuchwert: Cents, kontenrahmen: Kontenrahmen): PostingLine[] {
   const accounts = ACCOUNTS[kontenrahmen];

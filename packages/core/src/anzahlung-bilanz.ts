@@ -1,3 +1,4 @@
+import { ASSET_ACCOUNTS } from "./afa.ts";
 import type { AdvanceVatEvent } from "./anzahlung-steuer.ts";
 import { totalsFromTaxes } from "./invoice.ts";
 import { ACCOUNTS, invoicePosting, invoiceWriteOffPosting, revenueTaxCode, side, type Kontenrahmen, type PostingLine, type TaxShare } from "./posting.ts";
@@ -126,9 +127,15 @@ export function advanceBalancePlan(
   events: readonly AdvanceBalanceEvent[],
   kontenrahmen: Kontenrahmen,
   treatment: TaxTreatment = "regulaer",
+  assetDisposal = false,
 ): AdvanceBalanceChange[] {
   const accounts = ACCOUNTS[kontenrahmen];
-  const revenueAccounts = new Set<string>([...Object.values(accounts.erloese), ...Object.values(accounts.erloeseSonder)]);
+  const revenueAccounts = new Set<string>([
+    ...Object.values(accounts.erloese),
+    ...Object.values(accounts.erloeseSonder),
+    // Verkauf einer Anlage (#2022): vor der Leistung ebenso erhaltene Anzahlung
+    ...Object.values(ASSET_ACCOUNTS[kontenrahmen].verkauf),
+  ]);
   const byDate = new Map<string, AdvanceBalanceEvent[]>();
   for (const event of events) byDate.set(event.date, [...(byDate.get(event.date) ?? []), event]);
   const paid: TaxShare[] = [];
@@ -148,7 +155,7 @@ export function advanceBalancePlan(
         writtenOff.push({ kind: event.kind, shares: event.writtenOff });
       }
     }
-    const target = invoicePosting(totalsFromTaxes(performed ? amount : paid), kontenrahmen, "ist", treatment).map((line) =>
+    const target = invoicePosting(totalsFromTaxes(performed ? amount : paid), kontenrahmen, "ist", treatment, assetDisposal).map((line) =>
       side(!performed && revenueAccounts.has(line.account) ? accounts.erhalteneAnzahlungen : line.account, line.debit - line.credit, true, null),
     );
     if (!performed) {
