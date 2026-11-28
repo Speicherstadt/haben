@@ -21,6 +21,7 @@ import { createTakenOverInvoice, rebuildInvoiceLines } from "../rechnungen/index
 import type { LegacyCategoryRow, LegacyFileState } from "../../db/schema.ts";
 import { latestFileStates, takeoverFileIssue } from "./dateistand.ts";
 import { loadFile } from "../../storage.ts";
+import { schreibePositionenAusBeleg } from "../belege/index.ts";
 import { effectivePayment, paymentHistoryIssue, settledOn } from "../auswertungen/index.ts";
 import { importedTaxTreatment } from "./legacy-import-tax.ts";
 import { effectiveContactName, effectiveDirection, effectiveTaxes, effectiveType } from "../auswertungen/index.ts";
@@ -478,7 +479,6 @@ async function takeOverDocument(
         invoiceNumber: voucher.number,
         documentDate: voucher.date,
         dueDate: voucher.dueDate,
-        category,
         payment: "bank",
         note: `Aus ${sourceLabel(voucher.source)} übernommen; die Vorsteuer ist dort schon angemeldet.`,
         net: voucher.net,
@@ -488,7 +488,10 @@ async function takeOverDocument(
       })
       .returning({ id: schema.documents.id });
     const id = doc!.id;
-    await tx.insert(schema.documentAmounts).values(voucher.taxes.map((t) => ({ documentId: id, taxRate: t.rate, net: t.net, tax: t.tax })));
+    const amounts = voucher.taxes.map((t) => ({ taxRate: t.rate, net: t.net, tax: t.tax }));
+    await tx.insert(schema.documentAmounts).values(amounts.map((a) => ({ documentId: id, ...a })));
+    // Die Kategorie als Position je Satz (#1975); gesperrt wird erst unten, mit der Buchung
+    await schreibePositionenAusBeleg(tx, id, { category, ownAccountId: null, privateShare: 0, fremd: false }, amounts);
     if (!covering)
       await post(tx, company, {
         date: cutoff.bookingDate,

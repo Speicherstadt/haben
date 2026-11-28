@@ -86,8 +86,21 @@ describe.skipIf(!testDatabaseUrl)("Migration: Beträge, Positionen und Steuerzei
     >`
       select action, actor, row_id, old_value, new_value from audit_log where table_name = ${table} order by seq`;
 
+  /**
+   * Einträge ohne den einen der späteren Migration 0352 (#1975): Sie gibt dem offenen Entwurf ohne Kategorie seine Position
+   * je Satz, mit eigenem Eintrag als system:migration. Diese Migration selbst trägt nichts nach.
+   */
+  const eintraegeOhnePositionen = async () =>
+    (
+      await sql<{ n: number }[]>`select count(*)::int as n from audit_log
+        where not (table_name = 'document_splits' and action = 'INSERT' and actor = 'system:migration')`
+    )[0]!.n;
+
   it("trägt nichts nach; Kette, Siegel und Sollbestand ohne Befund", async () => {
-    expect((await sql<{ n: number }[]>`select count(*)::int as n from audit_log`)[0]!.n).toBe(eintraegeVorher);
+    expect(await eintraegeOhnePositionen()).toBe(eintraegeVorher);
+    expect((await eintraege("document_splits")).map((e) => [e.action, e.actor, e.new_value?.document_id, e.new_value?.category, e.new_value?.net])).toEqual([
+      ["INSERT", "system:migration", ID.belegEntwurf, null, 5000],
+    ]);
     expect(await befunde()).toEqual([]);
     const { drizzle } = await import("drizzle-orm/postgres-js");
     const { checkTriggerIntegrity } = await import("./trigger-inventory.ts");
@@ -112,7 +125,7 @@ describe.skipIf(!testDatabaseUrl)("Migration: Beträge, Positionen und Steuerzei
     await expect(sql`update invoice_lines set net = 1 where invoice_id = ${ID.rechnung}`).rejects.toThrow(/festgeschrieben/);
     await expect(sql`delete from invoice_taxes where invoice_id = ${ID.rechnung}`).rejects.toThrow(/festgeschrieben/);
     await expect(sql`update document_amounts set net = 1 where document_id = ${ID.beleg}`).rejects.toThrow(/gebucht/);
-    expect((await sql<{ n: number }[]>`select count(*)::int as n from audit_log`)[0]!.n).toBe(eintraegeVorher);
+    expect(await eintraegeOhnePositionen()).toBe(eintraegeVorher);
     expect(await befunde()).toEqual([]);
   });
 

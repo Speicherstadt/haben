@@ -21,6 +21,7 @@ const KONTEN = {
 
 describe.skipIf(!testDatabaseUrl)("Beleg mit eigenem Konto (Postgres, #270)", () => {
   let documents: typeof import("./documents.ts");
+  let eingabe: typeof import("./beleg-eingabe.ts");
   let cancellation: typeof import("./cancellation.ts");
   let konten: typeof import("../eigene-konten/index.ts");
   let reports: typeof import("../auswertungen/reports.ts");
@@ -33,6 +34,7 @@ describe.skipIf(!testDatabaseUrl)("Beleg mit eigenem Konto (Postgres, #270)", ()
   beforeAll(async () => {
     sql = await setupTestDb();
     documents = await import("./documents.ts");
+    eingabe = await import("./beleg-eingabe.ts");
     cancellation = await import("./cancellation.ts");
     konten = await import("../eigene-konten/index.ts");
     reports = await import("../auswertungen/reports.ts");
@@ -84,7 +86,8 @@ describe.skipIf(!testDatabaseUrl)("Beleg mit eigenem Konto (Postgres, #270)", ()
       it("bucht den Beleg auf das eigene Konto; Vorsteuer und Verbindlichkeit wie bei der Kategorie, die Voranmeldung zählt die Vorsteuer", async () => {
         const own = await reset(kontenrahmen);
         const id = await draft(own);
-        expect((await documents.getDocument(id))!.document).toMatchObject({ category: "software", ownAccountId: own });
+        const geladen = (await documents.getDocument(id))!;
+        expect(eingabe.formularansicht(geladen.document, geladen.positionen).document).toMatchObject({ category: "software", ownAccountId: own });
         await documents.bookDocument(actor, id);
         expect(await lines(id)).toEqual(
           [
@@ -116,7 +119,7 @@ describe.skipIf(!testDatabaseUrl)("Beleg mit eigenem Konto (Postgres, #270)", ()
             { category: "buero", taxRate: 1900, net: 4_000 },
           ],
         });
-        expect((await documents.getDocument(id))!.splits.map((s) => [s.category, s.ownAccountId])).toEqual([
+        expect((await documents.getDocument(id))!.positionen.map((s) => [s.category, s.ownAccountId])).toEqual([
           ["software", own],
           ["buero", null],
         ]);
@@ -154,7 +157,8 @@ describe.skipIf(!testDatabaseUrl)("Beleg mit eigenem Konto (Postgres, #270)", ()
         const eigen = await sql`select coalesce(sum(l.debit - l.credit), 0)::int as saldo from journal_lines l where l.account = ${k.eigen}`;
         expect(eigen[0]!.saldo).toBe(0);
         const reentry = await cancellation.reenterDocument(actor, id);
-        expect((await documents.getDocument(reentry))!.document.ownAccountId).toBe(own);
+        const neu = (await documents.getDocument(reentry))!;
+        expect(eingabe.formularansicht(neu.document, neu.positionen).document.ownAccountId).toBe(own);
       });
 
       it("ein verwendetes eigenes Konto lässt sich nicht löschen, nur archivieren", async () => {
@@ -191,7 +195,8 @@ describe.skipIf(!testDatabaseUrl)("Beleg mit eigenem Konto (Postgres, #270)", ()
       it("buchen prüft die Kategorie noch einmal: passt das Konto nicht mehr zur Kategorie, wird nicht gebucht", async () => {
         const own = await reset(kontenrahmen);
         const id = await draft(own);
-        await sql`update documents set category = 'buero' where id = ${id}`;
+        // Die Kategorie steht in der Position (#1975)
+        await sql`update document_splits set category = 'buero' where document_id = ${id}`;
         await expect(documents.bookDocument(actor, id)).rejects.toThrow(/Elternkategorie/);
         expect((await lines(id)).length).toBe(0);
       });

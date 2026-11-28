@@ -16,6 +16,7 @@ import {
 import { belegNebenbuecher } from "./euer-journal-nebenbuch.ts";
 import { importAnteile } from "./euer-import.ts";
 import { dazu, type EuerLauf, type Verrechnung, wirkung, wirkungVerrechnung, type Ziel } from "./euer-journal-wirkung.ts";
+import { belegKategorieSql } from "../../db/beleg-kategorie.ts";
 
 /*
  * EÜR aus dem Journal (#542, Schritt 5b), als Schattenrechnung neben euerForYear. Eine Buchung ohne Forderungen und
@@ -137,7 +138,7 @@ export async function euerAusJournal(year: number, q: Db | Tx = db, ohneManuelle
     for (const r of await q
       .select({ id: schema.documents.id })
       .from(schema.documents)
-      .where(and(inArray(schema.documents.id, block), eq(schema.documents.category, "anlage"))))
+      .where(and(inArray(schema.documents.id, block), sql`${belegKategorieSql(schema.documents.id, schema.documents.category)} = 'anlage'`)))
       anlagen.add(r.id);
   const lauf: EuerLauf = {
     year,

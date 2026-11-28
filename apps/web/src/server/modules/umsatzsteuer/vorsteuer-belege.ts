@@ -19,6 +19,7 @@ import { gutschriftAnteile } from "./gutschrift.ts";
 import { ZWISCHENKONTEN } from "./vorsteuer-anteile.ts";
 import { vorsteuerNachLeistungsdatum } from "./vorsteuer-leistungsdatum.ts";
 import type { InputTaxSource, ReverseChargeSource, IgErwerbSource } from "./vat-figures.ts";
+import { belegKategorieSql } from "../../db/beleg-kategorie.ts";
 
 /** Vorsteuer-Nebenbuch: Originalsteuer und historisch festgehaltene Abzugsanteile, unabhängig von heutigen Firmendaten. */
 export async function vorsteuerAusBelegen(period: VatPeriod, q: Db | Tx) {
@@ -108,7 +109,7 @@ async function belegBetraege(period: VatPeriod, q: Db | Tx) {
     vorsteuerAnteil: schema.documents.vorsteuerAnteil,
     satzAnteil: schema.documentAmounts.vorsteuerAnteil,
     reverseCharge: schema.documents.reverseCharge,
-    category: schema.documents.category,
+    category: belegKategorieSql(schema.documents.id, schema.documents.category),
   };
   const booked = await q
     .select({ ...documentColumns, date: schema.documents.documentDate })

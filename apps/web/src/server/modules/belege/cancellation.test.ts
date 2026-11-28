@@ -21,6 +21,7 @@ const KONTEN = {
 
 describe.skipIf(!testDatabaseUrl)("Beleg stornieren (Postgres)", () => {
   let documents: typeof import("./documents.ts");
+  let eingabe: typeof import("./beleg-eingabe.ts");
   let cancellation: typeof import("./cancellation.ts");
   let vat: typeof import("../umsatzsteuer/vat-figures.ts");
   let reports: typeof import("../auswertungen/reports.ts");
@@ -34,6 +35,7 @@ describe.skipIf(!testDatabaseUrl)("Beleg stornieren (Postgres)", () => {
   beforeAll(async () => {
     sql = await setupTestDb();
     documents = await import("./documents.ts");
+    eingabe = await import("./beleg-eingabe.ts");
     cancellation = await import("./cancellation.ts");
     vat = await import("../umsatzsteuer/vat-figures.ts");
     reports = await import("../auswertungen/reports.ts");
@@ -85,7 +87,7 @@ describe.skipIf(!testDatabaseUrl)("Beleg stornieren (Postgres)", () => {
   }
 
   it("nennt bei übernommenen Belegen keine fälschlich fest vorgegebene Herkunft", () => {
-    expect(cancellation.cancellationIssues({ lockedAt: new Date(), lexofficeVoucherId: crypto.randomUUID(), category: "software" })).toEqual([
+    expect(cancellation.cancellationIssues({ lockedAt: new Date(), lexofficeVoucherId: crypto.randomUUID() }, [])).toEqual([
       "Aus einem Umzug übernommene Belege sind im bisherigen Programm angemeldet und lassen sich hier nicht stornieren.",
     ]);
   });
@@ -357,7 +359,7 @@ describe.skipIf(!testDatabaseUrl)("Beleg stornieren (Postgres)", () => {
     const reentry = await cancellation.reenterDocument(actor, id);
     expect(await cancellation.reenterDocument(actor, id)).toBe(reentry);
     const [original, copy] = [(await documents.getDocument(id))!, (await documents.getDocument(reentry))!];
-    expect(copy.document).toMatchObject({
+    expect(eingabe.formularansicht(copy.document, copy.positionen).document).toMatchObject({
       status: "neu",
       lockedAt: null,
       sha256: original.document.sha256,

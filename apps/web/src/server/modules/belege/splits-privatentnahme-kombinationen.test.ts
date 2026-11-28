@@ -165,7 +165,7 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in allen Kombinationen (Postgr
     await reset(f);
     const id = await beleg(f, mitAufteilung);
     const saved = (await documents.getDocument(id))!;
-    expect(documents.bookingIssues(saved.document, saved.amounts, "2026-09-20", saved.splits)).toEqual([]);
+    expect(documents.bookingIssues(saved.document, saved.amounts, "2026-09-20", saved.positionen)).toEqual([]);
     await documents.bookDocument(actor, id);
     const s = f.gutschrift ? 1 : -1;
     const gross = f.rc ? 10_000 : 11_900;

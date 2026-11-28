@@ -114,13 +114,13 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in einer Aufteilung (Postgres)
         const id = await draft();
         const saved = (await documents.getDocument(id))!;
         expect(saved.document.category).toBeNull();
-        expect(saved.splits.map(({ category, taxRate, net, tax }) => ({ category, taxRate, net, tax }))).toEqual([
+        expect(saved.positionen.map(({ category, taxRate, net, tax }) => ({ category, taxRate, net, tax }))).toEqual([
           { category: "internet", taxRate: 1900, net: 2_520, tax: 479 },
           { category: "privatentnahme", taxRate: 1900, net: 840, tax: 160 },
           { category: "telefon", taxRate: 1900, net: 512, tax: 97 },
           { category: "privatentnahme", taxRate: 1900, net: 341, tax: 65 },
         ]);
-        expect(documents.bookingIssues(saved.document, saved.amounts, "2026-09-20", saved.splits)).toEqual([]);
+        expect(documents.bookingIssues(saved.document, saved.amounts, "2026-09-20", saved.positionen)).toEqual([]);
         await documents.bookDocument(actor, id);
 
         const lines = await entryLines(id);
@@ -253,8 +253,8 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in einer Aufteilung (Postgres)
   it("bucht einen Beleg mit Kategorie privatentnahme nicht (wie ihn der Lieferantenvorschlag beim Auslesen setzt) (#1975)", async () => {
     await reset("SKR03", "soll");
     const id = await draft({ splits: [] });
-    // applyFields schreibt die vorgeschlagene Kategorie ohne Zod-Prüfung in den Beleg
-    await sql`update documents set category = 'privatentnahme' where id = ${id}`;
+    // applyFields schreibt die vorgeschlagene Kategorie ohne Zod-Prüfung in die Position (#1975)
+    await sql`update document_splits set category = 'privatentnahme' where document_id = ${id}`;
     await documents.bookDocument(actor, id).catch(() => undefined);
     const lines = await entryLines(id);
     expect(lines.filter((l) => l.account === KONTEN.SKR03.vorsteuer)).toEqual([]);
@@ -264,9 +264,9 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in einer Aufteilung (Postgres)
     await reset("SKR03", "soll");
     const id = await draft({ splits: [] });
     // Übernommene Belege tragen die Kategorie als Text, auch eine, die Haben nicht kennt (kategorieMitKonto)
-    await sql`update documents set category = 'Altkategorie aus dem Import' where id = ${id}`;
+    await sql`update document_splits set category = 'Altkategorie aus dem Import' where document_id = ${id}`;
     const saved = (await documents.getDocument(id))!;
-    expect(documents.bookingIssues(saved.document, saved.amounts, "2026-09-20", saved.splits)).not.toContain(
+    expect(documents.bookingIssues(saved.document, saved.amounts, "2026-09-20", saved.positionen)).not.toContain(
       "Eine Privatentnahme gibt es nur als Zeile einer Aufteilung",
     );
   });
@@ -275,7 +275,7 @@ describe.skipIf(!testDatabaseUrl)("Privatentnahme in einer Aufteilung (Postgres)
     await reset("SKR03", "ist", "gmbh");
     const id = await draft();
     const saved = (await documents.getDocument(id))!;
-    expect(documents.bookingIssues(saved.document, saved.amounts, "2026-09-20", saved.splits, "gmbh")).toContain(
+    expect(documents.bookingIssues(saved.document, saved.amounts, "2026-09-20", saved.positionen, "gmbh")).toContain(
       "Einen Privatanteil gibt es nur im Einzelunternehmen",
     );
     await expect(documents.bookDocument(actor, id)).rejects.toThrow(/nur im Einzelunternehmen/);

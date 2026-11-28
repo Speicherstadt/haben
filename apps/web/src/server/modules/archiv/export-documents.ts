@@ -2,7 +2,7 @@ import { formatExchangeRate, isKapitalgesellschaft } from "@haben/core";
 import { asc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "../../db/index.ts";
 import { loadFile } from "../../storage.ts";
-import { splitsByDocument } from "../belege/index.ts";
+import { einzigePosition, istEntnahme, positionenJeBeleg, type Belegposition } from "../belege/index.ts";
 import { loadOwnAccountNumbers } from "../eigene-konten/index.ts";
 import { csv, type CsvValue, iso, money } from "./csv.ts";
 import { EXTENSIONS, safeName, uniquePath } from "./export-paths.ts";
@@ -43,11 +43,7 @@ export async function* documentFiles(
   const amountsByDocument = groupBy(amounts, (a) => a.documentId);
   // Eigene Sachkonten (#270): Nummer am Beleg bzw. je Zeile der Aufteilung (account), zusätzlich zur Kategorie
   const ownNumbers = await loadOwnAccountNumbers();
-  const splits = await splitsByDocument(
-    documents.map((d) => d.id),
-    db,
-    ownNumbers,
-  );
+  const splits = await positionenJeBeleg(documents.map((d) => d.id));
   const usedDocumentPaths = new Set<string>();
   const documentPaths = new Map<string, string>();
   const documentRows: CsvValue[][] = [];
@@ -153,21 +149,24 @@ async function documentsOfYear(year: number) {
 function documentRow(
   doc: ArchiveDocument,
   docAmounts: (typeof schema.documentAmounts.$inferSelect)[],
-  split: Awaited<ReturnType<typeof splitsByDocument>> extends Map<string, infer L> ? L : never,
+  positionen: readonly Belegposition[],
   ownNumbers: Map<string, string>,
   company: typeof schema.company.$inferSelect | undefined,
   archivePath: string | null,
 ): CsvValue[] {
   const rate = (r: number) => docAmounts.find((a) => a.taxRate === r);
+  const eine = positionen.some(istEntnahme) ? null : einzigePosition(positionen);
+  const konto = (id: string | null) => (id ? (ownNumbers.get(id) ?? "") : "");
   return [
     doc.documentDate,
     doc.supplierName,
     doc.supplierUstId,
     doc.invoiceNumber,
-    // Aufgeteilt (#271): Kategorie, Satz und Netto je Zeile, z. B. „wareneinkauf 19 % 100,00 | software 19 % 50,00“
-    doc.category ?? split.map((l) => `${l.category} ${l.taxRate / 100} % ${money(l.net)}`).join(" | "),
-    // Eigenes Konto: am Beleg die Nummer, bei einer Aufteilung je Zeile in derselben Reihenfolge wie die Kategorien, leer ohne eigenes Konto
-    doc.ownAccountId ? (ownNumbers.get(doc.ownAccountId) ?? "") : split.some((l) => l.account) ? split.map((l) => l.account ?? "–").join(" | ") : "",
+    // Eine Kategorie ohne Entnahme wie früher ohne Aufteilung; sonst Kategorie, Satz und Netto je Position (#271, #1975),
+    // z. B. „wareneinkauf 19 % 100,00 | software 19 % 50,00“ oder „telefon 19 % 30,32 | privatentnahme 19 % 11,81“
+    eine ? (eine.category ?? "") : positionen.map((l) => `${l.category ?? "–"} ${l.taxRate / 100} % ${money(l.net)}`).join(" | "),
+    // Eigenes Konto: die Nummer der einen Kategorie, sonst je Position in derselben Reihenfolge, leer ohne eigenes Konto
+    eine ? konto(eine.ownAccountId) : positionen.some((l) => l.ownAccountId) ? positionen.map((l) => konto(l.ownAccountId) || "–").join(" | ") : "",
     money(rate(1900)?.net),
     money(rate(1900)?.tax),
     money(rate(700)?.net),
