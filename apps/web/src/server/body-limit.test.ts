@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ANONYMOUS_BODY_LIMIT, rejectLargeAnonymousBody } from "./body-limit.ts";
+import { ANONYMOUS_BODY_LIMIT, readBodyLimited, rejectLargeAnonymousBody } from "./body-limit.ts";
 
 describe("Große Anfragen ohne Anmeldung", () => {
   const serverFn = "/_serverFn/abc";
@@ -43,5 +43,31 @@ describe("Große Anfragen ohne Anmeldung", () => {
     expect(await call("GET", { "content-length": big }, false)).toEqual({ status: null, checked: 0 });
     expect(await call("POST", { "content-length": big }, false, "/api/auth/sign-in/email")).toEqual({ status: null, checked: 0 });
     expect(await call("POST", { "content-length": big }, false, "/api/mcp")).toEqual({ status: null, checked: 0 });
+  });
+});
+
+describe("readBodyLimited", () => {
+  const stream = (chunks: number[]) =>
+    new Request("http://app:3000/api", {
+      method: "POST",
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (const size of chunks) controller.enqueue(new Uint8Array(size).fill(1));
+          controller.close();
+        },
+      }),
+      duplex: "half",
+    } as RequestInit);
+
+  it("liest einen Body ohne Content-Length bis zur Grenze vollständig", async () => {
+    expect((await readBodyLimited(stream([40, 60]), 100))?.byteLength).toBe(100);
+  });
+
+  it("bricht ab, sobald der Body größer wird, und liefert null", async () => {
+    expect(await readBodyLimited(stream([60, 60, 60]), 100)).toBeNull();
+  });
+
+  it("liefert ohne Body ein leeres Array", async () => {
+    expect((await readBodyLimited(new Request("http://app:3000/api", { method: "POST" }), 100))?.byteLength).toBe(0);
   });
 });
