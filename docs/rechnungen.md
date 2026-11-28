@@ -704,9 +704,10 @@ Auf neuen Stornobelegen steht „Die ursprüngliche Rechnung wird storniert.“ 
 Je Korrektur für sich gerundet wären es −0,10 und −18,91, zusammen ein Cent zu viel.
 
 - Bruttopreise: Der Bruttobetrag der Korrektur bleibt, die Steuer kommt aus dem Brutto-Gesamtstand, das Netto ist die Differenz.
-- Fremdwährung: Die Regel gilt in der Währung der Rechnung und ebenso in Euro, mit dem Kurs der Rechnung.
+- Fremdwährung: Die Regel gilt in der Währung der Rechnung. In Euro rechnet Haben jede Korrektur wie bisher für sich mit dem Kurs der Rechnung um; dort kann ein Cent Unterschied bleiben.
 - Entwurf: Beim Festschreiben rechnet Haben auf dem Stand, den die Rechnung dann hat; die Steuer kann sich gegenüber dem gespeicherten Entwurf um einen Cent ändern.
-- Die Steuer kann einen Cent von Netto × Satz der Korrektur abweichen; EN 16931 lässt das zu (BR-CO-17).
+- Die Steuer kann von Netto × Satz der Korrektur abweichen, meist um einen Cent, nach älteren, je Beleg gerundeten Korrekturen auch um mehr. EN 16931 lässt eine Abweichung unter einer Währungseinheit zu (BR-CO-17); wäre sie größer, rechnet die Korrektur für sich.
+- Der Betrag im Editor und im Dialog **Festschreiben** rechnet schon so.
 - Ein Storno nimmt jeden Beleg genau mit den Beträgen zurück, die auf ihm stehen.
 
 Die ursprüngliche Rechnung zeigt unter **Korrekturen** alle Stornos und Korrekturen, die sich auf sie beziehen, eine stornierte Rechnung zusätzlich einen roten Hinweis mit Link zur Stornorechnung.

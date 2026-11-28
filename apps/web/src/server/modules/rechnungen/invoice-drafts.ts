@@ -8,6 +8,7 @@ import {
   totalsFromTaxes,
   type InvoiceCalculation,
   type PriceMode,
+  type TaxBreakdown,
   type TaxTreatment,
   type UnitLabel,
 } from "@haben/core";
@@ -31,7 +32,7 @@ import { draftRate, MAX_EURO_CENTS } from "./draft-rate.ts";
 import { effectivePriceMode, type DraftInput, type LineInput } from "./draft-schema.ts";
 import { InvoiceError } from "./invoice-error.ts";
 import { replacementQuote } from "./invoice-replacement.ts";
-import { correctionBasis, correctionTaxes, euroTaxes, storeInvoiceTaxes, type CorrectionBasis } from "./invoice-taxes.ts";
+import { correctionBasis, correctionTaxes, euroTaxes, storeInvoiceTaxes } from "./invoice-taxes.ts";
 import type { Invoice, InvoiceLine } from "./invoices.ts";
 import { draftMandateProblem, paymentColumns } from "./lastschrift.ts";
 import { customerChangeProblem } from "./leistungen-kunde.ts";
@@ -99,7 +100,7 @@ async function allLines(tx: Tx, invoiceId: string | null, input: DraftInput): Pr
 
 /**
  * Felder eines Entwurfs samt Summen. Netto und Umsatzsteuer je Satz werden nur hier berechnet (und für die Korrektur beim
- * Festschreiben in recalculateCorrection); danach lesen alle anderen Stellen die gespeicherten Werte (invoice_taxes).
+ * Festschreiben in correctionRecalculation); danach lesen alle anderen Stellen die gespeicherten Werte (invoice_taxes).
  * Eine Korrektur bekommt mit `basis` den Gesamtstand ihrer Rechnung: Ihre Steuer ist die Differenz der Stände (#2079).
  */
 function draftValues(
@@ -108,7 +109,7 @@ function draftValues(
   lines: LineInput[],
   rate: { currency: string } & RateFields,
   kind = "rechnung",
-  basis?: CorrectionBasis,
+  basis?: TaxBreakdown[],
 ) {
   const priceMode = effectivePriceMode(input);
   const own = computeInvoice(lines, priceMode, input.discount ?? null);
@@ -280,39 +281,6 @@ export async function updateDraft(actor: string, id: string, proposed: DraftInpu
     await syncQuoteBilling(tx, quoteIds);
     return updated!;
   });
-}
-
-/**
- * Steuer einer Korrektur beim Festschreiben neu aus dem Gesamtstand (#2079): Seit dem Speichern des Entwurfs kann eine
- * andere Korrektur derselben Rechnung festgeschrieben worden sein. Läuft unter der Sperre der Rechnung; true, wenn sich
- * Steuerzeilen, Summen oder Zeilennetto geändert haben.
- */
-export async function recalculateCorrection(tx: Tx, invoice: Invoice): Promise<boolean> {
-  if (invoice.kind !== "korrektur" || !invoice.correctsId) return false;
-  const rows = await tx.select().from(schema.invoiceLines).where(eq(schema.invoiceLines.invoiceId, invoice.id)).orderBy(asc(schema.invoiceLines.position));
-  const lines = rows.map((line) => ({ ...lineInputOf(line), ...(line.deductionOf ? { deductionOf: line.deductionOf } : {}) }));
-  const own = computeInvoice(lines, invoice.priceMode, discountFromColumns(invoice.discountPercent, invoice.discountAmount));
-  const basis = await correctionBasis(tx, invoice.correctsId);
-  const { calculation, taxes } = correctionTaxes(own, lines, invoice.priceMode, basis, invoice.currency, invoice.exchangeRate);
-  const stored = await tx.select().from(schema.invoiceTaxes).where(eq(schema.invoiceTaxes.invoiceId, invoice.id));
-  const key = (t: { rate: number; base: number; tax: number; originalBase?: number | null; originalTax?: number | null }) =>
-    `${t.rate}:${t.base}:${t.tax}:${t.originalBase ?? ""}:${t.originalTax ?? ""}`;
-  const sameTaxes = stored.map(key).sort().join() === taxes.map(key).sort().join();
-  const changedLines = rows.filter((line, i) => line.net !== calculation.lineNets[i]);
-  if (sameTaxes && changedLines.length === 0) return false;
-  for (const line of changedLines) {
-    await tx
-      .update(schema.invoiceLines)
-      .set({ net: calculation.lineNets[rows.indexOf(line)]! })
-      .where(eq(schema.invoiceLines.id, line.id));
-  }
-  await storeInvoiceTaxes(tx, invoice.id, taxes);
-  const totals = totalsFromTaxes(taxes);
-  await tx
-    .update(schema.invoices)
-    .set({ net: totals.net, tax: totals.tax, gross: totals.gross, updatedAt: new Date() })
-    .where(eq(schema.invoices.id, invoice.id));
-  return true;
 }
 
 export async function deleteDraft(actor: string, id: string) {

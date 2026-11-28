@@ -10,12 +10,13 @@ import { openBooks } from "../buchhaltung/index.ts";
 import { ansprechpartnerSnapshot, type Contact, loadCompany, loadLetterhead, loadUnitCodes, sellerIssues, withCustomLayout } from "../stammdaten/index.ts";
 import { deductedRefs, deductionIds, deductionProblems, openAbschlaege } from "./advance-deductions.ts";
 import { advanceProcedure } from "./advance-procedure.ts";
-import { lockInvoice, withAdvanceVatChange } from "./advance-vat.ts";
+import { withAdvanceVatChange } from "./advance-vat.ts";
 import { cancelledIds } from "./cancelled-invoices.ts";
 import { originalProblem, reductionProblem } from "./correction-checks.ts";
 import { applyRateToDraft, serviceDate } from "./draft-rate.ts";
 import { buyerFrom, buyerIssues, documentFor, draftSeller, invoiceTitle, numberedBuyer } from "./invoice-document.ts";
-import { lockDraft, recalculateCorrection } from "./invoice-drafts.ts";
+import { lockDraft } from "./invoice-drafts.ts";
+import { correctionRecalculation, storeCorrectionRecalculation, withRecalculatedNets } from "./korrektur-neuberechnung.ts";
 import { InvoiceError } from "./invoice-error.ts";
 import { loadReplacement, normalReplacementId, replacementPerformanceDate, replacementProblem } from "./invoice-replacement.ts";
 import { postInvoice } from "./invoice-replacement-posting.ts";
@@ -213,12 +214,6 @@ export async function finalizeDraft(tx: Tx, id: string, umsatzStand: UmsatzStand
   await assertQuotesLocked(tx, quoteIds, [id, invoice.correctsId]);
   // Inzwischen veröffentlichten Kurs übernehmen, bevor geprüft wird
   if (await applyRateToDraft(tx, invoice)) invoice = await lockDraft(tx, id);
-  // Korrektur: Steuer aus dem Gesamtstand der Rechnung, wie er jetzt ist (#2079). Die Rechnung zuerst sperren, wie
-  // cancelInvoice und eine zweite Korrektur auch: Die nächste Korrektur wartet und rechnet auf dieser weiter.
-  if (invoice.kind === "korrektur" && invoice.correctsId) {
-    await lockInvoice(tx, invoice.correctsId);
-    if (await recalculateCorrection(tx, invoice)) invoice = await lockDraft(tx, id);
-  }
   // Nur bereits festgeschriebene Altabschläge behalten ihr Verfahren; offene Altentwürfe erhalten die neue Vorgabe.
   // Erst mit der Festschreibung speichern, damit die Audit-Kette nicht vor der Nummernkreissperre gehalten wird.
   if (invoice.variant === "abschlag" && invoice.advanceType === null) invoice = { ...invoice, advanceType: "anzahlung" };
@@ -230,6 +225,8 @@ export async function finalizeDraft(tx: Tx, id: string, umsatzStand: UmsatzStand
 
   const { corrects, replacement, prepared } = await prepareReferences(tx, invoice, lines, company);
   invoice = prepared;
+  // Korrektur: Steuer aus dem Gesamtstand, wie er unter der Sperre der Rechnung jetzt ist (#2079)
+  const recalculated = await correctionRecalculation(tx, invoice, lines);
   if (invoice.advanceAccounting === "deferred" && invoice.kind === "rechnung" && invoice.variant === "schluss") {
     const performed = invoice.serviceTo ?? invoice.serviceFrom ?? invoice.issueDate;
     if (performed > invoice.issueDate) throw new InvoiceError("Das Leistungsdatum der Schlussrechnung liegt nach dem Rechnungsdatum.");
@@ -247,14 +244,14 @@ export async function finalizeDraft(tx: Tx, id: string, umsatzStand: UmsatzStand
   const buyer = await buyerForFinalization(tx, company, invoice, corrects, contact!, numberContactId);
   const counter = await peekNumber(tx, "rechnung", circle, numberContactId);
   const number = await documentNumber(tx, "rechnung", company.invoiceNumberFormat, invoice.issueDate, counter, buyer.kundennummer);
-  const totals = (await invoiceTotalsById([id], tx)).get(id)!;
+  const totals = recalculated?.totals ?? (await invoiceTotalsById([id], tx)).get(id)!;
   await pruefeUmsatzgrenze(tx, invoice, totals.net, company.foundedOn, umsatzStand, bestaetigt);
   // Platzhalter in Einleitung und Hinweis (#1334) mit Nummer und Beträgen auflösen; so stehen sie auch in der Rechnung
   const doc = rechnungMitPlatzhaltern(
     documentFor(
       invoice,
-      lines,
-      await invoiceDocumentTotals(id, tx),
+      withRecalculatedNets(lines, recalculated),
+      recalculated?.documentTotals ?? (await invoiceDocumentTotals(id, tx)),
       totals,
       seller,
       buyer,
@@ -268,6 +265,7 @@ export async function finalizeDraft(tx: Tx, id: string, umsatzStand: UmsatzStand
   const rendered = await withCustomLayout("rechnung", await loadLetterhead(), (letterhead) => buildEInvoice({ ...doc, ...letterhead }));
   const now = new Date();
 
+  if (recalculated) await storeCorrectionRecalculation(tx, invoice, corrects!, recalculated);
   await takeInvoiceNumber(tx, circle, counter, number, numberContactId);
   const used = { format: company.invoiceNumberFormat, date: invoice.issueDate, year: circle, contactId: numberContactId };
   await assertNumberingCurrent(tx, "rechnung", used, invoice.contactId!);

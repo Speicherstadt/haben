@@ -56,6 +56,15 @@ describe("Steuer einer Rechnungskorrektur aus der Differenz der Gesamtstände (#
     expect(correction([line(-9_950)], sealed).totals).toMatchObject({ net: -9_950, tax: -1_890 });
   });
 
+  it("über eine Währungseinheit angesammelte Abweichung alter Korrekturen: die Korrektur rechnet für sich (BR-CO-17)", () => {
+    // 200,00 € mit 202 alten Korrekturen zu −0,50 € und je −0,10 € Steuer: Stand 99,00 € mit 17,80 € statt 18,81 € Steuer
+    const sealed = [{ rate: 1900, base: 20_000 - 202 * 50, tax: 3_800 - 202 * 10 }];
+    expect(correction([line(-1_000)], sealed).totals).toMatchObject({ net: -1_000, tax: -190 });
+    // eine Abweichung unter einer Währungseinheit gleicht die Korrektur weiter aus
+    const near = [{ rate: 1900, base: 9_900, tax: 1_881 - 99 }];
+    expect(correction([line(-1_000)], near).totals).toMatchObject({ tax: 1_691 - 1_782 });
+  });
+
   it("ein Satz, den die Rechnung nicht hat, rechnet für sich", () => {
     const sealed = [{ rate: 1900, base: 10_000, tax: 1_900 }];
     expect(correction([line(-50), line(-50, 700)], sealed).totals.taxes).toEqual([

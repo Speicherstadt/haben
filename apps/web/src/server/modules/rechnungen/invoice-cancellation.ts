@@ -8,7 +8,7 @@ import type { LineInput } from "./draft-schema.ts";
 import { createDraft, insertDraft, lineInputOf } from "./invoice-drafts.ts";
 import { InvoiceError } from "./invoice-error.ts";
 import { finalizeDraft } from "./invoice-finalize.ts";
-import { storeInvoiceTaxes } from "./invoice-taxes.ts";
+import { sameTaxRows, storeInvoiceTaxes } from "./invoice-taxes.ts";
 import { getInvoice, type Invoice, type InvoiceLine } from "./invoices.ts";
 import { circleContact, circleFor, countsPerCustomer, lockNumbering } from "./number-counter.ts";
 import { referenceColumns } from "./order-references.ts";
@@ -53,10 +53,9 @@ async function negateSealedAmounts(tx: Tx, stornoId: string, target: Invoice, ta
     originalBase: t.originalBase === null ? null : negate(t.originalBase),
     originalTax: t.originalTax === null ? null : negate(t.originalTax),
   }));
-  const key = (t: (typeof negated)[number]) => `${t.rate}:${t.base}:${t.tax}:${t.originalBase}:${t.originalTax}`;
   const computed = await tx.select().from(schema.invoiceTaxes).where(eq(schema.invoiceTaxes.invoiceId, stornoId));
   // Meist schon gleich (Storno einer Rechnung): dann nichts neu schreiben, auch nicht ins Audit-Log
-  if (computed.map(key).sort().join() !== negated.map(key).sort().join()) await storeInvoiceTaxes(tx, stornoId, negated);
+  if (!sameTaxRows(computed, negated)) await storeInvoiceTaxes(tx, stornoId, negated);
   const stornoLines = await tx.select().from(schema.invoiceLines).where(eq(schema.invoiceLines.invoiceId, stornoId));
   for (const line of stornoLines) {
     const net = negate(targetLines.find((t) => t.position === line.position)!.net);

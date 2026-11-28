@@ -326,4 +326,62 @@ describe.skipIf(!testDatabaseUrl)("Festschreiben: PDF und XML vor der Sperre der
     const [counter] = await sql`select last from quote_number_counters where year = ${year}`;
     expect(counter!.last).toBe(3);
   }, 60_000);
+
+  /** Zwei Korrekturen über je −0,50 €: A gespeichert, dann B festgeschrieben; A rechnet beim Festschreiben neu (#2079) */
+  async function veralteteKorrektur() {
+    const original = await invoices.finalizeInvoice(actor, (await invoices.createDraft(actor, draft())).id, kleinunternehmerStand);
+    const { draftInputOf } = await import("./external-reference.ts");
+    const kleine = async () => {
+      const korrektur = await invoices.createCorrection(actor, original.id, `${year}-06-01`);
+      const geladen = (await invoices.getInvoice(korrektur.id))!;
+      const eingabe = draftInputOf(geladen.invoice, geladen.lines);
+      await invoices.updateDraft(actor, korrektur.id, { ...eingabe, lines: eingabe.lines.map((z) => ({ ...z, unitPrice: -50 })) });
+      return korrektur.id;
+    };
+    const a = await kleine();
+    await invoices.finalizeInvoice(actor, await kleine(), kleinunternehmerStand);
+    return a;
+  }
+
+  it("Korrektur auf veraltetem Stand: die Hash-Kette ist frei, solange PDF und XML entstehen (#2079)", async () => {
+    const a = await veralteteKorrektur();
+    const seen: boolean[] = [];
+    rendering.hook = async () => {
+      seen.push(await chainLocked());
+    };
+    const final = await invoices.finalizeInvoice(actor, a, kleinunternehmerStand);
+    // Neu gerechnet: Stand 99,00 € → 18,81 €, minus 18,91 € auf Rechnung und Korrektur B
+    expect(final.tax).toBe(-10);
+    expect(seen).toEqual([false]);
+  }, 30_000);
+
+  it("Korrektur auf veraltetem Stand und gleichzeitiges Festschreiben: keine Verklemmung (#2079)", async () => {
+    const a = await veralteteKorrektur();
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => (release = resolve));
+    let gotChain!: () => void;
+    const chainTaken = new Promise<void>((resolve) => (gotChain = resolve));
+    // Ein anderes Festschreiben: hält den Nummernkreis (peekNumber) und schreibt danach mit Audit-Eintrag (Kette)
+    const holder = other
+      .begin(async (tx) => {
+        await tx`select pg_advisory_xact_lock(hashtext(${`haben.nummernkreis.rechnung.${year}`}))`;
+        await released;
+        await tx`select pg_advisory_xact_lock(hashtext('haben.audit_chain'))`;
+        gotChain();
+      })
+      .then(
+        () => "anderes",
+        (e: Error) => e.message,
+      );
+    await wait(100);
+    const finalizing = invoices.finalizeInvoice(actor, a, kleinunternehmerStand).then(
+      () => "korrigiert",
+      (e: Error) => `${e.message} ${(e as { cause?: Error }).cause?.message ?? ""}`,
+    );
+    await wait(300);
+    release();
+    await Promise.race([chainTaken, wait(5_000)]);
+    expect([await holder, await finalizing]).toEqual(["anderes", "korrigiert"]);
+  }, 30_000);
 });

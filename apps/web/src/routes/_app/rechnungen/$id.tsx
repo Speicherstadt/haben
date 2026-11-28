@@ -63,6 +63,7 @@ function InvoicePage() {
           attachments={<InvoiceAttachments ownerId={invoice.id} attachments={data.attachments} editable />}
           // Korrektur einer Schlussrechnung: Ihre Abzüge bleiben fest und außerhalb der Grundlage des Gesamtrabatts
           keptDeductions={keptDeductions(data, invoice)}
+          correctionBasis={data.correctionBasis}
         />
         <Leistungsnachweis data={data} />
       </>
