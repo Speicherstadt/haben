@@ -1,4 +1,4 @@
-import { ACCENT_PATTERN, DUNNING_LEVELS, numberFormatError, planTemplateSchema } from "@haben/core";
+import { ACCENT_PATTERN, DUNNING_LEVELS, inCents, MINDESTBESTAND_MAX, numberFormatError, planTemplateSchema } from "@haben/core";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { BEREICH_IDS } from "../../../lib/bereiche.ts";
@@ -40,6 +40,8 @@ const firmaZusatzSchema = z.object({
   navColor: z.string().regex(ACCENT_PATTERN).nullable(),
   navLogo: z.boolean(),
   archiveSearch: z.boolean(),
+  // Fehlt in Dateien von vor #1381
+  mindestbestand: inCents(z.number().int().min(0).max(MINDESTBESTAND_MAX)).nullable().optional(),
 });
 
 /** Was zu den Firmendaten gehört, aber eigene Formulare hat: persönliche Angaben, Zahlungspläne, Kundennummern, Zeichen */
@@ -60,6 +62,7 @@ export async function firmaErgaenzen(tx: Tx, company: unknown): Promise<void> {
       navColor: firma.navColor?.toUpperCase() ?? null,
       navLogo: firma.navLogo,
       archiveSearch: firma.archiveSearch,
+      mindestbestand: firma.mindestbestand ?? null,
       updatedAt: new Date(),
     })
     .where(eq(schema.company.id, 1));

@@ -2455,8 +2455,15 @@
     {
       "idx": 350,
       "version": "7",
-      "when": 1795877875826,
-      "tag": "0350_siegel_angebote_anlagen",
+      "when": 1795876747788,
+      "tag": "0350_mindestbestand",
+      "breakpoints": true
+    },
+    {
+      "idx": 351,
+      "version": "7",
+      "when": 1795883872352,
+      "tag": "0351_siegel_angebote_anlagen",
       "breakpoints": true
     }
   ]
