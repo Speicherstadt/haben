@@ -392,7 +392,7 @@ curl -s "$HABEN/belege/0c9a…" -H "Authorization: Bearer $TOKEN"
 
 `status` ist `neu` („Zu prüfen“) oder `gebucht`, `booked` und `bookedAt` sagen dasselbe als Wahrheitswert und Zeitpunkt. Ein stornierter Beleg bleibt `gebucht`; `cancelledOn` nennt dann das Datum der Gegenbuchung (sonst `null`; siehe [Stornieren](belege.md#stornieren-und-neu-erfassen)), und in der Einzelansicht zeigt `replacedById` auf seine Neuerfassung, `replacesId` umgekehrt von der Neuerfassung auf den stornierten Beleg ([Stornieren und neu erfassen](belege.md#stornieren-und-neu-erfassen)). Ein gebuchter Beleg ist gesperrt und versiegelt, mit seiner Referenz ([Hash-Kette und Siegel](buchhaltung.md#manipulationserkennung-hash-kette-und-siegel)); dieselbe Referenz liefert dann weiter diesen Beleg. Löschst du einen ungebuchten Beleg in Haben, ist seine Referenz wieder frei. Die Datei selbst gibt die API nicht heraus, und ändern oder löschen lässt sich ein Beleg nur in Haben.
 
-Die Einzelansicht nennt die Beträge je Steuersatz in `amounts` und die Kontierung in `lines`: je Position Kategorie (`privatentnahme` für einen Privatanteil, `null`, solange nicht zugeordnet), Beschreibung, Satz, Netto und Anteil an der Steuer des Satzes ([Entscheidung](adr/belege-positionen.md)). `category` ist die eine Kategorie der Positionen, bei mehreren `null`.
+Die Einzelansicht nennt die Beträge je Steuersatz in `amounts` und die Kontierung in `lines`: je Position Kategorie (`privatentnahme` für einen Privatanteil, `null`, solange nicht zugeordnet), Beschreibung, Satz, Netto und Anteil an der Steuer des Satzes ([Entscheidung](adr/belege-positionen.md)). `category` ist die eine Kategorie der Positionen ohne Privatanteil, bei mehreren `null`.
 
 ### Paperless-ngx
 
