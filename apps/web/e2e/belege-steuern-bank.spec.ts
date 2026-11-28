@@ -588,6 +588,11 @@ test("Darlehen: anlegen, Auszahlung zuordnen, Rate in Tilgung und Zinsen aufteil
   await panel.getByRole("button", { name: "Buchen", exact: true }).click();
   await page.waitForLoadState("networkidle");
 
+  // Liquiditätsvorschau (#1381): Bestand, aber noch keine Rate zugeordnet
+  await go("/auswertungen/liquiditaet");
+  await expect(page.getByRole("note").filter({ hasText: "Für das Darlehen „Hausbank Investitionskredit“ ist noch keine Rate zugeordnet" })).toBeVisible();
+  await go("/bank");
+
   // Rate: 800 € Tilgung und 200 € Zinsen
   await page
     .getByRole("link", { name: /Rate Darlehen 4711/ })
@@ -614,6 +619,19 @@ test("Darlehen: anlegen, Auszahlung zuordnen, Rate in Tilgung und Zinsen aufteil
 
   await go("/darlehen");
   await expect(page.getByRole("row", { name: /Hausbank Investitionskredit/ })).toContainText("9.200,00");
+
+  // Die Liquiditätsvorschau schreibt die eine Rate monatlich fort: in einem der nächsten Monate, mit Link zu den Darlehen
+  await go("/auswertungen/liquiditaet?horizont=12m");
+  await expect(page.getByText(/noch keine Rate zugeordnet/)).toHaveCount(0);
+  const tabelle = page.getByRole("table", { name: "Liquiditätsvorschau 12 Monate" });
+  const rate = page.locator(".liq-posten").getByRole("link", { name: "Hausbank Investitionskredit, Rate wie zuletzt gezahlt, monatlich angenommen" });
+  for (const umschalter of (await tabelle.locator("a[aria-expanded]").all()).slice(0, 2)) {
+    await umschalter.click();
+    if (await rate.isVisible()) break;
+  }
+  await expect(rate).toBeVisible();
+  await rate.click();
+  await expect(page).toHaveURL(/\/darlehen$/);
 });
 
 test("Beleg: Kategorie und Bezahlung aus früheren Belegen des Lieferanten, mit Begründung, übernehmen auf Klick (#295)", async ({ browser }) => {

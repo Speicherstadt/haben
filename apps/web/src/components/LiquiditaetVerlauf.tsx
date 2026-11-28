@@ -85,6 +85,9 @@ function QuelleLink({ posten, rolle }: { posten: LiquiditaetsPosten; rolle: stri
       );
     case "sondervorauszahlung":
       return ziel("/umsatzsteuer") ? <Link to="/umsatzsteuer">{text}</Link> : text;
+    case "darlehen":
+      // Die Rate kennt Haben nur aus dem Bankabgleich; die Seite der Darlehen zeigt Bestand und Konto
+      return ziel("/darlehen") ? <Link to="/darlehen">{text}</Link> : text;
     case "vorauszahlung":
       // Fortgeschrieben: die letzte Zahlung im Bankabgleich; geschätzt: die Prognose beim Finanzamt
       if (/^\d{4}$/.test(id)) return ziel("/finanzamt") ? <Link to="/finanzamt">{text}</Link> : text;

@@ -45,7 +45,7 @@ export const Route = createFileRoute("/_app/auswertungen_/liquiditaet")({
 });
 
 function LiquiditaetPage() {
-  const { vorschau, konten, mindestbestand } = Route.useLoaderData();
+  const { vorschau, konten, mindestbestand, hinweise } = Route.useLoaderData();
   const { user } = Route.useRouteContext();
   const suche = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -81,7 +81,7 @@ function LiquiditaetPage() {
         </div>
       </div>
 
-      <KontoHinweise konten={konten} rolle={user.role} />
+      <Hinweise konten={konten} weitere={hinweise} rolle={user.role} />
       {mindestbestand !== null && konten.bekannt && <MindestbestandHinweis vorschau={vorschau} mindestbestand={mindestbestand} />}
       <Kennzahlen vorschau={vorschau} konten={konten} />
 
@@ -100,9 +100,9 @@ function LiquiditaetPage() {
       <section className="card" aria-labelledby="liq-verlauf-titel">
         <h2 id="liq-verlauf-titel">Verlauf</h2>
         <p className="small muted">
-          Eigene Vorschau aus Kontoständen, offenen Posten, Dauerbelegen, wiederkehrenden Rechnungen, Umsatzsteuer und Vorauszahlungen; sie bucht nichts.
-          Sicherheit: fest heißt Betrag und Termin stehen, erwartet heißt der Betrag kommt aus Rechnung, Voranmeldung, Vorlage oder letzter Zahlung, ob und wann
-          er fließt, ist offen, geschätzt heißt Haben hat ihn gerechnet. Ein Zeitraum öffnet seine Posten.
+          Eigene Vorschau aus Kontoständen, offenen Posten, Dauerbelegen, wiederkehrenden Rechnungen, Umsatzsteuer, Vorauszahlungen und Darlehensraten; sie
+          bucht nichts. Sicherheit: fest heißt Betrag und Termin stehen, erwartet heißt der Betrag kommt aus Rechnung, Voranmeldung, Vorlage oder letzter
+          Zahlung, ob und wann er fließt, ist offen, geschätzt heißt Haben hat ihn gerechnet. Ein Zeitraum öffnet seine Posten.
         </p>
         <LiquiditaetVerlauf vorschau={vorschau} offen={suche.zeitraum} rolle={user.role} />
       </section>
@@ -170,8 +170,11 @@ function MindestbestandHinweis({ vorschau, mindestbestand }: { vorschau: Vorscha
   );
 }
 
-/** Was den Startwert unsicher macht: fehlende oder alte Kontostände, noch nicht zugeordnete Umsätze */
-function KontoHinweise({ konten, rolle }: { konten: Kontostaende; rolle: string }) {
+/**
+ * Was den Startwert unsicher macht (fehlende oder alte Kontostände, noch nicht zugeordnete Umsätze) und was in der Vorschau
+ * fehlt (`weitere`, etwa ein Darlehen ohne zugeordnete Rate); beides klärt der Bankabgleich
+ */
+function Hinweise({ konten, weitere, rolle }: { konten: Kontostaende; weitere: string[]; rolle: string }) {
   const ohne = konten.konten.filter((k) => k.stand === null);
   const alt = konten.konten.filter((k) => k.alt && k.datum);
   const offen = konten.konten.reduce((s, k) => s + k.offeneUmsaetze, 0);
@@ -181,6 +184,7 @@ function KontoHinweise({ konten, rolle }: { konten: Kontostaende; rolle: string 
     ...(offen > 0
       ? [`${offen} ${offen === 1 ? "Umsatz ist" : "Umsätze sind"} noch nicht zugeordnet; die Rechnung oder der Beleg dazu kann hier noch als offen zählen.`]
       : []),
+    ...weitere,
   ];
   if (hinweise.length === 0) return null;
   return (
